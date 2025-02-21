@@ -589,12 +589,10 @@ struct TargetPixelBuffer
     virtual bool fill_rectangle(int16_t x, int16_t y, int16_t width, int16_t height,
                                 const RgbaColor<uint8_t> &premultiplied_color) = 0;
 
-    /// Draw a portion of provided texture to the specified pixel coordinates. This may
-    /// be called multiple times for a given texture, for example when clipping. Typically
-    /// y is identicaly with span_y, but when clipping, span_y refers to the y coordinate of
-    /// the texture if it's unclipped. Each pixel of the texture is to be blended with the given
-    /// colorize color as well as the alpha value.
-    virtual bool draw_texture(int16_t x, int16_t y, int16_t width, int16_t height, int16_t span_y,
+    /// Draw a portion of provided texture to the specified pixel coordinates.
+    /// Each pixel of the texture is to be blended with the given colorize color as well as the
+    /// alpha value.
+    virtual bool draw_texture(int16_t x, int16_t y, int16_t width, int16_t height,
                               const Texture &texture, const RgbaColor<uint8_t> &colorize,
                               uint8_t alpha, int screen_rotation_degrees) = 0;
 };
@@ -771,7 +769,7 @@ public:
                     },
             .draw_texture =
                     [](void *self, int16_t x, int16_t y, int16_t width, int16_t height,
-                       int16_t span_y, const cbindgen_private::CppInternalTexture *internal_texture,
+                       const cbindgen_private::CppInternalTexture *internal_texture,
                        uint32_t colorize, uint8_t alpha, int32_t screen_rotation_degrees) {
                         auto *buffer = reinterpret_cast<TargetPixelBuffer<Rgb8Pixel> *>(self);
                         Texture texture {
@@ -786,7 +784,7 @@ public:
                             .source_offset_x = internal_texture->source_offset_x,
                             .source_offset_y = internal_texture->source_offset_y,
                         };
-                        return buffer->draw_texture(x, y, width, height, span_y, texture,
+                        return buffer->draw_texture(x, y, width, height, texture,
                                                     Color::from_argb_encoded(colorize), alpha,
                                                     screen_rotation_degrees);
                     }
@@ -824,7 +822,7 @@ public:
                     },
             .draw_texture =
                     [](void *self, int16_t x, int16_t y, int16_t width, int16_t height,
-                       int16_t span_y, const cbindgen_private::CppInternalTexture *internal_texture,
+                       const cbindgen_private::CppInternalTexture *internal_texture,
                        uint32_t colorize, uint8_t alpha, int32_t screen_rotation_degrees) {
                         auto *buffer = reinterpret_cast<TargetPixelBuffer<Rgb565Pixel> *>(self);
                         Texture texture {
@@ -839,7 +837,7 @@ public:
                             .source_offset_x = internal_texture->source_offset_x,
                             .source_offset_y = internal_texture->source_offset_y,
                         };
-                        return buffer->draw_texture(x, y, width, height, span_y, texture,
+                        return buffer->draw_texture(x, y, width, height, texture,
                                                     Color::from_argb_encoded(colorize), alpha,
                                                     screen_rotation_degrees);
                     }

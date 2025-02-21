@@ -411,7 +411,6 @@ mod software_renderer {
             i16,
             i16,
             i16,
-            i16,
             &CppInternalTexture,
             u32,
             u8,
@@ -465,7 +464,6 @@ mod software_renderer {
             y: i16,
             width: i16,
             height: i16,
-            span_y: i16,
             texture: Texture<'_>,
             colorize: u32,
             alpha: u8,
@@ -478,7 +476,6 @@ mod software_renderer {
                     y,
                     width,
                     height,
-                    span_y,
                     &CppInternalTexture {
                         bytes: texture.bytes.as_ptr(),
                         bytes_len: texture.bytes.len(),
@@ -523,7 +520,6 @@ mod software_renderer {
         ) -> bool,
         draw_texture: unsafe extern "C" fn(
             CppTargetPixelBufferUserData,
-            i16,
             i16,
             i16,
             i16,
@@ -581,7 +577,6 @@ mod software_renderer {
             y: i16,
             width: i16,
             height: i16,
-            span_y: i16,
             texture: Texture<'_>,
             colorize: u32,
             alpha: u8,
@@ -594,7 +589,6 @@ mod software_renderer {
                     y,
                     width,
                     height,
-                    span_y,
                     &CppInternalTexture {
                         bytes: texture.bytes.as_ptr(),
                         bytes_len: texture.bytes.len(),

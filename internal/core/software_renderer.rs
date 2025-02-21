@@ -432,7 +432,6 @@ mod private_api {
             _y: i16,
             _width: i16,
             _height: i16,
-            _span_y: i16,
             _src_texture: Texture<'_>,
             _colorize: u32,
             _alpha: u8,
@@ -1277,28 +1276,27 @@ impl<T: TargetPixel, B: private_api::TargetPixelBuffer<Pixel = T>> RenderToBuffe
     }
 
     fn process_texture_impl(&mut self, geometry: PhysicalRect, texture: SceneTexture<'_>) {
-        self.foreach_region(&geometry, |buffer, rect, extra_left_clip, extra_right_clip| {
-            if !buffer.draw_texture(
-                rect.origin.x,
-                rect.origin.y,
-                rect.size.width,
-                rect.size.height,
-                geometry.origin.y,
-                private_api::Texture {
-                    bytes: texture.data,
-                    pixel_format: texture.format,
-                    pixel_stride: texture.pixel_stride,
-                    width: texture.source_size().width as u16,
-                    height: texture.source_size().height as u16,
-                    delta_x: texture.extra.dx.0,
-                    delta_y: texture.extra.dy.0,
-                    source_offset_x: texture.extra.off_x.0,
-                    source_offset_y: texture.extra.off_y.0,
-                },
-                texture.extra.colorize.as_argb_encoded(),
-                texture.extra.alpha,
-                texture.extra.rotation,
-            ) {
+        if !self.buffer.draw_texture(
+            geometry.origin.x,
+            geometry.origin.y,
+            geometry.size.width,
+            geometry.size.height,
+            private_api::Texture {
+                bytes: texture.data,
+                pixel_format: texture.format,
+                pixel_stride: texture.pixel_stride,
+                width: texture.source_size().width as u16,
+                height: texture.source_size().height as u16,
+                delta_x: texture.extra.dx.0,
+                delta_y: texture.extra.dy.0,
+                source_offset_x: texture.extra.off_x.0,
+                source_offset_y: texture.extra.off_y.0,
+            },
+            texture.extra.colorize.as_argb_encoded(),
+            texture.extra.alpha,
+            texture.extra.rotation,
+        ) {
+            self.foreach_region(&geometry, |buffer, rect, extra_left_clip, extra_right_clip| {
                 let begin = rect.min_x();
                 let end = rect.max_x();
                 for l in rect.min_y()..rect.max_y() {
@@ -1311,8 +1309,8 @@ impl<T: TargetPixel, B: private_api::TargetPixelBuffer<Pixel = T>> RenderToBuffe
                         extra_right_clip,
                     );
                 }
-            }
-        });
+            });
+        }
     }
 }
 
@@ -1329,14 +1327,14 @@ impl<T: TargetPixel, B: private_api::TargetPixelBuffer<Pixel = T>> ProcessScene
     }
 
     fn process_rectangle(&mut self, geometry: PhysicalRect, color: PremultipliedRgbaColor) {
-        self.foreach_region(&geometry, |buffer, rect, _extra_left_clip, _extra_right_clip| {
-            if !buffer.fill_rectangle(
-                rect.origin.x,
-                rect.origin.y,
-                rect.size.width,
-                rect.size.height,
-                color,
-            ) {
+        if !self.buffer.fill_rectangle(
+            geometry.origin.x,
+            geometry.origin.y,
+            geometry.size.width,
+            geometry.size.height,
+            color,
+        ) {
+            self.foreach_region(&geometry, |buffer, rect, _extra_left_clip, _extra_right_clip| {
                 let begin = rect.min_x();
                 let end = rect.max_x();
                 for l in rect.min_y()..rect.max_y() {
@@ -1345,8 +1343,8 @@ impl<T: TargetPixel, B: private_api::TargetPixelBuffer<Pixel = T>> ProcessScene
                         color,
                     )
                 }
-            }
-        });
+            })
+        };
     }
 
     fn process_rounded_rectangle(&mut self, geometry: PhysicalRect, rr: RoundedRectangle) {
