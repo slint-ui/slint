@@ -6,14 +6,15 @@ description: ContextMenuArea element api.
 import SlintProperty from '/src/components/SlintProperty.astro';
 import Link from '/src/components/Link.astro';
 
-Use the non-visual `ContextMenuArea` element to declare a context menu.
+Use the non-visual `ContextMenuArea` element to declare an area where the user can show a context menu.
 
 The context menu is shown if the user right-clicks on the area covered by the `ContextMenuArea` element,
 or if the user presses the "Menu" key on their keyboard while a `FocusScope` within the `ContextMenuArea` has focus.
 Call the `show()` function on the `ContextMenuArea` element to programmatically show the context menu.
 
-The `ContextMenuArea` must contain one and only one `Menu` element as its child.
-Define the structure of the menu by placing `MenuItem` elements or other `Menu` inside that `Menu`.
+One of the children of the `ContextMenuArea` must be a `Menu` element, which defines the menu to be shown.
+There can be at most one `Menu` child, all other children must be of a different type and will be shown as regular visual children.
+Define the structure of the menu by placing `MenuItem` or `Menu` elements inside that `Menu`.
 
 ## Function
 
@@ -23,12 +24,12 @@ Call this function to programmatically show the context menu at the given positi
 
 ## close()
 
-Close the context menu if it is currently open.
+Close the context menu if it's currently open.
 
 ## `Menu`
 
-The `Menu` element can be place in a <Link type="MenuBar" />, a `ContextMenuArea`, or within another `Menu`.
-It can contain `MenuItem` elements as children, or other `Menu` elements to represent submenus.
+Place the `Menu` element in a <Link type="MenuBar" />, a `ContextMenuArea`, or within another `Menu`.
+Use `MenuItem` children of individual menu items, and `Menu` children to create sub-menus.
 
 ### Properties of `Menu`
 
@@ -39,12 +40,14 @@ This is the label of the menu as written in the menu bar or in the parent menu.
 
 ## `MenuItem`
 
-A `MenuItem` represents a single menu entry. It can be placed as a child of a `Menu`.
+A `MenuItem` represents a single menu entry. It's must be a child of a `Menu` element.
+
 ### Properties of `MenuItem`
 
 #### title
+
 <SlintProperty propName="title" typeName="string" defaultValue='""'>
-The label of the entry within the menu.
+The title shown for this menu item.
 </SlintProperty>
 
 ### Callbacks of `MenuItem`
