@@ -34,7 +34,7 @@ jobs:
                   echo "PKG_NAME=slint-nightly" >> $GITHUB_OUTPUT
                   nightly_version_suffix=`git log -1 --format=%cd --date="format:%Y%m%d%H"`
                   version="$version+nightly.$nightly_version_suffix"
-                  git show HEAD:./idf_component.yml | yq -y --arg nightly_version "${nightly_version}" '.version = $nightly_version' > idf_component.yml
+                  git show HEAD:./idf_component.yml | yq -y --arg nightly_version "${version}" '.version = $nightly_version' > idf_component.yml
                   sed -i 's/GIT_TAG v[0-9]*\.[0-9]*\.[0-9]*/GIT_TAG ${{ github.sha }}/' CMakeLists.txt
                   sed -i '1iset(SLINT_NIGHTLY true)' CMakeLists.txt
                 else
