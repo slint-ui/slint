@@ -994,6 +994,33 @@ fn map_value_and_type(
                 ..Default::default()
             });
         }
+        Type::Enumeration(enumeration) => {
+            let selected_value = match &value {
+                Some(slint_interpreter::Value::EnumerationValue(_, k)) => enumeration
+                    .values
+                    .iter()
+                    .position(|v| v.as_str() == k)
+                    .unwrap_or(enumeration.default_value),
+                _ => enumeration.default_value,
+            };
+
+            mapping.header.push(mapping.name_prefix.clone());
+            mapping.current_values.push(PropertyValue {
+                kind: PropertyValueKind::Enum,
+                value_string: enumeration.name.as_str().into(),
+                default_selection: i32::try_from(enumeration.default_value).unwrap_or_default(),
+                value_int: i32::try_from(selected_value).unwrap_or_default(),
+                visual_items: Rc::new(VecModel::from(
+                    enumeration
+                        .values
+                        .iter()
+                        .map(|s| SharedString::from(s.as_str()))
+                        .collect::<Vec<_>>(),
+                ))
+                .into(),
+                ..Default::default()
+            });
+        }
         Type::Array(_)
         | Type::Image
         | Type::Model
@@ -1001,7 +1028,6 @@ fn map_value_and_type(
         | Type::Easing
         | Type::Brush
         | Type::Struct(_)
-        | Type::Enumeration(_)
         | Type::UnitProduct(_) => {
             mapping.is_too_complex = true;
         }
