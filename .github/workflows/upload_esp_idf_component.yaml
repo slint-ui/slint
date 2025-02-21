@@ -6,6 +6,11 @@ name: Upload component to ESP-IDF component registry
 on:
     workflow_dispatch:
         inputs:
+            private:
+              type: boolean
+              default: true
+              required: false
+              description: "Private build? True means artifacts are only built. False means the artefacts are published to components.espressif.com"
             release:
                 type: boolean
                 default: false
@@ -54,6 +59,7 @@ jobs:
                   namespace: "slint"
                   api_token: ${{ secrets.ESP_IDF_COMPONENTS_TOKEN }}
                   directories: "api/cpp/esp-idf/slint"
+                  dry-run: ${{ github.event.inputs.private == 'true' }}
             - name: Package component
               if: github.event.inputs.release != 'true'
               working-directory: "api/cpp/esp-idf/slint"
