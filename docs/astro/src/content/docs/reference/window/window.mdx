@@ -79,7 +79,7 @@ The `x` and `y` properties of `Window` children are also relative to the client 
 ```slint
 export component Example inherits Window {
     MenuBar {
-        MenuItem {
+        Menu {
             title: @tr("File");
             MenuItem {
                 title: @tr("New");
@@ -88,7 +88,7 @@ export component Example inherits Window {
                 title: @tr("Open");
             }
         }
-        MenuItem {
+        Menu {
             title: @tr("Edit");
             MenuItem {
                 title: @tr("Copy");
@@ -96,7 +96,7 @@ export component Example inherits Window {
             MenuItem {
                 title: @tr("Paste");
             }
-            MenuItem {
+            Menu {
                 title: @tr("Find");
                 MenuItem {
                     title: @tr("Find in document...");
