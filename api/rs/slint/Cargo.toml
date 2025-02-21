@@ -25,18 +25,16 @@ default = [
   "backend-default",
   "renderer-femtovg",
   "renderer-software",
-  "image-default-formats",
   "accessibility",
-  "compat-1-10",
+  "compat-1-2",
 ]
 
 ## Mandatory feature:
-## This feature is required to keep the compatibility with Slint 1.10
+## This feature is required to keep the compatibility with Slint 12
 ## Newer patch version may put current functionality behind a new feature
 ## that would be enabled by default only if this feature was added.
 ## [More info in this blog post](https://slint.dev/blog/rust-adding-default-cargo-feature.html)
-"compat-1-10" = []
-"compat-1-2" = ["compat-1-10", "image-default-formats"]
+"compat-1-2" = []
 "compat-1-0" = ["compat-1-2", "renderer-software"]
 
 ## Enable use of the Rust standard library.

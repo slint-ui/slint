@@ -46,8 +46,7 @@ All notable changes to this project are documented in this file.
 ### Rust
 
  - Upgraded image crate to 0.25, added a new cargo feature
-   to enable all image formats. This feature is enabled by default with
-   `compat-1-2`. Use `compat-1-10` to disable it.
+   to enable all image formats.
  - Ignore pedantic and nursery clippy warnings in generated code.
  - Fixed edition 2024 warnings in generated code.
  - Fixed `Sync` and `Send` bounds on `SharedVector`, `SharedString`, and `Weak`.
