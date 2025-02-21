@@ -54,9 +54,6 @@ component ResettingLineEdit {
     VerticalLayout {
         le := LineEdit {
             enabled: root.enabled;
-
-            width: 100%;
-
             text: root.default-text;
             font-size: 1rem;
 
@@ -67,7 +64,7 @@ component ResettingLineEdit {
                         root.accepted(self.text);
                     }
                 } else {
-                    self.text = root.default-text;
+                    // self.text = root.default-text;
                     root.can-compile = true;
                 }
             }
@@ -430,7 +427,7 @@ component StringWidget {
 component ColorLineEdit inherits HorizontalLayout {
     in property <bool> enabled;
     in property <string> channel: "R";
-    in-out property <int> value;
+    in-out property <float> value;
 
     alignment: stretch;
     spacing: EditorSpaceSettings.default-spacing;
@@ -445,10 +442,12 @@ component ColorLineEdit inherits HorizontalLayout {
         enabled: root.enabled;
         minimum: 0;
         maximum: 255;
-        value: root.value;
+        step: 1;
+        value <=> root.value;
+        horizontal-stretch: 1;
 
         changed value => {
-            root.value = Math.floor(self.value);
+            // root.value = Math.floor(self.value);
         }
     }
 
@@ -456,7 +455,8 @@ component ColorLineEdit inherits HorizontalLayout {
         enabled: root.enabled;
         input-type: number;
         width: 5rem;
-        default-text: root.value;
+        default-text: Math.floor(root.value);
+        text: Math.floor(root.value);
 
         edited() => {
             root.value = self.text.to-float();
@@ -546,24 +546,37 @@ component ColorWidget inherits Rectangle {
                 enabled: root.enabled;
                 value: root.current-color-data.r;
                 channel: "R";
+                changed value => {
+                    root.set-color-binding(rle.text);
+                }
             }
 
             g := ColorLineEdit {
                 enabled: root.enabled;
                 value: root.current-color-data.g;
                 channel: "G";
+                changed value => {
+                    root.set-color-binding(rle.text);
+                }
+
             }
 
             b := ColorLineEdit {
                 enabled: root.enabled;
                 value: root.current-color-data.b;
                 channel: "B";
+                changed value => {
+                    root.set-color-binding(rle.text);
+                }
             }
 
             a := ColorLineEdit {
                 enabled: root.enabled;
                 value: root.current-color-data.a;
                 channel: "A";
+                changed value => {
+                    root.set-color-binding(rle.text);
+                }
             }
 
             reset => {
@@ -892,7 +905,7 @@ export component PreviewDataPropertyValueWidget inherits VerticalLayout {
     private property <PropertyValue> value: Api.get-property-value(root.property-container-name, root.preview-data.name);
 
     changed value => {
-        debug("\{self.property-container-name}.\{self.preview-data.name}: VALUE CHANGED TO \{self.value.code}");
+        // debug("\{self.property-container-name}.\{self.preview-data.name}: VALUE CHANGED TO \{self.value.code}");
     }
 
     callback edit-in-spreadsheet(rp: PropertyContainer);
