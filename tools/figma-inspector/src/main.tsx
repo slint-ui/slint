@@ -5,6 +5,7 @@ import React, { useEffect, useState } from "react";
 import { listenTS } from "./utils/bolt-utils";
 import "./main.css";
 import { copyToClipboard } from "./utils/utils.js";
+import ShikiHighlighter from "react-shiki";
 
 export const App = () => {
     const [title, setTitle] = useState("");
@@ -13,11 +14,12 @@ export const App = () => {
     listenTS(
         "updatePropertiesCallback",
         (res) => {
-            setTitle(res.title);
-            setSlintProperties(res.slintSnippet);
+            setTitle(res.title || "");
+            setSlintProperties(res.slintSnippet || "");
         },
         true,
     );
+
 
     return (
         <div className="container">
@@ -34,7 +36,9 @@ export const App = () => {
                     </span>
                 )}
             </div>
-            <div className="content">{slintProperties}</div>
+            <ShikiHighlighter className="content" language="css" theme="dracula">
+                {slintProperties}
+            </ShikiHighlighter>
         </div>
     );
 };

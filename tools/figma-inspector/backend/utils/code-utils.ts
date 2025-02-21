@@ -49,7 +49,6 @@ export async function updateUI() {
     const node = figma.currentPage.selection[0];
     const title = "Slint Code: " + node.name;
     const slintSnippet = generateSlintSnippet(node);
-    console.log("Slint snippet:", slintSnippet);
 
     figma.ui.postMessage({ title, slintSnippet });
     dispatchTS("updatePropertiesCallback", { title, slintSnippet });
