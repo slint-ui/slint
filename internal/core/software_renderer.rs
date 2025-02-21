@@ -1130,37 +1130,17 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> RenderToBuffer<'_, B> {
         geometry: &PhysicalRect,
         mut f: impl FnMut(i16, &mut [B::TargetPixel], i16, i16),
     ) {
-        let mut line = geometry.min_y();
-        while let Some(mut next) =
-            region_line_ranges(&self.dirty_region, line, &mut self.dirty_range_cache)
-        {
-            next = next.min(geometry.max_y());
-            for r in &self.dirty_range_cache {
-                if geometry.origin.x >= r.end {
-                    continue;
-                }
-                let begin = r.start.max(geometry.origin.x);
-                let end = r.end.min(geometry.origin.x + geometry.size.width);
-                if begin >= end {
-                    continue;
-                }
-                let extra_left_clip = begin - geometry.origin.x;
-                let extra_right_clip = geometry.origin.x + geometry.size.width - end;
-
-                for l in line..next {
-                    f(
-                        l,
-                        &mut self.buffer.line_slice(l as usize)[begin as usize..end as usize],
-                        extra_left_clip,
-                        extra_right_clip,
-                    );
-                }
+        self.foreach_region(geometry, |buffer, rect, extra_left_clip, extra_right_clip| {
+            for l in rect.min_y()..rect.max_y() {
+                f(
+                    l,
+                    &mut buffer.line_slice(l as usize)
+                        [rect.min_x() as usize..rect.max_x() as usize],
+                    extra_left_clip,
+                    extra_right_clip,
+                );
             }
-            if next == geometry.max_y() {
-                break;
-            }
-            line = next;
-        }
+        });
     }
 
     fn foreach_region(
