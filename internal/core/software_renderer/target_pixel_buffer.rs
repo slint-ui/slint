@@ -3,7 +3,7 @@
 
 use super::*;
 
-pub use crate::graphics::TexturePixelFormat;
+pub use crate::graphics::{CompositionMode, TexturePixelFormat};
 
 /// This structure describes the properties of a texture for blending with [`TargetPixelBuffer::draw_texture`].
 #[allow(dead_code)]
@@ -56,6 +56,7 @@ pub trait TargetPixelBuffer {
         _width: i16,
         _height: i16,
         _color: PremultipliedRgbaColor,
+        _composition_mode: CompositionMode,
     ) -> bool {
         false
     }
@@ -73,6 +74,7 @@ pub trait TargetPixelBuffer {
         _colorize: u32,
         _alpha: u8,
         _rotation: RenderingRotation,
+        _composition_mode: CompositionMode,
     ) -> bool {
         false
     }
