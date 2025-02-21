@@ -54,11 +54,10 @@ jobs:
             - name: Upload component
               uses: espressif/upload-components-ci-action@v2
               with:
-                  name: ${{ steps.version.outputs.PKG_NAME }}
                   namespace: "slint"
                   api_token: ${{ secrets.ESP_IDF_COMPONENTS_TOKEN }}
-                  directories: "api/cpp/esp-idf/slint"
-                  dry-run: ${{ github.event.inputs.private == 'true' }}
+                  components: ${{ steps.version.outputs.PKG_NAME }}:api/cpp/esp-idf/slint
+                  dry_run: ${{ github.event.inputs.private == 'true' }}
             - name: Package component
               if: github.event.inputs.release != 'true'
               working-directory: "api/cpp/esp-idf/slint"
