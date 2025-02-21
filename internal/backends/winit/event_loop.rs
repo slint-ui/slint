@@ -773,7 +773,7 @@ impl EventLoopState {
 
         let mut winit_loop = not_running_loop_instance.instance;
 
-        self.quit_loop_asap = timeout.map_or(false, |duration| duration.is_zero());
+        self.quit_loop_asap = timeout.is_some_and(|duration| duration.is_zero());
 
         let result = winit_loop
             .pump_app_events(timeout, &mut ActiveEventLoopSetterDuringEventProcessing(&mut self));
