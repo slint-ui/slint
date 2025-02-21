@@ -52,7 +52,6 @@ jobs:
               run: |
                 sed -i "s/find_package(Slint)/find_package(Slint ${{ steps.version.outputs.VERSION }})/g" CMakeLists.txt
             - name: Upload component
-              if: github.event.inputs.release == 'true'
               uses: espressif/upload-components-ci-action@v2
               with:
                   name: ${{ steps.version.outputs.PKG_NAME }}
