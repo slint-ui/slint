@@ -366,10 +366,10 @@ fn region_line_ranges(
 mod target_pixel_buffer;
 
 #[cfg(feature = "experimental")]
-pub use target_pixel_buffer::{TargetPixelBuffer, Texture, TexturePixelFormat};
+pub use target_pixel_buffer::{CompositionMode, TargetPixelBuffer, Texture, TexturePixelFormat};
 
 #[cfg(not(feature = "experimental"))]
-use target_pixel_buffer::TexturePixelFormat;
+use target_pixel_buffer::{CompositionMode, TexturePixelFormat};
 
 struct TargetPixelSlice<'a, T> {
     data: &'a mut [T],
@@ -592,9 +592,10 @@ impl SoftwareRenderer {
                 // TODO: gradient background
                 PremultipliedRgbaColor::blend(&mut bg, background.color().into());
                 renderer.actual_renderer.processor.dirty_region = dirty_region.clone();
-                renderer.actual_renderer.processor.process_rectangle(
+                renderer.actual_renderer.processor.process_rectangle_impl(
                     PhysicalRect::from_size(euclid::Size2D::new(size.width, size.height)),
                     bg,
+                    CompositionMode::Source,
                 );
 
                 for (component, origin) in components {
@@ -1218,6 +1219,7 @@ impl<T: TargetPixel, B: target_pixel_buffer::TargetPixelBuffer<Pixel = T>> Rende
             texture.extra.colorize.as_argb_encoded(),
             texture.extra.alpha,
             texture.extra.rotation,
+            CompositionMode::default(),
         ) {
             self.foreach_region(&geometry, |buffer, rect, extra_left_clip, extra_right_clip| {
                 let begin = rect.min_x();
@@ -1235,6 +1237,41 @@ impl<T: TargetPixel, B: target_pixel_buffer::TargetPixelBuffer<Pixel = T>> Rende
             });
         }
     }
+
+    fn process_rectangle_impl(
+        &mut self,
+        geometry: PhysicalRect,
+        color: PremultipliedRgbaColor,
+        composition_mode: CompositionMode,
+    ) {
+        if !self.buffer.fill_rectangle(
+            geometry.origin.x,
+            geometry.origin.y,
+            geometry.size.width,
+            geometry.size.height,
+            color,
+            composition_mode,
+        ) {
+            self.foreach_region(&geometry, |buffer, rect, _extra_left_clip, _extra_right_clip| {
+                let begin = rect.min_x();
+                let end = rect.max_x();
+                for l in rect.min_y()..rect.max_y() {
+                    match composition_mode {
+                        CompositionMode::Source => {
+                            let mut fill_col = T::background();
+                            T::blend(&mut fill_col, color);
+                            buffer.line_slice(l as usize)[begin as usize..end as usize]
+                                .fill(fill_col)
+                        }
+                        CompositionMode::SourceOver => <T as TargetPixel>::blend_slice(
+                            &mut buffer.line_slice(l as usize)[begin as usize..end as usize],
+                            color,
+                        ),
+                    }
+                }
+            })
+        };
+    }
 }
 
 impl<T: TargetPixel, B: target_pixel_buffer::TargetPixelBuffer<Pixel = T>> ProcessScene
@@ -1250,24 +1287,7 @@ impl<T: TargetPixel, B: target_pixel_buffer::TargetPixelBuffer<Pixel = T>> Proce
     }
 
     fn process_rectangle(&mut self, geometry: PhysicalRect, color: PremultipliedRgbaColor) {
-        if !self.buffer.fill_rectangle(
-            geometry.origin.x,
-            geometry.origin.y,
-            geometry.size.width,
-            geometry.size.height,
-            color,
-        ) {
-            self.foreach_region(&geometry, |buffer, rect, _extra_left_clip, _extra_right_clip| {
-                let begin = rect.min_x();
-                let end = rect.max_x();
-                for l in rect.min_y()..rect.max_y() {
-                    <T as TargetPixel>::blend_slice(
-                        &mut buffer.line_slice(l as usize)[begin as usize..end as usize],
-                        color,
-                    )
-                }
-            })
-        };
+        self.process_rectangle_impl(geometry, color, CompositionMode::default());
     }
 
     fn process_rounded_rectangle(&mut self, geometry: PhysicalRect, rr: RoundedRectangle) {

@@ -540,6 +540,7 @@ struct Rgb565Pixel
 
 #    ifdef SLINT_FEATURE_EXPERIMENTAL
 
+using cbindgen_private::CompositionMode;
 using cbindgen_private::types::TexturePixelFormat;
 
 /// This structure describes the properties of a texture for blending with
@@ -587,14 +588,16 @@ struct TargetPixelBuffer
     /// Fill a rectangle at the specified pixel coordinates with the given color. Return true
     /// if the operation succeeded; false otherwise;
     virtual bool fill_rectangle(int16_t x, int16_t y, int16_t width, int16_t height,
-                                const RgbaColor<uint8_t> &premultiplied_color) = 0;
+                                const RgbaColor<uint8_t> &premultiplied_color,
+                                CompositionMode composition_mode) = 0;
 
     /// Draw a portion of provided texture to the specified pixel coordinates.
     /// Each pixel of the texture is to be blended with the given colorize color as well as the
     /// alpha value.
     virtual bool draw_texture(int16_t x, int16_t y, int16_t width, int16_t height,
                               const Texture &texture, const RgbaColor<uint8_t> &colorize,
-                              uint8_t alpha, int screen_rotation_degrees) = 0;
+                              uint8_t alpha, int screen_rotation_degrees,
+                              CompositionMode composition_mode) = 0;
 };
 #    endif
 
@@ -761,16 +764,18 @@ public:
                     },
             .fill_rectangle =
                     [](void *self, int16_t x, int16_t y, int16_t width, int16_t height, uint8_t red,
-                       uint8_t green, uint8_t blue, uint8_t alpha) {
+                       uint8_t green, uint8_t blue, uint8_t alpha,
+                       CompositionMode composition_mode) {
                         auto *buffer = reinterpret_cast<TargetPixelBuffer<Rgb8Pixel> *>(self);
                         return buffer->fill_rectangle(
                                 x, y, width, height,
-                                Color::from_argb_uint8(alpha, red, green, blue));
+                                Color::from_argb_uint8(alpha, red, green, blue), composition_mode);
                     },
             .draw_texture =
                     [](void *self, int16_t x, int16_t y, int16_t width, int16_t height,
                        const cbindgen_private::CppInternalTexture *internal_texture,
-                       uint32_t colorize, uint8_t alpha, int32_t screen_rotation_degrees) {
+                       uint32_t colorize, uint8_t alpha, int32_t screen_rotation_degrees,
+                       CompositionMode composition_mode) {
                         auto *buffer = reinterpret_cast<TargetPixelBuffer<Rgb8Pixel> *>(self);
                         Texture texture {
                             .bytes = std::span<const uint8_t> { internal_texture->bytes,
@@ -786,7 +791,7 @@ public:
                         };
                         return buffer->draw_texture(x, y, width, height, texture,
                                                     Color::from_argb_encoded(colorize), alpha,
-                                                    screen_rotation_degrees);
+                                                    screen_rotation_degrees, composition_mode);
                     }
         };
         auto r =
@@ -814,16 +819,18 @@ public:
                     },
             .fill_rectangle =
                     [](void *self, int16_t x, int16_t y, int16_t width, int16_t height, uint8_t red,
-                       uint8_t green, uint8_t blue, uint8_t alpha) {
+                       uint8_t green, uint8_t blue, uint8_t alpha,
+                       CompositionMode composition_mode) {
                         auto *buffer = reinterpret_cast<TargetPixelBuffer<Rgb565Pixel> *>(self);
                         return buffer->fill_rectangle(
                                 x, y, width, height,
-                                Color::from_argb_uint8(alpha, red, green, blue));
+                                Color::from_argb_uint8(alpha, red, green, blue), composition_mode);
                     },
             .draw_texture =
                     [](void *self, int16_t x, int16_t y, int16_t width, int16_t height,
                        const cbindgen_private::CppInternalTexture *internal_texture,
-                       uint32_t colorize, uint8_t alpha, int32_t screen_rotation_degrees) {
+                       uint32_t colorize, uint8_t alpha, int32_t screen_rotation_degrees,
+                       CompositionMode composition_mode) {
                         auto *buffer = reinterpret_cast<TargetPixelBuffer<Rgb565Pixel> *>(self);
                         Texture texture {
                             .bytes = std::span<const uint8_t> { internal_texture->bytes,
@@ -839,7 +846,7 @@ public:
                         };
                         return buffer->draw_texture(x, y, width, height, texture,
                                                     Color::from_argb_encoded(colorize), alpha,
-                                                    screen_rotation_degrees);
+                                                    screen_rotation_degrees, composition_mode);
                     }
         };
         auto r = cbindgen_private::slint_software_renderer_render_accel_rgb565(inner,

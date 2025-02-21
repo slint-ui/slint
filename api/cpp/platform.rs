@@ -362,7 +362,8 @@ mod software_renderer {
 
     #[cfg(feature = "experimental")]
     use i_slint_core::software_renderer::{
-        PremultipliedRgbaColor, RenderingRotation, TargetPixelBuffer, Texture, TexturePixelFormat,
+        CompositionMode, PremultipliedRgbaColor, RenderingRotation, TargetPixelBuffer, Texture,
+        TexturePixelFormat,
     };
 
     #[cfg(feature = "experimental")]
@@ -404,6 +405,7 @@ mod software_renderer {
             u8,
             u8,
             u8,
+            CompositionMode,
         ) -> bool,
         draw_texture: unsafe extern "C" fn(
             CppTargetPixelBufferUserData,
@@ -415,6 +417,7 @@ mod software_renderer {
             u32,
             u8,
             i32,
+            CompositionMode,
         ) -> bool,
     }
 
@@ -442,6 +445,7 @@ mod software_renderer {
             width: i16,
             height: i16,
             color: PremultipliedRgbaColor,
+            composition_mode: CompositionMode,
         ) -> bool {
             unsafe {
                 (self.fill_rectangle)(
@@ -454,6 +458,7 @@ mod software_renderer {
                     color.green,
                     color.blue,
                     color.alpha,
+                    composition_mode,
                 )
             }
         }
@@ -468,6 +473,7 @@ mod software_renderer {
             colorize: u32,
             alpha: u8,
             rotation: RenderingRotation,
+            composition_mode: CompositionMode,
         ) -> bool {
             unsafe {
                 (self.draw_texture)(
@@ -491,6 +497,7 @@ mod software_renderer {
                     colorize,
                     alpha,
                     rotation.angle() as i32,
+                    composition_mode,
                 )
             }
         }
@@ -517,6 +524,7 @@ mod software_renderer {
             u8,
             u8,
             u8,
+            CompositionMode,
         ) -> bool,
         draw_texture: unsafe extern "C" fn(
             CppTargetPixelBufferUserData,
@@ -528,6 +536,7 @@ mod software_renderer {
             u32,
             u8,
             i32,
+            CompositionMode,
         ) -> bool,
     }
 
@@ -555,6 +564,7 @@ mod software_renderer {
             width: i16,
             height: i16,
             color: PremultipliedRgbaColor,
+            composition_mode: CompositionMode,
         ) -> bool {
             unsafe {
                 (self.fill_rectangle)(
@@ -567,6 +577,7 @@ mod software_renderer {
                     color.green,
                     color.blue,
                     color.alpha,
+                    composition_mode,
                 )
             }
         }
@@ -581,6 +592,7 @@ mod software_renderer {
             colorize: u32,
             alpha: u8,
             rotation: RenderingRotation,
+            composition_mode: CompositionMode,
         ) -> bool {
             unsafe {
                 (self.draw_texture)(
@@ -604,6 +616,7 @@ mod software_renderer {
                     colorize,
                     alpha,
                     rotation.angle() as i32,
+                    composition_mode,
                 )
             }
         }
