@@ -377,9 +377,9 @@ struct TargetPixelSlice<'a, T> {
 }
 
 impl<'a, T: TargetPixel> target_pixel_buffer::TargetPixelBuffer for TargetPixelSlice<'a, T> {
-    type Pixel = T;
+    type TargetPixel = T;
 
-    fn line_slice(&mut self, line_number: usize) -> &mut [Self::Pixel] {
+    fn line_slice(&mut self, line_number: usize) -> &mut [Self::TargetPixel] {
         let offset = line_number * self.pixel_stride;
         &mut self.data[offset..offset + self.pixel_stride]
     }
@@ -1124,7 +1124,9 @@ struct RenderToBuffer<'a, TargetPixelBuffer> {
     dirty_region: PhysicalRegion,
 }
 
-impl<T: TargetPixel, B: target_pixel_buffer::TargetPixelBuffer<Pixel = T>> RenderToBuffer<'_, B> {
+impl<T: TargetPixel, B: target_pixel_buffer::TargetPixelBuffer<TargetPixel = T>>
+    RenderToBuffer<'_, B>
+{
     fn foreach_ranges(
         &mut self,
         geometry: &PhysicalRect,
@@ -1274,7 +1276,7 @@ impl<T: TargetPixel, B: target_pixel_buffer::TargetPixelBuffer<Pixel = T>> Rende
     }
 }
 
-impl<T: TargetPixel, B: target_pixel_buffer::TargetPixelBuffer<Pixel = T>> ProcessScene
+impl<T: TargetPixel, B: target_pixel_buffer::TargetPixelBuffer<TargetPixel = T>> ProcessScene
     for RenderToBuffer<'_, B>
 {
     fn process_texture(&mut self, geometry: PhysicalRect, texture: SceneTexture<'static>) {

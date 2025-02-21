@@ -38,10 +38,10 @@ pub struct Texture<'a> {
 /// to delegate rendering further to hardware-provided 2D acceleration units, such as DMA2D or PXP.
 pub trait TargetPixelBuffer {
     /// The pixel type the buffer represents.
-    type Pixel: TargetPixel;
+    type TargetPixel: TargetPixel;
 
     /// Returns a slice of pixels for the given line.
-    fn line_slice(&mut self, line_numer: usize) -> &mut [Self::Pixel];
+    fn line_slice(&mut self, line_numer: usize) -> &mut [Self::TargetPixel];
 
     /// Returns the number of lines the buffer has. This is typically the height in pixels.
     fn num_lines(&self) -> usize;

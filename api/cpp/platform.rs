@@ -423,9 +423,9 @@ mod software_renderer {
 
     #[cfg(feature = "experimental")]
     impl TargetPixelBuffer for CppRgb8TargetPixelBuffer {
-        type Pixel = Rgb8Pixel;
+        type TargetPixel = Rgb8Pixel;
 
-        fn line_slice(&mut self, line_number: usize) -> &mut [Self::Pixel] {
+        fn line_slice(&mut self, line_number: usize) -> &mut [Self::TargetPixel] {
             unsafe {
                 let mut data = core::ptr::null_mut();
                 let mut len = 0;
@@ -542,9 +542,9 @@ mod software_renderer {
 
     #[cfg(feature = "experimental")]
     impl TargetPixelBuffer for CppRgb565TargetPixelBuffer {
-        type Pixel = Rgb565Pixel;
+        type TargetPixel = Rgb565Pixel;
 
-        fn line_slice(&mut self, line_number: usize) -> &mut [Self::Pixel] {
+        fn line_slice(&mut self, line_number: usize) -> &mut [Self::TargetPixel] {
             unsafe {
                 let mut data = core::ptr::null_mut();
                 let mut len = 0;
