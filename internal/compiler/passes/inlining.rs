@@ -23,7 +23,6 @@ pub fn inline(doc: &Document, inline_selection: InlineSelection, diag: &mut Buil
     fn inline_components_recursively(
         component: &Rc<Component>,
         roots: &HashSet<ByAddress<Rc<Component>>>,
-        used_once: &HashSet<ByAddress<Rc<Component>>>,
         inline_selection: InlineSelection,
         diag: &mut BuildDiagnostics,
     ) {
@@ -31,7 +30,7 @@ pub fn inline(doc: &Document, inline_selection: InlineSelection, diag: &mut Buil
             let base = elem.borrow().base_type.clone();
             if let ElementType::Component(c) = base {
                 // First, make sure that the component itself is properly inlined
-                inline_components_recursively(&c, roots, used_once, inline_selection, diag);
+                inline_components_recursively(&c, roots, inline_selection, diag);
 
                 if c.parent_element.upgrade().is_some() {
                     // We should not inline a repeated element
@@ -49,7 +48,6 @@ pub fn inline(doc: &Document, inline_selection: InlineSelection, diag: &mut Buil
                             || component.parent_element.upgrade().is_none() && Rc::ptr_eq(elem, &component.root_element)
                             // We always inline other roots as a component can't be both a sub component and a root
                             || roots.contains(&ByAddress(c.clone()))
-                            || used_once.contains(&ByAddress(c.clone()))
                     }
                 } {
                     inline_element(elem, &c, component, diag);
@@ -57,19 +55,17 @@ pub fn inline(doc: &Document, inline_selection: InlineSelection, diag: &mut Buil
             }
         });
         component.popup_windows.borrow().iter().for_each(|p| {
-            inline_components_recursively(&p.component, roots, used_once, inline_selection, diag)
+            inline_components_recursively(&p.component, roots, inline_selection, diag)
         })
     }
     let mut roots = HashSet::new();
-    let mut used_once = HashSet::new();
     if inline_selection == InlineSelection::InlineOnlyRequiredComponents {
         for component in doc.exported_roots().chain(doc.popup_menu_impl.iter().cloned()) {
             roots.insert(ByAddress(component.clone()));
         }
-        used_once = collect_subcomponents_used_once(doc);
     }
     for component in doc.exported_roots().chain(doc.popup_menu_impl.iter().cloned()) {
-        inline_components_recursively(&component, &roots, &used_once, inline_selection, diag);
+        inline_components_recursively(&component, &roots, inline_selection, diag);
         let mut init_code = component.init_code.borrow_mut();
         let inlined_init_code = core::mem::take(&mut init_code.inlined_init_code);
         init_code.constructor_code.splice(0..0, inlined_init_code.into_values());
@@ -654,36 +650,4 @@ fn element_require_inlining(elem: &ElementRc) -> bool {
     }
 
     false
-}
-
-fn collect_subcomponents_used_once(doc: &Document) -> HashSet<ByAddress<Rc<Component>>> {
-    fn recursive(component: &Rc<Component>, hash: &mut HashMap<ByAddress<Rc<Component>>, bool>) {
-        match hash.entry(ByAddress(component.clone())) {
-            std::collections::hash_map::Entry::Occupied(mut o) => {
-                if !*o.get() {
-                    // We have already set this element (and its children to "set multiple times"
-                    return;
-                }
-                // Element used multiple times, visit all children to set them to multiple times too.
-                *o.get_mut() = false;
-            }
-            std::collections::hash_map::Entry::Vacant(v) => {
-                v.insert(true);
-            }
-        }
-
-        recurse_elem(&component.root_element, &(), &mut |elem: &ElementRc, &()| {
-            let ElementType::Component(base_comp) = &elem.borrow().base_type else { return };
-            recursive(base_comp, hash);
-        });
-        for popup in component.popup_windows.borrow().iter() {
-            recursive(&popup.component, hash);
-        }
-    }
-    // Stores true for elements that are used once, false for elements that are used multiple times;
-    let mut result = HashMap::new();
-    for component in doc.exported_roots().chain(doc.popup_menu_impl.iter().cloned()) {
-        recursive(&component, &mut result);
-    }
-    result.into_iter().filter(|(_, v)| *v).map(|(k, _)| k).collect()
 }
