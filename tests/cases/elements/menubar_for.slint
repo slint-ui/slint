@@ -10,7 +10,7 @@ export component TestCase inherits Window {
     in-out property <string> result;
 
     MenuBar {
-        MenuItem {
+        Menu {
             title: "File";
             MenuItem {
                 title: "New";
@@ -20,7 +20,7 @@ export component TestCase inherits Window {
                 title: "Open";
                 activated => { debug("Open"); }
             }
-            MenuItem {
+            Menu {
                 title: "Open Recent";
                 for num in 45 : MenuItem {
                     title: "Recent " + num;
@@ -41,7 +41,7 @@ export component TestCase inherits Window {
                 }
             }
         }
-        MenuItem {
+        Menu {
             title: "Edit";
             MenuItem {
                 title: "Copy";

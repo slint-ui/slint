@@ -19,27 +19,28 @@ export component TestCase inherits Window {
         }
     }
 
-    ContextMenu {
-
-        MenuItem {
-            title: "Entry1";
-            activated => { debug("Entry1"); result += "Entry1"; }
-        }
-        MenuItem {
-            title: "Entry2";
+    ContextMenuArea {
+        Menu {
             MenuItem {
-                title: "New";
-                activated => { debug("New"); result += "New"; }
+                title: "Entry1";
+                activated => { debug("Entry1"); result += "Entry1"; }
             }
-            MenuItem {
-                title: "Open";
+            Menu {
+                title: "Entry2";
                 MenuItem {
-                    title: "Open 1";
-                    activated => { debug("1"); result += "Open1"; }
+                    title: "New";
+                    activated => { debug("New"); result += "New"; }
                 }
-                MenuItem {
-                    title: "Open 2";
-                    activated => { debug("2"); result += "Open2"; }
+                Menu {
+                    title: "Open";
+                    MenuItem {
+                        title: "Open 1";
+                        activated => { debug("1"); result += "Open1"; }
+                    }
+                    MenuItem {
+                        title: "Open 2";
+                        activated => { debug("2"); result += "Open2"; }
+                    }
                 }
             }
         }

@@ -9,7 +9,7 @@ export component TestCase inherits Window {
 
     MenuBar { }
 
-    vl := ContextMenu {}
+    vl := ContextMenuArea { Menu { } }
 
 
     out property <bool> check-geometry: vl.x == 0 && vl.y == 0 && vl.width == root.width && vl.height == root.height;

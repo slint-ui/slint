@@ -2,14 +2,15 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 export component A  {
-    ContextMenu {
+    ContextMenuArea {
         show => {
-//      ^error{'show' is not a callback in ContextMenu}
+//      ^error{'show' is not a callback in ContextMenuArea}
             debug("hello");
         }
 
-        MenuItem {
+        Menu {
         }
+
 
         property <int> entries: 45;
 //      ^error{Cannot re-define internal property 'entries'}
@@ -20,6 +21,28 @@ export component A  {
 
         property <string> xyz: "me";
 
+    }
+
+    ContextMenuArea { Rectangle {} }
+//  ^error{ContextMenuArea should have a Menu}
+
+    ContextMenuArea {
+        Menu {
+            MenuItem { title: "ok"; }
+        }
+        Menu {
+//      ^error{Only one Menu is allowed in a ContextMenu}
+            MenuItem { title: "hello"; }
+        }
+    }
+
+    ContextMenuArea {
+        if false : Menu {}
+//                 ^error{ContextMenuArea's root Menu cannot be in a conditional or repeated element}
+    }
+    ContextMenuArea {
+        for _ in [1,2,3] : Menu {}
+//                         ^error{ContextMenuArea's root Menu cannot be in a conditional or repeated element}
     }
 }
 

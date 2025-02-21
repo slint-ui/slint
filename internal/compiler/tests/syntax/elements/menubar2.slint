@@ -9,7 +9,7 @@ export component MyMenu inherits MenuBar {
 export component A inherits Window {
     mb := MenuBar {
         Rectangle {}
-//      ^error{Rectangle is not allowed within MenuBar. Only MenuItem are valid children}
+//      ^error{Rectangle is not allowed within MenuBar. Only Menu are valid children}
         x: 45px;
 //      ^error{Unknown property x in MenuBar}
         width: 45px;
@@ -19,16 +19,16 @@ export component A inherits Window {
         init => {}
 //      ^error{'init' is not a callback in MenuBar}
 
-        MenuItem {
+        Menu {
             title: "hello";
             x: 0px;
-//          ^error{Unknown property x in MenuItem}
+//          ^error{Unknown property x in Menu}
             max-height: 13px;
-//          ^error{Unknown property max-height in MenuItem}
+//          ^error{Unknown property max-height in Menu}
             opacity: 0.4;
-//          ^error{Unknown property opacity in MenuItem}
+//          ^error{Unknown property opacity in Menu}
             Rectangle {
-//          ^error{Rectangle is not allowed within MenuItem. Only MenuItem are valid children}
+//          ^error{Rectangle is not allowed within Menu. Only Menu MenuItem are valid children}
             }
 
             MenuItem {
@@ -36,9 +36,15 @@ export component A inherits Window {
                         mb.activated({});
 //                         ^error{Element 'MenuBar' does not have a property 'activated'}
                 }
+
+                TouchArea {}
+//              ^error{MenuItem cannot have children elements}
             }
 
         }
+
+        MenuItem {}
+//      ^error{MenuItem is not allowed within MenuBar. Only Menu are valid children}
     }
 
     Rectangle {
@@ -46,6 +52,15 @@ export component A inherits Window {
         MenuBar {
 //      ^error{MenuBar can only be within a Window element}
         }
+
+        MenuItem {
+//      ^error{Unknown element 'MenuItem'}
+            Menu {}
+//          ^error{Menu can only be within a ContextMenuArea element}
+        }
+
+        Menu {}
+//      ^error{Menu can only be within a ContextMenuArea element}
     }
 }
 

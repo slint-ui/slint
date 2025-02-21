@@ -183,13 +183,16 @@ export component SwipeGestureHandler {
     //-default_size_binding:expands_to_parent_geometry
 }
 
-// Fake
 component MenuItem {
     in property <string> title;
     callback activated();
-
+    //-disallow_global_types_as_child_elements
+    //-is_non_item_type
+}
+component Menu {
+    in property <string> title;
     MenuItem {}
-
+    Menu {}
     //-disallow_global_types_as_child_elements
     //-is_non_item_type
 }
@@ -198,13 +201,8 @@ component MenuItem {
 component MenuBar {
     //-is_non_item_type
     //-disallow_global_types_as_child_elements
-
-    MenuItem {}
-
-    // Currently experimental
+    Menu {}
 }
-
-
 
 // The NativeItem, exported as ContextMenuInternal for the style
 component ContextMenu inherits Empty {
@@ -225,15 +223,14 @@ export component ContextMenuInternal inherits ContextMenu {
 // The public ContextMenu which is lowered in the lower_menus pass. See that pass documentation for more info
 // Note that this element cannot be named `ContextMenu` because that's the same name as a native item,
 // and the load_builtins code doesn't allow that. So use a placeholder name and re-export under `ContextMenu`
-component ActualContextMenuElement inherits Empty {
+export component ContextMenuArea inherits Empty {
     // This is actually function as part of out interface, but a callback as much is the runtime concerned
     callback show(position: Point);
     function close() {}
     //-default_size_binding:expands_to_parent_geometry
-    MenuItem {}
+    Menu {}
 }
 
-export { ActualContextMenuElement as ContextMenu }
 
 component WindowItem {
     in-out property <length> width;

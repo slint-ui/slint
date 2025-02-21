@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 export component A  {
-    cb := ContextMenu {
+    cb := ContextMenuArea {
         entries: [];
 //      ^error{Unknown property entries in ContextMenu}
         sub-menu => {
@@ -10,10 +10,15 @@ export component A  {
             debug("hello");
         }
 
-        MenuItem {
+        Menu {
+            preferred-height: 45px;
+//          ^error{Unknown property preferred-height in Menu}
             entries: [];
-//          ^error{Unknown property entries in MenuItem}
+//          ^error{Unknown property entries in Menu}
             MenuItem {
+                entries: [];
+    //          ^error{Unknown property entries in MenuItem}
+
                 title: "ok";
                 sub-menu => {}
 //              ^error{'sub-menu' is not a callback in MenuItem}
@@ -23,14 +28,16 @@ export component A  {
 //              ^error{Unknown property col in MenuItem}
             }
         }
+        MenuItem {}
+//      ^error{Unknown element 'MenuItem'}
     }
 
     TouchArea {
         clicked => {
             cb.activated({});
-//             ^error{Element 'ContextMenu' does not have a property 'activated'}
+//             ^error{Element 'ContextMenuArea' does not have a property 'activated'}
             debug(cb.entries);
-//                   ^error{Element 'ContextMenu' does not have a property 'entries'}
+//                   ^error{Element 'ContextMenuArea' does not have a property 'entries'}
         }
     }
 
@@ -38,5 +45,7 @@ export component A  {
     ContextMenuInternal {
 //  ^error{Unknown element 'ContextMenuInternal'}
     }
+    ContextMenu {}
+//  ^error{Unknown element 'ContextMenu'}
 }
 

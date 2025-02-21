@@ -1227,7 +1227,7 @@ mod tests {
             component Foo inherits Window {
                 property <int> local-prop;
                 MenuBar {
-                    MenuItem {
+                    Menu {
                         property <int> local-prop2;
                         🔺
                     }
@@ -1237,7 +1237,6 @@ mod tests {
         let res = get_completions(source).unwrap();
 
         const P: Option<CompletionItemKind> = Some(CompletionItemKind::PROPERTY);
-        const M: Option<CompletionItemKind> = Some(CompletionItemKind::METHOD);
 
         // general
         assert!(!res.iter().any(|ci| ci.label == "width"));
@@ -1252,7 +1251,7 @@ mod tests {
 
         // properties
         assert_eq!(res.iter().find(|ci| ci.label == "title").unwrap().kind, P);
-        assert_eq!(res.iter().find(|ci| ci.label == "activated").unwrap().kind, M);
+        assert!(!res.iter().any(|ci| ci.label == "activated"));
 
         // local
         assert!(!res.iter().any(|ci| ci.label == "local-prop"));
