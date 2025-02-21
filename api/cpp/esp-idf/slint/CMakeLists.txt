@@ -34,7 +34,10 @@ if (SLINT_ESP_LOCAL_EXAMPLE)
     add_subdirectory(../.. slint_build)
 else()
     list(PREPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
-    find_package(Slint)
+    # This variable is set when generating nightly snapshot's CMakeLists.txt
+    if (NOT SLINT_NIGHTLY)
+        find_package(Slint)
+    endif()
 
     if (TARGET Slint::Slint)
         # Imported targets are only visible in directory scope by default, but
