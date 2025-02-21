@@ -3,6 +3,10 @@
 
 import { Palette } from "std-widgets.slint";
 
+export global System {
+    out property <string> style: "material";
+}
+
 export global CosmicPalette {
     out property <brush> state-selected: Palette.color-scheme == ColorScheme.dark ? #4D4D4D4D : #98989833;
     out property <brush> accent-text: Palette.color-scheme == ColorScheme.dark ? #63D0DF : #00525A;
@@ -12,6 +16,7 @@ export global CosmicPalette {
     out property <brush> state-hover: #63636333;
     out property <brush> state-pressed: Palette.color-scheme == ColorScheme.dark ? #16161680 : #BEBEBE80;
     out property <brush> bar-gradient: Palette.color-scheme == ColorScheme.dark ? @linear-gradient(180deg, #63D0DF 0%, #00525A 100%) : @linear-gradient(180deg, #00525A 0%, #63D0DF 100%);
+    out property <brush> modal-background: #000000.with_alpha(0.5);
 }
 
 export struct TextStyle {

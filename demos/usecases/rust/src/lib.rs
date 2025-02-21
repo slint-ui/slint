@@ -23,6 +23,8 @@ pub fn main() {
 
     let app = app().unwrap();
 
+    System::get(&app).set_style("material".into());
+
     virtual_keyboard::init(&app);
 
     app.run().unwrap();
@@ -31,7 +33,11 @@ pub fn main() {
 #[cfg(target_os = "android")]
 #[no_mangle]
 fn android_main(_app: slint::android::AndroidApp) {
-    app().unwrap().run().unwrap();
+    let app = app().unwrap();
+
+    System::get(&app).set_style("material".into());
+
+    app.run().unwrap();
 }
 
 mod virtual_keyboard {
