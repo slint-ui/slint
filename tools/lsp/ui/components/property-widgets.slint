@@ -214,8 +214,8 @@ component FloatWidget inherits VerticalLayout {
     in property <string> property-name;
     in property <PropertyValue> property-value;
 
-    callback test-float-binding(text: string) -> bool;
-    callback set-float-binding(text: string);
+    pure callback test-float-binding(text: string) -> bool;
+    pure callback set-float-binding(text: string);
 
     private property <string> current-unit: find_current_unit(property-value);
 
@@ -300,14 +300,16 @@ component StringWidget {
     callback code-action();
     callback reset-action();
 
-    callback test-string-binding(text: string, is-translated: bool) -> bool;
-    callback set-string-binding(text: string, is-translated: bool);
+    pure callback test-string-binding(text: string, is-translated: bool) -> bool;
+    pure callback set-string-binding(text: string, is-translated: bool);
 
-    function tsb() -> bool {
+    pure function tsb() -> bool {
+        debug("SW(\{root.property-name}): tsb() CALLED");
         // return test-string-binding(Api.string-to-code(text-rle.text, tr-cb.checked, tr-context.text, tr-plural.text, tr-plural-expression.text), tr-cb.checked);
         return test-string-binding(Api.string-to-code(text-rle.text, tr-cb.checked, tr-context.text, "", ""), tr-cb.checked);
     }
-    function ssb() {
+    pure function ssb() {
+        debug("SW(\{root.property-name}): ssb() CALLED");
         // set-string-binding(Api.string-to-code(text-rle.text, tr-cb.checked, tr-context.text, tr-plural.text, tr-plural-expression.text), tr-cb.checked);
         set-string-binding(Api.string-to-code(text-rle.text, tr-cb.checked, tr-context.text, "", ""), tr-cb.checked);
     }
@@ -474,8 +476,8 @@ component ColorWidget inherits Rectangle {
     callback code-action();
     callback reset-action();
 
-    callback test-color-binding(text: string) -> bool;
-    callback set-color-binding(text: string);
+    pure callback test-color-binding(text: string) -> bool;
+    pure callback set-color-binding(text: string);
 
     private property <color> current-color: property-value.value-brush;
     private property <ColorData> current-color-data: Api.color-to-data(self.current-color);
@@ -598,8 +600,8 @@ component IntegerWidget inherits VerticalLayout {
     in property <string> property-name;
     in property <PropertyValue> property-value;
 
-    callback test-integer-binding(text: string) -> bool;
-    callback set-integer-binding(text: string);
+    pure callback test-integer-binding(text: string) -> bool;
+    pure callback set-integer-binding(text: string);
 
     NameLabel {
         property-name: root.property-name;
@@ -631,7 +633,7 @@ component EnumWidget inherits VerticalLayout {
     in property <string> property-name;
     in property <PropertyValue> property-value;
 
-    callback set-enum-binding(text: string);
+    pure callback set-enum-binding(text: string);
 
     NameLabel {
         property-name: root.property-name;
@@ -657,7 +659,7 @@ component BooleanWidget inherits VerticalLayout {
     in property <string> property-name;
     in property <PropertyValue> property-value;
 
-    callback set-bool-binding(value: bool);
+    pure callback set-bool-binding(value: bool);
 
     NameLabel {
         property-name: root.property-name;
@@ -696,7 +698,7 @@ component EditJsonWidget inherits VerticalLayout {
     property <bool> can-compile: true;
     property <length> border: 3px;
 
-    callback set-code-binding(text: string) -> bool;
+    pure callback set-code-binding(text: string) -> bool;
 
     changed property-value => {
         if !edit.has-focus {
@@ -749,14 +751,14 @@ export component PropertyValueWidget inherits VerticalLayout {
     in property <bool> enabled;
     in property <bool> has-code-action: true;
 
-    callback set-bool-binding(value: bool);
-    callback set-color-binding(text: string);
-    callback test-color-binding(text: string) -> bool;
-    callback set-code-binding(text: string);
-    callback test-code-binding(text: string) -> bool;
-    callback set-string-binding(text: string, is_translated: bool);
-    callback test-string-binding(text: string, is_translated: bool) -> bool;
-    callback set-enum-binding(text: string);
+    pure callback set-bool-binding(value: bool);
+    pure callback set-color-binding(text: string);
+    pure callback test-color-binding(text: string) -> bool;
+    pure callback set-code-binding(text: string);
+    pure callback test-code-binding(text: string) -> bool;
+    pure callback set-string-binding(text: string, is_translated: bool);
+    pure callback test-string-binding(text: string, is_translated: bool) -> bool;
+    pure callback set-enum-binding(text: string);
 
     callback reset-action();
     callback code-action();
@@ -949,17 +951,7 @@ export component PreviewDataPropertyValueWidget inherits VerticalLayout {
         return(Api.set-json-preview-data(root.property-container-name, root.preview-data.name, text));
     }
 
-    if root.preview-data.kind == PreviewDataKind.Value && value.kind == PropertyValueKind.code: CodeWidget {
-        enabled: root.preview-data.has-setter;
-        property-name: root.preview-data.name;
-        property-value <=> root.value;
-        has-code-action: false;
-
-        reset-action() => {
-            root.reset-action();
-        }
-    }
-    if root.preview-data.kind == PreviewDataKind.Value && value.kind != PropertyValueKind.code: PropertyValueWidget {
+    if root.preview-data.kind == PreviewDataKind.Value: PropertyValueWidget {
         property-value <=> root.value;
         property-name: root.preview-data.name;
         enabled: root.preview-data.has-setter;
