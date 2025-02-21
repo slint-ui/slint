@@ -10,7 +10,6 @@ export { CardListViewItem }
 import { VirtualKeyboardHandler, VirtualKeyboard } from "virtual_keyboard.slint";
 
 export { VirtualKeyboardHandler }
-export { System } from "widgets/styling.slint";
 
 export component App inherits Window {
     preferred-width: 800px;
@@ -23,7 +22,7 @@ export component App inherits Window {
         break-layout: root.width < 480px;
     }
 
-    VirtualKeyboard {
+    if VirtualKeyboardHandler.enabled : VirtualKeyboard {
         y: TextInputInterface.text-input-focused ? parent.height - self.height : parent.height;
 
         close => {

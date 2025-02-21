@@ -22,9 +22,6 @@ pub fn main() {
     console_error_panic_hook::set_once();
 
     let app = app().unwrap();
-
-    System::get(&app).set_style("material".into());
-
     virtual_keyboard::init(&app);
 
     app.run().unwrap();
@@ -32,11 +29,9 @@ pub fn main() {
 
 #[cfg(target_os = "android")]
 #[no_mangle]
-fn android_main(_app: slint::android::AndroidApp) {
+fn android_main(android_app: slint::android::AndroidApp) {
+    slint::android::init(android_app).unwrap();
     let app = app().unwrap();
-
-    System::get(&app).set_style("material".into());
-
     app.run().unwrap();
 }
 
@@ -46,6 +41,8 @@ mod virtual_keyboard {
 
     pub fn init(app: &App) {
         let weak = app.as_weak();
+
+        app.global::<VirtualKeyboardHandler>().set_enabled(true);
         app.global::<VirtualKeyboardHandler>().on_key_pressed({
             move |key| {
                 weak.unwrap()

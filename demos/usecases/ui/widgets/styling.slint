@@ -3,10 +3,6 @@
 
 import { Palette } from "std-widgets.slint";
 
-export global System {
-    out property <string> style: "material";
-}
-
 export global CosmicPalette {
     out property <brush> state-selected: Palette.color-scheme == ColorScheme.dark ? #4D4D4D4D : #98989833;
     out property <brush> accent-text: Palette.color-scheme == ColorScheme.dark ? #63D0DF : #00525A;

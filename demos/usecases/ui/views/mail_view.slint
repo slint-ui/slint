@@ -44,13 +44,15 @@ export global MailSideBarViewAdapter {
 }
 
 export component MailSideBarView {
+    in property <bool> break-layout;
+    
     horizontal-stretch: 0;
     min-width: 264px / 2;
 
     VerticalLayout {
         spacing: 4px;
 
-        ComboBox {
+        if !root.break-layout : ComboBox {
             model: MailSideBarViewAdapter.accounts;
         }
 
@@ -85,7 +87,7 @@ export component MailSideBarView {
 
 export component MailSideBarDialog inherits ModalDialog {
     Rectangle {
-        x: 0;
+        x: -self.width;
         y: 0;
         width: 246px;
         height: 100%;
@@ -94,7 +96,18 @@ export component MailSideBarDialog inherits ModalDialog {
         HorizontalLayout {
             padding: 4px;
 
-            side-bar := MailSideBarView {}
+            side-bar := MailSideBarView {
+                break-layout: true;
+            }
+        }
+
+        animate x {
+            duration: 250ms;
+            easing: cubic-bezier(0, 0, 0, 1);
+        }
+
+        init => {
+            self.x = 0;
         }
     }    
 }
