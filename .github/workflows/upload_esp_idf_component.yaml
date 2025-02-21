@@ -18,7 +18,7 @@ jobs:
         container: espressif/idf:latest
         steps:
             - uses: actions/checkout@v4
-            - run: apt-get install yq
+            - run: apt-get update && apt-get install yq
             - name: Extract Version and determine name
               working-directory: api/cpp/esp-idf/slint
               id: version
