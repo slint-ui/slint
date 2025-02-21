@@ -1124,13 +1124,11 @@ struct RenderToBuffer<'a, TargetPixelBuffer> {
     dirty_region: PhysicalRegion,
 }
 
-impl<T: TargetPixel, B: target_pixel_buffer::TargetPixelBuffer<TargetPixel = T>>
-    RenderToBuffer<'_, B>
-{
+impl<B: target_pixel_buffer::TargetPixelBuffer> RenderToBuffer<'_, B> {
     fn foreach_ranges(
         &mut self,
         geometry: &PhysicalRect,
-        mut f: impl FnMut(i16, &mut [T], i16, i16),
+        mut f: impl FnMut(i16, &mut [B::TargetPixel], i16, i16),
     ) {
         let mut line = geometry.min_y();
         while let Some(mut next) =
@@ -1260,12 +1258,12 @@ impl<T: TargetPixel, B: target_pixel_buffer::TargetPixelBuffer<TargetPixel = T>>
                 for l in rect.min_y()..rect.max_y() {
                     match composition_mode {
                         CompositionMode::Source => {
-                            let mut fill_col = T::background();
-                            T::blend(&mut fill_col, color);
+                            let mut fill_col = B::TargetPixel::background();
+                            B::TargetPixel::blend(&mut fill_col, color);
                             buffer.line_slice(l as usize)[begin as usize..end as usize]
                                 .fill(fill_col)
                         }
-                        CompositionMode::SourceOver => <T as TargetPixel>::blend_slice(
+                        CompositionMode::SourceOver => <B::TargetPixel>::blend_slice(
                             &mut buffer.line_slice(l as usize)[begin as usize..end as usize],
                             color,
                         ),
