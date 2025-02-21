@@ -20,7 +20,6 @@ export const App = () => {
         true,
     );
 
-
     return (
         <div className="container">
             <div className="title">
@@ -36,7 +35,11 @@ export const App = () => {
                     </span>
                 )}
             </div>
-            <ShikiHighlighter className="content" language="css" theme="dracula">
+            <ShikiHighlighter
+                className="content"
+                language="css"
+                theme="dracula"
+            >
                 {slintProperties}
             </ShikiHighlighter>
         </div>
