@@ -101,6 +101,7 @@ struct UsefulMenuComponents {
     context_menu_internal: ElementType,
     empty: ElementType,
     menu_entry: Type,
+    menu_item_element: ElementType,
 }
 
 pub async fn lower_menus(
@@ -115,6 +116,22 @@ pub async fn lower_menus(
         .import_component("std-widgets.slint", "MenuBarImpl", &mut build_diags_to_ignore)
         .await
         .expect("MenuBarImpl should be in std-widgets.slint");
+
+    let menu_item_element = type_loader
+        .global_type_registry
+        .borrow()
+        .lookup_builtin_element("ContextMenuArea")
+        .unwrap()
+        .as_builtin()
+        .additional_accepted_child_types
+        .get("Menu")
+        .expect("ContextMenuArea should accept Menu")
+        .additional_accepted_child_types
+        .get("MenuItem")
+        .expect("Menu should accept MenuItem")
+        .clone()
+        .into();
+
     let useful_menu_component = UsefulMenuComponents {
         menubar_impl: menubar_impl.clone().into(),
         context_menu_internal: type_loader
@@ -129,6 +146,7 @@ pub async fn lower_menus(
             .expect("VerticalLayout is a builtin type"),
         empty: type_loader.global_type_registry.borrow().empty_type(),
         menu_entry: type_loader.global_type_registry.borrow().lookup("MenuEntry"),
+        menu_item_element,
     };
     assert!(matches!(&useful_menu_component.menu_entry, Type::Struct(..)));
 
@@ -513,6 +531,8 @@ fn lower_menu_items(
                     ));
                     element.borrow_mut().enclosing_component = component_weak.clone();
                     element.borrow_mut().geometry_props = None;
+                    // Menu -> MenuItem
+                    element.borrow_mut().base_type = components.menu_item_element.clone();
                 }
                 false
             });
