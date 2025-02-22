@@ -3,6 +3,7 @@
 
 import { GroupBox, ComboBox, VerticalBox, GroupBox, GridBox, Palette, TextEdit, Button, Switch, ScrollView } from "std-widgets.slint";
 import { NavigationListView, NavigationListViewItem, Container, ExtendedLineEdit, Icon, CardListView, CardListViewItem, IconButton, TitleText } from "../widgets.slint";
+import { ModalDialog } from "../widgets.slint";
 import { Icons } from "../assets.slint";
 
 export global MailViewAdapter { }
@@ -43,13 +44,15 @@ export global MailSideBarViewAdapter {
 }
 
 export component MailSideBarView {
+    in property <bool> break-layout;
+
     horizontal-stretch: 0;
     min-width: 264px / 2;
 
     VerticalLayout {
         spacing: 4px;
 
-        ComboBox {
+        if !root.break-layout : ComboBox {
             model: MailSideBarViewAdapter.accounts;
         }
 
@@ -82,8 +85,35 @@ export component MailSideBarView {
     }
 }
 
+export component MailSideBarDialog inherits ModalDialog {
+    Rectangle {
+        x: -self.width;
+        y: 0;
+        width: 246px;
+        height: 100%;
+        background: Palette.control-background;
+
+        HorizontalLayout {
+            padding: 4px;
+
+            side-bar := MailSideBarView {
+                break-layout: true;
+            }
+        }
+
+        animate x {
+            duration: 250ms;
+            easing: cubic-bezier(0, 0, 0, 1);
+        }
+
+        init => {
+            self.x = 0;
+        }
+    }
+}
+
 export global MailBoxViewAdapter {
-    callback search-text-changed(/* search-text */ string);
+    callback search-text-changed(search-text: string);
 
     in property <string> title: MailSideBarViewAdapter.current-title();
     in property <[CardListViewItem]> mails: [
@@ -129,15 +159,30 @@ export global MailBoxViewAdapter {
 }
 
 export component MailBoxView {
+    in property <bool> break-layout;
+
+    callback show-sidebar();
+
     horizontal-stretch: 1;
 
     VerticalLayout {
         spacing: 4px;
 
-        TitleText {
-            text: MailBoxViewAdapter.title;
-            min-height: 32px;
+        HorizontalLayout {
+            spacing: 8px;
 
+            if root.break-layout : IconButton {
+                icon: Icons.menu;
+
+                clicked => {
+                    root.show-sidebar();
+                }
+            }
+
+            TitleText {
+                text: MailBoxViewAdapter.title;
+                min-height: 32px;
+            }
         }
 
         Container {
@@ -271,16 +316,31 @@ export component MailMessageView {
 }
 
 export component MailView {
+    in property <bool> break-layout;
+
     HorizontalLayout {
         spacing: 16px;
 
-        MailSideBarView { }
+        if !root.break-layout : MailSideBarView { }
 
         VerticalLayout {
             spacing: 16px;
 
-            MailBoxView { }
+            MailBoxView {
+                break-layout: root.break-layout;
+
+                show-sidebar => {
+                    sidebar-dialog.show();
+                }
+            }
+
             MailMessageView {}
         }
     }
+
+    sidebar-dialog := MailSideBarDialog {
+        x: -root.absolute-position.x;
+        y: -root.absolute-position.y;
+    }
 }
+
