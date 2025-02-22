@@ -64,7 +64,7 @@ jobs:
         steps:
             - uses: actions/checkout@v4
             - name: Downgrade cc and ring crate to work around https://github.com/slint-ui/slint/issues/6875
-              run: | 
+              run: |
                   cargo update -p ring --precise 0.17.9
                   cargo update -p cc --precise 1.1.31
             - name: Fetch Yocto SDK
