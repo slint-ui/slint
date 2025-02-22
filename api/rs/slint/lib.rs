@@ -202,9 +202,9 @@ each instance will have their own instance of associated globals singletons.
 
 extern crate alloc;
 
-#[cfg(not(feature = "compat-1-10"))]
+#[cfg(not(feature = "compat-1-2"))]
 compile_error!(
-    "The feature `compat-1-10` must be enabled to ensure \
+    "The feature `compat-1-2` must be enabled to ensure \
     forward compatibility with future version of this crate"
 );
 

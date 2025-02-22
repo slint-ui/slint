@@ -25,7 +25,7 @@ esp32-s2-kaluga-1 = ["slint/unsafe-single-threaded", "esp-hal/esp32s2", "embedde
 esp32-s3-box = ["slint/unsafe-single-threaded", "esp-hal/esp32s3", "embedded-hal", "embedded-hal-bus", "esp-alloc", "esp-println/esp32s3", "esp-backtrace/esp32s3", "dep:mipidsi", "embedded-graphics-core", "slint/libm", "tt21100"]
 
 [dependencies]
-slint = { version = "=1.10.0", path = "../../api/rs/slint", default-features = false, features = ["compat-1-10", "renderer-software"] }
+slint = { version = "=1.10.0", path = "../../api/rs/slint", default-features = false, features = ["compat-1-2", "renderer-software"] }
 i-slint-core-macros = { version = "=1.10.0", path = "../../internal/core-macros" }
 
 derive_more = { workspace = true }
