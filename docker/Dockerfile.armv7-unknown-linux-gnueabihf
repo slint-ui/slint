@@ -9,7 +9,7 @@ RUN dpkg --add-architecture armhf && \
     apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install --assume-yes libfontconfig1-dev:armhf libxcb1-dev:armhf libxcb-render0-dev:armhf libxcb-shape0-dev:armhf libxcb-xfixes0-dev:armhf libxkbcommon-dev:armhf libinput-dev:armhf libgbm-dev:armhf libssl-dev:armhf python3 python3-pip \
     libfontconfig1-dev \
-    clang libstdc++-10-dev:armhf
+    clang libstdc++-10-dev:armhf ninja-build
 
 # Work around the Skia source build requiring a newer git version (that supports --path-format=relative with rev-parse, as needed by git-sync-deps.py),
 # as well as a disabling of the directory safety checks (https://github.blog/2022-04-12-git-security-vulnerability-announced/#cve-2022-24765) as
