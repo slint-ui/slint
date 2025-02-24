@@ -636,6 +636,9 @@ jobs:
             - name: Run tests
               working-directory: tools/figma-inspector
               run: pnpm test
+            - name: Type Check
+              working-directory: tools/figma-inspector
+              run: pnpm type-check
             - name: Build zip
               working-directory: tools/figma-inspector
               run: pnpm zip

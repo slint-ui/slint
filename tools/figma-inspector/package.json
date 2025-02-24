@@ -16,7 +16,8 @@
     "lint:fix": "biome lint --fix",
     "format": "biome format",
     "format:fix": "biome format --write",
-    "test": "vitest"
+    "test": "vitest",
+    "type-check": "tsc --noEmit"
   },
   "devDependencies": {
     "@figma/plugin-typings": "1.107.0",

@@ -22,8 +22,9 @@ export async function writeTextToClipboard(str: string) {
         if (!successful) {
             throw new Error("Copy command failed");
         }
-    } catch (e) {
-        throw new Error("Failed to copy text: " + e.message);
+    } catch (e: unknown) {
+        const errorMessage = e instanceof Error ? e.message : String(e);
+        throw new Error("Failed to copy text: " + errorMessage);
     } finally {
         textArea.remove();
         if (prevActive && prevActive instanceof HTMLElement) {

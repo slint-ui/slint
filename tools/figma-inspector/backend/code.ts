@@ -7,13 +7,15 @@ import { generateSlintSnippet } from "./utils/property-parsing.js";
 if (figma.editorType === "dev" && figma.mode === "codegen") {
     figma.codegen.on("generate", async ({ node }) => {
         const slintSnippet = generateSlintSnippet(node);
-        return [
-            {
-                title: "Slint Code: " + node.name,
-                language: "CSS",
-                code: slintSnippet,
-            },
-        ];
+        return slintSnippet
+            ? [
+                  {
+                      title: "Slint Code: " + node.name,
+                      language: "CSS",
+                      code: slintSnippet,
+                  },
+              ]
+            : [];
     });
 }
 
