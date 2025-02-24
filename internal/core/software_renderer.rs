@@ -1131,7 +1131,7 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> RenderToBuffer<'_, B> {
         mut f: impl FnMut(i16, &mut [B::TargetPixel], i16, i16),
     ) {
         self.foreach_region(geometry, |buffer, rect, extra_left_clip, extra_right_clip| {
-            for l in rect.min_y()..rect.max_y() {
+            for l in rect.y_range() {
                 f(
                     l,
                     &mut buffer.line_slice(l as usize)
@@ -1204,7 +1204,7 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> RenderToBuffer<'_, B> {
             self.foreach_region(&geometry, |buffer, rect, extra_left_clip, extra_right_clip| {
                 let begin = rect.min_x();
                 let end = rect.max_x();
-                for l in rect.min_y()..rect.max_y() {
+                for l in rect.y_range() {
                     draw_functions::draw_texture_line(
                         &geometry,
                         PhysicalLength::new(l),
@@ -1235,7 +1235,7 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> RenderToBuffer<'_, B> {
             self.foreach_region(&geometry, |buffer, rect, _extra_left_clip, _extra_right_clip| {
                 let begin = rect.min_x();
                 let end = rect.max_x();
-                for l in rect.min_y()..rect.max_y() {
+                for l in rect.y_range() {
                     match composition_mode {
                         CompositionMode::Source => {
                             let mut fill_col = B::TargetPixel::background();
