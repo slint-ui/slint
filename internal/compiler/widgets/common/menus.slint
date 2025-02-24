@@ -3,7 +3,7 @@
 
 //! This file contains a generic implementation of the MenuBar and ContextMenu
 
-import { Palette, MenuBarItemImpl } from "std-widgets-impl.slint";
+import { Palette, MenuBarItem, MenuBar } from "std-widgets-impl.slint";
 
 component MenuItemImpl {
     in property <bool> is-current;
@@ -206,31 +206,17 @@ export component MenuBarImpl {
     property <length> px: 1rem / 14;
 
     preferred-width: 100%;
-    height: layout.preferred-height;
+    height: base.min-height;
 
-    layout := HorizontalLayout {
-        padding: 5px;
-        alignment: start;
-        spacing: 1px;
+    base := MenuBar {
+        width: 100%;
 
-        for entry in entries: e := MenuBarItemImpl {
+        for entry in entries: e := MenuBarItem {
             entry: entry;
             
             clicked => {
                 context-menu.entries = root.sub-menu(entry);
                 context-menu.show({ x: e.x, y: root.height });
-            }
-        }
-
-        // For the default size when there is no entries
-        Rectangle {
-            HorizontalLayout {
-                padding-top: 0.4rem;
-                padding-bottom: 0.6rem;
-
-                Text {
-                    text: "";
-                }
             }
         }
     }

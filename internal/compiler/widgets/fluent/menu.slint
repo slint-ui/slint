@@ -1,10 +1,10 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { FluentPalette } from "styling.slint";
-import { MenuBarItemBase } from "../common/menu-base.slint";
+import { FluentPalette, FluentFontSettings } from "styling.slint";
+import { MenuBarItemBase, MenuBarBase } from "../common/menu-base.slint";
 
-export component MenuBarItemImpl {
+export component MenuBarItem {
     in property <MenuEntry> entry <=> base.entry;
     in property <bool> is-current <=> base.is-current;
     
@@ -19,12 +19,18 @@ export component MenuBarItemImpl {
         padding-top: 4px;
         padding-bottom: 6px;
         default-foreground: FluentPalette.foreground;
-        hover-foreground: FluentPalette.accent-foreground;
-        pressed-foreground: FluentPalette.accent-foreground;
-        hover-background: FluentPalette.accent-background;
-        pressed-background: FluentPalette.accent-background;
-        font-size: 14px;
-        font-weight: 300;
+        hover-foreground: FluentPalette.foreground;
+        pressed-foreground: FluentPalette.text-secondary;
+        hover-background: FluentPalette.sub-title-secondary;
+        pressed-background: FluentPalette.control-alt-tertiary;
+        font-size: FluentFontSettings.body.font-size;
+        font-weight: FluentFontSettings.body.font-weight;
         border-radius: 3px;
     }
+}
+
+export component MenuBar inherits MenuBarBase {
+    padding: 9px;
+    spacing: 10px;
+    min-layout-height: 40px;
 }

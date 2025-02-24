@@ -50,3 +50,20 @@ export component MenuBarItemBase {
     ]
 }
 
+export component MenuBarBase {
+    in property <length> spacing <=> layout.spacing;
+    in property <LayoutAlignment> alignment <=> layout.alignment;
+    in property <length> min-layout-height;
+    in property <brush> background <=> background-layer.background;
+
+    min-height: max(root.min-layout-height, layout.min-height);
+
+    background-layer := Rectangle {
+        layout := HorizontalLayout {
+            alignment: start;
+            padding: root.padding;
+
+            @children
+        }
+    }
+}
