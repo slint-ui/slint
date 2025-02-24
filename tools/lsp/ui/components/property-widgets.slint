@@ -113,7 +113,6 @@ component CodeWidget inherits GridLayout {
     in property <bool> enabled;
     in property <string> property-name;
     in property <PropertyValue> property-value;
-    in property <bool> has-code-action: true;
 
     callback code-action();
     callback reset-action();
@@ -157,7 +156,7 @@ component CodeWidget inherits GridLayout {
                 }
             }
 
-            if root.has-code-action: CodeButton {
+            CodeButton {
                 enabled: root.enabled;
                 clicked() => {
                     root.code-action();
@@ -170,7 +169,9 @@ component CodeWidget inherits GridLayout {
 component SecondaryContent inherits Rectangle {
     in property <bool> enabled;
     in property <bool> open: false;
-
+    in property <bool> has-code-action: true;
+    in property <bool> has-reset-action: true;
+    
     callback reset();
 
     callback code-action();
@@ -200,7 +201,7 @@ component SecondaryContent inherits Rectangle {
             HorizontalLayout {
                 spacing: EditorSpaceSettings.default-spacing;
 
-                ResetButton {
+                if root.has-reset-action: ResetButton {
                     enabled: root.enabled;
                     clicked() => {
                         root.reset-action();
@@ -208,7 +209,7 @@ component SecondaryContent inherits Rectangle {
                     }
                 }
 
-                CodeButton {
+                if root.has-code-action: CodeButton {
                     enabled: root.enabled;
                     clicked() => {
                         root.code-action();
@@ -314,6 +315,8 @@ component StringWidget inherits GridLayout {
     in property <bool> enabled;
     in property <string> property-name;
     in property <PropertyValue> property-value;
+    in property <bool> has-code-action <=> sub.has-code-action;
+    in property <bool> has-reset-action <=> sub.has-reset-action;
 
     out property <length> i-am-a-hack-remove-me: 0px;
 
@@ -503,6 +506,8 @@ component ColorWidget inherits GridLayout {
     in property <bool> enabled;
     in property <string> property-name;
     in property <PropertyValue> property-value;
+    in property <bool> has-code-action <=> sub.has-code-action;
+    in property <bool> has-reset-action <=> sub.has-reset-action;
 
     private property <bool> open: false;
 
@@ -838,6 +843,7 @@ export component PropertyValueWidget inherits VerticalLayout {
     in property <string> property-name;
     in property <bool> enabled;
     in property <bool> has-code-action: true;
+    in property <bool> has-reset-action: true;
 
     pure callback set-bool-binding(value: bool);
     pure callback set-color-binding(text: string);
@@ -874,6 +880,9 @@ export component PropertyValueWidget inherits VerticalLayout {
                 enabled <=> root.enabled;
                 property-name <=> root.property-name;
                 property-value <=> root.property-value;
+
+                has-code-action: root.has-code-action;
+                has-reset-action: root.has-reset-action;
 
                 test-color-binding(text) => {
                     return (root.test-color-binding(text));
@@ -956,6 +965,9 @@ export component PropertyValueWidget inherits VerticalLayout {
                 enabled <=> root.enabled;
                 property-name <=> root.property-name;
                 property-value: root.property-value;
+
+                has-code-action: root.has-code-action;
+                has-reset-action: root.has-reset-action;
 
                 reset-action() => {
                     root.reset-action();
@@ -1075,6 +1087,9 @@ export component PreviewDataPropertyValueWidget inherits VerticalLayout {
         property-name: root.preview-data.name;
         enabled: root.preview-data.has-setter;
 
+        has-code-action: false;
+        has-reset-action: false;
+
         set-bool-binding(value) => {
             self.set-code-binding(value ? "true" : "false");
         }
@@ -1119,7 +1134,6 @@ export component ExpandableGroup  {
     property <bool> open: true;
 
     group-layer := Rectangle {
-
         content-layer := VerticalLayout {
             if text != "": Rectangle {
                 touch-area := TouchArea {
