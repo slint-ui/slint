@@ -126,6 +126,13 @@ pub trait Platform {
     fn debug_log(&self, _arguments: core::fmt::Arguments) {
         crate::tests::default_debug_log(_arguments);
     }
+
+    #[cfg(target_os = "android")]
+    #[doc(hidden)]
+    /// The long press interval before showing a context menu
+    fn long_press_interval(&self, _: crate::InternalToken) -> core::time::Duration {
+        core::time::Duration::from_millis(500)
+    }
 }
 
 /// The clip board, used in [`Platform::clipboard_text`] and [Platform::set_clipboard_text`]

@@ -1216,6 +1216,8 @@ pub struct ContextMenu {
     pub show: Callback<PointArg>,
     pub cached_rendering_data: CachedRenderingData,
     pub popup_id: Cell<Option<NonZeroU32>>,
+    #[cfg(target_os = "android")]
+    long_press_timer: Cell<Option<crate::timers::Timer>>,
 }
 
 impl Item for ContextMenu {
@@ -1244,11 +1246,41 @@ impl Item for ContextMenu {
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> InputEventResult {
-        if let MouseEvent::Pressed { position, button: PointerEventButton::Right, .. } = event {
-            self.show.call(&(crate::api::LogicalPosition::from_euclid(position),));
-            InputEventResult::EventAccepted
-        } else {
-            InputEventResult::EventIgnored
+        match event {
+            MouseEvent::Pressed { position, button: PointerEventButton::Right, .. } => {
+                self.show.call(&(crate::api::LogicalPosition::from_euclid(position),));
+                InputEventResult::EventAccepted
+            }
+            #[cfg(target_os = "android")]
+            MouseEvent::Pressed { position, button: PointerEventButton::Left, .. } => {
+                let timer = crate::timers::Timer::default();
+                let self_weak = _self_rc.downgrade();
+                timer.start(
+                    crate::timers::TimerMode::SingleShot,
+                    WindowInner::from_pub(_window_adapter.window())
+                        .ctx
+                        .platform()
+                        .long_press_interval(crate::InternalToken),
+                    move || {
+                        crate::debug_log!("Executing");
+                        let Some(self_rc) = self_weak.upgrade() else { return };
+                        let Some(self_) = self_rc.downcast::<ContextMenu>() else { return };
+                        self_.show.call(&(crate::api::LogicalPosition::from_euclid(position),));
+                    },
+                );
+                self.long_press_timer.set(Some(timer));
+                InputEventResult::GrabMouse
+            }
+            #[cfg(target_os = "android")]
+            MouseEvent::Released { .. } | MouseEvent::Exit => {
+                if let Some(timer) = self.long_press_timer.take() {
+                    timer.stop();
+                }
+                InputEventResult::EventIgnored
+            }
+            #[cfg(target_os = "android")]
+            MouseEvent::Moved { .. } => InputEventResult::EventAccepted,
+            _ => InputEventResult::EventIgnored,
         }
     }
 
