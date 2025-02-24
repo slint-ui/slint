@@ -1,0 +1,147 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component MenuBarItemBase {
+    in property <MenuEntry> entry;
+    in property <brush> default-foreground;
+    in property <brush> hover-foreground;
+    in property <brush> pressed-foreground;
+    in property <brush> default-background;
+    in property <brush> hover-background;
+    in property <brush> pressed-background;
+    in property <length> font-size <=> label.font-size;
+    in property <int> font-weight <=> label.font-weight;
+    in property <length> border-radius <=> background-layer.border-radius;
+
+    callback clicked <=> touch-area.clicked;
+
+    background-layer := Rectangle {
+        background: root.default-background;
+
+        touch-area := TouchArea {
+            layout := HorizontalLayout {
+                padding-top: root.padding-top;
+                padding-bottom: root.padding-bottom;
+                padding-left: root.padding-left;
+                padding-right: root.padding-right;
+
+                label := Text {
+                    text: entry.title;
+                    color: root.default-foreground;
+                }
+            }
+        }
+    }
+
+    states [
+        pressed when touch-area.pressed : {
+            background-layer.background: root.pressed-background;
+            label.color: root.pressed-foreground;
+        }
+        has-hover when touch-area.has-hover : {
+            background-layer.background: root.hover-background;
+            label.color: root.hover-foreground;
+        }
+    ]
+}
+
+export component MenuBarBase inherits Rectangle {
+    in property <length> spacing <=> layout.spacing;
+    in property <LayoutAlignment> alignment <=> layout.alignment;
+    in property <length> min-layout-height;
+
+    min-height: max(root.min-layout-height, layout.min-height);
+
+    layout := HorizontalLayout {
+        alignment: start;
+        padding: root.padding;
+
+        @children
+    }
+}
+
+export component MenuFrameBase inherits Rectangle {
+    in property <length> spacing <=> layout.spacing;
+    in property <length> layout-min-width;
+
+    clip: true;
+    min-width: max(root.layout-min-width, layout.min-width);
+
+    layout := VerticalLayout {
+        padding: root.padding;
+
+        @children
+    }
+}
+
+export component MenuItemBase {
+    in property <brush> default-foreground;
+    in property <brush> default-background;
+    in property <brush> current-foreground;
+    in property <brush> current-background;
+    in property <length> font-size <=> label.font-size;
+    in property <int> font-weight <=> label.font-weight;
+    in property <length> border-radius <=> background-layer.border-radius;
+    in property <bool> is-current;
+    in property <MenuEntry> entry;
+    in property <image> sub-menu-icon;
+    in property <length> spacing <=> layout.spacing;
+    in property <length> icon-size;
+
+    callback set-current();
+    callback clear-current();
+    callback activate(entry : MenuEntry, y: length);
+
+    background-layer := Rectangle {
+        background: root.default-background;
+
+        touch-area := TouchArea {
+            layout := HorizontalLayout {
+                padding-top: root.padding-top;
+                padding-bottom: root.padding-bottom;
+                padding-left: root.padding-left;
+                padding-right: root.padding-right;
+
+                label := Text {
+                    text: entry.title;
+                    color: root.default-foreground;
+                    vertical-alignment: center;
+                }
+
+                if entry.has-sub-menu : Image {
+                    width: root.icon-size;
+                    y: (parent.height - self.height) / 2;
+                    source: root.sub-menu-icon;
+                    colorize: label.color;
+                    accessible-role: none;
+                }
+            }
+
+            pointer-event(event) => {
+                if event.kind == PointerEventKind.move && !root.is-current {
+                    root.set-current()
+                } else if event.kind == PointerEventKind.down && entry.has-sub-menu {
+                    activate(entry, self.absolute-position.y);
+                } else if event.kind == PointerEventKind.up
+                        && self.mouse-y > 0 && self.mouse-y < self.height
+                        && self.mouse-x > 0 && self.mouse-x < self.width {
+                    // can't put this in `clicked` because then the menu would close causing a panic in the pointer-event
+                    activate(entry, self.absolute-position.y);
+                }
+            }
+
+            changed has-hover => {
+                if !self.has-hover && root.is-current {
+                    root.clear-current();
+                }
+            }
+        }
+    }
+
+    states [
+        is-current when root.is-current : {
+            background-layer.background: root.current-background;
+            label.color: root.current-foreground;
+        }
+    ]
+}
