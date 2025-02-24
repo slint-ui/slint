@@ -3,7 +3,7 @@
 
 //! This file contains a generic implementation of the MenuBar and ContextMenu
 
-import { Palette, MenuBarItem, MenuBar } from "std-widgets-impl.slint";
+import { Palette, MenuBarItem, MenuBar, MenuFrame } from "std-widgets-impl.slint";
 
 component MenuItemImpl {
     in property <bool> is-current;
@@ -79,21 +79,10 @@ export component PopupMenuImpl inherits Window {
     callback close();
 
     forward-focus: focus-scope;
-
-    Rectangle {
-        border-radius: 7px;
-        border-color: Palette.border;
-        border-width: 1px;
-        background: Palette.background;
-        drop-shadow-blur: 2px;
-        drop-shadow-color: Palette.foreground.transparentize(0.5);
-        min-width: 10rem;
-    }
+    background: transparent;
 
     focus-scope := FocusScope {
-        layout := VerticalLayout {
-            padding: 5px;
-
+        frame := MenuFrame {
             for entry[index] in entries: MenuItemImpl {
                 entry: entry;
                 is-current: current == index;
@@ -132,7 +121,7 @@ export component PopupMenuImpl inherits Window {
         }
 
         function y-pos(idx: int) -> length {
-            layout.padding + idx * (layout.height - 2 * layout.padding) / entries.length
+            frame.padding + idx * (frame.height - 2 * frame.padding) / entries.length
         }
 
         key-pressed(event) => {
