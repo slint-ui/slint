@@ -14,7 +14,7 @@ use winit::window::Window;
 pub struct MudaAdapter {
     entries: Vec<MenuEntry>,
     menubar: Option<vtable::VBox<MenuVTable>>,
-    tracker: Pin<Box<PropertyTracker<MudaPropertyTracker>>>,
+    tracker: Option<Pin<Box<PropertyTracker<MudaPropertyTracker>>>>,
     menu: muda::Menu,
 }
 
@@ -62,9 +62,10 @@ impl MudaAdapter {
             menu.init_for_nsapp();
         }
 
-        let tracker = Box::pin(PropertyTracker::new_with_dirty_handler(MudaPropertyTracker {
-            window_adapter_weak,
-        }));
+        let tracker =
+            Some(Box::pin(PropertyTracker::new_with_dirty_handler(MudaPropertyTracker {
+                window_adapter_weak,
+            })));
 
         let mut s = Self { entries: Default::default(), menubar: Some(menubar), tracker, menu };
         s.rebuild_menu(winit_window);
@@ -120,10 +121,10 @@ impl MudaAdapter {
 
         // Until we have menu roles, always create an app menu on macOS.
         #[cfg(target_os = "macos")]
-        create_default_app_menu(&menu).unwrap();
+        create_default_app_menu(&self.menu).unwrap();
 
         if let Some(menubar) = self.menubar.as_ref() {
-            self.tracker.as_ref().evaluate(|| {
+            let mut build_menu = || {
                 let mut menu_entries = Default::default();
                 menubar.sub_menu(None, &mut menu_entries);
                 let window_id = u64::from(winit_window.id()).to_string();
@@ -138,7 +139,13 @@ impl MudaAdapter {
                         ))
                         .unwrap();
                 }
-            });
+            };
+
+            if let Some(tracker) = self.tracker.as_ref() {
+                tracker.as_ref().evaluate(build_menu);
+            } else {
+                build_menu()
+            }
         }
     }
 
@@ -153,15 +160,15 @@ impl MudaAdapter {
         let menu_bar = muda::Menu::new();
         create_default_app_menu(&menu_bar)?;
         menu_bar.init_for_nsapp();
-        Ok(Self { entries: vec![], menubar: None, _menu: menu_bar })
+        Ok(Self { entries: vec![], menubar: None, menu: menu_bar, tracker: None })
     }
 
     #[cfg(target_os = "macos")]
     pub fn window_activation_changed(&self, is_active: bool) {
         if is_active {
-            self._menu.init_for_nsapp();
+            self.menu.init_for_nsapp();
         } else {
-            self._menu.remove_for_nsapp();
+            self.menu.remove_for_nsapp();
         }
     }
 }
