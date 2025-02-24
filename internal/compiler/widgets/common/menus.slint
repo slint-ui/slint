@@ -139,7 +139,7 @@ export component MenuBarImpl {
 
         for entry in entries: e := MenuBarItem {
             entry: entry;
-            
+
             clicked => {
                 context-menu.entries = root.sub-menu(entry);
                 context-menu.show({ x: e.x, y: root.height });

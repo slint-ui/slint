@@ -12,7 +12,7 @@ export component MenuBarItemBase {
     in property <length> font-size <=> label.font-size;
     in property <int> font-weight <=> label.font-weight;
     in property <length> border-radius <=> background-layer.border-radius;
-    
+
     callback clicked <=> touch-area.clicked;
 
     background-layer := Rectangle {
@@ -69,7 +69,7 @@ export component MenuFrameBase inherits Rectangle {
 
     layout := VerticalLayout {
         padding: root.padding;
-        
+
         @children
     }
 }
@@ -87,7 +87,7 @@ export component MenuItemBase {
     in property <image> sub-menu-icon;
     in property <length> spacing <=> layout.spacing;
     in property <length> icon-size;
-    
+
     callback set-current();
     callback clear-current();
     callback activate(entry : MenuEntry, y: length);
@@ -107,7 +107,7 @@ export component MenuItemBase {
                     color: root.default-foreground;
                     vertical-alignment: center;
                 }
-                
+
                 if entry.has-sub-menu : Image {
                     width: root.icon-size;
                     y: (parent.height - self.height) / 2;
@@ -116,7 +116,7 @@ export component MenuItemBase {
                     accessible-role: none;
                 }
             }
-            
+
             pointer-event(event) => {
                 if event.kind == PointerEventKind.move && !root.is-current {
                     root.set-current()

@@ -6,12 +6,12 @@ import { MenuBarItemBase, MenuBarBase, MenuFrameBase, MenuItemBase } from "../co
 
 export component MenuBarItem {
     in property <MenuEntry> entry <=> base.entry;
-    
+
     callback clicked <=> base.clicked;
 
     min-width: base.min-width;
     min-height: base.min-height;
-        
+
     base := MenuBarItemBase {
         padding-left: 11px;
         padding-right: 11px;
@@ -49,7 +49,7 @@ export component MenuFrame inherits MenuFrameBase {
 export component MenuItem {
     in property <bool> is-current <=> base.is-current;
     in property <MenuEntry> entry <=> base.entry;
-    
+
     callback set-current <=> base.set-current;
     callback clear-current <=> base.clear-current;
     callback activate <=> base.activate;
@@ -58,7 +58,7 @@ export component MenuItem {
 
     HorizontalLayout {
         padding: 5px;
-        
+
         base := MenuItemBase {
             default-foreground: CosmicPalette.foreground;
             current-foreground: CosmicPalette.accent-foreground;
