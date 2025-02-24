@@ -39,8 +39,8 @@ importers:
         specifier: 1.6.0
         version: 1.6.0
       typedoc:
-        specifier: 0.27.7
-        version: 0.27.7(typescript@5.7.3)
+        specifier: 0.27.8
+        version: 0.27.8(typescript@5.7.3)
       typescript:
         specifier: 5.7.3
         version: 5.7.3
@@ -1479,6 +1479,9 @@ packages:
 
   '@shikijs/vscode-textmate@10.0.1':
     resolution: {integrity: sha512-fTIQwLF+Qhuws31iw7Ncl1R3HUDtGwIipiJ9iU+UsDUwMhegFcQKQHd51nZjb7CArq0MvON8rbgCGQYWHUKAdg==}
+
+  '@shikijs/vscode-textmate@10.0.2':
+    resolution: {integrity: sha512-83yeghZ2xxin3Nj8z1NMd/NCuca+gsYXswywDy5bHvwlWL8tpTQmzGeUuHd9FC3E/SBEMvzJRwWEOz5gGes9Qg==}
 
   '@sindresorhus/merge-streams@2.3.0':
     resolution: {integrity: sha512-LtoMMhxAlorcGhmFYI+LhPgbPZCkgP6ra1YL604EeF6U98pLlQ3iWIGMdWSC+vWmPBWBNgmDBAhnAobLROJmwg==}
@@ -3967,8 +3970,8 @@ packages:
     resolution: {integrity: sha512-6kSc32kT0rbwxD6QL1CYe8IqdzN/J/ILMrNK+HMQCKH3insCDRY/3ITb0vcBss0a3t72fzh2YSzj8ko1HgwT3g==}
     engines: {node: '>=16'}
 
-  typedoc@0.27.7:
-    resolution: {integrity: sha512-K/JaUPX18+61W3VXek1cWC5gwmuLvYTOXJzBvD9W7jFvbPnefRnCHQCEPw7MSNrP/Hj7JJrhZtDDLKdcYm6ucg==}
+  typedoc@0.27.8:
+    resolution: {integrity: sha512-q0/2TUunNEDmWkn23ULKGXieK8cgGuAmBUXC/HcZ/rgzMI9Yr4Nq3in1K1vT1NZ9zx6M78yTk3kmIPbwJgK5KA==}
     engines: {node: '>= 18'}
     hasBin: true
     peerDependencies:
@@ -5295,7 +5298,7 @@ snapshots:
     dependencies:
       '@shikijs/engine-oniguruma': 1.29.2
       '@shikijs/types': 1.29.2
-      '@shikijs/vscode-textmate': 10.0.1
+      '@shikijs/vscode-textmate': 10.0.2
 
   '@img/sharp-darwin-arm64@0.33.5':
     optionalDependencies:
@@ -5814,20 +5817,20 @@ snapshots:
       '@shikijs/engine-javascript': 1.29.2
       '@shikijs/engine-oniguruma': 1.29.2
       '@shikijs/types': 1.29.2
-      '@shikijs/vscode-textmate': 10.0.1
+      '@shikijs/vscode-textmate': 10.0.2
       '@types/hast': 3.0.4
       hast-util-to-html: 9.0.4
 
   '@shikijs/engine-javascript@1.29.2':
     dependencies:
       '@shikijs/types': 1.29.2
-      '@shikijs/vscode-textmate': 10.0.1
+      '@shikijs/vscode-textmate': 10.0.2
       oniguruma-to-es: 2.3.0
 
   '@shikijs/engine-oniguruma@1.29.2':
     dependencies:
       '@shikijs/types': 1.29.2
-      '@shikijs/vscode-textmate': 10.0.1
+      '@shikijs/vscode-textmate': 10.0.2
 
   '@shikijs/langs@1.29.2':
     dependencies:
@@ -5839,10 +5842,12 @@ snapshots:
 
   '@shikijs/types@1.29.2':
     dependencies:
-      '@shikijs/vscode-textmate': 10.0.1
+      '@shikijs/vscode-textmate': 10.0.2
       '@types/hast': 3.0.4
 
   '@shikijs/vscode-textmate@10.0.1': {}
+
+  '@shikijs/vscode-textmate@10.0.2': {}
 
   '@sindresorhus/merge-streams@2.3.0': {}
 
@@ -9063,7 +9068,7 @@ snapshots:
 
   type-fest@4.34.1: {}
 
-  typedoc@0.27.7(typescript@5.7.3):
+  typedoc@0.27.8(typescript@5.7.3):
     dependencies:
       '@gerrit0/mini-shiki': 1.27.2
       lunr: 2.3.9
