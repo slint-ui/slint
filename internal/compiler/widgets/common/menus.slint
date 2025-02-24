@@ -3,7 +3,7 @@
 
 //! This file contains a generic implementation of the MenuBar and ContextMenu
 
-import { Palette } from "std-widgets-impl.slint";
+import { Palette, MenuBarItemImpl } from "std-widgets-impl.slint";
 
 component MenuItemImpl {
     in property <bool> is-current;
@@ -197,9 +197,10 @@ export component PopupMenuImpl inherits Window {
     }
 }
 
+
 export component MenuBarImpl {
-    callback activated(MenuEntry);
-    callback sub-menu(MenuEntry) -> [MenuEntry];
+    callback activated(menu-entry: MenuEntry);
+    callback sub-menu(menu-entry: MenuEntry) -> [MenuEntry];
 
     property <[MenuEntry]> entries;
     property <length> px: 1rem / 14;
@@ -212,27 +213,12 @@ export component MenuBarImpl {
         alignment: start;
         spacing: 1px;
 
-        for entry in entries: e := Rectangle {
-            // FIXME: note that the fluent style uses the secondary color for highlighted item
-            background: touch-area.has-hover || touch-area.pressed ? Palette.accent-background : transparent;
-            border-radius: 3px;
-
-            HorizontalLayout {
-                padding: 11px;
-                padding-top: 4px;
-                padding-bottom: 6px;
-
-                Text {
-                    text: entry.title;
-                    color: touch-area.has-hover || touch-area.pressed ? Palette.accent-foreground : Palette.foreground;
-                }
-            }
-
-            touch-area := TouchArea {
-                clicked => {
-                    context-menu.entries = root.sub-menu(entry);
-                    context-menu.show({ x: e.x, y: root.height });
-                }
+        for entry in entries: e := MenuBarItemImpl {
+            entry: entry;
+            
+            clicked => {
+                context-menu.entries = root.sub-menu(entry);
+                context-menu.show({ x: e.x, y: root.height });
             }
         }
 
@@ -248,7 +234,6 @@ export component MenuBarImpl {
             }
         }
     }
-
 
     context-menu := ContextMenuInternal {
         activated(entry) => { root.activated(entry); self.close(); }

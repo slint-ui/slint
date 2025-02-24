@@ -1,0 +1,52 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component MenuBarItemBase {
+    in property <MenuEntry> entry;
+    in property <brush> default-foreground;
+    in property <brush> hover-foreground;
+    in property <brush> pressed-foreground;
+    in property <brush> default-background;
+    in property <brush> hover-background;
+    in property <brush> pressed-background;
+    in property <length> font-size <=> label.font-size;
+    in property <int> font-weight <=> label.font-weight;
+    in property <length> border-radius <=> background-layer.border-radius;
+    in property <bool> is-current;
+    
+    callback clicked <=> touch-area.clicked;
+
+    background-layer := Rectangle {
+        background: root.default-background;
+
+        touch-area := TouchArea {
+            layout := HorizontalLayout {
+                padding-top: root.padding-top;
+                padding-bottom: root.padding-bottom;
+                padding-left: root.padding-left;
+                padding-right: root.padding-right;
+
+                label := Text {
+                    text: entry.title;
+                    color: root.default-foreground;
+                }
+            }
+        }
+    }
+
+    states [
+        is-current when root.is-current : {
+            background-layer.background: root.pressed-background;
+            label.color: root.pressed-foreground;
+        }
+        pressed when touch-area.pressed : {
+            background-layer.background: root.pressed-background;
+            label.color: root.pressed-foreground;
+        }
+        has-hover when touch-area.has-hover : {
+            background-layer.background: root.hover-background;
+            label.color: root.hover-foreground;
+        }
+    ]
+}
+
