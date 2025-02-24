@@ -1,0 +1,29 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { MenuBarItemBase } from "../common/menu-base.slint";
+
+export component MenuBarItemImpl {
+    in property <MenuEntry> entry <=> base.entry;
+    in property <bool> is-current <=> base.is-current;
+    
+    callback clicked <=> base.clicked;
+
+    min-width: base.min-width;
+    min-height: base.min-height;
+        
+    base := MenuBarItemBase {
+        padding-left: 11px;
+        padding-right: 11px;
+        padding-top: 4px;
+        padding-bottom: 6px;
+        default-foreground: NativePalette.foreground;
+        hover-foreground: NativePalette.accent-foreground;
+        pressed-foreground: NativePalette.accent-foreground;
+        hover-background: NativePalette.accent-background;
+        pressed-background: NativePalette.accent-background;
+        font-size: 14px;
+        font-weight: 300;
+        border-radius: 3px;
+    }
+}
