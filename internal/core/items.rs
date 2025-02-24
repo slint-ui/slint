@@ -1262,7 +1262,6 @@ impl Item for ContextMenu {
                         .platform()
                         .long_press_interval(crate::InternalToken),
                     move || {
-                        crate::debug_log!("Executing");
                         let Some(self_rc) = self_weak.upgrade() else { return };
                         let Some(self_) = self_rc.downcast::<ContextMenu>() else { return };
                         self_.show.call(&(crate::api::LogicalPosition::from_euclid(position),));
