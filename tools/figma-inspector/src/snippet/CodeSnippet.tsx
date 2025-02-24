@@ -18,7 +18,10 @@ import slintLang from "./Slint-tmLanguage.json";
 let highlighter: any;
 const initHighlighter = async () => {
     highlighter = await createHighlighterCore({
-        themes: [darkSlint as ThemeRegistration, lightSlint as ThemeRegistration],
+        themes: [
+            darkSlint as ThemeRegistration,
+            lightSlint as ThemeRegistration,
+        ],
         langs: [slintLang as LanguageRegistration],
         engine: createOnigurumaEngine(OnigurumaEngine),
     });
@@ -26,7 +29,10 @@ const initHighlighter = async () => {
 
 type HightlightTheme = "dark-slint" | "light-slint";
 
-export default function CodeSnippet({ code, theme }: { code: string; theme: HightlightTheme }) {
+export default function CodeSnippet({
+    code,
+    theme,
+}: { code: string; theme: HightlightTheme }) {
     const [highlightedCode, setHighlightedCode] = useState<ReactNode | null>(
         null,
     );
@@ -40,7 +46,7 @@ export default function CodeSnippet({ code, theme }: { code: string; theme: High
                 lang: "slint",
                 theme: theme,
             });
-            console.log("ell0", html)
+            console.log("ell0", html);
 
             if (isMounted) {
                 setHighlightedCode(parse(html));
@@ -54,6 +60,9 @@ export default function CodeSnippet({ code, theme }: { code: string; theme: High
         };
     }, [code, theme]);
 
-    
-    return <div className="content" style={{ display: 'flex' }}>{highlightedCode}</div>;
+    return (
+        <div className="content" style={{ display: "flex" }}>
+            {highlightedCode}
+        </div>
+    );
 }
