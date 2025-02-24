@@ -38,12 +38,17 @@ body {
     opacity: 0.7;
 }
 
+.content pre {
+    margin: 0;
+}
+
 .content {
     padding: 16px;
     font-size: 12px;
     color: var(--figma-color-text-secondary);
     white-space: pre-wrap;
     font-family: "Roboto Mono", Monaco, "Courier New", monospace;
+    font-weight: 200;
     overflow-x: auto;
     overflow-y: hidden;
     flex: 1;
