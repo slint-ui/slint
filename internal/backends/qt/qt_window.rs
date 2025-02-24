@@ -162,8 +162,10 @@ cpp! {{
             });
         }
         void mouseReleaseEvent(QMouseEvent *event) override {
+            auto [pos, rust_window] = adjust_mouse_event_to_popup_parent(event);
             if (!rust_window)
                 return;
+
             // HACK: Qt on windows is a bit special when clicking on the window
             //       close button and when the resulting close event is ignored.
             //       In that case a release event that was not preceded by
@@ -174,14 +176,14 @@ cpp! {{
             //       then ignores the the close request to ask the user what to
             //       do. The stray release event will then close the popup
             //       straight away
-            if (!isMouseButtonDown) {
+            //
+            //       However, we must still forward the event to the right popup menu
+            //       that's why we compare rust_window with this->rust_window
+            if (!isMouseButtonDown && rust_window == this->rust_window) {
                 return;
             }
             isMouseButtonDown = false;
 
-            auto [pos, rust_window] = adjust_mouse_event_to_popup_parent(event);
-            if (!rust_window)
-                return;
             int button = event->button();
             rust!(Slint_mouseReleaseEvent [rust_window: &QtWindow as "void*", pos: qttypes::QPoint as "QPoint", button: u32 as "int" ] {
                 let position = LogicalPoint::new(pos.x as _, pos.y as _);
