@@ -26,7 +26,7 @@ if (figma.editorType === "figma" && figma.mode === "default") {
     updateUI();
 }
 
-listenTS("copyToClipboard", ({result}) => {
+listenTS("copyToClipboard", ({ result }) => {
     if (result) {
         figma.notify("Copied!");
     } else {
