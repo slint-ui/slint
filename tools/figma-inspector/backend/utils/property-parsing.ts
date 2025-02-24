@@ -199,7 +199,6 @@ export function getBrush(fill: {
 }
 
 export function generateSlintSnippet(sceneNode: SceneNode): string | null {
-    console.log("node ID:", sceneNode.id);
     const nodeType = sceneNode.type;
 
     switch (nodeType) {

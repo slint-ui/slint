@@ -17,8 +17,6 @@ if (figma.editorType === "dev" && figma.mode === "codegen") {
     });
 }
 
-console.log("Figma plugin:", figma.editorType, figma.mode);
-
 if (figma.editorType === "figma" && figma.mode === "default") {
     figma.showUI(__html__, {
         themeColors: true,
