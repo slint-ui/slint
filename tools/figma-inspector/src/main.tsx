@@ -7,7 +7,6 @@ import { copyToClipboard } from "./utils/utils.js";
 import CodeSnippet from "./misc/CodeSnippet";
 import "./main.css";
 
-
 export const App = () => {
     const [title, setTitle] = useState("");
     const [slintProperties, setSlintProperties] = useState("");
