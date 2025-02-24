@@ -203,9 +203,6 @@
       }
     ]
   },
-  "files": [
-    "bin/slint-lsp-*"
-  ],
   "scripts": {
     "vscode:prepublish": "pnpm build:wasm_lsp-release && pnpm compile-production && shx echo \"GPL-3.0-only OR LicenseRef-Slint-Software-3.0\" > LICENSE.txt",
     "build:lsp": "cargo build -p slint-lsp",
@@ -214,7 +211,7 @@
     "build:wasm_lsp-release": "shx pwd | xargs -I {} wasm-pack build --release --target web --no-pack ../../tools/lsp --out-dir {}/out -- --no-default-features --features backend-winit,renderer-femtovg,preview",
     "compile": "node ./esbuild.js",
     "compile-production": "node ./esbuild.js --production",
-    "local-package": "shx mkdir -p bin && shx cp ../../target/debug/slint-lsp* bin/ && pnpm dlx vsce package --no-dependencies",
+    "local-package": "shx mkdir -p bin && shx cp ../../target/debug/slint-lsp* bin/ && pnpm dlx @vscode/vsce package --no-dependencies",
     "watch": "tsc -watch -p ./",
     "pretest": "pnpm compile && pnpm check",
     "check": "biome check",
