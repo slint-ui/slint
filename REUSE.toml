@@ -26,6 +26,7 @@ path = [
   "**/.eslintrc.yml",
   "**/.gitignore",
   "**/.npmignore",
+  "**/.vscodeignore",
   ".dockerignore",
   ".gitattributes",
   ".gitignore",
