@@ -1,11 +1,10 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { MenuBarItemBase, MenuBarBase, MenuFrameBase } from "../common/menu-base.slint";
+import { MenuBarItemBase, MenuBarBase, MenuFrameBase, MenuItemBase } from "../common/menu-base.slint";
 
 export component MenuBarItem {
     in property <MenuEntry> entry <=> base.entry;
-    in property <bool> is-current <=> base.is-current;
     
     callback clicked <=> base.clicked;
 
@@ -22,7 +21,7 @@ export component MenuBarItem {
         pressed-foreground: NativePalette.accent-foreground;
         hover-background: NativePalette.accent-background;
         pressed-background: NativePalette.accent-background;
-        font-size: 14px;
+        font-size: NativeStyleMetrics.default-font-size;
         font-weight: 300;
         border-radius: 3px;
     }
@@ -39,8 +38,36 @@ export component MenuFrame inherits MenuFrameBase {
     border-radius: 7px;
     border-width: 1px;
     border-color: NativePalette.border;
-    drop-shadow-color: NativePalette.shadow;
-    drop-shadow-offset-y: 8px;
-    drop-shadow-blur: 16px;
+    drop-shadow-color: transparent;
     padding: 1px;
+    layout-min-width: 280px;
+}
+
+export component MenuItem {
+    in property <bool> is-current <=> base.is-current;
+    in property <MenuEntry> entry <=> base.entry;
+    
+    callback set-current <=> base.set-current;
+    callback clear-current <=> base.clear-current;
+    callback activate <=> base.activate;
+
+    min-height: max(40px, base.min-height);
+
+    HorizontalLayout {
+        padding: 5px;
+        
+        base := MenuItemBase {
+            default-foreground: NativePalette.foreground;
+            current-foreground: NativePalette.accent-foreground;
+            current-background: NativePalette.accent-background;
+            font-size: NativeStyleMetrics.default-font-size;
+            font-weight: 300;
+            border-radius: 4px;
+            padding-left: 11px;
+            padding-right: 11px;
+            spacing: 8px;
+            sub-menu-icon: @image-url("_arrow_forward.svg");
+            icon-size: 12px;
+        }
+    }
 }

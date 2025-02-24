@@ -3,70 +3,7 @@
 
 //! This file contains a generic implementation of the MenuBar and ContextMenu
 
-import { Palette, MenuBarItem, MenuBar, MenuFrame } from "std-widgets-impl.slint";
-
-component MenuItemImpl {
-    in property <bool> is-current;
-    in property <MenuEntry> entry;
-
-    callback set-current();
-    callback clear-current();
-    callback activate(entry : MenuEntry, y: length);
-
-    background-layer := Rectangle {
-        background: Palette.background;
-        border-radius: 3px;
-        border-width: 1px;
-
-        HorizontalLayout {
-            spacing: 7px;
-            padding-left: 11px;
-            padding-top: 4px;
-            padding-bottom: 6px;
-
-            menu-text := Text {
-                text: entry.title;
-                horizontal-stretch: 1;
-                color: Palette.foreground;
-            }
-
-            if entry.has-sub-menu : Image {
-                source: @image-url("../fluent/_arrow_forward.svg");
-                colorize: menu-text.color;
-                accessible-role: none;
-            }
-        }
-
-        TouchArea {
-            pointer-event(event) => {
-                if event.kind == PointerEventKind.move && !root.is-current {
-                    root.set-current()
-                } else if event.kind == PointerEventKind.down && entry.has-sub-menu {
-                    activate(entry, self.absolute-position.y);
-                } else if event.kind == PointerEventKind.up
-                        && self.mouse-y > 0 && self.mouse-y < self.height
-                        && self.mouse-x > 0 && self.mouse-x < self.width {
-                    // can't put this in `clicked` because then the menu would close causing a panic in the pointer-event
-                    activate(entry, self.absolute-position.y);
-                }
-            }
-
-            changed has-hover => {
-                if !self.has-hover && root.is-current {
-                    root.clear-current();
-                }
-            }
-        }
-    }
-
-    states [
-        is-current when root.is-current: {
-            // FIXME: note that the fluent style uses the secondary color for highlighted item
-            background-layer.background: Palette.accent-background;
-            menu-text.color: Palette.accent-foreground;
-        }
-    ]
-}
+import { Palette, MenuBarItem, MenuBar, MenuFrame, MenuItem } from "std-widgets-impl.slint";
 
 export component PopupMenuImpl inherits Window {
     in property <[MenuEntry]> entries: [];
@@ -83,7 +20,7 @@ export component PopupMenuImpl inherits Window {
 
     focus-scope := FocusScope {
         frame := MenuFrame {
-            for entry[index] in entries: MenuItemImpl {
+            for entry[index] in entries: MenuItem {
                 entry: entry;
                 is-current: current == index;
 
