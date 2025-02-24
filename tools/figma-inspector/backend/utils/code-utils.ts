@@ -45,7 +45,7 @@ export const setStore = async (key: string, value: string) => {
     await figma.clientStorage.setAsync(key, value);
 };
 
-export async function updateUI() {
+export function updateUI() {
     const currentSelection = figma.currentPage.selection;
 
     if (currentSelection.length === 0) {
