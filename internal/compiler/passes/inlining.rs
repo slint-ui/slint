@@ -131,14 +131,16 @@ fn inline_element(
             let children = std::mem::take(&mut elem_mut.children);
             let old_count = children.len();
             if let Some(insertion_element) = mapping.get(&element_key(insertion_element.clone())) {
-                if !Rc::ptr_eq(elem, insertion_element) {
-                    debug_assert!(std::rc::Weak::ptr_eq(
-                        &insertion_element.borrow().enclosing_component,
-                        &elem_mut.enclosing_component,
-                    ));
-                    insertion_element.borrow_mut().children.splice(index..index, children);
-                } else {
-                    new_children.splice(index..index, children);
+                if old_count > 0 {
+                    if !Rc::ptr_eq(elem, insertion_element) {
+                        debug_assert!(std::rc::Weak::ptr_eq(
+                            &insertion_element.borrow().enclosing_component,
+                            &elem_mut.enclosing_component,
+                        ));
+                        insertion_element.borrow_mut().children.splice(index..index, children);
+                    } else {
+                        new_children.splice(index..index, children);
+                    }
                 }
                 let mut cip = root_component.child_insertion_point.borrow_mut();
                 if let Some(cip) = cip.as_mut() {

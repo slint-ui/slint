@@ -149,6 +149,37 @@ assert_eq!(instance.get_offset_x(), 0.);
 assert_eq!(instance.get_offset_y(), 0.);
 
 instance.set_clicked(-1);
+// - Same but over a longer period (long press) so it should be pressed
+
+// Start a press
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(165.0, 175.0), button: PointerEventButton::Left });
+assert!(!instance.get_inner_ta_pressed());
+assert!(instance.get_inner_ta_has_hover());
+assert_eq!(instance.get_clicked(), -1);
+// make a small move
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(166.0, 174.0) });
+assert!(!instance.get_inner_ta_pressed());
+assert!(instance.get_inner_ta_has_hover());
+slint_testing::mock_elapsed_time(30);
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(167.0, 175.0) });
+assert!(!instance.get_inner_ta_pressed());
+slint_testing::mock_elapsed_time(300);
+assert!(instance.get_inner_ta_pressed(), "now we should be marked as pressed");
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(166.0, 175.0) });
+assert!(instance.get_inner_ta_pressed(), "still pressed");
+slint_testing::mock_elapsed_time(30);
+assert!(instance.get_inner_ta_pressed(), "still pressed");
+// and release
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(167.0, 174.0), button: PointerEventButton::Left });
+assert!(!instance.get_inner_ta_pressed());
+assert!(instance.get_inner_ta_has_hover());
+assert_eq!(instance.get_clicked(), 7_00014);
+assert_eq!(instance.get_double_clicked(), 7_00014);
+assert_eq!(instance.get_offset_x(), 0.);
+assert_eq!(instance.get_offset_y(), 0.);
+
+instance.set_double_clicked(0);
+instance.set_clicked(-1);
 
 // Start a press
 instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(175.0, 175.0), button: PointerEventButton::Left });
