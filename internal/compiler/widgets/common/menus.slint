@@ -14,8 +14,6 @@ component MenuItemImpl {
     callback activate(entry : MenuEntry, y: length);
 
     background-layer := Rectangle {
-
-        // FIXME: note that the fluent style uses the secondary color for highlighted item
         background: Palette.background;
         border-radius: 3px;
         border-width: 1px;
@@ -63,6 +61,7 @@ component MenuItemImpl {
 
     states [
         is-current when root.is-current: {
+            // FIXME: note that the fluent style uses the secondary color for highlighted item
             background-layer.background: Palette.accent-background;
             menu-text.color: Palette.accent-foreground;
         }
@@ -97,6 +96,7 @@ export component PopupMenuImpl inherits Window {
 
             for entry[index] in entries: MenuItemImpl {
                 entry: entry;
+                is-current: current == index;
 
                 set-current => {
                     focus-scope.focus();
