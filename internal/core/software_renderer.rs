@@ -1235,18 +1235,23 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> RenderToBuffer<'_, B> {
             self.foreach_region(&geometry, |buffer, rect, _extra_left_clip, _extra_right_clip| {
                 let begin = rect.min_x();
                 let end = rect.max_x();
-                for l in rect.y_range() {
-                    match composition_mode {
-                        CompositionMode::Source => {
-                            let mut fill_col = B::TargetPixel::background();
-                            B::TargetPixel::blend(&mut fill_col, color);
+
+                match composition_mode {
+                    CompositionMode::Source => {
+                        let mut fill_col = B::TargetPixel::background();
+                        B::TargetPixel::blend(&mut fill_col, color);
+                        for l in rect.y_range() {
                             buffer.line_slice(l as usize)[begin as usize..end as usize]
                                 .fill(fill_col)
                         }
-                        CompositionMode::SourceOver => <B::TargetPixel>::blend_slice(
-                            &mut buffer.line_slice(l as usize)[begin as usize..end as usize],
-                            color,
-                        ),
+                    }
+                    CompositionMode::SourceOver => {
+                        for l in rect.y_range() {
+                            <B::TargetPixel>::blend_slice(
+                                &mut buffer.line_slice(l as usize)[begin as usize..end as usize],
+                                color,
+                            )
+                        }
                     }
                 }
             })
