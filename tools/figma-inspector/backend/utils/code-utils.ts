@@ -3,6 +3,7 @@
 
 import type { Message, PluginMessageEvent } from "../../src/globals";
 import type { EventTS } from "../../shared/universals";
+import { generateSlintSnippet } from "./property-parsing.js";
 
 export const dispatch = (data: any, origin = "*") => {
     figma.ui.postMessage(data, {
@@ -43,3 +44,22 @@ export const getStore = async (key: string) => {
 export const setStore = async (key: string, value: string) => {
     await figma.clientStorage.setAsync(key, value);
 };
+
+export function updateUI() {
+    const currentSelection = figma.currentPage.selection;
+
+    if (currentSelection.length === 0) {
+        const title = "Nothing selected";
+        const slintSnippet = "";
+        figma.ui.postMessage({ title, slintSnippet });
+        dispatchTS("updatePropertiesCallback", { title, slintSnippet });
+        return;
+    }
+
+    const node = currentSelection[0];
+    const title = "Slint Code: " + node.name;
+    const slintSnippet = generateSlintSnippet(node) ?? "";
+
+    figma.ui.postMessage({ title, slintSnippet });
+    dispatchTS("updatePropertiesCallback", { title, slintSnippet });
+}
