@@ -235,7 +235,9 @@ fn default_config() -> cbindgen::Config {
     config.defines = [
         ("target_pointer_width = 64".into(), "SLINT_TARGET_64".into()),
         ("target_pointer_width = 32".into(), "SLINT_TARGET_32".into()),
-        ("target_arch = wasm32".into(), "SLINT_TARGET_WASM".into()), // Disable any wasm guarded code in C++, too - so that there are no gaps in enums.
+        // Disable any wasm guarded code in C++, too - so that there are no gaps in enums.
+        ("target_arch = wasm32".into(), "SLINT_TARGET_WASM".into()),
+        ("target_os = android".into(), "__ANDROID__".into()),
     ]
     .iter()
     .cloned()

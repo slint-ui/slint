@@ -18,6 +18,7 @@ pub use android_activity::AndroidApp;
 use android_activity::PollEvent;
 use androidwindowadapter::AndroidWindowAdapter;
 use core::ops::ControlFlow;
+use core::time::Duration;
 use i_slint_core::api::{EventLoopError, PlatformError};
 use i_slint_core::platform::{Clipboard, WindowAdapter};
 use i_slint_renderer_skia::SkiaRendererExt;
@@ -100,7 +101,7 @@ impl i_slint_core::platform::Platform for AndroidPlatform {
             let mut timeout = i_slint_core::platform::duration_until_next_timer_update();
             if self.window.window.has_active_animations() {
                 // FIXME: we should not hardcode a value here
-                let frame_duration = std::time::Duration::from_millis(10);
+                let frame_duration = Duration::from_millis(10);
                 timeout = Some(match timeout {
                     Some(x) => x.min(frame_duration),
                     None => frame_duration,
@@ -151,6 +152,10 @@ impl i_slint_core::platform::Platform for AndroidPlatform {
         } else {
             None
         }
+    }
+
+    fn long_press_interval(&self, _: i_slint_core::InternalToken) -> Duration {
+        self.window.java_helper.long_press_timeout().unwrap_or(Duration::from_millis(500))
     }
 }
 
