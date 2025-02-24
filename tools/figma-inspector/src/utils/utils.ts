@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 import { dispatchTS } from "./bolt-utils.js";
 
-export function writeTextToClipboard(str: string) {
+export async function writeTextToClipboard(str: string) {
     const prevActive = document.activeElement;
     const textArea = document.createElement("textarea");
 
@@ -17,19 +17,30 @@ export function writeTextToClipboard(str: string) {
     textArea.focus();
     textArea.select();
 
-    return new Promise<void>((res, rej) => {
-        document.execCommand("copy") ? res() : rej();
+    try {
+        const successful = document.execCommand("copy");
+        if (!successful) {
+            throw new Error("Copy command failed");
+        }
+    } catch (e) {
+        throw new Error("Failed to copy text: " + e.message);
+    } finally {
         textArea.remove();
-
         if (prevActive && prevActive instanceof HTMLElement) {
             prevActive.focus();
         }
-    });
+    }
 }
 
-export function copyToClipboard(slintProperties: string) {
-    writeTextToClipboard(slintProperties);
-    dispatchTS("copyToClipboard", {
-        result: true,
-    });
+export async function copyToClipboard(slintProperties: string) {
+    try {
+        await writeTextToClipboard(slintProperties);
+        dispatchTS("copyToClipboard", {
+            result: true,
+        });
+    } catch (error) {
+        dispatchTS("copyToClipboard", {
+            result: false,
+        });
+    }
 }

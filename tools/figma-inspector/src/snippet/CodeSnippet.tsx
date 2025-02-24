@@ -46,7 +46,6 @@ export default function CodeSnippet({
                 lang: "slint",
                 theme: theme,
             });
-            console.log("ell0", html);
 
             if (isMounted) {
                 setHighlightedCode(parse(html));

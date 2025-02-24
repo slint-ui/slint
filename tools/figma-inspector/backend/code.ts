@@ -26,8 +26,12 @@ if (figma.editorType === "figma" && figma.mode === "default") {
     updateUI();
 }
 
-listenTS("copyToClipboard", () => {
-    figma.notify("Copied!");
+listenTS("copyToClipboard", ({result}) => {
+    if (result) {
+        figma.notify("Copied!");
+    } else {
+        figma.notify("Failed to copy");
+    }
 });
 
 figma.on("selectionchange", () => {
