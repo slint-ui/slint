@@ -1145,6 +1145,7 @@ impl WindowAdapterInternal for WinitWindowAdapter {
             menubar,
             &self.winit_window().unwrap(),
             self.event_loop_proxy.clone(),
+            self.self_weak.clone(),
         )));
     }
 
