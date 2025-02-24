@@ -1,16 +1,40 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+use super::WinitWindowAdapter;
 use crate::SlintUserEvent;
+use core::pin::Pin;
+use i_slint_core::items::MenuEntry;
 use i_slint_core::menus::MenuVTable;
+use i_slint_core::properties::{PropertyDirtyHandler, PropertyTracker};
+use std::rc::Weak;
 use winit::event_loop::EventLoopProxy;
 use winit::window::Window;
 
 pub struct MudaAdapter {
-    entries: Vec<i_slint_core::items::MenuEntry>,
+    entries: Vec<MenuEntry>,
     menubar: Option<vtable::VBox<MenuVTable>>,
-    // We need to keep menu alive, otherwise muda segfaults
-    _menu: muda::Menu,
+    tracker: Pin<Box<PropertyTracker<MudaPropertyTracker>>>,
+    menu: muda::Menu,
+}
+
+struct MudaPropertyTracker {
+    window_adapter_weak: Weak<WinitWindowAdapter>,
+}
+
+impl PropertyDirtyHandler for MudaPropertyTracker {
+    fn notify(self: Pin<&Self>) {
+        let win = self.window_adapter_weak.clone();
+        i_slint_core::timers::Timer::single_shot(Default::default(), move || {
+            if let Some(win) = win.upgrade() {
+                if let Some(winit_window) = win.winit_window() {
+                    if let Some(muda_adapter) = win.muda_adapter.borrow_mut().as_mut() {
+                        muda_adapter.rebuild_menu(&winit_window);
+                    }
+                }
+            }
+        })
+    }
 }
 
 impl MudaAdapter {
@@ -18,14 +42,45 @@ impl MudaAdapter {
         menubar: vtable::VBox<MenuVTable>,
         winit_window: &Window,
         proxy: EventLoopProxy<SlintUserEvent>,
+        window_adapter_weak: Weak<WinitWindowAdapter>,
     ) -> Self {
-        type MenuRef<'a> = vtable::VRef<'a, MenuVTable>;
-        type EntryMap = Vec<i_slint_core::items::MenuEntry>;
+        let menu = muda::Menu::new();
+
+        muda::MenuEvent::set_event_handler(Some(move |e| {
+            let _ = proxy.send_event(SlintUserEvent(crate::event_loop::CustomEvent::Muda(e)));
+        }));
+
+        #[cfg(target_os = "windows")]
+        {
+            use winit::raw_window_handle::*;
+            if let RawWindowHandle::Win32(handle) = winit_window.window_handle().unwrap().as_raw() {
+                unsafe { menu.init_for_hwnd(handle.hwnd.get()).unwrap() };
+            }
+        }
+        #[cfg(target_os = "macos")]
+        {
+            menu.init_for_nsapp();
+        }
+
+        let tracker = Box::pin(PropertyTracker::new_with_dirty_handler(MudaPropertyTracker {
+            window_adapter_weak,
+        }));
+
+        let mut s = Self { entries: Default::default(), menubar: Some(menubar), tracker, menu };
+        s.rebuild_menu(winit_window);
+        s
+    }
+
+    fn rebuild_menu(&mut self, winit_window: &Window) {
+        // clear the menu
+        while self.menu.remove_at(0).is_some() {}
+        self.entries.clear();
+
         fn generate_menu_entry(
-            menu: MenuRef,
-            entry: &i_slint_core::items::MenuEntry,
+            menu: vtable::VRef<'_, MenuVTable>,
+            entry: &MenuEntry,
             depth: usize,
-            map: &mut EntryMap,
+            map: &mut Vec<MenuEntry>,
             window_id: &str,
         ) -> Box<dyn muda::IsMenuItem> {
             let id = muda::MenuId(format!("{window_id}|{}", map.len()));
@@ -63,38 +118,28 @@ impl MudaAdapter {
             }
         }
 
-        let menu = muda::Menu::new();
-
         // Until we have menu roles, always create an app menu on macOS.
         #[cfg(target_os = "macos")]
         create_default_app_menu(&menu).unwrap();
 
-        let mut map = EntryMap::new();
-        let mut menu_entries = Default::default();
-        menubar.sub_menu(None, &mut menu_entries);
-        let window_id = u64::from(winit_window.id()).to_string();
-        for e in menu_entries {
-            menu.append(&*generate_menu_entry(menubar.borrow(), &e, 0, &mut map, &window_id))
-                .unwrap();
+        if let Some(menubar) = self.menubar.as_ref() {
+            self.tracker.as_ref().evaluate(|| {
+                let mut menu_entries = Default::default();
+                menubar.sub_menu(None, &mut menu_entries);
+                let window_id = u64::from(winit_window.id()).to_string();
+                for e in menu_entries {
+                    self.menu
+                        .append(&*generate_menu_entry(
+                            menubar.borrow(),
+                            &e,
+                            0,
+                            &mut self.entries,
+                            &window_id,
+                        ))
+                        .unwrap();
+                }
+            });
         }
-
-        muda::MenuEvent::set_event_handler(Some(move |e| {
-            let _ = proxy.send_event(SlintUserEvent(crate::event_loop::CustomEvent::Muda(e)));
-        }));
-
-        #[cfg(target_os = "windows")]
-        {
-            use winit::raw_window_handle::*;
-            if let RawWindowHandle::Win32(handle) = winit_window.window_handle().unwrap().as_raw() {
-                unsafe { menu.init_for_hwnd(handle.hwnd.get()).unwrap() };
-            }
-        }
-        #[cfg(target_os = "macos")]
-        {
-            menu.init_for_nsapp();
-        }
-
-        Self { entries: map, menubar: Some(menubar), _menu: menu }
     }
 
     pub fn invoke(&self, entry_id: usize) {
