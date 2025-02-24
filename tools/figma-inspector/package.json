@@ -28,6 +28,6 @@
     "vite": "6.1.0",
     "vite-figma-plugin": "0.0.24",
     "vite-plugin-singlefile": "2.1.0",
-    "vitest": "3.0.5"
+    "vitest": "3.0.6"
   }
 }
