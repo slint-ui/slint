@@ -348,20 +348,23 @@ impl NodeCollection {
 
         let id = self.encode_item_node_id(&item);
 
-        let popup_child = popups.iter().find_map(|popup| {
-            if popup.parent_node != id {
-                return None;
-            }
+        let popup_children = popups
+            .iter()
+            .filter_map(|popup| {
+                if popup.parent_node != id {
+                    return None;
+                }
 
-            let popup_item = ItemRc::new(popup.component.clone(), 0);
-            Some(self.build_node_for_item_recursively(
-                popup_item,
-                nodes,
-                popups,
-                scale_factor,
-                popup.location,
-            ))
-        });
+                let popup_item = ItemRc::new(popup.component.clone(), 0);
+                Some(self.build_node_for_item_recursively(
+                    popup_item,
+                    nodes,
+                    popups,
+                    scale_factor,
+                    popup.location,
+                ))
+            })
+            .collect::<Vec<_>>();
 
         let children = i_slint_core::accessibility::accessible_descendents(&item)
             .map(|child| {
@@ -373,7 +376,7 @@ impl NodeCollection {
                     window_position,
                 )
             })
-            .chain(popup_child)
+            .chain(popup_children)
             .collect::<Vec<NodeId>>();
 
         node.set_children(children.clone());
