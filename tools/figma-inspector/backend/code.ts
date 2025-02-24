@@ -34,6 +34,7 @@ listenTS("copyToClipboard", () => {
 
 figma.on("selectionchange", () => {
     if (figma.editorType === "figma" && figma.mode === "default") {
+        console.log("selection changed")
         updateUI();
     }
 });

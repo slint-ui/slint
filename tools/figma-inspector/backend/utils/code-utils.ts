@@ -46,7 +46,17 @@ export const setStore = async (key: string, value: string) => {
 };
 
 export async function updateUI() {
-    const node = figma.currentPage.selection[0];
+    const currentSelection = figma.currentPage.selection;
+
+    if (currentSelection.length === 0) {
+        const title = "Nothing selected";
+        const slintSnippet = "";
+        figma.ui.postMessage({ title, slintSnippet });
+        dispatchTS("updatePropertiesCallback", { title, slintSnippet });
+        return;
+    }
+
+    const node = currentSelection[0];
     const title = "Slint Code: " + node.name;
     const slintSnippet = generateSlintSnippet(node);
 

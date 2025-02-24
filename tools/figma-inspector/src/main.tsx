@@ -1,11 +1,12 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { listenTS } from "./utils/bolt-utils";
-import "./main.css";
 import { copyToClipboard } from "./utils/utils.js";
-import ShikiHighlighter from "react-shiki";
+import CodeSnippet from "./misc/CodeSnippet";
+import "./main.css";
+
 
 export const App = () => {
     const [title, setTitle] = useState("");
@@ -35,13 +36,7 @@ export const App = () => {
                     </span>
                 )}
             </div>
-            <ShikiHighlighter
-                className="content"
-                language="css"
-                theme="dracula"
-            >
-                {slintProperties}
-            </ShikiHighlighter>
+            <CodeSnippet code={slintProperties} />
         </div>
     );
 };
