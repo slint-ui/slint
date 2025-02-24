@@ -51,6 +51,13 @@ component ResettingLineEdit {
 
     callback accepted <=> le.accepted;
     callback edited <=> le.edited;
+
+    changed default-text => {
+        if !le.has-focus {
+            le.text = root.default-text;
+        }        
+    }
+
     VerticalLayout {
         le := LineEdit {
             enabled: root.enabled;
@@ -174,7 +181,7 @@ component SecondaryContent inherits Rectangle {
     in property <bool> open: false;
     in property <bool> has-code-action: true;
     in property <bool> has-reset-action: true;
-    
+
     callback reset();
 
     callback code-action();
@@ -231,7 +238,8 @@ component FloatWidget inherits VerticalLayout {
     pure callback test-float-binding(text: string) -> bool;
     pure callback set-float-binding(text: string);
 
-    private property <string> current-unit: find_current_unit(property-value);
+    private property <string> current-unit;
+    private property <PropertyValue> dummy: self.property-value;
 
     pure function find_current_unit(value: PropertyValue) -> string {
         if value.visual-items.length == 0 {
@@ -246,6 +254,21 @@ component FloatWidget inherits VerticalLayout {
 
     function set-binding() {
         root.set-float-binding(number.text == "" ? "" : number.text + self.current-unit);
+    }
+
+    function test-binding() -> bool {
+        return root.test-float-binding(number.text == "" ? "" : number.text + self.current-unit);
+    }
+
+    function apply-value() {
+        number.default-text = self.property-value.value-float;
+        current-unit = find_current_unit(property-value);
+    }
+
+    changed dummy => {
+        if !number.has-focus && self.property-value.kind == PropertyValueKind.float {
+            apply-value();
+        }
     }
 
     spacing: EditorSpaceSettings.default-spacing;
@@ -271,7 +294,6 @@ component FloatWidget inherits VerticalLayout {
         HorizontalLayout {
             spacing: EditorSpaceSettings.default-spacing;
             alignment: stretch;
-            height: 2rem;
 
             number := ResettingLineEdit {
                 enabled: root.enabled;
@@ -282,11 +304,17 @@ component FloatWidget inherits VerticalLayout {
                 default-text: property-value.value-float;
 
                 edited(text) => {
-                    self.can-compile = test-float-binding(number.text == "" ? "" : number.text + root.current-unit);
+                    self.can-compile = root.test-binding();
                 }
 
                 accepted(text) => {
                     root.set-binding();
+                }
+
+                changed has-focus => {
+                    if !self.has-focus {
+                        root.apply-value();
+                    }
                 }
             }
 
@@ -301,7 +329,7 @@ component FloatWidget inherits VerticalLayout {
 
                 selected(unit) => {
                     root.current-unit = unit;
-                    root.set-float-binding(number.text == "" ? "" : number.text + root.current-unit);
+                    root.set-binding();
                 }
             }
             if property-value.visual-items.length == 1: Text {
@@ -329,6 +357,8 @@ component StringWidget inherits VerticalLayout {
 
     property <bool> open: false;
 
+    private property <PropertyValue> dummy: self.property-value;
+
     callback code-action();
     callback reset-action();
 
@@ -344,8 +374,30 @@ component StringWidget inherits VerticalLayout {
         set-string-binding(Api.string-to-code(text-rle.text, tr-cb.checked, tr-context.text, "", ""), tr-cb.checked);
     }
 
+    function apply-value() {
+        text_rle.default-text = property-value.value-string;        
+        tr-cb.checked = root.property-value.is-translatable;
+        tr-context.default-text = root.property-value.tr-context;
+    }
+    
     init => {
         self.i-am-a-hack-remove-me = self.preferred-height;
+
+        apply-value();
+    }
+
+    private property <bool> has-focus: text_rle.has-focus || tr-context.has-focus;
+
+    changed has-focus => {
+        if !has-focus {
+            apply-value();
+        }
+    }
+
+    changed dummy => {
+        if !has-focus {
+            apply-value();
+        }
     }
 
     spacing: EditorSpaceSettings.default-spacing;
@@ -373,7 +425,6 @@ component StringWidget inherits VerticalLayout {
 
             text_rle := ResettingLineEdit {
                 enabled: root.enabled;
-                default-text: property-value.value-string;
                 edited(text) => {
                     self.can-compile = root.tsb();
                 }
@@ -422,7 +473,6 @@ component StringWidget inherits VerticalLayout {
 
                     tr-context := ResettingLineEdit {
                         enabled: root.enabled && tr-cb.checked;
-                        default-text: root.property-value.tr-context;
                         edited(text) => {
                             self.can-compile = root.tsb();
                         }
@@ -480,6 +530,8 @@ component ColorLineEdit inherits HorizontalLayout {
     in property <string> channel: "R";
     in-out property <float> value;
 
+    out property <bool> has-focus: slide-value.has-focus || num-value.has-focus;
+
     spacing: EditorSpaceSettings.default-spacing;
 
     Text {
@@ -518,6 +570,7 @@ component ColorWidget inherits VerticalLayout {
     in property <bool> has-reset-action <=> sub.has-reset-action;
 
     private property <bool> open: false;
+    private property <PropertyValue> dummy: property-value; // Needed to make changed signal work...
 
     callback code-action();
     callback reset-action();
@@ -525,15 +578,46 @@ component ColorWidget inherits VerticalLayout {
     pure callback test-color-binding(text: string) -> bool;
     pure callback set-color-binding(text: string);
 
-    private property <color> current-color: property-value.value-brush;
+    private property <color> current-color;
     private property <ColorData> current-color-data: Api.color-to-data(self.current-color);
 
     changed current-color-data => {
-        root.test-color-binding(current-color-data.text);
+        root.current-color-data = Api.color-to-data(self.current-color);
+        if self.has-focus {
+            root.test-color-binding(current-color-data.text);
+        }
+        rle.default-text = current-color-data.text;
     }
 
     spacing: EditorSpaceSettings.default-spacing;
     width: 100%;
+
+    function apply-value() {
+        root.current-color = self.property-value.value-brush;
+        root.current-color-data = Api.color-to-data(self.property-value.value-brush);
+    }
+    
+    private property <bool> has-focus: rle.has-focus || r.has-focus || g.has-focus || b.has-focus || a.has-focus;
+
+    init => {
+        apply-value();
+    }
+
+    changed has-focus => {
+        if !self.has-focus {
+            apply-value();
+        }
+    }
+
+    changed dummy => {
+        if self.property-value.kind != PropertyValueKind.color {
+            return;
+        }
+
+        if !self.has-focus {
+            apply-value();
+        }
+    }
 
     HorizontalLayout {
         Rectangle {
@@ -564,11 +648,12 @@ component ColorWidget inherits VerticalLayout {
                     if text == "" {
                         // allow empty text -- which will delete the property
                         self.can-compile = true;
-                        color-preview.background = Colors.transparent;
+                        root.current-color = Colors.transparent;
+                        root.current-color-data = Api.color-to-data(root.current-color);
                     } else {
-                        self.can-compile = root.test-color-binding(text);
                         if self.can-compile {
-                            color-preview.background = Api.string-to-color(text);
+                            root.current-color = Api.string-to-color(text);
+                            root.current-color-data = Api.color-to-data(root.current-color);
                         }
                     }
                 }
@@ -592,12 +677,15 @@ component ColorWidget inherits VerticalLayout {
         }
 
         sub := SecondaryContent {
-            out property <color> slider-color: Api.rgba-to-color(r.value, g.value, b.value, a.value);
+            private property <color> slider-color: Api.rgba-to-color(r.value, g.value, b.value, a.value);
 
             enabled: root.enabled;
 
             changed slider-color => {
-                root.current-color = slider-color;
+                if r.has-focus || g.has-focus || b.has-focus || a.has-focus {
+                    root.current-color = slider-color;
+                    root.current-color-data = Api.color-to-data(self.slider-color);
+                }
             }
 
             open: childIndicator.open;
@@ -606,8 +694,11 @@ component ColorWidget inherits VerticalLayout {
                 enabled: root.enabled;
                 value: root.current-color-data.r;
                 channel: "R";
+
                 changed value => {
-                    root.set-color-binding(rle.text);
+                    if self.has-focus {
+                        root.set-color-binding(rle.text);
+                    }
                 }
             }
 
@@ -616,7 +707,9 @@ component ColorWidget inherits VerticalLayout {
                 value: root.current-color-data.g;
                 channel: "G";
                 changed value => {
-                    root.set-color-binding(rle.text);
+                    if self.has-focus {
+                        root.set-color-binding(rle.text);
+                    }
                 }
 
             }
@@ -626,7 +719,9 @@ component ColorWidget inherits VerticalLayout {
                 value: root.current-color-data.b;
                 channel: "B";
                 changed value => {
-                    root.set-color-binding(rle.text);
+                    if self.has-focus {
+                        root.set-color-binding(rle.text);
+                    }
                 }
             }
 
@@ -635,12 +730,10 @@ component ColorWidget inherits VerticalLayout {
                 value: root.current-color-data.a;
                 channel: "A";
                 changed value => {
-                    root.set-color-binding(rle.text);
+                    if self.has-focus {
+                        root.set-color-binding(rle.text);
+                    }
                 }
-            }
-
-            reset => {
-                root.current-color = root.property-value.value-brush;
             }
 
             code-action() => {
@@ -704,6 +797,14 @@ component EnumWidget inherits VerticalLayout {
     in property <string> property-name;
     in property <PropertyValue> property-value;
 
+    private property <PropertyValue> dummy: self.property-value; 
+
+    changed dummy => {
+        if self.property-value.kind == PropertyValueKind.enum {
+            cb.current-index = root.property-value.value-int;
+        }
+    }
+
     pure callback set-enum-binding(text: string);
 
     spacing: EditorSpaceSettings.default-spacing;
@@ -726,11 +827,11 @@ component EnumWidget inherits VerticalLayout {
             visible: false;
         }
         HorizontalLayout {
-            ComboBox {
+            cb := ComboBox {
                 enabled: root.enabled;
-                current-index: property-value.value-int;
+                current-index: root.property-value.value-int;
 
-                model: property-value.visual-items;
+                model: root.property-value.visual-items;
 
                 selected(value) => {
                     root.set-enum-binding(property-value.value-string + "." + value);
@@ -792,10 +893,25 @@ component EditJsonWidget inherits VerticalLayout {
     spacing: EditorSpaceSettings.default-spacing;
     width: 100%;
 
+    function apply-value() {
+        edit.text = root.property-value.code;
+    }
+    
+    init => {
+        apply-value();
+    }
+
+    private property <bool> has-focus: edit.has-focus;
+
+    changed has-focus => {
+        if !has-focus {
+            apply-value();
+        }
+    }
+
     changed property-value => {
-        if !edit.has-focus {
-            edit.text = root.property-value.code;
-            root.can-compile = true;
+        if !has-focus {
+            apply-value();
         }
     }
 
@@ -821,7 +937,6 @@ component EditJsonWidget inherits VerticalLayout {
                 edit := TextEdit {
                     min-height: 200px;
 
-                    text: root.property-value.code;
                     enabled: root.enabled;
 
                     edited(text) => {
@@ -987,11 +1102,9 @@ export component PropertyValueWidget inherits VerticalLayout {
                 code-action() => {
                     root.code-action();
                 }
-
                 test-string-binding(text, is_translated) => {
                     return root.test-string-binding(text, is_translated);
                 }
-
                 set-string-binding(text, is_translated) => {
                     root.set-string-binding(text, is_translated);
                 }
