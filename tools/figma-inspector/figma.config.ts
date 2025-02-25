@@ -14,11 +14,7 @@ export const manifest: PluginManifest = {
     capabilities: ["codegen", "vscode"],
     codegenLanguages: [{ label: "Slint", value: "slint" }],
     codegenPreferences: [],
-    documentAccess: "dynamic-page",
-    networkAccess: {
-        allowedDomains: ["*"],
-        reasoning: "For accessing remote assets",
-    },
+    documentAccess: "dynamic-page"
 };
 
 const extraPrefs = {
