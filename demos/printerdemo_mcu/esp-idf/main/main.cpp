@@ -13,6 +13,11 @@
 #include <bsp/touch.h>
 #include <vector>
 
+// This example renders the frame using the line by line rendering.
+// Optionally, define `USE_FRAME_BUFFER` to allocate use a buffer and use the
+// the renderer that renders the whole buffer.
+// #define USE_FRAME_BUFFER
+
 struct InkLevelModel : slint::Model<InkLevel>
 {
     size_t row_count() const override { return m_data.size(); }
@@ -49,13 +54,17 @@ extern "C" void app_main(void)
     /* Set display brightness to 100% */
     bsp_display_backlight_on();
 
-    static std::vector<slint::platform::Rgb565Pixel> buffer(BSP_LCD_H_RES * BSP_LCD_V_RES);
+#ifdef USE_FRAME_BUFFER
+    std::vector<slint::platform::Rgb565Pixel> buffer(BSP_LCD_H_RES * BSP_LCD_V_RES);
+#endif
 
     slint_esp_init(SlintPlatformConfiguration {
             .size = slint::PhysicalSize({ BSP_LCD_H_RES, BSP_LCD_V_RES }),
             .panel_handle = panel_handle,
             .touch_handle = touch_handle,
+#ifdef USE_FRAME_BUFFER
             .buffer1 = buffer,
+#endif
             .byte_swap = true });
 
     auto printer_demo = MainWindow::create();
