@@ -529,6 +529,18 @@ component ColorLineEdit inherits HorizontalLayout {
     in property <string> channel: "R";
     in-out property <float> value;
 
+    callback accepted();
+
+    changed value => {
+        num-value.default-text = Math.floor(root.value);
+        num-value.text = Math.floor(root.value);
+    }
+
+    init => {
+        num-value.default-text = Math.floor(root.value);
+        num-value.text = Math.floor(root.value);
+    }
+
     out property <bool> has-focus: slide-value.has-focus || num-value.has-focus;
 
     spacing: EditorSpaceSettings.default-spacing;
@@ -552,11 +564,20 @@ component ColorLineEdit inherits HorizontalLayout {
         enabled: root.enabled;
         input-type: number;
         width: 5rem;
-        default-text: Math.floor(root.value);
-        text: Math.floor(root.value);
+
+        private property <float> test-value;
 
         edited() => {
-            root.value = self.text.to-float();
+            self.test-value = self.text.to-float();
+            if Math.clamp(Math.floor(self.test-value), 0.0, 255.0) == self.text.to-float() {
+                root.value = Math.floor(self.test-value);
+            } else {
+                self.text = self.test-value
+            }
+        }
+
+        accepted() => {
+            root.accepted();
         }
     }
 }
@@ -586,6 +607,11 @@ component ColorWidget inherits VerticalLayout {
             root.test-color-binding(current-color-data.text);
         }
         rle.default-text = current-color-data.text;
+
+        r.value = self.current-color-data.r;
+        g.value = self.current-color-data.g;
+        b.value = self.current-color-data.b;
+        a.value = self.current-color-data.a;
     }
 
     spacing: EditorSpaceSettings.default-spacing;
@@ -694,10 +720,8 @@ component ColorWidget inherits VerticalLayout {
                 value: root.current-color-data.r;
                 channel: "R";
 
-                changed value => {
-                    if self.has-focus {
-                        root.set-color-binding(rle.text);
-                    }
+                accepted() => {
+                    root.set-color-binding(rle.text);
                 }
             }
 
@@ -705,22 +729,19 @@ component ColorWidget inherits VerticalLayout {
                 enabled: root.enabled;
                 value: root.current-color-data.g;
                 channel: "G";
-                changed value => {
-                    if self.has-focus {
-                        root.set-color-binding(rle.text);
-                    }
-                }
 
+                accepted() => {
+                    root.set-color-binding(rle.text);
+                }
             }
 
             b := ColorLineEdit {
                 enabled: root.enabled;
                 value: root.current-color-data.b;
                 channel: "B";
-                changed value => {
-                    if self.has-focus {
-                        root.set-color-binding(rle.text);
-                    }
+
+                accepted() => {
+                    root.set-color-binding(rle.text);
                 }
             }
 
@@ -728,10 +749,9 @@ component ColorWidget inherits VerticalLayout {
                 enabled: root.enabled;
                 value: root.current-color-data.a;
                 channel: "A";
-                changed value => {
-                    if self.has-focus {
-                        root.set-color-binding(rle.text);
-                    }
+
+                accepted() => {
+                    root.set-color-binding(rle.text);
                 }
             }
 
@@ -1138,7 +1158,7 @@ export component PropertyInformationWidget inherits VerticalLayout {
             self.set-code-binding(text);
         }
         test-color-binding(text) => {
-            return (self.test-code-binding(text));
+            return (Api.string-is-color(text));
         }
         set-enum-binding(text) => {
             self.set-code-binding(text);
