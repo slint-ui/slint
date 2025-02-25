@@ -1142,32 +1142,7 @@ pub fn ui_set_preview_data(
 
     let api = ui.global::<Api>();
 
-    let old_model = api.get_preview_data();
-
-    fn update_model(
-        old_model: &slint::ModelRc<PropertyContainer>,
-        new_model: &[PropertyContainer],
-    ) -> bool {
-        if old_model.row_count() != new_model.len() {
-            return true;
-        }
-
-        for (oc, nc) in old_model.iter().zip(new_model.iter()) {
-            if oc.container_name != nc.container_name
-                || oc.container_id != nc.container_id
-                || oc.properties.row_count() != nc.properties.row_count()
-                || oc.properties.iter().zip(nc.properties.iter()).any(|(o, n)| o != n)
-            {
-                return true;
-            }
-        }
-
-        false
-    }
-
-    if update_model(&old_model, &result) {
-        api.set_preview_data(Rc::new(VecModel::from(result)).into());
-    }
+    api.set_preview_data(Rc::new(VecModel::from(result)).into());
 }
 
 fn to_property_container(container: slint::SharedString) -> preview_data::PropertyContainer {
