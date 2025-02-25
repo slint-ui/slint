@@ -1011,6 +1011,13 @@ export component PropertyValueWidget inherits VerticalLayout {
                 set-color-binding(text) => {
                     root.set-color-binding(text);
                 }
+
+                reset-action() => {
+                    root.reset-action();
+                }
+                code-action() => {
+                    root.code-action();
+                }
             }
         }
         Rectangle {
