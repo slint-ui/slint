@@ -47,10 +47,11 @@ export global MaterialPalette {
     out property <brush> control-background-tint: !root.dark-color-scheme ? #6750A4 : #D0BCFF;
     out property <brush> accent-container: !root.dark-color-scheme ? #4F378B : #4F378B;
     out property <brush> accent-ripple: !root.dark-color-scheme ? #D0BCFF : #6750A4;
-    out property <brush> shadow: #000000;
+    out property <brush> shadow: #000000.with_alpha(0.3);
     out property <brush> border-variant: !root.dark-color-scheme ? #C4C7C5 : #444746;
     out property <brush> foreground-alt: !root.dark-color-scheme ? #1C1B1F : #E6E1E5;
     out property <brush> secondary-ripple: !root.dark-color-scheme ? #fffc : #000000;
+    out property <brush> surface-container: !root.dark-color-scheme ? #F3EDF7 : #211F26;
     out property <brush> surface-container-high: !root.dark-color-scheme ? #ECE6F0 : #2B2930;
     out property <brush> surface-container-highest: !root.dark-color-scheme ? #E6E0E9 : #36343B;
     out property <brush> tertiary-container: !root.dark-color-scheme ? #FFD8E4 : #633B48;
