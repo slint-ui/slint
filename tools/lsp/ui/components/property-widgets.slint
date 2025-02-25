@@ -125,6 +125,7 @@ component CodeWidget inherits VerticalLayout {
     callback reset-action();
 
     spacing: EditorSpaceSettings.default-spacing;
+    width: 100%;
 
     HorizontalLayout {
         Rectangle {
@@ -142,21 +143,14 @@ component CodeWidget inherits VerticalLayout {
             visible: false;
         }
 
-        Rectangle {
-            min-height: 2rem;
-            width: root.property-value.code == "" ? root.width : 0px;
-            background: Palette.alternate-background;
-            Text {
-                horizontal-alignment: left;
-                vertical-alignment: center;
-                text: @tr("Not Set");
-                font-italic: true;
-            }
+        if property-value.code == "": Text {
+            horizontal-alignment: left;
+            vertical-alignment: center;
+            text: @tr("Not Set");
+            font-italic: true;
         }
 
-        HorizontalLayout {
-            width: root.property-value.code != "" ? root.width : 0px;
-
+        if property-value.code != "": HorizontalLayout {
             spacing: EditorSpaceSettings.default-spacing;
 
             ResetButton {
