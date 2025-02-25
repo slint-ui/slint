@@ -51,6 +51,13 @@ component ResettingLineEdit {
 
     callback accepted <=> le.accepted;
     callback edited <=> le.edited;
+
+    changed default-text => {
+        if !le.has-focus {
+            le.text = root.default-text;
+        }
+    }
+
     VerticalLayout {
         le := LineEdit {
             enabled: root.enabled;
@@ -109,47 +116,43 @@ component ChildIndicator inherits Rectangle {
     }
 }
 
-component CodeWidget inherits GridLayout {
+component CodeWidget inherits VerticalLayout {
     in property <bool> enabled;
     in property <string> property-name;
     in property <PropertyValue> property-value;
-    in property <bool> has-code-action: true;
 
     callback code-action();
     callback reset-action();
 
-    padding-bottom: EditorSpaceSettings.default-spacing;
+    spacing: EditorSpaceSettings.default-spacing;
+    width: 100%;
 
-    Row {
+    HorizontalLayout {
+        Rectangle {
+            width: childIndicator.width;
+        }
+
         NameLabel {
-            col: 1;
-
             property-name: root.property-name;
             property-value: root.property-value;
         }
     }
 
-    Row {
-        ChildIndicator {
+    HorizontalLayout {
+        childIndicator := ChildIndicator {
             visible: false;
         }
 
-        Rectangle {
-            min-height: 2rem;
-            width: root.property-value.code == "" ? root.width : 0px;
-            background: Palette.alternate-background;
-            Text {
-                horizontal-alignment: left;
-                vertical-alignment: center;
-                text: @tr("Not Set");
-                font-italic: true;
-            }
+        if property-value.code == "": Text {
+            horizontal-alignment: left;
+            vertical-alignment: center;
+            text: @tr("Not Set");
+            font-italic: true;
         }
 
-        HorizontalLayout {
-            width: root.property-value.code != "" ? root.width : 0px;
-
+        if property-value.code != "": HorizontalLayout {
             spacing: EditorSpaceSettings.default-spacing;
+
             ResetButton {
                 enabled: root.enabled;
                 clicked() => {
@@ -157,7 +160,7 @@ component CodeWidget inherits GridLayout {
                 }
             }
 
-            if root.has-code-action: CodeButton {
+            CodeButton {
                 enabled: root.enabled;
                 clicked() => {
                     root.code-action();
@@ -170,6 +173,8 @@ component CodeWidget inherits GridLayout {
 component SecondaryContent inherits Rectangle {
     in property <bool> enabled;
     in property <bool> open: false;
+    in property <bool> has-code-action: true;
+    in property <bool> has-reset-action: true;
 
     callback reset();
 
@@ -183,8 +188,6 @@ component SecondaryContent inherits Rectangle {
     animate height { duration: EditorAnimationSettings.rotation-duration; }
 
     content := HorizontalLayout {
-        width: 100%;
-
         Rectangle {
             height: 100%;
             width: 1px;
@@ -201,6 +204,7 @@ component SecondaryContent inherits Rectangle {
                 spacing: EditorSpaceSettings.default-spacing;
 
                 ResetButton {
+                    height: root.has-reset-action ? self.preferred-height : 0px;
                     enabled: root.enabled;
                     clicked() => {
                         root.reset-action();
@@ -209,6 +213,7 @@ component SecondaryContent inherits Rectangle {
                 }
 
                 CodeButton {
+                    height: root.has-code-action ? self.preferred-height : 0px;
                     enabled: root.enabled;
                     clicked() => {
                         root.code-action();
@@ -219,7 +224,7 @@ component SecondaryContent inherits Rectangle {
     }
 }
 
-component FloatWidget inherits GridLayout {
+component FloatWidget inherits VerticalLayout {
     in property <bool> enabled;
     in property <string> property-name;
     in property <PropertyValue> property-value;
@@ -227,7 +232,8 @@ component FloatWidget inherits GridLayout {
     pure callback test-float-binding(text: string) -> bool;
     pure callback set-float-binding(text: string);
 
-    private property <string> current-unit: find_current_unit(property-value);
+    private property <string> current-unit;
+    private property <PropertyValue> dummy: self.property-value;
 
     pure function find_current_unit(value: PropertyValue) -> string {
         if value.visual-items.length == 0 {
@@ -244,18 +250,37 @@ component FloatWidget inherits GridLayout {
         root.set-float-binding(number.text == "" ? "" : number.text + self.current-unit);
     }
 
+    function test-binding() -> bool {
+        return root.test-float-binding(number.text == "" ? "" : number.text + self.current-unit);
+    }
+
+    function apply-value() {
+        number.default-text = self.property-value.value-float;
+        current-unit = find_current_unit(property-value);
+    }
+
+    changed dummy => {
+        if !number.has-focus && self.property-value.kind == PropertyValueKind.float {
+            apply-value();
+        }
+    }
+
+    spacing: EditorSpaceSettings.default-spacing;
     width: 100%;
 
-    Row {
+    HorizontalLayout {
+        Rectangle {
+            width: childIndicator.width;
+        }
+
         NameLabel {
-            col: 1;
             property-name: root.property-name;
             property-value: root.property-value;
         }
     }
 
-    Row {
-        ChildIndicator {
+    HorizontalLayout {
+        childIndicator := ChildIndicator {
             horizontal-stretch: 0;
             visible: false;
         }
@@ -263,7 +288,6 @@ component FloatWidget inherits GridLayout {
         HorizontalLayout {
             spacing: EditorSpaceSettings.default-spacing;
             alignment: stretch;
-            height: 2rem;
 
             number := ResettingLineEdit {
                 enabled: root.enabled;
@@ -274,11 +298,17 @@ component FloatWidget inherits GridLayout {
                 default-text: property-value.value-float;
 
                 edited(text) => {
-                    self.can-compile = test-float-binding(number.text == "" ? "" : number.text + root.current-unit);
+                    self.can-compile = root.test-binding();
                 }
 
                 accepted(text) => {
                     root.set-binding();
+                }
+
+                changed has-focus => {
+                    if !self.has-focus {
+                        root.apply-value();
+                    }
                 }
             }
 
@@ -293,7 +323,7 @@ component FloatWidget inherits GridLayout {
 
                 selected(unit) => {
                     root.current-unit = unit;
-                    root.set-float-binding(number.text == "" ? "" : number.text + root.current-unit);
+                    root.set-binding();
                 }
             }
             if property-value.visual-items.length == 1: Text {
@@ -307,17 +337,21 @@ component FloatWidget inherits GridLayout {
     }
 }
 
-component StringWidget inherits GridLayout {
+component StringWidget inherits VerticalLayout {
     // FIXME: @ogoffart says the plural support is not working at this time, so
     //        we do not offer it in the UI for the time being...
 
     in property <bool> enabled;
     in property <string> property-name;
     in property <PropertyValue> property-value;
+    in property <bool> has-code-action <=> sub.has-code-action;
+    in property <bool> has-reset-action <=> sub.has-reset-action;
 
     out property <length> i-am-a-hack-remove-me: 0px;
 
     property <bool> open: false;
+
+    private property <PropertyValue> dummy: self.property-value;
 
     callback code-action();
     callback reset-action();
@@ -334,20 +368,47 @@ component StringWidget inherits GridLayout {
         set-string-binding(Api.string-to-code(text-rle.text, tr-cb.checked, tr-context.text, "", ""), tr-cb.checked);
     }
 
-    init => {
-        self.i-am-a-hack-remove-me = self.preferred-height;
+    function apply-value() {
+        text_rle.default-text = property-value.value-string;
+        tr-cb.checked = root.property-value.is-translatable;
+        tr-context.default-text = root.property-value.tr-context;
     }
 
-    Row {
-        NameLabel {
-            col: 1;
+    init => {
+        self.i-am-a-hack-remove-me = self.preferred-height;
 
+        apply-value();
+    }
+
+    private property <bool> has-focus: text_rle.has-focus || tr-context.has-focus;
+
+    changed has-focus => {
+        if !has-focus {
+            apply-value();
+        }
+    }
+
+    changed dummy => {
+        if !has-focus {
+            apply-value();
+        }
+    }
+
+    spacing: EditorSpaceSettings.default-spacing;
+    width: 100%;
+
+    HorizontalLayout {
+        Rectangle {
+            width: childIndicator.width;
+        }
+
+        NameLabel {
             property-name: root.property-name;
             property-value: root.property-value;
         }
     }
 
-    Row {
+    HorizontalLayout {
         childIndicator := ChildIndicator {
             horizontal-stretch: 0;
             control-hover: text_rle.has-focus;
@@ -355,10 +416,9 @@ component StringWidget inherits GridLayout {
 
         content := HorizontalLayout {
             spacing: EditorSpaceSettings.default-spacing;
-            height: 2rem;
+
             text_rle := ResettingLineEdit {
                 enabled: root.enabled;
-                default-text: property-value.value-string;
                 edited(text) => {
                     self.can-compile = root.tsb();
                 }
@@ -369,10 +429,12 @@ component StringWidget inherits GridLayout {
         }
     }
 
-    Row {
-        sub := SecondaryContent {
-            col: 1;
+    HorizontalLayout {
+        Rectangle {
+            width: childIndicator.width;
+        }
 
+        sub := SecondaryContent {
             enabled: root.enabled;
             open: childIndicator.open;
 
@@ -383,21 +445,20 @@ component StringWidget inherits GridLayout {
                 root.reset-action();
             }
 
-            GridLayout {
+            VerticalLayout {
                 spacing: EditorSpaceSettings.default-spacing;
-                Row {
-                    tr-cb := CheckBox {
-                        colspan: 2;
-                        checked: root.property-value.is-translatable;
-                        toggled => {
-                            root.ssb();
-                        }
-                        enabled: root.enabled;
-                        text: "Translatable";
+                tr-cb := CheckBox {
+                    checked: root.property-value.is-translatable;
+                    toggled => {
+                        root.ssb();
                     }
+                    enabled: root.enabled;
+                    text: "Translatable";
                 }
 
-                Row {
+                HorizontalLayout {
+                    spacing: EditorSpaceSettings.default-spacing;
+
                     Text {
                         vertical-alignment: center;
                         horizontal-alignment: right;
@@ -406,7 +467,6 @@ component StringWidget inherits GridLayout {
 
                     tr-context := ResettingLineEdit {
                         enabled: root.enabled && tr-cb.checked;
-                        default-text: root.property-value.tr-context;
                         edited(text) => {
                             self.can-compile = root.tsb();
                         }
@@ -464,7 +524,8 @@ component ColorLineEdit inherits HorizontalLayout {
     in property <string> channel: "R";
     in-out property <float> value;
 
-    alignment: stretch;
+    out property <bool> has-focus: slide-value.has-focus || num-value.has-focus;
+
     spacing: EditorSpaceSettings.default-spacing;
 
     Text {
@@ -479,11 +540,7 @@ component ColorLineEdit inherits HorizontalLayout {
         maximum: 255;
         step: 1;
         value <=> root.value;
-        horizontal-stretch: 1;
-
-        changed value => {
-            // root.value = Math.floor(self.value);
-        }
+        horizontal-stretch: 100;
     }
 
     num-value := ResettingLineEdit {
@@ -499,12 +556,15 @@ component ColorLineEdit inherits HorizontalLayout {
     }
 }
 
-component ColorWidget inherits GridLayout {
+component ColorWidget inherits VerticalLayout {
     in property <bool> enabled;
     in property <string> property-name;
     in property <PropertyValue> property-value;
+    in property <bool> has-code-action <=> sub.has-code-action;
+    in property <bool> has-reset-action <=> sub.has-reset-action;
 
     private property <bool> open: false;
+    private property <PropertyValue> dummy: property-value; // Needed to make changed signal work...
 
     callback code-action();
     callback reset-action();
@@ -512,25 +572,59 @@ component ColorWidget inherits GridLayout {
     pure callback test-color-binding(text: string) -> bool;
     pure callback set-color-binding(text: string);
 
-    private property <color> current-color: property-value.value-brush;
+    private property <color> current-color;
     private property <ColorData> current-color-data: Api.color-to-data(self.current-color);
 
     changed current-color-data => {
-        root.test-color-binding(current-color-data.text);
+        root.current-color-data = Api.color-to-data(self.current-color);
+        if self.has-focus {
+            root.test-color-binding(current-color-data.text);
+        }
+        rle.default-text = current-color-data.text;
     }
 
+    spacing: EditorSpaceSettings.default-spacing;
     width: 100%;
 
-    Row {
-        NameLabel {
-            col: 1;
+    function apply-value() {
+        root.current-color = self.property-value.value-brush;
+        root.current-color-data = Api.color-to-data(self.property-value.value-brush);
+    }
 
+    private property <bool> has-focus: rle.has-focus || r.has-focus || g.has-focus || b.has-focus || a.has-focus;
+
+    init => {
+        apply-value();
+    }
+
+    changed has-focus => {
+        if !self.has-focus {
+            apply-value();
+        }
+    }
+
+    changed dummy => {
+        if self.property-value.kind != PropertyValueKind.color {
+            return;
+        }
+
+        if !self.has-focus {
+            apply-value();
+        }
+    }
+
+    HorizontalLayout {
+        Rectangle {
+            width: childIndicator.width;
+        }
+
+        NameLabel {
             property-name: root.property-name;
             property-value: root.property-value;
         }
     }
 
-    Row {
+    HorizontalLayout {
         childIndicator := ChildIndicator {
             horizontal-stretch: 0;
             control-hover: rle.has-focus;
@@ -548,11 +642,12 @@ component ColorWidget inherits GridLayout {
                     if text == "" {
                         // allow empty text -- which will delete the property
                         self.can-compile = true;
-                        color-preview.background = Colors.transparent;
+                        root.current-color = Colors.transparent;
+                        root.current-color-data = Api.color-to-data(root.current-color);
                     } else {
-                        self.can-compile = root.test-color-binding(text);
                         if self.can-compile {
-                            color-preview.background = Api.string-to-color(text);
+                            root.current-color = Api.string-to-color(text);
+                            root.current-color-data = Api.color-to-data(root.current-color);
                         }
                     }
                 }
@@ -563,7 +658,6 @@ component ColorWidget inherits GridLayout {
             }
 
             color-preview := Rectangle {
-                height: 2rem;
                 background: root.current-color;
                 border-width: 1px;
                 border-color: Palette.foreground;
@@ -571,15 +665,21 @@ component ColorWidget inherits GridLayout {
         }
     }
 
-    Row {
-        sub := SecondaryContent {
-            out property <color> slider-color: Api.rgba-to-color(r.value, g.value, b.value, a.value);
+    HorizontalLayout {
+        Rectangle {
+            width: childIndicator.width;
+        }
 
-            col: 1;
+        sub := SecondaryContent {
+            private property <color> slider-color: Api.rgba-to-color(r.value, g.value, b.value, a.value);
+
             enabled: root.enabled;
 
             changed slider-color => {
-                root.current-color = slider-color;
+                if r.has-focus || g.has-focus || b.has-focus || a.has-focus {
+                    root.current-color = slider-color;
+                    root.current-color-data = Api.color-to-data(self.slider-color);
+                }
             }
 
             open: childIndicator.open;
@@ -588,8 +688,11 @@ component ColorWidget inherits GridLayout {
                 enabled: root.enabled;
                 value: root.current-color-data.r;
                 channel: "R";
+
                 changed value => {
-                    root.set-color-binding(rle.text);
+                    if self.has-focus {
+                        root.set-color-binding(rle.text);
+                    }
                 }
             }
 
@@ -598,7 +701,9 @@ component ColorWidget inherits GridLayout {
                 value: root.current-color-data.g;
                 channel: "G";
                 changed value => {
-                    root.set-color-binding(rle.text);
+                    if self.has-focus {
+                        root.set-color-binding(rle.text);
+                    }
                 }
 
             }
@@ -608,7 +713,9 @@ component ColorWidget inherits GridLayout {
                 value: root.current-color-data.b;
                 channel: "B";
                 changed value => {
-                    root.set-color-binding(rle.text);
+                    if self.has-focus {
+                        root.set-color-binding(rle.text);
+                    }
                 }
             }
 
@@ -617,12 +724,10 @@ component ColorWidget inherits GridLayout {
                 value: root.current-color-data.a;
                 channel: "A";
                 changed value => {
-                    root.set-color-binding(rle.text);
+                    if self.has-focus {
+                        root.set-color-binding(rle.text);
+                    }
                 }
-            }
-
-            reset => {
-                root.current-color = root.property-value.value-brush;
             }
 
             code-action() => {
@@ -635,7 +740,7 @@ component ColorWidget inherits GridLayout {
     }
 }
 
-component IntegerWidget inherits GridLayout {
+component IntegerWidget inherits VerticalLayout {
     in property <bool> enabled;
     in property <string> property-name;
     in property <PropertyValue> property-value;
@@ -643,71 +748,84 @@ component IntegerWidget inherits GridLayout {
     pure callback test-integer-binding(text: string) -> bool;
     pure callback set-integer-binding(text: string);
 
+    spacing: EditorSpaceSettings.default-spacing;
     width: 100%;
 
-    Row {
+    HorizontalLayout {
+        Rectangle {
+            width: childIndicator.width;
+        }
+
         NameLabel {
-            col: 1;
             property-name: root.property-name;
             property-value: root.property-value;
         }
     }
 
-    Row {
+    HorizontalLayout {
         childIndicator := ChildIndicator {
             horizontal-stretch: 0;
             visible: false;
         }
 
-        HorizontalLayout {
-            height: 2rem;
-            spacing: EditorSpaceSettings.default-spacing;
-            ResettingLineEdit {
-                enabled: root.enabled;
-                horizontal-alignment: right;
-                input-type: number;
+        ResettingLineEdit {
+            enabled: root.enabled;
+            horizontal-alignment: right;
+            input-type: number;
 
-                default-text: property-value.value-int;
+            default-text: property-value.value-int;
 
-                edited(text) => {
-                    self.can-compile = test-integer-binding(text);
-                }
-                accepted(text) => {
-                    set-integer-binding(text);
-                }
+            edited(text) => {
+                self.can-compile = test-integer-binding(text);
+            }
+
+            accepted(text) => {
+                set-integer-binding(text);
             }
         }
     }
 }
 
-component EnumWidget inherits GridLayout {
+component EnumWidget inherits VerticalLayout {
     in property <bool> enabled;
     in property <string> property-name;
     in property <PropertyValue> property-value;
 
+    private property <PropertyValue> dummy: self.property-value;
+
+    changed dummy => {
+        if self.property-value.kind == PropertyValueKind.enum {
+            cb.current-index = root.property-value.value-int;
+        }
+    }
+
     pure callback set-enum-binding(text: string);
 
+    spacing: EditorSpaceSettings.default-spacing;
     width: 100%;
 
-    Row {
+    HorizontalLayout {
+        Rectangle {
+            width: childIndicator.width;
+        }
+
         NameLabel {
-            col: 1;
             property-name: root.property-name;
             property-value: root.property-value;
         }
     }
 
-    Row {
+    HorizontalLayout {
         childIndicator := ChildIndicator {
             horizontal-stretch: 0;
             visible: false;
         }
         HorizontalLayout {
-            ComboBox {
+            cb := ComboBox {
                 enabled: root.enabled;
-                current-index: property-value.value-int;
+                current-index: root.property-value.value-int;
 
-                model: property-value.visual-items;
+                model: root.property-value.visual-items;
 
                 selected(value) => {
                     root.set-enum-binding(property-value.value-string + "." + value);
@@ -717,56 +835,46 @@ component EnumWidget inherits GridLayout {
     }
 }
 
-component BooleanWidget inherits GridLayout {
+component BooleanWidget inherits VerticalLayout {
     in property <bool> enabled;
     in property <string> property-name;
     in property <PropertyValue> property-value;
 
     pure callback set-bool-binding(value: bool);
 
+    spacing: EditorSpaceSettings.default-spacing;
     width: 100%;
 
-    Row {
+    HorizontalLayout {
+        Rectangle {
+            width: childIndicator.width;
+        }
+
         NameLabel {
-            col: 1;
             property-name: root.property-name;
             property-value: root.property-value;
         }
     }
 
-    Row {
+    HorizontalLayout {
         childIndicator := ChildIndicator {
             horizontal-stretch: 0;
             visible: false;
         }
 
-        HorizontalLayout {
-            alignment: start;
-            height: 2rem;
-            Rectangle {
-                width: 100%;
-                height: 100%;
-                background: Palette.alternate-background;
-                HorizontalLayout {
-                    alignment: start;
-                    padding-left: EditorSpaceSettings.default-padding;
-                    spacing: EditorSpaceSettings.default-spacing;
-                    checkbox := CheckBox {
-                        enabled: root.enabled;
-                        checked: root.property-value.value-bool;
-                        text: self.checked ? "True" : "False";
+        checkbox := CheckBox {
+            enabled: root.enabled;
+            checked: root.property-value.value-bool;
+            text: self.checked ? "True" : "False";
 
-                        toggled() => {
-                            root.set-bool-binding(self.checked);
-                        }
-                    }
-                }
+            toggled() => {
+                root.set-bool-binding(self.checked);
             }
         }
     }
 }
 
-component EditJsonWidget inherits GridLayout {
+component EditJsonWidget inherits VerticalLayout {
     in property <bool> enabled;
     in property <string> property-name;
     in property <PropertyValue> property-value;
@@ -774,26 +882,45 @@ component EditJsonWidget inherits GridLayout {
     property <bool> can-compile: true;
     property <length> border: 3px;
 
-    width: 100%;
-
     pure callback set-code-binding(text: string) -> bool;
 
-    changed property-value => {
-        if !edit.has-focus {
-            edit.text = root.property-value.code;
-            root.can-compile = true;
+    spacing: EditorSpaceSettings.default-spacing;
+    width: 100%;
+
+    function apply-value() {
+        edit.text = root.property-value.code;
+    }
+
+    init => {
+        apply-value();
+    }
+
+    private property <bool> has-focus: edit.has-focus;
+
+    changed has-focus => {
+        if !has-focus {
+            apply-value();
         }
     }
 
-    Row {
+    changed property-value => {
+        if !has-focus {
+            apply-value();
+        }
+    }
+
+    HorizontalLayout {
+        Rectangle {
+            width: childIndicator.width;
+        }
+
         NameLabel {
-            col: 1;
             property-name: root.property-name;
             property-value: root.property-value;
         }
     }
 
-    Row {
+    HorizontalLayout {
         childIndicator := ChildIndicator {
             horizontal-stretch: 0;
             visible: false;
@@ -804,7 +931,6 @@ component EditJsonWidget inherits GridLayout {
                 edit := TextEdit {
                     min-height: 200px;
 
-                    text: root.property-value.code;
                     enabled: root.enabled;
 
                     edited(text) => {
@@ -838,6 +964,7 @@ export component PropertyValueWidget inherits VerticalLayout {
     in property <string> property-name;
     in property <bool> enabled;
     in property <bool> has-code-action: true;
+    in property <bool> has-reset-action: true;
 
     pure callback set-bool-binding(value: bool);
     pure callback set-color-binding(text: string);
@@ -875,11 +1002,21 @@ export component PropertyValueWidget inherits VerticalLayout {
                 property-name <=> root.property-name;
                 property-value <=> root.property-value;
 
+                has-code-action: root.has-code-action;
+                has-reset-action: root.has-reset-action;
+
                 test-color-binding(text) => {
                     return (root.test-color-binding(text));
                 }
                 set-color-binding(text) => {
                     root.set-color-binding(text);
+                }
+
+                reset-action() => {
+                    root.reset-action();
+                }
+                code-action() => {
+                    root.code-action();
                 }
             }
         }
@@ -957,17 +1094,18 @@ export component PropertyValueWidget inherits VerticalLayout {
                 property-name <=> root.property-name;
                 property-value: root.property-value;
 
+                has-code-action: root.has-code-action;
+                has-reset-action: root.has-reset-action;
+
                 reset-action() => {
                     root.reset-action();
                 }
                 code-action() => {
                     root.code-action();
                 }
-
                 test-string-binding(text, is_translated) => {
                     return root.test-string-binding(text, is_translated);
                 }
-
                 set-string-binding(text, is_translated) => {
                     root.set-string-binding(text, is_translated);
                 }
@@ -1075,6 +1213,9 @@ export component PreviewDataPropertyValueWidget inherits VerticalLayout {
         property-name: root.preview-data.name;
         enabled: root.preview-data.has-setter;
 
+        has-code-action: false;
+        has-reset-action: false;
+
         set-bool-binding(value) => {
             self.set-code-binding(value ? "true" : "false");
         }
@@ -1119,7 +1260,6 @@ export component ExpandableGroup  {
     property <bool> open: true;
 
     group-layer := Rectangle {
-
         content-layer := VerticalLayout {
             if text != "": Rectangle {
                 touch-area := TouchArea {
@@ -1138,11 +1278,12 @@ export component ExpandableGroup  {
 
                 HorizontalLayout {
                     spacing: EditorSpaceSettings.default-spacing / 2;
+                    height: t.preferred-height;
+
                     icon-image := Image {
                         width: EditorSizeSettings.default-icon-width;
                         colorize: Palette.alternate-foreground.transparentize(0.7);
                         source: Icons.chevron-down;
-                        height: 2rem;
                         rotation-origin-x: self.width / 2;
                         rotation-origin-y: self.height / 2;
                         states [
@@ -1154,7 +1295,7 @@ export component ExpandableGroup  {
                         animate rotation-angle { duration: EditorAnimationSettings.rotation-duration; }
                     }
 
-                    BodyStrongText {
+                    t := BodyStrongText {
                         text: root.text;
                     }
                 }
