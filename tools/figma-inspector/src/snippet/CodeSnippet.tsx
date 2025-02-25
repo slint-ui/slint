@@ -1,5 +1,6 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+// cSpell: ignore shiki shikijs
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import parse from "html-react-parser";
@@ -10,12 +11,12 @@ import lightSlint from "./light-theme.json";
 // The following setup if for a minimal bundle size of ~1MB.
 import { createHighlighterCore } from "shiki/core";
 import { createOnigurumaEngine } from "shiki/engine/oniguruma";
-import type { LanguageRegistration, ThemeRegistration } from "@shikijs/types";
+import type { LanguageRegistration, ThemeRegistration, HighlighterCore } from "@shikijs/types";
 import OnigurumaEngine from "shiki/wasm";
 
 import slintLang from "./Slint-tmLanguage.json";
 
-let highlighter: any;
+let highlighter: HighlighterCore | null = null;
 const initHighlighter = async () => {
     highlighter = await createHighlighterCore({
         themes: [
@@ -27,12 +28,12 @@ const initHighlighter = async () => {
     });
 };
 
-type HightlightTheme = "dark-slint" | "light-slint";
+type HighlightTheme = "dark-slint" | "light-slint";
 
 export default function CodeSnippet({
     code,
     theme,
-}: { code: string; theme: HightlightTheme }) {
+}: { code: string; theme: HighlightTheme }) {
     const [highlightedCode, setHighlightedCode] = useState<ReactNode | null>(
         null,
     );
@@ -41,8 +42,10 @@ export default function CodeSnippet({
         let isMounted = true;
 
         const highlightCode = async () => {
-            await initHighlighter();
-            const html = await highlighter.codeToHtml(code, {
+            if (!highlighter) {
+                await initHighlighter();
+            }
+            const html = highlighter!.codeToHtml(code, {
                 lang: "slint",
                 theme: theme,
             });
