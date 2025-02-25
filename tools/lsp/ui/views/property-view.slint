@@ -36,14 +36,11 @@ export component PropertyView inherits ScrollView {
                 enabled: root.enabled;
 
                 text: group.group-name;
-                panel-width: content-layer.width;
+                panel-width: root.width;
 
                 VerticalLayout {
                     spacing: EditorSpaceSettings.property-spacing;
-                    padding-left: EditorSpaceSettings.group-indent;
-                    padding-right: EditorSpaceSettings.group-indent;
-                    padding-top: EditorSpaceSettings.default-padding;
-                    padding-bottom: EditorSpaceSettings.default-padding;
+                    padding: EditorSpaceSettings.default-padding;
 
                     for property in eg.properties: PropertyInformationWidget {
                         enabled: root.enabled;

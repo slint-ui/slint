@@ -18,6 +18,8 @@ export component PreviewDataView inherits ScrollView {
     property <bool> element-loaded: root.preview-data.length > 0;
 
     content-layer := VerticalLayout {
+        alignment: start;
+        
         if !root.element-loaded: Text {
             text: @tr("Waiting for preview to load");
             horizontal-alignment: center;
