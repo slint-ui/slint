@@ -20,8 +20,7 @@ export const App = () => {
         (res) => {
             setTitle(res.title || "");
             setSlintProperties(res.slintSnippet || "");
-        },
-        true,
+        }
     );
 
     const [lightOrDarkMode, setLightOrDarkMode] = useState(getColorTheme());
