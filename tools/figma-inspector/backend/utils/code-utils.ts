@@ -59,7 +59,5 @@ export function updateUI() {
     const node = currentSelection[0];
     const title = "Slint Code: " + node.name;
     const slintSnippet = generateSlintSnippet(node) ?? "";
-
-    figma.ui.postMessage({ title, slintSnippet });
     dispatchTS("updatePropertiesCallback", { title, slintSnippet });
 }

@@ -1,5 +1,6 @@
 // Copyright © Hyper Brew LLC
 // SPDX-License-Identifier: MIT
+// cSpell: ignore codegen prefs
 
 import type { FigmaConfig, PluginManifest } from "vite-figma-plugin/lib/types";
 import { version } from "./package.json";
@@ -14,11 +15,10 @@ export const manifest: PluginManifest = {
     capabilities: ["codegen", "vscode"],
     codegenLanguages: [{ label: "Slint", value: "slint" }],
     codegenPreferences: [],
-    documentAccess: "dynamic-page",
     networkAccess: {
-        allowedDomains: ["*"],
-        reasoning: "For accessing remote assets",
+        allowedDomains: ["none"],
     },
+    documentAccess: "dynamic-page",
 };
 
 const extraPrefs = {
