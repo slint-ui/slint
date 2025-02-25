@@ -1,5 +1,6 @@
 // Copyright © Hyper Brew LLC
 // SPDX-License-Identifier: MIT
+// cSpell: ignore codegen prefs
 
 import type { FigmaConfig, PluginManifest } from "vite-figma-plugin/lib/types";
 import { version } from "./package.json";

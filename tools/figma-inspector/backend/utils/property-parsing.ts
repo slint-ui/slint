@@ -173,7 +173,9 @@ export function getBorderWidthAndColor(sceneNode: SceneNode): string[] | null {
         }
     }
     const brush = getBrush(sceneNode.strokes[0]);
-    properties.push(`${indentation}border-color: ${brush};`);
+    if (brush) {
+        properties.push(`${indentation}border-color: ${brush};`);
+    }
     return properties;
 }
 
@@ -186,7 +188,7 @@ export function getBrush(fill: {
         position: number;
     }>;
     gradientTransform?: number[][];
-}): string {
+}): string | null {
     switch (fill.type) {
         case "SOLID": {
             if (!fill.color) {
@@ -219,7 +221,7 @@ export function getBrush(fill: {
         }
         default: {
             console.log("Unknown fill type:", fill.type);
-            return "";
+            return null;
         }
     }
 }
@@ -272,7 +274,9 @@ export function generateRectangleSnippet(sceneNode: SceneNode): string {
                     sceneNode.fills.length > 0
                 ) {
                     const brush = getBrush(sceneNode.fills[0]);
-                    properties.push(`${indentation}background: ${brush};`);
+                    if (brush) {
+                        properties.push(`${indentation}background: ${brush};`);
+                    }
                 }
                 break;
             case "opacity":
@@ -318,7 +322,9 @@ export function generateTextSnippet(sceneNode: SceneNode): string {
                     sceneNode.fills.length > 0
                 ) {
                     const brush = getBrush(sceneNode.fills[0]);
-                    properties.push(`${indentation}color: ${brush};`);
+                    if (brush) {
+                        properties.push(`${indentation}color: ${brush};`);
+                    }
                 }
                 break;
             case "font-family":
