@@ -545,6 +545,9 @@ using cbindgen_private::types::TexturePixelFormat;
 
 /// This structure describes the properties of a texture for blending with
 /// TargetPixelBuffer::draw_texture().
+///
+/// **Note**: This class is still experimental - it's API is subject to changes and not stabilized
+/// yet. To use the class, you must enable the `SLINT_FEATURE_EXPERIMENTAL=ON` CMake option.
 struct Texture
 {
     /// A reference to the pixel bytes of the texture. These bytes are in the format specified by
@@ -575,6 +578,9 @@ struct Texture
 /// Abstract base class for a target pixel buffer where certain drawing operations can be delegated.
 /// Use this to implement support for hardware accelerators such as DMA2D, PPA, or PXP on
 /// Microcontrollers.
+///
+/// **Note**: This class is still experimental - it's API is subject to changes and not stabilized
+/// yet. To use the class, you must enable the `SLINT_FEATURE_EXPERIMENTAL=ON` CMake option.
 template<typename PixelType>
 struct TargetPixelBuffer
 {
@@ -745,6 +751,10 @@ public:
 
 #    ifdef SLINT_FEATURE_EXPERIMENTAL
     /// Renders into the given TargetPixelBuffer.
+    ///
+    /// **Note**: This class is still experimental - it's API is subject to changes and not
+    /// stabilized yet. To use the class, you must enable the `SLINT_FEATURE_EXPERIMENTAL=ON` CMake
+    /// option.
     PhysicalRegion render(TargetPixelBuffer<Rgb8Pixel> *buffer) const
     {
         cbindgen_private::CppRgb8TargetPixelBuffer buffer_wrapper {
@@ -800,6 +810,10 @@ public:
     }
 
     /// Renders into the given TargetPixelBuffer.
+    ///
+    /// **Note**: This class is still experimental - it's API is subject to changes and not
+    /// stabilized yet. To use the class, you must enable the `SLINT_FEATURE_EXPERIMENTAL=ON` CMake
+    /// option.
     PhysicalRegion render(TargetPixelBuffer<Rgb565Pixel> *buffer) const
     {
         cbindgen_private::CppRgb565TargetPixelBuffer buffer_wrapper {
