@@ -901,29 +901,46 @@ fn map_value_and_type(
                 kind: PropertyValueKind::Float,
                 value_float: get_value::<f32>(value),
                 value_string: format!("{}{}", get_value::<f32>(value), Unit::Ms).into(),
-                visual_items: unit_model(&[Unit::S, Unit::Ms]),
+                visual_items: unit_model(&[Unit::Ms]),
                 value_int: 0,
                 code: get_code(value),
                 default_selection: 1,
                 ..Default::default()
             });
         }
-        Type::PhysicalLength | Type::LogicalLength | Type::Rem => {
-            // TODO: Is this correct? That unit is the Value anyway?!
+        Type::PhysicalLength => {
+            mapping.header.push(mapping.name_prefix.clone());
+            mapping.current_values.push(PropertyValue {
+                kind: PropertyValueKind::Float,
+                value_float: get_value::<f32>(value),
+                value_string: format!("{}{}", get_value::<f32>(value), Unit::Phx).into(),
+                visual_items: unit_model(&[Unit::Phx]),
+                value_int: 0,
+                code: get_code(value),
+                default_selection: 0,
+                ..Default::default()
+            });
+        }
+        Type::LogicalLength => {
             mapping.header.push(mapping.name_prefix.clone());
             mapping.current_values.push(PropertyValue {
                 kind: PropertyValueKind::Float,
                 value_float: get_value::<f32>(value),
                 value_string: format!("{}{}", get_value::<f32>(value), Unit::Px).into(),
-                visual_items: unit_model(&[
-                    Unit::Px,
-                    Unit::Cm,
-                    Unit::Mm,
-                    Unit::In,
-                    Unit::Pt,
-                    Unit::Phx,
-                    Unit::Rem,
-                ]),
+                visual_items: unit_model(&[Unit::Px]),
+                value_int: 0,
+                code: get_code(value),
+                default_selection: 0,
+                ..Default::default()
+            });
+        }
+        Type::Rem => {
+            mapping.header.push(mapping.name_prefix.clone());
+            mapping.current_values.push(PropertyValue {
+                kind: PropertyValueKind::Float,
+                value_float: get_value::<f32>(value),
+                value_string: format!("{}{}", get_value::<f32>(value), Unit::Rem).into(),
+                visual_items: unit_model(&[Unit::Rem]),
                 value_int: 0,
                 code: get_code(value),
                 default_selection: 0,
@@ -936,7 +953,7 @@ fn map_value_and_type(
                 kind: PropertyValueKind::Float,
                 value_float: get_value::<f32>(value),
                 value_string: format!("{}{}", get_value::<f32>(value), Unit::Deg).into(),
-                visual_items: unit_model(&[Unit::Deg, Unit::Grad, Unit::Turn, Unit::Rad]),
+                visual_items: unit_model(&[Unit::Deg]),
                 value_int: 0,
                 code: get_code(value),
                 default_selection: 0,
@@ -1942,7 +1959,7 @@ export component Tester {{
     }
 
     #[test]
-    fn test_map_preview_data_length() {
+    fn test_map_preview_data_length_px() {
         validate_rp(
             "in",
             "",
@@ -1959,16 +1976,31 @@ export component Tester {{
                 kind: super::PropertyValueKind::Float,
                 value_float: 100.0,
                 value_string: "100px".into(),
-                visual_items: std::rc::Rc::new(slint::VecModel::from(vec![
-                    "px".into(),
-                    "cm".into(),
-                    "mm".into(),
-                    "in".into(),
-                    "pt".into(),
-                    "phx".into(),
-                    "rem".into(),
-                ]))
-                .into(),
+                visual_items: std::rc::Rc::new(slint::VecModel::from(vec!["px".into()])).into(),
+                ..Default::default()
+            },
+        );
+    }
+
+    #[test]
+    fn test_map_preview_data_length_cm() {
+        validate_rp(
+            "in",
+            "",
+            "length",
+            "10cm",
+            super::PreviewData {
+                name: "test".into(),
+                has_setter: true,
+                kind: super::PreviewDataKind::Value,
+                ..Default::default()
+            },
+            super::PropertyValue {
+                code: "378".into(),
+                kind: super::PropertyValueKind::Float,
+                value_float: 378.0,
+                value_string: "378px".into(),
+                visual_items: std::rc::Rc::new(slint::VecModel::from(vec!["px".into()])).into(),
                 ..Default::default()
             },
         );
@@ -1992,11 +2024,7 @@ export component Tester {{
                 kind: super::PropertyValueKind::Float,
                 value_float: 100000.0,
                 value_string: "100000ms".into(),
-                visual_items: std::rc::Rc::new(slint::VecModel::from(vec![
-                    "s".into(),
-                    "ms".into(),
-                ]))
-                .into(),
+                visual_items: std::rc::Rc::new(slint::VecModel::from(vec!["ms".into()])).into(),
                 default_selection: 1,
                 ..Default::default()
             },
@@ -2021,13 +2049,7 @@ export component Tester {{
                 kind: super::PropertyValueKind::Float,
                 value_float: 36000.0,
                 value_string: "36000deg".into(),
-                visual_items: std::rc::Rc::new(slint::VecModel::from(vec![
-                    "deg".into(),
-                    "grad".into(),
-                    "turn".into(),
-                    "rad".into(),
-                ]))
-                .into(),
+                visual_items: std::rc::Rc::new(slint::VecModel::from(vec!["deg".into()])).into(),
                 ..Default::default()
             },
         );
