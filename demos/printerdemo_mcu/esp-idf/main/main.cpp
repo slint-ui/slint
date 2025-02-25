@@ -13,8 +13,8 @@
 #include <bsp/touch.h>
 #include <vector>
 
-// This example renders the frame using the line by line rendering. 
-// Optionally, define `USE_FRAME_BUFFER` to allocate use a buffer and use the 
+// This example renders the frame using the line by line rendering.
+// Optionally, define `USE_FRAME_BUFFER` to allocate use a buffer and use the
 // the renderer that renders the whole buffer.
 // #define USE_FRAME_BUFFER
 
