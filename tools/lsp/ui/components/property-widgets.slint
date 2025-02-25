@@ -55,7 +55,7 @@ component ResettingLineEdit {
     changed default-text => {
         if !le.has-focus {
             le.text = root.default-text;
-        }        
+        }
     }
 
     VerticalLayout {
@@ -369,11 +369,11 @@ component StringWidget inherits VerticalLayout {
     }
 
     function apply-value() {
-        text_rle.default-text = property-value.value-string;        
+        text_rle.default-text = property-value.value-string;
         tr-cb.checked = root.property-value.is-translatable;
         tr-context.default-text = root.property-value.tr-context;
     }
-    
+
     init => {
         self.i-am-a-hack-remove-me = self.preferred-height;
 
@@ -590,7 +590,7 @@ component ColorWidget inherits VerticalLayout {
         root.current-color = self.property-value.value-brush;
         root.current-color-data = Api.color-to-data(self.property-value.value-brush);
     }
-    
+
     private property <bool> has-focus: rle.has-focus || r.has-focus || g.has-focus || b.has-focus || a.has-focus;
 
     init => {
@@ -791,7 +791,7 @@ component EnumWidget inherits VerticalLayout {
     in property <string> property-name;
     in property <PropertyValue> property-value;
 
-    private property <PropertyValue> dummy: self.property-value; 
+    private property <PropertyValue> dummy: self.property-value;
 
     changed dummy => {
         if self.property-value.kind == PropertyValueKind.enum {
@@ -890,7 +890,7 @@ component EditJsonWidget inherits VerticalLayout {
     function apply-value() {
         edit.text = root.property-value.code;
     }
-    
+
     init => {
         apply-value();
     }
@@ -1279,7 +1279,7 @@ export component ExpandableGroup  {
                 HorizontalLayout {
                     spacing: EditorSpaceSettings.default-spacing / 2;
                     height: t.preferred-height;
-                    
+
                     icon-image := Image {
                         width: EditorSizeSettings.default-icon-width;
                         colorize: Palette.alternate-foreground.transparentize(0.7);
