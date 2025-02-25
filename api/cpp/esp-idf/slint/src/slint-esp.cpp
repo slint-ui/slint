@@ -221,6 +221,7 @@ void EspPlatform<PixelType>::run_event_loop()
                 using slint::platform::SoftwareRenderer;
                 auto rotated = rotation == SoftwareRenderer::RenderingRotation::Rotate90
                         || rotation == SoftwareRenderer::RenderingRotation::Rotate270;
+                auto stride = rotated ? size.height : size.width;
                 if (buffer1) {
 #if SOC_LCD_RGB_SUPPORTED && ESP_IDF_VERSION_MAJOR >= 5
                     if (buffer2) {
@@ -228,7 +229,6 @@ void EspPlatform<PixelType>::run_event_loop()
                         xSemaphoreTake(sem_vsync_end, portMAX_DELAY);
                     }
 #endif
-                    auto stride = rotated ? size.height : size.width;
                     auto region = m_window->m_renderer.render(buffer1.value(), stride);
 
                     if (byte_swap) {
@@ -262,15 +262,27 @@ void EspPlatform<PixelType>::run_event_loop()
                         }
                     }
                 } else {
-                    std::unique_ptr<PixelType, void (*)(void *)> lb(
-                            static_cast<PixelType *>(heap_caps_malloc(
-                                    (rotated ? size.height : size.width) * sizeof(PixelType),
-                                    MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT)),
-                            heap_caps_free);
+                    // esp_lcd_panel_draw_bitmap is "async" so we have two buffers, one in which we
+                    // render, and one which is being transmitted with a DMA transfer in parallel.
+                    // TODO: add some synchronization code anyway to make sure that we don't
+                    // call esp_lcd_panel_draw_bitmap when an operation is still in progress
+                    // or free the buffer too early. (using `on_color_trans_done` callback).
+                    using Uniq = std::unique_ptr<PixelType, void (*)(void *)>;
+                    Uniq lb[2] = {
+                        Uniq(static_cast<PixelType *>(
+                                     heap_caps_malloc(stride * sizeof(PixelType),
+                                                      MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT)),
+                             heap_caps_free),
+                        Uniq(static_cast<PixelType *>(
+                                     heap_caps_malloc(stride * sizeof(PixelType),
+                                                      MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT)),
+                             heap_caps_free),
+                    };
+                    int idx = 0;
                     m_window->m_renderer.render_by_line<PixelType>(
-                            [this, &lb](std::size_t line_y, std::size_t line_start,
-                                        std::size_t line_end, auto &&render_fn) {
-                                std::span<PixelType> view { lb.get(), line_end - line_start };
+                            [this, &lb, &idx](std::size_t line_y, std::size_t line_start,
+                                              std::size_t line_end, auto &&render_fn) {
+                                std::span<PixelType> view { lb[idx].get(), line_end - line_start };
                                 render_fn(view);
                                 if (byte_swap) {
                                     // Swap endianness to big endian
@@ -278,7 +290,8 @@ void EspPlatform<PixelType>::run_event_loop()
                                                   [](auto &rgbpix) { byte_swap_color(&rgbpix); });
                                 }
                                 esp_lcd_panel_draw_bitmap(panel_handle, line_start, line_y,
-                                                          line_end, line_y + 1, lb.get());
+                                                          line_end, line_y + 1, view.data());
+                                idx = (idx + 1) % 2;
                             });
                 }
             }
