@@ -11,7 +11,11 @@ import lightSlint from "./light-theme.json";
 // The following setup if for a minimal bundle size of ~1MB.
 import { createHighlighterCore } from "shiki/core";
 import { createOnigurumaEngine } from "shiki/engine/oniguruma";
-import type { LanguageRegistration, ThemeRegistration, HighlighterCore } from "@shikijs/types";
+import type {
+    LanguageRegistration,
+    ThemeRegistration,
+    HighlighterCore,
+} from "@shikijs/types";
 import OnigurumaEngine from "shiki/wasm";
 
 import slintLang from "./Slint-tmLanguage.json";

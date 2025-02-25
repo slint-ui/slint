@@ -15,13 +15,10 @@ export const App = () => {
     const [title, setTitle] = useState("");
     const [slintProperties, setSlintProperties] = useState("");
 
-    listenTS(
-        "updatePropertiesCallback",
-        (res) => {
-            setTitle(res.title || "");
-            setSlintProperties(res.slintSnippet || "");
-        }
-    );
+    listenTS("updatePropertiesCallback", (res) => {
+        setTitle(res.title || "");
+        setSlintProperties(res.slintSnippet || "");
+    });
 
     const [lightOrDarkMode, setLightOrDarkMode] = useState(getColorTheme());
     useEffect(() => {

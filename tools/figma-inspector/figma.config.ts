@@ -16,9 +16,9 @@ export const manifest: PluginManifest = {
     codegenLanguages: [{ label: "Slint", value: "slint" }],
     codegenPreferences: [],
     networkAccess: {
-        allowedDomains: ["none"]
+        allowedDomains: ["none"],
     },
-    documentAccess: "dynamic-page"
+    documentAccess: "dynamic-page",
 };
 
 const extraPrefs = {
