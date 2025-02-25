@@ -95,6 +95,7 @@ function roundNumber(value: number): number | null {
 }
 
 export function getBorderRadius(node: SceneNode): string | null {
+    // First check if node has cornerRadius property
     if (node === null || !("cornerRadius" in node) || node.cornerRadius === 0) {
         return null;
     }
@@ -106,33 +107,54 @@ export function getBorderRadius(node: SceneNode): string | null {
     const cornerRadius = node.cornerRadius;
 
     if (typeof cornerRadius === "number") {
-        // Single values will be a number, multi border values will be a Symbol.
         return `${indentation}border-radius: ${roundRadius(cornerRadius)}px;`;
     }
 
-    // Multiple border values
+    // Create type guard for corner properties
+    type NodeWithCorners = {
+        topLeftRadius?: number | symbol;
+        topRightRadius?: number | symbol;
+        bottomLeftRadius?: number | symbol;
+        bottomRightRadius?: number | symbol;
+    };
+
+    // Check if node has the corner properties
+    const hasCornerProperties = (
+        node: SceneNode,
+    ): node is SceneNode & NodeWithCorners => {
+        return (
+            "topLeftRadius" in node ||
+            "topRightRadius" in node ||
+            "bottomLeftRadius" in node ||
+            "bottomRightRadius" in node
+        );
+    };
+
+    if (!hasCornerProperties(node)) {
+        return null;
+    }
+
     const corners = [
         { prop: "topLeftRadius", slint: "border-top-left-radius" },
         { prop: "topRightRadius", slint: "border-top-right-radius" },
         { prop: "bottomLeftRadius", slint: "border-bottom-left-radius" },
         { prop: "bottomRightRadius", slint: "border-bottom-right-radius" },
-    ];
+    ] as const;
 
-    const validCorners = corners.filter(
-        (corner) =>
-            corner.prop in node &&
-            typeof node[corner.prop] === "number" &&
-            node[corner.prop] > 0,
-    );
+    const validCorners = corners.filter((corner) => {
+        const value = node[corner.prop as keyof typeof node];
+        return typeof value === "number" && value > 0;
+    });
 
-    const radiusStrings = validCorners.map((corner, index) => {
-        return `${indentation}${corner.slint}: ${roundRadius(node[corner.prop])}px;`;
+    const radiusStrings = validCorners.map((corner) => {
+        const value = node[corner.prop as keyof typeof node] as number;
+        return `${indentation}${corner.slint}: ${roundRadius(value)}px;`;
     });
 
     return radiusStrings.length > 0 ? radiusStrings.join("\n") : null;
 }
 
-export function getBorderWidthAndColor(sceneNode: SceneNode): string[] {
+export function getBorderWidthAndColor(sceneNode: SceneNode): string[] | null {
     const properties: string[] = [];
     if (
         !("strokes" in sceneNode) ||
@@ -167,10 +189,14 @@ export function getBrush(fill: {
 }): string {
     switch (fill.type) {
         case "SOLID": {
+            if (!fill.color) {
+                console.log("Missing fill colors for solid color value");
+                return "";
+            }
             return rgbToHex({ ...fill.color, a: fill.opacity });
         }
         case "GRADIENT_LINEAR": {
-            if (!fill.gradientStops) {
+            if (!fill.gradientStops || !fill.gradientTransform) {
                 console.log("Missing gradient stops for linear gradient");
                 return "";
             }
@@ -181,7 +207,7 @@ export function getBrush(fill: {
             });
         }
         case "GRADIENT_RADIAL": {
-            if (!fill.gradientStops) {
+            if (!fill.gradientStops || !fill.gradientTransform) {
                 console.log("Missing gradient stops for radial gradient");
                 return "";
             }
@@ -199,7 +225,6 @@ export function getBrush(fill: {
 }
 
 export function generateSlintSnippet(sceneNode: SceneNode): string | null {
-    console.log("node ID:", sceneNode.id);
     const nodeType = sceneNode.type;
 
     switch (nodeType) {

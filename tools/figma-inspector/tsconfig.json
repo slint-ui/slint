@@ -15,8 +15,8 @@
     "jsx": "react-jsx",
     "checkJs": true,
     "isolatedModules": true,
+    "lib": ["es2017", "dom"],
     "typeRoots": [
-      "../../node_modules/@types",
       "../../node_modules/@figma",
       "./src/globals.d.ts",
       "shared/universals.d.ts"
@@ -26,10 +26,8 @@
     "src/**/*.d.ts",
     "src/**/*.ts",
     "src/**/*.tsx",
-    "src/**/*.vue",
     "src/**/*.js",
-    "src/**/*.svelte",
-    "src-code/**/*.ts",
-    "shared/universals.d.ts"
+    "shared/universals.d.ts",
+    "backend/**/*.ts"
   ]
 }

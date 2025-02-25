@@ -10,7 +10,7 @@ export const manifest: PluginManifest = {
     api: "1.0.0",
     main: "code.js",
     ui: "index.html",
-    editorType: ["dev"],
+    editorType: ["figma", "dev"],
     capabilities: ["codegen", "vscode"],
     codegenLanguages: [{ label: "Slint", value: "slint" }],
     codegenPreferences: [],

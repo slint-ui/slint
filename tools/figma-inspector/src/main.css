@@ -1,0 +1,62 @@
+body {
+    margin: 0;
+    padding: 12px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+        sans-serif;
+}
+
+.container {
+    width: 100%;
+    height: 100%;
+    background-color: var(--figma-color-bg-secondary);
+    border-radius: 4px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.title {
+    height: 30px;
+    font-size: 12px;
+    flex: 0 0 auto;
+    color: var(--figma-color-text-secondary);
+    border-bottom: 1px solid var(--figma-color-border);
+    display: flex;
+    align-items: center;
+    padding-left: 16px;
+    padding-right: 16px;
+    justify-content: space-between;
+    user-select: none;
+}
+
+.copy-icon {
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.copy-icon:hover {
+    opacity: 0.7;
+}
+
+.content pre {
+    margin: 0;
+}
+
+.content {
+    padding: 16px;
+    font-size: 12px;
+    color: var(--figma-color-text-secondary);
+    white-space: pre-wrap;
+    font-family: "Roboto Mono", Monaco, "Courier New", monospace;
+    font-weight: 200;
+    overflow-x: auto;
+    overflow-y: hidden;
+    flex: 1;
+    border-left: 1px solid var(--figma-color-border); /* Added left border */
+    margin-left: 16px; /* Added margin to align with title */
+    margin-right: 16px;
+}
+
+.hidden {
+    display: none;
+}
