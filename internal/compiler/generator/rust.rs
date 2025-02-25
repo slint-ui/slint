@@ -2816,7 +2816,7 @@ fn compile_builtin_function_call(
                     });
                     let self_weak = parent_weak.clone();
                     #access_close.set_handler(move |()| {
-                        let self_rc = self_weak.upgrade().unwrap();
+                        let Some(self_rc) = self_weak.upgrade() else { return };
                         let _self = self_rc.as_pin_ref();
                         #close_popup
                     });
@@ -2834,9 +2834,10 @@ fn compile_builtin_function_call(
                     quote!(
                         let self_weak = parent_weak.clone();
                         #access.set_handler(move |entry| {
-                            let self_rc = self_weak.upgrade().unwrap();
-                            let _self = self_rc.as_pin_ref();
-                            #call
+                            if let Some(self_rc) = self_weak.upgrade() {
+                                let _self = self_rc.as_pin_ref();
+                                #call
+                            } else { Default::default() }
                         });
                     )
                 };

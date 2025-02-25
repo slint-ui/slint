@@ -1,0 +1,99 @@
+
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { AboutSlint, Button } from "std-widgets.slint";
+
+export component TestCase inherits Window {
+    in-out property <bool> condition: true;
+    in-out property <string> result;
+    width: 700px;
+    height: 700px;
+    TouchArea {
+        clicked => { result += "Background"; condition = true; }
+    }
+    if condition : ContextMenuArea {
+        Menu {
+            MenuItem {
+                title: "Entry1";
+                activated => {
+                    condition = false;
+                    result += "Entry1";
+                }
+            }
+            Menu {
+                title: "SubMenu";
+                MenuItem {
+                    title: result;
+                    activated => {
+                        condition = false;
+                        result += "SubMenu";
+                    }
+                }
+            }
+        }
+    }
+
+
+    out property <bool> test: true;
+}
+
+/*
+```rust
+use slint::{platform::WindowEvent, platform::PointerEventButton, LogicalPosition, SharedString, platform::Key};
+
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+
+// right click to open the menu
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(15.0, 15.0), button: PointerEventButton::Right });
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(15.0, 15.0), button: PointerEventButton::Right });
+// press on entry1
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(25.0, 25.0), button: PointerEventButton::Left });
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(25.0, 25.0), button: PointerEventButton::Left });
+assert_eq!(instance.get_result(), "Entry1");
+
+// press on the background
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(25.0, 40.0), button: PointerEventButton::Left });
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(25.0, 40.0), button: PointerEventButton::Left });
+assert_eq!(instance.get_result(), "Entry1Background");
+
+// right click to open the menu
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(15.0, 15.0), button: PointerEventButton::Right });
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(15.0, 15.0), button: PointerEventButton::Right });
+
+// use key shortcut to open the submenu:
+slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::UpArrow));
+slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::RightArrow));
+slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::DownArrow));
+slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::Return));
+assert_eq!(instance.get_result(), "Entry1BackgroundSubMenu");
+
+// press on the background
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(25.0, 40.0), button: PointerEventButton::Left });
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(25.0, 40.0), button: PointerEventButton::Left });
+assert_eq!(instance.get_result(), "Entry1BackgroundSubMenuBackground");
+
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+
+// right click to open the menu
+instance.window().dispatch_pointer_press_event(slint::LogicalPosition({15.0, 15.0}), slint::PointerEventButton::Right);
+instance.window().dispatch_pointer_release_event(slint::LogicalPosition({15.0, 15.0}), slint::PointerEventButton::Right);
+// press on entry1
+instance.window().dispatch_pointer_press_event(slint::LogicalPosition({25.0, 25.0}), slint::PointerEventButton::Left);
+instance.window().dispatch_pointer_release_event(slint::LogicalPosition({25.0, 25.0}), slint::PointerEventButton::Left);
+assert_eq(instance.get_result(), "Entry1");
+
+// press on the background
+instance.window().dispatch_pointer_press_event(slint::LogicalPosition({25.0, 40.0}), slint::PointerEventButton::Left);
+instance.window().dispatch_pointer_release_event(slint::LogicalPosition({25.0, 40.0}), slint::PointerEventButton::Left);
+assert_eq(instance.get_result(), "Entry1Background");
+
+//
+```
+*/
