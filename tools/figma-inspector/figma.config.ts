@@ -15,6 +15,9 @@ export const manifest: PluginManifest = {
     capabilities: ["codegen", "vscode"],
     codegenLanguages: [{ label: "Slint", value: "slint" }],
     codegenPreferences: [],
+    networkAccess: {
+        allowedDomains: ["none"]
+    },
     documentAccess: "dynamic-page"
 };
 
