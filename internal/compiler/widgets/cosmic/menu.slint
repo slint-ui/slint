@@ -13,37 +13,36 @@ export component MenuBarItem {
     min-height: base.min-height;
 
     base := MenuBarItemBase {
-        padding-left: 11px;
-        padding-right: 11px;
+        padding-left: 12px;
+        padding-right: 12px;
         padding-top: 4px;
-        padding-bottom: 6px;
-        default-foreground: CosmicPalette.foreground;
-        hover-foreground: CosmicPalette.accent-foreground;
-        pressed-foreground: CosmicPalette.accent-foreground;
-        hover-background: CosmicPalette.accent-background;
-        pressed-background: CosmicPalette.accent-background;
-        font-size: 14px;
-        font-weight: 300;
-        border-radius: 3px;
+        padding-bottom: 4px;
+        default-foreground: CosmicPalette.accent-background;
+        hover-foreground: CosmicPalette.accent-background;
+        pressed-foreground: CosmicPalette.accent-background;
+        hover-background: CosmicPalette.state-hover;
+        pressed-background: CosmicPalette.state-pressed;
+        font-size: CosmicFontSettings.body.font-size;
+        font-weight: CosmicFontSettings.body.font-weight;
+        border-radius: 12px;
     }
 }
 
 export component MenuBar inherits MenuBarBase {
-    padding: 9px;
-    spacing: 10px;
-    min-layout-height: 40px;
+    padding: 8px;
+    spacing: 4px;
+    min-layout-height: 48px;
 }
 
 export component MenuFrame inherits MenuFrameBase {
-    background: CosmicPalette.background;
-    border-radius: 7px;
+    background: CosmicPalette.alternate-background;
+    border-radius: 8px;
     border-width: 1px;
     border-color: CosmicPalette.border;
     drop-shadow-color: CosmicPalette.shadow;
-    drop-shadow-offset-y: 8px;
+    drop-shadow-offset-y: 4px;
     drop-shadow-blur: 16px;
-    padding: 1px;
-    layout-min-width: 280px;
+    layout-min-width: 360px;
 }
 
 export component MenuItem {
@@ -57,20 +56,17 @@ export component MenuItem {
     min-height: max(40px, base.min-height);
 
     HorizontalLayout {
-        padding: 5px;
-
         base := MenuItemBase {
             default-foreground: CosmicPalette.foreground;
-            current-foreground: CosmicPalette.accent-foreground;
-            current-background: CosmicPalette.accent-background;
+            current-foreground: CosmicPalette.foreground;
+            current-background: CosmicPalette.state-hover;
             font-size: CosmicFontSettings.body.font-size;
             font-weight: CosmicFontSettings.body.font-weight;
-            border-radius: 4px;
-            padding-left: 11px;
-            padding-right: 11px;
+            padding-left: 16px;
+            padding-right: 16px;
             spacing: 8px;
             sub-menu-icon: @image-url("_arrow_forward.svg");
-            icon-size: 12px;
+            icon-size: 16px;
         }
     }
 }
