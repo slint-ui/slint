@@ -749,6 +749,66 @@ public:
         return PhysicalRegion { r };
     }
 
+    /// Render the window scene into an RGB 565 encoded pixel buffer
+    ///
+    /// The buffer must be at least as large as the associated slint::Window
+    ///
+    /// The stride is the amount of pixels between two lines in the buffer.
+    /// It is must be at least as large as the width of the window.
+    PhysicalRegion render(std::span<Rgb565Pixel> buffer, std::size_t pixel_stride) const
+    {
+        auto r = cbindgen_private::slint_software_renderer_render_rgb565(
+                inner, reinterpret_cast<uint16_t *>(buffer.data()), buffer.size(), pixel_stride);
+        return PhysicalRegion { r };
+    }
+
+    /// Render the window scene, line by line. The provided Callback will be invoked for each line
+    /// that needs to rendered.
+    ///
+    /// The renderer uses a cache internally and will only render the part of the window
+    /// which are dirty.
+    ///
+    /// This function returns the physical region that was rendered considering the rotation.
+    ///
+    /// The callback must be an invocable with the signature (size_t line, size_t begin, size_t end,
+    /// auto render_fn). It is invoked with the line number as first parameter, and the start x and
+    /// end x coordinates of the line as second and third parameter. The implementation must provide
+    /// a line buffer (as std::span) and invoke the provided fourth parameter (render_fn) with it,
+    /// to fill it with pixels. After the line buffer is filled with pixels, your implementation is
+    /// free to flush that line to the screen for display.
+    ///
+    /// The first template parameter (PixelType) must be specified and can be either Rgb565Pixel or
+    /// Rgb8Pixel.
+    template<typename PixelType, typename Callback>
+        requires requires(Callback callback) {
+            callback(size_t(0), size_t(0), size_t(0), [&callback](std::span<PixelType>) {});
+        }
+    PhysicalRegion render_by_line(Callback process_line_callback) const
+    {
+        auto process_line_fn = [](void *process_line_callback_ptr, uintptr_t line,
+                                  uintptr_t line_start, uintptr_t line_end,
+                                  void (*render_fn)(const void *, PixelType *, std::size_t),
+                                  const void *render_fn_data) {
+            (*reinterpret_cast<Callback *>(process_line_callback_ptr))(
+                    std::size_t(line), std::size_t(line_start), std::size_t(line_end),
+                    [render_fn, render_fn_data](std::span<PixelType> line_span) {
+                        render_fn(render_fn_data, line_span.data(), line_span.size());
+                    });
+        };
+
+        if constexpr (std::is_same_v<PixelType, Rgb565Pixel>) {
+            return PhysicalRegion { cbindgen_private::slint_software_renderer_render_by_line_rgb565(
+                    inner, process_line_fn, &process_line_callback) };
+        } else if constexpr (std::is_same_v<PixelType, Rgb8Pixel>) {
+            return PhysicalRegion { cbindgen_private::slint_software_renderer_render_by_line_rgb8(
+                    inner, process_line_fn, &process_line_callback) };
+        } else {
+            static_assert(std::is_same_v<PixelType, Rgba8Pixel>
+                                  || std::is_same_v<PixelType, Rgb565Pixel>,
+                          "Unsupported PixelType. It must be either Rgba8Pixel or Rgb565Pixel");
+        }
+    }
+
 #    ifdef SLINT_FEATURE_EXPERIMENTAL
     /// Renders into the given TargetPixelBuffer.
     ///
@@ -868,66 +928,6 @@ public:
         return PhysicalRegion { r };
     }
 #    endif
-
-    /// Render the window scene into an RGB 565 encoded pixel buffer
-    ///
-    /// The buffer must be at least as large as the associated slint::Window
-    ///
-    /// The stride is the amount of pixels between two lines in the buffer.
-    /// It is must be at least as large as the width of the window.
-    PhysicalRegion render(std::span<Rgb565Pixel> buffer, std::size_t pixel_stride) const
-    {
-        auto r = cbindgen_private::slint_software_renderer_render_rgb565(
-                inner, reinterpret_cast<uint16_t *>(buffer.data()), buffer.size(), pixel_stride);
-        return PhysicalRegion { r };
-    }
-
-    /// Render the window scene, line by line. The provided Callback will be invoked for each line
-    /// that needs to rendered.
-    ///
-    /// The renderer uses a cache internally and will only render the part of the window
-    /// which are dirty.
-    ///
-    /// This function returns the physical region that was rendered considering the rotation.
-    ///
-    /// The callback must be an invocable with the signature (size_t line, size_t begin, size_t end,
-    /// auto render_fn). It is invoked with the line number as first parameter, and the start x and
-    /// end x coordinates of the line as second and third parameter. The implementation must provide
-    /// a line buffer (as std::span) and invoke the provided fourth parameter (render_fn) with it,
-    /// to fill it with pixels. After the line buffer is filled with pixels, your implementation is
-    /// free to flush that line to the screen for display.
-    ///
-    /// The first template parameter (PixelType) must be specified and can be either Rgb565Pixel or
-    /// Rgb8Pixel.
-    template<typename PixelType, typename Callback>
-        requires requires(Callback callback) {
-            callback(size_t(0), size_t(0), size_t(0), [&callback](std::span<PixelType>) {});
-        }
-    PhysicalRegion render_by_line(Callback process_line_callback) const
-    {
-        auto process_line_fn = [](void *process_line_callback_ptr, uintptr_t line,
-                                  uintptr_t line_start, uintptr_t line_end,
-                                  void (*render_fn)(const void *, PixelType *, std::size_t),
-                                  const void *render_fn_data) {
-            (*reinterpret_cast<Callback *>(process_line_callback_ptr))(
-                    std::size_t(line), std::size_t(line_start), std::size_t(line_end),
-                    [render_fn, render_fn_data](std::span<PixelType> line_span) {
-                        render_fn(render_fn_data, line_span.data(), line_span.size());
-                    });
-        };
-
-        if constexpr (std::is_same_v<PixelType, Rgb565Pixel>) {
-            return PhysicalRegion { cbindgen_private::slint_software_renderer_render_by_line_rgb565(
-                    inner, process_line_fn, &process_line_callback) };
-        } else if constexpr (std::is_same_v<PixelType, Rgb8Pixel>) {
-            return PhysicalRegion { cbindgen_private::slint_software_renderer_render_by_line_rgb8(
-                    inner, process_line_fn, &process_line_callback) };
-        } else {
-            static_assert(std::is_same_v<PixelType, Rgba8Pixel>
-                                  || std::is_same_v<PixelType, Rgb565Pixel>,
-                          "Unsupported PixelType. It must be either Rgba8Pixel or Rgb565Pixel");
-        }
-    }
 
     /// This enum describes the rotation that is applied to the buffer when rendering.
     /// To be used in set_rendering_rotation()
