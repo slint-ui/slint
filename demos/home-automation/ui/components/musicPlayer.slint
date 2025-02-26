@@ -89,12 +89,12 @@ export component AudioVisualizer inherits Rectangle {
 }
 
 export component MusicPlayer inherits Control {
-    property <string> title: "Maxwell's Silver Hammer";
+    property <string> title: "Time";
     property <int> current-page: AppState.current-page;
-    property <string> artist: "The Beatles";
-    property <string> album: "Abbey Road";
+    property <string> artist: "Pink Floyd";
+    property <string> album: "Dark Side Of The Moon";
     property <bool> unlocked: false;
-    property <image> cover-art: @image-url("../images/abbey-road.jpg");
+    property <image> cover-art: @image-url("../images/album.png");
     property <bool> is-active: false;
 
     tile := Rectangle {

@@ -43,24 +43,6 @@ export component Sidebar inherits Rectangle {
                 alignment: start;
                 spacing: Measurements.sidebar-spacing;
                 padding: Measurements.sidebar-padding;
-                HorizontalLayout {
-                    spacing: 5px;
-                    alignment: stretch;
-                    HaText {
-                        text: "Theme: ";
-                        horizontal-stretch: 0;
-                        vertical-alignment: center;
-                        color: Palette.foreground;
-                        font-size: 2rem;
-                    }
-
-                    VerticalLayout {
-                        alignment: center;
-                        ThemeSwitch {
-                            scale: 0.25;
-                        }
-                    }
-                }
 
                 Rectangle {
                     width: 100%;
