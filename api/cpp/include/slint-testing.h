@@ -57,8 +57,8 @@ public:
              typename R = std::invoke_result_t<Visitor, ElementHandle>>
         requires((std::is_constructible_v<bool, R> && std::is_default_constructible_v<R>)
                  || std::is_void_v<R>)
-    static auto visit_elements(const ComponentHandle<T> &component,
-                               Visitor visitor) -> std::invoke_result_t<Visitor, ElementHandle>
+    static auto visit_elements(const ComponentHandle<T> &component, Visitor visitor)
+            -> std::invoke_result_t<Visitor, ElementHandle>
     {
         // using R = std::invoke_result_t<Visitor, ElementHandle>;
         auto vrc = component.into_dyn();
@@ -235,14 +235,7 @@ public:
     /// Returns the accessible-enabled of that element, if any.
     std::optional<bool> accessible_enabled() const
     {
-        if (auto result = get_accessible_string_property(
-                    cbindgen_private::AccessibleStringProperty::Enabled)) {
-            if (*result == "true")
-                return true;
-            else if (*result == "false")
-                return false;
-        }
-        return std::nullopt;
+        return get_accessible_bool_property(cbindgen_private::AccessibleStringProperty::Enabled);
     }
 
     /// Returns the accessible-value of that element, if any.
@@ -307,53 +300,27 @@ public:
     /// Returns the accessible-checked of that element, if any.
     std::optional<bool> accessible_checked() const
     {
-        if (auto result = get_accessible_string_property(
-                    cbindgen_private::AccessibleStringProperty::Checked)) {
-            if (*result == "true")
-                return true;
-            else if (*result == "false")
-                return false;
-        }
-        return std::nullopt;
+        return get_accessible_bool_property(cbindgen_private::AccessibleStringProperty::Checked);
     }
 
     /// Returns the accessible-checkable of that element, if any.
     std::optional<bool> accessible_checkable() const
     {
-        if (auto result = get_accessible_string_property(
-                    cbindgen_private::AccessibleStringProperty::Checkable)) {
-            if (*result == "true")
-                return true;
-            else if (*result == "false")
-                return false;
-        }
-        return std::nullopt;
+        return get_accessible_bool_property(cbindgen_private::AccessibleStringProperty::Checkable);
     }
 
     /// Returns the accessible-item-selected of that element, if any.
     std::optional<bool> accessible_item_selected() const
     {
-        if (auto result = get_accessible_string_property(
-                    cbindgen_private::AccessibleStringProperty::ItemSelected)) {
-            if (*result == "true")
-                return true;
-            else if (*result == "false")
-                return false;
-        }
-        return std::nullopt;
+        return get_accessible_bool_property(
+                cbindgen_private::AccessibleStringProperty::ItemSelected);
     }
 
     /// Returns the accessible-item-selectable of that element, if any.
     std::optional<bool> accessible_item_selectable() const
     {
-        if (auto result = get_accessible_string_property(
-                    cbindgen_private::AccessibleStringProperty::ItemSelectable)) {
-            if (*result == "true")
-                return true;
-            else if (*result == "false")
-                return false;
-        }
-        return std::nullopt;
+        return get_accessible_bool_property(
+                cbindgen_private::AccessibleStringProperty::ItemSelectable);
     }
 
     /// Returns the accessible-item-index of that element, if any.
@@ -385,40 +352,19 @@ public:
     /// Returns the accessible-expanded of that element, if any.
     std::optional<bool> accessible_expanded() const
     {
-        if (auto result = get_accessible_string_property(
-                    cbindgen_private::AccessibleStringProperty::Expanded)) {
-            if (*result == "true")
-                return true;
-            else if (*result == "false")
-                return false;
-        }
-        return std::nullopt;
+        return get_accessible_bool_property(cbindgen_private::AccessibleStringProperty::Expanded);
     }
 
     /// Returns the accessible-expandable of that element, if any.
     std::optional<bool> accessible_expandable() const
     {
-        if (auto result = get_accessible_string_property(
-                    cbindgen_private::AccessibleStringProperty::Expandable)) {
-            if (*result == "true")
-                return true;
-            else if (*result == "false")
-                return false;
-        }
-        return std::nullopt;
+        return get_accessible_bool_property(cbindgen_private::AccessibleStringProperty::Expandable);
     }
 
     /// Returns the accessible-read-only of that element, if any.
     std::optional<bool> accessible_read_only() const
     {
-        if (auto result = get_accessible_string_property(
-                    cbindgen_private::AccessibleStringProperty::ReadOnly)) {
-            if (*result == "true")
-                return true;
-            else if (*result == "false")
-                return false;
-        }
-        return std::nullopt;
+        return get_accessible_bool_property(cbindgen_private::AccessibleStringProperty::ReadOnly);
     }
 
     /// Invokes the expand accessibility action of that element
@@ -566,6 +512,18 @@ private:
                                                                      item->index, what, &result)) {
                 return result;
             }
+        }
+        return std::nullopt;
+    }
+
+    std::optional<bool>
+    get_accessible_bool_property(cbindgen_private::AccessibleStringProperty what) const
+    {
+        if (auto result = get_accessible_string_property(what)) {
+            if (*result == "true")
+                return true;
+            else if (*result == "false")
+                return false;
         }
         return std::nullopt;
     }
