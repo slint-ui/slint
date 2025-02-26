@@ -20,13 +20,7 @@ const textProperties = [
     "font-weight",
 ];
 
-const unsupportedNodeProperties = [
-    "x",
-    "y",
-    "width",
-    "height",
-    "opacity",
-];
+const unsupportedNodeProperties = ["x", "y", "width", "height", "opacity"];
 
 export type RGBAColor = {
     r: number;
@@ -277,7 +271,10 @@ export function generateUnsupportedNodeSnippet(sceneNode: SceneNode): string {
                 }
                 break;
             case "width":
-                if ("width" in sceneNode && typeof sceneNode.width === "number") {
+                if (
+                    "width" in sceneNode &&
+                    typeof sceneNode.width === "number"
+                ) {
                     const width = roundNumber(sceneNode.width);
                     if (width) {
                         properties.push(`${indentation}width: ${width}px;`);
@@ -285,7 +282,10 @@ export function generateUnsupportedNodeSnippet(sceneNode: SceneNode): string {
                 }
                 break;
             case "height":
-                if ("height" in sceneNode && typeof sceneNode.height === "number") {
+                if (
+                    "height" in sceneNode &&
+                    typeof sceneNode.height === "number"
+                ) {
                     const height = roundNumber(sceneNode.height);
                     if (height) {
                         properties.push(`${indentation}height: ${height}px;`);
@@ -293,18 +293,22 @@ export function generateUnsupportedNodeSnippet(sceneNode: SceneNode): string {
                 }
                 break;
             case "opacity":
-                if ("opacity" in sceneNode && typeof sceneNode.opacity === "number") {
+                if (
+                    "opacity" in sceneNode &&
+                    typeof sceneNode.opacity === "number"
+                ) {
                     const opacity = sceneNode.opacity;
                     if (opacity !== 1) {
-                        properties.push(`${indentation}opacity: ${Math.round(opacity * 100)}%;`);
+                        properties.push(
+                            `${indentation}opacity: ${Math.round(opacity * 100)}%;`,
+                        );
                     }
                 }
                 break;
-            }
+        }
     });
 
     return `//Unsupported type: ${nodeType}\nRectangle {\n${properties.join("\n")}\n}`;
-
 }
 
 export function generateRectangleSnippet(sceneNode: SceneNode): string {
