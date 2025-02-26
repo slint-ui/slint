@@ -29,9 +29,11 @@ export component Example inherits Window {
             title: @tr("File");
             MenuItem {
                 title: @tr("New");
+                activated => { file-new(); }
             }
             MenuItem {
                 title: @tr("Open");
+                activated => { file-open(); }
             }
         }
         Menu {
@@ -56,6 +58,10 @@ export component Example inherits Window {
             }
         }
     }
+
+    callback file-new();
+    callback file-open();
+
     // ... actual window content goes here
 }
 ```
