@@ -349,14 +349,18 @@ component StringWidget inherits VerticalLayout {
     in property <bool> enabled;
     in property <string> property-name;
     in property <PropertyValue> property-value;
-    in property <bool> has-code-action <=> sub.has-code-action;
-    in property <bool> has-reset-action <=> sub.has-reset-action;
+    in property <bool> has-code-action;
+    in property <bool> has-reset-action;
+    in property <bool> is-translatable: true;
 
     out property <length> i-am-a-hack-remove-me: 0px;
 
     property <bool> open: false;
 
     private property <PropertyValue> dummy: self.property-value;
+
+    private property <bool> is-translated;
+    private property <string> tr-context-value;
 
     callback code-action();
     callback reset-action();
@@ -365,18 +369,16 @@ component StringWidget inherits VerticalLayout {
     pure callback set-string-binding(text: string, is-translated: bool);
 
     pure function tsb() -> bool {
-        // return test-string-binding(Api.string-to-code(text-rle.text, tr-cb.checked, tr-context.text, tr-plural.text, tr-plural-expression.text), tr-cb.checked);
-        return test-string-binding(Api.string-to-code(text-rle.text, tr-cb.checked, tr-context.text, "", ""), tr-cb.checked);
+        return test-string-binding(Api.string-to-code(text-rle.text, self.is-translated, self.tr-context-value, "", ""), self.is-translated);
     }
     pure function ssb() {
-        // set-string-binding(Api.string-to-code(text-rle.text, tr-cb.checked, tr-context.text, tr-plural.text, tr-plural-expression.text), tr-cb.checked);
-        set-string-binding(Api.string-to-code(text-rle.text, tr-cb.checked, tr-context.text, "", ""), tr-cb.checked);
+        set-string-binding(Api.string-to-code(text-rle.text, self.is-translated, self.tr-context-value, "", ""), self.is-translated);
     }
 
     function apply-value() {
         text_rle.default-text = property-value.value-string;
-        tr-cb.checked = root.property-value.is-translatable;
-        tr-context.default-text = root.property-value.tr-context;
+        self.is-translated = root.property-value.is-translatable;
+        self.tr-context-value = root.property-value.tr-context;
     }
 
     init => {
@@ -385,7 +387,8 @@ component StringWidget inherits VerticalLayout {
         apply-value();
     }
 
-    private property <bool> has-focus: text_rle.has-focus || tr-context.has-focus;
+    private property <bool> child-focus: false;
+    private property <bool> has-focus: text_rle.has-focus || self.child-focus;
 
     changed has-focus => {
         if !has-focus {
@@ -415,6 +418,7 @@ component StringWidget inherits VerticalLayout {
 
     HorizontalLayout {
         childIndicator := ChildIndicator {
+            visible: root.is-translatable;
             horizontal-stretch: 0;
             control-hover: text_rle.has-focus;
         }
@@ -434,7 +438,7 @@ component StringWidget inherits VerticalLayout {
         }
     }
 
-    HorizontalLayout {
+    if root.is-translatable: HorizontalLayout {
         Rectangle {
             width: childIndicator.width;
         }
@@ -442,6 +446,9 @@ component StringWidget inherits VerticalLayout {
         sub := SecondaryContent {
             enabled: root.enabled;
             open: childIndicator.open;
+
+            has-code-action <=> root.has-code-action;
+            has-reset-action <=> root.has-reset-action;
 
             code-action() => {
                 root.code-action();
@@ -453,8 +460,9 @@ component StringWidget inherits VerticalLayout {
             VerticalLayout {
                 spacing: EditorSpaceSettings.default-spacing;
                 tr-cb := CheckBox {
-                    checked: root.property-value.is-translatable;
+                    checked: root.is-translated;
                     toggled => {
+                        root.is-translated = self.checked;
                         root.ssb();
                     }
                     enabled: root.enabled;
@@ -472,53 +480,20 @@ component StringWidget inherits VerticalLayout {
 
                     tr-context := ResettingLineEdit {
                         enabled: root.enabled && tr-cb.checked;
+                        default-text: root.tr-context-value;
                         edited(text) => {
+                            root.tr-context-value = text;
                             self.can-compile = root.tsb();
                         }
                         accepted(text) => {
+                            root.tr-context-value = text;
                             root.ssb();
+                        }
+                        changed has-focus => {
+                            root.child-focus = self.has-focus;
                         }
                     }
                 }
-
-                // Row {
-                //     Text {
-                //         vertical-alignment: center;
-                //         horizontal-alignment: right;
-                //         text: "Plural";
-                //     }
-
-                //     tr-plural := ResettingLineEdit {
-                //         enabled: root.enabled && tr-cb.checked;
-                //         default-text: root.property-value.tr-plural;
-                //         edited(text) => {
-                //             self.can-compile = root.tsb();
-                //         }
-                //         accepted(text) => {
-                //             root.ssb();
-                //         }
-                //     }
-                // }
-
-                // Row {
-                //     Text {
-                //         vertical-alignment: center;
-                //         horizontal-alignment: right;
-                //         text: "Expression";
-                //     }
-
-                //     tr-plural-expression := ResettingLineEdit {
-                //         enabled: root.enabled && tr-cb.checked;
-                //         default-text: root.property-value.tr-plural-expression;
-                //         edited(text) => {
-                //             self.can-compile = root.tsb();
-                //             tr-plural.can-compile = self.can-compile;
-                //         }
-                //         accepted(text) => {
-                //             root.ssb();
-                //         }
-                //     }
-                // }
             }
         }
     }
@@ -990,6 +965,7 @@ export component PropertyValueWidget inherits VerticalLayout {
     in property <bool> enabled;
     in property <bool> has-code-action: true;
     in property <bool> has-reset-action: true;
+    in property <bool> strings-are-translatable: true;
 
     pure callback set-bool-binding(value: bool);
     pure callback set-color-binding(text: string);
@@ -1123,6 +1099,7 @@ export component PropertyValueWidget inherits VerticalLayout {
 
                 has-code-action: root.has-code-action;
                 has-reset-action: root.has-reset-action;
+                is-translatable <=> root.strings-are-translatable;
 
                 reset-action() => {
                     root.reset-action();
@@ -1246,6 +1223,7 @@ export component PreviewDataPropertyValueWidget inherits VerticalLayout {
         property-name: root.preview-data.name;
         enabled: root.preview-data.has-setter;
 
+        strings-are-translatable: false;
         has-code-action: false;
         has-reset-action: false;
 
