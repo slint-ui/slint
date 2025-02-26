@@ -65,7 +65,9 @@ When your design becomes bigger in terms of markup code, you may want move it to
 /*!Use a [build script](https://doc.rust-lang.org/cargo/reference/build-scripts.html) to compile
 your main `.slint` file:
 
-In your Cargo.toml add a `build` assignment and use the `slint-build` crate in `build-dependencies`:
+*/
+#![doc = i_slint_core_macros::slint_doc_str!("In your Cargo.toml add a `build` assignment and use the [`slint-build`](slint:rust:slint_build/) crate in `build-dependencies`:")]
+/*
 
 ```toml
 [package]
@@ -352,6 +354,7 @@ pub fn spawn_local<F: core::future::Future + 'static>(
 /// available for you to instantiate.
 ///
 /// Check the documentation of the `slint-build` crate for more information.
+#[doc = i_slint_core_macros::slint_doc_str!("Check the documentation of the [`slint-build`](slint:rust:slint_build/) crate for more information.")]
 #[macro_export]
 macro_rules! include_modules {
     () => {
