@@ -32,7 +32,7 @@ path = [
   ".gitignore",
   ".mailmap",
   ".vscode/**",
-  "editors/vscode/tests/grammar/*.slint"
+  "editors/vscode/tests/grammar/*.slint",
   "Cargo.lock",
   "REUSE.toml",
   "biome.json",
