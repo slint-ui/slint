@@ -18,22 +18,10 @@ export component Appliance {
         clip: true;
         background: Palette.appliance-background;
         border-radius: Measurements.tile-radius;
-        Rectangle {
-            clip: true;
-            min-width: tile.width;
-            max-width: tile.width;
-            height: tile.height / 2;
-            x: 0;
+        Image {
             y: tile.height - self.height;
-            // border-radius: Measurements.tile-radius;
-            background: Palette.appliance-alternate-background;
-            if (root.width > Measurements.small-width-tile): Image {
-                width: parent.width;
-                height: image-size;
-                y: -40px;
-                image-fit: cover;
-                source: appliance-image;
-            }
+            width: tile.width;
+            source: appliance-image;
         }
 
         VerticalLayout {
