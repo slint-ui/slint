@@ -38,43 +38,16 @@ export component Lamp inherits Control {
             width: 70%;
             height: 100%;
 
-            sh := Image {
+            Image {
                 width: self.source.width * 0.5 * 1px;
                 height: self.source.height * 0.5 * 1px;
-                property <[image]> frames: [
-                    @image-url("../images/lamp/0000.png"),
-                    @image-url("../images/lamp/0001.png"),
-                    @image-url("../images/lamp/0002.png"),
-                    @image-url("../images/lamp/0003.png"),
-                    @image-url("../images/lamp/0004.png"),
-                    @image-url("../images/lamp/0005.png"),
-                    @image-url("../images/lamp/0006.png"),
-                    @image-url("../images/lamp/0007.png"),
-                    @image-url("../images/lamp/0008.png"),
-                    @image-url("../images/lamp/0009.png"),
-                    @image-url("../images/lamp/0010.png"),
-                    @image-url("../images/lamp/0011.png"),
-                    @image-url("../images/lamp/0012.png"),
-                    @image-url("../images/lamp/0013.png"),
-                    @image-url("../images/lamp/0014.png"),
-                    @image-url("../images/lamp/0015.png"),
-                    @image-url("../images/lamp/0016.png"),
-                    @image-url("../images/lamp/0017.png"),
-                    @image-url("../images/lamp/0018.png"),
-                    @image-url("../images/lamp/0019.png"),
-                    @image-url("../images/lamp/0020.png"),
-                    @image-url("../images/lamp/0021.png"),
-                    @image-url("../images/lamp/0022.png"),
-                    @image-url("../images/lamp/0023.png"),
-                    @image-url("../images/lamp/0024.png"),
-                ];
-
-                property <int> frame: 0;
-                source: frames[slider.value];
-                animate frame {
-                    duration: 300ms;
-                    easing: ease-in-out-sine;
-                }
+                source: @image-url("../images/lamp/0000.png");
+            }
+            Image {
+                width: self.source.width * 0.5 * 1px;
+                height: self.source.height * 0.5 * 1px;
+                source: @image-url("../images/lamp/0024.png");
+                opacity: slider.value / 24;
             }
         }
 
