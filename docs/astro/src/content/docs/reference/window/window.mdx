@@ -12,6 +12,8 @@ The `Window` geometry will be restricted by its layout constraints: Setting the 
 and the window manager will respect the `min-width` and `max-width` so the window can't be resized bigger
 or smaller. The initial width can be controlled with the `preferred-width` property. The same applies to the `Window`s height.
 
+Use the <Link type="MenuBar" /> element to declare a menu bar for the window.
+
 ## Properties
 
 ### always-on-top
@@ -58,58 +60,3 @@ Whether the window should be borderless/frameless or not.
 <SlintProperty propName="title" typeName="string">
 The window title that is shown in the title bar.
 </SlintProperty>
-
-## `MenuBar` element
-
-Place a single `MenuBar` element into a `Window` to declare a menu bar for the window.
-
-:::note{Note}
-There can only be one `MenuBar` element in a `Window` and it must not be in a `for` or a `if`.
-:::
-
-The `MenuBar` doesn't have properties, but it must contain <Link type="Menu" /> as children that represent top level entries in the menu bar.
-
-Depending on the platform, the menu bar might be native or rendered by Slint.
-This means that for example, on macOS, the menu bar will be at the top of the screen.
-The `width` and `height` property of the `Window` define the client area, excluding the menu bar.
-The `x` and `y` properties of `Window` children are also relative to the client area.
-
-### Example
-
-```slint
-export component Example inherits Window {
-    MenuBar {
-        Menu {
-            title: @tr("File");
-            MenuItem {
-                title: @tr("New");
-            }
-            MenuItem {
-                title: @tr("Open");
-            }
-        }
-        Menu {
-            title: @tr("Edit");
-            MenuItem {
-                title: @tr("Copy");
-            }
-            MenuItem {
-                title: @tr("Paste");
-            }
-            Menu {
-                title: @tr("Find");
-                MenuItem {
-                    title: @tr("Find in document...");
-                }
-                MenuItem {
-                    title: @tr("Find Next");
-                }
-                MenuItem {
-                    title: @tr("Find Previous");
-                }
-            }
-        }
-    }
-    // ... actual window content goes here
-}
-```

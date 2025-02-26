@@ -93,7 +93,7 @@
         "href": "guide/backends-and-renderers/backend_linuxkms/"
     },
     "MenuBar": {
-        "href": "reference/window/window/#menubar"
+        "href": "reference/window/menubar/"
     },
     "Menu": {
         "href": "reference/window/contextmenuarea/#menu"
@@ -197,5 +197,4 @@
     "index": {
         "href": ""
     }
-
 }

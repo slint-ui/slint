@@ -1,0 +1,61 @@
+---
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+title: MenuBar
+description: MenuBar element api.
+---
+import SlintProperty from '/src/components/SlintProperty.astro';
+import Link from '/src/components/Link.astro';
+
+Use the `MenuBar` element in a <Link type="Window" /> to declare the structure of a menu bar, including the actual
+menus and sub-menus.
+
+:::note{Note}
+There can only be one `MenuBar` element in a `Window` and it must not be in a `for` or a `if`.
+:::
+
+The `MenuBar` doesn't have properties, but it must contain <Link type="Menu" /> as children that represent top level entries in the menu bar.
+
+Depending on the platform, the menu bar might be native or rendered by Slint.
+This means that for example, on macOS, the menu bar will be at the top of the screen.
+The `width` and `height` property of the <Link type="Window" /> define the client area, excluding the menu bar.
+The `x` and `y` properties of `Window` children are also relative to the client area.
+
+### Example
+
+```slint
+export component Example inherits Window {
+    MenuBar {
+        Menu {
+            title: @tr("File");
+            MenuItem {
+                title: @tr("New");
+            }
+            MenuItem {
+                title: @tr("Open");
+            }
+        }
+        Menu {
+            title: @tr("Edit");
+            MenuItem {
+                title: @tr("Copy");
+            }
+            MenuItem {
+                title: @tr("Paste");
+            }
+            Menu {
+                title: @tr("Find");
+                MenuItem {
+                    title: @tr("Find in document...");
+                }
+                MenuItem {
+                    title: @tr("Find Next");
+                }
+                MenuItem {
+                    title: @tr("Find Previous");
+                }
+            }
+        }
+    }
+    // ... actual window content goes here
+}
+```
