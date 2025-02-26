@@ -20,6 +20,14 @@ const textProperties = [
     "font-weight",
 ];
 
+const unsupportedNodeProperties = [
+    "x",
+    "y",
+    "width",
+    "height",
+    "opacity",
+];
+
 export type RGBAColor = {
     r: number;
     g: number;
@@ -240,10 +248,63 @@ export function generateSlintSnippet(sceneNode: SceneNode): string | null {
             return generateTextSnippet(sceneNode);
         }
         default: {
-            console.log("Unknown node type:", nodeType);
+            return generateUnsupportedNodeSnippet(sceneNode);
         }
     }
     return null;
+}
+
+export function generateUnsupportedNodeSnippet(sceneNode: SceneNode): string {
+    const properties: string[] = [];
+    const nodeType = sceneNode.type;
+
+    unsupportedNodeProperties.forEach((property) => {
+        switch (property) {
+            case "x":
+                if ("x" in sceneNode && typeof sceneNode.x === "number") {
+                    const x = roundNumber(sceneNode.x);
+                    if (x) {
+                        properties.push(`${indentation}x: ${x}px;`);
+                    }
+                }
+                break;
+            case "y":
+                if ("y" in sceneNode && typeof sceneNode.y === "number") {
+                    const y = roundNumber(sceneNode.y);
+                    if (y) {
+                        properties.push(`${indentation}y: ${y}px;`);
+                    }
+                }
+                break;
+            case "width":
+                if ("width" in sceneNode && typeof sceneNode.width === "number") {
+                    const width = roundNumber(sceneNode.width);
+                    if (width) {
+                        properties.push(`${indentation}width: ${width}px;`);
+                    }
+                }
+                break;
+            case "height":
+                if ("height" in sceneNode && typeof sceneNode.height === "number") {
+                    const height = roundNumber(sceneNode.height);
+                    if (height) {
+                        properties.push(`${indentation}height: ${height}px;`);
+                    }
+                }
+                break;
+            case "opacity":
+                if ("opacity" in sceneNode && typeof sceneNode.opacity === "number") {
+                    const opacity = sceneNode.opacity;
+                    if (opacity !== 1) {
+                        properties.push(`${indentation}opacity: ${Math.round(opacity * 100)}%;`);
+                    }
+                }
+                break;
+            }
+    });
+
+    return `//Unsupported type: ${nodeType}\nRectangle {\n${properties.join("\n")}\n}`;
+
 }
 
 export function generateRectangleSnippet(sceneNode: SceneNode): string {
@@ -283,7 +344,7 @@ export function generateRectangleSnippet(sceneNode: SceneNode): string {
                 if ("opacity" in sceneNode && sceneNode.opacity !== 1) {
                     const opacity = sceneNode.opacity;
                     properties.push(
-                        `${indentation}opacity: ${opacity * 100}%;`,
+                        `${indentation}opacity: ${Math.round(opacity * 100)}%;`,
                     );
                 }
                 break;
