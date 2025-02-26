@@ -443,6 +443,7 @@ lazy_static! {
         ("^docs/reference/Pipfile$", LicenseLocation::NoLicense),
         ("^docs/reference/conf\\.py$", LicenseLocation::NoLicense),
         ("^editors/vscode/src/snippets\\.ts$", LicenseLocation::NoLicense), // liberal license
+        ("^editors/vscode/tests/grammar/.*\\.slint$", LicenseLocation::NoLicense), // License header breaks these tests
         ("^editors/tree-sitter-slint/binding\\.gyp$", LicenseLocation::NoLicense), // liberal license
         ("^editors/tree-sitter-slint/test-to-corpus\\.py$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
         ("^Cargo\\.lock$", LicenseLocation::NoLicense),
