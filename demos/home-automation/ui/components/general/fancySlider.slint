@@ -86,6 +86,7 @@ export component FancySlider inherits Rectangle {
         Rectangle {
             x: 0;
             background: Palette.slider-foreground;
+            opacity: 0.2 + 0.3 * (self.width / parent.width);
             width: parent.width * (value - minValue) / (maxValue - minValue);
             height: 100%;
         }
@@ -104,6 +105,7 @@ export component FancySlider inherits Rectangle {
     Rectangle {
         border-radius: root.border-radius;
         border-width: 1px;
-        border-color: Palette.lamp-foreground;
+        border-color:  @linear-gradient(180deg, white.transparentize(20%) 0%, white.transparentize(85%) 50%, #ffffff.transparentize(92%) 100%);
+        background: @linear-gradient(180deg, white.transparentize(100%) 0%, white.transparentize(100%) 60%, #ffffff.transparentize(50%) 100%);
     }
 }

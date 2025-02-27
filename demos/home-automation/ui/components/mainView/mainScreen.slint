@@ -134,10 +134,10 @@ export component MainScreen inherits Rectangle {
 
             navigation := Rectangle {
 
-                Rectangle {
-                    x: 16px;
-                    y: 16px;
-                    width: 500px;
+                nav-bar := Rectangle {
+                    // x: 16px;
+                    y: 26px;
+                    width: 600px;
                     height: 40px;
 
                     Rectangle {
@@ -150,13 +150,13 @@ export component MainScreen inherits Rectangle {
                     }
                     Rectangle {
                         border-width: 1px;
-                        border-color: @linear-gradient(0deg, white.transparentize(90%) 0%, white.transparentize(90%) 80%, #ffffff.transparentize(80%) 100%);
+                        border-color: Palette.glass-border;
                         border-radius: self.height / 2;
-                        background: @linear-gradient(180deg, white.transparentize(90%) 0%, white.transparentize(90%) 80%, #ffffff.transparentize(80%) 100%);
+                        background: Palette.glass-background;
                     }
                     HorizontalLayout {
                         alignment: center;
-                        spacing: 50px;
+                        spacing: 70px;
                         property <length> default-font-size: 16px;
                         PageButton {
                             label: "Home";
