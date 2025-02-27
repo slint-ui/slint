@@ -1451,7 +1451,11 @@ pub mod ffi {
             core::mem::size_of::<Rc<dyn WindowAdapter>>(),
             core::mem::size_of::<WindowAdapterRcOpaque>()
         );
-        core::ptr::read(handle as *mut Rc<dyn WindowAdapter>);
+        assert_eq!(
+            core::mem::size_of::<Option<Rc<dyn WindowAdapter>>>(),
+            core::mem::size_of::<WindowAdapterRcOpaque>()
+        );
+        drop(core::ptr::read(handle as *mut Option<Rc<dyn WindowAdapter>>));
     }
 
     /// Releases the reference to the component window held by handle.
