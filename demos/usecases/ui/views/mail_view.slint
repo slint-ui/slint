@@ -5,6 +5,7 @@ import { GroupBox, ComboBox, VerticalBox, GroupBox, GridBox, Palette, TextEdit, 
 import { NavigationListView, NavigationListViewItem, Container, ExtendedLineEdit, Icon, CardListView, CardListViewItem, IconButton, TitleText } from "../widgets.slint";
 import { ModalDialog } from "../widgets.slint";
 import { Icons } from "../assets.slint";
+import { UsecasesPalette } from "../widgets/styling.slint";
 
 export global MailViewAdapter { }
 
@@ -43,11 +44,16 @@ export global MailSideBarViewAdapter {
     }
 }
 
+export component MailContainer inherits Container {   
+    background: UsecasesPalette.use-material ? Palette.alternate-background : Palette.control-background;
+    border-color: UsecasesPalette.use-material ? Palette.border : transparent;
+}
+
 export component MailSideBarView {
     in property <bool> break-layout;
 
     horizontal-stretch: 0;
-    min-width: 264px / 2;
+    min-width: 200px;
 
     VerticalLayout {
         spacing: 4px;
@@ -57,6 +63,8 @@ export component MailSideBarView {
         }
 
         Container {
+            border-radius: UsecasesPalette.use-material ? 0 : 4px;
+            
             NavigationListView {
                 model: MailSideBarViewAdapter.boxes;
                 current-item <=> MailSideBarViewAdapter.current-box;
@@ -94,9 +102,10 @@ export component MailSideBarDialog inherits ModalDialog {
         background: Palette.control-background;
 
         HorizontalLayout {
-            padding: 4px;
+            padding: UsecasesPalette.use-material ? 0 : 4px;
 
             side-bar := MailSideBarView {
+                width: 360px;
                 break-layout: true;
             }
         }
@@ -185,9 +194,7 @@ export component MailBoxView {
             }
         }
 
-        Container {
-            background: Palette.control-background;
-
+        MailContainer {
             VerticalLayout {
                 spacing: 8px;
 
@@ -227,9 +234,7 @@ export global MailMessageViewAdapter {
 export component MailMessageView {
     horizontal-stretch: 1;
 
-    Container {
-        background: Palette.control-background;
-
+    MailContainer {
         HorizontalLayout {
             spacing: 8px;
 
@@ -339,8 +344,10 @@ export component MailView {
     }
 
     sidebar-dialog := MailSideBarDialog {
-        x: -root.absolute-position.x;
-        y: -root.absolute-position.y;
+        x: 0;
+        y: 0;
+        width: root.height;
+        height: root.height;
     }
 }
 
