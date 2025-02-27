@@ -140,13 +140,13 @@ clru = { version = "0.6.0" }
 css-color-parser2 = { version = "1.0.1" }
 derive_more = { version = "1.0.0", default-features = false, features = ["deref", "deref_mut", "into", "from", "add", "add_assign", "mul", "not", "display"] }
 euclid = { version = "0.22.1", default-features = false }
-fontdb = { version = "0.22.0", default-features = false }
+fontdb = { version = "0.23.0", default-features = false }
 fontdue = { version = "0.9.0" }
 glutin = { version = "0.32.0", default-features = false }
 image = { version = "0.25", default-features = false, features = [ "png", "jpeg" ] }
 itertools = { version = "0.14" }
 log = { version = "0.4.17" }
-resvg = { version= "0.44.0", default-features = false, features = ["text"] }
+resvg = { version= "0.45.0", default-features = false, features = ["text"] }
 rowan = { version = "0.16.1" }
 rustybuzz = { version = "0.20.0" }
 send_wrapper = { version = "0.6.0" }
