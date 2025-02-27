@@ -14,38 +14,20 @@ export component Lamp inherits Control {
     show-label: false;
     tile-shadow-blur: 0px;
 
-    tile := InnerShadowRectangle {
+    tile := Rectangle {
         width: 100%;
         height: 100%;
-        clip: true;
-        inner-color: Palette.lamp-background.mix(Palette.lamp-shadow,(slider.value / 24));
-        inner-shadow-color: Palette.lamp-shadow;
-        inner-shadow-blur: tile.height / 5;
 
-        TouchArea {
-            clicked => {
-                slider.toggle();
-            }
-        }
         Rectangle {
             x: tile.width - self.width + 20px;
             y: (root.width > Measurements.small-width-tile) ? -60px : -40px;
-            animate y {
-                duration: 300ms;
-                easing: ease-in-out-sine;
-            }
-            clip: true;
             width: 70%;
             height: 100%;
 
             Image {
-                width: self.source.width * 0.5 * 1px;
-                height: self.source.height * 0.5 * 1px;
                 source: @image-url("../images/lamp/0000.png");
             }
             Image {
-                width: self.source.width * 0.5 * 1px;
-                height: self.source.height * 0.5 * 1px;
                 source: @image-url("../images/lamp/0024.png");
                 opacity: slider.value / 24;
             }
@@ -64,8 +46,8 @@ export component Lamp inherits Control {
                     HaText {
                         text: root.name;
                         font-size: Style.tile-title-font-size;
-                        font-weight: 400;
-                        color: Palette.lamp-foreground;
+                        font-weight: 200;
+                        color: white;
                     }
                 }
             }
@@ -78,20 +60,5 @@ export component Lamp inherits Control {
                 colorize-icon: Colors.black;
             }
         }
-
-        switch := DropShadowToggle {
-            x: 0;
-            y: root.height < Measurements.medium-height-tile ? root.height - self.height - tilePadding : tilePadding * 2.5;
-            labelOff: "";
-            labelOn: "";
-            scale: 33%;
-            toggleOpacity: 0.4;
-            active: slider.value > 0;
-            touchEnabled: false;
-            control-color: self.active ? Palette.lamp-background : Palette.lamp-shadow ;
-            inner-shadow-color: self.active ? Palette.shadow-color : Palette.slider-background.darker(0.1);
-            inner-color-inactive: Palette.slider-background;
-            inner-color-active: Palette.slider-foreground;
-            }
     }
 }
