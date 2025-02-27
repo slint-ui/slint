@@ -10,6 +10,43 @@ import { Measurements, Palette, Animation, Style } from "../../common.slint";
 import { AppState, ComponentData } from "../../appState.slint";
 import { FullScreenWidgetLoader } from "fullScreenWidgetLoader.slint";
 import { FullScreenView } from "fullScreenView.slint";
+import { Page } from "../../../../printerdemo/ui/common.slint";
+
+export component PageButton inherits Rectangle {
+    in property label <=> t.text;
+    in property <int> target-page;
+    in property <image> icon;
+
+    property <bool> selected: AppState.target-page == target-page;
+
+    width: 60px;
+    height: 40px;
+
+    Rectangle{
+        t := Text {
+            font-size: 16px;
+            font-weight: selected ? 400 : 100;
+            font-family: AppState.default-font-family;
+            color: black;
+            Text {
+                x: -1px;
+                y: -1px;
+                text: t.text;
+                font-size: 16px;
+                font-weight: selected ? 400 : 100;
+                font-family: AppState.default-font-family;
+                color: #ffffff;
+            }
+        }
+    }
+
+    TouchArea {
+        clicked => {
+            AppState.target-page = target-page;
+            AppState.first-run = false;
+        }
+    }
+}
 
 export component MainScreen inherits Rectangle {
     property <int> internal-target-page: AppState.target-page;
@@ -97,100 +134,48 @@ export component MainScreen inherits Rectangle {
 
             navigation := Rectangle {
 
-                navBar := Rectangle {
-                    x: 18px;
-                    y: self.height / 5;
-                    width: AppState.current-page > (AppState.pageData.length - 7) ? 924px : 690px;
-                    animate width {
-                        duration: Animation.transitionDuration;
-                        easing: ease-in-out-sine;
+                Rectangle {
+                    x: 16px;
+                    y: 16px;
+                    width: 500px;
+                    height: 40px;
+
+                    Rectangle {
+                        border-radius: self.height / 2;
+                        drop-shadow-blur: 5px;
+                        drop-shadow-color: black.transparentize(0.5);
+                        drop-shadow-offset-x: 3px;
+                        drop-shadow-offset-y: 3px;
+                        background: #241433;
                     }
-                    height: 60.5px;
+                    Rectangle {
+                        border-width: 1px;
+                        border-color: @linear-gradient(0deg, white.transparentize(90%) 0%, white.transparentize(90%) 80%, #ffffff.transparentize(80%) 100%);
+                        border-radius: self.height / 2;
+                        background: @linear-gradient(180deg, white.transparentize(90%) 0%, white.transparentize(90%) 80%, #ffffff.transparentize(80%) 100%);
+                    }
                     HorizontalLayout {
-                        spacing: 5px;
-                        ViewButton {
+                        alignment: center;
+                        spacing: 50px;
+                        property <length> default-font-size: 16px;
+                        PageButton {
+                            label: "Home";
                             target-page: 0;
-                            text: "House";
                         }
-
-                        ViewButton {
+                        PageButton {
+                            label: "Kitchen";
                             target-page: 1;
-                            text: "Kitchen";
                         }
-
-                        ViewButton {
+                        PageButton {
+                            label: "Bedroom";
                             target-page: 2;
-                            text: "Master Bedroom";
                         }
-
-                        ViewButton {
+                        PageButton {
+                            label: "Office";
                             target-page: 3;
-                            text: "Office";
                         }
                     }
                 }
-
-                // Rectangle {
-                //     x: 16px;
-                //     y: 16px;
-                //     width: 500px;
-                //     height: 40px;
-
-                //     Rectangle {
-                //         border-radius: self.height / 2;
-                //         drop-shadow-blur: 5px;
-                //         drop-shadow-color: black.transparentize(0.5);
-                //         drop-shadow-offset-x: 3px;
-                //         drop-shadow-offset-y: 3px;
-                //         background: #241433;
-                //     }
-                //     Rectangle {
-                //         border-radius: self.height / 2;
-                //         opacity: 15%;
-                //         background: #ffffff;
-                //     }
-                //     Rectangle {
-                //         border-width: 1px;
-                //         border-color: #ffffff;
-                //         border-radius: self.height / 2;
-                //         opacity: 20%;
-                //     }
-                //     HorizontalLayout {
-                //         y: 8px;
-                //         alignment: center;
-                //         spacing: 50px;
-                //         property <length> default-font-size: 16px;
-                //         Text {
-                //             text: "Home";
-                //             font-size: default-font-size;
-                //             font-weight: 100;
-                //             font-family: AppState.default-font-family;
-                //             color: #ffffff;
-                //         }
-                //         Text {
-                //             text: "Kitchen";
-                //             font-size: default-font-size;
-                //             font-weight: 100;
-                //             font-family: AppState.default-font-family;
-                //             color: #ffffff;
-                //         }
-                //         Text {
-                //             text: "Bedroom";
-                //             font-size: default-font-size;
-                //             font-weight: 100;
-                //             font-family: AppState.default-font-family;
-                //             color: #ffffff;
-                //         }
-                //         Text {
-                //             text: "Office";
-                //             font-size: default-font-size;
-                //             font-weight: 100;
-                //             font-family: AppState.default-font-family;
-                //             color: #ffffff;
-                //         }
-                //     }
-                    
-                // }
 
                 // This whole holder could be animated off screen, faded, whatever when the camera fills the screen.
                 widgetHolder := Rectangle {
