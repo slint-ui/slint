@@ -86,7 +86,7 @@ export component FancySlider inherits Rectangle {
         Rectangle {
             x: 0;
             background: Palette.slider-foreground;
-            opacity: 0.2 + 0.3 * (self.width / parent.width);
+            opacity: 0.2 + 0.2 * (self.width / parent.width);
             width: parent.width * (value - minValue) / (maxValue - minValue);
             height: 100%;
         }
