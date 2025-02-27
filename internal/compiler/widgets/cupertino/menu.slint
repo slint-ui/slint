@@ -13,34 +13,37 @@ export component MenuBarItem {
     min-height: base.min-height;
 
     base := MenuBarItemBase {
-        padding-left: 11px;
-        padding-right: 11px;
-        padding-top: 4px;
-        padding-bottom: 6px;
+        padding-left: 8px;
+        padding-right: 8px;
         default-foreground: CupertinoPalette.foreground;
-        hover-foreground: CupertinoPalette.accent-foreground;
-        pressed-foreground: CupertinoPalette.accent-foreground;
-        hover-background: CupertinoPalette.accent-background;
-        pressed-background: CupertinoPalette.accent-background;
-        font-size: 14px;
+        hover-foreground: CupertinoPalette.foreground;
+        pressed-foreground: CupertinoPalette.foreground;
+        hover-background: CupertinoPalette.secondary-control-background;
+        pressed-background: CupertinoPalette.secondary-control-background;
+        font-size: 13px;
         font-weight: 300;
-        border-radius: 3px;
+        border-radius: 2px;
     }
 }
 
 export component MenuBar inherits MenuBarBase {
-    padding: 9px;
-    spacing: 10px;
-    min-layout-height: 40px;
+    padding-top: 0;
+    padding-bottom: 0;
+    padding-left: 8px;
+    padding-right: 8px;
+    min-layout-height: 24px;
 }
 
 export component MenuFrame inherits MenuFrameBase {
-    background: CupertinoPalette.background;
-    border-radius: 7px;
     border-width: 1px;
     border-color: CupertinoPalette.border;
-    padding: 1px;
     layout-min-width: 280px;
+    drop-shadow-blur: 22px;
+    drop-shadow-color: #00000066;
+    drop-shadow-offset-y: 0.5px;
+    background: CupertinoPalette.background;
+    border-radius: 6px;
+    padding: 4px;
 }
 
 export component MenuItem {
@@ -51,23 +54,21 @@ export component MenuItem {
     callback clear-current <=> base.clear-current;
     callback activate <=> base.activate;
 
-    min-height: max(40px, base.min-height);
+    min-height: max(22px, base.min-height);
 
-    HorizontalLayout {
-        padding: 5px;
-
+    HorizontalLayout {        
         base := MenuItemBase {
             default-foreground: CupertinoPalette.foreground;
             current-foreground: CupertinoPalette.accent-foreground;
             current-background: CupertinoPalette.accent-background;
             font-size: CupertinoFontSettings.body.font-size;
             font-weight: CupertinoFontSettings.body.font-weight;
-            border-radius: 4px;
-            padding-left: 11px;
-            padding-right: 11px;
-            spacing: 8px;
+            border-radius: 5px;
+            padding-left: 8px;
+            padding-right: 8px;
+            spacing: 4px;
             sub-menu-icon: @image-url("_arrow_forward.svg");
-            icon-size: 12px;
+            icon-size: 13px;
         }
     }
 }
