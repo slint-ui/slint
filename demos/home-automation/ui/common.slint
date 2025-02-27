@@ -26,7 +26,7 @@ export global Style {
     out property <length> H1-font-size: 32px;
     out property <length> H2-font-size: 21px;
     out property <length> H3-font-size: 18px;
-    out property <length> tile-title-font-size: 10pt;
+    out property <length> tile-title-font-size: 13pt;
 }
 
 export global Animation {
@@ -101,6 +101,8 @@ export global Colors {
 
 export global Palette {
     in-out property <bool> dark-color-scheme:true;
+    out property <brush> glass-border: @linear-gradient(180deg, white.transparentize(60%) 0%, white.transparentize(85%) 50%, #ffffff.transparentize(92%) 100%);
+    out property <brush> glass-background: @linear-gradient(180deg, white.transparentize(90%) 0%, white.transparentize(90%) 80%, #ffffff.transparentize(80%) 100%);
     out property <brush> background: dark-color-scheme ? Colors.gray10 : Colors.white;
     out property <brush> date-background: dark-color-scheme ? Colors.dustypurpledirt : Colors.foggylight;
     out property <brush> foreground: dark-color-scheme ? Colors.gray70 : Colors.gray50;
