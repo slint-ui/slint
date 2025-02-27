@@ -55,6 +55,7 @@ jobs:
             - uses: baptiste0928/cargo-install@v3
               with:
                   crate: cargo-about
+                  version: "=0.6.0"                  
             - name: Prepare licenses
               run: bash -x ../../scripts/prepare_binary_package.sh ${{ runner.workspace }}/cppbuild
               working-directory: api/cpp/
@@ -104,6 +105,7 @@ jobs:
             - uses: baptiste0928/cargo-install@v3
               with:
                   crate: cargo-about
+                  version: "=0.6.0"
             - name: Prepare licenses
               run: bash -x ../../scripts/prepare_binary_package.sh ${{ runner.workspace }}/cppbuild
               working-directory: api/cpp/
@@ -160,6 +162,7 @@ jobs:
             - uses: baptiste0928/cargo-install@v3
               with:
                   crate: cargo-about
+                  version: "=0.6.0"
             - name: Prepare licenses
               run: bash -x ../../scripts/prepare_binary_package.sh ${{ runner.workspace }}/cppbuild
               working-directory: api/cpp/
@@ -204,6 +207,7 @@ jobs:
             - uses: baptiste0928/cargo-install@v3
               with:
                   crate: cargo-about
+                  version: "=0.6.0"
             - name: Prepare licenses
               run: bash -x ../../scripts/prepare_binary_package.sh ../../build
               working-directory: api/cpp/

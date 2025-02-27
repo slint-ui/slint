@@ -64,6 +64,7 @@ jobs:
             - uses: baptiste0928/cargo-install@v3
               with:
                   crate: cargo-about
+                  version: "=0.6.0"
             - name: Build
               run: cargo build --verbose --no-default-features --features ${{ github.event.inputs.features || inputs.features }} --release -p slint-${{ github.event.inputs.program || inputs.program }}
             - name: Create artifact directory
@@ -98,6 +99,7 @@ jobs:
             - uses: baptiste0928/cargo-install@v3
               with:
                   crate: cargo-about
+                  version: "=0.6.0"
             - name: Build
               run: cargo build --verbose --no-default-features --features ${{ github.event.inputs.features || inputs.features }} --release -p slint-${{ github.event.inputs.program || inputs.program }}
             - name: Create artifact directory
@@ -132,6 +134,7 @@ jobs:
           - uses: baptiste0928/cargo-install@v3
             with:
                 crate: cargo-about
+                version: "=0.6.0"
           - name: Build
             run: cross build --target=${{ matrix.target }} --no-default-features --features ${{ github.event.inputs.features || inputs.features }} --release -p slint-${{ github.event.inputs.program || inputs.program }}
           - name: Create artifact directory
@@ -161,6 +164,7 @@ jobs:
             - uses: baptiste0928/cargo-install@v3
               with:
                   crate: cargo-about
+                  version: "=0.6.0"
             - name: Build x86_64
               run: cargo build --verbose --target x86_64-apple-darwin --no-default-features --features ${{ github.event.inputs.features || inputs.features }} --release -p slint-${{ github.event.inputs.program || inputs.program }}
             - name: Build aarch64
