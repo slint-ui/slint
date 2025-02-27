@@ -1688,11 +1688,11 @@ fn generate_item_tree(
         Declaration::Function(Function {
             name: "window_adapter".into(),
             signature:
-                "([[maybe_unused]] slint::private_api::ItemTreeRef component, [[maybe_unused]] bool do_create, [[maybe_unused]] slint::cbindgen_private::Option<slint::private_api::WindowAdapterRc>* result) -> void"
+                "(slint::private_api::ItemTreeRef component, [[maybe_unused]] bool do_create, slint::cbindgen_private::Option<slint::private_api::WindowAdapterRc>* result) -> void"
                     .into(),
             is_static: true,
             statements: Some(vec![format!(
-                "/* TODO: implement this! */",
+                "*reinterpret_cast<slint::private_api::WindowAdapterRc*>(result) = reinterpret_cast<const {item_tree_class_name}*>(component.instance)->globals->window().window_handle();"
             )]),
             ..Default::default()
         }),
