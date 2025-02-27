@@ -268,16 +268,16 @@ void EspPlatform<PixelType>::run_event_loop()
                     // call esp_lcd_panel_draw_bitmap when an operation is still in progress
                     // or free the buffer too early. (using `on_color_trans_done` callback).
                     using Uniq = std::unique_ptr<PixelType, void (*)(void *)>;
-                    Uniq lb[2] = {
-                        Uniq(static_cast<PixelType *>(
-                                     heap_caps_malloc(stride * sizeof(PixelType),
-                                                      MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT)),
-                             heap_caps_free),
-                        Uniq(static_cast<PixelType *>(
-                                     heap_caps_malloc(stride * sizeof(PixelType),
-                                                      MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT)),
-                             heap_caps_free),
+                    auto alloc = [&] {
+                        void *ptr = heap_caps_malloc(stride * sizeof(PixelType),
+                                                     MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+                        if (!ptr) {
+                            ESP_LOGE(TAG, "malloc failed to allocate line buffer");
+                            abort();
+                        }
+                        return Uniq(reinterpret_cast<PixelType *>(ptr), heap_caps_free);
                     };
+                    Uniq lb[2] = { alloc(), alloc() };
                     int idx = 0;
                     m_window->m_renderer.render_by_line<PixelType>(
                             [this, &lb, &idx](std::size_t line_y, std::size_t line_start,
