@@ -592,7 +592,7 @@ export class EditorWidget extends Widget {
             ["", "Hello World!"],
             ["examples/gallery/gallery.slint", "Gallery"],
             ["demos/home-automation/ui/demo-debug.slint", "Home Automation"],
-            ["demos/usecases/ui/app.slint", "Usecases Demo"],
+            ["demos/usecases/ui/app.slint", "Use Cases Demo"],
             ["demos/printerdemo/ui/printerdemo.slint", "Printer Demo"],
             ["demos/energy-monitor/ui/desktop_window.slint", "Energy Monitor"],
             ["examples/todo/ui/todo.slint", "Todo Demo"],
