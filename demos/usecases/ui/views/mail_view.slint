@@ -288,15 +288,18 @@ export component MailMessageView {
             }
 
             ScrollView {
-                Text {
+                VerticalLayout {             
+                    x: 0;
                     y: 0;
-                    vertical-alignment: top;
-                    width: parent.width;
-                    font-size: 14px;
-                    font-weight: 400;
-                    color: Palette.foreground;
-                    text: MailMessageViewAdapter.message;
-                    wrap: word-wrap;
+
+                    mail-text := Text {
+                        vertical-alignment: top;
+                        font-size: 14px;
+                        font-weight: 400;
+                        color: Palette.foreground;
+                        text: MailMessageViewAdapter.message;
+                        wrap: word-wrap;
+                    }
                 }
             }
 
