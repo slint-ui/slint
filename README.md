@@ -177,7 +177,7 @@ We have a few tools to help with the development of .slint files:
   without installing anything ([sources](./tools/slintpad)).
 - An [**updater**](./tools/updater) to convert the .slint files from
   previous versions to newer versions.
-- An experimental [**Figma importer**](./tools/figma_import).
+- A [**Figma to Slint**](https://www.figma.com/community/plugin/1474418299182276871/figma-to-slint) plugin.
 
 Please check our [Editors README](./editors/README.md) for tips on how to
 configure your favorite editor to work well with Slint.
