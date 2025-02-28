@@ -22,7 +22,7 @@ Desktop Application, Mobile Application, and Web Application are hereafter refer
 
 You may distribute the Software as part of an Application, modified or unmodified, provided that You do either of the following:
 
-(a) Display the [`AboutSlint`](https://slint.dev/snapshots/master/docs/slint/src/language/widgets/aboutslint.html) widget in an "About" screen or dialog that is accessible from the top level menu of the Application. In the absence of such a screen or dialog, display the widget in the "Splash Screen" of the Application.
+(a) Display the [`AboutSlint`](https://docs.slint.dev/latest/docs/slint/reference/std-widgets/misc/aboutslint/) widget in an "About" screen or dialog that is accessible from the top level menu of the Application. In the absence of such a screen or dialog, display the widget in the "Splash Screen" of the Application.
 
 (b) Display the [Slint attribution badge](https://github.com/slint-ui/slint/tree/master/logo/MadeWithSlint-logo-whitebg.png) on a public webpage, preferably where the binaries of your Application can be downloaded from, in such a way that it can be easily found by any visitor to that page.
 
