@@ -21,7 +21,7 @@ Things that are demonstrated here:
 Install the cross compilation target for the mcu:
 
 ```bash
- rustup target add thumbv8m.main-none-eabihf
+rustup target add thumbv8m.main-none-eabihf
 ```
 
 You need software to be able to flash the firmware to the dev kit.
