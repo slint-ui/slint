@@ -45,8 +45,7 @@ All notable changes to this project are documented in this file.
 
 ### Rust
 
- - Upgraded image crate to 0.25, added a new cargo feature
-   to enable all image formats.
+ - Upgraded image crate to 0.25, added a new `image-default-formats` cargo feature to enable all image formats.
  - Ignore pedantic and nursery clippy warnings in generated code.
  - Fixed edition 2024 warnings in generated code.
  - Fixed `Sync` and `Send` bounds on `SharedVector`, `SharedString`, and `Weak`.
