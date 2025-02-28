@@ -5,6 +5,7 @@
 
 void init_virtual_keyboard(slint::ComponentHandle<App> app)
 {
+    app->global<VirtualKeyboardHandler>().set_enabled(true);
     app->global<VirtualKeyboardHandler>().on_key_pressed([=](auto key) {
         app->window().dispatch_key_press_event(key);
         app->window().dispatch_key_release_event(key);

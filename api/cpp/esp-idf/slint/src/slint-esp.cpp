@@ -159,6 +159,9 @@ void EspPlatform<PixelType>::run_event_loop()
     float last_touch_y = 0;
     bool touch_down = false;
 
+    using Uniq = std::unique_ptr<PixelType, void (*)(void *)>;
+    Uniq line_buffer[2] = { Uniq(nullptr, heap_caps_free), Uniq(nullptr, heap_caps_free) };
+
     while (true) {
         slint::platform::update_timers_and_animations();
 
@@ -268,31 +271,34 @@ void EspPlatform<PixelType>::run_event_loop()
                     // call esp_lcd_panel_draw_bitmap when an operation is still in progress
                     // or free the buffer too early. (using `on_color_trans_done` callback).
                     using Uniq = std::unique_ptr<PixelType, void (*)(void *)>;
-                    auto alloc = [&] {
-                        void *ptr = heap_caps_malloc(stride * sizeof(PixelType),
-                                                     MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
-                        if (!ptr) {
-                            ESP_LOGE(TAG, "malloc failed to allocate line buffer");
-                            abort();
+                    if (!line_buffer[0]) {
+                        for (Uniq &b : line_buffer) {
+                            void *ptr = heap_caps_malloc(stride * sizeof(PixelType),
+                                                         MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+                            if (!ptr) {
+                                ESP_LOGE(TAG, "malloc failed to allocate line buffer");
+                                abort();
+                            }
+                            b = Uniq(reinterpret_cast<PixelType *>(ptr), heap_caps_free);
                         }
-                        return Uniq(reinterpret_cast<PixelType *>(ptr), heap_caps_free);
-                    };
-                    Uniq lb[2] = { alloc(), alloc() };
+                    }
                     int idx = 0;
-                    m_window->m_renderer.render_by_line<PixelType>(
-                            [this, &lb, &idx](std::size_t line_y, std::size_t line_start,
-                                              std::size_t line_end, auto &&render_fn) {
-                                std::span<PixelType> view { lb[idx].get(), line_end - line_start };
-                                render_fn(view);
-                                if (byte_swap) {
-                                    // Swap endianness to big endian
-                                    std::for_each(view.begin(), view.end(),
-                                                  [](auto &rgbpix) { byte_swap_color(&rgbpix); });
-                                }
-                                esp_lcd_panel_draw_bitmap(panel_handle, line_start, line_y,
-                                                          line_end, line_y + 1, view.data());
-                                idx = (idx + 1) % 2;
-                            });
+                    m_window->m_renderer.render_by_line<PixelType>([this, &line_buffer,
+                                                                    &idx](std::size_t line_y,
+                                                                          std::size_t line_start,
+                                                                          std::size_t line_end,
+                                                                          auto &&render_fn) {
+                        std::span<PixelType> view { line_buffer[idx].get(), line_end - line_start };
+                        render_fn(view);
+                        if (byte_swap) {
+                            // Swap endianness to big endian
+                            std::for_each(view.begin(), view.end(),
+                                          [](auto &rgbpix) { byte_swap_color(&rgbpix); });
+                        }
+                        esp_lcd_panel_draw_bitmap(panel_handle, line_start, line_y, line_end,
+                                                  line_y + 1, view.data());
+                        idx = (idx + 1) % 2;
+                    });
                 }
             }
 
