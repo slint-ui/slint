@@ -3,7 +3,7 @@
 # Changelog
 All notable changes to this project are documented in this file.
 
-## 1.10.0 - 2025-02-28
+## [1.10.0] - 2025-02-28
 
 ### General
 
@@ -72,7 +72,7 @@ All notable changes to this project are documented in this file.
  - Use jemalloc as default allocator for our binaries
  - VSCode extension: Removed the status bar item for the preview
 
-## 1.9.2 - 2025-01-13
+## [1.9.2] - 2025-01-13
 
 ### General
 
@@ -117,7 +117,7 @@ All notable changes to this project are documented in this file.
  - LSP: Fixed error reporting when opening the live-preview fails (#7255).
  - Viewer: struct are now supported in callback argument (passed as JSON) (#7206).
 
-## 1.9.1 - 2024-12-21
+## [1.9.1] - 2024-12-21
 
 ### General
 
@@ -126,7 +126,7 @@ All notable changes to this project are documented in this file.
  - Fixed build on https://docs.rs/slint
  - Live-preview: Improvements of the filter in selection popup
 
-## 1.9.0 - 2024-12-18
+## [1.9.0] - 2024-12-18
 
 ### General
 
@@ -236,7 +236,7 @@ All notable changes to this project are documented in this file.
  - Skia: Fixed opacity not being applied to box shadows correctly. (#6359)
 
 
-## 1.8.0 - 2024-09-23
+## [1.8.0] - 2024-09-23
 
 ### Slint language
 
@@ -1783,3 +1783,5 @@ as well as the [Rust migration guide for the `sixtyfps` crate](api/rs/slint/migr
 [1.8.0]: https://github.com/slint-ui/slint/releases/tag/v1.8.0
 [1.9.0]: https://github.com/slint-ui/slint/releases/tag/v1.9.0
 [1.9.1]: https://github.com/slint-ui/slint/releases/tag/v1.9.1
+[1.9.2]: https://github.com/slint-ui/slint/releases/tag/v1.9.2
+[1.10.0]: https://github.com/slint-ui/slint/releases/tag/v1.10.0
