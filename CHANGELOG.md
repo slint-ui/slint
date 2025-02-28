@@ -16,7 +16,7 @@ All notable changes to this project are documented in this file.
  - Software renderer: Fixed support for changing the `Window` background.
  - Software renderer: Added support for pre-rendering glyphs with signed distance fields.
 
-### Slint language
+### Slint Language
 
  - Elements of a `for` loop now only get re-created if the model is changed, not if it is only dirty. (#7245)
  - Binding loops involving the condition of a `if` in a layout are now detected. (#7126)
