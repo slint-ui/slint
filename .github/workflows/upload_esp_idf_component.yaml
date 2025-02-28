@@ -29,6 +29,8 @@ jobs:
             - name: Extract Version and determine name
               working-directory: api/cpp/esp-idf/slint
               id: version
+              env:
+                  RELEASE_INPUT: ${{ github.event.inputs.release }}
               run: |
                 version=$(grep -oP '(?<=GIT_TAG v)[0-9]+\.[0-9]+\.[0-9]+' CMakeLists.txt)
                 if [[ -z "$version" ]]; then
