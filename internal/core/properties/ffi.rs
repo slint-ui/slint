@@ -153,6 +153,12 @@ pub extern "C" fn slint_property_mark_dirty(handle: &PropertyHandleOpaque) {
     handle.0.mark_dirty()
 }
 
+/// Marks the property as dirty and notifies dependencies.
+#[no_mangle]
+pub extern "C" fn slint_property_set_constant(handle: &PropertyHandleOpaque) {
+    handle.0.set_constant()
+}
+
 /// Destroy handle
 #[no_mangle]
 pub unsafe extern "C" fn slint_property_drop(handle: *mut PropertyHandleOpaque) {

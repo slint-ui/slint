@@ -186,6 +186,8 @@ struct Property
 
     const T &get_internal() const { return value; }
 
+    void set_constant() const { cbindgen_private::slint_property_set_constant(&inner); }
+
 private:
     cbindgen_private::PropertyHandleOpaque inner;
     mutable T value {};
