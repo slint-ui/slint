@@ -16,7 +16,7 @@ runs:
           if: runner.os == 'Windows'
           run: choco upgrade llvm --version "19.1.7"
           shell: bash
-        - name: Apply workaround for https://github.com/llvm/llvm-project/issues/95133          
+        - name: Apply workaround for https://github.com/llvm/llvm-project/issues/95133
           if: runner.os == 'Windows'
           shell: cmd
           run: |
