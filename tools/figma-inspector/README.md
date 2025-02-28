@@ -2,6 +2,13 @@
 
 ## Figma to Slint property inspector
 
+### Installing the plugin from Figma
+
+The latest release of the Figma Inspector can be installed directly from the Figma website at
+
+    https://www.figma.com/community/plugin/1474418299182276871/figma-to-slint
+
+or in Figma by searching for the "Figma To Slint" plugin.
 
 ### Installing the plugin via nightly snapshot.
 
