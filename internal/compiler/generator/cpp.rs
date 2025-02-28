@@ -2058,6 +2058,12 @@ fn generate_sub_component(
             handle_property_init(prop, expression, &mut properties_init_code, &ctx)
         }
     }
+    for prop in &component.const_properties {
+        if component.prop_used(prop, root) {
+            let p = access_member(prop, &ctx);
+            properties_init_code.push(format!("{p}.set_constant();"));
+        }
+    }
 
     for item in &component.items {
         target_struct.members.push((
