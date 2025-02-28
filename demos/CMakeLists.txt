@@ -12,6 +12,8 @@ endif()
 
 if (TARGET Slint::slint-compiler)
     add_subdirectory(printerdemo/cpp/)
+    add_subdirectory(home-automation/cpp/)
+    add_subdirectory(usecases/cpp/)
 endif()
 if (SLINT_FEATURE_INTERPRETER)
     add_subdirectory(printerdemo/cpp_interpreted/)
