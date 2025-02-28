@@ -3,7 +3,7 @@
 # Changelog
 All notable changes to this project are documented in this file.
 
-## 1.10.0 - Unreleased
+## 1.10.0 - 2025-02-28
 
 ### General
 
