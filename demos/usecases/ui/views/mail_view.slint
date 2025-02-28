@@ -44,7 +44,7 @@ export global MailSideBarViewAdapter {
     }
 }
 
-export component MailContainer inherits Container {   
+export component MailContainer inherits Container {
     background: UsecasesPalette.use-material ? Palette.alternate-background : Palette.control-background;
     border-color: UsecasesPalette.use-material ? Palette.border : transparent;
 }
@@ -64,7 +64,7 @@ export component MailSideBarView {
 
         Container {
             border-radius: UsecasesPalette.use-material ? 0 : 4px;
-            
+
             NavigationListView {
                 model: MailSideBarViewAdapter.boxes;
                 current-item <=> MailSideBarViewAdapter.current-box;
@@ -288,7 +288,7 @@ export component MailMessageView {
             }
 
             ScrollView {
-                VerticalLayout {             
+                VerticalLayout {
                     x: 0;
                     y: 0;
 
