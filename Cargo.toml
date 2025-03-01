@@ -168,6 +168,7 @@ tikv-jemallocator = { version = "0.6" }
 [profile.release]
 lto = true
 panic = "abort"
+debug = 1
 
 [profile.dev]
 panic = "abort"
