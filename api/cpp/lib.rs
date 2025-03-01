@@ -5,7 +5,7 @@
 
 #![no_std]
 extern crate alloc;
-#[cfg(feature = "std")]
+#[cfg(any(feature = "std", target_os = "linux"))]
 extern crate std;
 
 use alloc::rc::Rc;
@@ -210,7 +210,7 @@ mod allocator {
     static ALLOCATOR: CAlloc = CAlloc;
 }
 
-#[cfg(all(not(feature = "std"), not(feature = "esp-backtrace")))]
+#[cfg(all(not(feature = "std"), not(feature = "esp-backtrace"), not(target_os = "linux")))]
 #[panic_handler]
 fn panic(_info: &core::panic::PanicInfo) -> ! {
     loop {}
