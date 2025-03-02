@@ -1,0 +1,12 @@
+# ESP-IDF Partition Table
+# Name,     Type, SubType, Offset,    Size,  Flags
+nvs,        data, nvs,     0x9000,    24K,
+otadata,    data, ota,       ,         8K,
+phy_init,   data, phy,       ,    4K,
+# The launcher
+factory,    app,  factory, 0x100000,   2M,
+# usecases
+ota_0,      app,  ota_0,   0x300000,   2M,
+# home-automation
+ota_1,      app,  ota_1,   0x500000,   5M,
+
