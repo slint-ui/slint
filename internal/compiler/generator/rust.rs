@@ -363,6 +363,9 @@ fn generate_shared_globals(
     llr: &llr::CompilationUnit,
     compiler_config: &CompilerConfiguration,
 ) -> TokenStream {
+    let code_link_section =
+        std::env::var("SLINT_CODE_SECTION").ok().map(|section| quote!(#[link_section = #section]));
+
     let global_names = llr
         .globals
         .iter()
