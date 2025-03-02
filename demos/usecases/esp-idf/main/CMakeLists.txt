@@ -5,7 +5,7 @@
 idf_component_register(
     SRCS "main.cpp"
     INCLUDE_DIRS "."
-    REQUIRES esp32_p4_function_ev_board_noglib slint
+    REQUIRES esp32_p4_function_ev_board_noglib slint app_update
 )
 
 slint_target_sources(${COMPONENT_LIB} ../../ui/app.slint COMPILATION_UNITS 20)

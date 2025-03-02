@@ -1,0 +1,11 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { VerticalBox, Button } from "std-widgets.slint";
+
+export component Launcher inherits Window {
+    callback launch(int);
+    VerticalBox {
+        for demo[i] in ["Use cases", "home-automation"] : Button { text: demo; clicked => { launch(i); } }
+    }
+}

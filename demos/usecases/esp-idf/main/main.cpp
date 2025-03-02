@@ -13,14 +13,34 @@
 #include <bsp/esp-bsp.h>
 #include <bsp/touch.h>
 #include <vector>
+#include "esp_ota_ops.h"
 
 #undef BSP_LCD_H_RES
 #define BSP_LCD_H_RES 1024
 #undef BSP_LCD_V_RES
 #define BSP_LCD_V_RES 600
 
+void reset_to_factory_app()
+{
+    // Get the partition structure for the factory partition
+    const esp_partition_t *factory_partition = esp_partition_find_first(
+            ESP_PARTITION_TYPE_APP, ESP_PARTITION_SUBTYPE_APP_FACTORY, NULL);
+    if (factory_partition != NULL) {
+        if (esp_ota_set_boot_partition(factory_partition) == ESP_OK) {
+            printf("Set boot partition to factory, restarting now.\\n");
+        } else {
+            printf("Failed to set boot partition to factory.\\n");
+        }
+    } else {
+        printf("Factory partition not found.\\n");
+    }
+
+    fflush(stdout);
+}
+
 extern "C" void app_main(void)
 {
+    reset_to_factory_app();
 
     /* Initialize I2C (for touch and audio) */
     bsp_i2c_init();
