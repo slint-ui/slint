@@ -27,7 +27,7 @@ slint = { path = "../../api/rs/slint", default-features = false, features = ["co
 mcu-board-support = { path = "../../examples/mcu-board-support" }
 
 [build-dependencies]
-slint-build = { path = "../../api/rs/build" }
+slint-build = { path = "../../api/rs/build", features = ["sdf-fonts"] }
 
 [dev-dependencies]
 divan = "0.1.14"
