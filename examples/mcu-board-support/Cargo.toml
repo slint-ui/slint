@@ -21,8 +21,9 @@ path = "lib.rs"
 pico-st7789 = ["slint/unsafe-single-threaded", "rp-pico", "embedded-hal", "embedded-hal-nb", "cortex-m-rt", "embedded-alloc", "fugit", "cortex-m", "dep:mipidsi", "defmt", "defmt-rtt", "slint/libm", "embedded-dma", "embedded-graphics", "euclid/libm"]
 pico2-st7789 = ["slint/unsafe-single-threaded", "rp235x-hal/binary-info", "rp235x-hal/critical-section-impl", "rp235x-hal/rt", "rp235x-hal/defmt", "embedded-hal", "embedded-hal-nb", "cortex-m-rt", "embedded-alloc", "fugit", "cortex-m", "dep:mipidsi", "defmt", "defmt-rtt", "slint/libm", "embedded-dma", "embedded-graphics", "euclid/libm"]
 stm32h735g = ["slint/unsafe-single-threaded", "cortex-m/critical-section-single-core", "cortex-m-rt","embedded-alloc", "embedded-time", "stm32h7xx-hal/stm32h735", "defmt", "defmt-rtt", "embedded-display-controller", "ft5336", "panic-probe", "slint/libm", "getrandom"]
-esp32-s2-kaluga-1 = ["slint/unsafe-single-threaded", "esp-hal/esp32s2", "embedded-hal", "embedded-hal-bus", "esp-alloc", "esp-println/esp32s2", "dep:mipidsi", "embedded-graphics-core", "slint/libm"]
-esp32-s3-box = ["slint/unsafe-single-threaded", "esp-hal/esp32s3", "embedded-hal", "embedded-hal-bus", "esp-alloc", "esp-println/esp32s3", "esp-backtrace/esp32s3", "dep:mipidsi", "embedded-graphics-core", "slint/libm", "tt21100"]
+esp32-s2-kaluga-1 = ["slint/unsafe-single-threaded", "embedded-hal", "embedded-hal-bus", "esp-alloc", "esp-println/esp32s2", "dep:mipidsi", "embedded-graphics-core", "slint/libm"]
+esp32-s3-box = ["slint/unsafe-single-threaded", "embedded-hal", "embedded-hal-bus", "esp-alloc", "esp-println/esp32s3", "esp-backtrace/esp32s3", "dep:mipidsi", "embedded-graphics-core", "slint/libm", "tt21100"]
+stm32u5g9j-dk2 = ["embassy-stm32/stm32u5g9zj", "embassy-stm32/time-driver-any", "embassy-stm32/exti", "embassy-stm32/memory-x", "embassy-stm32/unstable-pac", "embassy-stm32/chrono", "embassy-stm32/time", "embassy-stm32/defmt", "embassy-executor/arch-cortex-m", "embassy-executor/executor-interrupt", "embassy-executor/task-arena-size-32768", "embassy-executor/executor-thread", "slint/libm", "slint/unsafe-single-threaded", "defmt", "defmt-rtt", "embedded-alloc", "getrandom", "cortex-m/critical-section-single-core", "cortex-m-rt", "panic-probe", "embassy-time/tick-hz-32_768", "embassy-time/defmt", "embassy-time/defmt-timestamp-uptime", "rand_core", "cortex-m/inline-asm", "cortex-m/critical-section-single-core", "gt911/defmt"]
 
 [dependencies]
 slint = { version = "=1.10.0", path = "../../api/rs/slint", default-features = false, features = ["compat-1-2", "renderer-software"] }
@@ -53,7 +54,7 @@ embedded-time = { version = "0.12.0", optional = true }
 embedded-display-controller = { version = "0.2.0", optional = true }
 ft5336 = { version = "0.2", optional = true }
 
-esp-hal = { version = "0.22", optional = true }
+# esp-hal = { version = "0.22", optional = true }
 esp-alloc = { version = "0.5", optional = true }
 esp-println = { version = "0.12.0", optional = true }
 esp-backtrace = { version = "0.14.0", optional = true, features = ["panic-handler", "println"] }
@@ -65,6 +66,13 @@ embedded-graphics-core =  { version = "0.4", optional = true }
 defmt-rtt = { version = "0.4.0", optional = true }
 defmt = { version = "0.3.0", optional = true }
 panic-probe = { version = "0.3.0", optional = true, features = ["print-defmt"] }
+
+embassy-stm32 = { version = "0.2.0", optional = true }
+embassy-executor = { version = "0.7.0", optional = true, default-features = false }
+embassy-time = { version = "0.4.0", optional = true }
+gt911 = { version = "0.3.0", optional = true }
+
+rand_core = { version = "0.6.3", optional = true }
 
 [build-dependencies]
 cfg-if = "1.0.0"
