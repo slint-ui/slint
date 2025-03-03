@@ -20,15 +20,25 @@ export component Lamp inherits Control {
 
         Rectangle {
             x: tile.width - self.width + 20px;
-            y: (root.width > Measurements.small-width-tile) ? -60px : -40px;
             width: 70%;
             height: 100%;
 
             Image {
+                y: 20px;
                 source: @image-url("../images/lamp/0000.png");
+                width: self.source.width * 0.5 * 1px;
+                Rectangle {
+                    x: 61px;
+                    y: -20px;
+                    width: 2px;
+                    height: 20px;
+                    background: black;
+                }
             }
             Image {
+                y: 20px;
                 source: @image-url("../images/lamp/0024.png");
+                width: self.source.width * 0.5 * 1px;
                 opacity: slider.value / 24;
             }
         }
