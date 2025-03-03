@@ -60,9 +60,12 @@ extern "C" void app_main(void)
     bsp_display_backlight_on();
 
     slint_esp_init(SlintPlatformConfiguration {
-            .size = slint::PhysicalSize({ BSP_LCD_H_RES, BSP_LCD_V_RES }),
-            .panel_handle = handles.panel,
-            .touch_handle = touch_handle });
+        .size = slint::PhysicalSize({ BSP_LCD_H_RES, BSP_LCD_V_RES }),
+        .panel_handle = handles.panel, .touch_handle = touch_handle,
+#if CONFIG_BSP_LCD_COLOR_FORMAT_RGB888
+        .byte_swap = true,
+#endif
+    });
 
     auto demo = AppWindow::create();
     demo->run();
