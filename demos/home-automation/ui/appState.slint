@@ -29,6 +29,11 @@ import "../fonts/Poppins-Medium.ttf";
 import "../fonts/Poppins-Regular.ttf";
 import "../fonts/Poppins-Thin.ttf";
 
+export enum Orientation {
+    portrait,
+    landscape
+}
+
 export global AppState {
     in-out property <bool> first-run: true;
     in-out property <int> current-page: 0; // Don't use this directly. Use target-page instead.
@@ -36,6 +41,8 @@ export global AppState {
     out property <DataGroup> current-layout-data: pageData[current-page];
     in property <length> window-width: 960px;
     in property <length> window-height: 540px;
+    out property <Orientation> orientation: window-width > window-height ? landscape : portrait;
+    out property <bool> is-software-rendering: true;
     out property <float> x-scale: window-width / 1920px;
     out property <float> y-scale: window-height / 1080px;
 
