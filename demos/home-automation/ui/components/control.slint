@@ -38,11 +38,15 @@ export component Control inherits Rectangle {
         }
     }
 
+
+    if !AppState.is-hardware-accelerated : Image {
+        x: -14px;
+        y: -12px;
+        width: parent.width + 33px;
+        height: parent.height + 32px;
+        source: @image-url("../images/control-frame.png", nine-slice(50));
+    }
+
     @children
 
-    
-    // drop-shadow-color: black;
-    // drop-shadow-blur: 10px;
-    // drop-shadow-offset-x: 3px;
-    // drop-shadow-offset-y: 3px;
 }
