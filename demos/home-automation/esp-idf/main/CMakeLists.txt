@@ -5,7 +5,9 @@
 idf_component_register(
     SRCS "main.cpp"
     INCLUDE_DIRS "."
-    REQUIRES esp32_p4_function_ev_board_noglib slint app_update
+    REQUIRES esp32_p4_function_ev_board_noglib slint
+    PRIV_REQUIRES esp_lcd_touch_gt911 nvs_flash app_update
+
 )
 
 slint_target_sources(${COMPONENT_LIB} ../../ui/demo-sw-renderer.slint COMPILATION_UNITS 20)

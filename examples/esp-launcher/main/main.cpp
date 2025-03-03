@@ -3,14 +3,19 @@
 
 #include "launcher.h"
 
+#include "nvs.h"
 #include "slint-esp.h"
 #include "esp_ota_ops.h"
+#include "nvs_handle.hpp"
+#include "nvs_flash.h"
 
 #include <slint-platform.h>
 
 #include <bsp/display.h>
 #include <bsp/esp-bsp.h>
 #include <bsp/touch.h>
+
+using RenderingRotation = slint::platform::SoftwareRenderer::RenderingRotation;
 
 #undef BSP_LCD_H_RES
 #define BSP_LCD_H_RES 1024
@@ -42,6 +47,48 @@ static void ota_swich_to_app(int app_index)
     }
 }
 
+static RenderingRotation read_rotation()
+{
+    esp_err_t err = nvs_flash_init();
+    if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+        // NVS partition was truncated and needs to be erased
+        // Retry nvs_flash_init
+        nvs_flash_erase();
+        err = nvs_flash_init();
+    }
+
+    if (err != ESP_OK) {
+        return RenderingRotation::NoRotation;
+    }
+
+    auto handle = nvs::open_nvs_handle("slint", NVS_READONLY, &err);
+    if (err != ESP_OK) {
+        return RenderingRotation::NoRotation;
+    }
+
+    uint32_t rotation = 0;
+    err = handle->get_item("rotation", rotation);
+    if (err != ESP_OK) {
+        return RenderingRotation::NoRotation;
+    }
+    return static_cast<RenderingRotation>(rotation);
+}
+
+static void write_rotation(uint32_t rotation)
+{
+    esp_err_t err {};
+    auto handle = nvs::open_nvs_handle("slint", NVS_READWRITE, &err);
+    if (err != ESP_OK) {
+        printf("Error open NVS handle");
+        return;
+    }
+
+    err = handle->set_item("rotation", rotation);
+    if (err != ESP_OK) {
+        printf("Error writing rotation to NVS");
+    }
+}
+
 extern "C" void app_main(void)
 {
     /* Initialize I2C (for touch and audio) */
@@ -67,6 +114,10 @@ extern "C" void app_main(void)
             .touch_handle = touch_handle });
 
     auto demo = Launcher::create();
-    demo->on_launch(ota_swich_to_app);
+    demo->on_launch([&](int index) {
+        write_rotation(demo->get_orientation());
+        ota_swich_to_app(index);
+    });
+    demo->set_orientation(static_cast<int>(read_rotation()));
     demo->run();
 }

@@ -1,11 +1,26 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import { VerticalBox, Button } from "std-widgets.slint";
+import { VerticalBox, Button, HorizontalBox } from "std-widgets.slint";
 
 export component Launcher inherits Window {
     callback launch(int);
+    in-out property <int> orientation;
     VerticalBox {
-        for demo[i] in ["Use cases", "home-automation"] : Button { text: demo; clicked => { launch(i); } }
+        for demo[i] in ["Use cases", "Home Automation"]: Button {
+            text: demo;
+            clicked => {
+                launch(i);
+            }
+        }
+        HorizontalBox {
+            for rotation in [0, 90, 180, 270]: Button {
+                text: rotation + "°";
+                clicked => {
+                    orientation = rotation;
+                }
+                 checked: orientation == rotation;
+           }
+        }
     }
 }
