@@ -1168,28 +1168,30 @@ fn set_json_preview_data(
     container: SharedString,
     property_name: SharedString,
     json_string: SharedString,
-) -> bool {
+) -> SharedString {
     let property_name = (!property_name.is_empty()).then_some(property_name.to_string());
 
     let Ok(json) = serde_json::from_str::<serde_json::Value>(json_string.as_ref()) else {
-        return false;
+        return SharedString::from("Input is not valid JSON");
     };
 
     if property_name.is_none() && !json.is_object() {
-        return false;
+        return SharedString::from("Input for Slint Element is not a JSON object");
     }
 
-    preview::component_instance()
-        .and_then(|component_instance| {
-            preview_data::set_json_preview_data(
-                &component_instance,
-                to_property_container(container),
-                property_name,
-                json,
-            )
-            .ok()
-        })
-        .is_some()
+    if let Some(ci) = preview::component_instance() {
+        match preview_data::set_json_preview_data(
+            &ci,
+            to_property_container(container),
+            property_name,
+            json,
+        ) {
+            Ok(()) => SharedString::new(),
+            Err(v) => v.first().cloned().unwrap_or_default().into(),
+        }
+    } else {
+        SharedString::from("No preview loaded")
+    }
 }
 
 fn update_properties(
