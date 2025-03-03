@@ -101,8 +101,10 @@ export global Colors {
 
 export global Palette {
     in-out property <bool> dark-color-scheme:true;
-    out property <brush> glass-border: @linear-gradient(180deg, white.transparentize(60%) 0%, white.transparentize(85%) 50%, #ffffff.transparentize(92%) 100%);
-    out property <brush> glass-background: @linear-gradient(180deg, white.transparentize(90%) 0%, white.transparentize(90%) 80%, #ffffff.transparentize(80%) 100%);
+    out property <brush> glass-border: @linear-gradient(180deg, white.transparentize(60%) 0%, white.transparentize(85%) 50%, #ffffff.transparentize(95%) 100%);
+    // out property <brush> glass-background: @linear-gradient(180deg, white.transparentize(90%) 0%, white.transparentize(90%) 80%, #ffffff.transparentize(80%) 100%);
+    out property <brush> glass-background: @linear-gradient(180deg, #ffffff1a 0%, #ffffff1a 80%, #ffffff33 100%);
+
     out property <brush> background: dark-color-scheme ? Colors.gray10 : Colors.white;
     out property <brush> date-background: dark-color-scheme ? Colors.dustypurpledirt : Colors.foggylight;
     out property <brush> foreground: dark-color-scheme ? Colors.gray70 : Colors.gray50;
