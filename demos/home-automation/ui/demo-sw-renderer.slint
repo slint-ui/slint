@@ -1,15 +1,19 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 import { MainScreen } from "components/mainView/mainScreen.slint";
+import { AppState } from "appState.slint";
 
+// This demo is limited to what ends up as 1024*600.
 export component AppWindow inherits Window {
-    preferred-width: 960px;
-    preferred-height: 540px;
-    min-width: 800px;
-    min-height: 400px;
+    preferred-width: 1024px;
+    preferred-height: 600px;
 
     MainScreen {
         door-component-loaded: false;
         initial-door-state: open;
+    }
+
+    init => {
+        AppState.is-hardware-accelerated = false;
     }
 }
