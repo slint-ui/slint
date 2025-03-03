@@ -9,13 +9,18 @@ project(Slint HOMEPAGE_URL "https://slint.dev/" LANGUAGES C CXX VERSION 1.10.0)
 include(FeatureSummary)
 include(CMakeDependentOption)
 
-include(FetchContent)
-FetchContent_Declare(
-    Corrosion
-    GIT_REPOSITORY https://github.com/corrosion-rs/corrosion.git
-    GIT_TAG v0.5.1
-)
-FetchContent_MakeAvailable(Corrosion)
+find_package(Corrosion QUIET)
+if (NOT Corrosion_FOUND)
+    message("Corrosion could not be located in the CMake module search path. Downloading it from Git and building it locally")
+    include(FetchContent)
+    FetchContent_Declare(
+        Corrosion
+        GIT_REPOSITORY https://github.com/corrosion-rs/corrosion.git
+        GIT_TAG v0.5.1
+    )
+
+    FetchContent_MakeAvailable(Corrosion)
+endif (NOT Corrosion_FOUND)
 
 list(PREPEND CMAKE_MODULE_PATH ${Corrosion_SOURCE_DIR}/cmake)
 find_package(Rust 1.82 REQUIRED MODULE)
