@@ -24,21 +24,12 @@ export component Lamp inherits Control {
             height: 100%;
 
             Image {
-                y: 20px;
+                y: 0;
                 source: @image-url("../images/lamp/0000.png");
-                width: self.source.width * 0.5 * 1px;
-                Rectangle {
-                    x: 61px;
-                    y: -20px;
-                    width: 2px;
-                    height: 20px;
-                    background: black;
-                }
             }
             Image {
-                y: 20px;
+                y: 0;
                 source: @image-url("../images/lamp/0024.png");
-                width: self.source.width * 0.5 * 1px;
                 opacity: slider.value / 24;
             }
         }
@@ -63,6 +54,7 @@ export component Lamp inherits Control {
             }
 
             slider := FancySlider {
+                visible: false;
                 maxValue: 24;
                 value: self.maxValue;
                 width: root.width * 0.8;
