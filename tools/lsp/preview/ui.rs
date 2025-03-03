@@ -1198,7 +1198,9 @@ fn update_properties(
     current_model: PropertyGroupModel,
     next_model: PropertyGroupModel,
 ) -> PropertyGroupModel {
-    debug_assert_eq!(current_model.row_count(), next_model.row_count());
+    if current_model.row_count() != next_model.row_count() {
+        return next_model;
+    }
 
     for (c, n) in std::iter::zip(current_model.iter(), next_model.iter()) {
         debug_assert_eq!(c.group_name, n.group_name);
