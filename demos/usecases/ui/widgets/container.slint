@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 import { Palette, VerticalBox } from "std-widgets.slint";
-import { CosmicPalette } from "styling.slint";
+import { UsecasesPalette } from "styling.slint";
 
 export component StateContainer inherits Rectangle {
     callback clicked <=> touch-area.clicked;
@@ -19,13 +19,13 @@ export component StateContainer inherits Rectangle {
 
         states [
             pressed when touch-area.pressed : {
-                state-layer.background: CosmicPalette.state-pressed;
+                state-layer.background: UsecasesPalette.state-pressed;
             }
             hover when touch-area.has-hover : {
-                state-layer.background: CosmicPalette.state-hover;
+                state-layer.background: UsecasesPalette.state-hover;
             }
             checked when root.checked : {
-                state-layer.background: CosmicPalette.state-selected;
+                state-layer.background: UsecasesPalette.state-selected;
             }
         ]
     }
@@ -36,6 +36,7 @@ export component StateContainer inherits Rectangle {
 export component Container inherits Rectangle {
     background: Palette.alternate-background;
     border-radius: 8px;
+    border-width: 1px;
 
     VerticalBox {
         @children
