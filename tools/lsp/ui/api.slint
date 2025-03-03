@@ -474,7 +474,7 @@ export global Api {
     // ## preview data
     pure callback get-property-value(component: string, name: string) -> PropertyValue;
 
-    pure callback set-json-preview-data(component: string, name: string, json-value: string) -> bool;
+    pure callback set-json-preview-data(component: string, name: string, json-value: string) -> string;
 
     // Get the property declaration/definition ranges
     callback property-declaration-ranges(property-name: string) -> PropertyDeclaration;

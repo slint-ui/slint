@@ -7,6 +7,7 @@ import { Api, ColorData, ElementInformation, PreviewData, PreviewDataKind, Prope
 import { BodyStrongText } from "../components/body-strong-text.slint";
 import { BodyText } from "../components/body-text.slint";
 import { StateLayer } from "../components/state-layer.slint";
+import { StatusLineApi } from "../components/status-line.slint";
 import { EditorAnimationSettings, EditorFontSettings, EditorSizeSettings, EditorSpaceSettings, Icons } from "../components/styling.slint";
 
 component CodeButton inherits Button {
@@ -229,8 +230,8 @@ component FloatWidget inherits VerticalLayout {
     in property <string> property-name;
     in property <PropertyValue> property-value;
 
-    pure callback test-float-binding(text: string, unit: string) -> bool;
-    pure callback set-float-binding(text: string, unit: string);
+    callback test-float-binding(text: string, unit: string) -> bool;
+    callback set-float-binding(text: string, unit: string);
 
     private property <string> current-unit;
     private property <PropertyValue> dummy: self.property-value;
@@ -365,13 +366,13 @@ component StringWidget inherits VerticalLayout {
     callback code-action();
     callback reset-action();
 
-    pure callback test-string-binding(text: string, is-translated: bool) -> bool;
-    pure callback set-string-binding(text: string, is-translated: bool);
+    callback test-string-binding(text: string, is-translated: bool) -> bool;
+    callback set-string-binding(text: string, is-translated: bool);
 
-    pure function tsb() -> bool {
+    function tsb() -> bool {
         return test-string-binding(Api.string-to-code(text-rle.text, self.is-translated, self.tr-context-value, "", ""), self.is-translated);
     }
-    pure function ssb() {
+    function ssb() {
         set-string-binding(Api.string-to-code(text-rle.text, self.is-translated, self.tr-context-value, "", ""), self.is-translated);
     }
 
@@ -570,8 +571,8 @@ component ColorWidget inherits VerticalLayout {
     callback code-action();
     callback reset-action();
 
-    pure callback test-color-binding(text: string) -> bool;
-    pure callback set-color-binding(text: string);
+    callback test-color-binding(text: string) -> bool;
+    callback set-color-binding(text: string);
 
     private property <color> current-color;
     private property <ColorData> current-color-data: Api.color-to-data(self.current-color);
@@ -745,8 +746,8 @@ component IntegerWidget inherits VerticalLayout {
     in property <string> property-name;
     in property <PropertyValue> property-value;
 
-    pure callback test-integer-binding(text: string) -> bool;
-    pure callback set-integer-binding(text: string);
+    callback test-integer-binding(text: string) -> bool;
+    callback set-integer-binding(text: string);
 
     spacing: EditorSpaceSettings.default-spacing;
     width: 100%;
@@ -799,7 +800,7 @@ component EnumWidget inherits VerticalLayout {
         }
     }
 
-    pure callback set-enum-binding(text: string);
+    callback set-enum-binding(text: string);
 
     spacing: EditorSpaceSettings.default-spacing;
     width: 100%;
@@ -840,7 +841,7 @@ component BooleanWidget inherits VerticalLayout {
     in property <string> property-name;
     in property <PropertyValue> property-value;
 
-    pure callback set-bool-binding(value: bool);
+    callback set-bool-binding(value: bool);
 
     spacing: EditorSpaceSettings.default-spacing;
     width: 100%;
@@ -882,7 +883,7 @@ component EditJsonWidget inherits VerticalLayout {
     property <bool> can-compile: true;
     property <length> border: 3px;
 
-    pure callback set-code-binding(text: string) -> bool;
+    callback set-code-binding(text: string) -> bool;
 
     spacing: EditorSpaceSettings.default-spacing;
     width: 100%;
@@ -967,16 +968,16 @@ export component PropertyValueWidget inherits VerticalLayout {
     in property <bool> has-reset-action: true;
     in property <bool> strings-are-translatable: true;
 
-    pure callback set-bool-binding(value: bool);
-    pure callback set-color-binding(text: string);
-    pure callback test-color-binding(text: string) -> bool;
-    pure callback set-float-binding(text: string, unit: string);
-    pure callback test-float-binding(text: string, unit: string) -> bool;
-    pure callback set-code-binding(text: string);
-    pure callback test-code-binding(text: string) -> bool;
-    pure callback set-string-binding(text: string, is_translated: bool);
-    pure callback test-string-binding(text: string, is_translated: bool) -> bool;
-    pure callback set-enum-binding(text: string);
+    callback set-bool-binding(value: bool);
+    callback set-color-binding(text: string);
+    callback test-color-binding(text: string) -> bool;
+    callback set-float-binding(text: string, unit: string);
+    callback test-float-binding(text: string, unit: string) -> bool;
+    callback set-code-binding(text: string);
+    callback test-code-binding(text: string) -> bool;
+    callback set-string-binding(text: string, is_translated: bool);
+    callback test-string-binding(text: string, is_translated: bool) -> bool;
+    callback set-enum-binding(text: string);
 
     callback reset-action();
     callback code-action();
@@ -1207,6 +1208,7 @@ export component PreviewDataPropertyValueWidget inherits VerticalLayout {
     in property <string> property-container-id;
 
     private property <PropertyValue> value: Api.get-property-value(root.property-container-id, root.preview-data.name);
+    private property <string> possible-error;
 
     callback edit-in-spreadsheet(rp: PropertyContainer);
 
@@ -1215,7 +1217,11 @@ export component PreviewDataPropertyValueWidget inherits VerticalLayout {
     }
 
     function set-code-binding(text: string) -> bool {
-        return(Api.set-json-preview-data(root.property-container-id, root.preview-data.name, text));
+        self.possible_error = Api.set-json-preview-data(root.property-container-id, root.preview-data.name, text);
+
+        StatusLineApi.help-text = self.possible-error;
+
+        return (self.possible-error == "");
     }
 
     if root.preview-data.kind == PreviewDataKind.Value: PropertyValueWidget {
