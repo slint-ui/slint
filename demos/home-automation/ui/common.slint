@@ -1,5 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
+
+import { AppState } from "appState.slint";
 export global Measurements {
     out property <length> zone-button-spacing: 30px;
     out property <length> tile-radius: 10px;
@@ -26,13 +28,13 @@ export global Style {
     out property <length> H1-font-size: 32px;
     out property <length> H2-font-size: 21px;
     out property <length> H3-font-size: 18px;
-    out property <length> tile-title-font-size: 13pt;
+    out property <length> tile-title-font-size: AppState.is-hardware-accelerated ? 13pt : 18pt;
 }
 
 export global Animation {
     out property <duration> theme-change-duration: 300ms;
     out property <duration> full-screen-duration: 300ms;
-    out property <duration> transitionDuration: 500ms;
+    out property <duration> transitionDuration: AppState.is-hardware-accelerated ? 500ms : 0;
 }
 
 export global Colors {
