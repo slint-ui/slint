@@ -7,7 +7,7 @@ import { WidgetLoader } from "widgetLoader.slint";
 import { Switch, Palette as StdPalette } from "std-widgets.slint";
 import { InnerShadowRectangle } from "../general/innerShadowRectangle.slint";
 import { Measurements, Palette, Animation, Style } from "../../common.slint";
-import { AppState, ComponentData } from "../../appState.slint";
+import { AppState, ComponentData, Orientation } from "../../appState.slint";
 import { FullScreenWidgetLoader } from "fullScreenWidgetLoader.slint";
 import { FullScreenView } from "fullScreenView.slint";
 import { Page } from "../../../../printerdemo/ui/common.slint";
@@ -133,27 +133,37 @@ export component MainScreen inherits Rectangle {
             cache-rendering-hint: door-component-loaded;
 
             navigation := Rectangle {
+                Image {
+                    x: 0;
+                    y: 0;
+                    source: @image-url("../../images/frame.png");
+
+                }
 
                 nav-bar := Rectangle {
                     // x: 16px;
                     y: 26px;
-                    width: 600px;
+                    width: AppState.orientation == Orientation.landscape ? 600px : 300px;
                     height: 40px;
 
-                    Rectangle {
-                        border-radius: self.height / 2;
-                        drop-shadow-blur: 5px;
-                        drop-shadow-color: black.transparentize(0.5);
-                        drop-shadow-offset-x: 3px;
-                        drop-shadow-offset-y: 3px;
-                        background: #241433;
+                    if AppState.is-hardware-accelerated : Rectangle {
+                        Rectangle {
+                            border-radius: self.height / 2;
+                            drop-shadow-blur: 5px;
+                            drop-shadow-color: black.transparentize(0.5);
+                            drop-shadow-offset-x: 3px;
+                            drop-shadow-offset-y: 3px;
+                            background: #241433;
+                        }
+
+                        Rectangle {
+                            border-width: 1px;
+                            border-color: Palette.glass-border;
+                            border-radius: self.height / 2;
+                            background: Palette.glass-background;
+                        }
                     }
-                    Rectangle {
-                        border-width: 1px;
-                        border-color: Palette.glass-border;
-                        border-radius: self.height / 2;
-                        background: Palette.glass-background;
-                    }
+
                     HorizontalLayout {
                         alignment: center;
                         spacing: 70px;
@@ -287,4 +297,19 @@ export component MainScreen inherits Rectangle {
         demo-locked: demo-locked;
         initial-door-state: initial-door-state;
     }
+
+    // Rectangle {
+    //     width: 300px;
+    //     height: 300px;
+    //     // background: green;
+    //     // border-radius: 20px;
+    //     clip: true;
+    //     // Rectangle {
+    //     //     x: 100px;
+    //     //     y: 100px;
+    //     //     width: 300px;
+    //     //     height: 300px;
+    //         background: @linear-gradient(180deg, #ffffff1a 0%, #ffffff1a 80%, #ffffff 100%);// @linear-gradient(80deg, yellow 0%, #ffffff00 50%, red 100%);
+    //     // }
+    // }
 }
