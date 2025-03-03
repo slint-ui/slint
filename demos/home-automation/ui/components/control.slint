@@ -18,22 +18,29 @@ export component Control inherits Rectangle {
     in property <brush> tile-background: Palette.control-background;
     in property <brush> tile-shadow-color: Palette.shadow-color;
     in property <bool> show-label: true;
-    clip: true;
-    border-radius: 15px;
-    background: @linear-gradient(0deg, #191d44, #241433);
 
-    Rectangle {
-        border-radius: root.border-radius;
-        background: @linear-gradient(180deg, white.transparentize(85%) 0%, white.transparentize(93%) 60%, white.transparentize(90%) 92%, #ffffff.transparentize(75%) 100%);
+    border-radius: 15px;
+    
+
+    if AppState.is-hardware-accelerated : Rectangle {
+        Rectangle {
+            border-radius: root.border-radius;
+            background: @linear-gradient(1200deg, #191d44, #241433);
+        }
+        Rectangle {
+            border-radius: root.border-radius;
+            background: @linear-gradient(180deg, white.transparentize(85%) 0%, white.transparentize(93%) 60%, white.transparentize(90%) 92%, #ffffff.transparentize(75%) 100%);
+        }
+        Rectangle {
+            border-radius: root.border-radius;
+            border-width: 1px;
+            border-color: Palette.glass-border;
+        }
     }
 
     @children
 
-    Rectangle {
-        border-radius: root.border-radius;
-        border-width: 1px;
-        border-color: Palette.glass-border;
-    }
+    
     // drop-shadow-color: black;
     // drop-shadow-blur: 10px;
     // drop-shadow-offset-x: 3px;
