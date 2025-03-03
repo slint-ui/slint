@@ -133,15 +133,13 @@ export component MainScreen inherits Rectangle {
             cache-rendering-hint: door-component-loaded;
 
             navigation := Rectangle {
-                Image {
-                    x: 0;
-                    y: 0;
-                    source: @image-url("../../images/frame.png");
-
-                }
+                // Image {
+                //     x: 0;
+                //     y: 0;
+                //     source: @image-url("../../images/frame.png");
+                // }
 
                 nav-bar := Rectangle {
-                    // x: 16px;
                     y: 26px;
                     width: AppState.orientation == Orientation.landscape ? 600px : 300px;
                     height: 40px;
