@@ -36,13 +36,18 @@ export component PreviewDataView inherits ScrollView {
                 spacing: EditorSpaceSettings.property-spacing;
                 padding: EditorSpaceSettings.default-padding;
 
+                if ep.properties.length == 0 && root.element-loaded: Text {
+                    width: 100%;
+                    horizontal-alignment: center;
+
+                    text: @tr("No \"in\", \"in-out\", or \"out\" property declared.");
+                }
                 for p in ep.properties: PreviewDataPropertyValueWidget {
                     preview-data: p;
                     property-container-id: ep.container-id;
                 }
             }
         }
-
     }
 
     Rectangle {
