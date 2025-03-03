@@ -6,6 +6,7 @@ idf_component_register(
     SRCS "main.cpp"
     INCLUDE_DIRS "."
     REQUIRES esp32_p4_function_ev_board_noglib slint app_update
+    PRIV_REQUIRES esp_lcd_touch_gt911
 )
 
 slint_target_sources(${COMPONENT_LIB} ../../ui/app.slint COMPILATION_UNITS 20)
