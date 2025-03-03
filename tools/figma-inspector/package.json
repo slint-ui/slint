@@ -31,7 +31,7 @@
     "vite": "6.2.0",
     "vite-figma-plugin": "0.0.24",
     "vite-plugin-singlefile": "2.1.0",
-    "vitest": "3.0.6"
+    "vitest": "3.0.7"
   },
   "dependencies": {
     "html-react-parser": "5.2.2",
