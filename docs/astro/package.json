@@ -30,7 +30,7 @@
     "sharp": "0.33.5",
     "starlight-links-validator": "0.14.3",
     "starlight-sidebar-topics": "0.4.1",
-    "typescript": "5.7.3"
+    "typescript": "5.8.2"
   },
   "devDependencies": {
     "@playwright/test": "1.50.1",
