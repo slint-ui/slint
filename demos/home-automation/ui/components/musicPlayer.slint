@@ -96,6 +96,7 @@ export component MusicPlayer inherits Control {
     property <bool> unlocked: false;
     property <image> cover-art: @image-url("../images/album.png");
     property <bool> is-active: false;
+    clip: true;
 
     tile := Rectangle {
         border-color: white;
