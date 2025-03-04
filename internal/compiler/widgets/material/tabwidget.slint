@@ -34,33 +34,33 @@ export component TabImpl inherits Rectangle {
     in property <int> tab-index;
     // The total number of tabs
     in property <int> num-tabs;
-    in property <string> title <=> i-text.text;
+    in property <string> title <=> text.text;
     in property <bool> enabled: true;
     // The currently selected tab
     in-out property <int> current;
 
-    private property <bool> has-focus: root.current-focused == root.tab-index;
-    private property <bool> active: root.tab-index == root.current;
+    property <bool> has-focus: root.current-focused == root.tab-index;
+    property <bool> active: root.tab-index == root.current;
 
-    width: max(48px, i-layout.min-width);
-    height: max(48px, i-layout.min-height);
+    width: max(48px, layout.min-width);
+    height: max(48px, layout.min-height);
     accessible-role: tab;
     accessible-enabled: root.enabled;
     accessible-label: root.title;
     accessible-item-index: root.tab-index;
     accessible-item-selectable: true;
     accessible-item-selected: root.active;
-    accessible-action-default => { i-touch-area.clicked(); }
+    accessible-action-default => { touch-area.clicked(); }
 
-    i-container := Rectangle {
+    container := Rectangle {
         background: MaterialPalette.alternate-background;
     }
 
-    i-state-layer := Rectangle {
-        opacity: !i-touch-area.pressed ? !i-touch-area.has-hover ? 0 : 0.08 : 0.12;
+    state-layer := Rectangle {
+        opacity: !touch-area.pressed ? !touch-area.has-hover ? 0 : 0.08 : 0.12;
         width: 100%;
         height: 100%;
-        border-radius: i-container.border-radius;
+        border-radius: container.border-radius;
         background: MaterialPalette.accent-background;
 
         animate opacity {
@@ -69,11 +69,11 @@ export component TabImpl inherits Rectangle {
         }
     }
 
-    i-layout := HorizontalLayout {
+    layout := HorizontalLayout {
         padding-left: 16px;
         padding-right: 16px;
 
-        i-text := Text {
+        text := Text {
             vertical-alignment: center;
             color: !root.active ? MaterialPalette.control-foreground : MaterialPalette.accent-background;
             // FIXME after Roboto font can be loaded
@@ -89,7 +89,7 @@ export component TabImpl inherits Rectangle {
         }
     }
 
-    i-indicator := Rectangle {
+    indicator := Rectangle {
         opacity: !root.active ? 0 : 1;
         width: 100%;
         height: 3px;
@@ -102,7 +102,7 @@ export component TabImpl inherits Rectangle {
         }
     }
 
-    i-touch-area := TouchArea {
+    touch-area := TouchArea {
         enabled <=> root.enabled;
 
         clicked => {
@@ -114,7 +114,7 @@ export component TabImpl inherits Rectangle {
 export component TabBarImpl inherits TabBarBase {
     // injected properties:
     // The currently focused tab
-    in-out property <int> current-focused: i-focus-scope.has-focus ? i-focus-scope.focused-tab : -1;
+    in-out property <int> current-focused: focus-scope.has-focus ? focus-scope.focused-tab : -1;
 
     accessible-role: tab-list;
     accessible-delegate-focus: root.current-focused >= 0 ? root.current-focused : root.current;
@@ -126,7 +126,7 @@ export component TabBarImpl inherits TabBarBase {
         }
     }
 
-    i-focus-scope := FocusScope {
+    focus-scope := FocusScope {
         property <int> focused-tab: 0;
 
         x: 0;
