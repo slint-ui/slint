@@ -15,13 +15,14 @@ export component Camera inherits Control {
     property <image> cam: @image-url("../images/front-porch.jpg");
     property <bool> is-active: false;
     property <CameraView> camera-view: CameraView.front;
+    control-background: @image-url("../images/overhead-frame.png", nine-slice(50));
 
     tile := Rectangle {
         x: 0;
         Image {
             x: 1px;
             source: root.cam;
-            width: tile.width - 3px;
+            width: tile.width - 2px;
             image-fit: cover;
             height: 60%;
             horizontal-alignment: center;
@@ -31,7 +32,7 @@ export component Camera inherits Control {
         Image {
             x: 1px;
             source: @image-url("../images/back-yard.jpg");
-            width: tile.width - 3px;
+            width: tile.width - 2px;
             image-fit: cover;
             height: 60%;
             horizontal-alignment: center;
