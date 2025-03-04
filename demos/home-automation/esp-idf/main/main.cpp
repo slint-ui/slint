@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-#include "demo.h"
+#include "demo-sw-renderer.h"
 
 #include "slint-esp.h"
 #include <ctime>
