@@ -13,7 +13,6 @@ import { HVAC } from "../hvac.slint";
 import { Dishwasher } from "../dishwasher.slint";
 import { Microwave } from "../microwave.slint";
 import { WeatherInfo } from "../weatherInfo.slint";
-import { TimeInfo } from "../timeInfo.slint";
 import { PowerInfo } from "../powerInfo.slint";
 import { Alarm } from "../alarm.slint";
 import { Measurements, Animation } from "../../common.slint";
@@ -193,13 +192,7 @@ export component WidgetLoader {
         width: root.width;
         height: root.height;
     }
-    if root.type == WidgetType.timeInfo: TimeInfo {
-        index: root.index;
-        name: AppState.component-details[root.index].name;
-        id: AppState.component-details[root.index].id;
-        width: root.width;
-        height: root.height;
-    }
+
     if root.type == WidgetType.powerInfo: PowerInfo {
         index: root.index;
         name: AppState.component-details[root.index].name;
