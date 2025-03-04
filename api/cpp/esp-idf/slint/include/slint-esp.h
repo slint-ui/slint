@@ -30,10 +30,18 @@
  *  to internal memory (MALLOC_CAP_INTERNAL) and flushing to the display is faster than rendering
  *  into memory buffers that may be slower to access for the CPU.
  *
- *  The data structure is a template where the pixel type is configurable. The default is for
- *  RGB565 displays, but you can also use `slint::Rgb8Pixel` if you're targeting an RGB888 display.
+ *  The data structure is a template where the pixel type is configurable.
+ *  The default depends on the sdkconfig, but you can use either `slint::Rgb8Pixel` or
+ *  `slint::platform::Rgb565Pixel`, depending on how the display is configured.
  */
-template<typename PixelType = slint::platform::Rgb565Pixel>
+template<typename PixelType =
+#if CONFIG_BSP_LCD_COLOR_FORMAT_RGB888
+                 slint::Rgb8Pixel
+#else
+                 slint::platform::Rgb565Pixel
+#endif
+         >
+
 struct SlintPlatformConfiguration
 {
     /// The size of the screen in pixels.
