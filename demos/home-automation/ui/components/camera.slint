@@ -3,65 +3,61 @@
 import { Animation, Measurements, Colors, Palette } from "../common.slint";
 import { Control } from "control.slint";
 import { AppState } from "../appState.slint";
+import { HaText } from "general/haText.slint";
 
+enum CameraView {
+    front,
+    back
+}
 export component Camera inherits Control {
     property <int> current-page: AppState.current-page;
     property <bool> unlocked: false;
     property <image> cam: @image-url("../images/front-porch.jpg");
     property <bool> is-active: false;
+    property <CameraView> camera-view: CameraView.front;
 
     tile := Rectangle {
         x: 0;
         Image {
             x: 1px;
             source: root.cam;
-            width: tile.width -3px;
+            width: tile.width - 3px;
             image-fit: cover;
             height: 60%;
             horizontal-alignment: center;
             vertical-alignment: center;
         }
 
-        TouchArea {
-            enabled: !AppState.showing-full-screen;
-            clicked => {
-                AppState.showFullScreen(root.index);
-            }
-        }
-
         Image {
-            source: @image-url("../images/enlarge.svg");
-            opacity: root.full-screen ? 0 : 1;
-            width: 20px;
-            colorize: Colors.white;
-            x: root.width - self.width - 15px;
-            y: 15px;
+            x: 1px;
+            source: @image-url("../images/back-yard.jpg");
+            width: tile.width - 3px;
+            image-fit: cover;
+            height: 60%;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+            opacity: camera-view == CameraView.back ? 1 : 0;
             animate opacity {
-                duration: Animation.transitionDuration;
-                easing: ease-in-out-sine;
-            }
-        }
-
-        closeButton := Image {
-            x: root.width - self.width - 15px;
-            y: 15px;
-            width: 30px;
-            height: 30px;
-            opacity: root.full-screen ? 1 : 0;
-            source: @image-url("../images/reduce.svg");
-            colorize: white;
-            animate opacity {
-                duration: Animation.transitionDuration;
+                duration: 300ms;
                 easing: ease-in-out-sine;
             }
         }
 
         TouchArea {
-            enabled: closeButton.opacity > 0.1;
             clicked => {
-                root.full-screen = false;
-                AppState.showFullScreen(-1);
+                if camera-view == CameraView.front {
+                    camera-view = CameraView.back;
+                } else {
+                    camera-view = CameraView.front;
+                }
             }
+        }
+
+        HaText {
+            y: root.height - self.height - 15px;
+            text: camera-view == CameraView.back ? "Back Yard" : "Front Porch";
+            color: Colors.white;
+            font-size: 1.5rem;
         }
     }
 }
