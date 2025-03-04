@@ -39,8 +39,8 @@ importers:
         specifier: 1.6.0
         version: 1.6.0
       typedoc:
-        specifier: 0.27.8
-        version: 0.27.8(typescript@5.8.2)
+        specifier: 0.27.9
+        version: 0.27.9(typescript@5.8.2)
       typescript:
         specifier: 5.8.2
         version: 5.8.2
@@ -4215,12 +4215,12 @@ packages:
     resolution: {integrity: sha512-3T/PUdKTCnkUmhQU6FFJEHsLwadsRegktX3TNHk+2JJB9HlA8gp1/VXblXVDI93kSnXF2rdPx0GMbHtJIV2LPg==}
     engines: {node: '>=16'}
 
-  typedoc@0.27.8:
-    resolution: {integrity: sha512-q0/2TUunNEDmWkn23ULKGXieK8cgGuAmBUXC/HcZ/rgzMI9Yr4Nq3in1K1vT1NZ9zx6M78yTk3kmIPbwJgK5KA==}
+  typedoc@0.27.9:
+    resolution: {integrity: sha512-/z585740YHURLl9DN2jCWe6OW7zKYm6VoQ93H0sxZ1cwHQEQrUn5BJrEnkWhfzUdyO+BLGjnKUZ9iz9hKloFDw==}
     engines: {node: '>= 18'}
     hasBin: true
     peerDependencies:
-      typescript: 5.0.x || 5.1.x || 5.2.x || 5.3.x || 5.4.x || 5.5.x || 5.6.x || 5.7.x
+      typescript: 5.0.x || 5.1.x || 5.2.x || 5.3.x || 5.4.x || 5.5.x || 5.6.x || 5.7.x || 5.8.x
 
   typesafe-path@0.2.2:
     resolution: {integrity: sha512-OJabfkAg1WLZSqJAJ0Z6Sdt3utnbzr/jh+NAHoyWHJe8CMSy79Gm085094M9nvTPy22KzTVn5Zq5mbapCI/hPA==}
@@ -9614,7 +9614,7 @@ snapshots:
 
   type-fest@4.36.0: {}
 
-  typedoc@0.27.8(typescript@5.8.2):
+  typedoc@0.27.9(typescript@5.8.2):
     dependencies:
       '@gerrit0/mini-shiki': 1.27.2
       lunr: 2.3.9
