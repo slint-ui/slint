@@ -1,28 +1,35 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import { Palette, HorizontalBox, Switch } from "std-widgets.slint";
+import { Palette, HorizontalBox, Switch, StyleMetrics } from "std-widgets.slint";
 import { Icons } from "../assets.slint";
+import { UsecasesPalette } from "../widgets.slint";
 
 export component HeaderView {
-    min-height: 48px;
+    min-height: max(32px, layout.min-height);
 
-    HorizontalBox {
-        Image {
-            max-height: 32px;
-            source: Icons.slint-logo;
-            horizontal-alignment: left;
-        }
+    Rectangle { 
+        background: UsecasesPalette.use-material ? Palette.alternate-background : transparent;
+        
+        layout := HorizontalLayout{
+            padding: UsecasesPalette.use-material ? 8px : StyleMetrics.layout-padding;
+        
+            Image {
+                max-height: 32px;
+                source: Icons.slint-logo;
+                horizontal-alignment: left;
+            }
 
-        // spaceer
-        Rectangle {}
+            // spaceer
+            Rectangle {}
 
-        Switch {
-            text: "Dark Mode";
-            checked: Palette.color-scheme == ColorScheme.dark;
+            Switch {
+                text: "Dark Mode";
+                checked: Palette.color-scheme == ColorScheme.dark;
 
-            toggled => {
-                Palette.color-scheme = self.checked ? ColorScheme.dark : ColorScheme.light;
+                toggled => {
+                    Palette.color-scheme = self.checked ? ColorScheme.dark : ColorScheme.light;
+                }
             }
         }
     }

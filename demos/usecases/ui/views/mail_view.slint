@@ -1,11 +1,12 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import { GroupBox, ComboBox, VerticalBox, GroupBox, GridBox, Palette, TextEdit, Button, Switch, ScrollView } from "std-widgets.slint";
+import { GroupBox, ComboBox, VerticalBox, GroupBox, GridBox, Palette, TextEdit, Button, Switch, ScrollView, StyleMetrics } from "std-widgets.slint";
 import { NavigationListView, NavigationListViewItem, Container, ExtendedLineEdit, Icon, CardListView, CardListViewItem, IconButton, TitleText } from "../widgets.slint";
 import { ModalDialog } from "../widgets.slint";
 import { Icons } from "../assets.slint";
 import { UsecasesPalette } from "../widgets/styling.slint";
+import { DialogGlobal } from "../widgets/dialog.slint";
 
 export global MailViewAdapter { }
 
@@ -94,11 +95,15 @@ export component MailSideBarView {
 }
 
 export component MailSideBarDialog inherits ModalDialog {
+    in property <length> sidebar-x;
+    in property <length> sidebar-y;
+    in property <length> sidebar-height;
+    
     Rectangle {
-        x: -self.width;
-        y: 0;
+        x: root.sidebar-x - self.width;
+        y: root.sidebar-y;
         width: 246px;
-        height: 100%;
+        height: root.sidebar-height;
         background: Palette.control-background;
 
         HorizontalLayout {
@@ -116,7 +121,7 @@ export component MailSideBarDialog inherits ModalDialog {
         }
 
         init => {
-            self.x = 0;
+            self.x = root.sidebar-x;
         }
     }
 }
@@ -281,7 +286,7 @@ export component MailMessageView {
             }
         }
 
-        VerticalBox {
+        VerticalLayout {
             text-edit := TextEdit {
                 max-height: 94px;
                 wrap: word-wrap;
@@ -347,10 +352,9 @@ export component MailView {
     }
 
     sidebar-dialog := MailSideBarDialog {
-        x: 0;
-        y: 0;
-        width: root.height;
-        height: root.height;
+        sidebar-x: 0;
+        sidebar-y: root.absolute-position.y;
+        sidebar-height: DialogGlobal.window-height - root.absolute-position.y;
     }
 }
 
