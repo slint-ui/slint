@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: MIT
 import { AppState, ComponentData } from "../../appState.slint";
 import { FullScreenWidgetLoader } from "fullScreenWidgetLoader.slint";
+import { Animation } from "../../common.slint";
+
 
 export component FullScreenView inherits Rectangle {
     property <ComponentData> full-screen-data: { id: "", x: 60, y: 60, width: 1800, height: 900, background: #00bf1d, visible: true };
@@ -19,13 +21,13 @@ export component FullScreenView inherits Rectangle {
                 opacity: 0.7;
                 in {
                     animate opacity {
-                        duration: 300ms;
+                        duration: Animation.full-screen-duration;
                         easing: ease-in-out-sine;
                     }
                 }
                 out {
                     animate opacity {
-                        duration: 300ms;
+                        duration: Animation.full-screen-duration;
                         easing: ease-in-out-sine;
                     }
                 }
