@@ -1110,23 +1110,22 @@ pub fn ui_set_preview_data(
         container_name: String,
         container_id: String,
         properties: &[preview_data::PreviewData],
-    ) -> Option<PropertyContainer> {
+    ) -> PropertyContainer {
         let properties =
             properties.iter().filter_map(map_preview_data_property).collect::<Vec<_>>();
 
-        (!properties.is_empty()).then(|| PropertyContainer {
+        PropertyContainer {
             container_name: container_name.into(),
             container_id: container_id.into(),
             properties: Rc::new(slint::VecModel::from(properties)).into(),
-        })
+        }
     }
 
     let mut result: Vec<PropertyContainer> = vec![];
 
     if let Some(main) = preview_data.get(&preview_data::PropertyContainer::Main) {
-        if let Some(c) = fill_container("<MAIN>".to_string(), String::new(), main) {
-            result.push(c)
-        }
+        let c = fill_container("<MAIN>".to_string(), String::new(), main);
+        result.push(c);
     }
 
     for component_key in
@@ -1134,9 +1133,8 @@ pub fn ui_set_preview_data(
     {
         if let Some(component) = preview_data.get(component_key) {
             let component_key = component_key.to_string();
-            if let Some(c) = fill_container(component_key.clone(), component_key, component) {
-                result.push(c);
-            }
+            let c = fill_container(component_key.clone(), component_key, component);
+            result.push(c);
         }
     }
 
