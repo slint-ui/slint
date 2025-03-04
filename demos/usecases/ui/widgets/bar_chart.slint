@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import { CosmicPalette } from "styling.slint";
+import { UsecasesPalette } from "styling.slint";
 
 component Bar {
     in property <length> bar-height;
@@ -17,7 +17,7 @@ component Bar {
         Rectangle {
             height: root.height;
             y: parent.height - self.height;
-            background: CosmicPalette.bar-gradient;
+            background: UsecasesPalette.bar-gradient;
         }
     }
 }

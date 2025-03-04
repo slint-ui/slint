@@ -2,12 +2,10 @@
 // SPDX-License-Identifier: MIT
 
 import { Palette, ListView, HorizontalBox } from "std-widgets.slint";
-import { CosmicPalette } from "styling.slint";
+import { UsecasesPalette } from "styling.slint";
 import { Icon } from "icon.slint";
 
 export component NavigationListItem {
-    private property <brush> foreground: Palette.foreground;
-
     callback select <=> touch-area.clicked;
 
     in property <bool> selected;
@@ -15,13 +13,17 @@ export component NavigationListItem {
     in property <string> message <=> message.text;
     in property <image> icon <=> icon.source;
 
-    min-height: max(41px, layout.min-height);
+
+    property <brush> foreground: Palette.foreground;
+    property <length> style-min-height: UsecasesPalette.use-material ? 56px : 41px;
+
+    min-height: max(root.style-min-height, layout.min-height);
 
     layout :=  HorizontalLayout {
         padding-bottom: 8px;
 
         background := Rectangle {
-            border-radius: 16px;
+            border-radius: UsecasesPalette.use-material ? 26px : 16px;
 
             HorizontalLayout {
                 padding-left: 16px;
@@ -57,8 +59,8 @@ export component NavigationListItem {
 
     states [
         selected when root.selected : {
-            background.background: CosmicPalette.state-selected;
-            foreground: CosmicPalette.accent-text;
+            background.background: UsecasesPalette.state-selected;
+            foreground: UsecasesPalette.accent-text;
         }
     ]
 }

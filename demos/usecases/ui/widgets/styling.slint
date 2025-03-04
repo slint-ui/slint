@@ -3,6 +3,7 @@
 
 import { Palette } from "std-widgets.slint";
 
+
 export global CosmicPalette {
     out property <brush> state-selected: Palette.color-scheme == ColorScheme.dark ? #4D4D4D4D : #98989833;
     out property <brush> accent-text: Palette.color-scheme == ColorScheme.dark ? #63D0DF : #00525A;
@@ -13,6 +14,31 @@ export global CosmicPalette {
     out property <brush> state-pressed: Palette.color-scheme == ColorScheme.dark ? #16161680 : #BEBEBE80;
     out property <brush> bar-gradient: Palette.color-scheme == ColorScheme.dark ? @linear-gradient(180deg, #63D0DF 0%, #00525A 100%) : @linear-gradient(180deg, #00525A 0%, #63D0DF 100%);
     out property <brush> modal-background: #000000.with_alpha(0.5);
+}
+
+export global MaterialPalette {
+    out property <brush> state-selected: Palette.color-scheme == ColorScheme.dark ? #4A4458 : #E6E0E9;
+    out property <brush> accent-text: Palette.color-scheme == ColorScheme.dark ? #E8DEF8 : #E8DEF8;
+    out property <brush> control-divider: Palette.color-scheme == ColorScheme.dark ? #DEDEDE33 : #3D3D3D33;
+    out property <brush> state-focus: Palette.color-scheme == ColorScheme.dark ? #D0BCFF : #6750A4;
+    out property <brush> placeholder-foreground: Palette.color-scheme == ColorScheme.dark ? #CAC4D0 : #1D1B20;
+    out property <brush> state-hover: #63636333;
+    out property <brush> state-pressed: Palette.color-scheme == ColorScheme.dark ? #16161680 : #BEBEBE80;
+    out property <brush> bar-gradient: @linear-gradient(180deg, #21005D 0%, #D0BCFF 100%);
+    out property <brush> modal-background: #000000.with_alpha(0.5);
+}
+
+export global UsecasesPalette {
+    in-out property <bool> use-material;
+    out property <brush> state-selected: root.use-material ? MaterialPalette.state-selected : CosmicPalette.state-selected;
+    out property <brush> accent-text: root.use-material ? MaterialPalette.accent-text : CosmicPalette.accent-text;
+    out property <brush> control-divider: root.use-material ? MaterialPalette.control-divider : CosmicPalette.control-divider;
+    out property <brush> state-focus: root.use-material ? MaterialPalette.state-focus : CosmicPalette.state-focus;
+    out property <brush> placeholder-foreground: root.use-material ? MaterialPalette.placeholder-foreground : CosmicPalette.placeholder-foreground;
+    out property <brush> state-hover: root.use-material ? MaterialPalette.state-hover : CosmicPalette.state-hover;
+    out property <brush> state-pressed: root.use-material ? MaterialPalette.state-pressed : CosmicPalette.state-pressed;
+    out property <brush> bar-gradient: root.use-material ? MaterialPalette.bar-gradient : CosmicPalette.bar-gradient;
+    out property <brush> modal-background: root.use-material ? MaterialPalette.modal-background : CosmicPalette.modal-background;
 }
 
 export struct TextStyle {

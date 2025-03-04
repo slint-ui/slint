@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 import { Palette } from "std-widgets.slint";
-import { CosmicPalette } from "styling.slint";
+import { UsecasesPalette } from "styling.slint";
 
 // copied from common that is not public now
 component LineEditBase inherits Rectangle {
@@ -100,6 +100,8 @@ export component ExtendedLineEdit {
     out property <bool> has-focus <=> base.has-focus;
     in-out property <string> text <=> base.text;
 
+    property <length> style-min-height: UsecasesPalette.use-material ? 56px : 32px;
+
     callback accepted <=> base.accepted;
     callback edited <=> base.edited;
     accessible-role: text-input;
@@ -132,7 +134,7 @@ export component ExtendedLineEdit {
     vertical-stretch: 0;
     horizontal-stretch: 1;
     min-width: max(160px, layout.min-width);
-    min-height: max(32px, layout.min-height);
+    min-height: max(root.style-min-height, layout.min-height);
     forward-focus: base;
 
     states [
@@ -142,10 +144,10 @@ export component ExtendedLineEdit {
     ]
 
     background := Rectangle {
-        border-radius: 8px;
-        background: Palette.control-background;
-        border-width: 1px;
-        border-color: CosmicPalette.control-divider;
+        border-radius: UsecasesPalette.use-material ? 4px : 8px;
+        background: UsecasesPalette.use-material ? transparent : Palette.control-background;
+        border-width: root.has-focus && UsecasesPalette.use-material ? 2px :  1px;
+        border-color: UsecasesPalette.control-divider;
 
         layout := HorizontalLayout {
             padding-left: 16px;
@@ -162,7 +164,7 @@ export component ExtendedLineEdit {
                 selection-background-color: Palette.selection-background;
                 selection-foreground-color: Palette.accent-foreground;
                 text-color: Palette.foreground;
-                placeholder-color: CosmicPalette.placeholder-foreground;
+                placeholder-color: UsecasesPalette.placeholder-foreground;
                 margin: layout.padding-left + layout.padding-right;
             }
         }
@@ -171,7 +173,7 @@ export component ExtendedLineEdit {
             width: parent.width + 2px;
             height: parent.height + 2px;
             border-radius: parent.border-radius + 2px;
-            border-color: CosmicPalette.state-focus;
+            border-color: UsecasesPalette.state-focus;
             border-width: 1px;
         }
     }

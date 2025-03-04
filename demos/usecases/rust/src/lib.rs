@@ -32,6 +32,7 @@ pub fn main() {
 fn android_main(android_app: slint::android::AndroidApp) {
     slint::android::init(android_app).unwrap();
     let app = app().unwrap();
+    app.global::<UsecasesPalette>().set_use_material(true);
     app.run().unwrap();
 }
 
