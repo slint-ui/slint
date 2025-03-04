@@ -28,12 +28,12 @@ export global Style {
     out property <length> H1-font-size: 32px;
     out property <length> H2-font-size: 21px;
     out property <length> H3-font-size: 18px;
-    out property <length> tile-title-font-size: AppState.is-hardware-accelerated ? 13pt : 18pt;
+    out property <length> tile-title-font-size: AppState.is-hardware-accelerated ? 13pt : 15pt;
 }
 
 export global Animation {
-    out property <duration> theme-change-duration: 300ms;
-    out property <duration> full-screen-duration: 300ms;
+    out property <duration> theme-change-duration: AppState.is-hardware-accelerated ? 300ms : 0;
+    out property <duration> full-screen-duration: AppState.is-hardware-accelerated ? 300ms : 0;
     out property <duration> transitionDuration: AppState.is-hardware-accelerated ? 500ms : 0;
 }
 
