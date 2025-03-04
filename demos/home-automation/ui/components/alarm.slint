@@ -56,9 +56,8 @@ export component Alarm inherits Control {
             }
         }
 
-        tile := InnerShadowRectangle {
-            inner-color: Palette.glow-color.transparentize(0.5);
-            inner-shadow-color: Palette.control-background;
+        tile := Rectangle {
+
             VerticalLayout {
                 visible: !root.full-screen;
                 alignment: center;

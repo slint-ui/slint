@@ -1,6 +1,6 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
-import { Measurements, Colors, Palette } from "../common.slint";
+import { Animation, Measurements, Colors, Palette } from "../common.slint";
 import { Control } from "control.slint";
 import { AppState } from "../appState.slint";
 
@@ -11,45 +11,14 @@ export component Camera inherits Control {
     property <bool> is-active: false;
 
     tile := Rectangle {
-        x: 0cm;
-        Rectangle {
-            border-radius: Measurements.tile-radius;
-            clip: true;
-            Image {
-                source: root.cam;
-                width: tile.width;
-                image-fit: cover;
-                height: tile.height;
-                horizontal-alignment: center;
-                vertical-alignment: center;
-            }
-        }
-
-        VerticalLayout {
-            alignment: end;
-            spacing: 5px;
-            padding: 5px;
-            HorizontalLayout {
-                width: tile.width;
-                alignment: start;
-                padding-left: 10px;
-            }
-
-            controls := Rectangle {
-                border-radius: 20px;
-                width: 95%;
-                height: self.preferred-height;
-                background: Palette.music-gradient.transparentize(0.2);
-                animate height {
-                    duration: 1000ms;
-                    easing: ease-in-out-sine;
-                }
-                HorizontalLayout {
-                    alignment: space-around;
-                    padding-top: 15px;
-                    padding-bottom: 15px;
-                }
-            }
+        x: 0;
+        Image {
+            source: root.cam;
+            width: tile.width;
+            image-fit: cover;
+            height: 60%;
+            horizontal-alignment: center;
+            vertical-alignment: center;
         }
 
         TouchArea {
@@ -67,23 +36,23 @@ export component Camera inherits Control {
             x: root.width - self.width - 15px;
             y: 15px;
             animate opacity {
-                duration: 500ms;
+                duration: Animation.transitionDuration;
                 easing: ease-in-out-sine;
             }
         }
 
         closeButton := Image {
-            opacity: root.full-screen ? 1 : 0;
-            animate opacity {
-                duration: 500ms;
-                easing: ease-in-out-sine;
-            }
-            source: @image-url("../images/reduce.svg");
-            colorize: white;
             x: root.width - self.width - 15px;
             y: 15px;
             width: 30px;
             height: 30px;
+            opacity: root.full-screen ? 1 : 0;
+            source: @image-url("../images/reduce.svg");
+            colorize: white;
+            animate opacity {
+                duration: Animation.transitionDuration;
+                easing: ease-in-out-sine;
+            }
         }
 
         TouchArea {

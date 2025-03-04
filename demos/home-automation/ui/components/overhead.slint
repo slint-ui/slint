@@ -12,15 +12,12 @@ export component Overhead inherits Control {
     show-label: false;
     full-screen: false;
     tile-shadow-blur: 0px;
+    control-background: @image-url("../images/overhead-frame.png", nine-slice(50));
 
     in property <length> tilePadding: (root.height > Measurements.small-height-tile) ? 18px : 9px;
-    tile := InnerShadowRectangle {
+    tile := Rectangle {
         width: 100%;
         height: 100%;
-        clip: true;
-        inner-color: Palette.overhead-background.mix(Palette.overhead-shadow,(slider.value));
-        inner-shadow-color: Palette.overhead-shadow;
-        inner-shadow-blur: tile.height / 5;
 
         TouchArea {
             clicked => {
@@ -48,25 +45,10 @@ export component Overhead inherits Control {
             }
 
             slider := FancySlider {
-                width: (root.height < Measurements.medium-height-tile) ? root.width - switch.width - 18px : root.width * 0.8;
+                width: (root.height < Measurements.medium-height-tile) ? root.width - 0 - 18px : root.width * 0.8;
                 value: 0.0;
                 icon: @image-url("../images/brightness.svg");
             }
-        }
-
-        switch := DropShadowToggle {
-            x: root.height < Measurements.medium-height-tile ? root.width - self.width : 0;
-            y: root.height < Measurements.medium-height-tile ? root.height - self.height - tilePadding : tilePadding * 2.5;
-            labelOff: "";
-            labelOn: "";
-            scale: 33%;
-            toggleOpacity: 0.2;
-            active: slider.value > 0;
-            touchEnabled: false;
-            control-color: self.active ? Palette.overhead-background : Palette.overhead-shadow;
-            inner-shadow-color: self.active ? Palette.overhead-background : Palette.overhead-foreground;
-            inner-color-inactive: Palette.slider-background;
-            inner-color-active: Palette.slider-foreground;
         }
     }
 }

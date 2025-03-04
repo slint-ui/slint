@@ -18,6 +18,7 @@ export component Control inherits Rectangle {
     in property <brush> tile-background: Palette.control-background;
     in property <brush> tile-shadow-color: Palette.shadow-color;
     in property <bool> show-label: true;
+    in property <image> control-background: @image-url("../images/control-frame.png", nine-slice(50));
 
     border-radius: 15px;
     
@@ -44,7 +45,7 @@ export component Control inherits Rectangle {
         y: -12px;
         width: parent.width + 33px;
         height: parent.height + 32px;
-        source: @image-url("../images/control-frame.png", nine-slice(50));
+        source: root.control-background;
     }
 
     @children
