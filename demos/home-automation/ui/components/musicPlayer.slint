@@ -1,6 +1,6 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
-import { Measurements, Colors, Palette } from "../common.slint";
+import { Animation, Measurements, Colors, Palette } from "../common.slint";
 import { Control} from "control.slint";
 import { AppState } from "../appState.slint";
 import { HaText } from "general/haText.slint";
@@ -8,7 +8,6 @@ export component AudioVisualizer inherits Rectangle {
     width: self.preferred-width;
     height: 50px;
     y: 0px;
-
 
     // Define the number of bars
     property <int> numBars: 50;
@@ -103,7 +102,6 @@ export component MusicPlayer inherits Control {
         border-width: 1px;
         x: 0cm;
         Image {
-
             source: cover-art;
             width: 100%;
             image-fit: cover;
@@ -127,7 +125,7 @@ export component MusicPlayer inherits Control {
                             opacity: 0.0;
                             in {
                                 animate opacity {
-                                    duration: 300ms;
+                                    duration: Animation.transitionDuration;
                                     easing: ease-in-out-sine;
                                 }
                             }
@@ -136,7 +134,7 @@ export component MusicPlayer inherits Control {
                             opacity: 1.0;
                             in {
                                 animate opacity {
-                                    duration: 300ms;
+                                    duration: Animation.transitionDuration;
                                     easing: ease-in-out-sine;
                                 }
                             }
@@ -150,10 +148,7 @@ export component MusicPlayer inherits Control {
                 width: 95%;
                 height: self.preferred-height;
                 background: Palette.music-gradient.transparentize(0.2);
-                animate height {
-                    duration: 1000ms;
-                    easing: ease-in-out-sine;
-                }
+
                 HorizontalLayout {
                     alignment: space-around;
                     padding-top: 7px;
