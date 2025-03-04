@@ -1,0 +1,134 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+import { AppState, WidgetType, ComponentData } from "../../appState.slint";
+import { Lamp } from "../lamp.slint";
+import { Appliance } from "../appliance.slint";
+import { Overhead } from "../overhead.slint";
+import { Info } from "../info.slint";
+import { Graph } from "../graph.slint";
+import { Control } from "../control.slint";
+import { MusicPlayer } from "../musicPlayer.slint";
+import { Camera } from "../camera.slint";
+import { HVAC } from "../hvac.slint";
+import { Dishwasher } from "../dishwasher.slint";
+import { Microwave } from "../microwave.slint";
+import { WeatherInfo } from "../weatherInfo.slint";
+import { PowerInfo } from "../powerInfo.slint";
+import { Alarm } from "../alarm.slint";
+import { Measurements, Animation } from "../../common.slint";
+
+
+export component WidgetLoaderSoftwareRenderer {
+    in property <int> index;
+    in property <ComponentData> data;
+    in property <WidgetType> type;
+
+
+    x: root.data.x * AppState.x-scale * 1px;
+    y: root.data.y * AppState.y-scale * 1px;
+    width: root.data.width * AppState.x-scale * 1px;
+    height: root.data.height * AppState.y-scale * 1px;
+
+
+    // Use the correct component based on type
+    if root.type == WidgetType.lamp && root.data.visible: Lamp {
+        name: AppState.component-details[root.index].name;
+        id: AppState.component-details[root.index].id;
+        index: root.index;
+        width: root.width;
+        height: root.height;
+    }
+
+    if root.type == WidgetType.appliance && root.data.visible: Appliance {
+        name: AppState.component-details[root.index].name;
+        id: AppState.component-details[root.index].id;
+        width: root.width;
+        height: root.height;
+    }
+
+    if root.type == WidgetType.overhead && root.data.visible: Overhead {
+        name: AppState.component-details[root.index].name;
+        id: AppState.component-details[root.index].id;
+        width: root.width;
+        height: root.height;
+    }
+
+    if root.type == WidgetType.info && root.data.visible: Info {
+        name: AppState.component-details[root.index].name;
+        id: AppState.component-details[root.index].id;
+        width: root.width;
+        height: root.height;
+    }
+
+    if root.type == WidgetType.graph && root.data.visible: Graph {
+        name: AppState.component-details[root.index].name;
+        id: AppState.component-details[root.index].id;
+        width: root.width;
+        height: root.height;
+    }
+
+    if root.type == WidgetType.control && root.data.visible: Control {
+        name: AppState.component-details[root.index].name;
+        id: AppState.component-details[root.index].id;
+        index: root.index;
+        width: root.width;
+        height: root.height;
+    }
+    if root.type == WidgetType.music && root.data.visible: MusicPlayer {
+        name: AppState.component-details[root.index].name;
+        id: AppState.component-details[root.index].id;
+        index: root.index;
+        width: root.width;
+        height: root.height;
+    }
+    if root.type == WidgetType.camera && root.data.visible: Camera {
+        name: AppState.component-details[root.index].name;
+        id: AppState.component-details[root.index].id;
+        index: root.index;
+        width: root.width;
+        height: root.height;
+    }
+    if root.type == WidgetType.hvac && root.data.visible: HVAC {
+        index: root.index;
+        name: AppState.component-details[root.index].name;
+        id: AppState.component-details[root.index].id;
+        width: root.width;
+        height: root.height;
+    }
+    if root.type == WidgetType.microwave && root.data.visible: Microwave {
+        index: root.index;
+        name: AppState.component-details[root.index].name;
+        id: AppState.component-details[root.index].id;
+        width: root.width;
+        height: root.height;
+    }
+    if root.type == WidgetType.dishwasher && root.data.visible: Dishwasher {
+        index: root.index;
+        name: AppState.component-details[root.index].name;
+        id: AppState.component-details[root.index].id;
+        width: root.width;
+        height: root.height;
+    }
+    if root.type == WidgetType.weatherInfo && root.data.visible: WeatherInfo {
+        index: root.index;
+        name: AppState.component-details[root.index].name;
+        id: AppState.component-details[root.index].id;
+        width: root.width;
+        height: root.height;
+    }
+
+    if root.type == WidgetType.powerInfo && root.data.visible: PowerInfo {
+        index: root.index;
+        name: AppState.component-details[root.index].name;
+        id: AppState.component-details[root.index].id;
+        width: root.width;
+        height: root.height;
+    }
+    if root.type == WidgetType.alarm && root.data.visible: Alarm {
+        index: root.index;
+        name: AppState.component-details[root.index].name;
+        id: AppState.component-details[root.index].id;
+        width: root.width;
+        height: root.height;
+    }
+}
