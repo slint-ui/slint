@@ -42,8 +42,8 @@ export component TabImpl inherits Rectangle {
     property <bool> has-focus: root.current-focused == root.tab-index;
     property <bool> active: root.tab-index == root.current;
 
-    width: max(48px, layout.min-width);
-    height: max(48px, layout.min-height);
+    min-width: max(48px, layout.min-width);
+    min-height: max(48px, layout.min-height);
     accessible-role: tab;
     accessible-enabled: root.enabled;
     accessible-label: root.title;
@@ -75,6 +75,7 @@ export component TabImpl inherits Rectangle {
 
         text := Text {
             vertical-alignment: center;
+            horizontal-alignment: center;
             color: !root.active ? MaterialPalette.control-foreground : MaterialPalette.accent-background;
             // FIXME after Roboto font can be loaded
             //font-family: MaterialFontSettings.title-small.font;
