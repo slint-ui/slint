@@ -3,7 +3,7 @@
 
 import { Button, CheckBox, ComboBox, LineEdit, Palette, Slider, TextEdit } from "std-widgets.slint";
 
-import { Api, ColorData, ElementInformation, PreviewData, PreviewDataKind, PropertyContainer, PropertyInformation, PropertyValue, PropertyValueKind } from "../api.slint";
+import { Api, ColorData, ElementInformation, PreviewData, PreviewDataKind, PropertyContainer, PropertyInformation, PropertyValue, PropertyValueKind, GradientData } from "../api.slint";
 import { BodyStrongText } from "../components/body-strong-text.slint";
 import { BodyText } from "../components/body-text.slint";
 import { StateLayer } from "../components/state-layer.slint";
@@ -613,7 +613,6 @@ component ColorWidget inherits VerticalLayout {
         if self.property-value.kind != PropertyValueKind.color {
             return;
         }
-
         if !self.has-focus {
             apply-value();
         }
@@ -820,6 +819,7 @@ component EnumWidget inherits VerticalLayout {
             horizontal-stretch: 0;
             visible: false;
         }
+
         HorizontalLayout {
             cb := ComboBox {
                 enabled: root.enabled;
@@ -872,6 +872,54 @@ component BooleanWidget inherits VerticalLayout {
             }
         }
     }
+}
+
+component EditGradientWidget inherits VerticalLayout {
+    in property <bool> enabled;
+    in property <string> property-name;
+    in property <Gradient> property-value;
+    padding: EditorSpaceSettings.default-padding;
+    HorizontalLayout {
+        HorizontalLayout {
+            Text {
+                text: "Gradient type:";
+            }
+
+            ComboBox {
+                model: Gradient.GradientKind;
+            }
+        }
+        HorizontalLayout {
+            Text {
+                text: "Angle:";
+            }
+
+            ComboBox {
+                model: ["Deg","rad"] ;
+            }
+            Rectangle {
+                border-radius: 100%;
+                width: 20px;
+                color: Palette.alternate-background;
+            }
+        }
+    }
+
+    Rectangle {
+        height: 40px;
+        width: 100%;
+        background: @linear-gradient(0, #fff 0%, #000 100%);
+    }
+    HorizontalLayout {
+        ColorWidget {}
+        HorizontalLayout {
+            Text {
+                text: "Position:";
+            }
+            IntegerWidget {}
+        }
+    }
+
 }
 
 component EditJsonWidget inherits VerticalLayout {
@@ -929,8 +977,7 @@ component EditJsonWidget inherits VerticalLayout {
         Rectangle {
             VerticalLayout {
                 edit := TextEdit {
-                    min-height: 200px;
-
+                    min-height: self.preferred-height;
                     enabled: root.enabled;
 
                     edited(text) => {
@@ -996,9 +1043,10 @@ export component PropertyValueWidget inherits VerticalLayout {
                 }
             }
         }
+
         Rectangle {
             clip: true;
-            height: (root.property-value.kind == PropertyValueKind.color) || (root.property-value.kind == PropertyValueKind.brush)  ? self.preferred-height : 0px;
+            height: (root.property-value.kind == PropertyValueKind.color) || (root.property-value.kind == PropertyValueKind.brush) ? self.preferred-height : 0px;
 
             ColorWidget {
                 enabled <=> root.enabled;
@@ -1023,6 +1071,7 @@ export component PropertyValueWidget inherits VerticalLayout {
                 }
             }
         }
+
         Rectangle {
             clip: true;
             height: root.property-value.kind == PropertyValueKind.code ? self.preferred-height : 0px;
@@ -1040,6 +1089,7 @@ export component PropertyValueWidget inherits VerticalLayout {
                 }
             }
         }
+
         Rectangle {
             clip: true;
             height: root.property-value.kind == PropertyValueKind.enum ? self.preferred-height : 0px;
@@ -1054,6 +1104,7 @@ export component PropertyValueWidget inherits VerticalLayout {
                 }
             }
         }
+
         Rectangle {
             clip: true;
             height: root.property-value.kind == PropertyValueKind.float ? self.preferred-height : 0px;
@@ -1071,6 +1122,7 @@ export component PropertyValueWidget inherits VerticalLayout {
                 }
             }
         }
+
         Rectangle {
             clip: true;
             height: root.property-value.kind == PropertyValueKind.integer ? self.preferred-height : 0px;
@@ -1088,6 +1140,7 @@ export component PropertyValueWidget inherits VerticalLayout {
                 }
             }
         }
+
         Rectangle {
             clip: true;
             height: root.property-value.kind == PropertyValueKind.string ? self.preferred-height : 0px;
@@ -1215,7 +1268,7 @@ export component PreviewDataPropertyValueWidget inherits VerticalLayout {
     }
 
     function set-code-binding(text: string) -> bool {
-        return(Api.set-json-preview-data(root.property-container-id, root.preview-data.name, text));
+        return (Api.set-json-preview-data(root.property-container-id, root.preview-data.name, text));
     }
 
     if root.preview-data.kind == PreviewDataKind.Value: PropertyValueWidget {
@@ -1255,7 +1308,7 @@ export component PreviewDataPropertyValueWidget inherits VerticalLayout {
             self.test-string-binding(text, is_translated);
         }
         test-string-binding(text, is_translated) => {
-            return(root.set-code-binding(is_translated ? "\"\{text}\"" : text));
+            return (root.set-code-binding(is_translated ? "\"\{text}\"" : text));
         }
     }
     if root.preview-data.kind == PreviewDataKind.Json: EditJsonWidget {
@@ -1269,7 +1322,7 @@ export component PreviewDataPropertyValueWidget inherits VerticalLayout {
     }
 }
 
-export component ExpandableGroup  {
+export component ExpandableGroup {
     in property <bool> enabled;
     in property <string> text;
     in property <length> panel-width;

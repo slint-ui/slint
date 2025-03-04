@@ -133,6 +133,20 @@ export struct PropertyValue {
     edited_value: string, // Used in preview dataonly!
 }
 
+export enum GradientKind {
+    linear,
+    radial
+}
+export struct GradientColor {
+    value: color,
+    location: percent
+}
+export struct GradientData {
+    gradient-kind: GradientKind,
+    gradient-angle: length,
+    gradient-colors: [GradientColor]
+}
+
 /// Important Ranges in the property definition
 ///
 /// The URL and version is the same as in the Element it belongs to
