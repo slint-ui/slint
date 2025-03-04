@@ -11,6 +11,7 @@ import { AppState, ComponentData, Orientation } from "../../appState.slint";
 import { FullScreenWidgetLoader } from "fullScreenWidgetLoader.slint";
 import { FullScreenView } from "fullScreenView.slint";
 import { Page } from "../../../../printerdemo/ui/common.slint";
+import { HaText } from "../general/haText.slint";
 
 export component PageButton inherits Rectangle {
     in property label <=> t.text;
@@ -55,6 +56,9 @@ export component MainScreen inherits Rectangle {
     in-out property <bool> door-component-loaded: true;
     in-out property <DoorState> initial-door-state: closed;
     property <bool> demo-locked: true;
+    in property <int> index;
+    in property <int> hours: 3;
+    in property <int> minutes: 15;
     width: 100%;
     height: 100%;
     changed width => {
@@ -98,6 +102,69 @@ export component MainScreen inherits Rectangle {
         opacity: 50%;
         colorize: white;
     }
+
+    Rectangle {
+        property <bool> showing-time: true;
+        width: 200px;
+        height: 50px;
+        x: parent.width - self.width - 20px;
+        y: 28px;
+        TouchArea {
+            clicked => {
+                showing-time = !showing-time;
+            }
+        }
+        if !showing-time: HorizontalLayout {
+            alignment: center;
+            spacing: 10px;
+            HaText {
+                text: "March";
+                font-size: Style.H1-font-size;
+                font-weight: 100;
+            }
+            HaText {
+                text: "18";
+                color: Palette.info-foreground;
+                font-size: Style.H1-font-size;
+                font-weight: 400;
+            }
+        }
+        if showing-time: HorizontalLayout {
+            alignment: center;
+            HaText {
+                text: hours;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+                color: Palette.info-foreground;
+                font-size: Style.H1-font-size;
+            }
+
+            HaText {
+                text: ":";
+                horizontal-alignment: center;
+                vertical-alignment: center;
+                color: Palette.info-foreground;
+                font-size: Style.H1-font-size;
+            }
+
+            HaText {
+                text: minutes;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+                color: Palette.info-foreground;
+                font-size: Style.H1-font-size;
+            }
+
+            HaText {
+                text: " PM";
+                horizontal-alignment: center;
+                vertical-alignment: center;
+                color: Palette.info-foreground;
+                font-size: Style.H2-font-size;
+            }
+        }
+    }
+
 
     Rectangle {
         x: 0;
