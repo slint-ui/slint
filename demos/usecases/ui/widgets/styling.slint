@@ -29,7 +29,7 @@ export global MaterialPalette {
 }
 
 export global UsecasesPalette {
-    in-out property <bool> use-material;
+    in-out property <bool> use-material: true;
     out property <brush> state-selected: root.use-material ? MaterialPalette.state-selected : CosmicPalette.state-selected;
     out property <brush> accent-text: root.use-material ? MaterialPalette.accent-text : CosmicPalette.accent-text;
     out property <brush> control-divider: root.use-material ? MaterialPalette.control-divider : CosmicPalette.control-divider;
