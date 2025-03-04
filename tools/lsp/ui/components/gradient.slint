@@ -1,0 +1,171 @@
+import { TextEdit, ScrollView, ComboBox, LineEdit, Palette, Button } from "std-widgets.slint";
+import { Api, BrushKind, GradientStop, PropertyValue } from "../api.slint";
+import { EditorSpaceSettings } from "styling.slint";
+
+export component GradientDot inherits Rectangle {
+    // TODO: Use Api.add_gradient_stop([GradientStop], int, GradientStop)
+    //       and Api.remove_gradient_stop([GradientStop], int)
+    //       to manage GradientStops
+    in property <percent> position;
+    in property <color> value;
+    in-out property <bool> selected: false;
+    function enable() {
+        root.selected = true;
+    }
+    function disable() {
+        root.selected = false;
+    }
+    callback new-selection();
+    width: self.selected ? 20px : 10px;
+    height: self.selected ? 20px : 10px;
+    border-radius: self.width;
+    background: value;
+    border-width: 1px;
+    border-color: gray;
+    TouchArea {
+        clicked => {
+            if !root.selected {;
+                new-selection();
+            }
+        }
+    }
+}
+
+export component EditGradientWidget inherits VerticalLayout {
+    in property <bool> enabled;
+    in property <string> property-name;
+    in property <PropertyValue> property-value;
+
+    private property <brush> current-brush;
+
+    // TODO: Use this one!
+    callback set-brush-binding(kind: BrushKind, angle: float, color: color, stops: [GradientStop]);
+    // TODO: Use this one more often;-)
+    callback test-brush-binding(kind: BrushKind, angle: float, color: color, stops: [GradientStop]) -> bool;
+
+    function apply-brush(brush: brush) {
+        self.current-brush = brush;
+    }
+
+    function apply-kind(kind: BrushKind) {
+        kind_cb.current-index = kind == BrushKind.linear ? 0 : kind == BrushKind.radial ? 1 : 2;
+    }
+
+    changed property-value => {
+        self.apply-brush(self.property-value.value-brush);
+        self.apply-kind(self.property-value.brush-kind);
+    }
+
+    init => {
+        self.apply-brush(self.property-value.value-brush);
+        self.apply-kind(self.property-value.brush-kind);
+    }
+
+    height: self.preferred-height;
+    padding: EditorSpaceSettings.default-padding;
+    spacing: 8px;
+
+    grad:=Rectangle {
+        height: 40px;
+        background: root.property-value.value-brush;
+        Rectangle {
+            height: 1px;
+            background: grey;
+            for i[index] in [{ pos:0, value:#fff }, { pos:100, value:#000 }]: GradientDot {
+
+                selected:false;
+                new-selection => {
+                    self.selected = true;
+                }
+                x: i.pos * (grad.width - self.width) / 100;
+                value: i.value;
+            }
+        }
+    }
+
+    HorizontalLayout {
+        alignment: stretch;
+        spacing: 8px;
+        vertical-stretch: 0;
+        HorizontalLayout {
+            Text {
+                vertical-alignment: center;
+                text: "Type:";
+            }
+
+            kind_cb := ComboBox {
+                horizontal-stretch: 0;
+                width: 80%;
+                model: ["linear", "radial", "solid color"];
+            }
+        }
+
+        HorizontalLayout {
+            alignment: end;
+            spacing: 4px;
+            Text {
+                vertical-alignment: center;
+                text: "Angle:";
+            }
+
+            // TODO: root.property-value.value-float has the value in deg in the live data case...
+
+            ComboBox {
+                width: 80%;
+                model: [
+                    "Deg",
+                    "rad",
+                ];
+            }
+
+            VerticalLayout {
+                Rectangle {
+                    border-radius: self.width;
+                    width: 20px;
+                    height: 20px;
+                    background: grey;
+                }
+            }
+        }
+    }
+
+    HorizontalLayout {
+        alignment: space-between;
+        spacing: 4px;
+        HorizontalLayout {
+            spacing: 4px;
+            LineEdit {
+                width: 9rem;
+                text: "#ffffffff";
+            }
+            Rectangle {
+                background: #fff;
+                width: 40px;
+                height: 25px;
+            }
+        }
+        HorizontalLayout {
+            // TODO: This is not supported!
+            spacing: 4px;
+            Text {
+                vertical-alignment: center;
+                text: "Position:";
+            }
+            LineEdit {
+                text: "0";
+                width: 5rem;
+            }
+        }
+    }
+    HorizontalLayout {
+        spacing: EditorSpaceSettings.default-spacing;
+        Button {text: "Reset";}
+        Button {text: "Code";}
+    }
+
+}
+
+export component Example inherits Window {
+    width: 360px;
+    EditGradientWidget {}
+}
