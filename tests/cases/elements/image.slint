@@ -21,8 +21,9 @@ TestCase := Rectangle {
 
     property <length> img_width: img.width;
     property <length> img_height: img.height;
+    in-out property <float> test_no_overflow: (21 - img.source.width) / 2; // (21 - 320)/2 = -149.5
     property <bool> test: img2.source-clip-height * 1px == img2.height && img2.source-clip-width * 1px == img2.width &&
-         img2.width/1px == img2.source.width - 20 && img3.source.width == 0 && img3.source.height == 0;
+         img2.width/1px == img2.source.width - 20 && img3.source.width == 0 && img3.source.height == 0 && test_no_overflow == -149.5;
 }
 
 /*
