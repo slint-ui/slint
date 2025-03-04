@@ -1285,7 +1285,7 @@ export component PreviewDataPropertyValueWidget inherits VerticalLayout {
             return(root.set-code-binding(is_translated ? "\"\{text}\"" : text));
         }
     }
-    if root.preview-data.kind == PreviewDataKind.Table: EditMultiValueWidget {
+    if root.preview-data.kind == PreviewDataKind.Table && false: EditMultiValueWidget {
         edit-in-spreadsheet(property-group-name, data, values) => {
             debug("edit-in-spreadsheet TRIGGERED: ", property-group-name, data, values);
         }
