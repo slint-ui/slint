@@ -48,27 +48,24 @@ export component TimeInfo inherits Info {
 
         date := Rectangle {
             y: root.height * 0.15;
-            clip: true;
             height: root.height * 0.7;
             border-radius: 7px;
             width: self.height;
-            background: Palette.date-background;
             Rectangle {
                 height: 30%;
                 y: 0;
-                background: Palette.accent-background;
                 HaText {
                     text: "Oct";
-                    font-size: Style.icon-title-font-size;
+                    font-size: Style.H3-font-size;
                 }
             }
 
             HaText {
                 text: "18";
                 y: parent.height * 0.3;
-                color: Palette.foreground;
+                color: Palette.info-foreground;
                 font-size: Style.H2-font-size;
-                font-weight: 600;
+                font-weight: 400;
             }
         }
     }

@@ -23,7 +23,7 @@ export component PageButton inherits Rectangle {
     width: 140px;
     height: 40px;
 
-    Rectangle{
+    Rectangle {
         t := Text {
             font-size: default-font-size;
             font-weight: selected ? 400 : 100;
@@ -91,83 +91,92 @@ export component MainScreen inherits Rectangle {
 
     background: Palette.background-gradient;
 
-        Rectangle {
-            x: 0;
-            y: 0;
-            width: root.width;
-            height: root.height;
-            cache-rendering-hint: door-component-loaded;
+    Image {
+        x: 30px;
+        y: self.x;
+        source: @image-url("../../images/slint-logo-simple-dark.png");
+        opacity: 50%;
+        colorize: white;
+    }
 
-            navigation := Rectangle {
+    Rectangle {
+        x: 0;
+        y: 0;
+        width: root.width;
+        height: root.height;
+        cache-rendering-hint: door-component-loaded;
 
-                nav-bar := Rectangle {
-                    y: AppState.is-hardware-accelerated ? 26px : 35px;
-                    width: AppState.orientation == Orientation.landscape ? 600px : 300px;
-                    height: 40px;
+        navigation := Rectangle {
 
-                    if !AppState.is-hardware-accelerated : Image {
-                        width: parent.width;
-                        height: self.source.height * 1px;
-                        source: @image-url("../../images/title-frame.png", nine-slice(0 50 0 50));
+            nav-bar := Rectangle {
+                y: AppState.is-hardware-accelerated ? 26px : 35px;
+                width: AppState.orientation == Orientation.landscape ? 600px : 300px;
+                height: 40px;
+
+                if !AppState.is-hardware-accelerated: Image {
+                    width: parent.width;
+                    height: self.source.height * 1px;
+                    source: @image-url("../../images/title-frame.png", nine-slice(0 50 0 50));
+                }
+
+                if AppState.is-hardware-accelerated: Rectangle {
+                    Rectangle {
+                        border-radius: self.height / 2;
+                        drop-shadow-blur: 5px;
+                        drop-shadow-color: black.transparentize(0.5);
+                        drop-shadow-offset-x: 3px;
+                        drop-shadow-offset-y: 3px;
+                        background: #241433;
                     }
 
+                    Rectangle {
+                        border-width: 1px;
+                        border-color: Palette.glass-border;
+                        border-radius: self.height / 2;
+                        background: Palette.glass-background;
+                    }
+                }
 
-                    if AppState.is-hardware-accelerated : Rectangle {
-                        Rectangle {
-                            border-radius: self.height / 2;
-                            drop-shadow-blur: 5px;
-                            drop-shadow-color: black.transparentize(0.5);
-                            drop-shadow-offset-x: 3px;
-                            drop-shadow-offset-y: 3px;
-                            background: #241433;
-                        }
-
-                        Rectangle {
-                            border-width: 1px;
-                            border-color: Palette.glass-border;
-                            border-radius: self.height / 2;
-                            background: Palette.glass-background;
-                        }
+                HorizontalLayout {
+                    alignment: center;
+                    spacing: 0px;
+                    y: AppState.is-hardware-accelerated ? 0 : -5px;
+                    PageButton {
+                        label: "Home";
+                        target-page: 0;
                     }
 
-                    HorizontalLayout {
-                        alignment: center;
-                        spacing: 0px;
-                        y: AppState.is-hardware-accelerated ? 0 : -5px;
-                        PageButton {
-                            label: "Home";
-                            target-page: 0;
-                        }
-                        PageButton {
-                            label: "Kitchen";
-                            target-page: 1;
-                        }
-                        PageButton {
-                            label: "Bedroom";
-                            target-page: 2;
-                        }
-                        PageButton {
-                            label: "Office";
-                            target-page: 3;
-                        }
+                    PageButton {
+                        label: "Kitchen";
+                        target-page: 1;
+                    }
+
+                    PageButton {
+                        label: "Bedroom";
+                        target-page: 2;
+                    }
+
+                    PageButton {
+                        label: "Office";
+                        target-page: 3;
                     }
                 }
             }
+        }
 
             // This whole holder could be animated off screen, faded, whatever when the camera fills the screen.
             widgetHolder := Rectangle {
-                y: 20px;
-                width: 100%;
-                height: 100%;
-                for i[index] in AppState.component-details: WidgetLoader {
-                    index: index;
-                    type: AppState.component-details[index].type;
-                    data: AppState.current-layout-data.components[index];
-                }
+            y: 20px;
+            width: 100%;
+            height: 100%;
+            for i[index] in AppState.component-details: WidgetLoader {
+                index: index;
+                type: AppState.component-details[index].type;
+                data: AppState.current-layout-data.components[index];
             }
+        }
 
-            if AppState.showing-full-screen: fullScreenWidgetHolder := FullScreenView { }
-
+        if AppState.showing-full-screen: fullScreenWidgetHolder := FullScreenView { }
     }
 
     if AppState.is-hardware-accelerated && door-component-loaded: doors := Doors {
@@ -178,5 +187,4 @@ export component MainScreen inherits Rectangle {
         demo-locked: demo-locked;
         initial-door-state: initial-door-state;
     }
-    
 }
