@@ -1,5 +1,6 @@
 import { TextEdit, ScrollView, ComboBox, LineEdit, Palette, Button } from "std-widgets.slint";
 import { EditorSpaceSettings } from "styling.slint";
+import { Api } from "../api.slint";
 
 export enum GradientKind {
     linear,
@@ -43,10 +44,9 @@ component EditGradientWidget inherits VerticalLayout {
     in property <bool> enabled;
     in property <string> property-name;
     in property <GradientData> property-value;
-    width: 360px;
     height: self.preferred-height;
     padding: EditorSpaceSettings.default-padding;
-    spacing: 8px;
+    spacing: EditorSpaceSettings.default-spacing;
 
     grad:=Rectangle {
         height: 40px;
@@ -54,7 +54,7 @@ component EditGradientWidget inherits VerticalLayout {
         Rectangle {
             height: 1px;
             background: grey;
-            for i[index] in [{ pos:0, value:#fff }, { pos:100, value:#000 }]: GradientDot {
+            for i[index] in [{ pos:0, value:#fff }, { pos:35, value:#f00 }, { pos:100, value:#000 }]: GradientDot {
                 selected:false;
                 new-selection => {
                     self.selected = true;
@@ -89,6 +89,10 @@ component EditGradientWidget inherits VerticalLayout {
                 vertical-alignment: center;
                 text: "Angle:";
             }
+            le:=LineEdit {
+                width: 3rem;
+                input-type: number;
+            }
 
             ComboBox {
                 width: 80%;
@@ -99,11 +103,11 @@ component EditGradientWidget inherits VerticalLayout {
             }
 
             VerticalLayout {
-                Rectangle {
-                    border-radius: self.width;
-                    width: 20px;
-                    height: 20px;
-                    background: grey;
+                Image {
+                    source: @image-url("../assets/dial.svg");
+                    colorize: Palette.alternate-foreground.transparentize(0.7);
+                    width: 30px;
+                    rotation-angle: -30deg;
                 }
             }
         }
@@ -137,6 +141,7 @@ component EditGradientWidget inherits VerticalLayout {
         }
     }
     HorizontalLayout {
+        padding-top: 8px;
         spacing: EditorSpaceSettings.default-spacing;
         Button {text: "Reset";}
         Button {text: "Code";}
@@ -144,5 +149,6 @@ component EditGradientWidget inherits VerticalLayout {
 
 }
 export component Example inherits Window {
+    width: 360px;
     EditGradientWidget {}
 }
