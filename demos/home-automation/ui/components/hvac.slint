@@ -92,21 +92,9 @@ export component HVAC inherits Control {
     property <bool> unlocked: false;
     property <bool> is-active: false;
     show-label: false;
-    clip: true;
 
     tile := Rectangle {
-        shadow := Image {
-            source: @image-url("../images/shadow-circle-soft.png");
-            width: dial.width * 1.25;
-            // height: dial.height * 1.25;
-            colorize: Palette.glow-color;
-            x: (Math.min(parent.width, parent.height) - self.height) / 2;
-            height: root.full-screen ? 275px * 1.25 : 200px * 1.25;
-            animate height {
-                duration: Animation.full-screen-duration;
-                easing: ease-in-out-sine;
-            }
-        }
+
 
         TouchArea {
             enabled: !AppState.showing-full-screen;
@@ -117,6 +105,8 @@ export component HVAC inherits Control {
 
         dial := Rectangle {
             background: Palette.hvac-knob-background;
+            border-width: 1px;
+            border-color: Palette.glass-border;
             width: self.height;
             height: root.full-screen ? 275px : 200px;
             animate height {

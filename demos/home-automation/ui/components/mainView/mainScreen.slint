@@ -101,7 +101,7 @@ export component MainScreen inherits Rectangle {
             navigation := Rectangle {
 
                 nav-bar := Rectangle {
-                    y: 26px;
+                    y: AppState.is-hardware-accelerated ? 26px : 35px;
                     width: AppState.orientation == Orientation.landscape ? 600px : 300px;
                     height: 40px;
 
