@@ -3268,6 +3268,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                         '&' => "&&",
                         '|' => "||",
                         '/' => "/(float)",
+                        '-' => "-(float)", // conversion to float to avoid overflow between unsigned
                         _ => op.encode_utf8(&mut buffer),
                     },
                 )
