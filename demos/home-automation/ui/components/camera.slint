@@ -13,8 +13,9 @@ export component Camera inherits Control {
     tile := Rectangle {
         x: 0;
         Image {
+            x: 1px;
             source: root.cam;
-            width: tile.width;
+            width: tile.width -3px;
             image-fit: cover;
             height: 60%;
             horizontal-alignment: center;
