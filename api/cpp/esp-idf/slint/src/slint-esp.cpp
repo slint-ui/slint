@@ -341,7 +341,7 @@ void slint_esp_init(slint::PhysicalSize size, esp_lcd_panel_handle_t panel,
                     std::optional<std::span<slint::platform::Rgb565Pixel>> buffer2)
 {
 
-    SlintPlatformConfiguration config {
+    SlintPlatformConfiguration<slint::platform::Rgb565Pixel> config {
         .size = size,
         .panel_handle = panel,
         .touch_handle = touch ? *touch : nullptr,
