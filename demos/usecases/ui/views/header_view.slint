@@ -8,12 +8,12 @@ import { UsecasesPalette } from "../widgets.slint";
 export component HeaderView {
     min-height: max(32px, layout.min-height);
 
-    Rectangle { 
+    Rectangle {
         background: UsecasesPalette.use-material ? Palette.alternate-background : transparent;
-        
+
         layout := HorizontalLayout{
             padding: UsecasesPalette.use-material ? 8px : StyleMetrics.layout-padding;
-        
+
             Image {
                 max-height: 32px;
                 source: Icons.slint-logo;
