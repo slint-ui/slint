@@ -16,6 +16,13 @@ export component Info {
         border-radius: 25px;
         background: @linear-gradient(150deg, white.transparentize(60%) 0%, white.transparentize(85%) 40%, white.transparentize(85%) 60%, #ffffff.transparentize(60%) 100%);
     }
+    if !AppState.is-hardware-accelerated : Image {
+        x: -14px;
+        y: -12px;
+        width: parent.width + 33px;
+        height: parent.height + 32px;
+        source: @image-url("../images/info-frame.png", nine-slice(30 50 35 30));
+    }
     @children
 
 }
