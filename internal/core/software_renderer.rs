@@ -1180,10 +1180,10 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> RenderToBuffer<'_, B> {
     fn process_texture_impl(&mut self, geometry: PhysicalRect, texture: SceneTexture<'_>) {
         self.foreach_region(&geometry, |buffer, rect, extra_left_clip, extra_right_clip| {
             if !buffer.draw_texture(
-                geometry.origin.x,
-                geometry.origin.y,
-                geometry.size.width,
-                geometry.size.height,
+                rect.origin.x,
+                rect.origin.y,
+                rect.size.width,
+                rect.size.height,
                 target_pixel_buffer::Texture {
                     bytes: texture.data,
                     pixel_format: texture.format,
@@ -1224,10 +1224,10 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> RenderToBuffer<'_, B> {
     ) {
         self.foreach_region(&geometry, |buffer, rect, _extra_left_clip, _extra_right_clip| {
             if !buffer.fill_rectangle(
-                geometry.origin.x,
-                geometry.origin.y,
-                geometry.size.width,
-                geometry.size.height,
+                rect.origin.x,
+                rect.origin.y,
+                rect.size.width,
+                rect.size.height,
                 color,
                 composition_mode,
             ) {
