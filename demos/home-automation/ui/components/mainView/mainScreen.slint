@@ -105,9 +105,10 @@ export component MainScreen inherits Rectangle {
 
     Rectangle {
         property <bool> showing-time: true;
+        property <length> margin: AppState.is-hardware-accelerated ? 5px : 20px;
         width: 200px;
         height: 50px;
-        x: parent.width - self.width - 20px;
+        x: parent.width - self.width - margin;
         y: 28px;
         opacity: 80%;
         TouchArea {
