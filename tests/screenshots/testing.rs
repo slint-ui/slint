@@ -75,7 +75,8 @@ pub fn screenshot(
             LogicalRect::from_size(euclid::size2(width as f32, height as f32)).into(),
         );
         renderer.set_rendering_rotation(rotated);
-        renderer.render(buffer.make_mut_slice(), width as usize);
+        let stride = buffer.width() as usize;
+        renderer.render(buffer.make_mut_slice(), stride);
         renderer.set_rendering_rotation(RenderingRotation::NoRotation);
     });
 
@@ -133,7 +134,11 @@ fn compare_images(
         let reference = image_buffer(reference_path)
             .map_err(|image_err| format!("error loading reference image: {image_err:#}"))?;
 
-        if reference.size() != screenshot.size() {
+        let mut ref_size = reference.size();
+        if matches!(rotated, RenderingRotation::Rotate90 | RenderingRotation::Rotate270) {
+            std::mem::swap(&mut ref_size.width, &mut ref_size.height);
+        }
+        if ref_size != screenshot.size() {
             return Err(format!(
                 "image sizes don't match. reference size {:#?} rendered size {:#?}",
                 reference.size(),

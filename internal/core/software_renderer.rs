@@ -588,13 +588,11 @@ impl SoftwareRenderer {
                 };
                 drop(i);
 
-                let mut bg = PremultipliedRgbaColor::background();
-                // TODO: gradient background
-                PremultipliedRgbaColor::blend(&mut bg, background.color().into());
                 renderer.actual_renderer.processor.dirty_region = dirty_region.clone();
                 renderer.actual_renderer.processor.process_rectangle_impl(
-                    PhysicalRect::from_size(euclid::Size2D::new(size.width, size.height)),
-                    bg,
+                    screen_rect.transformed(rotation),
+                    // TODO: gradient background
+                    background.color().into(),
                     CompositionMode::Source,
                 );
 
