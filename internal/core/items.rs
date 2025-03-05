@@ -1205,7 +1205,7 @@ declare_item_vtable! {
     fn slint_get_WindowItemVTable() -> WindowItemVTable for WindowItem
 }
 
-/// The implementation of the `Window` element
+/// The implementation used for `ContextMenuArea` and `ContextMenuInternal` elements
 #[repr(C)]
 #[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
