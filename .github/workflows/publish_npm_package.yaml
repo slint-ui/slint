@@ -90,12 +90,15 @@ jobs:
               with:
                   node-version: "20.x"
                   registry-url: "https://registry.npmjs.org"
+            - uses: pnpm/action-setup@v4.1.0
+              with:
+                  version: 10.3.0
             - name: Set version
               working-directory: api/node
               shell: bash
               run: |
                   if [ "$RELEASE_INPUT" != "true" ]; then
-                      npm version $PKG_VERSION
+                      pnpm version $PKG_VERSION
                   fi
             - name: Prepare feature config for binaries
               working-directory: api/node
@@ -109,19 +112,19 @@ jobs:
               shell: bash
               working-directory: api/node
               run: |
-                  npm install --ignore-scripts
-                  npm run build -- --target ${{ matrix.rust-target }}
+                  pnpm install --ignore-scripts
+                  pnpm run build --target ${{ matrix.rust-target }}
             - name: Create package
               shell: bash
               working-directory: api/node
               run: |
-                  npx napi create-npm-dir -t . -c ./binaries.json
+                  pnpx napi create-npm-dir -t . -c ./binaries.json
                   mv index.${{ matrix.napi-rs-target }}.node npm/${{ matrix.napi-rs-target }}/
                   cd npm/${{ matrix.napi-rs-target }}/
                   if [ "$RELEASE_INPUT" != "true" ]; then
-                    npm version $PKG_VERSION
+                    pnpm version $PKG_VERSION
                   fi
-                  npm pack
+                  pnpm pack
             - name: Upload artifact
               uses: actions/upload-artifact@v4
               with:
@@ -143,11 +146,14 @@ jobs:
               with:
                   node-version: "20.x"
                   registry-url: "https://registry.npmjs.org"
+            - uses: pnpm/action-setup@v4.1.0
+              with:
+                  version: 10.3.0
             - name: Set version
               working-directory: api/node
               run: |
                   if [ "$RELEASE_INPUT" != "true" ]; then
-                      npm version $PKG_VERSION
+                      pnpm version $PKG_VERSION
                   fi
             - name: Select git revision
               if: github.event.inputs.release != 'true'
@@ -157,13 +163,13 @@ jobs:
             - name: Compile index.js and index.d.ts
               working-directory: api/node
               run: |
-                  npm install
-                  npm run build
-                  npm run compile
+                  pnpm install
+                  pnpm run build
+                  pnpm run compile
             - name: Prepare binary packages
               working-directory: api/node
               run: |
-                  npx napi create-npm-dir -t . -c ./binaries.json
+                  pnpx napi create-npm-dir -t . -c ./binaries.json
             - name: Download artifacts
               uses: actions/download-artifact@v4
               with:
@@ -214,11 +220,11 @@ jobs:
             - name: Build and publish packages
               if: ${{ github.event.inputs.private != 'true' && (github.ref == 'refs/heads/master' || github.event.inputs.release == 'true') }}
               run: |
-                  npm publish --access public $PUBLISH_TAG api/node/slint-ui-slint-ui-binary-linux-x64-gnu-$PKG_VERSION.tgz
-                  npm publish --access public $PUBLISH_TAG api/node/slint-ui-slint-ui-binary-linux-arm64-gnu-$PKG_VERSION.tgz
-                  npm publish --access public $PUBLISH_TAG api/node/slint-ui-slint-ui-binary-darwin-x64-$PKG_VERSION.tgz
-                  npm publish --access public $PUBLISH_TAG api/node/slint-ui-slint-ui-binary-darwin-arm64-$PKG_VERSION.tgz
-                  npm publish --access public $PUBLISH_TAG api/node/slint-ui-slint-ui-binary-win32-x64-msvc-$PKG_VERSION.tgz
-                  npm publish $PUBLISH_TAG api/node/slint-ui-$PKG_VERSION.tgz
+                  pnpm publish --access public $PUBLISH_TAG api/node/slint-ui-slint-ui-binary-linux-x64-gnu-$PKG_VERSION.tgz
+                  pnpm publish --access public $PUBLISH_TAG api/node/slint-ui-slint-ui-binary-linux-arm64-gnu-$PKG_VERSION.tgz
+                  pnpm publish --access public $PUBLISH_TAG api/node/slint-ui-slint-ui-binary-darwin-x64-$PKG_VERSION.tgz
+                  pnpm publish --access public $PUBLISH_TAG api/node/slint-ui-slint-ui-binary-darwin-arm64-$PKG_VERSION.tgz
+                  pnpm publish --access public $PUBLISH_TAG api/node/slint-ui-slint-ui-binary-win32-x64-msvc-$PKG_VERSION.tgz
+                  pnpm publish $PUBLISH_TAG api/node/slint-ui-$PKG_VERSION.tgz
               env:
                   NODE_AUTH_TOKEN: ${{ secrets.NPM_PUBLISH_TOKEN }}
