@@ -48,36 +48,41 @@ export component Day inherits Rectangle {
 
 export component WeatherInfo inherits Info {
     in property <int> index;
-    HorizontalLayout {
-        Day {
-            hilite: true;
-            condition: "sunny";
-            day: "Today";
-            temp: 21.0;
-        }
+    Rectangle {
+        y: 1px;
+        height: parent.height - 2px;
+        HorizontalLayout {
+            Day {
+                hilite: true;
+                condition: "sunny";
+                day: "Today";
+                temp: 21.0;
+            }
 
-        Day {
-            condition: "rainy";
-            day: "Tue";
-            temp: 16.0;
-        }
+            Day {
+                condition: "rainy";
+                day: "Tue";
+                temp: 16.0;
+            }
 
-        Day {
-            condition: "rainy";
-            day: "Wed";
-            temp: 18.0;
-        }
+            Day {
+                condition: "rainy";
+                day: "Wed";
+                temp: 18.0;
+            }
 
-        Day {
-            condition: "cloudy";
-            day: "Thu";
-            temp: 20.0;
-        }
+            Day {
+                condition: "cloudy";
+                day: "Thu";
+                temp: 20.0;
+            }
 
-        Day {
-            condition: "sunny";
-            day: "Fri";
-            temp: 22.0;
+            Day {
+                condition: "sunny";
+                day: "Fri";
+                temp: 22.0;
+            }
         }
     }
+
 }
