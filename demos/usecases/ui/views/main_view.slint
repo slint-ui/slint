@@ -18,14 +18,12 @@ export component MainView {
     VerticalLayout {
         HeaderView {}
 
-        HorizontalBox {
+        HorizontalLayout {
             TabWidget {
                 Tab {
                     title: "Mail";
 
-                    HorizontalLayout {
-                        padding: UsecasesPalette.use-material ? 0 : StyleMetrics.layout-padding;
-
+                    HorizontalBox {
                         MailView {
                             break-layout: root.break-layout;
                         }
@@ -35,9 +33,7 @@ export component MainView {
                 Tab {
                     title: "Dashboard";
 
-                    HorizontalLayout {
-                        padding: UsecasesPalette.use-material ? 0 : 4px;
-
+                    HorizontalBox {
                         DashboardView { }
                     }
                 }
