@@ -53,7 +53,7 @@ std = []
 ## This backend also provides the `native` style.
 ## It requires Qt 5.15 or later to be installed. If Qt is not installed, the
 ## backend will not be operational
-backend-qt = ["i-slint-backend-selector/i-slint-backend-qt", "std"]
+backend-qt = ["i-slint-backend-selector/backend-qt", "std"]
 
 ## The [winit](https://crates.io/crates/log) crate is used for the event loop and windowing system integration.
 ## With this feature, both x11 and wayland windowing systems are supported. For a smaller build, omit
@@ -78,7 +78,7 @@ backend-linuxkms-noseat = ["i-slint-backend-selector/backend-linuxkms-noseat", "
 
 ## Alias to a backend and renderer that depends on the platform.
 ## Will select the Qt backend on linux if present, and the winit otherwise
-backend-default = ["i-slint-backend-selector/default", "i-slint-backend-qt"]
+backend-default = ["i-slint-backend-selector/default", "dep:i-slint-backend-qt"]
 
 
 ## Make the winit backend capable of rendering using the [femtovg](https://crates.io/crates/femtovg) crate.
