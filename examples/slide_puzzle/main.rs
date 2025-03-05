@@ -194,7 +194,7 @@ fn main() -> ! {
     run()
 }
 
-pub fn run() -> ! {
+pub fn run() {
     // This provides better error messages in debug mode.
     // It's disabled in release mode so it doesn't bloat up the file size.
     #[cfg(all(debug_assertions, target_arch = "wasm32"))]
