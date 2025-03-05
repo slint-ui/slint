@@ -36,8 +36,8 @@ export enum Orientation {
 
 export global AppState {
     in-out property <bool> first-run: true;
-    in-out property <int> current-page: 0; // Don't use this directly. Use target-page instead.
-    in-out property <int> target-page: 0;
+    in-out property <int> current-page: 1; // Don't use this directly. Use target-page instead.
+    in-out property <int> target-page: 1;
     out property <DataGroup> current-layout-data: orientation == Orientation.landscape ? pageDataLandscape[current-page] : pageDataPortrait[current-page];
     in property <length> window-width: 960px;
     in property <length> window-height: 540px;
@@ -464,12 +464,21 @@ export global AppState {
     property <float> mini-col2-x: (2 * margin) + mini-width;
     property <float> mini-col3-x: (3 * margin) + mini-width * 2;
     property <float> big-col2-x: (2 * margin) + big-width;
+    // page 1 layout
     property <float> row1-y: 190;
     property <float> row2-y: row1-y + mini-height + margin;
     property <float> row3-y: row2-y + mini-height + margin;
     property <float> row4-y: row3-y + big-height + margin;
+
+    // page 2 layout
+    property <float> row2-y2: row1-y + mega-height + margin;
+    property <float> row3-y2: row2-y2 + mini-height + margin;
+    property <float> row4-y2: row3-y2 + mini-height + margin;
+
+
     property <float> mini-height: 300;
     property <float> big-height: 420;
+    property <float> mega-height: 500;
 
     out property <[DataGroup]> pageDataPortrait: [
         {
@@ -518,11 +527,11 @@ export global AppState {
                 { id: "lamp5", x: 430, y: 398, width: 121.0, height: 121.0, background: #ffbe00, visible: false },
                 { id: "lamp6", x: 430, y: 398, width: 121.0, height: 121.0, background: #ffbe00, visible: false },
                 { id: "lamp7", x: 452, y: 420, width: 77, height: 77.412, background: #ffbe00, visible: false },
-                { id: "appliance1", x: 507, y: 157, width: 435.0, height: 471.0, background: #b5b5b5, visible: true },
-                { id: "appliance2", x: 36, y: 157, width: 435.0, height: 471.0, background: #b5b5b5, visible: true },
-                { id: "overhead1", x: 36, y: 664, width: 278.0, height: 314.0, background: #fff291, visible: true },
-                { id: "overhead2", x: 350, y: 664, width: 278.0, height: 314.0, background: #fff291, visible: true },
-                { id: "overhead3", x: 664, y: 664, width: 278.0, height: 314.0, background: #fff291, visible: true },
+                { id: "appliance1", x: margin, y: row1-y, width: big-width, height: mega-height, background: #b5b5b5, visible: true },
+                { id: "appliance2", x: big-col2-x, y: row1-y, width: big-width, height: mega-height, background: #b5b5b5, visible: true },
+                { id: "overhead1", x: margin, y: row2-y2, width: big-width, height: mini-height, background: #fff291, visible: true },
+                { id: "overhead2",  x: big-col2-x, y: row2-y2, width: big-width, height: mini-height, background: #fff291, visible: true },
+                { id: "overhead3",  x: margin, y: row3-y2, width: big-width, height: mini-height, background: #fff291, visible: true },
                 { id: "overhead4", x: 452, y: 420, width: 77, height: 77, background: #fff291, visible: false },
                 { id: "overhead5", x: 452, y: 420, width: 77, height: 77, background: #fff291, visible: false },
                 { id: "overhead6", x: 386, y: 420, width: 208.343, height: 77, background: #fff291, visible: false },
@@ -532,11 +541,11 @@ export global AppState {
                 { id: "overhead10", x: 452, y: 420, width: 77, height: 77, background: #fff291, visible: false },
                 { id: "overhead11", x: 452, y: 420, width: 77, height: 77, background: #fff291, visible: false },
                 { id: "info1", x: 978, y: 700, width: 435.0, height: 121.0, background: #00acff, visible: true },
-                { id: "info2", x: 978, y: 664, width: 435.0, height: 314.0, background: #00acff, visible: true },
+                { id: "info2", x: margin, y: row4-y2, width: big-width, height: mini-height, background: #00acff, visible: true },
                 { id: "info3", x: 430, y: 442.217, width: 121.0, height: 33.657, background: #00acff, visible: false },
-                { id: "graph1", x: 978, y: 157, width: 435.0, height: 507.0, background: #ba00ff, visible: true },
+                { id: "graph1", x: 978, y: 157, width: 435.0, height: 507.0, background: #ba00ff, visible: false },
                 { id: "graph2", x: 408, y: 398, width: 164.671, height: 121.0, background: #ba00ff, visible: false },
-                { id: "control1", x: 1449.64, y: 157, width: 435.0, height: 820.0, background: #00bf1d, visible: true },
+                { id: "control1", x: big-col2-x, y: row3-y2, width: big-width, height: (mini-height * 2) + margin, background: #00bf1d, visible: true },
                 { id: "control2", x: 430, y: 420, width: 121.0, height: 77, background: #00bf1d, visible: false },
                 { id: "control3", x: 430, y: 420, width: 121.0, height: 77, background: #00bf1d, visible: false },
                 { id: "control4", x: 1259.29, y: 628, width: 121.0, height: 121.0, background: #00ac0f, visible: false },
