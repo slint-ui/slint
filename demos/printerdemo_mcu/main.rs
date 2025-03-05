@@ -99,7 +99,9 @@ pub fn run() -> ! {
         },
     );
 
-    main_window.run().unwrap();
-
+    main_window.show().unwrap();
+    #[cfg(not(feature = "from_launcher"))]
+    slint::run_event_loop().unwrap();
+    #[cfg(not(feature = "from_launcher"))]
     panic!("The MCU demo should not quit")
 }

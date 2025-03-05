@@ -186,12 +186,15 @@ impl AppState {
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
 #[cfg_attr(
     all(feature = "mcu-board-support", not(feature = "from_launcher")),
-    i_slint_backend_mcu::entry
+    mcu_board_support::entry
 )]
-pub fn main() -> ! {
+fn main() -> ! {
     #[cfg(all(feature = "mcu-board-support", not(feature = "from_launcher")))]
     mcu_board_support::init();
+    run()
+}
 
+pub fn run() -> ! {
     // This provides better error messages in debug mode.
     // It's disabled in release mode so it doesn't bloat up the file size.
     #[cfg(all(debug_assertions, target_arch = "wasm32"))]
@@ -258,6 +261,9 @@ pub fn main() -> ! {
             state_copy.borrow().auto_play_timer.stop();
         }
     });
-    main_window.run().unwrap();
+    main_window.show().unwrap();
+    #[cfg(not(feature = "from_launcher"))]
+    slint::run_event_loop().unwrap();
+    #[cfg(not(feature = "from_launcher"))]
     panic!("the end");
 }
