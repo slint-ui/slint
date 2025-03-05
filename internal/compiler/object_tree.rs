@@ -1334,6 +1334,32 @@ impl Element {
             }
         }
 
+        for fwd_node in node.CallbackForwarding() {
+            let unresolved_name = unwrap_or_continue!(parser::identifier_text(&fwd_node); diag);
+            let PropertyLookupResult { resolved_name, property_type, .. } =
+                r.lookup_property(&unresolved_name);
+            if let Type::Callback(_) = &property_type {
+            } else if property_type == Type::InferredCallback {
+            } else {
+                if r.base_type != ElementType::Error {
+                    diag.push_error(
+                        format!("'{}' is not a callback in {}", unresolved_name, r.base_type),
+                        &fwd_node.child_token(SyntaxKind::Identifier).unwrap(),
+                    );
+                }
+                continue;
+            }
+            match r.bindings.entry(resolved_name.into()) {
+                Entry::Vacant(e) => {
+                    e.insert(BindingExpression::new_uncompiled(fwd_node.clone().into()).into());
+                }
+                Entry::Occupied(_) => diag.push_error(
+                    "Duplicated callback".into(),
+                    &fwd_node.child_token(SyntaxKind::Identifier).unwrap(),
+                ),
+            }
+        }
+
         for anim in node.PropertyAnimation() {
             if let Some(star) = anim.child_token(SyntaxKind::Star) {
                 diag.push_error(

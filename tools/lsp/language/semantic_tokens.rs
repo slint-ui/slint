@@ -51,6 +51,7 @@ pub fn get_semantic_tokens(
                 SyntaxKind::ConditionalElement => Some((self::KEYWORD, 0)),
                 SyntaxKind::CallbackDeclaration => Some((self::KEYWORD, 0)),
                 SyntaxKind::CallbackConnection => Some((self::FUNCTION, 0)),
+                SyntaxKind::CallbackForwarding => Some((self::FUNCTION, 0)),
                 SyntaxKind::PropertyDeclaration => Some((self::KEYWORD, 0)),
                 SyntaxKind::Function => Some((self::KEYWORD, 0)),
                 SyntaxKind::PropertyAnimation => Some((self::KEYWORD, 0)),

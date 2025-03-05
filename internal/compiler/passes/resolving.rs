@@ -10,7 +10,7 @@
 
 use crate::diagnostics::{BuildDiagnostics, Spanned};
 use crate::expression_tree::*;
-use crate::langtype::{ElementType, Struct, Type};
+use crate::langtype::{ElementType, Function, Struct, Type};
 use crate::lookup::{LookupCtx, LookupObject, LookupResult, LookupResultCallable};
 use crate::object_tree::*;
 use crate::parser::{identifier_text, syntax_nodes, NodeOrToken, SyntaxKind, SyntaxNode};
@@ -49,6 +49,21 @@ fn resolve_expression(
         let new_expr = match node.kind() {
             SyntaxKind::CallbackConnection => {
                 Expression::from_callback_connection(node.clone().into(), &mut lookup_ctx)
+            }
+            SyntaxKind::CallbackForwarding => {
+                if let Type::Callback(callback) = lookup_ctx.property_type.clone() {
+                    Expression::from_callback_forwarding(
+                        callback,
+                        node.clone().into(),
+                        &mut lookup_ctx,
+                    )
+                } else {
+                    assert!(
+                        diag.has_errors(),
+                        "Property for callback forwarding should have been type checked"
+                    );
+                    Expression::Invalid
+                }
             }
             SyntaxKind::Function => Expression::from_function(node.clone().into(), &mut lookup_ctx),
             SyntaxKind::Expression => {
@@ -253,6 +268,130 @@ impl Expression {
             &node,
             ctx.diag,
         )
+    }
+
+    fn from_callback_forwarding(
+        lhs: Rc<Function>,
+        node: syntax_nodes::CallbackForwarding,
+        ctx: &mut LookupCtx,
+    ) -> Expression {
+        let (function, source_location) = if let Some(qn) = node.Expression().QualifiedName() {
+            let sl = qn.last_token().unwrap().to_source_location();
+            (lookup_qualified_name_node(qn, ctx, LookupPhase::default()), sl)
+        } else {
+            return Self::Invalid;
+        };
+        let Some(function) = function else {
+            return Self::Invalid;
+        };
+        let LookupResult::Callable(function) = function else {
+            ctx.diag.push_error("Callbacks can only be forwarded to callbacks and functions".into(), &node);
+            return Self::Invalid;
+        };
+
+        let mut arguments = Vec::new();
+        let mut adjust_arg_count = 0;
+
+        let lhs_args: Vec<_> = lhs
+            .args
+            .iter()
+            .enumerate()
+            .map(|(index, ty)| {
+                (
+                    Expression::FunctionParameterReference { index, ty: ty.clone() },
+                    Some(NodeOrToken::Node(node.clone().into())),
+                )
+            })
+            .collect();
+
+        let function = match function {
+            LookupResultCallable::Callable(c) => c,
+            LookupResultCallable::Macro(mac) => {
+                arguments.extend(lhs_args);
+                return crate::builtin_macros::lower_macro(
+                    mac,
+                    &source_location,
+                    arguments.into_iter(),
+                    ctx.diag,
+                );
+            }
+            LookupResultCallable::MemberFunction { base, base_node, member } => {
+                arguments.push((base, base_node));
+                adjust_arg_count = 1;
+                match *member {
+                    LookupResultCallable::Callable(c) => c,
+                    LookupResultCallable::Macro(mac) => {
+                        arguments.extend(lhs_args);
+                        return crate::builtin_macros::lower_macro(
+                            mac,
+                            &source_location,
+                            arguments.into_iter(),
+                            ctx.diag,
+                        );
+                    }
+                    LookupResultCallable::MemberFunction { .. } => {
+                        unreachable!()
+                    }
+                }
+            }
+        };
+
+        arguments.extend(lhs_args);
+
+        let arguments = match function.ty() {
+            Type::Callback(rhs) | Type::Function(rhs) => {
+                if lhs.args.len() < (rhs.args.len() - adjust_arg_count) {
+                    ctx.diag.push_error(
+                        format!(
+                            "Cannot forward callback with {} arguments to callback or function with {} arguments",
+                            lhs.args.len(), rhs.args.len() - adjust_arg_count
+                        ),
+                        &node,
+                    );
+                    arguments.into_iter().map(|x| x.0).collect()
+                } else {
+                    arguments
+                        .into_iter()
+                        .zip(rhs.args.iter())
+                        .enumerate()
+                        .map(|(index, ((e, _), rhs_ty))| {
+                            if e.ty().can_convert(rhs_ty) {
+                                e.maybe_convert_to(rhs_ty.clone(), &node, ctx.diag)
+                            } else {
+                                ctx.diag.push_error(
+                                    format!(
+                                        "Cannot forward argument {} of callback because {} cannot be converted to {}",
+                                        index - adjust_arg_count, e.ty(), rhs_ty
+                                    ),
+                                    &node,
+                                );
+                                Expression::Invalid
+                            }
+                        })
+                        .collect()
+                }
+            }
+            Type::Invalid => {
+                debug_assert!(ctx.diag.has_errors(), "The error must already have been reported.");
+                arguments.into_iter().map(|x| x.0).collect()
+            }
+            _ => {
+                ctx.diag.push_error(
+                    "Callbacks can only be forwarded to callbacks and functions".into(),
+                    &node,
+                );
+                arguments.into_iter().map(|x| x.0).collect()
+            }
+        };
+
+        Expression::CodeBlock(vec![Expression::ReturnStatement(Some(Box::new(
+            Expression::FunctionCall {
+                function,
+                arguments,
+                source_location: Some(node.to_source_location()),
+            }
+            .maybe_convert_to(lhs.return_type.clone(), &node, ctx.diag),
+        )))])
     }
 
     fn from_function(node: syntax_nodes::Function, ctx: &mut LookupCtx) -> Expression {

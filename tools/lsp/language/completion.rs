@@ -479,7 +479,7 @@ fn resolve_element_scope(
                 c.kind = Some(CompletionItemKind::METHOD);
                 let ins_text = match cb_args {
                     Some(a) => format!("{}({}) => {{$1}}", c.label, a.join(", ")),
-                    None => format!("{} => {{$1}}", c.label),
+                    None => format!("{} => $1", c.label),
                 };
                 with_insert_text(c, &ins_text, with_snippets)
             } else {

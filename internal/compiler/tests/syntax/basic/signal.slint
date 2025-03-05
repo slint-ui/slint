@@ -15,8 +15,26 @@ export SubElements := Rectangle {
     callback invalid_arg(InvalidType);
 //                       ^error{Unknown type 'InvalidType'}
 
+    callback return_string() -> string;
+    callback return_int() -> int;
+    callback return_void();
+
+    callback string_arg(bool, string);
+    callback int_arg(bool, int);
+
+    callback abs(int) -> int;
+    
     TouchArea {
         clicked => { foobar() }
+    }
+
+    TouchArea {
+        clicked => foobar;
+    }
+    
+    TouchArea {
+        clicked => callback_with_arg;
+//      ^error{Cannot forward callback with 0 arguments to callback or function with 2 arguments}
     }
 
     TouchArea {
@@ -29,6 +47,18 @@ export SubElements := Rectangle {
     TouchArea {
         clicked => { foobar() }
         clicked => { foobar() }
+//      ^error{Duplicated callback}
+    }
+
+    TouchArea {
+        clicked => foobar;
+        clicked => foobar;
+//      ^error{Duplicated callback}
+    }
+
+    TouchArea {
+        clicked => { foobar() }
+        clicked => foobar;
 //      ^error{Duplicated callback}
     }
 
@@ -55,4 +85,23 @@ export SubElements := Rectangle {
 
     callback width;
 //           ^error{Cannot declare callback 'width' when a property with the same name exists}
+
+    TouchArea {
+        clicked => pressed;
+//      ^error{Callbacks can only be forwarded to callbacks and functions}
+    }
+
+    return_int => return_string;
+//  ^error{Cannot convert string to int}
+
+    return_string => return_int;
+
+    return_void => return_int;
+
+    string_arg => int_arg;
+//  ^error{Cannot forward argument 1 of callback because string cannot be converted to int}
+
+    int_arg => string_arg;
+
+    abs => Math.abs;
 }
