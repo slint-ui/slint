@@ -9,9 +9,8 @@ project(Slint HOMEPAGE_URL "https://slint.dev/" LANGUAGES C CXX VERSION 1.10.0)
 include(FeatureSummary)
 include(CMakeDependentOption)
 
-find_package(Corrosion QUIET)
+find_package(Corrosion QUIET 0.5)
 if (NOT Corrosion_FOUND)
-    message("Corrosion could not be located in the CMake module search path. Downloading it from Git and building it locally")
     include(FetchContent)
     FetchContent_Declare(
         Corrosion
