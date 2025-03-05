@@ -191,7 +191,8 @@ impl AppState {
 fn main() -> ! {
     #[cfg(all(feature = "mcu-board-support", not(feature = "from_launcher")))]
     mcu_board_support::init();
-    run()
+    run();
+    panic!("not reached");
 }
 
 pub fn run() {
