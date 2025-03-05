@@ -40,10 +40,10 @@ use std::task::{Poll, Waker};
 
 use crate::common::document_cache::CompilerConfiguration;
 
-#[cfg(not(any(target_env = "msvc", target_arch = "wasm32")))]
+#[cfg(not(any(target_os = "windows", target_arch = "wasm32")))]
 use tikv_jemallocator::Jemalloc;
 
-#[cfg(not(any(target_env = "msvc", target_arch = "wasm32")))]
+#[cfg(not(any(target_os = "windows", target_arch = "wasm32")))]
 #[global_allocator]
 static GLOBAL: Jemalloc = Jemalloc;
 
