@@ -42,14 +42,15 @@ component ScrollBar inherits Rectangle {
     in property <ScrollBarPolicy> policy: ScrollBarPolicy.as-needed;
     in property <bool> enabled;
 
-    private property <length> offset: 16px;
-    private property <length> size: 2px;
-    private property <length> track-size: root.horizontal ? root.width - 2 * root.offset : root.height - 2 * offset;
-    private property <length> step-size: 10px;
+    property <length> offset: 16px;
+    property <length> size: 2px;
+    property <length> track-size: root.horizontal ? root.width - 2 * root.offset : root.height - 2 * offset;
+    property <length> step-size: 10px;
 
     border-width: 1px;
     border-radius: 7px;
     visible: (self.policy == ScrollBarPolicy.always-on) || (self.policy == ScrollBarPolicy.as-needed && self.maximum > 0);
+    clip: true;
 
     states [
         hover when touch-area.has-hover || down-scroll-button.has-hover || up-scroll-button.has-hover : {
@@ -63,8 +64,8 @@ component ScrollBar inherits Rectangle {
     animate size { duration: 150ms; easing: ease-out; }
 
     thumb := Rectangle {
-        width: !root.horizontal ? root.size : root.maximum <= 0phx ? 0phx : max(16px, root.track-size * root.page-size / (root.maximum + root.page-size));
-        height: root.horizontal ? root.size : root.maximum <= 0phx ? 0phx : max(16px, root.track-size * (root.page-size / (root.maximum + root.page-size)));
+        width: !root.horizontal ? root.size : root.maximum <= 0phx ? 0phx : max(min(16px, root.width), root.track-size * root.page-size / (root.maximum + root.page-size));
+        height: root.horizontal ? root.size : root.maximum <= 0phx ? 0phx : max(min(16px, root.height), root.track-size * (root.page-size / (root.maximum + root.page-size)));
         x: !root.horizontal ? parent.width - 4px - self.width : root.offset + (root.track-size - thumb.width) * (-root.value / root.maximum);
         y: root.horizontal ? parent.height - 4px - self.height : root.offset + (root.track-size - thumb.height) * (-root.value / root.maximum);
         border-radius: (root.horizontal ? self.height : self.width) / 2;

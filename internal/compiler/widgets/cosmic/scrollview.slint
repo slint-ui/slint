@@ -23,25 +23,26 @@ export component ScrollBar {
     Rectangle {
         border-radius: thumb.border-radius;
         background: CosmicPalette.neutral-5-background;
-    }
+        clip: true;
 
-    thumb := Rectangle {
-        width: !root.horizontal ? parent.width : root.maximum <= 0phx ? 0phx : max(32px, root.track-size * root.page-size / (root.maximum + root.page-size));
-        height: root.horizontal ? parent.height : root.maximum <= 0phx ? 0phx : max(32px, root.track-size * (root.page-size / (root.maximum + root.page-size)));
-        x: !root.horizontal ? (parent.width - self.width) / 2 : root.offset + (root.track-size - thumb.width) * (-root.value / root.maximum);
-        y: root.horizontal ? (parent.height - self.height) / 2 : root.offset + (root.track-size - thumb.height) * (-root.value / root.maximum);
-        border-radius: (root.horizontal ? self.height : self.width) / 2;
-        background: CosmicPalette.neutral-6-background;
+        thumb := Rectangle {
+            width: !root.horizontal ? parent.width : root.maximum <= 0phx ? 0phx : max(min(32px, root.width), root.track-size * root.page-size / (root.maximum + root.page-size));
+            height: root.horizontal ? parent.height : root.maximum <= 0phx ? 0phx : max(min(32px, root.height), root.track-size * (root.page-size / (root.maximum + root.page-size)));
+            x: !root.horizontal ? (parent.width - self.width) / 2 : root.offset + (root.track-size - thumb.width) * (-root.value / root.maximum);
+            y: root.horizontal ? (parent.height - self.height) / 2 : root.offset + (root.track-size - thumb.height) * (-root.value / root.maximum);
+            border-radius: (root.horizontal ? self.height : self.width) / 2;
+            background: CosmicPalette.neutral-6-background;
 
-        StateLayerBase {
-            width: 100%;
-            height: 100%;
-            border-radius: parent.border-radius;
-            pressed: touch-area.pressed;
-            has-hover: touch-area.has-hover;
+            StateLayerBase {
+                width: 100%;
+                height: 100%;
+                border-radius: parent.border-radius;
+                pressed: touch-area.pressed;
+                has-hover: touch-area.has-hover;
+            }
+
+            animate width, height { duration: 100ms; easing: ease-out; }
         }
-
-        animate width, height { duration: 100ms; easing: ease-out; }
     }
 
     touch-area := TouchArea {

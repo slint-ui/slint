@@ -12,13 +12,14 @@ export component ScrollBar inherits Rectangle {
     in-out property <length> value;
     in property <ScrollBarPolicy> policy: ScrollBarPolicy.as-needed;
 
-    private property <length> track-size: root.horizontal ? root.width - 2 * root.offset : root.height - 2 * offset;
-    private property <length> step-size: 10px;
-    private property <length> offset: 2px;
-    private property <length> pad: 2px;
+    property <length> track-size: root.horizontal ? root.width - 2 * root.offset : root.height - 2 * offset;
+    property <length> step-size: 10px;
+    property <length> offset: 2px;
+    property <length> pad: 2px;
 
     background: transparent;
     visible: (self.policy == ScrollBarPolicy.always-on) || (self.policy == ScrollBarPolicy.as-needed && self.maximum > 0);
+    clip: true;
 
     states [
         hover when touch-area.has-hover : {
@@ -39,8 +40,8 @@ export component ScrollBar inherits Rectangle {
     }
 
     thumb := Rectangle {
-        width: !root.horizontal ? parent.width - 2 * root.pad : root.maximum <= 0phx ? 0phx : max(32px, root.track-size * root.page-size / (root.maximum + root.page-size));
-        height: root.horizontal ? parent.height - 2 * root.pad : root.maximum <= 0phx ? 0phx : max(32px, root.track-size * (root.page-size / (root.maximum + root.page-size)));
+        width: !root.horizontal ? parent.width - 2 * root.pad : root.maximum <= 0phx ? 0phx : max(min(32px, root.width), root.track-size * root.page-size / (root.maximum + root.page-size));
+        height: root.horizontal ? parent.height - 2 * root.pad : root.maximum <= 0phx ? 0phx : max(min(32px, root.height), root.track-size * (root.page-size / (root.maximum + root.page-size)));
         x: !root.horizontal ? (parent.width - self.width) / 2 : root.offset + (root.track-size - thumb.width) * (-root.value / root.maximum);
         y: root.horizontal ? (parent.height - self.height) / 2 : root.offset + (root.track-size - thumb.height) * (-root.value / root.maximum);
         border-radius: (root.horizontal ? self.height : self.width) / 2;
