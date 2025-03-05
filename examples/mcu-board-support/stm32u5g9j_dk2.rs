@@ -160,11 +160,15 @@ impl Default for StmBackend {
 
         embassy_futures::block_on(flash.enable_mm());
 
+        defmt::info!("flash setup complete.");
+
         // Init RNG
         let rng = embassy_stm32::rng::Rng::new(p.RNG, Irqs);
         cortex_m::interrupt::free(|cs| {
             let _ = GLOBAL_RNG.borrow(cs).replace(Some(rng));
         });
+
+        defmt::info!("rng setup done - platform initialized");
 
         Self {
             window: RefCell::default(),
@@ -218,6 +222,8 @@ impl slint::platform::Platform for StmBackend {
 
 impl StmBackend {
     async fn run_loop(&self) {
+        defmt::info!("starting run loop");
+
         let p = unsafe { embassy_stm32::Peripherals::steal() };
 
         // set up the LTDC peripheral to send data to the LCD screen
@@ -323,6 +329,8 @@ impl StmBackend {
 
         let mut last_touch = None;
 
+        defmt::info!("ltdc and touch initialized");
+
         loop {
             slint::platform::update_timers_and_animations();
 
@@ -341,6 +349,7 @@ impl StmBackend {
                 let mut drawn = false;
 
                 window.draw_if_needed(|renderer| {
+                    defmt::info!("drawing");
                     renderer.render(work_fb, DISPLAY_WIDTH);
                     drawn = true;
                 });
