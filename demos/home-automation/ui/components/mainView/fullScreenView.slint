@@ -1,12 +1,14 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
-import { AppState, ComponentData } from "../../appState.slint";
+import { AppState, ComponentData, Orientation } from "../../appState.slint";
 import { FullScreenWidgetLoader } from "fullScreenWidgetLoader.slint";
 import { Animation } from "../../common.slint";
 
 
 export component FullScreenView inherits Rectangle {
-    property <ComponentData> full-screen-data: { id: "", x: 60, y: 60, width: 1800, height: 900, background: #00bf1d, visible: true };
+    property <ComponentData> landscape-data: { id: "", x: 60, y: 60, width: 1800, height: 900, background: #00bf1d, visible: true };
+    property <ComponentData> portrait-data: { id: "", x: 60, y: 60, width: 900, height: 1800, background: #00bf1d, visible: true };
+    property <ComponentData> full-screen-data: AppState.orientation == Orientation.landscape ? landscape-data : portrait-data;
     property <bool> full-screen: false;
 
     backdrop := Rectangle {
