@@ -89,6 +89,7 @@ export component MainScreen inherits Rectangle {
     }
 
     enableTouch := Timer {
+        running: false;
         interval: 1400ms;
         triggered => {
             self.running = false;
