@@ -14,7 +14,8 @@ export struct CellData {
     x: length,
     y: length,
     width: length,
-    height: length}
+    height: length
+}
 
 export component EditWindow inherits Rectangle {
     in property <CellData> current-cell;
@@ -96,6 +97,7 @@ component Cell inherits Rectangle {
     border-width: 1px;
     border-color: Palette.border;
     background: is-header ? Palette.foreground.transparentize(0.9) : bg-color;
+
     HorizontalLayout {
         Rectangle {
             width: EditorSpaceSettings.default-padding / 2;
@@ -119,26 +121,6 @@ component Cell inherits Rectangle {
     }
 }
 
-component RowMenuItem inherits Rectangle {
-    in property <string> text;
-    width: 100%;
-    background: ta.has-hover ? Palette.accent-background : transparent;
-    VerticalLayout {
-        padding:EditorSpaceSettings.default-padding;
-        Rectangle {
-            height: EditorSpaceSettings.default-spacing/2;
-        }
-    Text {
-        text: text;
-        color: ta.has-hover ? Palette.background : Palette.foreground;
-    }
-    Rectangle {
-        height: EditorSpaceSettings.default-spacing/2;
-    }
-
-}
-    ta := TouchArea {}
-}
 export component Spreadsheet inherits ScrollView {
     in property <PreviewData> preview-data: {
         name: "Addresses",
@@ -148,7 +130,7 @@ export component Spreadsheet inherits ScrollView {
     };
     in property <PropertyValueTable> current-table: {
         is-array: true,
-        headers: ["type", "street", "city", "state", "zip", "favorite"],
+        headers: ["type", "street", "city", "state", "zip", "favorite","color"],
         values: [
             [
                 {
@@ -170,6 +152,9 @@ export component Spreadsheet inherits ScrollView {
                     kind: PropertyValueKind.boolean,
                     value-bool: true,
                     value-string: "True"
+                }, {
+                    kind: PropertyValueKind.color,
+                    value-string: "#ff0000"
                 }
             ], [
                 {
@@ -212,6 +197,9 @@ export component Spreadsheet inherits ScrollView {
                     kind: PropertyValueKind.boolean,
                     value-bool: false,
                     value-string: "False"
+                }, {
+                    kind: PropertyValueKind.color,
+                    value-string: "#aaff00"
                 }
             ], [
                 {
@@ -233,6 +221,9 @@ export component Spreadsheet inherits ScrollView {
                     kind: PropertyValueKind.boolean,
                     value-bool: false,
                     value-string: "False"
+                }, {
+                    kind: PropertyValueKind.color,
+                    value-string: "#ff0000"
                 }
             ]
         ],
@@ -266,7 +257,7 @@ export component Spreadsheet inherits ScrollView {
                     clicked => {
                         root.selection-x = self.x;
                         root.selection-y = self.y;
-                        row_pop.show();
+                        row_menu.show({x:self.mouse-x + ta.absolute-position.x - row_menu.absolute-position.x,y:self.mouse-y + ta.absolute-position.y - row_menu.absolute-position.y});
                     }
                 }
             }
@@ -314,32 +305,17 @@ export component Spreadsheet inherits ScrollView {
             root.edit-window-visible = false;
         }
     }
-    row_pop := PopupWindow {
-        close-policy: PopupClosePolicy.close-on-click-outside;
-        x: root.selection-x + content.width / 2 + 10px;
-        y: root.selection-y - 65px;
-        content := Rectangle {
-            drop-shadow-blur: 10px;
-            drop-shadow-color: #000.transparentize(0.7);
-            HorizontalLayout {
-                    Path {
-                        width: 5px;
-                        height: 10px;
-                        y: 10px;
-                        commands: "M 10.5 0 L 0 10.5 L 10.5 21 L 10.5 0 Z";
-                        fill: Palette.alternate-background;
-                        stroke: transparent;
-                        stroke-width: 0px;
-                    }
-                Rectangle {
-                    background: Palette.alternate-background;
-                    border-radius: EditorSizeSettings.radius;
-                    VerticalLayout {
-                        RowMenuItem {text:"Add Row Above";}
-                        RowMenuItem {text:"Add Row Below";}
-                        RowMenuItem {text:"Delete Row";}
-                    }
-                }
+    row_menu:= ContextMenuArea {
+        in property <int> position;
+        Menu {
+            MenuItem {
+                title: "Add Row Above";
+            }
+            MenuItem {
+                title: "Add Row Below";
+            }
+            MenuItem {
+                title: "Remove Row";
             }
         }
     }
