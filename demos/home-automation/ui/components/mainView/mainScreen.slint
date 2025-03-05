@@ -100,9 +100,9 @@ export component MainScreen inherits Rectangle {
     background: Palette.background-gradient;
 
     Image {
-        x: 30px;
-        y: self.x;
-        source: @image-url("../../images/slint-logo-simple-dark.png");
+        x: 20px;
+        y: AppState.orientation == Orientation.landscape ? 30px : 36px;
+        source: AppState.orientation == Orientation.landscape ? @image-url("../../images/slint-logo-landscape.png") : @image-url("../../images/slint-logo-portrait.png");
         opacity: 50%;
         colorize: white;
     }
@@ -172,6 +172,63 @@ export component MainScreen inherits Rectangle {
             }
         }
     }
+    if AppState.orientation == Orientation.portrait:  HorizontalLayout {
+        y: root.height - self.height - 10px;
+        alignment: center;
+        spacing: 30px;
+        height: 50px;
+        opacity: 80%;
+
+        HorizontalLayout {
+            spacing: 10px;
+            HaText {
+                text: "March";
+                font-size: Style.H1-font-size;
+                font-weight: 100;
+            }
+
+            HaText {
+                text: "18";
+                color: Palette.info-foreground;
+                font-size: Style.H1-font-size;
+                font-weight: 400;
+            }
+        }
+        HorizontalLayout {
+            HaText {
+                text: hours;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+                color: Palette.info-foreground;
+                font-size: Style.H1-font-size;
+            }
+
+            HaText {
+                text: ":";
+                horizontal-alignment: center;
+                vertical-alignment: center;
+                color: Palette.info-foreground;
+                font-size: Style.H1-font-size;
+            }
+
+            HaText {
+                text: minutes;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+                color: Palette.info-foreground;
+                font-size: Style.H1-font-size;
+            }
+
+            HaText {
+                text: " PM";
+                horizontal-alignment: center;
+                vertical-alignment: center;
+                color: Palette.info-foreground;
+                font-size: Style.H2-font-size;
+                font-weight: 100;
+            }
+        }
+    }
 
     Rectangle {
         x: 0;
@@ -183,8 +240,10 @@ export component MainScreen inherits Rectangle {
         navigation := Rectangle {
 
             nav-bar := Rectangle {
+                property <length> portrait-x: 110px;
+                x: AppState.orientation == Orientation.landscape ? (parent.width - self.width) / 2 : portrait-x;
                 y: AppState.is-hardware-accelerated ? 26px : 35px;
-                width: AppState.orientation == Orientation.landscape ? 600px : 300px;
+                width: AppState.orientation == Orientation.landscape ? 600px : root.width - portrait-x;
                 height: 40px;
 
                 if !AppState.is-hardware-accelerated: Image {
@@ -230,7 +289,7 @@ export component MainScreen inherits Rectangle {
                         target-page: 2;
                     }
 
-                    PageButton {
+                    if AppState.orientation == Orientation.landscape: PageButton {
                         label: "Office";
                         target-page: 3;
                     }
