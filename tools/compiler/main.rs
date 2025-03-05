@@ -7,10 +7,10 @@ use i_slint_compiler::*;
 use itertools::Itertools;
 use std::io::{BufWriter, Write};
 
-#[cfg(all(feature = "jemalloc", not(target_env = "msvc")))]
+#[cfg(all(feature = "jemalloc", not(target_os = "windows")))]
 use tikv_jemallocator::Jemalloc;
 
-#[cfg(all(feature = "jemalloc", not(target_env = "msvc")))]
+#[cfg(all(feature = "jemalloc", not(target_os = "windows")))]
 #[global_allocator]
 static GLOBAL: Jemalloc = Jemalloc;
 
