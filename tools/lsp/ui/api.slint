@@ -133,6 +133,12 @@ export struct PropertyValue {
     edited_value: string, // Used in preview dataonly!
 }
 
+export struct PropertyValueTable {
+    is-array: bool,
+    headers: [string],
+    values: [[PropertyValue]],
+}
+
 /// Important Ranges in the property definition
 ///
 /// The URL and version is the same as in the Element it belongs to
@@ -169,6 +175,7 @@ export struct PropertyGroup {
 export enum PreviewDataKind {
     Value,
     Json,
+    Table,
 }
 
 export struct PreviewData {
@@ -473,6 +480,7 @@ export global Api {
 
     // ## preview data
     pure callback get-property-value(component: string, name: string) -> PropertyValue;
+    pure callback get-property-value-table(component: string, name: string) -> PropertyValueTable;
 
     pure callback set-json-preview-data(component: string, name: string, json-value: string) -> string;
 

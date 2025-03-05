@@ -1,0 +1,31 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Button } from "std-widgets.slint";
+import { EditorSpaceSettings } from "../components/styling.slint";
+import { Spreadsheet } from "../components/spreadsheet.slint";
+
+import { WindowGlobal } from "../windowglobal.slint";
+
+export component SpreadsheetDialog inherits Dialog {
+    width: Math.min(self.preferred-width, WindowGlobal.window-width * 0.9);
+    height: Math.min(self.preferred-height, WindowGlobal.window-height * 0.9);
+
+    title: "Edit Values";
+
+    VerticalLayout {
+        Spreadsheet {
+        }
+
+        HorizontalLayout {
+            alignment: end;
+            padding: 8px;
+
+            Button {
+                text: "Close";
+                clicked => {
+                }
+            }
+        }
+    }
+}

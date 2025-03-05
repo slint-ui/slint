@@ -98,6 +98,7 @@ pub fn create_ui(style: String, experimental: bool) -> Result<PreviewUi, Platfor
     api.on_property_declaration_ranges(super::property_declaration_ranges);
 
     api.on_get_property_value(get_property_value);
+    api.on_get_property_value_table(get_property_value_table);
     api.on_set_json_preview_data(set_json_preview_data);
 
     api.on_string_to_code(string_to_code);
@@ -860,9 +861,10 @@ struct ValueMapping {
     name_prefix: String,
     is_too_complex: bool,
     is_array: bool,
-    header: Vec<String>,
+    headers: Vec<String>,
     current_values: Vec<PropertyValue>,
     array_values: Vec<Vec<PropertyValue>>,
+    code_value: PropertyValue,
 }
 
 fn map_value_and_type(
@@ -875,7 +877,7 @@ fn map_value_and_type(
 
     match ty {
         Type::Float32 => {
-            mapping.header.push(mapping.name_prefix.clone());
+            mapping.headers.push(mapping.name_prefix.clone());
             mapping.current_values.push(PropertyValue {
                 kind: PropertyValueKind::Float,
                 value_float: get_value::<f32>(value),
@@ -886,7 +888,7 @@ fn map_value_and_type(
         }
 
         Type::Int32 => {
-            mapping.header.push(mapping.name_prefix.clone());
+            mapping.headers.push(mapping.name_prefix.clone());
             mapping.current_values.push(PropertyValue {
                 kind: PropertyValueKind::Integer,
                 value_int: get_value::<i32>(value),
@@ -896,7 +898,7 @@ fn map_value_and_type(
             });
         }
         Type::Duration => {
-            mapping.header.push(mapping.name_prefix.clone());
+            mapping.headers.push(mapping.name_prefix.clone());
             mapping.current_values.push(PropertyValue {
                 kind: PropertyValueKind::Float,
                 value_float: get_value::<f32>(value),
@@ -909,7 +911,7 @@ fn map_value_and_type(
             });
         }
         Type::PhysicalLength => {
-            mapping.header.push(mapping.name_prefix.clone());
+            mapping.headers.push(mapping.name_prefix.clone());
             mapping.current_values.push(PropertyValue {
                 kind: PropertyValueKind::Float,
                 value_float: get_value::<f32>(value),
@@ -922,7 +924,7 @@ fn map_value_and_type(
             });
         }
         Type::LogicalLength => {
-            mapping.header.push(mapping.name_prefix.clone());
+            mapping.headers.push(mapping.name_prefix.clone());
             mapping.current_values.push(PropertyValue {
                 kind: PropertyValueKind::Float,
                 value_float: get_value::<f32>(value),
@@ -935,7 +937,7 @@ fn map_value_and_type(
             });
         }
         Type::Rem => {
-            mapping.header.push(mapping.name_prefix.clone());
+            mapping.headers.push(mapping.name_prefix.clone());
             mapping.current_values.push(PropertyValue {
                 kind: PropertyValueKind::Float,
                 value_float: get_value::<f32>(value),
@@ -948,7 +950,7 @@ fn map_value_and_type(
             });
         }
         Type::Angle => {
-            mapping.header.push(mapping.name_prefix.clone());
+            mapping.headers.push(mapping.name_prefix.clone());
             mapping.current_values.push(PropertyValue {
                 kind: PropertyValueKind::Float,
                 value_float: get_value::<f32>(value),
@@ -961,7 +963,7 @@ fn map_value_and_type(
             });
         }
         Type::Percent => {
-            mapping.header.push(mapping.name_prefix.clone());
+            mapping.headers.push(mapping.name_prefix.clone());
             mapping.current_values.push(PropertyValue {
                 kind: PropertyValueKind::Float,
                 value_float: get_value::<f32>(value),
@@ -974,7 +976,7 @@ fn map_value_and_type(
             });
         }
         Type::String => {
-            mapping.header.push(mapping.name_prefix.clone());
+            mapping.headers.push(mapping.name_prefix.clone());
             mapping.current_values.push(PropertyValue {
                 kind: PropertyValueKind::String,
                 value_string: get_value::<slint::SharedString>(value),
@@ -992,7 +994,7 @@ fn map_value_and_type(
 
                 format!("#{r:02x}{g:02x}{b:02x}{a:02x}")
             };
-            mapping.header.push(mapping.name_prefix.clone());
+            mapping.headers.push(mapping.name_prefix.clone());
             mapping.current_values.push(PropertyValue {
                 kind: PropertyValueKind::Color,
                 value_brush: slint::Brush::SolidColor(color),
@@ -1002,7 +1004,7 @@ fn map_value_and_type(
             });
         }
         Type::Bool => {
-            mapping.header.push(mapping.name_prefix.clone());
+            mapping.headers.push(mapping.name_prefix.clone());
             mapping.current_values.push(PropertyValue {
                 kind: PropertyValueKind::Boolean,
                 value_bool: get_value::<bool>(value),
@@ -1021,7 +1023,7 @@ fn map_value_and_type(
                 _ => enumeration.default_value,
             };
 
-            mapping.header.push(mapping.name_prefix.clone());
+            mapping.headers.push(mapping.name_prefix.clone());
             mapping.current_values.push(PropertyValue {
                 kind: PropertyValueKind::Enum,
                 value_string: enumeration.name.as_str().into(),
@@ -1038,18 +1040,76 @@ fn map_value_and_type(
                 ..Default::default()
             });
         }
-        Type::Array(_)
-        | Type::Image
+        Type::Array(array_ty) => {
+            mapping.is_array = true;
+            let model = get_value::<slint::ModelRc<slint_interpreter::Value>>(value);
+
+            for (idx, sub_value) in model.iter().enumerate() {
+                let mut sub_mapping = ValueMapping::default();
+                sub_mapping.name_prefix = mapping.name_prefix.clone();
+                map_value_and_type(&array_ty, &Some(sub_value), &mut sub_mapping);
+
+                let sub_mapping_too_complex = sub_mapping.is_array || sub_mapping.is_too_complex;
+                mapping.is_too_complex = mapping.is_too_complex || sub_mapping_too_complex;
+
+                if sub_mapping_too_complex {
+                    if idx == 0 {
+                        mapping.headers.push(mapping.name_prefix.clone());
+                    }
+                    mapping.array_values.push(vec![std::mem::take(&mut sub_mapping.code_value)]);
+                } else {
+                    if idx == 0 {
+                        mapping.headers.extend_from_slice(&sub_mapping.headers);
+                    }
+                    mapping.array_values.push(std::mem::take(&mut sub_mapping.array_values[0]));
+                }
+            }
+        }
+        Type::Struct(s) => {
+            mapping.is_array = false;
+
+            let struct_data = get_value::<slint_interpreter::Struct>(value);
+
+            for (field, field_ty) in s.fields.iter() {
+                let field = field.to_string();
+                let mut sub_mapping = ValueMapping::default();
+                let header_name = if mapping.name_prefix.is_empty() {
+                    field.clone()
+                } else {
+                    format!("{}.{field}", mapping.name_prefix)
+                };
+                sub_mapping.name_prefix = header_name.clone();
+
+                map_value_and_type(
+                    &field_ty,
+                    &struct_data.get_field(&field).cloned(),
+                    &mut sub_mapping,
+                );
+
+                let sub_mapping_too_complex = sub_mapping.is_array || sub_mapping.is_too_complex;
+
+                mapping.is_too_complex = mapping.is_too_complex || sub_mapping_too_complex;
+
+                if sub_mapping_too_complex {
+                    mapping.headers.push(mapping.name_prefix.clone());
+                    mapping.current_values.push(std::mem::take(&mut sub_mapping.code_value));
+                } else {
+                    mapping.headers.extend_from_slice(&sub_mapping.headers);
+                    mapping.current_values.extend_from_slice(&sub_mapping.array_values[0]);
+                }
+            }
+        }
+        Type::Image
         | Type::Model
         | Type::PathData
         | Type::Easing
         | Type::Brush
-        | Type::Struct(_)
         | Type::UnitProduct(_) => {
+            mapping.headers.push(mapping.name_prefix.clone());
             mapping.is_too_complex = true;
         }
         _ => {
-            mapping.header.push(mapping.name_prefix.clone());
+            mapping.headers.push(mapping.name_prefix.clone());
             mapping.current_values.push(PropertyValue {
                 kind: PropertyValueKind::Code,
                 value_string: "???".into(),
@@ -1063,16 +1123,11 @@ fn map_value_and_type(
         mapping.array_values = vec![std::mem::take(&mut mapping.current_values)];
     }
 
-    // Back out when this got too complex and just put the JSON value in:
-    if mapping.is_too_complex {
-        mapping.is_array = false;
-        mapping.header = vec![String::new()];
-        mapping.array_values = vec![vec![PropertyValue {
-            kind: PropertyValueKind::Code,
-            code: get_code(value),
-            ..Default::default()
-        }]]
-    }
+    mapping.code_value = PropertyValue {
+        kind: PropertyValueKind::Code,
+        code: get_code(value),
+        ..Default::default()
+    };
 }
 
 fn map_preview_data_to_property_value(
@@ -1080,7 +1135,15 @@ fn map_preview_data_to_property_value(
 ) -> Option<PropertyValue> {
     let mut mapping = ValueMapping::default();
     map_value_and_type(&preview_data.ty, &preview_data.value, &mut mapping);
-    mapping.array_values.first().and_then(|av| av.first()).cloned()
+
+    if mapping.is_too_complex
+        || mapping.array_values.len() != 1
+        || mapping.array_values[0].len() != 1
+    {
+        Some(mapping.code_value)
+    } else {
+        mapping.array_values.first().and_then(|av| av.first()).cloned()
+    }
 }
 
 fn map_preview_data_property(preview_data: &preview_data::PreviewData) -> Option<PreviewData> {
@@ -1094,11 +1157,18 @@ fn map_preview_data_property(preview_data: &preview_data::PreviewData) -> Option
     let mut mapping = ValueMapping::default();
     map_value_and_type(&preview_data.ty, &preview_data.value, &mut mapping);
 
+    let is_array = mapping.array_values.len() != 1 || mapping.array_values[0].len() != 1;
+    let is_too_complex = mapping.is_too_complex;
+
     Some(PreviewData {
         name: preview_data.name.clone().into(),
         has_getter,
         has_setter,
-        kind: if mapping.is_too_complex { PreviewDataKind::Json } else { PreviewDataKind::Value },
+        kind: match (is_array, is_too_complex) {
+            (false, false) => PreviewDataKind::Value,
+            (true, false) => PreviewDataKind::Table,
+            _ => PreviewDataKind::Json,
+        },
     })
 }
 
@@ -1162,6 +1232,53 @@ fn get_property_value(container: SharedString, property_name: SharedString) -> P
         })
         .and_then(|pd| map_preview_data_to_property_value(&pd))
         .unwrap_or_else(Default::default)
+}
+
+fn map_preview_data_to_property_value_table(
+    preview_data: &preview_data::PreviewData,
+) -> (bool, Vec<String>, Vec<Vec<PropertyValue>>) {
+    let mut mapping = ValueMapping::default();
+    map_value_and_type(&preview_data.ty, &preview_data.value, &mut mapping);
+
+    let is_array = mapping.is_array;
+    let headers = std::mem::take(&mut mapping.headers);
+    let values = std::mem::take(&mut mapping.array_values);
+
+    (is_array, headers, values)
+}
+
+fn get_property_value_table(
+    container: SharedString,
+    property_name: SharedString,
+) -> PropertyValueTable {
+    let (is_array, mut headers, mut values) = preview::component_instance()
+        .and_then(|component_instance| {
+            preview_data::get_preview_data(
+                &component_instance,
+                to_property_container(container),
+                property_name.to_string(),
+            )
+        })
+        .map(|pd| {
+            let mut mapping = ValueMapping::default();
+            map_value_and_type(&pd.ty, &pd.value, &mut mapping);
+            (
+                mapping.is_array,
+                std::mem::take(&mut mapping.headers),
+                std::mem::take(&mut mapping.array_values),
+            )
+        })
+        .unwrap_or_else(|| (false, Default::default(), Default::default()));
+
+    let headers =
+        Rc::new(slint::VecModel::from(headers.drain(..).map(|s| s.into()).collect::<Vec<_>>()))
+            .into();
+    let values = Rc::new(slint::VecModel::from(
+        values.drain(..).map(|cv| Rc::new(slint::VecModel::from(cv)).into()).collect::<Vec<_>>(),
+    ))
+    .into();
+
+    PropertyValueTable { is_array, headers, values }
 }
 
 fn set_json_preview_data(
@@ -1889,14 +2006,13 @@ export component Tester {{
         }
     }
 
-    fn validate_rp(
+    fn validate_rp_impl(
         visibility: &str,
         type_def: &str,
         type_name: &str,
         code: &str,
         expected_data: super::PreviewData,
-        expected_value: super::PropertyValue,
-    ) {
+    ) -> preview_data::PreviewData {
         let raw_data = generate_preview_data(visibility, type_def, type_name, code);
 
         let rp = super::map_preview_data_property(&raw_data).unwrap();
@@ -1909,8 +2025,71 @@ export component Tester {{
         assert_eq!(rp.has_setter, expected_data.has_setter);
         assert_eq!(rp.kind, expected_data.kind);
 
-        let pv = super::map_preview_data_to_property_value(&raw_data).unwrap();
+        eprintln!("*** PreviewData is as expected...");
+
+        raw_data
+    }
+
+    fn validate_rp(
+        visibility: &str,
+        type_def: &str,
+        type_name: &str,
+        code: &str,
+        expected_data: super::PreviewData,
+        expected_value: super::PropertyValue,
+    ) {
+        let rp = validate_rp_impl(visibility, type_def, type_name, code, expected_data);
+
+        let pv = super::map_preview_data_to_property_value(&rp).unwrap();
         compare_pv(&pv, &expected_value);
+
+        let (is_array, headers, values) = super::map_preview_data_to_property_value_table(&rp);
+        assert!(!is_array);
+        assert!(headers.len() == 1);
+        assert!(headers[0] == "");
+        assert_eq!(values.len(), 1);
+        assert_eq!(values.first().unwrap().len(), 1);
+    }
+
+    fn validate_table_rp(
+        visibility: &str,
+        type_def: &str,
+        type_name: &str,
+        code: &str,
+        expected_data: super::PreviewData,
+        expected_code: &str,
+        expected_is_array: bool,
+        expected_headers: Vec<String>,
+        expected_table: Vec<Vec<super::PropertyValue>>,
+    ) {
+        let rp = validate_rp_impl(visibility, type_def, type_name, code, expected_data);
+
+        let pv = super::map_preview_data_to_property_value(&rp).unwrap();
+        compare_pv(
+            &pv,
+            &super::PropertyValue {
+                kind: super::PropertyValueKind::Code,
+                code: expected_code.into(),
+                ..Default::default()
+            },
+        );
+
+        let (is_array, headers, values) = super::map_preview_data_to_property_value_table(&rp);
+
+        assert_eq!(is_array, expected_is_array);
+
+        for (idx, h) in headers.iter().enumerate() {
+            eprintln!("Header {idx}: \"{h}\"");
+        }
+        assert_eq!(headers.len(), expected_headers.len());
+        assert!(headers.iter().zip(expected_headers.iter()).all(|(rh, eh)| rh == eh));
+
+        assert_eq!(values.len(), expected_table.len());
+        for (rr, er) in values.iter().zip(expected_table.iter()) {
+            assert!(!rr.is_empty());
+            assert_eq!(rr.len(), er.len());
+            rr.iter().zip(er.iter()).for_each(|(rv, ev)| compare_pv(rv, ev));
+        }
     }
 
     #[test]
@@ -2174,6 +2353,221 @@ export component Tester {{
                         .into(),
                 ..Default::default()
             },
+        );
+    }
+
+    #[test]
+    fn test_map_preview_data_struct() {
+        validate_table_rp(
+            "in-out",
+            "struct FooStruct { bar: bool, count: int }",
+            "FooStruct",
+            "{ bar: true, count: 23 }",
+            super::PreviewData {
+                name: "test".into(),
+                has_getter: true,
+                has_setter: true,
+                kind: super::PreviewDataKind::Table,
+                ..Default::default()
+            },
+            "{\n  \"bar\": true,\n  \"count\": 23\n}",
+            false,
+            vec!["bar".into(), "count".into()],
+            vec![vec![
+                super::PropertyValue {
+                    code: "true".into(),
+                    kind: super::PropertyValueKind::Boolean,
+                    value_string: "true".into(),
+                    value_bool: true,
+                    ..Default::default()
+                },
+                super::PropertyValue {
+                    code: "23".into(),
+                    kind: super::PropertyValueKind::Integer,
+                    value_string: "23".into(),
+                    value_int: 23,
+                    ..Default::default()
+                },
+            ]],
+        );
+    }
+
+    #[test]
+    fn test_map_preview_data_struct_of_structs() {
+        validate_table_rp(
+            "in-out",
+            r#"
+            struct C1 { c1_1: string, c1_2: int }
+            struct C2 { c2_1: string, c2_2: int }
+            struct FooStruct { first: C1, second: C2 }
+            "#,
+           "FooStruct",
+           "{ first: { c1_1: \"first of a kind\", c1_2: 23 }, second: { c2_1: \"second of a kind\", c2_2: 42 } }",
+            super::PreviewData {
+                name: "test".into(),
+                has_getter: true,
+                has_setter: true,
+                kind: super::PreviewDataKind::Table,
+                ..Default::default()
+                },
+            "{\n  \"first\": {\n    \"c1-1\": \"first of a kind\",\n    \"c1-2\": 23\n  },\n  \"second\": {\n    \"c2-1\": \"second of a kind\",\n    \"c2-2\": 42\n  }\n}",
+            false,
+                vec![
+                    "first.c1-1".into(),
+                    "first.c1-2".into(),
+                    "second.c2-1".into(),
+                   "second.c2-2".into(),
+                ],
+               vec![
+                    vec![super::PropertyValue {
+                            code: "\"first of a kind\"".into(),
+                            kind: super::PropertyValueKind::String,
+                            value_string: "first of a kind".into(),
+                            ..Default::default()
+                        },
+                        super::PropertyValue {
+                            code: "23".into(),
+                            kind: super::PropertyValueKind::Integer,
+                            value_string: "23".into(),
+                            value_int: 23,
+                            ..Default::default()
+                        },
+                        super::PropertyValue {
+                            code: "\"second of a kind\"".into(),
+                            kind: super::PropertyValueKind::String,
+                            value_string: "second of a kind".into(),
+                            ..Default::default()
+                        },
+                        super::PropertyValue {
+                            code: "42".into(),
+                            kind: super::PropertyValueKind::Integer,
+                            value_string: "42".into(),
+                            value_int: 42,
+                            ..Default::default()
+                        },
+                        ],
+                ]
+        );
+    }
+
+    #[test]
+    fn test_map_preview_data_array_of_struct_of_structs() {
+        validate_table_rp(
+            "in-out",
+            r#"
+            struct C1 { c1_1: string, c1_2: int }
+            struct C2 { c2_1: string, c2_2: int }
+            struct FooStruct { first: C1, second: C2 }
+            "#,
+           "[FooStruct]",
+           "[{ first: { c1_1: \"first of a kind\", c1_2: 23 }, second: { c2_1: \"second of a kind\", c2_2: 42 } }, { first: { c1_1: \"row 2, 1\", c1_2: 3 }, second: { c2_1: \"row 2, 2\", c2_2: 2 } }]",
+            super::PreviewData {
+                name: "test".into(),
+                has_getter: true,
+                has_setter: true,
+                kind: super::PreviewDataKind::Table,
+                ..Default::default()
+            },
+            "[\n  {\n    \"first\": {\n      \"c1-1\": \"first of a kind\",\n      \"c1-2\": 23\n    },\n    \"second\": {\n      \"c2-1\": \"second of a kind\",\n      \"c2-2\": 42\n    }\n  },\n  {\n    \"first\": {\n      \"c1-1\": \"row 2, 1\",\n      \"c1-2\": 3\n    },\n    \"second\": {\n      \"c2-1\": \"row 2, 2\",\n      \"c2-2\": 2\n    }\n  }\n]",
+            true,
+                vec![
+                    "first.c1-1".into(),
+                    "first.c1-2".into(),
+                    "second.c2-1".into(),
+                   "second.c2-2".into(),
+                ],
+               vec![
+                    vec![super::PropertyValue {
+                            code: "\"first of a kind\"".into(),
+                            kind: super::PropertyValueKind::String,
+                            value_string: "first of a kind".into(),
+                            ..Default::default()
+                        },
+                        super::PropertyValue {
+                            code: "23".into(),
+                            kind: super::PropertyValueKind::Integer,
+                            value_string: "23".into(),
+                            value_int: 23,
+                            ..Default::default()
+                        },
+                        super::PropertyValue {
+                            code: "\"second of a kind\"".into(),
+                            kind: super::PropertyValueKind::String,
+                            value_string: "second of a kind".into(),
+                            ..Default::default()
+                        },
+                        super::PropertyValue {
+                            code: "42".into(),
+                            kind: super::PropertyValueKind::Integer,
+                            value_string: "42".into(),
+                            value_int: 42,
+                            ..Default::default()
+                        },
+                    ],
+                    vec![super::PropertyValue {
+                           code: "\"row 2, 1\"".into(),
+                            kind: super::PropertyValueKind::String,
+                            value_string: "row 2, 1".into(),
+                            ..Default::default()
+                        },
+                        super::PropertyValue {
+                            code: "3".into(),
+                            kind: super::PropertyValueKind::Integer,
+                            value_string: "3".into(),
+                            value_int: 3,
+                            ..Default::default()
+                        },
+                        super::PropertyValue {
+                            code: "\"row 2, 2\"".into(),
+                            kind: super::PropertyValueKind::String,
+                            value_string: "row 2, 2".into(),
+                            ..Default::default()
+                        },
+                        super::PropertyValue {
+                            code: "2".into(),
+                            kind: super::PropertyValueKind::Integer,
+                            value_string: "2".into(),
+                            value_int: 2,
+                            ..Default::default()
+                        },
+                    ],
+                ]
+        );
+    }
+
+    #[test]
+    fn test_map_preview_data_bool_array() {
+        validate_table_rp(
+            "in-out",
+            "",
+            "[bool]",
+            "[ true, false ]",
+            super::PreviewData {
+                name: "test".into(),
+                has_getter: true,
+                has_setter: true,
+                kind: super::PreviewDataKind::Table,
+                ..Default::default()
+            },
+            "[\n  true,\n  false\n]",
+            true,
+            vec!["".into()],
+            vec![
+                vec![super::PropertyValue {
+                    code: "true".into(),
+                    kind: super::PropertyValueKind::Boolean,
+                    value_bool: true,
+                    value_string: "true".into(),
+                    ..Default::default()
+                }],
+                vec![super::PropertyValue {
+                    code: "false".into(),
+                    kind: super::PropertyValueKind::Boolean,
+                    value_bool: false,
+                    value_string: "false".into(),
+                    ..Default::default()
+                }],
+            ],
         );
     }
 }
