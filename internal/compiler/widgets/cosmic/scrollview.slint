@@ -24,7 +24,7 @@ export component ScrollBar {
         border-radius: thumb.border-radius;
         background: CosmicPalette.neutral-5-background;
         clip: true;
-        
+
         thumb := Rectangle {
             width: !root.horizontal ? parent.width : root.maximum <= 0phx ? 0phx : max(min(32px, root.width), root.track-size * root.page-size / (root.maximum + root.page-size));
             height: root.horizontal ? parent.height : root.maximum <= 0phx ? 0phx : max(min(32px, root.height), root.track-size * (root.page-size / (root.maximum + root.page-size)));
