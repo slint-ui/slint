@@ -13,6 +13,7 @@ use slint::platform::{software_renderer, PointerEventButton, WindowEvent};
 use embassy_stm32::{
     bind_interrupts,
     gpio::{Level, Output, Speed},
+    hspi::{ChipSelectHighTime, FIFOThresholdLevel, Hspi, MemorySize, MemoryType, WrapSize},
     i2c::I2c,
     ltdc::{
         self, Ltdc, LtdcConfiguration, LtdcLayer, LtdcLayerConfig, PolarityActive, PolarityEdge,
@@ -21,6 +22,8 @@ use embassy_stm32::{
     time::Hertz,
 };
 use embassy_stm32::{rcc, Config};
+
+mod hspi;
 
 #[cfg(feature = "panic-probe")]
 use panic_probe as _;
@@ -65,7 +68,9 @@ static mut FB1: [TargetPixel; DISPLAY_WIDTH * DISPLAY_HEIGHT] =
 static mut FB2: [TargetPixel; DISPLAY_WIDTH * DISPLAY_HEIGHT] =
     [software_renderer::Rgb565Pixel(0); DISPLAY_WIDTH * DISPLAY_HEIGHT];
 
-struct StmBackendInner {}
+struct StmBackendInner {
+    flash: hspi::OctaDtrFlashMemory<'static, embassy_stm32::peripherals::HSPI1>,
+}
 
 struct StmBackend {
     window: RefCell<Option<Rc<slint::platform::software_renderer::MinimalSoftwareWindow>>>,
@@ -96,7 +101,8 @@ impl Default for StmBackend {
             divr: Some(rcc::PllDiv::DIV20),
         });
         config.rcc.mux.ltdcsel = rcc::mux::Ltdcsel::PLL3_R; // 25 MHz
-        let peripherals = embassy_stm32::init(config);
+        hspi::rcc_init(&mut config);
+        let p = embassy_stm32::init(config);
 
         // enable instruction cache
         embassy_stm32::pac::ICACHE.cr().write(|w| {
@@ -116,9 +122,46 @@ impl Default for StmBackend {
             w.set_en(true);
         });
 
-        // Init RNG
+        let flash_config = embassy_stm32::hspi::Config {
+            fifo_threshold: FIFOThresholdLevel::_4Bytes,
+            memory_type: MemoryType::Macronix,
+            device_size: MemorySize::_1GiB,
+            chip_select_high_time: ChipSelectHighTime::_2Cycle,
+            free_running_clock: false,
+            clock_mode: false,
+            wrap_size: WrapSize::None,
+            clock_prescaler: 0,
+            sample_shifting: false,
+            delay_hold_quarter_cycle: false,
+            chip_select_boundary: 0,
+            delay_block_bypass: false,
+            max_transfer: 0,
+            refresh: 0,
+        };
 
-        let rng = embassy_stm32::rng::Rng::new(peripherals.RNG, Irqs);
+        let hspi = Hspi::new_octospi(
+            p.HSPI1,
+            p.PI3,
+            p.PH10,
+            p.PH11,
+            p.PH12,
+            p.PH13,
+            p.PH14,
+            p.PH15,
+            p.PI0,
+            p.PI1,
+            p.PH9,
+            p.PI2,
+            p.GPDMA1_CH7,
+            flash_config,
+        );
+
+        let mut flash = embassy_futures::block_on(hspi::OctaDtrFlashMemory::new(hspi));
+
+        embassy_futures::block_on(flash.enable_mm());
+
+        // Init RNG
+        let rng = embassy_stm32::rng::Rng::new(p.RNG, Irqs);
         cortex_m::interrupt::free(|cs| {
             let _ = GLOBAL_RNG.borrow(cs).replace(Some(rng));
         });
@@ -126,7 +169,7 @@ impl Default for StmBackend {
         Self {
             window: RefCell::default(),
             window_changed: Default::default(),
-            inner: RefCell::new(StmBackendInner {}),
+            inner: RefCell::new(StmBackendInner { flash }),
         }
     }
 }
