@@ -327,24 +327,30 @@ pub(super) fn draw_rounded_rectangle_line(
     impl Shifted {
         const ONE: Self = Shifted(1 << 4);
         #[track_caller]
+        #[inline]
         pub fn new(value: impl TryInto<u32> + core::fmt::Debug + Copy) -> Self {
             Self(value.try_into().unwrap_or_else(|_| panic!("Overflow {value:?}")) << 4)
         }
+        #[inline(always)]
         pub fn floor(self) -> u32 {
             self.0 >> 4
         }
+        #[inline(always)]
         pub fn ceil(self) -> u32 {
             (self.0 + Self::ONE.0 - 1) >> 4
         }
+        #[inline(always)]
         pub fn saturating_sub(self, other: Self) -> Self {
             Self(self.0.saturating_sub(other.0))
         }
+        #[inline(always)]
         pub fn sqrt(self) -> Self {
             Self(self.0.integer_sqrt())
         }
     }
     impl core::ops::Mul for Shifted {
         type Output = Shifted;
+        #[inline(always)]
         fn mul(self, rhs: Self) -> Self::Output {
             Self(self.0 * rhs.0)
         }
