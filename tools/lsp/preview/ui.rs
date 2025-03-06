@@ -1259,15 +1259,7 @@ fn get_property_value_table(
                 property_name.to_string(),
             )
         })
-        .map(|pd| {
-            let mut mapping = ValueMapping::default();
-            map_value_and_type(&pd.ty, &pd.value, &mut mapping);
-            (
-                mapping.is_array,
-                std::mem::take(&mut mapping.headers),
-                std::mem::take(&mut mapping.array_values),
-            )
-        })
+        .map(|pd| map_preview_data_to_property_value_table(&pd))
         .unwrap_or_else(|| (false, Default::default(), Default::default()));
 
     let headers =
