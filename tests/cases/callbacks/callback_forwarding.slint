@@ -1,0 +1,116 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+Callbacks := Rectangle {
+    callback no_args;
+    callback args_3(int, float, string);
+    callback int_arg(int);
+    callback string_ret() -> string;
+    pure callback cb_pure(int) -> int;
+    callback cb(int) -> int;
+    callback abs(int) -> int;
+    callback brush_ret() -> brush;
+}
+
+TestCase := Rectangle {
+    callback no_args_alias <=> callbacks.no_args;
+    callback args_3_alias <=> callbacks.args_3;
+    callback int_arg_alias <=> callbacks.int_arg;
+    callback string_ret_alias <=> callbacks.string_ret;
+    pure callback cb_pure_alias <=> callbacks.cb_pure;
+    callback cb_alias <=> callbacks.cb;
+    callback abs_alias <=> callbacks.abs;
+    callback brush_ret_alias <=> callbacks.brush_ret;
+
+    callback no_args;
+    callback args_2(x: int, y: int);
+    callback string_arg(s: string);
+    callback int_ret() -> int;
+    pure callback cb_pure(i: int) -> float;
+    property<int> n;
+
+    no_args => {
+        n += 1;
+    }
+    args_2(x, y) => {
+        n += x + y;
+    }
+    string_arg(s) => {
+        n += s.to-float();
+    }
+    cb_pure(i) => {
+        return i / 2.0;
+    }
+    int_ret => {
+        return n;
+    }
+    pure function fn(i: int) -> int {
+        return i;
+    }
+
+    callbacks := Callbacks {
+        no_args => root.no_args;
+        args_3 => root.args_2;
+        int_arg => root.string_arg;
+        string_ret => root.int_ret;
+        cb_pure => root.cb_pure;
+        cb => root.fn;
+        abs => Math.abs;
+        brush_ret => @linear-gradient(90deg, #3f87a6 0%, #ebf8e1 50%, #f96d3c 100%);
+    }
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+instance.set_n(0);
+assert_eq(instance.get_n(), 0);
+instance.invoke_no_args_alias();
+assert_eq(instance.get_n(), 1);
+instance.invoke_args_3_alias(1, 2.5, "dropped");
+assert_eq(instance.get_n(), 4);
+instance.invoke_int_arg_alias(2);
+assert_eq(instance.get_n(), 6);
+assert_eq(instance.invoke_string_ret_alias(), "6");
+assert_eq(instance.invoke_cb_pure_alias(3), 1);
+assert_eq(instance.invoke_cb_alias(1), 1);
+assert_eq(instance.invoke_abs_alias(-10), 10);
+instance.invoke_brush_ret_alias();
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+instance.set_n(0);
+assert_eq!(instance.get_n(), 0);
+instance.invoke_no_args_alias();
+assert_eq!(instance.get_n(), 1);
+instance.invoke_args_3_alias(1, 2.5, "dropped".into());
+assert_eq!(instance.get_n(), 4);
+instance.invoke_int_arg_alias(2);
+assert_eq!(instance.get_n(), 6);
+assert_eq!(instance.invoke_string_ret_alias(), "6");
+assert_eq!(instance.invoke_cb_pure_alias(3), 1);
+assert_eq!(instance.invoke_cb_alias(1), 1);
+assert_eq!(instance.invoke_abs_alias(-10), 10);
+instance.invoke_brush_ret_alias();
+```
+
+```js
+var instance = new slint.TestCase({});
+var callbacks = instance.callbacks;
+instance.n = 0;
+assert.equal(instance.n, 0);
+instance.no_args_alias();
+assert.equal(instance.n, 1);
+instance.args_3_alias(1, 2.5, "dropped");
+assert.equal(instance.n, 4);
+instance.int_arg_alias(2);
+assert.equal(instance.n, 6);
+assert.equal(instance.string_ret_alias(), "6");
+assert.equal(instance.cb_pure_alias(3), 1);
+assert.equal(instance.cb_alias(1), 1);
+assert.equal(instance.abs_alias(-10), 10);
+instance.brush_ret_alias();
+```
+*/
