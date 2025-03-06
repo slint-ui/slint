@@ -1,10 +1,12 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
+import { Palette } from "std-widgets.slint";
+
 import { MainView, MainViewAdapter, MailViewAdapter, MailBoxViewAdapter, DashboardViewAdapter } from "views.slint";
 export { MainViewAdapter, MailViewAdapter, MailBoxViewAdapter, DashboardViewAdapter }
 
-import { CardListViewItem, DialogGlobal } from "widgets.slint";
+import { CardListViewItem, DialogGlobal, UsecasesPalette } from "widgets.slint";
 export { CardListViewItem }
 
 import { VirtualKeyboardHandler, VirtualKeyboard } from "virtual_keyboard.slint";
@@ -17,6 +19,7 @@ export component App inherits Window {
     preferred-width: 800px;
     preferred-height: 1280px;
     title: "Slint usecases";
+    background: UsecasesPalette.use-material ? Palette.alternate-background : Palette.background;
 
     main-view := MainView {
         width: 100%;
