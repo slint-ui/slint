@@ -32,6 +32,8 @@ export component PreviewDataView inherits ScrollView {
             text: ep.container-name;
             panel-width: root.width;
 
+            open: ep.properties.length != 0;
+
             VerticalLayout {
                 spacing: EditorSpaceSettings.property-spacing;
                 padding: EditorSpaceSettings.default-padding;

@@ -1306,7 +1306,7 @@ export component ExpandableGroup  {
     in property <string> text;
     in property <length> panel-width;
 
-    property <bool> open: true;
+    in-out property <bool> open: true;
 
     group-layer := Rectangle {
         content-layer := VerticalLayout {
