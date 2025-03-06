@@ -173,6 +173,10 @@ export component Test {
   Image {
       source: @image-url("assets\\windows-test.png");
   }
+  callback uvw(string, int);
+  another-ta := TA {
+      xyz => uvw;
+  }
 }"#;
         let (mut dc, uri, _) = crate::language::test::loaded_document_cache(source.into());
         let doc = dc.get_document(&uri).unwrap().node.clone().unwrap();
@@ -241,6 +245,14 @@ export component Test {
         assert_tooltip(
             get_tooltip(&mut dc, find_tk("pointer-event", 5.into())),
             "```slint\ncallback pointer-event(event: PointerEvent)\n```",
+        );
+        assert_tooltip(
+            get_tooltip(&mut dc, find_tk("xyz =>", 0.into())),
+            "```slint\ncallback xyz(string, int)\n```"
+        );
+        assert_tooltip(
+            get_tooltip(&mut dc, find_tk("=> uvw;", 3.into())),
+            "```slint\ncallback uvw(string, int)\n```"
         );
         // functions
         assert_tooltip(
