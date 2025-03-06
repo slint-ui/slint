@@ -1183,7 +1183,7 @@ mod tests {
         );
         assert_eq!(
             res.iter().find(|ci| ci.label == "the-callback").unwrap().insert_text,
-            Some("the-callback => {$1}".into())
+            Some("the-callback => $1".into())
         );
     }
 
@@ -1659,7 +1659,7 @@ mod tests {
         // builtin callback don't have named argument yet
         assert_eq!(
             res.iter().find(|ci| ci.label == "accessible-action-set-value").unwrap().insert_text,
-            Some("accessible-action-set-value => {$1}".into())
+            Some("accessible-action-set-value => $1".into())
         );
         let source = r#"
             import { StandardTableView } from "std-widgets.slint";
@@ -1681,11 +1681,11 @@ mod tests {
         );
         assert_eq!(
             res.iter().find(|ci| ci.label == "clicked").unwrap().insert_text,
-            Some("clicked => {$1}".into())
+            Some("clicked => $1".into())
         );
         assert_eq!(
             res.iter().find(|ci| ci.label == "cb1").unwrap().insert_text,
-            Some("cb1 => {$1}".into())
+            Some("cb1 => $1".into())
         );
         assert_eq!(
             res.iter().find(|ci| ci.label == "cb2").unwrap().insert_text,
@@ -1693,7 +1693,7 @@ mod tests {
         );
         assert_eq!(
             res.iter().find(|ci| ci.label == "cb3").unwrap().insert_text,
-            Some("cb3 => {$1}".into())
+            Some("cb3 => $1".into())
         );
     }
 }
