@@ -127,6 +127,7 @@ export struct GradientStop {
 
 /// Data about the property value for use in "simple" mode
 export struct PropertyValue {
+    display-string: string, // ALLWAYS, its a string description of what is there
     value-bool: bool, // boolean
     is-translatable: bool, // string
     kind: PropertyValueKind,
@@ -142,8 +143,9 @@ export struct PropertyValue {
     tr-plural: string, // string
     tr-plural-expression: string, // string
     code: string, // ALWAYS, empty if property is not explicitly defined
+    accessor-path: string, // set for struct members and such
     was-edited: bool, // Used by preview dataonly!
-    edited_value: string, // Used in preview dataonly!
+    edited-value: string, // Used in preview dataonly!
 }
 
 export struct PropertyValueTable {
@@ -514,6 +516,10 @@ export global Api {
     // ## preview data
     pure callback get-property-value(component: string, name: string) -> PropertyValue;
     pure callback get-property-value-table(component: string, name: string) -> PropertyValueTable;
+    pure callback set-property-value-table(component: string, name: string, table: [[PropertyValue]], is-array: bool) -> string;
+
+    pure callback insert-row-into-value-table(table: PropertyValueTable, insert-before: int);
+    pure callback remove-row-from-value-table(table: PropertyValueTable, remove-row: int);
 
     pure callback set-json-preview-data(component: string, name: string, json-value: string) -> string;
 
