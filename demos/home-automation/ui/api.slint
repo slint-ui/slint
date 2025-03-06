@@ -1,0 +1,68 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { AppState, Orientation } from "appState.slint";
+import { Date, Time } from "std-widgets.slint";
+
+export enum WeatherCondition {
+    sunny,
+    cloudy,
+    rainy,
+}
+export struct WeatherData {
+    condition: WeatherCondition,
+    day: string,
+    temperature: float,
+}
+
+export global Api {
+    in property <float> indoor-temperature: 22.0;
+    in property <float> outdoor-temperature: 24.0;
+
+    in property <float> price-of-electricity: 13.0;
+    in property <float> current-electricity-use: 152.9;
+
+    out property <Orientation> orientation <=> AppState.orientation;
+    in-out property <bool> is-hardware-accelerated <=> AppState.is-hardware-accelerated;
+
+    in property <Date> current-date: {
+        year: 2025,
+        month: 3,
+        day: 11,
+    };
+
+    in property <Time> current-time: {
+        hour: 12,
+        minute: 00,
+        second: 30,
+    };
+
+    in property <[WeatherData]> weather-forecast: [
+            {
+                condition: WeatherCondition.sunny,
+                day: "Today",
+                temperature: 21.0,
+            },
+            {
+                condition: WeatherCondition.rainy,
+                day: "Tue",
+                temperature: 16.0,
+            },
+            {
+                condition: WeatherCondition.rainy,
+                day: "Wed",
+                temperature: 18.0,
+            },
+            {
+                condition: WeatherCondition.cloudy,
+                day: "Thu",
+                temperature: 20.0,
+            },
+            {
+                condition: WeatherCondition.sunny,
+                day: "Fri",
+                temperature: 22.0,
+            },
+        
+    ];
+}
