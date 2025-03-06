@@ -23,6 +23,7 @@ use embassy_stm32::{
 };
 use embassy_stm32::{rcc, Config};
 
+mod dma2d;
 mod hspi;
 
 #[cfg(feature = "panic-probe")]
@@ -103,6 +104,8 @@ impl Default for StmBackend {
         config.rcc.mux.ltdcsel = rcc::mux::Ltdcsel::PLL3_R; // 25 MHz
         hspi::rcc_init(&mut config);
         let p = embassy_stm32::init(config);
+
+        dma2d::Dma2DEnhancedBuffer::enable_clock();
 
         // enable instruction cache
         embassy_stm32::pac::ICACHE.cr().write(|w| {
@@ -350,7 +353,11 @@ impl StmBackend {
 
                 window.draw_if_needed(|renderer| {
                     defmt::info!("drawing");
-                    renderer.render(work_fb, DISPLAY_WIDTH);
+
+                    renderer.render_into_buffer(&mut dma2d::Dma2DEnhancedBuffer::new(
+                        work_fb,
+                        DISPLAY_WIDTH,
+                    ));
                     drawn = true;
                 });
 
