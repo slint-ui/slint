@@ -3,14 +3,14 @@
 import { Palette,Measurements,Colors, Style } from "../common.slint";
 import { Info } from "info.slint";
 import { HaText } from "./general/haText.slint";
+import { Api, WeatherData, WeatherCondition } from "../api.slint";
 
 export component Day inherits Rectangle {
-    in property <string> condition: "sunny";
-    in property <float> temp: 20.0;
-    in property <string> day: "Monday";
-    in property <bool> hilite: false;
 
-    if hilite: Rectangle {
+    in property <WeatherData> weather-data;
+    in property <bool> highlight: false;
+
+    if highlight: Rectangle {
         border-bottom-left-radius: Measurements.tile-radius;
         border-top-left-radius: Measurements.tile-radius;
         background: Palette.info-alternate-background;
@@ -18,27 +18,27 @@ export component Day inherits Rectangle {
     VerticalLayout {
         alignment: center;
         HaText {
-            text: day;
+            text: weather-data.day;
             horizontal-alignment: center;
             color: Palette.info-foreground;
             font-size: Style.icon-title-font-size;
         }
 
-        if condition == "sunny": Image {
+        if weather-data.condition == WeatherCondition.sunny: Image {
             height: 25px;
             source: @image-url("../images/sunny.png");
         }
-        if condition == "cloudy": Image {
+        if weather-data.condition == WeatherCondition.cloudy: Image {
             height: 25px;
             source: @image-url("../images/cloudy.png");
         }
-        if condition == "rainy": Image {
+        if weather-data.condition == WeatherCondition.rainy: Image {
             height: 25px;
             source: @image-url("../images/rainy.png");
         }
 
         HaText {
-            text: temp + "°C";
+            text: weather-data.temperature + "°C";
             horizontal-alignment: center;
             color: Palette.info-alternate-foreground;
             font-size: Style.icon-title-font-size;
@@ -53,34 +53,23 @@ export component WeatherInfo inherits Info {
         height: parent.height - 2px;
         HorizontalLayout {
             Day {
-                hilite: true;
-                condition: "sunny";
-                day: "Today";
-                temp: 21.0;
+                weather-data: Api.weather-forecast[0];
+                highlight: true;
+            }
+            Day {
+                weather-data: Api.weather-forecast[1];
             }
 
             Day {
-                condition: "rainy";
-                day: "Tue";
-                temp: 16.0;
+                weather-data: Api.weather-forecast[2];
             }
 
             Day {
-                condition: "rainy";
-                day: "Wed";
-                temp: 18.0;
+                weather-data: Api.weather-forecast[3];
             }
 
             Day {
-                condition: "cloudy";
-                day: "Thu";
-                temp: 20.0;
-            }
-
-            Day {
-                condition: "sunny";
-                day: "Fri";
-                temp: 22.0;
+                weather-data: Api.weather-forecast[4];
             }
         }
     }
