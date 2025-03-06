@@ -23,7 +23,7 @@ export SubElements := Rectangle {
     callback int_arg(bool, int);
 
     callback abs(int) -> int;
-    
+
     TouchArea {
         clicked => { foobar() }
     }
@@ -31,7 +31,7 @@ export SubElements := Rectangle {
     TouchArea {
         clicked => foobar;
     }
-    
+
     TouchArea {
         clicked => callback_with_arg;
 //      ^error{Cannot forward callback with 0 arguments to callback or function with 2 arguments}

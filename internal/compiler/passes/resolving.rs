@@ -285,7 +285,10 @@ impl Expression {
             return Self::Invalid;
         };
         let LookupResult::Callable(function) = function else {
-            ctx.diag.push_error("Callbacks can only be forwarded to callbacks and functions".into(), &node);
+            ctx.diag.push_error(
+                "Callbacks can only be forwarded to callbacks and functions".into(),
+                &node,
+            );
             return Self::Invalid;
         };
 

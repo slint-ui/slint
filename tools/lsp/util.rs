@@ -266,7 +266,10 @@ fn lookup_expression_context(mut n: SyntaxNode) -> Option<ExpressionContextInfo>
             break (element, prop_name, false);
         }
         match n.kind() {
-            SyntaxKind::Binding | SyntaxKind::TwoWayBinding | SyntaxKind::CallbackConnection | SyntaxKind::CallbackForwarding => {
+            SyntaxKind::Binding
+            | SyntaxKind::TwoWayBinding
+            | SyntaxKind::CallbackConnection
+            | SyntaxKind::CallbackForwarding => {
                 let mut parent = n.parent()?;
                 if parent.kind() == SyntaxKind::PropertyAnimation {
                     let prop_name = i_slint_compiler::parser::identifier_text(&n)?;
