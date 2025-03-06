@@ -1,0 +1,43 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+struct Structure {
+    value: int,
+}
+
+component AlignedValue {
+    in property <int> alignment: 1;
+    in-out property <int> aligned-value;
+    pure function align(value: int) -> int {
+        (value / alignment) * alignment
+    }
+    public function set-value(new-value: int) {
+        aligned-value = align(Math.max(0, new-value));
+    }
+}
+
+export component TestCase inherits Window {
+    in-out property <Structure> range: { value: 42 };
+    checked-range := AlignedValue {
+        aligned-value: range.value;
+    }
+
+    init => {
+        checked-range.set_value(78);
+    }
+
+    out property <bool> test: checked-range.aligned-value == 78;
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+*/
