@@ -1175,6 +1175,7 @@ fn map_preview_data_property(preview_data: &preview_data::PreviewData) -> Option
 pub fn ui_set_preview_data(
     ui: &PreviewUi,
     preview_data: HashMap<preview_data::PropertyContainer, Vec<preview_data::PreviewData>>,
+    previewed_component: Option<String>,
 ) {
     fn fill_container(
         container_name: String,
@@ -1194,7 +1195,11 @@ pub fn ui_set_preview_data(
     let mut result: Vec<PropertyContainer> = vec![];
 
     if let Some(main) = preview_data.get(&preview_data::PropertyContainer::Main) {
-        let c = fill_container("<MAIN>".to_string(), String::new(), main);
+        let c = fill_container(
+            previewed_component.unwrap_or_else(|| "<MAIN>".to_string()),
+            String::new(),
+            main,
+        );
         result.push(c);
     }
 
