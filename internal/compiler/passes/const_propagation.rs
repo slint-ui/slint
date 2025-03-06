@@ -263,14 +263,17 @@ fn try_inline_function(function: &Callable, arguments: &[Expression]) -> Option<
     }
     let mut body = extract_constant_property_reference(function)?;
 
-    body.visit_recursive_mut(&mut |e| {
+    fn substitute_arguments_recursive(e: &mut Expression, arguments: &[Expression]) {
         if let Expression::FunctionParameterReference { index, ty } = e {
-            let Some(e_new) = arguments.get(*index).cloned() else { return };
-            if e_new.ty() == *ty {
-                *e = e_new;
-            }
+            let e_new = arguments.get(*index).expect("reference to invalid arg").clone();
+            debug_assert_eq!(e_new.ty(), *ty);
+            *e = e_new;
+        } else {
+            e.visit_mut(|e| substitute_arguments_recursive(e, arguments));
         }
-    });
+    }
+    substitute_arguments_recursive(&mut body, arguments);
+
     if simplify_expression(&mut body) {
         Some(body)
     } else {
