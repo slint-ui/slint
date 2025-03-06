@@ -932,7 +932,7 @@ fn extract_resources(
     result
 }
 
-fn finish_parsing(preview_url: &Url) {
+fn finish_parsing(preview_url: &Url, previewed_component: Option<String>) {
     set_status_text("");
 
     let (previewed_url, component, source_code) = {
@@ -1012,7 +1012,7 @@ fn finish_parsing(preview_url: &Url) {
             if let Some(ui) = &preview_state.ui {
                 ui::ui_set_uses_widgets(ui, uses_widgets);
                 ui::ui_set_known_components(ui, &preview_state.known_components, index);
-                ui::ui_set_preview_data(ui, preview_data);
+                ui::ui_set_preview_data(ui, preview_data, previewed_component);
             }
         });
     }
@@ -1324,6 +1324,8 @@ async fn reload_preview_impl(
     )
     .await;
 
+    let loaded_component_name = compiled.as_ref().map(|c| c.name().to_string());
+
     {
         PREVIEW_STATE.with(|preview_state| {
             let preview_state = preview_state.borrow_mut();
@@ -1338,7 +1340,7 @@ async fn reload_preview_impl(
 
     update_preview_area(compiled, behavior, open_import_fallback, source_file_versions)?;
 
-    finish_parsing(&component.url);
+    finish_parsing(&component.url, loaded_component_name);
     Ok(())
 }
 
