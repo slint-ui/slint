@@ -217,3 +217,25 @@ export component Example inherits Rectangle {
 }
 ```
 
+## Forwarding
+
+A callback can be forwarded to another callback as long as the number and types of their arguments match:
+
+```slint
+export component Example inherits Rectangle {
+    callback hello;
+
+    foo := TouchArea {
+        // forward clicked calls to hello using `=>`
+        clicked => hello;
+    }
+
+    callback bye(foo: int);
+
+    bar := TouchArea {
+        // Compiler error!
+        // clicked => bye;
+    }
+}
+```
+

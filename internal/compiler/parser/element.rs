@@ -43,6 +43,7 @@ pub fn parse_element(p: &mut impl Parser) -> bool {
 /// for xx in model: Sub {}
 /// if condition : Sub {}
 /// clicked => {}
+/// clicked => root.clicked;
 /// callback foobar;
 /// property<int> width;
 /// animate someProp { }
@@ -63,9 +64,13 @@ pub fn parse_element_content(p: &mut impl Parser) {
                 SyntaxKind::ColonEqual | SyntaxKind::LBrace => {
                     had_parse_error |= !parse_sub_element(&mut *p)
                 }
-                SyntaxKind::FatArrow | SyntaxKind::LParent if p.peek().as_str() != "if" => {
+                SyntaxKind::LParent if p.peek().as_str() != "if" => {
                     parse_callback_connection(&mut *p)
                 }
+                SyntaxKind::FatArrow if p.peek().as_str() != "if" => match p.nth(2).kind() {
+                    SyntaxKind::LBrace => parse_callback_connection(&mut *p),
+                    _ => parse_callback_forwarding(&mut *p),
+                },
                 SyntaxKind::DoubleArrow => parse_two_way_binding(&mut *p),
                 SyntaxKind::Identifier if p.peek().as_str() == "for" => {
                     parse_repeated_element(&mut *p);
@@ -295,6 +300,19 @@ fn parse_callback_connection(p: &mut impl Parser) {
     }
     p.expect(SyntaxKind::FatArrow);
     parse_code_block(&mut *p);
+}
+
+#[cfg_attr(test, parser_test)]
+/// ```test,CallbackForwarding
+/// clicked => clicked;
+/// clicked => root.clicked;
+/// ```
+fn parse_callback_forwarding(p: &mut impl Parser) {
+    let mut p = p.start_node(SyntaxKind::CallbackForwarding);
+    p.consume(); // the indentifier
+    p.expect(SyntaxKind::FatArrow);
+    parse_expression(&mut *p);
+    p.expect(SyntaxKind::Semicolon);
 }
 
 #[cfg_attr(test, parser_test)]
