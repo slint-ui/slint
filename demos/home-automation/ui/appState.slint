@@ -60,8 +60,10 @@ export global AppState {
             showing-full-screen = true;
        }
     }
+    public function getTimeToHide() -> duration {
+        return 32ms;
+    }
     out property <string> default-font-family: "Poppins";
-
 
     out property <[{id: string, name: string, type: WidgetType }]> component-details: [
        { id: "lamp1", name: "His Nightstand", type: WidgetType.lamp },
@@ -93,6 +95,70 @@ export global AppState {
        { id: "control2", name:"Front Camera",type: WidgetType.camera },
        { id: "control3", name:"Alarm",type: WidgetType.alarm },
        { id: "control4", name:"Heating / Air Conditioning",type: WidgetType.hvac },
+    ];
+
+    out property <[{id: string, name: string, type: WidgetType, visible: bool }]> current-view-state: [
+       { id: "lamp1", name: "His Nightstand", type: WidgetType.lamp, visible: false },
+       { id: "lamp2", name: "Her Nightstand", type: WidgetType.lamp, visible: false },
+       { id: "lamp3", name: "Stove", type: WidgetType.lamp, visible: false },
+       { id: "lamp4", name: "Front Entry", type: WidgetType.lamp, visible: false },
+       { id: "lamp5", name: "Back Porch", type: WidgetType.lamp, visible: false },
+       { id: "lamp6", name: "Yard", type: WidgetType.lamp, visible: false },
+       { id: "lamp7", name: "Hall Lights", type: WidgetType.lamp, visible: false },
+       { id: "appliance1",name: "Dishwasher", type: WidgetType.dishwasher, visible: false },
+       { id: "appliance2",name: "Microwave", type: WidgetType.microwave, visible: false },
+       { id: "overhead1", name: "Dining Area", type: WidgetType.overhead, visible: false },
+       { id: "overhead2", name: "Kitchen Island", type: WidgetType.overhead, visible: false },
+       { id: "overhead3", name: "Stove", type: WidgetType.overhead, visible: false },
+       { id: "overhead4", name: "Walk-In Closet", type: WidgetType.overhead, visible: false },
+       { id: "overhead5",name: "En-Suite Bathroom", type: WidgetType.overhead, visible: false },
+       { id: "overhead6",name: "Master Bedroom 1", type: WidgetType.overhead, visible: false },
+       { id: "overhead7",name: "Master Bedroom 2", type: WidgetType.overhead, visible: false },
+       { id: "overhead8",name: "Master Bedroom 3", type: WidgetType.overhead, visible: false },
+       { id: "overhead9",name: "Master Bedroom 4", type: WidgetType.overhead, visible: false },
+       { id: "overhead10",name: "Office", type: WidgetType.overhead, visible: false },
+       { id: "overhead11",name: "Basement", type: WidgetType.overhead, visible: false },
+       { id: "info1", name:"Date-Time",type: WidgetType.timeInfo, visible: false },
+       { id: "info2", name:"Weather",type: WidgetType.weatherInfo, visible: false },
+       { id: "info3", name:"Power Usage",type: WidgetType.powerInfo, visible: false },
+       { id: "graph1", name:"Humidity",type: WidgetType.graph, visible: false },
+       { id: "graph2", name:"Pressure",type: WidgetType.graph, visible: false },
+       { id: "control1", name:"Music",type: WidgetType.music, visible: false },
+       { id: "control2", name:"Front Camera",type: WidgetType.camera, visible: false },
+       { id: "control3", name:"Alarm",type: WidgetType.alarm, visible: false },
+       { id: "control4", name:"Heating / Air Conditioning",type: WidgetType.hvac, visible: false },
+    ];
+
+    out property <[{id: string, name: string, type: WidgetType, visible: bool }]> target-view-state: [
+       { id: "lamp1", name: "His Nightstand", type: WidgetType.lamp, visible: false },
+       { id: "lamp2", name: "Her Nightstand", type: WidgetType.lamp, visible: false },
+       { id: "lamp3", name: "Stove", type: WidgetType.lamp, visible: false },
+       { id: "lamp4", name: "Front Entry", type: WidgetType.lamp, visible: false },
+       { id: "lamp5", name: "Back Porch", type: WidgetType.lamp, visible: false },
+       { id: "lamp6", name: "Yard", type: WidgetType.lamp, visible: false },
+       { id: "lamp7", name: "Hall Lights", type: WidgetType.lamp, visible: false },
+       { id: "appliance1",name: "Dishwasher", type: WidgetType.dishwasher, visible: false },
+       { id: "appliance2",name: "Microwave", type: WidgetType.microwave, visible: false },
+       { id: "overhead1", name: "Dining Area", type: WidgetType.overhead, visible: false },
+       { id: "overhead2", name: "Kitchen Island", type: WidgetType.overhead, visible: false },
+       { id: "overhead3", name: "Stove", type: WidgetType.overhead, visible: false },
+       { id: "overhead4", name: "Walk-In Closet", type: WidgetType.overhead, visible: false },
+       { id: "overhead5",name: "En-Suite Bathroom", type: WidgetType.overhead, visible: false },
+       { id: "overhead6",name: "Master Bedroom 1", type: WidgetType.overhead, visible: false },
+       { id: "overhead7",name: "Master Bedroom 2", type: WidgetType.overhead, visible: false },
+       { id: "overhead8",name: "Master Bedroom 3", type: WidgetType.overhead, visible: false },
+       { id: "overhead9",name: "Master Bedroom 4", type: WidgetType.overhead, visible: false },
+       { id: "overhead10",name: "Office", type: WidgetType.overhead, visible: false },
+       { id: "overhead11",name: "Basement", type: WidgetType.overhead, visible: false },
+       { id: "info1", name:"Date-Time",type: WidgetType.timeInfo, visible: false },
+       { id: "info2", name:"Weather",type: WidgetType.weatherInfo, visible: false },
+       { id: "info3", name:"Power Usage",type: WidgetType.powerInfo, visible: false },
+       { id: "graph1", name:"Humidity",type: WidgetType.graph, visible: false },
+       { id: "graph2", name:"Pressure",type: WidgetType.graph, visible: false },
+       { id: "control1", name:"Music",type: WidgetType.music, visible: false },
+       { id: "control2", name:"Front Camera",type: WidgetType.camera, visible: false },
+       { id: "control3", name:"Alarm",type: WidgetType.alarm, visible: false },
+       { id: "control4", name:"Heating / Air Conditioning",type: WidgetType.hvac, visible: false },
     ];
 
 
