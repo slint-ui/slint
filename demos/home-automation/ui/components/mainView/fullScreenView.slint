@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 import { AppState, ComponentData, Orientation } from "../../appState.slint";
 import { FullScreenWidgetLoader } from "fullScreenWidgetLoader.slint";
+import { FullScreenWidgetLoaderSW } from "fullScreenWidgetLoaderSW.slint";
 import { Animation } from "../../common.slint";
 
 
@@ -37,7 +38,7 @@ export component FullScreenView inherits Rectangle {
         ]
     }
 
-    fsw := FullScreenWidgetLoader {
+    if AppState.is-hardware-accelerated: FullScreenWidgetLoader {
         in-out property <ComponentData> normal-layout-data;
         data: full-screen ? full-screen-data : normal-layout-data;
         property <string> full-screen-index: AppState.full-screen-index;
@@ -46,9 +47,24 @@ export component FullScreenView inherits Rectangle {
             closeTimer.running = true;
         }
         init => {
-            fsw.index = AppState.full-screen-index;
-            fsw.type = AppState.component-details[AppState.full-screen-index].type;
-            fsw.normal-layout-data = AppState.current-layout-data.components[AppState.full-screen-index];
+            self.index = AppState.full-screen-index;
+            self.type = AppState.component-details[AppState.full-screen-index].type;
+            self.normal-layout-data = AppState.current-layout-data.components[AppState.full-screen-index];
+        }
+    }
+
+    if !AppState.is-hardware-accelerated: FullScreenWidgetLoaderSW {
+        in-out property <ComponentData> normal-layout-data;
+        data: full-screen ? full-screen-data : normal-layout-data;
+        property <string> full-screen-index: AppState.full-screen-index;
+        changed full-screen-index => {
+            full-screen = false;
+            closeTimer.running = true;
+        }
+        init => {
+            self.index = AppState.full-screen-index;
+            self.type = AppState.component-details[AppState.full-screen-index].type;
+            self.normal-layout-data = AppState.current-layout-data.components[AppState.full-screen-index];
         }
     }
 
