@@ -6,6 +6,8 @@ import { Date, Time } from "std-widgets.slint";
 
 export enum WeatherCondition {
     sunny,
+    sunny-rainy,
+    sunny-cloudy,
     cloudy,
     rainy,
 }
@@ -68,22 +70,22 @@ export global Api {
 
     in property <[WeatherData]> weather-forecast: [
             {
-                condition: WeatherCondition.sunny,
-                day: "Today",
+                condition: WeatherCondition.rainy,
+                day: "Mon",
                 temperature: 21.0,
             },
             {
-                condition: WeatherCondition.rainy,
+                condition: WeatherCondition.sunny-rainy,
                 day: "Tue",
                 temperature: 16.0,
             },
             {
-                condition: WeatherCondition.rainy,
+                condition: WeatherCondition.cloudy,
                 day: "Wed",
                 temperature: 18.0,
             },
             {
-                condition: WeatherCondition.cloudy,
+                condition: WeatherCondition.sunny-cloudy,
                 day: "Thu",
                 temperature: 20.0,
             },
