@@ -141,6 +141,7 @@ But there are also differences:
 - The syntax for defining a callback is different
 - Callbacks can be declared without assigning a block of code to them
 - Callbacks have a special syntax for declaring aliases using the two-way binding operator `<=>`
+- Callbacks have a special syntax for forwarding them using the `=>` operator
 - Callback visibility is always similar to `public` functions
 
 In general, the biggest reason to use callbacks is to be able to handle them from the backend code. Use
@@ -219,22 +220,63 @@ export component Example inherits Rectangle {
 
 ## Forwarding
 
-A callback can be forwarded to another callback as long as the number and types of their arguments match:
+A callback can be forwarded to another callback or function as long as they have compatible signatures:
 
 ```slint
-export component Example inherits Rectangle {
-    callback hello;
+export component HasCallbacks {
+    callback no-args;
+    callback int-arg(n: int);
+    callback string-arg(s: string);
+    callback int-ret() -> int;
+    callback string-ret() -> string;
+    callback args-2(int, float);
+    callback args-3(int, float, string);
+    pure callback cb-pure;
+    callback cb-impure;
+    callback cb;
+    callback abs(int) -> int;
+}
 
-    foo := TouchArea {
-        // forward clicked calls to hello using `=>`
-        clicked => hello;
-    }
+export component CallbackForwarding {
+    callback no-args;
+    callback int-arg(n: int);
+    callback string-arg(s: string);
+    callback int-ret() -> int;
+    callback string-ret() -> string;
+    callback args-2(int, float);
+    callback args-3(int, float, string);
+    pure callback cb-pure;
+    callback cb-impure;
+    callback cb;
+    function fn() {}
 
-    callback bye(foo: int);
+    HasCallbacks {
+        // forward no-args calls to root.no-args using `=>`
+        no-args => root.no-args;
 
-    bar := TouchArea {
-        // Compiler error!
-        // clicked => bye;
+        // arguments and return types are converted automatically if possible
+        int-arg => root.string-arg;
+        // compiler error! string argument cannot be converted to int
+        // string-arg => root.int-arg;
+        string-ret => root.int-ret;
+        // compiler error! string return type cannot be converted to int
+        // int-ret => root.string-ret;
+
+        // additional arguments will not be forwarded
+        args-3 => root.args-2;
+        // compiler error! root.args-3 requires 3 arguments but args-2 only has 2
+        // args-2 => root.args-3;
+
+        // purity constraints are respected
+        cb-pure => root.cb-pure;
+        cb-impure => root.cb-pure;
+        // compiler error! cannot forward pure callback to impure callback
+        // cb-pure => root.cb-impure;
+
+        // callbacks can be forwarded to functions
+        cb => root.fn;
+        // including built-in functions
+        abs => Math.abs;
     }
 }
 ```
