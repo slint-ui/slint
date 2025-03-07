@@ -6,52 +6,103 @@ import { HaText } from "./general/haText.slint";
 import { Api, WeatherData, WeatherCondition } from "../api.slint";
 
 export component Day inherits Rectangle {
-
+    width: 38px;
     in property <WeatherData> weather-data;
     in property <bool> highlight: false;
+    in property <float> scale: 1.0;
 
-    if highlight: Rectangle {
-        border-bottom-left-radius: Measurements.tile-radius;
-        border-top-left-radius: Measurements.tile-radius;
-        background: Palette.info-alternate-background;
+    Rectangle {
+        width: 48px;
+        height: 150px;
+        border-color: #ffffff;
+        border-width: 1px;
+        border-radius: self.width / 2;
+        opacity: 35%;
+        background: #241433;
     }
+
     VerticalLayout {
         alignment: center;
+        width: 38px;
+        spacing: 5px;
         HaText {
             text: weather-data.day;
             horizontal-alignment: center;
             color: Palette.info-foreground;
-            font-size: Style.icon-title-font-size;
+            font-size: Style.H4-font-size;
         }
 
-        if weather-data.condition == WeatherCondition.sunny: Image {
-            height: 25px;
-            source: @image-url("../images/sunny.png");
+        if weather-data.condition == WeatherCondition.sunny: Rectangle {
+            height: 38px;
+            Image {
+                source: @image-url("../images/weather/sunny.png");
+                width: 38px;
+            }
         }
-        if weather-data.condition == WeatherCondition.cloudy: Image {
-            height: 25px;
-            source: @image-url("../images/cloudy.png");
+        if weather-data.condition == WeatherCondition.rainy: Rectangle {
+            height: 38px;
+            Image {
+                source: @image-url("../images/weather/rainy.png");
+                width: 38px;
+            }
         }
-        if weather-data.condition == WeatherCondition.rainy: Image {
-            height: 25px;
-            source: @image-url("../images/rainy.png");
+        if weather-data.condition == WeatherCondition.cloudy: Rectangle {
+            height: 38px;
+            Image {
+                source: @image-url("../images/weather/cloudy.png");
+                width: 38px;
+            }
         }
 
-        HaText {
-            text: weather-data.temperature + "°C";
-            horizontal-alignment: center;
-            color: Palette.info-alternate-foreground;
-            font-size: Style.icon-title-font-size;
+        if weather-data.condition == WeatherCondition.sunny-cloudy: Rectangle {
+            height: 38px;
+            Image {
+                source: @image-url("../images/weather/sunny-cloudy.png");
+                width: 38px;
+            }
+        }
+
+        if weather-data.condition == WeatherCondition.sunny-rainy: Rectangle {
+            height: 38px;
+            Image {
+                source: @image-url("../images/weather/sunny-rainy.png");
+                width: 38px;
+            }
+        }
+        HorizontalLayout {
+            alignment: center;
+            HaText {
+                text: weather-data.temperature ;
+                horizontal-alignment: center;
+                color: Palette.info-foreground;
+                font-size: Style.H3-font-size;
+            }
+            Text {
+                text: "°C";
+                color: white;
+                font-size: 8px;
+            }
         }
     }
+
+
 }
 
-export component WeatherInfo inherits Info {
+export component WeatherInfo {
     in property <int> index;
+    property <length> margin: 16px;
+    in property <string> name;
+    in property <string> id;
+    in property <bool> full-screen: false;
+
     Rectangle {
         y: 1px;
+        width: parent.width - margin;
         height: parent.height - 2px;
+        background: black;
         HorizontalLayout {
+            alignment: center;
+            spacing: (root.width - margin - (38px * 5))/4;
             Day {
                 weather-data: Api.weather-forecast[0];
                 highlight: true;

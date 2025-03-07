@@ -63,6 +63,34 @@ export global AppState {
     }
     out property <string> default-font-family: "Poppins";
 
+    // Portrait values
+    property <float> margin: 36;
+    property <float> mini-width: ((1080 - (4 * margin)) / 3).floor();
+    property <float> big-width: ((1080 - (3 * margin)) / 2).floor();
+    property <float> mini-col2-x: (2 * margin) + mini-width;
+    property <float> mini-col3-x: (3 * margin) + mini-width * 2;
+    property <float> big-col2-x: (2 * margin) + big-width;
+    // page 1 layout
+    property <float> row1-y: 190;
+    property <float> row2-y: row1-y + mini-height + margin;
+    property <float> row3-y: row2-y + mini-height + margin;
+    property <float> row4-y: row3-y + big-height + margin;
+
+    // page 2 layout
+    property <float> row2-y2: row1-y + mega-height + margin;
+    property <float> row3-y2: row2-y2 + mini-height + margin;
+    property <float> row4-y2: row3-y2 + mini-height + margin;
+
+    // page 3 layout
+    property <float> row2-y3: row1-y + big-height + margin;
+    property <float> row3-y3: row2-y3 + mini-height + margin;
+    property <float> row4-y3: row3-y3 + mini-height + margin;
+
+
+    property <float> mini-height: 300;
+    property <float> big-height: 420;
+    property <float> mega-height: 500;
+
     out property <[{id: string, name: string, type: WidgetType }]> component-details: [
        { id: "lamp1", name: "His Nightstand", type: WidgetType.lamp },
        { id: "lamp2", name: "Her Nightstand", type: WidgetType.lamp },
@@ -84,7 +112,6 @@ export global AppState {
        { id: "overhead9",name: "Master Bedroom 4", type: WidgetType.overhead, },
        { id: "overhead10",name: "Office", type: WidgetType.overhead, },
        { id: "overhead11",name: "Basement", type: WidgetType.overhead, },
-       { id: "info1", name:"Date-Time",type: WidgetType.timeInfo },
        { id: "info2", name:"Weather",type: WidgetType.weatherInfo },
        { id: "info3", name:"Power Usage",type: WidgetType.powerInfo },
        { id: "graph1", name:"Humidity",type: WidgetType.graph },
@@ -103,9 +130,9 @@ export global AppState {
                { id: "lamp1", x: 890, y: 620, width: 140, height: 140, background: #ffbe00, visible: false },
                 { id: "lamp2", x: 890, y: 620, width: 140, height: 140, background: #ffbe00, visible: false },
                 { id: "lamp3", x: 890, y: 620, width: 140, height: 140, background: #ffbe00, visible: false },
-                { id: "lamp4", x: 36.41, y: 157, width: 435.0, height: 314.0, background: #ffbe00, visible: true },
-                { id: "lamp5", x: 507.41, y: 157, width: 435.0, height: 314.0, background: #ffbe00, visible: true },
-                { id: "lamp6", x: 978.41, y: 157, width: 435.0, height: 314.0, background: #ffbe00, visible: true },
+                { id: "lamp4", x: 36.41, y: 157, width: 435.0, height: 314.0, background: #ffbe00, visible: true, position: 0 },
+                { id: "lamp5", x: 507.41, y: 157, width: 435.0, height: 314.0, background: #ffbe00, visible: true, position: 1 },
+                { id: "lamp6", x: 978.41, y: 157, width: 435.0, height: 314.0, background: #ffbe00, visible: true, position: 2 },
                 { id: "lamp7", x: 915, y: 645.893, width: 89, height: 90, background: #ffbe00, visible: false },
                 { id: "appliance1", x: 890, y: 620, width: 140, height: 140, background: #b5b5b5, visible: false },
                 { id: "appliance2", x: 890, y: 620, width: 140, height: 140, background: #b5b5b5, visible: false },
@@ -120,8 +147,7 @@ export global AppState {
                 { id: "overhead9", x: 915, y: 645, width: 89, height: 89, background: #fff291, visible: false },
                 { id: "overhead10", x: 915, y: 645, width: 89, height: 89, background: #fff291, visible: false },
                 { id: "overhead11", x: 915, y: 645, width: 89, height: 89, background: #fff291, visible: false },
-                { id: "info1", x: 1449.41, y: 854, width: 435.0, height: 121.0, background: #00acff, visible: true },
-                { id: "info2", x: 1449.41, y: 507, width: 435.0, height: 471.0, background: #00acff, visible: true },
+                { id: "info2", x: 1449.41, y: 507, width: 435.0, height: 471.0, background: #00acff, visible: true, position: 3 },
                 { id: "info3", x: 1449.41, y: 540, width: 435.0, height: 121.0, background: #00acff, visible: false },
                 { id: "graph1", x: 890, y: 620, width: 140, height: 140, background: #ba00ff, visible: false },
                 { id: "graph2", x: 864.674, y: 620, width: 191.473, height: 140, background: #ba00ff, visible: false },
@@ -156,7 +182,6 @@ export global AppState {
                 { id: "overhead9", x: 452, y: 420, width: 77, height: 77, background: #fff291, visible: false },
                 { id: "overhead10", x: 452, y: 420, width: 77, height: 77, background: #fff291, visible: false },
                 { id: "overhead11", x: 452, y: 420, width: 77, height: 77, background: #fff291, visible: false },
-                { id: "info1", x: 978, y: 700, width: 435.0, height: 121.0, background: #00acff, visible: true },
                 { id: "info2", x: 978, y: 664, width: 435.0, height: 314.0, background: #00acff, visible: true },
                 { id: "info3", x: 430, y: 442.217, width: 121.0, height: 33.657, background: #00acff, visible: false },
                 { id: "graph1", x: 978, y: 157, width: 435.0, height: 507.0, background: #ba00ff, visible: true },
@@ -192,7 +217,6 @@ export global AppState {
                 { id: "overhead9", x: 821.86, y: 157, width: 275, height: 152, background: #fff291, visible: true },
                 { id: "overhead10", x: 871.882, y: 706.356, width: 67, height: 67, background: #fff291, visible: false },
                 { id: "overhead11", x: 871.882, y: 706.356, width: 67, height: 67, background: #fff291, visible: false },
-                { id: "info1", x: 880, y: 733, width: 49.0, height: 13.63, background: #00acff, visible: false },
                 { id: "info2", x: 880, y: 733, width: 49.0, height: 13.63, background: #00acff, visible: false },
                 { id: "info3", x: 852, y: 725.318, width: 105, height: 29.227, background: #00acff, visible: false },
                 { id: "graph1", x: 773.46, y: 507, width: 435.0, height: 435.0, background: #ba00ff, visible: false },
@@ -228,9 +252,8 @@ export global AppState {
                 { id: "overhead9", x: 797, y: 441, width: 275, height: 121.0, background: #fff291, visible: false },
                 { id: "overhead10", x: 350, y: 157, width: 278.0, height: 278.0, background: #fff291, visible: true },
                 { id: "overhead11", x: 883, y: 561.156, width: 67, height: 67, background: #fff291, visible: false },
-                { id: "info1", x: 892.89, y: 587.916, width: 49.0, height: 13.63, background: #00acff, visible: false },
-                { id: "info2", x: 660.558, y: 314, width: 753, height: 121.0, background: #00acff, visible: true },
-                { id: "info3", x: 660.558, y: 157, width: 753, height: 121.0, background: #00acff, visible: true },
+                { id: "info2", x: 660.558, y: 157, width: 753, height: 278.0, background: #00acff, visible: true },
+                { id: "info3", x: 660.558, y: 157, width: 753, height: 121.0, background: #00acff, visible: false },
                 { id: "graph1", x: 652, y: 362, width: 435.0, height: 435.0, background: #ba00ff, visible: false },
                 { id: "graph2", x: 845.894, y: 542, width: 142.994, height: 105, background: #ba00ff, visible: false },
                 { id: "control1", x: 1449.86, y: 157, width: 435.0, height: 820.0, background: #00bf1d, visible: true },
@@ -264,7 +287,6 @@ export global AppState {
                 { id: "overhead9", x: 836.464, y: 752, width: 67, height: 67, background: #fff291, visible: false },
                 { id: "overhead10", x: 836.464, y: 752, width: 67, height: 67, background: #fff291, visible: false },
                 { id: "overhead11", x: 836.464, y: 752, width: 67, height: 67, background: #fff291, visible: false },
-                { id: "info1", x: 817.457, y: 771.096, width: 105.326, height: 29.297, background: #00acff, visible: false },
                 { id: "info2", x: 817.457, y: 771.096, width: 105.326, height: 29.297, background: #00acff, visible: false },
                 { id: "info3", x: 817.457, y: 771.096, width: 105.326, height: 29.297, background: #00acff, visible: false },
                 { id: "graph1", x: 817.457, y: 733.082, width: 105.326, height: 105.326, background: #ba00ff, visible: false },
@@ -300,7 +322,6 @@ export global AppState {
                 { id: "overhead9", x: 943.892, y: 655.553, width: 44, height: 44, background: #fff291, visible: false },
                 { id: "overhead10", x: 943.892, y: 655.553, width: 44, height: 44, background: #fff291, visible: false },
                 { id: "overhead11", x: 943.892, y: 655.553, width: 44, height: 44, background: #fff291, visible: false },
-                { id: "info1", x: 931.21, y: 668.234, width: 70, height: 19.547, background: #00acff, visible: false },
                 { id: "info2", x: 931.21, y: 668.234, width: 70, height: 19.547, background: #00acff, visible: false },
                 { id: "info3", x: 931.21, y: 668.234, width: 70, height: 19.547, background: #00acff, visible: false },
                 { id: "graph1", x: 931.21, y: 642.871, width: 70, height: 70, background: #ba00ff, visible: false },
@@ -336,7 +357,6 @@ export global AppState {
                 { id: "overhead9", x: 36.991, y: 543, width: 434.223, height: 157.0, background: #fff291, visible: true },
                 { id: "overhead10", x: 507.215, y: 543, width: 435.0, height: 157.0, background: #fff291, visible: true },
                 { id: "overhead11", x: 978.215, y: 543, width: 435.0, height: 157.0, background: #fff291, visible: true },
-                { id: "info1", x: 816.952, y: 771.096, width: 105.326, height: 29.297, background: #00acff, visible: false },
                 { id: "info2", x: 816.952, y: 771.096, width: 105.326, height: 29.297, background: #00acff, visible: false },
                 { id: "info3", x: 816.952, y: 771.096, width: 105.326, height: 29.297, background: #00acff, visible: false },
                 { id: "graph1", x: 816.952, y: 733.082, width: 105.326, height: 105.326, background: #ba00ff, visible: false },
@@ -372,7 +392,6 @@ export global AppState {
                 { id: "overhead9", x: 915.736, y: 646.241, width: 89, height: 89, background: #fff291, visible: false },
                 { id: "overhead10", x: 915.736, y: 646.241, width: 89, height: 89, background: #fff291, visible: false },
                 { id: "overhead11", x: 915.736, y: 646.241, width: 89, height: 89, background: #fff291, visible: false },
-                { id: "info1", x: 36, y: 157, width: 592.0, height: 121.0, background: #00acff, visible: false },
                 { id: "info2", x: 664, y: 157, width: 592.0, height: 121.0, background: #00acff, visible: false },
                 { id: "info3", x: 1292.69, y: 157, width: 592.0, height: 121.0, background: #00acff, visible: false },
                 { id: "graph1", x: 890.347, y: 620.851, width: 140, height: 140, background: #ba00ff, visible: false },
@@ -408,7 +427,6 @@ export global AppState {
                 { id: "overhead9", x: 915.899, y: 646.241, width: 89, height: 89, background: #fff291, visible: false },
                 { id: "overhead10", x: 915.899, y: 646.241, width: 89, height: 89, background: #fff291, visible: false },
                 { id: "overhead11", x: 915.899, y: 646.241, width: 89, height: 89, background: #fff291, visible: false },
-                { id: "info1", x: 36.856, y: 157, width: 592.0, height: 121.0, background: #00acff, visible: true },
                 { id: "info2", x: 36.856, y: 314, width: 592.0, height: 121.0, background: #00acff, visible: true },
                 { id: "info3", x: 36.856, y: 471, width: 592.0, height: 121.0, background: #00acff, visible: true },
                 { id: "graph1", x: 890.509, y: 620.851, width: 140, height: 140, background: #ba00ff, visible: false },
@@ -444,7 +462,6 @@ export global AppState {
                 { id: "overhead9", x: 915.074, y: 646.241, width: 89, height: 89, background: #fff291, visible: false },
                 { id: "overhead10", x: 915.074, y: 646.241, width: 89, height: 89, background: #fff291, visible: false },
                 { id: "overhead11", x: 915.074, y: 646.241, width: 89, height: 89, background: #fff291, visible: false },
-                { id: "info1", x: 36.031, y: 157, width: 592.0, height: 121.0, background: #00acff, visible: false },
                 { id: "info2", x: 664.031, y: 157, width: 592.0, height: 121.0, background: #00acff, visible: false },
                 { id: "info3", x: 1292.03, y: 157, width: 592.0, height: 121.0, background: #00acff, visible: false },
                 { id: "graph1", x: 36.031, y: 157, width: 435.0, height: 471.0, background: #ba00ff, visible: true },
@@ -459,33 +476,7 @@ export global AppState {
             },
     ];
 
-    // Portrait values
-    property <float> margin: 36;
-    property <float> mini-width: ((1080 - (4 * margin)) / 3).floor();
-    property <float> big-width: ((1080 - (3 * margin)) / 2).floor();
-    property <float> mini-col2-x: (2 * margin) + mini-width;
-    property <float> mini-col3-x: (3 * margin) + mini-width * 2;
-    property <float> big-col2-x: (2 * margin) + big-width;
-    // page 1 layout
-    property <float> row1-y: 190;
-    property <float> row2-y: row1-y + mini-height + margin;
-    property <float> row3-y: row2-y + mini-height + margin;
-    property <float> row4-y: row3-y + big-height + margin;
-
-    // page 2 layout
-    property <float> row2-y2: row1-y + mega-height + margin;
-    property <float> row3-y2: row2-y2 + mini-height + margin;
-    property <float> row4-y2: row3-y2 + mini-height + margin;
-
-    // page 3 layout
-    property <float> row2-y3: row1-y + big-height + margin;
-    property <float> row3-y3: row2-y3 + mini-height + margin;
-    property <float> row4-y3: row3-y3 + mini-height + margin;
-
-
-    property <float> mini-height: 300;
-    property <float> big-height: 420;
-    property <float> mega-height: 500;
+    
 
     out property <[DataGroup]> pageDataPortrait: [
         {
@@ -511,7 +502,6 @@ export global AppState {
                 { id: "overhead9", x: 915, y: 645, width: 89, height: 89, background: #fff291, visible: false },
                 { id: "overhead10", x: 915, y: 645, width: 89, height: 89, background: #fff291, visible: false },
                 { id: "overhead11", x: 915, y: 645, width: 89, height: 89, background: #fff291, visible: false },
-                { id: "info1", x: 1449.41, y: 854, width: 435.0, height: 121.0, background: #00acff, visible: true },
                 { id: "info2", x: big-col2-x, y: row4-y, width: big-width, height: big-height, background: #00acff, visible: true, position: 7 },
                 { id: "info3", x: 1449.41, y: 540, width: 435.0, height: 121.0, background: #00acff, visible: false },
                 { id: "graph1", x: 890, y: 620, width: 140, height: 140, background: #ba00ff, visible: false },
@@ -547,7 +537,6 @@ export global AppState {
                 { id: "overhead9", x: 452, y: 420, width: 77, height: 77, background: #fff291, visible: false },
                 { id: "overhead10", x: 452, y: 420, width: 77, height: 77, background: #fff291, visible: false },
                 { id: "overhead11", x: 452, y: 420, width: 77, height: 77, background: #fff291, visible: false },
-                { id: "info1", x: 978, y: 700, width: 435.0, height: 121.0, background: #00acff, visible: true },
                 { id: "info2", x: margin, y: row4-y2, width: big-width, height: mini-height, background: #00acff, visible: true, position: 6 },
                 { id: "info3", x: 430, y: 442.217, width: 121.0, height: 33.657, background: #00acff, visible: false },
                 { id: "graph1", x: 978, y: 157, width: 435.0, height: 507.0, background: #ba00ff, visible: false },
@@ -583,7 +572,6 @@ export global AppState {
                 { id: "overhead9", x: mini-col3-x, y: row3-y3, width: mini-width, height: mini-height, background: #fff291, visible: true, position: 7 },
                 { id: "overhead10", x: 871.882, y: 706.356, width: 67, height: 67, background: #fff291, visible: false },
                 { id: "overhead11", x: 871.882, y: 706.356, width: 67, height: 67, background: #fff291, visible: false },
-                { id: "info1", x: 880, y: 733, width: 49.0, height: 13.63, background: #00acff, visible: false },
                 { id: "info2", x: 880, y: 733, width: 49.0, height: 13.63, background: #00acff, visible: false },
                 { id: "info3", x: 852, y: 725.318, width: 105, height: 29.227, background: #00acff, visible: false },
                 { id: "graph1", x: 773.46, y: 507, width: 435.0, height: 435.0, background: #ba00ff, visible: false },
@@ -619,7 +607,6 @@ export global AppState {
                 { id: "overhead9", x: 797, y: 441, width: 275, height: 121.0, background: #fff291, visible: false },
                 { id: "overhead10", x: 350, y: 157, width: 278.0, height: 278.0, background: #fff291, visible: true },
                 { id: "overhead11", x: 883, y: 561.156, width: 67, height: 67, background: #fff291, visible: false },
-                { id: "info1", x: 892.89, y: 587.916, width: 49.0, height: 13.63, background: #00acff, visible: false },
                 { id: "info2", x: 660.558, y: 314, width: 753, height: 121.0, background: #00acff, visible: true },
                 { id: "info3", x: 660.558, y: 157, width: 753, height: 121.0, background: #00acff, visible: true },
                 { id: "graph1", x: 652, y: 362, width: 435.0, height: 435.0, background: #ba00ff, visible: false },
@@ -655,7 +642,6 @@ export global AppState {
                 { id: "overhead9", x: 836.464, y: 752, width: 67, height: 67, background: #fff291, visible: false },
                 { id: "overhead10", x: 836.464, y: 752, width: 67, height: 67, background: #fff291, visible: false },
                 { id: "overhead11", x: 836.464, y: 752, width: 67, height: 67, background: #fff291, visible: false },
-                { id: "info1", x: 817.457, y: 771.096, width: 105.326, height: 29.297, background: #00acff, visible: false },
                 { id: "info2", x: 817.457, y: 771.096, width: 105.326, height: 29.297, background: #00acff, visible: false },
                 { id: "info3", x: 817.457, y: 771.096, width: 105.326, height: 29.297, background: #00acff, visible: false },
                 { id: "graph1", x: 817.457, y: 733.082, width: 105.326, height: 105.326, background: #ba00ff, visible: false },
@@ -691,7 +677,6 @@ export global AppState {
                 { id: "overhead9", x: 943.892, y: 655.553, width: 44, height: 44, background: #fff291, visible: false },
                 { id: "overhead10", x: 943.892, y: 655.553, width: 44, height: 44, background: #fff291, visible: false },
                 { id: "overhead11", x: 943.892, y: 655.553, width: 44, height: 44, background: #fff291, visible: false },
-                { id: "info1", x: 931.21, y: 668.234, width: 70, height: 19.547, background: #00acff, visible: false },
                 { id: "info2", x: 931.21, y: 668.234, width: 70, height: 19.547, background: #00acff, visible: false },
                 { id: "info3", x: 931.21, y: 668.234, width: 70, height: 19.547, background: #00acff, visible: false },
                 { id: "graph1", x: 931.21, y: 642.871, width: 70, height: 70, background: #ba00ff, visible: false },
@@ -727,7 +712,6 @@ export global AppState {
                 { id: "overhead9", x: 36.991, y: 543, width: 434.223, height: 157.0, background: #fff291, visible: true },
                 { id: "overhead10", x: 507.215, y: 543, width: 435.0, height: 157.0, background: #fff291, visible: true },
                 { id: "overhead11", x: 978.215, y: 543, width: 435.0, height: 157.0, background: #fff291, visible: true },
-                { id: "info1", x: 816.952, y: 771.096, width: 105.326, height: 29.297, background: #00acff, visible: false },
                 { id: "info2", x: 816.952, y: 771.096, width: 105.326, height: 29.297, background: #00acff, visible: false },
                 { id: "info3", x: 816.952, y: 771.096, width: 105.326, height: 29.297, background: #00acff, visible: false },
                 { id: "graph1", x: 816.952, y: 733.082, width: 105.326, height: 105.326, background: #ba00ff, visible: false },
@@ -763,7 +747,6 @@ export global AppState {
                 { id: "overhead9", x: 915.736, y: 646.241, width: 89, height: 89, background: #fff291, visible: false },
                 { id: "overhead10", x: 915.736, y: 646.241, width: 89, height: 89, background: #fff291, visible: false },
                 { id: "overhead11", x: 915.736, y: 646.241, width: 89, height: 89, background: #fff291, visible: false },
-                { id: "info1", x: 36, y: 157, width: 592.0, height: 121.0, background: #00acff, visible: false },
                 { id: "info2", x: 664, y: 157, width: 592.0, height: 121.0, background: #00acff, visible: false },
                 { id: "info3", x: 1292.69, y: 157, width: 592.0, height: 121.0, background: #00acff, visible: false },
                 { id: "graph1", x: 890.347, y: 620.851, width: 140, height: 140, background: #ba00ff, visible: false },
@@ -799,7 +782,6 @@ export global AppState {
                 { id: "overhead9", x: 915.899, y: 646.241, width: 89, height: 89, background: #fff291, visible: false },
                 { id: "overhead10", x: 915.899, y: 646.241, width: 89, height: 89, background: #fff291, visible: false },
                 { id: "overhead11", x: 915.899, y: 646.241, width: 89, height: 89, background: #fff291, visible: false },
-                { id: "info1", x: 36.856, y: 157, width: 592.0, height: 121.0, background: #00acff, visible: true },
                 { id: "info2", x: 36.856, y: 314, width: 592.0, height: 121.0, background: #00acff, visible: true },
                 { id: "info3", x: 36.856, y: 471, width: 592.0, height: 121.0, background: #00acff, visible: true },
                 { id: "graph1", x: 890.509, y: 620.851, width: 140, height: 140, background: #ba00ff, visible: false },
@@ -835,7 +817,6 @@ export global AppState {
                 { id: "overhead9", x: 915.074, y: 646.241, width: 89, height: 89, background: #fff291, visible: false },
                 { id: "overhead10", x: 915.074, y: 646.241, width: 89, height: 89, background: #fff291, visible: false },
                 { id: "overhead11", x: 915.074, y: 646.241, width: 89, height: 89, background: #fff291, visible: false },
-                { id: "info1", x: 36.031, y: 157, width: 592.0, height: 121.0, background: #00acff, visible: false },
                 { id: "info2", x: 664.031, y: 157, width: 592.0, height: 121.0, background: #00acff, visible: false },
                 { id: "info3", x: 1292.03, y: 157, width: 592.0, height: 121.0, background: #00acff, visible: false },
                 { id: "graph1", x: 36.031, y: 157, width: 435.0, height: 471.0, background: #ba00ff, visible: true },
