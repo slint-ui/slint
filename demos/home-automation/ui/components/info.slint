@@ -9,6 +9,7 @@ export component Info {
     in property <string> name;
     in property <string> id;
     in property <bool> full-screen: false;
+    @children
 
     if AppState.is-hardware-accelerated : Rectangle {
         border-width: 3px;
@@ -23,6 +24,5 @@ export component Info {
         height: parent.height + 34px;
         source: @image-url("../images/info-frame.png", nine-slice(30 50 35 30));
     }
-    @children
 
 }
