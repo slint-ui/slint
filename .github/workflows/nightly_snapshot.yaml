@@ -724,4 +724,4 @@ jobs:
                     target/release/apk/energy-monitor.apk
                     target/release/apk/todo_lib.apk
                     target/release/apk/weather_demo.apk
-                    target/release/apk/usecases.apk
+                    target/release/apk/usecases_lib.apk
