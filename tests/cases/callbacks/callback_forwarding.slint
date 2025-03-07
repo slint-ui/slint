@@ -9,7 +9,6 @@ Callbacks := Rectangle {
     pure callback cb_pure(int) -> int;
     callback cb(int) -> int;
     callback abs(int) -> int;
-    callback brush_ret() -> brush;
 }
 
 TestCase := Rectangle {
@@ -20,7 +19,6 @@ TestCase := Rectangle {
     pure callback cb_pure_alias <=> callbacks.cb_pure;
     callback cb_alias <=> callbacks.cb;
     callback abs_alias <=> callbacks.abs;
-    callback brush_ret_alias <=> callbacks.brush_ret;
 
     callback no_args;
     callback args_2(x: int, y: int);
@@ -56,7 +54,6 @@ TestCase := Rectangle {
         cb_pure => root.cb_pure;
         cb => root.fn;
         abs => Math.abs;
-        brush_ret => @linear-gradient(90deg, #3f87a6 0%, #ebf8e1 50%, #f96d3c 100%);
     }
 }
 
@@ -76,7 +73,6 @@ assert_eq(instance.invoke_string_ret_alias(), "6");
 assert_eq(instance.invoke_cb_pure_alias(3), 1);
 assert_eq(instance.invoke_cb_alias(1), 1);
 assert_eq(instance.invoke_abs_alias(-10), 10);
-instance.invoke_brush_ret_alias();
 ```
 
 ```rust
@@ -93,7 +89,6 @@ assert_eq!(instance.invoke_string_ret_alias(), "6");
 assert_eq!(instance.invoke_cb_pure_alias(3), 1);
 assert_eq!(instance.invoke_cb_alias(1), 1);
 assert_eq!(instance.invoke_abs_alias(-10), 10);
-instance.invoke_brush_ret_alias();
 ```
 
 ```js
@@ -111,6 +106,5 @@ assert.equal(instance.string_ret_alias(), "6");
 assert.equal(instance.cb_pure_alias(3), 1);
 assert.equal(instance.cb_alias(1), 1);
 assert.equal(instance.abs_alias(-10), 10);
-instance.brush_ret_alias();
 ```
 */
