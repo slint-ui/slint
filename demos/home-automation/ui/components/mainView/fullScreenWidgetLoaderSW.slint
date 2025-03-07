@@ -28,6 +28,7 @@ export component FullScreenWidgetLoaderSW {
     y: data.y * AppState.y-scale * 1px;
     width: data.width * AppState.x-scale * 1px;
     height: data.height * AppState.y-scale * 1px;
+    visible: AppState.full-screen-index != -1;
 
     // Use the correct component based on type
     if root.type == WidgetType.lamp: Lamp {
