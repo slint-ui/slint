@@ -3,6 +3,8 @@
 
 Base := Rectangle {
     callback blah;
+    function private_fn() {}
+    public function public_fn() {}
 }
 
 export SubElements := Rectangle {
@@ -23,6 +25,9 @@ export SubElements := Rectangle {
     callback int_arg(bool, int);
 
     callback abs(int) -> int;
+    pure callback cb_pure();
+
+    foo := Base {}
 
     TouchArea {
         clicked => { foobar() }
@@ -33,8 +38,17 @@ export SubElements := Rectangle {
     }
 
     TouchArea {
-        clicked => callback_with_arg;
-//      ^error{Cannot forward callback with 0 arguments to callback or function with 2 arguments}
+        clicked => 3 + 3;
+//                 ^error{The expression in a callback forwarding must be a callback/function reference}
+    }
+
+    TouchArea {
+        clicked => foo.public_fn;
+    }
+
+    TouchArea {
+        clicked => foo.private_fn;
+//                     ^error{The function 'private_fn' is private. Annotate it with 'public' to make it accessible from other components}
     }
 
     TouchArea {
@@ -104,4 +118,8 @@ export SubElements := Rectangle {
     int_arg => string_arg;
 
     abs => Math.abs;
-}
+
+    cb_pure => foobar;
+//  ^warning{Call of impure callback 'foobar'}
+
+} 
