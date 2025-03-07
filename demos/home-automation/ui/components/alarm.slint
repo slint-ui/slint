@@ -94,7 +94,7 @@ export component Alarm inherits Control {
                         opacity: 1;
                         in {
                             animate opacity {
-                                duration: 300ms;
+                                duration: Animation.full-screen-duration;
                                 easing: ease-in-out-sine;
                             }
                         }
@@ -103,7 +103,7 @@ export component Alarm inherits Control {
                         opacity: 0;
                         in {
                             animate opacity {
-                                duration: 300ms;
+                                duration: Animation.full-screen-duration;
                                 easing: ease-in-out-sine;
                             }
                         }
@@ -214,10 +214,6 @@ export component Alarm inherits Control {
                 width: 95%;
                 height: self.preferred-height;
                 background: Palette.music-gradient.transparentize(0.2);
-                animate height {
-                    duration: 1000ms;
-                    easing: ease-in-out-sine;
-                }
                 HorizontalLayout {
                     alignment: space-around;
                     padding-top: 8px;
