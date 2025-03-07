@@ -14,11 +14,10 @@ export component Day inherits Rectangle {
     Rectangle {
         width: 48px;
         height: 150px;
-        border-color: #ffffff;
-        border-width: 1px;
+        border-color: #ffffff4a;
+        border-width: highlight ? 2px : 1px;
         border-radius: self.width / 2;
-        opacity: 35%;
-        background: #241433;
+        background: highlight ? #2e1248 : #241433;
     }
 
     VerticalLayout {
@@ -99,7 +98,7 @@ export component WeatherInfo {
         y: 1px;
         width: parent.width - margin;
         height: parent.height - 2px;
-        background: black;
+        // background: black;
         HorizontalLayout {
             alignment: center;
             spacing: (root.width - margin - (38px * 5))/4;
