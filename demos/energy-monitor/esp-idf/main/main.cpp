@@ -1,14 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-#include "../../cpp/main.cpp"
-
 #include "slint-esp.h"
-#include <ctime>
-#include <memory>
-
 #include <slint-platform.h>
-
 #include <bsp/display.h>
 #include <bsp/esp-bsp.h>
 #include <bsp/touch.h>
@@ -18,6 +12,7 @@
 #include "nvs_flash.h"
 #include "nvs.h"
 #include "nvs_handle.hpp"
+#include "desktop_window.h"
 
 using RenderingRotation = slint::platform::SoftwareRenderer::RenderingRotation;
 
@@ -127,5 +122,6 @@ extern "C" void app_main(void)
             .rotation = rotation,
     });
 
-    run();
+    auto ui = MainWindow::create();
+    ui->run();
 }

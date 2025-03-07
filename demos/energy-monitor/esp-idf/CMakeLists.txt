@@ -12,4 +12,4 @@ set(SLINT_STYLE "cosmic-light" CACHE STRING "Style for demo" FORCE)
 
 add_compile_options(-fdiagnostics-color=always)
 
-project(slint_esp_usecases_mcu LANGUAGES CXX)
+project(energy-monitor LANGUAGES CXX)
