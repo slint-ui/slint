@@ -68,8 +68,7 @@ RenderingRotation read_rotation()
 
 extern "C" void app_main(void)
 {
-    RenderingRotation rotation = read_rotation();
-    rotation = RenderingRotation::Rotate90;
+    const RenderingRotation rotation = read_rotation();
 
     bool swap_xy =
             rotation == RenderingRotation::Rotate90 || rotation == RenderingRotation::Rotate270;

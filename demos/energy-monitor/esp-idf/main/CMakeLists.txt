@@ -9,5 +9,5 @@ idf_component_register(
     PRIV_REQUIRES esp_lcd_touch_gt911 nvs_flash app_update
 )
 
-slint_target_sources(${COMPONENT_LIB} ../../ui/app.slint COMPILATION_UNITS 20)
+slint_target_sources(${COMPONENT_LIB} ../../ui/desktop_window.slint COMPILATION_UNITS 20)
 target_link_options(${COMPONENT_LIB} PUBLIC -Wl,--allow-multiple-definition)

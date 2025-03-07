@@ -7,7 +7,7 @@ export component Launcher inherits Window {
     callback launch(int);
     in-out property <int> orientation;
     VerticalBox {
-        for demo[i] in ["Use cases", "Home Automation"]: Button {
+        for demo[i] in ["Use Cases", "Home Automation", "Energy Monitor"]: Button {
             text: demo;
             clicked => {
                 launch(i);

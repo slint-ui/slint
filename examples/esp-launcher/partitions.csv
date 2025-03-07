@@ -9,4 +9,6 @@ factory,    app,  factory, 0x100000,   2M,
 ota_0,      app,  ota_0,   0x300000,   2M,
 # home-automation
 ota_1,      app,  ota_1,   0x500000,   5M,
+# energy monitor
+ota_2,      app,  ota_2,   0xa00000,   2M,
 
