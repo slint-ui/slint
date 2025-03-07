@@ -279,6 +279,10 @@ impl Expression {
             let sl = qn.last_token().unwrap().to_source_location();
             (lookup_qualified_name_node(qn, ctx, LookupPhase::default()), sl)
         } else {
+            ctx.diag.push_error(
+                "The expression in a callback forwarding must be a callback/function reference".into(),
+                &node.Expression(),
+            );
             return Self::Invalid;
         };
         let Some(function) = function else {
