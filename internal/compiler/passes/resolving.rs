@@ -280,7 +280,8 @@ impl Expression {
             (lookup_qualified_name_node(qn, ctx, LookupPhase::default()), sl)
         } else {
             ctx.diag.push_error(
-                "The expression in a callback forwarding must be a callback/function reference".into(),
+                "The expression in a callback forwarding must be a callback/function reference"
+                    .into(),
                 &node.Expression(),
             );
             return Self::Invalid;

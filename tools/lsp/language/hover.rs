@@ -248,11 +248,11 @@ export component Test {
         );
         assert_tooltip(
             get_tooltip(&mut dc, find_tk("xyz =>", 0.into())),
-            "```slint\ncallback xyz(string, int)\n```"
+            "```slint\ncallback xyz(string, int)\n```",
         );
         assert_tooltip(
             get_tooltip(&mut dc, find_tk("=> uvw;", 3.into())),
-            "```slint\ncallback uvw(string, int)\n```"
+            "```slint\ncallback uvw(string, int)\n```",
         );
         // functions
         assert_tooltip(
