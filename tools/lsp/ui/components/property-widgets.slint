@@ -1290,7 +1290,7 @@ export component PreviewDataPropertyValueWidget inherits VerticalLayout {
             debug("edit-in-spreadsheet TRIGGERED: ", property-group-name, data, values);
         }
     }
-    if root.preview-data.kind == PreviewDataKind.Json: EditJsonWidget {
+    if root.preview-data.kind == PreviewDataKind.Json || (root.preview-data.kind == PreviewDataKind.Table && true): EditJsonWidget {
         enabled: root.preview-data.has-setter;
         property-name: root.preview-data.name;
         property-value <=> root.value;
