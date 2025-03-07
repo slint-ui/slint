@@ -198,9 +198,7 @@ pub(super) fn draw_texture_line(
                     if alpha == 0xff {
                         *pix = TargetPixel::from_rgb(p[0], p[1], p[2]);
                     } else {
-                        pix.blend(PremultipliedRgbaColor::premultiply(Color::from_argb_u8(
-                            alpha, p[0], p[1], p[2],
-                        )))
+                        pix.blend(Color::from_argb_u8(alpha, p[0], p[1], p[2]).into())
                     }
                 }
             }
@@ -209,25 +207,17 @@ pub(super) fn draw_texture_line(
                     for pix in line_buffer {
                         let pos = pos(4).0;
                         let alpha = ((data[pos + 3] as u16 * alpha as u16) / 255) as u8;
-                        let c = PremultipliedRgbaColor::premultiply(Color::from_argb_u8(
-                            alpha,
-                            data[pos + 0],
-                            data[pos + 1],
-                            data[pos + 2],
-                        ));
-                        pix.blend(c);
+                        let c =
+                            Color::from_argb_u8(alpha, data[pos + 0], data[pos + 1], data[pos + 2]);
+                        pix.blend(c.into());
                     }
                 } else {
                     for pix in line_buffer {
                         let pos = pos(4).0;
                         let alpha = ((data[pos + 3] as u16 * alpha as u16) / 255) as u8;
-                        let c = PremultipliedRgbaColor::premultiply(Color::from_argb_u8(
-                            alpha,
-                            color.red(),
-                            color.green(),
-                            color.blue(),
-                        ));
-                        pix.blend(c);
+                        let c =
+                            Color::from_argb_u8(alpha, color.red(), color.green(), color.blue());
+                        pix.blend(c.into());
                     }
                 }
             }
@@ -235,13 +225,13 @@ pub(super) fn draw_texture_line(
                 if color.alpha() > 0 {
                     for pix in line_buffer {
                         let pos = pos(4).0;
-                        let c = PremultipliedRgbaColor::premultiply(Color::from_argb_u8(
+                        let c = Color::from_argb_u8(
                             ((data[pos + 3] as u16 * alpha as u16) / 255) as u8,
                             color.red(),
                             color.green(),
                             color.blue(),
-                        ));
-                        pix.blend(c);
+                        );
+                        pix.blend(c.into());
                     }
                 } else if alpha == 0xff {
                     for pix in line_buffer {
@@ -252,7 +242,7 @@ pub(super) fn draw_texture_line(
                             green: data[pos + 1],
                             blue: data[pos + 2],
                         };
-                        pix.blend(c);
+                        pix.blend(c.into());
                     }
                 } else {
                     for pix in line_buffer {
@@ -263,20 +253,20 @@ pub(super) fn draw_texture_line(
                             green: (data[pos + 1] as u16 * alpha as u16 / 255) as u8,
                             blue: (data[pos + 2] as u16 * alpha as u16 / 255) as u8,
                         };
-                        pix.blend(c);
+                        pix.blend(c.into());
                     }
                 }
             }
             TexturePixelFormat::AlphaMap => {
                 for pix in line_buffer {
                     let pos = pos(1).0;
-                    let c = PremultipliedRgbaColor::premultiply(Color::from_argb_u8(
+                    let c = Color::from_argb_u8(
                         ((data[pos] as u16 * alpha as u16) / 255) as u8,
                         color.red(),
                         color.green(),
                         color.blue(),
-                    ));
-                    pix.blend(c);
+                    );
+                    pix.blend(c.into());
                 }
             }
             TexturePixelFormat::SignedDistanceField => {
@@ -296,13 +286,13 @@ pub(super) fn draw_texture_line(
                         debug_assert_eq!(row_f, 0);
                     }
                     let a = ((((dist >> 8) * factor) >> 16) + 128).clamp(0, 255) * alpha as i32;
-                    let c = PremultipliedRgbaColor::premultiply(Color::from_argb_u8(
+                    let c = Color::from_argb_u8(
                         (a / 255) as u8,
                         color.red(),
                         color.green(),
                         color.blue(),
-                    ));
-                    pix.blend(c);
+                    );
+                    pix.blend(c.into());
                 }
             }
         };
@@ -430,7 +420,7 @@ pub(super) fn draw_rounded_rectangle_line(
                 green: (((c.green as u32) * cov as u32) / 255) as u8,
                 blue: (((c.blue as u32) * cov as u32) / 255) as u8,
             };
-            line_buffer[x].blend(col);
+            line_buffer[x].blend(col.into());
         },
     );
     if y < rr.width {
@@ -467,7 +457,7 @@ pub(super) fn draw_rounded_rectangle_line(
                         return;
                     }
                     let col = interpolate_color(cov, rr.border_color, rr.inner_color);
-                    line_buffer[x].blend(col);
+                    line_buffer[x].blend(col.into());
                 },
             );
         }
@@ -492,7 +482,7 @@ pub(super) fn draw_rounded_rectangle_line(
                     return;
                 }
                 let col = interpolate_color(cov, rr.inner_color, rr.border_color);
-                line_buffer[x].blend(col)
+                line_buffer[x].blend(col.into())
             });
             // 7. border x6 .. x7
             if ONE + x6 <= x7 {
@@ -515,7 +505,7 @@ pub(super) fn draw_rounded_rectangle_line(
             green: (((c.green as u32) * (255 - cov) as u32) / 255) as u8,
             blue: (((c.blue as u32) * (255 - cov) as u32) / 255) as u8,
         };
-        line_buffer[x].blend(col);
+        line_buffer[x].blend(col.into());
     });
 }
 
@@ -640,12 +630,15 @@ pub(super) fn draw_gradient_line(
         })
     } else {
         for pix in buffer {
-            pix.blend(PremultipliedRgbaColor {
-                red: (r >> 15) as u8,
-                green: (g >> 15) as u8,
-                blue: (b >> 15) as u8,
-                alpha: (a >> 15) as u8,
-            });
+            pix.blend(
+                PremultipliedRgbaColor {
+                    red: (r >> 15) as u8,
+                    green: (g >> 15) as u8,
+                    blue: (b >> 15) as u8,
+                    alpha: (a >> 15) as u8,
+                }
+                .into(),
+            );
             r = r.wrapping_add(dr as _);
             g = g.wrapping_add(dg as _);
             b = b.wrapping_add(db as _);
@@ -694,15 +687,19 @@ impl PremultipliedRgbaColor {
 
 /// Trait for the pixels in the buffer
 pub trait TargetPixel: Sized + Copy {
+    /// The optimal type for a color that can be blended
+    type BlendableColor: Copy + From<Color> + From<PremultipliedRgbaColor>;
+
     /// Blend a single pixel with a color
-    fn blend(&mut self, color: PremultipliedRgbaColor);
+    fn blend(&mut self, color: Self::BlendableColor);
     /// Blend a color to all the pixel in the slice.
+    // FIXME: change to PremultipliedRgbaColor
     fn blend_slice(slice: &mut [Self], color: PremultipliedRgbaColor) {
         if color.alpha == u8::MAX {
             slice.fill(Self::from_rgb(color.red, color.green, color.blue))
         } else {
             for x in slice {
-                Self::blend(x, color);
+                Self::blend(x, color.into());
             }
         }
     }
@@ -716,6 +713,7 @@ pub trait TargetPixel: Sized + Copy {
 }
 
 impl TargetPixel for crate::graphics::image::Rgb8Pixel {
+    type BlendableColor = PremultipliedRgbaColor;
     fn blend(&mut self, color: PremultipliedRgbaColor) {
         let a = (u8::MAX - color.alpha) as u16;
         self.r = (self.r as u16 * a / 255) as u8 + color.red;
@@ -729,6 +727,7 @@ impl TargetPixel for crate::graphics::image::Rgb8Pixel {
 }
 
 impl TargetPixel for PremultipliedRgbaColor {
+    type BlendableColor = Self;
     fn blend(&mut self, color: PremultipliedRgbaColor) {
         let a = (u8::MAX - color.alpha) as u16;
         self.red = (self.red as u16 * a / 255) as u8 + color.red;
@@ -747,82 +746,117 @@ impl TargetPixel for PremultipliedRgbaColor {
     }
 }
 
-/// A 16bit pixel that has 5 red bits, 6 green bits and  5 blue bits
-#[repr(transparent)]
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Default, bytemuck::Pod, bytemuck::Zeroable)]
-pub struct Rgb565Pixel(pub u16);
+mod rgb565 {
+    use super::*;
 
-impl Rgb565Pixel {
-    const R_MASK: u16 = 0b1111_1000_0000_0000;
-    const G_MASK: u16 = 0b0000_0111_1110_0000;
-    const B_MASK: u16 = 0b0000_0000_0001_1111;
+    /// A 16bit pixel that has 5 red bits, 6 green bits and  5 blue bits
+    #[repr(transparent)]
+    #[derive(Copy, Clone, Debug, PartialEq, Eq, Default, bytemuck::Pod, bytemuck::Zeroable)]
+    pub struct Rgb565Pixel(pub u16);
 
-    /// Return the red component as a u8.
-    ///
-    /// The bits are shifted so that the result is between 0 and 255
-    fn red(self) -> u8 {
-        ((self.0 & Self::R_MASK) >> 8) as u8
+    impl Rgb565Pixel {
+        const R_MASK: u16 = 0b1111_1000_0000_0000;
+        const G_MASK: u16 = 0b0000_0111_1110_0000;
+        const B_MASK: u16 = 0b0000_0000_0001_1111;
+
+        /// Return the red component as a u8.
+        ///
+        /// The bits are shifted so that the result is between 0 and 255
+        fn red(self) -> u8 {
+            ((self.0 & Self::R_MASK) >> 8) as u8
+        }
+        /// Return the green component as a u8.
+        ///
+        /// The bits are shifted so that the result is between 0 and 255
+        fn green(self) -> u8 {
+            ((self.0 & Self::G_MASK) >> 3) as u8
+        }
+        /// Return the blue component as a u8.
+        ///
+        /// The bits are shifted so that the result is between 0 and 255
+        fn blue(self) -> u8 {
+            ((self.0 & Self::B_MASK) << 3) as u8
+        }
     }
-    /// Return the green component as a u8.
-    ///
-    /// The bits are shifted so that the result is between 0 and 255
-    fn green(self) -> u8 {
-        ((self.0 & Self::G_MASK) >> 3) as u8
+
+    /// (gggggg00_000rrrrr_000000bb_bbb00000 , alpha)
+    /// alpha is in the range 0 to 0b100000
+    #[derive(Clone, Copy)]
+    #[doc(hidden)] // only public so it can be in `impl TargetPixel for Rgb565Pixel`
+    pub struct PremultipliedRgb565Color(u32, u8);
+    impl From<PremultipliedRgbaColor> for PremultipliedRgb565Color {
+        fn from(color: PremultipliedRgbaColor) -> Self {
+            // gggggggg_000rrrrr_rrr000bb_bbbbbb00
+            let c = ((color.red as u32) << 13)
+                | ((color.green as u32) << 24)
+                | ((color.blue as u32) << 2);
+            // gggggg00_000rrrrr_000000bb_bbb00000
+            let c = c & 0b11111100_00011111_00000011_11100000;
+
+            // convert to 5 bits
+            let a = (color.alpha as u32 + 4) >> 3;
+            Self(c, a as u8)
+        }
     }
-    /// Return the blue component as a u8.
-    ///
-    /// The bits are shifted so that the result is between 0 and 255
-    fn blue(self) -> u8 {
-        ((self.0 & Self::B_MASK) << 3) as u8
+    impl From<Color> for PremultipliedRgb565Color {
+        fn from(col: Color) -> Self {
+            // convert to 5 bits (range 0 to 0b100000)
+            let a = (col.alpha() as u32 + 4) >> 3;
+            // 00000ggg_ggg00000_rrrrr000_000bbbbb
+            let c = (((col.red() as u32) << 8)
+                | ((col.green() as u32) << 19)
+                | ((col.blue() as u32) >> 3))
+                & 0b00000111_11100000_11111000_00011111;
+            // gggggg00_000rrrrr_000000bb_bbb00000
+            let c = (c * a) & 0b11111100_00011111_00000011_11100000;
+            Self(c, a as u8)
+        }
+    }
+
+    impl TargetPixel for Rgb565Pixel {
+        type BlendableColor = PremultipliedRgb565Color;
+        fn blend(&mut self, color: PremultipliedRgb565Color) {
+            let a = (0b100000 - color.1) as u32;
+
+            // 00000ggg_ggg00000_rrrrr000_000bbbbb
+            let expanded = (self.0 & (Self::R_MASK | Self::B_MASK)) as u32
+                | (((self.0 & Self::G_MASK) as u32) << 16);
+
+            let c = color.0;
+
+            let res = expanded * a + c;
+
+            self.0 = ((res >> 21) as u16 & Self::G_MASK)
+                | ((res >> 5) as u16 & (Self::R_MASK | Self::B_MASK));
+        }
+
+        fn from_rgb(r: u8, g: u8, b: u8) -> Self {
+            Self(((r as u16 & 0b11111000) << 8) | ((g as u16 & 0b11111100) << 3) | (b as u16 >> 3))
+        }
+    }
+
+    impl From<Rgb8Pixel> for Rgb565Pixel {
+        fn from(p: Rgb8Pixel) -> Self {
+            Self::from_rgb(p.r, p.g, p.b)
+        }
+    }
+
+    impl From<Rgb565Pixel> for Rgb8Pixel {
+        fn from(p: Rgb565Pixel) -> Self {
+            Rgb8Pixel { r: p.red(), g: p.green(), b: p.blue() }
+        }
+    }
+
+    #[test]
+    fn rgb565() {
+        let pix565 = Rgb565Pixel::from_rgb(0xff, 0x25, 0);
+        let pix888: Rgb8Pixel = pix565.into();
+        assert_eq!(pix565, pix888.into());
+
+        let pix565 = Rgb565Pixel::from_rgb(0x56, 0x42, 0xe3);
+        let pix888: Rgb8Pixel = pix565.into();
+        assert_eq!(pix565, pix888.into());
     }
 }
 
-impl TargetPixel for Rgb565Pixel {
-    fn blend(&mut self, color: PremultipliedRgbaColor) {
-        let a = (u8::MAX - color.alpha) as u32;
-        // convert to 5 bits
-        let a = (a + 4) >> 3;
-
-        // 00000ggg_ggg00000_rrrrr000_000bbbbb
-        let expanded = (self.0 & (Self::R_MASK | Self::B_MASK)) as u32
-            | (((self.0 & Self::G_MASK) as u32) << 16);
-
-        // gggggggg_000rrrrr_rrr000bb_bbbbbb00
-        let c =
-            ((color.red as u32) << 13) | ((color.green as u32) << 24) | ((color.blue as u32) << 2);
-        // gggggg00_000rrrrr_000000bb_bbb00000
-        let c = c & 0b11111100_00011111_00000011_11100000;
-
-        let res = expanded * a + c;
-
-        self.0 = ((res >> 21) as u16 & Self::G_MASK)
-            | ((res >> 5) as u16 & (Self::R_MASK | Self::B_MASK));
-    }
-
-    fn from_rgb(r: u8, g: u8, b: u8) -> Self {
-        Self(((r as u16 & 0b11111000) << 8) | ((g as u16 & 0b11111100) << 3) | (b as u16 >> 3))
-    }
-}
-
-impl From<Rgb8Pixel> for Rgb565Pixel {
-    fn from(p: Rgb8Pixel) -> Self {
-        Self::from_rgb(p.r, p.g, p.b)
-    }
-}
-
-impl From<Rgb565Pixel> for Rgb8Pixel {
-    fn from(p: Rgb565Pixel) -> Self {
-        Rgb8Pixel { r: p.red(), g: p.green(), b: p.blue() }
-    }
-}
-
-#[test]
-fn rgb565() {
-    let pix565 = Rgb565Pixel::from_rgb(0xff, 0x25, 0);
-    let pix888: Rgb8Pixel = pix565.into();
-    assert_eq!(pix565, pix888.into());
-
-    let pix565 = Rgb565Pixel::from_rgb(0x56, 0x42, 0xe3);
-    let pix888: Rgb8Pixel = pix565.into();
-    assert_eq!(pix565, pix888.into());
-}
+pub use rgb565::Rgb565Pixel;
