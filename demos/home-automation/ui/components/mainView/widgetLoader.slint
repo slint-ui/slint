@@ -170,6 +170,7 @@ export component WidgetLoader {
         id: AppState.component-details[root.index].id;
         width: root.width;
         height: root.height;
+        default-data: root.data;
     }
     if root.type == WidgetType.microwave: Microwave {
         index: root.index;

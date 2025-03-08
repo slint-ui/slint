@@ -4,6 +4,7 @@ import { Animation, Palette, Measurements, Colors } from "../common.slint";
 import { FancySlider } from "general/fancySlider.slint";
 import { AppState } from "../appState.slint";
 import { HaText } from "general/haText.slint";
+import { ComponentData } from "../appState.slint";
 
 export component Control inherits Rectangle {
     in property <string> name;
@@ -19,9 +20,9 @@ export component Control inherits Rectangle {
     in property <brush> tile-shadow-color: Palette.shadow-color;
     in property <bool> show-label: true;
     in property <image> control-background: @image-url("../images/control-frame.png", nine-slice(50));
+    in property <ComponentData> default-data;
 
     border-radius: 15px;
-    
 
     if AppState.is-hardware-accelerated : Rectangle {
         Rectangle {
