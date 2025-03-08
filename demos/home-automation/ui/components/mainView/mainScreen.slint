@@ -22,7 +22,7 @@ export component PageButton inherits Rectangle {
 
     property <bool> selected: AppState.target-page == target-page;
 
-    width: 140px;
+    width: AppState.orientation == Orientation.landscape ? 120px : 140px;
     height: 40px;
 
     Rectangle {
@@ -99,10 +99,10 @@ export component MainScreen inherits Rectangle {
     background: Palette.background-gradient;
 
     Image {
-        x: 20px;
-        y: AppState.orientation == Orientation.landscape ? 30px : 36px;
-        source: AppState.orientation == Orientation.landscape ? @image-url("../../images/slint-logo-landscape.png") : @image-url("../../images/slint-logo-portrait.png");
-        opacity: AppState.orientation == Orientation.landscape ? 50% : 80%;
+        x: 30px;
+        y: AppState.orientation == Orientation.landscape ? 35px : 36px;
+        source: @image-url("../../images/slint-logo.png");
+        opacity: 50%;
         colorize: white;
     }
 
@@ -112,7 +112,7 @@ export component MainScreen inherits Rectangle {
         width: 200px;
         height: 50px;
         x: parent.width - self.width - margin;
-        y: 28px;
+        y: AppState.orientation == Orientation.landscape ? 24px : 30px;
         opacity: 80%;
         TouchArea {
             clicked => {
@@ -291,6 +291,20 @@ export component MainScreen inherits Rectangle {
                     if AppState.orientation == Orientation.landscape: PageButton {
                         label: "Office";
                         target-page: 3;
+                    }
+                    if AppState.orientation == Orientation.landscape && AppState.is-hardware-accelerated: Rectangle {
+                        width: 50px;
+                        height: 40px;
+                        lock := Image {
+                            source: @image-url("../../images/lock.svg");
+                            colorize: white;
+                            opacity: 50%;
+                        }
+                        TouchArea {
+                            clicked => {
+                                door-component-loaded = true;
+                            }
+                        }
                     }
                 }
             }
