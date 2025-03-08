@@ -105,12 +105,12 @@ export component HVAC inherits Control {
 
         dial := Rectangle {
             property <length> default-x: 0px;
-            x: root.full-screen ? (root.default-data.width * AppState.x-scale * 1px - ((root.default-data.width * AppState.x-scale * 1px)* 0.9)) / 2 : (root.width - self.height) / 2;
+            x: root.full-screen ? 26px : (root.width - self.height) / 2;
             border-radius: self.width / 2;
             background: Palette.hvac-knob-background;
             border-width: 1px;
             border-color: Palette.glass-border;
-            width: Math.min((root.default-data.width * AppState.x-scale * 1px)* 0.9 , (root.default-data.height * AppState.y-scale * 1px)* 0.9);
+            width: Math.min(root.width * 0.9, root.height * 0.9);
             height: self.width;
 
             animate x {
