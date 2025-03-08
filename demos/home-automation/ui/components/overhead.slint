@@ -51,4 +51,31 @@ export component Overhead inherits Control {
             }
         }
     }
+    TouchArea {
+        clicked => {
+            if self.mouse-x == slider.initial-position {
+                slider.anim-duration = 300ms;
+                slider.animated-value = (self.mouse-x / self.width) * (slider.maxValue - slider.minValue) + slider.minValue;
+            }
+        }
+        moved => {
+            if !slider.first-touch {
+                slider.first-touch = true;
+                slider.initial-position = self.mouse-x;
+                slider.initial-value = (self.mouse-x / self.width) * (slider.maxValue - slider.minValue) + slider.minValue;
+                slider.previous-value = slider.value;
+                slider.anim-duration = 0ms;
+            } else {
+                slider.change-value = ((self.mouse-x / self.width) * (slider.maxValue - slider.minValue) + slider.minValue) - slider.initial-value;
+                slider.value = Math.clamp(slider.previous-value + slider.change-value, slider.minValue, slider.maxValue);
+                slider.animated-value = slider.value;
+            }
+        }
+
+        changed pressed => {
+            if !self.pressed {
+                slider.first-touch = false;
+            }
+        }
+    }
 }
