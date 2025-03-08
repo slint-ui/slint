@@ -40,18 +40,11 @@ export component Lamp inherits Control {
             width: 100%;
             height: 100%;
             alignment: space-between;
-            Rectangle {
-                width: 100%;
-
-                VerticalLayout {
-                    alignment: start;
-                    HaText {
-                        text: root.name;
-                        font-size: Style.tile-title-font-size;
-                        font-weight: 200;
-                        color: white;
-                    }
-                }
+            HaText {
+                text: root.name;
+                font-size: Style.tile-title-font-size;
+                font-weight: 200;
+                color: white;
             }
 
             slider := FancySlider {
