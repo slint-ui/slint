@@ -96,7 +96,6 @@ export component HVAC inherits Control {
 
     tile := Rectangle {
 
-
         TouchArea {
             enabled: !AppState.showing-full-screen;
             clicked => {
@@ -105,23 +104,26 @@ export component HVAC inherits Control {
         }
 
         dial := Rectangle {
+            property <length> default-x: 0px;
+            x: root.full-screen ? (root.default-data.width * AppState.x-scale * 1px - ((root.default-data.width * AppState.x-scale * 1px)* 0.9)) / 2 : (root.width - self.height) / 2;
+            border-radius: self.width / 2;
             background: Palette.hvac-knob-background;
             border-width: 1px;
             border-color: Palette.glass-border;
-            width: self.height;
-            height: root.full-screen ? 275px : 200px;
-            animate height {
-                duration: Animation.full-screen-duration;
+            width: Math.min((root.default-data.width * AppState.x-scale * 1px)* 0.9 , (root.default-data.height * AppState.y-scale * 1px)* 0.9);
+            height: self.width;
+
+            animate x {
+                duration: Animation.full-screen-duration / 2;
                 easing: ease-in-out-sine;
             }
-            x: (Math.min(parent.width, parent.height) - self.height) / 2;
 
-            border-radius: self.width / 2;
+
             Image {
+                x: dial.width * 3 / 4;
+                y: dial.height / 4;
                 height: 20px;
                 width: 20px;
-                y: dial.height / 4;
-                x: dial.width * 3 / 4;
                 source: @image-url("../images/cold.svg");
                 colorize: Palette.hvac-foreground;
             }
