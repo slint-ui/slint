@@ -3,9 +3,14 @@
 
 // cSpell: ignore descendents
 
-use crate::{items::ItemRc, SharedString};
-use alloc::vec::Vec;
+use crate::{
+    item_tree::ItemTreeVTable,
+    items::{ItemRc, TextInput},
+    SharedString,
+};
+use alloc::{vec, vec::Vec};
 use bitflags::bitflags;
+use vtable::VRcMapped;
 
 /// The property names of the accessible-properties
 #[repr(u32)]
@@ -100,4 +105,39 @@ pub fn accessible_descendents(root_item: &ItemRc) -> impl Iterator<Item = ItemRc
             return Some(descendent);
         }
     })
+}
+
+/// Find the first built-in `TextInput` in the descendents of `item`.
+pub fn find_text_input(item: &ItemRc) -> Option<VRcMapped<ItemTreeVTable, TextInput>> {
+    fn try_candidate_or_find_next_descendent(
+        candidate: ItemRc,
+        descendent_candidates: &mut Vec<ItemRc>,
+    ) -> Option<VRcMapped<ItemTreeVTable, TextInput>> {
+        if let Some(input) = candidate.downcast::<TextInput>() {
+            return Some(input);
+        }
+
+        candidate.first_child().and_then(|child| {
+            if let Some(next) = child.next_sibling() {
+                descendent_candidates.push(next);
+            }
+            try_candidate_or_find_next_descendent(child, descendent_candidates)
+        })
+    }
+
+    let mut descendent_candidates = vec![item.clone()];
+
+    loop {
+        let candidate = descendent_candidates.pop()?;
+
+        if let Some(next_candidate) = candidate.next_sibling() {
+            descendent_candidates.push(next_candidate);
+        }
+
+        if let Some(input) =
+            try_candidate_or_find_next_descendent(candidate, &mut descendent_candidates)
+        {
+            return Some(input);
+        }
+    }
 }
