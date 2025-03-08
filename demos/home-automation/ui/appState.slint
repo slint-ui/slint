@@ -86,14 +86,13 @@ export global AppState {
     property <float> row3-y3: row2-y3 + mini-height + margin;
     property <float> row4-y3: row3-y3 + mini-height + margin;
 
-
     property <float> mini-height: 300;
     property <float> big-height: 420;
     property <float> mega-height: 500;
 
     out property <[{id: string, name: string, type: WidgetType }]> component-details: [
-       { id: "lamp1", name: "His Nightstand", type: WidgetType.lamp },
-       { id: "lamp2", name: "Her Nightstand", type: WidgetType.lamp },
+       { id: "lamp1", name: "His\nNightstand", type: WidgetType.lamp },
+       { id: "lamp2", name: "Her\nNightstand", type: WidgetType.lamp },
        { id: "lamp3", name: "Stove", type: WidgetType.lamp },
        { id: "lamp4", name: "Front Entry", type: WidgetType.lamp },
        { id: "lamp5", name: "Back Porch", type: WidgetType.lamp },
