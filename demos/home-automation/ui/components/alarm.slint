@@ -35,6 +35,8 @@ export component Alarm inherits Control {
     property <string> indirect-passcode: passcode == "-1" ? "" : passcode;
     show-label: false;
 
+    clip: AppState.is-hardware-accelerated;
+
     hidden-text := HaText {
         font-size: Style.H1-font-size;
         text: root.indirect-passcode;
