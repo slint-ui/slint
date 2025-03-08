@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 import { Animation, Measurements, Colors, Palette, Style } from "../common.slint";
 import { Control} from "control.slint";
-import { AppState } from "../appState.slint";
+import { AppState, Orientation } from "../appState.slint";
 import { HaText } from "general/haText.slint";
 
 enum Mode { increment, decrement }
@@ -97,7 +97,7 @@ export component HVAC inherits Control {
     tile := Rectangle {
 
         TouchArea {
-            enabled: !AppState.showing-full-screen;
+            enabled: !AppState.showing-full-screen && AppState.orientation != Orientation.portrait;
             clicked => {
                 AppState.showFullScreen(root.index);
             }
@@ -214,6 +214,7 @@ export component HVAC inherits Control {
         }
 
         Image {
+            visible: AppState.orientation == Orientation.landscape;
             source: @image-url("../images/enlarge.svg");
             opacity: root.full-screen ? 0 : 0.6;
             width: 20px;
