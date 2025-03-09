@@ -1,0 +1,21 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+# cspell:ignore pipx
+
+[tools]
+"aqua:sharkdp/fd" = "latest"
+"rust" = { version = "stable", profile = "default" }
+node = "20"
+pnpm = "latest"
+
+## C++:
+"ubi:EmbarkStudios/cargo-about" = "0.6.6"
+"pipx:cmake" = "latest"
+"pipx:ninja" = "latest"
+"pipx:pipenv" = "latest"
+# doxygen = "latest" ## This is not available anywhere
+# graphviz = "latest" ## This is not available anywhere
+
+[task_config]
+includes = [ ".mise/tasks.toml", ".mise/tasks" ]

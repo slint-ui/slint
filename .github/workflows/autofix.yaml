@@ -18,58 +18,24 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-    format_lint_typecheck:
+    format_fix:
         runs-on: ubuntu-24.04
         env:
             CARGO_INCREMENTAL: false
         steps:
             - uses: actions/checkout@v4
-            - uses: pnpm/action-setup@v4.1.0
-              with:
-                version: 10.3.0
-            - uses: actions/setup-node@v4
-              with:
-                node-version: 20
-            - uses: ./.github/actions/install-linux-dependencies
-            - uses: ./.github/actions/setup-rust
-              with:
-                  toolchain: nightly
-                  components: rustfmt
-                  target: aarch64-linux-android
-            - name: Install wasm-pack
-              run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
-            - name: Rust format
-              run: cargo fmt --
-            - name: C++ format
-              run: find -iname \*.h -o -iname \*.cpp | xargs clang-format -i
-            - name: Format, Lint on npm projects
-              run: |
-                  pnpm install --frozen-lockfile
-                  pnpm format:fix
-                  pnpm lint
-            - name: Check license headers
-              run: cargo xtask check_license_headers --fix-it
-            - name: remove trailing whitespace
-              run: git grep -I -l -O'sed -i "s/[[:space:]]*$//"' -e '' -- ':!*.patch'
-            - uses: actions/setup-python@v5
-              with:
-                  python-version: "3.12"
-            - name: Install uv
-              uses: astral-sh/setup-uv@v5
-            - name: Format Python
-              run: uv tool run ruff format
+            - uses: jdx/mise-action@v2
+            - name: Run fixes
+              run: mise run --force --jobs=1 'ci:autofix:fix'
             - name: Suggest format changes
               uses: autofix-ci/action@551dded8c6cc8a1054039c8bc0b8b48c51dfc6ef
-            - name: Build wasm-interpreter before type check
-              working-directory: tools/slintpad
-              run: pnpm build:wasm_interpreter
-            - name: Build wasm-lsp before type check
-              working-directory: editors/vscode
-              run: pnpm build:wasm_lsp
-            - name: Typecheck on npm projects
-              run: |
-                  pnpm type-check
-            - run: sudo apt-get install pipx
-            - run: pipx install reuse
-            - name: Check reuse compliance
-              run: cargo xtask check_reuse_compliance
+
+    lint_typecheck:
+        runs-on: ubuntu-24.04
+        env:
+            CARGO_INCREMENTAL: false
+        steps:
+            - uses: actions/checkout@v4
+            - uses: jdx/mise-action@v2
+            - name: Run lints
+              run: mise run --force --jobs=1 'ci:autofix:lint'
