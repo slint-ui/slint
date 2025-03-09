@@ -490,6 +490,18 @@ fn call_builtin_function(
             let y: f64 = eval_expression(&arguments[1], local_context).try_into().unwrap();
             Value::Number(x.powf(y))
         }
+        BuiltinFunction::ToFixed => {
+            let n: f64 = eval_expression(&arguments[0], local_context).try_into().unwrap();
+            let digits: i32 = eval_expression(&arguments[1], local_context).try_into().unwrap();
+            let digits: usize = digits.max(0) as usize;
+            Value::String(i_slint_core::string::shared_string_from_number_fixed(n, digits))
+        }
+        BuiltinFunction::ToPrecision => {
+            let n: f64 = eval_expression(&arguments[0], local_context).try_into().unwrap();
+            let precision: i32 = eval_expression(&arguments[1], local_context).try_into().unwrap();
+            let precision: usize = precision.max(0) as usize;
+            Value::String(i_slint_core::string::shared_string_from_number_precision(n, precision))
+        }
         BuiltinFunction::SetFocusItem => {
             if arguments.len() != 1 {
                 panic!("internal error: incorrect argument count to SetFocusItem")
