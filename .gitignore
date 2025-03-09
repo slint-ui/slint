@@ -13,20 +13,19 @@ Pipfile.lock
 /docs/astro/src/content/collections/structs/
 /playwright-report
 
-# MISE local files:
-/.mise.local.toml
-/.mise/
-
 # Ignore all package-lock.json files
 **/package-lock.json
 # But keep these specific ones
 !editors/vscode/package-lock.json
 
+# MISE local files:
+/.mise.local.toml
+/.mise/tasks/local/
+
+
 *.node
 *.d.ts
 
-.env
-.envrc
 __pycache__
 uv.lock
 .python-version

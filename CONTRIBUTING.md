@@ -10,6 +10,13 @@ on [RFC tagged](https://github.com/slint-ui/slint/labels/rfc) issues.
 Issues which we think are suitable for new contributors are tagged with
 [good first issue](https://github.com/slint-ui/slint/labels/good%20first%20issue).
 
+## Internal documentation
+
+ - [Development guide](docs/development.md)
+ - [Building Slint from sources in this repository](docs/building.md)
+ - [Testing](docs/testing.md)
+ - [GitHub issues triage and labels](docs/triage.md)
+
 ## Contributor License Agreement
 
 All contributions are accepted under the terms of the MIT No Attribution License.
@@ -19,13 +26,6 @@ In any other case, please let us know.
 
 When opening a pull request, you will be asked to sign a
 [Contributor License Agreement (CLA)](https://cla-assistant.io/slint-ui/slint).
-
-## Internal documentation
-
- - [Development guide](docs/development.md)
- - [Building Slint from sources in this repository](docs/building.md)
- - [Testing](docs/testing.md)
- - [GitHub issues triage and labels](docs/triage.md)
 
 ## Coding Style
 

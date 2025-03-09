@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+#MISE description="Run xtask check reuse compliance on all files"
+#MISE tools={ "pipx:reuse" = 5 }
+
+set -e
+
+if test -d "target" ; then
+  if test -n "$CI" ; then
+    echo "ERROR: Directory is not clean in CI run, NOT running reuse"
+    exit 1
+  else
+    echo "Warning: Directory is not clean, not running reuse"
+    exit 0
+  fi
+fi
+
+cargo xtask check_reuse_compliance

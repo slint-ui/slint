@@ -5,6 +5,16 @@
 The build instructions are in the [building.md](./building.md) file.
 The testing instructions are in the [testing.md](./testing.md) file.
 
+## Environment Setup
+
+[`mise-en-place`](https://mise.jdx.dev/) can be used to install the necessary
+development tooling. After installing `mise` and registering `mise` with your
+shell, go into your git checkout directory and `mise trust -a` the configuration
+we ship. Afterwards `mise install` makes all the necessary tooling available.
+
+Even if you do not want to use mise: `.mise/config.toml` contains a handy list of tools
+to make available.
+
 ## Repository structures
 
 ### `helper_crates`

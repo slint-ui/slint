@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+#MISE description="Run trailing WS fix on all files"
+
+set -e
+
+if test -f .git/HEAD ; then
+    git grep -I -l -O'sed -i "s/[[:space:]]*$//"' -e '' -- ':!*.patch'
+else
+    while IFS= read -r -d '' -u 9
+    do
+        if [[ "$(file -bs --mime-type -- "$REPLY")" = text/* ]]
+        then
+            sed -i "s/[[:space:]]*$//" -- "$REPLY"
+        fi
+    done 9< <(fd -0)
+fi

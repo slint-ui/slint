@@ -1,0 +1,75 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+# Use https://mise.jdx.dev/schema/mise-task.json for validation.
+
+### fixes
+
+["fix:cpp:format"]
+description = "Run clang format fix on all C++ files"
+run = '''fd '.*\.(h|H|hpp|hxx|h\+\+|c|C|cpp|cxx|c\+\+)$' -0 | xargs -0 clang-format -i'''
+tools = { "pipx:clang-format" = "latest" }
+
+["fix:legal:copyright"]
+description = "Run the check_license_headers --fix xtask"
+run = "cargo xtask check_license_headers --fix-it"
+
+["fix:python:format"]
+description = "Run ruff format"
+run = "ruff format"
+tools = { "ruff" = "latest" }
+
+["fix:rust:format"]
+description = "Run cargo fmt --all"
+run = "cargo fmt --all"
+
+["fix:ts:format"]
+description = "Run pnpm format:fix"
+run = "pnpm run format:fix"
+depends = ["prepare:pnpm-install"]
+
+["fix:ts:biome"]
+description = "Run pnpm lint:fix"
+run = "pnpm run lint:fix"
+depends = ["prepare:pnpm-install"]
+
+### Lints
+
+["lint:ts:typecheck"]
+description = "Run pnpm format:fix"
+run = "pnpm type-check"
+depends = ["prepare:pnpm-install", "build:lsp:wasm", "build:interpreter:wasm"]
+
+### Build
+
+["build:lsp:wasm"]
+description = "Build the LSP (WASM)"
+dir = "editors/vscode"
+sources = [ "tools/lsp/Cargo.toml", "tools/lsp/**/*.rs", "tools/lsp/ui/**/*.slint" ]
+outputs = [ "tools/lsp/pkg/*" ]
+run = "pnpm run build:wasm_lsp"
+tools = { "npm:wasm-pack" = "latest" }
+depends = ["prepare:pnpm-install"]
+
+["build:interpreter:wasm"]
+description = "Build the Slint interpreteer (WASM)"
+dir = "tools/slintpad"
+sources = [ "api/wasm-interpreter/Cargo.toml", "api/wasm-interpreter/src/**/*.rs" ]
+outputs = [ "api/wasm-interpreter/pkg/*" ]
+run = "pnpm run build:wasm_interpreter"
+tools = { "npm:wasm-pack" = "latest" }
+depends = ["prepare:pnpm-install"]
+
+["prepare:pnpm-install"]
+hide = true
+run = "pnpm install --frozen-lockfile"
+
+### CI
+
+["ci:autofix:fix"]
+description = "CI autofix job -- fix steps"
+depends = ["fix:cpp:format", "fix:legal:copyright", "fix:python:format", "fix:rust:format", "fix:text:trailing_spaces", "fix:ts:biome", "fix:ts:format"]
+
+["ci:autofix:lint"]
+description = "CI autofix job -- lint steps"
+depends = ["lint:legal:reuse", "lint:ts:typecheck"]
