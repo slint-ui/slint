@@ -310,7 +310,7 @@ export component MainScreen inherits Rectangle {
             }
         }
 
-        Rectangle {
+        fs-holder := Rectangle {
             y: 20px;
             if AppState.is-hardware-accelerated: Rectangle {
                 width: 100%;
@@ -332,7 +332,9 @@ export component MainScreen inherits Rectangle {
                 }
             }
 
-            if AppState.showing-full-screen: fullScreenWidgetHolder := FullScreenView { }
+            if AppState.showing-full-screen: fullScreenWidgetHolder := FullScreenView { 
+                nudge-y: fs-holder.y;
+            }
         }
     }
 

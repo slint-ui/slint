@@ -8,11 +8,13 @@ import { Animation } from "../../common.slint";
 
 export component FullScreenView inherits Rectangle {
     property <ComponentData> landscape-data: { id: "", x: 60, y: 60, width: 1800, height: 900, background: #00bf1d, visible: true };
-    property <ComponentData> portrait-data: { id: "", x: 60, y: 60, width: 900, height: 1800, background: #00bf1d, visible: true };
+    property <ComponentData> portrait-data: AppState.is-hardware-accelerated ? { id: "", x: 60, y: 60, width: 900, height: 1800, background: #00bf1d, visible: true } : { id: "", x: 160, y: 560, width: 800, height: 800, background: #00bf1d, visible: true };
     property <ComponentData> full-screen-data: AppState.orientation == Orientation.landscape ? landscape-data : portrait-data;
     property <bool> full-screen: false;
+    in property <length> nudge-y: 0px;
 
     backdrop := Rectangle {
+        y: -nudge-y;
         width: 100%;
         height: 100%;
         opacity: 0;
