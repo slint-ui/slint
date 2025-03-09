@@ -78,16 +78,16 @@ export component AudioVisualizer inherits Rectangle {
 
         // Create the visualizer bars
 
-        for bar[i] in numBars: Rectangle {
-            width: barWidth;
-            height: getBarHeight[i] * 1px * 2000%;
-            background: Palette.music-gradient.transparentize(0.2);
-            y: -self.height / 2;
-        }
+        // for bar[i] in numBars: Rectangle {
+        //     width: barWidth;
+        //     height: getBarHeight[i] * 1px * 2000%;
+        //     background: Palette.music-gradient.transparentize(0.2);
+        //     y: -self.height / 2;
+        // }
     }
 }
 
-export component MusicPlayer inherits Control {
+export component MusicPlayer inherits Rectangle {
     property <string> title: "Time";
     property <int> current-page: AppState.current-page;
     property <string> artist: "Pink Floyd";
@@ -95,134 +95,118 @@ export component MusicPlayer inherits Control {
     property <bool> unlocked: false;
     property <image> cover-art: @image-url("../images/album.png");
     property <bool> is-active: false;
-    clip: true;
+    in property <string> name;
+    in property <string> id;
+    in property <int> index;
+    in property <bool> full-screen: false;
+
+
+    Rectangle {
+            width: 90%;
+            height: 90%;
+            background: black;
+            border-radius: 30px;
+        }
 
     tile := Rectangle {
-        border-color: white;
-        border-width: 1px;
-        x: 0cm;
+
         Image {
+            x: -5px;
+            y: 0px;
             source: cover-art;
-            width: 100%;
-            image-fit: cover;
-            height: 100%;
-            horizontal-alignment: center;
-            vertical-alignment: center;
         }
 
         VerticalLayout {
-            alignment: end;
+            alignment: stretch;
             spacing: 2px;
-            padding: 2px;
-            HorizontalLayout {
-                width: tile.width;
+            padding-top: 10px;
+            padding-bottom: 20px;
+
+            VerticalLayout {
                 alignment: start;
-                padding-left: 5px;
-                AudioVisualizer {
-                    width: tile.width * 0.7;
-                    states [
-                        isVisible when root.height < Measurements.large-height-tile: {
-                            opacity: 0.0;
-                            in {
-                                animate opacity {
-                                    duration: Animation.transitionDuration;
-                                    easing: ease-in-out-sine;
-                                }
-                            }
-                        }
-                        isNotVisible when root.height >= Measurements.large-height-tile: {
-                            opacity: 1.0;
-                            in {
-                                animate opacity {
-                                    duration: Animation.transitionDuration;
-                                    easing: ease-in-out-sine;
-                                }
-                            }
-                        }
-                    ]
+                padding-top: (tile.height > Measurements.small-height-tile) ? 18px : 9px;
+                padding: 20px ;
+                spacing: 5px;
+
+                HaText {
+                    color: white;
+                    text: title;
+                    font-size: 2rem;
+                    font-weight: 500;
+                    horizontal-alignment: right;
+                    vertical-alignment: center;
+                }
+
+                HaText {
+                    color: white;
+                    text: artist;
+                    font-size: 1rem;
+                    font-weight: 400;
+                    horizontal-alignment: right;
+                    vertical-alignment: center;
+                }
+
+                HaText {
+                    color: white;
+                    text: album;
+                    font-size: 1rem;
+                    font-weight: 400;
+                    horizontal-alignment: right;
+                    vertical-alignment: center;
                 }
             }
 
             controls := Rectangle {
-                border-radius: 10px;
                 width: 95%;
                 height: self.preferred-height;
-                background: Palette.music-gradient.transparentize(0.2);
 
                 HorizontalLayout {
                     alignment: space-around;
                     padding-top: 7px;
                     padding-bottom: 7px;
-                    Image {
-                        source: @image-url("../images/back.svg");
-                        width: 18px;
-                        height: self.width;
-                        colorize: Palette.music-alternate-foreground;
-                    }
-
-                    Image {
-                        source: @image-url("../images/pause.svg");
-                        width: 18px;
-                        height: self.width;
-                        colorize: Palette.music-alternate-foreground;
-                    }
-
-                    Image {
-                        source: @image-url("../images/fwd.svg");
-                        width: 18px;
-                        height: self.width;
-                        colorize: Palette.music-alternate-foreground;
-                    }
-                }
-            }
-
-            info := Rectangle {
-                border-radius: 10px;
-                width: 95%;
-                height: self.preferred-height;
-                background: Palette.music-gradient.transparentize(0.2);
-                animate height {
-                    duration: 1000ms;
-                    easing: ease-in-out-sine;
-                }
-                VerticalLayout {
-                    padding-top: (tile.height > Measurements.small-height-tile) ? 18px : 9px;
-                    padding: (tile.height <= Measurements.small-height-tile) ? 18px : 9px ;
-                    spacing: 5px;
-
-                    HaText {
-                        color: Palette.control-background;
-                        text: title;
-                        font-size: 1.5rem;
-                        font-weight: 500;
-                        horizontal-alignment: left;
-                        vertical-alignment: center;
+                    Rectangle {
+                        Rectangle {
+                            width: 40px;
+                            height: self.width;
+                            border-radius: self.height / 2;
+                            background: white;
+                            Image {
+                                source: @image-url("../images/back.svg");
+                                width: 18px;
+                                height: self.width;
+                                colorize: Palette.music-alternate-foreground;
+                            }
+                        }
                     }
 
                     Rectangle {
-                        height: 5px;
-                    }
-
-                    HaText {
-                        color: Palette.control-background;
-                        text: artist;
-                        font-size: 1rem;
-                        font-weight: 400;
-                        horizontal-alignment: left;
-                        vertical-alignment: center;
+                        Rectangle {
+                            width: 60px;
+                            height: self.width;
+                            border-radius: self.height / 2;
+                            background: white;
+                            Image {
+                                source: @image-url("../images/pause.svg");
+                                width: 18px;
+                                height: self.width;
+                                colorize: Palette.music-alternate-foreground;
+                            }
+                        }
                     }
 
                     Rectangle {
-                        height: 10px;
-                    }
-
-                    HaText {
-                        color: Palette.music-alternate-foreground;
-                        text: "Album: " + album;
-                        font-size: 1rem;
-                        font-weight: 400;
-                        horizontal-alignment: left;
-                        vertical-alignment: center;
+                        Rectangle {
+                            width: 40px;
+                            height: self.width;
+                            border-radius: self.height / 2;
+                            background: white;
+                            Image {
+                                source: @image-url("../images/fwd.svg");
+                                width: 18px;
+                                height: self.width;
+                                colorize: Palette.music-alternate-foreground;
+                            }
+                        }
                     }
                 }
             }
