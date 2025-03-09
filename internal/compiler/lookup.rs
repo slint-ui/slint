@@ -1055,6 +1055,8 @@ impl LookupObject for NumberExpression<'_> {
             .or_else(|| f2("atan", member_function(BuiltinFunction::ATan)))
             .or_else(|| f2("log", member_function(BuiltinFunction::Log)))
             .or_else(|| f2("pow", member_function(BuiltinFunction::Pow)))
+            .or_else(|| f2("to-fixed", member_function(BuiltinFunction::ToFixed)))
+            .or_else(|| f2("to-precision", member_function(BuiltinFunction::ToPrecision)))
             .or_else(|| NumberWithUnitExpression(self.0).for_each_entry(ctx, f))
     }
 }

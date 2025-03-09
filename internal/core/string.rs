@@ -315,6 +315,48 @@ pub fn shared_string_from_number(n: f64) -> SharedString {
     }
 }
 
+/// Convert a f64 to a SharedString with a fixed number of digits after the decimal point
+pub fn shared_string_from_number_fixed(n: f64, digits: usize) -> SharedString {
+    crate::format!("{number:.digits$}", number = n, digits = digits)
+}
+
+/// Convert a f64 to a SharedString following a similar logic as JavaScript's Number.toPrecision()
+pub fn shared_string_from_number_precision(n: f64, precision: usize) -> SharedString {
+    let exponent: isize = if n.abs() < 1.0 {
+        let mut fract = n.abs().fract();
+        let mut exponent = 0;
+
+        while fract < 1.0 {
+            fract *= 10.0;
+            exponent -= 1;
+        }
+
+        exponent
+    } else {
+        let mut int = n.abs().trunc();
+        let mut exponent = 0;
+
+        while int > 10.0 {
+            int /= 10.0;
+            exponent += 1;
+        }
+
+        exponent
+    };
+
+    if precision == 0 {
+        shared_string_from_number(n)
+    } else if exponent < -6 || (exponent >= 0 && exponent as usize >= precision) {
+        crate::format!(
+            "{number:.digits$e}",
+            number = n,
+            digits = precision.saturating_add_signed(-1)
+        )
+    } else {
+        shared_string_from_number_fixed(n, precision.saturating_add_signed(-(exponent + 1)))
+    }
+}
+
 #[test]
 fn simple_test() {
     use std::string::ToString;
@@ -456,6 +498,158 @@ pub(crate) mod ffi {
                 ((1235.82756f32 * 1000f32).round() / 1000f32) as _,
             );
             assert_eq!(s.assume_init(), "1235.828");
+        }
+    }
+
+    #[no_mangle]
+    pub unsafe extern "C" fn slint_shared_string_from_number_fixed(
+        out: *mut SharedString,
+        n: f64,
+        digits: usize,
+    ) {
+        let str = shared_string_from_number_fixed(n, digits);
+        core::ptr::write(out, str);
+    }
+
+    #[test]
+    fn test_slint_shared_string_from_number_fixed() {
+        unsafe {
+            let num = 12345.6789;
+
+            let mut s = core::mem::MaybeUninit::uninit();
+            slint_shared_string_from_number_fixed(s.as_mut_ptr(), num, 0);
+            assert_eq!(s.assume_init(), "12346");
+
+            let mut s = core::mem::MaybeUninit::uninit();
+            slint_shared_string_from_number_fixed(s.as_mut_ptr(), num, 1);
+            assert_eq!(s.assume_init(), "12345.7");
+
+            let mut s = core::mem::MaybeUninit::uninit();
+            slint_shared_string_from_number_fixed(s.as_mut_ptr(), num, 6);
+            assert_eq!(s.assume_init(), "12345.678900");
+
+            let num = -12345.6789;
+
+            let mut s = core::mem::MaybeUninit::uninit();
+            slint_shared_string_from_number_fixed(s.as_mut_ptr(), num, 0);
+            assert_eq!(s.assume_init(), "-12346");
+
+            let mut s = core::mem::MaybeUninit::uninit();
+            slint_shared_string_from_number_fixed(s.as_mut_ptr(), num, 1);
+            assert_eq!(s.assume_init(), "-12345.7");
+
+            let mut s = core::mem::MaybeUninit::uninit();
+            slint_shared_string_from_number_fixed(s.as_mut_ptr(), num, 6);
+            assert_eq!(s.assume_init(), "-12345.678900");
+
+            let mut s = core::mem::MaybeUninit::uninit();
+            slint_shared_string_from_number_fixed(s.as_mut_ptr(), 1.23E+20_f64, 2);
+            assert_eq!(s.assume_init(), "123000000000000000000.00");
+
+            let mut s = core::mem::MaybeUninit::uninit();
+            slint_shared_string_from_number_fixed(s.as_mut_ptr(), 1.23E-10_f64, 2);
+            assert_eq!(s.assume_init(), "0.00");
+
+            let mut s = core::mem::MaybeUninit::uninit();
+            slint_shared_string_from_number_fixed(s.as_mut_ptr(), 2.34, 1);
+            assert_eq!(s.assume_init(), "2.3");
+
+            let mut s = core::mem::MaybeUninit::uninit();
+            slint_shared_string_from_number_fixed(s.as_mut_ptr(), 2.35, 1);
+            assert_eq!(s.assume_init(), "2.4");
+
+            let mut s = core::mem::MaybeUninit::uninit();
+            slint_shared_string_from_number_fixed(s.as_mut_ptr(), 2.55, 1);
+            assert_eq!(s.assume_init(), "2.5");
+        }
+    }
+
+    #[no_mangle]
+    pub unsafe extern "C" fn slint_shared_string_from_number_precision(
+        out: *mut SharedString,
+        n: f64,
+        precision: usize,
+    ) {
+        let str = shared_string_from_number_precision(n, precision);
+        core::ptr::write(out, str);
+    }
+
+    #[test]
+    fn test_slint_shared_string_from_number_precision() {
+        unsafe {
+            let num = 5.123456;
+
+            let mut s = core::mem::MaybeUninit::uninit();
+            slint_shared_string_from_number_precision(s.as_mut_ptr(), num, 0);
+            assert_eq!(s.assume_init(), "5.123456");
+
+            let mut s = core::mem::MaybeUninit::uninit();
+            slint_shared_string_from_number_precision(s.as_mut_ptr(), num, 5);
+            assert_eq!(s.assume_init(), "5.1235");
+
+            let mut s = core::mem::MaybeUninit::uninit();
+            slint_shared_string_from_number_precision(s.as_mut_ptr(), num, 2);
+            assert_eq!(s.assume_init(), "5.1");
+
+            let mut s = core::mem::MaybeUninit::uninit();
+            slint_shared_string_from_number_precision(s.as_mut_ptr(), num, 1);
+            assert_eq!(s.assume_init(), "5");
+
+            let num = 0.000123;
+
+            let mut s = core::mem::MaybeUninit::uninit();
+            slint_shared_string_from_number_precision(s.as_mut_ptr(), num, 0);
+            assert_eq!(s.assume_init(), "0.000123");
+
+            let mut s = core::mem::MaybeUninit::uninit();
+            slint_shared_string_from_number_precision(s.as_mut_ptr(), num, 5);
+            assert_eq!(s.assume_init(), "0.00012300");
+
+            let mut s = core::mem::MaybeUninit::uninit();
+            slint_shared_string_from_number_precision(s.as_mut_ptr(), num, 2);
+            assert_eq!(s.assume_init(), "0.00012");
+
+            let mut s = core::mem::MaybeUninit::uninit();
+            slint_shared_string_from_number_precision(s.as_mut_ptr(), num, 1);
+            assert_eq!(s.assume_init(), "0.0001");
+
+            let num = 1234.5;
+
+            let mut s = core::mem::MaybeUninit::uninit();
+            slint_shared_string_from_number_precision(s.as_mut_ptr(), num, 1);
+            assert_eq!(s.assume_init(), "1e3");
+
+            let mut s = core::mem::MaybeUninit::uninit();
+            slint_shared_string_from_number_precision(s.as_mut_ptr(), num, 2);
+            assert_eq!(s.assume_init(), "1.2e3");
+
+            let mut s = core::mem::MaybeUninit::uninit();
+            slint_shared_string_from_number_precision(s.as_mut_ptr(), num, 6);
+            assert_eq!(s.assume_init(), "1234.50");
+
+            let num = -1234.5;
+
+            let mut s = core::mem::MaybeUninit::uninit();
+            slint_shared_string_from_number_precision(s.as_mut_ptr(), num, 1);
+            assert_eq!(s.assume_init(), "-1e3");
+
+            let mut s = core::mem::MaybeUninit::uninit();
+            slint_shared_string_from_number_precision(s.as_mut_ptr(), num, 2);
+            assert_eq!(s.assume_init(), "-1.2e3");
+
+            let mut s = core::mem::MaybeUninit::uninit();
+            slint_shared_string_from_number_precision(s.as_mut_ptr(), num, 6);
+            assert_eq!(s.assume_init(), "-1234.50");
+
+            let num = 0.00000012345;
+
+            let mut s = core::mem::MaybeUninit::uninit();
+            slint_shared_string_from_number_precision(s.as_mut_ptr(), num, 1);
+            assert_eq!(s.assume_init(), "1e-7");
+
+            let mut s = core::mem::MaybeUninit::uninit();
+            slint_shared_string_from_number_precision(s.as_mut_ptr(), num, 10);
+            assert_eq!(s.assume_init(), "1.234500000e-7");
         }
     }
 
