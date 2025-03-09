@@ -158,12 +158,8 @@ export component MusicPlayer inherits Rectangle {
 
             controls := Rectangle {
                 width: 95%;
-                height: self.preferred-height;
 
                 HorizontalLayout {
-                    alignment: space-around;
-                    padding-top: 7px;
-                    padding-bottom: 7px;
                     Rectangle {
                         Rectangle {
                             width: 40px;
@@ -180,16 +176,21 @@ export component MusicPlayer inherits Rectangle {
                     }
 
                     Rectangle {
+                        height: 60px;
                         Rectangle {
                             width: 60px;
                             height: self.width;
                             border-radius: self.height / 2;
                             background: white;
+                            property <bool> playing: true;
                             Image {
-                                source: @image-url("../images/pause.svg");
-                                width: 18px;
-                                height: self.width;
+                                source: playing ? @image-url("../images/pause.svg") : @image-url("../images/play.svg");
                                 colorize: Palette.music-alternate-foreground;
+                            }
+                            TouchArea {
+                                clicked => {
+                                    playing = !playing;
+                                }
                             }
                         }
                     }
