@@ -119,7 +119,7 @@ export component MusicPlayer inherits Rectangle {
         VerticalLayout {
             alignment: stretch;
             spacing: 2px;
-            padding-top: 10px;
+            padding-top: 0px;
             padding-bottom: 20px;
 
             VerticalLayout {
@@ -156,9 +156,13 @@ export component MusicPlayer inherits Rectangle {
                 }
             }
 
-            controls := Rectangle {
-                width: 95%;
+            
+        }
 
+        controls := Rectangle {
+            y: root.height - self.height -0px;
+                width: 95%;
+                height: 60px;
                 HorizontalLayout {
                     Rectangle {
                         Rectangle {
@@ -211,6 +215,5 @@ export component MusicPlayer inherits Rectangle {
                     }
                 }
             }
-        }
     }
 }
