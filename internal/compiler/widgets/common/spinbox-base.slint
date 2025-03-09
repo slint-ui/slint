@@ -70,8 +70,8 @@ export component SpinBoxBase {
         width: 100%;
         height: 100%;
 
-        accessible-role: AccessibleRole.text-input;
-        accessible-value: self.text;
+        // Disable TextInput's built-in accessibility support as the widget takes care of that.
+        accessible-role: none;
 
         accepted => {
             if !self.text.is-float() {
