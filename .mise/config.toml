@@ -1,0 +1,11 @@
+# cspell:ignore pipx
+ 
+[tools]
+biome = "latest"
+clang-format = "latest"
+"npm:cspell" = "latest"
+node = "20"
+pnpm = "latest"
+"pipx:reuse" = "latest"
+ruff = "latest"
+"npm:wasm-pack" = "latest"
