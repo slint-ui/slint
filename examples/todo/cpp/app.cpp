@@ -35,6 +35,8 @@ AppState create_ui()
         }
     });
 
+    demo->on_remove([todo_model](int index) { todo_model->erase(index); });
+
     demo->on_popup_confirmed(
             [demo = slint::ComponentWeakHandle(demo)] { (*demo.lock())->window().hide(); });
 
