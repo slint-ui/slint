@@ -606,27 +606,45 @@ const EXPECTED_REPOSITORY: &str = "https://github.com/slint-ui/slint";
 
 fn collect_files() -> Result<Vec<PathBuf>> {
     let root = super::root_dir();
-    let ls_files_output = super::run_command(
-        "git",
-        &["ls-files", "-z"],
-        std::iter::empty::<(std::ffi::OsString, std::ffi::OsString)>(),
-    )?
-    .stdout;
+
     let mut files = Vec::new();
-    for path in ls_files_output.split(|ch| *ch == 0) {
+    let (ls_files_output, split_char) = if root.join(".jj").exists() {
+        (
+            super::run_command(
+                "jj",
+                &["file", "list"],
+                std::iter::empty::<(std::ffi::OsString, std::ffi::OsString)>(),
+            )?
+            .stdout,
+            b'\n',
+        )
+    } else {
+        (
+            super::run_command(
+                "git",
+                &["ls-files", "-z"],
+                std::iter::empty::<(std::ffi::OsString, std::ffi::OsString)>(),
+            )?
+            .stdout,
+            b'\0',
+        )
+    };
+
+    for path in ls_files_output.split(|ch| *ch == split_char) {
         if path.is_empty() {
             continue;
         }
         let path = PathBuf::from_str(
             std::str::from_utf8(path)
-                .context("Error decoding git ls-files command output as utf-8")?,
+                .context("Error decoding file list command output from VCS as utf-8")?,
         )
-        .context("Failed to decide path output in git ls-files")?;
+        .context("Failed to decide path output in VCS file list")?;
 
         if !path.is_dir() {
             files.push(root.join(path));
         }
     }
+
     Ok(files)
 }
 
