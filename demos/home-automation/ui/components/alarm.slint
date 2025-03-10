@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 import { Animation, Measurements, Colors, Style, Palette } from "../common.slint";
 import { Control} from "control.slint";
-import { AppState } from "../appState.slint";
+import { AppState, Orientation } from "../appState.slint";
 import { HaText } from "general/haText.slint";
 import { LineEdit } from "std-widgets.slint";
 import { InnerShadowRectangle } from "general/innerShadowRectangle.slint";
@@ -14,7 +14,7 @@ export component ArmButton inherits Rectangle {
     if label != -1: Rectangle {
         Image {
             source: ta.pressed ?  @image-url("../images/default-button.png", nine-slice(0 50 0 50)) : @image-url("../images/pressed-button.png", nine-slice(0 50 0 50));
-            width: 80px;
+            width: 100px;
             height: self.source.height * 1px;
         }
 
