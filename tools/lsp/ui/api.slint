@@ -121,7 +121,7 @@ export enum BrushKind {
 }
 
 export struct GradientStop {
-    position: percent,
+    position: float, // between 0 and 1!
     color: color,
 }
 
@@ -501,10 +501,10 @@ export global Api {
 
     pure callback as-json-brush(kind: BrushKind, angle: float, color: color, stops: [GradientStop]) -> string;
 
-    pure callback add-gradient-stop(stops: [GradientStop], row: int, value: GradientStop);
+    pure callback add-gradient-stop(stops: [GradientStop], value: GradientStop) -> int;
     pure callback remove-gradient-stop(stops: [GradientStop], row: int);
 
-    pure callback create_brush(kind: BrushKind, angle: float, color: color, stops: [GradientStop]) -> brush;
+    pure callback create-brush(kind: BrushKind, angle: float, color: color, stops: [GradientStop]) -> brush;
 
     // Get the property declaration/definition ranges
     callback property-declaration-ranges(property-name: string) -> PropertyDeclaration;
