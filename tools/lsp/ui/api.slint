@@ -114,13 +114,26 @@ export enum PropertyValueKind {
     string,
 }
 
+export enum BrushKind {
+    solid,
+    linear,
+    radial,
+}
+
+export struct GradientStop {
+    position: percent,
+    color: color,
+}
+
 /// Data about the property value for use in "simple" mode
 export struct PropertyValue {
     value-bool: bool, // boolean
     is-translatable: bool, // string
     kind: PropertyValueKind,
+    brush-kind: BrushKind, // brush
+    gradient-stops: [GradientStop], // brush
     value-brush: brush, // brush, color
-    value-float: float, // float
+    value-float: float, // float, brush (angle)
     value-int: int, // integer, enum/float (current index into visual_items)
     default-selection: int, // enum/float (default index into visual_items)
     value-string: string, // enum (name), string, brush (color value)
@@ -478,11 +491,20 @@ export global Api {
 
     pure callback string-to-code(value: string, is_translatable: bool, tr_context: string, tr_plural: string, tr_plural_expression: string) -> string;
 
+    pure callback as-slint-brush(kind: BrushKind, angle: float, color: color, stops: [GradientStop]) -> string;
+
     // ## preview data
     pure callback get-property-value(component: string, name: string) -> PropertyValue;
     pure callback get-property-value-table(component: string, name: string) -> PropertyValueTable;
 
     pure callback set-json-preview-data(component: string, name: string, json-value: string) -> string;
+
+    pure callback as-json-brush(kind: BrushKind, angle: float, color: color, stops: [GradientStop]) -> string;
+
+    pure callback add-gradient-stop(stops: [GradientStop], row: int, value: GradientStop);
+    pure callback remove-gradient-stop(stops: [GradientStop], row: int);
+
+    pure callback create_brush(kind: BrushKind, angle: float, color: color, stops: [GradientStop]) -> brush;
 
     // Get the property declaration/definition ranges
     callback property-declaration-ranges(property-name: string) -> PropertyDeclaration;
