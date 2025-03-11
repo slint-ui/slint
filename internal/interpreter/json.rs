@@ -93,7 +93,7 @@ pub fn value_from_json(t: &langtype::Type, v: &serde_json::Value) -> Result<Valu
                         Err(format!("Failed to parse color value {s}"))
                     }
                 } else {
-                    Err("Brush kind not supported".into())
+                    Err("Can not create a gradient from a string".into())
                 }
             }
             _ => Err("Value type not supported".into()),
@@ -122,6 +122,96 @@ pub fn value_from_json(t: &langtype::Type, v: &serde_json::Value) -> Result<Valu
                     .collect::<Result<HashMap<String, Value>, _>>()?,
             )
             .into()),
+            langtype::Type::Brush => {
+                fn parse_brush(
+                    obj: &serde_json::Map<String, serde_json::Value>,
+                ) -> Result<Value, String> {
+                    fn parse_stop(
+                        stop_obj: &serde_json::Value,
+                    ) -> Result<i_slint_core::graphics::GradientStop, String> {
+                        let p = stop_obj.get("position");
+                        let c = stop_obj.get("color");
+
+                        match (p, c) {
+                            (Some(serde_json::Value::Number(position)), Some(serde_json::Value::String(color))) => {
+                                let Some(color) = string_to_color(&color) else {
+                                    return Err(format!("Could not parse color in 'steps' object"));
+                                };
+                                let position = {
+                                    if let Some(p) = position.as_f64() {
+                                        Ok(p as f32)
+                                    } else {
+                                         Err(format!("Could not convert 'position' into a float number"))
+                                    }
+                                }?;
+                                Ok(i_slint_core::graphics::GradientStop {color, position})
+                            }
+                            (Some(_), Some(_)) => return Err(format!("'steps' object in brush JSON object had invalid 'position' and 'color' fields")),
+                            (_, _) => return Err(format!("'steps' object in brush JSON object did not contain 'position' and 'color' fields")),
+                        }
+                    }
+
+                    fn parse_stops(
+                        stops_value: Option<&serde_json::Value>,
+                    ) -> Result<Vec<i_slint_core::graphics::GradientStop>, String>
+                    {
+                        let Some(stops_value) = stops_value else {
+                            return Err(format!("Expected a 'stops' field in a brush"));
+                        };
+                        let serde_json::Value::Array(stops_array) = stops_value else {
+                            return Err(format!(
+                                "Expected the 'stops' field in a brush to be an array"
+                            ));
+                        };
+
+                        stops_array
+                            .iter()
+                            .map(|stop| parse_stop(stop))
+                            .collect::<Result<Vec<_>, String>>()
+                    }
+
+                    fn parse_angle(
+                        obj: &serde_json::Map<String, serde_json::Value>,
+                    ) -> Result<f32, String> {
+                        match obj.get("angle") {
+                            None => return Ok(0.0),
+                            Some(serde_json::Value::Number(n)) => {
+                                let Some(n) = n.as_f64() else {
+                                    return Err(format!("Could not convert 'angle' in linear brush object into a float value"));
+                                };
+
+                                return Ok(n as f32);
+                            }
+                            _ => Err(format!("'angle' field must be a number")),
+                        }
+                    }
+
+                    let mut stops = parse_stops(obj.get("stops"))?;
+
+                    match obj.get("gradient") {
+                        Some(serde_json::Value::String(s)) if s == "linear" => {
+                            let angle = parse_angle(obj)?;
+                            Ok(Value::Brush(i_slint_core::Brush::LinearGradient(
+                                i_slint_core::graphics::LinearGradientBrush::new(
+                                    angle,
+                                    stops.drain(..),
+                                ),
+                            )))
+                        }
+                        Some(serde_json::Value::String(s)) if s == "circle" => {
+                            Ok(Value::Brush(i_slint_core::Brush::RadialGradient(
+                                i_slint_core::graphics::RadialGradientBrush::new_circle(
+                                    stops.drain(..),
+                                ),
+                            )))
+                        }
+                        Some(s) => Err(format!("Unknown brush type {s}")),
+                        None => Err(format!("Expected a brush object in JSON")),
+                    }
+                }
+
+                parse_brush(obj)
+            }
             _ => Err("Got a struct where none was expected".into()),
         },
     }
@@ -182,8 +272,71 @@ pub fn value_to_json(value: &Value) -> Result<serde_json::Value, String> {
         )),
         Value::Brush(brush) => match brush {
             Brush::SolidColor(color) => Ok(serde_json::Value::String(color_to_string(color))),
-            Brush::LinearGradient(_) => Err("Cannot serialize a linear gradient".into()),
-            Brush::RadialGradient(_) => Err("Cannot serialize a radial gradient".into()),
+            Brush::LinearGradient(lg) => Ok(serde_json::Value::Object(
+                vec![
+                    ("gradient".to_string(), serde_json::Value::from("linear")),
+                    ("angle".to_string(), serde_json::Value::from(lg.angle())),
+                    (
+                        "stops".to_string(),
+                        serde_json::Value::Array(
+                            lg.stops()
+                                .map(|stop| {
+                                    serde_json::Value::Object(
+                                        vec![
+                                            (
+                                                "position".to_string(),
+                                                serde_json::Value::from(stop.position),
+                                            ),
+                                            (
+                                                "color".to_string(),
+                                                serde_json::Value::from(color_to_string(
+                                                    &stop.color,
+                                                )),
+                                            ),
+                                        ]
+                                        .drain(..)
+                                        .collect::<serde_json::Map<_, _>>(),
+                                    )
+                                })
+                                .collect(),
+                        ),
+                    ),
+                ]
+                .drain(..)
+                .collect::<serde_json::Map<_, _>>(),
+            )),
+            Brush::RadialGradient(rg) => Ok(serde_json::Value::Object(
+                vec![
+                    ("gradient".to_string(), serde_json::Value::from("circle")),
+                    (
+                        "stops".to_string(),
+                        serde_json::Value::Array(
+                            rg.stops()
+                                .map(|stop| {
+                                    serde_json::Value::Object(
+                                        vec![
+                                            (
+                                                "position".to_string(),
+                                                serde_json::Value::from(stop.position),
+                                            ),
+                                            (
+                                                "color".to_string(),
+                                                serde_json::Value::from(color_to_string(
+                                                    &stop.color,
+                                                )),
+                                            ),
+                                        ]
+                                        .drain(..)
+                                        .collect::<serde_json::Map<_, _>>(),
+                                    )
+                                })
+                                .collect(),
+                        ),
+                    ),
+                ]
+                .drain(..)
+                .collect::<serde_json::Map<_, _>>(),
+            )),
             _ => Err("Cannot serialize an unknown brush type".into()),
         },
         Value::PathData(_) => Err("Cannot serialize path data".into()),
@@ -217,6 +370,66 @@ fn test_from_json() {
     assert_eq!(v, Value::Brush(Brush::SolidColor(Color::from_argb_u8(0xff, 0x0a, 0xb0, 0xcd))));
     let v = value_from_json_str(&langtype::Type::Brush, "\"#0ab0cdff\"").unwrap();
     assert_eq!(v, Value::Brush(Brush::SolidColor(Color::from_argb_u8(0xff, 0x0a, 0xb0, 0xcd))));
+    assert_eq!(v, Value::Brush(Brush::SolidColor(Color::from_argb_u8(0xff, 0x0a, 0xb0, 0xcd))));
+    let v = value_from_json_str(&langtype::Type::Brush, "{ \"gradient\": \"linear\", \"angle\": 42, \"stops\": [ { \"position\": 0.0, \"color\": \"#ff0000ff\" }, { \"position\": 0.5, \"color\": \"#00ff00ff\" }, { \"position\": 1.0, \"color\": \"#0000ffff\" }]}").unwrap();
+    assert_eq!(
+        v,
+        Value::Brush(Brush::LinearGradient(i_slint_core::graphics::LinearGradientBrush::new(
+            42.0,
+            vec![
+                i_slint_core::graphics::GradientStop {
+                    position: 0.0,
+                    color: Color::from_argb_u8(0xff, 0xff, 0x00, 0x00)
+                },
+                i_slint_core::graphics::GradientStop {
+                    position: 0.5,
+                    color: Color::from_argb_u8(0xff, 0x00, 0xff, 0x00)
+                },
+                i_slint_core::graphics::GradientStop {
+                    position: 1.0,
+                    color: Color::from_argb_u8(0xff, 0x00, 0x00, 0xff)
+                }
+            ]
+            .drain(..)
+        )))
+    );
+    assert!(value_from_json_str(&langtype::Type::Brush, "{ \"gradient\": \"linear\", \"angle\": \"foobar\", \"stops\": [ { \"position\": 0.0, \"color\": \"#ff0000ff\" }, { \"position\": 0.5, \"color\": \"#00ff00ff\" }, { \"position\": 1.0, \"color\": \"#0000ffff\" }]}").is_err());
+    assert!(value_from_json_str(&langtype::Type::Brush, "{ \"gradient\": \"linear\", \"stops\": { \"position\": 0.0, \"color\": \"#ff0000ff\" }, { \"position\": 0.5, \"color\": \"#00ff00ff\" } }").is_err());
+    assert!(value_from_json_str(
+        &langtype::Type::Brush,
+        "{ \"gradient\": \"linear\", \"stops\": [ 0.0 ] }"
+    )
+    .is_err());
+    let v = value_from_json_str(&langtype::Type::Brush, "{ \"gradient\": \"circle\", \"stops\": [ { \"position\": 0.0, \"color\": \"#ff0000ff\" }, { \"position\": 0.5, \"color\": \"#00ff00ff\" }, { \"position\": 1.0, \"color\": \"#0000ffff\" }]}").unwrap();
+    assert_eq!(
+        v,
+        Value::Brush(Brush::RadialGradient(
+            i_slint_core::graphics::RadialGradientBrush::new_circle(
+                vec![
+                    i_slint_core::graphics::GradientStop {
+                        position: 0.0,
+                        color: Color::from_argb_u8(0xff, 0xff, 0x00, 0x00)
+                    },
+                    i_slint_core::graphics::GradientStop {
+                        position: 0.5,
+                        color: Color::from_argb_u8(0xff, 0x00, 0xff, 0x00)
+                    },
+                    i_slint_core::graphics::GradientStop {
+                        position: 1.0,
+                        color: Color::from_argb_u8(0xff, 0x00, 0x00, 0xff)
+                    }
+                ]
+                .drain(..)
+            )
+        ))
+    );
+    assert!(value_from_json_str(&langtype::Type::Brush, "{ \"gradient\": \"foobar\", \"stops\": [ { \"position\": 0.0, \"color\": \"#ff0000ff\" }, { \"position\": 0.5, \"color\": \"#00ff00ff\" }, { \"position\": 1.0, \"color\": \"#0000ffff\" }]}").is_err());
+    assert!(value_from_json_str(&langtype::Type::Brush, "{ \"gradient\": \"circle\", \"stops\": { \"position\": 0.0, \"color\": \"#ff0000ff\" }, { \"position\": 0.5, \"color\": \"#00ff00ff\" } }").is_err());
+    assert!(value_from_json_str(
+        &langtype::Type::Brush,
+        "{ \"gradient\": \"circle\", \"stops\": [ 0.0 ] }"
+    )
+    .is_err());
 }
 
 #[test]
@@ -283,4 +496,49 @@ fn test_to_json() {
     ))))
     .unwrap();
     assert_eq!(v, "\"#0ab0cdff\"".to_string());
+
+    let v = value_to_json_string(&Value::Brush(Brush::LinearGradient(
+        i_slint_core::graphics::LinearGradientBrush::new(
+            42.0,
+            vec![
+                i_slint_core::graphics::GradientStop {
+                    position: 0.0,
+                    color: Color::from_argb_u8(0xff, 0xff, 0x00, 0x00),
+                },
+                i_slint_core::graphics::GradientStop {
+                    position: 0.5,
+                    color: Color::from_argb_u8(0xff, 0x00, 0xff, 0x00),
+                },
+                i_slint_core::graphics::GradientStop {
+                    position: 1.0,
+                    color: Color::from_argb_u8(0xff, 0x00, 0x00, 0xff),
+                },
+            ]
+            .drain(..),
+        ),
+    )))
+    .unwrap();
+    assert_eq!(v, "{\"angle\":42.0,\"gradient\":\"linear\",\"stops\":[{\"color\":\"#ff0000ff\",\"position\":0.0},{\"color\":\"#00ff00ff\",\"position\":0.5},{\"color\":\"#0000ffff\",\"position\":1.0}]}".to_string());
+
+    let v = value_to_json_string(&Value::Brush(Brush::RadialGradient(
+        i_slint_core::graphics::RadialGradientBrush::new_circle(
+            vec![
+                i_slint_core::graphics::GradientStop {
+                    position: 0.0,
+                    color: Color::from_argb_u8(0xff, 0xff, 0x00, 0x00),
+                },
+                i_slint_core::graphics::GradientStop {
+                    position: 0.5,
+                    color: Color::from_argb_u8(0xff, 0x00, 0xff, 0x00),
+                },
+                i_slint_core::graphics::GradientStop {
+                    position: 1.0,
+                    color: Color::from_argb_u8(0xff, 0x00, 0x00, 0xff),
+                },
+            ]
+            .drain(..),
+        ),
+    )))
+    .unwrap();
+    assert_eq!(v, "{\"gradient\":\"circle\",\"stops\":[{\"color\":\"#ff0000ff\",\"position\":0.0},{\"color\":\"#00ff00ff\",\"position\":0.5},{\"color\":\"#0000ffff\",\"position\":1.0}]}".to_string());
 }
