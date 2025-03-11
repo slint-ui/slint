@@ -126,14 +126,10 @@ pub fn create_ui(style: String, experimental: bool) -> Result<PreviewUi, Platfor
     api.on_as_json_brush(as_json_brush);
     api.on_as_slint_brush(as_slint_brush);
     api.on_create_brush(create_brush);
-    api.on_add_gradient_stop(|model, row, value| {
-        if row < 0 {
-            return;
-        }
-        let row = row as usize;
-        if row <= model.row_count() {
-            model.as_any().downcast_ref::<slint::VecModel<_>>().unwrap().insert(row, value);
-        }
+    api.on_add_gradient_stop(|model, value| {
+        let m = model.as_any().downcast_ref::<slint::VecModel<_>>().unwrap();
+        m.push(value);
+        (m.row_count() - 1) as i32
     });
     api.on_remove_gradient_stop(|model, row| {
         if row < 0 {
@@ -141,7 +137,11 @@ pub fn create_ui(style: String, experimental: bool) -> Result<PreviewUi, Platfor
         }
         let row = row as usize;
         if row < model.row_count() {
-            model.as_any().downcast_ref::<slint::VecModel<_>>().unwrap().remove(row as usize)
+            model
+                .as_any()
+                .downcast_ref::<slint::VecModel<GradientStop>>()
+                .unwrap()
+                .remove(row as usize);
         }
     });
 
@@ -1040,6 +1040,7 @@ fn map_value_and_type(
                         kind: PropertyValueKind::Brush,
                         brush_kind: BrushKind::Linear,
                         value_float: lg.angle(),
+                        value_brush: slint::Brush::LinearGradient(lg.clone()),
                         gradient_stops: Rc::new(slint::VecModel::from(
                             lg.stops()
                                 .map(|gs| GradientStop { color: gs.color, position: gs.position })
@@ -1056,6 +1057,7 @@ fn map_value_and_type(
                     mapping.current_values.push(PropertyValue {
                         kind: PropertyValueKind::Brush,
                         brush_kind: BrushKind::Radial,
+                        value_brush: slint::Brush::RadialGradient(rg.clone()),
                         gradient_stops: Rc::new(slint::VecModel::from(
                             rg.stops()
                                 .map(|gs| GradientStop { color: gs.color, position: gs.position })
@@ -1436,6 +1438,18 @@ pub fn ui_set_properties(
     declarations
 }
 
+fn sorted_gradient_stops(
+    stops: slint::ModelRc<GradientStop>,
+) -> Vec<i_slint_core::graphics::GradientStop> {
+    let mut result = stops
+        .iter()
+        .map(|gs| i_slint_core::graphics::GradientStop { position: gs.position, color: gs.color })
+        .collect::<Vec<_>>();
+    result.sort_by(|left, right| left.position.total_cmp(&right.position));
+
+    result
+}
+
 fn as_json_brush(
     kind: BrushKind,
     angle: f32,
@@ -1451,26 +1465,22 @@ fn as_slint_brush(
     color: slint::Color,
     stops: slint::ModelRc<GradientStop>,
 ) -> SharedString {
+    fn stops_as_string(stops: slint::ModelRc<GradientStop>) -> String {
+        let stops = sorted_gradient_stops(stops);
+
+        let mut result = String::new();
+        for s in stops {
+            result += &format!(", {} {:.2}%", color_to_string(s.color), s.position * 100.0);
+        }
+        result
+    }
+
     match kind {
         BrushKind::Solid => color_to_string(color).into(),
         BrushKind::Linear => {
-            let mut result = format!("@linear-gradient({angle}deg");
-            for s in stops.iter() {
-                result += &format!(", {} {}", color_to_string(s.color), s.position,);
-            }
-            result += ")";
-
-            result.into()
+            format!("@linear-gradient({angle}deg{})", stops_as_string(stops)).into()
         }
-        BrushKind::Radial => {
-            let mut result = "@radial-gradient(circle".to_string();
-            for s in stops.iter() {
-                result += &format!(", {} {}", color_to_string(s.color), s.position,);
-            }
-            result += ")";
-
-            result.into()
-        }
+        BrushKind::Radial => format!("@radial-gradient(circle{})", stops_as_string(stops)).into(),
     }
 }
 
@@ -1480,21 +1490,15 @@ fn create_brush(
     color: slint::Color,
     stops: slint::ModelRc<GradientStop>,
 ) -> slint::Brush {
+    let mut stops = sorted_gradient_stops(stops);
+
     match kind {
         BrushKind::Solid => slint::Brush::SolidColor(color),
-        BrushKind::Linear => {
-            slint::Brush::LinearGradient(i_slint_core::graphics::LinearGradientBrush::new(
-                angle,
-                stops.iter().map(|gs| i_slint_core::graphics::GradientStop {
-                    position: gs.position,
-                    color: gs.color,
-                }),
-            ))
-        }
+        BrushKind::Linear => slint::Brush::LinearGradient(
+            i_slint_core::graphics::LinearGradientBrush::new(angle, stops.drain(..)),
+        ),
         BrushKind::Radial => slint::Brush::RadialGradient(
-            i_slint_core::graphics::RadialGradientBrush::new_circle(stops.iter().map(|gs| {
-                i_slint_core::graphics::GradientStop { position: gs.position, color: gs.color }
-            })),
+            i_slint_core::graphics::RadialGradientBrush::new_circle(stops.drain(..)),
         ),
     }
 }
