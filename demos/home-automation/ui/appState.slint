@@ -38,6 +38,11 @@ export enum Orientation {
 
 export global AppState {
     in-out property <bool> first-run: true;
+    in-out property <bool> kiosk-mode: false;
+    callback end-kiosk-mode();
+    end-kiosk-mode => {
+        kiosk-mode = false;
+    }
     in-out property <int> current-page: 0; // Don't use this directly. Use target-page instead.
     in-out property <int> target-page: 0;
     out property <DataGroup> current-layout-data: orientation == Orientation.landscape ? pageDataLandscape[current-page] : pageDataPortrait[current-page];
@@ -62,6 +67,8 @@ export global AppState {
        }
     }
     out property <string> default-font-family: "Poppins";
+
+
 
     // Portrait values
     property <float> margin: 36;

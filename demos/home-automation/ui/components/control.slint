@@ -47,6 +47,11 @@ export component Control inherits Rectangle {
         height: parent.height + 32px;
         source: root.control-background;
     }
+    TouchArea {
+        clicked => {
+            AppState.end-kiosk-mode();
+        }
+    }
 
     @children
 
