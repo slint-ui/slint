@@ -58,6 +58,7 @@ export component Lamp inherits Control {
     }
     TouchArea {
         clicked => {
+            AppState.end-kiosk-mode();
             if self.mouse-x == slider.initial-position {
                 slider.anim-duration = 300ms;
                 slider.animated-value = (self.mouse-x / self.width) * (slider.maxValue - slider.minValue) + slider.minValue;

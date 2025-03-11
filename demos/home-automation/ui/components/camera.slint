@@ -17,6 +17,14 @@ export component Camera inherits Control {
     property <CameraView> camera-view: CameraView.front;
     control-background: @image-url("../images/overhead-frame.png", nine-slice(50));
 
+    function toggle-view() {
+        if camera-view == CameraView.front {
+            camera-view = CameraView.back;
+        } else {
+            camera-view = CameraView.front;
+        }
+    }
+
     tile := Rectangle {
         x: 0;
         Image {
@@ -44,22 +52,27 @@ export component Camera inherits Control {
             }
         }
 
+
         TouchArea {
             clicked => {
-                if camera-view == CameraView.front {
-                    camera-view = CameraView.back;
-                } else {
-                    camera-view = CameraView.front;
-                }
+                toggle-view();
             }
         }
 
         HaText {
-            y: root.height - self.height - 15px;
+            y: root.height - self.height - 10px;
             text: camera-view == CameraView.back ? "Back Yard" : "Front Porch";
             color: Colors.white;
             font-size: 1.5rem;
             font-weight: 200;
+        }
+    }
+
+    Timer {
+        interval: 2s;
+        running: AppState.kiosk-mode;
+        triggered => {
+            toggle-view();
         }
     }
 }

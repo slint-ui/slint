@@ -47,6 +47,7 @@ export component PageButton inherits Rectangle {
         clicked => {
             AppState.target-page = target-page;
             AppState.first-run = false;
+            AppState.end-kiosk-mode();
         }
     }
 }
@@ -298,9 +299,9 @@ export component MainScreen inherits Rectangle {
                         lock := Image {
                             source: @image-url("../../images/lock.svg");
                             colorize: white;
-                            opacity: 50%;
+                            opacity: lta.pressed ? 100% : 50%;
                         }
-                        TouchArea {
+                        lta := TouchArea {
                             clicked => {
                                 door-component-loaded = true;
                             }
@@ -345,5 +346,42 @@ export component MainScreen inherits Rectangle {
         }
         demo-locked: demo-locked;
         initial-door-state: initial-door-state;
+    }
+
+
+    kiosk-blocker :=  TouchArea {
+        visible: AppState.kiosk-mode && !door-component-loaded;
+        clicked => {
+            AppState.end-kiosk-mode();
+        }
+    }
+
+    Timer {
+        interval: 30s;
+        running: !AppState.kiosk-mode && !door-component-loaded;
+        triggered => {
+            AppState.first-run = false;
+            AppState.kiosk-mode = true;
+        }
+    }
+
+    kiosk-mode-animator := Timer {
+        running: AppState.kiosk-mode && !door-component-loaded;
+        interval: 5s;
+        triggered => {
+            if AppState.orientation == Orientation.landscape {
+                if AppState.current-page < 3 {
+                    AppState.target-page = AppState.target-page + 1;
+                } else {
+                    AppState.target-page = 0;
+                }
+            } else {
+                if AppState.current-page < 2 {
+                    AppState.target-page = AppState.target-page + 1;
+                } else {
+                    AppState.target-page = 0;
+                }
+            }
+        }
     }
 }
