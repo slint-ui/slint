@@ -277,7 +277,7 @@ component FloatWidget inherits GridLayout {
     Row {
         NameLabel {
             col: 1;
-            
+
             property-name: root.property-name;
             property-value: root.property-value;
         }
@@ -670,7 +670,7 @@ component ColorWidget inherits GridLayout {
 
         sub := SecondaryContent {
             col: 1;
-            
+
             private property <color> slider-color: Api.rgba-to-color(r.value, g.value, b.value, a.value);
 
             enabled: root.enabled;
@@ -748,7 +748,7 @@ component IntegerWidget inherits GridLayout {
     Row {
         NameLabel {
             col: 1;
-            
+
             property-name: root.property-name;
             property-value: root.property-value;
         }
@@ -799,7 +799,7 @@ component EnumWidget inherits GridLayout {
     Row {
         NameLabel {
             col: 1;
-            
+
             property-name: root.property-name;
             property-value: root.property-value;
         }
@@ -838,7 +838,7 @@ component BooleanWidget inherits GridLayout {
     Row {
         NameLabel {
             col: 1;
-            
+
             property-name: root.property-name;
             property-value: root.property-value;
         }
@@ -870,7 +870,7 @@ component EditMultiValueWidget inherits GridLayout {
     in property <string> property-group-name;
 
     callback edit-in-spreadsheet(property-group-name: string, data: PreviewData, values: [[PropertyValue]]);
-    
+
     spacing-vertical: EditorSpaceSettings.default-spacing;
     width: 100%;
 
@@ -935,7 +935,7 @@ component EditJsonWidget inherits GridLayout {
     Row {
         NameLabel {
             col: 1;
-            
+
             property-name: root.property-name;
             property-value: root.property-value;
         }
