@@ -340,3 +340,12 @@ pub fn run_import_passes(
     check_rotation::check_rotation(doc, diag);
     unique_id::check_unique_id(doc, diag);
 }
+
+pub fn run_minimal_typecheck_passes(
+    doc: &mut crate::object_tree::Document,
+    type_loader: &crate::typeloader::TypeLoader,
+    diag: &mut crate::diagnostics::BuildDiagnostics,
+) {
+    run_import_passes(&doc, &type_loader, diag);
+    check_public_api::check_public_api(doc, &type_loader.compiler_config, diag);
+}
