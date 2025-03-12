@@ -10,6 +10,8 @@ use crate::SharedVector;
 use alloc::string::String;
 use core::fmt::{Debug, Display, Write};
 use core::ops::Deref;
+#[cfg(not(feature = "std"))]
+use num_traits::Float;
 
 /// This macro is the same as [`std::format!`], but it returns a [`SharedString`] instead.
 ///
