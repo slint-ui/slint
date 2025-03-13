@@ -175,26 +175,33 @@ export component BrushWidget inherits GridLayout {
 
             Rectangle {
                 clip: true;
-                height: root.current-brush-kind == BrushKind.linear ? angle.height : 0px;
+                height: root.current-brush-kind == BrushKind.linear ? self.preferred-height : 0px;
 
-                angle := ResettingLineEdit {
-                    enabled <=> root.enabled;
+                HorizontalLayout {
+                    spacing: EditorSpaceSettings.default-spacing;
+                    Text {
+                        text: "Angle:";
+                        vertical-alignment: center;
+                    }
 
-                    input-type: decimal;
+                    angle := ResettingLineEdit {
+                        enabled <=> root.enabled;
 
-                    edited(text) => {
-                        self.can-compile = text.is-float() && root.test-brush-binding(root.current-brush-kind, text.is-empty ? 0.0 : text.to-float(), root.current-color, root.current-gradient-stops);
-                        if self.can-compile {
-                            root.current-angle = text.is-empty ? 0.0 : text.to-float();
-                            root.update-brush();
+                        input-type: decimal;
+
+                        edited(text) => {
+                            self.can-compile = text.is-float() && root.test-brush-binding(root.current-brush-kind, text.is-empty ? 0.0 : text.to-float(), root.current-color, root.current-gradient-stops);
+                            if self.can-compile {
+                                root.current-angle = text.is-empty ? 0.0 : text.to-float();
+                                root.update-brush();
+                            }
+                        }
+
+                        accepted(text) => {
+                            root.set-brush-binding(root.current-brush-kind, root.current-angle, root.current-color, root.current-gradient-stops);
+                            update-brush();
                         }
                     }
-
-                    accepted(text) => {
-                        root.set-brush-binding(root.current-brush-kind, root.current-angle, root.current-color, root.current-gradient-stops);
-                        update-brush();
-                    }
-
                 }
             }
 
