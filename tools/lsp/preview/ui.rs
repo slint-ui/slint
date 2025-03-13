@@ -132,7 +132,7 @@ pub fn create_ui(style: String, experimental: bool) -> Result<PreviewUi, Platfor
         (m.row_count() - 1) as i32
     });
     api.on_remove_gradient_stop(|model, row| {
-        if row < 0 {
+        if row <= 0 {
             return;
         }
         let row = row as usize;
@@ -479,6 +479,8 @@ fn extract_color(
         if let Some(color) = string_to_color(&text) {
             value.kind = kind;
             value.value_brush = slint::Brush::SolidColor(color);
+            value.gradient_stops =
+                Rc::new(slint::VecModel::from(vec![GradientStop { color, position: 0.5 }])).into();
             value.value_string = text.as_str().into();
             return true;
         }
@@ -504,9 +506,11 @@ fn set_default_brush(
     }
     value.brush_kind = BrushKind::Solid;
     let text = "#00000000";
-    let color = literals::parse_color_literal(text).unwrap();
+    let color = string_to_color(&text).unwrap();
+    value.gradient_stops =
+        Rc::new(slint::VecModel::from(vec![GradientStop { color, position: 0.5 }])).into();
     value.value_string = text.into();
-    value.value_brush = slint::Brush::SolidColor(slint::Color::from_argb_encoded(color));
+    value.value_brush = slint::Brush::SolidColor(color);
 }
 
 fn simplify_value(prop_info: &super::properties::PropertyInformation) -> PropertyValue {
@@ -904,6 +908,11 @@ fn map_value_and_type(
             brush_kind: BrushKind::Solid,
             value_brush: slint::Brush::SolidColor(color),
             value_string: color_string.into(),
+            gradient_stops: Rc::new(slint::VecModel::from(vec![GradientStop {
+                color,
+                position: 0.5,
+            }]))
+            .into(),
             code,
             ..Default::default()
         });
