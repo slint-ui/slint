@@ -1,0 +1,125 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { ChildIndicator, NameLabel, ResettingLineEdit } from "./basics.slint";
+
+import { PropertyValue, PropertyValueKind } from "../../api.slint";
+import { EditorSizeSettings, EditorSpaceSettings } from "../../components/styling.slint";
+
+import { ComboBox } from "std-widgets.slint";
+
+export component FloatWidget inherits GridLayout {
+    in property <bool> enabled;
+    in property <string> property-name;
+    in property <PropertyValue> property-value;
+
+    callback test-float-binding(text: string, unit: string) -> bool;
+    callback set-float-binding(text: string, unit: string);
+
+    private property <string> current-unit;
+    private property <PropertyValue> dummy: self.property-value;
+
+    pure function find_current_unit(value: PropertyValue) -> string {
+        if value.visual-items.length == 0 {
+            return "";
+        }
+        return value.visual-items[self.find-current-index(value)];
+    }
+
+    pure function find_current_index(value: PropertyValue) -> int {
+        return value.code == "" ? value.default-selection : value.value-int;
+    }
+
+    function set-binding() {
+        root.set-float-binding(number.text == "" ? "" : number.text, self.current-unit);
+    }
+
+    function test-binding() -> bool {
+        return root.test-float-binding(number.text == "" ? "" : number.text, self.current-unit);
+    }
+
+    function apply-value() {
+        number.default-text = self.property-value.value-float;
+        current-unit = find_current_unit(property-value);
+    }
+
+    changed dummy => {
+        if !number.has-focus && self.property-value.kind == PropertyValueKind.float {
+            apply-value();
+        }
+    }
+
+    init => {
+        apply-value();
+    }
+
+    spacing-vertical: EditorSpaceSettings.default-spacing;
+    width: 100%;
+
+    Row {
+        NameLabel {
+            col: 1;
+
+            property-name: root.property-name;
+            property-value: root.property-value;
+        }
+    }
+
+    Row {
+        childIndicator := ChildIndicator {
+            horizontal-stretch: 0;
+            visible: false;
+        }
+
+        HorizontalLayout {
+            spacing: EditorSpaceSettings.default-spacing;
+            alignment: stretch;
+
+            number := ResettingLineEdit {
+                enabled: root.enabled;
+                horizontal-alignment: right;
+                min-width: EditorSizeSettings.float-size;
+                horizontal-stretch: 0;
+
+                default-text: property-value.value-float;
+
+                edited(text) => {
+                    self.can-compile = root.test-binding();
+                }
+
+                accepted(text) => {
+                    root.set-binding();
+                }
+
+                changed has-focus => {
+                    if !self.has-focus {
+                        root.apply-value();
+                    }
+                }
+            }
+
+            if property-value.visual-items.length > 1: ComboBox {
+                enabled: root.enabled;
+
+                horizontal-stretch: 0;
+
+                min-width: EditorSizeSettings.length-combo;
+                model: property-value.visual-items;
+                current-index: root.find_current_index(root.property-value);
+
+                selected(unit) => {
+                    root.current-unit = unit;
+                    root.set-binding();
+                }
+            }
+            if property-value.visual-items.length == 1: Text {
+                text: property-value.visual-items[0];
+                vertical-alignment: center;
+
+                changed text => {
+                    root.current-unit = self.text;
+                }
+            }
+        }
+    }
+}
