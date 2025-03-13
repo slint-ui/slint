@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+#MISE description="Run pnpm lints on all files"
+
+set -e
+
+pnpm install --frozen-lockfile || true
+
+# Build some dependencies
+( cd tools/slintpad && pnpm build:wasm_interpreter )
+( cd editors/vscode && pnpm build:wasm_lsp )
+
+pnpm type-check
