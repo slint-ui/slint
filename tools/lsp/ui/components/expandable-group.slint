@@ -1,0 +1,70 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Palette } from "std-widgets.slint";
+
+import { BodyStrongText } from "../components/body-strong-text.slint";
+import { StateLayer } from "../components/state-layer.slint";
+
+import { EditorAnimationSettings, EditorSizeSettings, EditorSpaceSettings, Icons } from "../components/styling.slint";
+
+export component ExpandableGroup  {
+    in property <bool> enabled;
+    in property <string> text;
+    in property <length> panel-width;
+
+    in-out property <bool> open: true;
+
+    group-layer := Rectangle {
+        content-layer := VerticalLayout {
+            if text != "": Rectangle {
+                touch-area := TouchArea {
+                    clicked => {
+                        root.open = !root.open;
+                    }
+                }
+
+                state-layer := StateLayer {
+                    width: panel-width;
+                    height: group-layer.height;
+                    y: group-layer.y;
+                    has-hover: touch-area.has-hover;
+                    pressed: touch-area.pressed;
+                }
+
+                HorizontalLayout {
+                    spacing: EditorSpaceSettings.default-spacing / 2;
+                    height: t.preferred-height;
+
+                    icon-image := Image {
+                        width: EditorSizeSettings.default-icon-width;
+                        colorize: Palette.alternate-foreground.transparentize(0.7);
+                        source: Icons.chevron-down;
+                        rotation-origin-x: self.width / 2;
+                        rotation-origin-y: self.height / 2;
+                        states [
+                            closed when !root.open: {
+                                rotation-angle: -0.25turn;
+                            }
+                        ]
+
+                        animate rotation-angle { duration: EditorAnimationSettings.rotation-duration; }
+                    }
+
+                    t := BodyStrongText {
+                        text: root.text;
+                    }
+                }
+            }
+
+            Rectangle {
+                height: root.open ? self.preferred-height : 0px;
+                clip: true;
+
+                @children
+
+                animate height { duration: EditorAnimationSettings.resize-duration; }
+            }
+        }
+    }
+}

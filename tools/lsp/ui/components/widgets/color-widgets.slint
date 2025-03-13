@@ -1,0 +1,718 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { ChildIndicator, NameLabel, ResettingLineEdit, SecondaryContent } from "./basics.slint";
+
+import { Api, BrushKind, ColorData, GradientStop, PropertyValue, PropertyValueKind } from "../../api.slint";
+import { EditorSizeSettings, EditorSpaceSettings } from "../../components/styling.slint";
+
+import { ComboBox, Palette, Slider } from "std-widgets.slint";
+
+component ColorLineEdit inherits HorizontalLayout {
+    in property <bool> enabled;
+    in property <string> channel: "R";
+    in-out property <float> value;
+
+    callback accepted();
+
+    changed value => {
+        num-value.default-text = Math.floor(root.value);
+        num-value.text = Math.floor(root.value);
+    }
+
+    init => {
+        num-value.default-text = Math.floor(root.value);
+        num-value.text = Math.floor(root.value);
+    }
+
+    out property <bool> has-focus: slide-value.has-focus || num-value.has-focus;
+
+    spacing: EditorSpaceSettings.default-spacing;
+
+    Text {
+        text: channel;
+        vertical-alignment: center;
+        color: Palette.foreground;
+    }
+
+    slide-value := Slider {
+        enabled: root.enabled;
+        minimum: 0;
+        maximum: 255;
+        step: 1;
+        value <=> root.value;
+        horizontal-stretch: 100;
+    }
+
+    num-value := ResettingLineEdit {
+        enabled: root.enabled;
+        input-type: number;
+        width: 5rem;
+
+        private property <float> test-value;
+
+        edited() => {
+            self.test-value = self.text.to-float();
+            if Math.clamp(Math.floor(self.test-value), 0.0, 255.0) == self.text.to-float() {
+                root.value = Math.floor(self.test-value);
+            } else {
+                self.text = self.test-value
+            }
+        }
+
+        accepted() => {
+            root.accepted();
+        }
+    }
+}
+
+export component ColorWidget inherits GridLayout {
+    in property <bool> enabled;
+    in property <string> property-name;
+    in property <PropertyValue> property-value;
+    in property <bool> has-code-action <=> sub.has-code-action;
+    in property <bool> has-reset-action <=> sub.has-reset-action;
+
+    private property <bool> open: false;
+    private property <PropertyValue> dummy: property-value; // Needed to make changed signal work...
+
+    callback code-action();
+    callback reset-action();
+
+    callback test-color-binding(text: string) -> bool;
+    callback set-color-binding(text: string);
+
+    private property <color> current-color;
+    private property <ColorData> current-color-data: Api.color-to-data(self.current-color);
+
+    changed current-color-data => {
+        root.current-color-data = Api.color-to-data(self.current-color);
+        if self.has-focus {
+            root.test-color-binding(current-color-data.text);
+        }
+        rle.default-text = current-color-data.text;
+
+        r.value = self.current-color-data.r;
+        g.value = self.current-color-data.g;
+        b.value = self.current-color-data.b;
+        a.value = self.current-color-data.a;
+    }
+
+    spacing-vertical: EditorSpaceSettings.default-spacing;
+    width: 100%;
+
+    function apply-value() {
+        root.current-color = self.property-value.value-brush;
+        root.current-color-data = Api.color-to-data(self.property-value.value-brush);
+    }
+
+    private property <bool> has-focus: rle.has-focus || r.has-focus || g.has-focus || b.has-focus || a.has-focus;
+
+    init => {
+        apply-value();
+    }
+
+    changed has-focus => {
+        if !self.has-focus {
+            apply-value();
+        }
+    }
+
+    changed dummy => {
+        if self.property-value.kind != PropertyValueKind.color {
+            return;
+        }
+
+        if !self.has-focus {
+            apply-value();
+        }
+    }
+
+    Row {
+        NameLabel {
+            col: 1;
+
+            property-name: root.property-name;
+            property-value: root.property-value;
+        }
+    }
+
+    Row {
+        childIndicator := ChildIndicator {
+            horizontal-stretch: 0;
+            control-hover: rle.has-focus;
+        }
+
+        content := HorizontalLayout {
+            spacing: EditorSpaceSettings.default-spacing;
+            alignment: stretch;
+
+            rle := ResettingLineEdit {
+                enabled: root.enabled;
+                default-text: root.current-color-data.text;
+
+                edited(text) => {
+                    if text == "" {
+                        // allow empty text -- which will delete the property
+                        self.can-compile = true;
+                        root.current-color = Colors.transparent;
+                        root.current-color-data = Api.color-to-data(root.current-color);
+                    } else {
+                        if self.can-compile {
+                            root.current-color = Api.string-to-color(text);
+                            root.current-color-data = Api.color-to-data(root.current-color);
+                        }
+                    }
+                }
+
+                accepted(text) => {
+                    root.set-color-binding(text);
+                }
+            }
+
+            color-preview := Rectangle {
+                background: root.current-color;
+                border-width: 1px;
+                border-color: Palette.foreground;
+            }
+        }
+    }
+
+    Row {
+        sub := SecondaryContent {
+            col: 1;
+
+            private property <color> slider-color: Api.rgba-to-color(r.value, g.value, b.value, a.value);
+
+            enabled: root.enabled;
+
+            changed slider-color => {
+                if r.has-focus || g.has-focus || b.has-focus || a.has-focus {
+                    root.current-color = slider-color;
+                    root.current-color-data = Api.color-to-data(self.slider-color);
+                }
+            }
+
+            open: childIndicator.open;
+
+            r := ColorLineEdit {
+                enabled: root.enabled;
+                value: root.current-color-data.r;
+                channel: "R";
+
+                accepted() => {
+                    root.set-color-binding(rle.text);
+                }
+            }
+
+            g := ColorLineEdit {
+                enabled: root.enabled;
+                value: root.current-color-data.g;
+                channel: "G";
+
+                accepted() => {
+                    root.set-color-binding(rle.text);
+                }
+            }
+
+            b := ColorLineEdit {
+                enabled: root.enabled;
+                value: root.current-color-data.b;
+                channel: "B";
+
+                accepted() => {
+                    root.set-color-binding(rle.text);
+                }
+            }
+
+            a := ColorLineEdit {
+                enabled: root.enabled;
+                value: root.current-color-data.a;
+                channel: "A";
+
+                accepted() => {
+                    root.set-color-binding(rle.text);
+                }
+            }
+
+            code-action() => {
+                root.code-action();
+            }
+            reset-action() => {
+                root.reset-action();
+            }
+        }
+    }
+}
+
+component GradientDot inherits Rectangle {
+    in-out property <float> position;
+    in-out property <color> value;
+    in-out property <bool> selected: false;
+
+    in property <length> parent-width;
+
+    in property <int> apply-update;
+
+    x: parent-width * self.position - self.width / 2.0;
+    
+    callback select-gradient-stop(position: float, color: color);
+    callback position-changed(position: float);
+    callback remove-stop();
+
+    width: self.selected ? 20px : 10px;
+    height: self.selected ? 20px : 10px;
+    border-radius: self.width;
+    background: value;
+    border-width: root.selected ? 2px : 1px;
+    border-color: root.selected ? black : gray;
+
+    TouchArea {
+        private property <length> x-pos: self.mouse-x + root.x;
+
+        double-clicked => {
+            root.remove-stop();
+        }
+
+        clicked => {
+            if !root.selected {;
+                root.select-gradient-stop(root.position, root.value);
+            }
+        }
+        moved => {
+            if self.x-pos >= 0 && self.x-pos < root.parent-width {
+                root.position = self.x-pos / root.parent-width;
+                root.position-changed(root.position);
+            }
+        }
+        scroll-event(event) => {
+            if event.delta-y != 0 {
+                root.position = Math.clamp(
+                    root.position + Math.clamp((event.delta-y / 1px), -0.01, +0.01),
+                    0.0, 1.0);
+                root.position-changed(root.position);
+
+                return EventResult.accept;
+            }
+            return EventResult.reject;
+        }
+    }
+}
+
+component GradientPreviewArea inherits VerticalLayout{
+    in-out property <[GradientStop]> gradient-stops;
+    in property <brush> current-brush;
+
+    out property <bool> has-focus: ta.has-hover;
+
+    callback select-gradient-stop(position: float, color: color);
+    callback update-brush();
+
+    private property <int> current-selected-index: -1;
+
+    private property <int> apply-update-to: -1;
+
+    grad := Rectangle {
+        height: 40px;
+        background: root.current-brush;
+        border-width: 1px;
+        border-color: Palette.foreground;
+
+        ta := TouchArea {
+            double-clicked => {
+                root.current-selected-index = Api.add-gradient-stop(root.gradient-stops, { position: self.mouse-x / self.width, color: Colors.aquamarine });
+                root.update-brush();
+            }
+            scroll-event(event) => {
+                if event.delta-y != 0 && root.current-selected-index != -1 {
+                    root.gradient-stops[root.current-selected-index].position = Math.clamp(
+                        root.gradient-stops[root.current-selected-index].position + Math.clamp((event.delta-y / 1px), -0.01, +0.01),
+                        0.0, 1.0);
+                    root.update-brush();
+
+                    root.apply-update-to = root.current-selected-index;
+
+                    return EventResult.accept;
+                }
+                return EventResult.reject;
+            }
+        }
+
+        Rectangle {
+            height: 1px;
+            background: grey;
+
+            for i[index] in root.gradient-stops: GradientDot {
+                selected: root.current-selected-index == index;
+                position: i.position;
+                value: i.color;
+
+                apply-update: root.apply-update-to;
+
+                changed apply-update => {
+                    if self.apply-update == index {
+                        self.position = i.position;
+                        self.value = i.color;
+                        root.apply-update-to = -1;
+                    }
+                }
+
+                parent-width: grad.width;
+                
+                select-gradient-stop(p, c) => {
+                    root.current-selected-index = index; 
+                    root.select-gradient-stop(p, c);
+                }
+
+                position-changed(position) => {
+                    i.position = position;
+                    root.current-selected-index = index;
+                    root.update-brush();
+                }
+
+                remove-stop() => {
+                    Api.remove-gradient-stop(root.gradient-stops, index);
+                    root.update-brush();
+                }
+            }
+        }
+    }
+}
+
+component GradientWidget inherits VerticalLayout {
+    in-out property <[GradientStop]> gradient-stops;
+    in-out property <float> angle;
+
+    in property <brush> current-brush;
+    in property <BrushKind> current-brush-kind;
+
+    // TODO: Use this one!
+    callback set-brush-binding(kind: BrushKind, angle: float, color: color, stops: [GradientStop]);
+    // TODO: Use this one more often;-)
+    callback test-brush-binding(kind: BrushKind, angle: float, color: color, stops: [GradientStop]) -> bool;
+
+    height: self.preferred-height;
+    padding: EditorSpaceSettings.default-padding;
+    spacing: 8px;
+
+    HorizontalLayout {
+        alignment: stretch;
+        spacing: 8px;
+        vertical-stretch: 0;
+
+        Text {
+            vertical-alignment: center;
+            text: "Angle:";
+        }
+
+        // TODO: root.property-value.value-float has the value in deg in the live data case...
+
+        ComboBox {
+            width: 80%;
+            model: [
+                "Deg",
+                "rad",
+            ];
+        }
+
+        VerticalLayout {
+            Rectangle {
+                border-radius: self.width;
+                width: 20px;
+                height: 20px;
+                background: grey;
+            }
+        }
+    }
+
+    // HorizontalLayout {
+    //     alignment: space-between;
+    //     spacing: 4px;
+    //     HorizontalLayout {
+    //         spacing: 4px;
+    //         LineEdit {
+    //             width: 9rem;
+    //             text: "#ffffffff";
+    //         }
+    //         Rectangle {
+    //             background: #fff;
+    //             width: 40px;
+    //             height: 25px;
+    //         }
+    //     }
+    //     HorizontalLayout {
+    //         spacing: 4px;
+    //         Text {
+    //             vertical-alignment: center;
+    //             text: "Position:";
+    //         }
+    //         LineEdit {
+    //             text: "0";
+    //             width: 5rem;
+    //         }
+    //     }
+    // }
+    // HorizontalLayout {
+    //     spacing: EditorSpaceSettings.default-spacing;
+    //     Button {text: "Reset";}
+    //     Button {text: "Code";}
+    // }
+}
+
+export component BrushWidget inherits GridLayout {
+    in property <bool> enabled;
+    in property <string> property-name;
+    in property <PropertyValue> property-value;
+    in property <bool> has-code-action;
+    in property <bool> has-reset-action;
+
+    private property <bool> open: false;
+    private property <PropertyValue> dummy: property-value; // Needed to make changed signal work...
+
+    callback code-action();
+    callback reset-action();
+
+    callback test-brush-binding(kind: BrushKind, angle: float, color: color, stops: [GradientStop]) -> bool;
+    callback set-brush-binding(kind: BrushKind, angle: float, color: color, stops: [GradientStop]);
+
+    private property <color> current-color;
+    private property <brush> current-brush;
+    private property <[GradientStop]> current-gradient-stops;
+    private property <ColorData> current-color-data: Api.color-to-data(self.current-color);
+    private property <BrushKind> current-brush-kind;
+    private property <float> current-angle;
+
+    changed current-color-data => {
+        root.current-color-data = Api.color-to-data(self.current-color);
+        if self.has-focus {
+            root.test-brush-binding(BrushKind.solid, 0.0, current-color, []);
+        }
+        rle.default-text = current-color-data.text;
+
+        r.value = self.current-color-data.r;
+        g.value = self.current-color-data.g;
+        b.value = self.current-color-data.b;
+        a.value = self.current-color-data.a;
+
+        update-brush();
+    }
+
+    spacing: EditorSpaceSettings.default-spacing;
+    width: 100%;
+
+    function update-brush() {
+        root.current-brush = Api.create-brush(root.current-brush-kind, root.current-angle, root.current-color, root.current-gradient-stops);
+        root.test-brush-binding(root.current-brush-kind, root.current-angle, root.current-color, root.current-gradient-stops);
+    }
+
+    function apply-value() {
+        root.current-color = self.property-value.value-brush;
+        root.current-color-data = Api.color-to-data(self.property-value.value-brush);
+        root.current-brush = self.property-value.value-brush;
+        root.current-brush-kind = self.property-value.brush-kind;
+        root.current-gradient-stops = self.property-value.gradient-stops;
+        root.current-angle = self.property-value.value-float;
+
+        kind_cb.current-index = self.property-value.brush-kind == BrushKind.solid ?
+            0 : self.property-value.brush-kind == BrushKind.linear ? 1 : 2;
+
+        grad.angle = self.property-value.value-float;
+        grad.gradient-stops = self.property-value.gradient-stops;
+    }
+
+    private property <bool> has-focus: rle.has-focus || r.has-focus || g.has-focus || b.has-focus || a.has-focus;
+
+    init => {
+        apply-value();
+    }
+
+    changed has-focus => {
+        if !self.has-focus {
+            apply-value();
+        }
+    }
+
+    changed dummy => {
+        if self.property-value.kind != PropertyValueKind.color {
+            return;
+        }
+
+        if !self.has-focus {
+            apply-value();
+        }
+    }
+
+    Row {
+        NameLabel {
+            col: 1;
+            
+            property-name: root.property-name;
+            property-value: root.property-value;
+        }
+    }
+
+    Row {
+        kind_cb := ComboBox {
+            col: 1;
+            
+            model: [ "Solid Color", "Linear Gradient", "Radial Gradient"];
+
+            changed current-index => {
+                if self.current-index == 0 {
+                    root.current-brush-kind = BrushKind.solid;
+                } else if self.current-index == 1 {
+                    root.current-brush-kind = BrushKind.linear;
+                } else {
+                    root.current-brush-kind = BrushKind.radial;
+                }
+
+                root.update-brush();
+            }
+        }
+    }
+
+    Row {
+        childIndicator := ChildIndicator {
+            horizontal-stretch: 0;
+            control-hover: kind_cb.has-focus || grad-preview.has-focus || rle.has-focus;
+        }
+
+        VerticalLayout {
+            Rectangle {
+                clip: true;
+                height: root.current-brush-kind == BrushKind.solid ? self.preferred-height : 0px;
+                background: blue;
+
+                HorizontalLayout {
+
+                    spacing: EditorSpaceSettings.default-spacing;
+                    alignment: stretch;
+
+                    rle := ResettingLineEdit {
+                        enabled: root.enabled;
+                        default-text: root.current-color-data.text;
+
+                        edited(text) => {
+                            if text == "" {
+                                // allow empty text -- which will delete the property
+                                self.can-compile = true;
+                                root.current-color = Colors.transparent;
+                                root.current-color-data = Api.color-to-data(root.current-color);
+                            } else {
+                                if self.can-compile {
+                                    root.current-color = Api.string-to-color(text);
+                                    root.current-color-data = Api.color-to-data(root.current-color);
+                                }
+                            }
+                        }
+
+                        accepted(text) => {
+                            root.set-brush-binding(BrushKind.solid, 0.0, Api.string-to-color(text), []);
+                        }
+                    }
+
+                    color-preview := Rectangle {
+                        background: root.current-color;
+                        border-width: 1px;
+                        border-color: Palette.foreground;
+                    }
+                }
+            }
+
+            Rectangle {
+                clip: true;
+                height: root.current-brush-kind != BrushKind.solid ? self.preferred-height : 0px;
+                background: green;
+                
+                HorizontalLayout {
+                    grad_preview := GradientPreviewArea {
+                        current-brush <=> root.current-brush;
+                        gradient-stops <=> root.current-gradient-stops;
+
+                        update-brush() => {
+                            root.update-brush();
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    Row {
+        VerticalLayout {
+            col: 1;
+            
+            SecondaryContent {
+                open: childIndicator.open && root.current-brush-kind == BrushKind.solid;
+
+                private property <color> slider-color: Api.rgba-to-color(r.value, g.value, b.value, a.value);
+
+                enabled: root.enabled;
+
+                changed slider-color => {
+                    if r.has-focus || g.has-focus || b.has-focus || a.has-focus {
+                        root.current-color = slider-color;
+                        root.current-color-data = Api.color-to-data(self.slider-color);
+                    }
+                }
+
+                r := ColorLineEdit {
+                    enabled: root.enabled;
+                    value: root.current-color-data.r;
+                    channel: "R";
+
+                    accepted() => {
+                        root.set-brush-binding(BrushKind.solid, 0.0, Api.string-to-color(rle.text), []);
+                    }
+                }
+
+                g := ColorLineEdit {
+                    enabled: root.enabled;
+                    value: root.current-color-data.g;
+                    channel: "G";
+
+                    accepted() => {
+                        root.set-brush-binding(BrushKind.solid, 0.0, Api.string-to-color(rle.text), []);
+                    }
+                }
+
+                b := ColorLineEdit {
+                    enabled: root.enabled;
+                    value: root.current-color-data.b;
+                    channel: "B";
+
+                    accepted() => {
+                        root.set-brush-binding(BrushKind.solid, 0.0, Api.string-to-color(rle.text), []);
+                    }
+                }
+
+                a := ColorLineEdit {
+                    enabled: root.enabled;
+                    value: root.current-color-data.a;
+                    channel: "A";
+
+                    accepted() => {
+                        root.set-brush-binding(BrushKind.solid, 0.0, Api.string-to-color(rle.text), []);
+                    }
+                }
+
+                code-action() => {
+                    root.code-action();
+                }
+                reset-action() => {
+                    root.reset-action();
+                }
+            }
+            SecondaryContent {
+                open: childIndicator.open && root.current-brush-kind != BrushKind.solid;
+
+                grad := GradientWidget {
+                    current-brush <=> root.current-brush;
+                    current-brush-kind <=> root.current-brush-kind;
+                
+                }
+            }
+        }
+    }
+}
+

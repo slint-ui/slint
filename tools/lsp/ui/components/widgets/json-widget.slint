@@ -1,0 +1,93 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { ChildIndicator, NameLabel, ResettingLineEdit } from "./basics.slint";
+
+import { PropertyValue } from "../../api.slint";
+import { EditorSpaceSettings } from "../../components/styling.slint";
+
+import { TextEdit } from "std-widgets.slint";
+
+export component JsonWidget inherits GridLayout {
+    in property <bool> enabled;
+    in property <string> property-name;
+    in property <PropertyValue> property-value;
+
+    property <bool> can-compile: true;
+    property <length> border: 3px;
+
+    callback set-code-binding(text: string) -> bool;
+
+    spacing-vertical: EditorSpaceSettings.default-spacing;
+    width: 100%;
+
+    function apply-value() {
+        edit.text = root.property-value.code;
+    }
+
+    init => {
+        apply-value();
+    }
+
+    private property <bool> has-focus: edit.has-focus;
+
+    changed has-focus => {
+        if !has-focus {
+            apply-value();
+        }
+    }
+
+    changed property-value => {
+        if !has-focus {
+            apply-value();
+        }
+    }
+
+    Row {
+        NameLabel {
+            col: 1;
+
+            property-name: root.property-name;
+            property-value: root.property-value;
+        }
+    }
+
+    Row {
+        childIndicator := ChildIndicator {
+            horizontal-stretch: 0;
+            visible: false;
+        }
+
+        Rectangle {
+            VerticalLayout {
+                edit := TextEdit {
+                    min-height: 200px;
+
+                    enabled: root.enabled;
+
+                    edited(text) => {
+                        root.can-compile = root.set-code-binding(text);
+                    }
+
+                    changed has-focus => {
+                        self.text = root.property-value.code;
+                        root.can-compile = true;
+                    }
+                }
+            }
+
+            Rectangle {
+                visible: !root.can-compile;
+
+                background: Colors.red.transparentize(0.94);
+                x: edit.x + root.border;
+                y: edit.y + root.border;
+                width: edit.width - 2 * root.border;
+                height: edit.height - 2 * root.border;
+
+                border-radius: root.border;
+            }
+        }
+    }
+}
+

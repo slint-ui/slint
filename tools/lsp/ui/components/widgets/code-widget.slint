@@ -1,0 +1,63 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { ChildIndicator, CodeButton, NameLabel, ResetButton } from "./basics.slint";
+
+import { PropertyValue } from "../../api.slint";
+import { EditorSpaceSettings } from "../../components/styling.slint";
+
+export component CodeWidget inherits GridLayout {
+    in property <bool> enabled;
+    in property <string> property-name;
+    in property <PropertyValue> property-value;
+
+    callback code-action();
+    callback reset-action();
+
+    spacing-vertical: EditorSpaceSettings.default-spacing;
+    width: 100%;
+
+    Row {
+        NameLabel {
+            col: 1;
+
+            property-name: root.property-name;
+            property-value: root.property-value;
+        }
+    }
+
+    Row {
+        childIndicator := ChildIndicator {
+            horizontal-stretch: 0;
+            visible: false;
+        }
+
+        HorizontalLayout {
+            if property-value.code == "": Text {
+                horizontal-alignment: left;
+                vertical-alignment: center;
+                text: @tr("Not Set");
+                font-italic: true;
+            }
+
+            if property-value.code != "": HorizontalLayout {
+                spacing: EditorSpaceSettings.default-spacing;
+
+                ResetButton {
+                    enabled: root.enabled;
+                    clicked() => {
+                        root.reset-action();
+                    }
+                }
+
+                CodeButton {
+                    enabled: root.enabled;
+                    clicked() => {
+                        root.code-action();
+                    }
+                }
+            }
+        }
+    }
+}
+

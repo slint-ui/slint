@@ -1,0 +1,47 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { ChildIndicator, NameLabel, ResettingLineEdit } from "./basics.slint";
+
+import { PropertyValue, PropertyValueKind } from "../../api.slint";
+import { EditorSizeSettings, EditorSpaceSettings } from "../../components/styling.slint";
+
+import { CheckBox } from "std-widgets.slint";
+
+export component BooleanWidget inherits GridLayout {
+    in property <bool> enabled;
+    in property <string> property-name;
+    in property <PropertyValue> property-value;
+
+    callback set-bool-binding(value: bool);
+
+    spacing-vertical: EditorSpaceSettings.default-spacing;
+    width: 100%;
+
+    Row {
+        NameLabel {
+            col: 1;
+
+            property-name: root.property-name;
+            property-value: root.property-value;
+        }
+    }
+
+    Row {
+        childIndicator := ChildIndicator {
+            horizontal-stretch: 0;
+            visible: false;
+        }
+
+        checkbox := CheckBox {
+            enabled: root.enabled;
+            checked: root.property-value.value-bool;
+            text: self.checked ? "True" : "False";
+
+            toggled() => {
+                root.set-bool-binding(self.checked);
+            }
+        }
+    }
+}
+

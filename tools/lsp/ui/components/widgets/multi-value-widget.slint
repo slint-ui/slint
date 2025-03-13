@@ -1,0 +1,45 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { ChildIndicator, NameLabel, ResettingLineEdit } from "./basics.slint";
+
+import { PropertyValue, PreviewData } from "../../api.slint";
+import { EditorSizeSettings, EditorSpaceSettings } from "../../components/styling.slint";
+
+import { Button } from "std-widgets.slint";
+
+export component MultiValueWidget inherits GridLayout {
+    in property <bool> enabled;
+    in property <string> property-name;
+    in property <PropertyValue> property-value;
+    in property <PreviewData> preview-data;
+    in property <string> property-group-name;
+
+    callback edit-in-spreadsheet(property-group-name: string, data: PreviewData, values: [[PropertyValue]]);
+
+    spacing-vertical: EditorSpaceSettings.default-spacing;
+    width: 100%;
+
+    Row {
+        NameLabel {
+            col: 1;
+
+            property-name: root.property-name;
+            property-value: root.property-value;
+        }
+    }
+    Row {
+        ChildIndicator {
+            horizontal-stretch: 0;
+            visible: false;
+        }
+
+        Button {
+            text: preview-data.has-setter ? @tr("Edit") : @tr("View");
+            clicked => {
+                root.edit-in-spreadsheet(root.property-group-name, root.preview-data, [[ ]]);
+            }
+        }
+    }
+}
+
