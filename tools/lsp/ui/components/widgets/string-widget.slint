@@ -1,0 +1,162 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { ChildIndicator, NameLabel, ResettingLineEdit, SecondaryContent } from "./basics.slint";
+
+import { Api, PropertyValue } from "../../api.slint";
+import { EditorSpaceSettings } from "../../components/styling.slint";
+
+import { CheckBox } from "std-widgets.slint";
+
+export component StringWidget inherits GridLayout {
+    // FIXME: @ogoffart says the plural support is not working at this time, so
+    //        we do not offer it in the UI for the time being...
+
+    in property <bool> enabled;
+    in property <string> property-name;
+    in property <PropertyValue> property-value;
+    in property <bool> has-code-action;
+    in property <bool> has-reset-action;
+    in property <bool> is-translatable: true;
+
+    out property <length> i-am-a-hack-remove-me: 0px;
+
+    property <bool> open: false;
+
+    private property <PropertyValue> dummy: self.property-value;
+
+    private property <bool> is-translated;
+    private property <string> tr-context-value;
+
+    callback code-action();
+    callback reset-action();
+
+    callback test-string-binding(text: string, is-translated: bool) -> bool;
+    callback set-string-binding(text: string, is-translated: bool);
+
+    function tsb() -> bool {
+        return test-string-binding(Api.string-to-code(text-rle.text, self.is-translated, self.tr-context-value, "", ""), self.is-translated);
+    }
+    function ssb() {
+        set-string-binding(Api.string-to-code(text-rle.text, self.is-translated, self.tr-context-value, "", ""), self.is-translated);
+    }
+
+    function apply-value() {
+        text_rle.default-text = property-value.value-string;
+        self.is-translated = root.property-value.is-translatable;
+        self.tr-context-value = root.property-value.tr-context;
+    }
+
+    init => {
+        self.i-am-a-hack-remove-me = self.preferred-height;
+
+        apply-value();
+    }
+
+    private property <bool> child-focus: false;
+    private property <bool> has-focus: text_rle.has-focus || self.child-focus;
+
+    changed has-focus => {
+        if !has-focus {
+            apply-value();
+        }
+    }
+
+    changed dummy => {
+        if !has-focus {
+            apply-value();
+        }
+    }
+
+    spacing-vertical: EditorSpaceSettings.default-spacing;
+    width: 100%;
+
+    Row {
+        NameLabel {
+            col: 1;
+            property-name: root.property-name;
+            property-value: root.property-value;
+        }
+    }
+
+    Row {
+        childIndicator := ChildIndicator {
+            visible: root.is-translatable;
+            horizontal-stretch: 0;
+            control-hover: text_rle.has-focus;
+        }
+
+        content := HorizontalLayout {
+            spacing: EditorSpaceSettings.default-spacing;
+
+            text_rle := ResettingLineEdit {
+                enabled: root.enabled;
+                edited(text) => {
+                    self.can-compile = root.tsb();
+                }
+                accepted(text) => {
+                    root.ssb();
+                }
+            }
+        }
+    }
+
+    Row {
+        sub := SecondaryContent {
+            col: 1;
+
+            enabled: root.enabled;
+            open: childIndicator.open && root.is-translatable;
+
+            has-code-action <=> root.has-code-action;
+            has-reset-action <=> root.has-reset-action;
+
+            code-action() => {
+                root.code-action();
+            }
+            reset-action => {
+                root.reset-action();
+            }
+
+            VerticalLayout {
+                spacing: EditorSpaceSettings.default-spacing;
+                tr-cb := CheckBox {
+                    checked: root.is-translated;
+                    toggled => {
+                        root.is-translated = self.checked;
+                        root.ssb();
+                    }
+                    enabled: root.enabled;
+                    text: "Translatable";
+                }
+
+                HorizontalLayout {
+                    spacing: EditorSpaceSettings.default-spacing;
+
+                    Text {
+                        vertical-alignment: center;
+                        horizontal-alignment: right;
+                        text: "Context";
+                    }
+
+                    tr-context := ResettingLineEdit {
+                        enabled: root.enabled && tr-cb.checked;
+                        default-text: root.tr-context-value;
+                        edited(text) => {
+                            root.tr-context-value = text;
+                            self.can-compile = root.tsb();
+                        }
+                        accepted(text) => {
+                            root.tr-context-value = text;
+                            root.ssb();
+                        }
+                        changed has-focus => {
+                            root.child-focus = self.has-focus;
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+

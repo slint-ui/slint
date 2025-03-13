@@ -1,0 +1,170 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Button, LineEdit, Palette } from "std-widgets.slint";
+
+import { PropertyValue } from "../../api.slint";
+import { BodyText } from "../../components/body-text.slint";
+import { EditorAnimationSettings, EditorFontSettings, EditorSizeSettings, EditorSpaceSettings, Icons } from "../../components/styling.slint";
+
+export component CodeButton inherits Button {
+    text: @tr("Code");
+}
+
+export component ResetButton inherits Button {
+    text: @tr("Reset");
+}
+
+export component NameLabel inherits HorizontalLayout {
+    in property <string> property-name;
+    in property <PropertyValue> property-value;
+
+    horizontal-stretch: 0;
+
+    BodyText {
+        min-width: EditorSizeSettings.min-prefix-text-width;
+        height: root.property-name != "" ? self.preferred-height : 0;
+        text: root.property-name;
+
+        font-size: 1rem;
+        font-weight: root.property-value.code != "" ? EditorFontSettings.bold-font-weight : EditorFontSettings.light-font-weight;
+        font-italic: root.property-value.code == "";
+
+        overflow: elide;
+    }
+}
+
+export component ResettingLineEdit {
+    in property <string> default-text;
+    in-out property <bool> can-compile: true;
+
+    in property <bool> enabled;
+    in property <InputType> input-type <=> le.input-type;
+    in property <TextHorizontalAlignment> horizontal-alignment <=> le.horizontal-alignment;
+    in property <string> placeholder-text <=> le.placeholder-text;
+    out property <bool> has-focus <=> le.has-focus;
+    in-out property <string> text <=> le.text;
+
+    property <length> border: 3px;
+
+    callback accepted <=> le.accepted;
+    callback edited <=> le.edited;
+
+    changed default-text => {
+        if !le.has-focus {
+            le.text = root.default-text;
+        }
+    }
+
+    VerticalLayout {
+        le := LineEdit {
+            enabled: root.enabled;
+            text: root.default-text;
+            font-size: 1rem;
+
+            // Reset on focus loss:
+            changed has-focus => {
+                if !self.has_focus && text != default-text {
+                    if root.can-compile {
+                        root.accepted(self.text);
+                    }
+                } else {
+                    // self.text = root.default-text;
+                    root.can-compile = true;
+                }
+            }
+        }
+    }
+
+    Rectangle {
+        visible: !root.can-compile;
+
+        background: Colors.red.transparentize(0.94);
+        x: root.border;
+        y: root.border;
+        width: root.width - 2 * root.border;
+        height: root.height - 2 * root.border;
+
+        border-radius: root.border;
+    }
+}
+
+export component ChildIndicator inherits Rectangle {
+    out property <bool> open: false;
+    in property <bool> control-hover: false;
+
+    width: 16px;
+
+    indicator := Image {
+        vertical-alignment: center;
+
+        colorize: Palette.foreground;
+        visible: expand.has-hover || root.control-hover;
+        source: Icons.chevron-down;
+        rotation-angle: root.open ? 0deg : -90deg;
+    }
+
+    expand := TouchArea {
+        width: 1cm;
+        height: 1cm;
+
+        clicked => {
+            root.open = !root.open;
+        }
+    }
+}
+
+export component SecondaryContent inherits Rectangle {
+    in property <bool> enabled;
+    in property <bool> open: false;
+    in property <bool> has-code-action: true;
+    in property <bool> has-reset-action: true;
+
+    callback reset();
+
+    callback code-action();
+    callback reset-action();
+
+    background: Palette.background;
+    clip: true;
+    height: open ? content.preferred-height : 0px;
+
+    animate height { duration: EditorAnimationSettings.rotation-duration; }
+
+    content := HorizontalLayout {
+        Rectangle {
+            height: 100%;
+            width: 1px;
+            background: Palette.border;
+        }
+
+        VerticalLayout {
+            padding: EditorSpaceSettings.default-padding;
+            spacing: EditorSpaceSettings.default-padding;
+
+            @children
+
+            HorizontalLayout {
+                spacing: EditorSpaceSettings.default-spacing;
+
+                ResetButton {
+                    height: root.has-reset-action ? self.preferred-height : 0px;
+                    enabled: root.enabled;
+                    clicked() => {
+                        root.reset-action();
+                        root.reset();
+                    }
+                }
+
+                CodeButton {
+                    height: root.has-code-action ? self.preferred-height : 0px;
+                    enabled: root.enabled;
+                    clicked() => {
+                        root.code-action();
+                    }
+                }
+            }
+        }
+    }
+}
+
