@@ -1,0 +1,109 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { ChildIndicator, NameLabel, SecondaryContent } from "./basics.slint";
+import { ColorMainContent, RgbaColorSliders } from "./color-basics.slint";
+
+import { ColorData, PropertyValue, PropertyValueKind } from "../../api.slint";
+import { EditorSpaceSettings } from "../../components/styling.slint";
+
+export component ColorWidget inherits GridLayout {
+    in property <bool> enabled;
+    in property <string> property-name;
+    in property <PropertyValue> property-value;
+    in property <bool> has-code-action <=> sub.has-code-action;
+    in property <bool> has-reset-action <=> sub.has-reset-action;
+
+    private property <PropertyValue> dummy: property-value; // Needed to make changed signal work...
+    private property <color> current-color: Colors.transparent;
+
+    callback code-action();
+    callback reset-action();
+
+    callback test-color-binding(text: string) -> bool;
+    callback set-color-binding(text: string);
+
+    spacing-vertical: EditorSpaceSettings.default-spacing;
+    width: 100%;
+
+    function apply-value() {
+        root.current-color = self.property-value.value-brush;
+    }
+
+    private property <bool> has-focus: main.has-focus || sliders.has-focus;
+
+    init => {
+        apply-value();
+    }
+
+    changed has-focus => {
+        if !self.has-focus {
+            apply-value();
+        }
+    }
+
+    changed dummy => {
+        if self.property-value.kind != PropertyValueKind.color && self.property-value.kind != PropertyValueKind.brush {
+            return;
+        }
+
+        if !self.has-focus {
+            apply-value();
+        }
+    }
+
+    Row {
+        NameLabel {
+            col: 1;
+
+            property-name: root.property-name;
+            property-value: root.property-value;
+        }
+    }
+
+    Row {
+        childIndicator := ChildIndicator {
+            horizontal-stretch: 0;
+            control-hover: main.has-focus;
+        }
+
+        main := ColorMainContent {
+            current-color <=> root.current-color;
+            enabled <=> root.enabled;
+
+            set-color-binding(text) => {
+                root.set-color-binding(text);
+            }
+            test-color-binding(text) => {
+                return root.test-color-binding(text);
+            }
+        }
+    }
+
+    Row {
+        sub := SecondaryContent {
+            col: 1;
+            open: childIndicator.open;
+
+            sliders := RgbaColorSliders {
+                enabled <=> root.enabled;
+                current-color <=> root.current-color;
+
+                set-color-binding(text) => {
+                    root.set-color-binding(text);
+                }
+                test-color-binding(text) => {
+                    return root.test-color-binding(text);
+                }
+            }
+
+            code-action() => {
+                root.code-action();
+            }
+            reset-action() => {
+                root.reset-action();
+            }
+        }
+    }
+}
+
