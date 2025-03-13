@@ -66,6 +66,144 @@ component ColorLineEdit inherits HorizontalLayout {
     }
 }
 
+component Preview inherits Rectangle {
+    border-width: 1px;
+    border-color: Palette.foreground;
+}
+
+component ColorMainContent {
+    in-out property <color> current-color;
+    
+    in property <bool> enabled;
+
+    out property <bool> has-focus <=> rle.has-focus;
+
+    callback set-color-binding(text: string);
+    callback test-color-binding(text: string) -> bool;
+
+    private property <ColorData> current-color-data: Api.color-to-data(self.current-color);
+
+    function apply-value() {
+        rle.default-text = current-color-data.text;
+    }
+
+    changed current-color-data => {
+        apply-value();
+    }
+
+    init => {
+        apply-value();
+    }
+
+    HorizontalLayout {
+        spacing: EditorSpaceSettings.default-spacing;
+        alignment: stretch;
+
+        rle := ResettingLineEdit {
+            enabled <=> root.enabled;
+
+            edited(text) => {
+                if text == "" {
+                    // allow empty text -- which will delete the property
+                    self.can-compile = true;
+                    root.current-color = Colors.transparent;
+                    root.current-color-data = Api.color-to-data(root.current-color);
+                } else {
+                    self.can-compile = test-color-binding(text);
+                    if self.can-compile {
+                        root.current-color = Api.string-to-color(text);
+                    }
+                }
+            }
+
+            accepted(text) => {
+                root.set-color-binding(text);
+            }
+        }
+
+        color-preview := Preview {
+            background: root.current-color;
+        }
+    }
+}
+
+export component RgbaColorSliders inherits VerticalLayout {
+    in-out property <color> current-color;
+    
+    in property <bool> enabled;
+
+    out property <bool> has-focus: r.has-focus || g.has-focus || b.has-focus || a.has-focus;
+
+    callback set-color-binding(text: string);
+
+    private property <ColorData> current-color-data: Api.color-to-data(self.current-color);
+
+    private property <color> slider-color: Api.rgba-to-color(r.value, g.value, b.value, a.value);
+
+    changed slider-color => {
+        if r.has-focus || g.has-focus || b.has-focus || a.has-focus {
+            root.current-color = slider-color;
+            root.current-color-data = Api.color-to-data(self.slider-color);
+        }
+    }
+
+    function apply-value() {
+        root.current-color-data = Api.color-to-data(self.current-color);
+
+        r.value = root.current-color-data.r;
+        g.value = root.current-color-data.g;
+        b.value = root.current-color-data.b;
+        a.value = root.current-color-data.a;
+    }
+
+    changed current-color => {
+        apply-value();        
+    }
+
+    init => {
+        apply-value();
+    }
+
+    spacing: EditorSpaceSettings.default-spacing;
+
+    r := ColorLineEdit {
+        enabled <=> root.enabled;
+        channel: "R";
+
+        accepted() => {
+            root.set-color-binding(root.current-color-data.text);
+        }
+    }
+
+    g := ColorLineEdit {
+        enabled <=> root.enabled;
+        channel: "G";
+
+        accepted() => {
+            root.set-color-binding(root.current-color-data.text);
+        }
+    }
+
+    b := ColorLineEdit {
+        enabled <=> root.enabled;
+        channel: "B";
+
+        accepted() => {
+            root.set-color-binding(root.current-color-data.text);
+        }
+    }
+
+    a := ColorLineEdit {
+        enabled <=> root.enabled;
+        channel: "A";
+
+        accepted() => {
+            root.set-color-binding(root.current-color-data.text);
+        }
+    }
+
+}
+
 export component ColorWidget inherits GridLayout {
     in property <bool> enabled;
     in property <string> property-name;
@@ -73,8 +211,9 @@ export component ColorWidget inherits GridLayout {
     in property <bool> has-code-action <=> sub.has-code-action;
     in property <bool> has-reset-action <=> sub.has-reset-action;
 
-    private property <bool> open: false;
     private property <PropertyValue> dummy: property-value; // Needed to make changed signal work...
+    private property <color> current-color: Colors.transparent;
+    private property <ColorData> current-color-data;
 
     callback code-action();
     callback reset-action();
@@ -82,20 +221,11 @@ export component ColorWidget inherits GridLayout {
     callback test-color-binding(text: string) -> bool;
     callback set-color-binding(text: string);
 
-    private property <color> current-color;
-    private property <ColorData> current-color-data: Api.color-to-data(self.current-color);
-
-    changed current-color-data => {
+    changed current-color => {
         root.current-color-data = Api.color-to-data(self.current-color);
         if self.has-focus {
             root.test-color-binding(current-color-data.text);
         }
-        rle.default-text = current-color-data.text;
-
-        r.value = self.current-color-data.r;
-        g.value = self.current-color-data.g;
-        b.value = self.current-color-data.b;
-        a.value = self.current-color-data.a;
     }
 
     spacing-vertical: EditorSpaceSettings.default-spacing;
@@ -103,10 +233,9 @@ export component ColorWidget inherits GridLayout {
 
     function apply-value() {
         root.current-color = self.property-value.value-brush;
-        root.current-color-data = Api.color-to-data(self.property-value.value-brush);
     }
 
-    private property <bool> has-focus: rle.has-focus || r.has-focus || g.has-focus || b.has-focus || a.has-focus;
+    private property <bool> has-focus: main.has-focus || sliders.has-focus;
 
     init => {
         apply-value();
@@ -119,7 +248,7 @@ export component ColorWidget inherits GridLayout {
     }
 
     changed dummy => {
-        if self.property-value.kind != PropertyValueKind.color {
+        if self.property-value.kind != PropertyValueKind.color && self.property-value.kind != PropertyValueKind.brush {
             return;
         }
 
@@ -140,40 +269,18 @@ export component ColorWidget inherits GridLayout {
     Row {
         childIndicator := ChildIndicator {
             horizontal-stretch: 0;
-            control-hover: rle.has-focus;
+            control-hover: main.has-focus;
         }
 
-        content := HorizontalLayout {
-            spacing: EditorSpaceSettings.default-spacing;
-            alignment: stretch;
+        main := ColorMainContent {
+            current-color <=> root.current-color;
+            enabled <=> root.enabled;
 
-            rle := ResettingLineEdit {
-                enabled: root.enabled;
-                default-text: root.current-color-data.text;
-
-                edited(text) => {
-                    if text == "" {
-                        // allow empty text -- which will delete the property
-                        self.can-compile = true;
-                        root.current-color = Colors.transparent;
-                        root.current-color-data = Api.color-to-data(root.current-color);
-                    } else {
-                        if self.can-compile {
-                            root.current-color = Api.string-to-color(text);
-                            root.current-color-data = Api.color-to-data(root.current-color);
-                        }
-                    }
-                }
-
-                accepted(text) => {
-                    root.set-color-binding(text);
-                }
+            set-color-binding(text) => {
+                root.set-color-binding(text);
             }
-
-            color-preview := Rectangle {
-                background: root.current-color;
-                border-width: 1px;
-                border-color: Palette.foreground;
+            test-color-binding(text) => {
+                return root.test-color-binding(text);
             }
         }
     }
@@ -181,57 +288,14 @@ export component ColorWidget inherits GridLayout {
     Row {
         sub := SecondaryContent {
             col: 1;
-
-            private property <color> slider-color: Api.rgba-to-color(r.value, g.value, b.value, a.value);
-
-            enabled: root.enabled;
-
-            changed slider-color => {
-                if r.has-focus || g.has-focus || b.has-focus || a.has-focus {
-                    root.current-color = slider-color;
-                    root.current-color-data = Api.color-to-data(self.slider-color);
-                }
-            }
-
             open: childIndicator.open;
 
-            r := ColorLineEdit {
-                enabled: root.enabled;
-                value: root.current-color-data.r;
-                channel: "R";
-
-                accepted() => {
-                    root.set-color-binding(rle.text);
-                }
-            }
-
-            g := ColorLineEdit {
-                enabled: root.enabled;
-                value: root.current-color-data.g;
-                channel: "G";
-
-                accepted() => {
-                    root.set-color-binding(rle.text);
-                }
-            }
-
-            b := ColorLineEdit {
-                enabled: root.enabled;
-                value: root.current-color-data.b;
-                channel: "B";
-
-                accepted() => {
-                    root.set-color-binding(rle.text);
-                }
-            }
-
-            a := ColorLineEdit {
-                enabled: root.enabled;
-                value: root.current-color-data.a;
-                channel: "A";
-
-                accepted() => {
-                    root.set-color-binding(rle.text);
+            sliders := RgbaColorSliders {
+                enabled <=> root.enabled;
+                current-color <=> root.current-color;
+                
+                set-color-binding(text) => {
+                    root.set-color-binding(text);
                 }
             }
 
@@ -299,7 +363,7 @@ component GradientDot inherits Rectangle {
     }
 }
 
-component GradientPreviewArea inherits VerticalLayout{
+component GradientMainContent inherits VerticalLayout{
     in-out property <[GradientStop]> gradient-stops;
     in property <brush> current-brush;
 
@@ -312,11 +376,9 @@ component GradientPreviewArea inherits VerticalLayout{
 
     private property <int> apply-update-to: -1;
 
-    grad := Rectangle {
+    grad := Preview {
         height: 40px;
         background: root.current-brush;
-        border-width: 1px;
-        border-color: Palette.foreground;
 
         ta := TouchArea {
             double-clicked => {
@@ -625,7 +687,7 @@ export component BrushWidget inherits GridLayout {
                 background: green;
                 
                 HorizontalLayout {
-                    grad_preview := GradientPreviewArea {
+                    grad_preview := GradientMainContent {
                         current-brush <=> root.current-brush;
                         gradient-stops <=> root.current-gradient-stops;
 
