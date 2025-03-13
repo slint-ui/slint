@@ -325,28 +325,7 @@ pub fn shared_string_from_number_fixed(n: f64, digits: usize) -> SharedString {
 
 /// Convert a f64 to a SharedString following a similar logic as JavaScript's Number.toPrecision()
 pub fn shared_string_from_number_precision(n: f64, precision: usize) -> SharedString {
-    let exponent: isize = if n.abs() < 1.0 {
-        let mut fract = n.abs();
-        let mut exponent = 0;
-
-        while fract < 1.0 {
-            fract *= 10.0;
-            exponent -= 1;
-        }
-
-        exponent
-    } else {
-        let mut int = n.abs();
-        let mut exponent = 0;
-
-        while int > 10.0 {
-            int /= 10.0;
-            exponent += 1;
-        }
-
-        exponent
-    };
-
+    let exponent = f64::log10(n.abs()).floor() as isize;
     if precision == 0 {
         shared_string_from_number(n)
     } else if exponent < -6 || (exponent >= 0 && exponent as usize >= precision) {
