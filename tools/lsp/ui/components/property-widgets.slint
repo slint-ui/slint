@@ -8,7 +8,8 @@ import { StatusLineApi } from "../components/status-line.slint";
 import { EditorSpaceSettings } from "../components/styling.slint";
 
 import { BooleanWidget } from "./widgets/boolean-widget.slint";
-import { BrushWidget, ColorWidget } from "./widgets/color-widgets.slint";
+import { BrushWidget } from "./widgets/brush-widget.slint";
+import { ColorWidget } from "./widgets/color-widget.slint";
 import { CodeWidget } from "./widgets/code-widget.slint";
 import { EnumWidget } from "./widgets/enum-widget.slint";
 import { FloatWidget } from "./widgets/float-widget.slint";
@@ -209,6 +210,7 @@ export component PropertyInformationWidget inherits VerticalLayout {
     in property <bool> enabled;
 
     padding-bottom: EditorSpaceSettings.default-padding;
+    padding-right: EditorSpaceSettings.default-padding * 2;
 
     PropertyValueWidget {
         property-value: root.property-information.value;
@@ -317,6 +319,7 @@ export component PreviewDataPropertyValueWidget inherits VerticalLayout {
     }
 
     padding-bottom: EditorSpaceSettings.default-padding;
+    padding-right: EditorSpaceSettings.default-padding * 2;
 
     if root.preview-data.kind == PreviewDataKind.Value: PropertyValueWidget {
         property-value <=> root.value;
