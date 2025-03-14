@@ -174,3 +174,6 @@ panic = "abort"
 
 [profile.dev]
 panic = "abort"
+
+[patch.crates-io]
+cc = { git = "https://github.com/rust-lang/cc-rs", branch = "main" }
