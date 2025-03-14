@@ -7,19 +7,25 @@ import { HeaderView } from "header_view.slint";
 import { DashboardView } from "dashboard_view.slint";
 import { UsecasesPalette } from "../widgets.slint";
 
-export global MainViewAdapter { }
+export global MainViewAdapter {
+    callback select-language(index: int);
+}
 
 export component MainView {
     in property <bool> break-layout;
 
     forward-focus: focus-scope;
-    focus-scope := FocusScope {}
+    focus-scope := FocusScope { }
 
     Rectangle {
         background: Palette.background;
 
         VerticalLayout {
-            HeaderView {}
+            HeaderView {
+                select-language(index) => {
+                    MainViewAdapter.select-language(index)
+                }
+            }
 
             HorizontalLayout {
                 TabWidget {

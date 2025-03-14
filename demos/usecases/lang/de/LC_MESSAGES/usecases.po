@@ -4,8 +4,8 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: \n"
-"POT-Creation-Date: 2025-03-14 10:15+0000\n"
-"PO-Revision-Date: 2025-03-14 11:15+0100\n"
+"POT-Creation-Date: 2025-03-14 11:00+0000\n"
+"PO-Revision-Date: 2025-03-14 12:01+0100\n"
 "Last-Translator: \n"
 "Language-Team: \n"
 "Language: de\n"
@@ -60,22 +60,32 @@ msgctxt "UsageViewAdapter"
 msgid "Weekly"
 msgstr "Wöchentlich"
 
-#: ui/views/dashboard_view.slint:91
+#: ui/views/dashboard_view.slint:95
 msgctxt "DashboardView"
 msgid "Dashboard"
 msgstr "Übersicht"
 
-#: ui/views/dashboard_view.slint:95
+#: ui/views/dashboard_view.slint:99
 msgctxt "DashboardView"
 msgid "Weather"
 msgstr "Wetter"
 
-#: ui/views/dashboard_view.slint:116
+#: ui/views/dashboard_view.slint:120
 msgctxt "DashboardView"
 msgid "Usage"
 msgstr "Nutzung"
 
+#: ui/views/header_view.slint:27 ui/views/header_view.slint:28
+msgctxt "HeaderView"
+msgid "English"
+msgstr "Englisch"
+
 #: ui/views/header_view.slint:27
+msgctxt "HeaderView"
+msgid "German"
+msgstr "Deutsch"
+
+#: ui/views/header_view.slint:32
 msgctxt "HeaderView"
 msgid "Dark Mode"
 msgstr "Dunkelmodus"
@@ -125,12 +135,12 @@ msgctxt "MailSideBarViewAdapter"
 msgid "Forums"
 msgstr "Foren"
 
-#: ui/views/mail_view.slint:326
+#: ui/views/mail_view.slint:316
 msgctxt "MailMessageView"
 msgid "Mute this thread"
 msgstr "Schalte diesen Thread stumm"
 
-#: ui/views/mail_view.slint:331
+#: ui/views/mail_view.slint:321
 msgctxt "MailMessageView"
 msgid "Send"
 msgstr "Senden"

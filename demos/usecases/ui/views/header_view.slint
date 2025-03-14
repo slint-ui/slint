@@ -1,18 +1,20 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import { Palette, HorizontalBox, Switch, StyleMetrics } from "std-widgets.slint";
+import { ComboBox, Palette, HorizontalBox, Switch, StyleMetrics } from "std-widgets.slint";
 import { Icons } from "../assets.slint";
 import { UsecasesPalette } from "../widgets.slint";
 
 export component HeaderView {
     min-height: max(32px, layout.min-height);
+    callback select-language(index: int);
 
     Rectangle {
         background: UsecasesPalette.use-material ? Palette.alternate-background : transparent;
 
-        layout := HorizontalLayout{
+        layout := HorizontalLayout {
             padding: UsecasesPalette.use-material ? 8px : StyleMetrics.layout-padding;
+            spacing: 8px;
 
             Image {
                 max-height: 32px;
@@ -20,8 +22,16 @@ export component HeaderView {
                 horizontal-alignment: left;
             }
 
-            // spaceer
-            Rectangle {}
+            // spacer
+            Rectangle { }
+
+            ComboBox {
+                model: [@tr("English"), @tr("German")];
+                current-value: @tr("English");
+                selected() => {
+                    root.select-language(self.current-index);
+                }
+            }
 
             Switch {
                 text: @tr("Dark Mode");
