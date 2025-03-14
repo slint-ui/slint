@@ -60,6 +60,9 @@ function(SLINT_TARGET_SOURCES target)
         set(bundle_translations_prop "$<TARGET_GENEX_EVAL:${target},$<TARGET_PROPERTY:${target},SLINT_BUNDLE_TRANSLATIONS>>")
         set(bundle_translations_arg "$<IF:$<STREQUAL:${bundle_translations_prop},>,,--bundle-translations=${bundle_translations_prop}>")
 
+        set(translation_domain_prop "$<TARGET_GENEX_EVAL:${target},$<TARGET_PROPERTY:${target},SLINT_TRANSLATION_DOMAIN>>")
+        set(translation_domain_arg "$<IF:$<STREQUAL:${translation_domain_prop},>,${target},${translation_domain_prop}>")
+
         if (compilation_units GREATER 0)
             foreach(cpp_num RANGE 1 ${compilation_units})
                 list(APPEND cpp_files "${CMAKE_CURRENT_BINARY_DIR}/slint_generated_${_SLINT_BASE_NAME}_${cpp_num}.cpp")
@@ -74,7 +77,7 @@ function(SLINT_TARGET_SOURCES target)
                 --depfile ${CMAKE_CURRENT_BINARY_DIR}/${_SLINT_BASE_NAME}.d
                 --style ${_SLINT_STYLE}
                 --embed-resources=${embed}
-                --translation-domain="${target}"
+                --translation-domain=${translation_domain_arg}
                 ${_SLINT_CPP_NAMESPACE_ARG}
                 ${_SLINT_CPP_LIBRARY_PATHS_ARG}
                 ${scale_factor_arg}
