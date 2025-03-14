@@ -6,6 +6,7 @@ import { ColorMainContent, RgbaColorSliders } from "./color-basics.slint";
 
 import { ColorData, PropertyValue, PropertyValueKind } from "../../api.slint";
 import { EditorSpaceSettings } from "../../components/styling.slint";
+import { ComboBox } from "std-widgets.slint";
 
 export component ColorWidget inherits GridLayout {
     in property <bool> enabled;
@@ -60,7 +61,6 @@ export component ColorWidget inherits GridLayout {
             property-value: root.property-value;
         }
     }
-
     Row {
         childIndicator := ChildIndicator {
             horizontal-stretch: 0;

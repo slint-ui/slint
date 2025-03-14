@@ -324,7 +324,7 @@ export global Api {
                     }
                 },
                 {
-                    name: "color",
+                    name: "brush",
                     type-name: "brush",
                     value: {
                         kind: PropertyValueKind.brush,
@@ -332,6 +332,24 @@ export global Api {
                         value-string: "#00ff00"
                     },
                 },
+                {
+                    name: "text-between",
+                    type-name: "string",
+                    value: {
+                        is-translatable: true,
+                        kind: PropertyValueKind.string,
+                    }
+                },
+                {
+                    name: "color",
+                    type-name: "color",
+                    value: {
+                        kind: PropertyValueKind.color,
+                        value-brush: Colors.green,
+                        value-string: "#00ff00"
+                    },
+                },
+
                 {
                     name: "a-really-long-named-attribute",
                     type-name: "float",
