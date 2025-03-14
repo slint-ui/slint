@@ -3,6 +3,8 @@
 
 Base := Rectangle {
     callback blah;
+    function private_fn() {}
+    public function public_fn() {}
 }
 
 export SubElements := Rectangle {
@@ -15,8 +17,38 @@ export SubElements := Rectangle {
     callback invalid_arg(InvalidType);
 //                       ^error{Unknown type 'InvalidType'}
 
+    callback return_string() -> string;
+    callback return_int() -> int;
+    callback return_void();
+
+    callback string_arg(bool, string);
+    callback int_arg(bool, int);
+
+    callback abs(int) -> int;
+    pure callback cb_pure();
+
+    foo := Base {}
+
     TouchArea {
         clicked => { foobar() }
+    }
+
+    TouchArea {
+        clicked => foobar;
+    }
+
+    TouchArea {
+        clicked => 3 + 3;
+//                 ^error{The expression in a callback forwarding must be a callback/function reference}
+    }
+
+    TouchArea {
+        clicked => foo.public_fn;
+    }
+
+    TouchArea {
+        clicked => foo.private_fn;
+//                     ^error{The function 'private_fn' is private. Annotate it with 'public' to make it accessible from other components}
     }
 
     TouchArea {
@@ -29,6 +61,18 @@ export SubElements := Rectangle {
     TouchArea {
         clicked => { foobar() }
         clicked => { foobar() }
+//      ^error{Duplicated callback}
+    }
+
+    TouchArea {
+        clicked => foobar;
+        clicked => foobar;
+//      ^error{Duplicated callback}
+    }
+
+    TouchArea {
+        clicked => { foobar() }
+        clicked => foobar;
 //      ^error{Duplicated callback}
     }
 
@@ -55,4 +99,27 @@ export SubElements := Rectangle {
 
     callback width;
 //           ^error{Cannot declare callback 'width' when a property with the same name exists}
+
+    TouchArea {
+        clicked => pressed;
+//      ^error{Callbacks can only be forwarded to callbacks and functions}
+    }
+
+    return_int => return_string;
+//  ^error{Cannot convert string to int}
+
+    return_string => return_int;
+
+    return_void => return_int;
+
+    string_arg => int_arg;
+//  ^error{Cannot forward argument 1 of callback because string cannot be converted to int}
+
+    int_arg => string_arg;
+
+    abs => Math.abs;
+
+    cb_pure => foobar;
+//  ^warning{Call of impure callback 'foobar'}
+
 }
