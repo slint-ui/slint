@@ -76,6 +76,11 @@ void run()
                                 }));
             });
 
+    app->global<MainViewAdapter>().on_select_language([](int index) {
+        static const char *langs[] = { "en", "de" };
+        slint::select_bundled_translation(langs[index]);
+    });
+
     app->run();
 }
 
