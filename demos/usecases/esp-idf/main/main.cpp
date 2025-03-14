@@ -15,9 +15,9 @@
 #include <vector>
 
 #undef BSP_LCD_H_RES
-#define BSP_LCD_H_RES 800
+#define BSP_LCD_H_RES 1024
 #undef BSP_LCD_V_RES
-#define BSP_LCD_V_RES 1280
+#define BSP_LCD_V_RES 600
 
 extern "C" void app_main(void)
 {
