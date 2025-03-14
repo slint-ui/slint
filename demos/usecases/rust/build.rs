@@ -10,7 +10,9 @@ fn main() {
 
     slint_build::compile_with_config(
         "../ui/app.slint",
-        CompilerConfiguration::new().with_style(style),
+        CompilerConfiguration::new()
+            .with_style(style)
+            .with_bundled_translations(concat!(env!("CARGO_MANIFEST_DIR"), "/../lang/")),
     )
     .unwrap();
 }

@@ -24,6 +24,12 @@ pub fn main() {
     let app = app().unwrap();
     virtual_keyboard::init(&app);
 
+    if let Err(slint::SelectBundledTranslationError::LanguageNotFound { .. }) =
+        slint::select_bundled_translation(option_env!("LANG").unwrap_or("en"))
+    {
+        slint::select_bundled_translation("en").unwrap();
+    }
+
     app.run().unwrap();
 }
 
