@@ -14,22 +14,22 @@ export global MailSideBarViewAdapter {
     out property <[string]> accounts: ["jon.doe@slint.dev", "jon.doe@my-mail.com", "jon.doe@gmail.com"];
 
     out property <[NavigationListViewItem]> boxes: [
-        { text: "Inbox", message: "128", icon: Icons.inbox },
-        { text: "Drafts", message: "9", icon: Icons.document },
-        { text: "Sent", icon: Icons.send },
+        { text: @tr("Inbox"), message: "128", icon: Icons.inbox },
+        { text: @tr("Drafts"), message: "9", icon: Icons.document },
+        { text: @tr("Sent"), icon: Icons.send },
         {
-            text: "Junk",
+            text: @tr("Junk"),
             icon: Icons.junk,
             message: "23",
         },
-        { text: "Trash", icon: Icons.trash },
-        { text: "Archive", icon: Icons.archive }
+        { text: @tr("Trash"), icon: Icons.trash },
+        { text: @tr("Archive"), icon: Icons.archive }
     ];
 
     out property <[NavigationListViewItem]> custom-boxes: [
-        { text: "Social", message: "3972", icon: Icons.useres },
-        { text: "Updates", message: "342", icon: Icons.updates },
-        { text: "Forums", message: "128", icon: Icons.message }
+        { text: @tr("Social"), message: "3972", icon: Icons.useres },
+        { text: @tr("Updates"), message: "342", icon: Icons.updates },
+        { text: @tr("Forums"), message: "128", icon: Icons.message }
     ];
     in-out property <int> current-box;
     in-out property <int> current-custom-box: -1;
@@ -313,12 +313,12 @@ export component MailMessageView {
 
             HorizontalLayout {
                 Switch {
-                    text: "Mute this thread";
+                    text: @tr("Mute this thread");
                     checked <=> MailMessageViewAdapter.mute-this-thread;
                 }
 
                 Button {
-                    text: "Send";
+                    text: @tr("Send");
                     primary: true;
                     enabled: text-edit.text != "";
 
@@ -337,7 +337,7 @@ export component MailView {
     HorizontalLayout {
         spacing: 16px;
 
-        if !root.break-layout : MailSideBarView { }
+        if !root.break-layout: MailSideBarView { }
 
         VerticalLayout {
             spacing: 16px;
@@ -350,7 +350,7 @@ export component MailView {
                 }
             }
 
-            MailMessageView {}
+            MailMessageView { }
         }
     }
 
@@ -360,4 +360,3 @@ export component MailView {
         sidebar-height: DialogGlobal.window-height - root.absolute-position.y;
     }
 }
-

@@ -8,11 +8,11 @@ import { Icons } from "../assets.slint";
 export global WeatherViewAdapter {
     in property <image> current-temperature-icon: Icons.cloud;
     in property <string> current-temperature: "22°";
-    in property <string> current-day: "May 6th 2023";
-    in property <string> current-weather-description: "Very cloudy";
+    in property <string> current-day: @tr("May 6th 2023");
+    in property <string> current-weather-description: @tr("Very cloudy");
     in property <[BarTileModel]> week-model: [
         {
-            title: "Thu",
+            title: @tr("Thu"),
             icon: Icons.cloud,
             max: 21,
             min: 18,
@@ -21,7 +21,7 @@ export global WeatherViewAdapter {
             unit: "°"
         },
         {
-            title: "Fri",
+            title: @tr("Fri"),
             icon: Icons.cloud,
             max: 20,
             min: 17,
@@ -30,7 +30,7 @@ export global WeatherViewAdapter {
             unit: "°"
         },
         {
-            title: "Sat",
+            title: @tr("Sat"),
             icon: Icons.cloud,
             max: 18,
             min: 15,
@@ -42,17 +42,17 @@ export global WeatherViewAdapter {
 }
 
 export global UsageViewAdapter {
-    in property <string> title: "Usage";
+    in property <string> title: @tr("Usage");
     in property <[Value]> overview-model: [
         {
             value: 16.41,
-            title: "Daily",
-            unit: "kWh",
+            title: @tr("Daily"),
+            unit: @tr("kWh"),
         },
         {
             value: 15.23,
-            title: "Weekly",
-            unit: "kWh",
+            title: @tr("Weekly"),
+            unit: @tr("kWh"),
         }
     ];
     in property <[float]> model: [
@@ -92,11 +92,11 @@ export component DashboardView {
 
             TitleText {
                 horizontal-alignment: left;
-                text: "Dashboard";
+                text: @tr("Dashboard");
             }
 
             GroupBox {
-                title: "Weather";
+                title: @tr("Weather");
 
                 HorizontalLayout {
                     Tile {
@@ -117,7 +117,7 @@ export component DashboardView {
             }
 
             GroupBox {
-                title: "Usage";
+                title: @tr("Usage");
 
                 Rectangle {
                     BarChart {

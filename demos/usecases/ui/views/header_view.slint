@@ -24,7 +24,7 @@ export component HeaderView {
             Rectangle {}
 
             Switch {
-                text: "Dark Mode";
+                text: @tr("Dark Mode");
                 checked: Palette.color-scheme == ColorScheme.dark;
 
                 toggled => {
