@@ -8,7 +8,7 @@ import { GradientMainContent } from "./gradient-basics.slint";
 import { Api, BrushKind, ColorData, GradientStop, PropertyValue, PropertyValueKind } from "../../api.slint";
 import { EditorSpaceSettings } from "../../components/styling.slint";
 
-import { ComboBox } from "std-widgets.slint";
+import { ComboBox, Palette } from "std-widgets.slint";
 
 export component BrushWidget inherits GridLayout {
     in property <bool> enabled;
@@ -32,7 +32,7 @@ export component BrushWidget inherits GridLayout {
     private property <BrushKind> current-brush-kind;
     private property <float> current-angle;
 
-    spacing: EditorSpaceSettings.default-spacing;
+    spacing-vertical: EditorSpaceSettings.default-spacing;
     width: 100%;
 
     function update-brush() {
@@ -200,6 +200,26 @@ export component BrushWidget inherits GridLayout {
                         accepted(text) => {
                             root.set-brush-binding(root.current-brush-kind, root.current-angle, root.current-color, root.current-gradient-stops);
                             update-brush();
+                        }
+                    }
+
+                    Rectangle {
+                        Image {
+                            source: @image-url("../../assets/dial.svg");
+                            height: 30px;
+                            rotation-angle: root.current-angle * 1deg;
+                            colorize: Palette.foreground.transparentize(0.8);
+                        }
+                        TouchArea {
+                            private property <length> x-pos;
+                            private property <length> y-pos;
+
+                            moved() => {
+                                self.x-pos = self.mouse-x - (self.width / 2);
+                                self.y-pos = -1.0 * (self.mouse-y - (self.height / 2));
+                                root.current-angle = Math.atan2(self.x-pos / 1px, self.y-pos / 1px) / 1deg;
+                                root.update-brush();
+                            }
                         }
                     }
                 }
