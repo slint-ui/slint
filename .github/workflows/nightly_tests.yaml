@@ -66,7 +66,6 @@ jobs:
             - name: Downgrade cc and ring crate to work around https://github.com/slint-ui/slint/issues/6875
               run: |
                   cargo update -p ring --precise 0.17.9
-                  cargo update -p cc --precise 1.1.31
             - name: Fetch Yocto SDK
               run: |
                   # Fetch pre-built SDK built via populate_sdk for core-image-weston with setup from https://github.com/slint-ui/meta-slint/blob/main/.github/workflows/ci.yml
