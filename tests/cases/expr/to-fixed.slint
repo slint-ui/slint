@@ -1,0 +1,59 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+TestCase := Rectangle {
+    property<string> t1: 12345.6789.to-fixed(0);
+    property<string> t2: 12345.6789.to-fixed(1.0);
+    property<string> t3: 12345.6789.to-fixed(6);
+    property<string> t4: (-12345.6789).to-fixed(0);
+    property<string> t5: (-12345.6789).to-fixed(1);
+    property<string> t6: (-12345.6789).to-fixed(6.0);
+    property<string> t7: 2.34.to-fixed(1);
+    property<string> t8: 2.35.to-fixed(1.0);
+    property<string> t9: 2.55.to-fixed(1);
+    property<string> t10: 12345.6789.to-fixed(-1);
+}
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_t1(), "12346");
+assert_eq(instance.get_t2(), "12345.7");
+assert_eq(instance.get_t3(), "12345.678900");
+assert_eq(instance.get_t4(), "-12346");
+assert_eq(instance.get_t5(), "-12345.7");
+assert_eq(instance.get_t6(), "-12345.678900");
+assert_eq(instance.get_t7(), "2.3");
+assert_eq(instance.get_t8(), "2.4");
+assert_eq(instance.get_t9(), "2.5");
+assert_eq(instance.get_t10(), "12346");
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_t1(), "12346");
+assert_eq!(instance.get_t2(), "12345.7");
+assert_eq!(instance.get_t3(), "12345.678900");
+assert_eq!(instance.get_t4(), "-12346");
+assert_eq!(instance.get_t5(), "-12345.7");
+assert_eq!(instance.get_t6(), "-12345.678900");
+assert_eq!(instance.get_t7(), "2.3");
+assert_eq!(instance.get_t8(), "2.4");
+assert_eq!(instance.get_t9(), "2.5");
+assert_eq!(instance.get_t10(), "12346");
+```
+
+```js
+var instance = new slint.TestCase({});
+assert.equal(instance.t1, "12346");
+assert.equal(instance.t2, "12345.7");
+assert.equal(instance.t3, "12345.678900");
+assert.equal(instance.t4, "-12346");
+assert.equal(instance.t5, "-12345.7");
+assert.equal(instance.t6, "-12345.678900");
+assert.equal(instance.t7, "2.3");
+assert.equal(instance.t8, "2.4");
+assert.equal(instance.t9, "2.5");
+assert.equal(instance.t10, "12346");
+```
+*/

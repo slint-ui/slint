@@ -275,6 +275,10 @@ The following conversions are possible:
 -   Arrays generally don't convert between each other. Array literals can be converted if the element types are convertible.
 -   String can be converted to float by using the `to-float` function. That function returns 0 if the string isn't
     a valid number. You can check with `is-float()` if the string contains a valid number
+-   `float` can be converted to a formatted `string` using `to-fixed` and `to-precision` which can be passed the
+    number of digits after the decimal point and and the number of significant digits respectively. They behave like their
+    JavaScript counterparts [`toFixed()`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Number/toFixed)
+    and [`toPrecision()`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Number/toPrecision).
 
 ```slint
 export component Example {

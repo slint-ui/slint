@@ -1,0 +1,75 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+TestCase := Rectangle {
+    property<string> t1: 5.123456.to-precision(0.0);
+    property<string> t2: 5.123456.to-precision(5);
+    property<string> t3: 5.123456.to-precision(2);
+    property<string> t4: 5.123456.to-precision(1);
+    property<string> t5: 0.000123.to-precision(0);
+    property<string> t6: 0.000123.to-precision(5.0);
+    property<string> t7: 0.000123.to-precision(2);
+    property<string> t8: 0.000123.to-precision(1);
+    property<string> t9: (-1234.5).to-precision(1);
+    property<string> t10: (-1234.5).to-precision(2);
+    property<string> t11: (-1234.5).to-precision(6.0);
+    property<string> t12: 0.00000012345.to-precision(1);
+    property<string> t13: 0.00000012345.to-precision(10.0);
+    property<string> t14: 5.123456.to-precision(-1);
+}
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_t1(), "5.123456");
+assert_eq(instance.get_t2(), "5.1235");
+assert_eq(instance.get_t3(), "5.1");
+assert_eq(instance.get_t4(), "5");
+assert_eq(instance.get_t5(), "0.000123");
+assert_eq(instance.get_t6(), "0.00012300");
+assert_eq(instance.get_t7(), "0.00012");
+assert_eq(instance.get_t8(), "0.0001");
+assert_eq(instance.get_t9(), "-1e3");
+assert_eq(instance.get_t10(), "-1.2e3");
+assert_eq(instance.get_t11(), "-1234.50");
+assert_eq(instance.get_t12(), "1e-7");
+assert_eq(instance.get_t13(), "1.234500000e-7");
+assert_eq(instance.get_t14(), "5.123456");
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_t1(), "5.123456");
+assert_eq!(instance.get_t2(), "5.1235");
+assert_eq!(instance.get_t3(), "5.1");
+assert_eq!(instance.get_t4(), "5");
+assert_eq!(instance.get_t5(), "0.000123");
+assert_eq!(instance.get_t6(), "0.00012300");
+assert_eq!(instance.get_t7(), "0.00012");
+assert_eq!(instance.get_t8(), "0.0001");
+assert_eq!(instance.get_t9(), "-1e3");
+assert_eq!(instance.get_t10(), "-1.2e3");
+assert_eq!(instance.get_t11(), "-1234.50");
+assert_eq!(instance.get_t12(), "1e-7");
+assert_eq!(instance.get_t13(), "1.234500000e-7");
+assert_eq!(instance.get_t14(), "5.123456");
+```
+
+```js
+var instance = new slint.TestCase({});
+assert.equal(instance.t1, "5.123456");
+assert.equal(instance.t2, "5.1235");
+assert.equal(instance.t3, "5.1");
+assert.equal(instance.t4, "5");
+assert.equal(instance.t5, "0.000123");
+assert.equal(instance.t6, "0.00012300");
+assert.equal(instance.t7, "0.00012");
+assert.equal(instance.t8, "0.0001");
+assert.equal(instance.t9, "-1e3");
+assert.equal(instance.t10, "-1.2e3");
+assert.equal(instance.t11, "-1234.50");
+assert.equal(instance.t12, "1e-7");
+assert.equal(instance.t13, "1.234500000e-7");
+assert.equal(instance.t14, "5.123456");
+```
+*/

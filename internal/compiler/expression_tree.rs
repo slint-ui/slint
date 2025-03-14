@@ -40,6 +40,8 @@ pub enum BuiltinFunction {
     ATan2,
     Log,
     Pow,
+    ToFixed,
+    ToPrecision,
     SetFocusItem,
     ClearFocusItem,
     ShowPopupWindow,
@@ -171,6 +173,8 @@ declare_builtin_function_types!(
     ATan2: (Type::Float32, Type::Float32) -> Type::Angle,
     Log: (Type::Float32, Type::Float32) -> Type::Float32,
     Pow: (Type::Float32, Type::Float32) -> Type::Float32,
+    ToFixed: (Type::Float32, Type::Int32) -> Type::String,
+    ToPrecision: (Type::Float32, Type::Int32) -> Type::String,
     SetFocusItem: (Type::ElementReference) -> Type::Void,
     ClearFocusItem: (Type::ElementReference) -> Type::Void,
     ShowPopupWindow: (Type::ElementReference) -> Type::Void,
@@ -289,7 +293,9 @@ impl BuiltinFunction {
             | BuiltinFunction::Log
             | BuiltinFunction::Pow
             | BuiltinFunction::ATan
-            | BuiltinFunction::ATan2 => true,
+            | BuiltinFunction::ATan2
+            | BuiltinFunction::ToFixed
+            | BuiltinFunction::ToPrecision => true,
             BuiltinFunction::SetFocusItem | BuiltinFunction::ClearFocusItem => false,
             BuiltinFunction::ShowPopupWindow
             | BuiltinFunction::ClosePopupWindow
@@ -363,7 +369,9 @@ impl BuiltinFunction {
             | BuiltinFunction::Log
             | BuiltinFunction::Pow
             | BuiltinFunction::ATan
-            | BuiltinFunction::ATan2 => true,
+            | BuiltinFunction::ATan2
+            | BuiltinFunction::ToFixed
+            | BuiltinFunction::ToPrecision => true,
             BuiltinFunction::SetFocusItem | BuiltinFunction::ClearFocusItem => false,
             BuiltinFunction::ShowPopupWindow
             | BuiltinFunction::ClosePopupWindow
