@@ -474,7 +474,23 @@ impl NodeCollection {
                     i_slint_core::items::AccessibleRole::Text => Role::Label,
                     i_slint_core::items::AccessibleRole::Table => Role::Table,
                     i_slint_core::items::AccessibleRole::Tree => Role::Tree,
-                    i_slint_core::items::AccessibleRole::TextInput => Role::TextInput,
+                    i_slint_core::items::AccessibleRole::TextInput => {
+                        if let Some(text_input) = i_slint_core::accessibility::find_text_input(item)
+                        {
+                            if !text_input.single_line.get_internal() {
+                                Role::MultilineTextInput
+                            } else {
+                                match text_input.input_type.get_internal() {
+                                    i_slint_core::items::InputType::Decimal
+                                    | i_slint_core::items::InputType::Number => Role::NumberInput,
+                                    i_slint_core::items::InputType::Password => Role::PasswordInput,
+                                    _ => Role::TextInput,
+                                }
+                            }
+                        } else {
+                            Role::TextInput
+                        }
+                    }
                     i_slint_core::items::AccessibleRole::ProgressIndicator => {
                         Role::ProgressIndicator
                     }
@@ -556,9 +572,13 @@ impl NodeCollection {
                 | Role::CheckBox
                 | Role::ComboBox
                 | Role::ListBoxOption
+                | Role::MultilineTextInput
+                | Role::NumberInput
+                | Role::PasswordInput
                 | Role::Slider
                 | Role::SpinButton
                 | Role::Tab
+                | Role::TextInput
         ) {
             node.add_action(Action::Focus);
         }
