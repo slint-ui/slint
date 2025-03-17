@@ -27,6 +27,11 @@ component GradientDot inherits Rectangle {
     background: root.gradient-stops[root.index].color;
     border-width: root.selected ? 2px : 1px;
     border-color: root.selected ? black : gray;
+    Rectangle {
+        border-radius: self.width;
+        border-color: root.selected ? white : white.transparentize(0.5);
+        border-width: 1px;
+    }
 
     ta := TouchArea {
         private property <length> x-pos: self.mouse-x + root.x;
