@@ -219,6 +219,7 @@ export component BrushWidget inherits GridLayout {
                                 self.y-pos = -1.0 * (self.mouse-y - (self.height / 2));
                                 root.current-angle = Math.atan2(self.x-pos / 1px, self.y-pos / 1px) / 1deg;
                                 root.update-brush();
+                                angle.text = root.current-angle;
                             }
                         }
                     }
