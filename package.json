@@ -13,7 +13,8 @@
   "packageManager": "pnpm@10.3.0",
   "pnpm": {
     "overrides": {
-      "esbuild": ">=0.25.0"
+      "@babel/runtime@<7.26.10": ">=7.26.10",
+      "@babel/helpers@<7.26.10": ">=7.26.10"
     }
   }
 }
