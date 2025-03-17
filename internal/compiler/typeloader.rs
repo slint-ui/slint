@@ -287,6 +287,8 @@ impl Snapshotter {
             imports: document.imports.clone(),
             exports,
             embedded_file_resources: document.embedded_file_resources.clone(),
+            #[cfg(feature = "bundle-translations")]
+            translation_builder: document.translation_builder.clone(),
             used_types: RefCell::new(self.snapshot_used_sub_types(&document.used_types.borrow())),
             popup_menu_impl: document.popup_menu_impl.as_ref().map(|p| {
                 Weak::upgrade(&self.use_component(p))

@@ -4047,7 +4047,7 @@ fn generate_type_aliases(file: &mut File, doc: &Document) {
 
 #[cfg(feature = "bundle-translations")]
 fn generate_translation(
-    translations: &llr::translations::Translations,
+    translations: &crate::translations::Translations,
     compilation_unit: &llr::CompilationUnit,
     declarations: &mut Vec<Declaration>,
 ) {

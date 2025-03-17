@@ -1,14 +1,15 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use super::Expression;
+use crate::llr::Expression;
 use core::ops::Not;
 use smol_str::{SmolStr, ToSmolStr};
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::path::Path;
+use std::rc::Rc;
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Translations {
     /// An array with all the array of string
     /// The first vector index is stored in the LLR.
@@ -32,6 +33,7 @@ pub struct Translations {
     pub languages: Vec<SmolStr>,
 }
 
+#[derive(Clone)]
 pub struct TranslationsBuilder {
     result: Translations,
     /// Maps (msgid, msgid_plural, msgctx) to the index in the result
@@ -39,7 +41,7 @@ pub struct TranslationsBuilder {
     map: HashMap<(SmolStr, SmolStr, SmolStr), usize>,
 
     /// The catalog containing the translations
-    catalogs: Vec<polib::catalog::Catalog>,
+    catalogs: Rc<Vec<polib::catalog::Catalog>>,
 }
 
 impl TranslationsBuilder {
@@ -84,7 +86,7 @@ impl TranslationsBuilder {
                 languages,
             },
             map: HashMap::new(),
-            catalogs,
+            catalogs: Rc::new(catalogs),
         })
     }
 
@@ -150,6 +152,24 @@ impl TranslationsBuilder {
 
     pub fn result(self) -> Translations {
         self.result
+    }
+
+    pub fn collect_characters_seen(&self, characters_seen: &mut impl Extend<char>) {
+        characters_seen.extend(
+            self.catalogs
+                .iter()
+                .flat_map(|catalog| {
+                    catalog.messages().flat_map(|msg| {
+                        msg.msgstr().ok().into_iter().chain(
+                            msg.msgstr_plural()
+                                .ok()
+                                .into_iter()
+                                .flat_map(|vec| vec.iter().map(|s| s.as_ref())),
+                        )
+                    })
+                })
+                .flat_map(|str| str.chars()),
+        );
     }
 }
 

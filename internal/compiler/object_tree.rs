@@ -42,7 +42,7 @@ macro_rules! unwrap_or_continue {
 }
 
 /// The full document (a complete file)
-#[derive(Default, Debug)]
+#[derive(Default)]
 pub struct Document {
     pub node: Option<syntax_nodes::Document>,
     pub inner_components: Vec<Rc<Component>>,
@@ -58,6 +58,9 @@ pub struct Document {
     /// disk on the build system
     pub embedded_file_resources:
         RefCell<BTreeMap<SmolStr, crate::embedded_resources::EmbeddedResources>>,
+
+    #[cfg(feature = "bundle-translations")]
+    pub translation_builder: Option<crate::translations::TranslationsBuilder>,
 
     /// The list of used extra types used recursively.
     pub used_types: RefCell<UsedSubTypes>,
@@ -259,6 +262,8 @@ impl Document {
             imports,
             exports,
             embedded_file_resources: Default::default(),
+            #[cfg(feature = "bundle-translations")]
+            translation_builder: None,
             used_types: Default::default(),
             popup_menu_impl: None,
         }

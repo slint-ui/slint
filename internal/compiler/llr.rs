@@ -10,8 +10,6 @@ pub use item_tree::*;
 pub mod lower_expression;
 pub mod lower_to_item_tree;
 pub mod pretty_print;
-#[cfg(feature = "bundle-translations")]
-pub mod translations;
 
 /// The optimization passes over the LLR
 pub mod optim_passes {

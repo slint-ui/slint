@@ -387,7 +387,7 @@ pub struct CompilationUnit {
     pub popup_menu: Option<PopupMenu>,
     pub has_debug_info: bool,
     #[cfg(feature = "bundle-translations")]
-    pub translations: Option<super::translations::Translations>,
+    pub translations: Option<crate::translations::Translations>,
 }
 
 impl CompilationUnit {

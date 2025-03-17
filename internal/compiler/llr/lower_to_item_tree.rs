@@ -24,7 +24,7 @@ pub fn lower_to_item_tree(
     #[cfg(feature = "bundle-translations")]
     if let Some(path) = &compiler_config.translation_path_bundle {
         state.translation_builder = Some(
-            super::translations::TranslationsBuilder::load_translations(
+            crate::translations::TranslationsBuilder::load_translations(
                 path,
                 compiler_config.translation_domain.as_deref().unwrap_or(""),
             )
@@ -186,7 +186,7 @@ pub struct LoweringState {
     sub_components: TiVec<SubComponentIdx, LoweredSubComponent>,
     pub sub_component_mapping: HashMap<ByAddress<Rc<Component>>, SubComponentIdx>,
     #[cfg(feature = "bundle-translations")]
-    pub translation_builder: Option<super::translations::TranslationsBuilder>,
+    pub translation_builder: Option<crate::translations::TranslationsBuilder>,
 }
 
 impl LoweringState {

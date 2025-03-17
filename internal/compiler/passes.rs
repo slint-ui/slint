@@ -243,6 +243,24 @@ pub async fn run_passes(
     )
     .await;
 
+    #[cfg(feature = "bundle-translations")]
+    if let Some(path) = &type_loader.compiler_config.translation_path_bundle {
+        match crate::translations::TranslationsBuilder::load_translations(
+            path,
+            type_loader.compiler_config.translation_domain.as_deref().unwrap_or(""),
+        ) {
+            Ok(builder) => {
+                doc.translation_builder = Some(builder);
+            }
+            Err(err) => {
+                diag.push_error(
+                    format!("Cannot load bundled translation: {err}"),
+                    doc.node.as_ref().expect("Unexpected empty document"),
+                );
+            }
+        }
+    }
+
     match type_loader.compiler_config.embed_resources {
         #[cfg(feature = "software-renderer")]
         crate::EmbedResourcesKind::EmbedTextures => {
@@ -259,6 +277,11 @@ pub async fn run_passes(
                 );
                 embed_glyphs::scan_string_literals(component, &mut characters_seen);
             });
+
+            // This is not perfect, as this includes translations that may not be used.
+            if let Some(translation_builder) = doc.translation_builder.as_ref() {
+                translation_builder.collect_characters_seen(&mut characters_seen);
+            }
 
             embed_glyphs::embed_glyphs(
                 doc,
