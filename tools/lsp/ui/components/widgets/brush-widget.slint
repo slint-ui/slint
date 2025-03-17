@@ -155,6 +155,7 @@ export component BrushWidget inherits GridLayout {
                 height: root.current-brush-kind != BrushKind.solid ? grad_main.preferred-height : 0px;
 
                 grad_main := GradientMainContent {
+                    current-brush-kind <=> root.current-brush-kind;
                     current-color <=> root.current-color;
                     current-brush <=> root.current-brush;
                     gradient-stops: root.current-gradient-stops;
