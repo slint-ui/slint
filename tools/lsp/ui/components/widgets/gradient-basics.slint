@@ -3,7 +3,7 @@
 
 import { Preview } from "./color-basics.slint";
 
-import { Api, GradientStop } from "../../api.slint";
+import { Api, BrushKind, GradientStop } from "../../api.slint";
 
 component GradientDot inherits Rectangle {
     in-out property <bool> selected: false;
@@ -66,8 +66,9 @@ component GradientDot inherits Rectangle {
     }
 }
 
-export component GradientMainContent inherits HorizontalLayout{
+export component GradientMainContent inherits HorizontalLayout {
     in property <brush> current-brush;
+    in property <BrushKind> current-brush-kind;
 
     in-out property <[GradientStop]> gradient-stops;
     in-out property <float> current-position;
@@ -112,7 +113,6 @@ export component GradientMainContent inherits HorizontalLayout{
             return self.gradient-stops[index].color;
         }
         return Colors.transparent;
-
     }
 
     pure function index-position(index: int) -> float {
@@ -147,11 +147,18 @@ export component GradientMainContent inherits HorizontalLayout{
     }
 
     property <int> dot-hover-count: 0;
-
     grad := Preview {
-        height: 40px;
         width: 100%;
-        background: root.current-brush;
+        height: 40px;
+
+        if (current-brush-kind == BrushKind.radial): Rectangle {
+            width: parent.width * 2;
+            x: 0 - parent.width;
+
+            background: root.current-brush;
+        }
+
+        background: current-brush-kind == BrushKind.radial ? transparent : root.current-brush;
 
         ta := TouchArea {
             double-clicked => {
