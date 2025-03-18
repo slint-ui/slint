@@ -34,6 +34,8 @@ pub mod namedreference;
 pub mod object_tree;
 pub mod parser;
 pub mod pathutils;
+#[cfg(feature = "bundle-translations")]
+pub mod translations;
 pub mod typeloader;
 pub mod typeregister;
 

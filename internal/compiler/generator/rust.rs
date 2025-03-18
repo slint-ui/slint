@@ -3459,7 +3459,7 @@ fn generate_named_exports(doc: &Document) -> Vec<TokenStream> {
 
 #[cfg(feature = "bundle-translations")]
 fn generate_translations(
-    translations: &llr::translations::Translations,
+    translations: &crate::translations::Translations,
     compilation_unit: &llr::CompilationUnit,
 ) -> TokenStream {
     let strings = translations.strings.iter().map(|strings| {
