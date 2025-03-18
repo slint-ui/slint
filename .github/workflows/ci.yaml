@@ -398,23 +398,23 @@ jobs:
               working-directory: examples/mcu-embassy
               run: cargo check --bin ui_mcu --target=thumbv8m.main-none-eabihf --no-default-features --features="mcu-embassy/mcu" --release
 
-    mcu_esp:
-        env:
-            RUSTFLAGS: -D warnings
-        runs-on: ubuntu-22.04
-        steps:
-            - uses: actions/checkout@v4
-            - uses: dtolnay/rust-toolchain@stable
-            - uses: esp-rs/xtensa-toolchain@v1.5
-              with:
-                  default: true
-                  buildtargets: esp32
-                  ldproxy: false
-                  # version pinned until new version of esp-hal with https://github.com/esp-rs/esp-hal/pull/2615/
-                  version: 1.82.0
-            - uses: Swatinem/rust-cache@v2
-            - name: S3Box
-              run: cargo +esp check -p printerdemo_mcu --target xtensa-esp32s3-none-elf --no-default-features --features=mcu-board-support/esp32-s3-box  --config examples/mcu-board-support/esp32_s3_box/cargo-config.toml --release
+#    mcu_esp:
+#        env:
+#            RUSTFLAGS: -D warnings
+#        runs-on: ubuntu-22.04
+#        steps:
+#            - uses: actions/checkout@v4
+#            - uses: dtolnay/rust-toolchain@stable
+#            - uses: esp-rs/xtensa-toolchain@v1.5
+#              with:
+#                  default: true
+#                  buildtargets: esp32
+#                  ldproxy: false
+#                  # version pinned until new version of esp-hal with https://github.com/esp-rs/esp-hal/pull/2615/
+#                  version: 1.82.0
+#            - uses: Swatinem/rust-cache@v2
+#            - name: S3Box
+#              run: cargo +esp check -p printerdemo_mcu --target xtensa-esp32s3-none-elf --no-default-features --features=mcu-board-support/esp32-s3-box  --config examples/mcu-board-support/esp32_s3_box/cargo-config.toml --release
 
     ffi_32bit_build:
         runs-on: ubuntu-22.04

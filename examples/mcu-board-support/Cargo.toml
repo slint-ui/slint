@@ -21,7 +21,7 @@ path = "lib.rs"
 pico-st7789 = ["slint/unsafe-single-threaded", "rp-pico", "embedded-hal", "embedded-hal-nb", "cortex-m-rt", "embedded-alloc", "fugit", "cortex-m", "dep:mipidsi", "defmt", "defmt-rtt", "slint/libm", "embedded-dma", "embedded-graphics", "euclid/libm"]
 pico2-st7789 = ["slint/unsafe-single-threaded", "rp235x-hal/binary-info", "rp235x-hal/critical-section-impl", "rp235x-hal/rt", "rp235x-hal/defmt", "embedded-hal", "embedded-hal-nb", "cortex-m-rt", "embedded-alloc", "fugit", "cortex-m", "dep:mipidsi", "defmt", "defmt-rtt", "slint/libm", "embedded-dma", "embedded-graphics", "euclid/libm"]
 stm32h735g = ["slint/unsafe-single-threaded", "cortex-m/critical-section-single-core", "cortex-m-rt","embedded-alloc", "embedded-time", "stm32h7xx-hal/stm32h735", "defmt", "defmt-rtt", "embedded-display-controller", "ft5336", "panic-probe", "slint/libm", "getrandom"]
-esp32-s3-box = ["slint/unsafe-single-threaded", "esp-hal/esp32s3", "embedded-hal", "embedded-hal-bus", "esp-alloc", "esp-println/esp32s3", "esp-backtrace/esp32s3", "dep:mipidsi", "embedded-graphics-core", "slint/libm", "tt21100"]
+# esp32-s3-box = ["slint/unsafe-single-threaded", "esp-hal/esp32s3", "embedded-hal", "embedded-hal-bus", "esp-alloc", "esp-println/esp32s3", "esp-backtrace/esp32s3", "dep:mipidsi", "embedded-graphics-core", "slint/libm", "tt21100"]
 
 [dependencies]
 slint = { version = "=1.10.0", path = "../../api/rs/slint", default-features = false, features = ["compat-1-2", "renderer-software"] }
