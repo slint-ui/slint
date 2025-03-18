@@ -21,6 +21,12 @@ Struct = native.PyStruct
 
 
 class CompileError(Exception):
+    message: str
+    """The error message that produced this compile error."""
+
+    diagnostics: list[native.PyDiagnostic]
+    """A list of detailed diagnostics that were produced as part of the compilation."""
+
     def __init__(self, message: str, diagnostics: list[native.PyDiagnostic]):
         """@private"""
         self.message = message
@@ -28,15 +34,23 @@ class CompileError(Exception):
 
 
 class Component:
+    """Component is the base class for all instances of Slint components. Use the member functions to show or hide the
+    window, or spin the event loop."""
+
     __instance__: native.ComponentInstance
 
     def show(self) -> None:
+        """Shows the window on the screen."""
+
         self.__instance__.show()
 
     def hide(self) -> None:
+        """Hides the window from the screen."""
+
         self.__instance__.hide()
 
     def run(self) -> None:
+        """Shows the window, runs the event loop, hides it when the loop is quit, and returns."""
         self.__instance__.run()
 
 
@@ -238,10 +252,23 @@ def load_file(
         typing.List[str | os.PathLike[Any] | pathlib.Path]
     ] = None,
     library_paths: typing.Optional[
-        typing.List[str | os.PathLike[Any] | pathlib.Path]
+        typing.Dict[str, str | os.PathLike[Any] | pathlib.Path]
     ] = None,
     translation_domain: typing.Optional[str] = None,
 ) -> types.SimpleNamespace:
+    """This function is the low-level entry point into Slint for Python. Loads the `.slint` file at the specified `path`
+    and returns a namespace with all exported components as Python classes, as well as enums and structs.
+
+    * `quiet`: Set to true to prevent any warnings during compilation to be printed to stderr.
+    * `style`: Set this to use a specific a widget style.
+    * `include_paths`: Additional include paths that will be used to look up `.slint` files imported from other `.slint` files.
+    * `library_paths`: A dictionary that maps library names to their location in the file system. This is used to look up library imports,
+       such as `import { MyButton } from "@mylibrary";`.
+    * `translation_domain`: The domain to use for looking up the catalogue run-time translations. This must match the translation domain
+       used when extracting translations with `slint-tr-extractor`.
+
+    """
+
     compiler = native.Compiler()
 
     if style is not None:
