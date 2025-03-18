@@ -99,11 +99,6 @@ simulator = [
     "object-pool",
 ]
 
-[profile.release]
-debug = true    # required for decent panic messages and log line locations
-opt-level = "s"
-lto = "thin"
-
 [[bin]]
 name = "ui_mcu"
 required-features = ["mcu"]
