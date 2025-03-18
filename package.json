@@ -4,10 +4,10 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "format": "pnpm --stream -r format",
-    "format:fix": "pnpm -r format:fix",
+    "format": "biome format biome.json && pnpm --stream -r format",
+    "format:fix": "biome format biome.json --write && pnpm --stream -r format:fix",
     "lint": "pnpm --stream -r lint",
-    "lint:fix": "pnpm -r lint:fix",
+    "lint:fix": "pnpm --stream -r lint:fix",
     "type-check": "pnpm --stream -r type-check"
   },
   "packageManager": "pnpm@10.3.0",
