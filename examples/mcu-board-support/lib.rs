@@ -24,16 +24,16 @@ mod stm32h735g;
 #[cfg(feature = "stm32h735g")]
 pub use stm32h735g::*;
 
-#[cfg(feature = "esp32-s3-box")]
-mod esp32_s3_box;
-#[cfg(feature = "esp32-s3-box")]
-pub use esp32_s3_box::*;
+// #[cfg(feature = "esp32-s3-box")]
+// mod esp32_s3_box;
+// #[cfg(feature = "esp32-s3-box")]
+// pub use esp32_s3_box::*;
 
 #[cfg(not(any(
     feature = "pico-st7789",
     feature = "pico2-st7789",
     feature = "stm32h735g",
-    feature = "esp32-s3-box"
+//    feature = "esp32-s3-box"
 )))]
 pub use i_slint_core_macros::identity as entry;
 
@@ -41,6 +41,6 @@ pub use i_slint_core_macros::identity as entry;
     feature = "pico-st7789",
     feature = "pico2-st7789",
     feature = "stm32h735g",
-    feature = "esp32-s3-box"
+//    feature = "esp32-s3-box"
 )))]
 pub fn init() {}
