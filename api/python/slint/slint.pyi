@@ -176,7 +176,7 @@ class CompilationResult:
 
 class Compiler:
     include_paths: list[str | os.PathLike[Any] | pathlib.Path]
-    library_paths: list[str | os.PathLike[Any] | pathlib.Path]
+    library_paths: dict[str, str | os.PathLike[Any] | pathlib.Path]
     translation_domain: str
     style: str
     def build_from_path(
