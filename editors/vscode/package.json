@@ -237,7 +237,7 @@
     "@types/node": "18.11.9",
     "@types/vscode": "1.82.0",
     "esbuild": "0.25.1",
-    "shx": "0.3.4",
+    "shx": "0.4.0",
     "typescript": "5.8.2",
     "vscode-tmgrammar-test": "0.1.3"
   }
