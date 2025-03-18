@@ -22,14 +22,8 @@ pub fn lower_to_item_tree(
     let mut state = LoweringState::default();
 
     #[cfg(feature = "bundle-translations")]
-    if let Some(path) = &compiler_config.translation_path_bundle {
-        state.translation_builder = Some(
-            crate::translations::TranslationsBuilder::load_translations(
-                path,
-                compiler_config.translation_domain.as_deref().unwrap_or(""),
-            )
-            .map_err(|e| std::io::Error::other(format!("Cannot load bundled translation: {e}")))?,
-        );
+    {
+        state.translation_builder = document.translation_builder.clone();
     }
 
     let mut globals = TiVec::new();
