@@ -197,7 +197,7 @@ impl slint::platform::Platform for StmBackend {
     }
 
     fn new_event_loop_proxy(&self) -> Option<Box<dyn slint::platform::EventLoopProxy>> {
-        Some(Box::new(DummyLoopProxy {}))
+        None
     }
 
     fn duration_since_start(&self) -> core::time::Duration {
@@ -395,21 +395,6 @@ impl StmBackend {
 #[embassy_executor::task()]
 async fn main_loop_task(backend: &'static StmBackend) {
     backend.run_loop().await;
-}
-
-struct DummyLoopProxy;
-
-impl slint::platform::EventLoopProxy for DummyLoopProxy {
-    fn quit_event_loop(&self) -> Result<(), slint::EventLoopError> {
-        unimplemented!()
-    }
-
-    fn invoke_from_event_loop(
-        &self,
-        _event: Box<dyn FnOnce() + Send>,
-    ) -> Result<(), slint::EventLoopError> {
-        unimplemented!()
-    }
 }
 
 fn rng(buf: &mut [u8]) -> Result<(), getrandom::Error> {
