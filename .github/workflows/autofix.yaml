@@ -38,14 +38,10 @@ jobs:
                   target: aarch64-linux-android
             - name: Install wasm-pack
               run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
-            - name: Setup Biome CLI
-              uses: biomejs/setup-biome@v2
             - name: Rust format
               run: cargo fmt --
             - name: C++ format
               run: find -iname \*.h -o -iname \*.cpp | xargs clang-format -i
-            - name: Run biome for top-level json config itself
-              run: biome format biome.json
             - name: Format, Lint on npm projects
               run: |
                   pnpm install --frozen-lockfile
