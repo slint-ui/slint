@@ -413,8 +413,6 @@ jobs:
                   # version pinned until new version of esp-hal with https://github.com/esp-rs/esp-hal/pull/2615/
                   version: 1.82.0
             - uses: Swatinem/rust-cache@v2
-            - name: Kaluga
-              run: cargo +esp check -p printerdemo_mcu --target xtensa-esp32s2-none-elf --no-default-features --features=mcu-board-support/esp32-s2-kaluga-1  --config examples/mcu-board-support/esp32_s2_kaluga_1/cargo-config.toml --release
             - name: S3Box
               run: cargo +esp check -p printerdemo_mcu --target xtensa-esp32s3-none-elf --no-default-features --features=mcu-board-support/esp32-s3-box  --config examples/mcu-board-support/esp32_s3_box/cargo-config.toml --release
 
