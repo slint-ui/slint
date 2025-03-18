@@ -147,7 +147,7 @@ glutin = { version = "0.32.0", default-features = false }
 image = { version = "0.25", default-features = false, features = [ "png", "jpeg" ] }
 itertools = { version = "0.14" }
 log = { version = "0.4.17" }
-resvg = { version= "0.45.0", default-features = false, features = ["text"] }
+resvg = { version= "0.45.0", default-features = false, features = ["text", "raster-images"] }
 rowan = { version = "0.16.1" }
 rustybuzz = { version = "0.20.0" }
 send_wrapper = { version = "0.6.0" }
