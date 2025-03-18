@@ -45,6 +45,27 @@ impl MinimalSoftwareWindow {
         }
     }
 
+    #[cfg(feature = "experimental")]
+    #[rustversion::since(1.85)]
+    /// If the window needs to be redrawn, the callback will be called with the
+    /// [renderer](SoftwareRenderer) that should be used to do the drawing.
+    ///
+    /// [`SoftwareRenderer::render()`] or [`SoftwareRenderer::render_by_line()`] should be called
+    /// in that callback.
+    ///
+    /// Return true if something was redrawn.
+    pub async fn draw_async_if_needed(
+        &self,
+        render_callback: impl AsyncFnOnce(&SoftwareRenderer),
+    ) -> bool {
+        if self.needs_redraw.replace(false) || self.renderer.rendering_metrics_collector.is_some() {
+            render_callback(&self.renderer).await;
+            true
+        } else {
+            false
+        }
+    }
+
     #[doc(hidden)]
     /// Forward to the window through Deref
     /// (Before 1.1, WindowAdapter didn't have set_size, so the one from Deref was used.

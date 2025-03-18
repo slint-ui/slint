@@ -51,3 +51,6 @@ pub use i_slint_core_macros::identity as entry;
 //    feature = "esp32-s3-box"
 )))]
 pub fn init() {}
+
+#[cfg(feature = "stm32u5g9j-dk2")]
+mod embassy;
