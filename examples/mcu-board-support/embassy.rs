@@ -68,8 +68,7 @@ impl<PlatformImpl: PlatformBackend + 'static> slint::platform::Platform
     }
 
     fn debug_log(&self, arguments: core::fmt::Arguments) {
-        use alloc::string::ToString;
-        defmt::println!("{=str}", arguments.to_string());
+        defmt::println!("{}", defmt::Display2Format(&arguments));
     }
 }
 
