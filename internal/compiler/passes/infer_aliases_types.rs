@@ -182,6 +182,6 @@ fn recompute_scope(element: &ElementRc) -> ComponentScope {
 
     let root = element.borrow().enclosing_component.upgrade().unwrap().root_element.clone();
     let mut scope = Vec::new();
-    recurse(&root, element, &mut scope);
+    let _ = recurse(&root, element, &mut scope);
     ComponentScope(scope)
 }
