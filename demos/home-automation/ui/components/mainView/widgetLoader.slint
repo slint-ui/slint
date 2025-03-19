@@ -34,7 +34,7 @@ export component WidgetLoader {
     property <length> animTargetHeight;
 
     animate animTargetX, animTargetY, animTargetWidth, animTargetHeight {
-        duration: Animation.transitionDuration;
+        duration: Animation.transition-duration;
         easing: ease-in-out-sine;
     }
 
@@ -92,14 +92,14 @@ export component WidgetLoader {
             root.opacity: 1;
             in {
                 animate root.opacity {
-                    delay: Animation.transitionDuration / 2;
-                    duration: Animation.transitionDuration;
+                    delay: Animation.transition-duration / 2;
+                    duration: Animation.transition-duration;
                     easing: ease-in-out-sine;
                 }
             }
             out {
                 animate root.opacity {
-                    duration: Animation.transitionDuration / 2;
+                    duration: Animation.transition-duration / 2;
                     easing: ease-in-out-sine;
                 }
             }
