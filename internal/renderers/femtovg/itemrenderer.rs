@@ -1539,27 +1539,41 @@ impl<'a> GLItemRenderer<'a> {
             Brush::SolidColor(color) => femtovg::Paint::color(to_femtovg_color(&color)),
             Brush::LinearGradient(gradient) => {
                 let path_bounds = path_bounding_box(&self.canvas, path);
-
+            
                 let path_width = path_bounds.width();
                 let path_height = path_bounds.height();
-
+            
                 let (start, end) = i_slint_core::graphics::line_for_angle(
                     gradient.angle(),
                     [path_width, path_height].into(),
                 );
-
-                let stops =
-                    gradient.stops().map(|stop| (stop.position, to_femtovg_color(&stop.color)));
+            
+                let mut stops: Vec<_> = gradient.stops()
+                    .map(|stop| (stop.position, to_femtovg_color(&stop.color)))
+                    .collect();
+            
+                // Add an extra stop at 1.0 with the same color as the last stop
+                if let Some(last_stop) = stops.last().cloned() {
+                    stops.push((1.0, last_stop.1));
+                }
+            
                 femtovg::Paint::linear_gradient_stops(start.x, start.y, end.x, end.y, stops)
             }
-            Brush::RadialGradient(gradient) => {
+                        Brush::RadialGradient(gradient) => {
                 let path_bounds = path_bounding_box(&self.canvas, path);
-
+            
                 let path_width = path_bounds.width();
                 let path_height = path_bounds.height();
-
-                let stops =
-                    gradient.stops().map(|stop| (stop.position, to_femtovg_color(&stop.color)));
+            
+                let mut stops: Vec<_> = gradient.stops()
+                    .map(|stop| (stop.position, to_femtovg_color(&stop.color)))
+                    .collect();
+            
+                // Add an extra stop at 1.0 with the same color as the last stop
+                if let Some(last_stop) = stops.last().cloned() {
+                    stops.push((1.0, last_stop.1));
+                }
+            
                 femtovg::Paint::radial_gradient_stops(
                     path_width / 2.,
                     path_height / 2.,
@@ -1568,7 +1582,7 @@ impl<'a> GLItemRenderer<'a> {
                     stops,
                 )
             }
-            _ => return None,
+                        _ => return None,
         })
     }
 
