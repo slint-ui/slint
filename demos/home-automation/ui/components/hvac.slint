@@ -92,7 +92,7 @@ export component HVAC inherits Control {
     property <bool> unlocked: false;
     property <bool> is-active: false;
     show-label: false;
-    clip: AppState.is-hardware-accelerated;
+    clip: AppState.graphics-accelerator-available;
 
     tile := Rectangle {
 

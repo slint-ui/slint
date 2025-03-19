@@ -44,7 +44,7 @@ export component Alarm inherits Control {
     property <string> indirect-passcode: passcode == "-1" ? "" : passcode;
     show-label: false;
 
-    clip: AppState.is-hardware-accelerated;
+    clip: AppState.graphics-accelerator-available;
 
     content := Rectangle {
         ta := TouchArea {

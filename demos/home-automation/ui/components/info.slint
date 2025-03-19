@@ -11,13 +11,13 @@ export component Info {
     in property <bool> full-screen: false;
     @children
 
-    if AppState.is-hardware-accelerated : Rectangle {
+    if AppState.graphics-accelerator-available : Rectangle {
         border-width: 3px;
         border-color:  @linear-gradient(150deg, white.transparentize(60%) 0%, white.transparentize(85%) 50%, #ffffff.transparentize(95%) 100%);
         border-radius: 25px;
         background: @linear-gradient(150deg, white.transparentize(60%) 0%, white.transparentize(85%) 40%, white.transparentize(85%) 60%, #ffffff.transparentize(60%) 100%);
     }
-    if !AppState.is-hardware-accelerated : Image {
+    if !AppState.graphics-accelerator-available : Image {
         x: -14px;
         y: -12px;
         width: parent.width + 33px;

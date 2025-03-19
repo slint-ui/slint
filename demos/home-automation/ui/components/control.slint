@@ -23,7 +23,7 @@ export component Control inherits Rectangle {
 
     border-radius: 15px;
 
-    if AppState.is-hardware-accelerated : Rectangle {
+    if AppState.graphics-accelerator-available : Rectangle {
         Rectangle {
             border-radius: root.border-radius;
             background: @linear-gradient(1200deg, #191d44, #241433);
@@ -40,7 +40,7 @@ export component Control inherits Rectangle {
     }
 
 
-    if !AppState.is-hardware-accelerated : Image {
+    if !AppState.graphics-accelerator-available : Image {
         x: -14px;
         y: -12px;
         width: parent.width + 34px;

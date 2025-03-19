@@ -90,7 +90,7 @@ export component FancySlider inherits Rectangle {
             opacity: 0.2 + 0.2 * (self.width / parent.width);
             width: parent.width * (value - minValue) / (maxValue - minValue);
             height: 100%;
-            border-radius: !AppState.is-hardware-accelerated ? self.width / 2 : 0px;
+            border-radius: !AppState.graphics-accelerator-available ? self.width / 2 : 0px;
         }
 
         VerticalLayout {

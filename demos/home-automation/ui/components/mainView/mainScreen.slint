@@ -18,7 +18,7 @@ export component PageButton inherits Rectangle {
     in property label <=> t.text;
     in property <int> target-page;
     in property <image> icon;
-    property <length> default-font-size: AppState.is-hardware-accelerated ? 16px : 22px;
+    property <length> default-font-size: AppState.graphics-accelerator-available ? 16px : 22px;
 
     property <bool> selected: AppState.target-page == target-page;
 
@@ -73,7 +73,7 @@ export component MainScreen inherits Rectangle {
     }
 
     changed internal-target-page => {
-        if !AppState.is-hardware-accelerated {
+        if !AppState.graphics-accelerator-available {
             AppState.current-page = AppState.target-page;
         } else {
             if AppState.target-page != AppState.current-page {
@@ -109,7 +109,7 @@ export component MainScreen inherits Rectangle {
 
     Rectangle {
         property <bool> showing-time: true;
-        property <length> margin: AppState.is-hardware-accelerated ? 5px : 20px;
+        property <length> margin: AppState.graphics-accelerator-available ? 5px : 20px;
         width: 200px;
         height: 50px;
         x: parent.width - self.width - margin;
@@ -242,17 +242,17 @@ export component MainScreen inherits Rectangle {
             nav-bar := Rectangle {
                 property <length> portrait-x: 110px;
                 x: AppState.orientation == Orientation.landscape ? (parent.width - self.width) / 2 : portrait-x;
-                y: AppState.is-hardware-accelerated ? 26px : 35px;
+                y: AppState.graphics-accelerator-available ? 26px : 35px;
                 width: AppState.orientation == Orientation.landscape ? 600px : root.width - portrait-x;
                 height: 40px;
 
-                if !AppState.is-hardware-accelerated: Image {
+                if !AppState.graphics-accelerator-available: Image {
                     width: parent.width;
                     height: self.source.height * 1px;
                     source: @image-url("../../images/title-frame.png", nine-slice(0 50 0 50));
                 }
 
-                if AppState.is-hardware-accelerated: Rectangle {
+                if AppState.graphics-accelerator-available: Rectangle {
                     Rectangle {
                         border-radius: self.height / 2;
                         drop-shadow-blur: 5px;
@@ -273,7 +273,7 @@ export component MainScreen inherits Rectangle {
                 HorizontalLayout {
                     alignment: center;
                     spacing: 0px;
-                    y: AppState.is-hardware-accelerated ? 0 : -5px;
+                    y: AppState.graphics-accelerator-available ? 0 : -5px;
                     PageButton {
                         label: "Home";
                         target-page: 0;
@@ -293,7 +293,7 @@ export component MainScreen inherits Rectangle {
                         label: "Office";
                         target-page: 3;
                     }
-                    if AppState.orientation == Orientation.landscape && AppState.is-hardware-accelerated: Rectangle {
+                    if AppState.orientation == Orientation.landscape && AppState.graphics-accelerator-available: Rectangle {
                         width: 50px;
                         height: 40px;
                         lock := Image {
@@ -313,7 +313,7 @@ export component MainScreen inherits Rectangle {
 
         fs-holder := Rectangle {
             y: 20px;
-            if AppState.is-hardware-accelerated: Rectangle {
+            if AppState.graphics-accelerator-available: Rectangle {
                 width: 100%;
                 height: 100%;
                 for i[index] in AppState.component-details: WidgetLoader {
@@ -323,7 +323,7 @@ export component MainScreen inherits Rectangle {
                 }
             }
 
-            if !AppState.is-hardware-accelerated: Rectangle {
+            if !AppState.graphics-accelerator-available: Rectangle {
                 width: 100%;
                 height: 100%;
                 for i[index] in AppState.component-details: WidgetLoaderSoftwareRenderer {
@@ -339,7 +339,7 @@ export component MainScreen inherits Rectangle {
         }
     }
 
-    if AppState.is-hardware-accelerated && door-component-loaded: doors := Doors {
+    if AppState.graphics-accelerator-available && door-component-loaded: doors := Doors {
         doorsOpened => {
             door-component-loaded = false;
             initial-door-state = DoorState.open;
