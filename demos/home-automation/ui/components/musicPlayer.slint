@@ -4,88 +4,6 @@ import { Animation, Measurements, Colors, Palette } from "../common.slint";
 import { Control} from "control.slint";
 import { AppState } from "../appState.slint";
 import { HaText } from "general/haText.slint";
-export component AudioVisualizer inherits Rectangle {
-    width: self.preferred-width;
-    height: 50px;
-    y: 0px;
-
-    // Define the number of bars
-    property <int> numBars: 50;
-
-    // Define the bar width and spacing
-    property <length> barWidth: self.width / numBars;
-    property <length> spacing: 2px;
-    HorizontalLayout {
-        spacing: parent.spacing;
-        alignment: start;
-        y: 40px;
-
-        // Random heights for demonstration purposes
-        property <[float]> getBarHeight:
-            [
-            0.536607,
-            0.927906,
-            0.865396,
-            0.503682,
-            0.225622,
-            0.038002,
-            0.756923,
-            0.914055,
-            0.783485,
-            0.614367,
-            0.981598,
-            0.399460,
-            0.577364,
-            0.786051,
-            0.521291,
-            0.716059,
-            0.917610,
-            0.555306,
-            0.935384,
-            0.166469,
-            0.677960,
-            0.331542,
-            0.828376,
-            0.334301,
-            0.493934,
-            0.742222,
-            0.743564,
-            0.126049,
-            0.501512,
-            0.933921,
-            0.600989,
-            0.876927,
-            0.364581,
-            0.942666,
-            0.197834,
-            0.762524,
-            0.835514,
-            0.134315,
-            0.407657,
-            0.960525,
-            0.222813,
-            0.176457,
-            0.610204,
-            0.0296424,
-            0.4449036,
-            0.9250662,
-            0.6634989,
-            0.1265369,
-            0.636468,
-            0.320777
-        ];
-
-
-        // Create the visualizer bars
-
-        // for bar[i] in numBars: Rectangle {
-        //     width: barWidth;
-        //     height: getBarHeight[i] * 1px * 2000%;
-        //     background: Palette.music-gradient.transparentize(0.2);
-        //     y: -self.height / 2;
-        // }
-    }
-}
 
 export component MusicPlayer inherits Rectangle {
     property <string> title: "Time";
@@ -100,13 +18,12 @@ export component MusicPlayer inherits Rectangle {
     in property <int> index;
     in property <bool> full-screen: false;
 
-
     Rectangle {
-            width: 90%;
-            height: 90%;
-            background: black;
-            border-radius: 30px;
-        }
+        width: 90%;
+        height: 90%;
+        background: black;
+        border-radius: 30px;
+    }
 
     tile := Rectangle {
 
@@ -125,7 +42,7 @@ export component MusicPlayer inherits Rectangle {
             VerticalLayout {
                 alignment: start;
                 padding-top: (tile.height > Measurements.small-height-tile) ? 18px : 9px;
-                padding: 20px ;
+                padding: 20px;
                 spacing: 5px;
 
                 HaText {
@@ -155,65 +72,64 @@ export component MusicPlayer inherits Rectangle {
                     vertical-alignment: center;
                 }
             }
-
-
         }
 
         controls := Rectangle {
-            y: root.height - self.height -0px;
-                width: 95%;
-                height: 60px;
-                HorizontalLayout {
+            y: root.height - self.height - 0px;
+            width: 95%;
+            height: 60px;
+            HorizontalLayout {
+                Rectangle {
                     Rectangle {
-                        Rectangle {
-                            width: 40px;
+                        width: 40px;
+                        height: self.width;
+                        border-radius: self.height / 2;
+                        background: white;
+                        Image {
+                            source: @image-url("../images/back.svg");
+                            width: 18px;
                             height: self.width;
-                            border-radius: self.height / 2;
-                            background: white;
-                            Image {
-                                source: @image-url("../images/back.svg");
-                                width: 18px;
-                                height: self.width;
-                                colorize: Palette.music-alternate-foreground;
-                            }
+                            colorize: Palette.music-alternate-foreground;
                         }
                     }
+                }
 
+                Rectangle {
+                    height: 60px;
                     Rectangle {
-                        height: 60px;
-                        Rectangle {
-                            width: 60px;
-                            height: self.width;
-                            border-radius: self.height / 2;
-                            background: white;
-                            property <bool> playing: true;
-                            Image {
-                                source: playing ? @image-url("../images/pause.svg") : @image-url("../images/play.svg");
-                                colorize: Palette.music-alternate-foreground;
-                            }
-                            TouchArea {
-                                clicked => {
-                                    playing = !playing;
-                                }
-                            }
+                        width: 60px;
+                        height: self.width;
+                        border-radius: self.height / 2;
+                        background: white;
+                        property <bool> playing: true;
+                        Image {
+                            source: playing ? @image-url("../images/pause.svg") : @image-url("../images/play.svg");
+                            colorize: Palette.music-alternate-foreground;
                         }
-                    }
 
-                    Rectangle {
-                        Rectangle {
-                            width: 40px;
-                            height: self.width;
-                            border-radius: self.height / 2;
-                            background: white;
-                            Image {
-                                source: @image-url("../images/fwd.svg");
-                                width: 18px;
-                                height: self.width;
-                                colorize: Palette.music-alternate-foreground;
+                        TouchArea {
+                            clicked => {
+                                playing = !playing;
                             }
                         }
                     }
                 }
+
+                Rectangle {
+                    Rectangle {
+                        width: 40px;
+                        height: self.width;
+                        border-radius: self.height / 2;
+                        background: white;
+                        Image {
+                            source: @image-url("../images/fwd.svg");
+                            width: 18px;
+                            height: self.width;
+                            colorize: Palette.music-alternate-foreground;
+                        }
+                    }
+                }
             }
+        }
     }
 }

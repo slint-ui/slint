@@ -34,6 +34,7 @@ export component Day inherits Rectangle {
             color: Palette.info-foreground;
             font-size: Style.H4-font-size;
         }
+
         property <length> icon-size: 40px;
 
         if weather-data.condition == WeatherCondition.sunny: Rectangle {
@@ -72,12 +73,13 @@ export component Day inherits Rectangle {
         HorizontalLayout {
             alignment: center;
             HaText {
-                text: weather-data.temperature ;
+                text: weather-data.temperature;
                 horizontal-alignment: center;
                 color: Palette.info-foreground;
                 font-size: Style.H3-font-size;
                 vertical-alignment: center;
             }
+
             Text {
                 text: "°C";
                 color: white;
@@ -86,8 +88,6 @@ export component Day inherits Rectangle {
             }
         }
     }
-
-
 }
 
 export component WeatherInfo {
@@ -116,6 +116,7 @@ export component WeatherInfo {
                 scale: root.scaler;
                 special-height: root.special-height;
             }
+
             Day {
                 weather-data: Api.weather-forecast[1];
                 tint: #31134C;
@@ -145,5 +146,4 @@ export component WeatherInfo {
             }
         }
     }
-
 }
