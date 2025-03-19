@@ -193,6 +193,7 @@ stm32u5g9j-dk2 = [
   "gt911/defmt",
   "embassy-futures",
   "i-slint-core/experimental",
+  "nema-gfx-rs",
 ]
 
 [dependencies]
@@ -256,6 +257,8 @@ sh8601-rs = { version = "0.1.6", features = ["waveshare_18_amoled"], optional = 
 ft3x68-rs = { version = "0.1.2", optional = true }
 
 rand_core = { version = "0.6.3", optional = true }
+
+nema-gfx-rs = { git = "https://github.com/slint-ui/nema-gfx-rs", optional = true }
 
 [build-dependencies]
 cfg-if = "1.0.0"
