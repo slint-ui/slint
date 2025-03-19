@@ -21,6 +21,7 @@ use embassy_stm32::{
 use embassy_stm32::{rcc, Config};
 
 mod hspi;
+mod nema_gfx;
 
 #[cfg(feature = "panic-probe")]
 use panic_probe as _;
@@ -74,6 +75,10 @@ pub fn init() {
     config.rcc.mux.ltdcsel = rcc::mux::Ltdcsel::PLL3_R; // 25 MHz
     hspi::rcc_init(&mut config);
     let p = embassy_stm32::init(config);
+
+    // enable gpu2d clock
+    embassy_stm32::pac::RCC.ahb1enr().modify(|w| w.set_gpu2den(true));
+    while embassy_stm32::pac::RCC.ahb1enr().read().gpu2den() == false {}
 
     // enable instruction cache
     embassy_stm32::pac::ICACHE.cr().write(|w| {
@@ -229,6 +234,9 @@ pub fn init() {
     let work_fb: &mut [TargetPixel] = fb2;
 
     let scb = cortex_m::Peripherals::take().unwrap().SCB;
+
+    let nema_err = unsafe { nema_gfx_rs::nema_init() };
+    defmt::info!("Nema init: {:?}", nema_err);
 
     let stm_backend = StmBackendInner {
         _flash: flash,
