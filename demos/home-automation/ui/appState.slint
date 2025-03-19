@@ -39,6 +39,7 @@ export enum Orientation {
 export global AppState {
     in-out property <bool> first-run: true;
     in-out property <bool> kiosk-mode: false;
+    in property <bool> disable-kiosk-mode: false;
     callback end-kiosk-mode();
     end-kiosk-mode => {
         kiosk-mode = false;

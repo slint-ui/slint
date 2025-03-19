@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 import { MainScreen } from "components/mainView/mainScreen.slint";
+import { AppState } from "appState.slint";
 import { Api } from "api.slint";
 
 export { Api }
@@ -12,5 +13,9 @@ export component AppWindow inherits Window {
     MainScreen {
         door-component-loaded: false;
         initial-door-state: open;
+    }
+
+    init => {
+        AppState.disable-kiosk-mode = true;
     }
 }

@@ -358,7 +358,7 @@ export component MainScreen inherits Rectangle {
 
     Timer {
         interval: 30s;
-        running: !AppState.kiosk-mode && !door-component-loaded;
+        running: !AppState.kiosk-mode && !door-component-loaded && !AppState.disable-kiosk-mode;
         triggered => {
             AppState.first-run = false;
             AppState.kiosk-mode = true;
