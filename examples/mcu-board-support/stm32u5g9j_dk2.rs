@@ -235,6 +235,9 @@ pub fn init() {
 
     let scb = cortex_m::Peripherals::take().unwrap().SCB;
 
+    use embassy_stm32::interrupt::typelevel::Interrupt;
+    unsafe { embassy_stm32::interrupt::typelevel::GPU2D::enable() };
+
     let nema_err = unsafe { nema_gfx_rs::nema_init() };
     defmt::info!("Nema init: {:?}", nema_err);
 
@@ -323,6 +326,37 @@ impl PlatformBackend for StmBackendInner {
         renderer.render(self.work_fb, DISPLAY_WIDTH);
 
         self.scb.clean_dcache_by_slice(self.work_fb);
+
+        // nema test
+        unsafe {
+            use nema_gfx_rs::*;
+            let mut cl = nema_cl_create();
+            nema_cl_bind(&mut cl);
+
+            nema_bind_dst_tex(
+                self.work_fb.as_ptr() as _,
+                DISPLAY_WIDTH as u32,
+                DISPLAY_HEIGHT as u32,
+                NEMA_RGB565,
+                (DISPLAY_WIDTH * core::mem::size_of::<TargetPixel>()) as i32,
+            );
+
+            nema_set_clip(0, 0, DISPLAY_WIDTH as u32, DISPLAY_HEIGHT as u32);
+
+            nema_set_blend(
+                NEMA_BF_ONE,
+                nema_tex_t_NEMA_TEX0,
+                nema_tex_t_NEMA_NOTEX,
+                nema_tex_t_NEMA_NOTEX,
+            );
+
+            nema_fill_rect(10, 10, 40, 40, nema_rgba(0, 255, 0, 128));
+            //nema_clear(nema_rgba(0, 255, 0, 128));
+
+            nema_cl_submit(&mut cl);
+            nema_cl_wait(&mut cl);
+        }
+
         // Safety: the frame buffer has the right size
         self.ltdc.set_buffer(LtdcLayer::Layer1, self.work_fb.as_ptr() as *const ()).await.unwrap();
         // Swap the buffer pointer so we will work now on the second buffer
