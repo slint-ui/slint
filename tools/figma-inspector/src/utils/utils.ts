@@ -45,3 +45,8 @@ export async function copyToClipboard(slintProperties: string) {
         });
     }
 }
+export function exportAll(){
+    dispatchTS("exportAll", {
+        result: true,
+    });
+}

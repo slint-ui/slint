@@ -42,3 +42,8 @@ figma.on("selectionchange", () => {
         updateUI();
     }
 });
+listenTS("exportAll", ({ result }) => {
+    if (result) {
+        figma.notify("Exported!");
+    }
+});
