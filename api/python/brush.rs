@@ -58,6 +58,10 @@ enum PyColorInput {
 
 impl_stub_type!(PyColorInput = String | RgbaColor | RgbColor);
 
+/// A Color object represents a color in the RGB color space with an alpha. Each color channel as well as the alpha is represented as an 8-bit
+/// integer. The alpha channel is 0 for fully transparent and 255 for fully opaque.
+///
+/// Construct colors from either a CSS color string, or by specifying the red, green, blue, and (optional) alpha channels in a dict.
 #[gen_stub_pyclass]
 #[pyclass(name = "Color")]
 #[derive(Clone)]
@@ -95,42 +99,55 @@ impl PyColor {
         }
     }
 
+    /// The red channel.
     #[getter]
     fn red(&self) -> u8 {
         self.color.red()
     }
 
+    /// The green channel.
     #[getter]
     fn green(&self) -> u8 {
         self.color.green()
     }
 
+    /// The blue channel.
     #[getter]
     fn blue(&self) -> u8 {
         self.color.blue()
     }
 
+    /// The alpha channel.
     #[getter]
     fn alpha(&self) -> u8 {
         self.color.alpha()
     }
 
+    /// Returns a new color that is brighter than this color by the given factor.
     fn brighter(&self, factor: f32) -> Self {
         Self { color: self.color.brighter(factor) }
     }
 
+    /// Returns a new color that is darker than this color by the given factor.
     fn darker(&self, factor: f32) -> Self {
         Self { color: self.color.darker(factor) }
     }
 
+    /// Returns a new version of this color with the opacity decreased by `factor`.
+    ///
+    /// The transparency is obtained by multiplying the alpha channel by `(1 - factor)`.
     fn transparentize(&self, factor: f32) -> Self {
         Self { color: self.color.transparentize(factor) }
     }
 
+    /// Returns a new color that is a mix of this color and `other`. The specified factor is
+    /// clamped to be between `0.0` and `1.0` and then applied to this color, while `1.0 - factor`
+    /// is applied to `other`.
     fn mix(&self, other: &Self, factor: f32) -> Self {
         Self { color: self.color.mix(&other.color, factor) }
     }
 
+    /// Returns a new version of this color with the opacity set to `alpha`.
     fn with_alpha(&self, alpha: f32) -> Self {
         Self { color: self.color.with_alpha(alpha) }
     }
@@ -157,6 +174,13 @@ enum PyBrushInput {
 
 impl_stub_type!(PyBrushInput = PyColor);
 
+/// A brush is a data structure that is used to describe how
+/// a shape, such as a rectangle, path or even text, shall be filled.
+/// A brush can also be applied to the outline of a shape, that means
+/// the fill of the outline itself.
+///
+/// Brushes can only be constructed from solid colors. This is a restriction we anticipate to lift in the future,
+/// to programmatically also declare gradients.
 #[gen_stub_pyclass]
 #[pyclass(name = "Brush")]
 pub struct PyBrush {
@@ -177,31 +201,47 @@ impl PyBrush {
         }
     }
 
+    /// The brush's color.
     #[getter]
     fn color(&self) -> PyColor {
         self.brush.color().into()
     }
 
+    /// Returns true if this brush contains a fully transparent color (alpha value is zero).
     fn is_transparent(&self) -> bool {
         self.brush.is_transparent()
     }
 
+    /// Returns true if this brush is fully opaque.
     fn is_opaque(&self) -> bool {
         self.brush.is_opaque()
     }
 
+    /// Returns a new version of this brush that has the brightness increased
+    /// by the specified factor. This is done by calling `Color.brighter` on
+    /// all the colors of this brush.
     fn brighter(&self, factor: f32) -> Self {
         Self { brush: self.brush.brighter(factor) }
     }
 
+    /// Returns a new version of this brush that has the brightness decreased
+    /// by the specified factor. This is done by calling `Color.darker` on
+    /// all the color of this brush.
     fn darker(&self, factor: f32) -> Self {
         Self { brush: self.brush.darker(factor) }
     }
 
+    /// Returns a new version of this brush with the opacity decreased by `factor`.
+    ///
+    /// The transparency is obtained by multiplying the alpha channel by `(1 - factor)`.
+    ///
+    /// See also `Color.transparentize`.
     fn transparentize(&self, amount: f32) -> Self {
         Self { brush: self.brush.transparentize(amount) }
     }
 
+    /// Returns a new version of this brush with the related color's opacities
+    /// set to `alpha`.
     fn with_alpha(&self, alpha: f32) -> Self {
         Self { brush: self.brush.with_alpha(alpha) }
     }
