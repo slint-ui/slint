@@ -8,6 +8,12 @@ from typing import Any, cast, Iterator
 
 
 class Model[T](native.PyModelBase, Iterable[T]):
+    """Model is the base class for feeding dynamic data into Slint views.
+
+    Subclass Model to implement your own models, or use `ListModel` to wrap a list.
+
+    Models are iterable and can be used in for loops."""
+
     def __new__(cls, *args: Any) -> "Model[T]":
         return super().__new__(cls)
 
