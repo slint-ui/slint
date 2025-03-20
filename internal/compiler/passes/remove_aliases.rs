@@ -21,17 +21,23 @@ struct PropertySets {
 
 impl PropertySets {
     fn add_link(&mut self, p1: NamedReference, p2: NamedReference) {
+        let (e1, e2) = (p1.element(), p2.element());
         if !std::rc::Weak::ptr_eq(
-            &p1.element().borrow().enclosing_component,
-            &p2.element().borrow().enclosing_component,
-        ) && !p1.element().borrow().enclosing_component.upgrade().unwrap().is_global()
-            && !p2.element().borrow().enclosing_component.upgrade().unwrap().is_global()
-        {
-            // We can only merge aliases if they are in the same Component. (unless one of them is global)
-            // TODO: actually we could still merge two alias in a component pointing to the same
-            // property in a parent component
-            return;
+            &e1.borrow().enclosing_component,
+            &e2.borrow().enclosing_component,
+        ) {
+            if !(e1.borrow().enclosing_component.upgrade().unwrap().is_global()
+                && !e2.borrow().change_callbacks.contains_key(p2.name()))
+                && !(e2.borrow().enclosing_component.upgrade().unwrap().is_global()
+                    && !e1.borrow().change_callbacks.contains_key(p1.name()))
+            {
+                // We can only merge aliases if they are in the same Component. (unless one of them is global if the other one don't have change event)
+                // TODO: actually we could still merge two alias in a component pointing to the same
+                // property in a parent component
+                return;
+            }
         }
+
         if let Some(s1) = self.map.get(&p1).cloned() {
             if let Some(s2) = self.map.get(&p2).cloned() {
                 if Rc::ptr_eq(&s1, &s2) {
@@ -159,10 +165,14 @@ pub fn remove_aliases(doc: &Document, diag: &mut BuildDiagnostics) {
             let mut elem = elem.borrow_mut();
             if let Some(old_change_callback) = elem.change_callbacks.remove(remove.name()) {
                 drop(elem);
+                let mut old_change_callback = old_change_callback.into_inner();
                 to_elem
                     .borrow_mut()
                     .change_callbacks
-                    .insert(to.name().clone(), old_change_callback);
+                    .entry(to.name().clone())
+                    .or_default()
+                    .borrow_mut()
+                    .append(&mut old_change_callback);
             }
         }
 
