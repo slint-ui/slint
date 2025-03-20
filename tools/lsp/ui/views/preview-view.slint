@@ -247,8 +247,21 @@ export component PreviewView {
                 mouse-cursor: root.mode == DrawAreaMode.selecting ? MouseCursor.crosshair : MouseCursor.default;
 
                 changed has-hover => {
-                    StatusLineApi.help-text = "<click> unselect";
+                    if self.has-hover {
+                        StatusLineApi.help-text = "<click> unselect";
+                    } else {
+                         StatusLineApi.help-text = "";
+                    }
                 }
+            }
+
+            unselect-area-blocker:= TouchArea {
+                x: content-border.x;
+                y: content-border.y;
+                width: content-border.width;
+                height: content-border.height;
+
+                mouse-cursor: root.mode == DrawAreaMode.selecting ? MouseCursor.crosshair : MouseCursor.default;
             }
 
             content-border := Rectangle {
