@@ -1,0 +1,93 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+
+export global State {
+    // Issue #7784
+    in property <int> tab-names;
+
+    in-out property <int> r;
+}
+
+// issue #7747
+component Inner {
+    in-out property <int> test-value;
+
+    changed test-value => {
+        State.r += root.test-value * 10000;
+    }
+}
+
+component Intermediate {
+    in-out property <int> test-value;
+
+    changed test-value => {
+        State.r += root.test-value * 100;
+    }
+
+    Inner {
+        test-value <=> root.test-value;
+    }
+
+    @children
+}
+
+export component TestCase inherits Window {
+    // Issue #7784
+    out property <int> current-tab;
+    in property <int> tab-names <=> State.tab-names;
+    changed tab-names => {
+        current-tab = tab-names;
+    }
+
+    // Issue #7747
+    in-out property <int> test-value;
+    changed test-value => {
+        State.r += root.test-value;
+    }
+    Intermediate {
+        test-value <=> root.test-value;
+        Text {
+            text: "xx";
+        }
+    }
+}
+
+
+/*
+
+```rust
+let instance = TestCase::new().unwrap();
+instance.global::<State<'_>>().set_tab_names(5);
+slint_testing::mock_elapsed_time(10);
+assert_eq!(instance.get_current_tab(), 5);
+
+instance.set_test_value(8);
+slint_testing::mock_elapsed_time(10);
+assert_eq!(instance.global::<State<'_>>().get_r(), 80808);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+instance.global<State>().set_tab_names(5);
+slint_testing::mock_elapsed_time(10);
+assert_eq(instance.get_current_tab(), 5);
+
+instance.set_test_value(8);
+slint_testing::mock_elapsed_time(10);
+assert_eq(instance.global<State>().get_r(), 80808);
+```
+
+```js
+var instance = new slint.TestCase({});
+instance.State.tab_names = 5;
+slintlib.private_api.mock_elapsed_time(10);
+assert.equal(instance.current_tab, 5);
+
+instance.test_value = 8;
+slintlib.private_api.mock_elapsed_time(10);
+assert.equal(instance.State.r, 80808);
+```
+
+*/
