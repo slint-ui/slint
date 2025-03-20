@@ -8,6 +8,7 @@
 
 use crate::SharedVector;
 use alloc::string::String;
+use alloc::borrow::Cow;
 use core::fmt::{Debug, Display, Write};
 use core::ops::Deref;
 #[cfg(not(feature = "std"))]
@@ -227,6 +228,18 @@ impl From<String> for SharedString {
 impl From<&String> for SharedString {
     fn from(s: &String) -> Self {
         s.as_str().into()
+    }
+}
+
+impl From<Cow<'_, str>> for SharedString {
+    fn from(s: Cow<'_, str>) -> Self {
+        s.as_ref().into()
+    }
+}
+
+impl From<&Cow<'_, str>> for SharedString {
+    fn from(s: &Cow<'_, str>) -> Self {
+        s.as_ref().into()
     }
 }
 
@@ -676,4 +689,14 @@ fn test_serialize_deserialize_sharedstring() {
     let serialized = serde_json::to_string(&v).unwrap();
     let deserialized: SharedString = serde_json::from_str(&serialized).unwrap();
     assert_eq!(v, deserialized);
+}
+
+#[test]
+fn test_from_cow() {
+    let borrowed = Cow::from("Foo");
+    let owned = Cow::from("Bar".to_string());
+    assert_eq!(SharedString::from("Foo"), SharedString::from(&borrowed));
+    assert_eq!(SharedString::from("Foo"), SharedString::from(borrowed));
+    assert_eq!(SharedString::from("Bar"), SharedString::from(&owned));
+    assert_eq!(SharedString::from("Bar"), SharedString::from(owned));
 }
