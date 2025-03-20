@@ -4,6 +4,8 @@
 
 import { listenTS, updateUI } from "./utils/code-utils.js";
 import { generateSlintSnippet } from "./utils/property-parsing.js";
+import { exportComponentSet } from "./utils/export-components.js";
+
 
 if (figma.editorType === "dev" && figma.mode === "codegen") {
     figma.codegen.on("generate", async ({ node }) => {
@@ -44,6 +46,6 @@ figma.on("selectionchange", () => {
 });
 listenTS("exportAll", ({ result }) => {
     if (result) {
-        figma.notify("Exported!");
+        exportComponentSet();
     }
 });
