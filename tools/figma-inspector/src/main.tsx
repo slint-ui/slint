@@ -30,7 +30,7 @@ export const App = () => {
     return (
         <div className="container">
             <div className="title">
-                {title}
+                {"hello word"}
                 {slintProperties !== "" && (
                     <span
                         id="copy-icon"
