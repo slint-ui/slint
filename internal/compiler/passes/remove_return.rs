@@ -26,7 +26,8 @@ pub fn remove_return(doc: &crate::object_tree::Document) {
             visit(e, &mut ret_ty);
             let Some(ret_ty) = ret_ty else { return };
             let ctx = RemoveReturnContext { ret_ty };
-            *e = process_expression(std::mem::take(e), true, &ctx).to_expression(&ctx.ret_ty);
+            *e = process_expression(std::mem::take(e), true, &ctx, &ctx.ret_ty)
+                .to_expression(&ctx.ret_ty);
         })
     });
 }
@@ -35,16 +36,16 @@ fn process_expression(
     e: Expression,
     toplevel: bool,
     ctx: &RemoveReturnContext,
+    ty: &Type,
 ) -> ExpressionResult {
-    let ty = e.ty();
     match e {
         Expression::ReturnStatement(expr) => ExpressionResult::Return(expr.map(|e| *e)),
         Expression::CodeBlock(expr) => {
-            process_codeblock(expr.into_iter().peekable(), toplevel, &ty, ctx)
+            process_codeblock(expr.into_iter().peekable(), toplevel, ty, ctx)
         }
         Expression::Condition { condition, true_expr, false_expr } => {
-            let te = process_expression(*true_expr, false, ctx);
-            let fe = process_expression(*false_expr, false, ctx);
+            let te = process_expression(*true_expr, false, ctx, ty);
+            let fe = process_expression(*false_expr, false, ctx, ty);
             match (te, fe) {
                 (ExpressionResult::Just(te), ExpressionResult::Just(fe)) => {
                     Expression::Condition { condition, true_expr: te.into(), false_expr: fe.into() }
@@ -77,8 +78,8 @@ fn process_expression(
                     let te = te.into_return_object(&ty, &ctx.ret_ty);
                     let fe = fe.into_return_object(&ty, &ctx.ret_ty);
                     ExpressionResult::ReturnObject {
-                        has_value: !matches!(ty, Type::Void | Type::Invalid),
-                        has_return_value: !matches!(ctx.ret_ty, Type::Void | Type::Invalid),
+                        has_value: has_value(ty),
+                        has_return_value: has_value(&ctx.ret_ty),
                         value: Expression::Condition {
                             condition,
                             true_expr: te.into(),
@@ -88,10 +89,17 @@ fn process_expression(
                 }
             }
         }
-        Expression::Cast { from, to } => process_expression(*from, toplevel, ctx)
-            .map_value(|e| Expression::Cast { from: e.into(), to }),
+        Expression::Cast { from, to } => {
+            let ty = if !has_value(ty) { ty.clone() } else { from.ty() };
+            process_expression(*from, toplevel, ctx, &ty)
+                .map_value(|e| Expression::Cast { from: e.into(), to })
+        }
         e => {
             // Normally there shouldn't be any 'return' statements in there since return are not allowed in arbitrary expressions
+            #[cfg(debug_assertions)]
+            {
+                e.visit_recursive(&mut |e| assert!(!matches!(e, Expression::ReturnStatement(_))));
+            }
             ExpressionResult::Just(e)
         }
     }
@@ -114,7 +122,8 @@ fn process_codeblock(
 ) -> ExpressionResult {
     let mut stmts = vec![];
     while let Some(e) = iter.next() {
-        match process_expression(e, toplevel, ctx) {
+        let is_last = iter.peek().is_none();
+        match process_expression(e, toplevel, ctx, if is_last { ty } else { &Type::Void }) {
             ExpressionResult::Just(x) => stmts.push(x),
             ExpressionResult::Return(x) => {
                 stmts.extend(x);
@@ -129,16 +138,16 @@ fn process_codeblock(
                 actual_value,
             } => {
                 stmts.append(&mut pre_statements);
-                if iter.peek().is_none() {
+                if is_last {
                     return ExpressionResult::MaybeReturn {
                         pre_statements: stmts,
                         condition,
                         returned_value,
                         actual_value,
                     };
-                };
-                if toplevel {
-                    let rest = process_codeblock(iter, true, ty, ctx).to_expression(&ctx.ret_ty);
+                } else if toplevel {
+                    let rest =
+                        process_codeblock(iter, true, &Type::Void, ctx).to_expression(&ctx.ret_ty);
                     let mut rest_ex = Expression::CodeBlock(
                         actual_value.into_iter().chain(core::iter::once(rest)).collect(),
                     );
@@ -152,40 +161,33 @@ fn process_codeblock(
                         returned_value,
                         actual_value: Some(rest_ex),
                     };
+                } else {
+                    return continue_codeblock(
+                        iter,
+                        &Type::Void,
+                        ctx,
+                        ExpressionResult::MaybeReturn {
+                            pre_statements: vec![],
+                            condition,
+                            returned_value,
+                            actual_value,
+                        }
+                        .into_return_object(ty, &ctx.ret_ty),
+                        stmts,
+                        has_value(&ctx.ret_ty),
+                    );
                 }
-                return continue_codeblock(
-                    iter,
-                    ty,
-                    ctx,
-                    ExpressionResult::MaybeReturn {
-                        pre_statements: vec![],
-                        condition,
-                        returned_value,
-                        actual_value,
-                    }
-                    .into_return_object(ty, &ctx.ret_ty),
-                    stmts,
-                    !matches!(ctx.ret_ty, Type::Void | Type::Invalid),
-                    !matches!(ty, Type::Void | Type::Invalid),
-                );
             }
             ExpressionResult::ReturnObject { value, has_value, has_return_value } => {
-                if iter.peek().is_none() {
+                if is_last {
                     return ExpressionResult::ReturnObject {
                         value: codeblock_with_expr(stmts, value),
                         has_value,
                         has_return_value,
                     };
-                };
-                return continue_codeblock(
-                    iter,
-                    ty,
-                    ctx,
-                    value,
-                    stmts,
-                    has_return_value,
-                    !matches!(ty, Type::Void | Type::Invalid),
-                );
+                } else {
+                    return continue_codeblock(iter, ty, ctx, value, stmts, has_return_value);
+                }
             }
         }
     }
@@ -199,7 +201,6 @@ fn continue_codeblock(
     return_object: Expression,
     mut stmts: Vec<Expression>,
     has_return_value: bool,
-    has_value: bool,
 ) -> ExpressionResult {
     let rest = process_codeblock(iter, false, ty, ctx).into_return_object(ty, &ctx.ret_ty);
     static COUNT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
@@ -227,7 +228,7 @@ fn continue_codeblock(
     });
     ExpressionResult::ReturnObject {
         value: Expression::CodeBlock(stmts),
-        has_value,
+        has_value: has_value(ty),
         has_return_value,
     }
 }
@@ -329,24 +330,44 @@ impl ExpressionResult {
 
     fn into_return_object(self, ty: &Type, ret_ty: &Type) -> Expression {
         match self {
-            ExpressionResult::Just(e) => make_struct(
-                [
-                    (FIELD_CONDITION, Type::Bool, Expression::BoolLiteral(true)),
-                    (FIELD_ACTUAL, e.ty(), e),
-                    (FIELD_RETURNED, ret_ty.clone(), Expression::default_value_for_type(ret_ty)),
-                ]
-                .into_iter(),
-            ),
+            ExpressionResult::Just(e) => {
+                let ret_value = Expression::default_value_for_type(ret_ty);
+                if has_value(ty) {
+                    make_struct(
+                        [
+                            (FIELD_CONDITION, Type::Bool, Expression::BoolLiteral(true)),
+                            (FIELD_RETURNED, ret_ty.clone(), ret_value),
+                            (FIELD_ACTUAL, e.ty(), e),
+                        ]
+                        .into_iter(),
+                    )
+                } else {
+                    let object = make_struct(
+                        [
+                            (FIELD_CONDITION, Type::Bool, Expression::BoolLiteral(true)),
+                            (FIELD_RETURNED, ret_ty.clone(), ret_value),
+                        ]
+                        .into_iter(),
+                    );
+                    if e.is_constant() {
+                        object
+                    } else {
+                        Expression::CodeBlock(vec![e, object])
+                    }
+                }
+            }
             ExpressionResult::MaybeReturn {
                 pre_statements,
                 condition,
                 returned_value,
                 actual_value,
             } => {
-                let mut true_expr = ExpressionResult::Just(
-                    actual_value.unwrap_or_else(|| Expression::default_value_for_type(ty)),
-                )
-                .into_return_object(ty, ret_ty);
+                let mut true_expr = match actual_value {
+                    Some(e) => ExpressionResult::Just(e).into_return_object(ty, ret_ty),
+                    None => make_struct(
+                        [(FIELD_CONDITION, Type::Bool, Expression::BoolLiteral(true))].into_iter(),
+                    ),
+                };
                 let mut false_expr =
                     ExpressionResult::Return(returned_value).into_return_object(ty, ret_ty);
                 let true_ty = true_expr.ty();
@@ -374,7 +395,7 @@ impl ExpressionResult {
                 [(FIELD_CONDITION, Type::Bool, Expression::BoolLiteral(false))]
                     .into_iter()
                     .chain(r.map(|r| (FIELD_RETURNED, ret_ty.clone(), r)))
-                    .chain((!matches!(ty, Type::Void | Type::Invalid)).then(|| {
+                    .chain(has_value(ty).then(|| {
                         (FIELD_ACTUAL, ty.clone(), Expression::default_value_for_type(ty))
                     })),
             ),
@@ -449,7 +470,7 @@ fn make_struct(it: impl Iterator<Item = (&'static str, Type, Expression)>) -> Ex
     let mut values = HashMap::<SmolStr, Expression>::new();
     let mut voids = Vec::new();
     for (name, ty, expr) in it {
-        if matches!(ty, Type::Void | Type::Invalid) {
+        if !has_value(&ty) {
             if ty != Type::Invalid {
                 voids.push(expr);
             }
@@ -513,4 +534,8 @@ fn convert_struct(from: Expression, to: Type) -> Expression {
         Expression::StoreLocalVariable { name: var_name, value: Box::new(from) },
         Expression::Struct { values: new_values, ty: to },
     ])
+}
+
+fn has_value(ty: &Type) -> bool {
+    !matches!(ty, Type::Void | Type::Invalid)
 }
