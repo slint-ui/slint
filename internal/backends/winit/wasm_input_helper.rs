@@ -305,38 +305,26 @@ fn event_text(e: &web_sys::KeyboardEvent, is_apple: bool) -> Option<SharedString
 
     use i_slint_core::platform::Key;
 
-    let mut special_key = None;
-
     macro_rules! check_non_printable_code {
         ($($char:literal # $name:ident # $($_qt:ident)|* # $($_winit:ident $(($_pos:ident))?)|* # $($_xkb:ident)|* ;)*) => {
             match key.as_str() {
-                "Tab" if e.shift_key() => { special_key = Some(Key::Backtab); },
+                "Tab" if e.shift_key() => return Some(Key::Backtab.into()),
+                "Meta" if is_apple => return Some(Key::Control.into()),
+                "Control" if is_apple => return Some(Key::Meta.into()),
                 $(stringify!($name) => {
-                    special_key = Some(Key::$name);
+                    return Some($char.into());
                 })*
                 // Why did we diverge from DOM there?
-                "ArrowLeft" => { special_key = Some(Key::LeftArrow); },
-                "ArrowUp" => { special_key = Some(Key::UpArrow); },
-                "ArrowRight" => { special_key = Some(Key::RightArrow); },
-                "ArrowDown" => { special_key = Some(Key::DownArrow); },
-                "Enter" => { special_key = Some(Key::Return); },
+                "ArrowLeft" => return Some(Key::LeftArrow.into()),
+                "ArrowUp" => return Some(Key::UpArrow.into()),
+                "ArrowRight" => return Some(Key::RightArrow.into()),
+                "ArrowDown" => return Some(Key::DownArrow.into()),
+                "Enter" => return Some(Key::Return.into()),
                 _ => (),
             }
         };
     }
     i_slint_common::for_each_special_keys!(check_non_printable_code);
-
-    if let Some(mut special_key) = special_key {
-        if is_apple {
-            if special_key == Key::Meta {
-                special_key = Key::Control;
-            } else if special_key == Key::Control {
-                special_key = Key::Meta;
-            }
-        }
-
-        return Some(special_key.into());
-    };
 
     let mut chars = key.chars();
     match chars.next() {
