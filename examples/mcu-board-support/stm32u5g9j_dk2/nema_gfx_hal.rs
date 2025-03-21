@@ -1,37 +1,12 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-use embassy_stm32::bind_interrupts;
+const POOL_SIZE: usize = 10 * 1024;
 
-struct GPU2DIrqHandler {}
+#[repr(C, align(8))]
+struct AlignedPool([u8; POOL_SIZE]);
 
-impl embassy_stm32::interrupt::typelevel::Handler<embassy_stm32::interrupt::typelevel::GPU2D>
-    for GPU2DIrqHandler
-{
-    unsafe fn on_interrupt() {
-        let mut flags = nema_reg_read(GPU2D_INTERRUPT_CONTROL_REG);
-        //defmt::info!("GPU2D IRQ flags = {}", flags);
-
-        if flags & 0x1 != /* GPU2D_FLAG_CLC */ 0 {
-            // clear command list complete flag
-            flags &= !0x1;
-            let flags = nema_reg_write(GPU2D_INTERRUPT_CONTROL_REG, flags);
-
-            LAST_COMMAND_LIST_ID.store(
-                nema_reg_read(GPU2D_INTERRUPT_LAST_COMMAND_ID_REG) as _,
-                core::sync::atomic::Ordering::Relaxed,
-            );
-            //defmt::info!(
-            //    "last command id set {}",
-            //    LAST_COMMAND_LIST_ID.load(core::sync::atomic::Ordering::Relaxed,)
-            //);
-        }
-    }
-}
-
-bind_interrupts!(struct Irqs {
-    GPU2D => GPU2DIrqHandler;
-});
+static mut NEMA_POOL: AlignedPool = AlignedPool([0; POOL_SIZE]);
 
 static mut LAST_COMMAND_LIST_ID: core::sync::atomic::AtomicI32 =
     core::sync::atomic::AtomicI32::new(-1);
@@ -66,6 +41,18 @@ pub unsafe extern "C" fn nema_reg_write(reg: u32, value: u32) {
 
 #[no_mangle]
 pub unsafe extern "C" fn nema_sys_init() -> i32 {
+    let err = nema_gfx_rs::tsi_malloc_init_pool_aligned(
+        0,
+        NEMA_POOL.0.as_ptr() as _,
+        NEMA_POOL.0.as_ptr() as _,
+        NEMA_POOL.0.len() as i32,
+        1,
+        8,
+    );
+    if err < 0 {
+        return err;
+    }
+
     RING_BUFFER.bo = nema_gfx_rs::nema_buffer_create(1024);
 
     let err = nema_gfx_rs::nema_rb_init(&raw mut RING_BUFFER, /* reset buffer */ 1);
@@ -77,6 +64,34 @@ pub unsafe extern "C" fn nema_sys_init() -> i32 {
 }
 
 #[no_mangle]
+pub unsafe extern "C" fn nema_buffer_create_pool(
+    _pool: core::ffi::c_int,
+    size: core::ffi::c_int,
+) -> nema_gfx_rs::nema_buffer_t {
+    nema_buffer_create(size)
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn nema_buffer_create(size: core::ffi::c_int) -> nema_gfx_rs::nema_buffer_t {
+    let mut buffer = nema_gfx_rs::nema_buffer_t {
+        size,
+        fd: 0,
+        base_virt: nema_gfx_rs::tsi_malloc_pool(0, size),
+        base_phys: 0,
+    };
+
+    buffer.base_phys = buffer.base_virt as _;
+
+    buffer
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn nema_buffer_flush(bo: *mut nema_gfx_rs::nema_buffer_t) {
+    let mut scb = cortex_m::Peripherals::steal().SCB;
+    scb.clean_dcache_by_address((*bo).base_phys as _, (*bo).size as _);
+}
+
+#[no_mangle]
 pub unsafe extern "C" fn nema_buffer_map(
     bo: *mut nema_gfx_rs::nema_buffer_t,
 ) -> *mut core::ffi::c_void {
@@ -84,13 +99,26 @@ pub unsafe extern "C" fn nema_buffer_map(
 }
 
 #[no_mangle]
+pub unsafe extern "C" fn nema_buffer_unmap(bo: *mut nema_gfx_rs::nema_buffer_t) {
+    //defmt::info!("UNMAP BUFFER");
+    let mut scb = cortex_m::Peripherals::steal().SCB;
+    scb.clean_dcache_by_address((*bo).base_virt as _, (*bo).size as _);
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn nema_buffer_destroy(bo: *mut nema_gfx_rs::nema_buffer_t) {
+    let bo = *bo;
+    nema_gfx_rs::tsi_free(bo.base_virt as _);
+}
+
+#[no_mangle]
 pub unsafe extern "C" fn nema_host_malloc(size: usize) -> *mut core::ffi::c_void {
-    todo!()
+    nema_gfx_rs::tsi_malloc_pool(0, size as i32)
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn nema_host_free(ptr: *mut core::ffi::c_void) {
-    todo!()
+    nema_gfx_rs::tsi_free(ptr);
 }
 
 #[no_mangle]
@@ -113,31 +141,34 @@ pub unsafe extern "C" fn nema_wait_irq_cl(cl_id: core::ffi::c_int) -> core::ffi:
     return 0;
 }
 
-#[no_mangle]
-pub unsafe extern "C" fn nema_buffer_create_pool(
-    _pool: core::ffi::c_int,
-    size: core::ffi::c_int,
-) -> nema_gfx_rs::nema_buffer_t {
-    nema_buffer_create(size)
+use embassy_stm32::bind_interrupts;
+
+struct GPU2DIrqHandler {}
+
+impl embassy_stm32::interrupt::typelevel::Handler<embassy_stm32::interrupt::typelevel::GPU2D>
+    for GPU2DIrqHandler
+{
+    unsafe fn on_interrupt() {
+        let mut flags = nema_reg_read(GPU2D_INTERRUPT_CONTROL_REG);
+        //defmt::info!("GPU2D IRQ flags = {}", flags);
+
+        if flags & 0x1 != /* GPU2D_FLAG_CLC */ 0 {
+            // clear command list complete flag
+            flags &= !0x1;
+            let flags = nema_reg_write(GPU2D_INTERRUPT_CONTROL_REG, flags);
+
+            LAST_COMMAND_LIST_ID.store(
+                nema_reg_read(GPU2D_INTERRUPT_LAST_COMMAND_ID_REG) as _,
+                core::sync::atomic::Ordering::Relaxed,
+            );
+            // defmt::info!(
+            //     "last command id set {}",
+            //     LAST_COMMAND_LIST_ID.load(core::sync::atomic::Ordering::Relaxed,)
+            // );
+        }
+    }
 }
 
-#[no_mangle]
-pub unsafe extern "C" fn nema_buffer_create(size: core::ffi::c_int) -> nema_gfx_rs::nema_buffer_t {
-    let mut buffer = nema_gfx_rs::nema_buffer_t {
-        size,
-        fd: 0,
-        base_virt: alloc::alloc::alloc(
-            alloc::alloc::Layout::from_size_align(size as usize, 8).unwrap(),
-        ) as _,
-        base_phys: 0,
-    };
-
-    buffer.base_phys = buffer.base_virt as _;
-
-    buffer
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn nema_buffer_flush(_bo: *mut nema_gfx_rs::nema_buffer_t) {
-    // TODO?
-}
+bind_interrupts!(struct Irqs {
+    GPU2D => GPU2DIrqHandler;
+});

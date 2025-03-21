@@ -98,7 +98,7 @@ impl<'d, I: Instance> OctaDtrFlashMemory<'d, I> {
             instruction: Some(cmd as u32),
             ..Default::default()
         };
-        info!("Excuting command: 0x{:X}", transaction.instruction.unwrap());
+        //info!("Excuting command: 0x{:X}", transaction.instruction.unwrap());
         self.hspi.blocking_command(&transaction).unwrap();
     }
 
@@ -110,7 +110,7 @@ impl<'d, I: Instance> OctaDtrFlashMemory<'d, I> {
             idtr: true,
             ..Default::default()
         };
-        info!("Excuting command: 0x{:X}", transaction.instruction.unwrap());
+        //info!("Excuting command: 0x{:X}", transaction.instruction.unwrap());
         self.hspi.blocking_command(&transaction).unwrap();
     }
 
