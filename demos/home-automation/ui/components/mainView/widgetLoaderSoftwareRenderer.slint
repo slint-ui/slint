@@ -1,0 +1,179 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+import { AppState, WidgetType, ComponentData } from "../../appState.slint";
+import { Lamp } from "../lamp.slint";
+import { Appliance } from "../appliance.slint";
+import { Overhead } from "../overhead.slint";
+import { Info } from "../info.slint";
+import { Graph } from "../graph.slint";
+import { Control } from "../control.slint";
+import { MusicPlayer } from "../musicPlayer.slint";
+import { Camera } from "../camera.slint";
+import { HVAC } from "../hvac.slint";
+import { Dishwasher } from "../dishwasher.slint";
+import { Microwave } from "../microwave.slint";
+import { WeatherInfo } from "../weatherInfo.slint";
+import { PowerInfo } from "../powerInfo.slint";
+import { Alarm } from "../alarm.slint";
+import { Measurements, Animation } from "../../common.slint";
+
+
+export component WidgetLoaderSoftwareRenderer {
+    in property <int> index;
+    in property <ComponentData> data;
+    property <ComponentData> internal-data;
+    in property <WidgetType> type;
+    property <bool> is-visible: false;
+
+
+    changed data => {
+        show-timer.running = false;
+        hide-timer.running = false;
+        hide-timer.interval = root.internal-data.position * 40ms;
+        show-timer.interval = 400ms + (root.data.position * 40ms);
+        hide-timer.running = true;
+    }
+
+    init => {
+        if data.visible != is-visible {
+            setInternalData();
+            is-visible = data.visible;
+        }
+    }
+
+    function setInternalData() {
+        internal-data = data;
+    }
+
+    show-timer := Timer {
+        running: false;
+        interval: 100ms;
+        triggered => {
+            setInternalData();
+            root.is-visible = true;
+            self.running = false;
+        }
+    }
+
+    hide-timer := Timer {
+        running: false;
+        interval: 100ms;
+        triggered => {
+            root.is-visible = false;
+            self.running = false;
+            setInternalData();
+            if root.data.visible {
+                show-timer.running = true;
+            }
+        }
+    }
+
+    x: root.internal-data.x * AppState.x-scale * 1px;
+    y: root.internal-data.y * AppState.y-scale * 1px;
+    width: root.internal-data.width * AppState.x-scale * 1px;
+    height: root.internal-data.height * AppState.y-scale * 1px;
+    visible: AppState.last-selected-index != self.index && root.opacity > 0;
+
+
+    // Use the correct component based on type
+    if root.type == WidgetType.lamp && root.is-visible: Lamp {
+        name: AppState.component-details[root.index].name;
+        id: AppState.component-details[root.index].id;
+        index: root.index;
+        width: root.width;
+        height: root.height;
+    }
+
+    if root.type == WidgetType.appliance && root.is-visible: Appliance {
+        name: AppState.component-details[root.index].name;
+        id: AppState.component-details[root.index].id;
+        width: root.width;
+        height: root.height;
+    }
+
+    if root.type == WidgetType.overhead && root.is-visible: Overhead {
+        name: AppState.component-details[root.index].name;
+        id: AppState.component-details[root.index].id;
+        width: root.width;
+        height: root.height;
+    }
+
+    if root.type == WidgetType.info && root.is-visible: Info {
+        name: AppState.component-details[root.index].name;
+        id: AppState.component-details[root.index].id;
+        width: root.width;
+        height: root.height;
+    }
+
+    if root.type == WidgetType.graph && root.is-visible: Graph {
+        name: AppState.component-details[root.index].name;
+        id: AppState.component-details[root.index].id;
+        width: root.width;
+        height: root.height;
+    }
+
+    if root.type == WidgetType.control && root.is-visible: Control {
+        name: AppState.component-details[root.index].name;
+        id: AppState.component-details[root.index].id;
+        index: root.index;
+        width: root.width;
+        height: root.height;
+    }
+    if root.type == WidgetType.music && root.is-visible: MusicPlayer {
+        name: AppState.component-details[root.index].name;
+        id: AppState.component-details[root.index].id;
+        index: root.index;
+        width: root.width;
+        height: root.height;
+    }
+    if root.type == WidgetType.camera && root.is-visible: Camera {
+        name: AppState.component-details[root.index].name;
+        id: AppState.component-details[root.index].id;
+        index: root.index;
+        width: root.width;
+        height: root.height;
+    }
+    if root.type == WidgetType.hvac && root.is-visible: HVAC {
+        index: root.index;
+        name: AppState.component-details[root.index].name;
+        id: AppState.component-details[root.index].id;
+        width: root.width;
+        height: root.height;
+    }
+    if root.type == WidgetType.microwave && root.is-visible: Microwave {
+        index: root.index;
+        name: AppState.component-details[root.index].name;
+        id: AppState.component-details[root.index].id;
+        width: root.width;
+        height: root.height;
+    }
+    if root.type == WidgetType.dishwasher && root.is-visible: Dishwasher {
+        index: root.index;
+        name: AppState.component-details[root.index].name;
+        id: AppState.component-details[root.index].id;
+        width: root.width;
+        height: root.height;
+    }
+    if root.type == WidgetType.weatherInfo && root.is-visible: WeatherInfo {
+        index: root.index;
+        name: AppState.component-details[root.index].name;
+        id: AppState.component-details[root.index].id;
+        width: root.width;
+        height: root.height;
+    }
+
+    if root.type == WidgetType.powerInfo && root.is-visible: PowerInfo {
+        index: root.index;
+        name: AppState.component-details[root.index].name;
+        id: AppState.component-details[root.index].id;
+        width: root.width;
+        height: root.height;
+    }
+    if root.type == WidgetType.alarm && root.is-visible: Alarm {
+        index: root.index;
+        name: AppState.component-details[root.index].name;
+        id: AppState.component-details[root.index].id;
+        width: root.width;
+        height: root.height;
+    }
+}

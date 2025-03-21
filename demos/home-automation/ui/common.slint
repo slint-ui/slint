@@ -1,17 +1,19 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
+
+import { AppState } from "appState.slint";
 export global Measurements {
     out property <length> zone-button-spacing: 30px;
-    out property <length> tile-radius: 10px;
+    out property <length> tile-radius: 20px;
     out property <length> page-height: 1080px;
     out property <length> page-width: 1920px;
     out property <length> padding: 12px;
     out property <length> small-width-tile: 139px;
-    out property <length> small-height-tile: 76.5px;
+    out property <length> small-height-tile: 76px;
     out property <length> medium-height-tile: 139px;
-    out property <length> medium-width-tile: 217.5px;
+    out property <length> medium-width-tile: 217px;
     out property <length> large-height-tile: 453px;
-    out property <length> large-width-tile: 217.5px;
+    out property <length> large-width-tile: 217px;
     out property <length> sidebar-width: 200px;
     out property <length> tile-shadow-blur: 20px;
     out property <length> sidebar-padding: 18px;
@@ -26,13 +28,14 @@ export global Style {
     out property <length> H1-font-size: 32px;
     out property <length> H2-font-size: 21px;
     out property <length> H3-font-size: 18px;
-    out property <length> tile-title-font-size: 10pt;
+    out property <length> H4-font-size: 15px;
+    out property <length> tile-title-font-size: AppState.graphics-accelerator-available ? 13pt : 20pt;
+    out property <length> hvac-title-font-size: AppState.graphics-accelerator-available ? 13pt : 15pt;
 }
 
 export global Animation {
-    out property <duration> theme-change-duration: 300ms;
-    out property <duration> full-screen-duration: 300ms;
-    out property <duration> transitionDuration: 500ms;
+    out property <duration> full-screen-duration: AppState.graphics-accelerator-available ? 300ms : 0;
+    out property <duration> transition-duration: AppState.graphics-accelerator-available ? 500ms : 0;
 }
 
 export global Colors {
@@ -94,13 +97,16 @@ export global Colors {
     out property <color> green40: #004d23;
     out property <color> green30: #00331a;
     out property <color> fadedyellow: #F2EED5;
-    out property <brush> dark-ramp: @linear-gradient(50deg, Colors.purple40, Colors.purple30);
+    out property <brush> dark-ramp: @linear-gradient(0deg, #0C1631, #241433);
     out property <brush> light-ramp: @linear-gradient(0deg, Colors.foggybeige, Colors.foggylight);
     out property <brush> music-gradient: @linear-gradient(0deg, Colors.white, Colors.foggylight);
 }
 
 export global Palette {
     in-out property <bool> dark-color-scheme:true;
+    out property <brush> glass-border: @linear-gradient(180deg, white.transparentize(60%) 0%, white.transparentize(85%) 50%, #ffffff.transparentize(95%) 100%);
+    out property <brush> glass-background: @linear-gradient(180deg, #ffffff1a 0%, #ffffff1a 80%, #ffffff33 100%);
+
     out property <brush> background: dark-color-scheme ? Colors.gray10 : Colors.white;
     out property <brush> date-background: dark-color-scheme ? Colors.dustypurpledirt : Colors.foggylight;
     out property <brush> foreground: dark-color-scheme ? Colors.gray70 : Colors.gray50;
@@ -139,7 +145,7 @@ export global Palette {
     out property <brush> appliance-alternate-foreground: dark-color-scheme ? Colors.white : Colors.foggybeige;
     out property <brush> overhead-shadow: dark-color-scheme ? Colors.fadedyellow : Colors.foggylight;
     out property <brush> overhead-background: dark-color-scheme ? Colors.fadedyellow.brighter(0.5) : Colors.foggyyellow.brighter(0.5);
-    out property <brush> overhead-foreground: dark-color-scheme ? Colors.blue10 : Colors.blue10;
+    out property <brush> overhead-foreground: white;
     out property <brush> overhead-alternate-foreground: dark-color-scheme ? Colors.purple90 : Colors.foggydirt;
     out property <brush> graph-foreground: dark-color-scheme ? Colors.white : Colors.foggylight;
     out property <brush> graph-alternate-foreground: dark-color-scheme ? Colors.dustygold : Colors.foggysky;

@@ -1,13 +1,20 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
-import { AppState, ComponentData } from "../../appState.slint";
+import { AppState, ComponentData, Orientation } from "../../appState.slint";
 import { FullScreenWidgetLoader } from "fullScreenWidgetLoader.slint";
+import { FullScreenWidgetLoaderSW } from "fullScreenWidgetLoaderSW.slint";
+import { Animation } from "../../common.slint";
+
 
 export component FullScreenView inherits Rectangle {
-    property <ComponentData> full-screen-data: { id: "", x: 60, y: 60, width: 1800, height: 900, background: #00bf1d, visible: true };
+    property <ComponentData> landscape-data: { id: "", x: 60, y: 60, width: 1800, height: 900, background: #00bf1d, visible: true };
+    property <ComponentData> portrait-data: AppState.graphics-accelerator-available ? { id: "", x: 60, y: 60, width: 900, height: 1800, background: #00bf1d, visible: true } : { id: "", x: 160, y: 560, width: 800, height: 800, background: #00bf1d, visible: true };
+    property <ComponentData> full-screen-data: AppState.orientation == Orientation.landscape ? landscape-data : portrait-data;
     property <bool> full-screen: false;
+    in property <length> nudge-y: 0px;
 
     backdrop := Rectangle {
+        y: -nudge-y;
         width: 100%;
         height: 100%;
         opacity: 0;
@@ -19,13 +26,13 @@ export component FullScreenView inherits Rectangle {
                 opacity: 0.7;
                 in {
                     animate opacity {
-                        duration: 300ms;
+                        duration: Animation.full-screen-duration;
                         easing: ease-in-out-sine;
                     }
                 }
                 out {
                     animate opacity {
-                        duration: 300ms;
+                        duration: Animation.full-screen-duration;
                         easing: ease-in-out-sine;
                     }
                 }
@@ -33,7 +40,7 @@ export component FullScreenView inherits Rectangle {
         ]
     }
 
-    fsw := FullScreenWidgetLoader {
+    if AppState.graphics-accelerator-available: FullScreenWidgetLoader {
         in-out property <ComponentData> normal-layout-data;
         data: full-screen ? full-screen-data : normal-layout-data;
         property <string> full-screen-index: AppState.full-screen-index;
@@ -42,15 +49,30 @@ export component FullScreenView inherits Rectangle {
             closeTimer.running = true;
         }
         init => {
-            fsw.index = AppState.full-screen-index;
-            fsw.type = AppState.component-details[AppState.full-screen-index].type;
-            fsw.normal-layout-data = AppState.current-layout-data.components[AppState.full-screen-index];
+            self.index = AppState.full-screen-index;
+            self.type = AppState.component-details[AppState.full-screen-index].type;
+            self.normal-layout-data = AppState.current-layout-data.components[AppState.full-screen-index];
+        }
+    }
+
+    if !AppState.graphics-accelerator-available: FullScreenWidgetLoaderSW {
+        in-out property <ComponentData> normal-layout-data;
+        data: full-screen ? full-screen-data : normal-layout-data;
+        property <string> full-screen-index: AppState.full-screen-index;
+        changed full-screen-index => {
+            full-screen = false;
+            closeTimer.running = true;
+        }
+        init => {
+            self.index = AppState.full-screen-index;
+            self.type = AppState.component-details[AppState.full-screen-index].type;
+            self.normal-layout-data = AppState.current-layout-data.components[AppState.full-screen-index];
         }
     }
 
     closeTimer := Timer {
         running: false;
-        interval: 300ms;
+        interval: Animation.full-screen-duration;
         triggered => {
             AppState.showing-full-screen = false;
             AppState.last-selected-index = -1;

@@ -66,95 +66,21 @@ export component Graph {
             y: tile.height * 0.9;
         }
 
-        Path {
-            width: tile.width * 0.8;
-            x: tile.width * 0.1;
-            height: 50px;
-            stroke: Palette.graph-alternate-foreground;
-            stroke-width: 2px;
-            MoveTo {
-                x: 0;
-                y: 0;
-            }
+        property <[int]> days: [ 58, 60, 22, 90, 40, 30, 50, 40, 20];
 
-            LineTo {
-                x: 25;
-                y: 50;
-            }
-
-            LineTo {
-                x: 50;
-                y: 45;
-            }
-
-            LineTo {
-                x: 75;
-                y: 47;
-            }
-
-            LineTo {
-                x: 100;
-                y: 42;
-            }
-
-            LineTo {
-                x: 125;
-                y: 35;
-            }
-
-            LineTo {
-                x: 150;
-                y: 32;
-            }
-
-            LineTo {
-                x: 175;
-                y: 12;
-            }
-
-            LineTo {
-                x: 200;
-                y: 42;
-            }
-
-            LineTo {
-                x: 225;
-                y: 47;
-            }
-
-            LineTo {
-                x: 250;
-                y: 50;
-            }
-
-            LineTo {
-                x: 275;
-                y: 45;
-            }
-
-            LineTo {
-                x: 300;
-                y: 50;
-            }
-
-            LineTo {
-                x: 325;
-                y: 45;
-            }
-
-            LineTo {
-                x: 350;
-                y: 50;
-            }
-
-            LineTo {
-                x: 375;
-                y: 45;
-            }
-
-            LineTo {
-                x: 400;
-                y: 50;
+        HorizontalLayout {
+            x: 25px;
+            y: parent.height - self.height - 25px;
+            alignment: start;
+            spacing: 10px;
+            for i in days: Rectangle {
+                y: parent.height - self.height;
+                border-top-left-radius: 5px;
+                border-top-right-radius: 5px;
+                width: 10px;
+                height: i * 1px;
+                background: Palette.graph-alternate-foreground;
+                opacity: 90%;
             }
         }
     }

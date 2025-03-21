@@ -25,10 +25,9 @@ export component Dial {
     knob := Rectangle {
         base := Rectangle {
             Image {
+                x: 0px;
                 y: 9px;
-                source: Palette.dark-color-scheme ? @image-url("../../images/dial-frame.png") : @image-url("../../images/dial-frame-lite.png");
-                width: self.source.width * 0.5 * 1px;
-                height: self.source.height * 0.5 * 1px;
+                source: @image-url("../../images/dial-frame.png");
             }
 
             Image {
@@ -84,9 +83,7 @@ export component Dial {
             x: 55px * root.dialAngle.cos();
             y: 55px * root.dialAngle.sin();
             Image {
-                source: Palette.dark-color-scheme ? @image-url("../../images/notch.png") : @image-url("../../images/notch-lite.png");
-                width: self.source.width * 0.4 * 1px;
-                height: self.source.height * 0.4 * 1px;
+                source: @image-url("../../images/notch.png");
             }
         }
     }

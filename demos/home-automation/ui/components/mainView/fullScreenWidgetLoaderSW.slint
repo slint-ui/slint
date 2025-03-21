@@ -1,0 +1,110 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+import { AppState, WidgetType, ComponentData } from "../../appState.slint";
+import { Lamp } from "../lamp.slint";
+import { Appliance } from "../appliance.slint";
+import { Overhead } from "../overhead.slint";
+import { Info } from "../info.slint";
+import { Graph } from "../graph.slint";
+import { Control } from "../control.slint";
+import { MusicPlayer } from "../musicPlayer.slint";
+import { Camera } from "../camera.slint";
+import { HVAC } from "../hvac.slint";
+import { Alarm } from "../alarm.slint";
+import { Measurements, Animation } from "../../common.slint";
+
+
+export component FullScreenWidgetLoaderSW {
+    in property <int> index;
+    in property <ComponentData> data;
+    property <bool> show: false;
+    property <bool> moveMode: false;
+    in property <bool> skip-initial-fade: false;
+    in property <WidgetType> type;
+
+
+    opacity: 1;
+    x: data.x * AppState.x-scale * 1px;
+    y: data.y * AppState.y-scale * 1px;
+    width: data.width * AppState.x-scale * 1px;
+    height: data.height * AppState.y-scale * 1px;
+    visible: AppState.full-screen-index != -1;
+
+    // Use the correct component based on type
+    if root.type == WidgetType.lamp: Lamp {
+        name: AppState.component-details[root.index].name;
+        id: AppState.component-details[root.index].id;
+        width: root.width;
+        height: root.height;
+        full-screen: true;
+    }
+
+    if root.type == WidgetType.appliance: Appliance {
+        name: AppState.component-details[root.index].name;
+        id: AppState.component-details[root.index].id;
+        width: root.width;
+        height: root.height;
+        full-screen: true;
+    }
+
+    if root.type == WidgetType.overhead: Overhead {
+        name: AppState.component-details[root.index].name;
+        id: AppState.component-details[root.index].id;
+        width: root.width;
+        height: root.height;
+        full-screen: true;
+    }
+
+    if root.type == WidgetType.info: Info {
+        name: AppState.component-details[root.index].name;
+        id: AppState.component-details[root.index].id;
+        width: root.width;
+        height: root.height;
+        full-screen: true;
+    }
+
+    if root.type == WidgetType.graph: Graph {
+        name: AppState.component-details[root.index].name;
+        id: AppState.component-details[root.index].id;
+        width: root.width;
+        height: root.height;
+        full-screen: true;
+    }
+
+    if root.type == WidgetType.control: Control {
+        name: AppState.component-details[root.index].name;
+        id: AppState.component-details[root.index].id;
+        width: root.width;
+        height: root.height;
+        full-screen: true;
+    }
+    if root.type == WidgetType.music: MusicPlayer {
+        name: AppState.component-details[root.index].name;
+        id: AppState.component-details[root.index].id;
+        width: root.width;
+        height: root.height;
+        full-screen: true;
+    }
+    if root.type == WidgetType.hvac: HVAC {
+        name: AppState.component-details[root.index].name;
+        id: AppState.component-details[root.index].id;
+        index: root.index;
+        width: root.width;
+        height: root.height;
+        full-screen: true;
+    }
+    if root.type == WidgetType.camera: Camera {
+        name: AppState.component-details[root.index].name;
+        id: AppState.component-details[root.index].id;
+        width: root.width;
+        height: root.height;
+        full-screen: true;
+    }
+    if root.type == WidgetType.alarm: Alarm {
+        name: AppState.component-details[root.index].name;
+        id: AppState.component-details[root.index].id;
+        width: root.width;
+        height: root.height;
+        full-screen: true;
+    }
+}

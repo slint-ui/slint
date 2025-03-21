@@ -11,70 +11,27 @@ import { DropShadowToggle} from "general/toggle.slint";
 
 export component Lamp inherits Control {
     in property <length> tilePadding: (root.height > Measurements.small-height-tile) ? 18px : 9px;
+
     show-label: false;
     tile-shadow-blur: 0px;
 
-    tile := InnerShadowRectangle {
+    tile := Rectangle {
         width: 100%;
         height: 100%;
-        clip: true;
-        inner-color: Palette.lamp-background.mix(Palette.lamp-shadow,(slider.value / 24));
-        inner-shadow-color: Palette.lamp-shadow;
-        inner-shadow-blur: tile.height / 5;
 
-        TouchArea {
-            clicked => {
-                slider.toggle();
-            }
-        }
         Rectangle {
             x: tile.width - self.width + 20px;
-            y: (root.width > Measurements.small-width-tile) ? -60px : -40px;
-            animate y {
-                duration: 300ms;
-                easing: ease-in-out-sine;
-            }
-            clip: true;
             width: 70%;
             height: 100%;
 
-            sh := Image {
-                width: self.source.width * 0.5 * 1px;
-                height: self.source.height * 0.5 * 1px;
-                property <[image]> frames: [
-                    @image-url("../images/lamp/0000.png"),
-                    @image-url("../images/lamp/0001.png"),
-                    @image-url("../images/lamp/0002.png"),
-                    @image-url("../images/lamp/0003.png"),
-                    @image-url("../images/lamp/0004.png"),
-                    @image-url("../images/lamp/0005.png"),
-                    @image-url("../images/lamp/0006.png"),
-                    @image-url("../images/lamp/0007.png"),
-                    @image-url("../images/lamp/0008.png"),
-                    @image-url("../images/lamp/0009.png"),
-                    @image-url("../images/lamp/0010.png"),
-                    @image-url("../images/lamp/0011.png"),
-                    @image-url("../images/lamp/0012.png"),
-                    @image-url("../images/lamp/0013.png"),
-                    @image-url("../images/lamp/0014.png"),
-                    @image-url("../images/lamp/0015.png"),
-                    @image-url("../images/lamp/0016.png"),
-                    @image-url("../images/lamp/0017.png"),
-                    @image-url("../images/lamp/0018.png"),
-                    @image-url("../images/lamp/0019.png"),
-                    @image-url("../images/lamp/0020.png"),
-                    @image-url("../images/lamp/0021.png"),
-                    @image-url("../images/lamp/0022.png"),
-                    @image-url("../images/lamp/0023.png"),
-                    @image-url("../images/lamp/0024.png"),
-                ];
-
-                property <int> frame: 0;
-                source: frames[slider.value];
-                animate frame {
-                    duration: 300ms;
-                    easing: ease-in-out-sine;
-                }
+            Image {
+                y: 0;
+                source: @image-url("../images/lamp/0000.png");
+            }
+            Image {
+                y: 0;
+                source: @image-url("../images/lamp/0024.png");
+                opacity: slider.value / 24;
             }
         }
 
@@ -83,42 +40,48 @@ export component Lamp inherits Control {
             width: 100%;
             height: 100%;
             alignment: space-between;
-            Rectangle {
-                width: 100%;
-
-                VerticalLayout {
-                    alignment: start;
-                    HaText {
-                        text: root.name;
-                        font-size: Style.tile-title-font-size;
-                        font-weight: 400;
-                        color: Palette.lamp-foreground;
-                    }
-                }
+            HaText {
+                text: root.name;
+                font-size: Style.tile-title-font-size;
+                font-weight: 200;
+                color: white;
             }
 
             slider := FancySlider {
                 maxValue: 24;
-                value: self.maxValue;
+                value: 22;
                 width: root.width * 0.8;
                 icon: @image-url("../images/brightness.svg");
                 colorize-icon: Colors.black;
             }
         }
-
-        switch := DropShadowToggle {
-            x: 0;
-            y: root.height < Measurements.medium-height-tile ? root.height - self.height - tilePadding : tilePadding * 2.5;
-            labelOff: "";
-            labelOn: "";
-            scale: 33%;
-            toggleOpacity: 0.4;
-            active: slider.value > 0;
-            touchEnabled: false;
-            control-color: self.active ? Palette.lamp-background : Palette.lamp-shadow ;
-            inner-shadow-color: self.active ? Palette.shadow-color : Palette.slider-background.darker(0.1);
-            inner-color-inactive: Palette.slider-background;
-            inner-color-active: Palette.slider-foreground;
+    }
+    TouchArea {
+        clicked => {
+            AppState.end-kiosk-mode();
+            if self.mouse-x == slider.initial-position {
+                slider.anim-duration = 300ms;
+                slider.animated-value = (self.mouse-x / self.width) * (slider.maxValue - slider.minValue) + slider.minValue;
             }
+        }
+        moved => {
+            if !slider.first-touch {
+                slider.first-touch = true;
+                slider.initial-position = self.mouse-x;
+                slider.initial-value = (self.mouse-x / self.width) * (slider.maxValue - slider.minValue) + slider.minValue;
+                slider.previous-value = slider.value;
+                slider.anim-duration = 0ms;
+            } else {
+                slider.change-value = ((self.mouse-x / self.width) * (slider.maxValue - slider.minValue) + slider.minValue) - slider.initial-value;
+                slider.value = Math.clamp(slider.previous-value + slider.change-value, slider.minValue, slider.maxValue);
+                slider.animated-value = slider.value;
+            }
+        }
+
+        changed pressed => {
+            if !self.pressed {
+                slider.first-touch = false;
+            }
+        }
     }
 }

@@ -1,0 +1,98 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { AppState, Orientation } from "appState.slint";
+import { Date, Time } from "std-widgets.slint";
+
+export enum WeatherCondition {
+    sunny,
+    sunny-rainy,
+    sunny-cloudy,
+    cloudy,
+    rainy,
+}
+export struct WeatherData {
+    condition: WeatherCondition,
+    day: string,
+    temperature: float,
+}
+
+export global Api {
+    in property <float> indoor-temperature: 22.0;
+    in property <float> outdoor-temperature: 24.0;
+
+    in property <float> price-of-electricity: 13.0;
+    in property <float> current-electricity-use: 152.9;
+
+    out property <Orientation> orientation <=> AppState.orientation;
+    in-out property <bool> graphics-accelerator-available <=> AppState.graphics-accelerator-available;
+
+    in property <Date> current-date: {
+        year: 2025,
+        month: 3,
+        day: 18,
+    };
+
+    in property <Time> current-time: {
+        hour: 15,
+        minute: 12,
+        second: 33,
+    };
+
+    pure public function return-month() -> string {
+        if current-date.month == 1 {
+            return "January";
+        } else if current-date.month == 2 {
+            return "February";
+        } else if current-date.month == 3 {
+            return "March";
+        } else if current-date.month == 4 {
+            return "April";
+        } else if current-date.month == 5 {
+            return "May";
+        } else if current-date.month == 6 {
+            return "June";
+        } else if current-date.month == 7 {
+            return "July";
+        } else if current-date.month == 8 {
+            return "August";
+        } else if current-date.month == 9 {
+            return "September";
+        } else if current-date.month == 10 {
+            return "October";
+        } else if current-date.month == 11 {
+            return "November";
+        } else if current-date.month == 12 {
+            return "December";
+        }
+        return "Unknown";
+    }
+
+    in property <[WeatherData]> weather-forecast: [
+            {
+                condition: WeatherCondition.rainy,
+                day: "Mon",
+                temperature: 21.0,
+            },
+            {
+                condition: WeatherCondition.sunny-rainy,
+                day: "Tue",
+                temperature: 16.0,
+            },
+            {
+                condition: WeatherCondition.cloudy,
+                day: "Wed",
+                temperature: 18.0,
+            },
+            {
+                condition: WeatherCondition.sunny-cloudy,
+                day: "Thu",
+                temperature: 20.0,
+            },
+            {
+                condition: WeatherCondition.sunny,
+                day: "Fri",
+                temperature: 23.0,
+            },
+    ];
+}

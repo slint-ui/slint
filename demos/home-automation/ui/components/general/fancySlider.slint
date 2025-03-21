@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 import { Palette, Measurements, Colors } from "../../common.slint";
+import { AppState } from "../../appState.slint";
 
 export component FancySlider inherits Rectangle {
     in-out property <float> value: 0.0;
@@ -9,9 +10,13 @@ export component FancySlider inherits Rectangle {
     in property <image> icon;
     out property <bool> active;
     in property <color> colorize-icon: Palette.slider-background;
-    property <duration> anim-duration: 300ms;
+    in-out property <duration> anim-duration: 300ms;
+    in-out property <bool> first-touch: false;
+    in-out property <length> initial-position;
+    in-out property <float> initial-value;
+    in-out property <float> previous-value;
+    in-out property <float> change-value;
 
-    property <float> previous-value;
     callback toggle();
 
     toggle => {
@@ -30,7 +35,7 @@ export component FancySlider inherits Rectangle {
         }
     }
 
-    property <float> animated-value: value;
+    in-out property <float> animated-value: value;
     animate animated-value {
         duration: anim-duration;
         easing: ease-in-out-sine;
@@ -46,11 +51,7 @@ export component FancySlider inherits Rectangle {
         width: 100%;
         height: 300%;
         y: parent.height / 2 - self.height / 2;
-        property <bool> first-touch: false;
-        property <length> initial-position;
-        property <float> initial-value;
-        property <float> previous-value;
-        property <float> change-value;
+
         clicked => {
             if self.mouse-x == initial-position {
                 anim-duration = 300ms;
@@ -86,8 +87,10 @@ export component FancySlider inherits Rectangle {
         Rectangle {
             x: 0;
             background: Palette.slider-foreground;
+            opacity: 0.2 + 0.2 * (self.width / parent.width);
             width: parent.width * (value - minValue) / (maxValue - minValue);
             height: 100%;
+            border-radius: !AppState.graphics-accelerator-available ? self.width / 2 : 0px;
         }
 
         VerticalLayout {
@@ -104,6 +107,7 @@ export component FancySlider inherits Rectangle {
     Rectangle {
         border-radius: root.border-radius;
         border-width: 1px;
-        border-color: Palette.lamp-foreground;
+        border-color:  @linear-gradient(180deg, white.transparentize(20%) 0%, white.transparentize(85%) 50%, #ffffff.transparentize(92%) 100%);
+        background: @linear-gradient(180deg, white.transparentize(100%) 0%, white.transparentize(100%) 60%, #ffffff.transparentize(50%) 100%);
     }
 }

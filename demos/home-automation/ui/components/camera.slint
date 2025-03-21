@@ -1,97 +1,78 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
-import { Measurements, Colors, Palette } from "../common.slint";
+import { Animation, Measurements, Colors, Palette } from "../common.slint";
 import { Control } from "control.slint";
 import { AppState } from "../appState.slint";
+import { HaText } from "general/haText.slint";
 
+enum CameraView {
+    front,
+    back
+}
 export component Camera inherits Control {
     property <int> current-page: AppState.current-page;
     property <bool> unlocked: false;
     property <image> cam: @image-url("../images/front-porch.jpg");
     property <bool> is-active: false;
+    property <CameraView> camera-view: CameraView.front;
+    control-background: @image-url("../images/overhead-frame.png", nine-slice(50));
+
+    function toggle-view() {
+        if camera-view == CameraView.front {
+            camera-view = CameraView.back;
+        } else {
+            camera-view = CameraView.front;
+        }
+    }
 
     tile := Rectangle {
-        x: 0cm;
-        Rectangle {
-            border-radius: Measurements.tile-radius;
-            clip: true;
-            Image {
-                source: root.cam;
-                width: tile.width;
-                image-fit: cover;
-                height: tile.height;
-                horizontal-alignment: center;
-                vertical-alignment: center;
-            }
-        }
-
-        VerticalLayout {
-            alignment: end;
-            spacing: 5px;
-            padding: 5px;
-            HorizontalLayout {
-                width: tile.width;
-                alignment: start;
-                padding-left: 10px;
-            }
-
-            controls := Rectangle {
-                border-radius: 20px;
-                width: 95%;
-                height: self.preferred-height;
-                background: Palette.music-gradient.transparentize(0.2);
-                animate height {
-                    duration: 1000ms;
-                    easing: ease-in-out-sine;
-                }
-                HorizontalLayout {
-                    alignment: space-around;
-                    padding-top: 15px;
-                    padding-bottom: 15px;
-                }
-            }
-        }
-
-        TouchArea {
-            enabled: !AppState.showing-full-screen;
-            clicked => {
-                AppState.showFullScreen(root.index);
-            }
+        x: 0;
+        Image {
+            x: 1px;
+            source: root.cam;
+            width: tile.width - 2px;
+            image-fit: cover;
+            height: 60%;
+            horizontal-alignment: center;
+            vertical-alignment: center;
         }
 
         Image {
-            source: @image-url("../images/enlarge.svg");
-            opacity: root.full-screen ? 0 : 1;
-            width: 20px;
-            colorize: Colors.white;
-            x: root.width - self.width - 15px;
-            y: 15px;
+            x: 1px;
+            source: @image-url("../images/back-yard.jpg");
+            width: tile.width - 2px;
+            image-fit: cover;
+            height: 60%;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+            opacity: camera-view == CameraView.back ? 1 : 0;
             animate opacity {
-                duration: 500ms;
+                duration: 300ms;
                 easing: ease-in-out-sine;
             }
         }
 
-        closeButton := Image {
-            opacity: root.full-screen ? 1 : 0;
-            animate opacity {
-                duration: 500ms;
-                easing: ease-in-out-sine;
-            }
-            source: @image-url("../images/reduce.svg");
-            colorize: white;
-            x: root.width - self.width - 15px;
-            y: 15px;
-            width: 30px;
-            height: 30px;
-        }
 
         TouchArea {
-            enabled: closeButton.opacity > 0.1;
             clicked => {
-                root.full-screen = false;
-                AppState.showFullScreen(-1);
+                toggle-view();
             }
+        }
+
+        HaText {
+            y: root.height - self.height - 10px;
+            text: camera-view == CameraView.back ? "Back Yard" : "Front Porch";
+            color: Colors.white;
+            font-size: 1.5rem;
+            font-weight: 200;
+        }
+    }
+
+    Timer {
+        interval: 2s;
+        running: AppState.kiosk-mode;
+        triggered => {
+            toggle-view();
         }
     }
 }

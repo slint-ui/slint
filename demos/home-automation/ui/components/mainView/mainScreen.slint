@@ -4,12 +4,53 @@ import { DoorState, Doors } from "../general/doors.slint";
 import { ViewButton } from "../mainView/viewButton.slint";
 import { Sidebar } from "sidebar.slint";
 import { WidgetLoader } from "widgetLoader.slint";
+import { WidgetLoaderSoftwareRenderer } from "widgetLoaderSoftwareRenderer.slint";
 import { Switch, Palette as StdPalette } from "std-widgets.slint";
 import { InnerShadowRectangle } from "../general/innerShadowRectangle.slint";
-import { Measurements, Palette, Animation } from "../../common.slint";
-import { AppState, ComponentData } from "../../appState.slint";
-import { FullScreenWidgetLoader } from "fullScreenWidgetLoader.slint";
+import { Measurements, Palette, Animation, Style } from "../../common.slint";
+import { AppState, ComponentData, Orientation } from "../../appState.slint";
 import { FullScreenView } from "fullScreenView.slint";
+import { Page } from "../../../../printerdemo/ui/common.slint";
+import { HaText } from "../general/haText.slint";
+import { Api } from "../../api.slint";
+
+export component PageButton inherits Rectangle {
+    in property label <=> t.text;
+    in property <int> target-page;
+    in property <image> icon;
+    property <length> default-font-size: AppState.graphics-accelerator-available ? 16px : 22px;
+
+    property <bool> selected: AppState.target-page == target-page;
+
+    width: AppState.orientation == Orientation.landscape ? 120px : 140px;
+    height: 40px;
+
+    Rectangle {
+        t := Text {
+            font-size: default-font-size;
+            font-weight: selected ? 400 : 100;
+            font-family: AppState.default-font-family;
+            color: black;
+            Text {
+                x: -1px;
+                y: -1px;
+                text: t.text;
+                font-size: default-font-size;
+                font-weight: selected ? 400 : 100;
+                font-family: AppState.default-font-family;
+                color: #ffffff;
+            }
+        }
+    }
+
+    TouchArea {
+        clicked => {
+            AppState.target-page = target-page;
+            AppState.first-run = false;
+            AppState.end-kiosk-mode();
+        }
+    }
+}
 
 export component MainScreen inherits Rectangle {
     property <int> internal-target-page: AppState.target-page;
@@ -32,17 +73,22 @@ export component MainScreen inherits Rectangle {
     }
 
     changed internal-target-page => {
-        if AppState.target-page != AppState.current-page {
-            if !transitioning {
-                AppState.current-page = AppState.target-page;
+        if !AppState.graphics-accelerator-available {
+            AppState.current-page = AppState.target-page;
+        } else {
+            if AppState.target-page != AppState.current-page {
+                if !transitioning {
+                    AppState.current-page = AppState.target-page;
+                }
+                transitioning = true;
+                enableTouch.running = false;
+                enableTouch.running = true;
             }
-            transitioning = true;
-            enableTouch.running = false;
-            enableTouch.running = true;
         }
     }
 
     enableTouch := Timer {
+        running: false;
         interval: 1400ms;
         triggered => {
             self.running = false;
@@ -52,255 +98,290 @@ export component MainScreen inherits Rectangle {
     }
 
     background: Palette.background-gradient;
-    animate background {
-        duration: Animation.theme-change-duration;
-        easing: ease-in-out-sine;
+
+    Image {
+        x: 30px;
+        y: AppState.orientation == Orientation.landscape ? 35px : 36px;
+        source: @image-url("../../images/slint-logo.png");
+        opacity: 50%;
+        colorize: white;
     }
 
-    swipe := TouchArea {
+    Rectangle {
+        property <bool> showing-time: true;
+        property <length> margin: AppState.graphics-accelerator-available ? 5px : 20px;
+        width: 200px;
+        height: 50px;
+        x: parent.width - self.width - margin;
+        y: AppState.orientation == Orientation.landscape ? 24px : 30px;
+        opacity: 80%;
+        TouchArea {
+            clicked => {
+                showing-time = !showing-time;
+            }
+        }
+
+        if !showing-time: HorizontalLayout {
+            alignment: center;
+            spacing: 10px;
+            HaText {
+                text: Api.return-month();
+                font-size: Style.H1-font-size;
+                font-weight: 100;
+            }
+
+            HaText {
+                text: Api.current-date.day;
+                color: Palette.info-foreground;
+                font-size: Style.H1-font-size;
+                font-weight: 400;
+            }
+        }
+        if showing-time: HorizontalLayout {
+            alignment: center;
+            HaText {
+                text: Api.current-time.hour.mod(12);
+                horizontal-alignment: center;
+                vertical-alignment: center;
+                color: Palette.info-foreground;
+                font-size: Style.H1-font-size;
+            }
+
+            HaText {
+                text: ":";
+                horizontal-alignment: center;
+                vertical-alignment: center;
+                color: Palette.info-foreground;
+                font-size: Style.H1-font-size;
+            }
+
+            HaText {
+                text: Api.current-time.minute;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+                color: Palette.info-foreground;
+                font-size: Style.H1-font-size;
+            }
+
+            HaText {
+                text: Api.current-time.hour > 12 ? " PM" : " AM";
+                horizontal-alignment: center;
+                vertical-alignment: center;
+                color: Palette.info-foreground;
+                font-size: Style.H2-font-size;
+            }
+        }
+    }
+    if AppState.orientation == Orientation.portrait:  HorizontalLayout {
+        y: root.height - self.height - 10px;
+        alignment: center;
+        spacing: 30px;
+        height: 50px;
+        opacity: 80%;
+
+        HorizontalLayout {
+            spacing: 10px;
+            HaText {
+                text: Api.return-month();
+                font-size: Style.H1-font-size;
+                font-weight: 100;
+            }
+
+            HaText {
+                text: Api.current-date.day;
+                color: Palette.info-foreground;
+                font-size: Style.H1-font-size;
+                font-weight: 400;
+            }
+        }
+        HorizontalLayout {
+            HaText {
+                text: Api.current-time.hour.mod(12);
+                horizontal-alignment: center;
+                vertical-alignment: center;
+                color: Palette.info-foreground;
+                font-size: Style.H1-font-size;
+            }
+
+            HaText {
+                text: ":";
+                horizontal-alignment: center;
+                vertical-alignment: center;
+                color: Palette.info-foreground;
+                font-size: Style.H1-font-size;
+            }
+
+            HaText {
+                text: Api.current-time.minute;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+                color: Palette.info-foreground;
+                font-size: Style.H1-font-size;
+            }
+
+            HaText {
+                text: Api.current-time.hour > 12 ? " PM" : " AM";
+                horizontal-alignment: center;
+                vertical-alignment: center;
+                color: Palette.info-foreground;
+                font-size: Style.H2-font-size;
+                font-weight: 100;
+            }
+        }
+    }
+
+    Rectangle {
         x: 0;
         y: 0;
-        width: 250px;
-        in-out property <bool> showing-sidebar: false;
-        property <bool> first-touch: false;
-        property <length> initial-position;
-        property <length> alt-side-bar-x: 0;
-        out property <bool> swiping: false;
-        in-out property <bool> blocker-enabled: true;
+        width: root.width;
+        height: root.height;
+        cache-rendering-hint: door-component-loaded;
 
-        changed pressed => {
-            if !self.pressed {
-                if alt-side-bar-x >= (sidebar.width * 0.4) {
-                    showing-sidebar = true;
+        navigation := Rectangle {
+
+            nav-bar := Rectangle {
+                property <length> portrait-x: 110px;
+                x: AppState.orientation == Orientation.landscape ? (parent.width - self.width) / 2 : portrait-x;
+                y: AppState.graphics-accelerator-available ? 26px : 35px;
+                width: AppState.orientation == Orientation.landscape ? 600px : root.width - portrait-x;
+                height: 40px;
+
+                if !AppState.graphics-accelerator-available: Image {
+                    width: parent.width;
+                    height: self.source.height * 1px;
+                    source: @image-url("../../images/title-frame.png", nine-slice(0 50 0 50));
                 }
-                if showing-sidebar {
-                    alt-side-bar-x = sidebar.width;
-                } else {
-                    alt-side-bar-x = 0;
-                }
-                swipe.swiping = false;
-                first-touch = false;
-            }
-        }
 
-        moved => {
-            if !first-touch {
-                first-touch = true;
-                swiping = true;
-                initial-position = self.mouse-x;
-            } else {
-                alt-side-bar-x = clamp(self.mouse-x - initial-position, 0, sidebar.width);
-            }
-        }
-        Rectangle {
-            x: 0;
-            y: 0;
-            width: root.width;
-            height: root.height;
-            cache-rendering-hint: door-component-loaded;
-
-            navigation := Rectangle {
-                filterShadow := Rectangle {
-                    x: 0;
-                    y: 0;
-                    width: 100%;
-                    height: root.height - 50px;
-                    border-radius: 0px;
-                    drop-shadow-blur: (AppState.current-page > 3) ? 7px : 1px;
-                    drop-shadow-color: Palette.shadow-color;
-                    background: Palette.background-gradient;
-                    animate background {
-                        duration: Animation.theme-change-duration;
-                        easing: ease-in-out-sine;
+                if AppState.graphics-accelerator-available: Rectangle {
+                    Rectangle {
+                        border-radius: self.height / 2;
+                        drop-shadow-blur: 5px;
+                        drop-shadow-color: black.transparentize(0.5);
+                        drop-shadow-offset-x: 3px;
+                        drop-shadow-offset-y: 3px;
+                        background: #241433;
                     }
-                }
-
-                navBar := Rectangle {
-                    x: 18px;
-                    y: self.height / 5;
-                    width: AppState.current-page > (AppState.pageData.length - 7) ? 924px : 690px;
-                    animate width {
-                        duration: Animation.transitionDuration;
-                        easing: ease-in-out-sine;
-                    }
-                    height: 60.5px;
-                    HorizontalLayout {
-                        spacing: 5px;
-                        ViewButton {
-                            target-page: 0;
-                            text: "House";
-                        }
-
-                        ViewButton {
-                            target-page: 1;
-                            text: "Kitchen";
-                        }
-
-                        ViewButton {
-                            target-page: 2;
-                            text: "Master Bedroom";
-                        }
-
-                        ViewButton {
-                            target-page: 3;
-                            text: "Office";
-                        }
-                    }
-                }
-
-                filterBar := Rectangle {
 
                     Rectangle {
-                        y: root.height - self.height;
-                        height: 60px;
-                        HorizontalLayout {
-                            spacing: 5px;
-                            ViewButton {
-                                font-size: 1rem;
-                                target-page: 4;
-                                text: "Controls";
-                            }
+                        border-width: 1px;
+                        border-color: Palette.glass-border;
+                        border-radius: self.height / 2;
+                        background: Palette.glass-background;
+                    }
+                }
 
-                            ViewButton {
-                                font-size: 1rem;
-                                target-page: 5;
-                                text: "Lamps";
-                            }
+                HorizontalLayout {
+                    alignment: center;
+                    spacing: 0px;
+                    y: AppState.graphics-accelerator-available ? 0 : -5px;
+                    PageButton {
+                        label: "Home";
+                        target-page: 0;
+                    }
 
-                            ViewButton {
-                                font-size: 1rem;
-                                target-page: 6;
-                                text: "Overhead Lights";
-                            }
+                    PageButton {
+                        label: "Kitchen";
+                        target-page: 1;
+                    }
 
-                            ViewButton {
-                                font-size: 1rem;
-                                target-page: 7;
-                                text: "Appliances";
-                            }
+                    PageButton {
+                        label: "Bedroom";
+                        target-page: 2;
+                    }
 
-                            ViewButton {
-                                font-size: 1rem;
-                                target-page: 8;
-                                text: "Info";
-                            }
-
-                            ViewButton {
-                                font-size: 1rem;
-                                target-page: 9;
-                                text: "Graphs";
+                    if AppState.orientation == Orientation.landscape: PageButton {
+                        label: "Office";
+                        target-page: 3;
+                    }
+                    if AppState.orientation == Orientation.landscape && AppState.graphics-accelerator-available: Rectangle {
+                        width: 50px;
+                        height: 40px;
+                        lock := Image {
+                            source: @image-url("../../images/lock.svg");
+                            colorize: white;
+                            opacity: lta.pressed ? 100% : 50%;
+                        }
+                        lta := TouchArea {
+                            clicked => {
+                                door-component-loaded = true;
                             }
                         }
                     }
                 }
+            }
+        }
 
-                // This whole holder could be animated off screen, faded, whatever when the camera fills the screen.
-                widgetHolder := Rectangle {
-                    width: 100%;
-                    height: 100%;
-                    for i[index] in AppState.component-details: WidgetLoader {
-                        index: index;
-                        type: AppState.component-details[index].type;
-                        data: AppState.current-layout-data.components[index];
-                    }
+        fs-holder := Rectangle {
+            y: 20px;
+            if AppState.graphics-accelerator-available: Rectangle {
+                width: 100%;
+                height: 100%;
+                for i[index] in AppState.component-details: WidgetLoader {
+                    index: index;
+                    type: AppState.component-details[index].type;
+                    data: AppState.current-layout-data.components[index];
                 }
+            }
 
-                if AppState.showing-full-screen: fullScreenWidgetHolder := FullScreenView { }
-
-                Rectangle {
-                    opacity: 0.5 * (sidebar-holder.x / sidebar.width);
-                    background: black;
-                    ta-blocker := TouchArea {
-                        enabled: blocker-enabled && parent.opacity > 0.1;
-
-                        changed pressed => {
-                            if !self.pressed {
-                                if alt-side-bar-x <= (sidebar.width * 0.6) {
-                                    showing-sidebar = false;
-                                }
-                                if showing-sidebar {
-                                    alt-side-bar-x = sidebar.width;
-                                } else {
-                                    alt-side-bar-x = 0;
-                                }
-                                blocker-enabled = true;
-                                swipe.swiping = false;
-                                first-touch = false;
-                            }
-                        }
-
-                        clicked => {
-                            if self.mouse-x > sidebar.width {
-                                showing-sidebar = false;
-                            }
-                        }
-
-                        moved => {
-                            if !first-touch {
-                                first-touch = true;
-                                swiping = true;
-                                initial-position = self.mouse-x;
-                            } else {
-                                alt-side-bar-x = clamp(sidebar.width + self.mouse-x - initial-position, 0, sidebar.width);
-                            }
-                        }
-                    }
+            if !AppState.graphics-accelerator-available: Rectangle {
+                width: 100%;
+                height: 100%;
+                for i[index] in AppState.component-details: WidgetLoaderSoftwareRenderer {
+                    index: index;
+                    type: AppState.component-details[index].type;
+                    data: AppState.current-layout-data.components[index];
                 }
+            }
 
-                sidebar-holder := Rectangle {
-
-                    states [
-                        showing-sidebar when showing-sidebar && !swipe.swiping: {
-                            x: sidebar.width;
-                            in {
-                                animate x {
-                                    duration: 150ms;
-                                    easing: ease-in;
-                                }
-                            }
-                        }
-                        swiping when swipe.swiping: {
-                            x: alt-side-bar-x;
-                        }
-                        not-showing-sidebar when !showing-sidebar && !swipe.swiping: {
-                            x: 0;
-                            in {
-                                animate x {
-                                    duration: 150ms;
-                                    easing: ease-in;
-                                }
-                            }
-                        }
-                    ]
-
-                    sidebar := Sidebar {
-                        drop-shadow-blur: sidebar-holder.x == 0 ? 0 : 15px;
-                        drop-shadow-color: black.transparentize(0.5);
-                        x: -self.width;
-                        lockDemo => {
-                            showing-sidebar = false;
-                            door-component-loaded = true;
-                            if showing-sidebar {
-                                alt-side-bar-x = sidebar.width;
-                            } else {
-                                alt-side-bar-x = 0;
-                            }
-                            blocker-enabled = true;
-                            swipe.swiping = false;
-                            first-touch = false;
-                        }
-                    }
-                }
+            if AppState.showing-full-screen: fullScreenWidgetHolder := FullScreenView {
+                nudge-y: fs-holder.y;
             }
         }
     }
 
-    if door-component-loaded: doors := Doors {
+    if AppState.graphics-accelerator-available && door-component-loaded: doors := Doors {
         doorsOpened => {
             door-component-loaded = false;
             initial-door-state = DoorState.open;
         }
         demo-locked: demo-locked;
         initial-door-state: initial-door-state;
+    }
+
+
+    kiosk-blocker :=  TouchArea {
+        visible: AppState.kiosk-mode && !door-component-loaded;
+        clicked => {
+            AppState.end-kiosk-mode();
+        }
+    }
+
+    Timer {
+        interval: 30s;
+        running: !AppState.kiosk-mode && !door-component-loaded && !AppState.disable-kiosk-mode;
+        triggered => {
+            AppState.first-run = false;
+            AppState.kiosk-mode = true;
+        }
+    }
+
+    kiosk-mode-animator := Timer {
+        running: AppState.kiosk-mode && !door-component-loaded;
+        interval: 5s;
+        triggered => {
+            if AppState.orientation == Orientation.landscape {
+                if AppState.current-page < 3 {
+                    AppState.target-page = AppState.target-page + 1;
+                } else {
+                    AppState.target-page = 0;
+                }
+            } else {
+                if AppState.current-page < 2 {
+                    AppState.target-page = AppState.target-page + 1;
+                } else {
+                    AppState.target-page = 0;
+                }
+            }
+        }
     }
 }

@@ -6,9 +6,11 @@ import { Api } from "api.slint";
 
 export { Api }
 
+// Running the demo with this file will run it in both portrait and with a UI designed
+// for the Slint software renderer backend.
 export component AppWindow inherits Window {
-    preferred-width: 960px;
-    preferred-height: 540px;
+    preferred-height: 1024px;
+    preferred-width: 600px;
 
     MainScreen {
         door-component-loaded: false;
@@ -16,6 +18,7 @@ export component AppWindow inherits Window {
     }
 
     init => {
-        AppState.disable-kiosk-mode = true;
+        AppState.graphics-accelerator-available = false;
     }
+
 }

@@ -4,6 +4,7 @@ import { Animation, Palette, Measurements, Colors } from "../common.slint";
 import { FancySlider } from "general/fancySlider.slint";
 import { AppState } from "../appState.slint";
 import { HaText } from "general/haText.slint";
+import { ComponentData } from "../appState.slint";
 
 export component Control inherits Rectangle {
     in property <string> name;
@@ -18,49 +19,40 @@ export component Control inherits Rectangle {
     in property <brush> tile-background: Palette.control-background;
     in property <brush> tile-shadow-color: Palette.shadow-color;
     in property <bool> show-label: true;
-    Image {
-        x: -23px;
-        y: -23px;
-        width: parent.width + 46px;
-        height: parent.height + 46px;
-        source: @image-url("../images/shadow-rounded.png", nine-slice(50));
-        colorize: tile-shadow-color;
-        animate colorize {
-            duration: AppState.first-run ? 0 : Animation.theme-change-duration;
-            easing: ease-in-out-sine;
+    in property <image> control-background: @image-url("../images/control-frame.png", nine-slice(50));
+
+    border-radius: 15px;
+
+    if AppState.graphics-accelerator-available : Rectangle {
+        Rectangle {
+            border-radius: root.border-radius;
+            background: @linear-gradient(1200deg, #191d44, #241433);
+        }
+        Rectangle {
+            border-radius: root.border-radius;
+            background: @linear-gradient(180deg, white.transparentize(85%) 0%, white.transparentize(93%) 60%, white.transparentize(90%) 92%, #ffffff.transparentize(75%) 100%);
+        }
+        Rectangle {
+            border-radius: root.border-radius;
+            border-width: 1px;
+            border-color: Palette.glass-border;
         }
     }
 
-    tile := Rectangle {
-        clip: true;
-        background: tile-background;
-        border-radius: Measurements.tile-radius;
-        @children
-        if show-label: Rectangle {
-            x: control-label-position;
-            y: 2.5px;
-            border-radius: Measurements.tile-radius;
-            background: Colors.black.transparentize(0.7);
-            width: self.preferred-width;
-            height: self.preferred-height;
 
-            VerticalLayout {
-                alignment: space-between;
-                padding: (tile.height > Measurements.small-height-tile) ? 18px : 9px;
-                width: 100%;
-                height: 100%;
-                VerticalLayout {
-                    alignment: start;
-                    spacing: 10px;
-
-                    Text {
-                        text: root.name;
-                        font-size: 10pt;
-                        font-weight: 400;
-                        color: Palette.control-foreground;
-                    }
-                }
-            }
+    if !AppState.graphics-accelerator-available : Image {
+        x: -14px;
+        y: -12px;
+        width: parent.width + 34px;
+        height: parent.height + 32px;
+        source: root.control-background;
+    }
+    TouchArea {
+        clicked => {
+            AppState.end-kiosk-mode();
         }
     }
+
+    @children
+
 }

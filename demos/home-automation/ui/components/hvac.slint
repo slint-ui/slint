@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 import { Animation, Measurements, Colors, Palette, Style } from "../common.slint";
 import { Control} from "control.slint";
-import { AppState } from "../appState.slint";
+import { AppState, Orientation } from "../appState.slint";
 import { HaText } from "general/haText.slint";
 
 enum Mode { increment, decrement }
@@ -92,44 +92,38 @@ export component HVAC inherits Control {
     property <bool> unlocked: false;
     property <bool> is-active: false;
     show-label: false;
+    clip: AppState.graphics-accelerator-available;
 
     tile := Rectangle {
-        shadow := Image {
-            source: @image-url("../images/shadow-circle-soft.png");
-            width: dial.width * 1.25;
-            // height: dial.height * 1.25;
-            colorize: Palette.glow-color;
-            x: (Math.min(parent.width, parent.height) - self.height) / 2;
-            height: root.full-screen ? 275px * 1.25 : 200px * 1.25;
-            animate height {
-                duration: Animation.full-screen-duration;
-                easing: ease-in-out-sine;
-            }
-        }
 
         TouchArea {
-            enabled: !AppState.showing-full-screen;
+            enabled: !AppState.showing-full-screen && AppState.orientation != Orientation.portrait;
             clicked => {
                 AppState.showFullScreen(root.index);
             }
         }
 
         dial := Rectangle {
+            property <length> default-x: 0px;
+            x: root.full-screen ? 26px : (root.width - self.height) / 2;
+            border-radius: self.width / 2;
             background: Palette.hvac-knob-background;
-            width: self.height;
-            height: root.full-screen ? 275px : 200px;
-            animate height {
-                duration: Animation.full-screen-duration;
+            border-width: 1px;
+            border-color: Palette.glass-border;
+            width: Math.min(root.width * 0.9, root.height * 0.9);
+            height: self.width;
+
+            animate x {
+                duration: Animation.full-screen-duration / 2;
                 easing: ease-in-out-sine;
             }
-            x: (Math.min(parent.width, parent.height) - self.height) / 2;
 
-            border-radius: self.width / 2;
+
             Image {
+                x: dial.width * 3 / 4;
+                y: dial.height / 4;
                 height: 20px;
                 width: 20px;
-                y: dial.height / 4;
-                x: dial.width * 3 / 4;
                 source: @image-url("../images/cold.svg");
                 colorize: Palette.hvac-foreground;
             }
@@ -140,7 +134,7 @@ export component HVAC inherits Control {
                 spacing: -15px;
                 HaText {
                     text: "Current";
-                    font-size: Style.tile-title-font-size;
+                    font-size: Style.hvac-title-font-size;
                     color: Palette.hvac-knob-foreground;
                     font-weight: 300;
                     x: parent.width / 2 - self.width / 2;
@@ -156,7 +150,7 @@ export component HVAC inherits Control {
 
                 HaText {
                     text: "Setpoint: 19°C";
-                    font-size: Style.tile-title-font-size;
+                    font-size: Style.hvac-title-font-size;
                     color: Palette.hvac-knob-foreground;
                     font-weight: 300;
                     x: parent.width / 2 - self.width / 2;
@@ -220,6 +214,7 @@ export component HVAC inherits Control {
         }
 
         Image {
+            visible: AppState.orientation == Orientation.landscape;
             source: @image-url("../images/enlarge.svg");
             opacity: root.full-screen ? 0 : 0.6;
             width: 20px;

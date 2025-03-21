@@ -62,8 +62,8 @@ export component Doors {
         Image {
             x: 0;
             y: 0;
-            width: self.source.width * 0.5 * 1px;
-            height: self.source.height * 0.5 * 1px;
+            width: self.source.width * 2 * 1px;
+            height: self.source.height * 2 * 1px;
             source: @image-url("../../images/logo-fragment.png");
             opacity: Palette.dark-color-scheme ? 0.08 : 0.02;
         }
@@ -113,8 +113,8 @@ export component Doors {
             Image {
                 x: parent.width - self.width;
                 y: parent.height - self.height;
-                width: self.source.width * 0.5 * 1px;
-                height: self.source.height * 0.5 * 1px;
+                width: self.source.width * 2 * 1px;
+                height: self.source.height * 2 * 1px;
                 source: @image-url("../../images/logo-fragment.png");
                 rotation-angle: 180deg;
                 opacity: Palette.dark-color-scheme ? 0.08 : 0.02;
