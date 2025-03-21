@@ -354,15 +354,35 @@ impl winit::application::ApplicationHandler<SlintUserEvent> for EventLoopState {
             WindowEvent::KeyboardInput { event, is_synthetic, .. } => {
                 let key_code = event.logical_key;
                 // For now: Match Qt's behavior of mapping command to control and control to meta (LWin/RWin).
-                #[cfg(target_vendor = "apple")]
-                let key_code = match key_code {
-                    winit::keyboard::Key::Named(winit::keyboard::NamedKey::Control) => {
-                        winit::keyboard::Key::Named(winit::keyboard::NamedKey::Super)
+                cfg_if::cfg_if!(
+                    if #[cfg(target_vendor = "apple")] {
+                        let swap_cmd_ctrl = true;
+                    } else if #[cfg(target_family = "wasm")] {
+                        let swap_cmd_ctrl = web_sys::window()
+                            .and_then(|window| window.navigator().platform().ok())
+                            .map_or(false, |platform| {
+                                let platform = platform.to_ascii_lowercase();
+                                platform.contains("mac")
+                                    || platform.contains("iphone")
+                                    || platform.contains("ipad")
+                            });
+                    } else {
+                        let swap_cmd_ctrl = false;
                     }
-                    winit::keyboard::Key::Named(winit::keyboard::NamedKey::Super) => {
-                        winit::keyboard::Key::Named(winit::keyboard::NamedKey::Control)
+                );
+
+                let key_code = if swap_cmd_ctrl {
+                    match key_code {
+                        winit::keyboard::Key::Named(winit::keyboard::NamedKey::Control) => {
+                            winit::keyboard::Key::Named(winit::keyboard::NamedKey::Super)
+                        }
+                        winit::keyboard::Key::Named(winit::keyboard::NamedKey::Super) => {
+                            winit::keyboard::Key::Named(winit::keyboard::NamedKey::Control)
+                        }
+                        code => code,
                     }
-                    code => code,
+                } else {
+                    key_code
                 };
 
                 macro_rules! winit_key_to_char {
