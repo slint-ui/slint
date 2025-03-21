@@ -578,7 +578,7 @@ fn into_qbrush(
             cpp_class!(unsafe struct QRadialGradient as "QRadialGradient");
             let mut qrg = cpp! {
                 unsafe [width as "qreal", height as "qreal"] -> QRadialGradient as "QRadialGradient" {
-                    QRadialGradient qrg(width / 2, height / 2, (width + height) / 4);
+                    QRadialGradient qrg(width / 2, height / 2, sqrt(width * width + height * height) / 2);
                     return qrg;
                 }
             };
