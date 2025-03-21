@@ -22,6 +22,7 @@ use embassy_stm32::{rcc, Config};
 
 mod hspi;
 mod nema_gfx_hal;
+mod nema_gfx_renderer;
 
 #[cfg(feature = "panic-probe")]
 use panic_probe as _;
@@ -323,10 +324,23 @@ impl PlatformBackend for StmBackendInner {
         }
     }
     async fn render(&mut self, renderer: &slint::platform::software_renderer::SoftwareRenderer) {
-        renderer.render(self.work_fb, DISPLAY_WIDTH);
+        //defmt::info!("render frame");
+        //renderer.render(self.work_fb, DISPLAY_WIDTH);
+
+        {
+            let mut buf = core::pin::pin!(nema_gfx_renderer::NemaGFXEnhancedBuffer::new(
+                self.work_fb,
+                DISPLAY_WIDTH as u32,
+                DISPLAY_HEIGHT as u32,
+                DISPLAY_WIDTH,
+            ));
+
+            renderer.render_into_buffer(&mut buf);
+        }
 
         self.scb.clean_dcache_by_slice(self.work_fb);
 
+        /*
         // nema test
         unsafe {
             use nema_gfx_rs::*;
@@ -356,6 +370,9 @@ impl PlatformBackend for StmBackendInner {
             nema_cl_submit(&mut cl);
             nema_cl_wait(&mut cl);
         }
+        */
+
+        //defmt::info!("rendering done");
 
         // Safety: the frame buffer has the right size
         self.ltdc.set_buffer(LtdcLayer::Layer1, self.work_fb.as_ptr() as *const ()).await.unwrap();
