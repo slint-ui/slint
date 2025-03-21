@@ -2256,6 +2256,9 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                 (Type::String, Type::PathData) => {
                     quote!(sp::PathData::Commands(#f))
                 }
+                (_, Type::Void) => {
+                    quote!(#f;)
+                }
                 _ => f,
             }
         }
