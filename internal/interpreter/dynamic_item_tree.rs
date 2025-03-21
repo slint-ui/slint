@@ -1710,9 +1710,6 @@ pub fn instantiate(
             }
         });
     }
-
-    update_timers(instance_ref);
-
     self_rc
 }
 
@@ -1820,6 +1817,7 @@ impl ErasedItemTreeBox {
                 .set(v)
                 .unwrap_or_else(|_| panic!("run_setup_code called twice?"));
         }
+        update_timers(instance_ref);
     }
 }
 impl<'id> From<ItemTreeBox<'id>> for ErasedItemTreeBox {
