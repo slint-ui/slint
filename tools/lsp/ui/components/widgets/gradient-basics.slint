@@ -79,7 +79,7 @@ export component GradientMainContent inherits HorizontalLayout {
     private property <color> dummy-current-color;
     private property <color> current-color_: index-color(self.selected-index);
 
-    out property <bool> has-focus: ta.has-hover;
+    out property <bool> has-focus: ta.has-hover || self.dot-hover-count > 0;
     out property <int> selected-index: -1;
 
     callback update-brush();
@@ -146,7 +146,8 @@ export component GradientMainContent inherits HorizontalLayout {
         apply-gradient-stops();
     }
 
-    property <int> dot-hover-count: 0;
+    private property <int> dot-hover-count: 0;
+
     grad := Preview {
         width: 100%;
         height: 40px;
