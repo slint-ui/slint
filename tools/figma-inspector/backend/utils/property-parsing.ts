@@ -374,7 +374,7 @@ export function generateRectangleSnippet(sceneNode: SceneNode): string {
 }
 export function generateComponentSetSnippet(sceneNode: SceneNode): string {
     const properties: string[] = [];
-    return "big complicated thing goes here";
+    return "small complicated thing goes here";
 }
     
 

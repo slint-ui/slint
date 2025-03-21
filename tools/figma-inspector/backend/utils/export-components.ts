@@ -89,25 +89,50 @@ export function exportComponentSet(): void {
 
     console.log("Generated components:", slintComponents);  // Add this
     const slintCode = slintComponents.map(generateSlintCode).join("\n\n");
-    console.log("Generational code:\n\n", slintCode);  
+    console.log("Generated code:\n\n", slintCode);  
     figma.ui.postMessage({ type: "exportComplete", code: slintCode });
 }
 
 const usedNames = new Map<string, number>();  
 
 function getComponentSetInfo(node: ComponentSetNode): VariantInfo {
-    console.log("Processing component set:", node);  // Debug log
+    console.log("Processing component set:", node);
     
+    // Get variant property definitions first
+    const variantProperties: VariantInfo['variantProperties'] = {};
+    if (node.componentPropertyDefinitions) {
+        Object.entries(node.componentPropertyDefinitions).forEach(([key, def]) => {
+            console.log("Property definition:", key, def);
+            variantProperties[key] = {
+                type: def.type,
+                defaultValue: def.defaultValue,
+                variantOptions: def.variantOptions
+            };
+        });
+    }
+
     const variants = node.children.map(variant => {
+        const propertyValues: { [key: string]: string | boolean | number } = {};
+        const variantParts = variant.name.split(', ');
+        variantParts.forEach(part => {
+            const [key, value] = part.split('=');
+            if (key && value) {
+                // Transform the key to match our enum naming
+                const sanitizedKey = key.trim();
+                const enumName = `${node.name}_${sanitizedKey}`;
+                propertyValues[sanitizedKey] = value.trim();
+            }
+        });
         console.log("Processing variant:", variant);  // Debug log
         
         // Extract variant properties
-        const propertyValues: { [key: string]: string | boolean | number } = {};
-        if ('componentPropertyReferences' in variant) {
-            Object.entries(variant.componentPropertyReferences).forEach(([key, reference]) => {
+        if ('componentProperties' in variant) {
+            Object.entries(variant.componentProperties).forEach(([key, prop]) => {
                 // Debug log
-                console.log("Property reference:", key, reference);
-                propertyValues[key] = reference;
+                console.log("Property:", key, prop);
+                if ('value' in prop) {
+                    propertyValues[key] = prop.value;
+                }
             });
         }
 
@@ -177,25 +202,14 @@ function getComponentSetInfo(node: ComponentSetNode): VariantInfo {
                 propertyValues,
                 style: {
                     width: variant.width,
-                    height: variant.height
+                    height: variant.height,
                     // ...rest of style
                 },
                 children: []
             };
         });
     
-    // Extract variant definitions
-    const variantProperties: VariantInfo['variantProperties'] = {};
-    if (node.componentPropertyDefinitions) {
-        Object.entries(node.componentPropertyDefinitions).forEach(([key, def]) => {
-            console.log("Property definition:", key, def);  // Debug log
-            variantProperties[key] = {
-                type: def.type,
-                defaultValue: def.defaultValue,
-                variantOptions: def.variantOptions
-            };
-        });
-    }
+
 
     return {
         name: node.name,
@@ -206,7 +220,6 @@ function getComponentSetInfo(node: ComponentSetNode): VariantInfo {
         children: []
     };
 }
-
 // Add this new function for string sanitization
 function toUpperCamelCase(str: string): string {
     return str
@@ -259,49 +272,48 @@ function isValidId(id: string, properties: Set<string>): boolean {
 }
 
 function convertToSlintFormat(componentSet: VariantInfo): SlintComponent {
-    // Sanitize the component name
+    // Log the incoming data
+    console.log("Converting to Slint format:", componentSet);
+    
     const componentName = sanitizeIdentifier(componentSet.name, 'component');
     
     // Extract all variant properties into enums
     const enums: { [key: string]: string[] } = {};
-    for (const [key, value] of Object.entries(componentSet.variantProperties)) {
-        if (value.type === "VARIANT" && value.variantOptions) {
+    for (const [key, def] of Object.entries(componentSet.variantProperties)) {
+        if (def.type === "VARIANT" && def.variantOptions) {
             const enumName = `${componentName}_${toUpperCamelCase(key)}`;
-            enums[enumName] = value.variantOptions;
+            enums[enumName] = def.variantOptions;
         }
     }
 
-
-    // Extract style from the VariantInfo
-    const style: ComponentStyle = componentSet.style || {};
-
-    return {
-        componentName,
-        enums,
-        variants: componentSet.variants.map(v => ({
+    // Map variants with their properties
+    const variants = componentSet.variants.map(v => {
+        console.log("Processing variant properties:", v.propertyValues);
+        return {
             name: v.name,
             properties: Object.fromEntries(
-                Object.entries(v.propertyValues).map(([key, value]) => [
+                Object.entries(v.propertyValues || {}).map(([key, value]) => [
                     key,
                     String(value)
                 ])
             ),
-            style: v.style  // Add this
-        })),
-        style: {
-            width: style.width,
-            height: style.height,
-            background: style.background,
-            borderWidth: style.borderWidth,
-            borderColor: style.borderColor,
-            padding: style.padding,
-            layout: style.layout
-        },
+            style: v.style
+        };
+    });
+
+    console.log("Generated variants:", variants);
+
+    return {
+        componentName,
+        enums,
+        variants,
+        style: componentSet.style || {},
         children: componentSet.children?.map(child => 
             convertToSlintFormat(child)
         ) || []
     };
 }
+
 // helper function to output hex
 function rgbToHex(r: number, g: number, b: number): string {
     const toHex = (n: number) => Math.round(n * 255).toString(16).padStart(2, '0');
@@ -329,44 +341,74 @@ function generateSlintCode(slintComponent: SlintComponent): string {
         code += `    in property <${enumName}> ${propertyName};\n`;
     });
 
-    // States for variant-specific properties
-    code += `    states [\n`;
-    slintComponent.variants.forEach(variant => {
-        const conditions = Object.entries(variant.properties)
-            .map(([key, value]) => {
-                const enumName = `${slintComponent.componentName}_${toUpperCamelCase(key)}`;
-                return `${toLowerDashed(key)} == ${enumName}.${value}`;
-            })
-            .join(' && ');
-        code += `        active-variant when ${conditions}: {\n`;
-        code += `            width: ${variant.style?.width || 0}px;\n`;
-        code += `            height: ${variant.style?.height || 0}px;\n`;
-        code += `        }\n`;
-    });
-    code += `    ]\n\n`;
+    // Generate states for variants
+    if (slintComponent.variants.length > 0) {
+        code += `    states [\n`;
+        slintComponent.variants.forEach(variant => {
+            console.log("states:",variant.properties);
+            const conditions = Object.entries(variant.properties)
+                .map(([key, value]) => {
+                    const enumName = `${slintComponent.componentName}_${toUpperCamelCase(key)}`;
+                    return `${toLowerDashed(key)} == ${enumName}.${value}`;
+                })
+                .join(' && ');
+            
+            if (conditions) {
+                code += `        ${variant.name} when ${conditions}: {\n`;
+                if (variant.style) {
+                    Object.entries(variant.style).forEach(([key, value]) => {
+                        if (value !== undefined) {
+                            switch(key) {
+                                case 'width':
+                                case 'height':
+                                    code += `            ${key}: ${value}px;\n`;
+                                    break;
+                                case 'background':
+                                    code += `            background: ${value};\n`;
+                                    break;
+                                case 'borderColor':
+                                    code += `            border-color: ${value};\n`;
+                                    break;
+                                case 'borderWidth':
+                                    code += `            border-width: ${value}px;\n`;
+                                    break;
+                            }
+                        }
+                    });
+                }
+                code += `        }\n`;
+            }
+        });
+        code += `    ]\n\n`;
+    }
 
-    // Main container with layout
+    // Main Rectangle with base styling
+    code += `    Rectangle {\n`;
+    code += `        width: ${slintComponent.style.width}px;\n`;
+    code += `        height: ${slintComponent.style.height}px;\n`;
+
+    // Add layout if present
     if (slintComponent.style?.layout) {
         const layoutType = slintComponent.style.layout.direction === "HORIZONTAL" ? 
             "HorizontalLayout" : "VerticalLayout";
-        code += `    ${layoutType} {\n`;
+        code += `        ${layoutType} {\n`;
         
-        // Add padding
+        // Add padding if present
         if (slintComponent.style.padding) {
             const p = slintComponent.style.padding;
             if (p.top === p.right && p.top === p.bottom && p.top === p.left) {
-                code += `        padding: ${p.top}px;\n`;
+                code += `            padding: ${p.top}px;\n`;
             } else {
-                if (p.top) code += `        padding-top: ${p.top}px;\n`;
-                if (p.right) code += `        padding-right: ${p.right}px;\n`;
-                if (p.bottom) code += `        padding-bottom: ${p.bottom}px;\n`;
-                if (p.left) code += `        padding-left: ${p.left}px;\n`;
+                if (p.top) code += `            padding-top: ${p.top}px;\n`;
+                if (p.right) code += `            padding-right: ${p.right}px;\n`;
+                if (p.bottom) code += `            padding-bottom: ${p.bottom}px;\n`;
+                if (p.left) code += `            padding-left: ${p.left}px;\n`;
             }
         }
 
         // Add spacing
         if (slintComponent.style.layout.spacing) {
-            code += `        spacing: ${slintComponent.style.layout.spacing}px;\n`;
+            code += `            spacing: ${slintComponent.style.layout.spacing}px;\n`;
         }
 
         // Add child components
@@ -374,15 +416,45 @@ function generateSlintCode(slintComponent: SlintComponent): string {
             slintComponent.children.forEach(child => {
                 const childCode = generateSlintCode(child)
                     .split('\n')
-                    .map(line => `        ${line}`)
+                    .map(line => `            ${line}`)
                     .join('\n');
                 code += childCode;
             });
         }
 
-        code += `    }\n`;
+        
+        code += `        }\n`;
+    }
+    // Generate states for variants
+    if (slintComponent.variants.length > 0) {
+        code += `    states [\n`;
+        slintComponent.variants.forEach(variant => {
+            // Parse the variant name to get the property combinations
+            // e.g. "Style=Normal, State=Enabled, Type=Regular"
+            const conditions = Object.entries(variant.properties)
+                .map(([key, value]) => {
+                    const enumName = `${slintComponent.componentName}_${toUpperCamelCase(key)}`;
+                    return `${toLowerDashed(key)} == ${enumName}.${value}`;
+                })
+                .join(' && ');
+
+            if (conditions) {
+                code += `        variant-${variant.name} when ${conditions}: {\n`;
+                // Add the variant's specific component structure here
+                // This will be handled by child component generation
+                code += `        }\n`;
+            }
+        });
+        code += `    ]\n`;
     }
 
+    // Now we need each variant's structure in the component
+    slintComponent.variants.forEach(variant => {
+        // TODO: Output each variant's complete component structure
+        // This would include its Rectangle/Text/etc components and their children
+    });
+    
+    code += `    }\n`;
     code += `}\n`;
     return code;
 }
