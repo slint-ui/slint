@@ -62,7 +62,7 @@ interface SlintComponent {
 
 export function exportComponentSet(): void {
     const selectedNodes = figma.currentPage.selection;
-    console.log("Selected nodes:", selectedNodes.length);  // debug
+    // console.log("Selected nodes:", selectedNodes.length);  // debug
 
     if (selectedNodes.length === 0) {
         figma.notify("Please select a component set");
@@ -72,7 +72,7 @@ export function exportComponentSet(): void {
     const componentSets = selectedNodes.filter(
         node => node.type === "COMPONENT_SET"
     ) as ComponentSetNode[];
-    console.log("Component sets found:", componentSets.length);  // debug
+    // console.log("Component sets found:", componentSets.length);  // debug
 
 
     if (componentSets.length === 0) {
@@ -81,28 +81,28 @@ export function exportComponentSet(): void {
     }
 
     const slintComponents = componentSets.map(node => {
-        console.log("Processing component:", node.name);  // Add this
+        // console.log("Processing component:", node.name);  // Add this
         const variantInfo = getComponentSetInfo(node);
-        console.log("Variant info:", variantInfo);  // Add this
+        // console.log("Variant info:", variantInfo);  // Add this
         return convertToSlintFormat(variantInfo);
     });
 
-    console.log("Generated components:", slintComponents);  // Add this
+    // console.log("Generated components:", slintComponents);  // Add this
     const slintCode = slintComponents.map(generateSlintCode).join("\n\n");
-    console.log("Generated code:\n\n", slintCode);  
+    console.log(slintCode);  
     figma.ui.postMessage({ type: "exportComplete", code: slintCode });
 }
 
 const usedNames = new Map<string, number>();  
 
 function getComponentSetInfo(node: ComponentSetNode): VariantInfo {
-    console.log("Processing component set:", node);
+    // console.log("Processing component set:", node);
     
     // Get variant property definitions first
     const variantProperties: VariantInfo['variantProperties'] = {};
     if (node.componentPropertyDefinitions) {
         Object.entries(node.componentPropertyDefinitions).forEach(([key, def]) => {
-            console.log("Property definition:", key, def);
+            // console.log("Property definition:", key, def);
             variantProperties[key] = {
                 type: def.type,
                 defaultValue: def.defaultValue,
@@ -123,13 +123,13 @@ function getComponentSetInfo(node: ComponentSetNode): VariantInfo {
                 propertyValues[sanitizedKey] = value.trim();
             }
         });
-        console.log("Processing variant:", variant);  // Debug log
+        // console.log("Processing variant:", variant);  // Debug log
         
         // Extract variant properties
         if ('componentProperties' in variant) {
             Object.entries(variant.componentProperties).forEach(([key, prop]) => {
                 // Debug log
-                console.log("Property:", key, prop);
+                // console.log("Property:", key, prop);
                 if ('value' in prop) {
                     propertyValues[key] = prop.value;
                 }
@@ -139,7 +139,8 @@ function getComponentSetInfo(node: ComponentSetNode): VariantInfo {
         // Base style info (keep existing code)
         const style: ComponentStyle = {
             width: variant.width,
-            height: variant.height
+            height: variant.height,
+            background: (variant as any).background
         };
 
         // Layout info
@@ -183,6 +184,7 @@ function getComponentSetInfo(node: ComponentSetNode): VariantInfo {
                             style: {
                                 width: child.width,
                                 height: child.height,
+                                background: child.backgrounds[0],
                                 // Add layout info for child if present
                                 layout: child.layoutMode ? {
                                     direction: child.layoutMode as "HORIZONTAL" | "VERTICAL" | "NONE",
@@ -273,7 +275,7 @@ function isValidId(id: string, properties: Set<string>): boolean {
 
 function convertToSlintFormat(componentSet: VariantInfo): SlintComponent {
     // Log the incoming data
-    console.log("Converting to Slint format:", componentSet);
+    // console.log("Converting to Slint format:", componentSet);
     
     const componentName = sanitizeIdentifier(componentSet.name, 'component');
     
@@ -288,7 +290,7 @@ function convertToSlintFormat(componentSet: VariantInfo): SlintComponent {
 
     // Map variants with their properties
     const variants = componentSet.variants.map(v => {
-        console.log("Processing variant properties:", v.propertyValues);
+        // console.log("Processing variant properties:", v.propertyValues);
         return {
             name: v.name,
             properties: Object.fromEntries(
@@ -301,7 +303,7 @@ function convertToSlintFormat(componentSet: VariantInfo): SlintComponent {
         };
     });
 
-    console.log("Generated variants:", variants);
+    // console.log("Generated variants:", variants);
 
     return {
         componentName,
@@ -341,45 +343,13 @@ function generateSlintCode(slintComponent: SlintComponent): string {
         code += `    in property <${enumName}> ${propertyName};\n`;
     });
 
-    // Generate states for variants
-    if (slintComponent.variants.length > 0) {
-        code += `    states [\n`;
-        slintComponent.variants.forEach(variant => {
-            console.log("states:",variant.properties);
-            const conditions = Object.entries(variant.properties)
-                .map(([key, value]) => {
-                    const enumName = `${slintComponent.componentName}_${toUpperCamelCase(key)}`;
-                    return `${toLowerDashed(key)} == ${enumName}.${value}`;
-                })
-                .join(' && ');
-            
-            if (conditions) {
-                code += `        ${variant.name} when ${conditions}: {\n`;
-                if (variant.style) {
-                    Object.entries(variant.style).forEach(([key, value]) => {
-                        if (value !== undefined) {
-                            switch(key) {
-                                case 'width':
-                                case 'height':
-                                    code += `            ${key}: ${value}px;\n`;
-                                    break;
-                                case 'background':
-                                    code += `            background: ${value};\n`;
-                                    break;
-                                case 'borderColor':
-                                    code += `            border-color: ${value};\n`;
-                                    break;
-                                case 'borderWidth':
-                                    code += `            border-width: ${value}px;\n`;
-                                    break;
-                            }
-                        }
-                    });
-                }
-                code += `        }\n`;
-            }
-        });
-        code += `    ]\n\n`;
+    // Add this helper function
+    function sanitizeStateName(name: string): string {
+        return name
+            .replace(/,\s*/g, '__')  // Replace commas and any following spaces with double underscore
+            .replace(/[^a-zA-Z0-9]/g, '_')  // Replace any other non-alphanumeric with single underscore
+            .replace(/_+/g, '_')     // Collapse multiple underscores
+            .toLowerCase();
     }
 
     // Main Rectangle with base styling
@@ -426,35 +396,80 @@ function generateSlintCode(slintComponent: SlintComponent): string {
         code += `        }\n`;
     }
     // Generate states for variants
-    if (slintComponent.variants.length > 0) {
-        code += `    states [\n`;
-        slintComponent.variants.forEach(variant => {
-            // Parse the variant name to get the property combinations
-            // e.g. "Style=Normal, State=Enabled, Type=Regular"
-            const conditions = Object.entries(variant.properties)
-                .map(([key, value]) => {
-                    const enumName = `${slintComponent.componentName}_${toUpperCamelCase(key)}`;
-                    return `${toLowerDashed(key)} == ${enumName}.${value}`;
-                })
-                .join(' && ');
-
-            if (conditions) {
-                code += `        variant-${variant.name} when ${conditions}: {\n`;
-                // Add the variant's specific component structure here
-                // This will be handled by child component generation
-                code += `        }\n`;
-            }
-        });
-        code += `    ]\n`;
-    }
-
-    // Now we need each variant's structure in the component
+// And update the state references to use the same IDs
+if (slintComponent.variants.length > 0) {
+    code += `    states [\n`;
     slintComponent.variants.forEach(variant => {
-        // TODO: Output each variant's complete component structure
-        // This would include its Rectangle/Text/etc components and their children
+        const conditions = Object.entries(variant.properties)
+            .map(([key, value]) => {
+                const enumName = `${slintComponent.componentName}_${toUpperCamelCase(key)}`;
+                return `${toLowerDashed(key)} == ${enumName}.${value}`;
+            })
+            .join(' && ');
+        
+        if (conditions) {
+            const stateName = sanitizeStateName(variant.name);
+            const variantId = toLowerDashed(variant.name);
+            code += `        ${stateName} when ${conditions}: {\n`;
+            code += `            ${variantId}.visible: true;\n`;
+            code += `        }\n`;
+        }
     });
-    
-    code += `    }\n`;
+    code += `    ]\n\n`;
+}
+
+// Generate a Rectangle instance for each variant
+slintComponent.variants.forEach((variant) => {
+    const variantId = toLowerDashed(variant.name);
+    code += `    ${variantId} := Rectangle {\n`;  // Use toLowerDashed for the ID
+    code += `        visible: false;  // Hidden by default\n`;
+    code += `        width: ${variant.style?.width || slintComponent.style.width}px;\n`;
+    code += `        height: ${variant.style?.height || slintComponent.style.height}px;\n`;
+    // code += `        background: ${variant.style?.background || slintComponent.style.background};\n`;
+    code += `        background: red;\n`;
+        
+        // Add layout if present
+        if (variant.style?.layout) {
+            const layoutType = variant.style.layout.direction === "HORIZONTAL" ? 
+                "HorizontalLayout" : "VerticalLayout";
+            code += `        ${layoutType} {\n`;
+            
+            // Add padding if present
+            if (variant.style.padding) {
+                const p = variant.style.padding;
+                if (p.top === p.right && p.top === p.bottom && p.top === p.left) {
+                    code += `            padding: ${p.top}px;\n`;
+                } else {
+                    if (p.top) code += `            padding-top: ${p.top}px;\n`;
+                    if (p.right) code += `            padding-right: ${p.right}px;\n`;
+                    if (p.bottom) code += `            padding-bottom: ${p.bottom}px;\n`;
+                    if (p.left) code += `            padding-left: ${p.left}px;\n`;
+                }
+            }
+
+            // Add spacing
+            if (variant.style.layout.spacing) {
+                code += `            spacing: ${variant.style.layout.spacing}px;\n`;
+            }
+
+            // Add child components
+            if (slintComponent.children?.length > 0) {
+                slintComponent.children.forEach(child => {
+                    const childCode = generateSlintCode(child)
+                        .split('\n')
+                        .map(line => `            ${line}`)
+                        .join('\n');
+                    code += childCode;
+                });
+            }
+
+            code += `        }\n`;
+        }
+
+        code += `    }\n`;
+    });
+
+    code += `}\n`;
     code += `}\n`;
     return code;
 }
