@@ -347,6 +347,22 @@ class SlintAutoLoader:
 
 
 loader = SlintAutoLoader()
+"""The `loader` object is a global object that can be used to load Slint files from the file system. It exposes two stages of attributes:
+1. Any lookup of an attribute in the loader will try to match a file in `sys.path` with the `.slint` extension. For example `loader.my_component` will look for a file `my_component.slint` in the directories in `sys.path`.
+2. Any lookup in the object returned by the first stage will try to match an exported component in the loaded file, or a struct or enum. For example `loader.my_component.MyComponent` will look for an *exported* component named `MyComponent` in the file `my_component.slint`.
+
+Note that the first entry in the module search path `sys.path` is the directory that contains the input script.
+
+Example:
+```python
+import slint
+# Look for a file `main.slint` in the current directory,
+# #load & compile it, and instantiate the exported `MainWindow` component
+main_window = slint.loader.main_window.MainWindow()
+main_window.show()
+...
+```
+"""
 
 
 def _callback_decorator(
