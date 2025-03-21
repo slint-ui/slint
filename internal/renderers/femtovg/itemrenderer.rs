@@ -1564,7 +1564,7 @@ impl<'a> GLItemRenderer<'a> {
                     path_width / 2.,
                     path_height / 2.,
                     0.,
-                    path_width.max(path_height) / 2.,
+                    0.5 * (path_width * path_width + path_height * path_height).sqrt(),
                     stops,
                 )
             }

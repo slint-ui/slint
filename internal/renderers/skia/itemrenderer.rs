@@ -121,7 +121,8 @@ impl<'a> SkiaItemRenderer<'a> {
             Brush::RadialGradient(g) => {
                 let (colors, pos): (Vec<_>, Vec<_>) =
                     g.stops().map(|s| (to_skia_color(&s.color), s.position)).unzip();
-                let circle_scale = width.max(height) / 2.;
+                let circle_scale =
+                    0.5 * (width.get() * width.get() + height.get() * height.get()).sqrt();
 
                 paint.set_dither(true);
 
@@ -132,7 +133,7 @@ impl<'a> SkiaItemRenderer<'a> {
                     Some(&*pos),
                     TileMode::Clamp,
                     skia_safe::gradient_shader::Flags::INTERPOLATE_COLORS_IN_PREMUL,
-                    skia_safe::Matrix::scale((circle_scale.get(), circle_scale.get()))
+                    skia_safe::Matrix::scale((circle_scale, circle_scale))
                         .post_translate((width.get() / 2., height.get() / 2.))
                         as &skia_safe::Matrix,
                 )
