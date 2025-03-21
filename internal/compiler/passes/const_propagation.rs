@@ -159,7 +159,7 @@ fn simplify_expression(expr: &mut Expression) -> bool {
             can_inline
         }
         Expression::MinMax { op, lhs, rhs, ty: _ } => {
-            let can_inline = simplify_expression(lhs) && simplify_expression(rhs);
+            let can_inline = simplify_expression(lhs) & simplify_expression(rhs);
             if let (Expression::NumberLiteral(lhs, u), Expression::NumberLiteral(rhs, _)) =
                 (&**lhs, &**rhs)
             {
@@ -182,7 +182,7 @@ fn simplify_expression(expr: &mut Expression) -> bool {
                     *expr = *false_expr.clone();
                     simplify_expression(expr)
                 }
-                _ => simplify_expression(true_expr) && simplify_expression(false_expr),
+                _ => simplify_expression(true_expr) & simplify_expression(false_expr),
             };
             can_inline
         }
@@ -291,6 +291,7 @@ fn test() {
         r#"
 /* ... */
 struct Hello { s: string, v: float }
+enum Enum { aa, bb, cc }
 global G {
     pure function complicated(a: float ) -> bool { if a > 5 { return true; }; if a < 1 { return true; }; uncomplicated() }
     pure function uncomplicated( ) -> bool { false }
@@ -298,10 +299,14 @@ global G {
     property <string> q: "foo " + 42;
     out property <float> w : -p / 2;
     out property <Hello> out: { s: q, v: complicated(w + 15) ? -123 : p };
+
+    in-out property <Enum> e: Enum.bb;
 }
 export component Foo {
+    in property <int> input;
     out property<float> out1: G.w;
     out property<float> out2: G.out.v;
+    out property<bool> out3: false ? input == 12 : input > 0 ? input == 11 : G.e == Enum.bb;
 }
 "#
         .into(),
@@ -325,4 +330,17 @@ export component Foo {
         Expression::NumberLiteral(n, _) => assert_eq!(*n, expected_p),
         _ => panic!("not number {out2_binding:?}"),
     }
+    let out3_binding = bindings.get("out3").unwrap().borrow().expression.clone();
+    match &out3_binding {
+        // We have a code block because the first entry stores the value of `intput` in a local variable
+        Expression::CodeBlock(stmts) => match &stmts[1] {
+            Expression::Condition { condition: _, true_expr: _, false_expr } => match &**false_expr
+            {
+                Expression::BoolLiteral(b) => assert_eq!(*b, true),
+                _ => panic!("false_expr not optimized in : {out3_binding:?}"),
+            },
+            _ => panic!("not condition:  {out3_binding:?}"),
+        },
+        _ => panic!("not code block: {out3_binding:?}"),
+    };
 }
