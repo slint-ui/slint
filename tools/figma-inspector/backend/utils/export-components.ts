@@ -10,7 +10,7 @@ interface VariantInfo {
     name: string;
     id: string;
     variantProperties: {
-        [key: string]: ComponentPropertyDefinitions;  // Now matches Figma's type
+        [key: string]: ComponentPropertyDefinitions;  
     };
     variants: Array<{
         name: string;
@@ -35,33 +35,28 @@ export function exportComponentSet(): string | null {
 
 
         function getComponentSetInfo(node: ComponentSetNode): VariantInfo {
-            console.log("Processing ComponentSet:", node.name);
-            console.log("Children count:", node.children.length);
-            
+            // Parse variants from component names like "Style=Normal, State=Enabled, Type=Regular"
+            const variants = node.children.map(variant => {
+                const variantProps = variant.name.split(", ").reduce((acc, part) => {
+                    const [key, value] = part.split("=");
+                    acc[key] = value;
+                    return acc;
+                }, {} as { [key: string]: string });
+        
+                console.log("Parsed variant:", variant.name, "->", variantProps);
+                
+                return {
+                    name: variant.name,
+                    id: variant.id,
+                    propertyValues: variantProps
+                };
+            });
+        
             const variantInfo: VariantInfo = {
                 name: node.name,
                 id: node.id,
                 variantProperties: node.componentPropertyDefinitions || {},
-                variants: node.children.map(variant => {
-                    console.log("Processing variant:", variant.name);
-                    console.log("Variant type:", variant.type);
-                    
-                    if (variant.type === "COMPONENT") {
-                        const componentVariant = variant as ComponentNode;
-                        return {
-                            name: componentVariant.name,
-                            id: componentVariant.id,
-                            propertyValues: componentVariant.variantProperties || {}
-                        };
-                    }
-                    
-                    console.log("Warning: Non-component variant:", variant.name);
-                    return {
-                        name: variant.name,
-                        id: variant.id,
-                        propertyValues: {}
-                    };
-                })
+                variants: variants
             };
             
             console.log("Final VariantInfo:", JSON.stringify(variantInfo, null, 2));
@@ -149,16 +144,16 @@ function isValidId(id: string, properties: Set<string>): boolean {
 }
 
 function convertToSlintFormat(componentSet: VariantInfo): SlintComponent {
-    // Sanitize the component name with component style
+    // Sanitize the component name
     const componentName = sanitizeIdentifier(componentSet.name, 'component');
     
-    // Extract enums from variantProperties, only sanitize the enum names
+    // Extract enums from variantProperties with namespaced names
     const enums: { [key: string]: string[] } = {};
     for (const [key, value] of Object.entries(componentSet.variantProperties)) {
         if (value.type === "VARIANT" && value.variantOptions) {
-            const sanitizedKey = sanitizeIdentifier(key, 'component');
-            // Keep original values without sanitization
-            enums[sanitizedKey] = value.variantOptions;
+            // Create namespaced enum name: ComponentName_VariantName
+            const enumName = `${componentName}_${toUpperCamelCase(key)}`;
+            enums[enumName] = value.variantOptions;
         }
     }
 
@@ -166,10 +161,10 @@ function convertToSlintFormat(componentSet: VariantInfo): SlintComponent {
         componentName,
         enums,
         variants: componentSet.variants.map(v => ({
-            name: sanitizeIdentifier(v.name, 'component'),
+            name: v.name,
             properties: Object.fromEntries(
                 Object.entries(v.propertyValues).map(([key, value]) => [
-                    sanitizeIdentifier(key, 'property'),
+                    toLowerDashed(key),
                     String(value)
                 ])
             )
@@ -180,21 +175,21 @@ function convertToSlintFormat(componentSet: VariantInfo): SlintComponent {
 function generateSlintCode(slintComponent: SlintComponent): string {
     let code = '';
     
-    // Generate enums (already in UPPER_CAMEL_CASE)
+    // Generate enums before component
     for (const [enumName, values] of Object.entries(slintComponent.enums)) {
         code += `export enum ${enumName} {\n`;
         values.forEach(value => {
             code += `    ${value},\n`;
         });
-        code += '}\n\n';
+        code += `}\n\n`;
     }
-
+    
     // Generate component
     code += `export component ${slintComponent.componentName} {\n`;
     
-    // Add properties for each enum (using original enum names but lowercase properties)
+    // Add properties for each enum using the namespaced enum type
     Object.keys(slintComponent.enums).forEach(enumName => {
-        const propertyName = toLowerDashed(enumName);
+        const propertyName = toLowerDashed(enumName.split('_')[1]); // Get the property name part
         code += `    in property <${enumName}> ${propertyName};\n`;
     });
 
