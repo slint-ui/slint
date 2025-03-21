@@ -10,7 +10,7 @@ This function returns a monotonically increasing time, which can be used for ani
 Calling this function from a binding will constantly re-evaluate the binding.
 It can be used like so: `x: 1000px + sin(animation-tick() / 1s * 360deg) * 100px;` or `y: 20px * mod(animation-tick(), 2s) / 2s `
 
-```slint
+```slint playground
 export component Example inherits Window {
     preferred-width: 100px;
     preferred-height: 100px;
