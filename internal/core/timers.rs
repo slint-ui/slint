@@ -44,7 +44,7 @@ pub enum TimerMode {
 /// The timer will automatically stop when dropped. You must keep the Timer object
 /// around for as long as you want the timer to keep firing.
 ///
-/// Timers can only be used in the thread that runs the Slint event loop.TThey don't
+/// Timers can only be used in the thread that runs the Slint event loop. They don't
 /// fire if used in another thread.
 ///
 /// ## Example
