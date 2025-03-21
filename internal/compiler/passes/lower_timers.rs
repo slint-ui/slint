@@ -52,14 +52,20 @@ fn lower_timer(
     }
 
     // Remove the timer_element from its parent
-    let old_size = parent_element.borrow().children.len();
-    parent_element.borrow_mut().children.retain(|child| !Rc::ptr_eq(child, timer_element));
-    debug_assert_eq!(
-        parent_element.borrow().children.len() + 1,
-        old_size,
-        "Exactly one child must be removed (the timer itself)"
-    );
-    parent_component.optimized_elements.borrow_mut().push(timer_element.clone());
+    let mut parent_element_borrowed = parent_element.borrow_mut();
+    let index = parent_element_borrowed
+        .children
+        .iter()
+        .position(|child| Rc::ptr_eq(child, timer_element))
+        .expect("Timer must be a child of its parent");
+    let removed = parent_element_borrowed.children.remove(index);
+    parent_component.optimized_elements.borrow_mut().push(removed);
+    drop(parent_element_borrowed);
+    if let Some((p, idx, _)) = &mut *parent_component.child_insertion_point.borrow_mut() {
+        if Rc::ptr_eq(p, parent_element) && *idx > index {
+            *idx -= 1;
+        }
+    }
 
     parent_component.timers.borrow_mut().push(Timer {
         interval: NamedReference::new(timer_element, SmolStr::new_static("interval")),
