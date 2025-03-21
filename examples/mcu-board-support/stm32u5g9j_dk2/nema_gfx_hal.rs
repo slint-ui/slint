@@ -1,3 +1,6 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
 use embassy_stm32::bind_interrupts;
 
 struct GPU2DIrqHandler {}

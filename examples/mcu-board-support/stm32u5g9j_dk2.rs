@@ -21,7 +21,7 @@ use embassy_stm32::{
 use embassy_stm32::{rcc, Config};
 
 mod hspi;
-mod nema_gfx;
+mod nema_gfx_hal;
 
 #[cfg(feature = "panic-probe")]
 use panic_probe as _;
