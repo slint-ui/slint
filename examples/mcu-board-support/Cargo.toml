@@ -76,7 +76,7 @@ gt911 = { version = "0.3.0", optional = true }
 
 rand_core = { version = "0.6.3", optional = true }
 
-nema-gfx-rs = { path = "/Users/simon/src/nema-gfx-rs", optional = true }
+nema-gfx-rs = { git = "https://github.com/slint-ui/nema-gfx-rs", optional = true }
 
 [build-dependencies]
 cfg-if = "1.0.0"
