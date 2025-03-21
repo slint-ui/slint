@@ -241,6 +241,9 @@ export function generateSlintSnippet(sceneNode: SceneNode): string | null {
         case "TEXT": {
             return generateTextSnippet(sceneNode);
         }
+        case "COMPONENT_SET": {
+            return generateComponentSetSnippet(sceneNode);
+        }
         default: {
             return generateUnsupportedNodeSnippet(sceneNode);
         }
@@ -369,6 +372,11 @@ export function generateRectangleSnippet(sceneNode: SceneNode): string {
 
     return `Rectangle {\n${properties.join("\n")}\n}`;
 }
+export function generateComponentSetSnippet(sceneNode: SceneNode): string {
+    const properties: string[] = [];
+    return "big complicated thing goes here";
+}
+    
 
 export function generateTextSnippet(sceneNode: SceneNode): string {
     const properties: string[] = [];
