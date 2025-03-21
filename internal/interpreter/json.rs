@@ -101,7 +101,7 @@ pub fn value_from_json(t: &langtype::Type, v: &serde_json::Value) -> Result<Valu
                                     if let Some(percent_value) = sub_parts[1].strip_suffix("%") {
                                         percent_value.parse::<f32>().map_err(|_| format!("Could not parse position '{}' as number", sub_parts[1]))
                                     } else {
-                                        Err(format!("The position '{}' doea not end in '%'", sub_parts[1]))
+                                        Err(format!("The position '{}' does not end in '%'", sub_parts[1]))
                                     }
                                 };
 
