@@ -90,14 +90,20 @@ fn lower_popup_window(
     }
 
     // Remove the popup_window_element from its parent
-    let old_size = parent_element.borrow().children.len();
-    parent_element.borrow_mut().children.retain(|child| !Rc::ptr_eq(child, popup_window_element));
-    debug_assert_eq!(
-        parent_element.borrow().children.len() + 1,
-        old_size,
-        "Exactly one child must be removed (the popup itself)"
-    );
-    parent_element.borrow_mut().has_popup_child = true;
+    let mut parent_element_borrowed = parent_element.borrow_mut();
+    let index = parent_element_borrowed
+        .children
+        .iter()
+        .position(|child| Rc::ptr_eq(child, popup_window_element))
+        .expect("PopupWindow must be a child of its parent");
+    parent_element_borrowed.children.remove(index);
+    parent_element_borrowed.has_popup_child = true;
+    drop(parent_element_borrowed);
+    if let Some((p, idx, _)) = &mut *parent_component.child_insertion_point.borrow_mut() {
+        if Rc::ptr_eq(p, parent_element) && *idx > index {
+            *idx -= 1;
+        }
+    }
 
     if matches!(popup_window_element.borrow().base_type, ElementType::Builtin(_)) {
         popup_window_element.borrow_mut().base_type = window_type.clone();
