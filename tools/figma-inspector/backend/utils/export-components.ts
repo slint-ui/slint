@@ -141,119 +141,66 @@ function getComponentSetInfo(node: ComponentSetNode): VariantInfo {
             });
         }
 
-        // Base style info (keep existing code)
-        const style: ComponentStyle = {
-            width: variant.width,
-            height: variant.height,
-            background: (variant as any).background
-        };
+        // Get variant's style and structure
+        const snippet = generateSlintSnippet(variant);
+        const style = parseSnippetToStyle(snippet || '');
 
-        // Layout info
-        if ('layoutMode' in variant) {
-            style.layout = {
-                direction: variant.layoutMode as "HORIZONTAL" | "VERTICAL" | "NONE",
-                spacing: variant.itemSpacing,
-                alignment: variant.primaryAxisAlignItems,
-                crossAxisAlignment: variant.counterAxisAlignItems
-            };
-
-            // Add padding if present
-            if ('paddingLeft' in variant) {
-                style.padding = {
-                    top: variant.paddingTop,
-                    right: variant.paddingRight,
-                    bottom: variant.paddingBottom,
-                    left: variant.paddingLeft
-                };
-            }
-        }
-
-        // Process all children recursively
+        // Process children recursively
         const children = ('children' in variant) ? 
             variant.children
                 .filter(child => 'type' in child)
-                .map(child => {
-                    const snippet = generateSlintSnippet(child);
-                    if (!snippet) return null;
-
-                    // We need to parse the snippet properly to preserve the child structure
-                    const childProperties = parseSnippetToStyle(snippet);
-                    
-                    return {
+                .map(child => ({
+                    name: child.name,
+                    id: child.id,
+                    variantProperties: {},
+                    variants: [{
                         name: child.name,
                         id: child.id,
-                        type: child.type,
-                        variantProperties: {},
-                        variants: [{
-                            name: child.name,
-                            id: child.id,
-                            propertyValues: {},
-                            style: childProperties,
-                            // Recursively process grandchildren
-                            children: 'children' in child ? 
-                                child.children?.map(grandchild => {
-                                    const grandchildSnippet = generateSlintSnippet(grandchild);
-                                    return {
-                                        name: grandchild.name,
-                                        id: grandchild.id,
-                                        type: grandchild.type,
-                                        variantProperties: {},
-                                        variants: [{
-                                            name: grandchild.name,
-                                            id: grandchild.id,
-                                            propertyValues: {},
-                                            style: parseSnippetToStyle(grandchildSnippet || '')
-                                        }]
-                                    };
-                                }) : []
-                        }]
-                    };
-                })
-                .filter(Boolean) as VariantInfo[]
-            : [];
+                        propertyValues: {},
+                        style: parseSnippetToStyle(generateSlintSnippet(child) || '')
+                    }],
+                    style: parseSnippetToStyle(generateSlintSnippet(child) || '')
+                })) : [];
 
-        return {
-            name: variant.name,
-            id: variant.id,
-            propertyValues,
-            style,
-            children
-        };
+        return { name: variant.name, id: variant.id, propertyValues, style, children };
     });
+    // Get common style
+    const baseStyle = parseSnippetToStyle(generateSlintSnippet(node) || '');
+
+    // Find common children (same structure across all variants)
+    const commonChildren = variants[0]?.children?.filter(child => 
+        variants.every(v => v.children?.some(c => c.name === child.name))
+    ) || [];
 
     return {
         name: node.name,
         id: node.id,
         variantProperties,
         variants,
-        style: variants[0]?.style,
-        children: variants[0]?.children || [] // Pass through the children
+        style: baseStyle,
+        children: commonChildren
     };
 }
 
 function parseSnippetToStyle(snippet: string): ComponentStyle {
     const style: ComponentStyle = {};
     const lines = snippet.split('\n');
-    
-    // Length properties that should have 'px' removed and be converted to numbers
-    const lengthProperties = new Set([
-        'width', 'height', 'x', 'y', 
-        'border-width', 'border-radius',
-        'padding', 'padding-top', 'padding-right', 'padding-bottom', 'padding-left',
-        'spacing'
-    ]);
+    let currentObject: any = style;
     
     lines.forEach(line => {
         const match = line.match(/^\s*([a-z-]+):\s*(.+);$/);
         if (match) {
             const [, key, value] = match;
             
-            if (lengthProperties.has(key) && value.endsWith('px')) {
-                // Convert length values to numbers
-                style[key] = Number(value.replace('px', ''));
+            // Handle specific properties
+            if (key === 'text') {
+                currentObject[key] = value.replace(/"/g, '');
+            } else if (key === 'color' || key === 'background') {
+                currentObject[key] = value;
+            } else if (value.endsWith('px')) {
+                currentObject[key] = Number(value.replace('px', ''));
             } else {
-                // Keep other values as is
-                style[key] = value;
+                currentObject[key] = value;
             }
         }
     });
@@ -396,49 +343,35 @@ function generateSlintCode(slintComponent: SlintComponent): string {
     code += `        width: ${slintComponent.style.width}px;\n`;
     code += `        height: ${slintComponent.style.height}px;\n`;
 
-    // Get common children first
+    // Get common children (those that appear in all variants with same properties)
     const commonChildren = slintComponent.variants[0]?.children?.filter(child => {
-        // Check if this child exists in all variants
-        return slintComponent.variants.every(variant => 
-            variant.children?.some(c => c.componentName === child.componentName)
-        );
+        return slintComponent.variants.every(variant => {
+            const matchingChild = variant.children?.find(c => c.componentName === child.componentName);
+            if (!matchingChild) return false;
+            
+            // Compare properties to ensure they're truly common
+            return JSON.stringify(matchingChild.style) === JSON.stringify(child.style);
+        });
     }) || [];
 
-    // Add common children with their states
+    // Add common children
     commonChildren.forEach(child => {
         code += `        ${toLowerDashed(child.componentName)} := ${child.type || 'Rectangle'} {\n`;
-        // Add base properties
         if (child.style) {
             Object.entries(child.style).forEach(([key, value]) => {
-                if (value !== undefined) {
+                // Handle length properties
+                if (typeof value === 'number' && ['width', 'height', 'x', 'y'].includes(key)) {
+                    code += `            ${toLowerDashed(key)}: ${value}px;\n`;
+                } else {
                     code += `            ${toLowerDashed(key)}: ${value};\n`;
                 }
             });
         }
-        // Add states for property changes
-        code += `            states [\n`;
-        slintComponent.variants.forEach(variant => {
-            const variantChild = variant.children?.find(c => c.componentName === child.componentName);
-            if (variantChild && variantChild.style) {
-                const conditions = Object.entries(variant.properties)
-                    .map(([key, value]) => {
-                        const enumName = `${slintComponent.componentName}_${toUpperCamelCase(key)}`;
-                        return `${toLowerDashed(key)} == ${enumName}.${value}`;
-                    })
-                    .join(' && ');
-                
-                code += `                ${sanitizeStateName(variant.name)} when ${conditions}: {\n`;
-                Object.entries(variantChild.style).forEach(([key, value]) => {
-                    if (value !== undefined) {
-                        code += `                    ${toLowerDashed(key)}: ${value};\n`;
-                    }
-                });
-                code += `                }\n`;
-            }
-        });
-        code += `            ]\n`;
         code += `        }\n`;
     });
+
+    code += `    }\n\n`;
+
 
     code += `    }\n\n`;
 

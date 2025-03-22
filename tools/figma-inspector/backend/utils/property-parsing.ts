@@ -240,6 +240,15 @@ function generateChildrenSnippets(sceneNode: SceneNode): string[] {
             case "COMPONENT":
             case "INSTANCE":
                 return generateRectangleSnippet(child);
+            case "BOOLEAN_OPERATION":
+                // Handle boolean operations as rectangles for now
+                return generateRectangleSnippet(child);
+            case "FRAME":
+                // Check if it's a layout frame
+                if ('layoutMode' in child && child.layoutMode !== "NONE") {
+                    return generateLayoutSnippet(child) || generateRectangleSnippet(child);
+                }
+                return generateRectangleSnippet(child);
             default:
                 return generateUnsupportedNodeSnippet(child);
         }
@@ -364,7 +373,7 @@ export function generateUnsupportedNodeSnippet(sceneNode: SceneNode): string {
         }
     });
 
-    return `//Unsupported type: ${nodeType}\nRectangle {\n${properties.join("\n")}\n}`;
+    return `//Unsupported: ${nodeType}\nRectangle {\n${properties.join("\n")}\n}`;
 }
 
 export function generateRectangleSnippet(sceneNode: SceneNode): string {
