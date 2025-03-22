@@ -1,0 +1,444 @@
+[
+  {
+    "id": "1:5",
+    "name": "t1",
+    "type": "COMPONENT_SET",
+    "width": 387,
+    "height": 412,
+    "x": -218,
+    "y": 180,
+    "styles": {
+      "fill": null,
+      "stroke": {
+        "r": 0.5921568870544434,
+        "g": 0.27843138575553894,
+        "b": 1
+      },
+      "fontSize": null,
+      "fontFamily": null
+    },
+    "autoLayout": {
+      "direction": "NONE",
+      "spacing": null,
+      "padding": {
+        "top": 0,
+        "right": 0,
+        "bottom": 0,
+        "left": 0
+      },
+      "alignment": "MIN",
+      "crossAxisAlignment": "MIN"
+    },
+    "children": [
+      {
+        "id": "1:4",
+        "name": "bg=grey, round=on",
+        "type": "COMPONENT",
+        "width": 158,
+        "height": 173,
+        "x": 20,
+        "y": 20,
+        "styles": {
+          "fill": {
+            "r": 1,
+            "g": 1,
+            "b": 1
+          },
+          "stroke": null,
+          "fontSize": null,
+          "fontFamily": null
+        },
+        "autoLayout": {
+          "direction": "NONE",
+          "spacing": null,
+          "padding": {
+            "top": 0,
+            "right": 0,
+            "bottom": 0,
+            "left": 0
+          },
+          "alignment": "MIN",
+          "crossAxisAlignment": "MIN"
+        },
+        "children": [
+          {
+            "id": "6:23",
+            "name": "Union",
+            "type": "BOOLEAN_OPERATION",
+            "width": 133,
+            "height": 79,
+            "x": 12,
+            "y": 44,
+            "styles": {
+              "fill": {
+                "r": 0.8509804010391235,
+                "g": 0.8509804010391235,
+                "b": 0.8509804010391235
+              },
+              "stroke": null,
+              "fontSize": null,
+              "fontFamily": null
+            },
+            "autoLayout": null,
+            "children": [
+              {
+                "id": "1:3",
+                "name": "Rectangle 1",
+                "type": "RECTANGLE",
+                "width": 133,
+                "height": 79,
+                "x": 12,
+                "y": 44,
+                "styles": {
+                  "fill": {
+                    "r": 0.8509804010391235,
+                    "g": 0.8509804010391235,
+                    "b": 0.8509804010391235
+                  },
+                  "stroke": null,
+                  "fontSize": null,
+                  "fontFamily": null
+                },
+                "autoLayout": null,
+                "children": []
+              }
+            ]
+          },
+          {
+            "id": "6:18",
+            "name": "Label",
+            "type": "TEXT",
+            "width": 132,
+            "height": 24,
+            "x": 12,
+            "y": 75,
+            "styles": {
+              "fill": {
+                "r": 0,
+                "g": 0,
+                "b": 0
+              },
+              "stroke": null,
+              "fontSize": 12,
+              "fontFamily": "Inter"
+            },
+            "autoLayout": null,
+            "children": []
+          }
+        ]
+      },
+      {
+        "id": "1:15",
+        "name": "bg=grey, round=off",
+        "type": "COMPONENT",
+        "width": 158,
+        "height": 173,
+        "x": 20,
+        "y": 215,
+        "styles": {
+          "fill": {
+            "r": 1,
+            "g": 1,
+            "b": 1
+          },
+          "stroke": null,
+          "fontSize": null,
+          "fontFamily": null
+        },
+        "autoLayout": {
+          "direction": "NONE",
+          "spacing": null,
+          "padding": {
+            "top": 0,
+            "right": 0,
+            "bottom": 0,
+            "left": 0
+          },
+          "alignment": "MIN",
+          "crossAxisAlignment": "MIN"
+        },
+        "children": [
+          {
+            "id": "6:24",
+            "name": "Union",
+            "type": "BOOLEAN_OPERATION",
+            "width": 133,
+            "height": 79,
+            "x": 12,
+            "y": 44,
+            "styles": {
+              "fill": {
+                "r": 0.8509804010391235,
+                "g": 0.8509804010391235,
+                "b": 0.8509804010391235
+              },
+              "stroke": null,
+              "fontSize": null,
+              "fontFamily": null
+            },
+            "autoLayout": null,
+            "children": [
+              {
+                "id": "1:16",
+                "name": "Rectangle 1",
+                "type": "RECTANGLE",
+                "width": 133,
+                "height": 79,
+                "x": 12,
+                "y": 44,
+                "styles": {
+                  "fill": {
+                    "r": 0.8509804010391235,
+                    "g": 0.8509804010391235,
+                    "b": 0.8509804010391235
+                  },
+                  "stroke": null,
+                  "fontSize": null,
+                  "fontFamily": null
+                },
+                "autoLayout": null,
+                "children": []
+              }
+            ]
+          },
+          {
+            "id": "6:31",
+            "name": "Label",
+            "type": "TEXT",
+            "width": 132,
+            "height": 24,
+            "x": 12,
+            "y": 75,
+            "styles": {
+              "fill": {
+                "r": 0,
+                "g": 0,
+                "b": 0
+              },
+              "stroke": null,
+              "fontSize": 12,
+              "fontFamily": "Inter"
+            },
+            "autoLayout": null,
+            "children": []
+          }
+        ]
+      },
+      {
+        "id": "1:13",
+        "name": "bg=red, round=on",
+        "type": "COMPONENT",
+        "width": 158,
+        "height": 173,
+        "x": 209,
+        "y": 20,
+        "styles": {
+          "fill": {
+            "r": 1,
+            "g": 1,
+            "b": 1
+          },
+          "stroke": null,
+          "fontSize": null,
+          "fontFamily": null
+        },
+        "autoLayout": {
+          "direction": "NONE",
+          "spacing": null,
+          "padding": {
+            "top": 0,
+            "right": 0,
+            "bottom": 0,
+            "left": 0
+          },
+          "alignment": "MIN",
+          "crossAxisAlignment": "MIN"
+        },
+        "children": [
+          {
+            "id": "6:22",
+            "name": "Union",
+            "type": "BOOLEAN_OPERATION",
+            "width": 133,
+            "height": 79,
+            "x": 12,
+            "y": 44,
+            "styles": {
+              "fill": {
+                "r": 1,
+                "g": 0,
+                "b": 0
+              },
+              "stroke": null,
+              "fontSize": null,
+              "fontFamily": null
+            },
+            "autoLayout": null,
+            "children": [
+              {
+                "id": "1:14",
+                "name": "Rectangle 1",
+                "type": "RECTANGLE",
+                "width": 133,
+                "height": 79,
+                "x": 12,
+                "y": 44,
+                "styles": {
+                  "fill": {
+                    "r": 1,
+                    "g": 0,
+                    "b": 0
+                  },
+                  "stroke": null,
+                  "fontSize": null,
+                  "fontFamily": null
+                },
+                "autoLayout": null,
+                "children": []
+              }
+            ]
+          },
+          {
+            "id": "6:29",
+            "name": "Label",
+            "type": "TEXT",
+            "width": 132,
+            "height": 24,
+            "x": 12,
+            "y": 75,
+            "styles": {
+              "fill": {
+                "r": 1,
+                "g": 1,
+                "b": 1
+              },
+              "stroke": null,
+              "fontSize": 12,
+              "fontFamily": "Inter"
+            },
+            "autoLayout": null,
+            "children": []
+          }
+        ]
+      },
+      {
+        "id": "1:17",
+        "name": "bg=red, round=off",
+        "type": "COMPONENT",
+        "width": 158,
+        "height": 173,
+        "x": 209,
+        "y": 219,
+        "styles": {
+          "fill": {
+            "r": 1,
+            "g": 1,
+            "b": 0.8745098114013672
+          },
+          "stroke": null,
+          "fontSize": null,
+          "fontFamily": null
+        },
+        "autoLayout": {
+          "direction": "NONE",
+          "spacing": null,
+          "padding": {
+            "top": 0,
+            "right": 0,
+            "bottom": 0,
+            "left": 0
+          },
+          "alignment": "MIN",
+          "crossAxisAlignment": "MIN"
+        },
+        "children": [
+          {
+            "id": "6:25",
+            "name": "Union",
+            "type": "BOOLEAN_OPERATION",
+            "width": 133,
+            "height": 79,
+            "x": 12,
+            "y": 44,
+            "styles": {
+              "fill": {
+                "r": 1,
+                "g": 0,
+                "b": 0
+              },
+              "stroke": null,
+              "fontSize": null,
+              "fontFamily": null
+            },
+            "autoLayout": null,
+            "children": [
+              {
+                "id": "1:18",
+                "name": "Rectangle 1",
+                "type": "RECTANGLE",
+                "width": 133,
+                "height": 79,
+                "x": 12,
+                "y": 44,
+                "styles": {
+                  "fill": {
+                    "r": 1,
+                    "g": 0,
+                    "b": 0
+                  },
+                  "stroke": null,
+                  "fontSize": null,
+                  "fontFamily": null
+                },
+                "autoLayout": null,
+                "children": []
+              }
+            ]
+          },
+          {
+            "id": "6:33",
+            "name": "Label",
+            "type": "TEXT",
+            "width": 132,
+            "height": 24,
+            "x": 12,
+            "y": 75,
+            "styles": {
+              "fill": {
+                "r": 1,
+                "g": 1,
+                "b": 0.8745098114013672
+              },
+              "stroke": null,
+              "fontSize": 12,
+              "fontFamily": "Inter"
+            },
+            "autoLayout": null,
+            "children": []
+          },
+          {
+            "id": "8:35",
+            "name": "extra",
+            "type": "RECTANGLE",
+            "width": 17,
+            "height": 17,
+            "x": 68,
+            "y": 54,
+            "styles": {
+              "fill": {
+                "r": 0.8509804010391235,
+                "g": 0.8509804010391235,
+                "b": 0.8509804010391235
+              },
+              "stroke": null,
+              "fontSize": null,
+              "fontFamily": null
+            },
+            "autoLayout": null,
+            "children": []
+          }
+        ]
+      }
+    ]
+  }
+]

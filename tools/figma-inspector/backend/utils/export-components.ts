@@ -1,3 +1,5 @@
+import { generateRectangleSnippet, generateTextSnippet, generateSlintSnippet } from './property-parsing';
+
 interface VariantInfo {
     name: string;
     id: string;
@@ -15,6 +17,7 @@ interface VariantInfo {
         id: string;
         propertyValues: { [key: string]: string | boolean | number };
         style?: ComponentStyle;  // Add this
+        children?: VariantInfo[];
     }>;
     style?: ComponentStyle;
     children?: VariantInfo[];
@@ -50,13 +53,16 @@ interface ComponentStyle {
 
 interface SlintComponent {
     componentName: string;
+    type?: string;  // Add type
     enums: { [key: string]: string[] };
     variants: Array<{
         name: string;
         properties: { [key: string]: string };
-        style?: ComponentStyle;  // Add this
+        style?: ComponentStyle;
+        children: SlintComponent[];
     }>;
     style: ComponentStyle;
+    properties?: { [key: string]: any };  // Add properties
     children: SlintComponent[];
 }
 
@@ -89,6 +95,7 @@ export function exportComponentSet(): void {
 
     // console.log("Generated components:", slintComponents);  // Add this
     const slintCode = slintComponents.map(generateSlintCode).join("\n\n");
+    console.clear();
     console.log(slintCode);  
     figma.ui.postMessage({ type: "exportComplete", code: slintCode });
 }
@@ -96,7 +103,6 @@ export function exportComponentSet(): void {
 const usedNames = new Map<string, number>();  
 
 function getComponentSetInfo(node: ComponentSetNode): VariantInfo {
-    // console.log("Processing component set:", node);
     
     // Get variant property definitions first
     const variantProperties: VariantInfo['variantProperties'] = {};
@@ -123,7 +129,6 @@ function getComponentSetInfo(node: ComponentSetNode): VariantInfo {
                 propertyValues[sanitizedKey] = value.trim();
             }
         });
-        // console.log("Processing variant:", variant);  // Debug log
         
         // Extract variant properties
         if ('componentProperties' in variant) {
@@ -166,52 +171,55 @@ function getComponentSetInfo(node: ComponentSetNode): VariantInfo {
         // Process all children recursively
         const children = ('children' in variant) ? 
             variant.children
-                .filter(child => 'type' in child) // Only process valid nodes
+                .filter(child => 'type' in child)
                 .map(child => {
-                    if (child.type === "COMPONENT_SET") {
-                        return getComponentSetInfo(child);
-                    } else if (child.type === "COMPONENT" || child.type === "INSTANCE") {
-                        // Process any nested component
-                        return {
+                    const snippet = generateSlintSnippet(child);
+                    if (!snippet) return null;
+
+                    // We need to parse the snippet properly to preserve the child structure
+                    const childProperties = parseSnippetToStyle(snippet);
+                    
+                    return {
+                        name: child.name,
+                        id: child.id,
+                        type: child.type,
+                        variantProperties: {},
+                        variants: [{
                             name: child.name,
                             id: child.id,
-                            variantProperties: {},
-                            variants: [{
-                                name: child.name,
-                                id: child.id,
-                                propertyValues: {}
-                            }],
-                            style: {
-                                width: child.width,
-                                height: child.height,
-                                background: child.backgrounds[0],
-                                // Add layout info for child if present
-                                layout: child.layoutMode ? {
-                                    direction: child.layoutMode as "HORIZONTAL" | "VERTICAL" | "NONE",
-                                    spacing: child.itemSpacing
-                                } : undefined
-                            }
-                        };
-                    }
-                    return null;
+                            propertyValues: {},
+                            style: childProperties,
+                            // Recursively process grandchildren
+                            children: 'children' in child ? 
+                                child.children?.map(grandchild => {
+                                    const grandchildSnippet = generateSlintSnippet(grandchild);
+                                    return {
+                                        name: grandchild.name,
+                                        id: grandchild.id,
+                                        type: grandchild.type,
+                                        variantProperties: {},
+                                        variants: [{
+                                            name: grandchild.name,
+                                            id: grandchild.id,
+                                            propertyValues: {},
+                                            style: parseSnippetToStyle(grandchildSnippet || '')
+                                        }]
+                                    };
+                                }) : []
+                        }]
+                    };
                 })
-                .filter(Boolean) as VariantInfo[] 
+                .filter(Boolean) as VariantInfo[]
             : [];
 
-            return {
-                name: variant.name,
-                id: variant.id,
-                propertyValues,
-                style: {
-                    width: variant.width,
-                    height: variant.height,
-                    // ...rest of style
-                },
-                children: []
-            };
-        });
-    
-
+        return {
+            name: variant.name,
+            id: variant.id,
+            propertyValues,
+            style,
+            children
+        };
+    });
 
     return {
         name: node.name,
@@ -219,9 +227,40 @@ function getComponentSetInfo(node: ComponentSetNode): VariantInfo {
         variantProperties,
         variants,
         style: variants[0]?.style,
-        children: []
+        children: variants[0]?.children || [] // Pass through the children
     };
 }
+
+function parseSnippetToStyle(snippet: string): ComponentStyle {
+    const style: ComponentStyle = {};
+    const lines = snippet.split('\n');
+    
+    // Length properties that should have 'px' removed and be converted to numbers
+    const lengthProperties = new Set([
+        'width', 'height', 'x', 'y', 
+        'border-width', 'border-radius',
+        'padding', 'padding-top', 'padding-right', 'padding-bottom', 'padding-left',
+        'spacing'
+    ]);
+    
+    lines.forEach(line => {
+        const match = line.match(/^\s*([a-z-]+):\s*(.+);$/);
+        if (match) {
+            const [, key, value] = match;
+            
+            if (lengthProperties.has(key) && value.endsWith('px')) {
+                // Convert length values to numbers
+                style[key] = Number(value.replace('px', ''));
+            } else {
+                // Keep other values as is
+                style[key] = value;
+            }
+        }
+    });
+
+    return style;
+}
+
 // Add this new function for string sanitization
 function toUpperCamelCase(str: string): string {
     return str
@@ -288,9 +327,8 @@ function convertToSlintFormat(componentSet: VariantInfo): SlintComponent {
         }
     }
 
-    // Map variants with their properties
+    // Map variants with their properties and children
     const variants = componentSet.variants.map(v => {
-        // console.log("Processing variant properties:", v.propertyValues);
         return {
             name: v.name,
             properties: Object.fromEntries(
@@ -299,11 +337,12 @@ function convertToSlintFormat(componentSet: VariantInfo): SlintComponent {
                     String(value)
                 ])
             ),
-            style: v.style
+            style: v.style,
+            children: v.children?.map(child => convertToSlintFormat(child)) || []  // Convert children
         };
     });
 
-    // console.log("Generated variants:", variants);
+    console.log("Converted variants with children:", variants);  // Debug log
 
     return {
         componentName,
@@ -352,52 +391,99 @@ function generateSlintCode(slintComponent: SlintComponent): string {
             .toLowerCase();
     }
 
-    // Main Rectangle with base styling
-    code += `    Rectangle {\n`;
+    // Base component with common elements
+    code += `    base-rect := Rectangle {\n`;
     code += `        width: ${slintComponent.style.width}px;\n`;
     code += `        height: ${slintComponent.style.height}px;\n`;
 
-    // Add layout if present
-    if (slintComponent.style?.layout) {
-        const layoutType = slintComponent.style.layout.direction === "HORIZONTAL" ? 
-            "HorizontalLayout" : "VerticalLayout";
-        code += `        ${layoutType} {\n`;
-        
-        // Add padding if present
-        if (slintComponent.style.padding) {
-            const p = slintComponent.style.padding;
-            if (p.top === p.right && p.top === p.bottom && p.top === p.left) {
-                code += `            padding: ${p.top}px;\n`;
-            } else {
-                if (p.top) code += `            padding-top: ${p.top}px;\n`;
-                if (p.right) code += `            padding-right: ${p.right}px;\n`;
-                if (p.bottom) code += `            padding-bottom: ${p.bottom}px;\n`;
-                if (p.left) code += `            padding-left: ${p.left}px;\n`;
-            }
-        }
+    // Get common children first
+    const commonChildren = slintComponent.variants[0]?.children?.filter(child => {
+        // Check if this child exists in all variants
+        return slintComponent.variants.every(variant => 
+            variant.children?.some(c => c.componentName === child.componentName)
+        );
+    }) || [];
 
-        // Add spacing
-        if (slintComponent.style.layout.spacing) {
-            code += `            spacing: ${slintComponent.style.layout.spacing}px;\n`;
-        }
-
-        // Add child components
-        if (slintComponent.children?.length > 0) {
-            slintComponent.children.forEach(child => {
-                const childCode = generateSlintCode(child)
-                    .split('\n')
-                    .map(line => `            ${line}`)
-                    .join('\n');
-                code += childCode;
+    // Add common children with their states
+    commonChildren.forEach(child => {
+        code += `        ${toLowerDashed(child.componentName)} := ${child.type || 'Rectangle'} {\n`;
+        // Add base properties
+        if (child.style) {
+            Object.entries(child.style).forEach(([key, value]) => {
+                if (value !== undefined) {
+                    code += `            ${toLowerDashed(key)}: ${value};\n`;
+                }
             });
         }
-
-        
+        // Add states for property changes
+        code += `            states [\n`;
+        slintComponent.variants.forEach(variant => {
+            const variantChild = variant.children?.find(c => c.componentName === child.componentName);
+            if (variantChild && variantChild.style) {
+                const conditions = Object.entries(variant.properties)
+                    .map(([key, value]) => {
+                        const enumName = `${slintComponent.componentName}_${toUpperCamelCase(key)}`;
+                        return `${toLowerDashed(key)} == ${enumName}.${value}`;
+                    })
+                    .join(' && ');
+                
+                code += `                ${sanitizeStateName(variant.name)} when ${conditions}: {\n`;
+                Object.entries(variantChild.style).forEach(([key, value]) => {
+                    if (value !== undefined) {
+                        code += `                    ${toLowerDashed(key)}: ${value};\n`;
+                    }
+                });
+                code += `                }\n`;
+            }
+        });
+        code += `            ]\n`;
         code += `        }\n`;
-    }
-    // Generate states for variants
-// And update the state references to use the same IDs
-if (slintComponent.variants.length > 0) {
+    });
+
+    code += `    }\n\n`;
+
+    // Add variant-specific elements - with duplicate prevention
+    const processedVariants = new Set<string>();
+    slintComponent.variants.forEach(variant => {
+        const variantId = sanitizeStateName(variant.name);
+        
+        // Only process if we haven't seen this variant ID before
+        if (!processedVariants.has(variantId)) {
+            processedVariants.add(variantId);
+            
+            // Only create variant-specific elements if there are unique children
+            const uniqueChildren = variant.children?.filter(child => 
+                !commonChildren.some(c => c.componentName === child.componentName)
+            ) || [];
+
+            if (uniqueChildren.length > 0) {
+                code += `    ${variantId} := Rectangle {\n`;
+                code += `        visible: false;\n`;
+                if (variant.style) {
+                    Object.entries(variant.style).forEach(([key, value]) => {
+                        if (value !== undefined && typeof value !== 'object') {
+                            code += `        ${toLowerDashed(key)}: ${value};\n`;
+                        }
+                    });
+                }
+                // Add unique children
+                uniqueChildren.forEach(child => {
+                    code += `        ${toLowerDashed(child.componentName)} := ${child.type || 'Rectangle'} {\n`;
+                    if (child.style) {
+                        Object.entries(child.style).forEach(([key, value]) => {
+                            if (value !== undefined && typeof value !== 'object') {
+                                code += `            ${toLowerDashed(key)}: ${value};\n`;
+                            }
+                        });
+                    }
+                    code += `        }\n`;
+                });
+                code += `    }\n`;
+            }
+        }
+    });
+
+    // Add states for variant-specific visibility
     code += `    states [\n`;
     slintComponent.variants.forEach(variant => {
         const conditions = Object.entries(variant.properties)
@@ -407,69 +493,69 @@ if (slintComponent.variants.length > 0) {
             })
             .join(' && ');
         
-        if (conditions) {
-            const stateName = sanitizeStateName(variant.name);
-            const variantId = toLowerDashed(variant.name);
-            code += `        ${stateName} when ${conditions}: {\n`;
-            code += `            ${variantId}.visible: true;\n`;
-            code += `        }\n`;
-        }
+        const variantId = sanitizeStateName(variant.name);
+        code += `        ${variantId} when ${conditions}: {\n`;
+        code += `            ${variantId}.visible: true;\n`;
+        code += `        }\n`;
     });
-    code += `    ]\n\n`;
-}
+    code += `    ]\n`;
 
-// Generate a Rectangle instance for each variant
-slintComponent.variants.forEach((variant) => {
-    const variantId = toLowerDashed(variant.name);
-    code += `    ${variantId} := Rectangle {\n`;  // Use toLowerDashed for the ID
-    code += `        visible: false;  // Hidden by default\n`;
-    code += `        width: ${variant.style?.width || slintComponent.style.width}px;\n`;
-    code += `        height: ${variant.style?.height || slintComponent.style.height}px;\n`;
-    // code += `        background: ${variant.style?.background || slintComponent.style.background};\n`;
-    code += `        background: red;\n`;
-        
-        // Add layout if present
-        if (variant.style?.layout) {
-            const layoutType = variant.style.layout.direction === "HORIZONTAL" ? 
-                "HorizontalLayout" : "VerticalLayout";
-            code += `        ${layoutType} {\n`;
-            
-            // Add padding if present
-            if (variant.style.padding) {
-                const p = variant.style.padding;
-                if (p.top === p.right && p.top === p.bottom && p.top === p.left) {
-                    code += `            padding: ${p.top}px;\n`;
-                } else {
-                    if (p.top) code += `            padding-top: ${p.top}px;\n`;
-                    if (p.right) code += `            padding-right: ${p.right}px;\n`;
-                    if (p.bottom) code += `            padding-bottom: ${p.bottom}px;\n`;
-                    if (p.left) code += `            padding-left: ${p.left}px;\n`;
-                }
-            }
-
-            // Add spacing
-            if (variant.style.layout.spacing) {
-                code += `            spacing: ${variant.style.layout.spacing}px;\n`;
-            }
-
-            // Add child components
-            if (slintComponent.children?.length > 0) {
-                slintComponent.children.forEach(child => {
-                    const childCode = generateSlintCode(child)
-                        .split('\n')
-                        .map(line => `            ${line}`)
-                        .join('\n');
-                    code += childCode;
-                });
-            }
-
-            code += `        }\n`;
-        }
-
-        code += `    }\n`;
-    });
-
-    code += `}\n`;
     code += `}\n`;
     return code;
+}
+
+interface ChildInfo {
+    type: string;
+    name: string;
+    style?: ComponentStyle;
+    properties?: { [key: string]: any };
+    isCommon?: boolean;
+}
+
+function getUniqueChildren(
+    currentVariant: { 
+        name: string, 
+        properties: { [key: string]: string }, 
+        style?: ComponentStyle,
+        children?: SlintComponent[] 
+    },
+    allVariants: Array<typeof currentVariant>
+): ChildInfo[] {
+    if (!currentVariant.children) {
+        return [];
+    }
+
+    return currentVariant.children.map(child => {
+        // Check if this child exists in other variants
+        const childInOtherVariants = allVariants
+            .filter(v => v !== currentVariant)
+            .map(v => v.children?.find(c => c.componentName === child.componentName))
+            .filter(Boolean);
+
+        // If child doesn't exist in all variants, it's unique
+        if (childInOtherVariants.length !== allVariants.length - 1) {
+            return {
+                type: child.type || 'Rectangle',
+                name: child.componentName,
+                style: child.style,
+                properties: child.properties,
+                isCommon: false
+            };
+        }
+
+        // If child exists but has different properties, it's unique
+        const hasPropertyDifferences = childInOtherVariants.some(otherChild => {
+            // Compare style properties
+            return JSON.stringify(child.style) !== JSON.stringify(otherChild?.style) ||
+                   JSON.stringify(child.properties) !== JSON.stringify(otherChild?.properties);
+        });
+
+        return {
+            type: child.type || 'Rectangle',
+            name: child.componentName,
+            style: child.style,
+            properties: child.properties,
+            isCommon: !hasPropertyDifferences
+        };
+    });
 }

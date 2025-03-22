@@ -227,6 +227,59 @@ export function getBrush(fill: {
         }
     }
 }
+function generateChildrenSnippets(sceneNode: SceneNode): string[] {
+    if (!('children' in sceneNode) || !sceneNode.children?.length) {
+        return [];
+    }
+
+    return sceneNode.children.map(child => {
+        switch (child.type) {
+            case "TEXT":
+                return generateTextSnippet(child);
+            case "RECTANGLE":
+            case "COMPONENT":
+            case "INSTANCE":
+                return generateRectangleSnippet(child);
+            default:
+                return generateUnsupportedNodeSnippet(child);
+        }
+    });
+}
+
+function formatLayout(layout: { direction: string; spacing: number; alignment?: string; crossAxisAlignment?: string }): string[] {
+    const properties: string[] = [];
+    
+    if (layout.direction !== "NONE") {
+        properties.push(`${indentation}layout: ${layout.direction.toLowerCase()};`);
+    }
+    if (layout.spacing) {
+        properties.push(`${indentation}spacing: ${layout.spacing}px;`);
+    }
+    if (layout.alignment) {
+        properties.push(`${indentation}alignment: ${layout.alignment.toLowerCase()};`);
+    }
+    if (layout.crossAxisAlignment) {
+        properties.push(`${indentation}cross-alignment: ${layout.crossAxisAlignment.toLowerCase()};`);
+    }
+    
+    return properties;
+}
+
+function formatPadding(padding: { top: number; right: number; bottom: number; left: number }): string[] {
+    const properties: string[] = [];
+    
+    // If all paddings are equal, use single padding property
+    if (padding.top === padding.right && padding.top === padding.bottom && padding.top === padding.left) {
+        properties.push(`${indentation}padding: ${padding.top}px;`);
+    } else {
+        if (padding.top) properties.push(`${indentation}padding-top: ${padding.top}px;`);
+        if (padding.right) properties.push(`${indentation}padding-right: ${padding.right}px;`);
+        if (padding.bottom) properties.push(`${indentation}padding-bottom: ${padding.bottom}px;`);
+        if (padding.left) properties.push(`${indentation}padding-left: ${padding.left}px;`);
+    }
+    
+    return properties;
+}
 
 export function generateSlintSnippet(sceneNode: SceneNode): string | null {
     const nodeType = sceneNode.type;
@@ -369,12 +422,61 @@ export function generateRectangleSnippet(sceneNode: SceneNode): string {
                 break;
         }
     });
+    // Handle padding if present
+    if ('paddingLeft' in sceneNode) {
+        const paddingProps = formatPadding({
+            top: sceneNode.paddingTop,
+            right: sceneNode.paddingRight,
+            bottom: sceneNode.paddingBottom,
+            left: sceneNode.paddingLeft
+        });
+        properties.push(...paddingProps);
+    }
 
-    return `Rectangle {\n${properties.join("\n")}\n}`;
+    const childSnippets = generateChildrenSnippets(sceneNode);
+    
+    return `Rectangle {\n${properties.join("\n")}${
+        childSnippets.length > 0 ? '\n' + childSnippets.join('\n') : ''
+    }\n}`;
 }
-export function generateComponentSetSnippet(sceneNode: SceneNode): string {
+
+export function generateLayoutSnippet(sceneNode: SceneNode): string | null {
+    if (!('layoutMode' in sceneNode)) return null;
+
     const properties: string[] = [];
-    return "small complicated thing goes here";
+    const layoutType = sceneNode.layoutMode === "HORIZONTAL" ? "HorizontalLayout" : "VerticalLayout";
+    
+    if (sceneNode.layoutMode !== "NONE") {
+        if ('itemSpacing' in sceneNode) {
+            properties.push(`${indentation}spacing: ${sceneNode.itemSpacing}px;`);
+        }
+        if ('primaryAxisAlignItems' in sceneNode) {
+            properties.push(`${indentation}alignment: ${sceneNode.primaryAxisAlignItems.toLowerCase()};`);
+        }
+        if ('counterAxisAlignItems' in sceneNode) {
+            properties.push(`${indentation}cross-alignment: ${sceneNode.counterAxisAlignItems.toLowerCase()};`);
+        }
+    }
+
+    const childSnippets = generateChildrenSnippets(sceneNode);
+    
+    if (properties.length === 0 && childSnippets.length === 0) return null;
+
+    return `${layoutType} {\n${properties.join("\n")}${
+        childSnippets.length > 0 ? '\n' + childSnippets.join('\n') : ''
+    }\n}`;
+}
+
+export function generateComponentSetSnippet(sceneNode: ComponentSetNode): string {
+    const baseProperties = generateRectangleSnippet(sceneNode);
+    const layoutSnippet = generateLayoutSnippet(sceneNode);
+    const childSnippets = generateChildrenSnippets(sceneNode);
+
+    const snippets = [baseProperties];
+    if (layoutSnippet) snippets.push(layoutSnippet);
+    snippets.push(...childSnippets);
+
+    return snippets.join('\n');
 }
     
 
