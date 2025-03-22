@@ -65,6 +65,12 @@ impl WasmInputHelper {
         canvas.before_with_node_1(&input).unwrap();
         let mut h = Self { input, canvas: canvas.clone() };
 
+        // macos, or ipad with an attached keyboard, etc.
+        let is_apple = window.navigator().platform().ok().map_or(false, |platform| {
+            let platform = platform.to_ascii_lowercase();
+            platform.contains("mac") || platform.contains("iphone") || platform.contains("ipad")
+        });
+
         let shared_state = Rc::new(RefCell::new(WasmInputState::default()));
         #[cfg(web_sys_unstable_apis)]
         {
@@ -162,12 +168,15 @@ impl WasmInputHelper {
         let win = window_adapter.clone();
         let shared_state2 = shared_state.clone();
         h.add_event_listener("keydown", move |e: web_sys::KeyboardEvent| {
-            if let (Some(window_adapter), Some(text)) = (win.upgrade(), event_text(&e)) {
+            if let (Some(window_adapter), Some(mut text)) =
+                (win.upgrade(), event_text(&e, is_apple))
+            {
                 // Same logic as in winit to prevent the default <https://github.com/rust-windowing/winit/blob/master/src/platform_impl/web/web_sys/canvas.rs#L202-L213>
                 let event_key = &e.key();
                 let is_key_string = event_key.len() == 1 || !event_key.is_ascii();
+                let ctrl_key = if is_apple { e.meta_key() } else { e.ctrl_key() };
                 let is_shortcut_modifiers =
-                    (e.ctrl_key() || e.alt_key()) && !e.get_modifier_state("AltGr");
+                    (ctrl_key || e.alt_key()) && !e.get_modifier_state("AltGr");
                 if !is_key_string || is_shortcut_modifiers {
                     // Also let copy/paste/cut through
                     if !matches!(text.as_str(), "c" | "v" | "x") {
@@ -188,7 +197,9 @@ impl WasmInputHelper {
         let win = window_adapter.clone();
         let shared_state2 = shared_state.clone();
         h.add_event_listener("keyup", move |e: web_sys::KeyboardEvent| {
-            if let (Some(window_adapter), Some(text)) = (win.upgrade(), event_text(&e)) {
+            if let (Some(window_adapter), Some(mut text)) =
+                (win.upgrade(), event_text(&e, is_apple))
+            {
                 e.prevent_default();
                 shared_state2.borrow_mut().has_key_down = false;
                 window_adapter.window().dispatch_event(WindowEvent::KeyReleased { text });
@@ -285,7 +296,7 @@ impl WasmInputHelper {
     }
 }
 
-fn event_text(e: &web_sys::KeyboardEvent) -> Option<SharedString> {
+fn event_text(e: &web_sys::KeyboardEvent, is_apple: bool) -> Option<SharedString> {
     if e.is_composing() {
         return None;
     }
@@ -298,6 +309,8 @@ fn event_text(e: &web_sys::KeyboardEvent) -> Option<SharedString> {
         ($($char:literal # $name:ident # $($_qt:ident)|* # $($_winit:ident $(($_pos:ident))?)|* # $($_xkb:ident)|* ;)*) => {
             match key.as_str() {
                 "Tab" if e.shift_key() => return Some(Key::Backtab.into()),
+                "Meta" if is_apple => return Some(Key::Control.into()),
+                "Control" if is_apple => return Some(Key::Meta.into()),
                 $(stringify!($name) => {
                     return Some($char.into());
                 })*
