@@ -308,7 +308,7 @@ impl super::Surface for VulkanSurface {
             .try_into()
             .map_err(|_| format!("internal error: invalid swapchain image width {width}"))?;
         let height = swapchain.image_extent()[1];
-        let height: i32 = width
+        let height: i32 = height
             .try_into()
             .map_err(|_| format!("internal error: invalid swapchain image height {height}"))?;
 
