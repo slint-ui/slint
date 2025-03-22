@@ -377,6 +377,32 @@ def _callback_decorator(
 def callback(
     global_name: str | None = None, name: str | None = None
 ) -> typing.Callable[..., Any]:
+    """Use the callback decorator to mark a method as a callback that can be invoked from the Slint component.
+
+        For the decorator to work, the method must be a member of a class that is Slint component.
+
+        Example:
+    ```python
+    import slint
+
+    class AppMainWindow(slint.loader.main_window.MainWindow):
+
+        # Automatically connected to a callback button_clicked()
+        # in main_window.slint's MainWindow.
+        @slint.callback()
+        def button_clicked(self):
+            print("Button clicked")
+
+    ...
+    ```
+
+    Use the `name` parameter to specify the name of the callback in the Slint component, if the name of the
+    Python method differs from the name of the callback in the Slint component.
+
+    Use the `global_name` parameter to specify the name of the global in the Slint component, if the callback
+    is to be set on a Slint global object.
+    """
+
     if callable(global_name):
         callback = global_name
         return _callback_decorator(callback, {})
@@ -390,6 +416,9 @@ def callback(
 
 
 def set_xdg_app_id(app_id: str) -> None:
+    """Sets the application id for use on Wayland or X11 with [xdg](https://specifications.freedesktop.org/desktop-entry-spec/latest/)
+    compliant window managers. This must be set before the window is shown, and has only an effect on Wayland or X11."""
+
     native.set_xdg_app_id(app_id)
 
 
