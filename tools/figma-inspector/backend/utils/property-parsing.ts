@@ -227,6 +227,7 @@ export function getBrush(fill: {
         }
     }
 }
+
 function generateChildrenSnippets(sceneNode: SceneNode): string[] {
     if (!('children' in sceneNode) || !sceneNode.children?.length) {
         return [];
@@ -253,6 +254,30 @@ function generateChildrenSnippets(sceneNode: SceneNode): string[] {
                 return generateUnsupportedNodeSnippet(child);
         }
     });
+}
+
+function findCommonChildren(variants: ReadonlyArray<SceneNode>): SceneNode[] {
+    if (!('children' in variants[0]) || !variants[0].children?.length) {
+        return [];
+    }
+
+    // Look for structural matches (same name and type) regardless of properties
+    const commonChildren = variants[0].children?.filter(child => 
+        variants.every(variant => 
+            'children' in variant &&
+            variant.children?.some(variantChild => 
+                variantChild.name === child.name && 
+                variantChild.type === child.type
+            )
+        )
+    ) || [];
+
+    // Strip position properties
+    return commonChildren.map(child => ({
+        ...child,
+        x: undefined,
+        y: undefined
+    }));
 }
 
 function formatLayout(layout: { direction: string; spacing: number; alignment?: string; crossAxisAlignment?: string }): string[] {
@@ -303,9 +328,9 @@ export function generateSlintSnippet(sceneNode: SceneNode): string | null {
         case "TEXT": {
             return generateTextSnippet(sceneNode);
         }
-        case "COMPONENT_SET": {
-            return generateComponentSetSnippet(sceneNode);
-        }
+        // case "COMPONENT_SET": {
+        //     return generateComponentSetSnippet(sceneNode);
+        // }
         default: {
             return generateUnsupportedNodeSnippet(sceneNode);
         }
@@ -382,19 +407,19 @@ export function generateRectangleSnippet(sceneNode: SceneNode): string {
     rectangleProperties.forEach((property) => {
         switch (property) {
             case "width":
-                const normalizedWidth = roundNumber(sceneNode.width);
-                if (normalizedWidth) {
-                    properties.push(
-                        `${indentation}width: ${normalizedWidth}px;`,
-                    );
+                if ("width" in sceneNode && typeof sceneNode.width === "number") {
+                    const normalizedWidth = roundNumber(sceneNode.width);
+                    if (normalizedWidth) {
+                        properties.push(`${indentation}width: ${normalizedWidth}px;`);
+                    }
                 }
                 break;
             case "height":
-                const normalizedHeight = roundNumber(sceneNode.height);
-                if (normalizedHeight) {
-                    properties.push(
-                        `${indentation}height: ${normalizedHeight}px;`,
-                    );
+                if ("height" in sceneNode && typeof sceneNode.height === "number") {
+                    const normalizedHeight = roundNumber(sceneNode.height);
+                    if (normalizedHeight) {
+                        properties.push(`${indentation}height: ${normalizedHeight}px;`);
+                    }
                 }
                 break;
             case "fill":
@@ -476,18 +501,11 @@ export function generateLayoutSnippet(sceneNode: SceneNode): string | null {
     }\n}`;
 }
 
+const variantSpecificProperties = ["visible"];
 export function generateComponentSetSnippet(sceneNode: ComponentSetNode): string {
-    const baseProperties = generateRectangleSnippet(sceneNode);
-    const layoutSnippet = generateLayoutSnippet(sceneNode);
-    const childSnippets = generateChildrenSnippets(sceneNode);
-
-    const snippets = [baseProperties];
-    if (layoutSnippet) snippets.push(layoutSnippet);
-    snippets.push(...childSnippets);
-
-    return snippets.join('\n');
+    // Just handle basic rectangle properties, no variant logic
+    return "It's complicated";
 }
-    
 
 export function generateTextSnippet(sceneNode: SceneNode): string {
     const properties: string[] = [];

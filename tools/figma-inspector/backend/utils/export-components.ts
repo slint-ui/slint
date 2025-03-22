@@ -182,6 +182,87 @@ function getComponentSetInfo(node: ComponentSetNode): VariantInfo {
     };
 }
 
+function handleComponentSet(node: ComponentSetNode): VariantInfo {
+    // Get variant property definitions
+    const variantProperties: VariantInfo['variantProperties'] = {};
+    if (node.componentPropertyDefinitions) {
+        Object.entries(node.componentPropertyDefinitions).forEach(([key, def]) => {
+            variantProperties[key] = {
+                type: def.type,
+                defaultValue: def.defaultValue,
+                variantOptions: def.variantOptions
+            };
+        });
+    }
+
+    // Process variants
+    const variants = node.children.map(variant => {
+        const propertyValues: { [key: string]: string | boolean | number } = {};
+        
+        // Extract variant name properties
+        const variantParts = variant.name.split(', ');
+        variantParts.forEach(part => {
+            const [key, value] = part.split('=');
+            if (key && value) {
+                const sanitizedKey = key.trim();
+                const enumName = `${node.name}_${sanitizedKey}`;
+                propertyValues[sanitizedKey] = value.trim();
+            }
+        });
+        
+        // Extract component properties
+        if ('componentProperties' in variant) {
+            Object.entries(variant.componentProperties).forEach(([key, prop]) => {
+                if ('value' in prop) {
+                    propertyValues[key] = prop.value;
+                }
+            });
+        }
+
+        // Get variant's style info
+        const snippet = generateSlintSnippet({
+            ...variant,
+            x: undefined,
+            y: undefined
+        });
+        const style = parseSnippetToStyle(snippet || '');
+
+        // Only process children that should be in states
+        const stateChildren = ('children' in variant) ? 
+            variant.children
+                .filter(child => child.name === 'extra') // Only include specific children
+                .map(child => ({
+                    name: child.name,
+                    id: child.id,
+                    variantProperties: {},
+                    variants: [{
+                        name: child.name,
+                        id: child.id,
+                        propertyValues: {},
+                        style: parseSnippetToStyle(generateSlintSnippet(child) || '')
+                    }],
+                    style: parseSnippetToStyle(generateSlintSnippet(child) || '')
+                })) : [];
+
+        return {
+            name: variant.name,
+            id: variant.id,
+            propertyValues,
+            style,
+            children: stateChildren
+        };
+    });
+
+    return {
+        name: node.name,
+        id: node.id,
+        variantProperties,
+        variants,
+        style: {},
+        children: []
+    };
+}
+
 function parseSnippetToStyle(snippet: string): ComponentStyle {
     const style: ComponentStyle = {};
     const lines = snippet.split('\n');
