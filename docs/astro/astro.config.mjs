@@ -12,6 +12,7 @@ import {
     CPP_BASE_URL,
     RUST_SLINT_CRATE_URL,
     NODEJS_BASE_URL,
+    PYTHON_BASE_URL,
 } from "./src/utils/site-config";
 
 // https://astro.build/config
@@ -401,6 +402,15 @@ export default defineConfig({
                                     variant: "caution",
                                 },
                                 link: `${NODEJS_BASE_URL}`,
+                                attrs: { target: "_blank" },
+                            },
+                            {
+                                label: "Python ↗",
+                                badge: {
+                                    text: "beta",
+                                    variant: "caution",
+                                },
+                                link: `${PYTHON_BASE_URL}`,
                                 attrs: { target: "_blank" },
                             },
                         ],
