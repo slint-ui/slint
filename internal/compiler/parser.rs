@@ -336,8 +336,8 @@ declare_syntax! {
         /// `id := Element { ... }`
         SubElement -> [ Element ],
         Element -> [ ?QualifiedName, *PropertyDeclaration, *Binding, *CallbackConnection,
-                     *CallbackDeclaration, *ConditionalElement, *Function, *SubElement,
-                     *RepeatedElement, *PropertyAnimation, *PropertyChangedCallback,
+                     *CallbackForwarding, *CallbackDeclaration, *ConditionalElement, *Function,
+                     *SubElement, *RepeatedElement, *PropertyAnimation, *PropertyChangedCallback,
                      *TwoWayBinding, *States, *Transitions, ?ChildrenPlaceholder ],
         RepeatedElement -> [ ?DeclaredIdentifier, ?RepeatedIndex, Expression , SubElement],
         RepeatedIndex -> [],
@@ -350,6 +350,8 @@ declare_syntax! {
         /// `-> type`  (but without the ->)
         ReturnType -> [Type],
         CallbackConnection -> [ *DeclaredIdentifier,  CodeBlock ],
+        /// `xxx => yyy`
+        CallbackForwarding -> [ Expression ],
         /// Declaration of a property.
         PropertyDeclaration-> [ ?Type , DeclaredIdentifier, ?BindingExpression, ?TwoWayBinding ],
         /// QualifiedName are the properties name
