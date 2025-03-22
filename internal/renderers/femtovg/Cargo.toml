@@ -56,3 +56,6 @@ core-text = { version = "21.0.0" }
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 web-sys = { workspace = true, features = ["console", "WebGlContextAttributes", "CanvasRenderingContext2d", "HtmlInputElement", "HtmlCanvasElement", "Window", "Document"] }
 wasm-bindgen = { version = "0.2" }
+
+[package.metadata.docs.rs]
+rustdoc-args = ["--generate-link-to-definition"]

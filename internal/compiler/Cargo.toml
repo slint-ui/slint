@@ -75,3 +75,6 @@ i-slint-parser-test-macro = { path = "./parser-test-macro" }
 regex = "1.3.7"
 spin_on = { workspace = true }
 rayon = { workspace = true }
+
+[package.metadata.docs.rs]
+rustdoc-args = ["--generate-link-to-definition"]

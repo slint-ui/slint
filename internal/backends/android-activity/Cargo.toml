@@ -39,3 +39,4 @@ android-build = "0.1.2"
 [package.metadata.docs.rs]
 targets = ["aarch64-linux-android", "armv7-linux-androideabi", "i686-linux-android", "x86_64-linux-android"]
 features = ["native-activity", "aa-06"]
+rustdoc-args = ["--generate-link-to-definition"]

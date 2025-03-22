@@ -40,3 +40,6 @@ pb-rs = { version = "0.10.0", optional = true, default-features = false }
 slint = { path = "../../../api/rs/slint", default-features = false, features = ["std", "compat-1-2"] }
 i-slint-core-macros = { path = "../../core-macros" }
 i-slint-common = { path = "../../common" }
+
+[package.metadata.docs.rs]
+rustdoc-args = ["--generate-link-to-definition"]
