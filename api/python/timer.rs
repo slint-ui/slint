@@ -28,18 +28,17 @@ impl From<PyTimerMode> for i_slint_core::timers::TimerMode {
     }
 }
 
-/// Timer is a handle to the timer system that allows triggering a callback to be called
-/// after a specified period of time.
+/// Timer is a handle to the timer system that triggers a callback after a specified
+/// period of time.
 ///
-/// Use `Timer.start()` to create a timer that can repeat at frequent interval, or
-/// `Timer.single_shot()` if you just want to call a function with a delay and do not
-/// need to be able to stop it.
+/// Use `Timer.start()` to create a timer that that repeatedly triggers a callback, or
+/// [`Timer::single_shot`] to trigger a callback only once.
 ///
 /// The timer will automatically stop when garbage collected. You must keep the Timer object
 /// around for as long as you want the timer to keep firing.
 ///
-/// The timer can only be used in the thread that runs the Slint event loop.
-/// They will not fire if used in another thread.
+/// Timers can only be used in the thread that runs the Slint event loop. They don't
+/// fire if used in another thread.
 #[gen_stub_pyclass]
 #[pyclass(name = "Timer", unsendable)]
 pub struct PyTimer {
@@ -59,7 +58,7 @@ impl PyTimer {
     ///
     /// Arguments:
     /// * `mode`: The timer mode to apply, i.e. whether to repeatedly fire the timer or just once.
-    /// * `interval`: The duration from now until when the timer should fire. And the period of that timer
+    /// * `interval`: The duration from now until when the timer should firethe first time, and subsequently
     ///    for `TimerMode.Repeated` timers.
     /// * `callback`: The function to call when the time has been reached or exceeded.
     fn start(
@@ -79,7 +78,7 @@ impl PyTimer {
         Ok(())
     }
 
-    /// Starts the timer with the duration, in order for the callback to called when the
+    /// Starts the timer with the duration and the callback to called when the
     /// timer fires. It is fired only once and then deleted.
     ///
     /// Arguments:
