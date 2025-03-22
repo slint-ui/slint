@@ -52,7 +52,17 @@
   </div>
   <script type="module">
     import init from './pkg/slide_puzzle.js';
-    init().finally(() => {
+    async function loadWasm() {
+      try {
+        await init();
+      } catch (error) {
+        const errorMessage = error.toString();
+        if (!errorMessage.includes("Using exceptions for control flow, don't mind me")) {
+          alert('Error loading WASM: ' + errorMessage);
+        }
+      }
+    }
+    loadWasm().finally(() => {
       document.getElementById("spinner").remove();
     });
   </script>
