@@ -49,7 +49,20 @@ class Model[T](native.PyModelBase, Iterable[T]):
 
 
 class ListModel[T](Model[T]):
+    """ListModel is a `Model` that stores its data in a Python list.
+
+    Construct a ListMode from an iterable (such as a list itself).
+    Use `ListModel.append()` to add items to the model, and use the
+    `del` statement to remove items.
+
+    Any changes to the model are automatically reflected in the views
+    in UI they're used with.
+    """
+
     def __init__(self, iterable: typing.Optional[Iterable[T]] = None):
+        """Constructs a new ListModel from the give iterable. All the values
+        the iterable produces are stored in a list."""
+
         super().__init__()
         if iterable is not None:
             self.list = list(iterable)
@@ -77,6 +90,7 @@ class ListModel[T](Model[T]):
             super().notify_row_removed(key, 1)
 
     def append(self, value: T) -> None:
+        """Appends the value to the end of the list."""
         index = len(self.list)
         self.list.append(value)
         super().notify_row_added(index, 1)
