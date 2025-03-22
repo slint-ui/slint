@@ -1031,7 +1031,6 @@ pub enum PlatformError {
     OtherError(Box<dyn std::error::Error + Send + Sync>),
 }
 
-
 #[cfg(target_arch = "wasm32")]
 impl From<PlatformError> for wasm_bindgen::JsValue {
     fn from(err: PlatformError) -> wasm_bindgen::JsValue {
