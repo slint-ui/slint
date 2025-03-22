@@ -6,7 +6,7 @@ description: Connect the UI with business logic in your preferred language.
 
 import { Card, CardGrid, LinkButton } from "@astrojs/starlight/components";
 import IconLinkCard from "/src/components/IconLinkCard.astro";
-import { CPP_BASE_URL, RUST_SLINT_CRATE_URL, NODEJS_BASE_URL } from "../../../utils/site-config";
+import { CPP_BASE_URL, RUST_SLINT_CRATE_URL, NODEJS_BASE_URL, PYTHON_BASE_URL } from "../../../utils/site-config";
 
 Slint provides first class integrations to various programming languages allowing you to implement the business logic of your Slint application in your preferred language.
 
@@ -19,5 +19,8 @@ Slint provides first class integrations to various programming languages allowin
   </IconLinkCard>
   <IconLinkCard title="TypeScript (beta)" href={NODEJS_BASE_URL} icon="seti:typescript">
     Browse TypeScript / JavaScript API docs.
+  </IconLinkCard>
+  <IconLinkCard title="Python (beta)" href={PYTHON_BASE_URL} icon="seti:python">
+    Browse Python API docs.
   </IconLinkCard>
 </CardGrid>
