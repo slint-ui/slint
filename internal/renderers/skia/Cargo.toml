@@ -76,3 +76,6 @@ skia-safe = { version = "0.86.0", features = ["gl"] }
 
 [build-dependencies]
 cfg_aliases = { workspace = true }
+
+[package.metadata.docs.rs]
+rustdoc-args = ["--generate-link-to-definition"]

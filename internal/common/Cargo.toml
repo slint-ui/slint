@@ -34,3 +34,6 @@ fontdb = { workspace = true, optional = true, features = ["std", "fs", "fontconf
 
 [target.'cfg(all(not(target_arch = "wasm32"), not(target_os = "nto")))'.dependencies]
 fontdb = { workspace = true, optional = true, features = ["memmap"] }
+
+[package.metadata.docs.rs]
+rustdoc-args = ["--generate-link-to-definition"]

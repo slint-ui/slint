@@ -37,3 +37,6 @@ qttypes = { version = "0.2.7", default-features = false, optional = true }
 
 [build-dependencies]
 cpp_build = { version = "0.5.5", optional = true }
+
+[package.metadata.docs.rs]
+rustdoc-args = ["--generate-link-to-definition"]

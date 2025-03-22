@@ -125,3 +125,4 @@ slint = { path = "../../../api/rs/slint", default-features = false, features = [
 
 [package.metadata.docs.rs]
 features = ["wayland", "renderer-software", "raw-window-handle-06"]
+rustdoc-args = ["--generate-link-to-definition"]
