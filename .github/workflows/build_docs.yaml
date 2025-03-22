@@ -148,7 +148,7 @@ jobs:
               uses: pyvista/setup-headless-display-action@v3
 
             - name: "Python docs"
-              run: uv run pdoc slint -o docs
+              run: uv run build_docs.py
               working-directory: api/python
 
             - name: Generate a token

@@ -3,6 +3,7 @@
 
 from . import slint as native
 from collections.abc import Iterable
+from abc import abstractmethod
 import typing
 from typing import Any, cast, Iterator
 
@@ -32,20 +33,31 @@ class Model[T](native.PyModelBase, Iterable[T]):
     def __iter__(self) -> Iterator[T]:
         return ModelIterator(self)
 
+    def set_row_data(self, row: int, value: T) -> None:
+        """Call this method on mutable models to change the data for the given row.
+        The UI will also call this method when modifying a model's data.
+        Re-implement this method in a sub-class to handle the change."""
+        super().set_row_data(row, value)
+
+    @abstractmethod
+    def row_data(self, row: int) -> typing.Optional[T]:
+        """Returns the data for the given row.
+        Re-implement this method in a sub-class to provide the data."""
+        return cast(T, super().row_data(row))
+
     def notify_row_changed(self, row: int) -> None:
+        """Call this method from a sub-class to notify the views that a row has changed."""
         super().notify_row_changed(row)
 
     def notify_row_removed(self, row: int, count: int) -> None:
+        """Call this method from a sub-class to notify the views that
+        `count` rows have been removed starting at `row`."""
         super().notify_row_removed(row, count)
 
     def notify_row_added(self, row: int, count: int) -> None:
+        """Call this method from a sub-class to notify the views that
+        `count` rows have been added starting at `row`."""
         super().notify_row_added(row, count)
-
-    def set_row_data(self, row: int, value: T) -> None:
-        super().set_row_data(row, value)
-
-    def row_data(self, row: int) -> typing.Optional[T]:
-        return cast(T, super().row_data(row))
 
 
 class ListModel[T](Model[T]):
