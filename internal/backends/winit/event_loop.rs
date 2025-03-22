@@ -360,7 +360,7 @@ impl winit::application::ApplicationHandler<SlintUserEvent> for EventLoopState {
                     } else if #[cfg(target_family = "wasm")] {
                         let swap_cmd_ctrl = web_sys::window()
                             .and_then(|window| window.navigator().platform().ok())
-                            .map_or(false, |platform| {
+                            .is_some_and(|platform| {
                                 let platform = platform.to_ascii_lowercase();
                                 platform.contains("mac")
                                     || platform.contains("iphone")
