@@ -10,3 +10,4 @@ export const RUST_SLINT_CRATE_URL = `${RUST_BASE_URL}slint/`;
 export const RUST_SLINT_INTERPRETER_CRATE_URL = `${RUST_BASE_URL}slint_interpreter/`;
 export const RUST_SLINT_BUILD_CRATE_URL = `${RUST_BASE_URL}slint_build/`;
 export const NODEJS_BASE_URL = `${BASE_URL}${BASE_PATH}../node/`;
+export const PYTHON_BASE_URL = `${BASE_URL}${BASE_PATH}../python/`;
