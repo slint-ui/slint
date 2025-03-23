@@ -3,7 +3,7 @@
 
 import slint
 import pdoc
-import os
+import pathlib
 
 
 doc = pdoc.doc.Module(slint)
@@ -14,8 +14,18 @@ for method in model_cls.inherited_members[("builtins", "PyModelBase")]:
     if not method.name.startswith("_") and method.name != "init_self":
         model_cls.own_members.append(method)
 
-out = pdoc.render.html_module(module=doc, all_modules={"foo": doc})
+all_modules: dict[str, pdoc.doc.Module] = {"slint": doc}
 
-os.makedirs("docs", exist_ok=True)
-with open("docs/index.html", "w") as f:
-    f.write(out)
+output_directory = pathlib.Path("docs")
+
+for module in all_modules.values():
+    out = pdoc.render.html_module(module, all_modules)
+    outfile = output_directory / f"{module.fullname.replace('.', '/')}.html"
+    outfile.parent.mkdir(parents=True, exist_ok=True)
+    outfile.write_bytes(out.encode())
+
+index = pdoc.render.html_index(all_modules)
+(output_directory / "index.html").write_bytes(index.encode())
+
+search = pdoc.render.search_index(all_modules)
+(output_directory / "search.js").write_bytes(search.encode())
