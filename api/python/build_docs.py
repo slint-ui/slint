@@ -5,8 +5,8 @@ import slint
 import pdoc
 import os
 
-if __name__ == "__main__":
-    doc = pdoc.doc.Module(slint)
+
+doc = pdoc.doc.Module(slint)
 
     model_cls = doc.get("Model")
     for method in model_cls.inherited_members[("builtins", "PyModelBase")]:
