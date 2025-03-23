@@ -5,17 +5,17 @@ import slint
 import pdoc
 import os
 
-if __name__ == "__main__":
-    doc = pdoc.doc.Module(slint)
 
-    model_cls = doc.get("Model")
-    for method in model_cls.inherited_members[("builtins", "PyModelBase")]:
-        method.is_inherited = False
-        if not method.name.startswith("_") and method.name != "init_self":
-            model_cls.own_members.append(method)
+doc = pdoc.doc.Module(slint)
 
-    out = pdoc.render.html_module(module=doc, all_modules={"foo": doc})
+model_cls = doc.get("Model")
+for method in model_cls.inherited_members[("builtins", "PyModelBase")]:
+    method.is_inherited = False
+    if not method.name.startswith("_") and method.name != "init_self":
+        model_cls.own_members.append(method)
 
-    os.makedirs("docs", exist_ok=True)
-    with open("docs/index.html", "w") as f:
-        f.write(out)
+out = pdoc.render.html_module(module=doc, all_modules={"foo": doc})
+
+os.makedirs("docs", exist_ok=True)
+with open("docs/index.html", "w") as f:
+    f.write(out)
