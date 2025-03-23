@@ -379,9 +379,9 @@ def callback(
 ) -> typing.Callable[..., Any]:
     """Use the callback decorator to mark a method as a callback that can be invoked from the Slint component.
 
-        For the decorator to work, the method must be a member of a class that is Slint component.
+    For the decorator to work, the method must be a member of a class that is Slint component.
 
-        Example:
+    Example:
     ```python
     import slint
 
