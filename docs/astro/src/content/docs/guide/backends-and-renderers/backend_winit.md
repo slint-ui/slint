@@ -1,5 +1,6 @@
 ---
 <!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+// cSpell: ignore libx libxcursor libxkbcommon
 title: Winit Backend
 description: Winit Backend
 next: false
@@ -33,3 +34,16 @@ The Winit backend reads and interprets the following environment variables:
 | Name               | Accepted Values | Description                                                        |
 |--------------------|-----------------|--------------------------------------------------------------------|
 | `SLINT_FULLSCREEN` | any value       | If this variable is set, every window is shown in fullscreen mode. |
+
+## Linux Dependencies
+
+On Linux, the Winit backend requires either X11 or Wayland to be available.
+Support of either can be enabled or disabled at compile time by setting the
+`backend-winit-x11` or `backend-winit-wayland` features (instead of `backend-winit`).
+
+For X11 the following runtime dependencies are required: libx11-xcb, xinput, libxcursor, libxkbcommon-x11, libx11.
+On Debian-based systems, these can be installed with:
+
+```sh
+sudo apt install libx11-xcb-dev xinput libxcursor-dev libxkbcommon-x11-dev libx11-dev
+```
