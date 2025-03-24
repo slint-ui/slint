@@ -3,6 +3,7 @@ import { generateRectangleSnippet, generateTextSnippet, generateSlintSnippet } f
 interface VariantInfo {
     name: string;
     id: string;
+    type?: string;  // Add this
     variantProperties: {
         [key: string]: {
             type: ComponentPropertyType;
@@ -15,8 +16,9 @@ interface VariantInfo {
     variants: Array<{
         name: string;
         id: string;
+        type?: string;  // Add this
         propertyValues: { [key: string]: string | boolean | number };
-        style?: ComponentStyle;  // Add this
+        style?: ComponentStyle;
         children?: VariantInfo[];
     }>;
     style?: ComponentStyle;
@@ -398,9 +400,9 @@ function convertToSlintFormat(componentSet: VariantInfo): SlintComponent {
     // Convert common children (preserve original names)
     const commonChildren = componentSet.children?.map(child => ({
         componentName: sanitizeIdentifier(child.name, 'component'),
-        type: child.type || 'Rectangle',
+        type: child.type || 'Rectangle',  // This will now work
         style: child.style || {},
-        variants: [], // Common children don't have variants
+        variants: [], 
         enums: {},
         children: []
     })) || [];
@@ -461,42 +463,29 @@ function generateSlintCode(slintComponent: SlintComponent): string {
         const propertyName = toLowerDashed(enumName.split('_')[1]);
         code += `    in property <${enumName}> ${propertyName};\n`;
     });
-
-    // Add this helper function
-    function sanitizeStateName(name: string): string {
-        return name
-            .replace(/,\s*/g, '__')  // Replace commas and any following spaces with double underscore
-            .replace(/[^a-zA-Z0-9]/g, '_')  // Replace any other non-alphanumeric with single underscore
-            .replace(/_+/g, '_')     // Collapse multiple underscores
-            .toLowerCase();
-    }
+    code += '\n';
 
     // Base component with common elements
     code += `    base-rect := Rectangle {\n`;
-    code += `        width: ${slintComponent.style.width}px;\n`;
-    code += `        height: ${slintComponent.style.height}px;\n`;
-
-    // Get common children (those that appear in all variants with same properties)
-    const commonChildren = slintComponent.variants[0]?.children?.filter(child => {
-        return slintComponent.variants.every(variant => {
-            const matchingChild = variant.children?.find(c => c.componentName === child.componentName);
-            if (!matchingChild) return false;
-            
-            // Compare properties to ensure they're truly common
-            return JSON.stringify(matchingChild.style) === JSON.stringify(child.style);
-        });
-    }) || [];
+    if (slintComponent.style.width !== undefined) {
+        code += `        width: ${slintComponent.style.width}px;\n`;
+    }
+    if (slintComponent.style.height !== undefined) {
+        code += `        height: ${slintComponent.style.height}px;\n`;
+    }
 
     // Add common children
-    commonChildren.forEach(child => {
-        code += `        ${toLowerDashed(child.componentName)} := ${child.type || 'Rectangle'} {\n`;
+    slintComponent.children?.forEach(child => {
+        code += `        ${toLowerDashed(child.componentName)} := ${child.type} {\n`;
+        // Add style properties
         if (child.style) {
             Object.entries(child.style).forEach(([key, value]) => {
-                // Handle length properties
-                if (typeof value === 'number' && ['width', 'height', 'x', 'y'].includes(key)) {
-                    code += `            ${toLowerDashed(key)}: ${value}px;\n`;
-                } else {
-                    code += `            ${toLowerDashed(key)}: ${value};\n`;
+                if (value !== undefined && typeof value !== 'object') {
+                    if (['width', 'height', 'x', 'y'].includes(key)) {
+                        code += `            ${key}: ${value}px;\n`;
+                    } else {
+                        code += `            ${key}: ${value};\n`;
+                    }
                 }
             });
         }
@@ -505,51 +494,7 @@ function generateSlintCode(slintComponent: SlintComponent): string {
 
     code += `    }\n\n`;
 
-
-    code += `    }\n\n`;
-
-    // Add variant-specific elements - with duplicate prevention
-    const processedVariants = new Set<string>();
-    slintComponent.variants.forEach(variant => {
-        const variantId = sanitizeStateName(variant.name);
-        
-        // Only process if we haven't seen this variant ID before
-        if (!processedVariants.has(variantId)) {
-            processedVariants.add(variantId);
-            
-            // Only create variant-specific elements if there are unique children
-            const uniqueChildren = variant.children?.filter(child => 
-                !commonChildren.some(c => c.componentName === child.componentName)
-            ) || [];
-
-            if (uniqueChildren.length > 0) {
-                code += `    ${variantId} := Rectangle {\n`;
-                code += `        visible: false;\n`;
-                if (variant.style) {
-                    Object.entries(variant.style).forEach(([key, value]) => {
-                        if (value !== undefined && typeof value !== 'object') {
-                            code += `        ${toLowerDashed(key)}: ${value};\n`;
-                        }
-                    });
-                }
-                // Add unique children
-                uniqueChildren.forEach(child => {
-                    code += `        ${toLowerDashed(child.componentName)} := ${child.type || 'Rectangle'} {\n`;
-                    if (child.style) {
-                        Object.entries(child.style).forEach(([key, value]) => {
-                            if (value !== undefined && typeof value !== 'object') {
-                                code += `            ${toLowerDashed(key)}: ${value};\n`;
-                            }
-                        });
-                    }
-                    code += `        }\n`;
-                });
-                code += `    }\n`;
-            }
-        }
-    });
-
-    // Add states for variant-specific visibility
+    // Add states for variant-specific properties
     code += `    states [\n`;
     slintComponent.variants.forEach(variant => {
         const conditions = Object.entries(variant.properties)
@@ -558,10 +503,20 @@ function generateSlintCode(slintComponent: SlintComponent): string {
                 return `${toLowerDashed(key)} == ${enumName}.${value}`;
             })
             .join(' && ');
-        
-        const variantId = sanitizeStateName(variant.name);
+
+        const variantId = variant.name
+            .replace(/,\s*/g, '_')
+            .replace(/[^a-zA-Z0-9]/g, '_')
+            .toLowerCase();
+
         code += `        ${variantId} when ${conditions}: {\n`;
-        code += `            ${variantId}.visible: true;\n`;
+        if (variant.style) {
+            Object.entries(variant.style).forEach(([key, value]) => {
+                if (value !== undefined && typeof value !== 'object') {
+                    code += `            base-rect.${toLowerDashed(key)}: ${value};\n`;
+                }
+            });
+        }
         code += `        }\n`;
     });
     code += `    ]\n`;
