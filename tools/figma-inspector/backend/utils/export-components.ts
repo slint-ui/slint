@@ -183,11 +183,39 @@ function getComponentSetInfo(node: ComponentSetNode): VariantInfo {
         children: commonChildren
     };
 }
+// Update parseSnippetToStyle to capture more properties
 function parseSnippetToStyle(snippet: string): ComponentStyle {
     const style: ComponentStyle = {};
     
-    // Enhanced background/fill extraction
-    if (snippet.includes("fill:")) {
+    // Extract all properties from the snippet
+    const lines = snippet.split('\n');
+    lines.forEach(line => {
+        // Match any property in the form "property: value;"
+        const match = line.match(/^\s*([a-z-]+):\s*(.+?);$/);
+        if (match) {
+            const [, key, value] = match;
+            
+            // Handle different property types
+            if (key === 'border-radius') {
+                style[key] = parseFloat(value);
+            } else if (key === 'opacity') {
+                // Convert "50%" to 0.5
+                style[key] = parseInt(value) / 100;
+            } else if (key === 'fill' || key === 'background') {
+                style.background = value;
+            } else if (key === 'border-width') {
+                style[key] = parseFloat(value);
+            } else if (key === 'border-color') {
+                style[key] = value;
+            } else {
+                // Default parsing for other properties
+                style[key] = PropertyHandler.parse(key, value);
+            }
+        }
+    });
+
+    // Check for fills separately to ensure they're captured
+    if (snippet.includes("fill:") && !style.background) {
         const fillMatch = snippet.match(/fill:\s*rgba?\(([^)]+)\)/);
         if (fillMatch && fillMatch[1]) {
             const colors = fillMatch[1].split(',').map(n => parseFloat(n.trim()));
@@ -196,24 +224,12 @@ function parseSnippetToStyle(snippet: string): ComponentStyle {
             }
         }
     }
-    
-    // Process all other properties
-    const lines = snippet.split('\n');
-    lines.forEach(line => {
-        const match = line.match(/^\s*([a-z-]+):\s*(.+);$/);
-        if (match) {
-            const [, key, value] = match;
-            // Map 'fill' to 'background' if needed
-            const propertyKey = key === 'fill' ? 'background' : key;
-            style[propertyKey] = PropertyHandler.parse(propertyKey, value);
-        }
-    });
 
     return style;
 }
 
 
-// Add this new function for string sanitization
+// Sanitizers
 function toUpperCamelCase(str: string): string {
     return str
         .split(/[-_\s]+/)
@@ -449,11 +465,13 @@ function generateSlintCode(slintComponent: SlintComponent): string {
     code += generateComponentProperties('Rectangle', slintComponent.style, 2);
     code += '\n';
 
-    // Add common children
+    // Add common children with proper indentation
     slintComponent.children?.forEach(child => {
-        code += `        ${toLowerDashed(child.componentName)} := ${child.type} {\n`;
+        const childName = toLowerDashed(child.componentName);
+        code += `        ${childName} := ${child.type} {\n`;
         code += generateComponentProperties(child.type, child.style, 3);
-        code += `        }\n`;
+        // Add newline before closing brace
+        code += `\n        }\n`;
     });
 
     code += `    }\n\n`;

@@ -61,13 +61,19 @@ export const PropertyHandler = {
     format(key: string, value: any): string {
         if (key === 'text') {
             return `"${value}"`;
-        } else if (typeof value === 'number' && 
-                  ['width', 'height', 'x', 'y', 'border-radius', 'font-size'].includes(key)) {
-            return `${value}px`;
-        } else if (key === 'background' || key === 'color') {
-            // Ensure color values are properly formatted
-            return value.startsWith('#') ? value : `#${value}`;
-        } 
+        } else if (typeof value === 'number') {
+            // Add px to ALL these Slint properties
+            const lengthProperties = [
+                'width', 'height', 'x', 'y', 
+                'border-radius', 'border-width',
+                'padding', 'padding-right', 'padding-left', 'padding-top', 'padding-bottom',
+                'spacing', 'margin', 'margin-left', 'margin-right', 'margin-top', 'margin-bottom'
+            ];
+            
+            if (lengthProperties.includes(key)) {
+                return `${value}px`;
+            }
+        }
         return String(value);
     },
     
@@ -364,15 +370,9 @@ export function generateComponentProperties(
             return;
         }
 
-        if (['width', 'height', 'font-size', 'x', 'y'].includes(key)) {
-            properties.push(`${indent}${key}: ${value}px;`);
-        } else if (key === 'text') {
-            properties.push(`${indent}${key}: "${value}";`);
-        } else if (key === 'background' || key === 'color') {
-            properties.push(`${indent}${key}: ${value};`);
-        } else {
-            properties.push(`${indent}${key}: ${value};`);
-        }
+        // Use PropertyHandler.format for consistent formatting
+        const formattedValue = PropertyHandler.format(key, value);
+        properties.push(`${indent}${key}: ${formattedValue};`);
     });
 
     return properties.join('\n');
