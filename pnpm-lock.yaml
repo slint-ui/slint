@@ -200,8 +200,8 @@ importers:
         version: 19.0.0(react@19.0.0)
     devDependencies:
       '@figma/plugin-typings':
-        specifier: 1.107.0
-        version: 1.107.0
+        specifier: 1.109.0
+        version: 1.109.0
       '@types/node':
         specifier: 20.16.10
         version: 20.16.10
@@ -1092,8 +1092,8 @@ packages:
   '@expressive-code/plugin-text-markers@0.40.2':
     resolution: {integrity: sha512-/XoLjD67K9nfM4TgDlXAExzMJp6ewFKxNpfUw4F7q5Ecy+IU3/9zQQG/O70Zy+RxYTwKGw2MA9kd7yelsxnSmw==}
 
-  '@figma/plugin-typings@1.107.0':
-    resolution: {integrity: sha512-wC+Wwnk5H22W71xoq4ZQBHuXJL8Q7eMMBP+ubHZjAVybrJRysj/A9gJTIguVEcV+x2zpRsVunyVyWxg56qZr8g==}
+  '@figma/plugin-typings@1.109.0':
+    resolution: {integrity: sha512-6l628rOQGNd5ZD3Bru36/NK+PSKmHpsrWz0NMwUYZ8AIyfIl6sCJRc8+OhAy9+WkDXq/Dx3BYiBStjmCJ8O3Lw==}
 
   '@gerrit0/mini-shiki@3.2.1':
     resolution: {integrity: sha512-HbzRC6MKB6U8kQhczz0APKPIzFHTrcqhaC7es2EXInq1SpjPVnpVSIsBe6hNoLWqqCx1n5VKiPXq6PfXnHZKOQ==}
@@ -5672,7 +5672,7 @@ snapshots:
     dependencies:
       '@expressive-code/core': 0.40.2
 
-  '@figma/plugin-typings@1.107.0': {}
+  '@figma/plugin-typings@1.109.0': {}
 
   '@gerrit0/mini-shiki@3.2.1':
     dependencies:
