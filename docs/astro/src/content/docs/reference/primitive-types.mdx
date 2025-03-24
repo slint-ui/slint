@@ -146,8 +146,10 @@ Slint looks for images in the following places:
 
 Loading image from `http` is only supported in [SlintPad](https://slintpad.com).
 
-Supported format are SVG, as well as formats supported by the [`image` crate](https://crates.io/crates/image):
-AVIF, BMP, DDS, Farbfeld, GIF, HDR, ICO, JPEG, EXR, PNG, PNM, QOI, TGA, TIFF, WebP.
+Supported format are SVG, PNG, and JPEG.
+Other formats supported by the [`image` crate](https://crates.io/crates/image)
+(AVIF, BMP, DDS, Farbfeld, GIF, HDR, ICO, JPEG, EXR, PNG, PNM, QOI, TGA, TIFF, WebP)
+can be enabled using the `image-default-formats` compilation feature.
 
 <Tabs syncKey="dev-language">
 <TabItem label="C++">
