@@ -81,7 +81,11 @@
                 "vectormodel",
                 "structslint",
                 "namespaceslint",
-                "compilerconfiguration"
+                "compilerconfiguration",
+                "tschüß",
+                "TSCHÜSS",
+                "ὈΔΥΣΣΕΎΣ",
+                "ὀδυσσεύς"
             ],
         }
     ],

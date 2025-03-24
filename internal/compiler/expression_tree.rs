@@ -65,6 +65,8 @@ pub enum BuiltinFunction {
     StringIsEmpty,
     /// the "42".length
     StringCharacterCount,
+    StringToLowercase,
+    StringToUppercase,
     ColorRgbaStruct,
     ColorHsvaStruct,
     ColorBrighter,
@@ -187,6 +189,8 @@ declare_builtin_function_types!(
     StringIsFloat: (Type::String) -> Type::Bool,
     StringIsEmpty: (Type::String) -> Type::Bool,
     StringCharacterCount: (Type::String) -> Type::Int32,
+    StringToLowercase: (Type::String) -> Type::String,
+    StringToUppercase: (Type::String) -> Type::String,
     ImplicitLayoutInfo(..): (Type::ElementReference) -> Type::Struct(typeregister::layout_info_type()),
     ColorRgbaStruct: (Type::Color) -> Type::Struct(Rc::new(Struct {
         fields: IntoIterator::into_iter([
@@ -306,7 +310,9 @@ impl BuiltinFunction {
             BuiltinFunction::StringToFloat
             | BuiltinFunction::StringIsFloat
             | BuiltinFunction::StringIsEmpty
-            | BuiltinFunction::StringCharacterCount => true,
+            | BuiltinFunction::StringCharacterCount
+            | BuiltinFunction::StringToLowercase
+            | BuiltinFunction::StringToUppercase => true,
             BuiltinFunction::ColorRgbaStruct
             | BuiltinFunction::ColorHsvaStruct
             | BuiltinFunction::ColorBrighter
@@ -382,7 +388,9 @@ impl BuiltinFunction {
             BuiltinFunction::StringToFloat
             | BuiltinFunction::StringIsFloat
             | BuiltinFunction::StringIsEmpty
-            | BuiltinFunction::StringCharacterCount => true,
+            | BuiltinFunction::StringCharacterCount
+            | BuiltinFunction::StringToLowercase
+            | BuiltinFunction::StringToUppercase => true,
             BuiltinFunction::ColorRgbaStruct
             | BuiltinFunction::ColorHsvaStruct
             | BuiltinFunction::ColorBrighter

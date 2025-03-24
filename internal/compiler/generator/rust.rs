@@ -3021,6 +3021,8 @@ fn compile_builtin_function_call(
         BuiltinFunction::StringCharacterCount => {
             quote!( sp::UnicodeSegmentation::graphemes(#(#a)*.as_str(), true).count() as i32 )
         }
+        BuiltinFunction::StringToLowercase => quote!(sp::SharedString::from(#(#a)*.to_lowercase())),
+        BuiltinFunction::StringToUppercase => quote!(sp::SharedString::from(#(#a)*.to_uppercase())),
         BuiltinFunction::ColorRgbaStruct => quote!( #(#a)*.to_argb_u8()),
         BuiltinFunction::ColorHsvaStruct => quote!( #(#a)*.to_hsva()),
         BuiltinFunction::ColorBrighter => {
