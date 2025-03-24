@@ -256,30 +256,6 @@ function generateChildrenSnippets(sceneNode: SceneNode): string[] {
     });
 }
 
-function findCommonChildren(variants: ReadonlyArray<SceneNode>): SceneNode[] {
-    if (!('children' in variants[0]) || !variants[0].children?.length) {
-        return [];
-    }
-
-    // Look for structural matches (same name and type) regardless of properties
-    const commonChildren = variants[0].children?.filter(child => 
-        variants.every(variant => 
-            'children' in variant &&
-            variant.children?.some(variantChild => 
-                variantChild.name === child.name && 
-                variantChild.type === child.type
-            )
-        )
-    ) || [];
-
-    // Strip position properties
-    return commonChildren.map(child => ({
-        ...child,
-        x: undefined,
-        y: undefined
-    }));
-}
-
 function formatLayout(layout: { direction: string; spacing: number; alignment?: string; crossAxisAlignment?: string }): string[] {
     const properties: string[] = [];
     

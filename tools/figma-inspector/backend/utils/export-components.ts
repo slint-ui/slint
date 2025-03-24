@@ -68,7 +68,6 @@ interface SlintComponent {
 
 export function exportComponentSet(): void {
     const selectedNodes = figma.currentPage.selection;
-    // console.log("Selected nodes:", selectedNodes.length);  // debug
 
     if (selectedNodes.length === 0) {
         figma.notify("Please select a component set");
@@ -78,7 +77,6 @@ export function exportComponentSet(): void {
     const componentSets = selectedNodes.filter(
         node => node.type === "COMPONENT_SET"
     ) as ComponentSetNode[];
-    // console.log("Component sets found:", componentSets.length);  // debug
 
 
     if (componentSets.length === 0) {
@@ -87,15 +85,14 @@ export function exportComponentSet(): void {
     }
 
     const slintComponents = componentSets.map(node => {
-        // console.log("Processing component:", node.name);  // Add this
         const variantInfo = getComponentSetInfo(node);
-        // console.log("Variant info:", variantInfo);  // Add this
+        console.log("Variant info:", variantInfo);  // Add this
         return convertToSlintFormat(variantInfo);
     });
 
     // console.log("Generated components:", slintComponents);  // Add this
     const slintCode = slintComponents.map(generateSlintCode).join("\n\n");
-    console.clear();
+    // console.clear();
     console.log(slintCode);  
     figma.ui.postMessage({ type: "exportComplete", code: slintCode });
 }
@@ -181,8 +178,45 @@ function getComponentSetInfo(node: ComponentSetNode): VariantInfo {
         children: commonChildren
     };
 }
+/*
+function findCommonChildren(variants: ReadonlyArray<ComponentNode>): SceneNode[] {
+    // Debug the incoming variants first
+    console.log('Processing variants:', variants.map(v => ({
+        name: v.name,
+        childCount: v.children?.length,
+        children: v.children?.map(c => `${c.name} (${c.type})`)
+    })));
 
+    if (!variants.length || !variants[0].children?.length) {
+        return [];
+    }
+
+    // Get first variant's children
+    const firstVariantChildren = variants[0].children;
+    
+    // Look for children that exist in ALL variants
+    const commonChildren = firstVariantChildren.filter(child => {
+        const isCommon = variants.every(variant => 
+            variant.children?.some(variantChild => 
+                variantChild.name === child.name && 
+                variantChild.type === child.type
+            )
+        );
+        
+        console.log(`Child ${child.name} (${child.type}) is common:`, isCommon);
+        return isCommon;
+    });
+
+    console.log('Found common children:', commonChildren.map(c => c.name));
+    return commonChildren;
+}
+*/
+
+/*
 function handleComponentSet(node: ComponentSetNode): VariantInfo {
+    // Find common children first
+    const commonChildren = findCommonChildren(node.children.filter((child): child is ComponentNode => child.type === "COMPONENT"));
+
     // Get variant property definitions
     const variantProperties: VariantInfo['variantProperties'] = {};
     if (node.componentPropertyDefinitions) {
@@ -219,7 +253,7 @@ function handleComponentSet(node: ComponentSetNode): VariantInfo {
             });
         }
 
-        // Get variant's style info
+        // Get variant's style info but exclude position properties
         const snippet = generateSlintSnippet({
             ...variant,
             x: undefined,
@@ -227,10 +261,12 @@ function handleComponentSet(node: ComponentSetNode): VariantInfo {
         });
         const style = parseSnippetToStyle(snippet || '');
 
-        // Only process children that should be in states
+        // Filter to only non-common children for states
         const stateChildren = ('children' in variant) ? 
             variant.children
-                .filter(child => child.name === 'extra') // Only include specific children
+                .filter(child => !commonChildren.some(common => 
+                    common.name === child.name && common.type === child.type
+                ))
                 .map(child => ({
                     name: child.name,
                     id: child.id,
@@ -259,9 +295,16 @@ function handleComponentSet(node: ComponentSetNode): VariantInfo {
         variantProperties,
         variants,
         style: {},
-        children: []
+        children: commonChildren.map(child => ({
+            name: child.name,
+            id: child.id,
+            variantProperties: {},
+            variants: [],
+            style: parseSnippetToStyle(generateSlintSnippet(child) || '')
+        }))
     };
 }
+*/
 
 function parseSnippetToStyle(snippet: string): ComponentStyle {
     const style: ComponentStyle = {};
@@ -341,12 +384,9 @@ function isValidId(id: string, properties: Set<string>): boolean {
 }
 
 function convertToSlintFormat(componentSet: VariantInfo): SlintComponent {
-    // Log the incoming data
-    // console.log("Converting to Slint format:", componentSet);
-    
     const componentName = sanitizeIdentifier(componentSet.name, 'component');
     
-    // Extract all variant properties into enums
+    // Extract enums from variant properties
     const enums: { [key: string]: string[] } = {};
     for (const [key, def] of Object.entries(componentSet.variantProperties)) {
         if (def.type === "VARIANT" && def.variantOptions) {
@@ -355,34 +395,46 @@ function convertToSlintFormat(componentSet: VariantInfo): SlintComponent {
         }
     }
 
-    // Map variants with their properties and children
-    const variants = componentSet.variants.map(v => {
-        return {
-            name: v.name,
-            properties: Object.fromEntries(
-                Object.entries(v.propertyValues || {}).map(([key, value]) => [
-                    key,
-                    String(value)
-                ])
-            ),
-            style: v.style,
-            children: v.children?.map(child => convertToSlintFormat(child)) || []  // Convert children
-        };
-    });
+    // Convert common children (preserve original names)
+    const commonChildren = componentSet.children?.map(child => ({
+        componentName: sanitizeIdentifier(child.name, 'component'),
+        type: child.type || 'Rectangle',
+        style: child.style || {},
+        variants: [], // Common children don't have variants
+        enums: {},
+        children: []
+    })) || [];
 
-    console.log("Converted variants with children:", variants);  // Debug log
+    // Map variants, excluding common children
+    const variants = componentSet.variants.map(v => ({
+        name: v.name,
+        properties: Object.fromEntries(
+            Object.entries(v.propertyValues || {}).map(([key, value]) => [
+                key,
+                String(value)
+            ])
+        ),
+        style: v.style || {},
+        children: v.children
+            ?.filter(child => !componentSet.children?.some(c => c.name === child.name))
+            .map(child => ({
+                componentName: sanitizeIdentifier(child.name, 'component'),
+                type: child.type || 'Rectangle',
+                style: child.style || {},
+                variants: [],
+                enums: {},
+                children: []
+            })) || []
+    }));
 
     return {
         componentName,
         enums,
         variants,
         style: componentSet.style || {},
-        children: componentSet.children?.map(child => 
-            convertToSlintFormat(child)
-        ) || []
+        children: commonChildren
     };
 }
-
 // helper function to output hex
 function rgbToHex(r: number, g: number, b: number): string {
     const toHex = (n: number) => Math.round(n * 255).toString(16).padStart(2, '0');
