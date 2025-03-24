@@ -1,4 +1,4 @@
-import { generateRectangleSnippet, generateTextSnippet, generateSlintSnippet } from './property-parsing';
+import { generateRectangleSnippet, generateTextSnippet, generateSlintSnippet, generateComponentProperties, generateStateProperties} from './property-parsing';
 
 interface VariantInfo {
     name: string;
@@ -182,134 +182,6 @@ function getComponentSetInfo(node: ComponentSetNode): VariantInfo {
         children: commonChildren
     };
 }
-/*
-function findCommonChildren(variants: ReadonlyArray<ComponentNode>): SceneNode[] {
-    // Debug the incoming variants first
-    console.log('Processing variants:', variants.map(v => ({
-        name: v.name,
-        childCount: v.children?.length,
-        children: v.children?.map(c => `${c.name} (${c.type})`)
-    })));
-
-    if (!variants.length || !variants[0].children?.length) {
-        return [];
-    }
-
-    // Get first variant's children
-    const firstVariantChildren = variants[0].children;
-    
-    // Look for children that exist in ALL variants
-    const commonChildren = firstVariantChildren.filter(child => {
-        const isCommon = variants.every(variant => 
-            variant.children?.some(variantChild => 
-                variantChild.name === child.name && 
-                variantChild.type === child.type
-            )
-        );
-        
-        console.log(`Child ${child.name} (${child.type}) is common:`, isCommon);
-        return isCommon;
-    });
-
-    console.log('Found common children:', commonChildren.map(c => c.name));
-    return commonChildren;
-}
-*/
-
-/*
-function handleComponentSet(node: ComponentSetNode): VariantInfo {
-    // Find common children first
-    const commonChildren = findCommonChildren(node.children.filter((child): child is ComponentNode => child.type === "COMPONENT"));
-
-    // Get variant property definitions
-    const variantProperties: VariantInfo['variantProperties'] = {};
-    if (node.componentPropertyDefinitions) {
-        Object.entries(node.componentPropertyDefinitions).forEach(([key, def]) => {
-            variantProperties[key] = {
-                type: def.type,
-                defaultValue: def.defaultValue,
-                variantOptions: def.variantOptions
-            };
-        });
-    }
-
-    // Process variants
-    const variants = node.children.map(variant => {
-        const propertyValues: { [key: string]: string | boolean | number } = {};
-        
-        // Extract variant name properties
-        const variantParts = variant.name.split(', ');
-        variantParts.forEach(part => {
-            const [key, value] = part.split('=');
-            if (key && value) {
-                const sanitizedKey = key.trim();
-                const enumName = `${node.name}_${sanitizedKey}`;
-                propertyValues[sanitizedKey] = value.trim();
-            }
-        });
-        
-        // Extract component properties
-        if ('componentProperties' in variant) {
-            Object.entries(variant.componentProperties).forEach(([key, prop]) => {
-                if ('value' in prop) {
-                    propertyValues[key] = prop.value;
-                }
-            });
-        }
-
-        // Get variant's style info but exclude position properties
-        const snippet = generateSlintSnippet({
-            ...variant,
-            x: undefined,
-            y: undefined
-        });
-        const style = parseSnippetToStyle(snippet || '');
-
-        // Filter to only non-common children for states
-        const stateChildren = ('children' in variant) ? 
-            variant.children
-                .filter(child => !commonChildren.some(common => 
-                    common.name === child.name && common.type === child.type
-                ))
-                .map(child => ({
-                    name: child.name,
-                    id: child.id,
-                    variantProperties: {},
-                    variants: [{
-                        name: child.name,
-                        id: child.id,
-                        propertyValues: {},
-                        style: parseSnippetToStyle(generateSlintSnippet(child) || '')
-                    }],
-                    style: parseSnippetToStyle(generateSlintSnippet(child) || '')
-                })) : [];
-
-        return {
-            name: variant.name,
-            id: variant.id,
-            propertyValues,
-            style,
-            children: stateChildren
-        };
-    });
-
-    return {
-        name: node.name,
-        id: node.id,
-        variantProperties,
-        variants,
-        style: {},
-        children: commonChildren.map(child => ({
-            name: child.name,
-            id: child.id,
-            variantProperties: {},
-            variants: [],
-            style: parseSnippetToStyle(generateSlintSnippet(child) || '')
-        }))
-    };
-}
-*/
-
 function parseSnippetToStyle(snippet: string): ComponentStyle {
     const style: ComponentStyle = {};
     const lines = snippet.split('\n');
@@ -399,50 +271,80 @@ function convertToSlintFormat(componentSet: VariantInfo): SlintComponent {
         }
     }
 
-    // Convert common children (preserve original names and types)
+    // Get all unique children across variants
+    const allChildren = new Set<string>();
+    componentSet.variants.forEach(v => {
+        v.children?.forEach(child => {
+            allChildren.add(child.name);
+        });
+    });
+
+    // Convert common children
     const commonChildren = componentSet.children?.map(child => ({
         componentName: sanitizeIdentifier(child.name, 'component'),
-        type: child.type === 'TEXT' ? 'Text' : 'Rectangle', // Convert Figma types to Slint types
+        type: child.type === 'TEXT' ? 'Text' : 'Rectangle',
         style: child.style || {},
         variants: [], 
         enums: {},
         children: []
     })) || [];
 
-    // Map variants, excluding common children
-    const variants = componentSet.variants.map(v => ({
-        name: v.name,
-        properties: Object.fromEntries(
-            Object.entries(v.propertyValues || {}).map(([key, value]) => [
-                key,
-                String(value)
-            ])
-        ),
-        style: v.style || {},
-        children: v.children
-            ?.filter(child => !componentSet.children?.some(c => c.name === child.name))
-            .map(child => ({
-                componentName: sanitizeIdentifier(child.name, 'component'),
-                type: child.type || 'Rectangle',
-                style: child.style || {},
+    // Add variant-specific children with visibility:false
+    const variantChildren = Array.from(allChildren)
+        .filter(name => !componentSet.children?.some(c => c.name === name))
+        .map(name => {
+            const child = componentSet.variants[0].children?.find(c => c.name === name);
+            return {
+                componentName: sanitizeIdentifier(name, 'component'),
+                type: child?.type === 'TEXT' ? 'Text' : 'Rectangle',
+                style: {
+                    ...child?.style,
+                    visible: false  // Default to invisible
+                },
                 variants: [],
                 enums: {},
                 children: []
-            })) || []
-    }));
+            };
+        });
+
+    // Combine all children
+    const allProcessedChildren = [...commonChildren, ...variantChildren];
 
     return {
         componentName,
         enums,
-        variants,
+        variants: componentSet.variants.map(v => ({
+            name: v.name,
+            properties: Object.fromEntries(
+                Object.entries(v.propertyValues || {}).map(([key, value]) => [
+                    key,
+                    String(value)
+                ])
+            ),
+            style: v.style || {},
+            children: []  // Children are now handled at the top level
+        })),
         style: componentSet.style || {},
-        children: commonChildren
+        children: allProcessedChildren
     };
 }
+
 // helper function to output hex
 function rgbToHex(r: number, g: number, b: number): string {
     const toHex = (n: number) => Math.round(n * 255).toString(16).padStart(2, '0');
     return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+}
+
+export function generateStateProperties(
+    type: string,
+    style: ComponentStyle,
+    prefix: string,
+    indentLevel: number = 1
+): string {
+    return generateComponentProperties(type, style, indentLevel)
+        .split('\n')
+        .map(line => line.replace(/^(\s+)/, `$1${prefix}.`))
+        .join('\n');
 }
 
 function generateSlintCode(slintComponent: SlintComponent): string {
@@ -469,30 +371,13 @@ function generateSlintCode(slintComponent: SlintComponent): string {
 
     // Base component with common elements
     code += `    base-rect := Rectangle {\n`;
-    if (slintComponent.style.width !== undefined) {
-        code += `        width: ${slintComponent.style.width}px;\n`;
-    }
-    if (slintComponent.style.height !== undefined) {
-        code += `        height: ${slintComponent.style.height}px;\n`;
-    }
+    code += generateComponentProperties('Rectangle', slintComponent.style, 2);
+    code += '\n';
 
     // Add common children
     slintComponent.children?.forEach(child => {
         code += `        ${toLowerDashed(child.componentName)} := ${child.type} {\n`;
-        // Add style properties
-        if (child.style) {
-            Object.entries(child.style).forEach(([key, value]) => {
-                if (value !== undefined && typeof value !== 'object') {
-                    if (['width', 'height', "font-size", 'x', 'y'].includes(key)) {
-                        code += `            ${key}: ${value}px;\n`;
-                    } else if (key === 'text') {
-                        code += `            ${key}: "${value}";\n`;
-                    } else {
-                        code += `            ${key}: ${value};\n`;
-                    }
-                }
-            });
-        }
+        code += generateComponentProperties(child.type, child.style, 3);
         code += `        }\n`;
     });
 
@@ -514,20 +399,26 @@ function generateSlintCode(slintComponent: SlintComponent): string {
             .toLowerCase();
 
         code += `        ${variantId} when ${conditions}: {\n`;
+        
+        // Base rectangle properties
         if (variant.style) {
-            Object.entries(variant.style).forEach(([key, value]) => {
-                if (value !== undefined && typeof value !== 'object') {
-                    if (['width', 'height', "font-size", 'x', 'y'].includes(key)) {
-                        code += `            base-rect.${toLowerDashed(key)}: ${value}px;\n`;
-                    } else {
-                        code += `            base-rect.${toLowerDashed(key)}: ${value};\n`;
-                    }
-                }
-            });
+            code += generateStateProperties('Rectangle', variant.style, 'base-rect', 3);
+            code += '\n';
         }
+
+        // Add child component states
+        variant.children?.forEach(child => {
+            if (child.style) {
+                // Use child's name as prefix for its properties
+                const childPrefix = `base-rect.${toLowerDashed(child.componentName)}`;
+                code += generateStateProperties(child.type, child.style, childPrefix, 3);
+                code += '\n';
+            }
+        });
+
         code += `        }\n`;
     });
-    code += `    ]\n`;
+        code += `    ]\n`;
 
     code += `}\n`;
     return code;
@@ -538,8 +429,14 @@ interface ChildInfo {
     name: string;
     style?: ComponentStyle;
     properties?: { [key: string]: any };
-    isCommon?: boolean;
+    isCommon: boolean;
+    variants: Array<{
+        variantName: string;  // Which variant this child appears in
+        visible: boolean;     // Visibility in this variant
+        style?: ComponentStyle;
+    }>;
 }
+
 
 function getUniqueChildren(
     currentVariant: { 
@@ -568,7 +465,12 @@ function getUniqueChildren(
                 name: child.componentName,
                 style: child.style,
                 properties: child.properties,
-                isCommon: false
+                isCommon: false,
+                variants: [{  // Add missing variants array
+                    variantName: currentVariant.name,
+                    visible: true,
+                    style: child.style
+                }]
             };
         }
 
@@ -584,7 +486,12 @@ function getUniqueChildren(
             name: child.componentName,
             style: child.style,
             properties: child.properties,
-            isCommon: !hasPropertyDifferences
+            isCommon: !hasPropertyDifferences,
+            variants: [{  // Add missing variants array
+                variantName: currentVariant.name,
+                visible: true,
+                style: child.style
+            }]
         };
     });
 }

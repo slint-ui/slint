@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 export const indentation = "    ";
+
 const rectangleProperties = [
     "width",
     "height",
@@ -10,6 +11,7 @@ const rectangleProperties = [
     "border-radius",
     "border-width",
     "border-color",
+    "background",
 ];
 
 const textProperties = [
@@ -18,6 +20,7 @@ const textProperties = [
     "font-family",
     "font-size",
     "font-weight",
+    "color",
 ];
 
 const unsupportedNodeProperties = ["x", "y", "width", "height", "opacity"];
@@ -28,6 +31,8 @@ export type RGBAColor = {
     b: number;
     a: number;
 };
+
+
 
 export function rgbToHex(rgba: RGBAColor): string {
     const red = Math.round(rgba.r * 255);
@@ -289,6 +294,46 @@ function formatPadding(padding: { top: number; right: number; bottom: number; le
     }
     
     return properties;
+}
+
+// Add new function for generating component properties
+export function generateComponentProperties(
+    type: string, 
+    style: ComponentStyle, 
+    indentLevel: number = 1
+): string {
+    const indent = "    ".repeat(indentLevel);
+    const properties: string[] = [];
+
+    Object.entries(style).forEach(([key, value]) => {
+        if (value === undefined || typeof value === 'object') {
+            return;
+        }
+
+        if (['width', 'height', 'font-size', 'x', 'y'].includes(key)) {
+            properties.push(`${indent}${key}: ${value}px;`);
+        } else if (key === 'text') {
+            properties.push(`${indent}${key}: "${value}";`);
+        } else if (key === 'background' || key === 'color') {
+            properties.push(`${indent}${key}: ${value};`);
+        } else {
+            properties.push(`${indent}${key}: ${value};`);
+        }
+    });
+
+    return properties.join('\n');
+}
+
+export function generateStateProperties(
+    type: string,
+    style: ComponentStyle,
+    prefix: string,
+    indentLevel: number = 1
+): string {
+    return generateComponentProperties(type, style, indentLevel)
+        .split('\n')
+        .map(line => line.replace(/^(\s+)/, `$1${prefix}.`))
+        .join('\n');
 }
 
 export function generateSlintSnippet(sceneNode: SceneNode): string | null {
