@@ -15,6 +15,8 @@ and keyboard input.
  - libinput/libudev for input event handling from mice, touch screens, or keyboards.
  - libseat for GPU and input device access without requiring root access. (optional)
 
+## Dependencies
+
 For compilation, pkg-config is used to determine the location of the following required system libraries:
 
 | pkg-config package name | Package name on Debian based distros |
@@ -30,6 +32,8 @@ If you don't have `libseat` available on your target system, then instead of sel
 in exchange requires running the application as a user that's privileged to access all input and DRM/KMS device
 files; typically that's the root user.
 :::
+
+## Renderers
 
 The LinuxKMS backend supports different renderers. They can be explicitly selected for use through the
 `SLINT_BACKEND` environment variable.
