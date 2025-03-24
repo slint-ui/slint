@@ -8,6 +8,7 @@ import {
     RUST_SLINT_INTERPRETER_CRATE_URL,
     RUST_SLINT_BUILD_CRATE_URL,
     NODEJS_BASE_URL,
+    PYTHON_BASE_URL,
 } from "../utils/site-config.ts";
 
 const BASE_URL_MAP = {
@@ -16,6 +17,7 @@ const BASE_URL_MAP = {
     "rust-slint-build": `${RUST_SLINT_BUILD_CRATE_URL}`,
     "rust-slint-interpreter": `${RUST_SLINT_INTERPRETER_CRATE_URL}`,
     nodejs: `${NODEJS_BASE_URL}`,
+    python: `${PYTHON_BASE_URL}`,
 } as const;
 
 type LangID = keyof typeof BASE_URL_MAP;

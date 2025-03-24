@@ -166,6 +166,42 @@ Replace the contents of `ui/app-window.slint` with the following:
 
 Run the example with `cargo run` and a window appears with the green "Hello World" greeting.
 </TabItem>
+<TabItem label="Python">
+
+1. Download and extract the [ZIP archive of the Python Template](https://github.com/slint-ui/slint-python-template/archive/refs/heads/main.zip).
+2. Rename the extracted directory and change into it:
+
+```sh
+mv slint-python-template-main memory
+cd memory
+```
+3. Install dependencies with uv:
+
+```sh
+uv sync
+```
+
+### Configure the project
+
+The entry point for the application is `main.py`, the UI file is `app-window.slint`.
+
+Replace the contents of `main.py` with the following:
+
+import mainInitialPython from '/src/content/code/main_initial.py?raw'
+
+<Code code={extractLines(mainInitialPython, 3, 18)} lang="python" title="main.py" />
+
+The `slint.loadFile` method resolves files from the process's current working directory, so from the `package.json` file's location.
+
+Replace the contents of `ui/app-window.slint` with the following:
+
+<Code code={extractLines(memorySlint, 6, 11)} lang="slint" title="memory.slint" />
+
+### Run the application
+
+Run the example with `uv run main.py` and a window appears with the green "Hello World" greeting.
+
+</TabItem>
 </Tabs>
 
 ![Screenshot of initial tutorial app showing Hello World](https://slint.dev/blog/memory-game-tutorial/getting-started.png "Hello World")

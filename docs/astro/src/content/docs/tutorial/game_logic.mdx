@@ -115,6 +115,33 @@ The `MainWindow` owns the callback handler, which itself owns a reference to the
 instead of strong to avoid a memory leak.
 
 </TabItem>
+
+<TabItem label="Python">
+
+Change the contents of `memory.slint` to signal to the Python code when the user clicks on a tile.
+
+<Code code={extractLines(gameLogicInRust, 107, 115)} lang="slint"  />
+
+This change adds a way for the <span class="hljs-title">MainWindow</span> to call to the Python code that it should
+check if a player has solved a pair of tiles. The Rust code needs an additional property to toggle to disable further
+tile interaction, to prevent the player from opening more tiles than allowed. No cheating allowed!
+
+The last change to the code is to act when the <span class="hljs-title">MemoryTile</span> signals that a player clicked it.
+
+Add the following handler in the <span class="hljs-title">MainWindow</span> `for` loop `clicked` handler:
+
+<Code code={extractLines(gameLogicInRust, 126, 143)} lang="slint"  />
+
+On the Python side, now add a handler to the `check_if_pair_solved` callback, that checks if a player opened two tiles. If they match, the code sets the `solved` property to true in the model. If they don't
+match, start a timer that closes the tiles after one second. While the timer is running, disable every tile so
+a player can't click anything during this time.
+
+Insert this function in the `MainWindow` class, annotated with `@slint.callback` to associated it with `check_if_pair_solved`:
+
+import gameLogicInPython from '/src/content/code/main_game_logic.py?raw'
+
+<Code code={extractLines(gameLogicInPython, 13, 52)} lang="python"  />
+</TabItem>
 </Tabs>
 
 These were the last changes and running the code opens a window that allows a player to play the game by the rules.
