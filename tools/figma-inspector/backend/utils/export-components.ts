@@ -69,6 +69,7 @@ interface SlintComponent {
     children: SlintComponent[];
 }
 
+/////////////////////////////////////////
 // HELPERS
 
 function mapNodeTypeToSlintType(nodeType: string): string {
@@ -94,6 +95,48 @@ function rgbToHex(r: number, g: number, b: number): string {
     const toHex = (n: number) => Math.round(n * 255).toString(16).padStart(2, '0');
     return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
 }
+
+function processChildrenRecursively(node: VariantInfo): SlintComponent[] {
+    if (!node.children || node.children.length === 0) {
+        return [];
+    }
+    
+    return node.children.map(child => {
+        // Process this child's children recursively
+        const childrenOfChild = processChildrenRecursively(child);
+        
+        return {
+            componentName: sanitizeIdentifier(child.name, 'component'),
+            type: mapNodeTypeToSlintType(child.type),
+            style: child.style || {},
+            isCommon: true, // Since these are children of a common component
+            variants: [],
+            enums: {},
+            children: childrenOfChild
+        };
+    });
+}
+
+function generateNestedChildren(children: SlintComponent[], indentLevel: number): string {
+    let code = '';
+    const indent = ' '.repeat(indentLevel * 4);
+    
+    children.forEach(child => {
+        const childName = toLowerDashed(child.componentName);
+        code += `${indent}${childName} := ${child.type} {\n`;
+        code += generateComponentProperties(child.type, child.style, indentLevel + 1);
+        
+        // Recursive call for deeper nesting
+        if (child.children && child.children.length > 0) {
+            code += generateNestedChildren(child.children, indentLevel + 1);
+        }
+        
+        code += `\n${indent}}\n`;
+    });
+    
+    return code;
+}
+/////////////////////////////////////////
 
 export function exportComponentSet(): void {
     const selectedNodes = figma.currentPage.selection;
@@ -326,8 +369,11 @@ function convertToSlintFormat(componentSet: VariantInfo): SlintComponent {
         });
     });
 
-    // Convert common children
+    // Convert common children - WITH RECURSIVE PROCESSING
     const commonChildren = componentSet.children?.map(child => {
+        // Process this child's children recursively, if it has any
+        const childrenOfChild = processChildrenRecursively(child);
+        
         return {
             componentName: sanitizeIdentifier(child.name, 'component'),
             type: mapNodeTypeToSlintType(child.type),
@@ -335,7 +381,7 @@ function convertToSlintFormat(componentSet: VariantInfo): SlintComponent {
             isCommon: true,
             variants: [], 
             enums: {},
-            children: []
+            children: childrenOfChild // Store recursive children
         };
     }) || [];
 
@@ -472,26 +518,32 @@ function generateSlintCode(slintComponent: SlintComponent): string {
     code += generateComponentProperties('Rectangle', slintComponent.style, 2);
     code += '\n';
 
-    // Add common children with proper indentation
+    // Add common children with proper indentation - WITH RECURSION
     slintComponent.children?.forEach(child => {
         const childName = toLowerDashed(child.componentName);
         code += `        ${childName} := ${child.type} {\n`;
         code += generateComponentProperties(child.type, child.style, 3);
+        
+        // Add nested children recursively
+        if (child.children && child.children.length > 0) {
+            code += generateNestedChildren(child.children, 4); // Increase indent level
+        }
+        
         // Add newline before closing brace
         code += `\n        }\n`;
     });
-
     code += `    }\n\n`;
 
     // Add states for variant-specific properties
     code += `    states [\n`;
     slintComponent.variants.forEach(variant => {
         const conditions = Object.entries(variant.properties)
-            .map(([key, value]) => {
-                const enumName = `${slintComponent.componentName}_${toUpperCamelCase(key)}`;
-                return `${toLowerDashed(key)} == ${enumName}.${value}`;
-            })
-            .join(' && ');
+        .map(([key, value]) => {
+            const enumName = `${slintComponent.componentName}_${toUpperCamelCase(key)}`;
+            // Apply same capitalization to enum value as in definition
+            return `${toLowerDashed(key)} == ${enumName}.${sanitizeEnumValue(String(value))}`;
+        })
+        .join(' && ');
 
         const variantId = variant.name
             .replace(/,\s*/g, '_')
