@@ -712,16 +712,23 @@ fn create_layout_item(
         if !item.borrow().bindings.get(prop).is_some_and(|b| b.borrow().ty() == Type::Percent) {
             return;
         }
+        let min_name = format_smolstr!("min-{}", prop);
+        let max_name = format_smolstr!("max-{}", prop);
+        let mut min_ref = BindingExpression::from(Expression::PropertyReference(
+            NamedReference::new(item, min_name.clone()),
+        ));
         let mut item = item.borrow_mut();
-        let b = item.bindings.remove(prop).unwrap();
-        item.bindings.insert(format_smolstr!("min-{}", prop), b.clone());
-        item.bindings.insert(format_smolstr!("max-{}", prop), b);
+        let b = item.bindings.remove(prop).unwrap().into_inner();
+        min_ref.span = b.span.clone();
+        min_ref.priority = b.priority;
+        item.bindings.insert(max_name.clone(), min_ref.into());
+        item.bindings.insert(min_name.clone(), b.into());
         item.property_declarations.insert(
-            format_smolstr!("min-{}", prop),
+            min_name,
             PropertyDeclaration { property_type: Type::Percent, ..PropertyDeclaration::default() },
         );
         item.property_declarations.insert(
-            format_smolstr!("max-{}", prop),
+            max_name,
             PropertyDeclaration { property_type: Type::Percent, ..PropertyDeclaration::default() },
         );
     };

@@ -1224,7 +1224,7 @@ pub(crate) fn generate_item_tree<'id>(
             Type::Struct(_) => property_info::<Value>(),
             Type::Array(_) => property_info::<Value>(),
             Type::Easing => property_info::<i_slint_core::animations::EasingCurve>(),
-            Type::Percent => property_info::<f32>(),
+            Type::Percent => animated_property_info::<f32>(),
             Type::Enumeration(e) => {
                 macro_rules! match_enum_type {
                     ($( $(#[$enum_doc:meta])* enum $Name:ident { $($body:tt)* })*) => {

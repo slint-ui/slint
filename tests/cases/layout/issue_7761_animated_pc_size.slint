@@ -1,0 +1,78 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+
+export component TestCase {
+    width: 200px;
+    height: 300px;
+    in-out property <bool> flag;
+
+    HorizontalLayout {
+        r1 := Rectangle {
+            width: root.flag ? 0% : 50%;
+            animate width { duration: 200ms; }
+            background: red;
+        }
+
+        ta := TouchArea {
+            clicked => {
+                root.flag = !root.flag;
+            }
+        }
+    }
+
+    out property <int> ta-width: ta.width / 1px;
+    out property <bool> test: ta-width == 100;
+}
+
+
+
+/*
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_ta_width(), 100);
+assert(instance.get_test());
+instance.set_flag(true);
+assert_eq(instance.get_ta_width(), 100);
+// Half the animation
+slint_testing::mock_elapsed_time(100);
+assert_eq(instance.get_ta_width(), 150);
+// finish animation, and more
+slint_testing::mock_elapsed_time(200);
+assert_eq(instance.get_ta_width(), 200);
+
+```
+
+
+```rust
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_ta_width(), 100);
+assert!(instance.get_test());
+instance.set_flag(true);
+assert_eq!(instance.get_ta_width(), 100);
+// Half the animation
+slint_testing::mock_elapsed_time(100);
+assert_eq!(instance.get_ta_width(), 150);
+// finish animation, and more
+slint_testing::mock_elapsed_time(200);
+assert_eq!(instance.get_ta_width(), 200);
+```
+
+```js
+var instance = new slint.TestCase({});
+assert.equal(instance.ta_width, 100);
+assert(instance.test);
+instance.flag = true;
+assert.equal(instance.ta_width, 100);
+// Half the animation
+slintlib.private_api.mock_elapsed_time(100);
+assert.equal(instance.ta_width, 150);
+// finish animation, and more
+slintlib.private_api.mock_elapsed_time(200);
+assert.equal(instance.ta_width, 200);
+```
+
+
+*/
