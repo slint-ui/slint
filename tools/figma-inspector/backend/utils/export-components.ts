@@ -151,10 +151,12 @@ function getComponentSetInfo(node: ComponentSetNode): VariantInfo {
                 .map(child => ({
                     name: child.name,
                     id: child.id,
+                    type: child.type,
                     variantProperties: {},
                     variants: [{
                         name: child.name,
                         id: child.id,
+                        type: child.type,
                         propertyValues: {},
                         style: parseSnippetToStyle(generateSlintSnippet(child) || '')
                     }],
@@ -397,10 +399,10 @@ function convertToSlintFormat(componentSet: VariantInfo): SlintComponent {
         }
     }
 
-    // Convert common children (preserve original names)
+    // Convert common children (preserve original names and types)
     const commonChildren = componentSet.children?.map(child => ({
         componentName: sanitizeIdentifier(child.name, 'component'),
-        type: child.type || 'Rectangle',  // This will now work
+        type: child.type === 'TEXT' ? 'Text' : 'Rectangle', // Convert Figma types to Slint types
         style: child.style || {},
         variants: [], 
         enums: {},
@@ -481,8 +483,10 @@ function generateSlintCode(slintComponent: SlintComponent): string {
         if (child.style) {
             Object.entries(child.style).forEach(([key, value]) => {
                 if (value !== undefined && typeof value !== 'object') {
-                    if (['width', 'height', 'x', 'y'].includes(key)) {
+                    if (['width', 'height', "font-size", 'x', 'y'].includes(key)) {
                         code += `            ${key}: ${value}px;\n`;
+                    } else if (key === 'text') {
+                        code += `            ${key}: "${value}";\n`;
                     } else {
                         code += `            ${key}: ${value};\n`;
                     }
@@ -513,7 +517,11 @@ function generateSlintCode(slintComponent: SlintComponent): string {
         if (variant.style) {
             Object.entries(variant.style).forEach(([key, value]) => {
                 if (value !== undefined && typeof value !== 'object') {
-                    code += `            base-rect.${toLowerDashed(key)}: ${value};\n`;
+                    if (['width', 'height', "font-size", 'x', 'y'].includes(key)) {
+                        code += `            base-rect.${toLowerDashed(key)}: ${value}px;\n`;
+                    } else {
+                        code += `            base-rect.${toLowerDashed(key)}: ${value};\n`;
+                    }
                 }
             });
         }
