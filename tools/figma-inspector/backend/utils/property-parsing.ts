@@ -32,7 +32,61 @@ export type RGBAColor = {
     a: number;
 };
 
+export type ComponentStyle = {
+    width?: number;
+    height?: number;
+    'font-size'?: number;
+    text?: string;
+    background?: string;
+    color?: string;
+    x?: number;
+    y?: number;
+    [key: string]: any;
+};
 
+export const PropertyHandler = {
+    // Parse a property from Figma to our standard format
+    parse(key: string, value: any): any {
+        if (typeof value === 'string') {
+            if (value.endsWith('px')) {
+                return Number(value.replace('px', ''));
+            } else if (key === 'text') {
+                return value.replace(/"/g, '');
+            }
+        }
+        return value;
+    },
+    
+    // Format a property for Slint output
+    format(key: string, value: any): string {
+        if (key === 'text') {
+            return `"${value}"`;
+        } else if (typeof value === 'number' && 
+                  ['width', 'height', 'x', 'y', 'border-radius', 'font-size'].includes(key)) {
+            return `${value}px`;
+        } else if (key === 'background' || key === 'color') {
+            // Ensure color values are properly formatted
+            return value.startsWith('#') ? value : `#${value}`;
+        } 
+        return String(value);
+    },
+    
+    // Extract only properties that differ from base style
+    extractChanges(style: ComponentStyle, baseStyle: ComponentStyle = {}): ComponentStyle {
+        const changes: ComponentStyle = {};
+        for (const [key, value] of Object.entries(style)) {
+            if (baseStyle[key] !== value) {
+                changes[key] = value;
+            }
+        }
+        return changes;
+    },
+    
+    // Clean component names for consistent referencing
+    cleanComponentName(name: string): string {
+        return name.replace(/\d+$/, '');
+    }
+};
 
 export function rgbToHex(rgba: RGBAColor): string {
     const red = Math.round(rgba.r * 255);
@@ -348,6 +402,10 @@ export function generateSlintSnippet(sceneNode: SceneNode): string | null {
         }
         case "TEXT": {
             return generateTextSnippet(sceneNode);
+        }
+        case "BOOLEAN_OPERATION": {
+            // Properly handle Boolean Operations as Rectangles with fill
+            return generateRectangleSnippet(sceneNode);
         }
         // case "COMPONENT_SET": {
         //     return generateComponentSetSnippet(sceneNode);
