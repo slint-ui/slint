@@ -572,11 +572,6 @@ impl WindowInner {
 
     /// Receive a mouse event and pass it to the items of the component to
     /// change their state.
-    ///
-    /// Arguments:
-    /// * `pos`: The position of the mouse event in window physical coordinates.
-    /// * `what`: The type of mouse event.
-    /// * `component`: The Slint compiled component that provides the tree of items.
     pub fn process_mouse_input(&self, mut event: MouseEvent) {
         crate::animations::update_animations();
 
@@ -594,9 +589,11 @@ impl WindowInner {
                 crate::input::process_delayed_event(&window_adapter, mouse_input_state);
         }
 
+        let Some(item_tree) = self.try_component() else { return };
+
         // Try to get the root window in case `self` is the popup itself (to get the active_popups list)
         let mut root_adapter = None;
-        ItemTreeRc::borrow_pin(&self.component()).as_ref().window_adapter(false, &mut root_adapter);
+        ItemTreeRc::borrow_pin(&item_tree).as_ref().window_adapter(false, &mut root_adapter);
         let root_adapter = root_adapter.unwrap_or_else(|| window_adapter.clone());
         let active_popups = &WindowInner::from_pub(root_adapter.window()).active_popups;
         let native_popup_index = active_popups.borrow().iter().position(|p| {
@@ -623,7 +620,7 @@ impl WindowInner {
                 } else {
                     native_popup_index.is_some_and(|idx| idx == active_popups.borrow().len() - 1)
                         && event.position().is_none_or(|pos| {
-                            ItemTreeRc::borrow_pin(&self.component())
+                            ItemTreeRc::borrow_pin(&item_tree)
                                 .as_ref()
                                 .item_geometry(0)
                                 .contains(pos)
