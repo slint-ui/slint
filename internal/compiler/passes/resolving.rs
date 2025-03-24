@@ -26,6 +26,7 @@ use std::rc::Rc;
 struct ComponentScope(Vec<ElementRc>);
 
 fn resolve_expression(
+    elem: &ElementRc,
     expr: &mut Expression,
     property_name: Option<&str>,
     property_type: Type,
@@ -48,7 +49,11 @@ fn resolve_expression(
 
         let new_expr = match node.kind() {
             SyntaxKind::CallbackConnection => {
-                Expression::from_callback_connection(node.clone().into(), &mut lookup_ctx)
+                let node = syntax_nodes::CallbackConnection::from(node.clone());
+                if let Some(property_name) = property_name {
+                    check_callback_alias_validity(&node, elem, property_name, lookup_ctx.diag);
+                }
+                Expression::from_callback_connection(node, &mut lookup_ctx)
             }
             SyntaxKind::Function => Expression::from_function(node.clone().into(), &mut lookup_ctx),
             SyntaxKind::Expression => {
@@ -123,6 +128,7 @@ pub fn resolve_expressions(
                     };
 
                     resolve_expression(
+                        elem,
                         expr,
                         property_name,
                         property_type(),
@@ -1785,6 +1791,46 @@ pub fn resolve_two_way_binding(
                 &node,
             );
             None
+        }
+    }
+}
+
+/// For connection to callback aliases, some check are to be performed later
+fn check_callback_alias_validity(
+    node: &syntax_nodes::CallbackConnection,
+    elem: &ElementRc,
+    name: &str,
+    diag: &mut BuildDiagnostics,
+) {
+    let elem_borrow = elem.borrow();
+    let Some(decl) = elem_borrow.property_declarations.get(name) else {
+        if let ElementType::Component(c) = &elem_borrow.base_type {
+            check_callback_alias_validity(node, &c.root_element, name, diag);
+        }
+        return;
+    };
+    let Some(b) = elem_borrow.bindings.get(name) else { return };
+    // `try_borrow` because we might be called for the current binding
+    let Some(alias) = b.try_borrow().ok().and_then(|b| b.two_way_bindings.first().cloned()) else {
+        return;
+    };
+
+    if alias.element().borrow().base_type == ElementType::Global {
+        diag.push_error(
+            "Can't assign a local callback handler to an alias to a global callback".into(),
+            &node.child_token(SyntaxKind::Identifier).unwrap(),
+        );
+    }
+    if let Type::Callback(callback) = &decl.property_type {
+        let num_arg = node.DeclaredIdentifier().count();
+        if num_arg > callback.args.len() {
+            diag.push_error(
+                format!(
+                    "'{name}' only has {} arguments, but {num_arg} were provided",
+                    callback.args.len(),
+                ),
+                &node.child_token(SyntaxKind::Identifier).unwrap(),
+            );
         }
     }
 }

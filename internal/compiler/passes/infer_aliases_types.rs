@@ -144,6 +144,7 @@ fn resolve_alias(
             }
         } else {
             let nr = nr.unwrap();
+            let is_global = nr.element().borrow().base_type == crate::langtype::ElementType::Global;
             let purity = nr.element().borrow().lookup_property(nr.name()).declared_pure;
             let mut elem = elem.borrow_mut();
             let decl = elem.property_declarations.get_mut(prop).unwrap();
@@ -152,6 +153,9 @@ fn resolve_alias(
                     format!("Purity of callbacks '{prop}' and '{nr:?}' doesn't match"),
                     &decl.type_node(),
                 );
+            }
+            if is_global {
+                diag.push_warning("Aliases to global callback are deprecated. Export the global to access the global callback directly from native code".into(), &decl.node);
             }
             decl.property_type = ty;
         }

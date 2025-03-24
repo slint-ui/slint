@@ -1,0 +1,18 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export global Abc {
+    callback foobar;
+}
+
+component Wrapper {
+    callback foo <=> Abc.foobar;
+//  ^warning{Aliases to global callback are deprecated}
+}
+
+export component E inherits Window {
+    Wrapper {
+        foo => { debug("hello"); }
+//      ^error{Can't assign a local callback handler to an alias to a global callback}
+    }
+}
