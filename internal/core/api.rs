@@ -283,18 +283,21 @@ impl core::fmt::Debug for GraphicsAPI<'_> {
 
 /// This enum describes the different rendering states, that will be provided
 /// to the parameter of the callback for `set_rendering_notifier` on the `slint::Window`.
+///
+/// When OpenGL is used for rendering, the context will be current.
+/// It's safe to call OpenGL functions, but it is crucial that the state of the context is
+/// preserved. So make sure to save and restore state such as `TEXTURE_BINDING_2D` or
+/// `ARRAY_BUFFER_BINDING` perfectly.
 #[derive(Debug, Clone)]
 #[repr(u8)]
 #[non_exhaustive]
 pub enum RenderingState {
-    /// The window has been created and the graphics adapter/context initialized. When OpenGL
-    /// is used for rendering, the context will be current.
+    /// The window has been created and the graphics adapter/context initialized.
     RenderingSetup,
-    /// The scene of items is about to be rendered.  When OpenGL
-    /// is used for rendering, the context will be current.
+    /// The scene of items is about to be rendered.
     BeforeRendering,
     /// The scene of items was rendered, but the back buffer was not sent for display presentation
-    /// yet (for example GL swap buffers). When OpenGL is used for rendering, the context will be current.
+    /// yet (for example GL swap buffers).
     AfterRendering,
     /// The window will be destroyed and/or graphics resources need to be released due to other
     /// constraints.
