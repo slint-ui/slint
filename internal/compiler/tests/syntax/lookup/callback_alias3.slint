@@ -25,7 +25,8 @@ export Xxx := Rectangle {
 
     Sub {
         compute_alias(a, b, c) => {
-            debug(b); // FIXME: one should actually check that the connection has the right amount of arguments
+//      ^error{'compute-alias' only has 1 arguments, but 3 were provided}
+            debug(b);
 //                ^error{Unknown unqualified identifier 'b'}
             return "hello";
 //          ^error{Cannot convert string to int}
