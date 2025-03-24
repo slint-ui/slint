@@ -24,8 +24,8 @@
     "@types/node": "20.16.10",
     "astro": "5.5.4",
     "astro-embed": "0.9.0",
-    "playwright": "1.51.0",
-    "playwright-ctrf-json-reporter": "0.0.18",
+    "playwright": "1.51.1",
+    "playwright-ctrf-json-reporter": "0.0.19",
     "rehype-external-links": "3.0.0",
     "sharp": "0.33.5",
     "starlight-links-validator": "0.14.3",
@@ -33,7 +33,7 @@
     "typescript": "5.8.2"
   },
   "devDependencies": {
-    "@playwright/test": "1.51.0",
+    "@playwright/test": "1.51.1",
     "cspell": "8.17.5"
   }
 }
