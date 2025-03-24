@@ -1817,7 +1817,7 @@ fn check_callback_alias_validity(
 
     if alias.element().borrow().base_type == ElementType::Global {
         diag.push_error(
-            "Can't set a local callback handler to an alias to a global callback".into(),
+            "Can't assign a local callback handler to an alias to a global callback".into(),
             &node.child_token(SyntaxKind::Identifier).unwrap(),
         );
     }

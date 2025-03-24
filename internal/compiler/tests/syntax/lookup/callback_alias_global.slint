@@ -13,6 +13,6 @@ component Wrapper {
 export component E inherits Window {
     Wrapper {
         foo => { debug("hello"); }
-//      ^error{Can't set a local callback handler to an alias to a global callback}
+//      ^error{Can't assign a local callback handler to an alias to a global callback}
     }
 }

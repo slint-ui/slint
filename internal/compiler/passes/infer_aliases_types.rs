@@ -155,7 +155,7 @@ fn resolve_alias(
                 );
             }
             if is_global {
-                diag.push_warning("Aliases to global callback are deprecated".into(), &decl.node);
+                diag.push_warning("Aliases to global callback are deprecated. Export the global to access the global callback directly from native code".into(), &decl.node);
             }
             decl.property_type = ty;
         }
