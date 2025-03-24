@@ -69,6 +69,32 @@ interface SlintComponent {
     children: SlintComponent[];
 }
 
+// HELPERS
+
+function mapNodeTypeToSlintType(nodeType: string): string {
+    switch (nodeType) {
+        case "TEXT":
+            return "Text";
+        case "RECTANGLE":
+        case "FRAME":
+        case "COMPONENT":
+        case "INSTANCE":
+        case "BOOLEAN_OPERATION":
+            return "Rectangle";
+        default:
+            return "Rectangle"; // Default fallback
+    }
+}
+
+function sanitizeEnumValue(value: string): string {
+    return toUpperCamelCase(value);
+}
+
+function rgbToHex(r: number, g: number, b: number): string {
+    const toHex = (n: number) => Math.round(n * 255).toString(16).padStart(2, '0');
+    return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+}
+
 export function exportComponentSet(): void {
     const selectedNodes = figma.currentPage.selection;
 
@@ -371,26 +397,7 @@ function convertToSlintFormat(componentSet: VariantInfo): SlintComponent {
     };
 }
 
-function mapNodeTypeToSlintType(nodeType: string): string {
-    switch (nodeType) {
-        case "TEXT":
-            return "Text";
-        case "RECTANGLE":
-        case "FRAME":
-        case "COMPONENT":
-        case "INSTANCE":
-        case "BOOLEAN_OPERATION":
-            return "Rectangle";
-        default:
-            return "Rectangle"; // Default fallback
-    }
-}
 
-// helper function to output hex
-function rgbToHex(r: number, g: number, b: number): string {
-    const toHex = (n: number) => Math.round(n * 255).toString(16).padStart(2, '0');
-    return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
-}
 
 export function generateStateProperties(
     type: string,
@@ -445,7 +452,7 @@ function generateSlintCode(slintComponent: SlintComponent): string {
     for (const [enumName, values] of Object.entries(slintComponent.enums)) {
         code += `export enum ${enumName} {\n`;
         values.forEach(value => {
-            code += `    ${value},\n`;
+            code += `    ${sanitizeEnumValue(value)},\n`;
         });
         code += `}\n\n`;
     }

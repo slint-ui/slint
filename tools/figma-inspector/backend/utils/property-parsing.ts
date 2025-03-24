@@ -66,6 +66,7 @@ export const PropertyHandler = {
             const lengthProperties = [
                 'width', 'height', 'x', 'y', 
                 'border-radius', 'border-width',
+                "font-size", "stroke", "stroke-width",
                 'padding', 'padding-right', 'padding-left', 'padding-top', 'padding-bottom',
                 'spacing', 'margin', 'margin-left', 'margin-right', 'margin-top', 'margin-bottom'
             ];
