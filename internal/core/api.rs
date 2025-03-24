@@ -1034,9 +1034,7 @@ pub enum PlatformError {
 #[cfg(target_arch = "wasm32")]
 impl From<PlatformError> for wasm_bindgen::JsValue {
     fn from(err: PlatformError) -> wasm_bindgen::JsValue {
-        use crate::alloc::string::ToString;
-
-        wasm_bindgen::JsValue::from(err.to_string())
+        wasm_bindgen::JsError::from(err).into()
     }
 }
 
