@@ -3,6 +3,12 @@
 # Changelog
 All notable changes to this project are documented in this file.
 
+## [1.11.0] - TBD
+
+### General
+
+ - Skia renderer: Changed default on Windows to use the software renderer, instead of Direct3D.
+
 ## [1.10.0] - 2025-02-28
 
 ### General
