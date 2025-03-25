@@ -1,0 +1,36 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase {
+    out property<string> hello: "HELLO".to-lowercase();
+    out property<string> sigma: "Σ".to-lowercase();
+    out property<string> odysseus: "ὈΔΥΣΣΕΎΣ".to-lowercase();
+    out property<string> new_year: "农历新年".to-lowercase();
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_hello(), "hello");
+assert_eq(instance.get_sigma(), "σ");
+assert_eq(instance.get_odysseus(), "ὀδυσσεύς");
+assert_eq(instance.get_new_year(), "农历新年");
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_hello(), "hello");
+assert_eq!(instance.get_sigma(), "σ");
+assert_eq!(instance.get_odysseus(), "ὀδυσσεύς");
+assert_eq!(instance.get_new_year(), "农历新年");
+```
+
+```js
+var instance = new slint.TestCase({});
+assert.equal(instance.hello, "hello");
+assert.equal(instance.sigma, "σ");
+assert.equal(instance.odysseus, "ὀδυσσεύς");
+assert.equal(instance.new_year, "农历新年");
+```
+*/

@@ -1006,6 +1006,26 @@ fn call_builtin_function(
                 panic!("Argument not a string");
             }
         }
+        BuiltinFunction::StringToLowercase => {
+            if arguments.len() != 1 {
+                panic!("internal error: incorrect argument count to StringToLowercase")
+            }
+            if let Value::String(s) = eval_expression(&arguments[0], local_context) {
+                Value::String(s.to_lowercase().into())
+            } else {
+                panic!("Argument not a string");
+            }
+        }
+        BuiltinFunction::StringToUppercase => {
+            if arguments.len() != 1 {
+                panic!("internal error: incorrect argument count to StringToUppercase")
+            }
+            if let Value::String(s) = eval_expression(&arguments[0], local_context) {
+                Value::String(s.to_uppercase().into())
+            } else {
+                panic!("Argument not a string");
+            }
+        }
         BuiltinFunction::ColorRgbaStruct => {
             if arguments.len() != 1 {
                 panic!("internal error: incorrect argument count to ColorRGBAComponents")

@@ -3593,6 +3593,12 @@ fn compile_builtin_function_call(
         BuiltinFunction::StringCharacterCount => {
             format!("[](const auto &a){{ return slint::cbindgen_private::slint_string_character_count(&a); }}({})", a.next().unwrap())
         }
+        BuiltinFunction::StringToLowercase => {
+            format!("{}.to_lowercase()", a.next().unwrap())
+        }
+        BuiltinFunction::StringToUppercase => {
+            format!("{}.to_uppercase()", a.next().unwrap())
+        }
         BuiltinFunction::ColorRgbaStruct => {
             format!("{}.to_argb_uint()", a.next().unwrap())
         }

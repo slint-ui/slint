@@ -935,6 +935,8 @@ impl LookupObject for StringExpression<'_> {
             .or_else(|| f("to-float", member_function(BuiltinFunction::StringToFloat)))
             .or_else(|| f("is-empty", function_call(BuiltinFunction::StringIsEmpty)))
             .or_else(|| f("character-count", function_call(BuiltinFunction::StringCharacterCount)))
+            .or_else(|| f("to-lowercase", member_function(BuiltinFunction::StringToLowercase)))
+            .or_else(|| f("to-uppercase", member_function(BuiltinFunction::StringToUppercase)))
     }
 }
 struct ColorExpression<'a>(&'a Expression);

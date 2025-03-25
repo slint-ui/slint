@@ -71,6 +71,17 @@ export component CharacterCountOfString {
 }
 ```
 
+The `to-lowercase` and `to-uppercase` methods convert `string` to lowercase or uppercase according to the [Unicode Character Property](https://www.unicode.org/versions/Unicode16.0.0/core-spec/chapter-4/#G124722).
+
+```slint
+export component ChangeCaseOfString {
+    property<string> hello: "HELLO".to-lowercase(); // "hello"
+    property<string> bye: "tschüß".to-uppercase(); // "TSCHÜSS"
+    property<string> odysseus: "ὈΔΥΣΣΕΎΣ".to-lowercase(); // "ὀδυσσεύς"
+    property<string> new_year: "农历新年".to-uppercase(); // "农历新年"
+}
+```
+
 </SlintProperty>
 
 ## Numeric Types
