@@ -23,7 +23,7 @@ futures = { version = "0.3.28" }
 cpal = "0.15.2"
 ringbuf = "0.3.3"
 bytemuck = "1.13.1"
-derive_more = "1"
+derive_more = { workspace = true}
 
 [build-dependencies]
 slint-build = { path = "../../api/rs/build" }
