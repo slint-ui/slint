@@ -13,9 +13,7 @@ export component EnumWidget inherits GridLayout {
     in property <string> property-name;
     in property <PropertyValue> property-value;
 
-    private property <PropertyValue> dummy: self.property-value;
-
-    changed dummy => {
+    changed property-value => {
         if self.property-value.kind == PropertyValueKind.enum {
             cb.current-index = root.property-value.value-int;
         }

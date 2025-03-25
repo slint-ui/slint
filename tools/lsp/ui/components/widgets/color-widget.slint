@@ -15,7 +15,6 @@ export component ColorWidget inherits GridLayout {
     in property <bool> has-code-action <=> sub.has-code-action;
     in property <bool> has-reset-action <=> sub.has-reset-action;
 
-    private property <PropertyValue> dummy: property-value; // Needed to make changed signal work...
     private property <color> current-color: Colors.transparent;
 
     callback code-action();
@@ -43,7 +42,7 @@ export component ColorWidget inherits GridLayout {
         }
     }
 
-    changed dummy => {
+    changed property-value => {
         if self.property-value.kind != PropertyValueKind.color && self.property-value.kind != PropertyValueKind.brush {
             return;
         }

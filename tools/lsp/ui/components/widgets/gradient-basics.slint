@@ -72,11 +72,9 @@ export component GradientMainContent inherits HorizontalLayout {
 
     in-out property <[GradientStop]> gradient-stops;
     in-out property <float> current-position;
-    private property <float> dummy-current-position: current-position;
     private property <float> current-position_: index-position(self.selected-index);
 
     in-out property <color> current-color;
-    private property <color> dummy-current-color;
     private property <color> current-color_: index-color(self.selected-index);
 
     out property <bool> has-focus: ta.has-hover || self.dot-hover-count > 0;
@@ -90,9 +88,9 @@ export component GradientMainContent inherits HorizontalLayout {
         self.current-color = current-color_;
     }
 
-    changed dummy-current-color => {
+    changed current-color => {
         if self.selected-index >= 0 && self.selected-index < self.gradient-stops.length {
-            self.gradient-stops[self.selected-index].color = dummy-current-color;
+            self.gradient-stops[self.selected-index].color = current-color;
         }
         apply-model-change-to-ui();
     }
@@ -101,9 +99,9 @@ export component GradientMainContent inherits HorizontalLayout {
         self.current-position = current-position_;
     }
 
-    changed dummy-current-position => {
+    changed current-position => {
         if self.selected-index >= 0 && self.selected-index < self.gradient-stops.length {
-            self.gradient-stops[self.selected-index].position = dummy-current-position;
+            self.gradient-stops[self.selected-index].position = current-position;
         }
         apply-model-change-to-ui();
     }
