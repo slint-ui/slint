@@ -58,7 +58,7 @@ cfg_if::cfg_if! {
         type DefaultSurface = opengl_surface::OpenGLSurface;
     } else if #[cfg(skia_backend_metal)] {
         type DefaultSurface = metal_surface::MetalSurface;
-    }  else if #[cfg(skia_backend_software)] {
+    } else if #[cfg(skia_backend_software)] {
         type DefaultSurface = software_surface::SoftwareSurface;
     }
 }
