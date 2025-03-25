@@ -1,3 +1,4 @@
+import { count } from 'console';
 import { generateRectangleSnippet, generateTextSnippet, generateSlintSnippet, generateComponentProperties, PropertyHandler} from './property-parsing';
 
 interface VariantInfo {
@@ -209,7 +210,6 @@ export function exportComponentSet(): void {
 
     // console.log("Generated components:", slintComponents);  // Add this
     const slintCode = slintComponents.map(generateSlintCode).join("\n\n");
-    console.clear();
     console.log(slintCode);  
     figma.ui.postMessage({ type: "exportComplete", code: slintCode });
 }
@@ -310,6 +310,7 @@ function parseSnippetToStyle(snippet: string): ComponentStyle {
             } else {
                 // Default parsing for other properties
                 style[key] = PropertyHandler.parse(key, value);
+                console.log("ugly\n",snippet,"\n", key,",", value)
             }
         }
     });
@@ -355,16 +356,16 @@ function sanitizeIdentifier(name: string, type: 'component' | 'property' = 'prop
     const safeName = type === 'component'
         ? baseName.replace(/^[^A-Z]/, 'T$&')
         : baseName.replace(/^[^a-z]/, 'p-$&');
-    
+    return safeName;
     // Handle duplicates
-    if (usedNames.has(safeName)) {
-        const count = usedNames.get(safeName)! + 1;
-        usedNames.set(safeName, count);
-        return `${safeName}${count}`;
-    } else {
-        usedNames.set(safeName, 1);
-        return safeName;
-    }
+    // if (usedNames.has(safeName)) {
+    //     const count = usedNames.get(safeName)! + 1;
+    //     usedNames.set(safeName, count);
+    //     return `${safeName}${count}`;
+    // } else {
+    //     usedNames.set(safeName, 1);
+    //     return safeName;
+    // }
 }
 
 // Update the isValidId function signature
@@ -448,10 +449,25 @@ export function generateStateProperties(
 ): string {
     const changedStyle: ComponentStyle = {};
 
+    // Determine if we should force x/y output:
+    // • For base-rect, we still skip x/y.
+    // • For children (prefix !== 'base-rect') that do NOT have a layout defined, force output.
+    const forcePosition = (prefix !== 'base-rect') && !('layout' in style); // TODO
+
     // Compare each property of style with baseStyle.
     for (const [key, value] of Object.entries(style)) {
-        // Skip x/y on the root component.
-        if (prefix === 'base-rect' && (key === 'x' || key === 'y')) continue;
+        // For x/y:
+        if (key === 'x' || key === 'y') {
+            if (prefix === 'base-rect') continue;
+            if (forcePosition) {
+                // Force output x/y regardless of baseStyle.
+                changedStyle[key] = value;
+                continue;
+            }
+            // Otherwise, fall through to difference check.
+        }
+
+        // Normal difference check for other properties.
         if (baseStyle[key] !== value) {
             if (typeof value === 'object' && typeof baseStyle[key] === 'object') {
                 if (JSON.stringify(value) !== JSON.stringify(baseStyle[key])) {
@@ -467,9 +483,6 @@ export function generateStateProperties(
     let result = '';
 
     // Normalize the prefix:
-    // - If prefix is exactly "base-rect", we output it.
-    // - If the prefix starts with "base-rect.", then drop the "base-rect." portion.
-    // - Otherwise, leave the prefix as-is.
     let outPrefix = '';
     if (prefix === 'base-rect') {
         outPrefix = 'base-rect.';
@@ -478,10 +491,8 @@ export function generateStateProperties(
         if (outPrefix) {
             outPrefix += '.';
         }
-    } else {
-        if (prefix) {
-            outPrefix = prefix + '.';
-        }
+    } else if (prefix) {
+        outPrefix = prefix + '.';
     }
 
     // Generate state lines for each changed property.
@@ -501,19 +512,21 @@ function generateVariantChildrenStyles(
 ): string {
     let code = '';
 
-    // For each variant child, try to find its matching common child
+    // For each variant child, try to find its matching common child.
     variantChildren?.forEach(variantChild => {
-        // Search by componentName (assumed sanitized)
         const commonChild = commonChildren?.find(c =>
             c.componentName === variantChild.componentName
         );
 
-        // If we find a matching common child, compare their styles at this level…
         if (commonChild) {
-            const childName = toLowerDashed(commonChild.componentName);
-            const prefix = `${basePrefix}.${childName}`;
-            
-            // Compare the style differences at this level.
+            // Use common child's componentName (lower dashed) and remove any trailing digits.
+            let childName = toLowerDashed(commonChild.componentName);
+            childName = childName.replace(/\d+$/, ''); // Remove trailing numbers
+
+            // Build the prefix: if basePrefix is nonempty, combine it with the child's name.
+            const prefix = basePrefix ? `${basePrefix}.${childName}` : childName;
+
+            // Compare style differences at this level.
             code += generateStateProperties(
                 variantChild.type || 'Rectangle',
                 variantChild.style || {},
@@ -521,9 +534,8 @@ function generateVariantChildrenStyles(
                 indentLevel,
                 commonChild.style || {}
             );
-            
-            // Then always recursively compare their children.
-            // Use empty arrays if one side is missing.
+
+            // Then recursively compare any nested children.
             const variantNested = variantChild.children || [];
             const commonNested = commonChild.children || [];
             code += generateVariantChildrenStyles(
@@ -532,12 +544,11 @@ function generateVariantChildrenStyles(
                 prefix,
                 indentLevel + 1
             );
-        }
-        // If no matching common child exists, you might opt to output the whole style from the variant.
-        // For example:
-        else {
-            const childName = toLowerDashed(variantChild.componentName);
-            const prefix = `${basePrefix}.${childName}`;
+        } else {
+            // If no matching common child exists, output the whole style from the variant.
+            let childName = toLowerDashed(variantChild.componentName);
+            childName = childName.replace(/\d+$/, '');
+            const prefix = basePrefix ? `${basePrefix}.${childName}` : childName;
             code += generateStateProperties(
                 variantChild.type || 'Rectangle',
                 variantChild.style || {},
@@ -545,7 +556,6 @@ function generateVariantChildrenStyles(
                 indentLevel,
                 {} // Compare against an empty base style
             );
-            // And then recur on its children as well.
             const variantNested = variantChild.children || [];
             code += generateVariantChildrenStyles(
                 variantNested,
@@ -558,6 +568,7 @@ function generateVariantChildrenStyles(
 
     return code;
 }
+
 function generateSlintCode(slintComponent: SlintComponent): string {
     let code = '';
     

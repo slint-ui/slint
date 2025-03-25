@@ -4,6 +4,8 @@
 export const indentation = "    ";
 
 const rectangleProperties = [
+    "x",
+    "y",
     "width",
     "height",
     "fill",
@@ -15,6 +17,8 @@ const rectangleProperties = [
 ];
 
 const textProperties = [
+    "x",
+    "y",
     "text",
     "fill",
     "font-family",
@@ -486,6 +490,22 @@ export function generateRectangleSnippet(sceneNode: SceneNode): string {
 
     rectangleProperties.forEach((property) => {
         switch (property) {
+            case "x":
+                if ("x" in sceneNode && typeof sceneNode.x === "number") {
+                    const x = roundNumber(sceneNode.x);
+                    if (x) {
+                        properties.push(`${indentation}x: ${x}px;`);
+                    }
+                }
+                break;
+            case "y":
+                if ("y" in sceneNode && typeof sceneNode.y === "number") {
+                    const y = roundNumber(sceneNode.y);
+                    if (y) {
+                        properties.push(`${indentation}y: ${y}px;`);
+                    }
+                }
+                break;
             case "width":
                 if ("width" in sceneNode && typeof sceneNode.width === "number") {
                     const normalizedWidth = roundNumber(sceneNode.width);
@@ -591,6 +611,22 @@ export function generateTextSnippet(sceneNode: SceneNode): string {
     const properties: string[] = [];
     textProperties.forEach((property) => {
         switch (property) {
+            case "x":
+                if ("x" in sceneNode && typeof sceneNode.x === "number") {
+                    const x = roundNumber(sceneNode.x);
+                    if (x) {
+                        properties.push(`${indentation}x: ${x}px;`);
+                    }
+                }
+                break;
+            case "y":
+                if ("y" in sceneNode && typeof sceneNode.y === "number") {
+                    const y = roundNumber(sceneNode.y);
+                    if (y) {
+                        properties.push(`${indentation}y: ${y}px;`);
+                    }
+                }
+                break;
             case "text":
                 if ("characters" in sceneNode) {
                     const characters = sceneNode.characters;

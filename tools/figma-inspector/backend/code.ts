@@ -46,6 +46,7 @@ figma.on("selectionchange", () => {
 });
 listenTS("exportAll", ({ result }) => {
     if (result) {
+        console.clear();
         exportComponentSet();
     }
 });
