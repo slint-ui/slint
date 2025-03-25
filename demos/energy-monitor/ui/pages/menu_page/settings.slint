@@ -51,7 +51,6 @@ export component Settings inherits Page {
     in-out property <bool> check-option-three-checked <=> SettingsAdapter.check-option-three-checked;
 
     callback close();
-    callback check-radio-option <=> SettingsAdapter.check-radio-option;
 
     padding-left: 0;
     padding-right: 0;
@@ -96,7 +95,7 @@ export component Settings inherits Page {
 
                         i-radio-option-one := RadioButton {
                             clicked => {
-                                root.check-radio-option(0);
+                                SettingsAdapter.check-radio-option(0);
                             }
 
                             checked: root.radio-option-one-checked;
@@ -114,7 +113,7 @@ export component Settings inherits Page {
 
                         i-radio-option-two := RadioButton {
                             clicked => {
-                                root.check-radio-option(1);
+                                SettingsAdapter.check-radio-option(1);
                             }
 
                             checked: root.radio-option-two-checked;
