@@ -446,19 +446,13 @@ export function generateStateProperties(
     indentLevel: number = 1,
     baseStyle: ComponentStyle = {}
 ): string {
-    // Create a new style object with only the changes
     const changedStyle: ComponentStyle = {};
-    
-    // Check for properties that actually differ
+
+    // Compare each property of style with baseStyle.
     for (const [key, value] of Object.entries(style)) {
-        // Skip x/y for base-rect
-        if (prefix === 'base-rect' && (key === 'x' || key === 'y')) {
-            continue;
-        }
-        
-        // Only include properties that are different from the base style
+        // Skip x/y on the root component.
+        if (prefix === 'base-rect' && (key === 'x' || key === 'y')) continue;
         if (baseStyle[key] !== value) {
-            // Deep comparison for objects
             if (typeof value === 'object' && typeof baseStyle[key] === 'object') {
                 if (JSON.stringify(value) !== JSON.stringify(baseStyle[key])) {
                     changedStyle[key] = value;
@@ -468,16 +462,34 @@ export function generateStateProperties(
             }
         }
     }
-    
-    // Generate the property code
+
     const indent = ' '.repeat(indentLevel * 4);
     let result = '';
-    
+
+    // Normalize the prefix:
+    // - If prefix is exactly "base-rect", we output it.
+    // - If the prefix starts with "base-rect.", then drop the "base-rect." portion.
+    // - Otherwise, leave the prefix as-is.
+    let outPrefix = '';
+    if (prefix === 'base-rect') {
+        outPrefix = 'base-rect.';
+    } else if (prefix.startsWith('base-rect.')) {
+        outPrefix = prefix.substring('base-rect.'.length);
+        if (outPrefix) {
+            outPrefix += '.';
+        }
+    } else {
+        if (prefix) {
+            outPrefix = prefix + '.';
+        }
+    }
+
+    // Generate state lines for each changed property.
     for (const [key, value] of Object.entries(changedStyle)) {
         const formattedValue = PropertyHandler.format(key, value);
-        result += `${indent}${prefix}.${key}: ${formattedValue};\n`;
+        result += `${indent}${outPrefix}${key}: ${formattedValue};\n`;
     }
-    
+
     return result;
 }
 
@@ -546,7 +558,6 @@ function generateVariantChildrenStyles(
 
     return code;
 }
-
 function generateSlintCode(slintComponent: SlintComponent): string {
     let code = '';
     
