@@ -13,7 +13,8 @@ export async function newProject(context: vscode.ExtensionContext) {
     const node = "Node (JavaScript/TypeScript)";
     const cpp = "C++";
     const rust = "Rust";
-    const LANGUAGES = [node, cpp, rust] as const;
+    const python = "Python";
+    const LANGUAGES = [node, cpp, rust, python] as const;
     type Language = (typeof LANGUAGES)[number];
 
     const language = (await vscode.window.showQuickPick(LANGUAGES, {
@@ -35,6 +36,9 @@ export async function newProject(context: vscode.ExtensionContext) {
             break;
         case rust:
             repoUrl = "https://github.com/slint-ui/slint-rust-template";
+            break;
+        case python:
+            repoUrl = "https://github.com/slint-ui/slint-python-template";
             break;
         default:
             vscode.window.showErrorMessage("Invalid language selection.");
