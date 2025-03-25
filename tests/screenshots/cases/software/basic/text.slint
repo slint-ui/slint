@@ -28,4 +28,12 @@ export component TestCase inherits Window {
             font-italic: true;
         }
     }
+
+    // Issue #7936
+    Text {
+        text: "s";
+        font-size: 256px;
+        color: red;
+        opacity: 0.1;
+    }
 }
