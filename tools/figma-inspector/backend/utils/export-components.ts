@@ -39,6 +39,8 @@ interface AutoLayout {
 }
 
 interface ComponentStyle {
+    x?: number;
+    y?: number;
     width?: number;
     height?: number;
     background?: string;
@@ -57,6 +59,7 @@ interface SlintComponent {
     componentName: string;
     type?: string;
     enums: { [key: string]: string[] };
+    propertyToEnumMap?: { [key: string]: string }; // Add this line
     variants: Array<{
         name: string;
         properties: { [key: string]: string };
@@ -96,37 +99,50 @@ function rgbToHex(r: number, g: number, b: number): string {
     return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
 }
 
-function processChildrenRecursively(node: VariantInfo): SlintComponent[] {
-    if (!node.children || node.children.length === 0) {
-        return [];
-    }
-    
-    return node.children.map(child => {
-        // Process this child's children recursively
-        const childrenOfChild = processChildrenRecursively(child);
-        
+function processChildrenRecursively(node: VariantInfo): SlintComponent {
+    // Base case - no node or no children
+    if (!node) {
         return {
-            componentName: sanitizeIdentifier(child.name, 'component'),
-            type: mapNodeTypeToSlintType(child.type),
-            style: child.style || {},
-            isCommon: true, // Since these are children of a common component
+            componentName: "",
+            type: "Rectangle",
+            style: {},
+            isCommon: true, 
             variants: [],
             enums: {},
-            children: childrenOfChild
+            children: []
         };
-    });
+    }
+    
+    // Create this component
+    const component: SlintComponent = {
+        componentName: sanitizeIdentifier(node.name, 'component'),
+        type: mapNodeTypeToSlintType(node.type),
+        style: node.style || {},
+        isCommon: true,
+        variants: [],
+        enums: {},
+        children: []
+    };
+    
+    // Process all children recursively
+    if (node.children && node.children.length > 0) {
+        component.children = node.children.map(child => processChildrenRecursively(child));
+    }
+    
+    return component;
 }
 
 function generateNestedChildren(children: SlintComponent[], indentLevel: number): string {
     let code = '';
-    const indent = ' '.repeat(indentLevel * 4);
     
     children.forEach(child => {
         const childName = toLowerDashed(child.componentName);
+        const indent = ' '.repeat(indentLevel * 4);
+        
         code += `${indent}${childName} := ${child.type} {\n`;
         code += generateComponentProperties(child.type, child.style, indentLevel + 1);
         
-        // Recursive call for deeper nesting
+        // Process children recursively
         if (child.children && child.children.length > 0) {
             code += generateNestedChildren(child.children, indentLevel + 1);
         }
@@ -135,6 +151,35 @@ function generateNestedChildren(children: SlintComponent[], indentLevel: number)
     });
     
     return code;
+}
+
+function collectChildrenRecursively(node: any): any {
+    const style = parseSnippetToStyle(generateSlintSnippet(node) || '');
+    
+    const result = {
+        name: node.name,
+        id: node.id,
+        type: node.type,
+        variantProperties: {},
+        variants: [{
+            name: node.name,
+            id: node.id,
+            type: node.type,
+            propertyValues: {},
+            style: style
+        }],
+        style: style,
+        children: []
+    };
+    
+    // Recursively process children if they exist
+    if ('children' in node && node.children?.length > 0) {
+        result.children = node.children
+            .filter(child => 'type' in child)
+            .map(child => collectChildrenRecursively(child));
+    }
+    
+    return result;
 }
 /////////////////////////////////////////
 
@@ -216,23 +261,9 @@ function getComponentSetInfo(node: ComponentSetNode): VariantInfo {
 
         // Process children recursively
         const children = ('children' in variant) ? 
-            variant.children
-                .filter(child => 'type' in child)
-                .map(child => ({
-                    name: child.name,
-                    id: child.id,
-                    type: child.type,
-                    variantProperties: {},
-                    variants: [{
-                        name: child.name,
-                        id: child.id,
-                        type: child.type,
-                        propertyValues: {},
-                        style: parseSnippetToStyle(generateSlintSnippet(child) || '')
-                    }],
-                    style: parseSnippetToStyle(generateSlintSnippet(child) || '')
-                })) : [];
-
+        variant.children
+            .filter(child => 'type' in child)
+            .map(child => collectChildrenRecursively(child)) : [];
         return { name: variant.name, id: variant.id, propertyValues, style, children };
     });
     // Get common style
@@ -354,78 +385,27 @@ function convertToSlintFormat(componentSet: VariantInfo): SlintComponent {
     
     // Extract enums from variant properties
     const enums: { [key: string]: string[] } = {};
+    const propertyToEnumMap: { [key: string]: string } = {}; // Add this map
+    
     for (const [key, def] of Object.entries(componentSet.variantProperties)) {
         if (def.type === "VARIANT" && def.variantOptions) {
             const enumName = `${componentName}_${toUpperCamelCase(key)}`;
             enums[enumName] = def.variantOptions;
+            propertyToEnumMap[key] = enumName; // Store the mapping
         }
     }
 
-    // Get all unique children across variants
-    const allChildren = new Set<string>();
-    componentSet.variants.forEach(v => {
-        v.children?.forEach(child => {
-            allChildren.add(child.name);
-        });
-    });
+    // Only process the common children with their hierarchy intact
+    const commonChildren = componentSet.children?.map(child => 
+        processChildrenRecursively(child)
+    ) || [];
 
-    // Convert common children - WITH RECURSIVE PROCESSING
-    const commonChildren = componentSet.children?.map(child => {
-        // Process this child's children recursively, if it has any
-        const childrenOfChild = processChildrenRecursively(child);
-        
-        return {
-            componentName: sanitizeIdentifier(child.name, 'component'),
-            type: mapNodeTypeToSlintType(child.type),
-            style: child.style || {},
-            isCommon: true,
-            variants: [], 
-            enums: {},
-            children: childrenOfChild // Store recursive children
-        };
-    }) || [];
-
-    // Add variant-specific children with visibility:false
-    const variantChildren = Array.from(allChildren)
-    .filter(name => !componentSet.children?.some(c => c.name === name))
-    .map(name => {
-        const child = componentSet.variants[0].children?.find(c => c.name === name);
-        return {
-            componentName: sanitizeIdentifier(name, 'component'),
-            type: mapNodeTypeToSlintType(child?.type || 'RECTANGLE'), // Use our mapping function
-            style: {
-                ...child?.style,
-                visible: false
-            },
-            isCommon: false,
-            variants: [],
-            enums: {},
-            children: []
-        };
-    });
-        
-    // Combine all children
-    const allProcessedChildren = [...commonChildren, ...variantChildren];
-
-    return {
+    // For variants, we'll only store style changes
+     return {
         componentName,
         enums,
+        propertyToEnumMap,
         variants: componentSet.variants.map(v => {
-            // Find child components in this variant
-            const variantChildren = v.children?.map(child => {
-                const matchingChild = allProcessedChildren.find(
-                    c => c.componentName === sanitizeIdentifier(child.name, 'component')
-                );
-                return {
-                    componentName: matchingChild?.componentName || sanitizeIdentifier(child.name, 'component'),
-                    type: matchingChild?.type || mapNodeTypeToSlintType(child.type),
-                    style: child.style,
-                    enums: {},
-                    variants: [],
-                    children: []
-                };
-            }) || [];
-    
             return {
                 name: v.name,
                 properties: Object.fromEntries(
@@ -435,15 +415,29 @@ function convertToSlintFormat(componentSet: VariantInfo): SlintComponent {
                     ])
                 ),
                 style: v.style || {},
-                children: variantChildren // Use actual children, not empty array
+                children: v.children?.map(child => {
+                    // Find matching common child if any
+                    const matchingChild = commonChildren.find(c => 
+                        c.componentName === sanitizeIdentifier(child.name, 'component')
+                    );
+                    
+                    return {
+                        componentName: sanitizeIdentifier(child.name, 'component'),
+                        type: mapNodeTypeToSlintType(child.type),
+                        // Only store style changes, not a duplicate component
+                        style: child.style || {},
+                        enums: {},
+                        variants: [],
+                        children: []
+                    };
+                }) || []
             };
         }),
         style: componentSet.style || {},
-        children: allProcessedChildren
+        // ONLY include common children
+        children: commonChildren
     };
 }
-
-
 
 export function generateStateProperties(
     type: string,
@@ -452,21 +446,17 @@ export function generateStateProperties(
     indentLevel: number = 1,
     baseStyle: ComponentStyle = {}
 ): string {
-    // Clean component name
-    const componentName = prefix.split('.').pop() || '';
-    const cleanComponentName = PropertyHandler.cleanComponentName(componentName);
-    
-    // Create a new style object with manually detected changes
+    // Create a new style object with only the changes
     const changedStyle: ComponentStyle = {};
     
-    // For each property in the variant style
+    // Check for properties that actually differ
     for (const [key, value] of Object.entries(style)) {
-        // Skip x/y for base-rect only
+        // Skip x/y for base-rect
         if (prefix === 'base-rect' && (key === 'x' || key === 'y')) {
             continue;
         }
         
-        // Explicitly check if values differ
+        // Only include properties that are different from the base style
         if (baseStyle[key] !== value) {
             // Deep comparison for objects
             if (typeof value === 'object' && typeof baseStyle[key] === 'object') {
@@ -485,10 +475,76 @@ export function generateStateProperties(
     
     for (const [key, value] of Object.entries(changedStyle)) {
         const formattedValue = PropertyHandler.format(key, value);
-        result += `${indent}${cleanComponentName}.${key}: ${formattedValue};\n`;
+        result += `${indent}${prefix}.${key}: ${formattedValue};\n`;
     }
     
     return result;
+}
+
+function generateVariantChildrenStyles(
+    variantChildren: SlintComponent[],
+    commonChildren: SlintComponent[],
+    basePrefix: string,
+    indentLevel: number
+): string {
+    let code = '';
+
+    // For each variant child, try to find its matching common child
+    variantChildren?.forEach(variantChild => {
+        // Search by componentName (assumed sanitized)
+        const commonChild = commonChildren?.find(c =>
+            c.componentName === variantChild.componentName
+        );
+
+        // If we find a matching common child, compare their styles at this level…
+        if (commonChild) {
+            const childName = toLowerDashed(commonChild.componentName);
+            const prefix = `${basePrefix}.${childName}`;
+            
+            // Compare the style differences at this level.
+            code += generateStateProperties(
+                variantChild.type || 'Rectangle',
+                variantChild.style || {},
+                prefix,
+                indentLevel,
+                commonChild.style || {}
+            );
+            
+            // Then always recursively compare their children.
+            // Use empty arrays if one side is missing.
+            const variantNested = variantChild.children || [];
+            const commonNested = commonChild.children || [];
+            code += generateVariantChildrenStyles(
+                variantNested,
+                commonNested,
+                prefix,
+                indentLevel + 1
+            );
+        }
+        // If no matching common child exists, you might opt to output the whole style from the variant.
+        // For example:
+        else {
+            const childName = toLowerDashed(variantChild.componentName);
+            const prefix = `${basePrefix}.${childName}`;
+            code += generateStateProperties(
+                variantChild.type || 'Rectangle',
+                variantChild.style || {},
+                prefix,
+                indentLevel,
+                {} // Compare against an empty base style
+            );
+            // And then recur on its children as well.
+            const variantNested = variantChild.children || [];
+            code += generateVariantChildrenStyles(
+                variantNested,
+                [],
+                prefix,
+                indentLevel + 1
+            );
+        }
+    });
+
+    return code;
 }
 
 function generateSlintCode(slintComponent: SlintComponent): string {
@@ -506,32 +562,28 @@ function generateSlintCode(slintComponent: SlintComponent): string {
     // Generate component with properties
     code += `export component ${slintComponent.componentName} {\n`;
     
-    // Add enum properties
-    Object.keys(slintComponent.enums).forEach(enumName => {
-        const propertyName = toLowerDashed(enumName.split('_')[1]);
+    Object.entries(slintComponent.propertyToEnumMap).forEach(([propKey, enumName]) => {
+        const propertyName = toLowerDashed(propKey);
         code += `    in property <${enumName}> ${propertyName};\n`;
     });
     code += '\n';
 
-    // Base component with common elements
+    // Base component with common elements, but remove x and y
     code += `    base-rect := Rectangle {\n`;
-    code += generateComponentProperties('Rectangle', slintComponent.style, 2);
+    // Create a clean copy of the style without x and y
+    const cleanStyle = { ...slintComponent.style };
+    delete cleanStyle.x;
+    delete cleanStyle.y;
+    delete cleanStyle.width;
+    delete cleanStyle.height;
+ 
+    
+    code += generateComponentProperties('Rectangle', cleanStyle, 2);
     code += '\n';
 
-    // Add common children with proper indentation - WITH RECURSION
-    slintComponent.children?.forEach(child => {
-        const childName = toLowerDashed(child.componentName);
-        code += `        ${childName} := ${child.type} {\n`;
-        code += generateComponentProperties(child.type, child.style, 3);
-        
-        // Add nested children recursively
-        if (child.children && child.children.length > 0) {
-            code += generateNestedChildren(child.children, 4); // Increase indent level
-        }
-        
-        // Add newline before closing brace
-        code += `\n        }\n`;
-    });
+    if (slintComponent.children?.length > 0) {
+        code += generateNestedChildren(slintComponent.children, 2);
+    }
     code += `    }\n\n`;
 
     // Add states for variant-specific properties
@@ -540,8 +592,8 @@ function generateSlintCode(slintComponent: SlintComponent): string {
         const conditions = Object.entries(variant.properties)
         .map(([key, value]) => {
             const enumName = `${slintComponent.componentName}_${toUpperCamelCase(key)}`;
-            // Apply same capitalization to enum value as in definition
-            return `${toLowerDashed(key)} == ${enumName}.${sanitizeEnumValue(String(value))}`;
+            const propertyName = toLowerDashed(key);
+            return `${propertyName} == ${enumName}.${sanitizeEnumValue(String(value))}`;
         })
         .join(' && ');
 
@@ -552,61 +604,21 @@ function generateSlintCode(slintComponent: SlintComponent): string {
 
         code += `        ${variantId} when ${conditions}: {\n`;
         
-        // Add visibility state for non-common children
-        slintComponent.children?.forEach(child => {
-            const variantHasChild = variant.children?.some(vc => {
-                // Compare by removing numbers from names
-                const cleanName = vc.componentName.replace(/\d+$/, '');
-                const childCleanName = child.componentName.replace(/\d+$/, '');
-                return childCleanName === cleanName;
-            });
-            
-            if (!child.isCommon && variantHasChild) {
-                const cleanChildName = toLowerDashed(child.componentName).replace(/\d+$/, '');
-                code += `            ${cleanChildName}.visible: true;\n`; // Remove base-rect prefix
-            }
-        });
-
         // Base rectangle properties
         if (variant.style) {
             code += generateStateProperties('Rectangle', variant.style, 'base-rect', 3, slintComponent.style);
-            if (code) code += '\n';
         }
 
-        // Add child component states
-        variant.children?.forEach(variantChild => {
-            // Find the matching child in the component by name (without numbers)
-            const child = slintComponent.children?.find(c => {
-                const cleanName = c.componentName.replace(/\d+$/, '');
-                const variantCleanName = variantChild.componentName.replace(/\d+$/, '');
-                return cleanName === variantCleanName;
-            });
-            
-            // Apply style properties from this variant's version of the child
-            if (variantChild.style && child) {
-                // Use clean component naming
-                const cleanChildName = child.componentName.replace(/\d+$/, '');
-                const childPrefix = toLowerDashed(cleanChildName);
-                
-                console.log(`Adding styles for ${childPrefix} in variant ${variant.name}`);
-                console.log(`Style:`, variantChild.style);
-                
-                const childStateProps = generateStateProperties(
-                    variantChild.type || 'Rectangle', 
-                    variantChild.style, 
-                    childPrefix,  // Use clean name
-                    3,
-                    child.style   // Compare against base style
-                );
-                
-                if (childStateProps) {
-                    code += childStateProps;
-                }
-            }
-        });
+        // Add child component style changes
+        code += generateVariantChildrenStyles(
+            variant.children || [],
+            slintComponent.children || [],
+            'base-rect',
+            3
+        );        
         code += `        }\n`;
     });
-        code += `    ]\n`;
+    code += `    ]\n`;
 
     code += `}\n`;
     return code;
