@@ -1,11 +1,4 @@
 {
-  "compilerOptions": {
-    "typeRoots": [
-      "../../../node_modules/@types",
-      "../../../node_modules/@figma",
-      "../src/globals.d.ts",
-      "../shared/universals.d.ts"
-    ]
-  },
+   "extends": "../tsconfig.json",
   "include": ["./**/*.ts"]
 }
