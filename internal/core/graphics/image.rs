@@ -665,9 +665,9 @@ impl Image {
     /// Load an Image from a path to a file containing an image.
     ///
     /// Supported formats are SVG, PNG and JPEG.
-    /// Other formats supported by the [`image` crate](https://crates.io/crates/image) (
+    /// Enable support for additional formats supported by the [`image` crate](https://crates.io/crates/image) (
     /// AVIF, BMP, DDS, Farbfeld, GIF, HDR, ICO, JPEG, EXR, PNG, PNM, QOI, TGA, TIFF, WebP)
-    /// can be enabled using the `image-default-formats` cargo feature.
+    /// by enabling the `image-default-formats` cargo feature.
     pub fn load_from_path(path: &std::path::Path) -> Result<Self, LoadImageError> {
         self::cache::IMAGE_CACHE.with(|global_cache| {
             let path: SharedString = path.to_str().ok_or(LoadImageError(()))?.into();
