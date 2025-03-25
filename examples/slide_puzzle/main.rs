@@ -165,7 +165,7 @@ impl AppState {
 }
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
-pub fn main() {
+pub fn main() -> Result<(), slint::PlatformError> {
     // This provides better error messages in debug mode.
     // It's disabled in release mode so it doesn't bloat up the file size.
     #[cfg(all(debug_assertions, target_arch = "wasm32"))]
@@ -230,5 +230,6 @@ pub fn main() {
             state_copy.borrow().auto_play_timer.stop();
         }
     });
-    main_window.run().unwrap();
+    main_window.run()?;
+    Ok(())
 }
