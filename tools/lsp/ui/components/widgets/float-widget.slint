@@ -17,7 +17,6 @@ export component FloatWidget inherits GridLayout {
     callback set-float-binding(text: string, unit: string);
 
     private property <string> current-unit;
-    private property <PropertyValue> dummy: self.property-value;
 
     pure function find_current_unit(value: PropertyValue) -> string {
         if value.visual-items.length == 0 {
@@ -43,7 +42,7 @@ export component FloatWidget inherits GridLayout {
         current-unit = find_current_unit(property-value);
     }
 
-    changed dummy => {
+    changed property-value => {
         if !number.has-focus && self.property-value.kind == PropertyValueKind.float {
             apply-value();
         }

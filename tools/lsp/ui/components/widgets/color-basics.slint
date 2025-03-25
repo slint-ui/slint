@@ -93,7 +93,6 @@ export component Preview {
 
 export component ColorMainContent inherits HorizontalLayout {
     in-out property <color> current-color;
-    private property <color> dummy-current-color: current-color;
 
     in property <bool> enabled;
 
@@ -102,7 +101,7 @@ export component ColorMainContent inherits HorizontalLayout {
     callback set-color-binding(text: string);
     callback test-color-binding(text: string) -> bool;
 
-    private property <ColorData> current-color-data: Api.color-to-data(self.dummy-current-color);
+    private property <ColorData> current-color-data: Api.color-to-data(self.current-color);
 
     function apply-value() {
         rle.default-text = current-color-data.text;

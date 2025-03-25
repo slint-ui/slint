@@ -23,8 +23,6 @@ export component StringWidget inherits GridLayout {
 
     property <bool> open: false;
 
-    private property <PropertyValue> dummy: self.property-value;
-
     private property <bool> is-translated;
     private property <string> tr-context-value;
 
@@ -62,7 +60,7 @@ export component StringWidget inherits GridLayout {
         }
     }
 
-    changed dummy => {
+    changed property-value => {
         if !has-focus {
             apply-value();
         }
