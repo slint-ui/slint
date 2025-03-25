@@ -65,8 +65,12 @@ impl GlyphRenderer for PixelFont {
             sdf: self.bitmap_font.sdf,
         })
     }
-    fn scale_delta(&self) -> super::Fixed<u16, 8> {
-        super::Fixed::from_integer(self.glyphs.pixel_size as u16) / self.pixel_size.get() as u16
+    fn scale_delta(&self) -> Fixed<u16, 8> {
+        Fixed::try_from_fixed(Fixed::<u32, 8>::from_fraction(
+            self.glyphs.pixel_size as u32,
+            self.pixel_size.get() as u32,
+        ))
+        .unwrap()
     }
 }
 

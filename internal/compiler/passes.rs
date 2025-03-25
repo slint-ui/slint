@@ -279,6 +279,7 @@ pub async fn run_passes(
             });
 
             // This is not perfect, as this includes translations that may not be used.
+            #[cfg(feature = "bundle-translations")]
             if let Some(translation_builder) = doc.translation_builder.as_ref() {
                 translation_builder.collect_characters_seen(&mut characters_seen);
             }
