@@ -8,7 +8,6 @@ fn main() {
     cfg_aliases! {
        skia_backend_opengl: { any(feature = "opengl", not(any(target_vendor = "apple", target_family = "windows", target_arch = "wasm32"))) },
        skia_backend_metal: { all(target_vendor = "apple", not(feature = "opengl")) },
-       skia_backend_d3d: { all(target_family = "windows", not(feature = "opengl")) },
        skia_backend_vulkan: { feature = "vulkan" },
        skia_backend_software: { not(target_os = "android") },
     }
