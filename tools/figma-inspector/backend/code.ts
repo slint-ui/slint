@@ -47,6 +47,7 @@ listenTS("exportAll", async ({ result }) => {
         try {
             // Call the async function and await its result
             const slintCode = await exportFigmaVariablesToSlint();
+            // console.clear();
             console.log("slint\n\n", slintCode);
             
             // Send the code to the UI for clipboard functionality
