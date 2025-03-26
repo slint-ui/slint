@@ -1527,6 +1527,14 @@ impl ComponentInstance {
     ) -> Vec<(i_slint_compiler::object_tree::ElementRc, usize)> {
         crate::highlight::element_node_at_source_code_position(&self.inner, path, offset)
     }
+
+    /// Set a callback triggered by `Expression::DebugHook``.
+    #[cfg(feature = "internal-highlight")]
+    pub fn set_debug_hook_callback(&self, callback: Option<crate::debug_hook::DebugHookCallback>) {
+        generativity::make_guard!(guard);
+        let comp = self.inner.unerase(guard);
+        crate::debug_hook::set_debug_hook_callback(comp, callback);
+    }
 }
 
 impl ComponentHandle for ComponentInstance {

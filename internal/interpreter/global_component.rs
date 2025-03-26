@@ -23,6 +23,9 @@ pub struct CompiledGlobalCollection {
     /// Map of all exported global singletons and their index in the compiled_globals vector. The key
     /// is the normalized name of the global.
     pub exported_globals_by_name: BTreeMap<SmolStr, usize>,
+
+    #[cfg(feature = "internal-highlight")]
+    pub(crate) debug_hook_callback: RefCell<Option<crate::debug_hook::DebugHookCallback>>,
 }
 
 impl CompiledGlobalCollection {
@@ -54,7 +57,12 @@ impl CompiledGlobalCollection {
                 global
             })
             .collect();
-        Self { compiled_globals, exported_globals_by_name }
+        Self {
+            compiled_globals,
+            exported_globals_by_name,
+            #[cfg(feature = "internal-highlight")]
+            debug_hook_callback: RefCell::new(None),
+        }
     }
 }
 
