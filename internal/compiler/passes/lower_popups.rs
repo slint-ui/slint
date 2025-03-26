@@ -48,7 +48,7 @@ fn lower_popup_window(
     diag: &mut BuildDiagnostics,
 ) {
     if let Some(binding) = popup_window_element.borrow().bindings.get(CLOSE_ON_CLICK) {
-        if popup_window_element.borrow().bindings.get(CLOSE_POLICY).is_some() {
+        if popup_window_element.borrow().bindings.contains_key(CLOSE_POLICY) {
             diag.push_error(
                 "close-policy and close-on-click cannot be set at the same time".into(),
                 &binding.borrow().span,
@@ -59,12 +59,18 @@ fn lower_popup_window(
                 CLOSE_POLICY,
                 &binding.borrow().span,
             );
-            if !matches!(binding.borrow().expression, Expression::BoolLiteral(_)) {
+            if !matches!(
+                super::ignore_debug_hooks(&binding.borrow().expression),
+                Expression::BoolLiteral(_)
+            ) {
                 report_const_error(CLOSE_ON_CLICK, &binding.borrow().span, diag);
             }
         }
     } else if let Some(binding) = popup_window_element.borrow().bindings.get(CLOSE_POLICY) {
-        if !matches!(binding.borrow().expression, Expression::EnumerationValue(_)) {
+        if !matches!(
+            super::ignore_debug_hooks(&binding.borrow().expression),
+            Expression::EnumerationValue(_)
+        ) {
             report_const_error(CLOSE_POLICY, &binding.borrow().span, diag);
         }
     }
@@ -110,12 +116,12 @@ fn lower_popup_window(
     }
 
     let map_close_on_click_value = |b: &BindingExpression| {
-        let Expression::BoolLiteral(v) = b.expression else {
+        let Expression::BoolLiteral(v) = super::ignore_debug_hooks(&b.expression) else {
             assert!(diag.has_errors());
             return None;
         };
         let enum_ty = crate::typeregister::BUILTIN.with(|e| e.enums.PopupClosePolicy.clone());
-        let s = if v { "close-on-click" } else { "no-auto-close" };
+        let s = if *v { "close-on-click" } else { "no-auto-close" };
         Some(EnumerationValue {
             value: enum_ty.values.iter().position(|v| v == s).unwrap(),
             enumeration: enum_ty,
@@ -125,8 +131,8 @@ fn lower_popup_window(
     let close_policy =
         popup_window_element.borrow_mut().bindings.remove(CLOSE_POLICY).and_then(|b| {
             let b = b.into_inner();
-            if let Expression::EnumerationValue(v) = b.expression {
-                Some(v)
+            if let Expression::EnumerationValue(v) = super::ignore_debug_hooks(&b.expression) {
+                Some(v.clone())
             } else {
                 assert!(diag.has_errors());
                 None

@@ -60,7 +60,8 @@ pub fn lower_layouts(
 fn check_preferred_size_100(elem: &ElementRc, prop: &str, diag: &mut BuildDiagnostics) -> bool {
     let ret = if let Some(p) = elem.borrow().bindings.get(prop) {
         if p.borrow().expression.ty() == Type::Percent {
-            if !matches!(p.borrow().expression, Expression::NumberLiteral(val, _) if val == 100.) {
+            if !matches!(p.borrow().expression.ignore_debug_hook(), Expression::NumberLiteral(val, _) if val == 100.)
+            {
                 diag.push_error(
                     format!("{prop} must either be a length, or the literal '100%'"),
                     &*p.borrow(),
@@ -523,7 +524,9 @@ fn lower_dialog_layout(
             layout_child.borrow_mut().bindings.remove("dialog-button-role");
         let is_button = if let Some(role_binding) = dialog_button_role_binding {
             let role_binding = role_binding.into_inner();
-            if let Expression::EnumerationValue(val) = &role_binding.expression {
+            if let Expression::EnumerationValue(val) =
+                super::ignore_debug_hooks(&role_binding.expression)
+            {
                 let en = &val.enumeration;
                 debug_assert_eq!(en.name, "DialogButtonRole");
                 button_roles.push(en.values[val.value].clone());
@@ -550,7 +553,9 @@ fn lower_dialog_layout(
                 ),
                 Some(binding) => {
                     let binding = &*binding.borrow();
-                    if let Expression::EnumerationValue(val) = &binding.expression {
+                    if let Expression::EnumerationValue(val) =
+                        super::ignore_debug_hooks(&binding.expression)
+                    {
                         let en = &val.enumeration;
                         debug_assert_eq!(en.name, "StandardButtonKind");
                         let kind = &en.values[val.value];
@@ -583,7 +588,7 @@ fn lower_dialog_layout(
                             let clicked_ty =
                                 layout_child.borrow().lookup_property("clicked").property_type;
                             if matches!(&clicked_ty, Type::Callback { .. })
-                                && layout_child.borrow().bindings.get("clicked").map_or(true, |c| {
+                                && layout_child.borrow().bindings.get("clicked").is_none_or(|c| {
                                     matches!(c.borrow().expression, Expression::Invalid)
                                 })
                             {
@@ -798,7 +803,7 @@ fn eval_const_expr(
     span: &dyn crate::diagnostics::Spanned,
     diag: &mut BuildDiagnostics,
 ) -> Option<u16> {
-    match expression {
+    match super::ignore_debug_hooks(expression) {
         Expression::NumberLiteral(v, Unit::None) => {
             if *v < 0. || *v > u16::MAX as f64 || !v.trunc().approx_eq(v) {
                 diag.push_error(format!("'{name}' must be a positive integer"), span);

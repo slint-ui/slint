@@ -35,7 +35,7 @@ fn resolve_expression(
     type_loader: &crate::typeloader::TypeLoader,
     diag: &mut BuildDiagnostics,
 ) {
-    if let Expression::Uncompiled(node) = expr {
+    if let Expression::Uncompiled(node) = expr.ignore_debug_hooks() {
         let mut lookup_ctx = LookupCtx {
             property_name,
             property_type,
@@ -77,7 +77,10 @@ fn resolve_expression(
                 Expression::Invalid
             }
         };
-        *expr = new_expr;
+        match expr {
+            Expression::DebugHook { expression, .. } => *expression = Box::new(new_expr),
+            _ => *expr = new_expr,
+        }
     }
 }
 
@@ -1600,7 +1603,9 @@ fn resolve_two_way_bindings(
             &mut |elem, scope| {
                 for (prop_name, binding) in &elem.borrow().bindings {
                     let mut binding = binding.borrow_mut();
-                    if let Expression::Uncompiled(node) = binding.expression.clone() {
+                    if let Expression::Uncompiled(node) =
+                        binding.expression.ignore_debug_hooks().clone()
+                    {
                         if let Some(n) = syntax_nodes::TwoWayBinding::new(node.clone()) {
                             let lhs_lookup = elem.borrow().lookup_property(prop_name);
                             if !lhs_lookup.is_valid() {

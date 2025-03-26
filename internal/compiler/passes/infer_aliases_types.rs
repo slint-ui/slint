@@ -82,7 +82,7 @@ fn resolve_alias(
         assert!(diag.has_errors());
         return;
     };
-    let nr = match &binding.borrow().expression {
+    let nr = match super::ignore_debug_hooks(&binding.borrow().expression) {
         Expression::Uncompiled(node) => {
             let Some(node) = syntax_nodes::TwoWayBinding::new(node.clone()) else {
                 assert!(

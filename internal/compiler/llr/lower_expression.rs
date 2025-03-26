@@ -252,6 +252,7 @@ pub fn lower_expression(
             rhs: Box::new(lower_expression(rhs, ctx)),
         },
         tree_Expression::EmptyComponentFactory => llr_Expression::EmptyComponentFactory,
+        tree_Expression::DebugHook { expression, .. } => lower_expression(expression, ctx),
     }
 }
 

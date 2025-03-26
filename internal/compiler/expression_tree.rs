@@ -716,6 +716,11 @@ pub enum Expression {
         rhs: Box<Expression>,
     },
 
+    DebugHook {
+        expression: Box<Expression>,
+        id: SmolStr,
+    },
+
     EmptyComponentFactory,
 }
 
@@ -837,6 +842,7 @@ impl Expression {
             Expression::SolveLayout(..) => Type::LayoutCache,
             Expression::MinMax { ty, .. } => ty.clone(),
             Expression::EmptyComponentFactory => Type::ComponentFactory,
+            Expression::DebugHook { expression, .. } => expression.ty(),
         }
     }
 
@@ -931,6 +937,7 @@ impl Expression {
                 visitor(rhs);
             }
             Expression::EmptyComponentFactory => {}
+            Expression::DebugHook { expression, .. } => visitor(expression),
         }
     }
 
@@ -1027,6 +1034,7 @@ impl Expression {
                 visitor(rhs);
             }
             Expression::EmptyComponentFactory => {}
+            Expression::DebugHook { expression, .. } => visitor(expression),
         }
     }
 
@@ -1108,6 +1116,7 @@ impl Expression {
             Expression::SolveLayout(..) => false,
             Expression::MinMax { lhs, rhs, .. } => lhs.is_constant() && rhs.is_constant(),
             Expression::EmptyComponentFactory => true,
+            Expression::DebugHook { .. } => false,
         }
     }
 
@@ -1407,6 +1416,14 @@ impl Expression {
                 ctx.diag.push_error(format!("{what} needs to be done on a property"), node);
                 false
             }
+        }
+    }
+
+    /// Unwrap DebugHook expressions to their contained sub-expression
+    pub fn ignore_debug_hooks(&self) -> &Expression {
+        match self {
+            Expression::DebugHook { expression, .. } => expression.as_ref(),
+            _ => return self,
         }
     }
 }
@@ -1738,5 +1755,10 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
             write!(f, ")")
         }
         Expression::EmptyComponentFactory => write!(f, "<empty-component-factory>"),
+        Expression::DebugHook { expression, id } => {
+            write!(f, "debug-hook(")?;
+            pretty_print(f, expression)?;
+            write!(f, "\"{id}\")")
+        }
     }
 }
