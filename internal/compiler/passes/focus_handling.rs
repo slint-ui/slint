@@ -82,7 +82,8 @@ impl<'a> LocalFocusForwards<'a> {
                 return;
             };
 
-            let Expression::ElementReference(focus_target) = &forward_focus_binding.expression
+            let Expression::ElementReference(focus_target) =
+                super::ignore_debug_hooks(&forward_focus_binding.expression)
             else {
                 // resolve expressions pass has produced type errors
                 debug_assert!(diag.has_errors());

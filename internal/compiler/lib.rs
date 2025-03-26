@@ -148,6 +148,9 @@ pub struct CompilerConfiguration {
     /// Generate debug information for elements (ids, type names)
     pub debug_info: bool,
 
+    /// Generate debug hooks to inspect/override properties.
+    pub debug_hooks: bool,
+
     pub components_to_generate: ComponentSelection,
 
     #[cfg(feature = "software-renderer")]
@@ -226,6 +229,7 @@ impl CompilerConfiguration {
             translation_domain: None,
             cpp_namespace,
             debug_info,
+            debug_hooks: false,
             components_to_generate: ComponentSelection::ExportedWindows,
             #[cfg(feature = "software-renderer")]
             font_cache: Default::default(),

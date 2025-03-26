@@ -25,6 +25,7 @@ mod flickable;
 mod focus_handling;
 pub mod generate_item_indices;
 pub mod infer_aliases_types;
+mod inject_debug_hooks;
 mod inlining;
 mod lower_absolute_coordinates;
 mod lower_accessibility;
@@ -56,6 +57,16 @@ use crate::expression_tree::Expression;
 use crate::namedreference::NamedReference;
 use smol_str::SmolStr;
 
+pub fn ignore_debug_hooks(expr: &Expression) -> &Expression {
+    let mut expr = expr;
+    loop {
+        match expr {
+            Expression::DebugHook { expression, .. } => expr = expression.as_ref(),
+            _ => return expr,
+        }
+    }
+}
+
 pub async fn run_passes(
     doc: &mut crate::object_tree::Document,
     type_loader: &mut crate::typeloader::TypeLoader,
@@ -81,6 +92,9 @@ pub async fn run_passes(
     };
 
     let global_type_registry = type_loader.global_type_registry.clone();
+
+    inject_debug_hooks::inject_debug_hooks(doc, type_loader);
+
     run_import_passes(doc, type_loader, diag);
     check_public_api::check_public_api(doc, &type_loader.compiler_config, diag);
 

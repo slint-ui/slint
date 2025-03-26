@@ -22,7 +22,9 @@ pub fn lower_accessibility_properties(component: &Rc<Component>, diag: &mut Buil
             apply_builtin(elem);
             let accessible_role_set = match elem.borrow().bindings.get("accessible-role") {
                 Some(role) => {
-                    if let Expression::EnumerationValue(val) = &role.borrow().expression {
+                    if let Expression::EnumerationValue(val) =
+                        super::ignore_debug_hooks(&role.borrow().expression)
+                    {
                         debug_assert_eq!(val.enumeration.name, "AccessibleRole");
                         debug_assert_eq!(val.enumeration.values[0], "none");
                         if val.value == 0 {
