@@ -9,7 +9,7 @@ use i_slint_compiler::parser::{syntax_nodes, SyntaxKind, TextRange};
 use i_slint_compiler::{expression_tree, langtype, literals};
 use itertools::Itertools;
 use lsp_types::Url;
-use slint::{Model, SharedString, VecModel};
+use slint::{Model, ModelRc, SharedString, ToSharedString, VecModel};
 use slint_interpreter::{DiagnosticLevel, PlatformError};
 use smol_str::SmolStr;
 
@@ -132,7 +132,7 @@ pub fn create_ui(style: String, experimental: bool) -> Result<PreviewUi, Platfor
     api.on_as_slint_brush(as_slint_brush);
     api.on_create_brush(create_brush);
     api.on_add_gradient_stop(|model, value| {
-        let m = model.as_any().downcast_ref::<slint::VecModel<_>>().unwrap();
+        let m = model.as_any().downcast_ref::<VecModel<_>>().unwrap();
         m.push(value);
         (m.row_count() - 1) as i32
     });
@@ -142,11 +142,7 @@ pub fn create_ui(style: String, experimental: bool) -> Result<PreviewUi, Platfor
         }
         let row = row as usize;
         if row < model.row_count() {
-            model
-                .as_any()
-                .downcast_ref::<slint::VecModel<GradientStop>>()
-                .unwrap()
-                .remove(row as usize);
+            model.as_any().downcast_ref::<VecModel<GradientStop>>().unwrap().remove(row as usize);
         }
     });
 
@@ -407,52 +403,51 @@ fn extract_value_with_unit_impl(
     None
 }
 
-fn convert_simple_string(input: slint::SharedString) -> String {
-    format!("\"{}\"", str::escape_debug(input.as_ref()))
+fn convert_simple_string(input: SharedString) -> SharedString {
+    slint::format!("\"{}\"", str::escape_debug(input.as_ref()))
 }
 
 fn string_to_code(
-    input: slint::SharedString,
+    input: SharedString,
     is_translatable: bool,
-    tr_context: slint::SharedString,
-    tr_plural: slint::SharedString,
-    tr_plural_expression: slint::SharedString,
-) -> slint::SharedString {
+    tr_context: SharedString,
+    tr_plural: SharedString,
+    tr_plural_expression: SharedString,
+) -> SharedString {
     let input = convert_simple_string(input);
     if !is_translatable {
         input
     } else {
         let context = if tr_context.is_empty() {
-            String::new()
+            SharedString::new()
         } else {
-            format!("{} => ", convert_simple_string(tr_context))
+            slint::format!("{} => ", convert_simple_string(tr_context))
         };
         let plural = if tr_plural.is_empty() {
-            String::new()
+            SharedString::new()
         } else {
-            format!(" | {} % {}", convert_simple_string(tr_plural), tr_plural_expression)
+            slint::format!(" | {} % {}", convert_simple_string(tr_plural), tr_plural_expression)
         };
-        format!("@tr({context}{input}{plural})")
+        slint::format!("@tr({context}{input}{plural})")
     }
-    .into()
 }
 
-fn color_to_string(color: slint::Color) -> String {
+fn color_to_string(color: slint::Color) -> SharedString {
     let a = color.alpha();
     let r = color.red();
     let g = color.green();
     let b = color.blue();
 
-    format!("#{r:02x}{g:02x}{b:02x}{a:02x}")
+    slint::format!("#{r:02x}{g:02x}{b:02x}{a:02x}")
 }
 
 fn string_to_color(text: &str) -> Option<slint::Color> {
     literals::parse_color_literal(text).map(slint::Color::from_argb_encoded)
 }
 
-fn unit_model(units: &[expression_tree::Unit]) -> slint::ModelRc<slint::SharedString> {
+fn unit_model(units: &[expression_tree::Unit]) -> ModelRc<SharedString> {
     Rc::new(VecModel::from(
-        units.iter().map(|u| u.to_string().into()).collect::<Vec<slint::SharedString>>(),
+        units.iter().map(|u| u.to_string().into()).collect::<Vec<SharedString>>(),
     ))
     .into()
 }
@@ -469,7 +464,7 @@ fn extract_value_with_unit(
         return;
     };
 
-    value.display_string = format!("{v}{unit}").into();
+    value.display_string = slint::format!("{v}{unit}");
     value.kind = kind;
     value.value_float = v;
     value.visual_items = unit_model(units);
@@ -487,7 +482,7 @@ fn extract_color(
             value.kind = kind;
             value.value_brush = slint::Brush::SolidColor(color);
             value.gradient_stops =
-                Rc::new(slint::VecModel::from(vec![GradientStop { color, position: 0.5 }])).into();
+                Rc::new(VecModel::from(vec![GradientStop { color, position: 0.5 }])).into();
             return true;
         }
     }
@@ -514,7 +509,7 @@ fn set_default_brush(
     let text = "#00000000";
     let color = string_to_color(&text).unwrap();
     value.gradient_stops =
-        Rc::new(slint::VecModel::from(vec![GradientStop { color, position: 0.5 }])).into();
+        Rc::new(VecModel::from(vec![GradientStop { color, position: 0.5 }])).into();
     value.display_string = text.into();
     value.value_brush = slint::Brush::SolidColor(color);
 }
@@ -563,7 +558,7 @@ fn simplify_value(prop_info: &super::properties::PropertyInformation) -> Propert
             if let Some(expression) = expression {
                 if let Some((v, unit)) = convert_number_literal(&expression) {
                     if unit == i_slint_compiler::expression_tree::Unit::None {
-                        value.display_string = format!("{v}").into();
+                        value.display_string = slint::format!("{v}");
                         value.kind = PropertyValueKind::Integer;
                         value.value_int = v as i32;
                     }
@@ -794,7 +789,7 @@ fn is_equal_element(c: &ElementInformation, n: &ElementInformation) -> bool {
         && c.range.start == n.range.start
 }
 
-pub type PropertyGroupModel = slint::ModelRc<PropertyGroup>;
+pub type PropertyGroupModel = ModelRc<PropertyGroup>;
 
 fn update_grouped_properties(
     cvg: &VecModel<PropertyInformation>,
@@ -888,10 +883,10 @@ fn get_code(v: &Option<slint_interpreter::Value>) -> SharedString {
 
 #[derive(Default, Debug)]
 struct ValueMapping {
-    name_prefix: String,
+    name_prefix: SharedString,
     is_too_complex: bool,
     is_array: bool,
-    headers: Vec<String>,
+    headers: Vec<SharedString>,
     current_values: Vec<PropertyValue>,
     array_values: Vec<Vec<PropertyValue>>,
     code_value: PropertyValue,
@@ -906,24 +901,21 @@ fn map_value_and_type(
         mapping: &mut ValueMapping,
         color: slint::Color,
         kind: PropertyValueKind,
-        code: slint::SharedString,
+        code: SharedString,
     ) {
         let color_string = color_to_string(color);
         mapping.headers.push(mapping.name_prefix.clone());
         mapping.current_values.push(PropertyValue {
             kind,
             display_string: if kind == PropertyValueKind::Color {
-                color_string.into()
+                color_string
             } else {
-                "Solid Color".into()
+                SharedString::from("Solid Color")
             },
             brush_kind: BrushKind::Solid,
             value_brush: slint::Brush::SolidColor(color),
-            gradient_stops: Rc::new(slint::VecModel::from(vec![GradientStop {
-                color,
-                position: 0.5,
-            }]))
-            .into(),
+            gradient_stops: Rc::new(VecModel::from(vec![GradientStop { color, position: 0.5 }]))
+                .into(),
             code,
             accessor_path: mapping.name_prefix.clone().into(),
             ..Default::default()
@@ -936,7 +928,7 @@ fn map_value_and_type(
         Type::Float32 => {
             mapping.headers.push(mapping.name_prefix.clone());
             mapping.current_values.push(PropertyValue {
-                display_string: get_value::<f32>(value).to_string().into(),
+                display_string: get_value::<f32>(value).to_shared_string(),
                 kind: PropertyValueKind::Float,
                 value_float: get_value::<f32>(value),
                 code: get_code(value),
@@ -948,7 +940,7 @@ fn map_value_and_type(
         Type::Int32 => {
             mapping.headers.push(mapping.name_prefix.clone());
             mapping.current_values.push(PropertyValue {
-                display_string: get_value::<i32>(value).to_string().into(),
+                display_string: get_value::<i32>(value).to_shared_string(),
                 kind: PropertyValueKind::Integer,
                 value_int: get_value::<i32>(value),
                 code: get_code(value),
@@ -959,7 +951,7 @@ fn map_value_and_type(
         Type::Duration => {
             mapping.headers.push(mapping.name_prefix.clone());
             mapping.current_values.push(PropertyValue {
-                display_string: format!("{}{}", get_value::<f32>(value), Unit::Ms).into(),
+                display_string: slint::format!("{}{}", get_value::<f32>(value), Unit::Ms),
                 kind: PropertyValueKind::Float,
                 value_float: get_value::<f32>(value),
                 visual_items: unit_model(&[Unit::Ms]),
@@ -973,7 +965,7 @@ fn map_value_and_type(
         Type::PhysicalLength => {
             mapping.headers.push(mapping.name_prefix.clone());
             mapping.current_values.push(PropertyValue {
-                display_string: format!("{}{}", get_value::<f32>(value), Unit::Phx).into(),
+                display_string: slint::format!("{}{}", get_value::<f32>(value), Unit::Phx),
                 kind: PropertyValueKind::Float,
                 value_float: get_value::<f32>(value),
                 visual_items: unit_model(&[Unit::Phx]),
@@ -987,7 +979,7 @@ fn map_value_and_type(
         Type::LogicalLength => {
             mapping.headers.push(mapping.name_prefix.clone());
             mapping.current_values.push(PropertyValue {
-                display_string: format!("{}{}", get_value::<f32>(value), Unit::Px).into(),
+                display_string: slint::format!("{}{}", get_value::<f32>(value), Unit::Px),
                 kind: PropertyValueKind::Float,
                 value_float: get_value::<f32>(value),
                 visual_items: unit_model(&[Unit::Px]),
@@ -1001,7 +993,7 @@ fn map_value_and_type(
         Type::Rem => {
             mapping.headers.push(mapping.name_prefix.clone());
             mapping.current_values.push(PropertyValue {
-                display_string: format!("{}{}", get_value::<f32>(value), Unit::Rem).into(),
+                display_string: slint::format!("{}{}", get_value::<f32>(value), Unit::Rem),
                 kind: PropertyValueKind::Float,
                 value_float: get_value::<f32>(value),
                 visual_items: unit_model(&[Unit::Rem]),
@@ -1015,7 +1007,7 @@ fn map_value_and_type(
         Type::Angle => {
             mapping.headers.push(mapping.name_prefix.clone());
             mapping.current_values.push(PropertyValue {
-                display_string: format!("{}{}", get_value::<f32>(value), Unit::Deg).into(),
+                display_string: slint::format!("{}{}", get_value::<f32>(value), Unit::Deg),
                 kind: PropertyValueKind::Float,
                 value_float: get_value::<f32>(value),
                 visual_items: unit_model(&[Unit::Deg]),
@@ -1029,7 +1021,7 @@ fn map_value_and_type(
         Type::Percent => {
             mapping.headers.push(mapping.name_prefix.clone());
             mapping.current_values.push(PropertyValue {
-                display_string: format!("{}{}", get_value::<f32>(value), Unit::Percent).into(),
+                display_string: slint::format!("{}{}", get_value::<f32>(value), Unit::Percent),
                 kind: PropertyValueKind::Float,
                 value_float: get_value::<f32>(value),
                 visual_items: unit_model(&[Unit::Percent]),
@@ -1043,9 +1035,9 @@ fn map_value_and_type(
         Type::String => {
             mapping.headers.push(mapping.name_prefix.clone());
             mapping.current_values.push(PropertyValue {
-                display_string: format!("\"{}\"", get_value::<slint::SharedString>(value)).into(),
+                display_string: slint::format!("\"{}\"", get_value::<SharedString>(value)),
                 kind: PropertyValueKind::String,
-                value_string: get_value::<slint::SharedString>(value),
+                value_string: get_value::<SharedString>(value),
                 code: get_code(value),
                 accessor_path: mapping.name_prefix.clone().into(),
                 ..Default::default()
@@ -1068,12 +1060,12 @@ fn map_value_and_type(
                 slint::Brush::LinearGradient(lg) => {
                     mapping.headers.push(mapping.name_prefix.clone());
                     mapping.current_values.push(PropertyValue {
-                        display_string: "Linear Gradient".into(),
+                        display_string: SharedString::from("Linear Gradient"),
                         kind: PropertyValueKind::Brush,
                         brush_kind: BrushKind::Linear,
                         value_float: lg.angle(),
                         value_brush: slint::Brush::LinearGradient(lg.clone()),
-                        gradient_stops: Rc::new(slint::VecModel::from(
+                        gradient_stops: Rc::new(VecModel::from(
                             lg.stops()
                                 .map(|gs| GradientStop { color: gs.color, position: gs.position })
                                 .collect::<Vec<_>>(),
@@ -1087,11 +1079,11 @@ fn map_value_and_type(
                 slint::Brush::RadialGradient(rg) => {
                     mapping.headers.push(mapping.name_prefix.clone());
                     mapping.current_values.push(PropertyValue {
-                        display_string: "Radial Gradient".into(),
+                        display_string: SharedString::from("Radial Gradient"),
                         kind: PropertyValueKind::Brush,
                         brush_kind: BrushKind::Radial,
                         value_brush: slint::Brush::RadialGradient(rg.clone()),
-                        gradient_stops: Rc::new(slint::VecModel::from(
+                        gradient_stops: Rc::new(VecModel::from(
                             rg.stops()
                                 .map(|gs| GradientStop { color: gs.color, position: gs.position })
                                 .collect::<Vec<_>>(),
@@ -1105,9 +1097,9 @@ fn map_value_and_type(
                 _ => {
                     mapping.headers.push(mapping.name_prefix.clone());
                     mapping.current_values.push(PropertyValue {
-                        display_string: "Unknown Brush".into(),
+                        display_string: SharedString::from("Unknown Brush"),
                         kind: PropertyValueKind::Code,
-                        value_string: "???".into(),
+                        value_string: SharedString::from("???"),
                         accessor_path: mapping.name_prefix.clone().into(),
                         code: get_code(value),
                         ..Default::default()
@@ -1118,11 +1110,7 @@ fn map_value_and_type(
         Type::Bool => {
             mapping.headers.push(mapping.name_prefix.clone());
             mapping.current_values.push(PropertyValue {
-                display_string: if get_value::<bool>(value) {
-                    "true".into()
-                } else {
-                    "false".into()
-                },
+                display_string: get_value::<bool>(value).to_shared_string(),
                 kind: PropertyValueKind::Boolean,
                 value_bool: get_value::<bool>(value),
                 accessor_path: mapping.name_prefix.clone().into(),
@@ -1142,9 +1130,10 @@ fn map_value_and_type(
 
             mapping.headers.push(mapping.name_prefix.clone());
             mapping.current_values.push(PropertyValue {
-                display_string: format!(
+                display_string: slint::format!(
                     "{}.{}",
-                    enumeration.name, enumeration.values[selected_value]
+                    enumeration.name,
+                    enumeration.values[selected_value]
                 )
                 .into(),
                 kind: PropertyValueKind::Enum,
@@ -1166,7 +1155,7 @@ fn map_value_and_type(
         }
         Type::Array(array_ty) => {
             mapping.is_array = true;
-            let model = get_value::<slint::ModelRc<slint_interpreter::Value>>(value);
+            let model = get_value::<ModelRc<slint_interpreter::Value>>(value);
 
             for (idx, sub_value) in model.iter().enumerate() {
                 let mut sub_mapping = ValueMapping::default();
@@ -1198,9 +1187,9 @@ fn map_value_and_type(
                 let field = field.to_string();
                 let mut sub_mapping = ValueMapping::default();
                 let header_name = if mapping.name_prefix.is_empty() {
-                    field.clone()
+                    field.clone().into()
                 } else {
-                    format!("{}.{field}", mapping.name_prefix)
+                    slint::format!("{}.{field}", mapping.name_prefix)
                 };
                 sub_mapping.name_prefix = header_name.clone();
 
@@ -1309,7 +1298,7 @@ pub fn ui_set_preview_data(
         PropertyContainer {
             container_name: container_name.into(),
             container_id: container_id.into(),
-            properties: Rc::new(slint::VecModel::from(properties)).into(),
+            properties: Rc::new(VecModel::from(properties)).into(),
         }
     }
 
@@ -1339,7 +1328,7 @@ pub fn ui_set_preview_data(
     api.set_preview_data(Rc::new(VecModel::from(result)).into());
 }
 
-fn to_property_container(container: slint::SharedString) -> preview_data::PropertyContainer {
+fn to_property_container(container: SharedString) -> preview_data::PropertyContainer {
     if container.is_empty() {
         preview_data::PropertyContainer::Main
     } else {
@@ -1362,7 +1351,7 @@ fn get_property_value(container: SharedString, property_name: SharedString) -> P
 
 fn map_preview_data_to_property_value_table(
     preview_data: &preview_data::PreviewData,
-) -> (bool, Vec<String>, Vec<Vec<PropertyValue>>) {
+) -> (bool, Vec<SharedString>, Vec<Vec<PropertyValue>>) {
     let mut mapping = ValueMapping::default();
     map_value_and_type(&preview_data.ty, &preview_data.value, &mut mapping);
 
@@ -1389,17 +1378,16 @@ fn get_property_value_table(
         .unwrap_or_else(|| (false, Default::default(), Default::default()));
 
     let headers =
-        Rc::new(slint::VecModel::from(headers.drain(..).map(|s| s.into()).collect::<Vec<_>>()))
-            .into();
-    let values = Rc::new(slint::VecModel::from(
-        values.drain(..).map(|cv| Rc::new(slint::VecModel::from(cv)).into()).collect::<Vec<_>>(),
+        Rc::new(VecModel::from(headers.drain(..).map(|s| s.into()).collect::<Vec<_>>())).into();
+    let values = Rc::new(VecModel::from(
+        values.drain(..).map(|cv| Rc::new(VecModel::from(cv)).into()).collect::<Vec<_>>(),
     ))
     .into();
 
     PropertyValueTable { is_array, headers, values }
 }
 
-fn table_to_array(table: slint::ModelRc<slint::ModelRc<PropertyValue>>) -> Option<String> {
+fn table_to_array(table: ModelRc<ModelRc<PropertyValue>>) -> Option<String> {
     let mut result = "[\n".to_string();
 
     for (row_number, row) in table.iter().enumerate() {
@@ -1415,7 +1403,7 @@ fn table_to_array(table: slint::ModelRc<slint::ModelRc<PropertyValue>>) -> Optio
     Some(result)
 }
 
-fn table_row_to_struct(row: slint::ModelRc<PropertyValue>, indent_level: usize) -> Option<String> {
+fn table_row_to_struct(row: ModelRc<PropertyValue>, indent_level: usize) -> Option<String> {
     enum NodeKind {
         Leaf(String),
         Inner(BTreeMap<String, NodeKind>),
@@ -1430,7 +1418,7 @@ fn table_row_to_struct(row: slint::ModelRc<PropertyValue>, indent_level: usize) 
         }
     }
 
-    fn structurize(row: slint::ModelRc<PropertyValue>) -> Option<BTreeMap<String, NodeKind>> {
+    fn structurize(row: ModelRc<PropertyValue>) -> Option<BTreeMap<String, NodeKind>> {
         let mut result = BTreeMap::default();
 
         fn insert(
@@ -1505,7 +1493,7 @@ fn table_row_to_struct(row: slint::ModelRc<PropertyValue>, indent_level: usize) 
 fn set_property_value_table(
     container: SharedString,
     property_name: SharedString,
-    table: slint::ModelRc<slint::ModelRc<PropertyValue>>,
+    table: ModelRc<ModelRc<PropertyValue>>,
     is_array: bool,
 ) -> SharedString {
     let json_string = if is_array {
@@ -1518,8 +1506,6 @@ fn set_property_value_table(
 
         table_row_to_struct(table.row_data(0).unwrap(), 0)
     };
-
-    eprintln!("JSON: {json_string:?}");
 
     let Some(json_string) = json_string else {
         return "Could not process input values".into();
@@ -1555,7 +1541,7 @@ fn default_property_value(source: &PropertyValue) -> PropertyValue {
             pv.code = "#00000000".into();
         }
         PropertyValueKind::Enum => {
-            let enum_selection: slint::SharedString = format!(
+            let enum_selection: SharedString = format!(
                 "{}.{}",
                 source.value_string,
                 source
@@ -1597,9 +1583,7 @@ fn insert_row_into_value_table(table: PropertyValueTable, insert_before: i32) {
     let model = table.values.clone();
     let insert_before = (insert_before as usize).clamp(0, model.row_count());
 
-    let Some(vec_model) =
-        model.as_any().downcast_ref::<slint::VecModel<slint::ModelRc<PropertyValue>>>()
-    else {
+    let Some(vec_model) = model.as_any().downcast_ref::<VecModel<ModelRc<PropertyValue>>>() else {
         return;
     };
 
@@ -1611,7 +1595,7 @@ fn insert_row_into_value_table(table: PropertyValueTable, insert_before: i32) {
         result
     };
 
-    let row_model = Rc::new(slint::VecModel::from(row_data));
+    let row_model = Rc::new(VecModel::from(row_data));
     if vec_model.row_count() == insert_before {
         vec_model.push(row_model.into());
     } else {
@@ -1626,9 +1610,7 @@ fn remove_row_from_value_table(table: PropertyValueTable, to_remove: i32) {
     let to_remove = to_remove as usize;
 
     let model = table.values.clone();
-    let Some(vec_model) =
-        model.as_any().downcast_ref::<slint::VecModel<slint::ModelRc<PropertyValue>>>()
-    else {
+    let Some(vec_model) = model.as_any().downcast_ref::<VecModel<ModelRc<PropertyValue>>>() else {
         return;
     };
 
@@ -1726,7 +1708,7 @@ pub fn ui_set_properties(
 }
 
 fn sorted_gradient_stops(
-    stops: slint::ModelRc<GradientStop>,
+    stops: ModelRc<GradientStop>,
 ) -> Vec<i_slint_core::graphics::GradientStop> {
     let mut result = stops
         .iter()
@@ -1741,7 +1723,7 @@ fn as_json_brush(
     kind: BrushKind,
     angle: f32,
     color: slint::Color,
-    stops: slint::ModelRc<GradientStop>,
+    stops: ModelRc<GradientStop>,
 ) -> SharedString {
     format!("\"{}\"", as_slint_brush(kind, angle, color, stops)).into()
 }
@@ -1750,9 +1732,9 @@ fn as_slint_brush(
     kind: BrushKind,
     angle: f32,
     color: slint::Color,
-    stops: slint::ModelRc<GradientStop>,
+    stops: ModelRc<GradientStop>,
 ) -> SharedString {
-    fn stops_as_string(stops: slint::ModelRc<GradientStop>) -> String {
+    fn stops_as_string(stops: ModelRc<GradientStop>) -> String {
         let stops = sorted_gradient_stops(stops);
 
         let mut result = String::new();
@@ -1775,7 +1757,7 @@ fn create_brush(
     kind: BrushKind,
     angle: f32,
     color: slint::Color,
-    stops: slint::ModelRc<GradientStop>,
+    stops: ModelRc<GradientStop>,
 ) -> slint::Brush {
     let mut stops = sorted_gradient_stops(stops);
 
@@ -1797,7 +1779,7 @@ mod tests {
     use crate::common;
     use crate::preview::properties;
 
-    use i_slint_core::model::Model;
+    use slint::{Model, SharedString, VecModel};
 
     use super::{PropertyInformation, PropertyValue, PropertyValueKind};
 
@@ -2032,8 +2014,8 @@ export component Test { in property <Foobar> test1: Foobar.bar; }"#,
         assert!(!result.is_translatable);
 
         assert_eq!(result.visual_items.row_count(), 2);
-        assert_eq!(result.visual_items.row_data(0), Some(slint::SharedString::from("foo")));
-        assert_eq!(result.visual_items.row_data(1), Some(slint::SharedString::from("bar")));
+        assert_eq!(result.visual_items.row_data(0), Some(SharedString::from("foo")));
+        assert_eq!(result.visual_items.row_data(1), Some(SharedString::from("bar")));
 
         let result = property_conversion_test(
             r#"enum Foobar { foo, bar }
@@ -2047,8 +2029,8 @@ export component Test { in property <Foobar> test1; }"#,
         assert!(!result.is_translatable);
 
         assert_eq!(result.visual_items.row_count(), 2);
-        assert_eq!(result.visual_items.row_data(0), Some(slint::SharedString::from("foo")));
-        assert_eq!(result.visual_items.row_data(1), Some(slint::SharedString::from("bar")));
+        assert_eq!(result.visual_items.row_data(0), Some(SharedString::from("foo")));
+        assert_eq!(result.visual_items.row_data(1), Some(SharedString::from("bar")));
     }
 
     #[test]
@@ -2344,14 +2326,14 @@ export component X {
 
     #[test]
     fn test_property_date_update() {
-        let current = slint::VecModel::from(vec![
+        let current = VecModel::from(vec![
             create_test_property("aaa", "AAA"),
             create_test_property("bbb", "BBB"),
             create_test_property("ccc", "CCC"),
             create_test_property("ddd", "DDD"),
             create_test_property("eee", "EEE"),
         ]);
-        let next = slint::VecModel::from(vec![
+        let next = VecModel::from(vec![
             create_test_property("aaa", "AAA"),
             create_test_property("aab", "AAB"),
             create_test_property("abb", "ABB"),
@@ -2557,7 +2539,7 @@ export component Tester {{
                 code: "100".into(),
                 kind: super::PropertyValueKind::Float,
                 value_float: 100.0,
-                visual_items: std::rc::Rc::new(slint::VecModel::from(vec!["px".into()])).into(),
+                visual_items: std::rc::Rc::new(VecModel::from(vec!["px".into()])).into(),
                 ..Default::default()
             },
         );
@@ -2581,7 +2563,7 @@ export component Tester {{
                 code: "378".into(),
                 kind: super::PropertyValueKind::Float,
                 value_float: 378.0,
-                visual_items: std::rc::Rc::new(slint::VecModel::from(vec!["px".into()])).into(),
+                visual_items: std::rc::Rc::new(VecModel::from(vec!["px".into()])).into(),
                 ..Default::default()
             },
         );
@@ -2605,7 +2587,7 @@ export component Tester {{
                 code: "100000".into(),
                 kind: super::PropertyValueKind::Float,
                 value_float: 100000.0,
-                visual_items: std::rc::Rc::new(slint::VecModel::from(vec!["ms".into()])).into(),
+                visual_items: std::rc::Rc::new(VecModel::from(vec!["ms".into()])).into(),
                 default_selection: 1,
                 ..Default::default()
             },
@@ -2630,7 +2612,7 @@ export component Tester {{
                 code: "36000".into(),
                 kind: super::PropertyValueKind::Float,
                 value_float: 36000.0,
-                visual_items: std::rc::Rc::new(slint::VecModel::from(vec!["deg".into()])).into(),
+                visual_items: std::rc::Rc::new(VecModel::from(vec!["deg".into()])).into(),
                 ..Default::default()
             },
         );
@@ -2654,7 +2636,7 @@ export component Tester {{
                 code: "10".into(),
                 kind: super::PropertyValueKind::Float,
                 value_float: 10.0,
-                visual_items: std::rc::Rc::new(slint::VecModel::from(vec!["%".into()])).into(),
+                visual_items: std::rc::Rc::new(VecModel::from(vec!["%".into()])).into(),
                 ..Default::default()
             },
         );
