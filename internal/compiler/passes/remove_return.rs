@@ -39,6 +39,9 @@ fn process_expression(
     ty: &Type,
 ) -> ExpressionResult {
     match e {
+        Expression::DebugHook { expression, .. } => {
+            process_expression(*expression, toplevel, ctx, ty)
+        }
         Expression::ReturnStatement(expr) => ExpressionResult::Return(expr.map(|e| *e)),
         Expression::CodeBlock(expr) => {
             process_codeblock(expr.into_iter().peekable(), toplevel, ty, ctx)
@@ -69,14 +72,14 @@ fn process_expression(
                 }
                 (ExpressionResult::Return(te), ExpressionResult::Return(fe)) => {
                     ExpressionResult::Return(Some(Expression::Condition {
-                        condition: condition.into(),
+                        condition,
                         true_expr: te.unwrap_or(Expression::CodeBlock(vec![])).into(),
                         false_expr: fe.unwrap_or(Expression::CodeBlock(vec![])).into(),
                     }))
                 }
                 (te, fe) => {
-                    let te = te.into_return_object(&ty, &ctx.ret_ty);
-                    let fe = fe.into_return_object(&ty, &ctx.ret_ty);
+                    let te = te.into_return_object(ty, &ctx.ret_ty);
+                    let fe = fe.into_return_object(ty, &ctx.ret_ty);
                     ExpressionResult::ReturnObject {
                         has_value: has_value(ty),
                         has_return_value: has_value(&ctx.ret_ty),

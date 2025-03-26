@@ -395,7 +395,8 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
                 MinMaxOp::Max => Value::Number(lhs.max(rhs)),
             }
         }
-        Expression::EmptyComponentFactory => Value::ComponentFactory(Default::default())
+        Expression::EmptyComponentFactory => Value::ComponentFactory(Default::default()),
+        Expression::DebugHook { expression, .. } => eval_expression(expression, local_context),
     }
 }
 
