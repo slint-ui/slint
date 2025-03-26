@@ -43,7 +43,7 @@ The following step will build a local version of the vscode extension and the LS
 
 ```sh
 cargo install wasm-pack
-cargo build -p slint-lsp
+cargo build --features renderer-skia -p slint-lsp
 cd editors/vscode
 pnpm install --frozen-lockfile
 pnpm build:wasm_lsp
@@ -56,7 +56,7 @@ or `pnpm compile` to rebuild the typescript.
 You can run vscode with that extension by running, in the `editors/vscode` directory:
 
 ```sh
-code --extensionDevelopmentPath=$PWD ../..
+code --extensionDevelopmentPath=$PWD <path to a slint project that is different to the one already open in vscode>
 ```
 
 If you want to load the web extension, add `--extensionDevelopmentKind=web`
