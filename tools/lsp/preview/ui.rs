@@ -1779,7 +1779,7 @@ mod tests {
     use crate::common;
     use crate::preview::properties;
 
-    use slint::{Model, SharedString, VecModel};
+    use slint::{Model, SharedString, ToSharedString, VecModel};
 
     use super::{PropertyInformation, PropertyValue, PropertyValueKind};
 
@@ -2981,6 +2981,47 @@ export component Tester {{
                     ..Default::default()
                 }],
             ],
+        );
+    }
+
+    #[track_caller]
+    fn validate_array_row_to_struct(indent_level: usize, row: Vec<PropertyValue>, expected: &str) {
+        let model = std::rc::Rc::new(VecModel::from(row)).into();
+        let received = super::table_row_to_struct(model, indent_level).unwrap();
+
+        assert_eq!(received, expected);
+    }
+
+    #[test]
+    fn test_table_row_to_stuct() {
+        fn bool_pv(value: bool, accessor_path: &str) -> PropertyValue {
+            PropertyValue {
+                accessor_path: SharedString::from(accessor_path),
+                display_string: value.to_shared_string(),
+                value_bool: value,
+                code: value.to_shared_string(),
+                ..Default::default()
+            }
+        }
+
+        validate_array_row_to_struct(0, vec![bool_pv(true, "")], "true");
+        validate_array_row_to_struct(1, vec![bool_pv(true, "")], "  true");
+        validate_array_row_to_struct(2, vec![bool_pv(true, "")], "    true");
+        validate_array_row_to_struct(3, vec![bool_pv(true, "")], "      true");
+        validate_array_row_to_struct(
+            1,
+            vec![bool_pv(true, "test")],
+            "  {\n    \"test\": true\n  }",
+        );
+        validate_array_row_to_struct(
+            0,
+            vec![bool_pv(true, "l1.l2.l3")],
+            "{\n  \"l1\": {\n    \"l2\": {\n      \"l3\": true\n    }\n  }\n}",
+        );
+        validate_array_row_to_struct(
+            0,
+            vec![bool_pv(true, "l1.l2.l3"), bool_pv(false, "l1.test")],
+            "{\n  \"l1\": {\n    \"l2\": {\n      \"l3\": true\n    },\n    \"test\": false\n  }\n}",
         );
     }
 }
