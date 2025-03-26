@@ -747,7 +747,7 @@ impl<T, F: Fn() -> T> Binding<T> for F {
 
 /// A Property that allow binding that track changes
 ///
-/// Property van have be assigned value, or bindings.
+/// Property can have an assigned value, or binding.
 /// When a binding is assigned, it is lazily evaluated on demand
 /// when calling `get()`.
 /// When accessing another property from a binding evaluation,
