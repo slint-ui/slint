@@ -1290,6 +1290,12 @@ impl ComponentInstance {
         d.set_property(comp.borrow(), &name, value)
     }
 
+    /// Set a callback triggered by `@debug-hook`-ed properties.
+    #[cfg(feature = "internal-highlight")]
+    pub fn set_debug_hook_callback(&self, observer: Option<crate::debug_hook::DebugHookCallback>) {
+        crate::debug_hook::set_debug_hook_callback(observer);
+    }
+
     /// Set a handler for the callback with the given name. A callback with that
     /// name must be defined in the document otherwise an error will be returned.
     ///
