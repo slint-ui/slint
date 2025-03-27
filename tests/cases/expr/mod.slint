@@ -9,8 +9,10 @@
     out property <length> t5: (-28.2px).mod(10px);
     out property <float> t6: (42).mod(-10);
     out property <float> t7: (-420).mod(-5.5);
+    in property <int> minus_forty_two: -42;
+    out property <int> t8: minus_forty_two.mod(2);
 
-    out property <bool> test: t1 == 0 && t2 == 8.5 && t3 == 3 && t4 == 432ms && t5 == 1.8px && t6 == 2 && t7 == 3.5;
+    out property <bool> test: t1 == 0 && t2 == 8.5 && t3 == 3 && t4 == 432ms && t5 == 1.8px && t6 == 2 && t7 == 3.5 && t8 == 0;
 }
 /*
 ```cpp
@@ -23,6 +25,7 @@ assert_eq(instance.get_t4(),432);
 assert_eq(instance.get_t5(), 1.8);
 assert_eq(instance.get_t6(), 2.);
 assert_eq(instance.get_t7(), 3.5);
+assert_eq(instance.get_t8(), 0);
 ```
 
 
@@ -35,6 +38,8 @@ assert_eq!(instance.get_t4(),432);
 assert_eq!(instance.get_t5(), 1.8);
 assert_eq!(instance.get_t6(), 2.);
 assert_eq!(instance.get_t7(), 3.5);
+assert_eq!(instance.get_t8(), 0);
+assert!(instance.get_test());
 ```
 
 ```js
@@ -46,6 +51,7 @@ assert.equal(instance.t4, 432);
 assert.equal(Math.round(instance.t5 * 1000), 1800);
 assert.equal(instance.t6, 2.);
 assert.equal(instance.t7, 3.5);
+assert.equal(instance.t8, 0);
 assert(instance.test);
 ```
 */
