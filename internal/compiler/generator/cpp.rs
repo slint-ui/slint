@@ -2079,17 +2079,13 @@ fn generate_sub_component(
 
     for (idx, repeated) in component.repeated.iter_enumerated() {
         let sc = &root.sub_components[repeated.sub_tree.root];
-        let data_type = if let Some(data_prop) = repeated.data_prop {
-            sc.properties[data_prop].ty.clone()
-        } else {
-            Type::Int32
-        };
+        let data_type = repeated.data_prop.map(|data_prop| sc.properties[data_prop].ty.clone());
 
         generate_repeated_component(
             repeated,
             root,
             ParentCtx::new(&ctx, Some(idx)),
-            &data_type,
+            data_type.as_ref(),
             file,
             conditional_includes,
         );
@@ -2097,12 +2093,7 @@ fn generate_sub_component(
         let idx = usize::from(idx);
         let repeater_id = format_smolstr!("repeater_{}", idx);
 
-        let mut model = compile_expression(&repeated.model.borrow(), &ctx);
-        if repeated.model.ty(&ctx) == Type::Bool {
-            // bool converts to int
-            // FIXME: don't do a heap allocation here
-            model = format!("std::make_shared<slint::private_api::UIntModel>({model})")
-        }
+        let model = compile_expression(&repeated.model.borrow(), &ctx);
 
         // FIXME: optimize  if repeated.model.is_constant()
         properties_init_code.push(format!(
@@ -2143,17 +2134,19 @@ fn generate_sub_component(
             }}",
         ));
 
-        target_struct.members.push((
-            field_access,
-            Declaration::Var(Var {
-                ty: format_smolstr!(
+        let rep_type = match data_type {
+            Some(data_type) => {
+                format_smolstr!(
                     "slint::private_api::Repeater<class {}, {}>",
                     ident(&sc.name),
-                    data_type.cpp_type().unwrap(),
-                ),
-                name: repeater_id,
-                ..Default::default()
-            }),
+                    data_type.cpp_type().unwrap()
+                )
+            }
+            None => format_smolstr!("slint::private_api::Conditional<class {}>", ident(&sc.name)),
+        };
+        target_struct.members.push((
+            field_access,
+            Declaration::Var(Var { ty: rep_type, name: repeater_id, ..Default::default() }),
         ));
     }
 
@@ -2438,7 +2431,7 @@ fn generate_repeated_component(
     repeated: &llr::RepeatedElement,
     root: &llr::CompilationUnit,
     parent_ctx: ParentCtx,
-    model_data_type: &Type,
+    model_data_type: Option<&Type>,
     file: &mut File,
     conditional_includes: &ConditionalIncludes,
 ) {
@@ -2474,22 +2467,24 @@ fn generate_repeated_component(
     let index_prop = repeated.index_prop.iter().map(access_prop);
     let data_prop = repeated.data_prop.iter().map(access_prop);
 
-    let mut update_statements = vec!["[[maybe_unused]] auto self = this;".into()];
-    update_statements.extend(index_prop.map(|prop| format!("{prop}.set(i);")));
-    update_statements.extend(data_prop.map(|prop| format!("{prop}.set(data);")));
+    if let Some(model_data_type) = model_data_type {
+        let mut update_statements = vec!["[[maybe_unused]] auto self = this;".into()];
+        update_statements.extend(index_prop.map(|prop| format!("{prop}.set(i);")));
+        update_statements.extend(data_prop.map(|prop| format!("{prop}.set(data);")));
 
-    repeater_struct.members.push((
-        Access::Public, // Because Repeater accesses it
-        Declaration::Function(Function {
-            name: "update_data".into(),
-            signature: format!(
-                "([[maybe_unused]] int i, [[maybe_unused]] const {} &data) const -> void",
-                model_data_type.cpp_type().unwrap()
-            ),
-            statements: Some(update_statements),
-            ..Function::default()
-        }),
-    ));
+        repeater_struct.members.push((
+            Access::Public, // Because Repeater accesses it
+            Declaration::Function(Function {
+                name: "update_data".into(),
+                signature: format!(
+                    "([[maybe_unused]] int i, [[maybe_unused]] const {} &data) const -> void",
+                    model_data_type.cpp_type().unwrap()
+                ),
+                statements: Some(update_statements),
+                ..Function::default()
+            }),
+        ));
+    }
 
     repeater_struct.members.push((
         Access::Public, // Because Repeater accesses it
@@ -3972,19 +3967,19 @@ fn box_layout_function(
                 if let Some(ri) = &repeated_indices {
                     write!(push_code, "{}_array[{}] = cells_vector.size();", ri, repeater_idx * 2)
                         .unwrap();
-                    write!(push_code,
-                        "{ri}_array[{c}] = self->repeater_{id}.inner ? self->repeater_{id}.inner->data.size() : 0;",
+                    write!(
+                        push_code,
+                        "{ri}_array[{c}] = self->repeater_{id}.len();",
                         ri = ri,
                         c = repeater_idx * 2 + 1,
                         id = repeater,
-                    ).unwrap();
+                    )
+                    .unwrap();
                 }
                 repeater_idx += 1;
                 write!(
                     push_code,
-                    "if (self->repeater_{id}.inner) \
-                        for (auto &&sub_comp : self->repeater_{id}.inner->data) \
-                           cells_vector.push_back((*sub_comp.ptr)->box_layout_data({o}));",
+                    "self->repeater_{id}.for_each([&](const auto &sub_comp){{ cells_vector.push_back(sub_comp->box_layout_data({o})); }});",
                     id = repeater,
                     o = to_cpp_orientation(orientation),
                 )

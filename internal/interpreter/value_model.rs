@@ -2,7 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use crate::api::Value;
-use i_slint_core::model::{Model, ModelTracker};
+use core::cell::Cell;
+use i_slint_core::model::{Model, ModelNotify, ModelTracker};
 
 pub struct ValueModel {
     value: Value,
@@ -79,5 +80,38 @@ impl Model for ValueModel {
 
     fn as_any(&self) -> &dyn core::any::Any {
         self
+    }
+}
+
+/// A model for conditional elements
+#[derive(Default)]
+pub(crate) struct BoolModel {
+    value: Cell<bool>,
+    notify: ModelNotify,
+}
+
+impl Model for BoolModel {
+    type Data = Value;
+    fn row_count(&self) -> usize {
+        if self.value.get() {
+            1
+        } else {
+            0
+        }
+    }
+    fn row_data(&self, row: usize) -> Option<Self::Data> {
+        (row == 0 && self.value.get()).then_some(Value::Void)
+    }
+    fn model_tracker(&self) -> &dyn ModelTracker {
+        &self.notify
+    }
+}
+
+impl BoolModel {
+    pub fn set_value(&self, val: bool) {
+        let old = self.value.replace(val);
+        if old != val {
+            self.notify.reset();
+        }
     }
 }

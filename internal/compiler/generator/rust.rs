@@ -766,9 +766,8 @@ fn generate_sub_component(
         }
     }
 
-    let mut repeated_element_names: Vec<Ident> = vec![];
     let mut repeated_visit_branch: Vec<TokenStream> = vec![];
-    let mut repeated_element_components: Vec<Ident> = vec![];
+    let mut repeated_element_components: Vec<TokenStream> = vec![];
     let mut repeated_subtree_ranges: Vec<TokenStream> = vec![];
     let mut repeated_subtree_components: Vec<TokenStream> = vec![];
 
@@ -783,11 +782,7 @@ fn generate_sub_component(
         let rep_inner_component_id =
             self::inner_component_id(&root.sub_components[repeated.sub_tree.root]);
 
-        let mut model = compile_expression(&repeated.model.borrow(), &ctx);
-        if repeated.model.ty(&ctx) == Type::Bool {
-            model = quote!(sp::ModelRc::new(#model as bool))
-        }
-
+        let model = compile_expression(&repeated.model.borrow(), &ctx);
         init.push(quote! {
             _self.#repeater_id.set_model_binding({
                 let self_weak = sp::VRcMapped::downgrade(&self_rc);
@@ -838,8 +833,11 @@ fn generate_sub_component(
                 }
             }
         ));
-        repeated_element_names.push(repeater_id);
-        repeated_element_components.push(rep_inner_component_id);
+        repeated_element_components.push(if repeated.index_prop.is_some() {
+            quote!(#repeater_id: sp::Repeater<#rep_inner_component_id>)
+        } else {
+            quote!(#repeater_id: sp::Conditional<#rep_inner_component_id>)
+        });
     }
 
     // Use ids following the real repeaters to piggyback on their forwarding through sub-components!
@@ -1149,7 +1147,7 @@ fn generate_sub_component(
             #(#popup_id_names : ::core::cell::Cell<sp::Option<::core::num::NonZeroU32>>,)*
             #(#declared_property_vars : sp::Property<#declared_property_types>,)*
             #(#declared_callbacks : sp::Callback<(#(#declared_callbacks_types,)*), #declared_callbacks_ret>,)*
-            #(#repeated_element_names : sp::Repeater<#repeated_element_components>,)*
+            #(#repeated_element_components,)*
             #(#change_tracker_names : sp::ChangeTracker,)*
             #(#timer_names : sp::Timer,)*
             self_weak : sp::OnceCell<sp::VWeakMapped<sp::ItemTreeVTable, #inner_component_id>>,

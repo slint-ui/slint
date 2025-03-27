@@ -1,0 +1,146 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Test for 3953
+
+export component TestCase inherits Window {
+    width: 100phx;
+    height: 100phx;
+
+    in property<int> value: 42;
+    in-out property <string> r;
+
+    if value > 0 : TouchArea {
+        property <int> cL;
+        width: 50%;
+        x: 0px;
+        clicked => {
+            cL += 1;
+            r += "clickL(" + cL + ").";
+        }
+        init => {
+            r += "initL(" + cL + ").";
+        }
+
+    }
+
+    if value.mod(2) == 0 : TouchArea {
+        property <int> cR;
+        width: 50%;
+        x: parent.width - self.width;
+        clicked => {
+            cR += 1;
+            r += "clickR(" + cR + ").";
+        }
+        init => {
+            r += "initR(" + cR + ").";
+        }
+    }
+
+}
+
+
+
+
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+// condition is false
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert_eq(instance.get_r(), "initR(0).initL(0).clickL(1).");
+slint_testing::send_mouse_click(&instance, 95., 5.);
+assert_eq(instance.get_r(), "initR(0).initL(0).clickL(1).clickR(1).");
+instance.set_r("");
+
+instance.set_value(-42);
+assert_eq(instance.get_r(), "");
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert_eq(instance.get_r(), "");
+slint_testing::send_mouse_click(&instance, 95., 5.);
+assert_eq(instance.get_r(), "clickR(2).");
+instance.set_r("");
+
+instance.set_value(48);
+assert_eq(instance.get_r(), "");
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert_eq(instance.get_r(), "initL(0).clickL(1).");
+slint_testing::send_mouse_click(&instance, 95., 5.);
+assert_eq(instance.get_r(), "initL(0).clickL(1).clickR(3).");
+instance.set_r("");
+
+instance.set_value(49);
+assert_eq(instance.get_r(), "");
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert_eq(instance.get_r(), "clickL(2).");
+slint_testing::send_mouse_click(&instance, 95., 5.);
+assert_eq(instance.get_r(), "clickL(2).");
+```
+
+
+```rust
+let instance = TestCase::new().unwrap();
+
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert_eq!(instance.get_r(), "initR(0).initL(0).clickL(1).");
+slint_testing::send_mouse_click(&instance, 95., 5.);
+assert_eq!(instance.get_r(), "initR(0).initL(0).clickL(1).clickR(1).");
+instance.set_r("".into());
+
+instance.set_value(-42);
+assert_eq!(instance.get_r(), "");
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert_eq!(instance.get_r(), "");
+slint_testing::send_mouse_click(&instance, 95., 5.);
+assert_eq!(instance.get_r(), "clickR(2).");
+instance.set_r("".into());
+
+instance.set_value(48);
+assert_eq!(instance.get_r(), "");
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert_eq!(instance.get_r(), "initL(0).clickL(1).");
+slint_testing::send_mouse_click(&instance, 95., 5.);
+assert_eq!(instance.get_r(), "initL(0).clickL(1).clickR(3).");
+instance.set_r("".into());
+
+instance.set_value(49);
+assert_eq!(instance.get_r(), "");
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert_eq!(instance.get_r(), "clickL(2).");
+slint_testing::send_mouse_click(&instance, 95., 5.);
+assert_eq!(instance.get_r(), "clickL(2).");
+```
+
+```js
+var instance = new slint.TestCase();
+slintlib.private_api.send_mouse_click(instance, 5., 5.);
+assert.equal(instance.r, "initR(0).initL(0).clickL(1).");
+slintlib.private_api.send_mouse_click(instance, 95., 5.);
+assert.equal(instance.r, "initR(0).initL(0).clickL(1).clickR(1).");
+instance.r = "";
+
+instance.value = -42;
+assert.equal(instance.r, "");
+slintlib.private_api.send_mouse_click(instance, 5., 5.);
+assert.equal(instance.r, "");
+slintlib.private_api.send_mouse_click(instance, 95., 5.);
+assert.equal(instance.r, "clickR(2).");
+instance.r = "";
+
+instance.value = 48;
+assert.equal(instance.r, "");
+slintlib.private_api.send_mouse_click(instance, 5., 5.);
+assert.equal(instance.r, "initL(0).clickL(1).");
+slintlib.private_api.send_mouse_click(instance, 95., 5.);
+assert.equal(instance.r, "initL(0).clickL(1).clickR(3).");
+instance.r = "";
+
+instance.value = 49;
+assert.equal(instance.r, "");
+slintlib.private_api.send_mouse_click(instance, 5., 5.);
+assert.equal(instance.r, "clickL(2).");
+slintlib.private_api.send_mouse_click(instance, 95., 5.);
+assert.equal(instance.r, "clickL(2).");
+```
+*/

@@ -157,9 +157,9 @@ pub struct ListViewInfo {
 #[derive(Debug)]
 pub struct RepeatedElement {
     pub model: MutExpression,
-    /// Within the sub_tree's root component
+    /// Within the sub_tree's root component. None for `if`
     pub index_prop: Option<PropertyIdx>,
-    /// Within the sub_tree's root component
+    /// Within the sub_tree's root component. None for `if`
     pub data_prop: Option<PropertyIdx>,
     pub sub_tree: ItemTree,
     /// The index of the item node in the parent tree
