@@ -19,15 +19,15 @@ function convertColor(color: RGB | RGBA): string {
 function formatStructName(name: string): string {
   // Handle names starting with "." - remove the dot
   let sanitizedName = name.startsWith('.') ? name.substring(1) : name;
-  
+
   // If that made it empty, use a default
   if (!sanitizedName || sanitizedName.trim() === '') {
     sanitizedName = 'DefaultCollection';
   }
-  
+
   // First, replace problematic characters with spaces before splitting
   sanitizedName = sanitizedName.replace(/[&+]/g, ' ');
-  
+
   // Then continue with normal PascalCase conversion
   return sanitizedName
     .split(/[-_\s\/]/)
@@ -39,15 +39,15 @@ function formatStructName(name: string): string {
 function formatPropertyName(name: string): string {
   // Handle names starting with "." - remove the dot
   let sanitizedName = name.startsWith('.') ? name.substring(1) : name;
-  
+
   // If that made it empty, use a default
   if (!sanitizedName || sanitizedName.trim() === '') {
     sanitizedName = 'property';
   }
-  
+
   // Replace & with 'and' before other formatting
   sanitizedName = sanitizedName.replace(/&/g, 'and');
-  
+
   return sanitizedName
     .replace(/([a-z])([A-Z])/g, '$1-$2')
     .replace(/\s+/g, '-')
@@ -87,12 +87,12 @@ function sanitizeModeForEnum(name: string): string {
   if (/^\d+$/.test(name)) {
     return `mode_${name}`;
   }
-  
+
   // Check if starts with a digit (still invalid for most identifiers)
   if (/^\d/.test(name)) {
     return `m_${name}`;
   }
-  
+
   // Replace any characters that are invalid in identifiers
   return name.replace(/[^a-zA-Z0-9_]/g, '_');
 }
@@ -116,41 +116,41 @@ function createReferenceExpression(
     console.warn(`Reference path not found for ID: ${referenceId}`);
     return null;
   }
-  
+
   // Get the target collection
   const targetCollection = collectionStructure.get(targetPath.collection);
   if (!targetCollection) {
     console.warn(`Collection not found: ${targetPath.collection}`);
     return null;
   }
-  
+
   // Get all modes from target collection
   const targetModes = [...targetCollection.modes];
   if (targetModes.length === 0) {
     console.warn(`No modes found in target collection: ${targetPath.collection}`);
     return null;
   }
-  
+
   // First try: exact match with sanitized names
-  let targetColumnName = targetModes.find(mode => 
+  let targetColumnName = targetModes.find(mode =>
     sanitizeModeForEnum(mode) === sanitizeModeForEnum(sourceColumnName)
   );
-  
+
   // Second try: direct match without sanitization
   if (!targetColumnName) {
     targetColumnName = targetModes.find(mode => mode === sourceColumnName);
   }
-  
+
   // Third try: match the collection's first mode
   if (!targetColumnName) {
     targetColumnName = targetModes[0];
     console.log(`Using default mode ${targetColumnName} for reference to ${referenceId}`);
   }
-  
+
   // Sanitize both row and column names
   const sanitizedRow = sanitizeRowName(targetPath.row);
   const sanitizedColumn = sanitizeModeForEnum(targetColumnName);
-  
+
   // Format the reference expression
   return `${targetCollection.formattedName}.${sanitizedRow}-${sanitizedColumn}`;
 }
@@ -160,10 +160,10 @@ export async function exportFigmaVariablesToSlint(): Promise<string> {
   try {
     // Get collections asynchronously
     const variableCollections = await figma.variables.getLocalVariableCollectionsAsync();
-    
+
     // Initialize code output
     let slintCode = `// Generated from Figma variables\n\n`;
-    
+
     // Track collections and their structure
     const collectionStructure = new Map<string, {
       name: string,
@@ -171,22 +171,22 @@ export async function exportFigmaVariablesToSlint(): Promise<string> {
       modes: Set<string>,
       variables: Map<string, Map<string, { value: string, type: string, refId?: string }>>
     }>();
-    
+
     // Create a map of all variable IDs to their actual values (for resolving references)
     const variableValuesById = new Map<string, Map<string, { value: string, type: string }>>();
     const variableNameById = new Map<string, string>();
-    
+
     // NEW: Track where each variable ID will appear in the generated code
     const variablePathsById = new Map<string, { collection: string, row: string }>();
-    
+
     // First pass: collect all variables and store references
     for (const collection of variableCollections) {
       const collectionName = formatPropertyName(collection.name);
       const formattedCollectionName = formatStructName(collection.name);
-      
+
       // Skip empty collections
       if (!collection.variableIds || collection.variableIds.length === 0) continue;
-      
+
       // Initialize collection structure
       if (!collectionStructure.has(collectionName)) {
         collectionStructure.set(collectionName, {
@@ -196,70 +196,70 @@ export async function exportFigmaVariablesToSlint(): Promise<string> {
           variables: new Map<string, Map<string, { value: string, type: string, refId?: string }>>()
         });
       }
-      
+
       // Add modes to collection
       collection.modes.forEach(mode => {
         const sanitizedMode = sanitizeModeForEnum(formatPropertyName(mode.name));
         collectionStructure.get(collectionName)!.modes.add(sanitizedMode);
       });
-      
+
       // Process variables in batches
       const batchSize = 5;
       for (let i = 0; i < collection.variableIds.length; i += batchSize) {
         const batch = collection.variableIds.slice(i, i + batchSize);
         const batchPromises = batch.map(id => figma.variables.getVariableByIdAsync(id));
         const batchResults = await Promise.all(batchPromises);
-        
+
         for (const variable of batchResults) {
           if (!variable) continue;
           if (!variable.valuesByMode || Object.keys(variable.valuesByMode).length === 0) continue;
-          
+
           // Store variable name by ID for later reference resolution
           variableNameById.set(variable.id, variable.name);
-          
+
           // Initialize variable in valuesByID map
           if (!variableValuesById.has(variable.id)) {
             variableValuesById.set(variable.id, new Map<string, { value: string, type: string }>());
           }
-          
+
           // Use extractHierarchy to break up variable names 
           const nameParts = extractHierarchy(variable.name);
-          const propertyName = nameParts.length > 0 ? 
-            nameParts[nameParts.length - 1] : 
+          const propertyName = nameParts.length > 0 ?
+            nameParts[nameParts.length - 1] :
             formatPropertyName(variable.name);
-          
-          const path = nameParts.length > 1 ? 
-            nameParts.slice(0, -1).join('_') : 
+
+          const path = nameParts.length > 1 ?
+            nameParts.slice(0, -1).join('_') :
             '';
-          
-            const rowName = path ? `${path}_${propertyName}` : propertyName;
-            const sanitizedRowName = sanitizeRowName(rowName);
-                      
+
+          const rowName = path ? `${path}_${propertyName}` : propertyName;
+          const sanitizedRowName = sanitizeRowName(rowName);
+
           // NEW: Store the path to this variable for reference lookup
           variablePathsById.set(variable.id, {
             collection: collectionName,
-            row: sanitizedRowName  
+            row: sanitizedRowName
           });
-          
+
           // Initialize row in variables map
           if (!collectionStructure.get(collectionName)!.variables.has(sanitizedRowName)) {
             collectionStructure.get(collectionName)!.variables.set(
-              sanitizedRowName, 
+              sanitizedRowName,
               new Map<string, { value: string, type: string, refId?: string }>()
             );
           }
-          
+
           // Process values for each mode
           for (const [modeId, value] of Object.entries(variable.valuesByMode)) {
             const modeInfo = collection.modes.find(m => m.modeId === modeId);
             if (!modeInfo) continue;
-            
+
             const modeName = sanitizeModeForEnum(formatPropertyName(modeInfo.name));
-            
+
             // Format value and track references
             let formattedValue = '';
             let refId: string | undefined;
-            
+
             if (variable.resolvedType === 'COLOR') {
               if (typeof value === 'object' && value && 'r' in value) {
                 formattedValue = convertColor(value);
@@ -306,82 +306,82 @@ export async function exportFigmaVariablesToSlint(): Promise<string> {
                 formattedValue = 'false';
               }
             }
-            
+
             // Store in variable value map (for reference resolution)
             variableValuesById.get(variable.id)!.set(
-              modeName, 
+              modeName,
               { value: formattedValue, type: variable.resolvedType }
             );
-            
+
             // Store in collection structure with reference ID if present
             collectionStructure.get(collectionName)!.variables.get(sanitizedRowName)!.set(
-              modeName, 
-              { 
-                value: formattedValue, 
+              modeName,
+              {
+                value: formattedValue,
                 type: variable.resolvedType,
                 refId: refId
               }
             );
           }
         }
-        
+
         // Force GC between batches
         await new Promise(resolve => setTimeout(resolve, 0));
       }
     }
-    
+
     // We'll use the global createReferenceExpression function defined earlier in the file
-    
-// Second pass: preserve references with correct formatting
-for (const [collectionKey, collection] of collectionStructure.entries()) {
-  for (const [rowName, columns] of collection.variables.entries()) {
-    for (const [colName, data] of columns.entries()) {
-      if (data.refId) {
-        // Use the improved reference expression function
-        const refExpression = createReferenceExpression(
-          data.refId, 
-          colName, 
-          variablePathsById, 
-          collectionStructure
-        );
-        
-        if (refExpression) {
-          // Update with reference expression instead of resolved value
-          collectionStructure.get(collectionKey)!.variables.get(rowName)!.set(
-            colName,
-            {
-              value: refExpression,
-              type: data.type,
-              refId: data.refId
+
+    // Second pass: preserve references with correct formatting
+    for (const [collectionKey, collection] of collectionStructure.entries()) {
+      for (const [rowName, columns] of collection.variables.entries()) {
+        for (const [colName, data] of columns.entries()) {
+          if (data.refId) {
+            // Use the improved reference expression function
+            const refExpression = createReferenceExpression(
+              data.refId,
+              colName,
+              variablePathsById,
+              collectionStructure
+            );
+
+            if (refExpression) {
+              // Update with reference expression instead of resolved value
+              collectionStructure.get(collectionKey)!.variables.get(rowName)!.set(
+                colName,
+                {
+                  value: refExpression,
+                  type: data.type,
+                  refId: data.refId
+                }
+              );
+            } else {
+              // Couldn't create reference, use a placeholder
+              console.warn(`Couldn't create reference expression for: ${data.refId} for ${rowName}-${colName}`);
+              collectionStructure.get(collectionKey)!.variables.get(rowName)!.set(
+                colName,
+                {
+                  value: data.type === 'COLOR' ? '#808080' :
+                    data.type === 'FLOAT' ? '0px' :
+                      data.type === 'BOOLEAN' ? 'false' :
+                        '""',
+                  type: data.type
+                }
+              );
             }
-          );
-        } else {
-          // Couldn't create reference, use a placeholder
-          console.warn(`Couldn't create reference expression for: ${data.refId} for ${rowName}-${colName}`);
-          collectionStructure.get(collectionKey)!.variables.get(rowName)!.set(
-            colName,
-            {
-              value: data.type === 'COLOR' ? '#808080' : 
-                     data.type === 'FLOAT' ? '0px' : 
-                     data.type === 'BOOLEAN' ? 'false' : 
-                     '""',
-              type: data.type
-            }
-          );
+          }
         }
       }
     }
-  }
-}
-    
+
     // Third pass: generate code
     for (const [collectionKey, collection] of collectionStructure.entries()) {
       // Only generate if there are variables
       if (collection.variables.size === 0) continue;
-      
+
       // Convert modes to an array for consistent indexing
       const modes = [...collection.modes];
-      
+
       // 1. Generate enum for columns (modes)
       slintCode += `// ${collection.name} Modes\n`;
       slintCode += `export enum ${collection.formattedName}Column {\n`;
@@ -389,35 +389,35 @@ for (const [collectionKey, collection] of collectionStructure.entries()) {
         slintCode += `    ${sanitizeModeForEnum(mode)},\n`;
       });
       slintCode += `}\n\n`;
-      
+
       // 2. Generate global table
       slintCode += `// ${collection.name} Variables\n`;
       slintCode += `export global ${collection.formattedName} {\n`;
-      
+
       // Current column property
       slintCode += `    in-out property <${collection.formattedName}Column> current-column: ${modes[0] || 'light'};\n\n`;
-      
+
       // Determine types for all variables
       const variableTypes = new Map<string, string>();
       for (const [rowName, columns] of collection.variables.entries()) {
         for (const [, data] of columns.entries()) {
           if (!variableTypes.has(rowName)) {
-            variableTypes.set(rowName, 
-              data.type === 'COLOR' ? 'color' : 
-              data.type === 'FLOAT' ? 'length' : 
-              data.type === 'BOOLEAN' ? 'bool' :
-              'string'
+            variableTypes.set(rowName,
+              data.type === 'COLOR' ? 'color' :
+                data.type === 'FLOAT' ? 'length' :
+                  data.type === 'BOOLEAN' ? 'bool' :
+                    'string'
             );
           }
           break;
         }
       }
-      
+
       // 3. Add individual cell properties with references preserved
       slintCode += `    // Individual cell values\n`;
       for (const [rowName, columns] of collection.variables.entries()) {
         const rowType = variableTypes.get(rowName) || 'color';
-        
+
         for (const [colName, data] of columns.entries()) {
           let valueExpression = data.value;
 
@@ -433,19 +433,19 @@ for (const [collectionKey, collection] of collectionStructure.entries()) {
               valueExpression = '#808080';
             }
           }
-          
+
           // If this is a reference, make sure the referenced property name is sanitized
           if (data.refId) {
             const refName = variableNameById.get(data.refId) || data.refId;
-            
+
             // If the value is a reference to another property, ensure that reference is also sanitized
             if (valueExpression.includes('global_size-&-spacing')) {
               valueExpression = valueExpression.replace(/global_size-&-spacing/g, 'global_size-and-spacing');
             }
-            
+
             valueExpression = `${valueExpression} /* Reference to ${refName} */`;
           }
-          
+
           slintCode += `    out property <${rowType}> ${rowName}-${sanitizeModeForEnum(colName)}: ${valueExpression};\n`;
         }
       }
@@ -454,22 +454,22 @@ for (const [collectionKey, collection] of collectionStructure.entries()) {
       slintCode += `\n    // Row accessor functions\n`;
       for (const [rowName, columns] of collection.variables.entries()) {
         const rowType = variableTypes.get(rowName) || 'color';
-        
+
         slintCode += `    function ${rowName}(column: ${collection.formattedName}Column) -> ${rowType} {\n`;
         slintCode += `        if (`;
-        
+
         let isFirst = true;
         for (const [colName] of columns.entries()) {
           if (!isFirst) slintCode += `} else if (`;
           slintCode += `column == ${collection.formattedName}Column.${sanitizeModeForEnum(colName)}`;
           if (isFirst) isFirst = false;
-          
+
           slintCode += `) {\n`;
           // Function returns property directly - references are preserved
           slintCode += `            return ${rowName}-${colName};\n`;
           slintCode += `        `;
         }
-        
+
         // Default case using first column
         const firstCol = [...columns.keys()][0];
         slintCode += `} else {\n`;
@@ -477,17 +477,17 @@ for (const [collectionKey, collection] of collectionStructure.entries()) {
         slintCode += `        }\n`;
         slintCode += `    }\n`;
       }
-      
+
       // 5. Generate current value properties
       slintCode += `\n    // Current values based on current-column\n`;
       for (const [rowName] of collection.variables.entries()) {
         const rowType = variableTypes.get(rowName) || 'color';
         slintCode += `    out property <${rowType}> current-${rowName}: ${rowName}(self.current-column);\n`;
       }
-      
+
       slintCode += `}\n\n`;
     }
-    
+
     return slintCode;
   } catch (error) {
     console.error("Error in exportFigmaVariablesToSlint:", error);
@@ -497,8 +497,8 @@ for (const [collectionKey, collection] of collectionStructure.entries()) {
 // Helper function to resolve variable references
 // Improved reference resolution function with better debugging and more flexible mode matching
 function resolveReference(
-  referenceId: string, 
-  modeName: string, 
+  referenceId: string,
+  modeName: string,
   variableValuesById: Map<string, Map<string, { value: string, type: string }>>,
   visited: Set<string>
 ): { value: string, type: string } | null {
@@ -507,29 +507,29 @@ function resolveReference(
     console.warn('Circular reference detected:', referenceId);
     return null;
   }
-  
+
   visited.add(referenceId);
-  
+
   // Debug logging
   console.log(`Resolving reference: ${referenceId} for mode: ${modeName}`);
-  
+
   // Get the target variable values
   const targetValues = variableValuesById.get(referenceId);
   if (!targetValues) {
     console.warn(`Reference ID not found in variable map: ${referenceId}`);
     return null;
   }
-  
+
   // Log available modes to debug
   console.log(`Available modes for this reference:`, Array.from(targetValues.keys()));
-  
+
   // Get the value for this exact mode
   let modeValue = targetValues.get(modeName);
-  
+
   // If exact mode not found, try alternative mode matching strategies
   if (!modeValue) {
     console.log(`Mode "${modeName}" not found directly, trying alternatives...`);
-    
+
     // Strategy 1: Try case-insensitive matching
     for (const [availableMode, value] of targetValues.entries()) {
       if (availableMode.toLowerCase() === modeName.toLowerCase()) {
@@ -538,7 +538,7 @@ function resolveReference(
         break;
       }
     }
-    
+
     // Strategy 2: If "light" or "dark" are in the name, try variations
     if (!modeValue) {
       if (modeName.includes('light')) {
@@ -559,28 +559,28 @@ function resolveReference(
         }
       }
     }
-    
+
     // Strategy 3: Fall back to the first available mode as last resort
     if (!modeValue && targetValues.size > 0) {
       const firstMode = Array.from(targetValues.keys())[0];
       console.log(`Falling back to first available mode: ${firstMode}`);
       modeValue = targetValues.get(firstMode);
     }
-    
+
     // If still no match, report failure
     if (!modeValue) {
       console.warn(`No matching mode found for ${referenceId}`);
       return null;
     }
   }
-  
+
   // If this is another reference, resolve it recursively
   if (modeValue.value.startsWith('@ref:')) {
     console.log(`Found nested reference: ${modeValue.value}`);
     const nestedRefId = modeValue.value.substring(5); // Remove '@ref:' prefix
     return resolveReference(nestedRefId, modeName, variableValuesById, visited);
   }
-  
+
   // Return the resolved value
   console.log(`Successfully resolved reference to: ${modeValue.value}`);
   return modeValue;
