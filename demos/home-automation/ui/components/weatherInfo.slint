@@ -37,39 +37,34 @@ export component Day inherits Rectangle {
 
         property <length> icon-size: 40px;
 
-        if weather-data.condition == WeatherCondition.sunny: Rectangle {
+        pure function weather-icon-source() -> image {
+            if weather-data.condition == WeatherCondition.sunny {
+                return @image-url("../images/weather/sunny.png");
+            }
+            if weather-data.condition == WeatherCondition.rainy {
+                return @image-url("../images/weather/rainy.png");
+            }
+            if weather-data.condition == WeatherCondition.cloudy {
+                return @image-url("../images/weather/cloudy.png");
+            }
+            if weather-data.condition == WeatherCondition.sunny-cloudy {
+                return @image-url("../images/weather/sunny-cloudy.png");
+            }
+            if weather-data.condition == WeatherCondition.sunny-rainy {
+                return @image-url("../images/weather/sunny-rainy.png");
+            }
+            // default
+            return @image-url("../images/weather/sunny.png");
+        }
+
+        Rectangle {
             height: 38px;
             Image {
                 width: AppState.graphics-accelerator-available ? self.source.width * scale * 1px : self.source.width * 1px;
-                source: @image-url("../images/weather/sunny.png");
-            }
-        }
-        if weather-data.condition == WeatherCondition.rainy: Rectangle {
-            height: 38px;
-            Image {
-                source: @image-url("../images/weather/rainy.png");
-            }
-        }
-        if weather-data.condition == WeatherCondition.cloudy: Rectangle {
-            height: 38px;
-            Image {
-                source: @image-url("../images/weather/cloudy.png");
+                source: weather-icon-source();
             }
         }
 
-        if weather-data.condition == WeatherCondition.sunny-cloudy: Rectangle {
-            height: 38px;
-            Image {
-                source: @image-url("../images/weather/sunny-cloudy.png");
-            }
-        }
-
-        if weather-data.condition == WeatherCondition.sunny-rainy: Rectangle {
-            height: 38px;
-            Image {
-                source: @image-url("../images/weather/sunny-rainy.png");
-            }
-        }
         HorizontalLayout {
             alignment: center;
             HaText {
