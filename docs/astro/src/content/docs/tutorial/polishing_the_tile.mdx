@@ -9,7 +9,7 @@ import { extractLines } from '/src/utils/utils.ts';
 
 In this step, you add a curtain-like cover that opens when clicked. Slint files have an implicit z order for drawing items.
 Each subsequent item is drawn above the previous one. So a `Rectangle` on line 10 would be underneath another declared later
-in the file on line 50. To give the impression of curtains that cover the image, 
+in the file on line 50. To give the impression of curtains that cover the image,
 declare two rectangles after the <span class="hljs-built_in">Image</span>, so that Slint draws them over the Image.
 
 The <span class="hljs-built_in">TouchArea</span> element declares a transparent rectangular region that allows
