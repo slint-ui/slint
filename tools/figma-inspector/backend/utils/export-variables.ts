@@ -15,21 +15,45 @@ function convertColor(color: RGB | RGBA): string {
   return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
 }
 
-// Helper to format struct/global name for Slint (PascalCase)
+// Helper to format struct/global name for Slint (PascalCase) with sanitization
 function formatStructName(name: string): string {
-  return name
+  // Handle names starting with "." - remove the dot
+  let sanitizedName = name.startsWith('.') ? name.substring(1) : name;
+  
+  // If that made it empty, use a default
+  if (!sanitizedName || sanitizedName.trim() === '') {
+    sanitizedName = 'DefaultCollection';
+  }
+  
+  // First, replace problematic characters with spaces before splitting
+  sanitizedName = sanitizedName.replace(/[&+]/g, ' ');
+  
+  // Then continue with normal PascalCase conversion
+  return sanitizedName
     .split(/[-_\s\/]/)
     .map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
     .join('');
 }
 
-// Helper to format property name for Slint (kebab-case)
+// Helper to format property name for Slint (kebab-case) with sanitization
 function formatPropertyName(name: string): string {
-  return name
+  // Handle names starting with "." - remove the dot
+  let sanitizedName = name.startsWith('.') ? name.substring(1) : name;
+  
+  // If that made it empty, use a default
+  if (!sanitizedName || sanitizedName.trim() === '') {
+    sanitizedName = 'property';
+  }
+  
+  // Replace & with 'and' before other formatting
+  sanitizedName = sanitizedName.replace(/&/g, 'and');
+  
+  return sanitizedName
     .replace(/([a-z])([A-Z])/g, '$1-$2')
     .replace(/\s+/g, '-')
     .toLowerCase();
 }
+
 // Helper to format variable name for Slint (kebab-case)
 function formatVariableName(name: string): string {
   return name
@@ -39,6 +63,40 @@ function formatVariableName(name: string): string {
     .trim();
 }
 
+
+function sanitizeRowName(rowName: string): string {
+  // Replace & with 'and' and other problematic characters
+  return rowName
+    .replace(/&/g, 'and')
+    .replace(/\(/g, '_')  // Replace ( with _
+    .replace(/\)/g, '_'); // Replace ) with _
+}
+
+// 3. Create a comprehensive sanitization function for all identifiers
+function sanitizeIdentifier(name: string): string {
+  return name
+    .replace(/&/g, 'and')
+    .replace(/\(/g, '_')
+    .replace(/\)/g, '_')
+    .replace(/[^a-zA-Z0-9_\-]/g, '_');  // Replace any other invalid chars
+}
+
+// Helper to sanitize mode names for enum variants
+function sanitizeModeForEnum(name: string): string {
+  // Check if the mode name is only digits
+  if (/^\d+$/.test(name)) {
+    return `mode_${name}`;
+  }
+  
+  // Check if starts with a digit (still invalid for most identifiers)
+  if (/^\d/.test(name)) {
+    return `m_${name}`;
+  }
+  
+  // Replace any characters that are invalid in identifiers
+  return name.replace(/[^a-zA-Z0-9_]/g, '_');
+}
+
 // Extract hierarchy from variable name (e.g. "colors/primary/base" → ["colors", "primary", "base"])
 function extractHierarchy(name: string): string[] {
   // Split by common hierarchy separators
@@ -46,102 +104,11 @@ function extractHierarchy(name: string): string[] {
   return parts.map(part => formatVariableName(part));
 }
 
-// Create a path string for referencing variables
-function createVariablePath(path: string[]): string {
-  return path.join('.');
-}
-
-function createSimplifiedStructure(
-  variableCollections: any[],
-  variableMap: Map<string, any>,
-  hierarchyMap: any
-): any {
-  // Create simplified collections overview with modes
-  const simplifiedCollections = variableCollections.map(collection => {
-    // Extract all modes for this collection
-    // Define interfaces for types
-    interface InputMode {
-      modeId: string;
-      name: string;
-    }
-
-    interface OutputMode {
-      id: string;
-      name: string;
-      column: number;
-    }
-
-    const modes: OutputMode[] = collection.modes.map((mode: InputMode, index: number): OutputMode => ({
-      id: mode.modeId,
-      name: mode.name,
-      column: index
-    }));
-
-    return {
-      name: collection.name,
-      id: collection.id,
-      variableCount: collection.variableIds.length,
-      modes: modes,
-      defaultModeId: collection.defaultModeId
-    };
-  });
-
-  // Create simplified variable map (first 10 entries only to keep it manageable)
-  const simplifiedVariables = [];
-  let count = 0;
-  for (const [id, data] of variableMap.entries()) {
-    if (count++ > 10) break; // Limit to 10 entries
-
-    // Extract basic variable info
-    const variable = data.resolvedVariable;
-
-    // Create a simplified record of values across all modes
-    const valuesByMode: Record<string, any> = {};
-    if (data.valuesByMode) {
-      for (const [modeId, modeValue] of Object.entries(data.valuesByMode)) {
-        // Format value for readability
-        let formattedValue = modeValue;
-
-        if (typeof modeValue === 'object' && modeValue && 'r' in modeValue) {
-          const colorValue = modeValue as { r: number; g: number; b: number };
-          formattedValue = `Color(R:${Math.round(colorValue.r * 255)}, G:${Math.round(colorValue.g * 255)}, B:${Math.round(colorValue.b * 255)})`;
-        } else if (typeof modeValue === 'object' && modeValue && 'type' in modeValue && modeValue.type === 'VARIABLE_ALIAS' && 'id' in modeValue) {
-          formattedValue = `Reference(${modeValue.id})`;
-        }
-
-        valuesByMode[modeId] = formattedValue;
-      }
-    }
-
-    simplifiedVariables.push({
-      id: id.slice(0, 8) + '...', // Truncate ID
-      name: variable.name,
-      type: data.type,
-      path: data.path,
-      valuesByMode: valuesByMode
-    });
-  }
-
-  // Create the complete simplified structure
-  const simplifiedStructure = {
-    collectionsOverview: simplifiedCollections,
-    sampleVariables: simplifiedVariables,
-    hierarchy: hierarchyMap // This is already reasonably simple
-  };
-
-  console.log('Simplified Figma structure:', JSON.stringify(simplifiedStructure, null, 2));
-  return simplifiedStructure;
-}
-
 function createReferenceExpression(
   referenceId: string,
   sourceColumnName: string,
   variablePathsById: Map<string, { collection: string, row: string }>,
-  variableCollections: Map<string, { 
-    formattedName: string, 
-    modes: Set<string>,
-    // Other fields...
-  }>
+  collectionStructure: Map<string, any>
 ): string | null {
   // Get the target variable path
   const targetPath = variablePathsById.get(referenceId);
@@ -151,31 +118,41 @@ function createReferenceExpression(
   }
   
   // Get the target collection
-  const targetCollection = variableCollections.get(targetPath.collection);
+  const targetCollection = collectionStructure.get(targetPath.collection);
   if (!targetCollection) {
     console.warn(`Collection not found: ${targetPath.collection}`);
     return null;
   }
   
-  // IMPORTANT: Find equivalent mode in target collection
-  // The referenced variable might use different mode names
-  // Try to find a matching mode by position or by light/dark designation
+  // Get all modes from target collection
   const targetModes = [...targetCollection.modes];
-  let targetColumnName = targetModes[0]; // Default to first mode
-  
-  // Try to find a better match - prefer same position or light/dark match
-  if (sourceColumnName.includes('light')) {
-    // Find a light-like mode in target
-    const lightMode = targetModes.find(m => m.includes('light') || m === 'mode-1');
-    if (lightMode) targetColumnName = lightMode;
-  } else if (sourceColumnName.includes('dark')) {
-    // Find a dark-like mode in target
-    const darkMode = targetModes.find(m => m.includes('dark'));
-    if (darkMode) targetColumnName = darkMode;
+  if (targetModes.length === 0) {
+    console.warn(`No modes found in target collection: ${targetPath.collection}`);
+    return null;
   }
   
-  // Format the reference expression with PascalCase for the global name
-  return `${targetCollection.formattedName}.${targetPath.row}-${targetColumnName}`;
+  // First try: exact match with sanitized names
+  let targetColumnName = targetModes.find(mode => 
+    sanitizeModeForEnum(mode) === sanitizeModeForEnum(sourceColumnName)
+  );
+  
+  // Second try: direct match without sanitization
+  if (!targetColumnName) {
+    targetColumnName = targetModes.find(mode => mode === sourceColumnName);
+  }
+  
+  // Third try: match the collection's first mode
+  if (!targetColumnName) {
+    targetColumnName = targetModes[0];
+    console.log(`Using default mode ${targetColumnName} for reference to ${referenceId}`);
+  }
+  
+  // Sanitize both row and column names
+  const sanitizedRow = sanitizeRowName(targetPath.row);
+  const sanitizedColumn = sanitizeModeForEnum(targetColumnName);
+  
+  // Format the reference expression
+  return `${targetCollection.formattedName}.${sanitizedRow}-${sanitizedColumn}`;
 }
 
 // For Figma Plugin - Export function with hierarchical structure
@@ -222,7 +199,8 @@ export async function exportFigmaVariablesToSlint(): Promise<string> {
       
       // Add modes to collection
       collection.modes.forEach(mode => {
-        collectionStructure.get(collectionName)!.modes.add(formatPropertyName(mode.name));
+        const sanitizedMode = sanitizeModeForEnum(formatPropertyName(mode.name));
+        collectionStructure.get(collectionName)!.modes.add(sanitizedMode);
       });
       
       // Process variables in batches
@@ -254,18 +232,19 @@ export async function exportFigmaVariablesToSlint(): Promise<string> {
             nameParts.slice(0, -1).join('_') : 
             '';
           
-          const rowName = path ? `${path}_${propertyName}` : propertyName;
-          
+            const rowName = path ? `${path}_${propertyName}` : propertyName;
+            const sanitizedRowName = sanitizeRowName(rowName);
+                      
           // NEW: Store the path to this variable for reference lookup
           variablePathsById.set(variable.id, {
             collection: collectionName,
-            row: rowName
+            row: sanitizedRowName  
           });
           
           // Initialize row in variables map
-          if (!collectionStructure.get(collectionName)!.variables.has(rowName)) {
+          if (!collectionStructure.get(collectionName)!.variables.has(sanitizedRowName)) {
             collectionStructure.get(collectionName)!.variables.set(
-              rowName, 
+              sanitizedRowName, 
               new Map<string, { value: string, type: string, refId?: string }>()
             );
           }
@@ -275,7 +254,7 @@ export async function exportFigmaVariablesToSlint(): Promise<string> {
             const modeInfo = collection.modes.find(m => m.modeId === modeId);
             if (!modeInfo) continue;
             
-            const modeName = formatPropertyName(modeInfo.name);
+            const modeName = sanitizeModeForEnum(formatPropertyName(modeInfo.name));
             
             // Format value and track references
             let formattedValue = '';
@@ -284,15 +263,48 @@ export async function exportFigmaVariablesToSlint(): Promise<string> {
             if (variable.resolvedType === 'COLOR') {
               if (typeof value === 'object' && value && 'r' in value) {
                 formattedValue = convertColor(value);
-              } else if (typeof value === 'object' && value && value.type === 'VARIABLE_ALIAS') {
-                // Store reference ID for later reference preservation (not resolution)
+              } else if (typeof value === 'object' && value && 'type' in value && value.type === 'VARIABLE_ALIAS') {
+                // Store reference ID for later reference preservation
                 refId = value.id;
                 formattedValue = `@ref:${value.id}`;
               }
             } else if (variable.resolvedType === 'FLOAT') {
-              formattedValue = `${value}px`;
+              if (typeof value === 'number') {
+                formattedValue = `${value}px`;
+              } else if (typeof value === 'object' && value && 'type' in value && value.type === 'VARIABLE_ALIAS') {
+                // Handle reference for FLOAT type
+                refId = value.id;
+                formattedValue = `@ref:${value.id}`;
+              } else {
+                // Fallback for unexpected values
+                console.warn(`Unexpected FLOAT value type: ${typeof value} for ${variable.name}`);
+                formattedValue = "0px";
+              }
             } else if (variable.resolvedType === 'STRING') {
-              formattedValue = `"${value}"`;
+              if (typeof value === 'string') {
+                formattedValue = `"${value}"`;
+              } else if (typeof value === 'object' && value && 'type' in value && value.type === 'VARIABLE_ALIAS') {
+                // Handle reference for STRING type
+                refId = value.id;
+                formattedValue = `@ref:${value.id}`;
+              } else {
+                // Fallback for unexpected values
+                console.warn(`Unexpected STRING value type: ${typeof value} for ${variable.name}`);
+                formattedValue = `""`;
+              }
+            } else if (variable.resolvedType === 'BOOLEAN') {
+              // Handle boolean values
+              if (typeof value === 'boolean') {
+                formattedValue = value ? 'true' : 'false';
+              } else if (typeof value === 'object' && value && 'type' in value && value.type === 'VARIABLE_ALIAS') {
+                // Handle reference for BOOLEAN type
+                refId = value.id;
+                formattedValue = `@ref:${value.id}`;
+              } else {
+                // Fallback for unexpected values
+                console.warn(`Unexpected BOOLEAN value type: ${typeof value} for ${variable.name}`);
+                formattedValue = 'false';
+              }
             }
             
             // Store in variable value map (for reference resolution)
@@ -302,7 +314,7 @@ export async function exportFigmaVariablesToSlint(): Promise<string> {
             );
             
             // Store in collection structure with reference ID if present
-            collectionStructure.get(collectionName)!.variables.get(rowName)!.set(
+            collectionStructure.get(collectionName)!.variables.get(sanitizedRowName)!.set(
               modeName, 
               { 
                 value: formattedValue, 
@@ -350,7 +362,9 @@ for (const [collectionKey, collection] of collectionStructure.entries()) {
             colName,
             {
               value: data.type === 'COLOR' ? '#808080' : 
-                      data.type === 'FLOAT' ? '0px' : '""',
+                     data.type === 'FLOAT' ? '0px' : 
+                     data.type === 'BOOLEAN' ? 'false' : 
+                     '""',
               type: data.type
             }
           );
@@ -372,7 +386,7 @@ for (const [collectionKey, collection] of collectionStructure.entries()) {
       slintCode += `// ${collection.name} Modes\n`;
       slintCode += `export enum ${collection.formattedName}Column {\n`;
       modes.forEach(mode => {
-        slintCode += `    ${mode},\n`;
+        slintCode += `    ${sanitizeModeForEnum(mode)},\n`;
       });
       slintCode += `}\n\n`;
       
@@ -390,7 +404,9 @@ for (const [collectionKey, collection] of collectionStructure.entries()) {
           if (!variableTypes.has(rowName)) {
             variableTypes.set(rowName, 
               data.type === 'COLOR' ? 'color' : 
-              data.type === 'FLOAT' ? 'length' : 'string'
+              data.type === 'FLOAT' ? 'length' : 
+              data.type === 'BOOLEAN' ? 'bool' :
+              'string'
             );
           }
           break;
@@ -404,17 +420,36 @@ for (const [collectionKey, collection] of collectionStructure.entries()) {
         
         for (const [colName, data] of columns.entries()) {
           let valueExpression = data.value;
-          
-          // MODIFIED: If this is a reference (still has refId), add a comment explaining
-          if (data.refId) {
-            const refName = variableNameById.get(data.refId) || data.refId;
-            valueExpression = `${data.value} /* Reference to ${refName} */`;
+
+          // Fix for empty or invalid values
+          if (valueExpression === undefined || valueExpression === null || valueExpression === '') {
+            if (data.type === 'STRING') {
+              valueExpression = `"default"`;
+            } else if (data.type === 'BOOLEAN') {
+              valueExpression = 'false';
+            } else if (data.type === 'FLOAT') {
+              valueExpression = '0px';
+            } else if (data.type === 'COLOR') {
+              valueExpression = '#808080';
+            }
           }
           
-          slintCode += `    out property <${rowType}> ${rowName}-${colName}: ${valueExpression};\n`;
+          // If this is a reference, make sure the referenced property name is sanitized
+          if (data.refId) {
+            const refName = variableNameById.get(data.refId) || data.refId;
+            
+            // If the value is a reference to another property, ensure that reference is also sanitized
+            if (valueExpression.includes('global_size-&-spacing')) {
+              valueExpression = valueExpression.replace(/global_size-&-spacing/g, 'global_size-and-spacing');
+            }
+            
+            valueExpression = `${valueExpression} /* Reference to ${refName} */`;
+          }
+          
+          slintCode += `    out property <${rowType}> ${rowName}-${sanitizeModeForEnum(colName)}: ${valueExpression};\n`;
         }
       }
-      
+
       // 4. Generate row accessor functions
       slintCode += `\n    // Row accessor functions\n`;
       for (const [rowName, columns] of collection.variables.entries()) {
@@ -426,7 +461,7 @@ for (const [collectionKey, collection] of collectionStructure.entries()) {
         let isFirst = true;
         for (const [colName] of columns.entries()) {
           if (!isFirst) slintCode += `} else if (`;
-          slintCode += `column == ${collection.formattedName}Column.${colName}`;
+          slintCode += `column == ${collection.formattedName}Column.${sanitizeModeForEnum(colName)}`;
           if (isFirst) isFirst = false;
           
           slintCode += `) {\n`;
