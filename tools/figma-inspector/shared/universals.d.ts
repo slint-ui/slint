@@ -11,6 +11,5 @@ export interface EventTS {
     };
     exportAll: {
         result: boolean;
-    }
-
+    };
 }
