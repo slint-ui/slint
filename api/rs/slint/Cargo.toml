@@ -220,3 +220,4 @@ i-slint-backend-qt = { workspace = true, features = [ "enable" ], optional = tru
 
 [package.metadata.docs.rs]
 features = ["document-features", "log", "gettext", "renderer-software", "renderer-femtovg", "raw-window-handle-06"]
+rustdoc-args = [ "--generate-link-to-definition" ]

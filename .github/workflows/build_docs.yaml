@@ -23,7 +23,7 @@ jobs:
             # Allow deprecated warning because we are using nightly and some things might be deprecated in nightly
             # for which the stable alternative is not yet available.
             RUSTFLAGS: -D warnings -W deprecated
-            RUSTDOCFLAGS: --html-in-header=/home/runner/work/slint/slint/docs/astro/src/utils/slint-docs-highlight.html -D warnings -W deprecated --cfg docsrs
+            RUSTDOCFLAGS: --html-in-header=/home/runner/work/slint/slint/docs/astro/src/utils/slint-docs-highlight.html -D warnings -W deprecated --cfg docsrs -Zunstable-options --generate-link-to-definition
             SLINT_NO_QT: 1
             CARGO_INCREMENTAL: false
             RELEASE_INPUT: ${{ inputs.release }}
