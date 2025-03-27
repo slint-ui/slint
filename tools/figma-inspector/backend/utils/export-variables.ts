@@ -296,19 +296,17 @@ export async function exportFigmaVariablesToSlint(): Promise<string> {
                             .get(collectionName)!
                             .variables.has(sanitizedRowName)
                     ) {
-                        collectionStructure
-                            .get(collectionName)!
-                            .variables.set(
-                                sanitizedRowName,
-                                new Map<
-                                    string,
-                                    {
-                                        value: string;
-                                        type: string;
-                                        refId?: string;
-                                    }
-                                >(),
-                            );
+                        collectionStructure.get(collectionName)!.variables.set(
+                            sanitizedRowName,
+                            new Map<
+                                string,
+                                {
+                                    value: string;
+                                    type: string;
+                                    refId?: string;
+                                }
+                            >(),
+                        );
                     }
 
                     // Process values for each mode
@@ -406,12 +404,10 @@ export async function exportFigmaVariablesToSlint(): Promise<string> {
                         }
 
                         // Store in variable value map (for reference resolution)
-                        variableValuesById
-                            .get(variable.id)!
-                            .set(modeName, {
-                                value: formattedValue,
-                                type: variable.resolvedType,
-                            });
+                        variableValuesById.get(variable.id)!.set(modeName, {
+                            value: formattedValue,
+                            type: variable.resolvedType,
+                        });
 
                         // Store in collection structure with reference ID if present
                         collectionStructure
