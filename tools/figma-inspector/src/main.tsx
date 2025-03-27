@@ -33,19 +33,19 @@ export const App = () => {
                 {title}
                 {slintProperties !== "" && (
                     <div>
-                    <span
-                        id="copy-icon"
-                        onClick={() => copyToClipboard(slintProperties)}
-                        onKeyDown={() => copyToClipboard(slintProperties)}
-                        className="copy-icon"
-                    >
-                        📋
-                    </span>
-                    <span
-                        id="export-icon"
-                        onClick={() => exportAll()}
-                        onKeyDown={() => exportAll()}
-                        className="copy-icon"
+                        <span
+                            id="copy-icon"
+                            onClick={() => copyToClipboard(slintProperties)}
+                            onKeyDown={() => copyToClipboard(slintProperties)}
+                            className="copy-icon"
+                        >
+                            📋
+                        </span>
+                        <span
+                            id="export-icon"
+                            onClick={() => exportAll()}
+                            onKeyDown={() => exportAll()}
+                            className="copy-icon"
                         >
                             💾
                         </span>
