@@ -37,7 +37,7 @@ export component Day inherits Rectangle {
 
         property <length> icon-size: 40px;
 
-        function weather-icon-source(weather-data: WeatherData) -> image {
+        pure function weather-icon-source() -> image {
             if weather-data.condition == WeatherCondition.sunny {
                 return @image-url("../images/weather/sunny.png");
             }
@@ -61,7 +61,7 @@ export component Day inherits Rectangle {
             height: 38px;
             Image {
                 width: AppState.graphics-accelerator-available ? self.source.width * scale * 1px : self.source.width * 1px;
-                source: weather-icon-source(weather-data);
+                source: weather-icon-source();
             }
         }
 
