@@ -816,8 +816,6 @@ namespace private_api {
 template<typename C, typename ModelData>
 class Repeater
 {
-    private_api::Property<std::shared_ptr<Model<ModelData>>> model;
-
     struct RepeaterInner : ModelChangeListener
     {
         enum class State { Clean, Dirty };
@@ -866,10 +864,16 @@ class Repeater
         }
     };
 
-public:
-    // FIXME: should be private, but layouting code uses it.
+    private_api::Property<std::shared_ptr<Model<ModelData>>> model;
     mutable std::shared_ptr<RepeaterInner> inner;
 
+    vtable::VRef<private_api::ItemTreeVTable> item_at(int i) const
+    {
+        const auto &x = inner->data.at(i);
+        return { &C::static_vtable, const_cast<C *>(&(**x.ptr)) };
+    }
+
+public:
     template<typename F>
     void set_model_binding(F &&binding) const
     {
@@ -947,12 +951,6 @@ public:
         return std::numeric_limits<uint64_t>::max();
     }
 
-    vtable::VRef<private_api::ItemTreeVTable> item_at(int i) const
-    {
-        const auto &x = inner->data.at(i);
-        return { &C::static_vtable, const_cast<C *>(&(**x.ptr)) };
-    }
-
     vtable::VWeak<private_api::ItemTreeVTable> instance_at(std::size_t i) const
     {
         if (i >= inner->data.size()) {
@@ -966,6 +964,8 @@ public:
     {
         return private_api::IndexRange { 0, inner->data.size() };
     }
+
+    std::size_t len() const { return inner ? inner->data.size() : 0; }
 
     float compute_layout_listview(const private_api::Property<float> *viewport_width,
                                   float listview_width, float viewport_y) const
@@ -990,6 +990,72 @@ public:
             if (row < m->row_count()) {
                 m->set_row_data(row, data);
             }
+        }
+    }
+
+    void for_each(auto &&f) const
+    {
+        if (inner) {
+            for (auto &&x : inner->data) {
+                f(*x.ptr);
+            }
+        }
+    }
+};
+
+template<typename C>
+class Conditional
+{
+    private_api::Property<bool> model;
+    mutable std::optional<ComponentHandle<C>> instance;
+
+public:
+    template<typename F>
+    void set_model_binding(F &&binding) const
+    {
+        model.set_binding(std::forward<F>(binding));
+    }
+
+    template<typename Parent>
+    void ensure_updated(const Parent *parent) const
+    {
+        if (!model.get()) {
+            instance = std::nullopt;
+        } else if (!instance) {
+            instance = C::create(parent);
+            (*instance)->init();
+        }
+    }
+
+    uint64_t visit(TraversalOrder order, private_api::ItemVisitorRefMut visitor) const
+    {
+        if (instance) {
+            vtable::VRef<private_api::ItemTreeVTable> ref { &C::static_vtable,
+                                                            const_cast<C *>(&(**instance)) };
+            if (ref.vtable->visit_children_item(ref, -1, order, visitor)
+                != std::numeric_limits<uint64_t>::max()) {
+                return 0;
+            }
+        }
+        return std::numeric_limits<uint64_t>::max();
+    }
+
+    vtable::VWeak<private_api::ItemTreeVTable> instance_at(std::size_t i) const
+    {
+        if (i != 0 || !instance) {
+            return {};
+        }
+        return vtable::VWeak<private_api::ItemTreeVTable> { instance->into_dyn() };
+    }
+
+    private_api::IndexRange index_range() const { return private_api::IndexRange { 0, len() }; }
+
+    std::size_t len() const { return instance ? 1 : 0; }
+
+    void for_each(auto &&f) const
+    {
+        if (instance) {
+            f(*instance);
         }
     }
 };

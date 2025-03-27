@@ -118,6 +118,8 @@ pub(crate) struct RepeaterWithinItemTree<'par_id, 'sub_id> {
     pub(crate) model: Expression,
     /// Offset of the `Repeater`
     offset: FieldOffset<Instance<'par_id>, Repeater<ErasedItemTreeBox>>,
+    /// Whether this is a `if` or a `for`
+    is_conditional: bool,
 }
 
 impl RepeatedItemTree for ErasedItemTreeBox {
@@ -1052,6 +1054,7 @@ pub(crate) fn generate_item_tree<'id>(
             let base_component = item.base_type.as_component();
             self.repeater_names.insert(item.id.clone(), self.repeater.len());
             generativity::make_guard!(guard);
+            let repeated_element_info = item.repeated.as_ref().unwrap();
             self.repeater.push(
                 RepeaterWithinItemTree {
                     item_tree_to_repeat: generate_item_tree(
@@ -1062,7 +1065,8 @@ pub(crate) fn generate_item_tree<'id>(
                         guard,
                     ),
                     offset: self.type_builder.add_field_type::<Repeater<ErasedItemTreeBox>>(),
-                    model: item.repeated.as_ref().unwrap().model.clone(),
+                    model: repeated_element_info.model.clone(),
+                    is_conditional: repeated_element_info.is_conditional_element,
                 }
                 .into(),
             );
@@ -1701,14 +1705,23 @@ pub fn instantiate(
         let repeater = rep_in_comp.offset.apply_pin(instance_ref.instance);
         let expr = rep_in_comp.model.clone();
         let model_binding_closure = make_binding_eval_closure(expr, &self_weak);
-        repeater.set_model_binding(move || {
-            let m = model_binding_closure();
-            if let Value::Model(m) = m {
-                m.clone()
-            } else {
-                ModelRc::new(crate::value_model::ValueModel::new(m))
-            }
-        });
+        if rep_in_comp.is_conditional {
+            let bool_model = Rc::new(crate::value_model::BoolModel::default());
+            repeater.set_model_binding(move || {
+                let v = model_binding_closure();
+                bool_model.set_value(v.try_into().expect("condition model is bool"));
+                ModelRc::from(bool_model.clone())
+            });
+        } else {
+            repeater.set_model_binding(move || {
+                let m = model_binding_closure();
+                if let Value::Model(m) = m {
+                    m.clone()
+                } else {
+                    ModelRc::new(crate::value_model::ValueModel::new(m))
+                }
+            });
+        }
     }
     self_rc
 }
