@@ -121,6 +121,17 @@ impl<T: core::ops::Mul<Output = T>, const SHIFT: usize> core::ops::Mul<T> for Fi
     }
 }
 
+impl<T: core::ops::Mul<Output = T>, const SHIFT: usize> core::ops::Mul<Fixed<T, SHIFT>>
+    for Fixed<T, SHIFT>
+where
+    T: core::ops::Shr<usize, Output = T>,
+{
+    type Output = Self;
+    fn mul(self, rhs: Fixed<T, SHIFT>) -> Self::Output {
+        Self(self.0.mul(rhs.0) >> SHIFT)
+    }
+}
+
 impl<T: core::ops::Neg<Output = T>, const SHIFT: usize> core::ops::Neg for Fixed<T, SHIFT> {
     type Output = Self;
     #[inline(always)]
