@@ -1182,10 +1182,10 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> RenderToBuffer<'_, B> {
     fn process_texture_impl(&mut self, geometry: PhysicalRect, texture: SceneTexture<'_>) {
         self.foreach_region(&geometry, |buffer, rect, extra_left_clip, extra_right_clip| {
             let tex_src_off_x = (texture.extra.off_x + Fixed::from_integer(extra_left_clip as u16))
-                * texture.extra.dx.truncate();
+                * Fixed::from_fixed(texture.extra.dx);
             let tex_src_off_y = (texture.extra.off_y
                 + Fixed::from_integer((rect.origin.y - geometry.origin.y) as u16))
-                * texture.extra.dy.truncate();
+                * Fixed::from_fixed(texture.extra.dy);
             if !buffer.draw_texture(
                 rect.origin.x,
                 rect.origin.y,
