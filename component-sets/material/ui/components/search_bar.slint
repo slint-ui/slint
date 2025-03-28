@@ -15,7 +15,7 @@ import { Icons } from "../icons/icons.slint";
 component SearchIcon {
     in property <image> icon;
     in property <color> color;
-    
+
     VerticalLayout {
         alignment: center;
         padding_left: MaterialStyleMetrics.padding_8;
@@ -32,7 +32,7 @@ component SearchTextInput  {
     in_out property <string> text <=> text_input.text;
     in property <string> placeholder;
     property <length> computed_x;
-    
+
     callback accepted(text: string);
     callback edited(text: string);
     callback key_pressed(event: KeyEvent) -> EventResult;
@@ -42,7 +42,7 @@ component SearchTextInput  {
 
     Rectangle {
         clip: true;
-        
+
         text_input := TextInput {
             x: min(0px, max(parent.width - self.width - self.text_cursor_width, root.computed_x));
             width: max(parent.width - self.text-cursor-width, self.preferred-width);
@@ -64,7 +64,7 @@ component SearchTextInput  {
                     root.computed_x = parent.width - cursor_position.x - self.text-cursor-width;
                 }
             }
-   
+
             accepted => {
                 root.accepted(self.text);
             }
@@ -81,7 +81,7 @@ component SearchTextInput  {
                 root.key_released(event)
             }
         }
-        
+
         if root.text == "" && root.placeholder != "" : MaterialText {
             width: 100%;
             height: 100%;
@@ -115,11 +115,11 @@ export component SearchBar {
     Rectangle {
         background: MaterialPalette.surface_container_high;
         border_radius: MaterialStyleMetrics.border_radius_28;
-        
+
         StateLayerArea {
             border_radius: parent.border_radius;
             color: root.color;
-            
+
             layout := HorizontalLayout {
                 padding: MaterialStyleMetrics.padding_4;
                 spacing: MaterialStyleMetrics.spacing_4;
@@ -131,7 +131,7 @@ export component SearchBar {
 
                 input := SearchTextInput {
                     placeholder: root.placeholder;
-           
+
                     accepted => {
                          root.accepted(self.text);
                      }
@@ -151,7 +151,7 @@ export component SearchBar {
                          root.key_released(event)
                      }
                 }
-    
+
                 SearchIcon {
                     icon: root.trailing_icon;
                     color: root.color;
@@ -159,7 +159,7 @@ export component SearchBar {
 
                 if (root.avatar.width > 0 && root.avatar.height > 0) || root.avatar_background != #00000000 : VerticalLayout {
                     alignment: center;
-                    
+
                     Avatar  {
                         image: root.avatar;
                         background: root.avatar_background;
@@ -175,7 +175,7 @@ export component SearchBar {
         width: root.width;
         height: root.height;
         close_policy: close_on_click_outside;
-        
+
         Rectangle {
             width: root.width;
             height: root.height;
@@ -187,7 +187,7 @@ export component SearchBar {
                 spacing: MaterialStyleMetrics.spacing_4;
 
                 IconButton {}
-                
+
                 SearchTextInput {
                     placeholder: root.placeholder;
                     text: root.text;
