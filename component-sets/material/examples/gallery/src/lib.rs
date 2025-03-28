@@ -7,7 +7,9 @@ use wasm_bindgen::prelude::*;
 slint::include_modules!();
 
 fn ui() -> MainWindow {
-    MainWindow::new().unwrap()
+    let ui = MainWindow::new().unwrap();
+    navigation_view(&ui);
+    ui
 }
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
@@ -22,4 +24,12 @@ fn android_main(android_app: slint::android::AndroidApp) {
     slint::android::init(android_app).unwrap();
     let ui = ui();
     ui.run().unwrap();
+}
+
+fn navigation_view(ui: &MainWindow) {
+    let adapter = NavigationViewAdapter::get(ui);
+
+    adapter.on_search(|text| {
+        println!("Search {}", text);
+    });
 }
