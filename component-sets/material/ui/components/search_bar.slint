@@ -11,6 +11,9 @@ import { MaterialText } from "./material_text.slint";
 import { Icon } from "./icon.slint";
 import { IconButton } from "./icon_button.slint";
 import { Icons } from "../icons/icons.slint";
+import { HorizontalDivider } from "./divider.slint";
+import { ListView } from "./list_view.slint";
+import { Animations } from "../styling/animations.slint";
 
 component SearchIcon {
     in property <image> icon;
@@ -38,6 +41,7 @@ component SearchTextInput  {
     callback key_pressed(event: KeyEvent) -> EventResult;
     callback key_released(event: KeyEvent) -> EventResult;
 
+    forward_focus: text_input;
     horizontal_stretch: 1;
 
     Rectangle {
@@ -57,9 +61,9 @@ component SearchTextInput  {
              // Disable TextInput's built-in accessibility support as the component takes care of that.
             accessible-role: none;
 
-            cursor-position-changed(cursor_position) => {
-                if cursor-position.x + root.computed_x < 0 {
-                    root.computed_x = - cursor-position.x;
+            cursor_position_changed(cursor_position) => {
+                if cursor_position.x + root.computed_x < 0 {
+                    root.computed_x = - cursor_position.x;
                 } else if cursor-position.x + root.computed_x > parent.width - self.text-cursor-width {
                     root.computed_x = parent.width - cursor_position.x - self.text-cursor-width;
                 }
@@ -99,7 +103,7 @@ export component SearchBar {
     in property <image> avatar;
     in property <color> avatar_background: #00000000;
     in property <string> placeholder;
-    in_out property <string> text <=> input.text;
+    in_out property <string> text;
     in_out property <int> current_item;
     in property <[ListItem]> items;
 
@@ -109,14 +113,16 @@ export component SearchBar {
     callback key_released(event: KeyEvent) -> EventResult;
 
     property <color> color: MaterialPalette.on_surface_variant;
+    property <length> item_height: MaterialStyleMetrics.size_72;
 
     min_height: max(MaterialStyleMetrics.size_56, layout.min_height);
+    forward_focus: state_layer;
 
     Rectangle {
         background: MaterialPalette.surface_container_high;
         border_radius: MaterialStyleMetrics.border_radius_28;
 
-        StateLayerArea {
+        state_layer := StateLayerArea {
             border_radius: parent.border_radius;
             color: root.color;
 
@@ -129,27 +135,19 @@ export component SearchBar {
                     color: root.color;
                 }
 
-                input := SearchTextInput {
-                    placeholder: root.placeholder;
+                MaterialText {
+                    text: root.text;
+                    font_size: Typography.body_large.font_size;
+                    font_weight: Typography.body_large.font_weight;
+                    vertical_alignment: center;
+                    color: MaterialPalette.on_surface;
 
-                    accepted => {
-                         root.accepted(self.text);
-                     }
-
-                     edited => {
-                         if self.text != "" {
-                             popup.show();
-                         }
-                         root.edited(self.text);
-                     }
-
-                     key_pressed(event) => {
-                         root.key_pressed(event)
-                     }
-
-                     key_released(event) => {
-                         root.key_released(event)
-                     }
+                    states [
+                        placeholder when root.text == "" : {
+                            text: root.placeholder;
+                            color: MaterialPalette.on_surface;
+                        }
+                    ]
                 }
 
                 SearchIcon {
@@ -166,6 +164,16 @@ export component SearchBar {
                     }
                 }
             }
+
+            changed has_focus => {
+                if self.has_focus {
+                    popup.show();
+                }
+            }
+
+            clicked => {
+                popup.show();
+            }
         }
     }
 
@@ -173,43 +181,96 @@ export component SearchBar {
         x: 0;
         y: 0;
         width: root.width;
-        height: root.height;
+        height: root.height + clamp(root.item_height * root.items.length, root.item_height, 3 * root.item_height);
         close_policy: close_on_click_outside;
+        forward-focus: popup_input;
 
-        Rectangle {
-            width: root.width;
+        background_layer := Rectangle {
+            x: 0;
+            y: 0;
+            width: 100%;
             height: root.height;
             background: MaterialPalette.surface_container_high;
             border_radius: MaterialStyleMetrics.border_radius_28;
+            clip: true;
 
-            HorizontalLayout {
-                padding: MaterialStyleMetrics.padding_4;
-                spacing: MaterialStyleMetrics.spacing_4;
+            VerticalLayout {
+                
+                HorizontalLayout {
+                    padding: MaterialStyleMetrics.padding_4;
+                    spacing: MaterialStyleMetrics.spacing_4;
 
-                IconButton {}
+                    IconButton {
+                        icon: Icons.arrow_back;
 
-                SearchTextInput {
-                    placeholder: root.placeholder;
-                    text: root.text;
+                        clicked => {
+                            popup.close();
+                        }
+                    }
 
-                    accepted => {
-                         root.accepted(self.text);
-                     }
+                    popup_input := SearchTextInput {
+                        placeholder: root.placeholder;
+                        text: root.text;
 
-                     edited => {
-                         root.edited(self.text);
-                     }
+                        accepted => {
+                             root.accepted(self.text);
+                        }
 
-                     key_pressed(event) => {
-                         root.key_pressed(event)
-                     }
+                        edited => {
+                            root.text = self.text;
+                            root.edited(self.text);
+                        }
 
-                     key_released(event) => {
-                         root.key_released(event)
-                     }
+                        key_pressed(event) => {
+                             root.key_pressed(event)
+                        }
+
+                        key_released(event) => {
+                             root.key_released(event)
+                        }
+
+                        changed text => {
+                            root.text = text;
+                        }
+                    }
+
+                    IconButton {
+                        icon: Icons.close;
+
+                        clicked => {
+                            root.text = "";
+                            popup.close();
+                        }
+                    }
                 }
 
-                IconButton {}
+                HorizontalDivider {}
+
+                ListView {
+                    horizontal_stretch: 1;
+
+                    for item[index] in root.items : ListItemTemplate {
+                        text: item.text;
+                        supporting_text: item.supporting_text;
+                        avatar: item.avatar;
+                        avatar_background: item.avatar_background;
+                        avatar_colorize: item.avatar_colorize;
+                    }
+                }
+            }
+            
+            animate height {
+                duration: Animations.standard_accelerate_duration;
+                easing: Animations.standard_easing;
+            }
+        }
+        
+        Timer {
+            interval: 50ms;
+
+            triggered => {
+                background_layer.height = popup.height;
+                self.running = false;
             }
         }
     }

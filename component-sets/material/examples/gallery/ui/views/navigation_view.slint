@@ -15,7 +15,8 @@ import {
     SecondaryTabBar,
     SearchBar,
     MaterialText,
-    Vertical
+    Vertical,
+    ListItem
 } from "../../../../material.slint";
 
 import { Group } from "../components/group.slint";
@@ -23,6 +24,12 @@ import { ComponentCard } from "../components/component_card.slint";
 import { MainWindowAdapter } from "../main_window_adapter.slint";
 import { MainWindowAdapter } from "../main_window_adapter.slint";
 import { FilledIcons, OutlinedIcons } from "../icons.slint";
+
+export global NavigationViewAdapter {
+    in_out property <[ListItem]> search_items;
+
+    callback search(text: string);
+}
 
 export component NavigationView {
     layout := VerticalLayout {
@@ -220,6 +227,11 @@ export component NavigationView {
                     SearchBar {
                         leading_icon: OutlinedIcons.search;
                         placeholder: "Search color";
+                        items: NavigationViewAdapter.search_items;
+
+                        edited(text) => {
+                            NavigationViewAdapter.search(text);
+                        }
                     }
 
                     MaterialText {
