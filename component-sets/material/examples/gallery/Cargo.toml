@@ -1,0 +1,36 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: MIT
+
+[package]
+name = "material-gallery"
+version = "1.11.0"
+authors = ["Slint Developers <info@slint.dev>"]
+edition = "2021"
+publish = false
+license = "MIT"
+
+[lib]
+crate-type = ["lib", "cdylib"]
+path = "src/lib.rs"
+name = "gallery_lib"
+
+[[bin]]
+path = "src/main.rs"
+name = "gallery"
+
+[dependencies]
+slint = { path = "../../../../api/rs/slint", features = ["backend-android-activity-06"] }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen = { version = "0.2" }
+console_error_panic_hook = "0.1.5"
+
+[build-dependencies]
+slint-build = { path = "../../../../api/rs/build" }
+
+[package.metadata.android]
+package = "com.slint.material"
+apk_name = "gallery"
+
+[package.metadata.android.application]
+label = "Slint Material"

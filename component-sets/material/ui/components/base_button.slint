@@ -1,0 +1,52 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { StateLayerArea } from "./state_layer.slint";
+import { MaterialText } from "./material_text.slint";
+import { Icon } from "./icon.slint";
+import { Typography } from "../styling/typography.slint";
+import { MaterialStyleMetrics } from "../styling/material_style_metrics.slint";
+
+export component BaseButton inherits StateLayerArea {
+    in property <image> icon;
+    in property <string> text;
+    in property <length> horizontal_padding: MaterialStyleMetrics.padding_24;
+    in property <length> vertical_padding: MaterialStyleMetrics.padding_10;
+    in property <length> spacing;
+    in property <length> min_layout_width: MaterialStyleMetrics.size_40;
+    in property <length> min_layout_height: MaterialStyleMetrics.size_40;
+    in property <length> icon_size: MaterialStyleMetrics.icon_size_40;
+
+    min_width: max(root.min_layout_width, layout.min_width);
+    min_height: max(root.min_layout_height, layout.min_height);
+    tooltip_offset: root.height / 2 + root.icon_size / 2 + MaterialStyleMetrics.padding_14;
+
+    layout := HorizontalLayout {
+        padding_left: root.horizontal_padding;
+        padding_right: root.horizontal_padding;
+        padding_top: root.vertical_padding;
+        padding_bottom: root.vertical_padding;
+        spacing: root.spacing;
+        alignment: center;
+
+        if root.icon.width > 0 && root.icon.height > 0 : VerticalLayout {
+            alignment: center;
+
+            Icon {
+                source: root.icon;
+                colorize: root.color;
+                opacity: root.enabled ? 100% : 38%;
+                width: root.icon_size;
+            }
+        }
+
+        if root.text != "" : MaterialText {
+            text: root.text;
+            style: Typography.label_large;
+            color: root.color;
+            opacity: root.enabled ? 100% : 38%;
+            overflow: clip;
+            vertical_alignment: center;
+        }
+    }
+}

@@ -1,0 +1,31 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import {
+    MaterialText,
+    MaterialPalette,
+    Typography
+} from "../../../../material.slint";
+
+export component Group {
+    in property <string> title;
+
+    Rectangle {
+        border_radius: 12px;
+        background: MaterialPalette.surface_bright;
+
+        VerticalLayout {
+            alignment: start;
+            padding: 8px;
+            spacing: 16px;
+
+            MaterialText {
+                horizontal_alignment: center;
+                text: root.title;
+                style: Typography.headline_small;
+            }
+
+            @children
+        }
+    }
+}

@@ -1,0 +1,74 @@
+---
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+title: CheckBox
+description: CheckBox api.
+---
+
+import CodeSnippetMD from '/src/components/CodeSnippetMD.astro';
+import SlintProperty  from '/src/components/SlintProperty.astro';
+
+{/* <CodeSnippetMD needsBackground imagePath="/src/assets/generated/std-widgets-checkbox-example.png" scale="3" imageWidth="100" imageHeight="50"  imageAlt='checkbox example'>
+```slint
+import { CheckBox } from "std-widgets.slint";
+export component Example inherits Window {
+    width: 200px;
+    height: 25px;
+    background: transparent;
+    CheckBox {
+        x: 5px;
+        width: parent.width;
+        height: parent.height;
+        text: "Hello World";
+    }
+}
+```
+</CodeSnippetMD> */}
+
+Use a `CheckBox` to let the user select or deselect values, for example in a list with multiple options. Consider using a `Switch` element instead if the action resembles more something that's turned on or off.
+
+## Properties
+
+### checked
+<SlintProperty propName="checked" typeName="bool" defaultValue="false" propertyVisibility="in-out">
+Whether the checkbox is checked or not.
+```slint "checked: true;"
+CheckBox {
+    text: self.checked ? "Checked" : "Not checked";
+    checked: true;
+}
+```
+</SlintProperty>
+
+### enabled
+<SlintProperty propName="enabled" typeName="bool" defaultValue="true">
+Defaults to true. When false, the checkbox can't be pressed.
+</SlintProperty>
+
+### has-focus
+<SlintProperty propName="has-focus" typeName="bool" defaultValue="false" propertyVisibility="out" >
+Set to true when the checkbox has keyboard focus.
+</SlintProperty>
+
+### text
+<SlintProperty propName="text" typeName="string">
+The text written next to the checkbox.
+```slint 'text: "CheckBox with text";'
+CheckBox {
+    text: "CheckBox with text";
+}
+```
+</SlintProperty>
+
+## Callbacks
+
+### toggled()
+The checkbox value changed
+
+```slint {3-5}
+CheckBox {
+    text: "CheckBox";
+    toggled() => {
+        debug("CheckBox checked: ", self.checked);
+    }
+}
+```

@@ -1,0 +1,37 @@
+---
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+import { Icon } from "@astrojs/starlight/components";
+---
+
+<script>
+  class ThemeSwitcher extends HTMLElement {
+    constructor() {
+      super();
+      const storedTheme =
+        typeof localStorage !== 'undefined' && localStorage.getItem('starlight-theme');
+      const theme =
+        storedTheme ||
+        (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+      document.documentElement.dataset.theme = theme === 'light' ? 'light' : 'dark';
+      this.handleMouseDown = this.handleMouseDown.bind(this);
+    }
+    connectedCallback() {
+      this.addEventListener('click', this.handleMouseDown);
+    }
+    disconnectedCallback() {
+      this.removeEventListener('click', this.handleMouseDown);
+    }
+    private handleMouseDown() {
+      const theme = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light';
+      document.documentElement.dataset.theme = theme;
+      localStorage.setItem('starlight-theme', theme);
+    }
+  }
+  customElements.define('theme-switcher', ThemeSwitcher);
+</script>
+
+<theme-switcher class="sl-flex">
+  <Icon name="sun" class="theme-selector-light" />
+  <Icon name="moon" class="theme-selector-dark" />
+</theme-switcher>

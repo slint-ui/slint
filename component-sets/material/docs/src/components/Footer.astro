@@ -1,0 +1,24 @@
+---
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+import Default from "@astrojs/starlight/components/Footer.astro";
+const year = new Date().getFullYear();
+---
+
+<Default ><slot /></Default>
+
+<hr />
+
+<p>&copy; {year} SixtyFPS GmbH</p>
+
+<style>
+  p {
+    text-align: center;
+    color: var(--sl-color-gray-2);
+    font-size: var(--sl-text-sm);
+  }
+  hr {
+    border: 0;
+    border-bottom: 1px solid var(--sl-color-hairline);
+  }
+</style>

@@ -1,0 +1,132 @@
+.code-image-container {
+    display: flex;
+    flex-direction: row;
+    width: 100%;
+    align-items: center;
+}
+
+.code-block {
+    width: 80%;
+    /* Reduced from 300px to accommodate the gap */
+    overflow-x: auto;
+}
+
+.image-block {
+    width: 20%;
+    margin-top: 0 !important;
+    margin-left: 20px;
+    border-radius: 10px;
+}
+
+.image-block img {
+    width: auto;
+    height: auto;
+    border-radius: 3px;
+}
+
+.no-underline {
+    text-decoration: none;
+}
+
+.default-value code {
+    margin-left: -0.3rem;
+}
+
+.default-value {
+    margin-left: 0.1rem;
+    font-size: 0.8em;
+}
+
+.plain-code {
+    background: none !important;
+}
+
+.sl-markdown-content table td:first-child {
+    min-width: 100px !important;
+    /* Tweak the table so the first column is wider */
+}
+
+/* Dark mode colors. */
+:root {
+    --sl-hue-blue: 222;
+    --sl-text-h3: var(--sl-text-2xl);
+    --sl-text-h4: 1.2rem;
+    --sl-content-width: 50rem;
+    --sl-color-bg: #1b1b1f;
+    --sl-color-gray-6: #161618;
+    --sl-color-hairline: #212329;
+    --sl-color-hairline-shade: var(--sl-color-hairline);
+    --badge-border-color: --sl-color-hairline;
+    --slint-code-background: #151517;
+
+    .screenshot-container {
+        background-color: #cdcdcd;
+    }
+
+    --sl-color-accent-low: hsl(228, 70%, 30%);
+    --sl-color-accent: hsl(228, 100%, 70%);
+    --sl-color-accent-high: hsl(228, 90%, 85%);
+}
+
+/* Light mode colors. */
+:root[data-theme="light"] {
+    --sl-text-h3: var(--sl-text-2xl);
+    --sl-content-width: 50rem;
+    --sl-color-bg: #ffffff;
+    --badge-border-color: lightgrey;
+    --sl-color-hairline: #edeef3;
+    --slint-code-background: #f6f6f7;
+
+    .screenshot-container {
+        background-color: whitesmoke;
+    }
+
+    --sl-color-accent-high: hsl(222, 80%, 35%);
+    --sl-color-accent: hsl(222, 89%, 55%);
+    --sl-color-accent-low: hsl(222, 89%, 85%);
+    .site-title {
+        color: #000;
+    }
+}
+
+.hero {
+    display: flex;
+    gap: 1.5rem;
+    flex-direction: column-reverse;
+    padding-block: initial;
+}
+
+.hero .copy {
+    align-items: center;
+}
+
+.site-title {
+    font-size: 1.3rem;
+    color: #fff;
+    margin-top: -4px;
+}
+
+span {
+    display: inline-block;
+    margin-top: 2px;
+}
+
+.version-banner {
+    background-color: var(--sl-color-orange-low);
+    box-shadow: var(--sl-shadow-sm);
+    color: var(--sl-color-orange-high);
+    line-height: var(--sl-line-height-headings);
+    padding: var(--sl-nav-pad-y) var(--sl-nav-pad-x);
+    text-align: center;
+    text-wrap: balance;
+}
+
+.version-banner a {
+    color: var(--sl-color-orange-high);
+}
+
+.sl-markdown-content {
+    .slint-property {
+        margin-top: 0.1rem;
+    }
+}

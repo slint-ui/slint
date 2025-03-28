@@ -1,0 +1,23 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { MaterialWindow } from "../../../material.slint";
+import { MainView } from "./views/main_view.slint";
+import { MainWindowAdapter } from "./main_window_adapter.slint";
+
+export component MainWindow inherits MaterialWindow {
+    background: MainWindowAdapter.background;
+
+    MainView {
+        width: 100%;
+        height: 100%;
+    }
+
+    changed width => {
+        MainWindowAdapter.width = root.width;
+    }
+
+    changed height => {
+        MainWindowAdapter.height = root.height;
+    }
+}

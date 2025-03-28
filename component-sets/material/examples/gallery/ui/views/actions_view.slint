@@ -1,0 +1,605 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import {
+    ElevatedCard,
+    FilledCard,
+    OutlinedCard,
+    MaterialText,
+    MaterialPalette,
+    Typography,
+    ElevatedButton,
+    FilledButton,
+    TonalButton,
+    OutlineButton,
+    TextButton,
+    FloatingActionButton,
+    FABStyle,
+    IconButton,
+    Vertical,
+    Horizontal,
+    Grid,
+    FilledIconButton,
+    TonalIconButton,
+    OutlineIconButton,
+    SegmentedButton,
+    ScrollView,
+    NavigationBar,
+    CircularProgressIndicator,
+    LinearProgressIndicator,
+    SnackBar,
+    ModalBottomSheet,
+    MaterialText,
+    MaterialStyleMetrics,
+    HorizontalDivider,
+    Dialog,
+    FullscreenDialog
+} from "../../../../material.slint";
+
+import { Group } from "../components/group.slint";
+import { ComponentCard } from "../components/component_card.slint";
+import { TextIconButton } from "../components/text_icon_button.slint";
+import { MainWindowAdapter } from "../main_window_adapter.slint";
+import { FilledIcons, OutlinedIcons } from "../icons.slint";
+
+export component ActionsView {
+    layout := VerticalLayout {
+        alignment: start;
+        spacing: MaterialStyleMetrics.spacing_8;
+        horizontal-stretch: 1;
+
+        Group {
+            title: "Actions";
+
+            ComponentCard {
+                title: "Common buttons";
+
+                HorizontalLayout {
+                    alignment: center;
+
+                    Grid {
+                        spacing-horizontal: MaterialStyleMetrics.spacing_4;
+
+                        ElevatedButton {
+                            text: "Elevated";
+                            row: 0;
+                            col: 0;
+                        }
+
+                        ElevatedButton {
+                            icon: FilledIcons.add;
+                            text: "Icon";
+                            row: 0;
+                            col: 1;
+                        }
+
+                        ElevatedButton {
+                            text: "Elevated";
+                            enabled: false;
+                            row: 0;
+                            col: 2;
+                        }
+
+                        FilledButton {
+                            text: "Filled";
+                            row: 1;
+                            col: 0;
+                        }
+
+                        FilledButton {
+                            icon: FilledIcons.add;
+                            text: "Icon";
+                            row: 1;
+                            col: 1;
+                        }
+
+                        FilledButton {
+                            text: "Filled";
+                            enabled: false;
+                            row: 1;
+                            col: 2;
+                        }
+
+                        TonalButton {
+                            text: "Filled tonal";
+                            row: 2;
+                            col: 0;
+                        }
+
+                        TonalButton {
+                            icon: FilledIcons.add;
+                            text: "Icon";
+                            row: 2;
+                            col: 1;
+                        }
+
+                        TonalButton {
+                            text: "Filled tonal";
+                            enabled: false;
+                            row: 2;
+                            col: 2;
+                        }
+
+                        OutlineButton {
+                            text: "Outlined";
+                            row: 3;
+                            col: 0;
+                        }
+
+                        OutlineButton {
+                            icon: FilledIcons.add;
+                            text: "Icon";
+                            row: 3;
+                            col: 1;
+                        }
+
+                        OutlineButton {
+                            text: "Outlined";
+                            enabled: false;
+                            row: 3;
+                            col: 2;
+                        }
+
+                        TextButton {
+                            text: "Text";
+                            row: 4;
+                            col: 0;
+                        }
+
+                        TextButton {
+                            icon: FilledIcons.add;
+                            text: "Icon";
+                            row: 4;
+                            col: 1;
+                        }
+
+                        TextButton {
+                            text: "Text";
+                            enabled: false;
+                            row: 4;
+                            col: 2;
+                        }
+                    }
+                }
+            }
+
+
+            ComponentCard {
+                title: "Floating Action Buttons";
+
+                Horizontal {
+                    alignment: center;
+
+                    VerticalLayout {
+                        alignment: center;
+
+                        FloatingActionButton {
+                            icon: FilledIcons.add;
+                            tooltip: "Small";
+                        }
+                    }
+
+                    VerticalLayout {
+                        alignment: center;
+
+                        FloatingActionButton {
+                            icon: FilledIcons.add;
+                            style: FABStyle.standard;
+                            text: "Create";
+                            tooltip: "Extended";
+                        }
+                    }
+
+                    VerticalLayout {
+                        alignment: center;
+
+                        FloatingActionButton {
+                            icon: FilledIcons.add;
+                            style: FABStyle.standard;
+                            tooltip: "Standard";
+                        }
+                    }
+
+                    VerticalLayout {
+                        alignment: center;
+
+                        FloatingActionButton {
+                            icon: FilledIcons.add;
+                            style: FABStyle.large;
+                            tooltip: "Large";
+                        }
+                    }
+                }
+            }
+
+            ComponentCard {
+                title: "Icon buttons";
+
+                Vertical {
+                    HorizontalLayout {
+                        alignment: center;
+                        spacing: MaterialStyleMetrics.spacing_8;
+
+                        default_ib := IconButton {
+                            checkable: true;
+                            icon: OutlinedIcons.settings;
+                            icon_checked: FilledIcons.settings;
+                        }
+
+                        filled_ib := FilledIconButton {
+                            icon: OutlinedIcons.settings;
+                            checkable: true;
+                            icon_checked: FilledIcons.settings;
+                        }
+
+                        tonal_ib := TonalIconButton {
+                            checkable: true;
+                            icon: OutlinedIcons.settings;
+                            icon_checked: FilledIcons.settings;
+                        }
+
+                        outline_ib := OutlineIconButton {
+                            checkable: true;
+                            icon: OutlinedIcons.settings;
+                            icon_checked: FilledIcons.settings;
+                        }
+                    }
+
+                    HorizontalLayout {
+                        alignment: center;
+                        spacing: MaterialStyleMetrics.spacing_8;
+
+                        IconButton {
+                            icon: OutlinedIcons.settings;
+                            icon_checked: FilledIcons.settings;
+                            checked: default_ib.checked;
+                            enabled: false;
+                        }
+
+
+                        FilledIconButton {
+                            icon: OutlinedIcons.settings;
+                            icon_checked: FilledIcons.settings;
+                            checked: filled_ib.checked;
+                            enabled: false;
+                        }
+
+                        TonalIconButton {
+                            icon: OutlinedIcons.settings;
+                            icon_checked: FilledIcons.settings;
+                            checked: tonal_ib.checked;
+                            enabled: false;
+                        }
+
+                        OutlineIconButton {
+                            icon: OutlinedIcons.settings;
+                            icon_checked: FilledIcons.settings;
+                            checked: outline_ib.checked;
+                            enabled: false;
+                        }
+                    }
+                }
+            }
+
+            ComponentCard {
+                title: "Segmented buttons";
+
+                Vertical {
+                    HorizontalLayout {
+                        alignment: center;
+
+                        SegmentedButton {
+                            model: [
+                                {  icon: OutlinedIcons.today, text: "Day" },
+                                {  icon: OutlinedIcons.view_week, text: "Week" },
+                                {  icon: OutlinedIcons.calendar_month, text: "Month" },
+                            ];
+                        }
+                    }
+
+                    HorizontalLayout {
+                        alignment: center;
+
+                        SegmentedButton {
+                            current_item: 4;
+
+                            model: [
+                                { text: "XS" },
+                                { text: "S" },
+                                { text: "M" },
+                                { text: "L" },
+                                { text: "XL" },
+                            ];
+                        }
+                    }
+                }
+            }
+        }
+
+        Group {
+            title: "Communication";
+
+            ComponentCard {
+                title: "Badges";
+
+                NavigationBar {
+                    items: [
+                          {
+                             icon: OutlinedIcons.mail,
+                             icon_selected: FilledIcons.mail,
+                             text: "Mail",
+                             badge: "999+"
+                          },
+                          {
+                             icon: OutlinedIcons.chat_bubble,
+                             icon_selected: FilledIcons.chat_bubble,
+                             text: "Chat",
+                             badge: "10"
+                          },
+                          {
+                             icon: OutlinedIcons.group,
+                             icon_selected: FilledIcons.group,
+                             text: "Rooms",
+                             empty_badge: true
+                          },
+                          {
+                             icon: OutlinedIcons.video_chat,
+                             icon_selected: FilledIcons.video_chat,
+                             text: "Meet",
+                             badge: "3"
+                          },
+                    ];
+                }
+            }
+
+            ComponentCard {
+                title: "Progress indicators";
+
+                Horizontal {
+                    IconButton {
+                        icon: pi.indeterminate ? FilledIcons.pause :
+                            FilledIcons.play_arrow;
+
+                        clicked => {
+                            pi.indeterminate = !pi.indeterminate;
+                        }
+                    }
+
+                    VerticalLayout {
+                        alignment: center;
+
+                        pi := CircularProgressIndicator {
+                            value: 0.5;
+                        }
+                    }
+
+                    VerticalLayout {
+                        alignment: center;
+
+                        LinearProgressIndicator {
+                            indeterminate: pi.indeterminate;
+                            value: 0.5;
+                        }
+                    }
+                }
+            }
+
+            ComponentCard {
+                title: "Snackbar";
+
+                Horizontal {
+                    alignment: center;
+
+                    TextButton {
+                        text: "Show snackbar";
+
+                        clicked => {
+                            snackbar.show();
+                        }
+                    }
+                }
+            }
+
+            ComponentCard {
+                title: "Containment";
+
+                Horizontal {
+                    alignment: center;
+
+                    TextButton {
+                        text: "Show modal bottom sheet";
+
+                        clicked => {
+                            modal_bottom_sheet.show();
+                        }
+                    }
+                }
+            }
+
+            ComponentCard {
+                title: "Cards";
+
+                Horizontal {
+                    alignment: center;
+
+                    ElevatedCard {
+                        width: 92px;
+                        height: self.width;
+
+                        Vertical {
+                            alignment: space_between;
+
+                            HorizontalLayout {
+                                alignment: end;
+
+                                IconButton {
+                                    icon: OutlinedIcons.more_vert;
+                                }
+                            }
+
+                            MaterialText {
+                                text: "Elevated";
+                            }
+                        }
+                    }
+
+                    FilledCard {
+                        width: 92px;
+                        height: self.width;
+
+                        Vertical {
+                            alignment: space_between;
+
+                            HorizontalLayout {
+                                alignment: end;
+
+                                IconButton {
+                                    icon: OutlinedIcons.more_vert;
+                                }
+                            }
+
+                            MaterialText {
+                                text: "Filled";
+                            }
+                        }
+                    }
+
+                    OutlinedCard {
+                        width: 92px;
+                        height: self.width;
+
+                        Vertical {
+                            alignment: space_between;
+
+                            HorizontalLayout {
+                                alignment: end;
+
+                                IconButton {
+                                    icon: OutlinedIcons.more_vert;
+                                }
+                            }
+
+                            MaterialText {
+                                text: "Outlined";
+                            }
+                        }
+                    }
+                }
+            }
+
+            ComponentCard {
+                title: "Dialogs";
+
+                Horizontal {
+                    alignment: center;
+
+                    TextButton {
+                        text: "Show dialog";
+
+                        clicked => {
+                            dialog.show();
+                        }
+                    }
+
+                    TextButton {
+                        text: "Show full-screen dialog";
+
+                        clicked => {
+                            fullscreen_dialog.show();
+                        }
+                    }
+                }
+            }
+
+            ComponentCard {
+                title: "Dividers";
+
+                Horizontal {
+                    HorizontalDivider {}
+                }
+            }
+        }
+    }
+
+
+    // popups
+
+    modal_bottom_sheet := ModalBottomSheet {
+        x: -root.absolute_position.x;
+        y: -root.absolute_position.y;
+        width: MainWindowAdapter.width;
+        height: MainWindowAdapter.height;
+
+        TextIconButton {
+            icon: OutlinedIcons.share;
+            text: "Share";
+        }
+
+        TextIconButton {
+            icon: OutlinedIcons.add;
+            text: "Add to";
+        }
+
+        TextIconButton {
+            icon: OutlinedIcons.delete;
+            text: "Trash";
+        }
+
+        TextIconButton {
+            icon: OutlinedIcons.archive;
+            text: "Archive";
+        }
+
+        TextIconButton {
+            icon: OutlinedIcons.settings;
+            text: "Settings";
+        }
+    }
+
+    snackbar := SnackBar {
+        x: -root.absolute_position.x;
+        y: -root.absolute_position.y;
+        width: MainWindowAdapter.width;
+        height: MainWindowAdapter.height;
+        text: "This is a snackbar";
+        action_text: "Close";
+    }
+
+     dialog := Dialog {
+        x: -root.absolute_position.x;
+        y: -root.absolute_position.y;
+        width: MainWindowAdapter.width;
+        height: MainWindowAdapter.height;
+        title: "What is a dialog?";
+        default_action_text: "Okay";
+        actions: ["Dismiss"];
+
+        MaterialText {
+            text: "A dialog is a type of modal window that appears in front of app content to provide critical information, or prompt for a descion to be made.";
+            wrap: word_wrap;
+        }
+
+        action(index) => {
+            dialog.close();
+        }
+
+        default_action => {
+            dialog.close();
+        }
+     }
+
+     fullscreen_dialog := FullscreenDialog {
+        x: -root.absolute_position.x;
+        y: -root.absolute_position.y;
+        width: MainWindowAdapter.width;
+        height: MainWindowAdapter.height;
+        title: "Full-screen dialog";
+        actions: ["Close"];
+
+        Rectangle {}
+
+        action => {
+            fullscreen_dialog.close();
+        }
+     }
+}

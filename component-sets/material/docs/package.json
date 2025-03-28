@@ -1,0 +1,43 @@
+{
+    "name": "slint-docs",
+    "type": "module",
+    "version": "1.11.0",
+    "scripts": {
+        "dev": "astro dev",
+        "start": "astro dev",
+        "build": "astro check && astro build",
+        "preview": "astro preview",
+        "astro": "astro",
+        "format": "biome format",
+        "format:fix": "biome format --write",
+        "lint": "biome lint",
+        "lint:fix": "biome lint --fix",
+        "spellcheck": "cspell --no-progress --gitignore --exclude 'archive/**' \"./**/*.{md,mdx}\"",
+        "type-check": "astro check",
+        "test": "playwright test",
+        "test:ui": "playwright test --ui"
+    },
+    "dependencies": {
+        "@astrojs/check": "0.9.4",
+        "@astrojs/starlight": "0.32.4",
+        "@expressive-code/plugin-line-numbers": "0.40.2",
+        "@types/node": "20.16.10",
+        "astro": "5.5.5",
+        "astro-embed": "0.9.0",
+        "playwright": "1.51.1",
+        "playwright-ctrf-json-reporter": "0.0.19",
+        "rehype-external-links": "3.0.0",
+        "sharp": "0.33.5",
+        "starlight-links-validator": "0.14.3",
+        "typescript": "5.8.2"
+    },
+    "devDependencies": {
+        "@biomejs/biome": "^1.9.4",
+        "@expressive-code/core": "^0.40.2",
+        "@playwright/test": "1.51.1",
+        "cspell": "8.17.5"
+    },
+    "pnpm": {
+        "onlyBuiltDependencies": ["@biomejs/biome", "esbuild", "sharp"]
+    }
+}

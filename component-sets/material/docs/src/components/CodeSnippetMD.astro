@@ -1,0 +1,38 @@
+---
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+import "@astrojs/starlight/style/markdown.css";
+import type { ImageMetadata } from "astro";
+import { Image } from "astro:assets";
+
+interface Props {
+    imagePath: string;
+    imageAlt: string;
+    imageWidth: number;
+    imageHeight: number;
+    needsBackground?: boolean;
+    skip?: boolean;
+    scale?: number;
+}
+const { imagePath, imageAlt, skip, needsBackground } = Astro.props as Props;
+const images = import.meta.glob<{ default: ImageMetadata }>(
+    "/src/assets/generated/*.{jpeg,jpg,png,gif}",
+);
+if (!images[imagePath]) {
+    throw new Error(
+        `"${imagePath}" does not exist in glob: "src/assets/generated/*.{jpeg,jpg,png,gif}"`,
+    );
+}
+const imageSrc = images[imagePath]();
+const imageCSS = `image-block ${needsBackground ? "screenshot-container" : ""}`;
+---
+
+{!skip && <div class="code-image-container">
+    <div class="code-block">
+        <slot/>
+    </div>
+    <div class={imageCSS}>
+        <Image src={imageSrc} alt={imageAlt} />
+    </div>
+</div>}
+

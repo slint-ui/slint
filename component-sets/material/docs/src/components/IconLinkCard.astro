@@ -1,0 +1,89 @@
+---
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+// biome-ignore lint/style/useImportType: <explanation>
+import { Icon } from "@astrojs/starlight/components";
+import type { HTMLAttributes } from "astro/types";
+
+interface Props extends Omit<HTMLAttributes<"a">, "title"> {
+    icon?: keyof typeof Icon;
+    title: string;
+}
+
+const { icon, title, ...attributes } = Astro.props as Props;
+---
+
+<article class="icon-link-card sl-flex">
+    <a {...attributes}>
+        <p class="title sl-flex">
+            {icon && <Icon name={icon} class="icon" size="1.5em" />}
+    		<span class="title" set:html={title} />
+    		{icon && <Icon name="right-arrow" size="1.5em" class="rtl:flip" />}
+        </p>
+    </a>
+        <div class="body"><slot /></div>
+</article>
+
+<style>
+	.icon-link-card {
+		--sl-card-border: var(--sl-color-purple);
+		--sl-card-bg: var(--sl-color-purple-low);
+		border: 1px solid var(--sl-color-gray-5);
+		background-color: var(--sl-color-black);
+		padding: clamp(1rem, calc(0.125rem + 3vw), 2.5rem);
+		flex-direction: column;
+		gap: clamp(0.5rem, calc(0.125rem + 1vw), 1rem);
+	}
+
+	.icon-link-card:nth-child(4n + 1) {
+		--sl-card-border: var(--sl-color-orange);
+		--sl-card-bg: var(--sl-color-orange-low);
+	}
+	.icon-link-card:nth-child(4n + 3) {
+		--sl-card-border: var(--sl-color-green);
+		--sl-card-bg: var(--sl-color-green-low);
+	}
+	.icon-link-card:nth-child(4n + 4) {
+		--sl-card-border: var(--sl-color-red);
+		--sl-card-bg: var(--sl-color-red-low);
+	}
+	.icon-link-card:nth-child(4n + 5) {
+		--sl-card-border: var(--sl-color-blue);
+		--sl-card-bg: var(--sl-color-blue-low);
+	}
+
+	a {
+		text-decoration: none;
+		line-height: var(--sl-line-height-headings);
+	}
+
+	.title {
+		font-weight: 600;
+		font-size: var(--sl-text-h4);
+		color: var(--sl-color-white);
+		line-height: var(--sl-line-height-headings);
+		gap: 1rem;
+		align-items: center;
+	}
+
+	.icon-link-card .icon {
+		border: 1px solid var(--sl-card-border);
+		background-color: var(--sl-card-bg);
+		padding: 0.2em;
+		border-radius: 0.25rem;
+	}
+	.icon-link-card .body {
+		margin: 0;
+		font-size: clamp(var(--sl-text-sm), calc(0.5rem + 1vw), var(--sl-text-body));
+	}
+
+	/* Hover state */
+	.icon-link-card:hover {
+		background: var(--sl-color-gray-7, var(--sl-color-gray-6));
+		border-color: var(--sl-color-gray-2);
+	}
+
+	.icon-link-card:hover .icon {
+		color: var(--sl-color-white);
+	}
+</style>

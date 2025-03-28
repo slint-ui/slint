@@ -1,0 +1,41 @@
+---
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import {
+    CPP_BASE_URL,
+    RUST_SLINT_CRATE_URL,
+    RUST_SLINT_INTERPRETER_CRATE_URL,
+    RUST_SLINT_BUILD_CRATE_URL,
+    NODEJS_BASE_URL,
+    PYTHON_BASE_URL,
+} from "../utils/site-config.ts";
+
+const BASE_URL_MAP = {
+    cpp: `${CPP_BASE_URL}`,
+    "rust-slint": `${RUST_SLINT_CRATE_URL}`,
+    "rust-slint-build": `${RUST_SLINT_BUILD_CRATE_URL}`,
+    "rust-slint-interpreter": `${RUST_SLINT_INTERPRETER_CRATE_URL}`,
+    nodejs: `${NODEJS_BASE_URL}`,
+    python: `${PYTHON_BASE_URL}`,
+} as const;
+
+type LangID = keyof typeof BASE_URL_MAP;
+
+interface Props {
+    lang: LangID;
+    title: string;
+    relpath: string;
+}
+
+const props = Astro.props;
+if (!Object.keys(BASE_URL_MAP).includes(props.lang)) {
+    throw new Error(`Invalid language ID: ${props.lang}`);
+}
+
+const { lang, relpath } = props;
+const link = `${BASE_URL_MAP[lang]}${relpath}`;
+---
+
+<a href={link}><slot/></a>
+

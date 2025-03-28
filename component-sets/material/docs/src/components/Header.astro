@@ -1,0 +1,86 @@
+---
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import LanguageSelect from "@astrojs/starlight/components/LanguageSelect.astro";
+import Search from "@astrojs/starlight/components/Search.astro";
+import SiteTitle from "@astrojs/starlight/components/SiteTitle.astro";
+import SocialIcons from "@astrojs/starlight/components/SocialIcons.astro";
+import ThemeSelect from "./ThemeSelect.astro";
+import VersionSelector from "./VersionSelector.astro";
+---
+
+<div class="header sl-flex">
+	<div class="title-wrapper sl-flex">
+		<SiteTitle />
+	</div>
+	<div class="sl-flex">
+		<Search />
+	</div>
+	<div class="sl-hidden md:sl-flex right-group">
+	<div class="sl-flex social-icons">
+			<VersionSelector {...Astro.locals.starlightRoute} />
+	</div>
+		<div class="sl-flex social-icons">
+			<SocialIcons />
+		</div>
+		<ThemeSelect {...Astro.locals.starlightRoute} />
+		<LanguageSelect />
+	</div>
+</div>
+
+<style>
+	.header {
+		gap: var(--sl-nav-gap);
+		justify-content: space-between;
+		align-items: center;
+		height: 100%;
+	}
+
+	.title-wrapper {
+		/* Prevent long titles overflowing and covering the search and menu buttons on narrow viewports. */
+		overflow: hidden;
+	}
+
+	.right-group,
+	.social-icons {
+		gap: 1rem;
+		align-items: center;
+	}
+	.social-icons::after {
+		content: '';
+		height: 2rem;
+		border-inline-end: 1px solid var(--sl-color-gray-5);
+	}
+
+	@media (min-width: 50rem) {
+		:global(:root[data-has-sidebar]) {
+			--__sidebar-pad: calc(2 * var(--sl-nav-pad-x));
+		}
+		:global(:root:not([data-has-toc])) {
+			--__toc-width: 0rem;
+		}
+		.header {
+			--__sidebar-width: max(0rem, var(--sl-content-inline-start, 0rem) - var(--sl-nav-pad-x));
+			--__main-column-fr: calc(
+				(
+						100% + var(--__sidebar-pad, 0rem) - var(--__toc-width, var(--sl-sidebar-width)) -
+							(2 * var(--__toc-width, var(--sl-nav-pad-x))) - var(--sl-content-inline-start, 0rem) -
+							var(--sl-content-width)
+					) / 2
+			);
+			display: grid;
+			grid-template-columns:
+        /* 1 (site title): runs up until the main content column’s left edge or the width of the title, whichever is the largest  */
+				minmax(
+					calc(var(--__sidebar-width) + max(0rem, var(--__main-column-fr) - var(--sl-nav-gap))),
+					auto
+				)
+				/* 2 (search box): all free space that is available. */
+				1fr
+				/* 3 (right items): use the space that these need. */
+				auto;
+			align-content: center;
+		}
+	}
+</style>
