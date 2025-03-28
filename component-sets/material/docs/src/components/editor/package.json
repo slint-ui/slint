@@ -1,0 +1,29 @@
+{
+    "name": "slint-docs",
+    "version": "1.11.0",
+    "type": "module",
+    "scripts": {
+        "build": "rollup -c",
+        "format": "biome format",
+        "format:fix": "biome format --write",
+        "lint": "biome lint",
+        "lint:fix": "biome lint --fix"
+    },
+    "devDependencies": {
+        "rollup": "^3.5.1",
+        "@rollup/plugin-node-resolve": "^15.0.1"
+    },
+    "dependencies": {
+        "@codemirror/commands": "^6.1.2",
+        "@codemirror/lang-javascript": "^6.1.1",
+        "@codemirror/lang-rust": "^6.0.0",
+        "@codemirror/lang-cpp": "^6.0.0",
+        "@codemirror/lang-python": "^6.1.0",
+        "@codemirror/search": "^6.2.3",
+        "@codemirror/theme-one-dark": "^6.1.0",
+        "@codemirror/view": "^6.6.0",
+        "minify": "^9.1.0",
+        "@uiw/codemirror-theme-dracula": "^4.23.5",
+        "@babel/runtime": "^7.25.7"
+    }
+}

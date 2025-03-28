@@ -1,0 +1,216 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { ListItem } from "../items/list_item.slint";
+import { Avatar, ListItemTemplate } from "./list.slint";
+import { MaterialPalette } from "../styling/material_palette.slint";
+import { MaterialStyleMetrics } from "../styling/material_style_metrics.slint";
+import { Typography } from "../styling/typography.slint";
+import { StateLayerArea } from "./state_layer.slint";
+import { MaterialText } from "./material_text.slint";
+import { Icon } from "./icon.slint";
+import { IconButton } from "./icon_button.slint";
+import { Icons } from "../icons/icons.slint";
+
+component SearchIcon {
+    in property <image> icon;
+    in property <color> color;
+    
+    VerticalLayout {
+        alignment: center;
+        padding_left: MaterialStyleMetrics.padding_8;
+        padding_right: self.padding_left;
+
+        Icon {
+            source: root.icon;
+            colorize: root.color;
+        }
+    }
+}
+
+component SearchTextInput  {
+    in_out property <string> text <=> text_input.text;
+    in property <string> placeholder;
+    property <length> computed_x;
+    
+    callback accepted(text: string);
+    callback edited(text: string);
+    callback key_pressed(event: KeyEvent) -> EventResult;
+    callback key_released(event: KeyEvent) -> EventResult;
+
+    horizontal_stretch: 1;
+
+    Rectangle {
+        clip: true;
+        
+        text_input := TextInput {
+            x: min(0px, max(parent.width - self.width - self.text_cursor_width, root.computed_x));
+            width: max(parent.width - self.text-cursor-width, self.preferred-width);
+            height: 100%;
+            font_size: Typography.body_large.font_size;
+            font_weight: Typography.body_large.font_weight;
+            vertical_alignment: center;
+            single_line: true;
+            color: MaterialPalette.on_surface;
+            selection_background_color: MaterialPalette.secondary_container;
+            selection_foreground_color: self.color;
+             // Disable TextInput's built-in accessibility support as the component takes care of that.
+            accessible-role: none;
+
+            cursor-position-changed(cursor_position) => {
+                if cursor-position.x + root.computed_x < 0 {
+                    root.computed_x = - cursor-position.x;
+                } else if cursor-position.x + root.computed_x > parent.width - self.text-cursor-width {
+                    root.computed_x = parent.width - cursor_position.x - self.text-cursor-width;
+                }
+            }
+   
+            accepted => {
+                root.accepted(self.text);
+            }
+
+            edited => {
+                root.edited(self.text);
+            }
+
+            key_pressed(event) => {
+                root.key_pressed(event)
+            }
+
+            key_released(event) => {
+                root.key_released(event)
+            }
+        }
+        
+        if root.text == "" && root.placeholder != "" : MaterialText {
+            width: 100%;
+            height: 100%;
+            text: root.placeholder;
+            color: MaterialPalette.on_surface_variant;
+            vertical_alignment: center;
+            style: Typography.body_large;
+        }
+    }
+}
+
+export component SearchBar {
+    in property <image> leading_icon: Icons.menu;
+    in property <image> trailing_icon;
+    in property <image> avatar;
+    in property <color> avatar_background: #00000000;
+    in property <string> placeholder;
+    in_out property <string> text <=> input.text;
+    in_out property <int> current_item;
+    in property <[ListItem]> items;
+
+    callback accepted(text: string);
+    callback edited(text: string);
+    callback key_pressed(event: KeyEvent) -> EventResult;
+    callback key_released(event: KeyEvent) -> EventResult;
+
+    property <color> color: MaterialPalette.on_surface_variant;
+
+    min_height: max(MaterialStyleMetrics.size_56, layout.min_height);
+
+    Rectangle {
+        background: MaterialPalette.surface_container_high;
+        border_radius: MaterialStyleMetrics.border_radius_28;
+        
+        StateLayerArea {
+            border_radius: parent.border_radius;
+            color: root.color;
+            
+            layout := HorizontalLayout {
+                padding: MaterialStyleMetrics.padding_4;
+                spacing: MaterialStyleMetrics.spacing_4;
+
+                SearchIcon {
+                    icon: root.leading_icon;
+                    color: root.color;
+                }
+
+                input := SearchTextInput {
+                    placeholder: root.placeholder;
+           
+                    accepted => {
+                         root.accepted(self.text);
+                     }
+
+                     edited => {
+                         if self.text != "" {
+                             popup.show();
+                         }
+                         root.edited(self.text);
+                     }
+
+                     key_pressed(event) => {
+                         root.key_pressed(event)
+                     }
+
+                     key_released(event) => {
+                         root.key_released(event)
+                     }
+                }
+    
+                SearchIcon {
+                    icon: root.trailing_icon;
+                    color: root.color;
+                }
+
+                if (root.avatar.width > 0 && root.avatar.height > 0) || root.avatar_background != #00000000 : VerticalLayout {
+                    alignment: center;
+                    
+                    Avatar  {
+                        image: root.avatar;
+                        background: root.avatar_background;
+                    }
+                }
+            }
+        }
+    }
+
+    popup := PopupWindow {
+        x: 0;
+        y: 0;
+        width: root.width;
+        height: root.height;
+        close_policy: close_on_click_outside;
+        
+        Rectangle {
+            width: root.width;
+            height: root.height;
+            background: MaterialPalette.surface_container_high;
+            border_radius: MaterialStyleMetrics.border_radius_28;
+
+            HorizontalLayout {
+                padding: MaterialStyleMetrics.padding_4;
+                spacing: MaterialStyleMetrics.spacing_4;
+
+                IconButton {}
+                
+                SearchTextInput {
+                    placeholder: root.placeholder;
+                    text: root.text;
+
+                    accepted => {
+                         root.accepted(self.text);
+                     }
+
+                     edited => {
+                         root.edited(self.text);
+                     }
+
+                     key_pressed(event) => {
+                         root.key_pressed(event)
+                     }
+
+                     key_released(event) => {
+                         root.key_released(event)
+                     }
+                }
+
+                IconButton {}
+            }
+        }
+    }
+}
