@@ -1,0 +1,719 @@
+[
+  {
+    "id": "31:89",
+    "name": "buttonGroup",
+    "type": "COMPONENT_SET",
+    "width": 371,
+    "height": 370,
+    "x": 1632,
+    "y": 181,
+    "styles": {
+      "fill": null,
+      "stroke": {
+        "r": 0.5921568870544434,
+        "g": 0.27843138575553894,
+        "b": 1
+      },
+      "fontSize": null,
+      "fontFamily": null
+    },
+    "autoLayout": {
+      "direction": "NONE",
+      "spacing": null,
+      "padding": {
+        "top": 0,
+        "right": 0,
+        "bottom": 0,
+        "left": 0
+      },
+      "alignment": "MIN",
+      "crossAxisAlignment": "MIN"
+    },
+    "children": [
+      {
+        "id": "31:88",
+        "name": "meaning=urgent, Theme=light",
+        "type": "COMPONENT",
+        "width": 142,
+        "height": 93,
+        "x": 20,
+        "y": 20,
+        "styles": {
+          "fill": null,
+          "stroke": null,
+          "fontSize": null,
+          "fontFamily": null
+        },
+        "autoLayout": {
+          "direction": "NONE",
+          "spacing": null,
+          "padding": {
+            "top": 0,
+            "right": 0,
+            "bottom": 0,
+            "left": 0
+          },
+          "alignment": "MIN",
+          "crossAxisAlignment": "MIN"
+        },
+        "children": [
+          {
+            "id": "31:83",
+            "name": "Union",
+            "type": "BOOLEAN_OPERATION",
+            "width": 133,
+            "height": 79,
+            "x": 0,
+            "y": 14,
+            "styles": {
+              "fill": {
+                "r": 1,
+                "g": 0,
+                "b": 0
+              },
+              "stroke": null,
+              "fontSize": null,
+              "fontFamily": null
+            },
+            "autoLayout": null,
+            "children": [
+              {
+                "id": "31:84",
+                "name": "Rectangle 1",
+                "type": "RECTANGLE",
+                "width": 133,
+                "height": 79,
+                "x": 0,
+                "y": 14,
+                "styles": {
+                  "fill": {
+                    "r": 1,
+                    "g": 0,
+                    "b": 0
+                  },
+                  "stroke": null,
+                  "fontSize": null,
+                  "fontFamily": null
+                },
+                "autoLayout": null,
+                "children": []
+              }
+            ]
+          },
+          {
+            "id": "31:85",
+            "name": "Header",
+            "type": "TEXT",
+            "width": 132,
+            "height": 24,
+            "x": 0,
+            "y": 37,
+            "styles": {
+              "fill": {
+                "r": 0,
+                "g": 0,
+                "b": 0
+              },
+              "stroke": null,
+              "fontSize": 14,
+              "fontFamily": "Inter"
+            },
+            "autoLayout": null,
+            "children": []
+          },
+          {
+            "id": "31:87",
+            "name": "Sub",
+            "type": "TEXT",
+            "width": 132,
+            "height": 24,
+            "x": 0,
+            "y": 54,
+            "styles": {
+              "fill": {
+                "r": 0,
+                "g": 0,
+                "b": 0
+              },
+              "stroke": null,
+              "fontSize": 12,
+              "fontFamily": "Inter"
+            },
+            "autoLayout": null,
+            "children": []
+          }
+        ]
+      },
+      {
+        "id": "31:90",
+        "name": "meaning=normal, Theme=light",
+        "type": "COMPONENT",
+        "width": 142,
+        "height": 93,
+        "x": 20,
+        "y": 133,
+        "styles": {
+          "fill": null,
+          "stroke": null,
+          "fontSize": null,
+          "fontFamily": null
+        },
+        "autoLayout": {
+          "direction": "NONE",
+          "spacing": null,
+          "padding": {
+            "top": 0,
+            "right": 0,
+            "bottom": 0,
+            "left": 0
+          },
+          "alignment": "MIN",
+          "crossAxisAlignment": "MIN"
+        },
+        "children": [
+          {
+            "id": "31:91",
+            "name": "Union",
+            "type": "BOOLEAN_OPERATION",
+            "width": 133,
+            "height": 79,
+            "x": 0,
+            "y": 14,
+            "styles": {
+              "fill": {
+                "r": 0.7503906488418579,
+                "g": 0.7503906488418579,
+                "b": 0.7503906488418579
+              },
+              "stroke": null,
+              "fontSize": null,
+              "fontFamily": null
+            },
+            "autoLayout": null,
+            "children": [
+              {
+                "id": "31:92",
+                "name": "Rectangle 1",
+                "type": "RECTANGLE",
+                "width": 133,
+                "height": 79,
+                "x": 0,
+                "y": 14,
+                "styles": {
+                  "fill": {
+                    "r": 1,
+                    "g": 0,
+                    "b": 0
+                  },
+                  "stroke": null,
+                  "fontSize": null,
+                  "fontFamily": null
+                },
+                "autoLayout": null,
+                "children": []
+              }
+            ]
+          },
+          {
+            "id": "31:93",
+            "name": "Header",
+            "type": "TEXT",
+            "width": 132,
+            "height": 24,
+            "x": 0,
+            "y": 37,
+            "styles": {
+              "fill": {
+                "r": 0,
+                "g": 0,
+                "b": 0
+              },
+              "stroke": null,
+              "fontSize": 14,
+              "fontFamily": "Inter"
+            },
+            "autoLayout": null,
+            "children": []
+          },
+          {
+            "id": "31:94",
+            "name": "Sub",
+            "type": "TEXT",
+            "width": 132,
+            "height": 24,
+            "x": 0,
+            "y": 54,
+            "styles": {
+              "fill": {
+                "r": 0,
+                "g": 0,
+                "b": 0
+              },
+              "stroke": null,
+              "fontSize": 12,
+              "fontFamily": "Inter"
+            },
+            "autoLayout": null,
+            "children": []
+          }
+        ]
+      },
+      {
+        "id": "31:109",
+        "name": "meaning=normal, Theme=dark",
+        "type": "COMPONENT",
+        "width": 142,
+        "height": 93,
+        "x": 198,
+        "y": 133,
+        "styles": {
+          "fill": null,
+          "stroke": null,
+          "fontSize": null,
+          "fontFamily": null
+        },
+        "autoLayout": {
+          "direction": "NONE",
+          "spacing": null,
+          "padding": {
+            "top": 0,
+            "right": 0,
+            "bottom": 0,
+            "left": 0
+          },
+          "alignment": "MIN",
+          "crossAxisAlignment": "MIN"
+        },
+        "children": [
+          {
+            "id": "31:110",
+            "name": "Union",
+            "type": "BOOLEAN_OPERATION",
+            "width": 133,
+            "height": 79,
+            "x": 0,
+            "y": 14,
+            "styles": {
+              "fill": {
+                "r": 0.4130696654319763,
+                "g": 0.4130696654319763,
+                "b": 0.4130696654319763
+              },
+              "stroke": null,
+              "fontSize": null,
+              "fontFamily": null
+            },
+            "autoLayout": null,
+            "children": [
+              {
+                "id": "31:111",
+                "name": "Rectangle 1",
+                "type": "RECTANGLE",
+                "width": 133,
+                "height": 79,
+                "x": 0,
+                "y": 14,
+                "styles": {
+                  "fill": {
+                    "r": 1,
+                    "g": 0,
+                    "b": 0
+                  },
+                  "stroke": null,
+                  "fontSize": null,
+                  "fontFamily": null
+                },
+                "autoLayout": null,
+                "children": []
+              }
+            ]
+          },
+          {
+            "id": "31:112",
+            "name": "Header",
+            "type": "TEXT",
+            "width": 132,
+            "height": 24,
+            "x": 0,
+            "y": 37,
+            "styles": {
+              "fill": {
+                "r": 1,
+                "g": 1,
+                "b": 1
+              },
+              "stroke": null,
+              "fontSize": 14,
+              "fontFamily": "Inter"
+            },
+            "autoLayout": null,
+            "children": []
+          },
+          {
+            "id": "31:113",
+            "name": "Sub",
+            "type": "TEXT",
+            "width": 132,
+            "height": 24,
+            "x": 0,
+            "y": 54,
+            "styles": {
+              "fill": {
+                "r": 1,
+                "g": 1,
+                "b": 1
+              },
+              "stroke": null,
+              "fontSize": 12,
+              "fontFamily": "Inter"
+            },
+            "autoLayout": null,
+            "children": []
+          }
+        ]
+      },
+      {
+        "id": "31:97",
+        "name": "meaning=good, Theme=light",
+        "type": "COMPONENT",
+        "width": 142,
+        "height": 93,
+        "x": 20,
+        "y": 246,
+        "styles": {
+          "fill": null,
+          "stroke": null,
+          "fontSize": null,
+          "fontFamily": null
+        },
+        "autoLayout": {
+          "direction": "NONE",
+          "spacing": null,
+          "padding": {
+            "top": 0,
+            "right": 0,
+            "bottom": 0,
+            "left": 0
+          },
+          "alignment": "MIN",
+          "crossAxisAlignment": "MIN"
+        },
+        "children": [
+          {
+            "id": "31:98",
+            "name": "Union",
+            "type": "BOOLEAN_OPERATION",
+            "width": 133,
+            "height": 79,
+            "x": 0,
+            "y": 14,
+            "styles": {
+              "fill": {
+                "r": 0.2828068435192108,
+                "g": 0.7420735955238342,
+                "b": 0.3899691104888916
+              },
+              "stroke": null,
+              "fontSize": null,
+              "fontFamily": null
+            },
+            "autoLayout": null,
+            "children": [
+              {
+                "id": "31:99",
+                "name": "Rectangle 1",
+                "type": "RECTANGLE",
+                "width": 133,
+                "height": 79,
+                "x": 0,
+                "y": 14,
+                "styles": {
+                  "fill": {
+                    "r": 1,
+                    "g": 0,
+                    "b": 0
+                  },
+                  "stroke": null,
+                  "fontSize": null,
+                  "fontFamily": null
+                },
+                "autoLayout": null,
+                "children": []
+              }
+            ]
+          },
+          {
+            "id": "31:100",
+            "name": "Header",
+            "type": "TEXT",
+            "width": 132,
+            "height": 24,
+            "x": 0,
+            "y": 37,
+            "styles": {
+              "fill": {
+                "r": 0,
+                "g": 0,
+                "b": 0
+              },
+              "stroke": null,
+              "fontSize": 14,
+              "fontFamily": "Inter"
+            },
+            "autoLayout": null,
+            "children": []
+          },
+          {
+            "id": "31:101",
+            "name": "Sub",
+            "type": "TEXT",
+            "width": 132,
+            "height": 24,
+            "x": 0,
+            "y": 54,
+            "styles": {
+              "fill": {
+                "r": 0,
+                "g": 0,
+                "b": 0
+              },
+              "stroke": null,
+              "fontSize": 12,
+              "fontFamily": "Inter"
+            },
+            "autoLayout": null,
+            "children": []
+          }
+        ]
+      },
+      {
+        "id": "31:116",
+        "name": "meaning=good, Theme=dark",
+        "type": "COMPONENT",
+        "width": 142,
+        "height": 93,
+        "x": 198,
+        "y": 246,
+        "styles": {
+          "fill": null,
+          "stroke": null,
+          "fontSize": null,
+          "fontFamily": null
+        },
+        "autoLayout": {
+          "direction": "NONE",
+          "spacing": null,
+          "padding": {
+            "top": 0,
+            "right": 0,
+            "bottom": 0,
+            "left": 0
+          },
+          "alignment": "MIN",
+          "crossAxisAlignment": "MIN"
+        },
+        "children": [
+          {
+            "id": "31:117",
+            "name": "Union",
+            "type": "BOOLEAN_OPERATION",
+            "width": 133,
+            "height": 79,
+            "x": 0,
+            "y": 14,
+            "styles": {
+              "fill": {
+                "r": 0,
+                "g": 0.560253918170929,
+                "b": 0.1307259202003479
+              },
+              "stroke": null,
+              "fontSize": null,
+              "fontFamily": null
+            },
+            "autoLayout": null,
+            "children": [
+              {
+                "id": "31:118",
+                "name": "Rectangle 1",
+                "type": "RECTANGLE",
+                "width": 133,
+                "height": 79,
+                "x": 0,
+                "y": 14,
+                "styles": {
+                  "fill": {
+                    "r": 1,
+                    "g": 0,
+                    "b": 0
+                  },
+                  "stroke": null,
+                  "fontSize": null,
+                  "fontFamily": null
+                },
+                "autoLayout": null,
+                "children": []
+              }
+            ]
+          },
+          {
+            "id": "31:119",
+            "name": "Header",
+            "type": "TEXT",
+            "width": 132,
+            "height": 24,
+            "x": 0,
+            "y": 37,
+            "styles": {
+              "fill": {
+                "r": 1,
+                "g": 1,
+                "b": 1
+              },
+              "stroke": null,
+              "fontSize": 14,
+              "fontFamily": "Inter"
+            },
+            "autoLayout": null,
+            "children": []
+          },
+          {
+            "id": "31:120",
+            "name": "Sub",
+            "type": "TEXT",
+            "width": 132,
+            "height": 24,
+            "x": 0,
+            "y": 54,
+            "styles": {
+              "fill": {
+                "r": 1,
+                "g": 1,
+                "b": 1
+              },
+              "stroke": null,
+              "fontSize": 12,
+              "fontFamily": "Inter"
+            },
+            "autoLayout": null,
+            "children": []
+          }
+        ]
+      },
+      {
+        "id": "31:103",
+        "name": "meaning=urgent, Theme=dark",
+        "type": "COMPONENT",
+        "width": 142,
+        "height": 93,
+        "x": 198,
+        "y": 20,
+        "styles": {
+          "fill": null,
+          "stroke": null,
+          "fontSize": null,
+          "fontFamily": null
+        },
+        "autoLayout": {
+          "direction": "NONE",
+          "spacing": null,
+          "padding": {
+            "top": 0,
+            "right": 0,
+            "bottom": 0,
+            "left": 0
+          },
+          "alignment": "MIN",
+          "crossAxisAlignment": "MIN"
+        },
+        "children": [
+          {
+            "id": "31:104",
+            "name": "Union",
+            "type": "BOOLEAN_OPERATION",
+            "width": 133,
+            "height": 79,
+            "x": 0,
+            "y": 14,
+            "styles": {
+              "fill": {
+                "r": 0.5405598878860474,
+                "g": 0,
+                "b": 0
+              },
+              "stroke": null,
+              "fontSize": null,
+              "fontFamily": null
+            },
+            "autoLayout": null,
+            "children": [
+              {
+                "id": "31:105",
+                "name": "Rectangle 1",
+                "type": "RECTANGLE",
+                "width": 133,
+                "height": 79,
+                "x": 0,
+                "y": 14,
+                "styles": {
+                  "fill": {
+                    "r": 1,
+                    "g": 0,
+                    "b": 0
+                  },
+                  "stroke": null,
+                  "fontSize": null,
+                  "fontFamily": null
+                },
+                "autoLayout": null,
+                "children": []
+              }
+            ]
+          },
+          {
+            "id": "31:106",
+            "name": "Header",
+            "type": "TEXT",
+            "width": 132,
+            "height": 24,
+            "x": 0,
+            "y": 37,
+            "styles": {
+              "fill": {
+                "r": 1,
+                "g": 1,
+                "b": 1
+              },
+              "stroke": null,
+              "fontSize": 14,
+              "fontFamily": "Inter"
+            },
+            "autoLayout": null,
+            "children": []
+          },
+          {
+            "id": "31:107",
+            "name": "Sub",
+            "type": "TEXT",
+            "width": 132,
+            "height": 24,
+            "x": 0,
+            "y": 54,
+            "styles": {
+              "fill": {
+                "r": 1,
+                "g": 1,
+                "b": 1
+              },
+              "stroke": null,
+              "fontSize": 12,
+              "fontFamily": "Inter"
+            },
+            "autoLayout": null,
+            "children": []
+          }
+        ]
+      }
+    ]
+  }
+]
