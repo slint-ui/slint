@@ -30,3 +30,8 @@ figma_inspector:
  - 'tools/figma-inspector/**'
  - *files_in_root
  - *ci_config
+
+material_components:
+ - 'component-sets/material/**'
+ - *files_in_root
+ - *ci_config
