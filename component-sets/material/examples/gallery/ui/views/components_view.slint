@@ -1,0 +1,84 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { MainWindowAdapter } from "../main_window_adapter.slint";
+import {
+    ElevatedCard,
+    FilledCard,
+    OutlinedCard,
+    MaterialText,
+    MaterialPalette,
+    Typography,
+    ElevatedButton,
+    FilledButton,
+    TonalButton,
+    OutlineButton,
+    TextButton,
+    FloatingActionButton,
+    FABStyle,
+    IconButton,
+    Vertical,
+    Horizontal,
+    Grid,
+    FilledIconButton,
+    TonalIconButton,
+    OutlineIconButton,
+    SegmentedButton,
+    ScrollView,
+    NavigationBar,
+    CircularProgressIndicator,
+    LinearProgressIndicator,
+    SnackBar,
+    ModalBottomSheet,
+    MaterialText,
+    MaterialStyleMetrics,
+    HorizontalDivider,
+    Dialog,
+    FullscreenDialog
+} from "../../../../material.slint";
+
+import { ActionsView } from "./actions_view.slint";
+import { NavigationView } from "./navigation_view.slint";
+import { MainWindowAdapter } from "../main_window_adapter.slint";
+
+export component ComponentsView {
+    if !MainWindowAdapter.break_layout : HorizontalLayout {
+        ScrollView {
+            viewport_height: action_view.height;
+
+            action_view := ActionsView {
+                width: 100%;
+            }
+
+            changed viewport_y => {
+                MainWindowAdapter.surface_background = self.viewport_y != 0;
+            }
+        }
+
+        ScrollView {
+            viewport_height: navigation_view.height;
+
+            navigation_view := NavigationView {
+                width: 100%;
+            }
+
+            changed viewport_y => {
+                MainWindowAdapter.surface_background = self.viewport_y != 0;
+            }
+        }
+    }
+
+    if MainWindowAdapter.break_layout : ScrollView {
+        VerticalLayout {
+            alignment: start;
+            spacing: MaterialStyleMetrics.spacing_8;
+
+            ActionsView {}
+            NavigationView {}
+        }
+
+        changed viewport_y => {
+            MainWindowAdapter.surface_background = self.viewport_y != 0;
+        }
+    }
+}

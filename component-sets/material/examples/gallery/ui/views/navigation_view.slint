@@ -1,0 +1,288 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import {
+    MaterialStyleMetrics,
+    NavigationBar,
+    BottomAppBar,
+    NavigationDrawer,
+    TextButton,
+    ModalNavigationDrawer,
+    NavigationRail,
+    Horizontal,
+    NavigationItem,
+    TabBar,
+    SecondaryTabBar,
+    SearchBar,
+    MaterialText,
+    Vertical
+} from "../../../../material.slint";
+
+import { Group } from "../components/group.slint";
+import { ComponentCard } from "../components/component_card.slint";
+import { MainWindowAdapter } from "../main_window_adapter.slint";
+import { MainWindowAdapter } from "../main_window_adapter.slint";
+import { FilledIcons, OutlinedIcons } from "../icons.slint";
+
+export component NavigationView {
+    layout := VerticalLayout {
+        alignment: start;
+        spacing: MaterialStyleMetrics.spacing_8;
+        horizontal-stretch: 1;
+
+        Group {
+            title: "Navigation";
+
+            ComponentCard {
+                title: "Bottom app bar";
+
+                BottomAppBar {
+                    icon_buttons: [
+                        {
+                            icon: OutlinedIcons.more_vert,
+                            enabled: true,
+
+                        },
+                        {
+                            icon: OutlinedIcons.search,
+                            enabled: true,
+                            tooltip: "Search"
+                        },
+                        {
+                            icon: OutlinedIcons.favorite,
+                            enabled: true,
+                            tooltip: "Favorit"
+                        },
+                    ];
+                    fab_icon:  OutlinedIcons.add;
+                }
+            }
+
+            ComponentCard {
+                title: "Navigation bar";
+
+                NavigationBar {
+                    items: [
+                          {
+                             icon: OutlinedIcons.explore,
+                             icon_selected: FilledIcons.explore,
+                             text: "Explore",
+                          },
+                          {
+                             icon: OutlinedIcons.pets,
+                             icon_selected: FilledIcons.pets,
+                             text: "Pets",
+                          },
+                          {
+                             icon: OutlinedIcons.account_box,
+                             icon_selected: FilledIcons.account_box,
+                             text: "Account",
+                          },
+                    ];
+                }
+            }
+
+            ComponentCard {
+                title: "Navigation drawer";
+
+                VerticalLayout {
+                    NavigationDrawer {
+                        groups: [
+                            {
+                                title: "Mail",
+                                items: [
+                                    {
+                                        icon: OutlinedIcons.inbox,
+                                        icon_selected: FilledIcons.inbox,
+                                        text: "Inbox",
+                                    },
+                                    {
+                                        icon: OutlinedIcons.outbox,
+                                        icon_selected: FilledIcons.outbox,
+                                        text: "Outbox",
+                                    },
+                                    {
+                                        icon: OutlinedIcons.favorite,
+                                        icon_selected: FilledIcons.favorite,
+                                        text: "Favorites",
+                                    },
+                                    {
+                                        icon: OutlinedIcons.delete,
+                                        icon_selected: FilledIcons.delete,
+                                        text: "Trash",
+                                    }
+                                ]
+                            },
+                            {
+                                title: "Labels",
+                                items: [
+                                    {
+                                        icon: OutlinedIcons.bookmark,
+                                        icon_selected: FilledIcons.bookmark,
+                                        text: "Family",
+                                    },
+                                    {
+                                        icon: OutlinedIcons.bookmark,
+                                        icon_selected: FilledIcons.bookmark,
+                                        text: "School",
+                                    },
+                                    {
+                                        icon: OutlinedIcons.bookmark,
+                                        icon_selected: FilledIcons.bookmark,
+                                        text: "Work",
+                                    },
+                                ]
+                            }
+                        ];
+                    }
+
+                    HorizontalLayout {
+                        alignment: center;
+
+                        TextButton {
+                            text: "Show modal navigation drawer";
+
+                            clicked => {
+                                modal_navigation_drawer.show();
+                            }
+                        }
+                    }
+                }
+            }
+
+            ComponentCard {
+                title: "Navigation rail";
+
+                Horizontal {
+                    alignment: center;
+
+                    NavigationRail {
+                        height: 500px;
+                        fab_icon: FilledIcons.edit;
+                        alignment: center;
+
+                        items: [
+                            {
+                                icon: OutlinedIcons.inbox,
+                                icon_selected: FilledIcons.inbox,
+                                text: "Inbox",
+                            },
+                            {
+                                icon: OutlinedIcons.outbox,
+                                icon_selected: FilledIcons.outbox,
+                                text: "Outbox",
+                            },
+                            {
+                                icon: OutlinedIcons.favorite,
+                                icon_selected: FilledIcons.favorite,
+                                text: "Favorites",
+                            },
+                            {
+                                icon: OutlinedIcons.delete,
+                                icon_selected: FilledIcons.delete,
+                                text: "Trash",
+                            }
+                        ];
+                    }
+                }
+            }
+
+            ComponentCard {
+                title: "Tabs";
+
+                Horizontal {
+                    TabBar {
+                        items: [
+                            {
+                                text: "Video",
+                                icon: OutlinedIcons.video_chat,
+                            },
+                            {
+                                text: "Photos",
+                                icon: OutlinedIcons.image,
+                            },
+                            {
+                                text: "Audio",
+                                icon: OutlinedIcons.music_note,
+                            },
+                        ];
+                    }
+                }
+            }
+
+            ComponentCard {
+                title: "Search";
+
+                Vertical {
+                    spacing: MaterialStyleMetrics.spacing_16;
+                    alignment: start;
+
+                    SearchBar {
+                        leading_icon: OutlinedIcons.search;
+                        placeholder: "Search color";
+                    }
+
+                    MaterialText {
+                        text: "Select a color";
+                        horizontal_alignment: center;
+                    }
+                }
+            }
+        }
+    }
+
+    modal_navigation_drawer := ModalNavigationDrawer {
+        x: -root.absolute_position.x;
+        y: -root.absolute_position.y;
+        width: MainWindowAdapter.width;
+        height: MainWindowAdapter.height;
+        position_right: true;
+        groups: [
+            {
+                title: "Mail",
+                items: [
+                    {
+                        icon: OutlinedIcons.inbox,
+                        icon_selected: FilledIcons.inbox,
+                        text: "Inbox",
+                    },
+                    {
+                        icon: OutlinedIcons.outbox,
+                        icon_selected: FilledIcons.outbox,
+                        text: "Outbox",
+                    },
+                    {
+                        icon: OutlinedIcons.favorite,
+                        icon_selected: FilledIcons.favorite,
+                        text: "Favorites",
+                    },
+                    {
+                        icon: OutlinedIcons.delete,
+                        icon_selected: FilledIcons.delete,
+                        text: "Trash",
+                    }
+                ]
+            },
+            {
+                title: "Labels",
+                items: [
+                    {
+                        icon: OutlinedIcons.bookmark,
+                        icon_selected: FilledIcons.bookmark,
+                        text: "Family",
+                    },
+                    {
+                        icon: OutlinedIcons.bookmark,
+                        icon_selected: FilledIcons.bookmark,
+                        text: "School",
+                    },
+                    {
+                        icon: OutlinedIcons.bookmark,
+                        icon_selected: FilledIcons.bookmark,
+                        text: "Work",
+                    },
+                ]
+            }
+        ];
+    }
+}

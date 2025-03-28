@@ -1,0 +1,142 @@
+---
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+import { Icon } from "@astrojs/starlight/components";
+---
+
+<script>
+interface Version {
+  version: string;
+  name?: string;
+  url: string;
+  preferred?: boolean;
+}
+function populateVersions(versions: Version[]) {
+    // Populate the select dropdown
+    const select = document.getElementById('version-selector') as HTMLSelectElement;
+    const currentUrl = window.location.href;
+    versions.forEach((version) => {
+      const option = document.createElement('option');
+      option.value = version.url;
+      // Set the text content
+      option.textContent = version.preferred
+        ? version.version
+        : version.name
+        ? "next"
+        : version.version;
+      // Select the correct version based on the URL
+      const isCurrentVersion = currentUrl.includes(version.version) || (currentUrl.includes('latest') && version.preferred);
+      const isDevelopmentSnapshot = currentUrl.includes('master') && version.name?.includes('development snapshot');
+      if (isCurrentVersion || isDevelopmentSnapshot) option.selected = true;
+      select.appendChild(option);
+    });
+}
+async function fetchVersions() {
+  const storedVersions = sessionStorage.getItem('versions');
+  const versions: Version[] | null = storedVersions ? JSON.parse(storedVersions) : null;;
+  if (versions && versions.length) {
+    populateVersions(versions);
+  } else {
+    try {
+        const response = await fetch('https://releases.slint.dev/versions.json');
+        const fetchedVersions: Version[] = await response.json();
+        const preferredVersion = fetchedVersions.find((version: Version) => version.preferred) || null;
+        if (fetchedVersions.length) {
+            populateVersions(fetchedVersions);
+            sessionStorage.setItem('versions', JSON.stringify(fetchedVersions));
+        }
+        if (preferredVersion) {
+            const latestVersion = preferredVersion.version;
+            sessionStorage.setItem('version', latestVersion);
+        }
+    } catch (error) {
+        console.error('Failed to load versions.json:', error);
+    }
+  }
+}
+// Fetch versions when the page loads
+fetchVersions();
+class VersionSelect extends HTMLElement {
+  constructor() {
+    super();
+    const select = this.querySelector('select') as HTMLSelectElement;
+    select?.addEventListener('change', (e) => {
+      if (e.currentTarget instanceof HTMLSelectElement) {
+        window.location.href = e.currentTarget.value;
+      }
+    });
+  }
+}
+customElements.define('version-select', VersionSelect);
+</script>
+<div>
+  <version-select>
+  <label style={`--sl-select-width: ${Astro.props.width}`}>
+	<span class="sr-only">Version</span>
+	<select id="version-selector"
+    aria-label="Select Documentation Version">
+	</select>
+	<Icon name="down-caret" class="icon caret" />
+  </label>
+  </version-select>
+</div>
+
+<style>
+  label {
+		--sl-label-icon-size: 0.875rem;
+		--sl-caret-size: 1.25rem;
+		--sl-inline-padding: 0.5rem;
+		position: relative;
+		display: flex;
+		align-items: center;
+		gap: 0.25rem;
+		color: var(--sl-color-gray-1);
+	}
+
+	label:hover {
+		color: var(--sl-color-gray-2);
+	}
+
+	.icon {
+		position: absolute;
+		top: 50%;
+		transform: translateY(-50%);
+		pointer-events: none;
+	}
+
+	.label-icon {
+		font-size: var(--sl-label-icon-size);
+		inset-inline-start: 0;
+	}
+
+	.caret {
+		font-size: var(--sl-caret-size);
+		inset-inline-end: 0;
+	}
+
+	select {
+		border: 0;
+    outline: none;
+		padding-block: 0.625rem;
+		padding-inline: calc(var(--sl-label-icon-size) + var(--sl-inline-padding) + 0.25rem)
+			calc(var(--sl-caret-size) + var(--sl-inline-padding) + 0.25rem);
+		margin-inline: calc(var(--sl-inline-padding) * -1);
+		width: calc(var(--sl-select-width) + var(--sl-inline-padding) * 2);
+		background-color: transparent;
+		text-overflow: ellipsis;
+		color: inherit;
+		cursor: pointer;
+		appearance: none;
+	}
+
+	option {
+		background-color: var(--sl-color-bg-nav);
+		color: var(--sl-color-gray-1);
+	}
+
+	@media (min-width: 50rem) {
+		select {
+			font-size: var(--sl-text-sm);
+		}
+	}
+</style>

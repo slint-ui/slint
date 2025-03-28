@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> -->
+<!-- SPDX-License-Identifier: MIT -->
+
+<html>
+
+<head>
+  <meta charset="UTF-8">
+  <title>musi lili confetti (Web Assembly version)</title>
+</head>
+<style>
+  body {
+    padding: 0px;
+    margin: 0px;
+    max-width: none;
+  }
+
+  #container {
+    display: grid;
+    justify-items: stretch;
+    align-content: stretch;
+    align-items: stretch;
+    flex-direction: column;
+    width: 100vw;
+    height: 100vh;
+    padding: 0px;
+    margin: 0px;
+    grid-template-columns: auto;
+    grid-template-rows: max-content auto max-content;
+  }
+
+  canvas {
+    width: 100vw;
+    height: 100vh;
+  }
+</style>
+
+<body>
+  <div id="spinner" style="position: absolute; top: 50%; width: 100%">
+    <div class="spinner">Loading...</div>
+  </div>
+  <div id="container">
+    <canvas id="canvas"></canvas>
+  </div>
+  <script type="module">
+    import init from './pkg/gallery_lib.js';
+    init().finally(() => {
+      document.getElementById("spinner").remove();
+    });
+  </script>
+</body>
+
+</html>
