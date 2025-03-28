@@ -1,0 +1,64 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { IconButton } from "./icon_button.slint";
+import { FloatingActionButton, FABStyle } from "./floating_action_button.slint";
+import { MaterialPalette } from "../styling/material_palette.slint";
+import { MaterialStyleMetrics } from "../styling/material_style_metrics.slint";
+
+export struct IconButtonItem {
+    icon: image,
+    tooltip: string,
+    enabled: bool
+}
+
+export component BottomAppBar {
+    in property <[IconButtonItem]> icon_buttons;
+    in property <image> fab_icon;
+
+    callback fab_clicked();
+    callback icon_button_clicked(index: int);
+
+    min_height: max(MaterialStyleMetrics.size_80, layout.min_height);
+
+    Rectangle {
+        background: MaterialPalette.surface_container;
+
+        layout := HorizontalLayout {
+            padding_left: MaterialStyleMetrics.padding_4;
+            padding_right: MaterialStyleMetrics.padding_16;
+
+            VerticalLayout {
+                alignment: center;
+
+                HorizontalLayout {
+                    for button[index] in root.icon_buttons : IconButton {
+                        icon: button.icon;
+                        enabled: button.enabled;
+                        tooltip: button.tooltip;
+
+                        clicked => {
+                            root.icon_button_clicked(index);
+                        }
+                    }
+                }
+            }
+
+            // spacer
+            Rectangle {}
+
+            if root.fab_icon.width > 0 && root.fab_icon.height > 0 : VerticalLayout {
+                alignment: center;
+
+                FloatingActionButton {
+                    icon: root.fab_icon;
+                    style: FABStyle.standard;
+
+                    clicked => {
+                        root.fab_clicked();
+                    }
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,64 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { Elevation } from "./elevation.slint";
+import { BaseButton } from "./base_button.slint";
+import { Typography } from "../styling/typography.slint";
+import { MaterialPalette } from "../styling/material_palette.slint";
+import { MaterialStyleMetrics } from "../styling/material_style_metrics.slint";
+
+export component FilledIconButton {
+    in property <image> icon;
+    in property <image> icon_checked: root.icon;
+    in property <bool> checkable;
+    in_out property <bool> checked;
+    in property <string> tooltip <=> base.tooltip;
+    in property <bool> enabled <=> base.enabled;
+
+    callback clicked();
+
+    accessible-role: button;
+    accessible-enabled: true;
+    accessible-label: root.tooltip;
+    accessible-checkable: root.checkable;
+    accessible-checked: root.checked;
+    accessible-action-default => { base.clicked(); }
+
+    background_layer := Rectangle {
+        width: 100%;
+        height: 100%;
+        border_radius: base.border_radius;
+        background: root.checkable ? MaterialPalette.surface_container_highest : MaterialPalette.primary;
+        visible: root.enabled;
+    }
+
+    base := BaseButton {
+        icon: root.checked ? root.icon_checked : root.icon;
+        border_radius: self.height / 2;
+        color: !root.enabled ? MaterialPalette.on_surface_variant : root.checkable ? MaterialPalette.primary : MaterialPalette.on_primary;
+        horizontal_padding: 0;
+        vertical_padding: 0;
+        width: self.height;
+        icon_size: MaterialStyleMetrics.icon_size_56;
+
+        clicked => {
+            root.toggle();
+            root.clicked();
+        }
+    }
+
+    function toggle() {
+        if !root.checkable {
+            return;
+        }
+
+        root.checked = !root.checked;
+    }
+
+    states [
+        checked when root.enabled && root.checked : {
+            base.color: MaterialPalette.on_primary;
+            background_layer.background: MaterialPalette.primary;
+        }
+    ]
+}

@@ -185,6 +185,8 @@ SPDX-License-Identifier = "MIT"
 [[annotations]]
 path = [
   "internal/compiler/widgets/material/_**.svg",
+  "component-sets/material/ui/icons/**.svg",
+  "component-sets/material/examples/gallery/ui/icons/**.svg",
   "examples/carousel/icons/**.svg",
   "internal/compiler/widgets/cupertino/_**.svg",
   "internal/compiler/widgets/qt/_**.svg",
