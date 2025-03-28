@@ -36,9 +36,33 @@ export component NavigationView {
         alignment: start;
         spacing: MaterialStyleMetrics.spacing_8;
         horizontal-stretch: 1;
-
+        
         Group {
             title: "Navigation";
+
+            ComponentCard {
+                title: "Search";
+
+                Vertical {
+                    spacing: MaterialStyleMetrics.spacing_16;
+                    alignment: start;
+
+                    SearchBar {
+                        leading_icon: OutlinedIcons.search;
+                        placeholder: "Search color";
+                        items: NavigationViewAdapter.search_items;
+
+                        edited(text) => {
+                            NavigationViewAdapter.search(text);
+                        }
+                    }
+
+                    MaterialText {
+                        text: "Select a color";
+                        horizontal_alignment: center;
+                    }
+                }
+            }
 
             ComponentCard {
                 title: "Bottom app bar";
@@ -213,30 +237,6 @@ export component NavigationView {
                                 icon: OutlinedIcons.music_note,
                             },
                         ];
-                    }
-                }
-            }
-
-            ComponentCard {
-                title: "Search";
-
-                Vertical {
-                    spacing: MaterialStyleMetrics.spacing_16;
-                    alignment: start;
-
-                    SearchBar {
-                        leading_icon: OutlinedIcons.search;
-                        placeholder: "Search color";
-                        items: NavigationViewAdapter.search_items;
-
-                        edited(text) => {
-                            NavigationViewAdapter.search(text);
-                        }
-                    }
-
-                    MaterialText {
-                        text: "Select a color";
-                        horizontal_alignment: center;
                     }
                 }
             }
