@@ -23,6 +23,9 @@ pub fn main() {
 fn android_main(android_app: slint::android::AndroidApp) {
     slint::android::init(android_app).unwrap();
     let ui = ui();
+
+    MaterialWindowAdapter::get(&ui).set_disable_hover(true);
+
     ui.run().unwrap();
 }
 

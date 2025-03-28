@@ -3,7 +3,8 @@
 
 import { Animations } from "../styling/animations.slint";
 import { MaterialPalette } from "../styling/material_palette.slint";
-import { ToolTip } from "tooltip.slint";
+import { ToolTip } from "./tooltip.slint";
+import { MaterialWindowAdapter } from "./material_window.slint";
 
 export component Ripple {
     in property <length> border_radius;
@@ -72,7 +73,7 @@ export component StateLayer {
         pressed when root.enabled && root.pressed : {
             root.state_layer_opacity: MaterialPalette.state_layer_opacity_press;
         }
-        hover when root.enabled && root.has_hover : {
+        hover when root.enabled && root.has_hover && !MaterialWindowAdapter.disable_hover : {
             root.state_layer_opacity: MaterialPalette.state_layer_opacity_hover;
         }
     ]
@@ -154,7 +155,7 @@ export component StateLayerArea inherits TouchArea {
 
     @children
 
-    if root.tooltip != "" && root.has-hover && !root.pressed : ToolTip {
+    if root.tooltip != "" && root.has_hover && !MaterialWindowAdapter.disable_hover && !root.pressed : ToolTip {
         y: root.tooltip_offset;
         text: root.tooltip;
     }

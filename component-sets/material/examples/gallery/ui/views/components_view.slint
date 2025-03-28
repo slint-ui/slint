@@ -44,9 +44,9 @@ import { MainWindowAdapter } from "../main_window_adapter.slint";
 export component ComponentsView {
     if !MainWindowAdapter.break_layout : HorizontalLayout {
         ScrollView {
-            viewport_height: action_view.height;
+            viewport_height: navigation_view.height;
 
-            action_view := ActionsView {
+            navigation_view := NavigationView {
                 width: 100%;
             }
 
@@ -56,9 +56,9 @@ export component ComponentsView {
         }
 
         ScrollView {
-            viewport_height: navigation_view.height;
+            viewport_height: action_view.height;
 
-            navigation_view := NavigationView {
+            action_view := ActionsView {
                 width: 100%;
             }
 
@@ -73,8 +73,8 @@ export component ComponentsView {
             alignment: start;
             spacing: MaterialStyleMetrics.spacing_8;
 
-            ActionsView {}
             NavigationView {}
+            ActionsView {}
         }
 
         changed viewport_y => {
