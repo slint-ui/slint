@@ -6,6 +6,8 @@ import { MainView } from "./views/main_view.slint";
 import { MainWindowAdapter } from "./main_window_adapter.slint";
 
 export component MainWindow inherits MaterialWindow {
+    preferred-width: 600px;
+    preferred-height: 400px;
     background: MainWindowAdapter.background;
 
     MainView {
