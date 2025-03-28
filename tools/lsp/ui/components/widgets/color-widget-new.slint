@@ -9,7 +9,7 @@ import { EditorSpaceSettings } from "../../components/styling.slint";
 import { ComboBox } from "std-widgets.slint";
 import { WindowGlobal } from "../../windowglobal.slint";
 
-export component ColorWidget inherits GridLayout {
+export component ColorWidget inherits VerticalLayout {
     in property <bool> enabled;
     in property <string> property-name;
     in property <PropertyValue> property-value;
@@ -22,7 +22,8 @@ export component ColorWidget inherits GridLayout {
     callback test-color-binding(text: string) -> bool;
     callback set-color-binding(text: string);
 
-    spacing-vertical: EditorSpaceSettings.default-spacing;
+    padding-left: 16px;
+    spacing: EditorSpaceSettings.default-spacing;
     width: 100%;
 
     function apply-value() {
@@ -51,29 +52,26 @@ export component ColorWidget inherits GridLayout {
         }
     }
 
-    Row {
-        NameLabel {
-            col: 1;
+    
+    NameLabel {
 
-            property-name: root.property-name;
-            property-value: root.property-value;
-        }
+        property-name: root.property-name;
+        property-value: root.property-value;
     }
-    Row {
-        main := ColorMainContent {
-            current-color <=> root.current-color;
-            enabled <=> root.enabled;
+    
+    main := ColorMainContent {
+        current-color <=> root.current-color;
+        enabled <=> root.enabled;
 
-            set-color-binding(text) => {
-                root.set-color-binding(text);
-            }
-            test-color-binding(text) => {
-                return root.test-color-binding(text);
-            }
+        set-color-binding(text) => {
+            root.set-color-binding(text);
+        }
+        test-color-binding(text) => {
+            return root.test-color-binding(text);
+        }
 
-            color-preview-clicked => {
-                WindowGlobal.show-color-picker();
-            }
+        color-preview-clicked => {
+            WindowGlobal.show-color-picker();
         }
     }
 }
