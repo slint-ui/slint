@@ -74,7 +74,7 @@ component BrushIcon inherits Rectangle {
 
 component ColorPicker {
     width: 240px;
-    height: 430px;
+    height: 400px;
 
     property <length> start-x: 0;
     property <length> start-mouse-x: 0;
@@ -88,6 +88,14 @@ component ColorPicker {
         border-width: 0.5px;
         border-color: Styles.divider-color;
         border-radius: 13px;
+    }
+
+    Rectangle {
+        width: 100%;
+        height: 1px;
+        x: 0;
+        y: parent.height - self.height;
+        background: Styles.divider-color;
     }
 
     title := Rectangle {
@@ -119,7 +127,7 @@ component ColorPicker {
     }
 
     saturation-value := Rectangle {
-        y: brushes.y + brushes.height;
+        y: title.y + title.height;
         width: 100%;
         height: self.width;
         hue := Rectangle {
@@ -171,40 +179,34 @@ component ColorPicker {
         }
     }
 
-    brushes := Rectangle {
-        y: title.y + title.height;
-        width: 100%;
-        height: 40px;
+    // brushes := Rectangle {
+    //     y: title.y + title.height;
+    //     width: 100%;
+    //     height: 40px;
 
-        Rectangle {
-            width: 100%;
-            height: 1px;
-            x: 0;
-            y: parent.height - self.height;
-            background: Styles.divider-color;
-        }
+        
 
-        HorizontalLayout {
-            alignment: start;
-            padding-left: Styles.left-margin;
-            spacing: 8px;
+    //     HorizontalLayout {
+    //         alignment: start;
+    //         padding-left: Styles.left-margin;
+    //         spacing: 8px;
 
-            BrushIcon {
-                y: (parent.height - self.height) / 2;
-                label: "Color";
-            }
+    //         BrushIcon {
+    //             y: (parent.height - self.height) / 2;
+    //             label: "Color";
+    //         }
 
-            BrushIcon {
-                y: (parent.height - self.height) / 2;
-                label: "SVG Color";
-            }
+    //         BrushIcon {
+    //             y: (parent.height - self.height) / 2;
+    //             label: "SVG Color";
+    //         }
 
-            BrushIcon {
-                y: (parent.height - self.height) / 2;
-                label: "Gradient";
-            }
-        }
-    }
+    //         BrushIcon {
+    //             y: (parent.height - self.height) / 2;
+    //             label: "Gradient";
+    //         }
+    //     }
+    // }
 
     hsva-controls := Rectangle {
         y: saturation-value.y + saturation-value.height;
@@ -216,7 +218,7 @@ component ColorPicker {
         property <length> main-width: 150px;
         property <length> main-height: 16px;
         property <length> rounded-end-width: main-height / 2;
-        HorizontalLayout {
+        VerticalLayout {
             Rectangle {
                 width: 100%;
                 height: 33px;
@@ -294,6 +296,70 @@ component ColorPicker {
             Rectangle {
                 width: 100%;
                 height: 33px;
+                Rectangle {
+                    x: Styles.left-margin;
+                    width: main-width + main-height;
+                    height: main-height;
+                    Rectangle {
+                        background: white;
+                        border-radius: self.height / 2;
+                        clip: true;
+                        Image {
+                            width: 100%;
+                            height: 100%;
+                            vertical-alignment: top;
+                            horizontal-alignment: left;
+                            source: @image-url("../../assets/background-mini.svg");
+                            vertical-tiling: repeat;
+                            horizontal-tiling: repeat;
+                            colorize: #e1e1e1;
+                        }
+
+                        Rectangle {
+                            background: @linear-gradient(-90deg, hsv(FakeData.hue, FakeData.saturation, FakeData.value, 1), transparent);
+                        }
+                    }
+
+                    Rectangle {
+                        x: rounded-end-width + (main-width * FakeData.alpha);
+                        width: 0;
+                        height: 0;
+                        Rectangle {
+                            width: 16px;
+                            height: 16px;
+                            border-radius: self.width / 2;
+                            background: white;
+                            drop-shadow-blur: 5px;
+                            drop-shadow-offset-y: 2px;
+                            drop-shadow-color: #000000;
+                        }
+
+                        Rectangle {
+                            width: 8px;
+                            height: 8px;
+                            border-radius: self.width / 2;
+                            background: FakeData.current-color;
+                        }
+                    }
+                    TouchArea {
+                        moved => {
+                            if self.has-hover {
+                                if self.mouse-x < rounded-end-width {
+                                    FakeData.alpha = 0;
+                                } else {
+                                    FakeData.alpha = 1 * clamp((self.mouse-x - rounded-end-width) / (self.width - main-height), 0, 1);
+                                }
+                            }
+                        }
+                        changed pressed => {
+                            if self.mouse-x < rounded-end-width {
+                                FakeData.alpha = 0;
+                            } else {
+                                FakeData.alpha = 1 * clamp((self.mouse-x - rounded-end-width) / (self.width - main-height), 0, 1);
+                            }
+                        }
+                    }
+                }
             }
         }
 
