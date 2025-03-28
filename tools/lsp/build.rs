@@ -4,6 +4,9 @@
 fn main() {
     // Make the compiler handle ComponentContainer:
     std::env::set_var("SLINT_ENABLE_EXPERIMENTAL_FEATURES", "1");
+    #[cfg(not(target_os = "macos"))]
+    std::env::set_var("SLINT_STYLE", "fluent");
+
     #[cfg(feature = "preview-engine")]
     slint_build::compile("ui/main.slint").unwrap();
 }
