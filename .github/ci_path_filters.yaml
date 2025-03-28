@@ -1,0 +1,15 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+ci_config: &ci_config
+ - '.github/**'
+
+slint:
+ - '**/*'
+ - '!tools/figma-inspector/**'
+ - *ci_config
+
+figma_inspector:
+ - 'tools/figma-inspector/**'
+ - '*' # changes in the root, such as cspell.json or pnpm-lock.yaml
+ - *ci_config
