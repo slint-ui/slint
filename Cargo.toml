@@ -69,6 +69,8 @@ members = [
   'tools/viewer',
   'tools/tr-extractor',
   'xtask',
+  'component-sets/material',
+  'component-sets/material/examples/gallery',
 ]
 
 default-members = [

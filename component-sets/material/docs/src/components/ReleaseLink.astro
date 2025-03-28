@@ -1,0 +1,27 @@
+---
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { SLINT_DOWNLOAD_VERSION } from "../utils/site-config.ts";
+
+const LINK_MAP = {
+    "slint-cpp-template-stm32h735g-dk.zip": `https://github.com/slint-ui/slint/releases/download/${SLINT_DOWNLOAD_VERSION}/slint-cpp-template-stm32h735g-dk.zip`,
+    "slint-cpp-template-stm32h747i-disco.zip": `https://github.com/slint-ui/slint/releases/download/${SLINT_DOWNLOAD_VERSION}/slint-cpp-template-stm32h747i-disco.zip`,
+} as const;
+
+type LinkID = keyof typeof LINK_MAP;
+
+interface Props {
+    id: LinkID;
+}
+
+const props = Astro.props;
+if (!Object.keys(LINK_MAP).includes(props.id)) {
+    throw new Error(`Invalid link ID: ${props.id}`);
+}
+
+const { id } = props;
+const link = LINK_MAP[id];
+---
+
+<a href={link}><span>{id}</span></a>

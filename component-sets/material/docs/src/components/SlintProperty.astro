@@ -1,0 +1,87 @@
+---
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+import "@astrojs/starlight/style/markdown.css";
+import {
+    type KnownType,
+    type PropertyVisibility,
+    getEnumContent,
+    getStructContent,
+    getTypeInfo,
+} from "../utils/utils.ts";
+
+import Type from "./Type.astro";
+
+interface Props {
+    propName: string;
+    typeName: KnownType;
+    defaultValue?: string;
+    enumName?: string;
+    structName?: string;
+    propertyVisibility?: PropertyVisibility;
+}
+const {
+    propName,
+    typeName,
+    defaultValue,
+    enumName,
+    structName,
+    propertyVisibility,
+} = Astro.props as Props;
+
+if (propName === "") {
+    console.error("No propName!!");
+}
+
+let fullTypeName = typeName;
+
+if (typeName === "enum") {
+    if (enumName === undefined || enumName === "") {
+        console.error("enum type without an enumName:", propName);
+    } else {
+        fullTypeName = typeName.toString() + " " + enumName!.toString();
+    }
+} else if (typeName === "struct") {
+    if (structName === undefined || structName === "") {
+        console.error("struct type without a structName:", propName);
+    } else {
+        fullTypeName = typeName.toString() + " " + structName!.toString();
+    }
+} else {
+    if (enumName && enumName !== "") {
+        console.error("Non-enum type with an enumName set:", propName);
+    }
+}
+
+const typeInfo = getTypeInfo(typeName);
+if (typeInfo.href !== "") {
+    const base = import.meta.env.BASE_URL;
+    typeInfo.href = `${base}${typeInfo.href}`;
+}
+const enumContent = await getEnumContent(enumName);
+const structContent = await getStructContent(structName);
+
+const defaultValue_ = defaultValue ? defaultValue : typeInfo.defaultValue;
+
+if (!defaultValue_) {
+    console.error("No defaultValue for:", propName);
+}
+---
+
+
+<div class="sl-markdown-content slint-property">
+  <p>
+    {typeInfo.href === "" ? (
+      <Type text={fullTypeName} />
+    ) : (
+      <a href={typeInfo.href} dir="auto" class="no-underline">
+        <Type text={fullTypeName} />
+      </a>
+    )}
+    {propertyVisibility && <code>{`(${propertyVisibility})`}</code>}
+    <span class="default-value">default: <code class="plain-code" dir="auto">{defaultValue_}</code></span><br>
+    {enumName && <Fragment set:html={enumContent}/>}
+    {structContent && <Fragment set:html={structContent}/>}
+  </p>
+   <slot/>
+</div>

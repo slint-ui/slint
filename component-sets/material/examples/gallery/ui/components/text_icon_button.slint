@@ -1,0 +1,24 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import {
+    IconButton,
+    MaterialText
+} from "../../../../material.slint";
+
+export component TextIconButton {
+    in property <image> icon <=> button.icon;
+    in property <string> text <=> label.text;
+
+    VerticalLayout {
+        HorizontalLayout {
+            alignment: center;
+
+            button := IconButton {}
+        }
+
+        label := MaterialText {
+            horizontal_alignment: center;
+        }
+    }
+}
