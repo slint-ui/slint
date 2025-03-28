@@ -116,7 +116,7 @@ where
 {
     type Output = Self;
     fn mul(self, rhs: Fixed<T, SHIFT>) -> Self::Output {
-        Self(self.0.mul(rhs.0) >> SHIFT)
+        Self(self.0.mul(rhs.0 >> SHIFT) + self.0.mul(rhs.0 & ((1 << SHIFT)-1)) >> SHIFT)
     }
 }
 
