@@ -106,6 +106,10 @@ path = [
   "examples/orbit-animation/images/**.png",
   "examples/orbit-animation/images/**.svg",
   "examples/sprite-sheet/images/**.png",
+  "component-sets/material/docs/**.json",
+  "component-sets/material/docs/**.svg",
+  "component-sets/material/docs/**.css",
+  "component-sets/material/docs/**.webp"
 ]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"
