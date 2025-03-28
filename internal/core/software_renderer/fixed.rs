@@ -112,13 +112,14 @@ impl<T: core::ops::Mul<Output = T>, const SHIFT: usize> core::ops::Mul<T> for Fi
 impl<T: core::ops::Mul<Output = T>, const SHIFT: usize> core::ops::Mul<Fixed<T, SHIFT>>
     for Fixed<T, SHIFT>
 where
-    T: From<i64> + Into<i64>,
+    T: TryFrom<i64> + Into<i64>,
+    <T as TryFrom<i64>>::Error: core::fmt::Debug,
 {
     type Output = Self;
     fn mul(self, rhs: Fixed<T, SHIFT>) -> Self::Output {
         let lhs_i64: i64 = self.0.into();
         let rhs_i64: i64 = rhs.0.into();
-        Self(T::from((lhs_i64 * rhs_i64) >> SHIFT))
+        Self(T::try_from((lhs_i64 * rhs_i64) >> SHIFT).expect("attempt to multiply with overflow"))
     }
 }
 
