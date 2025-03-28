@@ -4,51 +4,33 @@
 <!-- SPDX-License-Identifier: MIT -->
 
 <html>
+  <head>
+    <title>Slint Material 3 Gallery  (Web Assembly version)</title>
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"
+    />
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+      }
 
-<head>
-  <meta charset="UTF-8">
-  <title>musi lili confetti (Web Assembly version)</title>
-</head>
-<style>
-  body {
-    padding: 0px;
-    margin: 0px;
-    max-width: none;
-  }
-
-  #container {
-    display: grid;
-    justify-items: stretch;
-    align-content: stretch;
-    align-items: stretch;
-    flex-direction: column;
-    width: 100vw;
-    height: 100vh;
-    padding: 0px;
-    margin: 0px;
-    grid-template-columns: auto;
-    grid-template-rows: max-content auto max-content;
-  }
-
-  canvas {
-    width: 100vw;
-    height: 100vh;
-  }
-</style>
-
-<body>
-  <div id="spinner" style="position: absolute; top: 50%; width: 100%">
-    <div class="spinner">Loading...</div>
-  </div>
-  <div id="container">
+      canvas {
+        width: 100dvw !important;
+        height: 100dvh !important;
+        background: black;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- canvas required by the Slint runtime -->
     <canvas id="canvas"></canvas>
-  </div>
-  <script type="module">
-    import init from './pkg/gallery_lib.js';
-    init().finally(() => {
-      document.getElementById("spinner").remove();
-    });
-  </script>
-</body>
-
+    <script type="module">
+      // import the generated file.
+      import init from "./pkg/gallery_lib.js";
+      init();
+    </script>
+  </body>
 </html>
