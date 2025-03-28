@@ -4,6 +4,18 @@
 fn main() {
     // Make the compiler handle ComponentContainer:
     std::env::set_var("SLINT_ENABLE_EXPERIMENTAL_FEATURES", "1");
+    #[cfg(not(target_os = "macos"))]
+    {
+        slint_build::compile("ui/main.slint").unwrap();
+    }
+
     #[cfg(feature = "preview-engine")]
-    slint_build::compile("ui/main.slint").unwrap();
+    {
+        #[cfg(target_os = "macos")]
+        {
+            let config = slint_build::CompilerConfiguration::new()
+                .with_style("fluent".into());
+            slint_build::compile_with_config("ui/main.slint", config).unwrap();
+        }
+    }
 }
