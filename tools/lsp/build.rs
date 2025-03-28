@@ -13,8 +13,7 @@ fn main() {
     {
         #[cfg(target_os = "macos")]
         {
-            let config = slint_build::CompilerConfiguration::new()
-                .with_style("fluent".into());
+            let config = slint_build::CompilerConfiguration::new().with_style("fluent".into());
             slint_build::compile_with_config("ui/main.slint", config).unwrap();
         }
     }
