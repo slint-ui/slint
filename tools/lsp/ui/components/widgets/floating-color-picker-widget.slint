@@ -8,8 +8,9 @@ global FakeData {
     in-out property <float> hue: 0;
     in-out property <float> saturation: 0;
     in-out property <float> value: 0.9;
-    in-out property <float> alpha: 1;
-    in-out property <color> current-color: hsv(hue, saturation, value, alpha);
+    // alpha is an int, instead of float to help snap values to whole percentage numbers
+    in-out property <int> alpha: 100;
+    in-out property <color> current-color: hsv(hue, saturation, value, alpha/100);
     in-out property <bool> show-color-picker: false;
 }
 
@@ -23,54 +24,54 @@ global Styles {
     out property <length> property-border-radius: 5px;
 }
 
-component BrushIcon inherits Rectangle {
-    width: 20px;
-    height: 20px;
-    border-width: 1px;
-    border-color: Styles.divider-color;
-    border-radius: 2px;
+// component BrushIcon inherits Rectangle {
+//     width: 20px;
+//     height: 20px;
+//     border-width: 1px;
+//     border-color: Styles.divider-color;
+//     border-radius: 2px;
 
-    in property <string> label: "Gradient";
+//     in property <string> label: "Gradient";
 
-    ta := TouchArea { }
+//     ta := TouchArea { }
 
-    Rectangle {
-        y: parent.height + 8px;
-        height: 25px;
-        width: t.width + 20px;
-        background: #1e1e1e;
-        border-radius: Styles.property-border-radius;
-        border-width: 0.5px;
-        border-color: Styles.divider-color.transparentize(0.5);
-        drop-shadow-blur: 10px;
-        drop-shadow-offset-y: 5px;
-        drop-shadow-color: #00000069;
-        opacity: ta.has-hover ? 1 : 0;
-        animate opacity { duration: 0.2s; }
+//     Rectangle {
+//         y: parent.height + 8px;
+//         height: 25px;
+//         width: t.width + 20px;
+//         background: #1e1e1e;
+//         border-radius: Styles.property-border-radius;
+//         border-width: 0.5px;
+//         border-color: Styles.divider-color.transparentize(0.5);
+//         drop-shadow-blur: 10px;
+//         drop-shadow-offset-y: 5px;
+//         drop-shadow-color: #00000069;
+//         opacity: ta.has-hover ? 1 : 0;
+//         animate opacity { duration: 0.2s; }
 
-        Rectangle {
-            x: parent.width / 2;
-            y: 0;
-            width: 0;
-            height: 0;
-            Image {
-                width: self.source.width * 0.5 * 1phx;
-                rotation-angle: 45deg;
-                source: @image-url("../../assets/black-square.png");
-                colorize: #1e1e1e;
-            }
-        }
+//         Rectangle {
+//             x: parent.width / 2;
+//             y: 0;
+//             width: 0;
+//             height: 0;
+//             Image {
+//                 width: self.source.width * 0.5 * 1phx;
+//                 rotation-angle: 45deg;
+//                 source: @image-url("../../assets/black-square.png");
+//                 colorize: #1e1e1e;
+//             }
+//         }
 
-        t := Text {
-            font-family: "Inter";
-            font-size: 11px;
-            color: white;
-            text: root.label;
-            font-weight: 400;
-            letter-spacing: 0.1px;
-        }
-    }
-}
+//         t := Text {
+//             font-family: "Inter";
+//             font-size: 11px;
+//             color: white;
+//             text: root.label;
+//             font-weight: 400;
+//             letter-spacing: 0.1px;
+//         }
+//     }
+// }
 
 component ColorPicker {
     width: 240px;
@@ -88,14 +89,6 @@ component ColorPicker {
         border-width: 0.5px;
         border-color: Styles.divider-color;
         border-radius: 13px;
-    }
-
-    Rectangle {
-        width: 100%;
-        height: 1px;
-        x: 0;
-        y: parent.height - self.height;
-        background: Styles.divider-color;
     }
 
     title := Rectangle {
@@ -150,8 +143,10 @@ component ColorPicker {
                 }
             }
             changed pressed => {
-                FakeData.saturation = self.mouse-x / self.width;
-                FakeData.value = 1 - (self.mouse-y / self.width);
+                if self.pressed {
+                    FakeData.saturation = self.mouse-x / self.width;
+                    FakeData.value = 1 - (self.mouse-y / self.width);
+                }
             }
         }
 
@@ -267,6 +262,12 @@ component ColorPicker {
                                 background: #ff0000;
                             }
                         }
+                        Rectangle {
+                            border-radius: parent.border-radius;
+                            border-width: 1px;
+                            border-color: white;
+                            opacity: 10%;
+                        }
                     }
 
                     Rectangle {
@@ -279,7 +280,7 @@ component ColorPicker {
                             border-radius: self.width / 2;
                             background: white;
                             drop-shadow-blur: 5px;
-                            drop-shadow-offset-y: 2px;
+                            drop-shadow-offset-y: 1px;
                             drop-shadow-color: #000000;
                         }
 
@@ -301,11 +302,29 @@ component ColorPicker {
                     width: main-width + main-height;
                     height: main-height;
                     Rectangle {
-                        background: white;
                         border-radius: self.height / 2;
                         clip: true;
+
+                         HorizontalLayout {
+                            Rectangle {
+                                width: self.height / 2;
+                                height: hue-picker.height;
+                                background: white;
+                            }
+
+                            Rectangle {
+                                width: 150px;
+                                height: hue-picker.height;
+                                background:white;
+                            }
+
+                            Rectangle {
+                                width: self.height / 2;
+                                height: hue-picker.height;
+                            }
+                        }
                         Image {
-                            width: 100%;
+                            width: parent.width - hue-picker.height;
                             height: 100%;
                             vertical-alignment: top;
                             horizontal-alignment: left;
@@ -314,14 +333,34 @@ component ColorPicker {
                             horizontal-tiling: repeat;
                             colorize: #e1e1e1;
                         }
+                        HorizontalLayout {
+                            Rectangle {
+                                width: self.height / 2;
+                                height: hue-picker.height;
+                            }
 
+                            Rectangle {
+                                width: 150px;
+                                height: hue-picker.height;
+                                background: @linear-gradient(-90deg, hsv(FakeData.hue, FakeData.saturation, FakeData.value, 1), transparent);
+                            }
+
+                            Rectangle {
+                                width: self.height / 2;
+                                height: hue-picker.height;
+                                background: hsv(FakeData.hue, FakeData.saturation, FakeData.value, 1);
+                            }
+                        }
                         Rectangle {
-                            background: @linear-gradient(-90deg, hsv(FakeData.hue, FakeData.saturation, FakeData.value, 1), transparent);
+                            border-radius: parent.border-radius;
+                            border-width: 1px;
+                            border-color: white;
+                            opacity: 10%;
                         }
                     }
 
                     Rectangle {
-                        x: rounded-end-width + (main-width * FakeData.alpha);
+                        x: rounded-end-width + (main-width * (FakeData.alpha / 100));
                         width: 0;
                         height: 0;
                         Rectangle {
@@ -330,7 +369,7 @@ component ColorPicker {
                             border-radius: self.width / 2;
                             background: white;
                             drop-shadow-blur: 5px;
-                            drop-shadow-offset-y: 2px;
+                            drop-shadow-offset-y: 1px;
                             drop-shadow-color: #000000;
                         }
 
@@ -347,7 +386,7 @@ component ColorPicker {
                                 if self.mouse-x < rounded-end-width {
                                     FakeData.alpha = 0;
                                 } else {
-                                    FakeData.alpha = 1 * clamp((self.mouse-x - rounded-end-width) / (self.width - main-height), 0, 1);
+                                    FakeData.alpha = (100 * clamp((self.mouse-x - rounded-end-width) / (self.width - main-height), 0, 1)).round();
                                 }
                             }
                         }
@@ -355,7 +394,7 @@ component ColorPicker {
                             if self.mouse-x < rounded-end-width {
                                 FakeData.alpha = 0;
                             } else {
-                                FakeData.alpha = 1 * clamp((self.mouse-x - rounded-end-width) / (self.width - main-height), 0, 1);
+                                FakeData.alpha = (100 * clamp((self.mouse-x - rounded-end-width) / (self.width - main-height), 0, 1)).round();
                             }
                         }
                     }
