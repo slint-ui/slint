@@ -112,11 +112,13 @@ impl<T: core::ops::Mul<Output = T>, const SHIFT: usize> core::ops::Mul<T> for Fi
 impl<T: core::ops::Mul<Output = T>, const SHIFT: usize> core::ops::Mul<Fixed<T, SHIFT>>
     for Fixed<T, SHIFT>
 where
-    T: core::ops::Shr<usize, Output = T>,
+    T: From<i64> + Into<i64>,
 {
     type Output = Self;
     fn mul(self, rhs: Fixed<T, SHIFT>) -> Self::Output {
-        Self(self.0.mul(rhs.0 >> SHIFT) + self.0.mul(rhs.0 & ((1 << SHIFT)-1)) >> SHIFT)
+        let lhs_i64: i64 = self.0.into();
+        let rhs_i64: i64 = rhs.0.into();
+        Self(T::from((lhs_i64 * rhs_i64) >> SHIFT))
     }
 }
 
