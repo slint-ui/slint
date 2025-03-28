@@ -30,7 +30,7 @@ slint-build = { path = "../../../../api/rs/build" }
 
 [package.metadata.android]
 package = "com.slint.material"
-apk_name = "gallery"
+apk_name = "slint_material"
 
 [package.metadata.android.application]
 label = "Slint Material"

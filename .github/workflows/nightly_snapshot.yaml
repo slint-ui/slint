@@ -428,7 +428,7 @@ jobs:
                 rm -rf $output_path/demos
                 mkdir -p $output_path/demos
 
-                for demo_subdir in examples,gallery, demos,printerdemo,rust examples,todo,rust examples,todo-mvc,rust examples,slide_puzzle, examples,memory, examples,imagefilter,rust examples,plotter, examples,opengl_underlay, examples,carousel,rust demos,energy-monitor, demos,weather-demo, demos,home-automation,rust demos,usecases,rust; do
+                for demo_subdir in examples,gallery, demos,printerdemo,rust examples,todo,rust examples,todo-mvc,rust examples,slide_puzzle, examples,memory, examples,imagefilter,rust examples,plotter, examples,opengl_underlay, examples,carousel,rust demos,energy-monitor, demos,weather-demo, demos,home-automation,rust demos,usecases,rust component-sets,material,examples,gallery; do
                   IFS=',' read example_or_demo demo subdir <<< "${demo_subdir}"
 
                   mkdir -p $output_path/demos/$demo
@@ -716,6 +716,8 @@ jobs:
               run: cargo apk build -p weather-demo --target aarch64-linux-android --lib --release
             - name: Build usecases demo
               run: cargo apk build -p usecases --target aarch64-linux-android --lib --release
+            - name: Build material gallery
+              run: cargo apk build -p material-gallery --target aarch64-linux-android --lib --release
             - name: "upload APK artifact"
               uses: actions/upload-artifact@v4
               with:
@@ -725,3 +727,5 @@ jobs:
                     target/release/apk/todo_lib.apk
                     target/release/apk/weather_demo.apk
                     target/release/apk/usecases_lib.apk
+                    target/release/apk/usecases_lib.apk
+                    target/release/apk/slint_material.apk
