@@ -210,6 +210,7 @@ component ContextMenu inherits Empty {
     callback sub-menu(entry: MenuEntry) -> [MenuEntry];
     callback show(position: Point);
     function close() {}
+    function is-open() -> bool {}
 }
 
 // Lowered in lower_menus pass.

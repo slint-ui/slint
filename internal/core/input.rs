@@ -669,16 +669,15 @@ pub(crate) fn send_exit_events(
 /// of mouse grabber.
 /// Returns a new mouse grabber stack.
 pub fn process_mouse_input(
-    component: ItemTreeRc,
+    root: ItemRc,
     mouse_event: MouseEvent,
     window_adapter: &Rc<dyn WindowAdapter>,
     mouse_input_state: MouseInputState,
 ) -> MouseInputState {
     let mut result = MouseInputState::default();
-    let root = ItemRc::new(component.clone(), 0);
     let r = send_mouse_event_to_item(
         mouse_event,
-        root,
+        root.clone(),
         window_adapter,
         &mut result,
         mouse_input_state.top_item().as_ref(),
@@ -698,7 +697,7 @@ pub fn process_mouse_input(
         if r.has_aborted() {
             // An accepted wheel event might have moved things. Send a move event at the position to reset the has-hover
             return process_mouse_input(
-                component,
+                root,
                 MouseEvent::Moved { position },
                 window_adapter,
                 result,

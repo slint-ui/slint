@@ -8,7 +8,8 @@ import { Palette, MenuBarItem, MenuBar, MenuFrame, MenuItem } from "std-widgets-
 export component PopupMenuImpl inherits Window {
     in property <[MenuEntry]> entries: [];
 
-    property <int> current: -1;
+    property <int> current-highlight: -1;
+    property <int> current-open: -1;
     property <length> px: 1rem / 14;
 
     callback sub-menu(menu-entry: MenuEntry) -> [MenuEntry];
@@ -22,20 +23,20 @@ export component PopupMenuImpl inherits Window {
         frame := MenuFrame {
             for entry[index] in entries: MenuItem {
                 entry: entry;
-                is-current: current == index;
+                is-current: current-highlight == index;
 
                 set-current => {
                     focus-scope.focus();
-                    root.current = index;
+                    root.current-highlight = index;
                     open-sub-menu-after-timeout.running = true;
                 }
 
                 clear-current => {
-                    root.current = -1;
+                    root.current-highlight = -1;
                 }
 
                 activate(entry, y) => {
-                    root.activate(entry, y);
+                    root.activate(entry, y, index);
                 }
             }
         }
@@ -47,10 +48,11 @@ export component PopupMenuImpl inherits Window {
             triggered => {
                 self.running = false;
 
-                if current >= 0 {
-                    if entries[current].has-sub-menu {
-                        activate(entries[current], y-pos(current));
+                if current-highlight >= 0 {
+                    if entries[current-highlight].has-sub-menu {
+                        activate(entries[current-highlight], y-pos(current-highlight), current-highlight);
                     } else {
+                        current-open = -1;
                         sub-menu.close();
                     }
                 }
@@ -65,27 +67,27 @@ export component PopupMenuImpl inherits Window {
             open-sub-menu-after-timeout.running = false;
 
             if event.text == Key.UpArrow {
-                if current >= 1 {
-                    current -= 1;
+                if current-highlight >= 1 {
+                    current-highlight -= 1;
                 } else {
-                    current = entries.length - 1;
+                    current-highlight = entries.length - 1;
                 }
                 return accept;
             } else if event.text == Key.DownArrow {
-                if current < entries.length - 1 {
-                    current += 1;
+                if current-highlight < entries.length - 1 {
+                    current-highlight += 1;
                 } else {
-                    current = 0;
+                    current-highlight = 0;
                 }
                 return accept;
             } else if event.text == Key.Return {
-                if current >= 0 && current < entries.length {
-                    activate(entries[current], y-pos(current));
+                if current-highlight >= 0 && current-highlight < entries.length {
+                    activate(entries[current-highlight], y-pos(current-highlight), current-highlight);
                 }
                 return accept;
             } else if event.text == Key.RightArrow {
-                if current >= 0 && current < entries.length && entries[current].has-sub-menu {
-                    activate(entries[current], y-pos(current));
+                if current-highlight >= 0 && current-highlight < entries.length && entries[current-highlight].has-sub-menu {
+                    activate(entries[current-highlight], y-pos(current-highlight), current-highlight);
                 }
                 return accept;
             } else if event.text == Key.LeftArrow {
@@ -103,20 +105,25 @@ export component PopupMenuImpl inherits Window {
         sub-menu(entry) => { root.sub-menu(entry); }
 
         activated(entry) => {
+            current-open = -1;
             root.activated(entry);
             root.close();
         }
     }
 
-    function activate(entry : MenuEntry, y: length) {
+    function activate(entry : MenuEntry, y: length, index: int) {
         open-sub-menu-after-timeout.running = false;
         if entry.has-sub-menu {
-            sub-menu.entries = root.sub-menu(entry);
-            sub-menu.show({
-                x: root.width,
-                y: y - sub-menu.absolute-position.y,
-            });
+            if current-open != index || !sub-menu.is-open() {
+                current-open = index;
+                sub-menu.entries = root.sub-menu(entry);
+                sub-menu.show({
+                    x: root.width,
+                    y: y - sub-menu.absolute-position.y,
+                });
+            }
         } else {
+            current-open = -1;
             activated(entry);
             close();
         }
@@ -129,20 +136,27 @@ export component MenuBarImpl {
     callback sub-menu(menu-entry: MenuEntry) -> [MenuEntry];
 
     property <[MenuEntry]> entries;
-    property <length> px: 1rem / 14;
 
     preferred-width: 100%;
     height: base.min-height;
 
+    private property <int> last-open-entry-index : -1;
+
     base := MenuBar {
         width: 100%;
 
-        for entry in entries: e := MenuBarItem {
+        for entry[idx] in entries: e := MenuBarItem {
             entry: entry;
 
             clicked => {
+                last-open-entry-index = idx;
                 context-menu.entries = root.sub-menu(entry);
                 context-menu.show({ x: e.x, y: root.height });
+            }
+            hovered => {
+                if last-open-entry-index != idx && context-menu.is-open() {
+                    self.clicked();
+                }
             }
         }
     }

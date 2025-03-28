@@ -1337,6 +1337,15 @@ impl ContextMenu {
             WindowInner::from_pub(window_adapter.window()).close_popup(id);
         }
     }
+
+    pub fn is_open(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>, _: &ItemRc) -> bool {
+        self.popup_id.get().is_some_and(|id| {
+            WindowInner::from_pub(window_adapter.window())
+                .active_popups()
+                .iter()
+                .any(|p| p.popup_id == id)
+        })
+    }
 }
 
 impl ItemConsts for ContextMenu {
@@ -1359,6 +1368,19 @@ pub unsafe extern "C" fn slint_contextmenu_close(
     let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
     let self_rc = ItemRc::new(self_component.clone(), self_index);
     s.close(window_adapter, &self_rc);
+}
+
+#[cfg(feature = "ffi")]
+#[no_mangle]
+pub unsafe extern "C" fn slint_contextmenu_is_open(
+    s: Pin<&ContextMenu>,
+    window_adapter: *const crate::window::ffi::WindowAdapterRcOpaque,
+    self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
+    self_index: u32,
+) -> bool {
+    let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
+    let self_rc = ItemRc::new(self_component.clone(), self_index);
+    s.is_open(window_adapter, &self_rc)
 }
 
 /// The implementation of the `BoxShadow` element

@@ -1442,6 +1442,7 @@ fn call_item_member_function(nr: &NamedReference, local_context: &mut EvalLocalC
     } else if let Some(s) = ItemRef::downcast_pin::<corelib::items::ContextMenu>(item_ref) {
         match name {
             "close" => s.close(&window_adapter, &item_rc),
+            "is-open" => return Value::Bool(s.is_open(&window_adapter, &item_rc)),
             _ => {
                 panic!("internal: Unknown member function {name} called on ContextMenu")
             }

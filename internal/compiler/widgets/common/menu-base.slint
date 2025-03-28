@@ -13,7 +13,8 @@ export component MenuBarItemBase {
     in property <int> font-weight <=> label.font-weight;
     in property <length> border-radius <=> background-layer.border-radius;
 
-    callback clicked <=> touch-area.clicked;
+    callback clicked;
+    callback hovered;
 
     background-layer := Rectangle {
         background: root.default-background;
@@ -28,6 +29,18 @@ export component MenuBarItemBase {
                 label := Text {
                     text: entry.title;
                     color: root.default-foreground;
+                }
+            }
+
+            pointer-event(event) => {
+                if event.kind == PointerEventKind.down {
+                    root.clicked();
+                }
+            }
+
+            changed has-hover => {
+                if self.has-hover {
+                    root.hovered();
                 }
             }
         }
