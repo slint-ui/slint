@@ -68,6 +68,7 @@ component ColorLineEdit inherits HorizontalLayout {
 
 export component Preview {
     in property <brush> background;
+    callback clicked <=> ta.clicked;
 
     Image {
         width: 100%;
@@ -88,6 +89,8 @@ export component Preview {
         background: root.background;
     }
 
+    ta := TouchArea { }
+
     @children
 }
 
@@ -100,6 +103,7 @@ export component ColorMainContent inherits HorizontalLayout {
 
     callback set-color-binding(text: string);
     callback test-color-binding(text: string) -> bool;
+    callback color-preview-clicked <=> color-preview.clicked;
 
     private property <ColorData> current-color-data: Api.color-to-data(self.current-color);
 

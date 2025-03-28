@@ -17,6 +17,7 @@ import { PreviewDataView } from "./views/preview-data-view.slint";
 import { SpreadsheetDialog } from "./components/spreadsheet-dialog.slint";
 
 import { WindowGlobal } from "windowglobal.slint";
+import { ColorPickerView } from "components/widgets/floating-color-picker-widget.slint";
 
 export { Api }
 
@@ -142,4 +143,9 @@ export component PreviewUi inherits Window {
         x: (parent.width - self.width) / 2;
         y: (parent.height / 10);
     }
+
+    if show-color-picker: ColorPickerView {
+
+    }
+
 }
