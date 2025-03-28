@@ -1,0 +1,81 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { ComponentsView } from "components_view.slint";
+import { Palette } from "std-widgets.slint";
+import { MaterialText, Typography, IconButton, MaterialPalette, Animations, NavigationRail, NavigationItem, NavigationBar } from "../../../../material.slint";
+import { MainWindowAdapter } from "../main_window_adapter.slint";
+import { FilledIcons, OutlinedIcons } from "../icons.slint";
+
+export enum Views {
+    components
+}
+
+export component MainView {
+    property <Views> current_view: Views.components;
+    property <[NavigationItem]> navigation_items: [
+        {
+            text: "Components",
+            icon: OutlinedIcons.dashboard,
+            icon_selected: FilledIcons.dashboard
+        }
+    ];
+
+    VerticalLayout {
+        HorizontalLayout {
+            height: 64px;
+            padding_left: 16px;
+            padding_right: 16px;
+            spacing: 8px;
+
+            MaterialText {
+                vertical-alignment: center;
+                text: "Material 3";
+                style: Typography.title_large;
+            }
+
+            Rectangle {}
+
+            IconButton {
+                checked: Palette.color_scheme == ColorScheme.light;
+                checkable: true;
+                icon: OutlinedIcons.light_mode;
+                icon_checked: OutlinedIcons.dark_mode;
+
+                changed checked => {
+                    if !self.checked {
+                        Palette.color_scheme = ColorScheme.dark;
+                        return;
+                    }
+
+                    Palette.color_scheme = ColorScheme.light;
+                }
+            }
+        }
+
+        Rectangle {
+            background: MaterialPalette.background;
+
+            if !MainWindowAdapter.break_layout : HorizontalLayout {
+                 NavigationRail {
+                     items: root.navigation_items;
+                 }
+
+
+                if root.current_view == Views.components : ComponentsView {
+                    horizontal_stretch: 1;
+                }
+            }
+
+            if MainWindowAdapter.break_layout : VerticalLayout {
+                if root.current_view == Views.components : ComponentsView {
+                    horizontal_stretch: 1;
+                }
+
+                NavigationBar {
+                    items: root.navigation_items;
+                }
+            }
+        }
+    }
+}

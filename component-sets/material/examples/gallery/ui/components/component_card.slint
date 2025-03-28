@@ -1,0 +1,42 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import {
+    MaterialText,
+    OutlinedCard,
+    Typography,
+    MaterialStyleMetrics
+} from "../../../../material.slint";
+
+export component ComponentCard {
+    in property <string> title;
+
+    HorizontalLayout {
+       alignment: center;
+
+        VerticalLayout {
+            spacing: 4px;
+            alignment: start;
+
+            MaterialText {
+                horizontal_alignment: center;
+                text: root.title;
+                style: Typography.title_medium;
+            }
+
+            OutlinedCard {
+                width: 360px;
+
+                VerticalLayout {
+                    padding_left: 2px;
+                    padding_right: self.padding_left;
+                    padding_top: MaterialStyleMetrics.padding_8;
+                    padding_bottom: self.padding_top;
+                    spacing: MaterialStyleMetrics.spacing_8;
+
+                    @children
+                }
+            }
+        }
+    }
+}

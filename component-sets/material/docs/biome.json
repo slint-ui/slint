@@ -1,0 +1,57 @@
+{
+    "formatter": {
+        "ignore": ["archive/**", ".astro", "dist", "codemirror.js"],
+        "enabled": true,
+        "formatWithErrors": false,
+        "indentStyle": "space",
+        "indentWidth": 4,
+        "lineEnding": "lf",
+        "attributePosition": "auto"
+    },
+    "linter": {
+        "ignore": ["archive/**", ".astro", "dist", "codemirror.js"],
+        "rules": {
+            "recommended": false,
+            "complexity": {
+                "noBannedTypes": "warn",
+                "noUselessConstructor": "error"
+            },
+            "style": {
+                "useBlockStatements": "warn",
+                "noUselessElse": "off",
+                "useConst": "error",
+                "useImportType": "error",
+                "useNodejsImportProtocol": "error"
+            },
+            "suspicious": {
+                "noDoubleEquals": "error",
+                "noRedundantUseStrict": "warn",
+                "noImplicitAnyLet": "error"
+            }
+        }
+    },
+    "javascript": {
+        "formatter": {
+            "jsxQuoteStyle": "double",
+            "quoteProperties": "asNeeded",
+            "semicolons": "always",
+            "bracketSpacing": true,
+            "bracketSameLine": false,
+            "quoteStyle": "double",
+            "attributePosition": "auto"
+        }
+    },
+    "overrides": [
+        {
+            "include": ["*.astro"],
+            "linter": {
+                "rules": {
+                    "style": {
+                        "useConst": "off",
+                        "useImportType": "off"
+                    }
+                }
+            }
+        }
+    ]
+}

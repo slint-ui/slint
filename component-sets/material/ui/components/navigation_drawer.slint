@@ -1,0 +1,191 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { Drawer, ModalDrawer, DrawerHeader } from "./drawer.slint";
+import { NavigationItem, NavigationGroup } from "../items/navigation_item.slint";
+import { HorizontalDivider } from "./divider.slint";
+import { StateLayerArea } from "./state_layer.slint";
+import { MaterialPalette } from "../styling/material_palette.slint";
+import { Icon } from "./icon.slint";
+import { MaterialText } from "./material_text.slint";
+import { Typography } from "../styling/typography.slint";
+import { MaterialStyleMetrics } from "../styling/material_style_metrics.slint";
+import { Animations } from "../styling/animations.slint";
+import { BaseNavigationItemTemplate } from "./base_navigation.slint";
+
+component NavigationItemTempalte inherits BaseNavigationItemTemplate {
+    property <bool> has_icon: root.icon.width > 0 && root.icon.height > 0;
+    property <bool> has_icon_selected: root.icon_selected.width > 0 || root.icon_selected.height > 0;
+    property <color> color: MaterialPalette.on_surface_variant;
+
+    min_height: max(MaterialStyleMetrics.size_56, layout.min_height);
+
+    background_layer := Rectangle {
+        border_radius: self.height / 2;
+
+        state_layer := StateLayerArea {
+            border_radius: parent.border_radius;
+            color: root.selected ? transparent : root.color;
+
+            layout := HorizontalLayout {
+                padding_left: MaterialStyleMetrics.padding_16;
+                padding_right: MaterialStyleMetrics.padding_24;
+                padding_top: MaterialStyleMetrics.padding_16;
+                padding_bottom: self.padding_top;
+                spacing: MaterialStyleMetrics.spacing_12;
+
+                VerticalLayout {
+                    alignment: center;
+
+                    if !root.has_icon && !root.has_icon_selected : Rectangle {
+                        width: MaterialStyleMetrics.icon_size_40;
+                        height: self.width;
+
+                        Rectangle {
+                            width: 12px;
+                            height: self.width;
+                            border_radius: self.width / 2;
+                            background: root.color;
+                        }
+                    }
+
+                    if root.has_icon || root.has_icon_selected : Icon {
+                        source: root.icon;
+                        colorize: root.color;
+
+                        states [
+                            selected when root.selected && root.has_icon_selected : {
+                                source: root.icon_selected;
+                            }
+                        ]
+                    }
+                }
+
+                MaterialText {
+                    horizontal_stretch: 1;
+                    text: root.text;
+                    style: Typography.label_large;
+                    color: root.color;
+                    vertical_alignment: center;
+                }
+
+                if root.badge != "" : MaterialText {
+                    text: root.badge;
+                    style: Typography.label_large;
+                    color: root.color;
+                    vertical_alignment: center;
+                }
+            }
+
+            clicked => {
+                root.clicked();
+            }
+        }
+
+        animate background { duration: Animations.opacity_duration; easing: Animations.opacity_easing; }
+    }
+
+    states [
+        selected when root.selected : {
+            background_layer.background: MaterialPalette.secondary_container;
+            root.color: MaterialPalette.on_secondary_container;
+        }
+    ]
+
+    animate color { duration: Animations.opacity_duration; easing: Animations.opacity_easing; }
+}
+
+component NavigationGroupTemplate {
+    in property <string> title;
+    in property <[NavigationItem]> items;
+    in property <int> current_item: -1;
+    in property <bool> has_divider;
+
+    callback select(index: int);
+
+    VerticalLayout {
+        alignment: start;
+
+        if root.title != 0 :  DrawerHeader {
+            title: root.title;
+        }
+
+        for item[index] in root.items : NavigationItemTempalte {
+            icon: item.icon;
+            icon_selected: item.icon_selected;
+            text: item.text;
+            badge: item.badge;
+            selected: index == root.current_item;
+            index: index;
+
+            clicked => {
+                root.select(index);
+            }
+        }
+
+        if root.has_divider : HorizontalDivider {}
+    }
+}
+
+export component NavigationDrawer inherits Drawer {
+    in property <[NavigationGroup]> groups;
+    in_out property <int> current_group;
+    in_out property <int> current_item;
+
+    accessible-role: tab-list;
+    // accessible-delegate-focus: root.current-focused >= 0 ? root.current-focused : root.current-item;
+    // accessible-label: root.title;
+    accessible-item-count: root.groups.length;
+
+    for group[group_index] in root.groups : NavigationGroupTemplate {
+        title: group.title;
+        items: group.items;
+        current_item: group_index == root.current_group ? root.current_item : -1;
+        has_divider: root.groups.length > 1 && group_index < root.groups.length - 1;
+
+        select(index) => {
+            root.select(group_index, index);
+        }
+    }
+
+    function select(group_index: int, item_index: int) {
+        if group_index < 0 || group_index >= root.groups.length || item_index < 0 || item_index >= root.groups[group_index].items.length {
+            return;
+        }
+
+        root.current_group = group_index;
+        root.current_item = item_index;
+    }
+}
+
+export component ModalNavigationDrawer inherits ModalDrawer {
+    in property <[NavigationGroup]> groups;
+    in_out property <int> current_group;
+    in_out property <int> current_item;
+
+    accessible-role: tab-list;
+    // accessible-delegate-focus: root.current-focused >= 0 ? root.current-focused : root.current-item;
+    // accessible-label: root.title;
+    accessible-item-count: root.groups.length;
+
+    for group[group_index] in root.groups : NavigationGroupTemplate {
+        title: group.title;
+        items: group.items;
+        current_item: group_index == root.current_group ? root.current_item : -1;
+        has_divider: root.groups.length > 1 && group_index < root.groups.length - 1;
+
+        select(index) => {
+            root.select(group_index, index);
+        }
+    }
+
+    function select(group_index: int, item_index: int) {
+        if group_index < 0 || group_index >= root.groups.length || item_index < 0 || item_index >= root.groups[group_index].items.length {
+            return;
+        }
+
+        root.current_group = group_index;
+        root.current_item = item_index;
+        root.close();
+    }
+}
