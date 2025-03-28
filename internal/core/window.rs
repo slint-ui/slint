@@ -644,8 +644,10 @@ impl WindowInner {
         {
             let mut item_tree = self.component.borrow().upgrade();
             let mut offset = LogicalPoint::default();
+            let mut menubar_item = None;
             for (idx, popup) in active_popups.borrow().iter().enumerate().rev() {
                 item_tree = None;
+                menubar_item = None;
                 if let PopupWindowLocation::ChildWindow(coordinates) = &popup.location {
                     let geom = ItemTreeRc::borrow_pin(&popup.component).as_ref().item_geometry(0);
                     let mouse_inside_popup = event
@@ -667,12 +669,27 @@ impl WindowInner {
                     // clicking outside of a popup menu should close all the menus
                     popup_to_close = Some(popup.popup_id);
                 }
+
+                menubar_item = popup.parent_item.upgrade();
             }
 
-            if let Some(item_tree) = item_tree {
+            let root = match menubar_item {
+                None => item_tree.map(|item_tree| ItemRc::new(item_tree.clone(), 0)),
+                Some(menubar_item) => {
+                    assert_ne!(menubar_item.index(), 0, "ContextMenuInternal cannot be root");
+                    event.translate(
+                        menubar_item
+                            .map_to_item_tree(Default::default(), &self.component())
+                            .to_vector(),
+                    );
+                    menubar_item.parent_item()
+                }
+            };
+
+            if let Some(root) = root {
                 event.translate(-offset.to_vector());
                 let mut new_input_state = crate::input::process_mouse_input(
-                    item_tree,
+                    root,
                     event,
                     &window_adapter,
                     mouse_input_state,
