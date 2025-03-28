@@ -9,7 +9,7 @@ import { EditorSpaceSettings } from "../components/styling.slint";
 
 import { BooleanWidget } from "./widgets/boolean-widget.slint";
 import { BrushWidget } from "./widgets/brush-widget.slint";
-import { ColorWidget } from "./widgets/color-widget.slint";
+import { ColorWidget } from "./widgets/color-widget-new.slint";
 import { CodeWidget } from "./widgets/code-widget.slint";
 import { EnumWidget } from "./widgets/enum-widget.slint";
 import { FloatWidget } from "./widgets/float-widget.slint";
@@ -66,9 +66,6 @@ export component PropertyValueWidget inherits VerticalLayout {
             enabled <=> root.enabled;
             property-name <=> root.property-name;
             property-value <=> root.property-value;
-
-            has-code-action: root.has-code-action;
-            has-reset-action: root.has-reset-action;
 
             test-color-binding(text) => {
                 if root.property-value.kind == PropertyValueKind.color {

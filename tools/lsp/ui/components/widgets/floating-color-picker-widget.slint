@@ -1,0 +1,375 @@
+
+import { Palette } from "std-widgets.slint";
+import { WindowGlobal } from "../../windowglobal.slint";
+
+global FakeData {
+    in-out property <float> hue: 0;
+    in-out property <float> saturation: 0;
+    in-out property <float> value: 0.9;
+    in-out property <float> alpha: 1;
+    in-out property <color> current-color: hsv(hue, saturation, value, alpha);
+    in-out property <bool> show-color-picker: false;
+}
+
+global Styles {
+    out property <color> outline-blue: #0c8ce9;
+    out property <color> section-color: #383838;
+    out property <color> divider-color: #444444;
+    out property <color> background-color: #2c2c2c;
+    out property <length> left-margin: 16px;
+    out property <length> right-margin: 12px;
+    out property <length> property-border-radius: 5px;
+}
+
+component BrushIcon inherits Rectangle {
+    width: 20px;
+    height: 20px;
+    border-width: 1px;
+    border-color: Styles.divider-color;
+    border-radius: 2px;
+
+    in property <string> label: "Gradient";
+
+    ta := TouchArea { }
+
+    Rectangle {
+        y: parent.height + 8px;
+        height: 25px;
+        width: t.width + 20px;
+        background: #1e1e1e;
+        border-radius: Styles.property-border-radius;
+        border-width: 0.5px;
+        border-color: Styles.divider-color.transparentize(0.5);
+        drop-shadow-blur: 10px;
+        drop-shadow-offset-y: 5px;
+        drop-shadow-color: #00000069;
+        opacity: ta.has-hover ? 1 : 0;
+        animate opacity { duration: 0.2s; }
+
+        Rectangle {
+            x: parent.width / 2;
+            y: 0;
+            width: 0;
+            height: 0;
+            Image {
+                width: self.source.width * 0.5 * 1phx;
+                rotation-angle: 45deg;
+                source: @image-url("../../assets/black-square.png");
+                colorize: #1e1e1e;
+            }
+        }
+
+        t := Text {
+            font-family: "Inter";
+            font-size: 11px;
+            color: white;
+            text: root.label;
+            font-weight: 400;
+            letter-spacing: 0.1px;
+        }
+    }
+}
+
+component ColorPicker {
+    width: 240px;
+    height: 430px;
+
+    property <length> start-x: 0;
+    property <length> start-mouse-x: 0;
+    callback close <=> t-close.clicked;
+
+    Rectangle {
+        background: Styles.background-color;
+        drop-shadow-blur: 24px;
+        drop-shadow-offset-y: 10px;
+        drop-shadow-color: #00000069;
+        border-width: 0.5px;
+        border-color: Styles.divider-color;
+        border-radius: 13px;
+    }
+
+    title := Rectangle {
+        y: 0;
+        width: 100%;
+        height: 40px;
+
+        Rectangle {
+            x: parent.width - self.width - Styles.right-margin;
+            width: 24px;
+            height: self.width;
+            background: t-close.has-hover ? Styles.section-color : transparent;
+            border-radius: Styles.property-border-radius;
+
+            t-close := TouchArea { }
+
+            Image {
+                source: @image-url("../../assets/close.svg");
+            }
+        }
+
+        Rectangle {
+            width: 100%;
+            height: 1px;
+            x: 0;
+            y: parent.height - self.height;
+            background: Styles.divider-color;
+        }
+    }
+
+    saturation-value := Rectangle {
+        y: brushes.y + brushes.height;
+        width: 100%;
+        height: self.width;
+        hue := Rectangle {
+            background: hsv(FakeData.hue, 1, 1);
+        }
+
+        sat := Rectangle {
+            background: @linear-gradient(90deg, white 0%, transparent 100%);
+        }
+
+        val := Rectangle {
+            background: @linear-gradient(0deg, black 0%, transparent 100%);
+        }
+
+        TouchArea {
+            moved => {
+                if self.has-hover {
+                    FakeData.saturation = clamp(self.mouse-x / self.width, 0, 1);
+                    FakeData.value = clamp(1 - (self.mouse-y / self.width), 0, 1);
+                }
+            }
+            changed pressed => {
+                FakeData.saturation = self.mouse-x / self.width;
+                FakeData.value = 1 - (self.mouse-y / self.width);
+            }
+        }
+
+        sv-picker := Rectangle {
+            x: saturation-value.width * FakeData.saturation;
+            y: saturation-value.height * (1 - FakeData.value);
+            width: 0;
+            height: 0;
+            Rectangle {
+                width: 16px;
+                height: 16px;
+                border-radius: self.width / 2;
+                background: white;
+                drop-shadow-blur: 5px;
+                drop-shadow-offset-y: 2px;
+                drop-shadow-color: #000000b4;
+            }
+
+            Rectangle {
+                width: 8px;
+                height: 8px;
+                border-radius: self.width / 2;
+                background: FakeData.current-color;
+            }
+        }
+    }
+
+    brushes := Rectangle {
+        y: title.y + title.height;
+        width: 100%;
+        height: 40px;
+
+        Rectangle {
+            width: 100%;
+            height: 1px;
+            x: 0;
+            y: parent.height - self.height;
+            background: Styles.divider-color;
+        }
+
+        HorizontalLayout {
+            alignment: start;
+            padding-left: Styles.left-margin;
+            spacing: 8px;
+
+            BrushIcon {
+                y: (parent.height - self.height) / 2;
+                label: "Color";
+            }
+
+            BrushIcon {
+                y: (parent.height - self.height) / 2;
+                label: "SVG Color";
+            }
+
+            BrushIcon {
+                y: (parent.height - self.height) / 2;
+                label: "Gradient";
+            }
+        }
+    }
+
+    hsva-controls := Rectangle {
+        y: saturation-value.y + saturation-value.height;
+        width: 100%;
+        height: 66px;
+        // The following properties are used to size the hue picker and control the
+        // thumb to now go past the visual bounds. But the TouchArea is intentionally larger
+        // to be usable.
+        property <length> main-width: 150px;
+        property <length> main-height: 16px;
+        property <length> rounded-end-width: main-height / 2;
+        HorizontalLayout {
+            Rectangle {
+                width: 100%;
+                height: 33px;
+                hue-picker := Rectangle {
+                    x: Styles.left-margin;
+                    width: main-width + main-height;
+                    height: main-height;
+                    TouchArea {
+                        moved => {
+                            if self.has-hover {
+                                if self.mouse-x < main-height {
+                                    FakeData.hue = 0;
+                                } else {
+                                    FakeData.hue = 359 * clamp((self.mouse-x - rounded-end-width) / (self.width - main-height), 0, 1);
+                                }
+                            }
+                        }
+                        changed pressed => {
+                            if self.mouse-x < main-height {
+                                FakeData.hue = 0;
+                            } else {
+                                FakeData.hue = 359 * clamp((self.mouse-x - rounded-end-width) / (self.width - main-height), 0, 1);
+                            }
+                        }
+                    }
+
+                    Rectangle {
+                        border-radius: self.height / 2;
+                        clip: true;
+                        HorizontalLayout {
+                            Rectangle {
+                                width: self.height / 2;
+                                height: hue-picker.height;
+                                background: #ff0000;
+                            }
+
+                            Rectangle {
+                                width: 150px;
+                                height: hue-picker.height;
+                                background: @linear-gradient(90deg, #ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000);
+                            }
+
+                            Rectangle {
+                                width: self.height / 2;
+                                height: hue-picker.height;
+                                background: #ff0000;
+                            }
+                        }
+                    }
+
+                    Rectangle {
+                        x: rounded-end-width + (main-width * (FakeData.hue / 360));
+                        width: 0;
+                        height: 0;
+                        Rectangle {
+                            width: 16px;
+                            height: 16px;
+                            border-radius: self.width / 2;
+                            background: white;
+                            drop-shadow-blur: 5px;
+                            drop-shadow-offset-y: 2px;
+                            drop-shadow-color: #000000;
+                        }
+
+                        Rectangle {
+                            width: 8px;
+                            height: 8px;
+                            border-radius: self.width / 2;
+                            background: hsv(FakeData.hue, 1, 1);
+                        }
+                    }
+                }
+            }
+
+            Rectangle {
+                width: 100%;
+                height: 33px;
+            }
+        }
+
+        Rectangle {
+            width: 100%;
+            height: 1px;
+            x: 0;
+            y: parent.height - self.height;
+            background: Styles.divider-color;
+        }
+    }
+}
+
+export component ColorPickerView {
+    width: 100%;
+    height: 100%;
+
+    pure function cursor-on-picker(mouse-x: length, mouse-y: length) -> bool {
+        if mouse-x < color-picker.x {
+            return false;
+        }
+        if mouse-y < color-picker.y {
+            return false;
+        }
+        if mouse-x > color-picker.x + color-picker.width {
+            return false;
+        }
+        if mouse-y > color-picker.y + color-picker.height {
+            return false;
+        }
+        return true;
+    }
+
+    TouchArea {
+        property <bool> drag-mode: false;
+        property <length> picker-initial-x;
+        property <length> picker-initial-y;
+        property <length> mouse-initial-x;
+        property <length> mouse-initial-y;
+
+        changed pressed => {
+            if self.pressed {
+                if cursor-on-picker(self.mouse-x, self.mouse-y) {
+                    drag-mode = true;
+                    picker-initial-x = color-picker.x;
+                    picker-initial-y = color-picker.y;
+                    mouse-initial-x = self.mouse-x;
+                    mouse-initial-y = self.mouse-y;
+                }
+            } else {
+                if !drag-mode {
+                    WindowGlobal.hide-color-picker();
+                }
+                drag-mode = false;
+            }
+        }
+
+        property <length> picker-target-x;
+        property <length> picker-target-y;
+
+        moved => {
+            if drag-mode {
+                picker-target-x = picker-initial-x + (self.mouse-x - mouse-initial-x);
+                picker-target-y = picker-initial-y + (self.mouse-y - mouse-initial-y);
+
+                if picker-target-x > 0px && picker-target-x < root.width - color-picker.width {
+                    color-picker.x = picker-target-x;
+                }
+                if picker-target-y > 0px && picker-target-y < root.height - color-picker.height {
+                    color-picker.y = picker-target-y;
+                }
+            }
+        }
+    }
+
+    color-picker := ColorPicker {
+        close => {
+            WindowGlobal.hide-color-picker();
+        }
+    }
+}
