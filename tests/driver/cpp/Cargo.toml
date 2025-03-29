@@ -21,7 +21,12 @@ name = "test-driver-cpp"
 slint-cpp = { workspace = true, features = ["testing", "std", "experimental"] }
 
 [dev-dependencies]
-i-slint-compiler = { workspace = true, features = ["default", "cpp", "display-diagnostics", "bundle-translations"] }
+i-slint-compiler = { workspace = true, features = [
+  "default",
+  "cpp",
+  "display-diagnostics",
+  "bundle-translations",
+] }
 
 cc = "1.0.54"
 scopeguard = "1.1.0"

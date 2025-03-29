@@ -55,8 +55,8 @@ eventloop-qt = ["backend-qt"]
 renderer-winit-qt = ["backend-qt"]
 renderer-winit-femtovg = ["renderer-femtovg"]
 renderer-winit-skia = ["renderer-skia"]
-renderer-winit-skia-opengl= ["renderer-skia-opengl"]
-renderer-winit-skia-vulkan= ["renderer-skia-vulkan"]
+renderer-winit-skia-opengl = ["renderer-skia-opengl"]
+renderer-winit-skia-vulkan = ["renderer-skia-vulkan"]
 renderer-winit-software = ["renderer-software"]
 
 ## Enable support for previewing .slint files
@@ -68,13 +68,27 @@ preview-lense = []
 ## to provide an implementation of the external preview API when building for WASM)
 preview-api = ["preview-external"]
 ## Build in the actual code to act as a preview for slint files.
-preview-engine = ["dep:slint", "dep:slint-interpreter", "dep:i-slint-core", "dep:i-slint-backend-selector", "dep:slint-build", "dep:i-slint-backend-winit", "dep:muda", "dep:objc2-foundation"]
+preview-engine = [
+  "dep:slint",
+  "dep:slint-interpreter",
+  "dep:i-slint-core",
+  "dep:i-slint-backend-selector",
+  "dep:slint-build",
+  "dep:i-slint-backend-winit",
+  "dep:muda",
+  "dep:objc2-foundation",
+]
 ## Build in the actual code to act as a preview for slint files. Does nothing in WASM!
 preview-builtin = ["preview-engine"]
 ## Support the external preview optionally used by e.g. the VSCode plugin
 preview-external = []
 
-default = ["backend-default", "renderer-femtovg", "renderer-software", "preview"]
+default = [
+  "backend-default",
+  "renderer-femtovg",
+  "renderer-software",
+  "preview",
+]
 
 [dependencies]
 i-slint-compiler = { workspace = true, features = ["display-diagnostics"] }
@@ -93,20 +107,26 @@ smol_str = { workspace = true }
 i-slint-backend-selector = { workspace = true, optional = true }
 i-slint-core = { workspace = true, features = ["std"], optional = true }
 slint = { workspace = true, features = ["compat-1-2"], optional = true }
-slint-interpreter = { workspace = true, features = ["compat-1-2", "internal", "internal-highlight", "internal-json", "image-default-formats"], optional = true  }
+slint-interpreter = { workspace = true, features = [
+  "compat-1-2",
+  "internal",
+  "internal-highlight",
+  "internal-json",
+  "image-default-formats",
+], optional = true }
 
 [target.'cfg(not(any(target_os = "windows", target_arch = "wasm32")))'.dependencies]
 tikv-jemallocator = { workspace = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 clap = { workspace = true }
-crossbeam-channel = "0.5"  # must match the version used by lsp-server
+crossbeam-channel = "0.5"   # must match the version used by lsp-server
 lsp-server = "0.7"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 console_error_panic_hook = "0.1.5"
 js-sys = { version = "0.3.57" }
-web-sys = { workspace = true, features=[ "Navigator" ] }
+web-sys = { workspace = true, features = ["Navigator"] }
 send_wrapper = { workspace = true }
 serde-wasm-bindgen = "0.6.0"
 wasm-bindgen = "0.2.80"

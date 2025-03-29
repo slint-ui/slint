@@ -37,8 +37,8 @@ eventloop-qt = ["backend-qt"]
 renderer-winit-qt = ["backend-qt"]
 renderer-winit-femtovg = ["renderer-femtovg"]
 renderer-winit-skia = ["renderer-skia"]
-renderer-winit-skia-opengl= ["renderer-skia-opengl"]
-renderer-winit-skia-vulkan= ["renderer-skia-vulkan"]
+renderer-winit-skia-opengl = ["renderer-skia-opengl"]
+renderer-winit-skia-vulkan = ["renderer-skia-vulkan"]
 renderer-winit-software = ["renderer-software"]
 
 ## Enable the translations using [gettext](https://www.gnu.org/software/gettext/gettext)
@@ -53,13 +53,22 @@ default = ["backend-default", "renderer-femtovg", "renderer-software"]
 [dependencies]
 i-slint-compiler = { workspace = true }
 i-slint-core = { workspace = true }
-slint-interpreter = { workspace = true, features = ["display-diagnostics", "compat-1-2", "internal", "accessibility", "image-default-formats", "internal-json"] }
+slint-interpreter = { workspace = true, features = [
+  "display-diagnostics",
+  "compat-1-2",
+  "internal",
+  "accessibility",
+  "image-default-formats",
+  "internal-json",
+] }
 i-slint-backend-selector = { workspace = true }
 
 clap = { workspace = true }
 codemap = "0.1"
 codemap-diagnostic = "0.1.1"
-notify = { version = "8.0.0", default-features = false, features = ["macos_kqueue"] }
+notify = { version = "8.0.0", default-features = false, features = [
+  "macos_kqueue",
+] }
 shlex = "1"
 spin_on = { workspace = true }
 env_logger = "0.11.0"

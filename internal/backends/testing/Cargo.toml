@@ -21,7 +21,15 @@ path = "lib.rs"
 internal = []
 # ffi for C++ bindings
 ffi = []
-system-testing = ["quick-protobuf", "pb-rs", "generational-arena", "async-net", "futures-lite", "byteorder", "image"]
+system-testing = [
+  "quick-protobuf",
+  "pb-rs",
+  "generational-arena",
+  "async-net",
+  "futures-lite",
+  "byteorder",
+  "image",
+]
 
 [dependencies]
 i-slint-core = { workspace = true, features = ["std"] }
@@ -37,6 +45,9 @@ image = { workspace = true, optional = true, features = ["png"] }
 pb-rs = { version = "0.10.0", optional = true, default-features = false }
 
 [dev-dependencies]
-slint = { path = "../../../api/rs/slint", default-features = false, features = ["std", "compat-1-2"] }
+slint = { path = "../../../api/rs/slint", default-features = false, features = [
+  "std",
+  "compat-1-2",
+] }
 i-slint-core-macros = { path = "../../core-macros" }
 i-slint-common = { path = "../../common" }

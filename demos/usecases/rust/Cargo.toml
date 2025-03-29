@@ -20,7 +20,10 @@ path = "src/main.rs"
 name = "usecases"
 
 [dependencies]
-slint = { path = "../../../api/rs/slint", features = ["serde", "backend-android-activity-06"] }
+slint = { path = "../../../api/rs/slint", features = [
+  "serde",
+  "backend-android-activity-06",
+] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 
@@ -30,5 +33,3 @@ console_error_panic_hook = "0.1.5"
 
 [build-dependencies]
 slint-build = { path = "../../../api/rs/build" }
-
-

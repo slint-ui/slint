@@ -169,7 +169,7 @@ path = [
   "tools/lsp/ui/assets/search.svg",
   "tools/lsp/ui/assets/sync.svg",
   "tools/lsp/ui/assets/black-square.png",
-  "tools/lsp/ui/assets/close.svg"
+  "tools/lsp/ui/assets/close.svg",
 ]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Codicon Icons <https://github.com/microsoft/vscode-codicons/>"
@@ -194,7 +194,7 @@ path = [
   "internal/compiler/widgets/cupertino/_**.svg",
   "internal/compiler/widgets/qt/_**.svg",
   "examples/todo-mvc/assets/**.svg",
-  "demos/usecases/ui/assets/**.svg"
+  "demos/usecases/ui/assets/**.svg",
 ]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Material Icons <https://github.com/material-icons/material-icons/blob/master/LICENSE>"

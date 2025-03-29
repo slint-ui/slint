@@ -4,10 +4,14 @@
 [target.xtensa-esp32s3-none-elf]
 runner = "espflash flash --monitor"
 rustflags = [
-    "-C", "force-frame-pointers",
-    "-C", "link-arg=-nostartfiles",
-    "-C", "link-arg=-Wl,-Tlinkall.x",
-    "-C", "target-feature=-fp",
+  "-C",
+  "force-frame-pointers",
+  "-C",
+  "link-arg=-nostartfiles",
+  "-C",
+  "link-arg=-Wl,-Tlinkall.x",
+  "-C",
+  "target-feature=-fp",
 ]
 
 [build]

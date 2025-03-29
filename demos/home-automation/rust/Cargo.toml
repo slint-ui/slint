@@ -23,5 +23,5 @@ slint = { path = "../../../api/rs/slint" }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = { version = "0.2" }
-web-sys = { version = "0.3", features=["console"] }
+web-sys = { version = "0.3", features = ["console"] }
 console_error_panic_hook = "0.1.5"

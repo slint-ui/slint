@@ -14,22 +14,38 @@ license = "MIT"
 crate-type = ["cdylib", "lib"]
 
 [dependencies]
-slint = { path = "../../api/rs/slint", default-features = false, features = ["compat-1-2"] }
+slint = { path = "../../api/rs/slint", default-features = false, features = [
+  "compat-1-2",
+] }
 mcu-board-support = { path = "../../examples/mcu-board-support", optional = true }
-chrono = { version = "0.4.34", optional = true, default-features = false, features = ["clock", "std", "wasmbind"] }
+chrono = { version = "0.4.34", optional = true, default-features = false, features = [
+  "clock",
+  "std",
+  "wasmbind",
+] }
 weer_api = { version = "0.1", optional = true }
 tokio = { version = "1.25", optional = true, features = ["full"] }
 futures = { version = "0.3.26", optional = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = { version = "0.2" }
-web-sys = { version = "0.3", features=["console"] }
+web-sys = { version = "0.3", features = ["console"] }
 console_error_panic_hook = "0.1.5"
 
 [build-dependencies]
 slint-build = { path = "../../api/rs/build" }
 
 [features]
-default = ["slint/default", "network", "chrono", "slint/backend-android-activity-06"]
-simulator = ["mcu-board-support", "slint/renderer-software", "slint/backend-winit", "slint/std"]
+default = [
+  "slint/default",
+  "network",
+  "chrono",
+  "slint/backend-android-activity-06",
+]
+simulator = [
+  "mcu-board-support",
+  "slint/renderer-software",
+  "slint/backend-winit",
+  "slint/std",
+]
 network = ["dep:weer_api", "tokio", "futures"]

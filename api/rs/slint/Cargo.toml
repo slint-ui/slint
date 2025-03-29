@@ -61,7 +61,10 @@ log = ["dep:log"]
 serde = ["i-slint-core/serde"]
 
 ## This feature enables the software renderer to pick up fonts from the operating system for text rendering.
-software-renderer-systemfonts = ["renderer-software", "i-slint-core/software-renderer-systemfonts"]
+software-renderer-systemfonts = [
+  "renderer-software",
+  "i-slint-core/software-renderer-systemfonts",
+]
 
 ## Slint uses internally some `thread_local` state.
 ##
@@ -82,7 +85,10 @@ accessibility = ["i-slint-backend-selector/accessibility"]
 ## [`Window::window_handle()`] function that returns a struct that implements
 ## [HasWindowHandle](raw_window_handle_06::HasWindowHandle) and
 ## [HasDisplayHandle](raw_window_handle_06::HasDisplayHandle) implementation.
-raw-window-handle-06 = ["dep:raw-window-handle-06", "i-slint-backend-selector/raw-window-handle-06"]
+raw-window-handle-06 = [
+  "dep:raw-window-handle-06",
+  "i-slint-backend-selector/raw-window-handle-06",
+]
 
 ## Enable the default image formats from the `image` crate, to support additional image formats in [`Image::load_from_path`]
 ## and `@image-url`. When this feature is disabled, only PNG and JPEG are supported. When enabled,
@@ -119,7 +125,11 @@ image-default-formats = ["i-slint-core/image-default-formats"]
 ## This backend also provides the `native` style.
 ## It requires Qt 5.15 or later to be installed. If Qt is not installed, the
 ## backend will not be operational
-backend-qt = ["i-slint-backend-selector/backend-qt", "std", "i-slint-backend-qt"]
+backend-qt = [
+  "i-slint-backend-selector/backend-qt",
+  "std",
+  "i-slint-backend-qt",
+]
 
 ## The [winit](https://crates.io/crates/winit) crate is used for the event loop and windowing system integration.
 ## It supports Windows, macOS, web browsers, X11 and Wayland. X11 and wayland are only available when
@@ -133,7 +143,10 @@ backend-winit-x11 = ["i-slint-backend-selector/backend-winit-x11", "std"]
 
 ## Simliar to `backend-winit` this enables the winit based event loop but only
 ## with support for the Wayland window system on Unix.
-backend-winit-wayland = ["i-slint-backend-selector/backend-winit-wayland", "std"]
+backend-winit-wayland = [
+  "i-slint-backend-selector/backend-winit-wayland",
+  "std",
+]
 
 ## Alias to a backend and renderer that depends on the platform.
 ## Will select the Qt backend on linux if present, and the winit otherwise
@@ -142,12 +155,16 @@ backend-default = ["i-slint-backend-selector/default", "i-slint-backend-qt"]
 # deprecated aliases
 renderer-winit-femtovg = ["renderer-femtovg"]
 renderer-winit-skia = ["renderer-skia"]
-renderer-winit-skia-opengl= ["renderer-skia-opengl"]
-renderer-winit-skia-vulkan= ["renderer-skia-vulkan"]
+renderer-winit-skia-opengl = ["renderer-skia-opengl"]
+renderer-winit-skia-vulkan = ["renderer-skia-vulkan"]
 renderer-winit-software = ["renderer-software"]
 
 ## Render using the [FemtoVG](https://crates.io/crates/femtovg) crate.
-renderer-femtovg = ["i-slint-backend-selector/renderer-femtovg", "dep:i-slint-renderer-femtovg", "std"]
+renderer-femtovg = [
+  "i-slint-backend-selector/renderer-femtovg",
+  "dep:i-slint-renderer-femtovg",
+  "std",
+]
 
 ## Render using [Skia](https://skia.org/).
 renderer-skia = ["i-slint-backend-selector/renderer-skia", "std"]
@@ -159,7 +176,10 @@ renderer-skia-opengl = ["i-slint-backend-selector/renderer-skia-opengl", "std"]
 renderer-skia-vulkan = ["i-slint-backend-selector/renderer-skia-vulkan", "std"]
 
 ## Render using the software renderer.
-renderer-software = ["i-slint-backend-selector/renderer-software", "i-slint-core/software-renderer"]
+renderer-software = [
+  "i-slint-backend-selector/renderer-software",
+  "i-slint-core/software-renderer",
+]
 
 ## KMS with Vulkan or EGL and libinput on Linux are used to render the application in full screen mode, without any
 ## windowing system. Requires libseat. If you don't have libseat, select `backend-linuxkms-noseat` instead. (Experimental)
@@ -167,13 +187,22 @@ backend-linuxkms = ["i-slint-backend-selector/backend-linuxkms", "std"]
 
 ## KMS with Vulkan or EGL and libinput on Linux are used to render the application in full screen mode, without any
 ## windowing system. (Experimental)
-backend-linuxkms-noseat = ["i-slint-backend-selector/backend-linuxkms-noseat", "std"]
+backend-linuxkms-noseat = [
+  "i-slint-backend-selector/backend-linuxkms-noseat",
+  "std",
+]
 
 ## Use the backend based on the [android-activity](https://docs.rs/android-activity) crate. (Using it's native activity feature)
-backend-android-activity-06 = ["i-slint-backend-android-activity/native-activity", "i-slint-backend-android-activity/aa-06"]
+backend-android-activity-06 = [
+  "i-slint-backend-android-activity/native-activity",
+  "i-slint-backend-android-activity/aa-06",
+]
 
 ## **Deprecated** Use previous version of android-activity. This is mutually exclusive with `backend-android-activity-06`.
-backend-android-activity-05 = ["i-slint-backend-android-activity/native-activity", "i-slint-backend-android-activity/aa-05"]
+backend-android-activity-05 = [
+  "i-slint-backend-android-activity/native-activity",
+  "i-slint-backend-android-activity/aa-05",
+]
 
 [dependencies]
 i-slint-core = { workspace = true }
@@ -206,17 +235,34 @@ i-slint-backend-android-activity = { workspace = true, optional = true }
 [dev-dependencies]
 slint-build = { path = "../build" }
 # The next can not be a workspace dependency because it may not have a version
-i-slint-backend-testing = {  path = "../../../internal/backends/testing", features = ["internal"] }
-i-slint-renderer-skia = {  path = "../../../internal/renderers/skia" }
+i-slint-backend-testing = { path = "../../../internal/backends/testing", features = [
+  "internal",
+] }
+i-slint-renderer-skia = { path = "../../../internal/renderers/skia" }
 serde_json = { workspace = true }
 serde = { workspace = true }
-tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "net", "io-util"]}
+tokio = { version = "1", features = [
+  "rt-multi-thread",
+  "macros",
+  "sync",
+  "net",
+  "io-util",
+] }
 async-compat = { version = "0.2.4" }
 bytemuck = { workspace = true }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 # this line is there to add the "enable" feature by default, but only on linux
-i-slint-backend-qt = { workspace = true, features = [ "enable" ], optional = true }
+i-slint-backend-qt = { workspace = true, features = [
+  "enable",
+], optional = true }
 
 [package.metadata.docs.rs]
-features = ["document-features", "log", "gettext", "renderer-software", "renderer-femtovg", "raw-window-handle-06"]
+features = [
+  "document-features",
+  "log",
+  "gettext",
+  "renderer-software",
+  "renderer-femtovg",
+  "raw-window-handle-06",
+]

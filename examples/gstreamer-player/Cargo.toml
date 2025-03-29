@@ -19,10 +19,10 @@ slint = { path = "../../api/rs/slint" }
 anyhow = { version = "1.0" }
 futures = { version = "0.3.28" }
 
-gst = {package = "gstreamer", version = "0.23.0"}
-gst-audio = {package = "gstreamer-audio", version = "0.23.0" }
-gst-video = {package = "gstreamer-video", version = "0.23.0" }
-gst-app = {package = "gstreamer-app", version = "0.23.0" }
+gst = { package = "gstreamer", version = "0.23.0" }
+gst-audio = { package = "gstreamer-audio", version = "0.23.0" }
+gst-video = { package = "gstreamer-video", version = "0.23.0" }
+gst-app = { package = "gstreamer-app", version = "0.23.0" }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 gst-gl = { package = "gstreamer-gl", version = "0.23.0" }
@@ -32,4 +32,3 @@ glutin_egl_sys = "0.7.1"
 [build-dependencies]
 slint-build = { path = "../../api/rs/build" }
 cfg_aliases = { workspace = true }
-

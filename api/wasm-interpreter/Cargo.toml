@@ -17,7 +17,13 @@ publish = false
 crate-type = ["cdylib"]
 
 [dependencies]
-slint-interpreter = { workspace = true, features = ["std", "backend-winit", "renderer-femtovg", "compat-1-2", "internal"] }
+slint-interpreter = { workspace = true, features = [
+  "std",
+  "backend-winit",
+  "renderer-femtovg",
+  "compat-1-2",
+  "internal",
+] }
 send_wrapper = { workspace = true }
 
 vtable = { workspace = true }
@@ -26,7 +32,13 @@ console_error_panic_hook = { version = "0.1.6", optional = true }
 js-sys = "0.3.44"
 wasm-bindgen-futures = { version = "0.4.18" }
 wasm-bindgen = { version = "0.2.66" }
-web-sys = { workspace = true,  features = ["Request", "RequestInit", "RequestMode", "Response", "Window"] }
+web-sys = { workspace = true, features = [
+  "Request",
+  "RequestInit",
+  "RequestMode",
+  "Response",
+  "Window",
+] }
 
 #[dev-dependencies]
 #wasm-bindgen-test = "0.3.13"

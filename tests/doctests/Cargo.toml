@@ -20,5 +20,8 @@ name = "doctests"
 walkdir = "2"
 
 [dev-dependencies]
-slint-interpreter = { workspace = true, features = ["default", "display-diagnostics"] }
+slint-interpreter = { workspace = true, features = [
+  "default",
+  "display-diagnostics",
+] }
 spin_on = { workspace = true }

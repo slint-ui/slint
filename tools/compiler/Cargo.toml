@@ -26,7 +26,13 @@ sdf-fonts = ["i-slint-compiler/sdf-fonts"]
 default = ["software-renderer", "jemalloc"]
 
 [dependencies]
-i-slint-compiler = { workspace = true, features = ["default", "display-diagnostics", "bundle-translations", "cpp", "rust"]}
+i-slint-compiler = { workspace = true, features = [
+  "default",
+  "display-diagnostics",
+  "bundle-translations",
+  "cpp",
+  "rust",
+] }
 
 clap = { workspace = true }
 proc-macro2 = "1.0.11"
