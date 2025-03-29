@@ -75,7 +75,7 @@ fn access_item_rc(pr: &llr::PropertyReference, ctx: &EvaluationContext) -> Strin
     let pr = match pr {
         llr::PropertyReference::InParent { level, parent_reference } => {
             for _ in 0..level.get() {
-                component_access = format!("{component_access}parent->");
+                component_access = format!("{component_access}parent.lock().value()->");
                 ctx = ctx.parent.as_ref().unwrap().ctx;
             }
             parent_reference
@@ -1489,14 +1489,9 @@ fn generate_item_tree(
                 .map(|idx| parent.ctx.current_sub_component().unwrap().repeated[idx].index_in_tree)
         }).map(|parent_index|
             vec![
-                format!(
-                    "auto self = reinterpret_cast<const {}*>(component.instance);",
-                    item_tree_class_name,
-                ),
-                format!(
-                    "*result = {{ self->parent->self_weak, self->parent->tree_index_of_first_child + {} - 1 }};",
-                    parent_index,
-                )
+                format!("auto self = reinterpret_cast<const {item_tree_class_name}*>(component.instance);"),
+                format!("auto parent = self->parent.lock().value();"),
+                format!("*result = {{ parent->self_weak, parent->tree_index_of_first_child + {} }};", parent_index - 1),
             ])
         .unwrap_or_default();
     target_struct.members.push((
@@ -1875,17 +1870,21 @@ fn generate_sub_component(
     init.push("self->tree_index = tree_index;".into());
 
     if let Some(parent_ctx) = &parent_ctx {
-        let parent_type = format_smolstr!(
-            "class {} const *",
-            ident(&parent_ctx.ctx.current_sub_component().unwrap().name)
-        );
-        init_parameters.push(format!("{parent_type} parent"));
+        let parent_type = ident(&parent_ctx.ctx.current_sub_component().unwrap().name);
+        init_parameters.push(format!("class {parent_type} const *parent"));
 
         target_struct.members.push((
             field_access,
-            Declaration::Var(Var { ty: parent_type, name: "parent".into(), ..Default::default() }),
+            Declaration::Var(Var {
+                ty: format_smolstr!(
+                    "vtable::VWeakMapped<slint::private_api::ItemTreeVTable, class {parent_type} const>"
+                )
+                .clone(),
+                name: "parent".into(),
+                ..Default::default()
+            }),
         ));
-        init.push("self->parent = parent;".into());
+        init.push(format!("self->parent = vtable::VRcMapped<slint::private_api::ItemTreeVTable, const {parent_type}>(parent->self_weak.lock().value(), parent);"));
     }
 
     let ctx = EvaluationContext::new_sub_component(
@@ -2945,7 +2944,7 @@ fn access_member(reference: &llr::PropertyReference, ctx: &EvaluationContext) ->
             let mut ctx = ctx;
             let mut path = "self".to_string();
             for _ in 0..level.get() {
-                write!(path, "->parent").unwrap();
+                write!(path, "->parent.lock().value()").unwrap();
                 ctx = ctx.parent.as_ref().unwrap().ctx;
             }
 
@@ -3216,7 +3215,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                 let x = ctx2.parent.unwrap();
                 ctx2 = x.ctx;
                 repeater_index = x.repeater_index;
-                write!(path, "->parent").unwrap();
+                write!(path, "->parent.lock().value()").unwrap();
             }
             let repeater_index = repeater_index.unwrap();
             let mut index_prop = llr::PropertyReference::Local {
@@ -3721,7 +3720,7 @@ fn compile_builtin_function_call(
 
                 if let llr::PropertyReference::InParent { level, .. } = parent_ref {
                     for _ in 0..level.get() {
-                        component_access = format!("{component_access}->parent");
+                        component_access = format!("{component_access}->parent.lock().value()");
                         parent_ctx = parent_ctx.parent.as_ref().unwrap().ctx;
                     }
                 };
@@ -3741,7 +3740,7 @@ fn compile_builtin_function_call(
                 let position = compile_expression(&popup.position.borrow(), &popup_ctx);
                 let close_policy = compile_expression(close_policy, ctx);
                 format!(
-                    "{window}.close_popup({component_access}->popup_id_{popup_index}); {component_access}->popup_id_{popup_index} = {window}.show_popup<{popup_window_id}>({component_access}, [=](auto self) {{ return {position}; }}, {close_policy}, {{ {parent_component} }})"
+                    "{window}.close_popup({component_access}->popup_id_{popup_index}); {component_access}->popup_id_{popup_index} = {window}.show_popup<{popup_window_id}>(&*({component_access}), [=](auto self) {{ return {position}; }}, {close_policy}, {{ {parent_component} }})"
                 )
             } else {
                 panic!("internal error: invalid args to ShowPopupWindow {arguments:?}")
@@ -3754,7 +3753,7 @@ fn compile_builtin_function_call(
 
                 if let llr::PropertyReference::InParent { level, .. } = parent_ref {
                     for _ in 0..level.get() {
-                        component_access = format!("{component_access}->parent");
+                        component_access = format!("{component_access}->parent.lock().value()");
                         parent_ctx = parent_ctx.parent.as_ref().unwrap().ctx;
                     }
                 };

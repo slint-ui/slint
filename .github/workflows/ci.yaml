@@ -18,7 +18,25 @@ env:
     MACOSX_DEPLOYMENT_TARGET: "11.0"
 
 jobs:
+    files-changed:
+      runs-on: ubuntu-latest
+      permissions:
+        pull-requests: read
+      outputs:
+        slint: ${{ steps.filter.outputs.slint }}
+        figma_inspector : ${{ steps.filter.outputs.figma_inspector }}
+        material_components : ${{ steps.filter.outputs.material_components }}
+      steps:
+        - uses: actions/checkout@v4
+        - uses: dorny/paths-filter@v3
+          id: filter
+          with:
+            token: ${{ github.token }}
+            filters: .github/ci_path_filters.yaml
+
     build_and_test:
+        needs: files-changed
+        if: needs.files-changed.outputs.slint == 'true'
         env:
             DYLD_FRAMEWORK_PATH: /Users/runner/work/slint/Qt/6.2.2/macos/lib
             QT_QPA_PLATFORM: offscreen
@@ -101,6 +119,8 @@ jobs:
                       tests/screenshots/references
 
     node_test:
+        needs: files-changed
+        if: needs.files-changed.outputs.slint == 'true'
         env:
             RUSTFLAGS: -D warnings
             CARGO_PROFILE_DEV_DEBUG: 0
@@ -146,6 +166,8 @@ jobs:
               run: pnpm check
 
     python_test:
+        needs: files-changed
+        if: needs.files-changed.outputs.slint == 'true'
         env:
             DYLD_FRAMEWORK_PATH: /Users/runner/work/slint/Qt/5.15.2/clang_64/lib
             QT_QPA_PLATFORM: offscreen
@@ -191,6 +213,8 @@ jobs:
               run: uv tool run ruff check
 
     cpp_test_driver:
+        needs: files-changed
+        if: needs.files-changed.outputs.slint == 'true'
         env:
             DYLD_FRAMEWORK_PATH: /Users/runner/work/slint/Qt/5.15.2/clang_64/lib
             QT_QPA_PLATFORM: offscreen
@@ -227,6 +251,8 @@ jobs:
               run: cargo test --verbose -p  test-driver-cpp --features slint-cpp/backend-qt
 
     cpp_cmake:
+        needs: files-changed
+        if: needs.files-changed.outputs.slint == 'true'
         env:
             DYLD_FRAMEWORK_PATH: /Users/runner/work/slint/Qt/6.5.1/clang_64/lib
             QT_QPA_PLATFORM: offscreen
@@ -322,8 +348,9 @@ jobs:
                   buildWithCMakeArgs: "--config Release"
 
     vsce_build_test:
+        needs: files-changed
+        if: needs.files-changed.outputs.slint == 'true'
         runs-on: ubuntu-22.04
-
         steps:
             - uses: actions/checkout@v4
             - uses: pnpm/action-setup@v4.1.0
@@ -357,6 +384,8 @@ jobs:
 
     # test to compile the mcu backend for the arm target (no_std)
     mcu:
+        needs: files-changed
+        if: needs.files-changed.outputs.slint == 'true'
         env:
             SLINT_FONT_SIZES: 8,11,10,12,13,14,15,16,18,20,22,24,32
             RUSTFLAGS: --cfg slint_int_coord -D warnings
@@ -382,6 +411,8 @@ jobs:
 
     # test to compile the mcu backend for the arm target (no_std) using embassy
     mcu-embassy:
+        needs: files-changed
+        if: needs.files-changed.outputs.slint == 'true'
         env:
             SLINT_FONT_SIZES: 8,11,10,12,13,14,15,16,18,20,22,24,32
             RUSTFLAGS: --cfg slint_int_coord -D warnings
@@ -416,6 +447,8 @@ jobs:
 #              run: cargo +esp check -p printerdemo_mcu --target xtensa-esp32s3-none-elf --no-default-features --features=mcu-board-support/esp32-s3-box  --config examples/mcu-board-support/esp32_s3_box/cargo-config.toml --release
 
     ffi_32bit_build:
+        needs: files-changed
+        if: needs.files-changed.outputs.slint == 'true'
         runs-on: ubuntu-22.04
         steps:
             - uses: actions/checkout@v4
@@ -429,6 +462,8 @@ jobs:
               run: cross check --target=armv7-unknown-linux-gnueabihf -p slint-cpp --no-default-features --features=testing,interpreter,std
 
     docs:
+        needs: files-changed
+        if: needs.files-changed.outputs.slint == 'true'
         uses: ./.github/workflows/build_docs.yaml
         secrets: inherit
         with:
@@ -436,14 +471,20 @@ jobs:
           app-id: ${{ vars.READ_WRITE_APP_ID }}
 
     wasm:
+        needs: files-changed
+        if: needs.files-changed.outputs.slint == 'true'
         uses: ./.github/workflows/wasm_editor_and_interpreter.yaml
 
     wasm_demo:
+        needs: files-changed
+        if: needs.files-changed.outputs.slint == 'true'
         uses: ./.github/workflows/wasm_demos.yaml
         with:
           build_artifacts: false
 
     tree-sitter:
+        needs: files-changed
+        if: needs.files-changed.outputs.slint == 'true'
         uses: ./.github/workflows/tree_sitter.yaml
         with:
             latest: false
@@ -452,6 +493,8 @@ jobs:
     # Checkout a old version of the tests and example, then run the slint-updater on them
     # and check that it worked with the interpreter test.
     updater_test:
+        needs: files-changed
+        if: needs.files-changed.outputs.slint == 'true'
         env:
             SLINT_NO_QT: 1
             CARGO_INCREMENTAL: false
@@ -521,6 +564,8 @@ jobs:
 
     # Test that the formater don't introduce slint compilation error
     fmt_test:
+        needs: files-changed
+        if: needs.files-changed.outputs.slint == 'true'
         env:
             SLINT_NO_QT: 1
             CARGO_INCREMENTAL: false
@@ -552,6 +597,8 @@ jobs:
                   git diff --exit-code
 
     esp-idf-quick:
+        needs: files-changed
+        if: needs.files-changed.outputs.slint == 'true'
         runs-on: ubuntu-22.04
         container: espressif/idf:release-v5.2
         steps:
@@ -571,6 +618,8 @@ jobs:
                   idf.py build
 
     android:
+        needs: files-changed
+        if: needs.files-changed.outputs.slint == 'true'
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v4
@@ -606,6 +655,8 @@ jobs:
               run: cargo apk build -p usecases --target aarch64-linux-android --lib
 
     miri:
+        needs: files-changed
+        if: needs.files-changed.outputs.slint == 'true'
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v4
@@ -618,6 +669,8 @@ jobs:
               run: cargo miri test -p vtable -p const-field-offset -p i-slint-common
 
     test-figma-inspector:
+        needs: files-changed
+        if: needs.files-changed.outputs.figma_inspector == 'true'
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v4
