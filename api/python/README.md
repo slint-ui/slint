@@ -300,3 +300,7 @@ data = slint.loader.app.MyData(name = "Simon")
 data.age = 10
 main_window.data = data
 ```
+
+## Third-Party Licenses
+
+For a list of the third-party licenses of all dependencies, see the separate [Third-Party Licenses page](thirdparty.html).

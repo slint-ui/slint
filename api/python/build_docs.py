@@ -4,6 +4,7 @@
 import slint
 import pdoc
 import pathlib
+import subprocess
 
 
 doc = pdoc.doc.Module(slint)
@@ -29,3 +30,7 @@ index = pdoc.render.html_index(all_modules)
 
 search = pdoc.render.search_index(all_modules)
 (output_directory / "search.js").write_bytes(search.encode())
+
+subprocess.call(
+    "cargo about generate thirdparty.hbs -o docs/thirdparty.html", shell=True
+)
