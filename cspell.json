@@ -60,7 +60,11 @@
             ]
         },
         {
-            "languageId": ["markdown", "md", "mdx"],
+            "languageId": [
+                "markdown",
+                "md",
+                "mdx"
+            ],
             "words": [
                 "Espressif",
                 "linebuffer",
@@ -138,6 +142,7 @@
         "pixmap",
         "prestart",
         "printerdemo",
+        "pythonw",
         "riscv",
         "rowspan",
         "rustc",
