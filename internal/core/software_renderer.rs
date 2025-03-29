@@ -1178,28 +1178,33 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> RenderToBuffer<'_, B> {
     }
 
     fn process_texture_impl(&mut self, geometry: PhysicalRect, texture: SceneTexture<'_>) {
-        if !self.buffer.draw_texture(
-            geometry.origin.x,
-            geometry.origin.y,
-            geometry.size.width,
-            geometry.size.height,
-            target_pixel_buffer::Texture {
-                bytes: texture.data,
-                pixel_format: texture.format,
-                pixel_stride: texture.pixel_stride,
-                width: texture.source_size().width as u16,
-                height: texture.source_size().height as u16,
-                delta_x: texture.extra.dx.0,
-                delta_y: texture.extra.dy.0,
-                source_offset_x: texture.extra.off_x.0,
-                source_offset_y: texture.extra.off_y.0,
-            },
-            texture.extra.colorize.as_argb_encoded(),
-            texture.extra.alpha,
-            texture.extra.rotation,
-            CompositionMode::default(),
-        ) {
-            self.foreach_region(&geometry, |buffer, rect, extra_left_clip, extra_right_clip| {
+        self.foreach_region(&geometry, |buffer, rect, extra_left_clip, extra_right_clip| {
+            let tex_src_off_x = (texture.extra.off_x + Fixed::from_integer(extra_left_clip as u16))
+                * Fixed::from_fixed(texture.extra.dx);
+            let tex_src_off_y = (texture.extra.off_y
+                + Fixed::from_integer((rect.origin.y - geometry.origin.y) as u16))
+                * Fixed::from_fixed(texture.extra.dy);
+            if !buffer.draw_texture(
+                rect.origin.x,
+                rect.origin.y,
+                rect.size.width,
+                rect.size.height,
+                target_pixel_buffer::Texture {
+                    bytes: texture.data,
+                    pixel_format: texture.format,
+                    pixel_stride: texture.pixel_stride,
+                    width: texture.source_size().width as u16,
+                    height: texture.source_size().height as u16,
+                    delta_x: texture.extra.dx.0,
+                    delta_y: texture.extra.dy.0,
+                    source_offset_x: tex_src_off_x.0,
+                    source_offset_y: tex_src_off_y.0,
+                },
+                texture.extra.colorize.as_argb_encoded(),
+                texture.extra.alpha,
+                texture.extra.rotation,
+                CompositionMode::default(),
+            ) {
                 let begin = rect.min_x();
                 let end = rect.max_x();
                 for l in rect.y_range() {
@@ -1212,8 +1217,8 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> RenderToBuffer<'_, B> {
                         extra_right_clip,
                     );
                 }
-            });
-        }
+            }
+        });
     }
 
     fn process_rectangle_impl(
@@ -1222,15 +1227,15 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> RenderToBuffer<'_, B> {
         color: PremultipliedRgbaColor,
         composition_mode: CompositionMode,
     ) {
-        if !self.buffer.fill_rectangle(
-            geometry.origin.x,
-            geometry.origin.y,
-            geometry.size.width,
-            geometry.size.height,
-            color,
-            composition_mode,
-        ) {
-            self.foreach_region(&geometry, |buffer, rect, _extra_left_clip, _extra_right_clip| {
+        self.foreach_region(&geometry, |buffer, rect, _extra_left_clip, _extra_right_clip| {
+            if !buffer.fill_rectangle(
+                rect.origin.x,
+                rect.origin.y,
+                rect.size.width,
+                rect.size.height,
+                color,
+                composition_mode,
+            ) {
                 let begin = rect.min_x();
                 let end = rect.max_x();
 
@@ -1252,8 +1257,8 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> RenderToBuffer<'_, B> {
                         }
                     }
                 }
-            })
-        };
+            }
+        })
     }
 }
 
