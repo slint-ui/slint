@@ -90,6 +90,22 @@ app.Logic.the_value = 42;
 // ...
 ```
 </TabItem>
+<TabItem label="Python">
+
+```python
+import slint
+
+class App(slint.loader.app.App):
+    @slint.callback(global_name="Logic")
+    def magic_operation(self, value: int) -> int:
+        return value * 2
+
+app = new App()
+app.Logic.the_value = 42
+
+# ...
+```
+</TabItem>
 </Tabs>
 
 It's possible to re-expose a callback or properties from a global using the two way binding syntax.

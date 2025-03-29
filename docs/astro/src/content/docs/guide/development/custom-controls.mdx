@@ -146,6 +146,31 @@ for each accessible callback in `Recipe`. In this case we will have `get_counter
 set up the callback.
 
 </TabItem>
+
+<TabItem label="Python">
+
+In Python, you can write:
+
+
+```python
+import slint
+
+class App(slint.loader.recipe.Recipe):
+    @slint.callback
+    def button_pressed(self):
+        value = self.counter
+        value = value + 1
+        self.counter = value
+
+app = App()
+app.run()
+```
+
+The Slint auto-loader provides a `Recipe` class originating from `recipe.slint`, which is subclassed.
+The `Recipe` class provides the `counter` property, and the `@slint.callback` decorator connects the
+`button_pressed` method with the `button-pressed` callback.
+
+</TabItem>
 </Tabs>
 
 ## Use Property Bindings to Synchronize Controls
@@ -485,6 +510,21 @@ recipe.Logic.to_upper_case = (str) => {
     return str.toUpperCase();
 };
 // ...
+```
+</TabItem>
+<TabItem label="Python">
+
+In Python, the callback is assocated with the `global_name` parameter of the `@slint.callback` decorator:
+
+```python
+import slint
+
+class App(slint.loader.recipe.Recipe):
+    @slint.callback(global_name="Logic")
+    def to_upper_case(&self, value: str) -> str:
+        return value.upper()
+
+# ...
 ```
 </TabItem>
 </Tabs>
