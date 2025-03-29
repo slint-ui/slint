@@ -121,6 +121,7 @@ Refer to the README of each language directory in the `api` folder:
 - [C++](api/cpp) ([Documentation][#15] | [Getting Started Template][#17])
 - [Rust](api/rs/slint) [![Crates.io][#18]][#19] ([Documentation][#20] | [Tutorial Video][#22] | [Getting Started Template][#23])
 - [JavaScript/NodeJS (Beta)](api/node) [![npm][#24]][#25] ([Documentation][#26] | [Getting Started Template][#28])
+- [Python (Beta)](api/python) [![pypi][#31]][#32] ([Documentation][#3] | [Getting Started Template][#28])
 
 ## Architecture
 
@@ -259,4 +260,7 @@ You can of course also contact us privately via email to [info@slint.dev](mailto
 [#28]: https://github.com/slint-ui/slint-nodejs-template
 [#29]: ./demos/weather-demo/docs/img/desktop-preview.png "Weather Demo"
 [#30]: https://slint.dev/demos/weather-demo/
-
+[#31]: https://img.shields.io/pypi/v/slint
+[#32]: https://pypi.org/project/slint/
+[#33]: http://snapshots.slint.dev/master/docs/python/
+[#34]: https://github.com/slint-ui/slint-python-template
