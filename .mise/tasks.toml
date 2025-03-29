@@ -23,6 +23,10 @@ tools = { "ruff" = "latest" }
 description = "Run cargo fmt --all"
 run = "cargo fmt --all"
 
+["fix:toml:format"]
+description = "Run taplo format"
+run = "taplo format"
+
 ["fix:ts:format"]
 description = "Run pnpm format:fix"
 run = "pnpm run format:fix"
@@ -45,8 +49,12 @@ depends = ["prepare:pnpm-install", "build:lsp:wasm", "build:interpreter:wasm"]
 ["build:lsp:wasm"]
 description = "Build the LSP (WASM)"
 dir = "editors/vscode"
-sources = [ "tools/lsp/Cargo.toml", "tools/lsp/**/*.rs", "tools/lsp/ui/**/*.slint" ]
-outputs = [ "tools/lsp/pkg/*" ]
+sources = [
+  "tools/lsp/Cargo.toml",
+  "tools/lsp/**/*.rs",
+  "tools/lsp/ui/**/*.slint",
+]
+outputs = ["tools/lsp/pkg/*"]
 run = "pnpm run build:wasm_lsp"
 tools = { "npm:wasm-pack" = "latest" }
 depends = ["prepare:pnpm-install"]
@@ -54,8 +62,11 @@ depends = ["prepare:pnpm-install"]
 ["build:interpreter:wasm"]
 description = "Build the Slint interpreteer (WASM)"
 dir = "tools/slintpad"
-sources = [ "api/wasm-interpreter/Cargo.toml", "api/wasm-interpreter/src/**/*.rs" ]
-outputs = [ "api/wasm-interpreter/pkg/*" ]
+sources = [
+  "api/wasm-interpreter/Cargo.toml",
+  "api/wasm-interpreter/src/**/*.rs",
+]
+outputs = ["api/wasm-interpreter/pkg/*"]
 run = "pnpm run build:wasm_interpreter"
 tools = { "npm:wasm-pack" = "latest" }
 depends = ["prepare:pnpm-install"]
@@ -68,7 +79,16 @@ run = "pnpm install --frozen-lockfile"
 
 ["ci:autofix:fix"]
 description = "CI autofix job -- fix steps"
-depends = ["fix:cpp:format", "fix:legal:copyright", "fix:python:format", "fix:rust:format", "fix:text:trailing_spaces", "fix:ts:biome", "fix:ts:format"]
+depends = [
+  "fix:cpp:format",
+  "fix:legal:copyright",
+  "fix:python:format",
+  "fix:rust:format",
+  "fix:text:trailing_spaces",
+  "fix:toml:format",
+  "fix:ts:biome",
+  "fix:ts:format",
+]
 
 ["ci:autofix:lint"]
 description = "CI autofix job -- lint steps"

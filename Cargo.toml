@@ -3,100 +3,100 @@
 
 [workspace]
 members = [
-    'api/cpp',
-    'api/node',
-    'api/rs/build',
-    'api/rs/macros',
-    'api/rs/slint',
-    'api/python',
-    'api/wasm-interpreter',
-    'examples/7guis',
-    'examples/gallery',
-    'examples/imagefilter/rust',
-    'examples/maps',
-    'examples/memory',
-    'examples/opengl_underlay',
-    'examples/opengl_texture',
-    'examples/ffmpeg',
-    'examples/gstreamer-player',
-    'examples/plotter',
-    'demos/printerdemo/rust',
-    'demos/printerdemo_mcu',
-    'examples/slide_puzzle',
-    'examples/todo/rust',
-    'examples/todo-mvc/rust',
-    'examples/virtual_keyboard/rust',
-    'examples/carousel/rust',
-    'demos/energy-monitor',
-    'demos/home-automation/rust',
-    'examples/mcu-board-support',
-    'examples/mcu-embassy',
-    'examples/uefi-demo',
-    'demos/weather-demo',
-    'demos/usecases/rust',
-    'helper_crates/const-field-offset',
-    'helper_crates/vtable',
-    'helper_crates/vtable/macro',
-    'internal/backends/winit',
-    'internal/backends/android-activity',
-    'internal/backends/qt',
-    'internal/backends/selector',
-    'internal/backends/testing',
-    'internal/backends/linuxkms',
-    'internal/renderers/skia',
-    'internal/renderers/femtovg',
-    'internal/common',
-    'internal/compiler',
-    'internal/compiler/parser-test-macro',
-    'internal/core',
-    'internal/core-macros',
-    'internal/interpreter',
-    'tests/doctests',
-    'tests/driver/cpp',
-    'tests/driver/driverlib',
-    'tests/driver/interpreter',
-    'tests/driver/nodejs',
-    'tests/driver/rust',
-    'tests/screenshots',
-    'tests/manual/windowattributes',
-    'tools/compiler',
-    'tools/docsnapper',
-    'tools/figma_import',
-    'tools/lsp',
-    'tools/updater',
-    'tools/viewer',
-    'tools/tr-extractor',
-    'xtask',
+  'api/cpp',
+  'api/node',
+  'api/rs/build',
+  'api/rs/macros',
+  'api/rs/slint',
+  'api/python',
+  'api/wasm-interpreter',
+  'examples/7guis',
+  'examples/gallery',
+  'examples/imagefilter/rust',
+  'examples/maps',
+  'examples/memory',
+  'examples/opengl_underlay',
+  'examples/opengl_texture',
+  'examples/ffmpeg',
+  'examples/gstreamer-player',
+  'examples/plotter',
+  'demos/printerdemo/rust',
+  'demos/printerdemo_mcu',
+  'examples/slide_puzzle',
+  'examples/todo/rust',
+  'examples/todo-mvc/rust',
+  'examples/virtual_keyboard/rust',
+  'examples/carousel/rust',
+  'demos/energy-monitor',
+  'demos/home-automation/rust',
+  'examples/mcu-board-support',
+  'examples/mcu-embassy',
+  'examples/uefi-demo',
+  'demos/weather-demo',
+  'demos/usecases/rust',
+  'helper_crates/const-field-offset',
+  'helper_crates/vtable',
+  'helper_crates/vtable/macro',
+  'internal/backends/winit',
+  'internal/backends/android-activity',
+  'internal/backends/qt',
+  'internal/backends/selector',
+  'internal/backends/testing',
+  'internal/backends/linuxkms',
+  'internal/renderers/skia',
+  'internal/renderers/femtovg',
+  'internal/common',
+  'internal/compiler',
+  'internal/compiler/parser-test-macro',
+  'internal/core',
+  'internal/core-macros',
+  'internal/interpreter',
+  'tests/doctests',
+  'tests/driver/cpp',
+  'tests/driver/driverlib',
+  'tests/driver/interpreter',
+  'tests/driver/nodejs',
+  'tests/driver/rust',
+  'tests/screenshots',
+  'tests/manual/windowattributes',
+  'tools/compiler',
+  'tools/docsnapper',
+  'tools/figma_import',
+  'tools/lsp',
+  'tools/updater',
+  'tools/viewer',
+  'tools/tr-extractor',
+  'xtask',
 ]
 
 default-members = [
-    'api/rs/build',
-    'api/rs/slint',
-    'examples/gallery',
-    'examples/memory',
-    'demos/printerdemo/rust',
-    'examples/slide_puzzle',
-    'examples/todo/rust',
-    'examples/virtual_keyboard/rust',
-    'examples/carousel/rust',
-    'demos/energy-monitor',
-    'internal/backends/winit',
-    'internal/backends/qt',
-    'internal/backends/selector',
-    'internal/compiler',
-    'internal/core',
-    'internal/interpreter',
-    'tests/doctests',
-    'tests/driver/interpreter',
-    'tests/driver/rust',
-    'tests/screenshots',
-    'tools/compiler',
-    'tools/figma_import',
-    'tools/lsp',
-    'tools/viewer',
+  'api/rs/build',
+  'api/rs/slint',
+  'examples/gallery',
+  'examples/memory',
+  'demos/printerdemo/rust',
+  'examples/slide_puzzle',
+  'examples/todo/rust',
+  'examples/virtual_keyboard/rust',
+  'examples/carousel/rust',
+  'demos/energy-monitor',
+  'internal/backends/winit',
+  'internal/backends/qt',
+  'internal/backends/selector',
+  'internal/compiler',
+  'internal/core',
+  'internal/interpreter',
+  'tests/doctests',
+  'tests/driver/interpreter',
+  'tests/driver/rust',
+  'tests/screenshots',
+  'tools/compiler',
+  'tools/figma_import',
+  'tools/lsp',
+  'tools/viewer',
 ]
 
-resolver="2"
+resolver = "2"
 
 [workspace.package]
 description = "GUI toolkit to efficiently develop fluid graphical user interfaces for embedded devices and desktop applications"
@@ -113,7 +113,7 @@ version = "1.11.0"
 [workspace.dependencies]
 i-slint-backend-android-activity = { version = "=1.11.0", path = "internal/backends/android-activity", default-features = false }
 i-slint-backend-linuxkms = { version = "=1.11.0", path = "internal/backends/linuxkms", default-features = false }
-i-slint-backend-qt = { version = "=1.11.0", path="internal/backends/qt", default-features = false }
+i-slint-backend-qt = { version = "=1.11.0", path = "internal/backends/qt", default-features = false }
 i-slint-backend-selector = { version = "=1.11.0", path = "internal/backends/selector", default-features = false }
 i-slint-backend-testing = { version = "=1.11.0", path = "internal/backends/testing", default-features = false }
 i-slint-backend-winit = { version = "=1.11.0", path = "internal/backends/winit", default-features = false }
@@ -139,15 +139,31 @@ cfg_aliases = { version = "0.2.0" }
 clap = { version = "4.0", features = ["derive", "wrap_help"] }
 clru = { version = "0.6.0" }
 css-color-parser2 = { version = "1.0.1" }
-derive_more = { version = "2.0.0", default-features = false, features = ["deref", "deref_mut", "into", "from", "add", "add_assign", "mul", "not", "display"] }
+derive_more = { version = "2.0.0", default-features = false, features = [
+  "deref",
+  "deref_mut",
+  "into",
+  "from",
+  "add",
+  "add_assign",
+  "mul",
+  "not",
+  "display",
+] }
 euclid = { version = "0.22.1", default-features = false }
 fontdb = { version = "0.23.0", default-features = false }
 fontdue = { version = "0.9.0" }
 glutin = { version = "0.32.0", default-features = false }
-image = { version = "0.25", default-features = false, features = [ "png", "jpeg" ] }
+image = { version = "0.25", default-features = false, features = [
+  "png",
+  "jpeg",
+] }
 itertools = { version = "0.14" }
 log = { version = "0.4.17" }
-resvg = { version= "0.45.0", default-features = false, features = ["text", "raster-images"] }
+resvg = { version = "0.45.0", default-features = false, features = [
+  "text",
+  "raster-images",
+] }
 rowan = { version = "0.16.1" }
 rustybuzz = { version = "0.20.0" }
 send_wrapper = { version = "0.6.0" }
@@ -161,7 +177,9 @@ ttf-parser = { version = "0.25" }
 web-sys = { version = "0.3.72", default-features = false }
 smol_str = { version = "0.3.1" }
 rayon = { version = "1.10.0", default-features = false }
-raw-window-handle-06 = { package = "raw-window-handle", version = "0.6", features = ["alloc"] }
+raw-window-handle-06 = { package = "raw-window-handle", version = "0.6", features = [
+  "alloc",
+] }
 unicode-segmentation = { version = "1.12.0" }
 glow = { version = "0.16" }
 tikv-jemallocator = { version = "0.6" }

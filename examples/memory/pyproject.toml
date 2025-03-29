@@ -7,9 +7,7 @@ version = "1.10.0"
 description = "Slint Memory Tiles Python Example"
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = [
-    "slint",
-]
+dependencies = ["slint"]
 
 [tool.uv.sources]
 slint = { path = "../../api/python", editable = true }

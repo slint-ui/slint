@@ -11,12 +11,19 @@ license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
 version.workspace = true
-links = "i_slint_backend_qt" # just so we can pass metadata to the dependee's build script
+links = "i_slint_backend_qt"                   # just so we can pass metadata to the dependee's build script
 
 [features]
 rtti = ["i-slint-core/rtti"]
 default = ["enable"]
-enable = ["dep:cpp", "dep:lyon_path", "dep:pin-project", "dep:pin-weak", "dep:qttypes", "dep:cpp_build"]
+enable = [
+  "dep:cpp",
+  "dep:lyon_path",
+  "dep:pin-project",
+  "dep:pin-weak",
+  "dep:qttypes",
+  "dep:cpp_build",
+]
 
 [lib]
 path = "lib.rs"
@@ -36,4 +43,4 @@ pin-weak = { version = "1", optional = true }
 qttypes = { version = "0.2.7", default-features = false, optional = true }
 
 [build-dependencies]
-cpp_build = { version =  "0.5.5", optional = true }
+cpp_build = { version = "0.5.5", optional = true }

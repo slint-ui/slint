@@ -4,10 +4,6 @@
 # cspell:ignore pipx
 
 [tools]
-"aqua:sharkdp/fd" = "latest"
-"rust" = { version = "stable", profile = "default" }
-node = "20"
-pnpm = "latest"
 
 ## C++:
 "ubi:EmbarkStudios/cargo-about" = "0.6.6"
@@ -17,5 +13,11 @@ pnpm = "latest"
 # doxygen = "latest" ## This is not available anywhere
 # graphviz = "latest" ## This is not available anywhere
 
+"aqua:sharkdp/fd" = "latest"
+"rust" = { version = "stable", profile = "default" }
+node = "20"
+pnpm = "latest"
+taplo = "latest"
+
 [task_config]
-includes = [ ".mise/tasks.toml", ".mise/tasks" ]
+includes = [".mise/tasks.toml", ".mise/tasks"]

@@ -20,7 +20,13 @@ path = "lib.rs"
 
 [features]
 
-default = ["backend-default", "renderer-femtovg", "renderer-software", "accessibility", "compat-1-2"]
+default = [
+  "backend-default",
+  "renderer-femtovg",
+  "renderer-software",
+  "accessibility",
+  "compat-1-2",
+]
 
 ## Mandatory feature:
 ## This feature is required to keep the compatibility with Slint 1.2
@@ -66,7 +72,10 @@ backend-winit-x11 = ["i-slint-backend-selector/backend-winit-x11", "std"]
 
 ## Simliar to `backend-winit` this enables the winit based event loop but only
 ## with support for the Wayland window system on Unix.
-backend-winit-wayland = ["i-slint-backend-selector/backend-winit-wayland", "std"]
+backend-winit-wayland = [
+  "i-slint-backend-selector/backend-winit-wayland",
+  "std",
+]
 
 ## KMS with Vulkan or EGL and libinput on Linux are used to render the application in full screen mode, without any
 ## windowing system. Requires libseat. If you don't have libseat, select `backend-linuxkms-noseat` instead. (Experimental)
@@ -74,7 +83,10 @@ backend-linuxkms = ["i-slint-backend-selector/backend-linuxkms", "std"]
 
 ## KMS with Vulkan or EGL and libinput on Linux are used to render the application in full screen mode, without any
 ## windowing system. Requires libseat. (Experimental)
-backend-linuxkms-noseat = ["i-slint-backend-selector/backend-linuxkms-noseat", "std"]
+backend-linuxkms-noseat = [
+  "i-slint-backend-selector/backend-linuxkms-noseat",
+  "std",
+]
 
 ## Alias to a backend and renderer that depends on the platform.
 ## Will select the Qt backend on linux if present, and the winit otherwise
@@ -100,8 +112,8 @@ renderer-software = ["i-slint-backend-selector/renderer-software"]
 # deprecated aliases
 renderer-winit-femtovg = ["renderer-femtovg"]
 renderer-winit-skia = ["renderer-skia"]
-renderer-winit-skia-opengl= ["renderer-skia-opengl"]
-renderer-winit-skia-vulkan= ["renderer-skia-vulkan"]
+renderer-winit-skia-opengl = ["renderer-skia-opengl"]
+renderer-winit-skia-vulkan = ["renderer-skia-vulkan"]
 renderer-winit-software = ["renderer-software"]
 
 ## Enable integration with operating system provided accessibility APIs (default: enabled)
@@ -114,7 +126,10 @@ accessibility = ["i-slint-backend-selector/accessibility"]
 ## [`Window::window_handle()`] function that returns a struct that implements
 ## [HasWindowHandle](raw_window_handle_06::HasWindowHandle) and
 ## [HasDisplayHandle](raw_window_handle_06::HasDisplayHandle) implementation.
-raw-window-handle-06 = ["dep:raw-window-handle-06", "i-slint-backend-selector/raw-window-handle-06"]
+raw-window-handle-06 = [
+  "dep:raw-window-handle-06",
+  "i-slint-backend-selector/raw-window-handle-06",
+]
 
 ## Features used internally by Slint tooling that are not stable and come without
 ## any stability guarantees whatsoever.
@@ -130,7 +145,7 @@ internal-json = ["dep:serde_json"]
 
 
 [dependencies]
-i-slint-compiler = { workspace = true  }
+i-slint-compiler = { workspace = true }
 i-slint-common = { workspace = true }
 i-slint-core = { workspace = true, features = ["default", "rtti"] }
 i-slint-backend-selector = { workspace = true, features = ["rtti"] }
@@ -151,11 +166,13 @@ unicode-segmentation = { workspace = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 i-slint-backend-winit = { workspace = true }
-web-sys = { workspace = true, features=[ "Navigator" ] }
+web-sys = { workspace = true, features = ["Navigator"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 # this line is there to add the "enable" feature by default, but only on linux
-i-slint-backend-qt = { workspace = true, features = [ "enable" ], optional = true }
+i-slint-backend-qt = { workspace = true, features = [
+  "enable",
+], optional = true }
 
 [dev-dependencies]
 i-slint-backend-testing = { path = "../../internal/backends/testing" }

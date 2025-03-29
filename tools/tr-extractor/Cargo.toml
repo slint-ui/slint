@@ -12,11 +12,14 @@ license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
 version.workspace = true
-categories = [ "gui", "command-line-utilities", "development-tools" ]
+categories = ["gui", "command-line-utilities", "development-tools"]
 
 [dependencies]
-i-slint-compiler = { workspace = true, features = ["default", "display-diagnostics"] }
-chrono = {version = "0.4.24", default-features = false, features = ["clock"] }
+i-slint-compiler = { workspace = true, features = [
+  "default",
+  "display-diagnostics",
+] }
+chrono = { version = "0.4.24", default-features = false, features = ["clock"] }
 clap = { workspace = true }
 polib = "0.2"
 smol_str = { workspace = true }

@@ -9,30 +9,26 @@ build-backend = "maturin"
 name = "slint"
 version = "1.11.0a1"
 requires-python = ">= 3.12"
-authors = [
-    {name = "Slint Team", email = "info@slint.dev"},
-]
+authors = [{ name = "Slint Team", email = "info@slint.dev" }]
 classifiers = [
-    "Development Status :: 3 - Alpha",
-    "Environment :: MacOS X",
-    "Environment :: X11 Applications",
-    "Environment :: Win32 (MS Windows)",
-    "Intended Audience :: Developers",
-    "Programming Language :: Python",
-    "Programming Language :: Rust",
-    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
-    "License :: Other/Proprietary License",
-    "Topic :: Software Development",
-    "Topic :: Software Development :: Libraries :: Application Frameworks",
-    "Topic :: Software Development :: User Interfaces",
-    "Topic :: Software Development :: Widget Sets",
-    "Programming Language :: Python",
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
+  "Development Status :: 3 - Alpha",
+  "Environment :: MacOS X",
+  "Environment :: X11 Applications",
+  "Environment :: Win32 (MS Windows)",
+  "Intended Audience :: Developers",
+  "Programming Language :: Python",
+  "Programming Language :: Rust",
+  "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+  "License :: Other/Proprietary License",
+  "Topic :: Software Development",
+  "Topic :: Software Development :: Libraries :: Application Frameworks",
+  "Topic :: Software Development :: User Interfaces",
+  "Topic :: Software Development :: Widget Sets",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
 ]
-dependencies = [
-    "maturin>=1.8.2",
-]
+dependencies = ["maturin>=1.8.2"]
 
 [project.urls]
 Homepage = "https://slint.dev"
@@ -46,19 +42,23 @@ dev = ["pytest"]
 
 [dependency-groups]
 dev = [
-    "mypy>=1.15.0",
-    "nox>=2024.10.9",
-    "pdoc>=15.0.1",
-    "pytest>=8.3.4",
-    "ruff>=0.9.6",
+  "mypy>=1.15.0",
+  "nox>=2024.10.9",
+  "pdoc>=15.0.1",
+  "pytest>=8.3.4",
+  "ruff>=0.9.6",
 ]
 
 [tool.uv]
 # Rebuild package when any rust files change
-cache-keys = [{file = "pyproject.toml"}, {file = "Cargo.toml"}, {file = "**/*.rs"}]
+cache-keys = [
+  { file = "pyproject.toml" },
+  { file = "Cargo.toml" },
+  { file = "**/*.rs" },
+]
 # Uncomment to build rust code in development mode
 # config-settings = { build-args = '--profile=dev' }
 
 [tool.mypy]
-strict=true
-disallow_subclassing_any=false
+strict = true
+disallow_subclassing_any = false

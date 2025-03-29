@@ -16,10 +16,10 @@ homepage = "https://slint.dev"
 
 [dependencies]
 slint = { path = "../../../api/rs/slint", default-features = false, features = [
-    "compat-1-2",
-    "unsafe-single-threaded",
-    "libm",
-    "renderer-software",
+  "compat-1-2",
+  "unsafe-single-threaded",
+  "libm",
+  "renderer-software",
 ] }
 i-slint-core-macros = { path = "../../../internal/core-macros" }
 

@@ -19,13 +19,43 @@ path = "lib.rs"
 # Note, these features need to be kept in sync (along with their defaults) in
 # the C++ crate's CMakeLists.txt
 [features]
-wayland = ["winit/wayland", "winit/wayland-csd-adwaita", "glutin?/wayland", "glutin-winit?/wayland", "copypasta/wayland", "i-slint-renderer-skia?/wayland", "softbuffer?/wayland", "softbuffer?/wayland-dlopen"]
-x11 = ["winit/x11", "glutin?/x11", "glutin?/glx", "glutin-winit?/x11", "glutin-winit?/glx", "copypasta/x11", "i-slint-renderer-skia?/x11", "softbuffer?/x11", "softbuffer?/x11-dlopen"]
-renderer-femtovg = ["dep:i-slint-renderer-femtovg", "dep:glutin", "dep:glutin-winit"]
+wayland = [
+  "winit/wayland",
+  "winit/wayland-csd-adwaita",
+  "glutin?/wayland",
+  "glutin-winit?/wayland",
+  "copypasta/wayland",
+  "i-slint-renderer-skia?/wayland",
+  "softbuffer?/wayland",
+  "softbuffer?/wayland-dlopen",
+]
+x11 = [
+  "winit/x11",
+  "glutin?/x11",
+  "glutin?/glx",
+  "glutin-winit?/x11",
+  "glutin-winit?/glx",
+  "copypasta/x11",
+  "i-slint-renderer-skia?/x11",
+  "softbuffer?/x11",
+  "softbuffer?/x11-dlopen",
+]
+renderer-femtovg = [
+  "dep:i-slint-renderer-femtovg",
+  "dep:glutin",
+  "dep:glutin-winit",
+]
 renderer-skia = ["i-slint-renderer-skia", "winit/rwh_06"]
 renderer-skia-opengl = ["renderer-skia", "i-slint-renderer-skia/opengl"]
 renderer-skia-vulkan = ["renderer-skia", "i-slint-renderer-skia/vulkan"]
-renderer-software = ["dep:softbuffer", "dep:imgref", "dep:rgb", "i-slint-core/software-renderer-systemfonts", "dep:bytemuck", "winit/rwh_06"]
+renderer-software = [
+  "dep:softbuffer",
+  "dep:imgref",
+  "dep:rgb",
+  "i-slint-core/software-renderer-systemfonts",
+  "dep:bytemuck",
+  "winit/rwh_06",
+]
 accessibility = ["dep:accesskit", "dep:accesskit_winit"]
 raw-window-handle-06 = ["winit/rwh_06", "i-slint-core/raw-window-handle-06"]
 default = []
@@ -42,13 +72,17 @@ pin-weak = "1"
 scoped-tls-hkt = "0.1"
 winit = { version = "0.30.2", default-features = false }
 raw-window-handle = { version = "0.6", features = ["alloc"] }
-scopeguard =  { version = "1.1.0", default-features = false }
+scopeguard = { version = "1.1.0", default-features = false }
 
 # For the FemtoVG renderer
-i-slint-renderer-femtovg = { workspace = true, features = ["default"], optional = true }
+i-slint-renderer-femtovg = { workspace = true, features = [
+  "default",
+], optional = true }
 
 # For the Skia renderer
-i-slint-renderer-skia = {  workspace = true, features = ["default"], optional = true }
+i-slint-renderer-skia = { workspace = true, features = [
+  "default",
+], optional = true }
 
 # For the software renderer
 softbuffer = { workspace = true, optional = true, default-features = false }
@@ -57,16 +91,34 @@ rgb = { version = "0.8.27", optional = true }
 bytemuck = { workspace = true, optional = true, features = ["derive"] }
 
 [target.'cfg(any(target_os = "macos", target_family = "windows"))'.dependencies]
-muda = { version = "0.16.0", optional = true}
+muda = { version = "0.16.0", optional = true }
 vtable = { workspace = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-web-sys = { workspace = true, features=["HtmlInputElement", "HtmlCanvasElement", "Window", "Document", "Event", "KeyboardEvent", "InputEvent", "CompositionEvent", "DomStringMap", "ClipboardEvent", "DataTransfer"] }
+web-sys = { workspace = true, features = [
+  "HtmlInputElement",
+  "HtmlCanvasElement",
+  "Window",
+  "Document",
+  "Event",
+  "KeyboardEvent",
+  "InputEvent",
+  "CompositionEvent",
+  "DomStringMap",
+  "ClipboardEvent",
+  "DataTransfer",
+] }
 wasm-bindgen = { version = "0.2" }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-glutin = { workspace = true, optional = true, default-features = false, features = ["egl", "wgl"] }
-glutin-winit = { version = "0.5", optional = true, default-features = false, features = ["egl", "wgl"] }
+glutin = { workspace = true, optional = true, default-features = false, features = [
+  "egl",
+  "wgl",
+] }
+glutin-winit = { version = "0.5", optional = true, default-features = false, features = [
+  "egl",
+  "wgl",
+] }
 accesskit = { version = "0.17", optional = true }
 accesskit_winit = { version = "0.23", optional = true }
 copypasta = { version = "0.10", default-features = false }
@@ -84,7 +136,13 @@ objc2-app-kit = { version = "0.3.0" }
 cfg_aliases = { workspace = true }
 
 [dev-dependencies]
-slint = { path = "../../../api/rs/slint", default-features = false, features = ["std", "compat-1-2", "backend-winit", "renderer-software", "raw-window-handle-06"] }
+slint = { path = "../../../api/rs/slint", default-features = false, features = [
+  "std",
+  "compat-1-2",
+  "backend-winit",
+  "renderer-software",
+  "raw-window-handle-06",
+] }
 
 [package.metadata.docs.rs]
 features = ["wayland", "renderer-software", "raw-window-handle-06"]
