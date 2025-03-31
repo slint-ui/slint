@@ -80,6 +80,9 @@ pub enum Expression {
         function: PropertyReference,
         arguments: Vec<Expression>,
     },
+    ItemMemberFunctionCall {
+        function: PropertyReference,
+    },
 
     /// A BuiltinFunctionCall, but the function is not yet in the `BuiltinFunction` enum
     /// TODO: merge in BuiltinFunctionCall
@@ -280,14 +283,15 @@ impl Expression {
             Self::Cast { to, .. } => to.clone(),
             Self::CodeBlock(sub) => sub.last().map_or(Type::Void, |e| e.ty(ctx)),
             Self::BuiltinFunctionCall { function, .. } => function.ty().return_type.clone(),
-            Self::CallBackCall { callback, .. } => {
-                if let Type::Callback(callback) = ctx.property_ty(callback) {
-                    callback.return_type.clone()
-                } else {
-                    Type::Invalid
-                }
-            }
+            Self::CallBackCall { callback, .. } => match ctx.property_ty(callback) {
+                Type::Callback(callback) => callback.return_type.clone(),
+                _ => Type::Invalid,
+            },
             Self::FunctionCall { function, .. } => ctx.property_ty(function).clone(),
+            Self::ItemMemberFunctionCall { function } => match ctx.property_ty(function) {
+                Type::Function(function) => function.return_type.clone(),
+                _ => Type::Invalid,
+            },
             Self::ExtraBuiltinFunctionCall { return_ty, .. } => return_ty.clone(),
             Self::PropertyAssignment { .. } => Type::Void,
             Self::ModelDataAssignment { .. } => Type::Void,
@@ -340,6 +344,7 @@ macro_rules! visit_impl {
             Expression::BuiltinFunctionCall { arguments, .. }
             | Expression::CallBackCall { arguments, .. }
             | Expression::FunctionCall { arguments, .. } => arguments.$iter().for_each($visitor),
+            Expression::ItemMemberFunctionCall { function: _ } => {}
             Expression::ExtraBuiltinFunctionCall { arguments, .. } => {
                 arguments.$iter().for_each($visitor)
             }

@@ -54,8 +54,6 @@ pub enum BuiltinFunction {
     /// When it is a menu item tree, it is a ElementReference to the root of the tree, and in the LLR, a NumberLiteral to an index in  [`crate::llr::SubComponent::menu_item_trees`]
     ShowPopupMenu,
     SetSelectionOffsets,
-    /// A function that belongs to an item (such as TextInput's select-all function).
-    ItemMemberFunction(SmolStr),
     ItemFontMetrics,
     /// the "42".to_float()
     StringToFloat,
@@ -182,7 +180,6 @@ declare_builtin_function_types!(
     ShowPopupWindow: (Type::ElementReference) -> Type::Void,
     ClosePopupWindow: (Type::ElementReference) -> Type::Void,
     ShowPopupMenu: (Type::ElementReference, Type::Model, typeregister::logical_point_type()) -> Type::Void,
-    ItemMemberFunction(..): (Type::ElementReference) -> Type::Void,
     SetSelectionOffsets: (Type::ElementReference, Type::Int32, Type::Int32) -> Type::Void,
     ItemFontMetrics: (Type::ElementReference) -> typeregister::font_metrics_type(),
     StringToFloat: (Type::String) -> Type::Float32,
@@ -305,7 +302,6 @@ impl BuiltinFunction {
             | BuiltinFunction::ClosePopupWindow
             | BuiltinFunction::ShowPopupMenu => false,
             BuiltinFunction::SetSelectionOffsets => false,
-            BuiltinFunction::ItemMemberFunction(..) => false,
             BuiltinFunction::ItemFontMetrics => false, // depends also on Window's font properties
             BuiltinFunction::StringToFloat
             | BuiltinFunction::StringIsFloat
@@ -383,7 +379,6 @@ impl BuiltinFunction {
             | BuiltinFunction::ClosePopupWindow
             | BuiltinFunction::ShowPopupMenu => false,
             BuiltinFunction::SetSelectionOffsets => false,
-            BuiltinFunction::ItemMemberFunction(..) => false,
             BuiltinFunction::ItemFontMetrics => true,
             BuiltinFunction::StringToFloat
             | BuiltinFunction::StringIsFloat

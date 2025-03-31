@@ -1454,7 +1454,7 @@ fn continue_lookup_within_element(
         Some(LookupResult::Callable(LookupResultCallable::Callable(Callable::Callback(
             NamedReference::new(elem, lookup_result.resolved_name.to_smolstr()),
         ))))
-    } else if matches!(lookup_result.property_type, Type::Function { .. }) {
+    } else if let Type::Function(fun) = lookup_result.property_type {
         if lookup_result.property_visibility == PropertyVisibility::Private && !local_to_component {
             let message = format!("The function '{}' is private. Annotate it with 'public' to make it accessible from other components", second.text());
             if !lookup_result.is_local_to_component {
@@ -1472,22 +1472,22 @@ fn continue_lookup_within_element(
         if let Some(x) = it.next() {
             ctx.diag.push_error("Cannot access fields of a function".into(), &x)
         }
-        if let Some(f) =
-            elem.borrow().base_type.lookup_member_function(&lookup_result.resolved_name)
-        {
-            // builtin member function
+        let callable = match lookup_result.builtin_function {
+            Some(builtin) => Callable::Builtin(builtin),
+            None => Callable::Function(NamedReference::new(
+                elem,
+                lookup_result.resolved_name.to_smolstr(),
+            )),
+        };
+        if matches!(fun.args.first(), Some(Type::ElementReference)) {
             LookupResult::Callable(LookupResultCallable::MemberFunction {
                 base: Expression::ElementReference(Rc::downgrade(elem)),
                 base_node: Some(NodeOrToken::Node(node.into())),
-                member: Box::new(LookupResultCallable::Callable(f.into())),
+                member: Box::new(LookupResultCallable::Callable(callable)),
             })
             .into()
         } else {
-            LookupResult::from(Callable::Function(NamedReference::new(
-                elem,
-                lookup_result.resolved_name.to_smolstr(),
-            )))
-            .into()
+            LookupResult::from(callable).into()
         }
     } else {
         let mut err = |extra: &str| {

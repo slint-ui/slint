@@ -1898,7 +1898,7 @@ fn access_member(reference: &llr::PropertyReference, ctx: &EvaluationContext) ->
         item_index: llr::ItemInstanceIdx,
         prop_name: &str,
         path: TokenStream,
-    ) -> TokenStream {
+    ) -> (TokenStream, Option<TokenStream>) {
         let (compo_path, sub_component) = follow_sub_component_path(
             ctx.compilation_unit,
             ctx.current_sub_component.unwrap(),
@@ -1909,11 +1909,20 @@ fn access_member(reference: &llr::PropertyReference, ctx: &EvaluationContext) ->
         let item_field = access_component_field_offset(&component_id, &item_name);
         if prop_name.is_empty() {
             // then this is actually a reference to the element itself
-            quote!((#compo_path #item_field).apply_pin(#path))
+            (quote!((#compo_path #item_field).apply_pin(#path)), None)
+        } else if matches!(
+            sub_component.items[item_index].ty.lookup_property(prop_name),
+            Some(&Type::Function(..))
+        ) {
+            let property_name = ident(prop_name);
+            (quote!((#compo_path #item_field).apply_pin(#path)), Some(quote!(.#property_name)))
         } else {
             let property_name = ident(prop_name);
             let item_ty = ident(&sub_component.items[item_index].ty.class_name);
-            quote!((#compo_path #item_field + sp::#item_ty::FIELD_OFFSETS.#property_name).apply_pin(#path))
+            (
+                quote!((#compo_path #item_field + sp::#item_ty::FIELD_OFFSETS.#property_name).apply_pin(#path)),
+                None,
+            )
         }
     }
     match reference {
@@ -1938,13 +1947,9 @@ fn access_member(reference: &llr::PropertyReference, ctx: &EvaluationContext) ->
             }
         }
         llr::PropertyReference::InNativeItem { sub_component_path, item_index, prop_name } => {
-            MemberAccess::Direct(in_native_item(
-                ctx,
-                sub_component_path,
-                *item_index,
-                prop_name,
-                quote!(_self),
-            ))
+            let (a, b) =
+                in_native_item(ctx, sub_component_path, *item_index, prop_name, quote!(_self));
+            MemberAccess::Direct(quote!(#a #b))
         }
         llr::PropertyReference::InParent { level, parent_reference } => {
             let mut path = quote!(_self.parent.upgrade());
@@ -1973,14 +1978,18 @@ fn access_member(reference: &llr::PropertyReference, ctx: &EvaluationContext) ->
                     item_index,
                     prop_name,
                 } => {
-                    let in_native = in_native_item(
+                    let (a, b) = in_native_item(
                         ctx,
                         sub_component_path,
                         *item_index,
                         prop_name,
                         quote!(x.as_pin_ref()),
                     );
-                    MemberAccess::Option(quote!(#path.as_ref().map(|x| #in_native)))
+                    let opt = quote!(#path.as_ref().map(|x| #a));
+                    match b {
+                        None => MemberAccess::Option(opt),
+                        Some(b) => MemberAccess::OptionFn(opt, quote!(|x| x #b)),
+                    }
                 }
                 llr::PropertyReference::Function { sub_component_path, function_index } => {
                     let mut sub_component = ctx.current_sub_component().unwrap();
@@ -2152,9 +2161,7 @@ fn access_item_rc(pr: &llr::PropertyReference, ctx: &EvaluationContext) -> Token
     };
 
     match pr {
-        llr::PropertyReference::InNativeItem { sub_component_path, item_index, prop_name } => {
-            assert!(prop_name.is_empty());
-
+        llr::PropertyReference::InNativeItem { sub_component_path, item_index, prop_name: _ } => {
             let root = ctx.current_sub_component().unwrap();
             let mut sub_component = root;
             for i in sub_component_path {
@@ -2286,7 +2293,12 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                 f.map_or_default(|f| quote!(#f( #(#a as _),*)))
             }
         }
-
+        Expression::ItemMemberFunctionCall { function } => {
+            let fun = access_member(function, ctx);
+            let item_rc = access_item_rc(function, ctx);
+            let window_adapter_tokens = access_window_adapter_field(ctx);
+            fun.map_or_default(|fun| quote!(#fun(#window_adapter_tokens, #item_rc)))
+        }
         Expression::ExtraBuiltinFunctionCall { function, arguments, return_ty: _ } => {
             let f = ident(function);
             let a = arguments.iter().map(|a| {
@@ -2892,21 +2904,6 @@ fn compile_builtin_function_call(
                 ))
             } else {
                 panic!("internal error: invalid args to set-selection-offsets {arguments:?}")
-            }
-        }
-        BuiltinFunction::ItemMemberFunction(name) => {
-            if let [Expression::PropertyReference(pr)] = arguments {
-                let item = access_member(pr, ctx);
-                let item_rc = access_item_rc(pr, ctx);
-                let window_adapter_tokens = access_window_adapter_field(ctx);
-                let name = ident(&name);
-                item.then(|item| {
-                    quote!(
-                        #item.#name(#window_adapter_tokens, #item_rc)
-                    )
-                })
-            } else {
-                panic!("internal error: invalid args to ItemMemberFunction {arguments:?}")
             }
         }
         BuiltinFunction::ItemFontMetrics => {

@@ -155,6 +155,15 @@ pub fn lower_expression(
                 let arguments = arguments.iter().map(|e| lower_expression(e, ctx)).collect::<_>();
                 llr_Expression::CallBackCall { callback: ctx.map_property_reference(nr), arguments }
             }
+            Callable::Function(nr)
+                if nr
+                    .element()
+                    .borrow()
+                    .native_class()
+                    .is_some_and(|n| n.properties.contains_key(nr.name())) =>
+            {
+                llr_Expression::ItemMemberFunctionCall { function: ctx.map_property_reference(nr) }
+            }
             Callable::Function(nr) => {
                 let arguments = arguments.iter().map(|e| lower_expression(e, ctx)).collect::<_>();
                 llr_Expression::FunctionCall { function: ctx.map_property_reference(nr), arguments }
