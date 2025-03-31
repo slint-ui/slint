@@ -158,7 +158,9 @@ impl RenderText for ComplexText {
     }
 
     fn font_request(self: Pin<&Self>, self_rc: &ItemRc) -> FontRequest {
-        let window_item = self_rc.window_item();
+        let Some(window_item_rc) = self_rc.window_item() else {
+            return Default::default();
+        };
 
         FontRequest {
             family: {
@@ -166,13 +168,19 @@ impl RenderText for ComplexText {
                 if !maybe_family.is_empty() {
                     Some(maybe_family)
                 } else {
-                    window_item.as_ref().and_then(|item| item.as_pin_ref().font_family())
+                    super::WindowItem::resolve_font_property(
+                        &window_item_rc,
+                        super::WindowItem::font_family,
+                    )
                 }
             },
             weight: {
                 let weight = self.font_weight();
                 if weight == 0 {
-                    window_item.as_ref().and_then(|item| item.as_pin_ref().font_weight())
+                    super::WindowItem::resolve_font_property(
+                        &window_item_rc,
+                        super::WindowItem::font_weight,
+                    )
                 } else {
                     Some(weight)
                 }
@@ -180,7 +188,10 @@ impl RenderText for ComplexText {
             pixel_size: {
                 let font_size = self.font_size();
                 if font_size.get() == 0 as Coord {
-                    window_item.as_ref().and_then(|item| item.as_pin_ref().font_size())
+                    super::WindowItem::resolve_font_property(
+                        &window_item_rc,
+                        super::WindowItem::font_size,
+                    )
                 } else {
                     Some(font_size)
                 }
@@ -342,14 +353,22 @@ impl RenderText for SimpleText {
     }
 
     fn font_request(self: Pin<&Self>, self_rc: &ItemRc) -> FontRequest {
-        let window_item = self_rc.window_item();
+        let Some(window_item_rc) = self_rc.window_item() else {
+            return Default::default();
+        };
 
         FontRequest {
-            family: window_item.as_ref().and_then(|item| item.as_pin_ref().font_family()),
+            family: super::WindowItem::resolve_font_property(
+                &window_item_rc,
+                super::WindowItem::font_family,
+            ),
             weight: {
                 let weight = self.font_weight();
                 if weight == 0 {
-                    window_item.as_ref().and_then(|item| item.as_pin_ref().font_weight())
+                    super::WindowItem::resolve_font_property(
+                        &window_item_rc,
+                        super::WindowItem::font_weight,
+                    )
                 } else {
                     Some(weight)
                 }
@@ -357,7 +376,10 @@ impl RenderText for SimpleText {
             pixel_size: {
                 let font_size = self.font_size();
                 if font_size.get() == 0 as Coord {
-                    window_item.as_ref().and_then(|item| item.as_pin_ref().font_size())
+                    super::WindowItem::resolve_font_property(
+                        &window_item_rc,
+                        super::WindowItem::font_size,
+                    )
                 } else {
                     Some(font_size)
                 }
@@ -1704,7 +1726,9 @@ impl TextInput {
     }
 
     pub fn font_request(self: Pin<&Self>, self_rc: &ItemRc) -> FontRequest {
-        let window_item = self_rc.window_item();
+        let Some(window_item_rc) = self_rc.window_item() else {
+            return Default::default();
+        };
 
         FontRequest {
             family: {
@@ -1712,13 +1736,19 @@ impl TextInput {
                 if !maybe_family.is_empty() {
                     Some(maybe_family)
                 } else {
-                    window_item.as_ref().and_then(|item| item.as_pin_ref().font_family())
+                    super::WindowItem::resolve_font_property(
+                        &window_item_rc,
+                        super::WindowItem::font_family,
+                    )
                 }
             },
             weight: {
                 let weight = self.font_weight();
                 if weight == 0 {
-                    window_item.as_ref().and_then(|item| item.as_pin_ref().font_weight())
+                    super::WindowItem::resolve_font_property(
+                        &window_item_rc,
+                        super::WindowItem::font_weight,
+                    )
                 } else {
                     Some(weight)
                 }
@@ -1726,7 +1756,10 @@ impl TextInput {
             pixel_size: {
                 let font_size = self.font_size();
                 if font_size.get() == 0 as Coord {
-                    window_item.as_ref().and_then(|item| item.as_pin_ref().font_size())
+                    super::WindowItem::resolve_font_property(
+                        &window_item_rc,
+                        super::WindowItem::font_size,
+                    )
                 } else {
                     Some(font_size)
                 }
