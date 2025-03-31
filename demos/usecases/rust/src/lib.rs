@@ -34,7 +34,7 @@ pub fn main() {
 }
 
 #[cfg(target_os = "android")]
-#[no_mangle]
+#[unsafe(no_mangle)]
 fn android_main(android_app: slint::android::AndroidApp) {
     slint::android::init(android_app).unwrap();
     let app = app().unwrap();

@@ -106,7 +106,7 @@ fn init() -> State {
 }
 
 #[cfg(target_os = "android")]
-#[no_mangle]
+#[unsafe(no_mangle)]
 fn android_main(app: slint::android::AndroidApp) {
     use slint::android::android_activity::{MainEvent, PollEvent};
     slint::android::init_with_event_listener(app, |event| {
