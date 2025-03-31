@@ -28,7 +28,7 @@
     "cross-env": "7.0.3",
     "shiki": "3.2.1",
     "typescript": "5.8.2",
-    "vite": "6.2.3",
+    "vite": "6.2.4",
     "vite-figma-plugin": "0.0.24",
     "vite-plugin-singlefile": "2.2.0",
     "vitest": "3.0.9"
