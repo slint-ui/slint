@@ -1204,6 +1204,27 @@ impl WindowItem {
             Some(font_weight)
         }
     }
+
+    pub fn resolve_font_property<T>(
+        self_rc: &ItemRc,
+        property_fn: impl Fn(Pin<&Self>) -> Option<T>,
+    ) -> Option<T> {
+        let mut window_item_rc = self_rc.clone();
+        loop {
+            let window_item = window_item_rc.downcast::<Self>()?;
+            if let Some(result) = property_fn(window_item.as_pin_ref()) {
+                return Some(result);
+            }
+
+            match window_item_rc
+                .parent_item(crate::item_tree::ParentItemTraversalMode::FindAllParents)
+                .and_then(|p| p.window_item())
+            {
+                Some(item) => window_item_rc = item,
+                None => return None,
+            }
+        }
+    }
 }
 
 impl ItemConsts for WindowItem {

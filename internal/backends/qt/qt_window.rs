@@ -16,6 +16,7 @@ use i_slint_core::item_rendering::{
     CachedRenderingData, ItemCache, ItemRenderer, RenderBorderRectangle, RenderImage,
     RenderRectangle, RenderText,
 };
+use i_slint_core::item_tree::ParentItemTraversalMode;
 use i_slint_core::item_tree::{ItemTreeRc, ItemTreeRef};
 use i_slint_core::items::{
     self, ColorScheme, FillRule, ImageRendering, ItemRc, ItemRef, Layer, LineCap, MouseCursor,
@@ -2431,7 +2432,7 @@ fn accessible_item(item: Option<ItemRc>) -> Option<ItemRc> {
         if c.is_accessible() {
             return Some(c);
         } else {
-            current = c.parent_item();
+            current = c.parent_item(ParentItemTraversalMode::StopAtPopups);
         }
     }
     None
