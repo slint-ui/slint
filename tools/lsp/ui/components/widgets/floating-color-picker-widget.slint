@@ -119,59 +119,72 @@ component ColorPicker {
         }
     }
 
-    saturation-value := Rectangle {
+    saturation-value-holder := Rectangle {
         y: title.y + title.height;
         width: 100%;
-        height: self.width;
-        hue := Rectangle {
-            background: hsv(FakeData.hue, 1, 1);
-        }
+        height: self.width * 0.8;
+        saturation-value := Rectangle {
+            width: parent.width - 16px;
+            height: parent.height - 16px;
+            
+            Rectangle {
+                border-radius: 3px;
+                border-width: 1px;
+                border-color: white.transparentize(90%);
+                clip: true;
+                hue := Rectangle {
+                background: hsv(FakeData.hue, 1, 1);
+            }
 
-        sat := Rectangle {
-            background: @linear-gradient(90deg, white 0%, transparent 100%);
-        }
+            sat := Rectangle {
+                background: @linear-gradient(90deg, white 0%, transparent 100%);
+            }
 
-        val := Rectangle {
-            background: @linear-gradient(0deg, black 0%, transparent 100%);
-        }
+            val := Rectangle {
+                background: @linear-gradient(0deg, black 0%, transparent 100%);
+            }
 
-        TouchArea {
-            moved => {
-                if self.has-hover {
-                    FakeData.saturation = clamp(self.mouse-x / self.width, 0, 1);
-                    FakeData.value = clamp(1 - (self.mouse-y / self.width), 0, 1);
+            TouchArea {
+                moved => {
+                    if self.has-hover {
+                        FakeData.saturation = clamp(self.mouse-x / self.width, 0, 1);
+                        FakeData.value = clamp(1 - (self.mouse-y / self.height), 0, 1);
+                    }
+                }
+                changed pressed => {
+                    if self.pressed {
+                        FakeData.saturation = self.mouse-x / self.width;
+                        FakeData.value = 1 - (self.mouse-y / self.height);
+                    }
                 }
             }
-            changed pressed => {
-                if self.pressed {
-                    FakeData.saturation = self.mouse-x / self.width;
-                    FakeData.value = 1 - (self.mouse-y / self.width);
+            }
+            
+
+            sv-picker := Rectangle {
+                x: 1px + (saturation-value.width - 3px) * FakeData.saturation;
+                y: 1px + (saturation-value.height - 3px) * (1 - FakeData.value);
+                width: 1px;
+                height: 1px;
+                Rectangle {
+                    width: 12px;
+                    height: 12px;
+                    border-radius: self.width / 2;
+                    background: white;
+                    drop-shadow-blur: 5px;
+                    drop-shadow-offset-y: 2px;
+                    drop-shadow-color: #000000b4;
+                }
+
+                Rectangle {
+                    width: 8px;
+                    height: 8px;
+                    border-radius: self.width / 2;
+                    background: FakeData.current-color;
                 }
             }
         }
-
-        sv-picker := Rectangle {
-            x: saturation-value.width * FakeData.saturation;
-            y: saturation-value.height * (1 - FakeData.value);
-            width: 0;
-            height: 0;
-            Rectangle {
-                width: 16px;
-                height: 16px;
-                border-radius: self.width / 2;
-                background: white;
-                drop-shadow-blur: 5px;
-                drop-shadow-offset-y: 2px;
-                drop-shadow-color: #000000b4;
-            }
-
-            Rectangle {
-                width: 8px;
-                height: 8px;
-                border-radius: self.width / 2;
-                background: FakeData.current-color;
-            }
-        }
+        
     }
 
     // brushes := Rectangle {
@@ -204,7 +217,7 @@ component ColorPicker {
     // }
 
     hsva-controls := Rectangle {
-        y: saturation-value.y + saturation-value.height;
+        y: saturation-value-holder.y + saturation-value-holder.height;
         width: 100%;
         height: 66px;
         // The following properties are used to size the hue picker and control the
