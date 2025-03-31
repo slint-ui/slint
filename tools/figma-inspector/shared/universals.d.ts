@@ -12,5 +12,10 @@ export interface EventTS {
     exportAll: {
         result: boolean;
     }
-
+    exportedFiles: {
+        files: Array<{
+            name: string;
+            content: string;
+        }>;
+    };
 }
