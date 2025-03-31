@@ -195,4 +195,50 @@ public:
     const VTable *vtable() const { return inner ? inner->vtable : nullptr; }
 };
 
+template<typename VTable, typename MappedType>
+class VRcMapped
+{
+    VRc<VTable, Dyn> parent_strong;
+    MappedType *object;
+
+    template<typename VTable_, typename MappedType_>
+    friend class VWeakMapped;
+
+public:
+    /// Constructs a pointer to MappedType that shares ownership with parent_strong.
+    template<typename X>
+    explicit VRcMapped(VRc<VTable, X> parent_strong, MappedType *object)
+        : parent_strong(parent_strong.into_dyn()), object(object)
+    {
+    }
+
+    const MappedType *operator->() const { return object; }
+    const MappedType &operator*() const { return *object; }
+    MappedType *operator->() { return object; }
+    MappedType &operator*() { return *object; }
+};
+
+template<typename VTable, typename MappedType>
+class VWeakMapped
+{
+    VWeak<VTable, Dyn> parent_weak;
+    MappedType *object = nullptr;
+
+public:
+    VWeakMapped(const VRcMapped<VTable, MappedType> &strong)
+        : parent_weak(strong.parent_strong), object(strong.object)
+    {
+    }
+    VWeakMapped() = default;
+
+    std::optional<VRcMapped<VTable, MappedType>> lock() const
+    {
+        if (auto parent = parent_weak.lock()) {
+            return VRcMapped<VTable, MappedType>(std::move(*parent), object);
+        } else {
+            return {};
+        }
+    }
+};
+
 } // namespace vtable
