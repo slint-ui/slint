@@ -3312,8 +3312,9 @@ fn embedded_file_tokens(path: &str) -> TokenStream {
 
 fn generate_resources(doc: &Document) -> Vec<TokenStream> {
     #[cfg(feature = "software-renderer")]
-    let link_section =
-        std::env::var("SLINT_ASSET_SECTION").ok().map(|section| quote!(#[link_section = #section]));
+    let link_section = std::env::var("SLINT_ASSET_SECTION")
+        .ok()
+        .map(|section| quote!(#[unsafe(link_section = #section)]));
 
     doc.embedded_file_resources
         .borrow()
