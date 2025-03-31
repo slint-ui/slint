@@ -14,16 +14,8 @@ runs:
           shell: bash
         - name: Upgrade LLVM for Skia build on Windows
           if: runner.os == 'Windows'
-          run: choco upgrade llvm --version "19.1.7"
+          run: choco upgrade llvm
           shell: bash
-        - name: Apply workaround for https://github.com/llvm/llvm-project/issues/95133
-          if: runner.os == 'Windows'
-          shell: cmd
-          run: |
-              perl -i -ne "print unless /unsigned __int32 xbegin\(void\);/" "C:\Program Files\LLVM\lib\clang\19\include\intrin.h"
-              perl -i -ne "print unless /void _xend\(void\);/" "C:\Program Files\LLVM\lib\clang\19\include\intrin.h"
-              findstr /C:"unsigned __int32 xbegin(void);" "C:\Program Files\LLVM\lib\clang\19\include\intrin.h" || exit /b 0
-              findstr /C:"void _xend(void);" "C:\Program Files\LLVM\lib\clang\19\include\intrin.h" || exit /b 0
         # See https://github.com/ilammy/msvc-dev-cmd?tab=readme-ov-file#caveats
         - name: Remove GNU link.exe from GH actions
           if: runner.os == 'Windows'
