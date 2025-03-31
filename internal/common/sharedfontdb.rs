@@ -134,6 +134,12 @@ fn init_fontdb() -> FontDatabase {
         font_db.load_fonts_dir("/system/fonts");
         font_db.set_sans_serif_family("Roboto");
     }
+    #[cfg(all(target_vendor = "apple", not(target_os = "macos")))]
+    {
+        font_db.load_fonts_dir("/System/Library/Fonts");
+        font_db.load_fonts_dir("/System/Library/Cache");
+        font_db.set_sans_serif_family("Arial");
+    }
     #[cfg(not(any(target_arch = "wasm32", target_os = "android")))]
     {
         font_db.load_system_fonts();

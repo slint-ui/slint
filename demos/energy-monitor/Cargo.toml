@@ -49,3 +49,4 @@ simulator = [
   "slint/std",
 ]
 network = ["dep:weer_api", "tokio", "futures"]
+ios = ["slint/backend-winit", "slint/renderer-skia", "network", "chrono"]
