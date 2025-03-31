@@ -41,7 +41,7 @@ pin-weak = "1"
 scoped-tls-hkt = "0.1"
 raw-window-handle = { version = "0.6", features = ["std"] }
 
-skia-safe = { version = "0.82.0", features = ["textlayout", "gl"] }
+skia-safe = { version = "0.84.0", features = ["textlayout", "gl"] }
 glow = { workspace = true }
 unicode-segmentation = { workspace = true }
 
@@ -57,8 +57,8 @@ softbuffer = { workspace = true, default-features = false }
 bytemuck = { workspace = true }
 
 [target.'cfg(target_family = "windows")'.dependencies]
-windows = { version = "0.58.0", features = ["Win32", "Win32_System_Com", "Win32_Graphics", "Win32_Graphics_Dxgi", "Win32_Graphics_Direct3D12", "Win32_Graphics_Direct3D", "Win32_Foundation", "Win32_Graphics_Dxgi_Common", "Win32_System_Threading", "Win32_Security"] }
-skia-safe = { version = "0.82.0", features = ["d3d"] }
+windows = { version = "0.61.1", features = ["Win32", "Win32_System_Com", "Win32_Graphics", "Win32_Graphics_Dxgi", "Win32_Graphics_Direct3D12", "Win32_Graphics_Direct3D", "Win32_Foundation", "Win32_Graphics_Dxgi_Common", "Win32_System_Threading", "Win32_Security"] }
+skia-safe = { version = "0.84.0", features = ["d3d"] }
 
 [target.'cfg(target_vendor = "apple")'.dependencies]
 objc2 = { version = "0.6.0" }
@@ -89,11 +89,11 @@ objc2-app-kit = { version = "0.3.0", default-features = false, features = [
 objc2-core-foundation = { version = "0.3.0", default-features = false, features = [
     "CFCGTypes"
 ] }
-skia-safe = { version = "0.82.0", features = ["metal"] }
+skia-safe = { version = "0.84.0", features = ["metal"] }
 raw-window-metal = "1.0"
 
 [target.'cfg(not(any(target_vendor = "apple", target_family = "windows")))'.dependencies]
-skia-safe = { version = "0.82.0", features = ["gl"] }
+skia-safe = { version = "0.84.0", features = ["gl"] }
 
 [build-dependencies]
 cfg_aliases = { workspace = true }
