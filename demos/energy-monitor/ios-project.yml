@@ -1,0 +1,18 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: MIT
+name: Energy Monitor
+options:
+  bundleIdPrefix: com.slint.demos.EnergyMonitor
+targets:
+  Energy Monitor:
+    type: application
+    platform: iOS
+    deploymentTarget: "12.0"
+    info:
+        path: Info.plist
+    sources: []
+    postCompileScripts:
+      - script: |
+          ../../scripts/build_for_ios_with_cargo.bash energy-monitor
+        outputFileLists:
+            $TARGET_BUILD_DIR/$EXECUTABLE_PATH
