@@ -260,8 +260,8 @@ importers:
         specifier: ~8.0.4
         version: 8.0.4
       '@lumino/default-theme':
-        specifier: 2.1.8
-        version: 2.1.8
+        specifier: 2.1.9
+        version: 2.1.9
       '@lumino/widgets':
         specifier: 2.7.0
         version: 2.7.0
@@ -1356,17 +1356,14 @@ packages:
   '@lumino/coreutils@2.2.1':
     resolution: {integrity: sha512-yij4TnxDIum7xfFUsVvZB0oLv4shs2mNbn3juwtEIsruvVBPmurNzKX0Y8z2QetbP2AZ6MSFtBzEKsihf0H0VA==}
 
-  '@lumino/default-theme@2.1.8':
-    resolution: {integrity: sha512-zZn9UZdLe5EXrL70/K1asPTU3l6+dr6GqI1NNifDRhTmuqq/HFQFHKqDazwCXffQzG2zkhVBReNp53MG32wkcw==}
+  '@lumino/default-theme@2.1.9':
+    resolution: {integrity: sha512-qduykbyWPqTAGoR8SyT2p9T1h8vqnJTziJLGFsAoGKq4XbPeM+0PL9AZPtT5pb6GuNH9thkXvWBDolFhKllXXw==}
 
   '@lumino/disposable@2.1.4':
     resolution: {integrity: sha512-qTJiDbglPE2QnG4x4gtBcRbcfKQibxyyinNGKcNDrcK2TGTbbhK5PpMQ8d70l2V2Xw2pb/LfksBAg5pxkJ/G4A==}
 
   '@lumino/domutils@2.0.3':
     resolution: {integrity: sha512-bXAbZg3mf2ZDNdBBpCGDike3U+osRGHePTh8H2Ud2KwaN4g/5IryFJm/TiO4K5IYs91bWF2Zqhf3FsdbZKHlGw==}
-
-  '@lumino/dragdrop@2.1.5':
-    resolution: {integrity: sha512-zqwR4GakrQBKZOW6S5pj2nfrQDurOErAoe9x3HS3BKLa1AzWA+t9PD5NESOKd81NqXFHjiMirSyFkTUs6pw+uA==}
 
   '@lumino/dragdrop@2.1.6':
     resolution: {integrity: sha512-N9aqdOYl5HTuTAIVvjTXxlPKK3e9JAj5yEtJ4nA/tNE7J8C9y3BRQ4fBAtk7O0z/8yx8tO8a0j5oSt2zAfvYuA==}
@@ -5972,9 +5969,9 @@ snapshots:
     dependencies:
       '@lumino/algorithm': 2.0.3
 
-  '@lumino/default-theme@2.1.8':
+  '@lumino/default-theme@2.1.9':
     dependencies:
-      '@lumino/dragdrop': 2.1.5
+      '@lumino/dragdrop': 2.1.6
       '@lumino/widgets': 2.7.0
 
   '@lumino/disposable@2.1.4':
@@ -5982,11 +5979,6 @@ snapshots:
       '@lumino/signaling': 2.1.4
 
   '@lumino/domutils@2.0.3': {}
-
-  '@lumino/dragdrop@2.1.5':
-    dependencies:
-      '@lumino/coreutils': 2.2.1
-      '@lumino/disposable': 2.1.4
 
   '@lumino/dragdrop@2.1.6':
     dependencies:
