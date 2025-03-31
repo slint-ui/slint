@@ -518,6 +518,7 @@ lazy_static! {
         ("\\.rs$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
         ("\\.rst$", LicenseLocation::Tag(LicenseTagStyle::rst_comment_style())),
         ("\\.sh$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
+        ("\\.bash$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
         ("\\.slint$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
         ("\\.slint\\.disabled$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
         ("\\.sublime-commands$", LicenseLocation::NoLicense),
