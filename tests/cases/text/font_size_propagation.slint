@@ -31,6 +31,23 @@ let factory = slint::ComponentFactory::new(move |ctx| {
                 t := Text {
                     text: "Hello 🌍";
                 }
+
+                out property <length> popup-text-size: 0px;
+
+                popup := PopupWindow {
+                    popup-text := Text {
+                        text: "Ok 🌍";
+                    }
+                    init => {
+                        popup-text-size = popup-text.font-metrics.ascent + popup-text.font-metrics.descent;
+                    }
+                }
+
+                TouchArea {
+                    clicked => {
+                        popup.show();
+                    }
+                }
             }"#.into(),
         std::path::PathBuf::from("embedded.slint"),
      )).component("Inner").unwrap();
@@ -43,6 +60,11 @@ let factory = slint::ComponentFactory::new(move |ctx| {
 let instance = TestCase::new().unwrap();
 instance.set_component_factory(factory.clone());
 assert_eq!(instance.get_pref_height(), 34.);
+let popup_text_size = inner_instance.borrow().as_ref().expect("should have been created").get_property("popup-text-size").unwrap();
+assert_eq!(popup_text_size, slint_interpreter::Value::from(0.));
+slint_testing::send_mouse_click(&instance, 5., 5.);
+let popup_text_size = inner_instance.borrow().as_ref().expect("should have been created").get_property("popup-text-size").unwrap();
+assert_eq!(popup_text_size, slint_interpreter::Value::from(34.));
 ```
 
 

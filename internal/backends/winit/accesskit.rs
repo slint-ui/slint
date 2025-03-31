@@ -11,7 +11,7 @@ use i_slint_core::accessibility::{
     AccessibilityAction, AccessibleStringProperty, SupportedAccessibilityAction,
 };
 use i_slint_core::api::Window;
-use i_slint_core::item_tree::{ItemTreeRc, ItemTreeRef, ItemTreeWeak};
+use i_slint_core::item_tree::{ItemTreeRc, ItemTreeRef, ItemTreeWeak, ParentItemTraversalMode};
 use i_slint_core::items::{ItemRc, WindowItem};
 use i_slint_core::lengths::{LogicalPoint, ScaleFactor};
 use i_slint_core::window::{PopupWindowLocation, WindowInner};
@@ -251,7 +251,7 @@ impl AccessKitAdapter {
 
 fn accessible_parent_for_item_rc(mut item: ItemRc) -> ItemRc {
     while !item.is_accessible() {
-        if let Some(parent) = item.parent_item() {
+        if let Some(parent) = item.parent_item(ParentItemTraversalMode::StopAtPopups) {
             item = parent;
         } else {
             break;
@@ -647,7 +647,7 @@ impl NodeCollection {
         {
             node.set_position_in_set(position_in_set);
             let mut item = item.clone();
-            while let Some(parent) = item.parent_item() {
+            while let Some(parent) = item.parent_item(ParentItemTraversalMode::StopAtPopups) {
                 if !parent.is_accessible() {
                     item = parent;
                     continue;

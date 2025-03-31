@@ -14,7 +14,10 @@ use crate::input::{
     key_codes, ClickState, FocusEvent, InternalKeyboardModifierState, KeyEvent, KeyEventType,
     MouseEvent, MouseInputState, TextCursorBlinker,
 };
-use crate::item_tree::{ItemRc, ItemTreeRc, ItemTreeRef, ItemTreeVTable, ItemTreeWeak, ItemWeak};
+use crate::item_tree::{
+    ItemRc, ItemTreeRc, ItemTreeRef, ItemTreeVTable, ItemTreeWeak, ItemWeak,
+    ParentItemTraversalMode,
+};
 use crate::items::{ColorScheme, InputType, ItemRef, MouseCursor, PopupClosePolicy};
 use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, SizeLengths};
 use crate::menus::MenuVTable;
@@ -682,7 +685,7 @@ impl WindowInner {
                             .map_to_item_tree(Default::default(), &self.component())
                             .to_vector(),
                     );
-                    menubar_item.parent_item()
+                    menubar_item.parent_item(ParentItemTraversalMode::StopAtPopups)
                 }
             };
 
@@ -766,7 +769,7 @@ impl WindowInner {
                 crate::properties::ChangeTracker::run_change_handlers();
                 return;
             }
-            item = focus_item.parent_item();
+            item = focus_item.parent_item(ParentItemTraversalMode::StopAtPopups);
         }
 
         // Make Tab/Backtab handle keyboard focus
