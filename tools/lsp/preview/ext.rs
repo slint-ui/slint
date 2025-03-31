@@ -35,7 +35,7 @@ pub trait ElementRcNodeExt {
 
 impl ElementRcNodeExt for common::ElementRcNode {
     fn layout_kind(&self) -> crate::preview::ui::LayoutKind {
-        self.with_element_debug(|_, l| match l {
+        self.with_element_debug(|di| match &di.layout {
             Some(layout::Layout::GridLayout(_)) => ui::LayoutKind::Grid,
             Some(layout::Layout::BoxLayout(layout::BoxLayout {
                 orientation: layout::Orientation::Horizontal,
