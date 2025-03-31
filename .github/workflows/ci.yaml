@@ -25,6 +25,7 @@ jobs:
       outputs:
         slint: ${{ steps.filter.outputs.slint }}
         figma_inspector : ${{ steps.filter.outputs.figma_inspector }}
+        material_components : ${{ steps.filter.outputs.material_components }}
       steps:
         - uses: actions/checkout@v4
         - uses: dorny/paths-filter@v3
@@ -32,7 +33,7 @@ jobs:
           with:
             token: ${{ github.token }}
             filters: .github/ci_path_filters.yaml
-
+            
     build_and_test:
         needs: files-changed
         if: needs.files-changed.outputs.slint == 'true'
