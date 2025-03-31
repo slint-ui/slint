@@ -204,8 +204,13 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
         }
         Expression::FunctionCall { function, arguments, source_location: _ } => match &function {
             Callable::Function(nr) => {
-                let args = arguments.iter().map(|e| eval_expression(e, local_context)).collect::<Vec<_>>();
-                call_function(&local_context.component_instance, &nr.element(), nr.name(), args).unwrap()
+                let is_item_member = nr.element().borrow().native_class().is_some_and(|n| n.properties.contains_key(nr.name()));
+                if is_item_member {
+                    call_item_member_function(nr, local_context)
+                } else {
+                    let args = arguments.iter().map(|e| eval_expression(e, local_context)).collect::<Vec<_>>();
+                    call_function(&local_context.component_instance, &nr.element(), nr.name(), args).unwrap()
+                }
             }
             Callable::Callback(nr) => {
                 let args = arguments.iter().map(|e| eval_expression(e, local_context)).collect::<Vec<_>>();
@@ -864,74 +869,6 @@ fn call_builtin_function(
                 panic!("internal error: first argument to set-selection-offsets must be an element")
             }
         }
-        BuiltinFunction::ItemMemberFunction(name) => {
-            if arguments.len() != 1 {
-                panic!("internal error: incorrect argument count to item member function call")
-            }
-            let component = match local_context.component_instance {
-                ComponentInstance::InstanceRef(c) => c,
-                ComponentInstance::GlobalComponent(_) => {
-                    panic!("Cannot invoke member function on item from a global component")
-                }
-            };
-            if let Expression::ElementReference(element) = &arguments[0] {
-                generativity::make_guard!(guard);
-
-                let elem = element.upgrade().unwrap();
-                let enclosing_component = enclosing_component_for_element(&elem, component, guard);
-                let description = enclosing_component.description;
-                let item_info = &description.items[elem.borrow().id.as_str()];
-                let item_ref =
-                    unsafe { item_info.item_from_item_tree(enclosing_component.as_ptr()) };
-
-                let item_comp = enclosing_component.self_weak().get().unwrap().upgrade().unwrap();
-                let item_rc = corelib::items::ItemRc::new(
-                    vtable::VRc::into_dyn(item_comp),
-                    item_info.item_index(),
-                );
-
-                let window_adapter = component.window_adapter();
-
-                // TODO: Make this generic through RTTI
-                if let Some(textinput) =
-                    ItemRef::downcast_pin::<corelib::items::TextInput>(item_ref)
-                {
-                    match &*name {
-                        "select-all" => textinput.select_all(&window_adapter, &item_rc),
-                        "clear-selection" => textinput.clear_selection(&window_adapter, &item_rc),
-                        "cut" => textinput.cut(&window_adapter, &item_rc),
-                        "copy" => textinput.copy(&window_adapter, &item_rc),
-                        "paste" => textinput.paste(&window_adapter, &item_rc),
-                        _ => panic!("internal: Unknown member function {name} called on TextInput"),
-                    }
-                } else if let Some(s) =
-                    ItemRef::downcast_pin::<corelib::items::SwipeGestureHandler>(item_ref)
-                {
-                    match &*name {
-                        "cancel" => s.cancel(&window_adapter, &item_rc),
-                        _ => panic!("internal: Unknown member function {name} called on SwipeGestureHandler"),
-                    }
-                } else if let Some(s) =
-                    ItemRef::downcast_pin::<corelib::items::ContextMenu>(item_ref)
-                {
-                    match &*name {
-                        "close" => s.close(&window_adapter, &item_rc),
-                        _ => {
-                            panic!("internal: Unknown member function {name} called on ContextMenu")
-                        }
-                    }
-                } else {
-                    panic!(
-                        "internal error: member function {name} called on element that doesn't have it: {}",
-                        elem.borrow().original_name()
-                    )
-                }
-
-                Value::Void
-            } else {
-                panic!("internal error: argument to set-selection-offsetsAll must be an element")
-            }
-        }
         BuiltinFunction::ItemFontMetrics => {
             if arguments.len() != 1 {
                 panic!(
@@ -1464,6 +1401,59 @@ fn call_builtin_function(
             }
         },
     }
+}
+
+fn call_item_member_function(nr: &NamedReference, local_context: &mut EvalLocalContext) -> Value {
+    let component = match local_context.component_instance {
+        ComponentInstance::InstanceRef(c) => c,
+        ComponentInstance::GlobalComponent(_) => {
+            panic!("Cannot invoke member function on item from a global component")
+        }
+    };
+    let elem = nr.element();
+    let name = nr.name().as_str();
+    generativity::make_guard!(guard);
+    let enclosing_component = enclosing_component_for_element(&elem, component, guard);
+    let description = enclosing_component.description;
+    let item_info = &description.items[elem.borrow().id.as_str()];
+    let item_ref = unsafe { item_info.item_from_item_tree(enclosing_component.as_ptr()) };
+
+    let item_comp = enclosing_component.self_weak().get().unwrap().upgrade().unwrap();
+    let item_rc =
+        corelib::items::ItemRc::new(vtable::VRc::into_dyn(item_comp), item_info.item_index());
+
+    let window_adapter = component.window_adapter();
+
+    // TODO: Make this generic through RTTI
+    if let Some(textinput) = ItemRef::downcast_pin::<corelib::items::TextInput>(item_ref) {
+        match name {
+            "select-all" => textinput.select_all(&window_adapter, &item_rc),
+            "clear-selection" => textinput.clear_selection(&window_adapter, &item_rc),
+            "cut" => textinput.cut(&window_adapter, &item_rc),
+            "copy" => textinput.copy(&window_adapter, &item_rc),
+            "paste" => textinput.paste(&window_adapter, &item_rc),
+            _ => panic!("internal: Unknown member function {name} called on TextInput"),
+        }
+    } else if let Some(s) = ItemRef::downcast_pin::<corelib::items::SwipeGestureHandler>(item_ref) {
+        match name {
+            "cancel" => s.cancel(&window_adapter, &item_rc),
+            _ => panic!("internal: Unknown member function {name} called on SwipeGestureHandler"),
+        }
+    } else if let Some(s) = ItemRef::downcast_pin::<corelib::items::ContextMenu>(item_ref) {
+        match name {
+            "close" => s.close(&window_adapter, &item_rc),
+            _ => {
+                panic!("internal: Unknown member function {name} called on ContextMenu")
+            }
+        }
+    } else {
+        panic!(
+            "internal error: member function {name} called on element that doesn't have it: {}",
+            elem.borrow().original_name()
+        )
+    }
+
+    Value::Void
 }
 
 fn eval_assignment(lhs: &Expression, op: char, rhs: Value, local_context: &mut EvalLocalContext) {

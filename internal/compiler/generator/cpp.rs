@@ -84,8 +84,7 @@ fn access_item_rc(pr: &llr::PropertyReference, ctx: &EvaluationContext) -> Strin
     };
 
     match pr {
-        llr::PropertyReference::InNativeItem { sub_component_path, item_index, prop_name } => {
-            assert!(prop_name.is_empty());
+        llr::PropertyReference::InNativeItem { sub_component_path, item_index, prop_name: _ } => {
             let (sub_compo_path, sub_component) = follow_sub_component_path(
                 ctx.compilation_unit,
                 ctx.current_sub_component.unwrap(),
@@ -2896,8 +2895,14 @@ fn access_member(reference: &llr::PropertyReference, ctx: &EvaluationContext) ->
             sub_component_path,
         );
         let item_name = ident(&sub_component.items[item_index].name);
-        if prop_name.is_empty() {
+        if prop_name.is_empty()
+            || matches!(
+                sub_component.items[item_index].ty.lookup_property(prop_name),
+                Some(Type::Function { .. })
+            )
+        {
             // then this is actually a reference to the element itself
+            // (or a call to a builtin member function)
             format!("{path}->{compo_path}{item_name}")
         } else {
             let property_name = ident(prop_name);
@@ -3004,25 +3009,26 @@ fn access_member(reference: &llr::PropertyReference, ctx: &EvaluationContext) ->
 
 /// Returns the NativeClass for a PropertyReference::InNativeItem
 /// (or a InParent of InNativeItem )
-fn native_item<'a>(
-    item_ref: &llr::PropertyReference,
+/// As well as the property name
+fn native_prop_info<'a, 'b>(
+    item_ref: &'b llr::PropertyReference,
     ctx: &'a EvaluationContext,
-) -> &'a NativeClass {
+) -> (&'a NativeClass, &'b str) {
     match item_ref {
-        llr::PropertyReference::InNativeItem { sub_component_path, item_index, prop_name: _ } => {
+        llr::PropertyReference::InNativeItem { sub_component_path, item_index, prop_name } => {
             let (_, sub_component) = follow_sub_component_path(
                 ctx.compilation_unit,
                 ctx.current_sub_component.unwrap(),
                 sub_component_path,
             );
-            &sub_component.items[*item_index].ty
+            (&sub_component.items[*item_index].ty, prop_name)
         }
         llr::PropertyReference::InParent { level, parent_reference } => {
             let mut ctx = ctx;
             for _ in 0..level.get() {
                 ctx = ctx.parent.as_ref().unwrap().ctx;
             }
-            native_item(parent_reference, ctx)
+            native_prop_info(parent_reference, ctx)
         }
         _ => unreachable!(),
     }
@@ -3063,7 +3069,14 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             let mut a = arguments.iter().map(|a| compile_expression(a, ctx));
             format!("{}({})", f, a.join(","))
         }
-
+        Expression::ItemMemberFunctionCall { function } => {
+            let item = access_member(function, ctx);
+            let item_rc = access_item_rc(function, ctx);
+            let window = access_window_field(ctx);
+            let (native, name) = native_prop_info(function, ctx);
+            let function_name = format!("slint_{}_{}", native.class_name.to_lowercase(), ident(&name).to_lowercase());
+            format!("{function_name}(&{item}, &{window}.handle(), &{item_rc})")
+        }
         Expression::ExtraBuiltinFunctionCall { function, arguments, return_ty: _ } => {
             let mut a = arguments.iter().map(|a| compile_expression(a, ctx));
             format!("slint::private_api::{}({})", ident(function), a.join(","))
@@ -3847,24 +3860,6 @@ fn compile_builtin_function_call(
                 panic!("internal error: invalid args to set-selection-offsets {arguments:?}")
             }
         }
-        BuiltinFunction::ItemMemberFunction(name) => {
-            if let [llr::Expression::PropertyReference(pr)] = arguments {
-                let item = access_member(pr, ctx);
-                let item_rc = access_item_rc(pr, ctx);
-                let window = access_window_field(ctx);
-                let native = native_item(pr, ctx);
-
-                let function_name = format!(
-                    "slint_{}_{}",
-                    native.class_name.to_lowercase(),
-                    ident(&name).to_lowercase()
-                );
-
-                format!("{function_name}(&{item}, &{window}.handle(), &{item_rc})")
-            } else {
-                panic!("internal error: invalid args to ItemMemberFunction {arguments:?}")
-            }
-        }
         BuiltinFunction::ItemFontMetrics => {
             if let [llr::Expression::PropertyReference(pr)] = arguments {
                 let item_rc = access_item_rc(pr, ctx);
@@ -3914,7 +3909,7 @@ fn compile_builtin_function_call(
         }
         BuiltinFunction::ImplicitLayoutInfo(orient) => {
             if let [llr::Expression::PropertyReference(pr)] = arguments {
-                let native = native_item(pr, ctx);
+                let native = native_prop_info(pr, ctx).0;
                 format!(
                     "{vt}->layout_info({{{vt}, const_cast<slint::cbindgen_private::{ty}*>(&{i})}}, {o}, &{window})",
                     vt = native.cpp_vtable_getter,

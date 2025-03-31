@@ -329,11 +329,13 @@ impl Type {
 }
 
 #[derive(Debug, Clone)]
-
 pub enum BuiltinPropertyDefault {
     None,
     Expr(Expression),
-    Fn(fn(&crate::object_tree::ElementRc) -> Expression),
+    /// When materializing a property of this type, it will be initialized with an Expression that depends on the ElementRc
+    WithElement(fn(&crate::object_tree::ElementRc) -> Expression),
+    /// The property is actually not a property but a builtin function
+    BuiltinFunction(BuiltinFunction),
 }
 
 impl BuiltinPropertyDefault {
@@ -341,7 +343,10 @@ impl BuiltinPropertyDefault {
         match self {
             BuiltinPropertyDefault::None => None,
             BuiltinPropertyDefault::Expr(expression) => Some(expression.clone()),
-            BuiltinPropertyDefault::Fn(init_expr) => Some(init_expr(elem)),
+            BuiltinPropertyDefault::WithElement(init_expr) => Some(init_expr(elem)),
+            BuiltinPropertyDefault::BuiltinFunction(..) => {
+                unreachable!("can't get an expression for functions")
+            }
         }
     }
 }
@@ -367,6 +372,16 @@ impl BuiltinPropertyInfo {
 
     pub fn is_native_output(&self) -> bool {
         matches!(self.property_visibility, PropertyVisibility::InOut | PropertyVisibility::Output)
+    }
+}
+
+impl From<BuiltinFunction> for BuiltinPropertyInfo {
+    fn from(function: BuiltinFunction) -> Self {
+        Self {
+            ty: Type::Function(function.ty()),
+            default_value: BuiltinPropertyDefault::BuiltinFunction(function),
+            property_visibility: PropertyVisibility::Public,
+        }
     }
 }
 
@@ -411,14 +426,7 @@ impl ElementType {
                 match b.properties.get(resolved_name.as_ref()) {
                     None => {
                         if b.is_non_item_type {
-                            PropertyLookupResult {
-                                resolved_name,
-                                property_type: Type::Invalid,
-                                property_visibility: PropertyVisibility::Private,
-                                declared_pure: None,
-                                is_local_to_component: false,
-                                is_in_direct_base: false,
-                            }
+                            PropertyLookupResult::invalid(resolved_name)
                         } else {
                             crate::typeregister::reserved_property(name)
                         }
@@ -430,6 +438,10 @@ impl ElementType {
                         declared_pure: None,
                         is_local_to_component: false,
                         is_in_direct_base: false,
+                        builtin_function: match &p.default_value {
+                            BuiltinPropertyDefault::BuiltinFunction(f) => Some(f.clone()),
+                            _ => None,
+                        },
                     },
                 }
             }
@@ -448,16 +460,10 @@ impl ElementType {
                     declared_pure: None,
                     is_local_to_component: false,
                     is_in_direct_base: false,
+                    builtin_function: None,
                 }
             }
-            _ => PropertyLookupResult {
-                resolved_name: Cow::Borrowed(name),
-                property_type: Type::Invalid,
-                property_visibility: PropertyVisibility::Private,
-                declared_pure: None,
-                is_local_to_component: false,
-                is_in_direct_base: false,
-            },
+            _ => PropertyLookupResult::invalid(Cow::Borrowed(name)),
         }
     }
 
@@ -563,20 +569,6 @@ impl ElementType {
                     Ok(t)
                 }
             })
-        }
-    }
-
-    pub fn lookup_member_function(&self, name: &str) -> Option<BuiltinFunction> {
-        match self {
-            Self::Builtin(builtin) => builtin
-                .member_functions
-                .get(name)
-                .cloned()
-                .or_else(|| crate::typeregister::reserved_member_function(name)),
-            Self::Component(component) => {
-                component.root_element.borrow().base_type.lookup_member_function(name)
-            }
-            _ => None,
         }
     }
 
@@ -721,7 +713,6 @@ pub struct BuiltinElement {
     /// Non-item type do not have reserved properties (x/width/rowspan/...) added to them  (eg: PropertyAnimation)
     pub is_non_item_type: bool,
     pub accepts_focus: bool,
-    pub member_functions: HashMap<SmolStr, BuiltinFunction>,
     pub is_global: bool,
     pub default_size_binding: DefaultSizeBinding,
     /// When true this is an internal type not shown in the auto-completion
@@ -744,9 +735,12 @@ pub struct PropertyLookupResult<'a> {
     pub is_local_to_component: bool,
     /// True if the property in the direct base of the component (for visibility purposes)
     pub is_in_direct_base: bool,
+
+    /// If the property is a builtin function
+    pub builtin_function: Option<BuiltinFunction>,
 }
 
-impl PropertyLookupResult<'_> {
+impl<'a> PropertyLookupResult<'a> {
     pub fn is_valid(&self) -> bool {
         self.property_type != Type::Invalid
     }
@@ -759,6 +753,18 @@ impl PropertyLookupResult<'_> {
                 | (PropertyVisibility::Input, true)
                 | (PropertyVisibility::Output, false)
         )
+    }
+
+    pub fn invalid(resolved_name: Cow<'a, str>) -> Self {
+        Self {
+            resolved_name,
+            property_type: Type::Invalid,
+            property_visibility: PropertyVisibility::Private,
+            declared_pure: None,
+            is_local_to_component: false,
+            is_in_direct_base: false,
+            builtin_function: None,
+        }
     }
 }
 

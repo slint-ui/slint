@@ -10,7 +10,7 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use crate::expression_tree::{BuiltinFunction, Expression};
+use crate::expression_tree::Expression;
 use crate::langtype::{
     BuiltinElement, BuiltinPropertyDefault, BuiltinPropertyInfo, DefaultSizeBinding, ElementType,
     Function, NativeClass, Type,
@@ -162,18 +162,18 @@ pub(crate) fn load_builtins(register: &mut TypeRegister) {
             Base::None
         };
 
-        let member_functions = e
-            .Function()
-            .map(|f| {
-                let name = identifier_text(&f.DeclaredIdentifier()).unwrap();
-                (name.clone(), BuiltinFunction::ItemMemberFunction(name))
-            })
-            .collect::<Vec<_>>();
-        n.properties.extend(
-            member_functions.iter().map(|(name, fun)| {
-                (name.clone(), BuiltinPropertyInfo::new(Type::Function(fun.ty())))
-            }),
-        );
+        n.properties.extend(e.Function().map(|f| {
+            let name = identifier_text(&f.DeclaredIdentifier()).unwrap();
+            let return_type = f.ReturnType().map_or(Type::Void, |p| {
+                object_tree::type_from_node(p.Type(), *diag.borrow_mut(), register)
+            });
+            (
+                name,
+                BuiltinPropertyInfo::new(Type::Function(
+                    Function { return_type, args: vec![], arg_names: vec![] }.into(),
+                )),
+            )
+        }));
 
         let mut builtin = BuiltinElement::new(Rc::new(n));
         builtin.is_global = matches!(base, Base::Global);
@@ -184,7 +184,6 @@ pub(crate) fn load_builtins(register: &mut TypeRegister) {
         properties
             .extend(builtin.native_class.properties.iter().map(|(k, v)| (k.clone(), v.clone())));
 
-        builtin.member_functions.extend(member_functions);
         builtin.disallow_global_types_as_child_elements =
             parse_annotation("disallow_global_types_as_child_elements", &e).is_some();
         builtin.is_non_item_type = parse_annotation("is_non_item_type", &e).is_some();

@@ -1699,6 +1699,7 @@ impl Element {
                 declared_pure: p.pure,
                 is_local_to_component: true,
                 is_in_direct_base: false,
+                builtin_function: None,
             },
         )
     }

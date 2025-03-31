@@ -264,17 +264,18 @@ pub fn reserved_properties() -> impl Iterator<Item = (&'static str, Type, Proper
 /// lookup reserved property injected in every item
 pub fn reserved_property(name: &str) -> PropertyLookupResult {
     thread_local! {
-        static RESERVED_PROPERTIES: HashMap<&'static str, (Type, PropertyVisibility)>
-            = reserved_properties().map(|(name, ty, visibility)| (name, (ty, visibility))).collect();
+        static RESERVED_PROPERTIES: HashMap<&'static str, (Type, PropertyVisibility, Option<BuiltinFunction>)>
+            = reserved_properties().map(|(name, ty, visibility)| (name, (ty, visibility, reserved_member_function(name)))).collect();
     }
     if let Some(result) = RESERVED_PROPERTIES.with(|reserved| {
-        reserved.get(name).map(|(ty, visibility)| PropertyLookupResult {
+        reserved.get(name).map(|(ty, visibility, builtin_function)| PropertyLookupResult {
             property_type: ty.clone(),
             resolved_name: name.into(),
             is_local_to_component: false,
             is_in_direct_base: false,
             property_visibility: *visibility,
             declared_pure: None,
+            builtin_function: builtin_function.clone(),
         })
     }) {
         return result;
@@ -293,20 +294,14 @@ pub fn reserved_property(name: &str) -> PropertyLookupResult {
                             is_in_direct_base: false,
                             property_visibility: crate::object_tree::PropertyVisibility::InOut,
                             declared_pure: None,
+                            builtin_function: None,
                         };
                     }
                 }
             }
         }
     }
-    PropertyLookupResult {
-        resolved_name: name.into(),
-        property_type: Type::Invalid,
-        is_local_to_component: false,
-        is_in_direct_base: false,
-        property_visibility: crate::object_tree::PropertyVisibility::Private,
-        declared_pure: None,
-    }
+    PropertyLookupResult::invalid(name.into())
 }
 
 /// These member functions are injected in every time
@@ -476,17 +471,13 @@ impl TypeRegister {
                 let popup = Rc::get_mut(b).unwrap();
                 popup.properties.insert(
                     "show".into(),
-                    BuiltinPropertyInfo::new(Type::Function(BuiltinFunction::ShowPopupWindow.ty())),
+                    BuiltinPropertyInfo::from(BuiltinFunction::ShowPopupWindow),
                 );
-                popup.member_functions.insert("show".into(), BuiltinFunction::ShowPopupWindow);
 
                 popup.properties.insert(
                     "close".into(),
-                    BuiltinPropertyInfo::new(Type::Function(
-                        BuiltinFunction::ClosePopupWindow.ty(),
-                    )),
+                    BuiltinPropertyInfo::from(BuiltinFunction::ClosePopupWindow),
                 );
-                popup.member_functions.insert("close".into(), BuiltinFunction::ClosePopupWindow);
 
                 popup.properties.get_mut("close-on-click").unwrap().property_visibility =
                     PropertyVisibility::Constexpr;
@@ -500,7 +491,7 @@ impl TypeRegister {
         let font_metrics_prop = crate::langtype::BuiltinPropertyInfo {
             ty: font_metrics_type(),
             property_visibility: PropertyVisibility::Output,
-            default_value: BuiltinPropertyDefault::Fn(|elem| {
+            default_value: BuiltinPropertyDefault::WithElement(|elem| {
                 crate::expression_tree::Expression::FunctionCall {
                     function: BuiltinFunction::ItemFontMetrics.into(),
                     arguments: vec![crate::expression_tree::Expression::ElementReference(
@@ -516,13 +507,8 @@ impl TypeRegister {
                 let text_input = Rc::get_mut(b).unwrap();
                 text_input.properties.insert(
                     "set-selection-offsets".into(),
-                    BuiltinPropertyInfo::new(Type::Function(
-                        BuiltinFunction::SetSelectionOffsets.ty(),
-                    )),
+                    BuiltinPropertyInfo::from(BuiltinFunction::SetSelectionOffsets),
                 );
-                text_input
-                    .member_functions
-                    .insert("set-selection-offsets".into(), BuiltinFunction::SetSelectionOffsets);
                 text_input.properties.insert("font-metrics".into(), font_metrics_prop.clone());
             }
 

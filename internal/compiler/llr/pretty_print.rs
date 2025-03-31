@@ -282,6 +282,9 @@ impl<'a, T> Display for DisplayExpression<'a, T> {
                     arguments.iter().map(e).join(", ")
                 )
             }
+            Expression::ItemMemberFunctionCall { function } => {
+                write!(f, "{}()", DisplayPropertyRef(function, ctx))
+            }
             Expression::ExtraBuiltinFunctionCall { function, arguments, .. } => {
                 write!(f, "{}({})", function, arguments.iter().map(e).join(", "))
             }

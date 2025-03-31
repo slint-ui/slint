@@ -35,6 +35,7 @@ fn expression_cost(exp: &Expression, ctx: &EvaluationContext) -> isize {
         Expression::BuiltinFunctionCall { function, .. } => builtin_function_cost(function),
         Expression::CallBackCall { callback, .. } => callback_cost(callback, ctx),
         Expression::FunctionCall { function, .. } => callback_cost(function, ctx),
+        Expression::ItemMemberFunctionCall { function } => callback_cost(function, ctx),
         Expression::ExtraBuiltinFunctionCall { .. } => return isize::MAX,
         Expression::PropertyAssignment { .. } => return isize::MAX,
         Expression::ModelDataAssignment { .. } => return isize::MAX,
@@ -109,7 +110,6 @@ fn builtin_function_cost(function: &BuiltinFunction) -> isize {
         | BuiltinFunction::ClosePopupWindow
         | BuiltinFunction::ShowPopupMenu => isize::MAX,
         BuiltinFunction::SetSelectionOffsets => isize::MAX,
-        BuiltinFunction::ItemMemberFunction(..) => isize::MAX,
         BuiltinFunction::ItemFontMetrics => PROPERTY_ACCESS_COST,
         BuiltinFunction::StringToFloat => 50,
         BuiltinFunction::StringIsFloat => 50,
