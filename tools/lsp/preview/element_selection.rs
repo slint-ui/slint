@@ -332,8 +332,9 @@ pub fn selection_stack_at(
                         selected.as_ref() == Some(&en)
                     };
 
-                    let (type_name, id, is_layout) = en.with_element_debug(|el, layout| {
-                        let id = el
+                    let (type_name, id, is_layout) = en.with_element_debug(|di| {
+                        let id = di
+                            .node
                             .parent()
                             .and_then(|p| {
                                 if p.kind() == SyntaxKind::SubElement {
@@ -346,7 +347,8 @@ pub fn selection_stack_at(
                             .unwrap_or_default();
 
                         let type_name = {
-                            el.parent()
+                            di.node
+                                .parent()
                                 .and_then(|p| {
                                     if p.kind() == SyntaxKind::Component {
                                         p.child_node(SyntaxKind::DeclaredIdentifier)
@@ -356,7 +358,8 @@ pub fn selection_stack_at(
                                     }
                                 })
                                 .or_else(|| {
-                                    el.QualifiedName()
+                                    di.node
+                                        .QualifiedName()
                                         .map(|qn| qn.text().to_string().trim().to_string())
                                 })
                                 .unwrap_or_default()
@@ -364,7 +367,7 @@ pub fn selection_stack_at(
                                 .to_string()
                         };
 
-                        (type_name, id, layout.is_some())
+                        (type_name, id, di.layout.is_some())
                     });
 
                     (type_name, id, is_layout, is_selected, path, offset)

@@ -177,14 +177,11 @@ impl ElementRcNode {
     /// Run with all the debug information on the node
     pub fn with_element_debug<R>(
         &self,
-        func: impl Fn(
-            &i_slint_compiler::parser::syntax_nodes::Element,
-            &Option<i_slint_compiler::layout::Layout>,
-        ) -> R,
+        func: impl Fn(&i_slint_compiler::object_tree::ElementDebugInfo) -> R,
     ) -> R {
         let elem = self.element.borrow();
-        let d = &elem.debug.get(self.debug_index).unwrap();
-        func(&d.node, &d.layout)
+        let d = elem.debug.get(self.debug_index).unwrap();
+        func(d)
     }
 
     /// Run with the `Element` node
