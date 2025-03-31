@@ -42,10 +42,10 @@ pub fn init() {
         .expect("backend already initialized");
 }
 
-#[link_section = ".frame_buffer"]
+#[unsafe(link_section = ".frame_buffer")]
 static mut FB1: [TargetPixel; DISPLAY_WIDTH * DISPLAY_HEIGHT] =
     [software_renderer::Rgb565Pixel(0); DISPLAY_WIDTH * DISPLAY_HEIGHT];
-#[link_section = ".frame_buffer"]
+#[unsafe(link_section = ".frame_buffer")]
 static mut FB2: [TargetPixel; DISPLAY_WIDTH * DISPLAY_HEIGHT] =
     [software_renderer::Rgb565Pixel(0); DISPLAY_WIDTH * DISPLAY_HEIGHT];
 

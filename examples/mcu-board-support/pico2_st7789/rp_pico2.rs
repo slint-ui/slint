@@ -60,7 +60,7 @@ extern crate cortex_m_rt;
 #[allow(unused_imports)]
 pub use hal::entry;
 
-#[link_section = ".start_block"]
+#[unsafe(link_section = ".start_block")]
 #[unsafe(no_mangle)]
 #[used]
 pub static BOOT2_FIRMWARE: hal::block::ImageDef = hal::block::ImageDef::secure_exe();
