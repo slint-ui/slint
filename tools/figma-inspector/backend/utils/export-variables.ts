@@ -156,91 +156,100 @@ function createReferenceExpression(
 }
 
 // For Figma Plugin - Export function with hierarchical structure
-export async function exportFigmaVariablesToSlint(): Promise<string> {
+
+// Export each collection to a separate virtual file
+export async function exportFigmaVariablesToSeparateFiles(): Promise<Array<{name: string, content: string}>> {
   try {
     // Get collections asynchronously
     const variableCollections = await figma.variables.getLocalVariableCollectionsAsync();
-
-    // Initialize code output
-    let slintCode = `// Generated from Figma variables\n\n`;
-
-    // Track collections and their structure
-    const collectionStructure = new Map<string, {
-      name: string,
-      formattedName: string,
-      modes: Set<string>,
-      variables: Map<string, Map<string, { value: string, type: string, refId?: string }>>
-    }>();
-
-    // Create a map of all variable IDs to their actual values (for resolving references)
-    const variableValuesById = new Map<string, Map<string, { value: string, type: string }>>();
-    const variableNameById = new Map<string, string>();
-
-    // NEW: Track where each variable ID will appear in the generated code
-    const variablePathsById = new Map<string, { collection: string, row: string }>();
-
-    // First pass: collect all variables and store references
+    
+    // Array to store all exported files
+    const exportedFiles: Array<{name: string, content: string}> = [];
+    
+    // Process each collection
     for (const collection of variableCollections) {
-      const collectionName = formatPropertyName(collection.name);
-      const formattedCollectionName = formatStructName(collection.name);
-
       // Skip empty collections
       if (!collection.variableIds || collection.variableIds.length === 0) continue;
-
-      // Initialize collection structure
-      if (!collectionStructure.has(collectionName)) {
-        collectionStructure.set(collectionName, {
-          name: collection.name,
-          formattedName: formattedCollectionName,
-          modes: new Set<string>(),
-          variables: new Map<string, Map<string, { value: string, type: string, refId?: string }>>()
-        });
-      }
-
+      
+      const collectionName = formatPropertyName(collection.name);
+      const formattedCollectionName = formatStructName(collection.name);
+      
+      // Initialize code output for this collection
+      let slintCode = `// Generated from Figma collection: ${collection.name}\n\n`;
+      
+      // Now use the same code structure as in your existing function
+      // but process only this single collection
+      
+      // Collection-specific data structures
+      const collectionStructure = new Map<string, {
+        name: string,
+        formattedName: string,
+        modes: Set<string>,
+        variables: Map<string, Map<string, { value: string, type: string, refId?: string }>>
+      }>();
+      
+      // Initialize the collection in our structure
+      collectionStructure.set(collectionName, {
+        name: collection.name,
+        formattedName: formattedCollectionName,
+        modes: new Set<string>(),
+        variables: new Map<string, Map<string, { value: string, type: string, refId?: string }>>()
+      });
+      
       // Add modes to collection
       collection.modes.forEach(mode => {
         const sanitizedMode = sanitizeModeForEnum(formatPropertyName(mode.name));
         collectionStructure.get(collectionName)!.modes.add(sanitizedMode);
       });
-
+      
+      // Maps for references that can be scoped to this collection
+      const variableValuesById = new Map<string, Map<string, { value: string, type: string }>>();
+      const variableNameById = new Map<string, string>();
+      const variablePathsById = new Map<string, { collection: string, row: string }>();
+      
       // Process variables in batches
       const batchSize = 5;
       for (let i = 0; i < collection.variableIds.length; i += batchSize) {
+        // Same batch processing as original function
         const batch = collection.variableIds.slice(i, i + batchSize);
         const batchPromises = batch.map(id => figma.variables.getVariableByIdAsync(id));
         const batchResults = await Promise.all(batchPromises);
-
+        
         for (const variable of batchResults) {
+          // Same variable processing as original function
           if (!variable) continue;
           if (!variable.valuesByMode || Object.keys(variable.valuesByMode).length === 0) continue;
-
-          // Store variable name by ID for later reference resolution
+          
+          // Store variable name by ID
           variableNameById.set(variable.id, variable.name);
-
+          
+          // The rest of variable processing (same as original function)
+          // ...
+          
           // Initialize variable in valuesByID map
           if (!variableValuesById.has(variable.id)) {
             variableValuesById.set(variable.id, new Map<string, { value: string, type: string }>());
           }
-
+          
           // Use extractHierarchy to break up variable names 
           const nameParts = extractHierarchy(variable.name);
           const propertyName = nameParts.length > 0 ?
             nameParts[nameParts.length - 1] :
             formatPropertyName(variable.name);
-
+          
           const path = nameParts.length > 1 ?
             nameParts.slice(0, -1).join('_') :
             '';
-
+          
           const rowName = path ? `${path}_${propertyName}` : propertyName;
           const sanitizedRowName = sanitizeRowName(rowName);
-
-          // NEW: Store the path to this variable for reference lookup
+          
+          // Store the path to this variable for reference lookup
           variablePathsById.set(variable.id, {
             collection: collectionName,
             row: sanitizedRowName
           });
-
+          
           // Initialize row in variables map
           if (!collectionStructure.get(collectionName)!.variables.has(sanitizedRowName)) {
             collectionStructure.get(collectionName)!.variables.set(
@@ -248,18 +257,20 @@ export async function exportFigmaVariablesToSlint(): Promise<string> {
               new Map<string, { value: string, type: string, refId?: string }>()
             );
           }
-
-          // Process values for each mode
+          
+          // Process values for each mode (same as original function)
           for (const [modeId, value] of Object.entries(variable.valuesByMode)) {
+            // ...process values as in original function
             const modeInfo = collection.modes.find(m => m.modeId === modeId);
             if (!modeInfo) continue;
-
+            
             const modeName = sanitizeModeForEnum(formatPropertyName(modeInfo.name));
-
-            // Format value and track references
+            
+            // Format value and track references (same as original)
             let formattedValue = '';
             let refId: string | undefined;
-
+            
+            // ... process different variable types (COLOR, FLOAT, STRING, BOOLEAN)
             if (variable.resolvedType === 'COLOR') {
               if (typeof value === 'object' && value && 'r' in value) {
                 formattedValue = convertColor(value);
@@ -306,14 +317,13 @@ export async function exportFigmaVariablesToSlint(): Promise<string> {
                 formattedValue = 'false';
               }
             }
-
-            // Store in variable value map (for reference resolution)
+            
+            // Store values (same as original)
             variableValuesById.get(variable.id)!.set(
               modeName,
               { value: formattedValue, type: variable.resolvedType }
             );
-
-            // Store in collection structure with reference ID if present
+            
             collectionStructure.get(collectionName)!.variables.get(sanitizedRowName)!.set(
               modeName,
               {
@@ -324,17 +334,13 @@ export async function exportFigmaVariablesToSlint(): Promise<string> {
             );
           }
         }
-
+        
         // Force GC between batches
         await new Promise(resolve => setTimeout(resolve, 0));
       }
-    }
-
-    // We'll use the global createReferenceExpression function defined earlier in the file
-
-    // Second pass: preserve references with correct formatting
-    for (const [collectionKey, collection] of collectionStructure.entries()) {
-      for (const [rowName, columns] of collection.variables.entries()) {
+      
+      // Preserve references - second pass (same as original function)
+      for (const [rowName, columns] of collectionStructure.get(collectionName)!.variables.entries()) {
         for (const [colName, data] of columns.entries()) {
           if (data.refId) {
             // Use the improved reference expression function
@@ -344,10 +350,10 @@ export async function exportFigmaVariablesToSlint(): Promise<string> {
               variablePathsById,
               collectionStructure
             );
-
+            
             if (refExpression) {
-              // Update with reference expression instead of resolved value
-              collectionStructure.get(collectionKey)!.variables.get(rowName)!.set(
+              // Update with reference expression
+              collectionStructure.get(collectionName)!.variables.get(rowName)!.set(
                 colName,
                 {
                   value: refExpression,
@@ -358,13 +364,13 @@ export async function exportFigmaVariablesToSlint(): Promise<string> {
             } else {
               // Couldn't create reference, use a placeholder
               console.warn(`Couldn't create reference expression for: ${data.refId} for ${rowName}-${colName}`);
-              collectionStructure.get(collectionKey)!.variables.get(rowName)!.set(
+              collectionStructure.get(collectionName)!.variables.get(rowName)!.set(
                 colName,
                 {
                   value: data.type === 'COLOR' ? '#808080' :
-                    data.type === 'FLOAT' ? '0px' :
-                      data.type === 'BOOLEAN' ? 'false' :
-                        '""',
+                         data.type === 'FLOAT' ? '0px' :
+                         data.type === 'BOOLEAN' ? 'false' :
+                         '""',
                   type: data.type
                 }
               );
@@ -372,55 +378,55 @@ export async function exportFigmaVariablesToSlint(): Promise<string> {
           }
         }
       }
-    }
-
-    // Third pass: generate code
-    for (const [collectionKey, collection] of collectionStructure.entries()) {
+      
+      // Generate code for this collection - third pass (same code generation as original)
+      const collectionData = collectionStructure.get(collectionName)!;
+      
       // Only generate if there are variables
-      if (collection.variables.size === 0) continue;
-
+      if (collectionData.variables.size === 0) continue;
+      
       // Convert modes to an array for consistent indexing
-      const modes = [...collection.modes];
-
+      const modes = [...collectionData.modes];
+      
       // 1. Generate enum for columns (modes)
-      slintCode += `// ${collection.name} Modes\n`;
-      slintCode += `export enum ${collection.formattedName}Column {\n`;
+      slintCode += `// ${collectionData.name} Modes\n`;
+      slintCode += `export enum ${collectionData.formattedName}Column {\n`;
       modes.forEach(mode => {
         slintCode += `    ${sanitizeModeForEnum(mode)},\n`;
       });
       slintCode += `}\n\n`;
-
+      
       // 2. Generate global table
-      slintCode += `// ${collection.name} Variables\n`;
-      slintCode += `export global ${collection.formattedName} {\n`;
-
+      slintCode += `// ${collectionData.name} Variables\n`;
+      slintCode += `export global ${collectionData.formattedName} {\n`;
+      
       // Current column property
-      slintCode += `    in-out property <${collection.formattedName}Column> current-column: ${modes[0] || 'light'};\n\n`;
-
+      slintCode += `    in-out property <${collectionData.formattedName}Column> current-column: ${modes[0] || 'light'};\n\n`;
+      
       // Determine types for all variables
       const variableTypes = new Map<string, string>();
-      for (const [rowName, columns] of collection.variables.entries()) {
+      for (const [rowName, columns] of collectionData.variables.entries()) {
         for (const [, data] of columns.entries()) {
           if (!variableTypes.has(rowName)) {
             variableTypes.set(rowName,
               data.type === 'COLOR' ? 'color' :
-                data.type === 'FLOAT' ? 'length' :
-                  data.type === 'BOOLEAN' ? 'bool' :
-                    'string'
+              data.type === 'FLOAT' ? 'length' :
+              data.type === 'BOOLEAN' ? 'bool' :
+              'string'
             );
           }
           break;
         }
       }
-
+      
       // 3. Add individual cell properties with references preserved
       slintCode += `    // Individual cell values\n`;
-      for (const [rowName, columns] of collection.variables.entries()) {
+      for (const [rowName, columns] of collectionData.variables.entries()) {
         const rowType = variableTypes.get(rowName) || 'color';
-
+        
         for (const [colName, data] of columns.entries()) {
           let valueExpression = data.value;
-
+          
           // Fix for empty or invalid values
           if (valueExpression === undefined || valueExpression === null || valueExpression === '') {
             if (data.type === 'STRING') {
@@ -433,43 +439,43 @@ export async function exportFigmaVariablesToSlint(): Promise<string> {
               valueExpression = '#808080';
             }
           }
-
+          
           // If this is a reference, make sure the referenced property name is sanitized
           if (data.refId) {
             const refName = variableNameById.get(data.refId) || data.refId;
-
+            
             // If the value is a reference to another property, ensure that reference is also sanitized
             if (valueExpression.includes('global_size-&-spacing')) {
               valueExpression = valueExpression.replace(/global_size-&-spacing/g, 'global_size-and-spacing');
             }
-
+            
             valueExpression = `${valueExpression} /* Reference to ${refName} */`;
           }
-
+          
           slintCode += `    out property <${rowType}> ${rowName}-${sanitizeModeForEnum(colName)}: ${valueExpression};\n`;
         }
       }
-
+      
       // 4. Generate row accessor functions
       slintCode += `\n    // Row accessor functions\n`;
-      for (const [rowName, columns] of collection.variables.entries()) {
+      for (const [rowName, columns] of collectionData.variables.entries()) {
         const rowType = variableTypes.get(rowName) || 'color';
-
-        slintCode += `    function ${rowName}(column: ${collection.formattedName}Column) -> ${rowType} {\n`;
+        
+        slintCode += `    function ${rowName}(column: ${collectionData.formattedName}Column) -> ${rowType} {\n`;
         slintCode += `        if (`;
-
+        
         let isFirst = true;
         for (const [colName] of columns.entries()) {
           if (!isFirst) slintCode += `} else if (`;
-          slintCode += `column == ${collection.formattedName}Column.${sanitizeModeForEnum(colName)}`;
+          slintCode += `column == ${collectionData.formattedName}Column.${sanitizeModeForEnum(colName)}`;
           if (isFirst) isFirst = false;
-
+          
           slintCode += `) {\n`;
           // Function returns property directly - references are preserved
           slintCode += `            return ${rowName}-${colName};\n`;
           slintCode += `        `;
         }
-
+        
         // Default case using first column
         const firstCol = [...columns.keys()][0];
         slintCode += `} else {\n`;
@@ -477,23 +483,35 @@ export async function exportFigmaVariablesToSlint(): Promise<string> {
         slintCode += `        }\n`;
         slintCode += `    }\n`;
       }
-
+      
       // 5. Generate current value properties
       slintCode += `\n    // Current values based on current-column\n`;
-      for (const [rowName] of collection.variables.entries()) {
+      for (const [rowName] of collectionData.variables.entries()) {
         const rowType = variableTypes.get(rowName) || 'color';
         slintCode += `    out property <${rowType}> current-${rowName}: ${rowName}(self.current-column);\n`;
       }
-
+      
       slintCode += `}\n\n`;
+      
+      // Add this collection to our exported files
+      exportedFiles.push({
+        name: `${formatStructName(collection.name)}.slint`,
+        content: slintCode
+      });
     }
-
-    return slintCode;
+    
+    return exportedFiles;
   } catch (error) {
-    console.error("Error in exportFigmaVariablesToSlint:", error);
-    return `// Error generating variables: ${error}`;
+    console.error("Error in exportFigmaVariablesToSeparateFiles:", error);
+    // Return an error file
+    return [{
+      name: 'error.slint',
+      content: `// Error generating variables: ${error}`
+    }];
   }
 }
+
+
 // Helper function to resolve variable references
 // Improved reference resolution function with better debugging and more flexible mode matching
 function resolveReference(

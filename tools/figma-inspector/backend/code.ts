@@ -4,7 +4,7 @@
 
 import { listenTS, updateUI } from "./utils/code-utils.js";
 import { generateSlintSnippet } from "./utils/property-parsing.js";
-import { exportFigmaVariablesToSlint } from "./utils/export-variables.js"
+import { exportFigmaVariablesToSeparateFiles } from "./utils/export-variables.js"
 if (figma.editorType === "dev" && figma.mode === "codegen") {
     figma.codegen.on("generate", async ({ node }) => {
         const slintSnippet = generateSlintSnippet(node);
@@ -42,27 +42,34 @@ figma.on("selectionchange", () => {
         updateUI();
     }
 });
-listenTS("exportAll", async ({ result }) => {
-    if (result) {
-        try {
-            // Call the async function and await its result
-            const slintCode = await exportFigmaVariablesToSlint();
-            // console.clear();
-            console.log("slint\n\n", slintCode);
-            
-            // Send the code to the UI for clipboard functionality
-            figma.ui.postMessage({
-                type: 'copyToClipboard',
-                text: slintCode
-            });
-            
-            // Log for debugging purpose
-            console.log("Slint variables exported successfully");
-            
-            figma.notify("Slint variables exported to clipboard!");
-        } catch (error) {
-            console.error("Error exporting variables:", error);
-            figma.notify("Failed to export variables", { error: true });
-        }
+
+j("exportToFiles", async () => {
+    try {
+      const exportedFiles = await exportFigmaVariablesToSeparateFiles();
+      console.log(`Exported ${exportedFiles.length} collection files`);
+      
+      // Send to UI for downloading
+      figma.ui.postMessage({
+        type: 'exportedFiles',
+        files: exportedFiles
+      });
+      
+      figma.notify(`${exportedFiles.length} collection files ready for download!`);
+    } catch (error) {
+      console.error("Error exporting to files:", error);
+      figma.notify("Failed to export to files", { error: true });
     }
-});
+  });
+function j(messageType: string, callback: () => Promise<void>) {
+    figma.ui.on('message', async (msg) => {
+        if (msg.type === messageType) {
+            try {
+                await callback();
+            } catch (error) {
+                console.error(`Error in ${messageType} handler:`, error);
+                figma.notify(`Error handling ${messageType}`, { error: true });
+            }
+        }
+    });
+}
+
