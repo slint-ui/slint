@@ -175,10 +175,16 @@ impl RendererSealed for TestingWindow {
 
     fn font_metrics(
         &self,
-        _font_request: i_slint_core::graphics::FontRequest,
+        font_request: i_slint_core::graphics::FontRequest,
         _scale_factor: ScaleFactor,
     ) -> i_slint_core::items::FontMetrics {
-        i_slint_core::items::FontMetrics { ascent: 7., descent: 3., x_height: 3., cap_height: 7. }
+        let pixel_size = font_request.pixel_size.unwrap_or(LogicalLength::new(10.));
+        i_slint_core::items::FontMetrics {
+            ascent: pixel_size.get() * 0.7,
+            descent: pixel_size.get() * 0.3,
+            x_height: 3.,
+            cap_height: 7.,
+        }
     }
 
     fn text_input_byte_offset_for_position(
