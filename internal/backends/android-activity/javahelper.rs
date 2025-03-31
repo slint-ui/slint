@@ -342,7 +342,7 @@ impl JavaHelper {
     }
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 extern "system" fn Java_SlintAndroidJavaHelper_updateText(
     mut env: JNIEnv,
     _class: JClass,
@@ -409,7 +409,7 @@ fn convert_utf8_index_to_utf16(in_str: &str, utf8_index: usize) -> usize {
     in_str[..utf8_index].encode_utf16().count()
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 extern "system" fn Java_SlintAndroidJavaHelper_setNightMode(
     _env: JNIEnv,
     _class: JClass,
@@ -428,7 +428,7 @@ extern "system" fn Java_SlintAndroidJavaHelper_setNightMode(
     .unwrap()
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 extern "system" fn Java_SlintAndroidJavaHelper_moveCursorHandle(
     _env: JNIEnv,
     _class: JClass,
@@ -495,7 +495,7 @@ extern "system" fn Java_SlintAndroidJavaHelper_moveCursorHandle(
     .unwrap()
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 extern "system" fn Java_SlintAndroidJavaHelper_popupMenuAction(
     _env: JNIEnv,
     _class: JClass,

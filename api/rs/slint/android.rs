@@ -15,11 +15,11 @@
 //! # Example
 //!
 //! This is a basic example of an Android application.
-//! Do not forget the `#[no_mangle]`
+//! Do not forget the `#[unsafe(no_mangle)]`
 //!
 //! ```rust
 //! # #[cfg(target_os = "android")]
-//! #[no_mangle]
+//! #[unsafe(no_mangle)]
 //! fn android_main(app: slint::android::AndroidApp) {
 //!     slint::android::init(app).unwrap();
 //!
@@ -128,7 +128,7 @@ pub fn init(app: android_activity::AndroidApp) -> Result<(), SetPlatformError> {
 ///
 /// ```rust
 /// # #[cfg(target_os = "android")]
-/// #[no_mangle]
+/// #[unsafe(no_mangle)]
 /// fn android_main(app: slint::android_activity::AndroidApp) {
 ///     slint::android_init_with_event_listener(
 ///        app,

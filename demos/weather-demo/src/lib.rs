@@ -22,7 +22,7 @@ use {
 };
 
 #[cfg(target_os = "android")]
-#[no_mangle]
+#[unsafe(no_mangle)]
 fn android_main(android_app: slint::android::AndroidApp) -> Result<(), slint::PlatformError> {
     android_logger::init_once(android_logger::Config::default().with_max_level(
         if cfg!(debug_assertions) { log::LevelFilter::Debug } else { log::LevelFilter::Info },
