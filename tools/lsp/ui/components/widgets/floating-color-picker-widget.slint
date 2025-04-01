@@ -1,21 +1,12 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Palette } from "std-widgets.slint";
-import { WindowGlobal } from "../../windowglobal.slint";
+import { Palette, Button } from "std-widgets.slint";
+import { WindowGlobal, WindowManager } from "../../windowglobal.slint";
+import { Api } from "../../api.slint";
 
-global FakeData {
-    in-out property <float> hue: 0;
-    in-out property <float> saturation: 0;
-    in-out property <float> value: 0.9;
-    // alpha is an int, instead of float to help snap values to whole percentage numbers
-    in-out property <int> alpha: 100;
-    in-out property <color> current-color: hsv(hue, saturation, value, alpha/100);
-    in-out property <bool> show-color-picker: false;
-}
 
 global Styles {
-    out property <color> outline-blue: #0c8ce9;
     out property <color> section-color: #383838;
     out property <color> divider-color: #444444;
     out property <color> background-color: #2c2c2c;
@@ -74,12 +65,17 @@ global Styles {
 // }
 
 component ColorPicker {
+    in-out property <float> hue: WindowManager.current-hsv-color.hue;
+    in-out property <float> saturation: WindowManager.current-hsv-color.saturation;
+    in-out property <float> value: WindowManager.current-hsv-color.value;
+    // alpha is an int, instead of float to help snap values to whole percentage numbers
+    in-out property <int> alpha: WindowManager.current-hsv-color.alpha * 100;
+    in-out property <color> current-color: hsv(root.hue, root.saturation, root.value, root.alpha / 100);
+
+    callback close <=> t-close.clicked;
+
     width: 240px;
     height: 400px;
-
-    property <length> start-x: 0;
-    property <length> start-mouse-x: 0;
-    callback close <=> t-close.clicked;
 
     Rectangle {
         background: Styles.background-color;
@@ -133,37 +129,36 @@ component ColorPicker {
                 border-color: white.transparentize(90%);
                 clip: true;
                 hue := Rectangle {
-                background: hsv(FakeData.hue, 1, 1);
-            }
+                    background: hsv(root.hue, 1, 1);
+                }
 
-            sat := Rectangle {
-                background: @linear-gradient(90deg, white 0%, transparent 100%);
-            }
+                sat := Rectangle {
+                    background: @linear-gradient(90deg, white 0%, transparent 100%);
+                }
 
-            val := Rectangle {
-                background: @linear-gradient(0deg, black 0%, transparent 100%);
-            }
+                val := Rectangle {
+                    background: @linear-gradient(0deg, black 0%, transparent 100%);
+                }
 
-            TouchArea {
-                moved => {
-                    if self.has-hover {
-                        FakeData.saturation = clamp(self.mouse-x / self.width, 0, 1);
-                        FakeData.value = clamp(1 - (self.mouse-y / self.height), 0, 1);
+                TouchArea {
+                    moved => {
+                        if self.has-hover {
+                            root.saturation = clamp(self.mouse-x / self.width, 0, 1);
+                            root.value = clamp(1 - (self.mouse-y / self.height), 0, 1);
+                        }
+                    }
+                    changed pressed => {
+                        if self.pressed {
+                            root.saturation = self.mouse-x / self.width;
+                            root.value = 1 - (self.mouse-y / self.height);
+                        }
                     }
                 }
-                changed pressed => {
-                    if self.pressed {
-                        FakeData.saturation = self.mouse-x / self.width;
-                        FakeData.value = 1 - (self.mouse-y / self.height);
-                    }
-                }
             }
-            }
-
 
             sv-picker := Rectangle {
-                x: 1px + (saturation-value.width - 3px) * FakeData.saturation;
-                y: 1px + (saturation-value.height - 3px) * (1 - FakeData.value);
+                x: 1px + (saturation-value.width - 3px) * root.saturation;
+                y: 1px + (saturation-value.height - 3px) * (1 - root.value);
                 width: 1px;
                 height: 1px;
                 Rectangle {
@@ -180,12 +175,13 @@ component ColorPicker {
                     width: 8px;
                     height: 8px;
                     border-radius: self.width / 2;
-                    background: FakeData.current-color;
+                    background: root.current-color;
                 }
             }
         }
-
     }
+
+    
 
     // brushes := Rectangle {
     //     y: title.y + title.height;
@@ -238,17 +234,17 @@ component ColorPicker {
                         moved => {
                             if self.has-hover {
                                 if self.mouse-x < main-height {
-                                    FakeData.hue = 0;
+                                    root.hue = 0;
                                 } else {
-                                    FakeData.hue = 359 * clamp((self.mouse-x - rounded-end-width) / (self.width - main-height), 0, 1);
+                                    root.hue = 359 * clamp((self.mouse-x - rounded-end-width) / (self.width - main-height), 0, 1);
                                 }
                             }
                         }
                         changed pressed => {
                             if self.mouse-x < main-height {
-                                FakeData.hue = 0;
+                                root.hue = 0;
                             } else {
-                                FakeData.hue = 359 * clamp((self.mouse-x - rounded-end-width) / (self.width - main-height), 0, 1);
+                                root.hue = 359 * clamp((self.mouse-x - rounded-end-width) / (self.width - main-height), 0, 1);
                             }
                         }
                     }
@@ -275,6 +271,7 @@ component ColorPicker {
                                 background: #ff0000;
                             }
                         }
+
                         Rectangle {
                             border-radius: parent.border-radius;
                             border-width: 1px;
@@ -284,7 +281,7 @@ component ColorPicker {
                     }
 
                     Rectangle {
-                        x: rounded-end-width + (main-width * (FakeData.hue / 360));
+                        x: rounded-end-width + (main-width * (root.hue / 360));
                         width: 0;
                         height: 0;
                         Rectangle {
@@ -301,7 +298,7 @@ component ColorPicker {
                             width: 8px;
                             height: 8px;
                             border-radius: self.width / 2;
-                            background: hsv(FakeData.hue, 1, 1);
+                            background: hsv(root.hue, 1, 1);
                         }
                     }
                 }
@@ -318,7 +315,7 @@ component ColorPicker {
                         border-radius: self.height / 2;
                         clip: true;
 
-                         HorizontalLayout {
+                        HorizontalLayout {
                             Rectangle {
                                 width: self.height / 2;
                                 height: hue-picker.height;
@@ -328,7 +325,7 @@ component ColorPicker {
                             Rectangle {
                                 width: 150px;
                                 height: hue-picker.height;
-                                background:white;
+                                background: white;
                             }
 
                             Rectangle {
@@ -336,6 +333,7 @@ component ColorPicker {
                                 height: hue-picker.height;
                             }
                         }
+
                         Image {
                             x: 0;
                             width: parent.width - hue-picker.height;
@@ -347,6 +345,7 @@ component ColorPicker {
                             horizontal-tiling: repeat;
                             colorize: #e1e1e1;
                         }
+
                         HorizontalLayout {
                             Rectangle {
                                 width: self.height / 2;
@@ -356,15 +355,16 @@ component ColorPicker {
                             Rectangle {
                                 width: 150px;
                                 height: hue-picker.height;
-                                background: @linear-gradient(-90deg, hsv(FakeData.hue, FakeData.saturation, FakeData.value, 1), transparent);
+                                background: @linear-gradient(-90deg, hsv(root.hue, root.saturation, root.value, 1), transparent);
                             }
 
                             Rectangle {
                                 width: self.height / 2;
                                 height: hue-picker.height;
-                                background: hsv(FakeData.hue, FakeData.saturation, FakeData.value, 1);
+                                background: hsv(root.hue, root.saturation, root.value, 1);
                             }
                         }
+
                         Rectangle {
                             border-radius: parent.border-radius;
                             border-width: 1px;
@@ -374,7 +374,7 @@ component ColorPicker {
                     }
 
                     Rectangle {
-                        x: rounded-end-width + (main-width * (FakeData.alpha / 100));
+                        x: rounded-end-width + (main-width * (root.alpha / 100));
                         width: 0;
                         height: 0;
                         Rectangle {
@@ -391,24 +391,25 @@ component ColorPicker {
                             width: 8px;
                             height: 8px;
                             border-radius: self.width / 2;
-                            background: FakeData.current-color;
+                            background: root.current-color;
                         }
                     }
+
                     TouchArea {
                         moved => {
                             if self.has-hover {
                                 if self.mouse-x < rounded-end-width {
-                                    FakeData.alpha = 0;
+                                    root.alpha = 0;
                                 } else {
-                                    FakeData.alpha = (100 * clamp((self.mouse-x - rounded-end-width) / (self.width - main-height), 0, 1)).round();
+                                    root.alpha = (100 * clamp((self.mouse-x - rounded-end-width) / (self.width - main-height), 0, 1)).round();
                                 }
                             }
                         }
                         changed pressed => {
                             if self.mouse-x < rounded-end-width {
-                                FakeData.alpha = 0;
+                                root.alpha = 0;
                             } else {
-                                FakeData.alpha = (100 * clamp((self.mouse-x - rounded-end-width) / (self.width - main-height), 0, 1)).round();
+                                root.alpha = (100 * clamp((self.mouse-x - rounded-end-width) / (self.width - main-height), 0, 1)).round();
                             }
                         }
                     }
@@ -422,6 +423,15 @@ component ColorPicker {
             x: 0;
             y: parent.height - self.height;
             background: Styles.divider-color;
+        }
+    }
+
+    Button {
+        y: hsva-controls.y + hsva-controls.height + 16px;
+        width: 100px;
+        text: "Apply";
+        clicked => {
+            WindowManager.apply-current-value(Api.color-to-data(root.current-color).text);
         }
     }
 }
@@ -464,7 +474,7 @@ export component ColorPickerView {
                 }
             } else {
                 if !drag-mode {
-                    WindowGlobal.hide-color-picker();
+                    WindowManager.hide-floating-widget();
                 }
                 drag-mode = false;
             }
@@ -490,7 +500,7 @@ export component ColorPickerView {
 
     color-picker := ColorPicker {
         close => {
-            WindowGlobal.hide-color-picker();
+            WindowManager.hide-floating-widget();
         }
     }
 }

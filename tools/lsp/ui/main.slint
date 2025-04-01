@@ -16,7 +16,7 @@ import { PropertyView } from "./views/property-view.slint";
 import { PreviewDataView } from "./views/preview-data-view.slint";
 import { SpreadsheetDialog } from "./components/spreadsheet-dialog.slint";
 
-import { WindowGlobal } from "windowglobal.slint";
+import { WindowGlobal, WindowManager } from "windowglobal.slint";
 import { ColorPickerView } from "components/widgets/floating-color-picker-widget.slint";
 
 export { Api }
@@ -32,7 +32,7 @@ export component PreviewUi inherits Window {
     };
     property <bool> show-left-sidebar;
     property <bool> show-right-sidebar;
-    property <bool> show-color-picker <=> WindowGlobal.showing-color-picker;
+    property <bool> show-floating-widget <=> WindowManager.showing-color-picker;
 
     title: "Slint Live-Preview";
     icon: @image-url("assets/slint-logo-small-light.png");
@@ -145,7 +145,7 @@ export component PreviewUi inherits Window {
         y: (parent.height / 10);
     }
 
-    if show-color-picker: ColorPickerView {
+    if show-floating-widget: ColorPickerView {
 
     }
 

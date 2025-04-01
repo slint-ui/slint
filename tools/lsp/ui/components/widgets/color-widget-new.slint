@@ -21,6 +21,7 @@ export component ColorWidget inherits VerticalLayout {
 
     callback test-color-binding(text: string) -> bool;
     callback set-color-binding(text: string);
+    callback use-floating-editor(text: string);
 
     padding-left: 16px;
     spacing: EditorSpaceSettings.default-spacing;
@@ -70,8 +71,8 @@ export component ColorWidget inherits VerticalLayout {
             return root.test-color-binding(text);
         }
 
-        color-preview-clicked => {
-            WindowGlobal.show-color-picker();
+        color-preview-clicked(text) => {
+            root.use-floating-editor(text);
         }
     }
 }
