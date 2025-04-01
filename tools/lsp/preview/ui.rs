@@ -110,7 +110,7 @@ pub fn create_ui(style: String, experimental: bool) -> Result<PreviewUi, Platfor
         g: c.green() as i32,
         b: c.blue() as i32,
         text: color_to_string(c).into(),
-        short_text: color_to_short_string(c).into()
+        short_text: color_to_short_string(c).into(),
     });
     api.on_rgba_to_color(|r, g, b, a| {
         if (0..256).contains(&r)
