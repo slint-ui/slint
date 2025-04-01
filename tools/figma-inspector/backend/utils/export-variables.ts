@@ -174,14 +174,37 @@ function createReferenceExpression(
     console.log(`Adding import: ${importStatement.trim()}`);
   }
 
-  // Format the reference expression
-  const referenceExpr = `${targetCollection.formattedName}.${sanitizedRow}-${sanitizedMode}`;
-  console.log(`Created reference expression: ${referenceExpr}`);
+// Format the reference expression based on whether target has multiple modes
+let referenceExpr = '';
 
-  return {
-    value: referenceExpr,
-    importStatement: importStatement
-  };
+// Parse the target path to get proper nested structure
+const pathParts = sanitizedRow.split('_');
+const propertyPath = pathParts.join('.');
+
+// Check if target collection has multiple modes
+if (targetCollection.modes.size > 1) {
+  // For collections with multiple modes, use function call with mode parameter
+  referenceExpr = `${targetCollection.formattedName}.${propertyPath}(${targetCollection.formattedName}Mode.${sanitizedMode})`;
+  
+  // If this is a cross-collection reference, we need an import for the mode enum too
+  if (isCrossCollection) {
+    importStatement = `import { ${targetCollection.formattedName}, ${targetCollection.formattedName}Mode } from "${targetCollection.formattedName}.slint";\n`;
+  }
+} else {
+  // For collections without modes, just use direct property access
+  referenceExpr = `${targetCollection.formattedName}.${propertyPath}`;
+  
+  if (isCrossCollection) {
+    importStatement = `import { ${targetCollection.formattedName} } from "${targetCollection.formattedName}.slint";\n`;
+  }
+}
+
+console.log(`Created reference expression: ${referenceExpr}`);
+
+return {
+  value: referenceExpr,
+  importStatement: importStatement
+};
 }
 
 interface VariableNode {
@@ -344,6 +367,9 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<Array<{ nam
       }
     }
 
+    // Create a Set to track required imports across all collections
+    const requiredImports = new Set<string>();
+    
     // FINALLY process references after all collections are initialized
     for (const collection of variableCollections) {
       const collectionName = formatPropertyName(collection.name);
@@ -381,12 +407,18 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<Array<{ nam
                 }
               );
             }
+
+            // When processing references:
+            if (refResult.importStatement) {
+              requiredImports.add(refResult.importStatement);
+            }
           }
         }
       }
     }
 
     for (const [collectionName, collectionData] of collectionStructure.entries()) {
+      
       // Skip collections with no variables
       if (collectionData.variables.size === 0) {
         console.log(`Skipping empty collection: ${collectionName}`);
@@ -395,6 +427,16 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<Array<{ nam
 
       // Generate the enum for modes
       let content = `// Generated Slint file for ${collectionData.name}\n\n`;
+
+      // Add all required imports
+      for (const importStmt of requiredImports) {
+        content += importStmt;
+      }
+
+      // Add a blank line after imports if there are any
+      if (requiredImports.size > 0) {
+        content += '\n';
+      }
 
       // Create a ModeEnum if we have more than one mode
       if (collectionData.modes.size > 1) {
