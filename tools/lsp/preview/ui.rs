@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::{collections::HashMap, iter::once, rc::Rc};
 
@@ -8,7 +9,7 @@ use i_slint_compiler::parser::{syntax_nodes, SyntaxKind, TextRange};
 use i_slint_compiler::{expression_tree, langtype, literals};
 use itertools::Itertools;
 use lsp_types::Url;
-use slint::{Model, SharedString, VecModel};
+use slint::{Model, ModelRc, SharedString, ToSharedString, VecModel};
 use slint_interpreter::{DiagnosticLevel, PlatformError};
 use smol_str::SmolStr;
 
@@ -99,6 +100,10 @@ pub fn create_ui(style: String, experimental: bool) -> Result<PreviewUi, Platfor
 
     api.on_get_property_value(get_property_value);
     api.on_get_property_value_table(get_property_value_table);
+    api.on_set_property_value_table(set_property_value_table);
+    api.on_insert_row_into_value_table(insert_row_into_value_table);
+    api.on_remove_row_from_value_table(remove_row_from_value_table);
+
     api.on_set_json_preview_data(set_json_preview_data);
 
     api.on_string_to_code(string_to_code);
@@ -128,7 +133,7 @@ pub fn create_ui(style: String, experimental: bool) -> Result<PreviewUi, Platfor
     api.on_as_slint_brush(as_slint_brush);
     api.on_create_brush(create_brush);
     api.on_add_gradient_stop(|model, value| {
-        let m = model.as_any().downcast_ref::<slint::VecModel<_>>().unwrap();
+        let m = model.as_any().downcast_ref::<VecModel<_>>().unwrap();
         m.push(value);
         (m.row_count() - 1) as i32
     });
@@ -138,11 +143,7 @@ pub fn create_ui(style: String, experimental: bool) -> Result<PreviewUi, Platfor
         }
         let row = row as usize;
         if row < model.row_count() {
-            model
-                .as_any()
-                .downcast_ref::<slint::VecModel<GradientStop>>()
-                .unwrap()
-                .remove(row as usize);
+            model.as_any().downcast_ref::<VecModel<GradientStop>>().unwrap().remove(row as usize);
         }
     });
 
@@ -380,7 +381,7 @@ fn extract_value_with_unit_impl(
     def_val: Option<&expression_tree::Expression>,
     code: &str,
     units: &[i_slint_compiler::expression_tree::Unit],
-) -> Option<(PropertyValueKind, f32, i32)> {
+) -> Option<(PropertyValueKind, f32, i32, String)> {
     if let Some(expression) = expression {
         if let Some((value, unit)) = convert_number_literal(expression) {
             let index = units.iter().position(|u| u == &unit).or_else(|| {
@@ -388,58 +389,57 @@ fn extract_value_with_unit_impl(
                     .then_some(0_usize)
             })?;
 
-            return Some((PropertyValueKind::Float, value as f32, index as i32));
+            return Some((PropertyValueKind::Float, value as f32, index as i32, unit.to_string()));
         }
     } else if code.is_empty() {
         if let Some(expression_tree::Expression::NumberLiteral(value, unit)) = def_val {
             let index = units.iter().position(|u| u == unit).unwrap_or(0);
-            return Some((PropertyValueKind::Float, *value as f32, index as i32));
+            return Some((PropertyValueKind::Float, *value as f32, index as i32, String::new()));
         } else {
             // FIXME: if def_vale is Some but not a NumberLiteral, we should not show "0"
-            return Some((PropertyValueKind::Float, 0.0, 0));
+            return Some((PropertyValueKind::Float, 0.0, 0, String::new()));
         }
     }
 
     None
 }
 
-fn convert_simple_string(input: slint::SharedString) -> String {
-    format!("\"{}\"", str::escape_debug(input.as_ref()))
+fn convert_simple_string(input: SharedString) -> SharedString {
+    slint::format!("\"{}\"", str::escape_debug(input.as_ref()))
 }
 
 fn string_to_code(
-    input: slint::SharedString,
+    input: SharedString,
     is_translatable: bool,
-    tr_context: slint::SharedString,
-    tr_plural: slint::SharedString,
-    tr_plural_expression: slint::SharedString,
-) -> slint::SharedString {
+    tr_context: SharedString,
+    tr_plural: SharedString,
+    tr_plural_expression: SharedString,
+) -> SharedString {
     let input = convert_simple_string(input);
     if !is_translatable {
         input
     } else {
         let context = if tr_context.is_empty() {
-            String::new()
+            SharedString::new()
         } else {
-            format!("{} => ", convert_simple_string(tr_context))
+            slint::format!("{} => ", convert_simple_string(tr_context))
         };
         let plural = if tr_plural.is_empty() {
-            String::new()
+            SharedString::new()
         } else {
-            format!(" | {} % {}", convert_simple_string(tr_plural), tr_plural_expression)
+            slint::format!(" | {} % {}", convert_simple_string(tr_plural), tr_plural_expression)
         };
-        format!("@tr({context}{input}{plural})")
+        slint::format!("@tr({context}{input}{plural})")
     }
-    .into()
 }
 
-fn color_to_string(color: slint::Color) -> String {
+fn color_to_string(color: slint::Color) -> SharedString {
     let a = color.alpha();
     let r = color.red();
     let g = color.green();
     let b = color.blue();
 
-    format!("#{r:02x}{g:02x}{b:02x}{a:02x}")
+    slint::format!("#{r:02x}{g:02x}{b:02x}{a:02x}")
 }
 
 fn color_to_short_string(color: slint::Color) -> String {
@@ -454,9 +454,9 @@ fn string_to_color(text: &str) -> Option<slint::Color> {
     literals::parse_color_literal(text).map(slint::Color::from_argb_encoded)
 }
 
-fn unit_model(units: &[expression_tree::Unit]) -> slint::ModelRc<slint::SharedString> {
+fn unit_model(units: &[expression_tree::Unit]) -> ModelRc<SharedString> {
     Rc::new(VecModel::from(
-        units.iter().map(|u| u.to_string().into()).collect::<Vec<slint::SharedString>>(),
+        units.iter().map(|u| u.to_string().into()).collect::<Vec<SharedString>>(),
     ))
     .into()
 }
@@ -467,12 +467,13 @@ fn extract_value_with_unit(
     units: &[expression_tree::Unit],
     value: &mut PropertyValue,
 ) {
-    let Some((kind, v, index)) =
+    let Some((kind, v, index, unit)) =
         extract_value_with_unit_impl(expression, def_val, &value.code, units)
     else {
         return;
     };
 
+    value.display_string = slint::format!("{v}{unit}");
     value.kind = kind;
     value.value_float = v;
     value.visual_items = unit_model(units);
@@ -486,11 +487,11 @@ fn extract_color(
 ) -> bool {
     if let Some(text) = expression.child_text(SyntaxKind::ColorLiteral) {
         if let Some(color) = string_to_color(&text) {
+            value.display_string = text.as_str().into();
             value.kind = kind;
             value.value_brush = slint::Brush::SolidColor(color);
             value.gradient_stops =
-                Rc::new(slint::VecModel::from(vec![GradientStop { color, position: 0.5 }])).into();
-            value.value_string = text.as_str().into();
+                Rc::new(VecModel::from(vec![GradientStop { color, position: 0.5 }])).into();
             return true;
         }
     }
@@ -517,8 +518,8 @@ fn set_default_brush(
     let text = "#00000000";
     let color = string_to_color(&text).unwrap();
     value.gradient_stops =
-        Rc::new(slint::VecModel::from(vec![GradientStop { color, position: 0.5 }])).into();
-    value.value_string = text.into();
+        Rc::new(VecModel::from(vec![GradientStop { color, position: 0.5 }])).into();
+    value.display_string = text.into();
     value.value_brush = slint::Brush::SolidColor(color);
 }
 
@@ -566,6 +567,7 @@ fn simplify_value(prop_info: &super::properties::PropertyInformation) -> Propert
             if let Some(expression) = expression {
                 if let Some((v, unit)) = convert_number_literal(&expression) {
                     if unit == i_slint_compiler::expression_tree::Unit::None {
+                        value.display_string = slint::format!("{v}");
                         value.kind = PropertyValueKind::Integer;
                         value.value_int = v as i32;
                     }
@@ -796,7 +798,7 @@ fn is_equal_element(c: &ElementInformation, n: &ElementInformation) -> bool {
         && c.range.start == n.range.start
 }
 
-pub type PropertyGroupModel = slint::ModelRc<PropertyGroup>;
+pub type PropertyGroupModel = ModelRc<PropertyGroup>;
 
 fn update_grouped_properties(
     cvg: &VecModel<PropertyInformation>,
@@ -890,10 +892,10 @@ fn get_code(v: &Option<slint_interpreter::Value>) -> SharedString {
 
 #[derive(Default, Debug)]
 struct ValueMapping {
-    name_prefix: String,
+    name_prefix: SharedString,
     is_too_complex: bool,
     is_array: bool,
-    headers: Vec<String>,
+    headers: Vec<SharedString>,
     current_values: Vec<PropertyValue>,
     array_values: Vec<Vec<PropertyValue>>,
     code_value: PropertyValue,
@@ -908,21 +910,23 @@ fn map_value_and_type(
         mapping: &mut ValueMapping,
         color: slint::Color,
         kind: PropertyValueKind,
-        code: slint::SharedString,
+        code: SharedString,
     ) {
         let color_string = color_to_string(color);
         mapping.headers.push(mapping.name_prefix.clone());
         mapping.current_values.push(PropertyValue {
             kind,
+            display_string: if kind == PropertyValueKind::Color {
+                color_string
+            } else {
+                SharedString::from("Solid Color")
+            },
             brush_kind: BrushKind::Solid,
             value_brush: slint::Brush::SolidColor(color),
-            value_string: color_string.into(),
-            gradient_stops: Rc::new(slint::VecModel::from(vec![GradientStop {
-                color,
-                position: 0.5,
-            }]))
-            .into(),
+            gradient_stops: Rc::new(VecModel::from(vec![GradientStop { color, position: 0.5 }]))
+                .into(),
             code,
+            accessor_path: mapping.name_prefix.clone().into(),
             ..Default::default()
         });
     }
@@ -933,10 +937,11 @@ fn map_value_and_type(
         Type::Float32 => {
             mapping.headers.push(mapping.name_prefix.clone());
             mapping.current_values.push(PropertyValue {
+                display_string: get_value::<f32>(value).to_shared_string(),
                 kind: PropertyValueKind::Float,
                 value_float: get_value::<f32>(value),
-                value_string: get_value::<f32>(value).to_string().into(),
                 code: get_code(value),
+                accessor_path: mapping.name_prefix.clone().into(),
                 ..Default::default()
             });
         }
@@ -944,97 +949,106 @@ fn map_value_and_type(
         Type::Int32 => {
             mapping.headers.push(mapping.name_prefix.clone());
             mapping.current_values.push(PropertyValue {
+                display_string: get_value::<i32>(value).to_shared_string(),
                 kind: PropertyValueKind::Integer,
                 value_int: get_value::<i32>(value),
-                value_string: get_value::<i32>(value).to_string().into(),
                 code: get_code(value),
+                accessor_path: mapping.name_prefix.clone().into(),
                 ..Default::default()
             });
         }
         Type::Duration => {
             mapping.headers.push(mapping.name_prefix.clone());
             mapping.current_values.push(PropertyValue {
+                display_string: slint::format!("{}{}", get_value::<f32>(value), Unit::Ms),
                 kind: PropertyValueKind::Float,
                 value_float: get_value::<f32>(value),
-                value_string: format!("{}{}", get_value::<f32>(value), Unit::Ms).into(),
                 visual_items: unit_model(&[Unit::Ms]),
                 value_int: 0,
                 code: get_code(value),
                 default_selection: 1,
+                accessor_path: mapping.name_prefix.clone().into(),
                 ..Default::default()
             });
         }
         Type::PhysicalLength => {
             mapping.headers.push(mapping.name_prefix.clone());
             mapping.current_values.push(PropertyValue {
+                display_string: slint::format!("{}{}", get_value::<f32>(value), Unit::Phx),
                 kind: PropertyValueKind::Float,
                 value_float: get_value::<f32>(value),
-                value_string: format!("{}{}", get_value::<f32>(value), Unit::Phx).into(),
                 visual_items: unit_model(&[Unit::Phx]),
                 value_int: 0,
                 code: get_code(value),
                 default_selection: 0,
+                accessor_path: mapping.name_prefix.clone().into(),
                 ..Default::default()
             });
         }
         Type::LogicalLength => {
             mapping.headers.push(mapping.name_prefix.clone());
             mapping.current_values.push(PropertyValue {
+                display_string: slint::format!("{}{}", get_value::<f32>(value), Unit::Px),
                 kind: PropertyValueKind::Float,
                 value_float: get_value::<f32>(value),
-                value_string: format!("{}{}", get_value::<f32>(value), Unit::Px).into(),
                 visual_items: unit_model(&[Unit::Px]),
                 value_int: 0,
                 code: get_code(value),
                 default_selection: 0,
+                accessor_path: mapping.name_prefix.clone().into(),
                 ..Default::default()
             });
         }
         Type::Rem => {
             mapping.headers.push(mapping.name_prefix.clone());
             mapping.current_values.push(PropertyValue {
+                display_string: slint::format!("{}{}", get_value::<f32>(value), Unit::Rem),
                 kind: PropertyValueKind::Float,
                 value_float: get_value::<f32>(value),
-                value_string: format!("{}{}", get_value::<f32>(value), Unit::Rem).into(),
                 visual_items: unit_model(&[Unit::Rem]),
                 value_int: 0,
                 code: get_code(value),
                 default_selection: 0,
+                accessor_path: mapping.name_prefix.clone().into(),
                 ..Default::default()
             });
         }
         Type::Angle => {
             mapping.headers.push(mapping.name_prefix.clone());
             mapping.current_values.push(PropertyValue {
+                display_string: slint::format!("{}{}", get_value::<f32>(value), Unit::Deg),
                 kind: PropertyValueKind::Float,
                 value_float: get_value::<f32>(value),
-                value_string: format!("{}{}", get_value::<f32>(value), Unit::Deg).into(),
                 visual_items: unit_model(&[Unit::Deg]),
                 value_int: 0,
                 code: get_code(value),
                 default_selection: 0,
+                accessor_path: mapping.name_prefix.clone().into(),
                 ..Default::default()
             });
         }
         Type::Percent => {
             mapping.headers.push(mapping.name_prefix.clone());
             mapping.current_values.push(PropertyValue {
+                display_string: slint::format!("{}{}", get_value::<f32>(value), Unit::Percent),
                 kind: PropertyValueKind::Float,
                 value_float: get_value::<f32>(value),
-                value_string: format!("{}{}", get_value::<f32>(value), Unit::Percent).into(),
                 visual_items: unit_model(&[Unit::Percent]),
                 value_int: 0,
                 code: get_code(value),
                 default_selection: 0,
+                accessor_path: mapping.name_prefix.clone().into(),
                 ..Default::default()
             });
         }
         Type::String => {
             mapping.headers.push(mapping.name_prefix.clone());
             mapping.current_values.push(PropertyValue {
+                display_string: slint::format!("\"{}\"", get_value::<SharedString>(value)),
                 kind: PropertyValueKind::String,
-                value_string: get_value::<slint::SharedString>(value),
+                value_string: get_value::<SharedString>(value),
                 code: get_code(value),
+                accessor_path: mapping.name_prefix.clone().into(),
                 ..Default::default()
             });
         }
@@ -1055,17 +1069,18 @@ fn map_value_and_type(
                 slint::Brush::LinearGradient(lg) => {
                     mapping.headers.push(mapping.name_prefix.clone());
                     mapping.current_values.push(PropertyValue {
+                        display_string: SharedString::from("Linear Gradient"),
                         kind: PropertyValueKind::Brush,
                         brush_kind: BrushKind::Linear,
                         value_float: lg.angle(),
                         value_brush: slint::Brush::LinearGradient(lg.clone()),
-                        gradient_stops: Rc::new(slint::VecModel::from(
+                        gradient_stops: Rc::new(VecModel::from(
                             lg.stops()
                                 .map(|gs| GradientStop { color: gs.color, position: gs.position })
                                 .collect::<Vec<_>>(),
                         ))
                         .into(),
-
+                        accessor_path: mapping.name_prefix.clone().into(),
                         code: get_code(value),
                         ..Default::default()
                     });
@@ -1073,16 +1088,17 @@ fn map_value_and_type(
                 slint::Brush::RadialGradient(rg) => {
                     mapping.headers.push(mapping.name_prefix.clone());
                     mapping.current_values.push(PropertyValue {
+                        display_string: SharedString::from("Radial Gradient"),
                         kind: PropertyValueKind::Brush,
                         brush_kind: BrushKind::Radial,
                         value_brush: slint::Brush::RadialGradient(rg.clone()),
-                        gradient_stops: Rc::new(slint::VecModel::from(
+                        gradient_stops: Rc::new(VecModel::from(
                             rg.stops()
                                 .map(|gs| GradientStop { color: gs.color, position: gs.position })
                                 .collect::<Vec<_>>(),
                         ))
                         .into(),
-
+                        accessor_path: mapping.name_prefix.clone().into(),
                         code: get_code(value),
                         ..Default::default()
                     });
@@ -1090,8 +1106,10 @@ fn map_value_and_type(
                 _ => {
                     mapping.headers.push(mapping.name_prefix.clone());
                     mapping.current_values.push(PropertyValue {
+                        display_string: SharedString::from("Unknown Brush"),
                         kind: PropertyValueKind::Code,
-                        value_string: "???".into(),
+                        value_string: SharedString::from("???"),
+                        accessor_path: mapping.name_prefix.clone().into(),
                         code: get_code(value),
                         ..Default::default()
                     });
@@ -1101,9 +1119,10 @@ fn map_value_and_type(
         Type::Bool => {
             mapping.headers.push(mapping.name_prefix.clone());
             mapping.current_values.push(PropertyValue {
+                display_string: get_value::<bool>(value).to_shared_string(),
                 kind: PropertyValueKind::Boolean,
                 value_bool: get_value::<bool>(value),
-                value_string: if get_value::<bool>(value) { "true".into() } else { "false".into() },
+                accessor_path: mapping.name_prefix.clone().into(),
                 code: get_code(value),
                 ..Default::default()
             });
@@ -1120,6 +1139,12 @@ fn map_value_and_type(
 
             mapping.headers.push(mapping.name_prefix.clone());
             mapping.current_values.push(PropertyValue {
+                display_string: slint::format!(
+                    "{}.{}",
+                    enumeration.name,
+                    enumeration.values[selected_value]
+                )
+                .into(),
                 kind: PropertyValueKind::Enum,
                 value_string: enumeration.name.as_str().into(),
                 default_selection: i32::try_from(enumeration.default_value).unwrap_or_default(),
@@ -1132,12 +1157,14 @@ fn map_value_and_type(
                         .collect::<Vec<_>>(),
                 ))
                 .into(),
+                accessor_path: mapping.name_prefix.clone().into(),
+                code: get_code(value),
                 ..Default::default()
             });
         }
         Type::Array(array_ty) => {
             mapping.is_array = true;
-            let model = get_value::<slint::ModelRc<slint_interpreter::Value>>(value);
+            let model = get_value::<ModelRc<slint_interpreter::Value>>(value);
 
             for (idx, sub_value) in model.iter().enumerate() {
                 let mut sub_mapping = ValueMapping::default();
@@ -1169,9 +1196,9 @@ fn map_value_and_type(
                 let field = field.to_string();
                 let mut sub_mapping = ValueMapping::default();
                 let header_name = if mapping.name_prefix.is_empty() {
-                    field.clone()
+                    field.clone().into()
                 } else {
-                    format!("{}.{field}", mapping.name_prefix)
+                    slint::format!("{}.{field}", mapping.name_prefix)
                 };
                 sub_mapping.name_prefix = header_name.clone();
 
@@ -1201,8 +1228,10 @@ fn map_value_and_type(
         _ => {
             mapping.headers.push(mapping.name_prefix.clone());
             mapping.current_values.push(PropertyValue {
+                display_string: "Unsupported type".into(),
                 kind: PropertyValueKind::Code,
                 value_string: "???".into(),
+                accessor_path: mapping.name_prefix.clone().into(),
                 code: get_code(value),
                 ..Default::default()
             });
@@ -1278,7 +1307,7 @@ pub fn ui_set_preview_data(
         PropertyContainer {
             container_name: container_name.into(),
             container_id: container_id.into(),
-            properties: Rc::new(slint::VecModel::from(properties)).into(),
+            properties: Rc::new(VecModel::from(properties)).into(),
         }
     }
 
@@ -1308,7 +1337,7 @@ pub fn ui_set_preview_data(
     api.set_preview_data(Rc::new(VecModel::from(result)).into());
 }
 
-fn to_property_container(container: slint::SharedString) -> preview_data::PropertyContainer {
+fn to_property_container(container: SharedString) -> preview_data::PropertyContainer {
     if container.is_empty() {
         preview_data::PropertyContainer::Main
     } else {
@@ -1331,7 +1360,7 @@ fn get_property_value(container: SharedString, property_name: SharedString) -> P
 
 fn map_preview_data_to_property_value_table(
     preview_data: &preview_data::PreviewData,
-) -> (bool, Vec<String>, Vec<Vec<PropertyValue>>) {
+) -> (bool, Vec<SharedString>, Vec<Vec<PropertyValue>>) {
     let mut mapping = ValueMapping::default();
     map_value_and_type(&preview_data.ty, &preview_data.value, &mut mapping);
 
@@ -1358,14 +1387,245 @@ fn get_property_value_table(
         .unwrap_or_else(|| (false, Default::default(), Default::default()));
 
     let headers =
-        Rc::new(slint::VecModel::from(headers.drain(..).map(|s| s.into()).collect::<Vec<_>>()))
-            .into();
-    let values = Rc::new(slint::VecModel::from(
-        values.drain(..).map(|cv| Rc::new(slint::VecModel::from(cv)).into()).collect::<Vec<_>>(),
+        Rc::new(VecModel::from(headers.drain(..).map(|s| s.into()).collect::<Vec<_>>())).into();
+    let values = Rc::new(VecModel::from(
+        values.drain(..).map(|cv| Rc::new(VecModel::from(cv)).into()).collect::<Vec<_>>(),
     ))
     .into();
 
     PropertyValueTable { is_array, headers, values }
+}
+
+fn table_to_array(table: ModelRc<ModelRc<PropertyValue>>) -> Option<String> {
+    let mut result = "[\n".to_string();
+
+    for (row_number, row) in table.iter().enumerate() {
+        if row_number != 0 {
+            result += ",\n";
+        }
+
+        result += &table_row_to_struct(row, 1)?;
+    }
+
+    result += "\n]";
+
+    Some(result)
+}
+
+fn table_row_to_struct(row: ModelRc<PropertyValue>, indent_level: usize) -> Option<String> {
+    enum NodeKind {
+        Leaf(String),
+        Inner(BTreeMap<String, NodeKind>),
+    }
+
+    if row.row_count() == 1 {
+        if let Some(v) = row.row_data(0) {
+            if v.accessor_path.is_empty() {
+                // bare value!
+                return Some(format!("{}{}", "  ".repeat(indent_level), v.code));
+            }
+        }
+    }
+
+    fn structurize(row: ModelRc<PropertyValue>) -> Option<BTreeMap<String, NodeKind>> {
+        let mut result = BTreeMap::default();
+
+        fn insert(
+            map: &mut BTreeMap<String, NodeKind>,
+            accessor_path: &[&str],
+            value: String,
+        ) -> Option<()> {
+            match accessor_path.len() {
+                0 => None,
+                1 => {
+                    let prev = map
+                        .insert(accessor_path.get(0).unwrap().to_string(), NodeKind::Leaf(value));
+                    prev.is_none().then_some(())
+                }
+                _ => {
+                    let n = map
+                        .entry(accessor_path.get(0).unwrap().to_string())
+                        .or_insert_with(|| NodeKind::Inner(BTreeMap::default()));
+
+                    match n {
+                        NodeKind::Leaf(_) => None,
+                        NodeKind::Inner(m) => insert(m, &accessor_path[1..], value),
+                    }
+                }
+            }
+        }
+
+        for col in row.iter() {
+            let ap = col.accessor_path.split('.').collect::<Vec<_>>();
+            let value = if col.was_edited { col.edited_value.clone() } else { col.code.clone() };
+
+            insert(&mut result, &ap[..], value.to_string())?;
+        }
+
+        Some(result)
+    }
+
+    let structure = structurize(row)?;
+
+    fn structure_to_string(
+        structure: &BTreeMap<String, NodeKind>,
+        indent_level: usize,
+        prefix: &str,
+    ) -> Option<String> {
+        let indent_step = "  ";
+        let mut result = format!("{}{prefix}{{\n", indent_step.repeat(indent_level));
+
+        let last_index = structure.len() - 1;
+
+        for (index, (k, v)) in structure.iter().enumerate() {
+            let comma = if index == last_index { "" } else { "," };
+            match v {
+                NodeKind::Leaf(v) => {
+                    result +=
+                        &format!("{}\"{k}\": {v}{comma}\n", indent_step.repeat(indent_level + 1))
+                }
+                NodeKind::Inner(m) => {
+                    result += &structure_to_string(m, indent_level + 1, &format!("\"{k}\": "))?;
+                    result += &format!("{comma}\n");
+                }
+            }
+        }
+
+        result += &format!("{}}}", indent_step.repeat(indent_level));
+
+        Some(result)
+    }
+
+    structure_to_string(&structure, indent_level, "")
+}
+
+fn set_property_value_table(
+    container: SharedString,
+    property_name: SharedString,
+    table: ModelRc<ModelRc<PropertyValue>>,
+    is_array: bool,
+) -> SharedString {
+    let json_string = if is_array {
+        table_to_array(table)
+    } else {
+        if table.row_count() != 1 {
+            // A struct must have exactly one row!
+            return "Malformed table".into();
+        }
+
+        table_row_to_struct(table.row_data(0).unwrap(), 0)
+    };
+
+    let Some(json_string) = json_string else {
+        return "Could not process input values".into();
+    };
+
+    set_json_preview_data(container, property_name, json_string.into())
+}
+
+fn default_property_value(source: &PropertyValue) -> PropertyValue {
+    let mut pv = PropertyValue {
+        kind: source.kind,
+        accessor_path: source.accessor_path.clone(),
+        ..Default::default()
+    };
+    match source.kind {
+        PropertyValueKind::Boolean => {
+            pv.display_string = "false".into();
+            pv.code = "false".into();
+        }
+        PropertyValueKind::Brush => {
+            pv.display_string = "Solid Color".into();
+            pv.brush_kind = BrushKind::Solid;
+            pv.value_brush = slint::Color::default().into();
+            pv.code = "#00000000".into();
+        }
+        PropertyValueKind::Code => {
+            pv.display_string = "Code".into();
+        }
+        PropertyValueKind::Color => {
+            pv.display_string = "#00000000".into();
+            pv.brush_kind = BrushKind::Solid;
+            pv.value_brush = slint::Color::default().into();
+            pv.code = "#00000000".into();
+        }
+        PropertyValueKind::Enum => {
+            let enum_selection: SharedString = format!(
+                "{}.{}",
+                source.value_string,
+                source
+                    .visual_items
+                    .row_data(source.default_selection.try_into().unwrap_or_default())
+                    .unwrap_or_default(),
+            )
+            .into();
+
+            pv.display_string = enum_selection.clone();
+            pv.value_int = source.default_selection;
+            pv.value_string = source.value_string.clone();
+            pv.default_selection = source.default_selection;
+            pv.visual_items = source.visual_items.clone();
+            pv.code = enum_selection;
+        }
+        PropertyValueKind::Float => {
+            pv.display_string = "0.0".into();
+            pv.code = "0.0".into();
+        }
+        PropertyValueKind::Integer => {
+            pv.display_string = "0".into();
+            pv.code = "0".into();
+        }
+        PropertyValueKind::String => {
+            pv.display_string = "".into();
+            pv.code = "\"\"".into();
+        }
+    }
+
+    pv
+}
+
+fn insert_row_into_value_table(table: PropertyValueTable, insert_before: i32) {
+    if !table.is_array {
+        return;
+    }
+
+    let model = table.values.clone();
+    let insert_before = (insert_before as usize).clamp(0, model.row_count());
+
+    let Some(vec_model) = model.as_any().downcast_ref::<VecModel<ModelRc<PropertyValue>>>() else {
+        return;
+    };
+
+    let row_data = {
+        let mut result = vec![];
+        if let Some(row) = vec_model.row_data(0) {
+            result = row.iter().map(|pv| default_property_value(&pv)).collect::<Vec<_>>();
+        }
+        result
+    };
+
+    let row_model = Rc::new(VecModel::from(row_data));
+    if vec_model.row_count() == insert_before {
+        vec_model.push(row_model.into());
+    } else {
+        vec_model.insert(insert_before, row_model.into());
+    }
+}
+
+fn remove_row_from_value_table(table: PropertyValueTable, to_remove: i32) {
+    if to_remove < 0 || !table.is_array {
+        return;
+    }
+    let to_remove = to_remove as usize;
+
+    let model = table.values.clone();
+    let Some(vec_model) = model.as_any().downcast_ref::<VecModel<ModelRc<PropertyValue>>>() else {
+        return;
+    };
+
+    if to_remove < vec_model.row_count() {
+        vec_model.remove(to_remove as usize);
+    }
 }
 
 fn set_json_preview_data(
@@ -1457,7 +1717,7 @@ pub fn ui_set_properties(
 }
 
 fn sorted_gradient_stops(
-    stops: slint::ModelRc<GradientStop>,
+    stops: ModelRc<GradientStop>,
 ) -> Vec<i_slint_core::graphics::GradientStop> {
     let mut result = stops
         .iter()
@@ -1472,7 +1732,7 @@ fn as_json_brush(
     kind: BrushKind,
     angle: f32,
     color: slint::Color,
-    stops: slint::ModelRc<GradientStop>,
+    stops: ModelRc<GradientStop>,
 ) -> SharedString {
     format!("\"{}\"", as_slint_brush(kind, angle, color, stops)).into()
 }
@@ -1481,9 +1741,9 @@ fn as_slint_brush(
     kind: BrushKind,
     angle: f32,
     color: slint::Color,
-    stops: slint::ModelRc<GradientStop>,
+    stops: ModelRc<GradientStop>,
 ) -> SharedString {
-    fn stops_as_string(stops: slint::ModelRc<GradientStop>) -> String {
+    fn stops_as_string(stops: ModelRc<GradientStop>) -> String {
         let stops = sorted_gradient_stops(stops);
 
         let mut result = String::new();
@@ -1506,7 +1766,7 @@ fn create_brush(
     kind: BrushKind,
     angle: f32,
     color: slint::Color,
-    stops: slint::ModelRc<GradientStop>,
+    stops: ModelRc<GradientStop>,
 ) -> slint::Brush {
     let mut stops = sorted_gradient_stops(stops);
 
@@ -1528,7 +1788,7 @@ mod tests {
     use crate::common;
     use crate::preview::properties;
 
-    use i_slint_core::model::Model;
+    use slint::{Model, SharedString, ToSharedString, VecModel};
 
     use super::{PropertyInformation, PropertyValue, PropertyValueKind};
 
@@ -1763,8 +2023,8 @@ export component Test { in property <Foobar> test1: Foobar.bar; }"#,
         assert!(!result.is_translatable);
 
         assert_eq!(result.visual_items.row_count(), 2);
-        assert_eq!(result.visual_items.row_data(0), Some(slint::SharedString::from("foo")));
-        assert_eq!(result.visual_items.row_data(1), Some(slint::SharedString::from("bar")));
+        assert_eq!(result.visual_items.row_data(0), Some(SharedString::from("foo")));
+        assert_eq!(result.visual_items.row_data(1), Some(SharedString::from("bar")));
 
         let result = property_conversion_test(
             r#"enum Foobar { foo, bar }
@@ -1778,8 +2038,8 @@ export component Test { in property <Foobar> test1; }"#,
         assert!(!result.is_translatable);
 
         assert_eq!(result.visual_items.row_count(), 2);
-        assert_eq!(result.visual_items.row_data(0), Some(slint::SharedString::from("foo")));
-        assert_eq!(result.visual_items.row_data(1), Some(slint::SharedString::from("bar")));
+        assert_eq!(result.visual_items.row_data(0), Some(SharedString::from("foo")));
+        assert_eq!(result.visual_items.row_data(1), Some(SharedString::from("bar")));
     }
 
     #[test]
@@ -2075,14 +2335,14 @@ export component X {
 
     #[test]
     fn test_property_date_update() {
-        let current = slint::VecModel::from(vec![
+        let current = VecModel::from(vec![
             create_test_property("aaa", "AAA"),
             create_test_property("bbb", "BBB"),
             create_test_property("ccc", "CCC"),
             create_test_property("ddd", "DDD"),
             create_test_property("eee", "EEE"),
         ]);
-        let next = slint::VecModel::from(vec![
+        let next = VecModel::from(vec![
             create_test_property("aaa", "AAA"),
             create_test_property("aab", "AAB"),
             create_test_property("abb", "ABB"),
@@ -2261,6 +2521,7 @@ export component Tester {{
                 ..Default::default()
             },
             super::PropertyValue {
+                display_string: "\"Test\"".into(),
                 code: "\"Test\"".into(),
                 kind: super::PropertyValueKind::String,
                 value_string: "Test".into(),
@@ -2283,11 +2544,11 @@ export component Tester {{
                 ..Default::default()
             },
             super::PropertyValue {
+                display_string: "100".into(),
                 code: "100".into(),
                 kind: super::PropertyValueKind::Float,
                 value_float: 100.0,
-                value_string: "100px".into(),
-                visual_items: std::rc::Rc::new(slint::VecModel::from(vec!["px".into()])).into(),
+                visual_items: std::rc::Rc::new(VecModel::from(vec!["px".into()])).into(),
                 ..Default::default()
             },
         );
@@ -2307,11 +2568,11 @@ export component Tester {{
                 ..Default::default()
             },
             super::PropertyValue {
+                display_string: "378px".into(),
                 code: "378".into(),
                 kind: super::PropertyValueKind::Float,
                 value_float: 378.0,
-                value_string: "378px".into(),
-                visual_items: std::rc::Rc::new(slint::VecModel::from(vec!["px".into()])).into(),
+                visual_items: std::rc::Rc::new(VecModel::from(vec!["px".into()])).into(),
                 ..Default::default()
             },
         );
@@ -2331,11 +2592,11 @@ export component Tester {{
                 ..Default::default()
             },
             super::PropertyValue {
+                display_string: "100000ms".into(),
                 code: "100000".into(),
                 kind: super::PropertyValueKind::Float,
                 value_float: 100000.0,
-                value_string: "100000ms".into(),
-                visual_items: std::rc::Rc::new(slint::VecModel::from(vec!["ms".into()])).into(),
+                visual_items: std::rc::Rc::new(VecModel::from(vec!["ms".into()])).into(),
                 default_selection: 1,
                 ..Default::default()
             },
@@ -2356,11 +2617,11 @@ export component Tester {{
                 ..Default::default()
             },
             super::PropertyValue {
+                display_string: "36000deg".into(),
                 code: "36000".into(),
                 kind: super::PropertyValueKind::Float,
                 value_float: 36000.0,
-                value_string: "36000deg".into(),
-                visual_items: std::rc::Rc::new(slint::VecModel::from(vec!["deg".into()])).into(),
+                visual_items: std::rc::Rc::new(VecModel::from(vec!["deg".into()])).into(),
                 ..Default::default()
             },
         );
@@ -2380,11 +2641,11 @@ export component Tester {{
                 ..Default::default()
             },
             super::PropertyValue {
+                display_string: "10%".into(),
                 code: "10".into(),
                 kind: super::PropertyValueKind::Float,
                 value_float: 10.0,
-                value_string: "10%".into(),
-                visual_items: std::rc::Rc::new(slint::VecModel::from(vec!["%".into()])).into(),
+                visual_items: std::rc::Rc::new(VecModel::from(vec!["%".into()])).into(),
                 ..Default::default()
             },
         );
@@ -2404,9 +2665,9 @@ export component Tester {{
                 ..Default::default()
             },
             super::PropertyValue {
+                display_string: "#aabbccff".into(),
                 code: "\"#aabbccff\"".into(),
                 kind: super::PropertyValueKind::Color,
-                value_string: "#aabbccff".into(),
                 value_brush: slint::Brush::SolidColor(slint::Color::from_argb_u8(
                     0xff, 0xaa, 0xbb, 0xcc,
                 )),
@@ -2429,9 +2690,9 @@ export component Tester {{
                 ..Default::default()
             },
             super::PropertyValue {
+                display_string: "12".into(),
                 code: "12".into(),
                 kind: super::PropertyValueKind::Integer,
-                value_string: "12".into(),
                 value_int: 12,
                 ..Default::default()
             },
@@ -2452,9 +2713,9 @@ export component Tester {{
                 ..Default::default()
             },
             super::PropertyValue {
+                display_string: "true".into(),
                 code: "true".into(),
                 kind: super::PropertyValueKind::Boolean,
-                value_string: "true".into(),
                 value_bool: true,
                 ..Default::default()
             },
@@ -2476,9 +2737,9 @@ export component Tester {{
                 ..Default::default()
             },
             super::PropertyValue {
+                display_string: "false".into(),
                 code: "false".into(),
                 kind: super::PropertyValueKind::Boolean,
-                value_string: "false".into(),
                 value_bool: false,
                 ..Default::default()
             },
@@ -2530,16 +2791,16 @@ export component Tester {{
             vec!["bar".into(), "count".into()],
             vec![vec![
                 super::PropertyValue {
+                    display_string: "true".into(),
                     code: "true".into(),
                     kind: super::PropertyValueKind::Boolean,
-                    value_string: "true".into(),
                     value_bool: true,
                     ..Default::default()
                 },
                 super::PropertyValue {
+                    display_string: "23".into(),
                     code: "23".into(),
                     kind: super::PropertyValueKind::Integer,
-                    value_string: "23".into(),
                     value_int: 23,
                     ..Default::default()
                 },
@@ -2575,28 +2836,30 @@ export component Tester {{
                 ],
                vec![
                     vec![super::PropertyValue {
+                            display_string: "first of a kind".into(),
                             code: "\"first of a kind\"".into(),
                             kind: super::PropertyValueKind::String,
                             value_string: "first of a kind".into(),
                             ..Default::default()
                         },
                         super::PropertyValue {
+                            display_string: "23".into(),
                             code: "23".into(),
                             kind: super::PropertyValueKind::Integer,
-                            value_string: "23".into(),
                             value_int: 23,
                             ..Default::default()
                         },
                         super::PropertyValue {
+                            display_string: "second of a kind".into(),
                             code: "\"second of a kind\"".into(),
                             kind: super::PropertyValueKind::String,
                             value_string: "second of a kind".into(),
                             ..Default::default()
                         },
                         super::PropertyValue {
+                            display_string: "42".into(),
                             code: "42".into(),
                             kind: super::PropertyValueKind::Integer,
-                            value_string: "42".into(),
                             value_int: 42,
                             ..Default::default()
                         },
@@ -2633,55 +2896,59 @@ export component Tester {{
                 ],
                vec![
                     vec![super::PropertyValue {
+                            display_string: "first of a kind".into(),
                             code: "\"first of a kind\"".into(),
                             kind: super::PropertyValueKind::String,
                             value_string: "first of a kind".into(),
                             ..Default::default()
                         },
                         super::PropertyValue {
+                            display_string: "23".into(),
                             code: "23".into(),
                             kind: super::PropertyValueKind::Integer,
-                            value_string: "23".into(),
                             value_int: 23,
                             ..Default::default()
                         },
                         super::PropertyValue {
+                            display_string: "second of a kind".into(),
                             code: "\"second of a kind\"".into(),
                             kind: super::PropertyValueKind::String,
                             value_string: "second of a kind".into(),
                             ..Default::default()
                         },
                         super::PropertyValue {
+                            display_string: "42".into(),
                             code: "42".into(),
                             kind: super::PropertyValueKind::Integer,
-                            value_string: "42".into(),
                             value_int: 42,
                             ..Default::default()
                         },
                     ],
                     vec![super::PropertyValue {
-                           code: "\"row 2, 1\"".into(),
+                            display_string: "row 2, 1".into(),
+                            code: "\"row 2, 1\"".into(),
                             kind: super::PropertyValueKind::String,
                             value_string: "row 2, 1".into(),
                             ..Default::default()
                         },
                         super::PropertyValue {
+                            display_string: "3".into(),
                             code: "3".into(),
                             kind: super::PropertyValueKind::Integer,
-                            value_string: "3".into(),
                             value_int: 3,
                             ..Default::default()
                         },
                         super::PropertyValue {
+                            display_string: "row 2, 2".into(),
                             code: "\"row 2, 2\"".into(),
                             kind: super::PropertyValueKind::String,
                             value_string: "row 2, 2".into(),
                             ..Default::default()
                         },
                         super::PropertyValue {
+                            display_string: "2".into(),
                             code: "2".into(),
                             kind: super::PropertyValueKind::Integer,
-                            value_string: "2".into(),
                             value_int: 2,
                             ..Default::default()
                         },
@@ -2709,20 +2976,61 @@ export component Tester {{
             vec!["".into()],
             vec![
                 vec![super::PropertyValue {
+                    display_string: "true".into(),
                     code: "true".into(),
                     kind: super::PropertyValueKind::Boolean,
                     value_bool: true,
-                    value_string: "true".into(),
                     ..Default::default()
                 }],
                 vec![super::PropertyValue {
+                    display_string: "false".into(),
                     code: "false".into(),
                     kind: super::PropertyValueKind::Boolean,
                     value_bool: false,
-                    value_string: "false".into(),
                     ..Default::default()
                 }],
             ],
+        );
+    }
+
+    #[track_caller]
+    fn validate_array_row_to_struct(indent_level: usize, row: Vec<PropertyValue>, expected: &str) {
+        let model = std::rc::Rc::new(VecModel::from(row)).into();
+        let received = super::table_row_to_struct(model, indent_level).unwrap();
+
+        assert_eq!(received, expected);
+    }
+
+    #[test]
+    fn test_table_row_to_stuct() {
+        fn bool_pv(value: bool, accessor_path: &str) -> PropertyValue {
+            PropertyValue {
+                accessor_path: SharedString::from(accessor_path),
+                display_string: value.to_shared_string(),
+                value_bool: value,
+                code: value.to_shared_string(),
+                ..Default::default()
+            }
+        }
+
+        validate_array_row_to_struct(0, vec![bool_pv(true, "")], "true");
+        validate_array_row_to_struct(1, vec![bool_pv(true, "")], "  true");
+        validate_array_row_to_struct(2, vec![bool_pv(true, "")], "    true");
+        validate_array_row_to_struct(3, vec![bool_pv(true, "")], "      true");
+        validate_array_row_to_struct(
+            1,
+            vec![bool_pv(true, "test")],
+            "  {\n    \"test\": true\n  }",
+        );
+        validate_array_row_to_struct(
+            0,
+            vec![bool_pv(true, "l1.l2.l3")],
+            "{\n  \"l1\": {\n    \"l2\": {\n      \"l3\": true\n    }\n  }\n}",
+        );
+        validate_array_row_to_struct(
+            0,
+            vec![bool_pv(true, "l1.l2.l3"), bool_pv(false, "l1.test")],
+            "{\n  \"l1\": {\n    \"l2\": {\n      \"l3\": true\n    },\n    \"test\": false\n  }\n}",
         );
     }
 }
