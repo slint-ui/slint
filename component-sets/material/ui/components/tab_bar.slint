@@ -119,7 +119,7 @@ export component TabBar inherits BaseNavigation {
         background: MaterialPalette.surface;
 
         layout := HorizontalLayout {
-            for item[index] in root.items : TabItemTemplate {
+            for item[index] in root.items : tab_item := TabItemTemplate {
                 icon: item.icon;
                 icon_selected: item.icon_selected;
                 text: item.text;
@@ -132,12 +132,12 @@ export component TabBar inherits BaseNavigation {
                     root.select(index);
                     root.set_indicator_width(index, self.label_width);
                 }
-
+                
                 Timer {
                     interval: 50ms;
 
                     triggered => {
-                        root.set_indicator_width(index, self.label_width);
+                        root.set_indicator_width(index, tab_item.label_width);
                         self.running = false;
                     }
                 }
