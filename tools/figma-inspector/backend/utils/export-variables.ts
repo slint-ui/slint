@@ -15,6 +15,77 @@ function convertColor(color: RGB | RGBA): string {
   return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
 }
 
+// Helper function to resolve variable references
+
+/**
+ * Formats a variable value for use in Slint based on its type
+ * @param type The Figma variable type ('COLOR', 'FLOAT', 'STRING', 'BOOLEAN')
+ * @param value The raw value from Figma
+ * @param defaultValue Whether to return a default value if processing fails
+ * @returns An object with formatted value and reference ID if applicable
+ */
+function formatValueForSlint(
+  type: string,
+  value: any,
+  defaultValue: boolean = false
+): { value: string, refId?: string } {
+  // If value is null/undefined and we want defaults
+  if ((value === null || value === undefined) && defaultValue) {
+    return {
+      value: type === 'COLOR' ? '#808080' :
+        type === 'FLOAT' ? '0px' :
+          type === 'BOOLEAN' ? 'false' :
+            type === 'STRING' ? '""' : ''
+    };
+  }
+
+  // Handle each type
+  if (type === 'COLOR') {
+    if (typeof value === 'object' && value && 'r' in value) {
+      return { value: convertColor(value) };
+    } else if (typeof value === 'object' && value && 'type' in value && value.type === 'VARIABLE_ALIAS') {
+      return { value: `@ref:${value.id}`, refId: value.id };
+    }
+  } else if (type === 'FLOAT') {
+    if (typeof value === 'number') {
+      return { value: `${value}px` };
+    } else if (typeof value === 'object' && value && 'type' in value && value.type === 'VARIABLE_ALIAS') {
+      return { value: `@ref:${value.id}`, refId: value.id };
+    }
+  } else if (type === 'STRING') {
+    if (typeof value === 'string') {
+      return { value: `"${value}"` };
+    } else if (typeof value === 'object' && value && 'type' in value && value.type === 'VARIABLE_ALIAS') {
+      return { value: `@ref:${value.id}`, refId: value.id };
+    }
+  } else if (type === 'BOOLEAN') {
+    if (typeof value === 'boolean') {
+      return { value: value ? 'true' : 'false' };
+    } else if (typeof value === 'object' && value && 'type' in value && value.type === 'VARIABLE_ALIAS') {
+      return { value: `@ref:${value.id}`, refId: value.id };
+    }
+  }
+
+  // Return default if we couldn't process
+  return formatValueForSlint(type, null, true);
+}
+
+/**
+ * Helper to get the appropriate Slint type for a Figma variable type
+ * @param figmaType The Figma variable type ('COLOR', 'FLOAT', 'STRING', 'BOOLEAN')
+ * @returns The corresponding Slint type
+ */
+function getSlintType(figmaType: string): string {
+  switch (figmaType) {
+    case 'COLOR': return 'brush';
+    case 'FLOAT': return 'length';
+    case 'STRING': return 'string';
+    case 'BOOLEAN': return 'bool';
+    default: return 'brush'; // Default to brush
+  }
+}
+
+
 // Helper to format struct/global name for Slint (PascalCase) with sanitization
 function formatStructName(name: string): string {
   // Handle names starting with "." - remove the dot
@@ -99,7 +170,7 @@ function sanitizeModeForEnum(name: string): string {
 // Extract hierarchy from variable name (e.g. "colors/primary/base" → ["colors", "primary", "base"])
 function extractHierarchy(name: string): string[] {
   // Split by common hierarchy separators
-  const parts = name.split(/\/|\.|:|--|-(?=[a-z])/);
+  const parts = name.split('/');
   return parts.map(part => formatVariableName(part));
 }
 
@@ -174,37 +245,37 @@ function createReferenceExpression(
     console.log(`Adding import: ${importStatement.trim()}`);
   }
 
-// Format the reference expression based on whether target has multiple modes
-let referenceExpr = '';
+  // Format the reference expression based on whether target has multiple modes
+  let referenceExpr = '';
 
-// Parse the target path to get proper nested structure
-const pathParts = sanitizedRow.split('_');
-const propertyPath = pathParts.join('.');
+  // Parse the target path to get proper nested structure
+  const pathParts = sanitizedRow.split('_');
+  const propertyPath = pathParts.join('.');
 
-// Check if target collection has multiple modes
-if (targetCollection.modes.size > 1) {
-  // For collections with multiple modes, use function call with mode parameter
-  referenceExpr = `${targetCollection.formattedName}.${propertyPath}(${targetCollection.formattedName}Mode.${sanitizedMode})`;
-  
-  // If this is a cross-collection reference, we need an import for the mode enum too
-  if (isCrossCollection) {
-    importStatement = `import { ${targetCollection.formattedName}, ${targetCollection.formattedName}Mode } from "${targetCollection.formattedName}.slint";\n`;
+  // Check if target collection has multiple modes
+  if (targetCollection.modes.size > 1) {
+    // For collections with multiple modes, use function call with mode parameter
+    referenceExpr = `${targetCollection.formattedName}.${propertyPath}(${targetCollection.formattedName}Mode.${sanitizedMode})`;
+
+    // If this is a cross-collection reference, we need an import for the mode enum too
+    if (isCrossCollection) {
+      importStatement = `import { ${targetCollection.formattedName}, ${targetCollection.formattedName}Mode } from "${targetCollection.formattedName}.slint";\n`;
+    }
+  } else {
+    // For collections without modes, just use direct property access
+    referenceExpr = `${targetCollection.formattedName}.${propertyPath}`;
+
+    if (isCrossCollection) {
+      importStatement = `import { ${targetCollection.formattedName} } from "${targetCollection.formattedName}.slint";\n`;
+    }
   }
-} else {
-  // For collections without modes, just use direct property access
-  referenceExpr = `${targetCollection.formattedName}.${propertyPath}`;
-  
-  if (isCrossCollection) {
-    importStatement = `import { ${targetCollection.formattedName} } from "${targetCollection.formattedName}.slint";\n`;
-  }
-}
 
-console.log(`Created reference expression: ${referenceExpr}`);
+  console.log(`Created reference expression: ${referenceExpr}`);
 
-return {
-  value: referenceExpr,
-  importStatement: importStatement
-};
+  return {
+    value: referenceExpr,
+    importStatement: importStatement
+  };
 }
 
 interface VariableNode {
@@ -369,7 +440,7 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<Array<{ nam
 
     // Create a Set to track required imports across all collections
     const requiredImports = new Set<string>();
-    
+
     // FINALLY process references after all collections are initialized
     for (const collection of variableCollections) {
       const collectionName = formatPropertyName(collection.name);
@@ -418,7 +489,7 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<Array<{ nam
     }
 
     for (const [collectionName, collectionData] of collectionStructure.entries()) {
-      
+
       // Skip collections with no variables
       if (collectionData.variables.size === 0) {
         console.log(`Skipping empty collection: ${collectionName}`);
@@ -428,32 +499,8 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<Array<{ nam
       // Generate the enum for modes
       let content = `// Generated Slint file for ${collectionData.name}\n\n`;
 
-      // Add all required imports - but filter out self-imports
-      for (const importStmt of requiredImports) {
-        // Skip any import statements that reference this collection
-        if (!importStmt.includes(`import { ${collectionData.formattedName}`)) {
-          content += importStmt;
-        }
-      }
-
-      // Add a blank line after imports if there are any
-      if (requiredImports.size > 0) {
-        content += '\n';
-      }
-
-      // Create a ModeEnum if we have more than one mode
-      if (collectionData.modes.size > 1) {
-        content += `export enum ${collectionData.formattedName}Mode {\n`;
-
-        // Add all modes to the enum
-        for (const mode of collectionData.modes) {
-          content += `    ${mode},\n`;
-        }
-        content += `}\n\n`;
-      }
-
-      // Generate global singleton
-      content += `export global ${collectionData.formattedName} {\n`;
+      // // Generate global singleton
+      // content += `export global ${collectionData.formattedName} {\n`;
 
       // Build a hierarchical tree from the flat variables
       const variableTree: VariableNode = {
@@ -490,11 +537,11 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<Array<{ nam
         if (!currentNode.children.has(propertyName)) {
           // Create a new Map for valuesByMode
           const valuesByMode = new Map<string, { value: string, refId?: string }>();
-          
+
           // Get the type from the first mode (or default to 'COLOR' if undefined)
           const firstModeValue = modes.values().next().value;
           const type = firstModeValue?.type || 'COLOR';
-          
+
           // Process each mode's value
           for (const [modeName, valueData] of modes.entries()) {
             valuesByMode.set(modeName, {
@@ -502,7 +549,7 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<Array<{ nam
               refId: valueData.refId
             });
           }
-          
+
           // Add the node to the tree
           currentNode.children.set(propertyName, {
             name: propertyName,
@@ -514,75 +561,206 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<Array<{ nam
       }
 
       // Recursively generate code from the tree structure
-      function generateStructCode(node: VariableNode, indent: string = ''): string {
-        let structCode = '';
+      // Replace your generateStructCode function with this version:
 
-        // For leaf nodes (actual variables)
-        if (node.valuesByMode) {
+      function generateStructsAndInstances(variableTree: VariableNode, collectionName: string): {
+        structs: string,
+        instances: string
+      } {
+        // First pass: Generate all struct type definitions
+        const structDefinitions: string[] = [];
+
+        // Recursive function to collect struct types
+        function collectStructTypes(node: VariableNode, path: string[] = []) {
+          if (node.name === 'root') {
+            // Process child nodes
+            for (const [childName, childNode] of node.children.entries()) {
+              collectStructTypes(childNode, [childName]);
+            }
+            return;
+          }
+
+          const currentPath = [...path];
+          const typeName = currentPath.join('_');
+
+          // Only generate struct for nodes with children or valuesByMode
+          if (node.children.size > 0) {
+            // Process child nodes first (recursive definition from deepest to shallowest)
+            for (const [childName, childNode] of node.children.entries()) {
+              if (childNode.children.size > 0) {
+                collectStructTypes(childNode, [...currentPath, childName]);
+              }
+            }
+
+            // THEN define this struct (after its children are defined)
+            let structDef = `struct ${typeName} {\n`;
+
+            // Add fields for direct properties (leaf nodes) - fixed to include multi-mode props
+            for (const [childName, childNode] of node.children.entries()) {
+              if (childNode.valuesByMode) {
+                // Always include the property in the struct definition
+                const slintType = getSlintType(childNode.type || 'COLOR');
+                structDef += `    ${childName}: ${slintType},\n`;
+              } else if (childNode.children.size > 0) {
+                // Reference to another struct
+                const childPath = [...currentPath, childName];
+                structDef += `    ${childName}: ${childPath.join('_')},\n`;
+              }
+            }
+
+            structDef += `}\n\n`;
+            structDefinitions.push(structDef);
+          }
+        }
+        // Collect all struct definitions
+        collectStructTypes(variableTree);
+
+        // Second pass: Generate property instances
+        const instances: string[] = [];
+
+        // Recursive function to generate property instances
+        function generateInstance(node: VariableNode, indent: string = '    '): string {
+          if (node.name === 'root') {
+            let result = '';
+
+            // Process direct properties of root
+            for (const [childName, childNode] of node.children.entries()) {
+              if (childNode.children.size > 0) {
+                // Nested struct instance - use the defined struct type
+                result += `${indent}out property <${childName}> ${childName}: {\n`;
+                result += generateInstance(childNode, indent + '    ');
+                result += `${indent}};\n\n`;
+              } else if (childNode.valuesByMode) {
+                // Direct value property
+                result += generateProperty(childNode, indent);
+              }
+            }
+            return result;
+          }
+
+          let result = '';
+
+          // Process children
+          for (const [childName, childNode] of node.children.entries()) {
+            if (childNode.children.size > 0) {
+              // Nested struct - properly format for struct initialization
+              result += `${indent}${childName}: {\n`;
+              result += generateInstance(childNode, indent + '    ');
+              result += `${indent}},\n`;
+            } else if (childNode.valuesByMode) {
+              // Direct property - include the value for both single-mode and multi-mode
+              if (collectionData.modes.size <= 1) {
+                // Single mode - direct property with value
+                const firstMode = childNode.valuesByMode.values().next().value;
+                const formattedValue = formatValueForSlint(
+                  childNode.type || 'COLOR',
+                  firstMode?.value,
+                  true
+                ).value;
+                result += `${indent}${childName}: ${formattedValue},\n`;
+              } else {
+                // Multi-mode - reference the function
+                result += `${indent}${childName}: ${childName}(${collectionData.formattedName}Mode.light),\n`;
+              }
+            }
+          }
+
+          return result;
+        }
+        // Generate property values
+        function generateProperty(node: VariableNode, indent: string): string {
+          if (!node.valuesByMode) return '';
+
           const slintType = getSlintType(node.type || 'COLOR');
 
-          // If we have multiple modes, generate a function
           if (collectionData.modes.size > 1) {
-            structCode += `${indent}export function ${node.name}(mode: ${collectionData.formattedName}Mode) -> ${slintType} {\n`;
-            structCode += `${indent}    if (mode == ${collectionData.formattedName}Mode.`;
+            // For multi-mode, generate function 
+            let result = `${indent}pure function ${node.name}(mode: ${collectionName}Mode) -> ${slintType} {\n`;
+            result += `${indent}    if (mode == ${collectionName}Mode.`;
 
-            // Add switch-like logic for each mode
             let isFirst = true;
             for (const [modeName, data] of node.valuesByMode.entries()) {
               if (!isFirst) {
-                structCode += `${indent}    } else if (mode == ${collectionData.formattedName}Mode.`;
+                result += `${indent}    } else if (mode == ${collectionName}Mode.`;
               }
-              structCode += `${modeName}) {\n`;
-              structCode += `${indent}        return ${data.value};\n`;
+              result += `${modeName}) {\n`;
+              result += `${indent}        return ${data.value};\n`;
               isFirst = false;
             }
 
-            // Close the if-else and function
-            structCode += `${indent}    } else {\n`;
+            result += `${indent}    } else {\n`;
             const defaultFormatted = formatValueForSlint(
               node.type || 'COLOR',
               node.valuesByMode.values().next().value?.value,
               true
             );
-            structCode += `${indent}        return ${defaultFormatted.value};\n`;
-            structCode += `${indent}    }\n`;
-            structCode += `${indent}}\n\n`;
+            result += `${indent}        return ${defaultFormatted.value};\n`;
+            result += `${indent}    }\n`;
+            result += `${indent}}\n\n`;
+            return result;
           } else {
+            // Single mode - direct property
             const defaultFormatted = formatValueForSlint(
               node.type || 'COLOR',
               node.valuesByMode.values().next().value?.value,
               true
             );
-            structCode += `${indent}export ${node.name}: ${slintType} = ${defaultFormatted.value};\n`;
+            return `${indent}out property <${slintType}> ${node.name}: ${defaultFormatted.value};\n`;
           }
-          return structCode;
         }
 
-        // Skip empty nodes
-        if (node.children.size === 0) return '';
+        // Generate the instances
+        const instancesStr = generateInstance(variableTree);
 
-        // For non-leaf nodes with children (nested structs)
-        if (node.name !== 'root') {
-          structCode += `${indent}${node.name}: {\n`;
-        }
-
-        // Process all children
-        for (const child of node.children.values()) {
-          structCode += generateStructCode(child, node.name !== 'root' ? indent + '    ' : indent);
-        }
-
-        // Close the struct
-        if (node.name !== 'root') {
-          structCode += `${indent}}\n\n`;
-        }
-
-        return structCode;
+        return {
+          structs: structDefinitions.join(''),
+          instances: instancesStr
+        };
       }
 
-      // Generate code for all the nested structures
-      content += generateStructCode(variableTree, '    ');
+      // Get structures and instances first
+      const { structs, instances } = generateStructsAndInstances(variableTree, collectionData.formattedName);
 
-      // Close the global
+      // Start with file comment
+
+      // Now filter imports based on what's actually used in the instances
+      for (const importStmt of requiredImports) {
+        // Extract the collection name from the import statement
+        const match = importStmt.match(/import { ([^,}]+)/);
+        if (match) {
+          const targetCollection = match[1].trim();
+
+          // Skip self-imports
+          if (targetCollection === collectionData.formattedName) {
+            continue;
+          }
+
+          // Only include if there's an actual reference to this collection in the instances
+          if (instances.includes(`${targetCollection}.`) ||
+            instances.includes(`${targetCollection}(`)) {
+            content += importStmt;
+          }
+        }
+      }
+
+      // Add a blank line after imports if any were added
+      if (content.includes('import ')) {
+        content += '\n';
+      }
+
+      // Add the mode enum if needed
+      if (collectionData.modes.size > 1) {
+        content += `export enum ${collectionData.formattedName}Mode {\n`;
+        for (const mode of collectionData.modes) {
+          content += `    ${mode},\n`;
+        }
+        content += `}\n\n`;
+      }
+
+      // Add structs and global content
+      content += structs;
+      content += `export global ${collectionData.formattedName} {\n`;
+      content += instances;
       content += `}\n`;
 
       // Add file to exported files
@@ -606,262 +784,5 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<Array<{ nam
   }
 }
 
-// Helper function to resolve variable references
 
-/**
- * Formats a variable value for use in Slint based on its type
- * @param type The Figma variable type ('COLOR', 'FLOAT', 'STRING', 'BOOLEAN')
- * @param value The raw value from Figma
- * @param defaultValue Whether to return a default value if processing fails
- * @returns An object with formatted value and reference ID if applicable
- */
-function formatValueForSlint(
-  type: string,
-  value: any,
-  defaultValue: boolean = false
-): { value: string, refId?: string } {
-  // If value is null/undefined and we want defaults
-  if ((value === null || value === undefined) && defaultValue) {
-    return {
-      value: type === 'COLOR' ? '#808080' :
-             type === 'FLOAT' ? '0px' :
-             type === 'BOOLEAN' ? 'false' :
-             type === 'STRING' ? '""' : ''
-    };
-  }
-  
-  // Handle each type
-  if (type === 'COLOR') {
-    if (typeof value === 'object' && value && 'r' in value) {
-      return { value: convertColor(value) };
-    } else if (typeof value === 'object' && value && 'type' in value && value.type === 'VARIABLE_ALIAS') {
-      return { value: `@ref:${value.id}`, refId: value.id };
-    }
-  } else if (type === 'FLOAT') {
-    if (typeof value === 'number') {
-      return { value: `${value}px` };
-    } else if (typeof value === 'object' && value && 'type' in value && value.type === 'VARIABLE_ALIAS') {
-      return { value: `@ref:${value.id}`, refId: value.id };
-    }
-  } else if (type === 'STRING') {
-    if (typeof value === 'string') {
-      return { value: `"${value}"` };
-    } else if (typeof value === 'object' && value && 'type' in value && value.type === 'VARIABLE_ALIAS') {
-      return { value: `@ref:${value.id}`, refId: value.id };
-    }
-  } else if (type === 'BOOLEAN') {
-    if (typeof value === 'boolean') {
-      return { value: value ? 'true' : 'false' };
-    } else if (typeof value === 'object' && value && 'type' in value && value.type === 'VARIABLE_ALIAS') {
-      return { value: `@ref:${value.id}`, refId: value.id };
-    }
-  }
-  
-  // Return default if we couldn't process
-  return formatValueForSlint(type, null, true);
-}
-
-/**
- * Gets the appropriate Slint type for a Figma variable type
- * @param figmaType The Figma variable type ('COLOR', 'FLOAT', 'STRING', 'BOOLEAN')
- * @returns The corresponding Slint type
- */
-function getSlintType(figmaType: string): string {
-  switch (figmaType) {
-    case 'COLOR': return 'brush';
-    case 'FLOAT': return 'length';
-    case 'STRING': return 'string';
-    case 'BOOLEAN': return 'bool';
-    default: return 'brush'; // Default to brush
-  }
-}
-
-
-// Improved reference resolution function with better debugging and more flexible mode matching
-function resolveReference(
-  referenceId: string,
-  modeName: string,
-  variableValuesById: Map<string, Map<string, { value: string, type: string }>>,
-  visited: Set<string>
-): { value: string, type: string } | null {
-  // Check for circular references
-  if (visited.has(referenceId)) {
-    console.warn('Circular reference detected:', referenceId);
-    return null;
-  }
-
-  visited.add(referenceId);
-
-  // Debug logging
-  console.log(`Resolving reference: ${referenceId} for mode: ${modeName}`);
-
-  // Get the target variable values
-  const targetValues = variableValuesById.get(referenceId);
-  if (!targetValues) {
-    console.warn(`Reference ID not found in variable map: ${referenceId}`);
-    return null;
-  }
-
-  // Log available modes to debug
-  console.log(`Available modes for this reference:`, Array.from(targetValues.keys()));
-
-  // Get the value for this exact mode
-  let modeValue = targetValues.get(modeName);
-
-  // If exact mode not found, try alternative mode matching strategies
-  if (!modeValue) {
-    console.log(`Mode "${modeName}" not found directly, trying alternatives...`);
-
-    // Strategy 1: Try case-insensitive matching
-    for (const [availableMode, value] of targetValues.entries()) {
-      if (availableMode.toLowerCase() === modeName.toLowerCase()) {
-        console.log(`Found matching mode with different case: ${availableMode}`);
-        modeValue = value;
-        break;
-      }
-    }
-
-    // Strategy 2: If "light" or "dark" are in the name, try variations
-    if (!modeValue) {
-      if (modeName.includes('light')) {
-        for (const [availableMode, value] of targetValues.entries()) {
-          if (availableMode.includes('light')) {
-            console.log(`Found alternative light mode: ${availableMode}`);
-            modeValue = value;
-            break;
-          }
-        }
-      } else if (modeName.includes('dark')) {
-        for (const [availableMode, value] of targetValues.entries()) {
-          if (availableMode.includes('dark')) {
-            console.log(`Found alternative dark mode: ${availableMode}`);
-            modeValue = value;
-            break;
-          }
-        }
-      }
-    }
-
-    // Strategy 3: Fall back to the first available mode as last resort
-    if (!modeValue && targetValues.size > 0) {
-      const firstMode = Array.from(targetValues.keys())[0];
-      console.log(`Falling back to first available mode: ${firstMode}`);
-      modeValue = targetValues.get(firstMode);
-    }
-
-    // If still no match, report failure
-    if (!modeValue) {
-      console.warn(`No matching mode found for ${referenceId}`);
-      return null;
-    }
-  }
-
-  // If this is another reference, resolve it recursively
-  if (modeValue.value.startsWith('@ref:')) {
-    console.log(`Found nested reference: ${modeValue.value}`);
-    const nestedRefId = modeValue.value.substring(5); // Remove '@ref:' prefix
-    return resolveReference(nestedRefId, modeName, variableValuesById, visited);
-  }
-
-  // Return the resolved value
-  console.log(`Successfully resolved reference to: ${modeValue.value}`);
-  return modeValue;
-}
-
-// Process a single collection for a specific mode - memory efficient approach
-async function processCollectionForMode(
-  collection: any,
-  modeName: string,
-  callback: (name: string, data: any) => void
-): Promise<void> {
-  // Process variables in smaller batches
-  const batchSize = 10;
-
-  for (let i = 0; i < collection.variableIds.length; i += batchSize) {
-    const batch = collection.variableIds.slice(i, i + batchSize);
-    interface VariableAlias {
-      type: 'VARIABLE_ALIAS';
-      id: string;
-    }
-
-    type VariableValue = RGB | RGBA | VariableAlias | number | string;
-
-    interface FigmaVariable {
-      name: string;
-      resolvedType: 'COLOR' | 'FLOAT' | 'STRING';
-      valuesByMode: Record<string, VariableValue>;
-    }
-
-    const batchPromises: Promise<FigmaVariable | null>[] = batch.map((id: string) =>
-      figma.variables.getVariableByIdAsync(id)
-    );
-    const batchResults = await Promise.all(batchPromises);
-
-    for (const variable of batchResults) {
-      if (!variable) continue;
-
-      // Skip variables without values for all modes
-      if (!variable.valuesByMode || Object.keys(variable.valuesByMode).length === 0) continue;
-
-      // Find the mode ID for this mode name
-      interface VariableCollectionMode {
-        name: string;
-        modeId: string;
-      }
-
-      const modeInfo: VariableCollectionMode | undefined = collection.modes.find((m: VariableCollectionMode) => m.name.toLowerCase() === modeName.toLowerCase());
-      if (!modeInfo) continue;
-
-      const modeId = modeInfo.modeId;
-
-      // Skip if there's no value for this mode
-      if (!variable.valuesByMode[modeId]) continue;
-
-      const value = variable.valuesByMode[modeId];
-
-      // Use extractHierarchy to break up hierarchical names
-      const nameParts = extractHierarchy(variable.name);
-
-      // Format the last part as the property name
-      const propertyName = nameParts.length > 0 ?
-        formatPropertyName(nameParts[nameParts.length - 1]) :
-        formatPropertyName(variable.name);
-
-      // Format the value based on type
-      let formattedValue = '';
-      if (variable.resolvedType === 'COLOR') {
-        if (typeof value === 'object' && value && 'r' in value) {
-          formattedValue = convertColor(value);
-        } else if (typeof value === 'object' && value && value.type === 'VARIABLE_ALIAS') {
-          // For references, we'll handle this later - store as a specially formatted string
-          formattedValue = `@ref:${value.id}`;
-        }
-      } else if (variable.resolvedType === 'FLOAT') {
-        formattedValue = `${value}px`;
-      } else if (variable.resolvedType === 'STRING') {
-        formattedValue = `"${value}"`;
-      }
-
-      // Create a hierarchical path for this variable
-      // Start with collection name, then add all parts except the last one
-      const path = [formatPropertyName(collection.name)];
-      for (let i = 0; i < nameParts.length - 1; i++) {
-        path.push(formatPropertyName(nameParts[i]));
-      }
-
-      // Join with underscores instead of slashes
-      const fullPath = path.join('_');
-      // Add the last part (property name)
-      const fullName = fullPath ? `${fullPath}_${propertyName}` : propertyName;
-
-      callback(fullName, {
-        value: formattedValue,
-        type: variable.resolvedType,
-      });
-    }
-
-    // Force a micro-task to allow garbage collection
-    await new Promise(resolve => setTimeout(resolve, 0));
-  }
-}
 
