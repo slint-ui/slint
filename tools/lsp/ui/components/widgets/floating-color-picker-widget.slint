@@ -452,7 +452,7 @@ export component ColorPickerView {
 
     changed height => {
         if (color-picker.y + color-picker.height) > root.height {
-            color-picker.y = (self.height - color-picker.height).max(0);
+            color-picker.y = (root.height - color-picker.height).max(0);
         }
     }
 
