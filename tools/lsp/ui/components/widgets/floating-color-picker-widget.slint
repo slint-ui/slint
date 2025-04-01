@@ -26,7 +26,7 @@ component ColorPicker {
     callback close <=> t-close.clicked;
 
     width: 240px;
-    height: 340px;
+    height: 370px;
 
     Rectangle {
         background: Styles.background-color;
@@ -126,7 +126,7 @@ component ColorPicker {
                     width: 8px;
                     height: 8px;
                     border-radius: self.width / 2;
-                    background: root.current-color;
+                    background: hsv(root.hue, root.saturation, root.value);
                 }
             }
         }
@@ -346,12 +346,90 @@ component ColorPicker {
         }
     }
 
-    Button {
-        y: hsva-controls.y + hsva-controls.height + 16px;
-        width: 100px;
-        text: "Apply";
-        clicked => {
-            WindowManager.apply-current-value(Api.color-to-data(root.current-color).text);
+    Rectangle {
+        width: 100%;
+        height: 60px;
+        y: hsva-controls.y + hsva-controls.height + 8px;
+        VerticalLayout {
+            alignment: center;
+            spacing: 10px;
+            Rectangle {
+                x: Styles.left-margin;
+                width: 170px;
+                height: 25px;
+                background: Styles.section-color;
+                border-radius: Styles.property-border-radius;
+                border-width: 1px;
+
+                Rectangle {
+                    x: 5px;
+                    width: 15px;
+                    height: self.width;
+                    border-radius: 2px;
+                    background: root.current-color;
+                }
+
+                Text {
+                    x: 25px;
+                    y: 8px;
+                    vertical-alignment: center;
+                    font-family: "Inter";
+                    font-size: 11px;
+                    color: #9d9d9d;
+                    text: "#";
+                    font-weight: 800;
+                }
+
+                Text {
+                    x: 35px;
+                    y: 8px;
+                    font-family: "Inter";
+                    font-size: 12px;
+                    color: white;
+                    text: Api.color-to-data(root.current-color).short-text.to-uppercase();
+                    letter-spacing: 0.8px;
+                }
+
+                divider := Rectangle {
+                    x: parent.width - 45px;
+                    width: 1px;
+                    height: parent.height;
+                    background: Styles.background-color;
+                }
+
+                Rectangle {
+                    x: parent.width - self.width;
+                    width: 43px;
+                    height: parent.height;
+
+                    Text {
+                        x: 5px;
+                        vertical-alignment: center;
+                        font-family: "Inter";
+                        font-size: 12px;
+                        color: white;
+                        text: root.alpha;
+                    }
+
+                    Text {
+                        x: parent.width - self.width - 5px;
+                        vertical-alignment: center;
+                        font-family: "Inter";
+                        font-size: 11px;
+                        color: #9d9d9d;
+                        text: "%";
+                        font-weight: 800;
+                    }
+                }
+            }
+            Button {
+                x: Styles.left-margin;
+                width: 100px;
+                text: "Apply";
+                clicked => {
+                    WindowManager.apply-current-value(Api.color-to-data(root.current-color).text);
+                }
+            }
         }
     }
 }
