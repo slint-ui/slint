@@ -68,6 +68,7 @@ component ColorLineEdit inherits HorizontalLayout {
 
 export component Preview {
     in property <brush> background;
+    callback clicked <=> ta.clicked;
 
     Image {
         width: 100%;
@@ -88,6 +89,8 @@ export component Preview {
         background: root.background;
     }
 
+    ta := TouchArea { }
+
     @children
 }
 
@@ -97,11 +100,13 @@ export component ColorMainContent inherits HorizontalLayout {
     in property <bool> enabled;
 
     out property <bool> has-focus <=> rle.has-focus;
+    out property <ColorData> current-color-data: Api.color-to-data(self.current-color);
+
 
     callback set-color-binding(text: string);
     callback test-color-binding(text: string) -> bool;
+    callback color-preview-clicked();
 
-    private property <ColorData> current-color-data: Api.color-to-data(self.current-color);
 
     function apply-value() {
         rle.default-text = current-color-data.text;
@@ -145,6 +150,10 @@ export component ColorMainContent inherits HorizontalLayout {
         height: 30px;
 
         background: root.current-color;
+
+        clicked => {
+            root.color-preview-clicked();
+        }
     }
 }
 

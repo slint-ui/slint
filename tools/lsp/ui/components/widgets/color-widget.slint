@@ -1,19 +1,18 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { ChildIndicator, NameLabel, SecondaryContent } from "./basics.slint";
+import { NameLabel } from "./basics.slint";
 import { ColorMainContent, RgbaColorSliders } from "./color-basics.slint";
 
 import { ColorData, PropertyValue, PropertyValueKind } from "../../api.slint";
 import { EditorSpaceSettings } from "../../components/styling.slint";
 import { ComboBox } from "std-widgets.slint";
+import { WindowGlobal, WindowManager } from "../../windowglobal.slint";
 
-export component ColorWidget inherits GridLayout {
+export component ColorWidget inherits VerticalLayout {
     in property <bool> enabled;
     in property <string> property-name;
     in property <PropertyValue> property-value;
-    in property <bool> has-code-action <=> sub.has-code-action;
-    in property <bool> has-reset-action <=> sub.has-reset-action;
 
     private property <color> current-color: Colors.transparent;
 
@@ -22,15 +21,17 @@ export component ColorWidget inherits GridLayout {
 
     callback test-color-binding(text: string) -> bool;
     callback set-color-binding(text: string);
+    callback update-floating-editor();
 
-    spacing-vertical: EditorSpaceSettings.default-spacing;
+    padding-left: 16px;
+    spacing: EditorSpaceSettings.default-spacing;
     width: 100%;
 
     function apply-value() {
         root.current-color = self.property-value.value-brush;
     }
 
-    private property <bool> has-focus: main.has-focus || sliders.has-focus;
+    private property <bool> has-focus: main.has-focus;
 
     init => {
         apply-value();
@@ -50,58 +51,33 @@ export component ColorWidget inherits GridLayout {
         if !self.has-focus {
             apply-value();
         }
-    }
 
-    Row {
-        NameLabel {
-            col: 1;
-
-            property-name: root.property-name;
-            property-value: root.property-value;
-        }
-    }
-    Row {
-        childIndicator := ChildIndicator {
-            horizontal-stretch: 0;
-            control-hover: main.has-focus;
-        }
-
-        main := ColorMainContent {
-            current-color <=> root.current-color;
-            enabled <=> root.enabled;
-
-            set-color-binding(text) => {
-                root.set-color-binding(text);
-            }
-            test-color-binding(text) => {
-                return root.test-color-binding(text);
-            }
+        // Floating editors need to know the current property details. Call the update if something changes.
+        if WindowManager.showing-color-picker && WindowManager.current-property-information.name == root.property-name {
+            root.update-floating-editor();
         }
     }
 
-    Row {
-        sub := SecondaryContent {
-            col: 1;
-            open: childIndicator.open;
 
-            sliders := RgbaColorSliders {
-                enabled <=> root.enabled;
-                current-color <=> root.current-color;
+    NameLabel {
 
-                set-color-binding(text) => {
-                    root.set-color-binding(text);
-                }
-                test-color-binding(text) => {
-                    return root.test-color-binding(text);
-                }
-            }
+        property-name: root.property-name;
+        property-value: root.property-value;
+    }
 
-            code-action() => {
-                root.code-action();
-            }
-            reset-action() => {
-                root.reset-action();
-            }
+    main := ColorMainContent {
+        current-color <=> root.current-color;
+        enabled <=> root.enabled;
+
+        set-color-binding(text) => {
+            root.set-color-binding(text);
+        }
+        test-color-binding(text) => {
+            return root.test-color-binding(text);
+        }
+
+        color-preview-clicked() => {
+            root.update-floating-editor();
         }
     }
 }

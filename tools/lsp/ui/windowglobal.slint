@@ -1,7 +1,50 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { Api, ColorData, ElementInformation, PropertyInformation, PropertyValueKind } from "api.slint";
+
 export global WindowGlobal {
     in-out property <length> window-width;
     in-out property <length> window-height;
+}
+
+export global WindowManager {
+    out property <{ hue: float, saturation: float, value: float, alpha: float}> current-hsv-color;
+    out property <bool> showing-color-picker: false;
+
+    property <ElementInformation> current-element-information;
+    out property <PropertyInformation> current-property-information;
+
+    callback show-floating-widget(PropertyInformation, ElementInformation);
+    callback hide-floating-widget();
+    callback apply-current-value(value: string);
+
+    show-floating-widget(property-information, element-information) => {
+        current-property-information = property-information;
+        current-element-information = element-information;
+
+        if current-property-information.value.kind == PropertyValueKind.color {
+            // bug? current-hsv-color = current-property-information.value.value-brush.to-hsv() does not work.
+            current-hsv-color.hue = current-property-information.value.value-brush.to-hsv().hue;
+            current-hsv-color.saturation = current-property-information.value.value-brush.to-hsv().saturation;
+            current-hsv-color.value = current-property-information.value.value-brush.to-hsv().value;
+            current-hsv-color.alpha = current-property-information.value.value-brush.to-hsv().alpha;
+            showing-color-picker = true;
+        }
+    }
+
+    hide-floating-widget => {
+        showing-color-picker = false;
+        current-element-information = { };
+        current-property-information = { };
+    }
+
+    apply-current-value(text) => {
+        Api.set-code-binding(
+                current-element-information.source-uri,
+                current-element-information.source-version,
+                current-element-information.range.start,
+                current-property-information.name,
+                text);
+    }
 }

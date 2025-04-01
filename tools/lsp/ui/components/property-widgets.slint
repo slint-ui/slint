@@ -17,6 +17,7 @@ import { IntegerWidget } from "./widgets/integer-widget.slint";
 import { JsonWidget } from "./widgets/json-widget.slint";
 import { MultiValueWidget } from "./widgets/multi-value-widget.slint";
 import { StringWidget } from "./widgets/string-widget.slint";
+import { WindowGlobal, WindowManager } from "../windowglobal.slint";
 
 export component PropertyValueWidget inherits VerticalLayout {
     in property <PropertyValue> property-value;
@@ -38,6 +39,7 @@ export component PropertyValueWidget inherits VerticalLayout {
     callback set-string-binding(text: string, is_translated: bool);
     callback test-string-binding(text: string, is_translated: bool) -> bool;
     callback set-enum-binding(text: string);
+    callback set-current-item();
 
     callback reset-action();
     callback code-action();
@@ -67,8 +69,9 @@ export component PropertyValueWidget inherits VerticalLayout {
             property-name <=> root.property-name;
             property-value <=> root.property-value;
 
-            has-code-action: root.has-code-action;
-            has-reset-action: root.has-reset-action;
+            update-floating-editor() => {
+                return root.set-current-item();
+            }
 
             test-color-binding(text) => {
                 if root.property-value.kind == PropertyValueKind.color {
@@ -266,6 +269,10 @@ export component PropertyInformationWidget inherits VerticalLayout {
         property-value: root.property-information.value;
         property-name: root.property-information.name;
         enabled: root.enabled;
+
+        set-current-item() => {
+            WindowManager.show-floating-widget(property-information, element-information);
+        }
 
         set-bool-binding(value) => {
             self.set-code-binding(value ? "true" : "false");
