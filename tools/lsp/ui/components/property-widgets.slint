@@ -44,215 +44,130 @@ export component PropertyValueWidget inherits VerticalLayout {
     callback reset-action();
     callback code-action();
 
-    Rectangle {
-        clip: true;
-        height: root.property-value.kind == PropertyValueKind.boolean ? self.preferred-height : 0px;
+    if root.property-value.kind == PropertyValueKind.boolean: BooleanWidget {
+        enabled <=> root.enabled;
+        property-name <=> root.property-name;
+        property-value <=> root.property-value;
 
-        BooleanWidget {
-            enabled <=> root.enabled;
-            property-name <=> root.property-name;
-            property-value <=> root.property-value;
-
-            set-bool-binding(value) => {
-                if root.property-value.kind == PropertyValueKind.boolean {
-                    root.set-bool-binding(value);
-                }
-            }
+        set-bool-binding(value) => {
+            root.set-bool-binding(value);
         }
     }
-    Rectangle {
-        clip: true;
-        height: (root.property-value.kind == PropertyValueKind.color) ? self.preferred-height : 0px;
 
-        ColorWidget {
-            enabled <=> root.enabled;
-            property-name <=> root.property-name;
-            property-value <=> root.property-value;
+    if root.property-value.kind == PropertyValueKind.color: ColorWidget {
+        enabled <=> root.enabled;
+        property-name <=> root.property-name;
+        property-value <=> root.property-value;
 
-            update-floating-editor() => {
-                return root.set-current-item();
-            }
+        update-floating-editor() => {
+            return root.set-current-item();
+        }
 
-            test-color-binding(text) => {
-                if root.property-value.kind == PropertyValueKind.color {
-                    return (root.test-color-binding(text));
-                } else {
-                    return false;
-                }
-            }
-            set-color-binding(text) => {
-                if root.property-value.kind == PropertyValueKind.color {
-                    root.set-color-binding(text);
-                }
-            }
-
-            reset-action() => {
-                if root.property-value.kind == PropertyValueKind.color {
-                    root.reset-action();
-                }
-            }
-            code-action() => {
-                if root.property-value.kind == PropertyValueKind.color {
-                    root.code-action();
-                }
-            }
+        test-color-binding(text) => {
+            return (root.test-color-binding(text));
+        }
+        set-color-binding(text) => {
+            root.set-color-binding(text);
+        }
+        reset-action() => {
+            root.reset-action();
+        }
+        code-action() => {
+            root.code-action();
         }
     }
-    Rectangle {
-        clip: true;
-        height: (root.property-value.kind == PropertyValueKind.brush) ? self.preferred-height : 0px;
 
-        BrushWidget {
-            enabled <=> root.enabled;
-            property-name <=> root.property-name;
-            property-value <=> root.property-value;
+    if root.property-value.kind == PropertyValueKind.brush: BrushWidget {
+        enabled <=> root.enabled;
+        property-name <=> root.property-name;
+        property-value <=> root.property-value;
 
-            has-code-action: root.has-code-action;
-            has-reset-action: root.has-reset-action;
+        has-code-action: root.has-code-action;
+        has-reset-action: root.has-reset-action;
 
-            test-brush-binding(kind, angle, color, stops) => {
-                if root.property-value.kind == PropertyValueKind.brush {
-                    return root.test-brush-binding(kind, angle, color, stops);
-                } else {
-                    return false;
-                }
-            }
-            set-brush-binding(kind, angle, color, stops) => {
-                if root.property-value.kind == PropertyValueKind.brush {
-                    root.set-brush-binding(kind, angle, color, stops);
-                }
-            }
-
-            reset-action() => {
-                if root.property-value.kind == PropertyValueKind.brush {
-                    root.reset-action();
-                }
-            }
-            code-action() => {
-                if root.property-value.kind == PropertyValueKind.brush {
-                    root.code-action();
-                }
-            }
+        test-brush-binding(kind, angle, color, stops) => {
+            return root.test-brush-binding(kind, angle, color, stops);
+        }
+        set-brush-binding(kind, angle, color, stops) => {
+            root.set-brush-binding(kind, angle, color, stops);
+        }
+        reset-action() => {
+            root.reset-action();
+        }
+        code-action() => {
+            root.code-action();
         }
     }
-    Rectangle {
-        clip: true;
-        height: root.property-value.kind == PropertyValueKind.code ? self.preferred-height : 0px;
 
-        CodeWidget {
-            enabled <=> root.enabled;
-            property-name <=> root.property-name;
-            property-value <=> root.property-value;
+    if root.property-value.kind == PropertyValueKind.code: CodeWidget {
+        enabled <=> root.enabled;
+        property-name <=> root.property-name;
+        property-value <=> root.property-value;
 
-            reset-action() => {
-                if root.property-value.kind == PropertyValueKind.code {
-                    root.reset-action();
-                }
-            }
-            code-action() => {
-                if root.property-value.kind == PropertyValueKind.code {
-                    root.code-action();
-                }
-            }
+        reset-action() => {
+            root.reset-action();
+        }
+        code-action() => {
+            root.code-action();
         }
     }
-    Rectangle {
-        clip: true;
-        height: root.property-value.kind == PropertyValueKind.enum ? self.preferred-height : 0px;
 
-        EnumWidget {
-            enabled <=> root.enabled;
-            property-name <=> root.property-name;
-            property-value <=> root.property-value;
+    if root.property-value.kind == PropertyValueKind.enum: EnumWidget {
+        enabled <=> root.enabled;
+        property-name <=> root.property-name;
+        property-value <=> root.property-value;
 
-            set-enum-binding(text) => {
-                if root.property-value.kind == PropertyValueKind.enum {
-                    root.set-enum-binding(text);
-                }
-            }
+        set-enum-binding(text) => {
+            root.set-enum-binding(text);
         }
     }
-    Rectangle {
-        clip: true;
-        height: root.property-value.kind == PropertyValueKind.float ? self.preferred-height : 0px;
 
-        FloatWidget {
-            enabled <=> root.enabled;
-            property-name <=> root.property-name;
-            property-value <=> root.property-value;
+    if root.property-value.kind == PropertyValueKind.float: FloatWidget {
+        enabled <=> root.enabled;
+        property-name <=> root.property-name;
+        property-value <=> root.property-value;
 
-            test-float-binding(text, unit) => {
-                if root.property-value.kind == PropertyValueKind.float {
-                    return (root.test-float-binding(text, unit));
-                } else {
-                    return false;
-                }
-            }
-            set-float-binding(text, unit) => {
-                if root.property-value.kind == PropertyValueKind.float {
-                    root.set-float-binding(text, unit);
-                }
-            }
+        test-float-binding(text, unit) => {
+            return (root.test-float-binding(text, unit));
+        }
+        set-float-binding(text, unit) => {
+            root.set-float-binding(text, unit);
         }
     }
-    Rectangle {
-        clip: true;
-        height: root.property-value.kind == PropertyValueKind.integer ? self.preferred-height : 0px;
 
-        IntegerWidget {
-            enabled <=> root.enabled;
-            property-name <=> root.property-name;
-            property-value <=> root.property-value;
+    if root.property-value.kind == PropertyValueKind.integer: IntegerWidget {
+        enabled <=> root.enabled;
+        property-name <=> root.property-name;
+        property-value <=> root.property-value;
 
-            test-integer-binding(text) => {
-                if root.property-value.kind == PropertyValueKind.integer {
-                    return (root.test-code-binding(text));
-                } else {
-                    return false;
-                }
-            }
-            set-integer-binding(text) => {
-                if root.property-value.kind == PropertyValueKind.integer {
-                    root.set-code-binding(text);
-                }
-            }
+        test-integer-binding(text) => {
+            return (root.test-code-binding(text));
+        }
+        set-integer-binding(text) => {
+            root.set-code-binding(text);
         }
     }
-    Rectangle {
-        clip: true;
-        height: root.property-value.kind == PropertyValueKind.string ? self.preferred-height : 0px;
 
-        StringWidget {
-            enabled <=> root.enabled;
-            property-name <=> root.property-name;
-            property-value: root.property-value;
+     if root.property-value.kind == PropertyValueKind.string: StringWidget {
+        enabled <=> root.enabled;
+        property-name <=> root.property-name;
+        property-value: root.property-value;
 
-            has-code-action: root.has-code-action;
-            has-reset-action: root.has-reset-action;
-            is-translatable <=> root.strings-are-translatable;
+        has-code-action: root.has-code-action;
+        has-reset-action: root.has-reset-action;
+        is-translatable <=> root.strings-are-translatable;
 
-            reset-action() => {
-                if root.property-value.kind == PropertyValueKind.string {
-                    root.reset-action();
-                }
-            }
-            code-action() => {
-                if root.property-value.kind == PropertyValueKind.string {
-                    root.code-action();
-                }
-            }
-            test-string-binding(text, is_translated) => {
-                if root.property-value.kind == PropertyValueKind.string {
-                    return root.test-string-binding(text, is_translated);
-                } else {
-                    return false;
-                }
-            }
-            set-string-binding(text, is_translated) => {
-                if root.property-value.kind == PropertyValueKind.string {
-                    root.set-string-binding(text, is_translated);
-                }
-            }
+        reset-action() => {
+            root.reset-action();
+        }
+        code-action() => {
+            root.code-action();
+        }
+        test-string-binding(text, is_translated) => {
+            return root.test-string-binding(text, is_translated);
+        }
+        set-string-binding(text, is_translated) => {
+            root.set-string-binding(text, is_translated);
         }
     }
 }
@@ -439,4 +354,3 @@ export component PreviewDataPropertyValueWidget inherits VerticalLayout {
         }
     }
 }
-
