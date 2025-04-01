@@ -7,9 +7,10 @@ import { Api } from "../../api.slint";
 
 
 global Styles {
-    out property <color> section-color: #383838;
-    out property <color> divider-color: #444444;
-    out property <color> background-color: #2c2c2c;
+    out property <color> section-color: Palette.color-scheme == ColorScheme.dark ? #383838 : #f5f5f5;
+    out property <color> text-color: Palette.color-scheme == ColorScheme.dark ? white : #383838;
+    out property <color> divider-color: Palette.color-scheme == ColorScheme.dark ? #444444 : #e6e6e6;
+    out property <color> background-color: Palette.color-scheme == ColorScheme.dark ? #2c2c2c : white;
     out property <length> left-margin: 16px;
     out property <length> right-margin: 12px;
     out property <length> property-border-radius: 5px;
@@ -54,6 +55,7 @@ component ColorPicker {
 
             Image {
                 source: @image-url("../../assets/close.svg");
+                colorize: Styles.text-color;
             }
         }
 
@@ -385,7 +387,7 @@ component ColorPicker {
                     y: 8px;
                     font-family: "Inter";
                     font-size: 12px;
-                    color: white;
+                    color: Styles.text-color;
                     text: Api.color-to-data(root.current-color).short-text.to-uppercase();
                     letter-spacing: 0.8px;
                 }
@@ -407,7 +409,7 @@ component ColorPicker {
                         vertical-alignment: center;
                         font-family: "Inter";
                         font-size: 12px;
-                        color: white;
+                        color: Styles.text-color;
                         text: root.alpha;
                     }
 
