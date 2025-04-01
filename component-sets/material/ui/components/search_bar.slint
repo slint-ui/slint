@@ -105,7 +105,7 @@ export component SearchBar {
     in property <string> placeholder;
     in_out property <string> text;
     in_out property <int> current_item;
-    in property <[ListItem]> items;
+    // in property <[ListItem]> items;
 
     callback accepted(text: string);
     callback edited(text: string);
@@ -181,7 +181,7 @@ export component SearchBar {
         x: 0;
         y: 0;
         width: root.width;
-        height: root.height + clamp(root.item_height * root.items.length, root.item_height, 3 * root.item_height);
+        // height: root.height + clamp(root.item_height * root.items.length, root.item_height, 3 * root.item_height);
         close_policy: close_on_click_outside;
         forward-focus: popup_input;
 
@@ -246,17 +246,17 @@ export component SearchBar {
 
                 HorizontalDivider {}
 
-                ListView {
-                    horizontal_stretch: 1;
+                // ListView {
+                //     horizontal_stretch: 1;
 
-                    for item[index] in root.items : ListItemTemplate {
-                        text: item.text;
-                        supporting_text: item.supporting_text;
-                        avatar: item.avatar;
-                        avatar_background: item.avatar_background;
-                        avatar_colorize: item.avatar_colorize;
-                    }
-                }
+                //     for item[index] in root.items : ListItemTemplate {
+                //         text: item.text;
+                //         supporting_text: item.supporting_text;
+                //         avatar: item.avatar;
+                //         avatar_background: item.avatar_background;
+                //         avatar_colorize: item.avatar_colorize;
+                //     }
+                // }
             }
 
             animate height {
