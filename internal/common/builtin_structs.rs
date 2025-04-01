@@ -198,6 +198,8 @@ macro_rules! for_each_builtin_structs {
                     // enabled: bool,
                     /// Sub menu
                     has_sub_menu: bool,
+                    /// The menu entry is a separator
+                    is_separator: bool,
                 }
                 private {}
             }

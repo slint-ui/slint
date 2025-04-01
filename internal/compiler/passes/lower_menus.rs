@@ -85,6 +85,7 @@ use crate::expression_tree::{BuiltinFunction, Callable, Expression, NamedReferen
 use crate::langtype::{ElementType, Type};
 use crate::object_tree::*;
 use core::cell::RefCell;
+use i_slint_common::MENU_SEPARATOR_PLACEHOLDER_TITLE;
 use smol_str::{format_smolstr, SmolStr};
 use std::collections::HashMap;
 use std::rc::{Rc, Weak};
@@ -531,7 +532,18 @@ fn lower_menu_items(
                     ));
                     element.borrow_mut().enclosing_component = component_weak.clone();
                     element.borrow_mut().geometry_props = None;
-                    // Menu -> MenuItem
+                    if element.borrow().base_type.type_name() == Some("MenuSeparator") {
+                        element.borrow_mut().bindings.insert(
+                            "title".into(),
+                            RefCell::new(
+                                Expression::StringLiteral(SmolStr::new_static(
+                                    MENU_SEPARATOR_PLACEHOLDER_TITLE,
+                                ))
+                                .into(),
+                            ),
+                        );
+                    }
+                    // Menu/MenuSeparator -> MenuItem
                     element.borrow_mut().base_type = components.menu_item_element.clone();
                 }
                 false
@@ -593,14 +605,21 @@ fn generate_menu_entries(
     state: &mut GenMenuState,
 ) -> Vec<Expression> {
     let mut entries = Vec::new();
+    let mut last_is_separator = false;
 
     for item in menu_items {
         let mut borrow_mut = item.borrow_mut();
         let base_name = borrow_mut.base_type.type_name().unwrap();
         let is_sub_menu = base_name == "Menu";
-        if !is_sub_menu {
+        let is_separator = base_name == "MenuSeparator";
+        if !is_sub_menu && !is_separator {
             assert_eq!(base_name, "MenuItem");
         }
+
+        if is_separator && (last_is_separator || entries.is_empty()) {
+            continue;
+        }
+        last_is_separator = is_separator;
 
         borrow_mut
             .enclosing_component
@@ -613,10 +632,14 @@ fn generate_menu_entries(
         assert!(borrow_mut.repeated.is_none());
 
         let mut values = HashMap::<SmolStr, Expression>::new();
-        for prop in ["title"] {
-            if let Some(binding) = borrow_mut.bindings.remove(prop) {
-                values.insert(SmolStr::new_static(prop), binding.into_inner().expression);
+        if !is_separator {
+            for prop in ["title"] {
+                if let Some(binding) = borrow_mut.bindings.remove(prop) {
+                    values.insert(SmolStr::new_static(prop), binding.into_inner().expression);
+                }
             }
+        } else {
+            values.insert(SmolStr::new_static("is_separator"), Expression::BoolLiteral(true));
         }
 
         state.id += 1;
@@ -640,6 +663,9 @@ fn generate_menu_entries(
         }
 
         entries.push(mk_struct(state.menu_entry.clone(), values));
+    }
+    if last_is_separator {
+        entries.pop();
     }
 
     entries

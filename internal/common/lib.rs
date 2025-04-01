@@ -43,3 +43,8 @@ pub fn get_native_style(has_qt: bool, target: &str) -> &'static str {
         "fluent"
     }
 }
+
+/// MenuItem with this title are actually MenuSeparator
+///
+/// Use a private unicode character so we are sure it is not used in the user's code
+pub const MENU_SEPARATOR_PLACEHOLDER_TITLE: &str = "\u{E001}⸺";

@@ -28,7 +28,7 @@ export component A inherits Window {
             opacity: 0.4;
 //          ^error{Unknown property opacity in Menu}
             Rectangle {
-//          ^error{Rectangle is not allowed within Menu. Only Menu MenuItem are valid children}
+//          ^error{Rectangle is not allowed within Menu. Only Menu MenuItem MenuSeparator are valid children}
             }
 
             MenuItem {
@@ -45,6 +45,9 @@ export component A inherits Window {
 
         MenuItem {}
 //      ^error{MenuItem is not allowed within MenuBar. Only Menu are valid children}
+
+        MenuSeparator {}
+//      ^error{MenuSeparator is not allowed within MenuBar. Only Menu are valid children}
     }
 
     Rectangle {

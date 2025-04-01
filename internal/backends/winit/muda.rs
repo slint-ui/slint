@@ -94,6 +94,8 @@ impl MudaAdapter {
                     true, /*entry.enabled*/
                     None,
                 ))
+            } else if entry.is_separator {
+                Box::new(muda::PredefinedMenuItem::separator())
             } else {
                 let sub_menu =
                     muda::Submenu::with_id(id.clone(), &entry.title, true /*entry.enabled*/);

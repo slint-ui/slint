@@ -36,15 +36,18 @@ export component TestCase inherits Window {
                         title: "Open 2";
                         activated => { debug("2"); }
                     }
+                    MenuSeparator {}
                     for num in 45 : MenuItem {
                         title: "Open " + (num + 3);
                         activated => { debug(num+3); }
                     }
+                    MenuSeparator {}
                 }
                 MenuItem {
                     title: "Save " + The_Global.filename;
 
                 }
+                if true: MenuSeparator {}
                 MenuItem {
                     title: "Exit " + app_title;
                     activated => {

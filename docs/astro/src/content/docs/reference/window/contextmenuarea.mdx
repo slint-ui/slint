@@ -30,7 +30,7 @@ Close the context menu if it's currently open.
 ## `Menu`
 
 Place the `Menu` element in a <Link type="MenuBar" />, a `ContextMenuArea`, or within another `Menu`.
-Use `MenuItem` children of individual menu items, and `Menu` children to create sub-menus.
+Use `MenuItem` children of individual menu items, `Menu` children to create sub-menus, and `MenuSeparator` to create separators.
 
 ### Properties of `Menu`
 
@@ -57,6 +57,13 @@ The title shown for this menu item.
 
 Invoked when the menu entry is activated.
 
+## `MenuSeparator`
+
+A `MenuSeparator` represents a separator in a menu.
+It cannot have children, and doesn't have properties or callbacks.
+MenuSeparator at the beginning or end of a menu will not be visible.
+Consecutive `MenuSeparator`s will be merged into one.
+
 ## Example
 
 ```slint
@@ -74,6 +81,16 @@ export component Example {
             MenuItem {
                 title: @tr("Paste");
                 activated => { debug("Paste"); }
+            }
+            MenuSeparator {}
+            Menu {
+                title: @tr("Find");
+                MenuItem {
+                    title: @tr("Find Next");
+                }
+                MenuItem {
+                    title: @tr("Find Previous");
+                }
             }
         }
     }

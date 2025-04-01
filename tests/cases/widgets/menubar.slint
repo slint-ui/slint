@@ -13,6 +13,7 @@ export component TestCase inherits Window {
     MenuBar {
         Menu {
             title: "File";
+            MenuSeparator {} // should be hidden
             MenuItem {
                 title: "New";
                 activated => { result += "New"; debug("New"); }
@@ -40,6 +41,8 @@ export component TestCase inherits Window {
                     activated => { open-recent("Recent 3"); }
                 }
             }
+            MenuSeparator {}
+            MenuSeparator {}
             MenuItem {
                 title: "Save";
                 activated => { debug("Save"); }

@@ -67,10 +67,18 @@ impl MenuFromItemTree {
 
     fn update_shadow_tree_recursive(&self, parent: &ItemRc) -> SharedVector<MenuEntry> {
         let mut result = SharedVector::default();
+        let mut last_is_separator = false;
 
         let mut actual_visitor =
             |item_tree: &ItemTreeRc, index: u32, item_pin: Pin<ItemRef>| -> VisitChildrenResult {
                 if let Some(menu_item) = ItemRef::downcast_pin::<MenuItem>(item_pin) {
+                    let title = menu_item.title();
+                    let is_separator =
+                        title.as_str() == i_slint_common::MENU_SEPARATOR_PLACEHOLDER_TITLE;
+                    if is_separator && (last_is_separator || result.is_empty()) {
+                        return VisitChildrenResult::CONTINUE;
+                    }
+                    last_is_separator = is_separator;
                     let next_id = self.next_id.get();
                     self.next_id.set(next_id + 1);
                     let id = next_id.to_shared_string();
@@ -81,7 +89,7 @@ impl MenuFromItemTree {
                         id.clone(),
                         ShadowTreeNode { item: ItemRc::downgrade(&item), children },
                     );
-                    result.push(MenuEntry { title: menu_item.title(), id, has_sub_menu });
+                    result.push(MenuEntry { title, id, has_sub_menu, is_separator });
                 }
                 VisitChildrenResult::CONTINUE
             };
@@ -92,6 +100,9 @@ impl MenuFromItemTree {
             crate::item_tree::TraversalOrder::BackToFront,
             actual_visitor,
         );
+        if last_is_separator {
+            result.pop();
+        }
         result
     }
 }
