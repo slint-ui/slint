@@ -428,9 +428,12 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<Array<{ nam
       // Generate the enum for modes
       let content = `// Generated Slint file for ${collectionData.name}\n\n`;
 
-      // Add all required imports
+      // Add all required imports - but filter out self-imports
       for (const importStmt of requiredImports) {
-        content += importStmt;
+        // Skip any import statements that reference this collection
+        if (!importStmt.includes(`import { ${collectionData.formattedName}`)) {
+          content += importStmt;
+        }
       }
 
       // Add a blank line after imports if there are any
@@ -560,7 +563,7 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<Array<{ nam
 
         // For non-leaf nodes with children (nested structs)
         if (node.name !== 'root') {
-          structCode += `${indent}export ${node.name}: {\n`;
+          structCode += `${indent}${node.name}: {\n`;
         }
 
         // Process all children
