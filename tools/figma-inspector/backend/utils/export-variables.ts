@@ -63,7 +63,6 @@ function formatVariableName(name: string): string {
     .trim();
 }
 
-
 function sanitizeRowName(rowName: string): string {
   // Replace & with 'and' and other problematic characters
   return rowName
@@ -106,53 +105,83 @@ function extractHierarchy(name: string): string[] {
 
 function createReferenceExpression(
   referenceId: string,
-  sourceColumnName: string,
+  sourceModeName: string,
   variablePathsById: Map<string, { collection: string, row: string }>,
-  collectionStructure: Map<string, any>
-): string | null {
+  collectionStructure: Map<string, any>,
+  currentCollection: string = ""
+): { value: string | null, importStatement?: string } {
+  console.log(`Creating reference for ID: ${referenceId}, mode: ${sourceModeName}, collection: ${currentCollection}`);
+
   // Get the target variable path
   const targetPath = variablePathsById.get(referenceId);
   if (!targetPath) {
-    console.warn(`Reference path not found for ID: ${referenceId}`);
-    return null;
+    console.warn(`Reference path not found for ID: ${referenceId}`,
+      "Available IDs:", Array.from(variablePathsById.keys()).join(", ").substring(0, 100) + "...");
+    return { value: null };
   }
+  console.log(`Indexed ${variablePathsById.size} variable paths`);
+  console.log(`Found path for reference: collection=${targetPath.collection}, row=${targetPath.row}`);
 
   // Get the target collection
   const targetCollection = collectionStructure.get(targetPath.collection);
   if (!targetCollection) {
-    console.warn(`Collection not found: ${targetPath.collection}`);
-    return null;
+    console.warn(`Collection not found: ${targetPath.collection}`,
+      "Available collections:", Array.from(collectionStructure.keys()).join(", "));
+    return { value: null };
   }
+
+  // Check if this is a cross-collection reference
+  const isCrossCollection = targetPath.collection !== currentCollection;
+  console.log(`Is cross-collection reference: ${isCrossCollection}`);
 
   // Get all modes from target collection
   const targetModes = [...targetCollection.modes];
   if (targetModes.length === 0) {
     console.warn(`No modes found in target collection: ${targetPath.collection}`);
-    return null;
+    return { value: null };
+  }
+
+  // Verify the target variable exists in the collection
+  if (!targetCollection.variables.has(targetPath.row)) {
+    console.warn(`Variable row ${targetPath.row} not found in collection ${targetPath.collection}`);
+    return { value: null };
   }
 
   // First try: exact match with sanitized names
-  let targetColumnName = targetModes.find(mode =>
-    sanitizeModeForEnum(mode) === sanitizeModeForEnum(sourceColumnName)
+  let targetModeName = targetModes.find(mode =>
+    sanitizeModeForEnum(mode) === sanitizeModeForEnum(sourceModeName)
   );
 
   // Second try: direct match without sanitization
-  if (!targetColumnName) {
-    targetColumnName = targetModes.find(mode => mode === sourceColumnName);
+  if (!targetModeName) {
+    targetModeName = targetModes.find(mode => mode === sourceModeName);
   }
 
   // Third try: match the collection's first mode
-  if (!targetColumnName) {
-    targetColumnName = targetModes[0];
-    console.log(`Using default mode ${targetColumnName} for reference to ${referenceId}`);
+  if (!targetModeName) {
+    targetModeName = targetModes[0];
+    console.log(`Using default mode ${targetModeName} for reference to ${referenceId}`);
   }
 
   // Sanitize both row and column names
-  const sanitizedRow = sanitizeRowName(targetPath.row);
-  const sanitizedColumn = sanitizeModeForEnum(targetColumnName);
+  const sanitizedRow = targetPath.row; // Already sanitized when stored
+  const sanitizedMode = sanitizeModeForEnum(targetModeName);
+
+  // If this is a cross-collection reference, we need an import statement
+  let importStatement;
+  if (isCrossCollection) {
+    importStatement = `import { ${targetCollection.formattedName} } from "${targetCollection.formattedName}.slint";\n`;
+    console.log(`Adding import: ${importStatement.trim()}`);
+  }
 
   // Format the reference expression
-  return `${targetCollection.formattedName}.${sanitizedRow}-${sanitizedColumn}`;
+  const referenceExpr = `${targetCollection.formattedName}.${sanitizedRow}-${sanitizedMode}`;
+  console.log(`Created reference expression: ${referenceExpr}`);
+
+  return {
+    value: referenceExpr,
+    importStatement: importStatement
+  };
 }
 
 interface VariableNode {
@@ -161,95 +190,79 @@ interface VariableNode {
   valuesByMode?: Map<string, { value: string, refId?: string }>;
   children: Map<string, VariableNode>;
 }
+
 // For Figma Plugin - Export function with hierarchical structure
 
 // Export each collection to a separate virtual file
-export async function exportFigmaVariablesToSeparateFiles(): Promise<Array<{name: string, content: string}>> {
+export async function exportFigmaVariablesToSeparateFiles(): Promise<Array<{ name: string, content: string }>> {
   try {
     // Get collections asynchronously
     const variableCollections = await figma.variables.getLocalVariableCollectionsAsync();
-    
+
     // Array to store all exported files
-    const exportedFiles: Array<{name: string, content: string}> = [];
-    
-    // Process each collection
+    const exportedFiles: Array<{ name: string, content: string }> = [];
+
+    // First, initialize the collection structure for ALL collections
+    const collectionStructure = new Map<string, {
+      name: string,
+      formattedName: string,
+      modes: Set<string>,
+      variables: Map<string, Map<string, { value: string, type: string, refId?: string }>>
+    }>();
+
+    // Build a global map of variable paths
+    const variablePathsById = new Map<string, { collection: string, row: string }>();
+
+    // Initialize structure for all collections first
     for (const collection of variableCollections) {
-      // Skip empty collections
-      if (!collection.variableIds || collection.variableIds.length === 0) continue;
-      
       const collectionName = formatPropertyName(collection.name);
       const formattedCollectionName = formatStructName(collection.name);
-      
-      // Initialize code output for this collection
-      let slintCode = `// Generated from Figma collection: ${collection.name}\n\n`;
-      
-      // Collection-specific data structures
-      const collectionStructure = new Map<string, {
-        name: string,
-        formattedName: string,
-        modes: Set<string>,
-        variables: Map<string, Map<string, { value: string, type: string, refId?: string }>>
-      }>();
-      
-      // Initialize the collection in our structure
+
+      // Initialize the collection structure
       collectionStructure.set(collectionName, {
         name: collection.name,
         formattedName: formattedCollectionName,
         modes: new Set<string>(),
-        variables: new Map<string, Map<string, { value: string, type: string, refId?: string }>>()
+        variables: new Map()
       });
-      
+
       // Add modes to collection
       collection.modes.forEach(mode => {
         const sanitizedMode = sanitizeModeForEnum(formatPropertyName(mode.name));
         collectionStructure.get(collectionName)!.modes.add(sanitizedMode);
       });
-      
-      // Maps for references that can be scoped to this collection
-      const variableValuesById = new Map<string, Map<string, { value: string, type: string }>>();
-      const variableNameById = new Map<string, string>();
-      const variablePathsById = new Map<string, { collection: string, row: string }>();
-      
+    }
+
+    // THEN process the variables for each collection
+    for (const collection of variableCollections) {
+      const collectionName = formatPropertyName(collection.name);
+
       // Process variables in batches
       const batchSize = 5;
       for (let i = 0; i < collection.variableIds.length; i += batchSize) {
         const batch = collection.variableIds.slice(i, i + batchSize);
         const batchPromises = batch.map(id => figma.variables.getVariableByIdAsync(id));
         const batchResults = await Promise.all(batchPromises);
-        
+
         for (const variable of batchResults) {
           if (!variable) continue;
           if (!variable.valuesByMode || Object.keys(variable.valuesByMode).length === 0) continue;
-          
-          // Store variable name by ID
-          variableNameById.set(variable.id, variable.name);
-          
-          // Initialize variable in valuesByID map
-          if (!variableValuesById.has(variable.id)) {
-            variableValuesById.set(variable.id, new Map<string, { value: string, type: string }>());
-          }
-          
-          // Use extractHierarchy to break up variable names 
+
+          // Use extractHierarchy to break up variable names
           const nameParts = extractHierarchy(variable.name);
-          
+
           // For flat structure (existing code)
           const propertyName = nameParts.length > 0 ?
             nameParts[nameParts.length - 1] :
             formatPropertyName(variable.name);
-          
+
           const path = nameParts.length > 1 ?
             nameParts.slice(0, -1).join('_') :
             '';
-          
+
           const rowName = path ? `${path}_${propertyName}` : propertyName;
           const sanitizedRowName = sanitizeRowName(rowName);
-          
-          // Store the path to this variable for reference lookup
-          variablePathsById.set(variable.id, {
-            collection: collectionName,
-            row: sanitizedRowName
-          });
-          
+
           // Initialize row in variables map
           if (!collectionStructure.get(collectionName)!.variables.has(sanitizedRowName)) {
             collectionStructure.get(collectionName)!.variables.set(
@@ -257,18 +270,18 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<Array<{name
               new Map<string, { value: string, type: string, refId?: string }>()
             );
           }
-          
+
           // Process values for each mode
           for (const [modeId, value] of Object.entries(variable.valuesByMode)) {
             const modeInfo = collection.modes.find(m => m.modeId === modeId);
             if (!modeInfo) continue;
-            
+
             const modeName = sanitizeModeForEnum(formatPropertyName(modeInfo.name));
-            
+
             // Format value and track references
             let formattedValue = '';
             let refId: string | undefined;
-            
+
             // Process different variable types (COLOR, FLOAT, STRING, BOOLEAN)
             if (variable.resolvedType === 'COLOR') {
               if (typeof value === 'object' && value && 'r' in value) {
@@ -308,13 +321,7 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<Array<{name
                 formattedValue = 'false';
               }
             }
-            
-            // Store values for this variable
-            variableValuesById.get(variable.id)!.set(
-              modeName,
-              { value: formattedValue, type: variable.resolvedType }
-            );
-            
+
             collectionStructure.get(collectionName)!.variables.get(sanitizedRowName)!.set(
               modeName,
               {
@@ -324,28 +331,39 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<Array<{name
               }
             );
           }
+
+          // Store the path for each variable ID
+          variablePathsById.set(variable.id, {
+            collection: collectionName,
+            row: sanitizedRowName
+          });
         }
-        
+
         // Force GC between batches
         await new Promise(resolve => setTimeout(resolve, 0));
       }
-      
-      // Preserve references - second pass
+    }
+
+    // FINALLY process references after all collections are initialized
+    for (const collection of variableCollections) {
+      const collectionName = formatPropertyName(collection.name);
+
       for (const [rowName, columns] of collectionStructure.get(collectionName)!.variables.entries()) {
         for (const [colName, data] of columns.entries()) {
           if (data.refId) {
-            const refExpression = createReferenceExpression(
+            const refResult = createReferenceExpression(
               data.refId,
               colName,
-              variablePathsById,
-              collectionStructure
+              variablePathsById, // Use the populated map!
+              collectionStructure,
+              collectionName // Pass current collection name
             );
-            
-            if (refExpression) {
+
+            if (refResult.value) {
               collectionStructure.get(collectionName)!.variables.get(rowName)!.set(
                 colName,
                 {
-                  value: refExpression,
+                  value: refResult.value,
                   type: data.type,
                   refId: data.refId
                 }
@@ -356,9 +374,9 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<Array<{name
                 colName,
                 {
                   value: data.type === 'COLOR' ? '#808080' :
-                         data.type === 'FLOAT' ? '0px' :
-                         data.type === 'BOOLEAN' ? 'false' :
-                         '""',
+                    data.type === 'FLOAT' ? '0px' :
+                      data.type === 'BOOLEAN' ? 'false' :
+                        data.type === 'STRING' ? '""' : '',
                   type: data.type
                 }
               );
@@ -366,407 +384,172 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<Array<{name
           }
         }
       }
-      
-      // Build hierarchical variable structure
-      const rootNode: VariableNode = {
-        name: collectionName,
-        children: new Map<string, VariableNode>()
-      };
-      
-      // Convert flat variables to hierarchical structure
-      for (const [rowName, columns] of collectionStructure.get(collectionName)!.variables.entries()) {
-        // Determine variable type
-        let varType = 'color';
-        for (const [, data] of columns.entries()) {
-          varType = data.type === 'COLOR' ? 'color' : 
-                   data.type === 'FLOAT' ? 'length' : 
-                   data.type === 'BOOLEAN' ? 'bool' : 'string';
-          break;
+    }
+
+    for (const [collectionName, collectionData] of collectionStructure.entries()) {
+      // Skip collections with no variables
+      if (collectionData.variables.size === 0) {
+        console.log(`Skipping empty collection: ${collectionName}`);
+        continue;
+      }
+
+      // Generate the enum for modes
+      let content = `// Generated Slint file for ${collectionData.name}\n\n`;
+
+      // Create a ModeEnum if we have more than one mode
+      if (collectionData.modes.size > 1) {
+        content += `export enum ${collectionData.formattedName}Mode {\n`;
+
+        // Add all modes to the enum
+        for (const mode of collectionData.modes) {
+          content += `    ${mode},\n`;
         }
-        
-        // Split by underscores for hierarchy
-        const nameParts = rowName.split('_');
-        
-        // Build the tree
-        let currentNode = rootNode;
-        for (let i = 0; i < nameParts.length - 1; i++) {
-          const part = nameParts[i];
+        content += `}\n\n`;
+      }
+
+      // Generate global singleton
+      content += `export global ${collectionData.formattedName} {\n`;
+
+      // Build a hierarchical tree from the flat variables
+      const variableTree: VariableNode = {
+        name: 'root',
+        children: new Map()
+      };
+
+      // Process each variable to build the tree
+      for (const [varName, modes] of collectionData.variables.entries()) {
+        // Split the path by underscores to get the hierarchy
+        const parts = varName.split('_');
+
+        // Navigate the tree and create nodes as needed
+        let currentNode = variableTree;
+
+        // Process all parts except the last one (which is the property name)
+        for (let i = 0; i < parts.length - 1; i++) {
+          const part = parts[i];
+
           if (!currentNode.children.has(part)) {
             currentNode.children.set(part, {
               name: part,
-              children: new Map<string, VariableNode>()
+              children: new Map()
             });
           }
+
           currentNode = currentNode.children.get(part)!;
         }
-        
-        // Add the leaf node
-        const leafName = nameParts[nameParts.length - 1];
-        if (!currentNode.children.has(leafName)) {
-          currentNode.children.set(leafName, {
-            name: leafName,
-            type: varType,
-            valuesByMode: new Map(),
-            children: new Map<string, VariableNode>()
+
+        // The last part is the property name
+        const propertyName = parts[parts.length - 1];
+
+        // Create the leaf node with the value
+        if (!currentNode.children.has(propertyName)) {
+          // Create a new Map for valuesByMode
+          const valuesByMode = new Map<string, { value: string, refId?: string }>();
+          
+          // Get the type from the first mode (or default to 'COLOR' if undefined)
+          const firstModeValue = modes.values().next().value;
+          const type = firstModeValue?.type || 'COLOR';
+          
+          // Process each mode's value
+          for (const [modeName, valueData] of modes.entries()) {
+            valuesByMode.set(modeName, {
+              value: valueData.value,
+              refId: valueData.refId
+            });
+          }
+          
+          // Add the node to the tree
+          currentNode.children.set(propertyName, {
+            name: propertyName,
+            type: type,
+            valuesByMode: valuesByMode,
+            children: new Map()
           });
         }
-        
-        // Add values for each mode
-        const leafNode = currentNode.children.get(leafName)!;
-        for (const [modeName, data] of columns.entries()) {
-          if (!leafNode.valuesByMode) {
-            leafNode.valuesByMode = new Map();
-          }
-          leafNode.valuesByMode.set(modeName, {
-            value: data.value,
-            refId: data.refId
-          });
-        }
       }
-      
-      // Get collection info for code generation
-      const collectionData = collectionStructure.get(collectionName)!;
-      
-      // Only generate if there are variables
-      if (collectionData.variables.size === 0) continue;
-      
-      // Convert modes to an array for consistent indexing
-      const modes = [...collectionData.modes];
-      
-      // 1. Generate enum for columns (modes)
-      slintCode += `// ${collectionData.name} Modes\n`;
-      slintCode += `export enum ${collectionData.formattedName}Column {\n`;
-      modes.forEach(mode => {
-        slintCode += `    ${sanitizeModeForEnum(mode)},\n`;
-      });
-      slintCode += `}\n\n`;
-      
-// 2. Generate struct definitions for hierarchical structure - TOPOLOGICAL SORT VERSION
-function generateStructDefinitions(rootNode: VariableNode, rootPath: string[]): string {
-  let result = '';
-  
-  // First collect all structs and their dependencies
-  interface StructInfo {
-    name: string;
-    path: string[];
-    dependencies: string[]; // Array of struct names this struct depends on
-    code: string;          // The struct definition code
-  }
-  
-  const structs: Map<string, StructInfo> = new Map();
-  
-  // Recursive function to collect all structs
-  function collectStructs(node: VariableNode, path: string[] = []) {
-    // Skip leaf nodes and the root
-    if (node.valuesByMode || path.length === 0) {
-      return;
-    }
-    
-    // Create struct name from path
-    const structName = path.map(p => formatStructName(p)).join('_');
-    
-    // Skip if already processed
-    if (structs.has(structName)) {
-      return;
-    }
-    
-    // Start building the struct code
-    let structCode = `// ${path.join('/')} structure\n`;
-    structCode += `struct ${structName} {\n`;
-    
-    // Track dependencies
-    const dependencies: string[] = [];
-    
-    // Add properties for children
-    for (const [childName, childNode] of node.children.entries()) {
-      if (childNode.valuesByMode) {
-        // This is a variable (leaf node)
-        structCode += `    ${childName}: ${childNode.type || 'color'},\n`;
-      } else {
-        // This is a nested struct - add as dependency
-        const childStructName = [...path, childName].map(p => formatStructName(p)).join('_');
-        structCode += `    ${childName}: ${childStructName},\n`;
-        dependencies.push(childStructName);
-      }
-    }
-    
-    structCode += `}\n\n`;
-    
-    // Store this struct's info
-    structs.set(structName, {
-      name: structName,
-      path: path,
-      dependencies: dependencies,
-      code: structCode
-    });
-    
-    // Process all child structs
-    for (const [childName, childNode] of node.children.entries()) {
-      if (!childNode.valuesByMode) {
-        collectStructs(childNode, [...path, childName]);
-      }
-    }
-  }
-  
-  // Collect all structs starting from the root path
-  collectStructs(rootNode, rootPath);
-  
-  // Perform a topological sort to ensure dependencies are defined first
-  const visited = new Set<string>();
-  const temp = new Set<string>();
-  const sorted: string[] = [];
-  
-  function visit(structName: string) {
-    // Skip if already processed
-    if (visited.has(structName)) return;
-    
-    // Check for circular dependencies
-    if (temp.has(structName)) {
-      console.warn(`Circular dependency detected for struct: ${structName}`);
-      return;
-    }
-    
-    // Mark as being processed
-    temp.add(structName);
-    
-    // Visit all dependencies first
-    const struct = structs.get(structName);
-    if (struct) {
-      for (const dependency of struct.dependencies) {
-        visit(dependency);
-      }
-    }
-    
-    // Mark as processed
-    temp.delete(structName);
-    visited.add(structName);
-    
-    // Add to sorted list
-    sorted.push(structName);
-  }
-  
-  // Visit all structs to create a topologically sorted list
-  for (const structName of structs.keys()) {
-    if (!visited.has(structName)) {
-      visit(structName);
-    }
-  }
-  
-  // Generate the struct definitions in topological order (dependencies first)
-  for (const structName of sorted) {
-    const struct = structs.get(structName);
-    if (struct) {
-      result += struct.code;
-    }
-  }
-  
-  return result;
-}      
-      // Generate all required structs
-      const structDefinitions = generateStructDefinitions(rootNode, [formattedCollectionName]);
-      slintCode += structDefinitions;
-      
-      // 3. Start generating the global
-      slintCode += `// ${collectionData.name} Variables\n`;
-      slintCode += `export global ${collectionData.formattedName} {\n`;
-      
-      // Current column property
-      slintCode += `    in-out property <${collectionData.formattedName}Column> current-column: ${modes[0] || 'light'};\n\n`;
-      
-      // 4. Add hierarchical properties with initializers
-      function generateHierarchicalProperties(node: VariableNode, indent: string = "    ", path: string[] = []): string {
-        let result = '';
-        
-        // Skip the root node
-        if (path.length === 0) {
-          // Process top-level properties only
-          for (const [childName, childNode] of node.children.entries()) {
-            if (!childNode.valuesByMode) {
-              // This is a struct node - FIX: use correct struct name with full path
-              // Include the collection prefix in the struct name
-              const structName = [formattedCollectionName, childName].map(p => formatStructName(p)).join('_');
-              
-              result += `${indent}out property <${structName}> ${childName}: {\n`;
-              
-              // Initialize nested properties
-              result += generateHierarchicalProperties(childNode, indent + "    ", [...path, childName]);
-              
-              result += `${indent}};\n\n`;
-            }
-          }
-          return result;
-        }
-        
-        // Process properties of non-root nodes
-        for (const [childName, childNode] of node.children.entries()) {
-          if (childNode.valuesByMode) {
-            // This is a leaf node
-            const defaultMode = modes[0];
-            const defaultValue = childNode.valuesByMode.get(defaultMode)?.value || 
-                               (childNode.type === 'color' ? '#000000' : 
-                                childNode.type === 'length' ? '0px' : 
-                                childNode.type === 'bool' ? 'false' : '""');
-            
-            result += `${indent}${childName}: ${defaultValue},\n`;
-          } else {
-            // This is a nested struct
-            result += `${indent}${childName}: {\n`;
-            
-            // Process nested properties
-            result += generateHierarchicalProperties(childNode, indent + "    ", [...path, childName]);
-            
-            result += `${indent}},\n`;
-          }
-        }
-        
-        return result;
-      }
-            
-      // Add hierarchical properties
-      slintCode += generateHierarchicalProperties(rootNode);
-      
-      // 5. Determine types for variables (for flat structure)
-      const variableTypes = new Map<string, string>();
-      for (const [rowName, columns] of collectionData.variables.entries()) {
-        for (const [, data] of columns.entries()) {
-          if (!variableTypes.has(rowName)) {
-            variableTypes.set(rowName,
-              data.type === 'COLOR' ? 'color' :
-              data.type === 'FLOAT' ? 'length' :
-              data.type === 'BOOLEAN' ? 'bool' :
-              'string'
-            );
-          }
-          break;
-        }
-      }
-      
-      // 6. Add individual cell properties (flat structure)
-      slintCode += `    // Individual cell values\n`;
-      for (const [rowName, columns] of collectionData.variables.entries()) {
-        const rowType = variableTypes.get(rowName) || 'color';
-        
-        for (const [colName, data] of columns.entries()) {
-          let valueExpression = data.value;
-          
-          // Fix for empty or invalid values
-          if (valueExpression === undefined || valueExpression === null || valueExpression === '') {
-            if (data.type === 'STRING') {
-              valueExpression = `"default"`;
-            } else if (data.type === 'BOOLEAN') {
-              valueExpression = 'false';
-            } else if (data.type === 'FLOAT') {
-              valueExpression = '0px';
-            } else if (data.type === 'COLOR') {
-              valueExpression = '#808080';
-            }
-          }
-          
-          // Add comments for references
-          if (data.refId) {
-            const refName = variableNameById.get(data.refId) || data.refId;
-            valueExpression = `${valueExpression} /* Reference to ${refName} */`;
-          }
-          
-          slintCode += `    out property <${rowType}> ${rowName}-${sanitizeModeForEnum(colName)}: ${valueExpression};\n`;
-        }
-      }
-      
-      // 7. Generate row accessor functions (flat structure)
-      slintCode += `\n    // Row accessor functions\n`;
-      for (const [rowName, columns] of collectionData.variables.entries()) {
-        const rowType = variableTypes.get(rowName) || 'color';
-        
-        slintCode += `    function ${rowName}(column: ${collectionData.formattedName}Column) -> ${rowType} {\n`;
-        slintCode += `        if (`;
-        
-        let isFirst = true;
-        for (const [colName] of columns.entries()) {
-          if (!isFirst) slintCode += `} else if (`;
-          slintCode += `column == ${collectionData.formattedName}Column.${sanitizeModeForEnum(colName)}`;
-          if (isFirst) isFirst = false;
-          
-          slintCode += `) {\n`;
-          slintCode += `            return ${rowName}-${colName};\n`;
-          slintCode += `        `;
-        }
-        
-        // Default case using first column
-        const firstCol = [...columns.keys()][0];
-        slintCode += `} else {\n`;
-        slintCode += `            return ${rowName}-${firstCol};\n`;
-        slintCode += `        }\n`;
-        slintCode += `    }\n`;
-      }
-      
-      // 8. Generate current value properties (flat structure)
-      slintCode += `\n    // Current values based on current-column\n`;
-      for (const [rowName] of collectionData.variables.entries()) {
-        const rowType = variableTypes.get(rowName) || 'color';
-        slintCode += `    out property <${rowType}> current-${rowName}: ${rowName}(self.current-column);\n`;
-      }
-      
-      // 9. Generate hierarchical accessors
-      function generateHierarchicalAccessors(node: VariableNode, path: string[] = []): string {
-        let result = '';
-        
-        // Skip the root node
-        if (path.length === 0) {
-          for (const [childName, childNode] of node.children.entries()) {
-            result += generateHierarchicalAccessors(childNode, [childName]);
-          }
-          return result;
-        }
-        
+
+      // Recursively generate code from the tree structure
+      function generateStructCode(node: VariableNode, indent: string = ''): string {
+        let structCode = '';
+
         // For leaf nodes (actual variables)
         if (node.valuesByMode) {
-          const functionName = path.join('_');
-          
-          result += `\n    function ${functionName}(column: ${collectionData.formattedName}Column) -> ${node.type || 'color'} {\n`;
-          result += `        if (`;
-          
-          // Add conditions for each mode
-          let isFirst = true;
-          for (const mode of modes) {
-            if (!node.valuesByMode.has(mode)) continue;
-            
-            if (!isFirst) result += `} else if (`;
-            result += `column == ${collectionData.formattedName}Column.${mode}`;
-            isFirst = false;
-            
-            result += `) {\n`;
-            result += `            return ${node.valuesByMode.get(mode)!.value};\n`;
-            result += `        `;
+          const slintType = getSlintType(node.type || 'COLOR');
+
+          // If we have multiple modes, generate a function
+          if (collectionData.modes.size > 1) {
+            structCode += `${indent}export function ${node.name}(mode: ${collectionData.formattedName}Mode) -> ${slintType} {\n`;
+            structCode += `${indent}    if (mode == ${collectionData.formattedName}Mode.`;
+
+            // Add switch-like logic for each mode
+            let isFirst = true;
+            for (const [modeName, data] of node.valuesByMode.entries()) {
+              if (!isFirst) {
+                structCode += `${indent}    } else if (mode == ${collectionData.formattedName}Mode.`;
+              }
+              structCode += `${modeName}) {\n`;
+              structCode += `${indent}        return ${data.value};\n`;
+              isFirst = false;
+            }
+
+            // Close the if-else and function
+            structCode += `${indent}    } else {\n`;
+            const defaultFormatted = formatValueForSlint(
+              node.type || 'COLOR',
+              node.valuesByMode.values().next().value?.value,
+              true
+            );
+            structCode += `${indent}        return ${defaultFormatted.value};\n`;
+            structCode += `${indent}    }\n`;
+            structCode += `${indent}}\n\n`;
+          } else {
+            const defaultFormatted = formatValueForSlint(
+              node.type || 'COLOR',
+              node.valuesByMode.values().next().value?.value,
+              true
+            );
+            structCode += `${indent}export ${node.name}: ${slintType} = ${defaultFormatted.value};\n`;
           }
-          
-          // Default case
-          result += `} else {\n`;
-          result += `            return ${node.valuesByMode.get(modes[0])?.value || '#000000'};\n`;
-          result += `        }\n`;
-          result += `    }\n`;
-        } else {
-          // For struct nodes, process children
-          for (const [childName, childNode] of node.children.entries()) {
-            result += generateHierarchicalAccessors(childNode, [...path, childName]);
-          }
+          return structCode;
         }
-        
-        return result;
+
+        // Skip empty nodes
+        if (node.children.size === 0) return '';
+
+        // For non-leaf nodes with children (nested structs)
+        if (node.name !== 'root') {
+          structCode += `${indent}export ${node.name}: {\n`;
+        }
+
+        // Process all children
+        for (const child of node.children.values()) {
+          structCode += generateStructCode(child, node.name !== 'root' ? indent + '    ' : indent);
+        }
+
+        // Close the struct
+        if (node.name !== 'root') {
+          structCode += `${indent}}\n\n`;
+        }
+
+        return structCode;
       }
-      
-      // Add hierarchical accessors
-      slintCode += `\n    // Hierarchical accessors${generateHierarchicalAccessors(rootNode)}`;
-      
+
+      // Generate code for all the nested structures
+      content += generateStructCode(variableTree, '    ');
+
       // Close the global
-      slintCode += `}\n\n`;
-      
-      // Add this collection to our exported files
+      content += `}\n`;
+
+      // Add file to exported files
       exportedFiles.push({
-        name: `${formatStructName(collection.name)}.slint`,
-        content: slintCode
+        name: `${collectionData.formattedName}.slint`,
+        content: content
       });
+
+      console.log(`Generated file for collection: ${collectionData.name}`);
     }
-    
+
+    console.log(`Exported ${exportedFiles.length} collection files`);
     return exportedFiles;
   } catch (error) {
     console.error("Error in exportFigmaVariablesToSeparateFiles:", error);
@@ -778,8 +561,77 @@ function generateStructDefinitions(rootNode: VariableNode, rootPath: string[]): 
   }
 }
 
-
 // Helper function to resolve variable references
+
+/**
+ * Formats a variable value for use in Slint based on its type
+ * @param type The Figma variable type ('COLOR', 'FLOAT', 'STRING', 'BOOLEAN')
+ * @param value The raw value from Figma
+ * @param defaultValue Whether to return a default value if processing fails
+ * @returns An object with formatted value and reference ID if applicable
+ */
+function formatValueForSlint(
+  type: string,
+  value: any,
+  defaultValue: boolean = false
+): { value: string, refId?: string } {
+  // If value is null/undefined and we want defaults
+  if ((value === null || value === undefined) && defaultValue) {
+    return {
+      value: type === 'COLOR' ? '#808080' :
+             type === 'FLOAT' ? '0px' :
+             type === 'BOOLEAN' ? 'false' :
+             type === 'STRING' ? '""' : ''
+    };
+  }
+  
+  // Handle each type
+  if (type === 'COLOR') {
+    if (typeof value === 'object' && value && 'r' in value) {
+      return { value: convertColor(value) };
+    } else if (typeof value === 'object' && value && 'type' in value && value.type === 'VARIABLE_ALIAS') {
+      return { value: `@ref:${value.id}`, refId: value.id };
+    }
+  } else if (type === 'FLOAT') {
+    if (typeof value === 'number') {
+      return { value: `${value}px` };
+    } else if (typeof value === 'object' && value && 'type' in value && value.type === 'VARIABLE_ALIAS') {
+      return { value: `@ref:${value.id}`, refId: value.id };
+    }
+  } else if (type === 'STRING') {
+    if (typeof value === 'string') {
+      return { value: `"${value}"` };
+    } else if (typeof value === 'object' && value && 'type' in value && value.type === 'VARIABLE_ALIAS') {
+      return { value: `@ref:${value.id}`, refId: value.id };
+    }
+  } else if (type === 'BOOLEAN') {
+    if (typeof value === 'boolean') {
+      return { value: value ? 'true' : 'false' };
+    } else if (typeof value === 'object' && value && 'type' in value && value.type === 'VARIABLE_ALIAS') {
+      return { value: `@ref:${value.id}`, refId: value.id };
+    }
+  }
+  
+  // Return default if we couldn't process
+  return formatValueForSlint(type, null, true);
+}
+
+/**
+ * Gets the appropriate Slint type for a Figma variable type
+ * @param figmaType The Figma variable type ('COLOR', 'FLOAT', 'STRING', 'BOOLEAN')
+ * @returns The corresponding Slint type
+ */
+function getSlintType(figmaType: string): string {
+  switch (figmaType) {
+    case 'COLOR': return 'brush';
+    case 'FLOAT': return 'length';
+    case 'STRING': return 'string';
+    case 'BOOLEAN': return 'bool';
+    default: return 'brush'; // Default to brush
+  }
+}
+
+
 // Improved reference resolution function with better debugging and more flexible mode matching
 function resolveReference(
   referenceId: string,
