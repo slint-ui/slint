@@ -17,7 +17,7 @@ import { PreviewDataView } from "./views/preview-data-view.slint";
 import { SpreadsheetDialog } from "./components/spreadsheet-dialog.slint";
 
 import { WindowGlobal, WindowManager } from "windowglobal.slint";
-import { ColorPickerView } from "components/widgets/floating-color-picker-widget.slint";
+import { ColorPickerView, Styles as PickerStyles } from "components/widgets/floating-color-picker-widget.slint";
 
 export { Api }
 
@@ -33,6 +33,7 @@ export component PreviewUi inherits Window {
     property <bool> show-left-sidebar;
     property <bool> show-right-sidebar;
     property <bool> show-floating-widget <=> WindowManager.showing-color-picker;
+    property <length> initial-floating-x;
 
     title: "Slint Live-Preview";
     icon: @image-url("assets/slint-logo-small-light.png");
@@ -40,6 +41,7 @@ export component PreviewUi inherits Window {
 
     changed width => {
         WindowGlobal.window-width = self.width;
+        initial-floating-x = (self.width - PickerStyles.picker-width - 300px).max(0);
     }
     changed height => {
         WindowGlobal.window-height = self.height;
@@ -145,8 +147,12 @@ export component PreviewUi inherits Window {
         y: (parent.height / 10);
     }
 
-    if show-floating-widget: ColorPickerView {
 
+    if show-floating-widget: ColorPickerView {
+        init => {
+            self.initial-x = root.initial-floating-x;
+            self.initial-y = 50px;
+        }
     }
 
 }

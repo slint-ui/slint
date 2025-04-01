@@ -6,7 +6,7 @@ import { WindowGlobal, WindowManager } from "../../windowglobal.slint";
 import { Api } from "../../api.slint";
 
 
-global Styles {
+export global Styles {
     out property <color> section-color: Palette.color-scheme == ColorScheme.dark ? #383838 : #f5f5f5;
     out property <color> text-color: Palette.color-scheme == ColorScheme.dark ? white : #383838;
     out property <color> divider-color: Palette.color-scheme == ColorScheme.dark ? #444444 : #e6e6e6;
@@ -14,6 +14,7 @@ global Styles {
     out property <length> left-margin: 16px;
     out property <length> right-margin: 12px;
     out property <length> property-border-radius: 5px;
+    out property <length> picker-width: 240px;
 }
 
 component ColorPicker {
@@ -26,7 +27,7 @@ component ColorPicker {
 
     callback close <=> t-close.clicked;
 
-    width: 240px;
+    width: Styles.picker-width;
     height: 370px;
 
     Rectangle {
@@ -440,6 +441,21 @@ export component ColorPickerView {
     width: 100%;
     height: 100%;
 
+    in property <length> initial-x: 0;
+    in property <length> initial-y: 0;
+
+    changed width => {
+        if color-picker.x + color-picker.width > root.width {
+            color-picker.x = (root.width - color-picker.width).max(0);
+        }
+    }
+
+    changed height => {
+        if (color-picker.y + color-picker.height) > root.height {
+            color-picker.y = (root.height - color-picker.height).max(0);
+        }
+    }
+
     pure function cursor-on-picker(mouse-x: length, mouse-y: length) -> bool {
         if mouse-x < color-picker.x {
             return false;
@@ -499,6 +515,9 @@ export component ColorPickerView {
     }
 
     color-picker := ColorPicker {
+        x: root.initial-x;
+        y: root.initial-y;
+
         close => {
             WindowManager.hide-floating-widget();
         }
