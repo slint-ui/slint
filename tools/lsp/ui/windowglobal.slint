@@ -14,7 +14,7 @@ export global WindowManager {
     out property <bool> showing-color-picker: false;
 
     property <ElementInformation> current-element-information;
-    property <PropertyInformation> current-property-information;
+    out property <PropertyInformation> current-property-information;
 
     callback show-floating-widget(PropertyInformation, ElementInformation);
     callback hide-floating-widget();
@@ -36,18 +36,12 @@ export global WindowManager {
 
     hide-floating-widget => {
         showing-color-picker = false;
+        current-element-information = {};
+        current-property-information = {};
     }
 
     apply-current-value(text) => {
-
-        if Api.test-code-binding(
-            current-element-information.source-uri,
-            current-element-information.source-version,
-            current-element-information.range.start,
-            current-property-information.name,
-            text
-        ) {
-            Api.set-code-binding(
+        Api.set-code-binding(
                 current-element-information.source-uri,
                 current-element-information.source-version,
                 current-element-information.range.start,
@@ -55,8 +49,5 @@ export global WindowManager {
                 text
             );
             debug("Applying", text);
-        } else {
-            debug("ERROR! Failed to compile color:", text);
-        }
     }
 }

@@ -39,7 +39,7 @@ export component PropertyValueWidget inherits VerticalLayout {
     callback set-string-binding(text: string, is_translated: bool);
     callback test-string-binding(text: string, is_translated: bool) -> bool;
     callback set-enum-binding(text: string);
-    callback set-current-item(text: string);
+    callback set-current-item();
 
     callback reset-action();
     callback code-action();
@@ -69,8 +69,8 @@ export component PropertyValueWidget inherits VerticalLayout {
             property-name <=> root.property-name;
             property-value <=> root.property-value;
 
-            use-floating-editor(text) => {
-                return root.set-current-item(text);
+            update-floating-editor() => {
+                return root.set-current-item();
             }
 
             test-color-binding(text) => {
@@ -270,16 +270,7 @@ export component PropertyInformationWidget inherits VerticalLayout {
         property-name: root.property-information.name;
         enabled: root.enabled;
 
-        set-current-item(text) => {
-            debug("yay!", property-information.name, property-information.value.kind, property-information.value.value-brush);
-
-            // Api.set-code-binding(
-            //     element-information.source-uri,
-            //     element-information.source-version,
-            //     element-information.range.start,
-            //     property-information.name,
-            //     "#FF0000",
-            // );
+        set-current-item() => {
             WindowManager.show-floating-widget(property-information, element-information);
         }
 

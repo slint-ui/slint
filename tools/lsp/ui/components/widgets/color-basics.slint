@@ -105,7 +105,7 @@ export component ColorMainContent inherits HorizontalLayout {
 
     callback set-color-binding(text: string);
     callback test-color-binding(text: string) -> bool;
-    callback color-preview-clicked(text: string);
+    callback color-preview-clicked();
 
 
     function apply-value() {
@@ -152,7 +152,7 @@ export component ColorMainContent inherits HorizontalLayout {
         background: root.current-color;
 
         clicked => {
-            root.color-preview-clicked("mummsy");
+            root.color-preview-clicked();
         }
     }
 }
