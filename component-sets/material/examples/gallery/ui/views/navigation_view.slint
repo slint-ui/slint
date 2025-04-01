@@ -50,7 +50,7 @@ export component NavigationView {
                     SearchBar {
                         leading_icon: OutlinedIcons.search;
                         placeholder: "Search color";
-                        items: NavigationViewAdapter.search_items;
+                        // items: NavigationViewAdapter.search_items;
 
                         edited(text) => {
                             NavigationViewAdapter.search(text);
@@ -174,7 +174,7 @@ export component NavigationView {
                             text: "Show modal navigation drawer";
 
                             clicked => {
-                                modal_navigation_drawer.show();
+                                // modal_navigation_drawer.show();
                             }
                         }
                     }
@@ -224,14 +224,14 @@ export component NavigationView {
                 Horizontal {
                     TabBar {
                         items: [
-                            {
-                                text: "Video",
-                                icon: OutlinedIcons.video_chat,
-                            },
-                            {
-                                text: "Photos",
-                                icon: OutlinedIcons.image,
-                            },
+                         {
+                             text: "Video",
+                             icon: OutlinedIcons.video_chat,
+                         },
+                         {
+                             text: "Photos",
+                             icon: OutlinedIcons.image,
+                         },
                             {
                                 text: "Audio",
                                 icon: OutlinedIcons.music_note,
