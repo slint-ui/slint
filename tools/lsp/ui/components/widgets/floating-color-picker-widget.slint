@@ -15,55 +15,6 @@ global Styles {
     out property <length> property-border-radius: 5px;
 }
 
-// component BrushIcon inherits Rectangle {
-//     width: 20px;
-//     height: 20px;
-//     border-width: 1px;
-//     border-color: Styles.divider-color;
-//     border-radius: 2px;
-
-//     in property <string> label: "Gradient";
-
-//     ta := TouchArea { }
-
-//     Rectangle {
-//         y: parent.height + 8px;
-//         height: 25px;
-//         width: t.width + 20px;
-//         background: #1e1e1e;
-//         border-radius: Styles.property-border-radius;
-//         border-width: 0.5px;
-//         border-color: Styles.divider-color.transparentize(0.5);
-//         drop-shadow-blur: 10px;
-//         drop-shadow-offset-y: 5px;
-//         drop-shadow-color: #00000069;
-//         opacity: ta.has-hover ? 1 : 0;
-//         animate opacity { duration: 0.2s; }
-
-//         Rectangle {
-//             x: parent.width / 2;
-//             y: 0;
-//             width: 0;
-//             height: 0;
-//             Image {
-//                 width: self.source.width * 0.5 * 1phx;
-//                 rotation-angle: 45deg;
-//                 source: @image-url("../../assets/black-square.png");
-//                 colorize: #1e1e1e;
-//             }
-//         }
-
-//         t := Text {
-//             font-family: "Inter";
-//             font-size: 11px;
-//             color: white;
-//             text: root.label;
-//             font-weight: 400;
-//             letter-spacing: 0.1px;
-//         }
-//     }
-// }
-
 component ColorPicker {
     in-out property <float> hue: WindowManager.current-hsv-color.hue;
     in-out property <float> saturation: WindowManager.current-hsv-color.saturation;
@@ -75,7 +26,7 @@ component ColorPicker {
     callback close <=> t-close.clicked;
 
     width: 240px;
-    height: 350px;
+    height: 340px;
 
     Rectangle {
         background: Styles.background-color;
@@ -181,41 +132,10 @@ component ColorPicker {
         }
     }
 
-
-
-    // brushes := Rectangle {
-    //     y: title.y + title.height;
-    //     width: 100%;
-    //     height: 40px;
-
-
-
-    //     HorizontalLayout {
-    //         alignment: start;
-    //         padding-left: Styles.left-margin;
-    //         spacing: 8px;
-
-    //         BrushIcon {
-    //             y: (parent.height - self.height) / 2;
-    //             label: "Color";
-    //         }
-
-    //         BrushIcon {
-    //             y: (parent.height - self.height) / 2;
-    //             label: "SVG Color";
-    //         }
-
-    //         BrushIcon {
-    //             y: (parent.height - self.height) / 2;
-    //             label: "Gradient";
-    //         }
-    //     }
-    // }
-
     hsva-controls := Rectangle {
         y: saturation-value-holder.y + saturation-value-holder.height;
         width: 100%;
-        height: 66px;
+        height: 56px;
         // The following properties are used to size the hue picker and control the
         // thumb to now go past the visual bounds. But the TouchArea is intentionally larger
         // to be usable.
@@ -225,7 +145,7 @@ component ColorPicker {
         VerticalLayout {
             Rectangle {
                 width: 100%;
-                height: 33px;
+                height: 26px;
                 hue-picker := Rectangle {
                     x: Styles.left-margin;
                     width: main-width + main-height;
@@ -306,7 +226,7 @@ component ColorPicker {
 
             Rectangle {
                 width: 100%;
-                height: 33px;
+                height: 26px;
                 Rectangle {
                     x: Styles.left-margin;
                     width: main-width + main-height;
