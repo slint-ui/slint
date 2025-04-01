@@ -27,9 +27,25 @@ export component A  {
                 col: 45;
 //              ^error{Unknown property col in MenuItem}
             }
+
+            MenuSeparator {
+                entries: [];
+//              ^error{Unknown property entries in MenuSeparator}
+                title: "ok";
+//              ^error{Unknown property title in MenuSeparator}
+                width: 45px;
+//              ^error{Unknown property width in MenuSeparator}
+                MenuItem {}
+//              ^error{MenuSeparator cannot have children elements}
+                Rectangle {}
+//              ^error{MenuSeparator cannot have children elements}
+            }
         }
         MenuItem {}
 //      ^error{Unknown element 'MenuItem'}
+
+        MenuSeparator {}
+//      ^error{Unknown element 'MenuSeparator'}
     }
 
     TouchArea {

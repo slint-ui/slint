@@ -34,12 +34,15 @@ export component TestCase inherits Window {
                 title: "Save";
                 activated => { debug("Save"); }
             }
+            MenuSeparator {}
             if true: MenuItem {
                 title: "Exit " + app_title;
                 activated => {
                     app_title = "Exited";
                 }
             }
+            MenuSeparator {}
+            MenuSeparator {}
         }
         Menu {
             title: "Edit";
@@ -47,6 +50,7 @@ export component TestCase inherits Window {
                 title: "Copy";
                 activated => { debug("Copy"); }
             }
+            MenuSeparator {}
             if true: MenuItem {
                 title: "Paste";
                 activated => { debug("Paste"); }

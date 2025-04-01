@@ -12,13 +12,6 @@ export component TestCase inherits Window {
     in-out property <string> result;
     Text {text: result;}
 
-    Rectangle {
-        background: Colors.red;
-        Rectangle {
-            background: Colors.blue.transparentize(0.5);
-        }
-    }
-
     ContextMenuArea {
         Menu {
             MenuItem {
@@ -37,10 +30,13 @@ export component TestCase inherits Window {
                         title: "Open 1";
                         activated => { debug("1"); result += "Open1"; }
                     }
+                    MenuSeparator {}
+                    MenuSeparator {}
                     MenuItem {
                         title: "Open 2";
                         activated => { debug("2"); result += "Open2"; }
                     }
+                    MenuSeparator {}
                 }
             }
         }

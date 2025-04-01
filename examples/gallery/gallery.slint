@@ -22,6 +22,7 @@ export component App inherits Window {
                 title: @tr("MenuBar" => "Open Recent");
                 for x in 10: MenuItem { title: @tr("MenuBar" => "Recent {}", x+1);  }
             }
+            MenuSeparator {}
             MenuItem { title: @tr("MenuBar" => "Save"); }
             Menu {
                 title: @tr("MenuBar" => "Save As");

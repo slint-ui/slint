@@ -67,17 +67,21 @@ export component PopupMenuImpl inherits Window {
             open-sub-menu-after-timeout.running = false;
 
             if event.text == Key.UpArrow {
-                if current-highlight >= 1 {
-                    current-highlight -= 1;
-                } else {
+                if current-highlight < 1 {
                     current-highlight = entries.length - 1;
+                } else if entries[current-highlight - 1].is_separator {
+                    current-highlight -= 2;
+                } else {
+                    current-highlight -= 1;
                 }
                 return accept;
             } else if event.text == Key.DownArrow {
-                if current-highlight < entries.length - 1 {
-                    current-highlight += 1;
-                } else {
+                if current-highlight >= entries.length - 1 {
                     current-highlight = 0;
+                } else if entries[current-highlight + 1].is_separator {
+                    current-highlight += 2;
+                } else {
+                    current-highlight += 1;
                 }
                 return accept;
             } else if event.text == Key.Return {

@@ -189,9 +189,16 @@ component MenuItem {
     //-disallow_global_types_as_child_elements
     //-is_non_item_type
 }
+
+component MenuSeparator {
+    //-disallow_global_types_as_child_elements
+    //-is_non_item_type
+}
+
 component Menu {
     in property <string> title;
     MenuItem {}
+    MenuSeparator {}
     Menu {}
     //-disallow_global_types_as_child_elements
     //-is_non_item_type

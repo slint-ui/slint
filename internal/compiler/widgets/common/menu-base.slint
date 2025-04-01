@@ -96,6 +96,7 @@ export component MenuItemBase {
     in property <brush> default-background;
     in property <brush> current-foreground;
     in property <brush> current-background;
+    in property <brush> separator-color;
     in property <length> font-size <=> label.font-size;
     in property <int> font-weight <=> label.font-weight;
     in property <length> border-radius <=> background-layer.border-radius;
@@ -113,6 +114,8 @@ export component MenuItemBase {
         background: root.default-background;
 
         touch-area := TouchArea {
+            visible: !entry.is-separator;
+
             layout := HorizontalLayout {
                 padding-top: root.padding-top;
                 padding-bottom: root.padding-bottom;
@@ -152,6 +155,11 @@ export component MenuItemBase {
                     root.clear-current();
                 }
             }
+        }
+
+        if entry.is-separator: Rectangle {
+            height: 1px;
+            background: root.separator-color;
         }
     }
 
