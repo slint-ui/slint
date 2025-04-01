@@ -837,19 +837,8 @@ impl Item for TextInput {
                     (self.cursor_position(&text), self.anchor_position(&text))
                 };
 
-                let input_type = self.input_type();
-                if input_type == InputType::Number
-                    && !event.text.as_str().chars().all(|ch| ch.is_ascii_digit())
-                {
+                if !self.accept_text_input(event.text.as_str()) {
                     return KeyEventResult::EventIgnored;
-                } else if input_type == InputType::Decimal {
-                    let (a, c) = self.selection_anchor_and_cursor();
-                    let text = self.text();
-                    let text = [&text[..a], event.text.as_str(), &text[c..]].concat();
-                    if text.as_str() != "." && text.as_str() != "-" && text.parse::<f64>().is_err()
-                    {
-                        return KeyEventResult::EventIgnored;
-                    }
                 }
 
                 self.delete_selection(window_adapter, self_rc, TextChangeNotify::SkipCallbacks);
@@ -894,6 +883,10 @@ impl Item for TextInput {
                 }
             }
             KeyEventType::UpdateComposition | KeyEventType::CommitComposition => {
+                if !self.accept_text_input(&event.text) {
+                    return KeyEventResult::EventIgnored;
+                }
+
                 let cursor = self.cursor_position(&self.text()) as i32;
                 self.preedit_text.set(event.preedit_text.clone());
                 self.preedit_selection.set(event.preedit_selection.clone().into());
@@ -1960,6 +1953,22 @@ impl TextInput {
         let scale_factor = ScaleFactor::new(window_inner.scale_factor());
         let font_request = self.font_request(window_adapter);
         window_adapter.renderer().font_metrics(font_request, scale_factor)
+    }
+
+    fn accept_text_input(self: Pin<&Self>, text_to_insert: &str) -> bool {
+        let input_type = self.input_type();
+        if input_type == InputType::Number && !text_to_insert.chars().all(|ch| ch.is_ascii_digit())
+        {
+            return false;
+        } else if input_type == InputType::Decimal {
+            let (a, c) = self.selection_anchor_and_cursor();
+            let text = self.text();
+            let text = [&text[..a], text_to_insert, &text[c..]].concat();
+            if text.as_str() != "." && text.as_str() != "-" && text.parse::<f64>().is_err() {
+                return false;
+            }
+        }
+        true
     }
 }
 
