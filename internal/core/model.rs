@@ -619,10 +619,10 @@ impl Model for bool {
 /// });
 /// ```
 ///
-/// ### Updating the model from a thread
+/// ### Updating the Model from a Thread
 ///
 /// `ModelRc` is not `Send` and can only be used in the main thread.
-/// If you want to update the model based on data coming from a thread, you need to send back the data to the main thread
+/// If you want to update the model based on data coming from another thread, you need to send back the data to the main thread
 /// using [`invoke_from_event_loop`](crate::api::invoke_from_event_loop) or
 /// [`Weak::upgrade_in_event_loop`](crate::api::Weak::upgrade_in_event_loop).
 ///
