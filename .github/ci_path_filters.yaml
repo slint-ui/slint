@@ -22,7 +22,7 @@ slint:
  - 'scripts/**'
  - 'tests/**'
  - 'tools/(!figma-inspector/)**'
- - 'xtask /**'
+ - 'xtask/**'
  - *files_in_root
  - *ci_config
 
