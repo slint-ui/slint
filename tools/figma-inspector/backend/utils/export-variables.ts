@@ -748,8 +748,20 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<Array<{ nam
           instances: generateInstance(variableTree, '    ')
         };
       }
-      // Get structures and instances first
+      // Get structures and instances
       const { structs, instances } = generateStructsAndInstances(variableTree, collectionData.formattedName);
+
+      // Generate the scheme structs (only for multi-mode collections)
+      let schemeStruct = '';
+      let schemeModeStruct = '';
+      let schemeInstance = '';
+
+      if (collectionData.modes.size > 1) {
+        const schemeResult = generateSchemeStructs(variableTree, collectionData);
+        schemeStruct = schemeResult.schemeStruct;
+        schemeModeStruct = schemeResult.schemeModeStruct;
+        schemeInstance = schemeResult.schemeInstance;
+      }
 
       // Start with file comment
 
@@ -787,10 +799,13 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<Array<{ nam
         content += `}\n\n`;
       }
 
-      // Add structs and global content
+      // Build the content
       content += structs;
+      content += schemeStruct;
+      content += schemeModeStruct;
       content += `export global ${collectionData.formattedName} {\n`;
       content += instances;
+      content += schemeInstance;
       content += `}\n`;
 
       // Add file to exported files
@@ -815,6 +830,80 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<Array<{ nam
 }
 
 
+function generateSchemeStructs(variableTree: VariableNode, collectionData: { name: string, formattedName: string, modes: Set<string>, variables: Map<string, Map<string, { value: string, type: string, refId?: string }>> }): {
+  schemeStruct: string,
+  schemeModeStruct: string,
+  schemeInstance: string
+} {
+  // 1. First, collect all leaf variables into a flat map
+  const allVariables = new Map<string, { path: string[], type: string }>();
+  
+  // Recursive function to collect all leaf variables
+  function collectLeafVariables(node: VariableNode, path: string[] = []) {
+    for (const [childName, childNode] of node.children.entries()) {
+      const currentPath = [...path, childName];
+      
+      if (childNode.valuesByMode) {
+        // This is a leaf node with values
+        const varName = currentPath.join('_');
+        allVariables.set(varName, {
+          path: currentPath,
+          type: getSlintType(childNode.type || 'COLOR')
+        });
+      } else if (childNode.children.size > 0) {
+        // Recurse into children
+        collectLeafVariables(childNode, currentPath);
+      }
+    }
+  }
+  
+  // Start collection from root
+  collectLeafVariables(variableTree);
+  
+  // 2. Generate the scheme struct with all variables
+  const schemeName = `${formatStructName(collectionData.name)}Scheme`;
+  let schemeStruct = `struct ${schemeName} {\n`;
+  
+  for (const [varName, info] of allVariables.entries()) {
+    schemeStruct += `    ${varName}: ${info.type},\n`;
+  }
+  
+  schemeStruct += `}\n\n`;
+  
+  // 3. Generate the mode struct
+  const schemeModeName = `${formatStructName(collectionData.name)}SchemeMode`;
+  let schemeModeStruct = `struct ${schemeModeName} {\n`;
+  
+  for (const mode of collectionData.modes) {
+    schemeModeStruct += `    ${mode}: ${schemeName},\n`;
+  }
+  
+  schemeModeStruct += `}\n\n`;
+  
+  // 4. Generate the instance initialization
+  let schemeInstance = `    out property <${schemeModeName}> mode: {\n`;
+  
+  for (const mode of collectionData.modes) {
+    schemeInstance += `        ${mode}: {\n`;
+    
+    // Add all variables for this mode
+    for (const [varName, info] of allVariables.entries()) {
+      // Build the reference to the existing hierarchical variable
+      const dotPath = info.path.join('.');
+      schemeInstance += `            ${varName}: ${collectionData.formattedName}.${dotPath}.${mode},\n`;
+    }
+    
+    schemeInstance += `        },\n`;
+  }
+  
+  schemeInstance += `    };\n\n`;
+  
+  return {
+    schemeStruct,
+    schemeModeStruct,
+    schemeInstance
+  };
+}
 
 function collectMultiModeStructs(node: VariableNode, collectionData: { modes: Set<string> }, structDefinitions: string[], path: string[] = []) {
   if (collectionData.modes.size <= 1) return;
