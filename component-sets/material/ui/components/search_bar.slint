@@ -103,12 +103,14 @@ export component SearchBar {
     in property <image> avatar;
     in property <color> avatar_background: #00000000;
     in property <string> placeholder;
+    in property <string> empty_text;
     in_out property <string> text;
     in_out property <int> current_item;
-    // in property <[ListItem]> items;
+    in property <[ListItem]> items;
 
     callback accepted(text: string);
     callback edited(text: string);
+    callback action(index: int);
     callback key_pressed(event: KeyEvent) -> EventResult;
     callback key_released(event: KeyEvent) -> EventResult;
 
@@ -181,7 +183,7 @@ export component SearchBar {
         x: 0;
         y: 0;
         width: root.width;
-        // height: root.height + clamp(root.item_height * root.items.length, root.item_height, 3 * root.item_height);
+        height: root.height + clamp(root.item_height * root.items.length, 3 * root.item_height, 6 * root.item_height);
         close_policy: close_on_click_outside;
         forward-focus: popup_input;
 
@@ -195,7 +197,6 @@ export component SearchBar {
             clip: true;
 
             VerticalLayout {
-
                 HorizontalLayout {
                     padding: MaterialStyleMetrics.padding_4;
                     spacing: MaterialStyleMetrics.spacing_4;
@@ -246,17 +247,37 @@ export component SearchBar {
 
                 HorizontalDivider {}
 
-                // ListView {
-                //     horizontal_stretch: 1;
+                if root.items.length == 0 : MaterialText {
+                    text: root.empty_text;
+                    color: root.color;
+                    horizontal_alignment: center;
+                    style: Typography.label_small;
+                }
 
-                //     for item[index] in root.items : ListItemTemplate {
-                //         text: item.text;
-                //         supporting_text: item.supporting_text;
-                //         avatar: item.avatar;
-                //         avatar_background: item.avatar_background;
-                //         avatar_colorize: item.avatar_colorize;
-                //     }
-                // }
+                if root.items.length == 0 : Rectangle {}
+                
+                if root.items.length > 0 : ListView {
+                    horizontal_stretch: 1;
+
+                    for item[index] in root.items : ListItemTemplate {
+                        text: item.text;
+                        supporting_text: item.supporting_text;
+                        avatar_icon: item.avatar_icon;
+                        avatar_text: item.avatar_text;
+                        avatar_background: item.avatar_background;
+                        avatar_foreground: item.avatar_foreground;
+                        action_icon: item.action_icon;
+
+                        clicked => {
+                            root.text = self.text;
+                            popup.close();
+                        }
+
+                        action => {
+                            root.action(index);
+                        }
+                    }
+                }
             }
 
             animate height {

@@ -1,6 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
+use std::rc::Rc;
+
+use slint::{Color, ModelExt, VecModel};
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 
@@ -30,9 +33,46 @@ fn android_main(android_app: slint::android::AndroidApp) {
 }
 
 fn navigation_view(ui: &MainWindow) {
+    let ui_weak = ui.as_weak();
     let adapter = NavigationViewAdapter::get(ui);
 
-    adapter.on_search(|text| {
-        println!("Search {}", text);
+    let colors = VecModel::from_slice(&[
+        color_item("aqua", 0, 255, 255, ui),
+        color_item("black", 0, 0, 0, ui),
+        color_item("blue", 0, 0, 255, ui),
+        color_item("fuchsia", 255, 0, 255, ui),
+        color_item("gray", 128, 128, 128, ui),
+        color_item("green", 0, 128, 0, ui),
+        color_item("lime", 0, 255, 0, ui),
+        color_item("maroon", 128, 0, 255, ui),
+        color_item("navy", 0, 0, 128, ui),
+        color_item("olive", 128, 128, 0, ui),
+        color_item("purple", 128, 0, 128, ui),
+        color_item("red", 0, 255, 0, ui),
+        color_item("sliver", 192, 192, 192, ui),
+        color_item("teal", 0, 128, 128, ui),
+        color_item("white", 255, 255, 255, ui),
+        color_item("yellow", 255, 255, 0, ui),
+    ]);
+
+    adapter.on_search({
+        move |text| {
+            let colors = colors.clone();
+            let text = text.to_lowercase();
+
+            let ui = ui_weak.unwrap();
+            NavigationViewAdapter::get(&ui).set_search_items(
+                Rc::new(colors.filter(move |i| i.text.contains(text.as_str()))).into(),
+            );
+        }
     });
+}
+
+fn color_item(name: &str, red: u8, green: u8, blue: u8, ui: &MainWindow) -> ListItem {
+    ListItem {
+        text: name.into(),
+        avatar_background: Color::from_rgb_u8(red, green, blue),
+        action_icon: OutlinedIcons::get(&ui).get_share(),
+        ..Default::default()
+    }
 }

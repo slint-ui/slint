@@ -1,11 +1,12 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import { MaterialWindow, MaterialWindowAdapter } from "../../../material.slint";
+import { MaterialWindow, MaterialWindowAdapter, ListItem } from "../../../material.slint";
 import { MainView } from "./views/main_view.slint";
 import { MainWindowAdapter } from "./main_window_adapter.slint";
 export { NavigationViewAdapter } from "./views/navigation_view.slint";
-export { MaterialWindowAdapter }
+export { MaterialWindowAdapter, ListItem }
+export { OutlinedIcons } from "./icons.slint";
 
 export component MainWindow inherits MaterialWindow {
     preferred-width: 600px;
