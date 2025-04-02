@@ -843,12 +843,14 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<Array<{ nam
       let schemeStruct = '';
       let schemeModeStruct = '';
       let schemeInstance = '';
+      let currentSchemeInstance = '';
 
       if (collectionData.modes.size > 1) {
         const schemeResult = generateSchemeStructs(variableTree, collectionData);
         schemeStruct = schemeResult.schemeStruct;
         schemeModeStruct = schemeResult.schemeModeStruct;
         schemeInstance = schemeResult.schemeInstance;
+        currentSchemeInstance = schemeResult.currentSchemeInstance; // ADD THIS LINE to capture the value
       }
 
       // Start with file comment
@@ -892,12 +894,11 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<Array<{ nam
       content += schemeStruct;
       content += schemeModeStruct;
       content += `export global ${collectionData.formattedName} {\n`;
-      // Add the helper functions
-      if (collectionData.modes.size > 1) {
-        content += generateModeHelperFunctions(collectionData);
-      }
       content += instances;
       content += schemeInstance;
+      if (collectionData.modes.size > 1) {
+        content += currentSchemeInstance;
+      }
       content += `}\n`;
 
       // Add file to exported files
@@ -909,7 +910,30 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<Array<{ nam
       console.log(`Generated file for collection: ${collectionData.name}`);
     }
 
-    console.log(`Exported ${exportedFiles.length} collection files`);
+    for (const file of exportedFiles) {
+      // Check if there are any unresolved references left
+      if (file.content.includes('@ref:')) {
+        console.warn(`Found unresolved references in ${file.name}`);
+
+        // Replace unresolved references with appropriate defaults based on context
+        file.content = file.content.replace(/(@ref:VariableID:[0-9:]+)/g, (match, reference) => {
+          console.warn(`  Replacing unresolved reference: ${reference}`);
+
+          // Look at surrounding context to determine appropriate replacement
+          if (file.content.includes(`brush,\n`) && file.content.includes(reference)) {
+            return '#808080'; // Default color
+          } else if (file.content.includes(`length,\n`) && file.content.includes(reference)) {
+            return '0px';     // Default length
+          } else if (file.content.includes(`string,\n`) && file.content.includes(reference)) {
+            return '""';      // Default string
+          } else if (file.content.includes(`bool,\n`) && file.content.includes(reference)) {
+            return 'false';   // Default boolean
+          } else {
+            return '#808080'; // Default fallback
+          }
+        });
+      }
+    }
     return exportedFiles;
   } catch (error) {
     console.error("Error in exportFigmaVariablesToSeparateFiles:", error);
@@ -921,65 +945,11 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<Array<{ nam
   }
 }
 
-function generateModeHelperFunctions(collectionData: { name: string, formattedName: string, modes: Set<string> }): string {
-  const defaultMode = collectionData.modes.values().next().value;
-  let result = '';
-
-  // Add the current mode property
-  result += `    // Current theme mode\n`;
-  result += `    in property <${collectionData.formattedName}Mode> current-mode: ${collectionData.formattedName}Mode.${defaultMode};\n\n`;
-
-  // Generate a helper function for each Slint type
-  const types = [
-    { slintType: 'brush', description: 'colors' },
-    { slintType: 'length', description: 'sizes' },
-    { slintType: 'string', description: 'text values' },
-    { slintType: 'bool', description: 'boolean flags' }
-  ];
-
-  // Add helper functions section
-  result += `    // Helper functions to get the current value based on mode\n`;
-
-  // Generate a type-specific function for each type
-  for (const { slintType, description } of types) {
-    // Use the predefined mode struct name instead of inline struct definition
-    const modeCount = collectionData.modes.size;
-    const modeStructName = `mode${modeCount}_${slintType}`;
-
-    result += `    // Returns the current ${description} based on theme mode\n`;
-    result += `    pure function current_${slintType}(variable: ${modeStructName}) -> ${slintType} {\n`;
-
-    // Select value based on current-mode
-    result += `        if (self.current-mode == ${collectionData.formattedName}Mode.${defaultMode}) {\n`;
-    result += `            return variable.${defaultMode};\n`;
-    result += `        }`;
-
-    // Add branches for other modes
-    let isFirst = true;
-    for (const mode of collectionData.modes) {
-      if (isFirst || mode === defaultMode) {
-        isFirst = false;
-        continue; // Skip the default mode, already handled
-      }
-      result += ` else if (self.current-mode == ${collectionData.formattedName}Mode.${mode}) {\n`;
-      result += `            return variable.${mode};\n`;
-      result += ` }`
-    }
-
-    // Add fallback
-    result += ` else {\n`;
-    result += `            return variable.${defaultMode};\n`;
-    result += `        }\n`;
-    result += `    }\n\n`;
-  }
-
-  return result;
-}
-
 function generateSchemeStructs(variableTree: VariableNode, collectionData: { name: string, formattedName: string, modes: Set<string> }): {
   schemeStruct: string,
   schemeModeStruct: string,
-  schemeInstance: string
+  schemeInstance: string,
+  currentSchemeInstance: string
 } {
   // Helper function to count leaf descendant nodes
   function findLeafDescendants(node: VariableNode): number {
@@ -1062,33 +1032,40 @@ function generateSchemeStructs(variableTree: VariableNode, collectionData: { nam
     allSchemeStructs += `}\n\n`;
   }
 
-  // 3. Generate the main scheme struct - MODIFIED to only include top-level and struct entries
+  // 3. Generate the main scheme struct - MODIFIED to properly handle nested structs
   const schemeName = `${formatStructName(collectionData.name)}Scheme`;
   let schemeStruct = `struct ${schemeName} {\n`;
 
-  // First add all first-level entries
-  const topLevelEntries = new Set<string>();
-
+  // First, we need to process all structs and build their hierarchy
+  const structHierarchy = new Map<string, string[]>();
+  
+  // Build a map of parent-child relationships for struct types
   for (const [varName, info] of schemeVariables.entries()) {
-    // Only include top-level variables and struct entries in the scheme
-    if (info.path.length === 1 || info.isStruct) {
-      // For structs, we only want the top-level ones (e.g., alert, sad, bus)
-      // not nested ones (e.g., sad_sub)
-      const topLevelName = info.path[0];
+    if (info.isStruct && info.path.length > 1) {
+      // This is a nested struct
+      const parentPath = info.path.slice(0, -1).join('_');
+      if (!structHierarchy.has(parentPath)) {
+        structHierarchy.set(parentPath, []);
+      }
+      structHierarchy.get(parentPath)!.push(info.path[info.path.length - 1]);
+    }
+  }
 
-      // Skip if we've already processed this top-level path
-      if (!topLevelEntries.has(topLevelName)) {
-        topLevelEntries.add(topLevelName);
-
-        if (info.path.length === 1) {
-          // Top-level property like foreground, background
-          schemeStruct += `    ${varName}: ${info.type},\n`;
-        } else if (info.isStruct && info.path.length > 1 && !varName.includes('_')) {
-          // Only top-level structs
-          schemeStruct += `    ${varName}: ${info.type},\n`;
-        } else if (info.isStruct && varName.split('_').length === 1) {
-          // Top-level structs with single name
-          schemeStruct += `    ${varName}: ${info.type},\n`;
+  // Now, update each struct definition to include its children
+  for (const [structName, structInfo] of schemeStructs.entries()) {
+    // Extract the path from the struct name (remove 'scheme_' prefix)
+    const structPath = structName.replace('scheme_', '');
+    
+    // Check if this struct has children
+    if (structHierarchy.has(structPath)) {
+      // Get child names
+      const children = structHierarchy.get(structPath)!;
+      
+      // Add a field for each child referencing its sub-struct
+      for (const child of children) {
+        const childStructName = `scheme_${structPath}_${child}`;
+        if (schemeStructs.has(childStructName)) {
+          structInfo.fields.set(child, childStructName);
         }
       }
     }
@@ -1106,13 +1083,13 @@ function generateSchemeStructs(variableTree: VariableNode, collectionData: { nam
 
   schemeModeStruct += `}\n\n`;
 
-  // 5. Generate the instance initialization with ONLY hierarchical structure
+  // 5. Generate the instance initialization
   let schemeInstance = `    out property <${schemeModeName}> mode: {\n`;
 
   for (const mode of collectionData.modes) {
     schemeInstance += `        ${mode}: {\n`;
 
-    // Modified to only use hierarchical structure for output
+    // Function to add hierarchical values
     function addHierarchicalValues(node: VariableNode = variableTree, path: string[] = [], currentIndent: string = '            ') {
       for (const [childName, childNode] of node.children.entries()) {
         const currentPath = [...path, childName];
@@ -1130,20 +1107,67 @@ function generateSchemeStructs(variableTree: VariableNode, collectionData: { nam
       }
     }
 
-    // Use the new hierarchical generation instead
+    // Build the mode instance
     addHierarchicalValues();
-
     schemeInstance += `        },\n`;
   }
 
-  schemeInstance += `    };\n\n`;
+  // Close the mode instance
+  schemeInstance += `    };\n`;
+
+  // 6. Generate the current scheme property with current-scheme toggle
+  let currentSchemeInstance = `    in-out property <${collectionData.formattedName}Mode> current-scheme: ${[...collectionData.modes][0]};\n`;
+
+  // Add the intermediate property to select the current mode based on the enum
+  // Add the current-mode property that dynamically selects based on the enum
+  currentSchemeInstance += `    out property <${schemeName}> current-mode: {\n`;
+  currentSchemeInstance += `        // Dynamic mode selector based on enum value\n`;
+
+  // Create a switch-like structure for all available modes
+  const modeArray = [...collectionData.modes];
+  for (let i = 0; i < modeArray.length; i++) {
+    const mode = modeArray[i];
+    currentSchemeInstance += `        if (current-scheme == ${collectionData.formattedName}Mode.${mode}) { return root.mode.${mode}; }\n`;
+  }
+
+  // Add fallback to the first mode if somehow none matched
+  currentSchemeInstance += `        // Fallback to first mode\n`;
+  currentSchemeInstance += `        return root.mode.${modeArray[0]};\n`;
+  currentSchemeInstance += `    };\n\n`;
+
+  // Now add the current property that references current-mode
+  currentSchemeInstance += `    out property <${schemeName}> current: {\n`;
+
+  // Add properties in the same structure as the scheme
+  function addCurrentValues(node: VariableNode = variableTree, path: string[] = [], currentIndent: string = '        ') {
+    for (const [childName, childNode] of node.children.entries()) {
+      const currentPath = [...path, childName];
+
+      if (childNode.children.size > 0) {
+        // This is a nested struct
+        currentSchemeInstance += `${currentIndent}${childName}: {\n`;
+        addCurrentValues(childNode, currentPath, currentIndent + '    ');
+        currentSchemeInstance += `${currentIndent}},\n`;
+      } else if (childNode.valuesByMode) {
+        // This is a leaf value - reference current-mode
+        currentSchemeInstance += `${currentIndent}${childName}: current-mode.${currentPath.join('.')},\n`;
+      }
+    }
+  }
+
+  // Build the current structure
+  addCurrentValues();
+
+  currentSchemeInstance += `    };\n`;
 
   return {
     schemeStruct: allSchemeStructs + schemeStruct,
     schemeModeStruct: schemeModeStruct,
-    schemeInstance: schemeInstance
+    schemeInstance: schemeInstance,
+    currentSchemeInstance: currentSchemeInstance
   };
 }
+
 
 function collectMultiModeStructs(node: VariableNode, collectionData: { modes: Set<string> }, structDefinitions: string[]) {
   if (collectionData.modes.size <= 1) return;
@@ -1191,4 +1215,3 @@ function collectMultiModeStructs(node: VariableNode, collectionData: { modes: Se
   // Look for any additional types
   findUniqueTypeConfigs(node);
 }
-
