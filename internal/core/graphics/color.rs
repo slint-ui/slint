@@ -434,10 +434,14 @@ fn test_rgb_to_hsv() {
         RgbaColor::<f32> { red: 0., green: 0.9, blue: 0., alpha: 1.0 }
     );
 
-    // Hue should wrap around 360deg i.e. 480 == 120
+    // Hue should wrap around 360deg i.e. 480 == 120 && -240 == 240
     assert_eq!(
         RgbaColor::<f32> { red: 0., green: 0.9, blue: 0., alpha: 1.0 },
         RgbaColor::<f32>::from(HsvaColor { hue: 480., saturation: 1., value: 0.9, alpha: 1.0 }),
+    );
+    assert_eq!(
+        RgbaColor::<f32> { red: 0., green: 0.9, blue: 0., alpha: 1.0 },
+        RgbaColor::<f32>::from(HsvaColor { hue: -240., saturation: 1., value: 0.9, alpha: 1.0 }),
     );
 }
 
