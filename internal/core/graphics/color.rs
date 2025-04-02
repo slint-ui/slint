@@ -380,9 +380,11 @@ impl From<HsvaColor> for RgbaColor<f32> {
 
         let chroma = col.saturation * col.value;
 
-        let x = chroma * (1. - ((col.hue / 60.) % 2. - 1.).abs());
+        let hue = col.hue % 360.0;
 
-        let (red, green, blue) = match (col.hue / 60.0) as usize {
+        let x = chroma * (1. - ((hue / 60.) % 2. - 1.).abs());
+
+        let (red, green, blue) = match (hue / 60.0) as usize {
             0 => (chroma, x, 0.),
             1 => (x, chroma, 0.),
             2 => (0., chroma, x),
