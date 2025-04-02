@@ -21,7 +21,14 @@ slint:
  - 'logo/**'
  - 'scripts/**'
  - 'tests/**'
- - 'tools/(!figma-inspector/)**'
+ - 'tools/compiler/**'
+ - 'tools/docsnapper/**'
+ - 'tools/figma_import/**'
+ - 'tools/lsp/**'
+ - 'tools/slintpad/**'
+ - 'tools/tr-extractor/**'
+ - 'tools/updater/**'
+ - 'tools/viewer/**'
  - 'xtask/**'
  - *files_in_root
  - *ci_config
