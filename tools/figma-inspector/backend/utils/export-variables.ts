@@ -922,79 +922,172 @@ function generateModeHelperFunctions(collectionData: { name: string, formattedNa
   return result;
 }
 
-function generateSchemeStructs(variableTree: VariableNode, collectionData: { name: string, formattedName: string, modes: Set<string>, variables: Map<string, Map<string, { value: string, type: string, refId?: string }>> }): {
+function generateSchemeStructs(variableTree: VariableNode, collectionData: { name: string, formattedName: string, modes: Set<string> }): {
   schemeStruct: string,
   schemeModeStruct: string,
   schemeInstance: string
 } {
-  // 1. First, collect all leaf variables into a flat map
-  const allVariables = new Map<string, { path: string[], type: string }>();
-
-  // Recursive function to collect all leaf variables
-  function collectLeafVariables(node: VariableNode, path: string[] = []) {
+  // Track all scheme structs we need to create
+  const schemeStructs = new Map<string, { fields: Map<string, string> }>();
+  
+  // Track the final variables mapping (can be nested now)
+  const schemeVariables = new Map<string, { type: string, path: string[], isStruct: boolean }>();
+  
+  // 1. First pass: Identify all structs needed for scheme representation
+  function collectSchemeStructs(node: VariableNode, path: string[] = [], schemePrefix = 'scheme_') {
     for (const [childName, childNode] of node.children.entries()) {
       const currentPath = [...path, childName];
-
-      if (childNode.valuesByMode) {
-        // This is a leaf node with values
-        const varName = currentPath.join('_');
-        allVariables.set(varName, {
+      
+      if (childNode.children.size > 0) {
+        // This is a nested node - we may need a scheme struct
+        const hasLeafDescendants = findLeafDescendants(childNode);
+        
+        if (hasLeafDescendants > 0) {
+          // Create a struct name like scheme_alert, scheme_sad_sub, etc.
+          const structName = schemePrefix + currentPath.join('_');
+          schemeStructs.set(structName, { fields: new Map() });
+          
+          // Register this in our variables
+          schemeVariables.set(currentPath.join('_'), {
+            type: structName,
+            path: currentPath,
+            isStruct: true
+          });
+          
+          // First, recurse to handle any nested structs this might contain
+          collectSchemeStructs(childNode, currentPath, schemePrefix);
+          
+          // Then, find immediate leaf children for this struct
+          for (const [gcName, gcNode] of childNode.children.entries()) {
+            if (gcNode.valuesByMode) {
+              // Add as a field to our struct
+              const fieldType = getSlintType(gcNode.type || 'COLOR');
+              schemeStructs.get(structName)!.fields.set(gcName, fieldType);
+            }
+          }
+        }
+      } else if (childNode.valuesByMode) {
+        // Leaf node - add to scheme variables
+        schemeVariables.set(currentPath.join('_'), {
+          type: getSlintType(childNode.type || 'COLOR'),
           path: currentPath,
-          type: getSlintType(childNode.type || 'COLOR')
+          isStruct: false
         });
-      } else if (childNode.children.size > 0) {
-        // Recurse into children
-        collectLeafVariables(childNode, currentPath);
       }
     }
   }
-
-  // Start collection from root
-  collectLeafVariables(variableTree);
-
-  // 2. Generate the scheme struct with all variables
-  const schemeName = `${formatStructName(collectionData.name)}Scheme`;
-  let schemeStruct = `struct ${schemeName} {\n`;
-
-  for (const [varName, info] of allVariables.entries()) {
-    schemeStruct += `    ${varName}: ${info.type},\n`;
-  }
-
-  schemeStruct += `}\n\n`;
-
-  // 3. Generate the mode struct
-  const schemeModeName = `${formatStructName(collectionData.name)}SchemeMode`;
-  let schemeModeStruct = `struct ${schemeModeName} {\n`;
-
-  for (const mode of collectionData.modes) {
-    schemeModeStruct += `    ${mode}: ${schemeName},\n`;
-  }
-
-  schemeModeStruct += `}\n\n`;
-
-  // 4. Generate the instance initialization
-  let schemeInstance = `    out property <${schemeModeName}> mode: {\n`;
-
-  for (const mode of collectionData.modes) {
-    schemeInstance += `        ${mode}: {\n`;
-
-    // Add all variables for this mode
-    for (const [varName, info] of allVariables.entries()) {
-      // Build the reference to the existing hierarchical variable
-      const dotPath = info.path.join('.');
-      schemeInstance += `            ${varName}: ${collectionData.formattedName}.${dotPath}.${mode},\n`;
+  
+  // Helper to check if a node has leaf descendants (for struct creation)
+  function findLeafDescendants(node: VariableNode): number {
+    let count = 0;
+    
+    for (const childNode of node.children.values()) {
+      if (childNode.valuesByMode) {
+        count++;
+      } else if (childNode.children.size > 0) {
+        count += findLeafDescendants(childNode);
+      }
     }
-
-    schemeInstance += `        },\n`;
+    
+    return count;
   }
-
-  schemeInstance += `    };\n\n`;
-
-  return {
-    schemeStruct,
-    schemeModeStruct,
-    schemeInstance
-  };
+  
+ // Collect all scheme structs
+ collectSchemeStructs(variableTree);
+  
+ // 2. Generate the scheme struct definitions for nested objects
+ let allSchemeStructs = '';
+ for (const [structName, structInfo] of schemeStructs.entries()) {
+   allSchemeStructs += `struct ${structName} {\n`;
+   
+   for (const [fieldName, fieldType] of structInfo.fields.entries()) {
+     allSchemeStructs += `    ${fieldName}: ${fieldType},\n`;
+   }
+   
+   allSchemeStructs += `}\n\n`;
+ }
+ 
+ // 3. Generate the main scheme struct - MODIFIED to only include top-level and struct entries
+ const schemeName = `${formatStructName(collectionData.name)}Scheme`;
+ let schemeStruct = `struct ${schemeName} {\n`;
+ 
+ // First add all first-level entries
+ const topLevelEntries = new Set<string>();
+ 
+ for (const [varName, info] of schemeVariables.entries()) {
+   // Only include top-level variables and struct entries in the scheme
+   if (info.path.length === 1 || info.isStruct) {
+     // For structs, we only want the top-level ones (e.g., alert, sad, bus)
+     // not nested ones (e.g., sad_sub)
+     const topLevelName = info.path[0];
+     
+     // Skip if we've already processed this top-level path
+     if (!topLevelEntries.has(topLevelName)) {
+       topLevelEntries.add(topLevelName);
+       
+       if (info.path.length === 1) {
+         // Top-level property like foreground, background
+         schemeStruct += `    ${varName}: ${info.type},\n`;
+       } else if (info.isStruct && info.path.length > 1 && !varName.includes('_')) {
+         // Only top-level structs
+         schemeStruct += `    ${varName}: ${info.type},\n`;
+       } else if (info.isStruct && varName.split('_').length === 1) {
+         // Top-level structs with single name
+         schemeStruct += `    ${varName}: ${info.type},\n`;
+       }
+     }
+   }
+ }
+ 
+ schemeStruct += `}\n\n`;
+ 
+ // 4. Generate the mode struct
+ const schemeModeName = `${formatStructName(collectionData.name)}SchemeMode`;
+ let schemeModeStruct = `struct ${schemeModeName} {\n`;
+ 
+ for (const mode of collectionData.modes) {
+   schemeModeStruct += `    ${mode}: ${schemeName},\n`;
+ }
+ 
+ schemeModeStruct += `}\n\n`;
+ 
+ // 5. Generate the instance initialization with ONLY hierarchical structure
+ let schemeInstance = `    out property <${schemeModeName}> mode: {\n`;
+ 
+ for (const mode of collectionData.modes) {
+   schemeInstance += `        ${mode}: {\n`;
+   
+   // Modified to only use hierarchical structure for output
+  function addHierarchicalValues(node: VariableNode = variableTree, path: string[] = [], currentIndent: string = '            ') {
+     for (const [childName, childNode] of node.children.entries()) {
+       const currentPath = [...path, childName];
+       
+       if (childNode.children.size > 0) {
+         // This is a struct node
+         schemeInstance += `${currentIndent}${childName}: {\n`;
+         // Recursively add its children
+         addHierarchicalValues(childNode, currentPath, currentIndent + '    ');
+         schemeInstance += `${currentIndent}},\n`;
+       } else if (childNode.valuesByMode) {
+         // This is a leaf value
+         schemeInstance += `${currentIndent}${childName}: ${collectionData.formattedName}.${currentPath.join('.')}.${mode},\n`;
+       }
+     }
+   }
+   
+   // Use the new hierarchical generation instead
+   addHierarchicalValues();
+   
+   schemeInstance += `        },\n`;
+ }
+ 
+ schemeInstance += `    };\n\n`;
+ 
+ return {
+   schemeStruct: allSchemeStructs + schemeStruct,
+   schemeModeStruct: schemeModeStruct,
+   schemeInstance: schemeInstance
+ };
 }
 
 function collectMultiModeStructs(node: VariableNode, collectionData: { modes: Set<string> }, structDefinitions: string[]) {
