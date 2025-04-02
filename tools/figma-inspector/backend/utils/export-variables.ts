@@ -308,7 +308,6 @@ interface VariableNode {
 }
 
 // For Figma Plugin - Export function with hierarchical structure
-
 // Export each collection to a separate virtual file
 export async function exportFigmaVariablesToSeparateFiles(): Promise<Array<{ name: string, content: string }>> {
   try {
