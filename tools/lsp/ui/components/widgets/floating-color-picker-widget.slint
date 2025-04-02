@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { Palette, Button } from "std-widgets.slint";
-import { WindowGlobal, WindowManager } from "../../windowglobal.slint";
+import { WindowGlobal, WindowManager, WidgetMode } from "../../windowglobal.slint";
 import { Api } from "../../api.slint";
 
 
@@ -25,10 +25,18 @@ component ColorPicker {
     in-out property <int> alpha: WindowManager.current-hsv-color.alpha * 100;
     in-out property <color> current-color: hsv(root.hue, root.saturation, root.value, root.alpha / 100);
 
+    in property <WidgetMode> widget-mode: edit;
+
     callback close <=> t-close.clicked;
 
+    changed current-color => {
+        if widget-mode == WidgetMode.preview {
+            WindowManager.update-preview-value(Api.color-to-data(root.current-color).text);
+        }
+    }
+
     width: Styles.picker-width;
-    height: 370px;
+    height: widget-mode == WidgetMode.edit ? 370px : 355px;
 
     Rectangle {
         background: Styles.background-color;
@@ -425,7 +433,8 @@ component ColorPicker {
                     }
                 }
             }
-            Button {
+
+            if widget-mode == WidgetMode.edit: Button {
                 x: Styles.left-margin;
                 width: 100px;
                 text: "Apply";
@@ -517,6 +526,7 @@ export component ColorPickerView {
     color-picker := ColorPicker {
         x: root.initial-x;
         y: root.initial-y;
+        widget-mode: WindowManager.widget-mode;
 
         close => {
             WindowManager.hide-floating-widget();

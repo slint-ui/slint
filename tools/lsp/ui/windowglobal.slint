@@ -1,7 +1,10 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Api, ColorData, ElementInformation, PropertyInformation, PropertyValueKind } from "api.slint";
+export enum WidgetMode { edit, preview }
+
+import { Api, ColorData, ElementInformation, PropertyInformation, PropertyValue, PropertyValueKind, PreviewData } from "api.slint";
+import { StatusLineApi } from "components/status-line.slint";
 
 export global WindowGlobal {
     in-out property <length> window-width;
@@ -11,15 +14,22 @@ export global WindowGlobal {
 export global WindowManager {
     out property <{ hue: float, saturation: float, value: float, alpha: float}> current-hsv-color;
     out property <bool> showing-color-picker: false;
+    out property <WidgetMode> widget-mode: edit;
 
     property <ElementInformation> current-element-information;
     out property <PropertyInformation> current-property-information;
+    property <string> current-property-container-id;
+    property <PreviewData> current-preview-data;
+    property <string> possible_error;
 
     callback show-floating-widget(PropertyInformation, ElementInformation);
+    callback show-floating-preview-widget(property-container-id: string, preview-data: PreviewData, property-value: PropertyValue);
     callback hide-floating-widget();
     callback apply-current-value(value: string);
+    callback update-preview-value(value: string);
 
     show-floating-widget(property-information, element-information) => {
+        widget-mode = WidgetMode.edit;
         current-property-information = property-information;
         current-element-information = element-information;
 
@@ -37,6 +47,22 @@ export global WindowManager {
         showing-color-picker = false;
         current-element-information = { };
         current-property-information = { };
+        widget-mode = WidgetMode.edit;
+    }
+
+    show-floating-preview-widget(property-container-id, preview-data, property-value) => {
+        current-property-container-id = property-container-id;
+        current-preview-data = preview-data;
+        widget-mode = WidgetMode.preview;
+
+        if property-value.kind == PropertyValueKind.color {
+            // bug? current-hsv-color = current-property-information.value.value-brush.to-hsv() does not work.
+            current-hsv-color.hue = property-value.value-brush.to-hsv().hue;
+            current-hsv-color.saturation = property-value.value-brush.to-hsv().saturation;
+            current-hsv-color.value = property-value.value-brush.to-hsv().value;
+            current-hsv-color.alpha = property-value.value-brush.to-hsv().alpha;
+            showing-color-picker = true;
+        }
     }
 
     apply-current-value(text) => {
@@ -46,5 +72,11 @@ export global WindowManager {
                 current-element-information.range.start,
                 current-property-information.name,
                 text);
+    }
+
+    update-preview-value(text) => {
+        self.possible_error = Api.set-json-preview-data(current-property-container-id, current-preview-data.name, "\"\{text}\"");
+
+        StatusLineApi.help-text = self.possible-error;
     }
 }
