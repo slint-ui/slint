@@ -223,6 +223,8 @@ function createReferenceExpression(
   // Verify the target variable exists in the collection
   if (!targetCollection.variables.has(targetPath.row)) {
     console.warn(`Variable row ${targetPath.row} not found in collection ${targetPath.collection}`);
+    console.error(`Variable not found: ${targetPath.row} in collection ${targetCollection.formattedName}`);
+    console.log(`Available variables:`, Array.from(targetCollection.variables.keys()).join(', '));
     return { value: null };
   }
 
@@ -388,6 +390,7 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<Array<{ nam
           // Process values for each mode
           for (const [modeId, value] of Object.entries(variable.valuesByMode)) {
             const modeInfo = collection.modes.find(m => m.modeId === modeId);
+            console.log(`Variable ${variable.name} (${variable.id}) has value type: ${typeof value} value: ${JSON.stringify(value)}`);
             if (!modeInfo) continue;
 
             const modeName = sanitizeModeForEnum(formatPropertyName(modeInfo.name));
@@ -434,6 +437,7 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<Array<{ nam
                 console.warn(`Unexpected BOOLEAN value type: ${typeof value} for ${variable.name}`);
                 formattedValue = 'false';
               }
+              console.log(`Final formatted value stored for ${sanitizedRowName}.${modeName}: ${formattedValue}`);
             }
 
             collectionStructure.get(collectionName)!.variables.get(sanitizedRowName)!.set(
@@ -692,12 +696,21 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<Array<{ nam
               if (collectionData.modes.size <= 1) {
                 // Single mode - direct property with value
                 const firstMode = childNode.valuesByMode.values().next().value;
-                const formattedValue = formatValueForSlint(
-                  childNode.type || 'COLOR',
-                  firstMode?.value,
-                  true
-                ).value;
-                result += `${indent}${sanitizedChildName}: ${formattedValue},\n`;
+                
+                // Use the already resolved value directly instead of re-processing it
+                const valueToUse = firstMode?.value;
+                
+                // Only check for @ref: prefixes (unresolved references)
+                if (!valueToUse) {
+                  console.error(`No value for nested property ${sanitizedChildName}`);
+                  result += `${indent}${sanitizedChildName}: ${childNode.type === 'COLOR' ? '#808080' : '0px'},\n`;
+                } else if (valueToUse.startsWith('@ref:')) {
+                  console.warn(`Unresolved reference for nested property ${sanitizedChildName}: ${valueToUse}`);
+                  result += `${indent}${sanitizedChildName}: ${childNode.type === 'COLOR' ? '#808080' : '0px'},\n`;
+                } else {
+                  // Use the value directly without re-formatting
+                  result += `${indent}${sanitizedChildName}: ${valueToUse},\n`;
+                }
               } else {
                 // Multi-mode - create nested object with mode properties
                 result += `${indent}${sanitizedChildName}: {\n`;
@@ -734,13 +747,34 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<Array<{ nam
             result += `${indent}};\n\n`;
             return result;
           } else {
-            // Single mode - direct property (unchanged)
-            const defaultFormatted = formatValueForSlint(
-              node.type || 'COLOR',
-              node.valuesByMode.values().next().value?.value,
-              true
-            );
-            return `${indent}out property <${slintType}> ${node.name}: ${defaultFormatted.value};\n`;
+            // Single mode - completely revised extraction method
+            console.log(`Processing single-mode for ${node.name} with ${node.valuesByMode.size} entries`);
+
+            // Directly get the first (and only) mode entry
+            const firstModeEntry = Array.from(node.valuesByMode.entries())[0];
+
+            if (!firstModeEntry) {
+              console.error(`No mode entries for ${node.name}`);
+              return `${indent}out property <${slintType}> ${node.name}: ${slintType === 'brush' ? '#808080' : '0px'};\n`;
+            }
+
+            const [modeName, modeData] = firstModeEntry;
+            console.log(`Mode ${modeName} has value: ${modeData.value}`);
+
+            // Single mode - revised check for references
+            if (!modeData.value) {
+              console.error(`No value for ${node.name}`);
+              return `${indent}out property <${slintType}> ${node.name}: ${slintType === 'brush' ? '#808080' : '0px'};\n`;
+            }
+
+            // At this point, references should be resolved - if still @ref: then resolution failed
+            if (modeData.value.startsWith('@ref:')) {
+              console.warn(`Unresolved reference for ${node.name}: ${modeData.value}`);
+              return `${indent}out property <${slintType}> ${node.name}: ${slintType === 'brush' ? '#808080' : '0px'};\n`;
+            }
+
+            // Use the actual value which should now be fully resolved
+            return `${indent}out property <${slintType}> ${node.name}: ${modeData.value};\n`;
           }
         }
         return {
@@ -804,6 +838,10 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<Array<{ nam
       content += schemeStruct;
       content += schemeModeStruct;
       content += `export global ${collectionData.formattedName} {\n`;
+      // Add the helper functions
+      if (collectionData.modes.size > 1) {
+        content += generateModeHelperFunctions(collectionData);
+      }
       content += instances;
       content += schemeInstance;
       content += `}\n`;
@@ -829,6 +867,60 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<Array<{ nam
   }
 }
 
+function generateModeHelperFunctions(collectionData: { name: string, formattedName: string, modes: Set<string> }): string {
+  const defaultMode = collectionData.modes.values().next().value;
+  let result = '';
+
+  // Add the current mode property
+  result += `    // Current theme mode\n`;
+  result += `    in property <${collectionData.formattedName}Mode> current-mode: ${collectionData.formattedName}Mode.${defaultMode};\n\n`;
+
+  // Generate a helper function for each Slint type
+  const types = [
+    { slintType: 'brush', description: 'colors' },
+    { slintType: 'length', description: 'sizes' },
+    { slintType: 'string', description: 'text values' },
+    { slintType: 'bool', description: 'boolean flags' }
+  ];
+
+  // Add helper functions section
+  result += `    // Helper functions to get the current value based on mode\n`;
+
+  // Generate a type-specific function for each type
+  for (const { slintType, description } of types) {
+    // Use the predefined mode struct name instead of inline struct definition
+    const modeCount = collectionData.modes.size;
+    const modeStructName = `mode${modeCount}_${slintType}`;
+
+    result += `    // Returns the current ${description} based on theme mode\n`;
+    result += `    pure function current_${slintType}(variable: ${modeStructName}) -> ${slintType} {\n`;
+
+    // Select value based on current-mode
+    result += `        if (self.current-mode == ${collectionData.formattedName}Mode.${defaultMode}) {\n`;
+    result += `            return variable.${defaultMode};\n`;
+    result += `        }`;
+
+    // Add branches for other modes
+    let isFirst = true;
+    for (const mode of collectionData.modes) {
+      if (isFirst || mode === defaultMode) {
+        isFirst = false;
+        continue; // Skip the default mode, already handled
+      }
+      result += ` else if (self.current-mode == ${collectionData.formattedName}Mode.${mode}) {\n`;
+      result += `            return variable.${mode};\n`;
+      result += `        }`;
+    }
+
+    // Add fallback
+    result += ` else {\n`;
+    result += `            return variable.${defaultMode};\n`;
+    result += `        }\n`;
+    result += `    }\n\n`;
+  }
+
+  return result;
+}
 
 function generateSchemeStructs(variableTree: VariableNode, collectionData: { name: string, formattedName: string, modes: Set<string>, variables: Map<string, Map<string, { value: string, type: string, refId?: string }>> }): {
   schemeStruct: string,
@@ -837,12 +929,12 @@ function generateSchemeStructs(variableTree: VariableNode, collectionData: { nam
 } {
   // 1. First, collect all leaf variables into a flat map
   const allVariables = new Map<string, { path: string[], type: string }>();
-  
+
   // Recursive function to collect all leaf variables
   function collectLeafVariables(node: VariableNode, path: string[] = []) {
     for (const [childName, childNode] of node.children.entries()) {
       const currentPath = [...path, childName];
-      
+
       if (childNode.valuesByMode) {
         // This is a leaf node with values
         const varName = currentPath.join('_');
@@ -856,48 +948,48 @@ function generateSchemeStructs(variableTree: VariableNode, collectionData: { nam
       }
     }
   }
-  
+
   // Start collection from root
   collectLeafVariables(variableTree);
-  
+
   // 2. Generate the scheme struct with all variables
   const schemeName = `${formatStructName(collectionData.name)}Scheme`;
   let schemeStruct = `struct ${schemeName} {\n`;
-  
+
   for (const [varName, info] of allVariables.entries()) {
     schemeStruct += `    ${varName}: ${info.type},\n`;
   }
-  
+
   schemeStruct += `}\n\n`;
-  
+
   // 3. Generate the mode struct
   const schemeModeName = `${formatStructName(collectionData.name)}SchemeMode`;
   let schemeModeStruct = `struct ${schemeModeName} {\n`;
-  
+
   for (const mode of collectionData.modes) {
     schemeModeStruct += `    ${mode}: ${schemeName},\n`;
   }
-  
+
   schemeModeStruct += `}\n\n`;
-  
+
   // 4. Generate the instance initialization
   let schemeInstance = `    out property <${schemeModeName}> mode: {\n`;
-  
+
   for (const mode of collectionData.modes) {
     schemeInstance += `        ${mode}: {\n`;
-    
+
     // Add all variables for this mode
     for (const [varName, info] of allVariables.entries()) {
       // Build the reference to the existing hierarchical variable
       const dotPath = info.path.join('.');
       schemeInstance += `            ${varName}: ${collectionData.formattedName}.${dotPath}.${mode},\n`;
     }
-    
+
     schemeInstance += `        },\n`;
   }
-  
+
   schemeInstance += `    };\n\n`;
-  
+
   return {
     schemeStruct,
     schemeModeStruct,
@@ -905,40 +997,50 @@ function generateSchemeStructs(variableTree: VariableNode, collectionData: { nam
   };
 }
 
-function collectMultiModeStructs(node: VariableNode, collectionData: { modes: Set<string> }, structDefinitions: string[], path: string[] = []) {
+function collectMultiModeStructs(node: VariableNode, collectionData: { modes: Set<string> }, structDefinitions: string[]) {
   if (collectionData.modes.size <= 1) return;
 
-  // Create maps to track shared mode structs we've created
-  const modeTypeMap = new Map<string, string>();
-
-  // First pass - find all unique mode count + type combinations
-  function findUniqueTypeConfigs(node: VariableNode) {
-    for (const [childName, childNode] of node.children.entries()) {
-      if (childNode.valuesByMode && childNode.valuesByMode.size > 0) {
-        const slintType = getSlintType(childNode.type || 'COLOR');
-        const key = `${collectionData.modes.size}_${slintType}`;
-        modeTypeMap.set(key, slintType);
-      } else if (childNode.children.size > 0) {
-        findUniqueTypeConfigs(childNode);
-      }
-    }
-  }
-
-  // First find all unique type configurations
-  findUniqueTypeConfigs(node);
-
-  // Then generate the shared structs
-  for (const [key, slintType] of modeTypeMap.entries()) {
-    const [count, type] = key.split('_');
-    const structName = `mode${count}_${type}`;
-
+  // Define all Slint types we want to support
+  const allSlintTypes = ['brush', 'length', 'string', 'bool'];
+  
+  // Generate a struct for each type regardless of whether it's used
+  for (const slintType of allSlintTypes) {
+    const structName = `mode${collectionData.modes.size}_${slintType}`;
+    
     let structDef = `struct ${structName} {\n`;
     for (const mode of collectionData.modes) {
       structDef += `    ${mode}: ${slintType},\n`;
     }
     structDef += `}\n\n`;
-
+    
     structDefinitions.push(structDef);
   }
+  
+  // Still scan the tree for any other types we might have missed (for future proofing)
+  function findUniqueTypeConfigs(node: VariableNode) {
+    for (const [childName, childNode] of node.children.entries()) {
+      if (childNode.valuesByMode && childNode.valuesByMode.size > 0) {
+        const slintType = getSlintType(childNode.type || 'COLOR');
+        // Skip if we already added this type
+        if (!allSlintTypes.includes(slintType)) {
+          // Add a struct for this additional type
+          const structName = `mode${collectionData.modes.size}_${slintType}`;
+          
+          let structDef = `struct ${structName} {\n`;
+          for (const mode of collectionData.modes) {
+            structDef += `    ${mode}: ${slintType},\n`;
+          }
+          structDef += `}\n\n`;
+          
+          structDefinitions.push(structDef);
+        }
+      } else if (childNode.children.size > 0) {
+        findUniqueTypeConfigs(childNode);
+      }
+    }
+  }
+  
+  // Look for any additional types
+  findUniqueTypeConfigs(node);
 }
 
