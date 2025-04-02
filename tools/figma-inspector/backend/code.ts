@@ -60,11 +60,17 @@ j("exportToFiles", async () => {
       figma.notify("Failed to export to files", { error: true });
     }
   });
-function j(messageType: string, callback: () => Promise<void>) {
+  function j(messageType: string, callback: () => Promise<void>) {
+    console.log(`Registering handler for ${messageType}`);
+
+    // We need to create a listener specifically for this message type
     figma.ui.on('message', async (msg) => {
+        // Only execute if this message matches our type
         if (msg.type === messageType) {
+            console.log(`Received ${messageType} message:`, msg);
             try {
                 await callback();
+                console.log(`Successfully handled ${messageType}`);
             } catch (error) {
                 console.error(`Error in ${messageType} handler:`, error);
                 figma.notify(`Error handling ${messageType}`, { error: true });

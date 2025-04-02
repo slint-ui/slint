@@ -96,12 +96,15 @@ function formatStructName(name: string): string {
     sanitizedName = 'DefaultCollection';
   }
 
-  // First, replace problematic characters with spaces before splitting
-  sanitizedName = sanitizedName.replace(/[&+]/g, ' ');
+  // Remove ALL special characters before splitting
+  sanitizedName = sanitizedName
+    .replace(/[\[\](){}\/\\&+*?|^$%@#!~`;:.,<>=]/g, ' ') // Replace special chars with spaces
+    .replace(/\s+/g, ' ') // Normalize spaces
+    .trim();
 
   // Then continue with normal PascalCase conversion
   return sanitizedName
-    .split(/[-_\s\/]/)
+    .split(/[-_\s]/)
     .map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
     .join('');
 }
@@ -187,20 +190,65 @@ function createReferenceExpression(
   sourceModeName: string,
   variablePathsById: Map<string, { collection: string, row: string }>,
   collectionStructure: Map<string, any>,
-  currentCollection: string = ""
-): { value: string | null, importStatement?: string } {
-  console.log(`Creating reference for ID: ${referenceId}, mode: ${sourceModeName}, collection: ${currentCollection}`);
+  currentCollection: string = "",
+  currentPath: string = ""
+): { value: string | null, importStatement?: string, isCircular?: boolean, comment?: string } {
 
   // Get the target variable path
   const targetPath = variablePathsById.get(referenceId);
   if (!targetPath) {
-    console.warn(`Reference path not found for ID: ${referenceId}`,
-      "Available IDs:", Array.from(variablePathsById.keys()).join(", ").substring(0, 100) + "...");
+    console.warn(`Reference path not found for ID: ${referenceId}`);
     return { value: null };
   }
-  console.log(`Indexed ${variablePathsById.size} variable paths`);
-  console.log(`Found path for reference: collection=${targetPath.collection}, row=${targetPath.row}`);
 
+  // IMPROVED CIRCULAR REFERENCE DETECTION
+  // Split paths into parts to compare common ancestry
+  const currentParts = currentPath.split('_');
+  const targetParts = targetPath.row.split('_');
+
+  // Check if they share common ancestry (at least 2 parts)
+  let commonParts = 0;
+  for (let i = 0; i < Math.min(currentParts.length, targetParts.length); i++) {
+    if (currentParts[i] === targetParts[i]) {
+      commonParts++;
+    } else {
+      break;
+    }
+  }
+
+  // Consider it circular if they share at least 2 path parts
+  const isCircularReference = commonParts >= 2 && currentParts.length >= 3 && targetParts.length >= 3;
+
+  if (isCircularReference) {
+    console.warn(`Detected circular reference: ${currentPath} -> ${targetPath.row}`);
+
+    // For circular references, we'll resolve the actual value instead of using the reference
+    // Get the actual value from the target
+    try {
+      const targetCollection = collectionStructure.get(targetPath.collection);
+      if (!targetCollection) return { value: null };
+
+      const targetValues = targetCollection.variables.get(targetPath.row);
+      if (!targetValues) return { value: null };
+
+      const targetMode = targetValues.get(sourceModeName) ||
+        targetValues.get(targetValues.keys().next().value); // Fallback to first mode
+
+      if (targetMode && !targetMode.value.startsWith('@ref:')) {
+        console.log(`Resolved circular reference to actual value: ${targetMode.value}`);
+        // Return the actual value and mark as circular
+        return {
+          value: targetMode.value,
+          isCircular: true,
+          comment: `Original reference: ${targetCollection.formattedName}.${targetPath.row}.${sourceModeName}`
+        };
+      }
+    } catch (error) {
+      console.error("Error resolving circular reference:", error);
+    }
+
+    return { value: null, isCircular: true };
+  }
   // Get the target collection
   const targetCollection = collectionStructure.get(targetPath.collection);
   if (!targetCollection) {
@@ -303,13 +351,15 @@ function createReferenceExpression(
 interface VariableNode {
   name: string;
   type?: string;
-  valuesByMode?: Map<string, { value: string, refId?: string }>;
+  valuesByMode?: Map<string, { value: string, refId?: string, comment?: string }>;
   children: Map<string, VariableNode>;
 }
 
 // For Figma Plugin - Export function with hierarchical structure
 // Export each collection to a separate virtual file
 export async function exportFigmaVariablesToSeparateFiles(): Promise<Array<{ name: string, content: string }>> {
+  console.log("Starting variable export...");
+
   try {
     // Get collections asynchronously
     const variableCollections = await figma.variables.getLocalVariableCollectionsAsync();
@@ -322,7 +372,7 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<Array<{ nam
       name: string,
       formattedName: string,
       modes: Set<string>,
-      variables: Map<string, Map<string, { value: string, type: string, refId?: string }>>
+      variables: Map<string, Map<string, { value: string, type: string, refId?: string, comment?: string }>>
     }>();
 
     // Build a global map of variable paths
@@ -444,7 +494,8 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<Array<{ nam
               {
                 value: formattedValue,
                 type: variable.resolvedType,
-                refId: refId
+                refId: refId,
+                comment: undefined  // Add comment property with undefined default value
               }
             );
           }
@@ -474,36 +525,32 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<Array<{ nam
             const refResult = createReferenceExpression(
               data.refId,
               colName,
-              variablePathsById, // Use the populated map!
+              variablePathsById,
               collectionStructure,
-              collectionName // Pass current collection name
+              collectionName,
+              rowName // Pass current path to detect circular references
             );
 
             if (refResult.value) {
+              // Update to handle circular references
+              const valueToStore = refResult.value;
+              const updatedValue = {
+                value: valueToStore,
+                type: data.type,
+                refId: refResult.isCircular ? undefined : data.refId, // Remove refId if resolved circular ref
+                comment: refResult.comment // Add this line to preserve the comment
+              };
+
               collectionStructure.get(collectionName)!.variables.get(rowName)!.set(
                 colName,
-                {
-                  value: refResult.value,
-                  type: data.type,
-                  refId: data.refId
-                }
+                updatedValue
               );
             } else {
-              console.warn(`Couldn't create reference expression for: ${data.refId} for ${rowName}-${colName}`);
-              collectionStructure.get(collectionName)!.variables.get(rowName)!.set(
-                colName,
-                {
-                  value: data.type === 'COLOR' ? '#808080' :
-                    data.type === 'FLOAT' ? '0px' :
-                      data.type === 'BOOLEAN' ? 'false' :
-                        data.type === 'STRING' ? '""' : '',
-                  type: data.type
-                }
-              );
+              // Fallback...
             }
 
             // When processing references:
-            if (refResult.importStatement) {
+            if (refResult.importStatement && !refResult.isCircular) {
               requiredImports.add(refResult.importStatement);
             }
           }
@@ -559,7 +606,7 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<Array<{ nam
         // Create the leaf node with the value
         if (!currentNode.children.has(propertyName)) {
           // Create a new Map for valuesByMode
-          const valuesByMode = new Map<string, { value: string, refId?: string }>();
+          const valuesByMode = new Map<string, { value: string, refId?: string, comment?: string }>();
 
           // Get the type from the first mode (or default to 'COLOR' if undefined)
           const firstModeValue = modes.values().next().value;
@@ -569,7 +616,8 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<Array<{ nam
           for (const [modeName, valueData] of modes.entries()) {
             valuesByMode.set(modeName, {
               value: valueData.value,
-              refId: valueData.refId
+              refId: valueData.refId,
+              comment: valueData.comment // Add this to preserve comments
             });
           }
 
@@ -695,10 +743,11 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<Array<{ nam
               if (collectionData.modes.size <= 1) {
                 // Single mode - direct property with value
                 const firstMode = childNode.valuesByMode.values().next().value;
-                
+
                 // Use the already resolved value directly instead of re-processing it
                 const valueToUse = firstMode?.value;
-                
+
+
                 // Only check for @ref: prefixes (unresolved references)
                 if (!valueToUse) {
                   console.error(`No value for nested property ${sanitizedChildName}`);
@@ -714,6 +763,9 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<Array<{ nam
                 // Multi-mode - create nested object with mode properties
                 result += `${indent}${sanitizedChildName}: {\n`;
                 for (const [modeName, data] of childNode.valuesByMode.entries()) {
+                  if (data.comment) {
+                    result += `${indent}    // ${data.comment}\n`;
+                  }
                   result += `${indent}    ${modeName}: ${data.value},\n`;
                 }
                 result += `${indent}},\n`;
@@ -740,6 +792,9 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<Array<{ nam
 
             // Add values directly (not repeating property names)
             for (const [modeName, data] of node.valuesByMode.entries()) {
+              if (data.comment) {
+                result += `${indent}    // ${data.comment}\n`;
+              }
               result += `${indent}    ${modeName}: ${data.value},\n`;
             }
 
@@ -908,7 +963,7 @@ function generateModeHelperFunctions(collectionData: { name: string, formattedNa
       }
       result += ` else if (self.current-mode == ${collectionData.formattedName}Mode.${mode}) {\n`;
       result += `            return variable.${mode};\n`;
-      result += `        }`;
+      result += ` }`
     }
 
     // Add fallback
@@ -926,36 +981,52 @@ function generateSchemeStructs(variableTree: VariableNode, collectionData: { nam
   schemeModeStruct: string,
   schemeInstance: string
 } {
+  // Helper function to count leaf descendant nodes
+  function findLeafDescendants(node: VariableNode): number {
+    let count = 0;
+
+    for (const [childName, childNode] of node.children.entries()) {
+      if (childNode.valuesByMode) {
+        count += 1;
+      } else if (childNode.children.size > 0) {
+        // Recursively count leaf descendants in nested nodes
+        count += findLeafDescendants(childNode);
+      }
+    }
+
+    return count;
+  }
+
   // Track all scheme structs we need to create
   const schemeStructs = new Map<string, { fields: Map<string, string> }>();
-  
+
   // Track the final variables mapping (can be nested now)
   const schemeVariables = new Map<string, { type: string, path: string[], isStruct: boolean }>();
-  
+
   // 1. First pass: Identify all structs needed for scheme representation
   function collectSchemeStructs(node: VariableNode, path: string[] = [], schemePrefix = 'scheme_') {
     for (const [childName, childNode] of node.children.entries()) {
       const currentPath = [...path, childName];
-      
+
       if (childNode.children.size > 0) {
         // This is a nested node - we may need a scheme struct
         const hasLeafDescendants = findLeafDescendants(childNode);
-        
+
         if (hasLeafDescendants > 0) {
           // Create a struct name like scheme_alert, scheme_sad_sub, etc.
           const structName = schemePrefix + currentPath.join('_');
           schemeStructs.set(structName, { fields: new Map() });
-          
+
           // Register this in our variables
           schemeVariables.set(currentPath.join('_'), {
             type: structName,
             path: currentPath,
             isStruct: true
           });
-          
+
           // First, recurse to handle any nested structs this might contain
           collectSchemeStructs(childNode, currentPath, schemePrefix);
-          
+
           // Then, find immediate leaf children for this struct
           for (const [gcName, gcNode] of childNode.children.entries()) {
             if (gcNode.valuesByMode) {
@@ -975,118 +1046,103 @@ function generateSchemeStructs(variableTree: VariableNode, collectionData: { nam
       }
     }
   }
-  
-  // Helper to check if a node has leaf descendants (for struct creation)
-  function findLeafDescendants(node: VariableNode): number {
-    let count = 0;
-    
-    for (const childNode of node.children.values()) {
-      if (childNode.valuesByMode) {
-        count++;
-      } else if (childNode.children.size > 0) {
-        count += findLeafDescendants(childNode);
+
+  // Collect all scheme structs
+  collectSchemeStructs(variableTree);
+
+  // 2. Generate the scheme struct definitions for nested objects
+  let allSchemeStructs = '';
+  for (const [structName, structInfo] of schemeStructs.entries()) {
+    allSchemeStructs += `struct ${structName} {\n`;
+
+    for (const [fieldName, fieldType] of structInfo.fields.entries()) {
+      allSchemeStructs += `    ${fieldName}: ${fieldType},\n`;
+    }
+
+    allSchemeStructs += `}\n\n`;
+  }
+
+  // 3. Generate the main scheme struct - MODIFIED to only include top-level and struct entries
+  const schemeName = `${formatStructName(collectionData.name)}Scheme`;
+  let schemeStruct = `struct ${schemeName} {\n`;
+
+  // First add all first-level entries
+  const topLevelEntries = new Set<string>();
+
+  for (const [varName, info] of schemeVariables.entries()) {
+    // Only include top-level variables and struct entries in the scheme
+    if (info.path.length === 1 || info.isStruct) {
+      // For structs, we only want the top-level ones (e.g., alert, sad, bus)
+      // not nested ones (e.g., sad_sub)
+      const topLevelName = info.path[0];
+
+      // Skip if we've already processed this top-level path
+      if (!topLevelEntries.has(topLevelName)) {
+        topLevelEntries.add(topLevelName);
+
+        if (info.path.length === 1) {
+          // Top-level property like foreground, background
+          schemeStruct += `    ${varName}: ${info.type},\n`;
+        } else if (info.isStruct && info.path.length > 1 && !varName.includes('_')) {
+          // Only top-level structs
+          schemeStruct += `    ${varName}: ${info.type},\n`;
+        } else if (info.isStruct && varName.split('_').length === 1) {
+          // Top-level structs with single name
+          schemeStruct += `    ${varName}: ${info.type},\n`;
+        }
       }
     }
-    
-    return count;
   }
-  
- // Collect all scheme structs
- collectSchemeStructs(variableTree);
-  
- // 2. Generate the scheme struct definitions for nested objects
- let allSchemeStructs = '';
- for (const [structName, structInfo] of schemeStructs.entries()) {
-   allSchemeStructs += `struct ${structName} {\n`;
-   
-   for (const [fieldName, fieldType] of structInfo.fields.entries()) {
-     allSchemeStructs += `    ${fieldName}: ${fieldType},\n`;
-   }
-   
-   allSchemeStructs += `}\n\n`;
- }
- 
- // 3. Generate the main scheme struct - MODIFIED to only include top-level and struct entries
- const schemeName = `${formatStructName(collectionData.name)}Scheme`;
- let schemeStruct = `struct ${schemeName} {\n`;
- 
- // First add all first-level entries
- const topLevelEntries = new Set<string>();
- 
- for (const [varName, info] of schemeVariables.entries()) {
-   // Only include top-level variables and struct entries in the scheme
-   if (info.path.length === 1 || info.isStruct) {
-     // For structs, we only want the top-level ones (e.g., alert, sad, bus)
-     // not nested ones (e.g., sad_sub)
-     const topLevelName = info.path[0];
-     
-     // Skip if we've already processed this top-level path
-     if (!topLevelEntries.has(topLevelName)) {
-       topLevelEntries.add(topLevelName);
-       
-       if (info.path.length === 1) {
-         // Top-level property like foreground, background
-         schemeStruct += `    ${varName}: ${info.type},\n`;
-       } else if (info.isStruct && info.path.length > 1 && !varName.includes('_')) {
-         // Only top-level structs
-         schemeStruct += `    ${varName}: ${info.type},\n`;
-       } else if (info.isStruct && varName.split('_').length === 1) {
-         // Top-level structs with single name
-         schemeStruct += `    ${varName}: ${info.type},\n`;
-       }
-     }
-   }
- }
- 
- schemeStruct += `}\n\n`;
- 
- // 4. Generate the mode struct
- const schemeModeName = `${formatStructName(collectionData.name)}SchemeMode`;
- let schemeModeStruct = `struct ${schemeModeName} {\n`;
- 
- for (const mode of collectionData.modes) {
-   schemeModeStruct += `    ${mode}: ${schemeName},\n`;
- }
- 
- schemeModeStruct += `}\n\n`;
- 
- // 5. Generate the instance initialization with ONLY hierarchical structure
- let schemeInstance = `    out property <${schemeModeName}> mode: {\n`;
- 
- for (const mode of collectionData.modes) {
-   schemeInstance += `        ${mode}: {\n`;
-   
-   // Modified to only use hierarchical structure for output
-  function addHierarchicalValues(node: VariableNode = variableTree, path: string[] = [], currentIndent: string = '            ') {
-     for (const [childName, childNode] of node.children.entries()) {
-       const currentPath = [...path, childName];
-       
-       if (childNode.children.size > 0) {
-         // This is a struct node
-         schemeInstance += `${currentIndent}${childName}: {\n`;
-         // Recursively add its children
-         addHierarchicalValues(childNode, currentPath, currentIndent + '    ');
-         schemeInstance += `${currentIndent}},\n`;
-       } else if (childNode.valuesByMode) {
-         // This is a leaf value
-         schemeInstance += `${currentIndent}${childName}: ${collectionData.formattedName}.${currentPath.join('.')}.${mode},\n`;
-       }
-     }
-   }
-   
-   // Use the new hierarchical generation instead
-   addHierarchicalValues();
-   
-   schemeInstance += `        },\n`;
- }
- 
- schemeInstance += `    };\n\n`;
- 
- return {
-   schemeStruct: allSchemeStructs + schemeStruct,
-   schemeModeStruct: schemeModeStruct,
-   schemeInstance: schemeInstance
- };
+
+  schemeStruct += `}\n\n`;
+
+  // 4. Generate the mode struct
+  const schemeModeName = `${formatStructName(collectionData.name)}SchemeMode`;
+  let schemeModeStruct = `struct ${schemeModeName} {\n`;
+
+  for (const mode of collectionData.modes) {
+    schemeModeStruct += `    ${mode}: ${schemeName},\n`;
+  }
+
+  schemeModeStruct += `}\n\n`;
+
+  // 5. Generate the instance initialization with ONLY hierarchical structure
+  let schemeInstance = `    out property <${schemeModeName}> mode: {\n`;
+
+  for (const mode of collectionData.modes) {
+    schemeInstance += `        ${mode}: {\n`;
+
+    // Modified to only use hierarchical structure for output
+    function addHierarchicalValues(node: VariableNode = variableTree, path: string[] = [], currentIndent: string = '            ') {
+      for (const [childName, childNode] of node.children.entries()) {
+        const currentPath = [...path, childName];
+
+        if (childNode.children.size > 0) {
+          // This is a struct node
+          schemeInstance += `${currentIndent}${childName}: {\n`;
+          // Recursively add its children
+          addHierarchicalValues(childNode, currentPath, currentIndent + '    ');
+          schemeInstance += `${currentIndent}},\n`;
+        } else if (childNode.valuesByMode) {
+          // This is a leaf value
+          schemeInstance += `${currentIndent}${childName}: ${collectionData.formattedName}.${currentPath.join('.')}.${mode},\n`;
+        }
+      }
+    }
+
+    // Use the new hierarchical generation instead
+    addHierarchicalValues();
+
+    schemeInstance += `        },\n`;
+  }
+
+  schemeInstance += `    };\n\n`;
+
+  return {
+    schemeStruct: allSchemeStructs + schemeStruct,
+    schemeModeStruct: schemeModeStruct,
+    schemeInstance: schemeInstance
+  };
 }
 
 function collectMultiModeStructs(node: VariableNode, collectionData: { modes: Set<string> }, structDefinitions: string[]) {
@@ -1094,20 +1150,20 @@ function collectMultiModeStructs(node: VariableNode, collectionData: { modes: Se
 
   // Define all Slint types we want to support
   const allSlintTypes = ['brush', 'length', 'string', 'bool'];
-  
+
   // Generate a struct for each type regardless of whether it's used
   for (const slintType of allSlintTypes) {
     const structName = `mode${collectionData.modes.size}_${slintType}`;
-    
+
     let structDef = `struct ${structName} {\n`;
     for (const mode of collectionData.modes) {
       structDef += `    ${mode}: ${slintType},\n`;
     }
     structDef += `}\n\n`;
-    
+
     structDefinitions.push(structDef);
   }
-  
+
   // Still scan the tree for any other types we might have missed (for future proofing)
   function findUniqueTypeConfigs(node: VariableNode) {
     for (const [childName, childNode] of node.children.entries()) {
@@ -1117,13 +1173,13 @@ function collectMultiModeStructs(node: VariableNode, collectionData: { modes: Se
         if (!allSlintTypes.includes(slintType)) {
           // Add a struct for this additional type
           const structName = `mode${collectionData.modes.size}_${slintType}`;
-          
+
           let structDef = `struct ${structName} {\n`;
           for (const mode of collectionData.modes) {
             structDef += `    ${mode}: ${slintType},\n`;
           }
           structDef += `}\n\n`;
-          
+
           structDefinitions.push(structDef);
         }
       } else if (childNode.children.size > 0) {
@@ -1131,7 +1187,7 @@ function collectMultiModeStructs(node: VariableNode, collectionData: { modes: Se
       }
     }
   }
-  
+
   // Look for any additional types
   findUniqueTypeConfigs(node);
 }

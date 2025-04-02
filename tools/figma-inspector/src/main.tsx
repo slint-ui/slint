@@ -43,38 +43,38 @@ export const App = () => {
         const variableChangeHandler = (event: any) => {
             if (event.data?.pluginMessage) {
                 const msg = event.data.pluginMessage;
-                
+
                 // Check for variable-specific event types
-                if (msg.type === "variableChanged" || 
+                if (msg.type === "variableChanged" ||
                     msg.type === "variableCollectionChanged" ||
                     msg.type === "documentSnapshot") {
-                    
+
                     setExportsAreCurrent(false);
                 }
             }
         };
-        
+
         window.addEventListener("message", variableChangeHandler);
         return () => window.removeEventListener("message", variableChangeHandler);
     }, []);
-        
+
     useEffect(() => {
         // Add specific variable change detection
         function setupVariableChangeDetection() {
             console.log("Setting up variable change detection...");
-            
+
             // Request the plugin to start monitoring variable changes
             dispatchTS("monitorVariableChanges", { enabled: true });
         }
-        
+
         // Call it on component mount
         setupVariableChangeDetection();
-        
+
         // Also poll periodically to check for changes
         const intervalId = setInterval(() => {
             dispatchTS("checkVariableChanges", {});
         }, 5000); // Check every 5 seconds
-        
+
         return () => {
             clearInterval(intervalId);
             // Disable monitoring when component unmounts
@@ -129,7 +129,51 @@ export const App = () => {
     // Create the functions with access to dispatchTS
     const copyToClipboardFn = getCopyToClipboard(dispatchTS);
     const downloadZipFile = async (files: Array<{ name: string, content: string }>) => {
-        // ... [Your existing downloadZipFile function] ...
+        try {
+            console.log("Creating ZIP with files:", files.map(f => `${f.name} (${f.content.length} bytes)`));
+
+            if (!files || files.length === 0) {
+                console.error("No files to zip!");
+                return;
+            }
+
+            // Create a new JSZip instance directly (using the import)
+            const zip = new JSZip();
+
+            // Add each file to the zip with debug logging
+            files.forEach(file => {
+                console.log(`Adding to ZIP: ${file.name} (${file.content.length} bytes)`);
+                zip.file(file.name, file.content);
+            });
+
+            // Generate the zip
+            console.log("Generating ZIP blob...");
+            const content = await zip.generateAsync({ type: "blob" });
+            console.log(`ZIP created: ${content.size} bytes`);
+
+            // Create download link
+            const element = document.createElement('a');
+            element.href = URL.createObjectURL(content);
+            element.download = "figma-collections.zip";
+            document.body.appendChild(element);
+            element.click();
+            document.body.removeChild(element);
+
+            // Clean up
+            URL.revokeObjectURL(element.href);
+
+            console.log("ZIP file download initiated");
+        } catch (error) {
+            console.error("Error creating ZIP file:", error);
+
+            // Fallback to individual downloads if ZIP creation fails
+            alert("Couldn't create ZIP file. Downloading files individually...");
+            files.forEach((file, index) => {
+                setTimeout(() => {
+                    downloadFile(file.name, file.content);
+                }, index * 100);
+            });
+        }
     };
 
     // Add debugging log on each render
@@ -169,7 +213,7 @@ export const App = () => {
                     border: `none`,
                     margin: '4px 4px 12px 4px',
                     borderRadius: '4px',
-                    background: lightOrDarkMode === "dark" ? '#91AAB9': '#BBD3E1',
+                    background: lightOrDarkMode === "dark" ? '#91AAB9' : '#BBD3E1',
                     padding: '4px',
                     width: '140px',
                     alignSelf: "center"
