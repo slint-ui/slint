@@ -2,7 +2,12 @@
 // SPDX-License-Identifier: MIT
 
 import { MaterialPalette } from "../styling/material_palette.slint";
+import { Typography } from "../styling/typography.slint";
 import { MaterialStyleMetrics } from "../styling/material_style_metrics.slint";
+import { StateLayerArea } from "./state_layer.slint";
+import { MaterialText } from "./material_text.slint";
+import { Icon } from "./icon.slint";
+import { IconButton } from "icon_button.slint";
 
 export component Avatar {
     in property <image> image;
@@ -28,8 +33,83 @@ export component Avatar {
 export component ListItemTemplate {
     in property <string> text;
     in property <string> supporting_text;
-    in property <image> avatar;
+    in property <image> avatar_icon;
+    in property <string> avatar_text;
     in property <color> avatar_background;
-    in property <color> avatar_colorize;
+    in property <color> avatar_foreground;
+    in property <image> action_icon;
+
+    property <color> color: MaterialPalette.on_surface;
+
+    callback clicked <=> state_layer.clicked;
+    callback action();
+
+    min_height: max(MaterialStyleMetrics.size_72, layout.min_height);
+
+    state_layer := StateLayerArea {
+        color: root.color;
+        
+        layout := HorizontalLayout {
+            padding_left: MaterialStyleMetrics.padding_16;
+            padding_right: MaterialStyleMetrics.padding_24;
+            padding_top: MaterialStyleMetrics.padding_8;
+            padding_bottom: self.padding_top;
+            spacing: MaterialStyleMetrics.spacing_16;
+
+            if root.avatar_background != #00000000 ||  root.avatar_text != "" || (root.avatar_icon.width > 0 && root.avatar_icon.height > 0) : Rectangle {
+                width: self.height;
+                border_radius: self.height / 2;
+                background: root.avatar_background;
+                clip: true;
+
+                if root.avatar_text != "" : MaterialText {
+                    text: root.avatar_text;
+                    vertical_alignment: center;
+                    horizontal_alignment: center;
+                    color: root.avatar_foreground;
+                    style: Typography.title_medium;
+                }
+
+                if root.avatar_icon.width > 0 && root.avatar_icon.height > 0 : Icon {
+                    width: parent.width;
+                    source: root.avatar_icon;
+                    colorize: root.avatar_foreground;
+                }
+            }
+
+            VerticalLayout {
+                alignment: center;
+                horizontal_stretch: 1;
+
+                MaterialText {
+                    text: root.text;
+                    color: root.color;
+                    overflow: elide;
+                    style: Typography.body_large;
+                }
+
+                if root.supporting_text != "" : MaterialText {
+                    text: root.supporting_text;
+                    color: root.color;
+                    overflow: elide;
+                    style: Typography.body_medium;
+                }
+            }
+
+            if root.action_icon.width > 0 && root.action_icon.height > 0 : IconButton {
+                icon: root.action_icon;
+
+                clicked => {
+                    root.action();
+                }
+            }          
+        }
+
+        // Rectangle {
+        //     width: layout.width;
+        //     height: layout.height;
+        //     background: green;
+        // }
+    }
 }
 
