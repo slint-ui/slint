@@ -1154,7 +1154,8 @@ function generateSchemeStructs(variableTree: VariableNode, collectionData: { nam
   const modeArray = [...collectionData.modes];
   for (let i = 0; i < modeArray.length; i++) {
     const mode = modeArray[i];
-    currentSchemeInstance += `        if (current-scheme == ${sanitizeEnumName(collectionData.formattedName)}Mode.${mode}) { return root.mode.${mode}; }\n`;  }
+    currentSchemeInstance += `        if (current-scheme == ${sanitizeEnumName(collectionData.formattedName)}Mode.${mode}) { return root.mode.${mode}; }\n`;
+  }
 
   // Add fallback to the first mode if somehow none matched
   currentSchemeInstance += `        // Fallback to first mode\n`;

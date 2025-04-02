@@ -225,7 +225,7 @@ importers:
         specifier: 7.0.3
         version: 7.0.3
       shiki:
-        specifier: 3.2.1
+        specifier: ^3.2.1
         version: 3.2.1
       typescript:
         specifier: 5.8.2
