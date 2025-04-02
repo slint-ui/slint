@@ -118,7 +118,7 @@ impl AccessKitAdapter {
             return;
         }
         // Don't send a tree update now with an empty tree/node list when we know that the structure
-        // of the tree has changed. It might be that the focus node is not known yet to AccessKit.
+        // if the tree has changed. It might be that the focus node is not known yet to AccessKit.
         // The pending update will take care of setting the focus node.
         if self.pending_update {
             return;
@@ -194,6 +194,13 @@ impl AccessKitAdapter {
         // It's possible that we may have been triggered by a timer, but in the meantime
         // the node tree has been emptied due to a tree structure change.
         if self.nodes.all_nodes.is_empty() {
+            return;
+        }
+
+        // Don't end a tree update now with an empty tree/node list when we know that the structure
+        // if the tree has changed. It might be that the focus node is not known yet to AccessKit.
+        // The pending update will take care rebuilding the entire tree anyway.
+        if self.pending_update {
             return;
         }
 
