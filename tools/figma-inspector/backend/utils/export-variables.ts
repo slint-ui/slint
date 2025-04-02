@@ -134,6 +134,14 @@ function formatVariableName(name: string): string {
     .trim();
 }
 
+function sanitizePropertyName(name: string): string {
+  // Check if starts with a digit
+  if (/^\d/.test(name)) {
+    return `_${name}`;
+  }
+  return name;
+}
+
 function sanitizeRowName(rowName: string): string {
   // Replace & with 'and' and other problematic characters
   return rowName
@@ -250,8 +258,20 @@ function createReferenceExpression(
 
   // Parse the target path to get proper nested structure
   const pathParts = sanitizedRow.split('_');
-  const propertyPath = pathParts.join('.');
 
+  // Sanitize each part individually
+  const sanitizedPathParts = pathParts.map(part => {
+    // For parts that might already contain dots (like "neutral.600")
+    if (part.includes('.')) {
+      // Split by dots, sanitize each segment, then rejoin with dots
+      return part.split('.')
+        .map(segment => sanitizePropertyName(segment))
+        .join('.');
+    }
+    return sanitizePropertyName(part);
+  });
+
+  const propertyPath = sanitizedPathParts.join('.');
   // Check if target collection has multiple modes
   if (targetCollection.modes.size > 1) {
     // Use property access syntax instead of function call
@@ -531,7 +551,7 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<Array<{ nam
         }
 
         // The last part is the property name
-        const propertyName = parts[parts.length - 1];
+        const propertyName = sanitizePropertyName(parts[parts.length - 1]);
 
         // Create the leaf node with the value
         if (!currentNode.children.has(propertyName)) {
@@ -605,13 +625,14 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<Array<{ nam
 
             // Add fields for direct properties (leaf nodes)
             for (const [childName, childNode] of node.children.entries()) {
+              const sanitizedChildName = sanitizePropertyName(childName);
               if (childNode.valuesByMode) {
                 if (collectionData.modes.size > 1) {
                   // Multi-mode property - reference the GENERIC mode struct instead
                   const slintType = getSlintType(childNode.type || 'COLOR');
                   const modeCount = collectionData.modes.size;
                   const modeStructName = `mode${modeCount}_${slintType}`;
-                  structDef += `    ${childName}: ${modeStructName},\n`;
+                  structDef += `    ${sanitizedChildName}: ${modeStructName},\n`;
                 } else {
                   // Single mode property (unchanged)
                   const slintType = getSlintType(childNode.type || 'COLOR');
@@ -641,9 +662,11 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<Array<{ nam
 
             // Process direct properties of root
             for (const [childName, childNode] of node.children.entries()) {
+              const sanitizedChildName = sanitizePropertyName(childName);
+
               if (childNode.children.size > 0) {
                 // Nested struct instance - use the defined struct type
-                result += `${indent}out property <${childName}> ${childName}: {\n`;
+                result += `${indent}out property <${sanitizedChildName}> ${sanitizedChildName}: {\n`;
                 result += generateInstance(childNode, indent + '    ');
                 result += `${indent}};\n\n`;
               } else if (childNode.valuesByMode) {
@@ -658,19 +681,26 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<Array<{ nam
 
           // Process children
           for (const [childName, childNode] of node.children.entries()) {
-            if (childNode.valuesByMode) {
+            const sanitizedChildName = sanitizePropertyName(childName);
+
+            if (childNode.children.size > 0) {
+              // This is a nested struct - ensure it's fully populated
+              result += `${indent}${sanitizedChildName}: {\n`;
+              result += generateInstance(childNode, indent + '    ');
+              result += `${indent}},\n\n`;
+            } else if (childNode.valuesByMode) {
               if (collectionData.modes.size <= 1) {
-                // Single mode - direct property with value (unchanged)
+                // Single mode - direct property with value
                 const firstMode = childNode.valuesByMode.values().next().value;
                 const formattedValue = formatValueForSlint(
                   childNode.type || 'COLOR',
                   firstMode?.value,
                   true
                 ).value;
-                result += `${indent}${childName}: ${formattedValue},\n`;
+                result += `${indent}${sanitizedChildName}: ${formattedValue},\n`;
               } else {
                 // Multi-mode - create nested object with mode properties
-                result += `${indent}${childName}: {\n`;
+                result += `${indent}${sanitizedChildName}: {\n`;
                 for (const [modeName, data] of childNode.valuesByMode.entries()) {
                   result += `${indent}    ${modeName}: ${data.value},\n`;
                 }
