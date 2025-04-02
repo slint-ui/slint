@@ -852,6 +852,10 @@ class Repeater
 
         void row_added(size_t index, size_t count) override
         {
+            if (index > data.size()) {
+                // Can happen before ensure_updated was called
+                return;
+            }
             is_dirty.set(true);
             data.resize(data.size() + count);
             std::rotate(data.begin() + index, data.end() - count, data.end());
@@ -862,6 +866,9 @@ class Repeater
         }
         void row_changed(size_t index) override
         {
+            if (index >= data.size()) {
+                return;
+            }
             auto &c = data[index];
             if (model && c.ptr) {
                 (*c.ptr)->update_data(index, *model->row_data(index));
@@ -872,6 +879,10 @@ class Repeater
         }
         void row_removed(size_t index, size_t count) override
         {
+            if (index + count > data.size()) {
+                // Can happen before ensure_updated was called
+                return;
+            }
             is_dirty.set(true);
             data.erase(data.begin() + index, data.begin() + index + count);
             for (std::size_t i = index; i < data.size(); ++i) {
