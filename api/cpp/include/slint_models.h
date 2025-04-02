@@ -53,6 +53,20 @@ long int model_length(const std::shared_ptr<M> &model)
 /// A Model is providing Data for Slint |Models|_ or |ListView|_ elements of the
 /// :code:`.slint` language
 /// \endrst
+///
+/// This is typically used in a `std::shared_ptr<slint::Model>`.
+/// Model is an abstract class and you can derive from it to provide your own data model,
+/// or use one of the provided models such as `slint::VectorModel`
+///
+/// An implementation of the Model can provide data to slint by re-implementing the `row_count` and
+/// `row_data` functions. It is the responsibility of the Model implementation to call the
+/// `Model::notify_row_changed()`, `Model::notify_row_added()`, `Model::notify_row_removed()`, or
+/// `Model::notify_reset()` functions when the underlying data changes.
+///
+/// Note that the Model is not thread-safe. All Model operation needs to be done in the main thread.
+/// If you need to update the model data from another thread, you can use the
+/// `slint::invoke_from_event_loop()` function to send the data to the main thread and update the
+/// model.
 template<typename ModelData>
 class Model
 {
@@ -113,24 +127,33 @@ public:
 
 protected:
     /// Notify the views that a specific row was changed
-    void row_changed(size_t row)
+    ///
+    /// Your model implementation should call this function after the data of a row changes.
+    void notify_row_changed(size_t row)
     {
+        private_api::assert_main_thread();
         if (std::binary_search(tracked_rows.begin(), tracked_rows.end(), row)) {
             model_row_data_dirty_property.mark_dirty();
         }
         for_each_peers([=](auto peer) { peer->row_changed(row); });
     }
     /// Notify the views that rows were added
-    void row_added(size_t index, size_t count)
+    ///
+    /// Your model implementation should call this function after the row were added.
+    void notify_row_added(size_t index, size_t count)
     {
+        private_api::assert_main_thread();
         model_row_count_dirty_property.mark_dirty();
         tracked_rows.clear();
         model_row_data_dirty_property.mark_dirty();
         for_each_peers([=](auto peer) { peer->row_added(index, count); });
     }
     /// Notify the views that rows were removed
-    void row_removed(size_t index, size_t count)
+    ///
+    /// Your model implementation should call this function after the row were removed.
+    void notify_row_removed(size_t index, size_t count)
     {
+        private_api::assert_main_thread();
         model_row_count_dirty_property.mark_dirty();
         tracked_rows.clear();
         model_row_data_dirty_property.mark_dirty();
@@ -138,19 +161,39 @@ protected:
     }
 
     /// Notify the views that the model has been changed and that everything needs to be reloaded
-    void reset()
+    ///
+    /// Your model implementation should call this function after the model has been changed.
+    void notify_reset()
     {
+        private_api::assert_main_thread();
         model_row_count_dirty_property.mark_dirty();
         tracked_rows.clear();
         model_row_data_dirty_property.mark_dirty();
         for_each_peers([=](auto peer) { peer->reset(); });
     }
 
+    /// \deprecated
+    [[deprecated("Renamed to notify_row_changed")]] void row_changed(size_t row)
+    {
+        notify_row_changed(row);
+    }
+    /// \deprecated
+    [[deprecated("Renamed to notify_row_added")]] void row_added(size_t index, size_t count)
+    {
+        notify_row_added(index, count);
+    }
+    /// \deprecated
+    [[deprecated("Renamed to notify_row_removed")]] void row_removed(size_t index, size_t count)
+    {
+        notify_row_removed(index, count);
+    }
+    /// \deprecated
+    [[deprecated("Renamed to notify_reset")]] void reset() { notify_reset(); }
+
 private:
     template<typename F>
     void for_each_peers(const F &f)
     {
-        private_api::assert_main_thread();
         peers.erase(std::remove_if(peers.begin(), peers.end(),
                                    [&](const auto &p) {
                                        if (auto pp = p.lock()) {
@@ -192,7 +235,7 @@ public:
     {
         if (i < row_count()) {
             data[i] = value;
-            this->row_changed(i);
+            this->notify_row_changed(i);
         }
     }
 };
@@ -246,7 +289,7 @@ public:
     {
         if (i < row_count()) {
             data[i] = value;
-            this->row_changed(i);
+            this->notify_row_changed(i);
         }
     }
 
@@ -254,21 +297,21 @@ public:
     void push_back(const ModelData &value)
     {
         data.push_back(value);
-        this->row_added(data.size() - 1, 1);
+        this->notify_row_added(data.size() - 1, 1);
     }
 
     /// Remove the row at the given index from the model
     void erase(size_t index)
     {
         data.erase(data.begin() + index);
-        this->row_removed(index, 1);
+        this->notify_row_removed(index, 1);
     }
 
     /// Inserts the given value as a new row at the specified index
     void insert(size_t index, const ModelData &value)
     {
         data.insert(data.begin() + index, value);
-        this->row_added(index, 1);
+        this->notify_row_added(index, 1);
     }
 
     /// Erases all rows from the VectorModel.
@@ -276,7 +319,7 @@ public:
     {
         if (!data.empty()) {
             data.clear();
-            this->reset();
+            this->notify_reset();
         }
     }
 
@@ -284,7 +327,7 @@ public:
     void set_vector(std::vector<ModelData> array)
     {
         data = std::move(array);
-        this->reset();
+        this->notify_reset();
     }
 };
 
@@ -335,7 +378,8 @@ struct FilterModelInner : private_api::ModelChangeListener
              ++it)
             (*it) += count;
 
-        target_model.row_added(insertion_point - accepted_rows.begin(), added_accepted_rows.size());
+        target_model.notify_row_added(insertion_point - accepted_rows.begin(),
+                                      added_accepted_rows.size());
     }
     void row_changed(size_t index) override
     {
@@ -350,13 +394,13 @@ struct FilterModelInner : private_api::ModelChangeListener
         auto accepted_updated_row = filter_fn(*source_model->row_data(index));
 
         if (is_contained && accepted_updated_row) {
-            target_model.row_changed(existing_row_index);
+            target_model.notify_row_changed(existing_row_index);
         } else if (!is_contained && accepted_updated_row) {
             accepted_rows.insert(existing_row, index);
-            target_model.row_added(existing_row_index, 1);
+            target_model.notify_row_added(existing_row_index, 1);
         } else if (is_contained && !accepted_updated_row) {
             accepted_rows.erase(existing_row);
-            target_model.row_removed(existing_row_index, 1);
+            target_model.notify_row_removed(existing_row_index, 1);
         }
     }
     void row_removed(size_t index, size_t count) override
@@ -383,14 +427,14 @@ struct FilterModelInner : private_api::ModelChangeListener
         }
 
         if (mapped_removed_index) {
-            target_model.row_removed(*mapped_removed_index, mapped_removed_len);
+            target_model.notify_row_removed(*mapped_removed_index, mapped_removed_len);
         }
     }
     void reset() override
     {
         filtered_rows_dirty = true;
         update_mapping();
-        target_model.Model<ModelData>::reset();
+        target_model.notify_reset();
     }
 
     void update_mapping()
@@ -490,13 +534,16 @@ struct MapModelInner : private_api::ModelChangeListener
     {
     }
 
-    void row_added(size_t index, size_t count) override { target_model.row_added(index, count); }
-    void row_changed(size_t index) override { target_model.row_changed(index); }
+    void row_added(size_t index, size_t count) override
+    {
+        target_model.notify_row_added(index, count);
+    }
+    void row_changed(size_t index) override { target_model.notify_row_changed(index); }
     void row_removed(size_t index, size_t count) override
     {
-        target_model.row_removed(index, count);
+        target_model.notify_row_removed(index, count);
     }
-    void reset() override { target_model.Model<MappedModelData>::reset(); }
+    void reset() override { target_model.notify_reset(); }
 
     slint::MapModel<SourceModelData, MappedModelData> &target_model;
 };
@@ -598,7 +645,7 @@ struct SortModelInner : private_api::ModelChangeListener
                                      });
 
             insertion_point = sorted_rows.insert(insertion_point, row);
-            target_model.row_added(std::distance(sorted_rows.begin(), insertion_point), 1);
+            target_model.notify_row_added(std::distance(sorted_rows.begin(), insertion_point), 1);
         }
     }
     void row_changed(size_t changed_row) override
@@ -624,10 +671,10 @@ struct SortModelInner : private_api::ModelChangeListener
         auto inserted_row = std::distance(sorted_rows.begin(), insertion_point);
 
         if (inserted_row == removed_row) {
-            target_model.row_changed(removed_row);
+            target_model.notify_row_changed(removed_row);
         } else {
-            target_model.row_removed(removed_row, 1);
-            target_model.row_added(inserted_row, 1);
+            target_model.notify_row_removed(removed_row, 1);
+            target_model.notify_row_added(inserted_row, 1);
         }
     }
     void row_removed(size_t first_removed_row, size_t count) override
@@ -654,14 +701,14 @@ struct SortModelInner : private_api::ModelChangeListener
         }
 
         for (auto removed_row : removed_rows) {
-            target_model.row_removed(removed_row, 1);
+            target_model.notify_row_removed(removed_row, 1);
         }
     }
 
     void reset() override
     {
         sorted_rows_dirty = true;
-        target_model.Model<ModelData>::reset();
+        target_model.notify_reset();
     }
 
     void ensure_sorted()
@@ -769,20 +816,20 @@ struct ReverseModelInner : private_api::ModelChangeListener
         auto old_row_count = row_count - count;
         auto row = old_row_count - first_inserted_row;
 
-        target_model.row_added(row, count);
+        target_model.notify_row_added(row, count);
     }
 
     void row_changed(size_t changed_row) override
     {
-        target_model.row_changed(source_model->row_count() - 1 - changed_row);
+        target_model.notify_row_changed(source_model->row_count() - 1 - changed_row);
     }
 
     void row_removed(size_t first_removed_row, size_t count) override
     {
-        target_model.row_removed(source_model->row_count() - first_removed_row, count);
+        target_model.notify_row_removed(source_model->row_count() - first_removed_row, count);
     }
 
-    void reset() override { target_model.reset(); }
+    void reset() override { target_model.notify_reset(); }
 
     std::shared_ptr<slint::Model<ModelData>> source_model;
     slint::ReverseModel<ModelData> &target_model;
