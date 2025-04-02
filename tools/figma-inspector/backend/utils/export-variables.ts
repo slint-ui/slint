@@ -84,7 +84,12 @@ function getSlintType(figmaType: string): string {
     default: return 'brush'; // Default to brush
   }
 }
-
+// Helper to sanitize enum
+function sanitizeEnumName(name: string): string {
+  return name
+    .replace(/[^a-zA-Z0-9_]/g, '_') // Replace any invalid chars with underscore
+    .replace(/^(\d)/, '_$1');       // Prefix with underscore if starts with a digit
+}
 
 // Helper to format struct/global name for Slint (PascalCase) with sanitization
 function formatStructName(name: string): string {
@@ -98,7 +103,7 @@ function formatStructName(name: string): string {
 
   // Remove ALL special characters before splitting
   sanitizedName = sanitizedName
-    .replace(/[\[\](){}\/\\&+*?|^$%@#!~`;:.,<>=]/g, ' ') // Replace special chars with spaces
+    .replace(/[\[\](){}\/\\&+*?|^$%@#!~`;:.,<>=\-–—]/g, ' ') // Replace special chars with spaces
     .replace(/\s+/g, ' ') // Normalize spaces
     .trim();
 
@@ -398,7 +403,6 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<Array<{ nam
       });
     }
 
-    // THEN process the variables for each collection
     for (const collection of variableCollections) {
       const collectionName = formatPropertyName(collection.name);
 
@@ -880,9 +884,10 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<Array<{ nam
 
       // Add the mode enum if needed
       if (collectionData.modes.size > 1) {
-        content += `export enum ${collectionData.formattedName}Mode {\n`;
+        const sanitizedName = sanitizeEnumName(collectionData.formattedName);
+        content += `export enum ${sanitizedName}Mode {\n`;
         for (const mode of collectionData.modes) {
-          content += `    ${mode},\n`;
+          content += `    ${sanitizeModeForEnum(mode)},\n`;
         }
         content += `}\n\n`;
       }
@@ -1139,8 +1144,7 @@ function generateSchemeStructs(variableTree: VariableNode, collectionData: { nam
   schemeInstance += `    };\n`;
 
   // 6. Generate the current scheme property with current-scheme toggle
-  let currentSchemeInstance = `    in-out property <${collectionData.formattedName}Mode> current-scheme: ${[...collectionData.modes][0]};\n`;
-
+  let currentSchemeInstance = `    in-out property <${sanitizeEnumName(collectionData.formattedName)}Mode> current-scheme: ${[...collectionData.modes][0]};\n`;
   // Add the intermediate property to select the current mode based on the enum
   // Add the current-mode property that dynamically selects based on the enum
   currentSchemeInstance += `    out property <${schemeName}> current-mode: {\n`;
@@ -1150,8 +1154,7 @@ function generateSchemeStructs(variableTree: VariableNode, collectionData: { nam
   const modeArray = [...collectionData.modes];
   for (let i = 0; i < modeArray.length; i++) {
     const mode = modeArray[i];
-    currentSchemeInstance += `        if (current-scheme == ${collectionData.formattedName}Mode.${mode}) { return root.mode.${mode}; }\n`;
-  }
+    currentSchemeInstance += `        if (current-scheme == ${sanitizeEnumName(collectionData.formattedName)}Mode.${mode}) { return root.mode.${mode}; }\n`;  }
 
   // Add fallback to the first mode if somehow none matched
   currentSchemeInstance += `        // Fallback to first mode\n`;
