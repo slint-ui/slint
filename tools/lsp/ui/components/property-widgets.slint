@@ -302,6 +302,9 @@ export component PreviewDataPropertyValueWidget inherits VerticalLayout {
         has-code-action: false;
         has-reset-action: false;
 
+        set-current-item() => {
+            WindowManager.show-floating-preview-widget(property-container-id, preview-data, root.value);
+        }
         set-bool-binding(value) => {
             self.set-code-binding(value ? "true" : "false");
         }
