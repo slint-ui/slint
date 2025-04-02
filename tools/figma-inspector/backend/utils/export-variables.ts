@@ -254,8 +254,8 @@ function createReferenceExpression(
 
   // Check if target collection has multiple modes
   if (targetCollection.modes.size > 1) {
-    // For collections with multiple modes, use function call with mode parameter
-    referenceExpr = `${targetCollection.formattedName}.${propertyPath}(${targetCollection.formattedName}Mode.${sanitizedMode})`;
+    // Use property access syntax instead of function call
+    referenceExpr = `${targetCollection.formattedName}.${propertyPath}.${sanitizedMode}`;
 
     // If this is a cross-collection reference, we need an import for the mode enum too
     if (isCrossCollection) {
@@ -570,10 +570,18 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<Array<{ nam
         // First pass: Generate all struct type definitions
         const structDefinitions: string[] = [];
 
+        // Check if variableTree is valid
+        if (!variableTree || !variableTree.children) {
+          console.error("Invalid variable tree");
+          return { structs: "", instances: "" };
+        }
         // Recursive function to collect struct types
         function collectStructTypes(node: VariableNode, path: string[] = []) {
           if (node.name === 'root') {
-            // Process child nodes
+            // First pass: Generate structs for all multi-mode leaf nodes
+            collectMultiModeStructs(node, collectionData, structDefinitions);
+
+            // Second pass: Process regular structs
             for (const [childName, childNode] of node.children.entries()) {
               collectStructTypes(childNode, [childName]);
             }
@@ -583,7 +591,7 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<Array<{ nam
           const currentPath = [...path];
           const typeName = currentPath.join('_');
 
-          // Only generate struct for nodes with children or valuesByMode
+          // Only generate struct for nodes with children
           if (node.children.size > 0) {
             // Process child nodes first (recursive definition from deepest to shallowest)
             for (const [childName, childNode] of node.children.entries()) {
@@ -595,12 +603,20 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<Array<{ nam
             // THEN define this struct (after its children are defined)
             let structDef = `struct ${typeName} {\n`;
 
-            // Add fields for direct properties (leaf nodes) - fixed to include multi-mode props
+            // Add fields for direct properties (leaf nodes)
             for (const [childName, childNode] of node.children.entries()) {
               if (childNode.valuesByMode) {
-                // Always include the property in the struct definition
-                const slintType = getSlintType(childNode.type || 'COLOR');
-                structDef += `    ${childName}: ${slintType},\n`;
+                if (collectionData.modes.size > 1) {
+                  // Multi-mode property - reference the GENERIC mode struct instead
+                  const slintType = getSlintType(childNode.type || 'COLOR');
+                  const modeCount = collectionData.modes.size;
+                  const modeStructName = `mode${modeCount}_${slintType}`;
+                  structDef += `    ${childName}: ${modeStructName},\n`;
+                } else {
+                  // Single mode property (unchanged)
+                  const slintType = getSlintType(childNode.type || 'COLOR');
+                  structDef += `    ${childName}: ${slintType},\n`;
+                }
               } else if (childNode.children.size > 0) {
                 // Reference to another struct
                 const childPath = [...currentPath, childName];
@@ -642,15 +658,9 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<Array<{ nam
 
           // Process children
           for (const [childName, childNode] of node.children.entries()) {
-            if (childNode.children.size > 0) {
-              // Nested struct - properly format for struct initialization
-              result += `${indent}${childName}: {\n`;
-              result += generateInstance(childNode, indent + '    ');
-              result += `${indent}},\n`;
-            } else if (childNode.valuesByMode) {
-              // Direct property - include the value for both single-mode and multi-mode
+            if (childNode.valuesByMode) {
               if (collectionData.modes.size <= 1) {
-                // Single mode - direct property with value
+                // Single mode - direct property with value (unchanged)
                 const firstMode = childNode.valuesByMode.values().next().value;
                 const formattedValue = formatValueForSlint(
                   childNode.type || 'COLOR',
@@ -659,8 +669,12 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<Array<{ nam
                 ).value;
                 result += `${indent}${childName}: ${formattedValue},\n`;
               } else {
-                // Multi-mode - reference the function
-                result += `${indent}${childName}: ${childName}(${collectionData.formattedName}Mode.light),\n`;
+                // Multi-mode - create nested object with mode properties
+                result += `${indent}${childName}: {\n`;
+                for (const [modeName, data] of childNode.valuesByMode.entries()) {
+                  result += `${indent}    ${modeName}: ${data.value},\n`;
+                }
+                result += `${indent}},\n`;
               }
             }
           }
@@ -668,38 +682,29 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<Array<{ nam
           return result;
         }
         // Generate property values
+        // Replace the current generateProperty function
         function generateProperty(node: VariableNode, indent: string): string {
           if (!node.valuesByMode) return '';
 
           const slintType = getSlintType(node.type || 'COLOR');
 
           if (collectionData.modes.size > 1) {
-            // For multi-mode, generate function 
-            let result = `${indent}pure function ${node.name}(mode: ${collectionName}Mode) -> ${slintType} {\n`;
-            result += `${indent}    if (mode == ${collectionName}Mode.`;
+            // For multi-mode, reference the generic mode struct type
+            const modeCount = collectionData.modes.size;
+            const modeStructName = `mode${modeCount}_${slintType}`;
 
-            let isFirst = true;
+            // Use the mode struct reference instead of inline struct definition
+            let result = `${indent}out property <${modeStructName}> ${node.name}: {\n`;
+
+            // Add values directly (not repeating property names)
             for (const [modeName, data] of node.valuesByMode.entries()) {
-              if (!isFirst) {
-                result += `${indent}    } else if (mode == ${collectionName}Mode.`;
-              }
-              result += `${modeName}) {\n`;
-              result += `${indent}        return ${data.value};\n`;
-              isFirst = false;
+              result += `${indent}    ${modeName}: ${data.value},\n`;
             }
 
-            result += `${indent}    } else {\n`;
-            const defaultFormatted = formatValueForSlint(
-              node.type || 'COLOR',
-              node.valuesByMode.values().next().value?.value,
-              true
-            );
-            result += `${indent}        return ${defaultFormatted.value};\n`;
-            result += `${indent}    }\n`;
-            result += `${indent}}\n\n`;
+            result += `${indent}};\n\n`;
             return result;
           } else {
-            // Single mode - direct property
+            // Single mode - direct property (unchanged)
             const defaultFormatted = formatValueForSlint(
               node.type || 'COLOR',
               node.valuesByMode.values().next().value?.value,
@@ -708,16 +713,11 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<Array<{ nam
             return `${indent}out property <${slintType}> ${node.name}: ${defaultFormatted.value};\n`;
           }
         }
-
-        // Generate the instances
-        const instancesStr = generateInstance(variableTree);
-
         return {
           structs: structDefinitions.join(''),
-          instances: instancesStr
+          instances: generateInstance(variableTree, '    ')
         };
       }
-
       // Get structures and instances first
       const { structs, instances } = generateStructsAndInstances(variableTree, collectionData.formattedName);
 
@@ -785,4 +785,41 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<Array<{ nam
 }
 
 
+
+function collectMultiModeStructs(node: VariableNode, collectionData: { modes: Set<string> }, structDefinitions: string[], path: string[] = []) {
+  if (collectionData.modes.size <= 1) return;
+
+  // Create maps to track shared mode structs we've created
+  const modeTypeMap = new Map<string, string>();
+
+  // First pass - find all unique mode count + type combinations
+  function findUniqueTypeConfigs(node: VariableNode) {
+    for (const [childName, childNode] of node.children.entries()) {
+      if (childNode.valuesByMode && childNode.valuesByMode.size > 0) {
+        const slintType = getSlintType(childNode.type || 'COLOR');
+        const key = `${collectionData.modes.size}_${slintType}`;
+        modeTypeMap.set(key, slintType);
+      } else if (childNode.children.size > 0) {
+        findUniqueTypeConfigs(childNode);
+      }
+    }
+  }
+
+  // First find all unique type configurations
+  findUniqueTypeConfigs(node);
+
+  // Then generate the shared structs
+  for (const [key, slintType] of modeTypeMap.entries()) {
+    const [count, type] = key.split('_');
+    const structName = `mode${count}_${type}`;
+
+    let structDef = `struct ${structName} {\n`;
+    for (const mode of collectionData.modes) {
+      structDef += `    ${mode}: ${slintType},\n`;
+    }
+    structDef += `}\n\n`;
+
+    structDefinitions.push(structDef);
+  }
+}
 
