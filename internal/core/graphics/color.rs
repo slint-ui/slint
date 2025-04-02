@@ -380,6 +380,7 @@ impl From<HsvaColor> for RgbaColor<f32> {
 
         let chroma = col.saturation * col.value;
 
+        use num_traits::Euclid;
         let hue = col.hue.rem_euclid(360.0);
 
         let x = chroma * (1. - ((hue / 60.) % 2. - 1.).abs());
