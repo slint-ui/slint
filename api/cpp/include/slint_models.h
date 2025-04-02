@@ -63,8 +63,8 @@ long int model_length(const std::shared_ptr<M> &model)
 /// `Model::notify_row_changed()`, `Model::notify_row_added()`, `Model::notify_row_removed()`, or
 /// `Model::notify_reset()` functions when the underlying data changes.
 ///
-/// Note that the Model is not thread-safe. All Model operation needs to be done in the main thread.
-/// If you need to update the model data from another thread, you can use the
+/// Note that the Model is not thread-safe. All Model operations need to be done in the main thread.
+/// If you need to update the model data from another thread, use the
 /// `slint::invoke_from_event_loop()` function to send the data to the main thread and update the
 /// model.
 template<typename ModelData>
