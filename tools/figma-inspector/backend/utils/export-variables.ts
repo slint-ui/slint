@@ -850,10 +850,8 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<Array<{ nam
         schemeStruct = schemeResult.schemeStruct;
         schemeModeStruct = schemeResult.schemeModeStruct;
         schemeInstance = schemeResult.schemeInstance;
-        currentSchemeInstance = schemeResult.currentSchemeInstance; // ADD THIS LINE to capture the value
+        currentSchemeInstance = schemeResult.currentSchemeInstance;
       }
-
-      // Start with file comment
 
       // Now filter imports based on what's actually used in the instances
       for (const importStmt of requiredImports) {
@@ -972,6 +970,10 @@ function generateSchemeStructs(variableTree: VariableNode, collectionData: { nam
 
   // Track the final variables mapping (can be nested now)
   const schemeVariables = new Map<string, { type: string, path: string[], isStruct: boolean }>();
+  const schemeName = `${formatStructName(collectionData.name)}Scheme`;
+  const schemeModeName = `${formatStructName(collectionData.name)}SchemeMode`;
+  let schemeStruct = `struct ${schemeName} {\n`;
+  let schemeModeStruct = '';
 
   // 1. First pass: Identify all structs needed for scheme representation
   function collectSchemeStructs(node: VariableNode, path: string[] = [], schemePrefix = 'scheme_') {
@@ -1019,71 +1021,92 @@ function generateSchemeStructs(variableTree: VariableNode, collectionData: { nam
 
   // Collect all scheme structs
   collectSchemeStructs(variableTree);
+  // Create a map of parent-child relationships for structs
+  const childStructMap = new Map<string, Set<string>>();
 
-  // 2. Generate the scheme struct definitions for nested objects
+  // Build the relationship map for nested structs
+  for (const [varName, info] of schemeVariables.entries()) {
+    if (info.isStruct && info.path.length > 1) {
+      // For each nested path like "sad_sub_foo", create entries for parents
+      for (let i = 1; i < info.path.length; i++) {
+        // Get parent path (e.g., "sad" for "sad_sub")
+        const parentPath = info.path.slice(0, i).join('_');
+        // Get full child path (e.g., "sad_sub")
+        const childPath = info.path.slice(0, i + 1).join('_');
+
+        // Add this child to its parent's children
+        if (!childStructMap.has(parentPath)) {
+          childStructMap.set(parentPath, new Set<string>());
+        }
+        childStructMap.get(parentPath)!.add(childPath);
+      }
+    }
+  }
+  // 2. Generate the scheme struct definitions with proper nesting
   let allSchemeStructs = '';
-  for (const [structName, structInfo] of schemeStructs.entries()) {
+
+  // First, sort structs by depth (number of underscores) to ensure proper declaration order
+  const structEntries = Array.from(schemeStructs.entries());
+  structEntries.sort((a, b) => {
+    // Count underscores to determine nesting depth
+    const depthA = (a[0].match(/_/g) || []).length;
+    const depthB = (b[0].match(/_/g) || []).length;
+
+    // Sort from deepest to shallowest
+    return depthB - depthA;
+  });
+
+  // Now generate all scheme structs with their fields, starting from deepest
+  for (const [structName, structInfo] of structEntries) {
     allSchemeStructs += `struct ${structName} {\n`;
 
+    // Add regular leaf fields first
     for (const [fieldName, fieldType] of structInfo.fields.entries()) {
       allSchemeStructs += `    ${fieldName}: ${fieldType},\n`;
     }
 
-    allSchemeStructs += `}\n\n`;
-  }
-
-  // 3. Generate the main scheme struct - MODIFIED to properly handle nested structs
-  const schemeName = `${formatStructName(collectionData.name)}Scheme`;
-  let schemeStruct = `struct ${schemeName} {\n`;
-
-  // First, we need to process all structs and build their hierarchy
-  const structHierarchy = new Map<string, string[]>();
-  
-  // Build a map of parent-child relationships for struct types
-  for (const [varName, info] of schemeVariables.entries()) {
-    if (info.isStruct && info.path.length > 1) {
-      // This is a nested struct
-      const parentPath = info.path.slice(0, -1).join('_');
-      if (!structHierarchy.has(parentPath)) {
-        structHierarchy.set(parentPath, []);
-      }
-      structHierarchy.get(parentPath)!.push(info.path[info.path.length - 1]);
-    }
-  }
-
-  // Now, update each struct definition to include its children
-  for (const [structName, structInfo] of schemeStructs.entries()) {
-    // Extract the path from the struct name (remove 'scheme_' prefix)
+    // Extract the path without the scheme_ prefix
     const structPath = structName.replace('scheme_', '');
-    
-    // Check if this struct has children
-    if (structHierarchy.has(structPath)) {
-      // Get child names
-      const children = structHierarchy.get(structPath)!;
-      
-      // Add a field for each child referencing its sub-struct
-      for (const child of children) {
-        const childStructName = `scheme_${structPath}_${child}`;
+
+    // Check if this struct has direct child structs and add them as fields
+    if (childStructMap.has(structPath)) {
+      const children = childStructMap.get(structPath)!;
+
+      for (const childPath of children) {
+        // Get just the last segment of the path as the field name
+        const parts = childPath.split('_');
+        const fieldName = parts[parts.length - 1];
+        const childStructName = 'scheme_' + childPath;
+
+        // Only add if the child struct actually exists
         if (schemeStructs.has(childStructName)) {
-          structInfo.fields.set(child, childStructName);
+          allSchemeStructs += `    ${fieldName}: ${childStructName},\n`;
         }
       }
     }
-  }
 
+    allSchemeStructs += `}\n\n`;
+  }
+  schemeStruct = `struct ${schemeName} {\n`;
+  for (const [varName, info] of schemeVariables.entries()) {
+    if (info.path.length === 1) {
+      // This is a top-level variable or struct
+      const fieldName = info.path[0];
+      schemeStruct += `    ${fieldName}: ${info.isStruct ? 'scheme_' + varName : info.type},\n`;
+    }
+  }
   schemeStruct += `}\n\n`;
 
-  // 4. Generate the mode struct
-  const schemeModeName = `${formatStructName(collectionData.name)}SchemeMode`;
-  let schemeModeStruct = `struct ${schemeModeName} {\n`;
+  // 4. Generate the mode struct with each mode referencing the main scheme
+  schemeModeStruct = `struct ${schemeModeName} {\n`;
 
+  // Add each mode as a field that references the main scheme struct
   for (const mode of collectionData.modes) {
     schemeModeStruct += `    ${mode}: ${schemeName},\n`;
   }
+  schemeModeStruct += `    }\n`;
 
-  schemeModeStruct += `}\n\n`;
-
-  // 5. Generate the instance initialization
+  // 5. Generate the instance initialization for the mode property
   let schemeInstance = `    out property <${schemeModeName}> mode: {\n`;
 
   for (const mode of collectionData.modes) {
