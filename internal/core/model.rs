@@ -618,6 +618,44 @@ impl Model for bool {
 ///     the_model.push("An Item".into());
 /// });
 /// ```
+///
+/// ### Updating the model from a thread
+///
+/// `ModelRc` is not `Send` and can only be used in the main thread.
+/// If you want to update the model based on data coming from a thread, you need to send back the data to the main thread
+/// using [`invoke_from_event_loop`](crate::api::invoke_from_event_loop) or
+/// [`Weak::upgrade_in_event_loop`](crate::api::Weak::upgrade_in_event_loop).
+///
+/// ```rust
+/// # i_slint_backend_testing::init_integration_test_with_mock_time();
+/// use slint::Model;
+/// slint::slint!{
+///     export component TestCase inherits Window {
+///         in property <[string]> the_model;
+///         //...
+///     }
+/// }
+/// let ui = TestCase::new().unwrap();
+/// // set a model (a VecModel)
+/// let model = std::rc::Rc::new(slint::VecModel::<slint::SharedString>::default());
+/// ui.set_the_model(model.clone().into());
+///
+/// // do some work in a thread
+/// let ui_weak = ui.as_weak();
+/// let thread = std::thread::spawn(move || {
+///     // do some work
+///     let new_strings = vec!["foo".into(), "bar".into()];
+///     // send the data back to the main thread
+///     ui_weak.upgrade_in_event_loop(move |ui| {
+///         let model = ui.get_the_model();
+///         let model = model.as_any().downcast_ref::<slint::VecModel<slint::SharedString>>()
+///             .expect("We know we set a VecModel earlier");
+///         model.set_vec(new_strings);
+/// #       slint::quit_event_loop().unwrap();
+///     });
+/// });
+/// ui.run().unwrap();
+/// ```
 pub struct ModelRc<T>(Option<Rc<dyn Model<Data = T>>>);
 
 impl<T> core::fmt::Debug for ModelRc<T> {
