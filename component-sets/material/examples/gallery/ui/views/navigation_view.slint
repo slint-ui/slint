@@ -50,7 +50,8 @@ export component NavigationView {
                     SearchBar {
                         leading_icon: OutlinedIcons.search;
                         placeholder: "Search color";
-                        // items: NavigationViewAdapter.search_items;
+                        empty_text: "No search history.";
+                        items: NavigationViewAdapter.search_items;
 
                         edited(text) => {
                             NavigationViewAdapter.search(text);
