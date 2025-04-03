@@ -459,6 +459,20 @@ macro_rules! for_each_enums {
                 /// The stroke ends with a square projection beyond the path.
                 Square,
             }
+
+            /// This enum describes the specific theme
+            enum StyleName {
+                /// The Qt theme
+                Qt,
+                /// The Fluent theme
+                Fluent,
+                /// The Material theme
+                Material,
+                /// The Cupertino theme
+                Cupertino,
+                /// The Cosmic theme
+                Cosmic,
+            }
         ];
     };
 }

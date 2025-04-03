@@ -30,6 +30,7 @@ struct PaletteStyleChangeListener : QWidget {
 #[pin]
 #[pin_drop]
 pub struct NativePalette {
+    pub style_name: Property<StyleName>,
     pub background: Property<Brush>,
     pub foreground: Property<Brush>,
     pub alternate_background: Property<Brush>,

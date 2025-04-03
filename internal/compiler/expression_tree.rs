@@ -83,6 +83,7 @@ pub enum BuiltinFunction {
     /// When there are 4 arguments, the last one is a reference to the MenuItem tree root (just like the entries in the [`Self::ShowPopupMenu`] call)
     /// then the code will assign the callback handler and properties
     SetupNativeMenuBar,
+    StyleName,
     Use24HourFormat,
     MonthDayCount,
     MonthOffset,
@@ -237,6 +238,9 @@ declare_builtin_function_types!(
     SupportsNativeMenuBar: () -> Type::Bool,
     // entries, sub-menu, activate. But the types here are not accurate.
     SetupNativeMenuBar: (Type::Model, typeregister::noarg_callback_type(), typeregister::noarg_callback_type()) -> Type::Void,
+    StyleName: () -> Type::Enumeration(
+        typeregister::BUILTIN.with(|e| e.enums.StyleName.clone()),
+    ),
     MonthDayCount: (Type::Int32, Type::Int32) -> Type::Int32,
     MonthOffset: (Type::Int32, Type::Int32) -> Type::Int32,
     FormatDate: (Type::String, Type::Int32, Type::Int32, Type::Int32) -> Type::String,
@@ -272,6 +276,7 @@ impl BuiltinFunction {
             BuiltinFunction::ColorScheme => false,
             BuiltinFunction::SupportsNativeMenuBar => false,
             BuiltinFunction::SetupNativeMenuBar => false,
+            BuiltinFunction::StyleName => false,
             BuiltinFunction::MonthDayCount => false,
             BuiltinFunction::MonthOffset => false,
             BuiltinFunction::FormatDate => false,
@@ -349,6 +354,7 @@ impl BuiltinFunction {
             BuiltinFunction::ColorScheme => true,
             BuiltinFunction::SupportsNativeMenuBar => true,
             BuiltinFunction::SetupNativeMenuBar => false,
+            BuiltinFunction::StyleName => true,
             BuiltinFunction::MonthDayCount => true,
             BuiltinFunction::MonthOffset => true,
             BuiltinFunction::FormatDate => true,
