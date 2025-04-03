@@ -676,7 +676,6 @@ export component NativeTab {
 }
 
 export global NativeStyleMetrics {
-    out property <string> style-name: "qt";
     out property <length> layout-spacing;
     out property <length> layout-padding;
     out property <length> text-cursor-width;
@@ -702,6 +701,7 @@ export global NativeStyleMetrics {
 }
 
 export global NativePalette {
+    out property <string> style-name: "qt";
     out property <brush> background;
     out property <brush> foreground;
     out property <brush> alternate-background;

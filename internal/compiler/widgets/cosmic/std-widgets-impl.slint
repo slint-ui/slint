@@ -11,7 +11,6 @@ export { MenuBarItem, MenuBar, MenuFrame, MenuItem } from "menu.slint";
 import { CosmicPalette } from "styling.slint";
 
 export global StyleMetrics  {
-    out property <string> style-name: "cosmic";
     out property <length> layout-spacing: 8px;
     out property <length> layout-padding: 8px;
     out property <length> text-cursor-width: 1px;
@@ -25,6 +24,7 @@ export global StyleMetrics  {
 }
 
 export global Palette {
+    out property <string> style-name: "cosmic";
     out property <brush> background: CosmicPalette.background;
     out property <brush> foreground: CosmicPalette.foreground;
     out property <brush> alternate-background: CosmicPalette.alternate-background;

@@ -9,7 +9,6 @@ import { CupertinoPalette } from "styling.slint";
 export { MenuBarItem, MenuBar, MenuFrame, MenuItem } from "menu.slint";
 
 export global StyleMetrics  {
-    out property <string> style-name: "cupertino";
     out property <length> layout-spacing: 10px;
     out property <length> layout-padding: 12px;
     out property <length> text-cursor-width: 1px;
@@ -23,6 +22,7 @@ export global StyleMetrics  {
 }
 
 export global Palette {
+    out property <string> style-name: "cupertino";
     out property <brush> background: CupertinoPalette.background;
     out property <brush> foreground: CupertinoPalette.foreground;
     out property <brush> alternate-background: CupertinoPalette.alternate-background;
