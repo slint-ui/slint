@@ -42,7 +42,7 @@ impl ToPyObject for PyValueRef<'_> {
                 crate::image::PyImage::from(image).into_py(py)
             }
             slint_interpreter::Value::Model(model) => {
-                crate::models::PyModelShared::rust_into_js_model(model)
+                crate::models::PyModelShared::rust_into_js_model(model, py)
                     .unwrap_or_else(|| crate::models::ReadOnlyRustModel::from(model).into_py(py))
             }
             slint_interpreter::Value::Struct(structval) => {
@@ -59,8 +59,8 @@ impl ToPyObject for PyValueRef<'_> {
     }
 }
 
-impl FromPyObject<'_> for PyValue {
-    fn extract(ob: &PyAny) -> PyResult<Self> {
+impl<'py> FromPyObject<'py> for PyValue {
+    fn extract_bound(ob: &Bound<'py, PyAny>) -> PyResult<Self> {
         if ob.is_none() {
             return Ok(slint_interpreter::Value::Void.into());
         }
