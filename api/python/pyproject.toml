@@ -41,21 +41,11 @@ Tracker = "https://github.com/slint-ui/slint/issues"
 dev = ["pytest"]
 
 [dependency-groups]
-dev = [
-  "mypy>=1.15.0",
-  "nox>=2024.10.9",
-  "pdoc>=15.0.1",
-  "pytest>=8.3.4",
-  "ruff>=0.9.6",
-]
+dev = ["mypy>=1.15.0", "nox>=2024.10.9", "pdoc>=15.0.1", "pytest>=8.3.4", "ruff>=0.9.6"]
 
 [tool.uv]
 # Rebuild package when any rust files change
-cache-keys = [
-  { file = "pyproject.toml" },
-  { file = "Cargo.toml" },
-  { file = "**/*.rs" },
-]
+cache-keys = [{ file = "pyproject.toml" }, { file = "Cargo.toml" }, { file = "**/*.rs" }]
 # Uncomment to build rust code in development mode
 # config-settings = { build-args = '--profile=dev' }
 

@@ -19,9 +19,7 @@ simulator = ["slint/renderer-software", "slint/backend-winit", "slint/std"]
 default = ["simulator"]
 
 [dependencies]
-slint = { path = "../../api/rs/slint", default-features = false, features = [
-  "compat-1-2",
-] }
+slint = { path = "../../api/rs/slint", default-features = false, features = ["compat-1-2"] }
 mcu-board-support = { path = "../../examples/mcu-board-support" }
 
 [build-dependencies]

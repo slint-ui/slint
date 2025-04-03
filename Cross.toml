@@ -11,9 +11,4 @@ image = "ghcr.io/slint-ui/slint/riscv64gc-unknown-linux-gnu"
 image = "ghcr.io/slint-ui/slint/x86_64-unknown-linux-gnu"
 
 [build.env]
-passthrough = [
-  "SLINT_NO_QT",
-  "SLINT_STYLE",
-  "SLINT_TEST_FILTER",
-  "SLINT_INTERPRETER_ERROR_WHITELIST",
-]
+passthrough = ["SLINT_NO_QT", "SLINT_STYLE", "SLINT_TEST_FILTER", "SLINT_INTERPRETER_ERROR_WHITELIST"]

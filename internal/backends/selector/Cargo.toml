@@ -24,14 +24,8 @@ backend-linuxkms = ["i-slint-backend-linuxkms/libseat"]
 backend-linuxkms-noseat = ["i-slint-backend-linuxkms"]
 backend-qt = ["i-slint-backend-qt/enable"]
 
-renderer-femtovg = [
-  "i-slint-backend-winit?/renderer-femtovg",
-  "i-slint-backend-linuxkms?/renderer-femtovg",
-]
-renderer-skia = [
-  "i-slint-backend-winit?/renderer-skia",
-  "i-slint-backend-linuxkms?/renderer-skia",
-]
+renderer-femtovg = ["i-slint-backend-winit?/renderer-femtovg", "i-slint-backend-linuxkms?/renderer-femtovg"]
+renderer-skia = ["i-slint-backend-winit?/renderer-skia", "i-slint-backend-linuxkms?/renderer-skia"]
 renderer-skia-opengl = [
   "i-slint-backend-winit?/renderer-skia-opengl",
   "i-slint-backend-linuxkms?/renderer-skia-opengl",
@@ -51,10 +45,7 @@ renderer-software = [
 rtti = ["i-slint-core/rtti", "i-slint-backend-qt?/rtti"]
 accessibility = ["i-slint-backend-winit?/accessibility"]
 
-raw-window-handle-06 = [
-  "i-slint-core/raw-window-handle-06",
-  "i-slint-backend-winit?/raw-window-handle-06",
-]
+raw-window-handle-06 = ["i-slint-core/raw-window-handle-06", "i-slint-backend-winit?/raw-window-handle-06"]
 
 system-testing = ["i-slint-backend-testing/system-testing"]
 
@@ -68,19 +59,14 @@ i-slint-backend-testing = { workspace = true, optional = true }
 i-slint-core-macros = { workspace = true }
 
 [target.'cfg(not(target_os = "android"))'.dependencies]
-i-slint-backend-winit = { workspace = true, features = [
-  "default",
-  "muda",
-], optional = true }
+i-slint-backend-winit = { workspace = true, features = ["default", "muda"], optional = true }
 i-slint-renderer-skia = { workspace = true, optional = true }
 
 [target.'cfg(not(target_os = "wasm"))'.dependencies]
 i-slint-backend-qt = { workspace = true, optional = true }
 
 [target.'cfg(target_os = "linux")'.dependencies]
-i-slint-backend-linuxkms = { workspace = true, features = [
-  "default",
-], optional = true }
+i-slint-backend-linuxkms = { workspace = true, features = ["default"], optional = true }
 
 [build-dependencies]
 i-slint-common = { workspace = true }

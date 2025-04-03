@@ -18,10 +18,7 @@ path = "main.rs"
 name = "test-driver-interpreter"
 
 [dev-dependencies]
-slint-interpreter = { workspace = true, features = [
-  "display-diagnostics",
-  "compat-1-2",
-] }
+slint-interpreter = { workspace = true, features = ["display-diagnostics", "compat-1-2"] }
 i-slint-backend-testing = { workspace = true }
 
 itertools = { workspace = true }

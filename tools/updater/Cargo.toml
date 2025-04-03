@@ -17,10 +17,7 @@ categories = ["gui", "development-tools", "command-line-utilities"]
 
 
 [dependencies]
-i-slint-compiler = { workspace = true, features = [
-  "default",
-  "display-diagnostics",
-] }
+i-slint-compiler = { workspace = true, features = ["default", "display-diagnostics"] }
 
 clap = { workspace = true }
 codemap = "0.1"
