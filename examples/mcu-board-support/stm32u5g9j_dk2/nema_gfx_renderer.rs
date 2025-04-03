@@ -145,13 +145,17 @@ impl<'a> i_slint_core::software_renderer::TargetPixelBuffer
 
             let colorize = slint::Color::from_argb_encoded(colorize);
 
+            nema_set_const_color(nema_rgba(
+                colorize.red(),
+                colorize.green(),
+                colorize.blue(),
+                alpha,
+            ));
+
             if texture_format == NEMA_A8 {
-                nema_set_tex_color(nema_rgba(
-                    colorize.red(),
-                    colorize.green(),
-                    colorize.blue(),
-                    alpha,
-                ));
+                // const color modulation doesn't seem to work with A8 textures, so instead, set the
+                // texture color for the missing channels.
+                nema_set_tex_color(nema_rgba(colorize.red(), colorize.green(), colorize.blue(), 0));
             }
 
             nema_set_blend(
@@ -160,7 +164,8 @@ impl<'a> i_slint_core::software_renderer::TargetPixelBuffer
                         software_renderer::CompositionMode::Source => NEMA_BF_ZERO,
                         software_renderer::CompositionMode::SourceOver => NEMA_BF_INVSRCALPHA,
                         _ => todo!(),
-                    }) << 8,
+                    } << 8)
+                    | (NEMA_BLOP_MODULATE_RGB & NEMA_BLOP_MASK),
                 nema_tex_t_NEMA_TEX0,
                 nema_tex_t_NEMA_TEX1,
                 nema_tex_t_NEMA_NOTEX,
