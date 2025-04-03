@@ -16,7 +16,11 @@ import {
     SearchBar,
     MaterialText,
     Vertical,
-    ListItem
+    ListItem,
+    AppBar,
+    SmallAppBar,
+    MediumAppBar,
+    LargeAppBar
 } from "../../../../material.slint";
 
 import { Group } from "../components/group.slint";
@@ -237,6 +241,47 @@ export component NavigationView {
                                 text: "Audio",
                                 icon: OutlinedIcons.music_note,
                             },
+                        ];
+                    }
+                }
+            }
+
+            ComponentCard {
+                title: "Top app bars";
+
+                Vertical {
+                    AppBar {
+                        leading_icon: { icon: FilledIcons.menu, enabled: true };
+                        trailing_icon: { icon: FilledIcons.account_circle, enabled: true };
+                        title: "Product";
+                        container_background: true;
+                    }
+
+                    SmallAppBar {
+                        leading_icon: { icon: FilledIcons.menu, enabled: true };
+                        container_background: true;
+                        title: "Small";
+                        trailing_icons: [
+                            { icon: FilledIcons.calendar_month, enabled: true },
+                            { icon: FilledIcons.more_vert, enabled: true },
+                        ];
+                    }
+
+                    MediumAppBar {
+                        leading_icon: { icon: FilledIcons.menu, enabled: true };
+                        title: "Medium";
+                        trailing_icons: [
+                            { icon: FilledIcons.calendar_month, enabled: true },
+                            { icon: FilledIcons.more_vert, enabled: true },
+                        ];
+                    }
+
+                    LargeAppBar {
+                        leading_icon: { icon: FilledIcons.menu, enabled: true };
+                        title: "Large";
+                        trailing_icons: [
+                            { icon: FilledIcons.calendar_month, enabled: true },
+                            { icon: FilledIcons.more_vert, enabled: true },
                         ];
                     }
                 }
