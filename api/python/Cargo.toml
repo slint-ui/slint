@@ -55,11 +55,12 @@ slint-interpreter = { workspace = true, features = [
   "internal",
 ] }
 i-slint-compiler = { workspace = true }
-pyo3 = { version = "0.21.0", features = [
+pyo3 = { version = "0.22", features = [
   "extension-module",
   "indexmap",
   "chrono",
   "abi3-py310",
+  "gil-refs",
 ] }
 indexmap = { version = "2.1.0" }
 chrono = "0.4"
