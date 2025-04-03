@@ -19,11 +19,7 @@ path = "lib.rs"
 default = []
 
 [dependencies]
-i-slint-core = { workspace = true, features = [
-  "default",
-  "box-shadow-cache",
-  "shared-fontdb",
-] }
+i-slint-core = { workspace = true, features = ["default", "box-shadow-cache", "shared-fontdb"] }
 i-slint-core-macros = { workspace = true, features = ["default"] }
 i-slint-common = { workspace = true, features = ["default"] }
 
