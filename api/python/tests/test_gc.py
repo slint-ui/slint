@@ -5,6 +5,7 @@ from slint import slint as native
 import weakref
 import gc
 import typing
+from pathlib import Path
 
 
 def test_callback_gc() -> None:
@@ -17,7 +18,7 @@ def test_callback_gc() -> None:
             callback test-callback(string) -> string;
         }
     """,
-        "",
+        Path(""),
     ).component("Test")
     assert compdef is not None
 

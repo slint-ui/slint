@@ -63,7 +63,7 @@ class Image:
     size: tuple[int, int]
     width: int
     height: int
-    path: typing.Optional[str]
+    path: typing.Optional[pathlib.Path]
     def __new__(
         cls,
     ) -> "Image": ...
@@ -175,13 +175,13 @@ class CompilationResult:
     def component(self, name: str) -> ComponentDefinition: ...
 
 class Compiler:
-    include_paths: list[str | os.PathLike[Any] | pathlib.Path]
-    library_paths: dict[str, str | os.PathLike[Any] | pathlib.Path]
+    include_paths: list[os.PathLike[Any] | pathlib.Path]
+    library_paths: dict[str, os.PathLike[Any] | pathlib.Path]
     translation_domain: str
     style: str
     def build_from_path(
-        self, path: str | os.PathLike[Any] | pathlib.Path
+        self, path: os.PathLike[Any] | pathlib.Path
     ) -> CompilationResult: ...
     def build_from_source(
-        self, source: str, path: str | os.PathLike[Any] | pathlib.Path
+        self, source: str, path: os.PathLike[Any] | pathlib.Path
     ) -> CompilationResult: ...

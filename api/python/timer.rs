@@ -9,10 +9,9 @@ use pyo3_stub_gen::{
 /// The TimerMode specifies what should happen after the timer fired.
 ///
 /// Used by the `Timer.start()` function.
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq)]
 #[gen_stub_pyclass_enum]
 #[pyclass(name = "TimerMode", eq, eq_int)]
-#[derive(PartialEq)]
 pub enum PyTimerMode {
     /// A SingleShot timer is fired only once.
     SingleShot,

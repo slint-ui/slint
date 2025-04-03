@@ -4,6 +4,7 @@
 from slint import slint as native
 from slint import models as models
 import typing
+from pathlib import Path
 
 
 def test_model_notify() -> None:
@@ -31,7 +32,7 @@ def test_model_notify() -> None:
 
   }
     """,
-        "",
+        Path(""),
     ).component("App")
     assert compdef is not None
 
@@ -62,7 +63,7 @@ def test_model_from_list() -> None:
     in-out property<[int]> data: [1, 2, 3, 4];
   }
     """,
-        "",
+        Path(""),
     ).component("App")
     assert compdef is not None
 
@@ -110,7 +111,7 @@ def test_rust_model_sequence() -> None:
     in-out property<[int]> data: [1, 2, 3, 4, 5];
   }
     """,
-        "",
+        Path(""),
     ).component("App")
     assert compdef is not None
 
@@ -141,7 +142,7 @@ def test_model_writeback() -> None:
 
   }
     """,
-        "",
+        Path(""),
     ).component("App")
     assert compdef is not None
 

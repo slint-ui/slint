@@ -5,6 +5,7 @@ import pytest
 from slint import slint as native
 from slint.slint import Image, Color, Brush
 import os
+from pathlib import Path
 
 
 def test_property_access() -> None:
@@ -42,7 +43,7 @@ def test_property_access() -> None:
             callback test-callback();
         }
     """,
-        os.path.join(os.path.dirname(__file__), "main.slint"),
+        Path(__file__).parent / "main.slint",
     ).component("Test")
     assert compdef is not None
 
@@ -92,7 +93,7 @@ def test_property_access() -> None:
     imageval = instance.get_property("imageprop")
     assert imageval.width == 320
     assert imageval.height == 480
-    assert "cat.jpg" in imageval.path
+    assert "cat.jpg" in imageval.path.name
 
     with pytest.raises(RuntimeError, match="The image cannot be loaded"):
         Image.load_from_path("non-existent.png")
@@ -108,7 +109,7 @@ def test_property_access() -> None:
     )
     imageval = instance.get_property("imageprop")
     assert imageval.size == (36, 36)
-    assert "humidity.png" in imageval.path
+    assert "humidity.png" in str(imageval.path)
 
     with pytest.raises(
         TypeError, match="'int' object cannot be converted to 'PyString'"
@@ -157,7 +158,7 @@ def test_callbacks() -> None:
             callback void-callback();
         }
     """,
-        "",
+        Path(""),
     ).component("Test")
     assert compdef is not None
 
@@ -192,7 +193,7 @@ def test_callbacks() -> None:
 if __name__ == "__main__":
     import slint
 
-    module = slint.load_file("../../demos/printerdemo/ui/printerdemo.slint")
+    module = slint.load_file(Path("../../demos/printerdemo/ui/printerdemo.slint"))
     instance = module.MainWindow()
     instance.PrinterQueue.start_job = lambda title: print(f"new print job {title}")
     instance.run()

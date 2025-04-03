@@ -16,6 +16,7 @@ from typing import Any
 import pathlib
 from .models import ListModel, Model
 from .slint import Image, Color, Brush, Timer, TimerMode
+from pathlib import Path
 
 Struct = native.PyStruct
 
@@ -248,11 +249,9 @@ def load_file(
     path: str | os.PathLike[Any] | pathlib.Path,
     quiet: bool = False,
     style: typing.Optional[str] = None,
-    include_paths: typing.Optional[
-        typing.List[str | os.PathLike[Any] | pathlib.Path]
-    ] = None,
+    include_paths: typing.Optional[typing.List[os.PathLike[Any] | pathlib.Path]] = None,
     library_paths: typing.Optional[
-        typing.Dict[str, str | os.PathLike[Any] | pathlib.Path]
+        typing.Dict[str, os.PathLike[Any] | pathlib.Path]
     ] = None,
     translation_domain: typing.Optional[str] = None,
 ) -> types.SimpleNamespace:
@@ -280,7 +279,7 @@ def load_file(
     if translation_domain is not None:
         compiler.translation_domain = translation_domain
 
-    result = compiler.build_from_path(path)
+    result = compiler.build_from_path(Path(path))
 
     diagnostics = result.diagnostics
     if diagnostics:
@@ -289,13 +288,11 @@ def load_file(
                 if diag.level == native.DiagnosticLevel.Warning:
                     logging.warning(diag)
 
-            errors = [
-                diag
-                for diag in diagnostics
-                if diag.level == native.DiagnosticLevel.Error
-            ]
-            if errors:
-                raise CompileError(f"Could not compile {path}", diagnostics)
+        errors = [
+            diag for diag in diagnostics if diag.level == native.DiagnosticLevel.Error
+        ]
+        if errors:
+            raise CompileError(f"Could not compile {path}", diagnostics)
 
     module = types.SimpleNamespace()
     for comp_name in result.component_names:
@@ -317,27 +314,27 @@ def load_file(
 
 
 class SlintAutoLoader:
-    def __init__(self, base_dir: str | None = None):
-        self.local_dirs: typing.List[str] | None = None
+    def __init__(self, base_dir: Path | None = None):
+        self.local_dirs: typing.List[Path] | None = None
         if base_dir:
             self.local_dirs = [base_dir]
 
     def __getattr__(self, name: str) -> Any:
         for path in self.local_dirs or sys.path:
-            dir_candidate = os.path.join(path, name)
+            dir_candidate = Path(path) / name
             if os.path.isdir(dir_candidate):
                 loader = SlintAutoLoader(dir_candidate)
                 setattr(self, name, loader)
                 return loader
 
-            file_candidate = dir_candidate + ".slint"
+            file_candidate = dir_candidate.with_suffix(".slint")
             if os.path.isfile(file_candidate):
                 type_namespace = load_file(file_candidate)
                 setattr(self, name, type_namespace)
                 return type_namespace
 
-            dir_candidate = os.path.join(path, name.replace("_", "-"))
-            file_candidate = dir_candidate + ".slint"
+            dir_candidate = Path(path) / name.replace("_", "-")
+            file_candidate = dir_candidate.with_suffix(".slint")
             if os.path.isfile(file_candidate):
                 type_namespace = load_file(file_candidate)
                 setattr(self, name, type_namespace)
