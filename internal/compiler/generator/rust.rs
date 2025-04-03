@@ -3069,11 +3069,10 @@ fn compile_builtin_function_call(
             let (h, s, v, a) =
                 (a.next().unwrap(), a.next().unwrap(), a.next().unwrap(), a.next().unwrap());
             quote!({
-                let h: f32 = (#h as f32).clamp(0., 360.) as f32;
                 let s: f32 = (#s as f32).max(0.).min(1.) as f32;
                 let v: f32 = (#v as f32).max(0.).min(1.) as f32;
                 let a: f32 = (1. * (#a as f32)).max(0.).min(1.) as f32;
-                sp::Color::from_hsva(h, s, v, a)
+                sp::Color::from_hsva(#h as f32, s, v, a)
             })
         }
         BuiltinFunction::ColorScheme => {

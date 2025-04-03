@@ -380,9 +380,11 @@ impl From<HsvaColor> for RgbaColor<f32> {
 
         let chroma = col.saturation * col.value;
 
-        let x = chroma * (1. - ((col.hue / 60.) % 2. - 1.).abs());
+        let hue = num_traits::Euclid::rem_euclid(&col.hue, &360.0);
 
-        let (red, green, blue) = match (col.hue / 60.0) as usize {
+        let x = chroma * (1. - ((hue / 60.) % 2. - 1.).abs());
+
+        let (red, green, blue) = match (hue / 60.0) as usize {
             0 => (chroma, x, 0.),
             1 => (x, chroma, 0.),
             2 => (0., chroma, x),
@@ -430,6 +432,16 @@ fn test_rgb_to_hsv() {
     assert_eq!(
         RgbaColor::<f32>::from(HsvaColor { hue: 120., saturation: 1., value: 0.9, alpha: 1.0 }),
         RgbaColor::<f32> { red: 0., green: 0.9, blue: 0., alpha: 1.0 }
+    );
+
+    // Hue should wrap around 360deg i.e. 480 == 120 && -240 == 240
+    assert_eq!(
+        RgbaColor::<f32> { red: 0., green: 0.9, blue: 0., alpha: 1.0 },
+        RgbaColor::<f32>::from(HsvaColor { hue: 480., saturation: 1., value: 0.9, alpha: 1.0 }),
+    );
+    assert_eq!(
+        RgbaColor::<f32> { red: 0., green: 0.9, blue: 0., alpha: 1.0 },
+        RgbaColor::<f32>::from(HsvaColor { hue: -240., saturation: 1., value: 0.9, alpha: 1.0 }),
     );
 }
 

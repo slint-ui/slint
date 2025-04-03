@@ -59,12 +59,13 @@ Test := Rectangle {
 
     out property <bool> test_hsv: gr1.to-hsv().hue == new_green.to-hsv().hue && gr1.to-hsv().saturation == new_green.to-hsv().saturation && gr1.to-hsv().value == new_green.to-hsv().value
         && bwood == Colors.hsv(bwood_hue, bwood_sat, bwood_bri);
+    out property <bool> test_hsv_wrap: Colors.blue == hsv(240, 1, 1) && Colors.blue == hsv(600, 1, 1) && Colors.blue == hsv(-120, 1, 1);
     out property <bool> test_hsv_hue: b1.to-hsv().hue == b1hue && r1.to-hsv().hue == r1hue && y1.to-hsv().hue == y1hue && gr1.to-hsv().hue == gr1hue && bwood.to-hsv().hue == bwood_hue;
     out property <bool> test_hsv_sat: b1.to-hsv().saturation == b1sat && r1.to-hsv().saturation == r1sat && y1.to-hsv().saturation == y1sat && gr1.to-hsv().saturation == gr1sat && bwood.to-hsv().saturation == bwood_sat;
     out property <bool> test_hsv_bri: b1.to-hsv().value == b1bri && r1.to-hsv().value == r1bri && y1.to-hsv().value == y1bri && gr1.to-hsv().value == gr1bri && bwood.to-hsv().value == bwood_bri;
 
     property<bool> test: b1 == b2 && b2 == b5 && b3 == Colors.blue && Colors.red == r4 && y1 == Colors.rgba(255, 100%, 0, 100%)
-        && test_rgb && test_hsv && test_hsv_hue && test_hsv_sat && test_hsv_bri;
+        && test_rgb && test_hsv && test_hsv_hue && test_hsv_sat && test_hsv_bri && test_hsv_wrap;
 }
 
 /*

@@ -63,7 +63,8 @@ Unlike in CSS, the commas are mandatory.
 ### hsv(h: float, s: float, v: float) -> color
 ### hsv(h: float, s: float, v: float, a: float) -> color
 
-Return a color computed from the HSV color space. The hue is between 0 and 360.
+Returns a color using HSV (Hue, Saturation, Value) coordinates. The hue parameter is a float
+representing degrees (0-360) and wraps around (e.g., 480 becomes 120).
 The saturation, value, and optional alpha parameter are expected to be within the range of 0 and 1.
 
 ## Color Methods
