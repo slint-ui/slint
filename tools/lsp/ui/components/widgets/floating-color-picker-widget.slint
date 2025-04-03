@@ -29,6 +29,9 @@ component ColorPicker {
 
     in property <WidgetMode> widget-mode: edit;
 
+    property <length> picker-target-x;
+    property <length> picker-target-y;
+
     callback close <=> t-close.clicked;
 
     changed current-color => {
@@ -39,6 +42,34 @@ component ColorPicker {
 
     width: Styles.picker-width;
     height: widget-mode == WidgetMode.edit ? 370px : 355px;
+
+    TouchArea {
+        moved => {
+            picker-target-x = root.x + self.mouse-x - self.pressed-x;
+            picker-target-y = root.y + self.mouse-y - self.pressed-y;
+
+            if picker-target-x < 0px {
+                root.x = 0px;
+            }
+            if picker-target-x > 0px {
+                if picker-target-x < WindowGlobal.window-width - root.width {
+                    root.x = picker-target-x;
+                } else {
+                    root.x = WindowGlobal.window-width - root.width;
+                }
+            }
+            if picker-target-y < 0px {
+                root.y = 0px;
+            }
+            if picker-target-y > 0px {
+                if picker-target-y < WindowGlobal.window-height - root.height {
+                    root.y = picker-target-y;
+                } else {
+                    root.y = WindowGlobal.window-height - root.height;
+                }
+            }
+        }
+    }
 
     Rectangle {
         background: Styles.background-color;
@@ -486,44 +517,8 @@ export component ColorPickerView {
     }
 
     TouchArea {
-        property <bool> drag-mode: false;
-        property <length> picker-initial-x;
-        property <length> picker-initial-y;
-        property <length> mouse-initial-x;
-        property <length> mouse-initial-y;
-
         changed pressed => {
-            if self.pressed {
-                if cursor-on-picker(self.mouse-x, self.mouse-y) {
-                    drag-mode = true;
-                    picker-initial-x = color-picker.x;
-                    picker-initial-y = color-picker.y;
-                    mouse-initial-x = self.mouse-x;
-                    mouse-initial-y = self.mouse-y;
-                }
-            } else {
-                if !drag-mode {
-                    WindowManager.hide-floating-widget();
-                }
-                drag-mode = false;
-            }
-        }
-
-        property <length> picker-target-x;
-        property <length> picker-target-y;
-
-        moved => {
-            if drag-mode {
-                picker-target-x = picker-initial-x + (self.mouse-x - mouse-initial-x);
-                picker-target-y = picker-initial-y + (self.mouse-y - mouse-initial-y);
-
-                if picker-target-x > 0px && picker-target-x < root.width - color-picker.width {
-                    color-picker.x = picker-target-x;
-                }
-                if picker-target-y > 0px && picker-target-y < root.height - color-picker.height {
-                    color-picker.y = picker-target-y;
-                }
-            }
+            WindowManager.hide-floating-widget();
         }
     }
 
