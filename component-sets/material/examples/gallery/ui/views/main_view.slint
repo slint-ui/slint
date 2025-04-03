@@ -3,9 +3,20 @@
 
 import { ComponentsView } from "components_view.slint";
 import { Palette } from "std-widgets.slint";
-import { MaterialText, Typography, IconButton, MaterialPalette, Animations, NavigationRail, NavigationItem, NavigationBar } from "../../../../material.slint";
 import { MainWindowAdapter } from "../main_window_adapter.slint";
 import { FilledIcons, OutlinedIcons } from "../icons.slint";
+import {
+    MaterialText,
+    Typography,
+    IconButton,
+    MaterialPalette,
+    Animations,
+    NavigationRail,
+    NavigationItem,
+    NavigationBar,
+    SmallAppBar
+
+} from "../../../../material.slint";
 
 export enum Views {
     components
@@ -22,34 +33,18 @@ export component MainView {
     ];
 
     VerticalLayout {
-        HorizontalLayout {
-            height: 64px;
-            padding_left: 16px;
-            padding_right: 16px;
-            spacing: 8px;
+        SmallAppBar {
+            title: "Material 3";
+            trailing_icons: [{ icon: Palette.color_scheme == ColorScheme.light ? OutlinedIcons.dark_mode : OutlinedIcons.light_mode, enabled: true }];
+            container_background: MainWindowAdapter.container_background;
 
-            MaterialText {
-                vertical-alignment: center;
-                text: "Material 3";
-                style: Typography.title_large;
-            }
-
-            Rectangle {}
-
-            IconButton {
-                checked: Palette.color_scheme == ColorScheme.light;
-                checkable: true;
-                icon: OutlinedIcons.light_mode;
-                icon_checked: OutlinedIcons.dark_mode;
-
-                changed checked => {
-                    if !self.checked {
-                        Palette.color_scheme = ColorScheme.dark;
-                        return;
-                    }
-
-                    Palette.color_scheme = ColorScheme.light;
+            traling_clicked(index) => {
+                if Palette.color_scheme == ColorScheme.light {
+                    Palette.color_scheme = ColorScheme.dark;
+                    return;
                 }
+
+                Palette.color_scheme = ColorScheme.light;
             }
         }
 
