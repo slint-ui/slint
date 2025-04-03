@@ -267,8 +267,8 @@ class MyModel : public slint::Model<ModelData> {
     }
     void update() {
         data.push_back(mk_data("Olivier"));
-        reset();
-        row_changed(data.size() - 1);
+        notify_reset();
+        notify_row_changed(data.size() - 1);
     }
 };
 
