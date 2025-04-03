@@ -11,8 +11,10 @@ export global Styles {
     out property <color> text-color: Palette.color-scheme == ColorScheme.dark ? white : #383838;
     out property <color> divider-color: Palette.color-scheme == ColorScheme.dark ? #444444 : #e6e6e6;
     out property <color> background-color: Palette.color-scheme == ColorScheme.dark ? #2c2c2c : white;
+    out property <brush> picker-border-color: Palette.color-scheme == ColorScheme.dark ? #ffffff17 : transparent;
     out property <length> left-margin: 16px;
     out property <length> right-margin: 12px;
+    out property <length> standard-margin: 16px;
     out property <length> property-border-radius: 5px;
     out property <length> picker-width: 240px;
 }
@@ -42,9 +44,9 @@ component ColorPicker {
         background: Styles.background-color;
         drop-shadow-blur: 24px;
         drop-shadow-offset-y: 10px;
-        drop-shadow-color: #00000069;
+        drop-shadow-color: rgba(0, 0, 0, 0.25);
         border-width: 0.5px;
-        border-color: Styles.divider-color;
+        border-color: Styles.picker-border-color;
         border-radius: 13px;
     }
 
@@ -55,7 +57,7 @@ component ColorPicker {
 
         Rectangle {
             x: parent.width - self.width - Styles.right-margin;
-            width: 24px;
+            width: 14px;
             height: self.width;
             background: t-close.has-hover ? Styles.section-color : transparent;
             border-radius: Styles.property-border-radius;
@@ -79,16 +81,13 @@ component ColorPicker {
 
     saturation-value-holder := Rectangle {
         y: title.y + title.height;
-        width: 100%;
-        height: self.width * 0.8;
+        height: self.width * 0.75;
         saturation-value := Rectangle {
-            width: parent.width - 16px;
-            height: parent.height - 16px;
+            width: parent.width - (Styles.standard-margin * 2);
+            height: parent.height - (Styles.standard-margin * 2);
 
             Rectangle {
-                border-radius: 3px;
-                border-width: 1px;
-                border-color: white.transparentize(90%);
+                border-radius: 6px;
                 clip: true;
                 hue := Rectangle {
                     background: hsv(root.hue, 1, 1);
@@ -100,6 +99,12 @@ component ColorPicker {
 
                 val := Rectangle {
                     background: @linear-gradient(0deg, black 0%, transparent 100%);
+                }
+
+                Rectangle {
+                    border-radius: parent.border-radius;
+                    border-width: 1px;
+                    border-color: Styles.text-color.with-alpha(10%);
                 }
 
                 TouchArea {
@@ -144,22 +149,23 @@ component ColorPicker {
     }
 
     hsva-controls := Rectangle {
-        y: saturation-value-holder.y + saturation-value-holder.height;
+        y: saturation-value-holder.y + saturation-value-holder.height - 6px;
         width: 100%;
         height: 56px;
         // The following properties are used to size the hue picker and control the
         // thumb to now go past the visual bounds. But the TouchArea is intentionally larger
         // to be usable.
-        property <length> main-width: 150px;
+        property <length> main-width: root.width - (Styles.standard-margin * 2) - main-height;
         property <length> main-height: 16px;
         property <length> rounded-end-width: main-height / 2;
         VerticalLayout {
+            spacing: 12px;
             Rectangle {
                 width: 100%;
-                height: 26px;
+                height: 16px;
                 hue-picker := Rectangle {
                     x: Styles.left-margin;
-                    width: main-width + main-height;
+                    width: root.width - (Styles.standard-margin * 2);
                     height: main-height;
                     TouchArea {
                         moved => {
@@ -191,7 +197,7 @@ component ColorPicker {
                             }
 
                             Rectangle {
-                                width: 150px;
+                                width: main-width;
                                 height: hue-picker.height;
                                 background: @linear-gradient(90deg, #ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000);
                             }
@@ -237,7 +243,7 @@ component ColorPicker {
 
             Rectangle {
                 width: 100%;
-                height: 26px;
+                height: 16px;
                 Rectangle {
                     x: Styles.left-margin;
                     width: main-width + main-height;
@@ -254,7 +260,7 @@ component ColorPicker {
                             }
 
                             Rectangle {
-                                width: 150px;
+                                width: main-width;
                                 height: hue-picker.height;
                                 background: white;
                             }
@@ -267,7 +273,7 @@ component ColorPicker {
 
                         Image {
                             x: 0;
-                            width: parent.width - hue-picker.height;
+                            width: main-width + (self.height / 2);
                             height: 100%;
                             vertical-alignment: top;
                             horizontal-alignment: left;
@@ -284,7 +290,7 @@ component ColorPicker {
                             }
 
                             Rectangle {
-                                width: 150px;
+                                width: main-width;
                                 height: hue-picker.height;
                                 background: @linear-gradient(-90deg, hsv(root.hue, root.saturation, root.value, 1), transparent);
                             }
@@ -382,7 +388,6 @@ component ColorPicker {
 
                 Text {
                     x: 25px;
-                    y: 8px;
                     vertical-alignment: center;
                     font-family: "Inter";
                     font-size: 11px;
@@ -393,7 +398,6 @@ component ColorPicker {
 
                 Text {
                     x: 35px;
-                    y: 8px;
                     font-family: "Inter";
                     font-size: 12px;
                     color: Styles.text-color;
