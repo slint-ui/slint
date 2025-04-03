@@ -98,19 +98,18 @@ impl<'py> FromPyObject<'py> for PyValue {
                 })
             })
             .or_else(|_| {
-                ob.extract::<&PyDict>().and_then(|dict| {
-                    let dict_items: Result<Vec<(String, slint_interpreter::Value)>, PyErr> = dict
-                        .iter()
-                        .map(|(name, pyval)| {
-                            let name = name.extract::<&str>()?.to_string();
-                            let slintval = PyValue::extract(pyval)?;
-                            Ok((name, slintval.0))
-                        })
-                        .collect::<Result<Vec<(_, _)>, PyErr>>();
-                    Ok(slint_interpreter::Value::Struct(slint_interpreter::Struct::from_iter(
-                        dict_items?.into_iter(),
-                    )))
-                })
+                let dict = ob.downcast::<PyDict>()?;
+                let dict_items: Result<Vec<(String, slint_interpreter::Value)>, PyErr> = dict
+                    .iter()
+                    .map(|(name, pyval)| {
+                        let name = name.extract::<&str>()?.to_string();
+                        let slintval = PyValue::extract_bound(&pyval)?;
+                        Ok((name, slintval.0))
+                    })
+                    .collect::<Result<Vec<(_, _)>, PyErr>>();
+                Ok::<_, PyErr>(slint_interpreter::Value::Struct(
+                    slint_interpreter::Struct::from_iter(dict_items?.into_iter()),
+                ))
             })?;
 
         Ok(PyValue(interpreter_val))

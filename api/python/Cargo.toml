@@ -60,7 +60,6 @@ pyo3 = { version = "0.22", features = [
   "indexmap",
   "chrono",
   "abi3-py310",
-  "gil-refs",
 ] }
 indexmap = { version = "2.1.0" }
 chrono = "0.4"
