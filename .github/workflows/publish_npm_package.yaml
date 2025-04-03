@@ -97,14 +97,19 @@ jobs:
                   if [ "$RELEASE_INPUT" != "true" ]; then
                       npm version $PKG_VERSION
                   fi
+            - uses: baptiste0928/cargo-install@v3
+              with:
+                  crate: taplo
             - name: Prepare feature config for binaries
               working-directory: api/node
               shell: bash
               run: |
-                  perl -pi -e 's,^default =.*,,' Cargo.toml
-                  perl -pi -e 's,# binaries:,,' Cargo.toml
-                  echo "New defaults:"
-                  grep "^\s*default =" Cargo.toml
+                cat Cargo.toml | taplo format --option column_width=100000 --stdin-filepath=Cargo.toml - | \
+                  perl -p -e 's,^\s*default\s*=.*,,' | \
+                  perl -p -e 's,# binaries:\s?,,' > Cargo.toml.new
+                cat Cargo.toml.new | taplo format --stdin-filepath=Cargo.toml - > Cargo.toml
+                rm Cargo.toml.new
+                taplo get -f Cargo.toml features.default
             - name: Build binary
               shell: bash
               working-directory: api/node
