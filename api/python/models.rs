@@ -158,9 +158,9 @@ impl PyModelShared {
     pub fn rust_into_js_model<'py>(
         model: &ModelRc<slint_interpreter::Value>,
         py: Python<'py>,
-    ) -> Option<PyObject> {
+    ) -> Option<Bound<'py, PyAny>> {
         model.as_any().downcast_ref::<PyModelShared>().and_then(|rust_model| {
-            rust_model.self_ref.borrow().as_ref().map(|obj| obj.clone_ref(py))
+            rust_model.self_ref.borrow().as_ref().map(|obj| obj.clone_ref(py).into_bound(py))
         })
     }
 }

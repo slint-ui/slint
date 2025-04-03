@@ -33,6 +33,7 @@ struct RgbColor {
 }
 
 #[derive(FromPyObject)]
+#[pyclass]
 enum PyColorInput {
     ColorStr(String),
     // This variant must come before RgbColor
@@ -73,6 +74,7 @@ pub struct PyColor {
 #[pymethods]
 impl PyColor {
     #[new]
+    #[pyo3(signature = (maybe_value=None))]
     fn py_new(maybe_value: Option<PyColorInput>) -> PyResult<Self> {
         let Some(value) = maybe_value else {
             return Ok(Self { color: Default::default() });
@@ -168,6 +170,7 @@ impl From<slint_interpreter::Color> for PyColor {
 }
 
 #[derive(FromPyObject)]
+#[pyclass]
 enum PyBrushInput {
     SolidColor(PyColor),
 }
@@ -191,6 +194,7 @@ pub struct PyBrush {
 #[pymethods]
 impl PyBrush {
     #[new]
+    #[pyo3(signature = (maybe_value=None))]
     fn py_new(maybe_value: Option<PyBrushInput>) -> PyResult<Self> {
         let Some(value) = maybe_value else {
             return Ok(Self { brush: Default::default() });

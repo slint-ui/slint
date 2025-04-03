@@ -6,6 +6,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::rc::Rc;
 
+use pyo3::IntoPyObjectExt;
 use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pyclass_enum, gen_stub_pymethods};
 use slint_interpreter::{ComponentHandle, Value};
 
@@ -125,7 +126,8 @@ impl PyDiagnostic {
 }
 
 #[gen_stub_pyclass_enum]
-#[pyclass(name = "DiagnosticLevel")]
+#[pyclass(name = "DiagnosticLevel", eq, eq_int)]
+#[derive(PartialEq)]
 pub enum PyDiagnosticLevel {
     Error,
     Warning,
@@ -155,11 +157,11 @@ impl CompilationResult {
     }
 
     #[getter]
-    fn structs_and_enums(&self, py: Python<'_>) -> HashMap<String, PyObject> {
+    fn structs_and_enums<'py>(&self, py: Python<'py>) -> HashMap<String, Bound<'py, PyAny>> {
         let structs_and_enums =
             self.result.structs_and_enums(i_slint_core::InternalToken {}).collect::<Vec<_>>();
 
-        fn convert_type(py: Python<'_>, ty: &Type) -> Option<(String, PyObject)> {
+        fn convert_type<'py>(py: Python<'py>, ty: &Type) -> Option<(String, Bound<'py, PyAny>)> {
             match ty {
                 Type::Struct(s) if s.name.is_some() && s.node.is_some() => {
                     let struct_instance = PyStruct::from(slint_interpreter::Struct::from_iter(
@@ -173,7 +175,7 @@ impl CompilationResult {
 
                     return Some((
                         s.name.as_ref().unwrap().to_string(),
-                        struct_instance.into_py(py),
+                        struct_instance.into_bound_py_any(py).unwrap(),
                     ));
                 }
                 Type::Enumeration(_en) => {
@@ -188,7 +190,7 @@ impl CompilationResult {
             .iter()
             .filter_map(|ty| convert_type(py, ty))
             .into_iter()
-            .collect::<HashMap<String, PyObject>>()
+            .collect::<HashMap<String, Bound<'py, PyAny>>>()
     }
 
     #[getter]
@@ -254,7 +256,8 @@ impl ComponentDefinition {
 }
 
 #[gen_stub_pyclass_enum]
-#[pyclass(name = "ValueType")]
+#[pyclass(name = "ValueType", eq, eq_int)]
+#[derive(PartialEq)]
 pub enum PyValueType {
     Void,
     Number,
@@ -416,8 +419,8 @@ impl GcVisibleCallbacks {
             let callables = callables.borrow();
             let callable = callables.get(&name).unwrap();
             Python::with_gil(|py| {
-                let py_args = PyTuple::new_bound(py, args.iter().map(|v| PyValue(v.clone())));
-                let result = match callable.call_bound(py, py_args, None) {
+                let py_args = PyTuple::new(py, args.iter().map(|v| PyValue(v.clone()))).unwrap();
+                let result = match callable.call(py, py_args, None) {
                     Ok(result) => result,
                     Err(err) => {
                         eprintln!(
