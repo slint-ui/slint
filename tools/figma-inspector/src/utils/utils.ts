@@ -40,23 +40,27 @@ interface DispatchTSFunction {
 
 type CopyToClipboardFunction = (slintProperties: string) => Promise<void>;
 
-export const getCopyToClipboard = (dispatchTS: DispatchTSFunction): CopyToClipboardFunction => async (slintProperties: string) => {
+export const getCopyToClipboard =
+    (dispatchTS: DispatchTSFunction): CopyToClipboardFunction =>
+    async (slintProperties: string) => {
         try {
-                await writeTextToClipboard(slintProperties);
-                dispatchTS("copyToClipboard", {
-                        result: true,
-                });
+            await writeTextToClipboard(slintProperties);
+            dispatchTS("copyToClipboard", {
+                result: true,
+            });
         } catch (error) {
-                dispatchTS("copyToClipboard", {
-                        result: false,
-                });
+            dispatchTS("copyToClipboard", {
+                result: false,
+            });
         }
-};
+    };
 
 type ExportAllFunction = () => void;
 
-export const getExportAll = (dispatchTS: DispatchTSFunction): ExportAllFunction => () => {
-    dispatchTS("exportAll", {
-        result: true,
-    });
-};
+export const getExportAll =
+    (dispatchTS: DispatchTSFunction): ExportAllFunction =>
+    () => {
+        dispatchTS("exportAll", {
+            result: true,
+        });
+    };

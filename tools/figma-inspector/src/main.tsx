@@ -14,10 +14,13 @@ import "./main.css";
 
 // Add file download functionality
 const downloadFile = (filename: string, text: string) => {
-    const element = document.createElement('a');
-    element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(text));
-    element.setAttribute('download', filename);
-    element.style.display = 'none';
+    const element = document.createElement("a");
+    element.setAttribute(
+        "href",
+        "data:text/plain;charset=utf-8," + encodeURIComponent(text),
+    );
+    element.setAttribute("download", filename);
+    element.style.display = "none";
     document.body.appendChild(element);
     element.click();
     document.body.removeChild(element);
@@ -27,7 +30,9 @@ export const App = () => {
     const [exportsAreCurrent, setExportsAreCurrent] = useState(false);
     const [title, setTitle] = useState("");
     const [slintProperties, setSlintProperties] = useState("");
-    const [exportedFiles, setExportedFiles] = useState<Array<{ name: string, content: string }>>([]);
+    const [exportedFiles, setExportedFiles] = useState<
+        Array<{ name: string; content: string }>
+    >([]);
     const [lightOrDarkMode, setLightOrDarkMode] = useState(getColorTheme());
 
     listenTS("updatePropertiesCallback", (res) => {
@@ -49,17 +54,19 @@ export const App = () => {
                 const msg = event.data.pluginMessage;
 
                 // Check for variable-specific event types
-                if (msg.type === "variableChanged" ||
+                if (
+                    msg.type === "variableChanged" ||
                     msg.type === "variableCollectionChanged" ||
-                    msg.type === "documentSnapshot") {
-
+                    msg.type === "documentSnapshot"
+                ) {
                     setExportsAreCurrent(false);
                 }
             }
         };
 
         window.addEventListener("message", variableChangeHandler);
-        return () => window.removeEventListener("message", variableChangeHandler);
+        return () =>
+            window.removeEventListener("message", variableChangeHandler);
     }, []);
 
     useEffect(() => {
@@ -97,7 +104,10 @@ export const App = () => {
                 // Mark exports as current
                 setExportsAreCurrent(true);
 
-                console.log("Exports marked as current, files count:", res.files.length);
+                console.log(
+                    "Exports marked as current, files count:",
+                    res.files.length,
+                );
             } else {
                 console.error("Invalid files data:", res);
             }
@@ -108,9 +118,13 @@ export const App = () => {
 
         // Also add direct message listener as backup
         const directHandler = (event: MessageEvent) => {
-            if (event.data.pluginMessage &&
-                event.data.pluginMessage.type === 'exportedFiles') {
-                console.log("DIRECT: Received exportedFiles via window message");
+            if (
+                event.data.pluginMessage &&
+                event.data.pluginMessage.type === "exportedFiles"
+            ) {
+                console.log(
+                    "DIRECT: Received exportedFiles via window message",
+                );
                 exportFilesHandler(event.data.pluginMessage);
             }
         };
@@ -122,19 +136,27 @@ export const App = () => {
     // Function to communicate with the TypeScript side of the plugin
     function dispatchTS(eventName: string, payload: {}): void {
         // Send a message to the plugin code
-        parent.postMessage({
-            pluginMessage: {
-                type: eventName,
-                ...payload
-            }
-        }, '*');
+        parent.postMessage(
+            {
+                pluginMessage: {
+                    type: eventName,
+                    ...payload,
+                },
+            },
+            "*",
+        );
     }
 
     // Create the functions with access to dispatchTS
     const copyToClipboardFn = getCopyToClipboard(dispatchTS);
-    const downloadZipFile = async (files: Array<{ name: string, content: string }>) => {
+    const downloadZipFile = async (
+        files: Array<{ name: string; content: string }>,
+    ) => {
         try {
-            console.log("Creating ZIP with files:", files.map(f => `${f.name} (${f.content.length} bytes)`));
+            console.log(
+                "Creating ZIP with files:",
+                files.map((f) => `${f.name} (${f.content.length} bytes)`),
+            );
 
             if (!files || files.length === 0) {
                 console.error("No files to zip!");
@@ -145,8 +167,10 @@ export const App = () => {
             const zip = new JSZip();
 
             // Add each file to the zip with debug logging
-            files.forEach(file => {
-                console.log(`Adding to ZIP: ${file.name} (${file.content.length} bytes)`);
+            files.forEach((file) => {
+                console.log(
+                    `Adding to ZIP: ${file.name} (${file.content.length} bytes)`,
+                );
                 zip.file(file.name, file.content);
             });
 
@@ -156,7 +180,7 @@ export const App = () => {
             console.log(`ZIP created: ${content.size} bytes`);
 
             // Create download link
-            const element = document.createElement('a');
+            const element = document.createElement("a");
             element.href = URL.createObjectURL(content);
             element.download = "figma-collections.zip";
             document.body.appendChild(element);
@@ -171,7 +195,9 @@ export const App = () => {
             console.error("Error creating ZIP file:", error);
 
             // Fallback to individual downloads if ZIP creation fails
-            alert("Couldn't create ZIP file. Downloading files individually...");
+            alert(
+                "Couldn't create ZIP file. Downloading files individually...",
+            );
             files.forEach((file, index) => {
                 setTimeout(() => {
                     downloadFile(file.name, file.content);
@@ -184,7 +210,7 @@ export const App = () => {
     console.log("Render state:", {
         exportedFilesCount: exportedFiles.length,
         exportsAreCurrent,
-        hasProperties: slintProperties !== ""
+        hasProperties: slintProperties !== "",
     });
 
     return (
@@ -215,54 +241,57 @@ export const App = () => {
                 className="export-button"
                 style={{
                     border: `none`,
-                    margin: '4px 4px 12px 4px',
-                    marginBottom: exportedFiles.length > 0 ? '4px' : '12px',
-                    borderRadius: '4px',
-                    background: lightOrDarkMode === "dark" ? '#4497F7' : '#4497F7',
-                    padding: '4px',
-                    width: '140px',
+                    margin: "4px 4px 12px 4px",
+                    marginBottom: exportedFiles.length > 0 ? "4px" : "12px",
+                    borderRadius: "4px",
+                    background:
+                        lightOrDarkMode === "dark" ? "#4497F7" : "#4497F7",
+                    padding: "4px",
+                    width: "140px",
                     alignSelf: "center",
-                    height: '32px',
-                    color: 'white',
+                    height: "32px",
+                    color: "white",
                 }}
             >
                 Export All Variables
             </button>
 
-            <div style={{
-                height: exportedFiles.length > 0 ? 'auto' : '0px',
-                overflow: 'hidden',
-                transition: 'all 0.3s ease-in-out'
-            }}>
+            <div
+                style={{
+                    height: exportedFiles.length > 0 ? "auto" : "0px",
+                    overflow: "hidden",
+                    transition: "all 0.3s ease-in-out",
+                }}
+            >
                 {exportedFiles.length > 0 && (
                     <a
                         onClick={() => downloadZipFile(exportedFiles)}
                         style={{
-                            backgroundColor: 'transparent',
-                            color: lightOrDarkMode === "dark" ? 'white' : 'black',
-                            marginTop: '4px',
-                            marginBottom: '4px',
-                            cursor: exportsAreCurrent ? 'pointer' : 'not-allowed',
-                            fontSize: '0.8rem',
-                            width: '100%',
-                            display: 'flex',
-                            justifyContent: 'center',
-                            alignItems: 'center',
-                            transition: 'all 0.3s ease',
-                            opacity: exportsAreCurrent ? '1' : '0.5',
+                            backgroundColor: "transparent",
+                            color:
+                                lightOrDarkMode === "dark" ? "white" : "black",
+                            marginTop: "4px",
+                            marginBottom: "4px",
+                            cursor: exportsAreCurrent
+                                ? "pointer"
+                                : "not-allowed",
+                            fontSize: "0.8rem",
+                            width: "100%",
+                            display: "flex",
+                            justifyContent: "center",
+                            alignItems: "center",
+                            transition: "all 0.3s ease",
+                            opacity: exportsAreCurrent ? "1" : "0.5",
                         }}
                         // disabled={!exportsAreCurrent}
                     >
-                        <span style={{ marginRight: '8px' }}>
-                            {exportsAreCurrent ? '📦' : '⚠️'}
+                        <span style={{ marginRight: "8px" }}>
+                            {exportsAreCurrent ? "📦" : "⚠️"}
                         </span>
-                        <span
-                        style={{textDecoration: 'underline',
-                        }}
-                        >
+                        <span style={{ textDecoration: "underline" }}>
                             {exportsAreCurrent
-                            ? `Download ZIP (${exportedFiles.length} files)`
-                            : 'Files outdated - export again'}
+                                ? `Download ZIP (${exportedFiles.length} files)`
+                                : "Files outdated - export again"}
                         </span>
                     </a>
                 )}
