@@ -5,25 +5,29 @@ import { StyleMetrics, Button } from "std-widgets-impl.slint";
 
 export component StandardButton {
     in property <StandardButtonKind> kind;
-    in property <bool> enabled <=> btn.enabled;
-    out property <bool> has-focus <=> btn.has-focus;
-    out property <bool> pressed <=> btn.pressed;
-    forward-focus: btn;
+    in property <bool> enabled <=> base.enabled;
+    in property <bool> primary <=> base.primary;
+    out property <bool> has-focus <=> base.has-focus;
+    out property <bool> pressed <=> base.pressed;
 
-    callback clicked <=> btn.clicked;
+    forward-focus: base;
 
-    btn := Button {
-        text:
-            root.kind == StandardButtonKind.ok ? "OK" :
-            root.kind == StandardButtonKind.cancel ? "Cancel" :
-            root.kind == StandardButtonKind.apply ? "Apply" :
-            root.kind == StandardButtonKind.close ? "Close" :
-            root.kind == StandardButtonKind.reset ? "Reset" :
-            root.kind == StandardButtonKind.help ? "Help" :
-            root.kind == StandardButtonKind.yes ? "Yes" :
-            root.kind == StandardButtonKind.no ? "No" :
-            root.kind == StandardButtonKind.abort ? "Abort" :
-            root.kind == StandardButtonKind.retry ? "Retry" :
-            root.kind == StandardButtonKind.ignore ? "Ignore" : "";
+    callback clicked <=> base.clicked;
+
+    HorizontalLayout {
+        base := Button {
+            text:
+                root.kind == StandardButtonKind.ok ? "OK" :
+                root.kind == StandardButtonKind.cancel ? "Cancel" :
+                root.kind == StandardButtonKind.apply ? "Apply" :
+                root.kind == StandardButtonKind.close ? "Close" :
+                root.kind == StandardButtonKind.reset ? "Reset" :
+                root.kind == StandardButtonKind.help ? "Help" :
+                root.kind == StandardButtonKind.yes ? "Yes" :
+                root.kind == StandardButtonKind.no ? "No" :
+                root.kind == StandardButtonKind.abort ? "Abort" :
+                root.kind == StandardButtonKind.retry ? "Retry" :
+                root.kind == StandardButtonKind.ignore ? "Ignore" : "";
+        }
     }
 }

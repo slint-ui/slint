@@ -39,6 +39,7 @@ export component Button {
 export component StandardButton {
     in property <StandardButtonKind> kind <=> native.standard-button-kind;
     in property <bool> enabled <=> native.enabled;
+    in property <bool> primary <=> native.primary;
     out property <bool> has-focus <=> native.has-focus;
     out property <bool> pressed <=> native.pressed;
 
