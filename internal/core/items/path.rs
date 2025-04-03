@@ -58,6 +58,7 @@ impl Item for Path {
         self: Pin<&Self>,
         _orientation: Orientation,
         _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
     ) -> LayoutInfo {
         LayoutInfo { stretch: 1., ..LayoutInfo::default() }
     }

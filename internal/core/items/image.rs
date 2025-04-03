@@ -49,6 +49,7 @@ impl Item for ImageItem {
         self: Pin<&Self>,
         orientation: Orientation,
         _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
     ) -> LayoutInfo {
         let natural_size = self.source().size();
         LayoutInfo {
@@ -195,6 +196,7 @@ impl Item for ClippedImage {
         self: Pin<&Self>,
         orientation: Orientation,
         _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
     ) -> LayoutInfo {
         LayoutInfo {
             preferred: match orientation {

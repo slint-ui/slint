@@ -4,7 +4,7 @@
 use core::ops::ControlFlow;
 use i_slint_core::accessibility::{AccessibilityAction, AccessibleStringProperty};
 use i_slint_core::api::{ComponentHandle, LogicalPosition};
-use i_slint_core::item_tree::{ItemTreeRc, ItemWeak};
+use i_slint_core::item_tree::{ItemTreeRc, ItemWeak, ParentItemTraversalMode};
 use i_slint_core::items::{ItemRc, Opacity};
 use i_slint_core::window::WindowInner;
 use i_slint_core::SharedString;
@@ -760,7 +760,7 @@ impl ElementHandle {
             .upgrade()
             .map(|mut item| {
                 let mut opacity = 1.0;
-                while let Some(parent) = item.parent_item() {
+                while let Some(parent) = item.parent_item(ParentItemTraversalMode::StopAtPopups) {
                     if let Some(opacity_item) =
                         i_slint_core::items::ItemRef::downcast_pin::<Opacity>(item.borrow())
                     {
