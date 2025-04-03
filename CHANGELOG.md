@@ -8,6 +8,7 @@ All notable changes to this project are documented in this file.
 ### General
 
  - Skia renderer: Changed default on Windows to use the software renderer, instead of Direct3D.
+ - Color.hsv(): The hue value now wraps instead of clamping between 0 and 360. e.g. a hue of `480` would wrap as expected to `120`. Previously any value equal or greater than 360 would cause the function to output pure black. In the unlikely case an app relied on this keep an eye out as a color will now show up instead of black.
 
 ## [1.10.0] - 2025-02-28
 
