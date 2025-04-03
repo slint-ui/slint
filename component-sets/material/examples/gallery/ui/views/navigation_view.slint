@@ -16,7 +16,11 @@ import {
     SearchBar,
     MaterialText,
     Vertical,
-    ListItem
+    ListItem,
+    AppBar,
+    SmallAppBar,
+    MediumAppBar,
+    LargeAppBar
 } from "../../../../material.slint";
 
 import { Group } from "../components/group.slint";
@@ -237,6 +241,47 @@ export component NavigationView {
                                 text: "Audio",
                                 icon: OutlinedIcons.music_note,
                             },
+                        ];
+                    }
+                }
+            }
+
+            ComponentCard {
+                title: "Top app bars";
+
+                Vertical {
+                    AppBar {
+                        leading_icon: FilledIcons.menu;
+                        trailing_icon: FilledIcons.account_circle;
+                        title: "Product";
+                        container_background: true;
+                    }
+
+                    SmallAppBar {
+                        leading_icon: FilledIcons.menu;
+                        container_background: true;
+                        title: "Small";
+                        trailing_icons: [
+                            { icon: FilledIcons.calendar_month },
+                            { icon: FilledIcons.more_vert },
+                        ];
+                    }
+                    
+                    MediumAppBar {
+                        leading_icon: FilledIcons.menu;
+                        title: "Medium";
+                        trailing_icons: [
+                            { icon: FilledIcons.calendar_month },
+                            { icon: FilledIcons.more_vert },
+                        ];
+                    }
+
+                    LargeAppBar {
+                        leading_icon: FilledIcons.menu;
+                        title: "Large";
+                        trailing_icons: [
+                            { icon: FilledIcons.calendar_month },
+                            { icon: FilledIcons.more_vert },
                         ];
                     }
                 }

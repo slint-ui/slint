@@ -6,7 +6,7 @@ import { MaterialPalette } from "../../../material.slint";
 export global MainWindowAdapter {
     in property <length> width;
     in property <length> height;
-    in property <bool> surface_background;
+    in property <bool> container_background;
     out property <bool> break_layout: root.width < 852px;
-    out property <brush> background: root.surface_background ? MaterialPalette.surface_container :  MaterialPalette.background;
+    out property <brush> background: root.container_background ? MaterialPalette.surface_container :  MaterialPalette.background;
 }
