@@ -30,6 +30,10 @@ export const App = () => {
     const [exportedFiles, setExportedFiles] = useState<Array<{ name: string, content: string }>>([]);
     const [lightOrDarkMode, setLightOrDarkMode] = useState(getColorTheme());
 
+    listenTS("updatePropertiesCallback", (res) => {
+        setTitle(res.title || "");
+        setSlintProperties(res.slintSnippet || "");
+    });
 
     // Theme handling
     useEffect(() => {
@@ -212,11 +216,14 @@ export const App = () => {
                 style={{
                     border: `none`,
                     margin: '4px 4px 12px 4px',
+                    marginBottom: exportedFiles.length > 0 ? '4px' : '12px',
                     borderRadius: '4px',
-                    background: lightOrDarkMode === "dark" ? '#91AAB9' : '#BBD3E1',
+                    background: lightOrDarkMode === "dark" ? '#4497F7' : '#4497F7',
                     padding: '4px',
                     width: '140px',
-                    alignSelf: "center"
+                    alignSelf: "center",
+                    height: '32px',
+                    color: 'white',
                 }}
             >
                 Export All Variables
@@ -228,33 +235,36 @@ export const App = () => {
                 transition: 'all 0.3s ease-in-out'
             }}>
                 {exportedFiles.length > 0 && (
-                    <button
+                    <a
                         onClick={() => downloadZipFile(exportedFiles)}
                         style={{
-                            backgroundColor: exportsAreCurrent ? '#2196F3' : '#2196F3cc',
-                            color: exportsAreCurrent ? 'white' : 'black',
-                            border: 'none',
-                            padding: '10px',
-                            marginTop: '10px',
+                            backgroundColor: 'transparent',
+                            color: lightOrDarkMode === "dark" ? 'white' : 'black',
+                            marginTop: '4px',
+                            marginBottom: '4px',
                             cursor: exportsAreCurrent ? 'pointer' : 'not-allowed',
-                            borderRadius: '4px',
-                            fontWeight: 'bold',
+                            fontSize: '0.8rem',
                             width: '100%',
                             display: 'flex',
                             justifyContent: 'center',
                             alignItems: 'center',
                             transition: 'all 0.3s ease',
-                            opacity: exportsAreCurrent ? '1' : '0.5'
+                            opacity: exportsAreCurrent ? '1' : '0.5',
                         }}
-                        disabled={!exportsAreCurrent}
+                        // disabled={!exportsAreCurrent}
                     >
                         <span style={{ marginRight: '8px' }}>
                             {exportsAreCurrent ? '📦' : '⚠️'}
                         </span>
-                        {exportsAreCurrent
-                            ? `Download All as ZIP (${exportedFiles.length} files)`
+                        <span
+                        style={{textDecoration: 'underline',
+                        }}
+                        >
+                            {exportsAreCurrent
+                            ? `Download ZIP (${exportedFiles.length} files)`
                             : 'Files outdated - export again'}
-                    </button>
+                        </span>
+                    </a>
                 )}
             </div>
         </div>

@@ -443,7 +443,7 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<Array<{ nam
           // Process values for each mode
           for (const [modeId, value] of Object.entries(variable.valuesByMode)) {
             const modeInfo = collection.modes.find(m => m.modeId === modeId);
-            console.log(`Variable ${variable.name} (${variable.id}) has value type: ${typeof value} value: ${JSON.stringify(value)}`);
+            // console.log(`Variable ${variable.name} (${variable.id}) has value type: ${typeof value} value: ${JSON.stringify(value)}`);
             if (!modeInfo) continue;
 
             const modeName = sanitizeModeForEnum(formatPropertyName(modeInfo.name));
@@ -1145,7 +1145,6 @@ function generateSchemeStructs(variableTree: VariableNode, collectionData: { nam
 
   // 6. Generate the current scheme property with current-scheme toggle
   let currentSchemeInstance = `    in-out property <${sanitizeEnumName(collectionData.formattedName)}Mode> current-scheme: ${[...collectionData.modes][0]};\n`;
-  // Add the intermediate property to select the current mode based on the enum
   // Add the current-mode property that dynamically selects based on the enum
   currentSchemeInstance += `    out property <${schemeName}> current-mode: {\n`;
   currentSchemeInstance += `        // Dynamic mode selector based on enum value\n`;
