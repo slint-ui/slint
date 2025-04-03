@@ -3,20 +3,20 @@
 
 from slint import load_file
 import slint
-import os
 import pytest
+from pathlib import Path
 
 
-def base_dir() -> str:
+def base_dir() -> Path:
     origin = __spec__.origin
     assert origin is not None
-    base_dir = os.path.dirname(origin)
+    base_dir = Path(origin).parent
     assert base_dir is not None
     return base_dir
 
 
 def test_callback_decorators(caplog: pytest.LogCaptureFixture) -> None:
-    module = load_file(os.path.join(base_dir(), "test-load-file.slint"), quiet=False)
+    module = load_file(base_dir() / "test-load-file.slint", quiet=False)
 
     class SubClass(module.App):  # type: ignore
         @slint.callback()

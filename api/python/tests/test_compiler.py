@@ -3,16 +3,17 @@
 
 from slint import slint as native
 from slint.slint import ValueType
+from pathlib import Path
 
 
 def test_basic_compiler() -> None:
     compiler = native.Compiler()
 
     assert compiler.include_paths == []
-    compiler.include_paths = ["testing"]
-    assert compiler.include_paths == ["testing"]
+    compiler.include_paths = [Path("testing")]
+    assert compiler.include_paths == [Path("testing")]
 
-    assert len(compiler.build_from_source("Garbage", "").component_names) == 0
+    assert len(compiler.build_from_source("Garbage", Path("")).component_names) == 0
 
     result = compiler.build_from_source(
         """
@@ -36,7 +37,7 @@ def test_basic_compiler() -> None:
             public function ff() {}
         }
     """,
-        "",
+        Path(""),
     )
     assert result.component_names == ["Test"]
     compdef = result.component("Test")
@@ -80,7 +81,7 @@ def test_basic_compiler() -> None:
 def test_compiler_build_from_path() -> None:
     compiler = native.Compiler()
 
-    result = compiler.build_from_path("Nonexistent.slint")
+    result = compiler.build_from_path(Path("Nonexistent.slint"))
     assert len(result.component_names) == 0
 
     diags = result.diagnostics

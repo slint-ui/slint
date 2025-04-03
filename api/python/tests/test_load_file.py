@@ -3,19 +3,19 @@
 
 import pytest
 from slint import load_file, CompileError
-import os
+from pathlib import Path
 
 
-def base_dir() -> str:
+def base_dir() -> Path:
     origin = __spec__.origin
     assert origin is not None
-    base_dir = os.path.dirname(origin)
+    base_dir = Path(origin).parent
     assert base_dir is not None
     return base_dir
 
 
 def test_load_file(caplog: pytest.LogCaptureFixture) -> None:
-    module = load_file(os.path.join(base_dir(), "test-load-file.slint"), quiet=False)
+    module = load_file(base_dir() / "test-load-file.slint", quiet=False)
 
     assert (
         "The property 'color' has been deprecated. Please use 'background' instead"
@@ -51,7 +51,7 @@ def test_load_file_fail() -> None:
 
 
 def test_load_file_wrapper() -> None:
-    module = load_file(os.path.join(base_dir(), "test-load-file.slint"), quiet=False)
+    module = load_file(base_dir() / "test-load-file.slint", quiet=False)
 
     instance = module.App()
 
@@ -74,7 +74,7 @@ def test_load_file_wrapper() -> None:
 
 
 def test_constructor_kwargs() -> None:
-    module = load_file(os.path.join(base_dir(), "test-load-file.slint"), quiet=False)
+    module = load_file(base_dir() / "test-load-file.slint", quiet=False)
 
     def early_say_hello(arg: str) -> str:
         return "early:" + arg
