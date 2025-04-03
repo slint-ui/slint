@@ -19,7 +19,7 @@ component BaseAppBar {
     in property <bool> two_rows;
     in property <TextStyle> text_style;
     in property <length> text_padding;
-       
+
     callback leading_clicked();
     callback traling_clicked(index: int);
 
@@ -53,7 +53,7 @@ component BaseAppBar {
                         }
                     }
                 }
-                      
+
                 if !root.two_rows : MaterialText {
                     horizontal_stretch: 1;
                     text: root.title;
@@ -83,7 +83,7 @@ component BaseAppBar {
                             clicked => {
                                 root.traling_clicked(index);
                             }
-                        }       
+                        }
                     }
                 }
             }
@@ -91,7 +91,7 @@ component BaseAppBar {
             if root.two_rows && root.title != "" : HorizontalLayout {
                 padding_left: root.text_padding;
                 padding_right: self.padding_left;
-                
+
                  MaterialText {
                     text: root.title;
                     horizontal_alignment: root.horizontal_alignment;

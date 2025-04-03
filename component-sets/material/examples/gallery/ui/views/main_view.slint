@@ -37,7 +37,7 @@ export component MainView {
             title: "Material 3";
             trailing_icons: [{ icon: Palette.color_scheme == ColorScheme.light ? OutlinedIcons.dark_mode : OutlinedIcons.light_mode, enabled: true }];
             container_background: MainWindowAdapter.container_background;
-            
+
             traling_clicked(index) => {
                 if Palette.color_scheme == ColorScheme.light {
                     Palette.color_scheme = ColorScheme.dark;
@@ -47,7 +47,7 @@ export component MainView {
                 Palette.color_scheme = ColorScheme.light;
             }
         }
-      
+
         Rectangle {
             background: MaterialPalette.background;
 
