@@ -1,11 +1,11 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use std::{collections::HashMap, fmt::Display};
+use std::fmt::Display;
 
 use slint_interpreter::ComponentInstance;
 
-#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum PropertyContainer {
     Main,
     Global(String),
@@ -45,9 +45,14 @@ fn is_property(ty: &i_slint_compiler::langtype::Type) -> bool {
     )
 }
 
+#[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub struct PreviewDataKey {
+    pub container: PropertyContainer,
+    pub property_name: String,
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct PreviewData {
-    pub name: String,
     pub ty: i_slint_compiler::langtype::Type,
     pub visibility: i_slint_compiler::object_tree::PropertyVisibility,
     pub value: Option<slint_interpreter::Value>,
@@ -67,10 +72,12 @@ impl PreviewData {
     }
 }
 
+pub type PreviewDataMap = std::collections::BTreeMap<PreviewDataKey, PreviewData>;
+
 pub fn get_preview_data(
     component_instance: &ComponentInstance,
-    container: PropertyContainer,
-    property_name: String,
+    container: &PropertyContainer,
+    property_name: &str,
 ) -> Option<PreviewData> {
     fn find_preview_data(
         property_name: &str,
@@ -88,19 +95,19 @@ pub fn get_preview_data(
         it.find(|(name, (_, _))| name == property_name).map(|(name, (ty, visibility))| {
             let value = value_query(&name);
 
-            PreviewData { name, ty, visibility, value }
+            PreviewData { ty, visibility, value }
         })
     }
 
     let definition = &component_instance.definition();
     match &container {
         PropertyContainer::Main => {
-            find_preview_data(&property_name, &mut definition.properties_and_callbacks(), &|name| {
+            find_preview_data(property_name, &mut definition.properties_and_callbacks(), &|name| {
                 component_instance.get_property(name).ok()
             })
         }
         PropertyContainer::Global(g) => find_preview_data(
-            &property_name,
+            property_name,
             &mut definition.global_properties_and_callbacks(g)?,
             &|name| component_instance.get_global_property(g, name).ok(),
         ),
@@ -109,13 +116,12 @@ pub fn get_preview_data(
 
 pub fn query_preview_data_properties_and_callbacks(
     component_instance: &ComponentInstance,
-) -> HashMap<PropertyContainer, Vec<PreviewData>> {
+) -> PreviewDataMap {
     let definition = &component_instance.definition();
 
-    let mut result = HashMap::new();
-
-    fn collect_preview_data(
-        it: &mut dyn Iterator<
+    fn collect_preview_data<'a>(
+        container: PropertyContainer,
+        it: &'a mut dyn Iterator<
             Item = (
                 String,
                 (
@@ -124,37 +130,33 @@ pub fn query_preview_data_properties_and_callbacks(
                 ),
             ),
         >,
-        value_query: &dyn Fn(&str) -> Option<slint_interpreter::Value>,
-    ) -> Vec<PreviewData> {
-        let mut v = it
-            .map(|(name, (ty, visibility))| {
-                let value = value_query(&name);
+        value_query: &'a dyn Fn(&str) -> Option<slint_interpreter::Value>,
+    ) -> impl Iterator<Item = (PreviewDataKey, PreviewData)> + use<'a> {
+        it.map(move |(name, (ty, visibility))| {
+            let value = value_query(&name);
 
-                PreviewData { name, ty, visibility, value }
-            })
-            .collect::<Vec<_>>();
-
-        v.sort_by_key(|p| p.name.clone());
-        v
+            (
+                PreviewDataKey { container: container.clone(), property_name: name },
+                PreviewData { ty, visibility, value },
+            )
+        })
     }
 
-    result.insert(
+    let mut result = collect_preview_data(
         PropertyContainer::Main,
-        collect_preview_data(&mut definition.properties_and_callbacks(), &|name| {
-            component_instance.get_property(name).ok()
-        }),
-    );
+        &mut definition.properties_and_callbacks(),
+        &|name| component_instance.get_property(name).ok(),
+    )
+    .collect::<PreviewDataMap>();
 
     for global in definition.globals() {
-        result.insert(
+        result.extend(collect_preview_data(
             PropertyContainer::Global(global.clone()),
-            collect_preview_data(
-                &mut definition
-                    .global_properties_and_callbacks(&global)
-                    .expect("Global was just valid"),
-                &|name| component_instance.get_global_property(&global, name).ok(),
-            ),
-        );
+            &mut definition
+                .global_properties_and_callbacks(&global)
+                .expect("Global was just valid"),
+            &|name| component_instance.get_global_property(&global, name).ok(),
+        ));
     }
 
     result
@@ -187,15 +189,42 @@ fn find_component_properties_and_callbacks<'a>(
     }
 }
 
+pub fn set_preview_data(
+    component_instance: &ComponentInstance,
+    container: &PropertyContainer,
+    property_name: &str,
+    value: slint_interpreter::Value,
+) -> Result<(PreviewDataKey, slint_interpreter::Value), String> {
+    let result = match &container {
+        PropertyContainer::Main => component_instance.set_property(property_name, value.clone()),
+        PropertyContainer::Global(g) => {
+            component_instance.set_global_property(g, property_name, value.clone())
+        }
+    };
+
+    if let Err(msg) = result {
+        Err(format!("Could not set property {property_name}: {msg}"))
+    } else {
+        Ok((
+            PreviewDataKey {
+                container: container.clone(),
+                property_name: property_name.to_string(),
+            },
+            value,
+        ))
+    }
+}
+
 pub fn set_json_preview_data(
     component_instance: &ComponentInstance,
     container: PropertyContainer,
     property_name: Option<String>,
     json: serde_json::Value,
-) -> Result<(), Vec<String>> {
+) -> Result<PreviewDataMap, Vec<String>> {
+    let mut result = PreviewDataMap::default();
+
     let definition = &component_instance.definition();
 
-    let mut properties_set = 0_usize;
     let mut failed_properties = vec![];
 
     let it =
@@ -209,8 +238,8 @@ pub fn set_json_preview_data(
         }
     };
 
-    for (name, (ty, _)) in it {
-        let (name, json_value) = if let Some(pn) = &property_name {
+    for (name, (ty, visibility)) in it {
+        let (property_name, json_value) = if let Some(pn) = &property_name {
             (pn.clone(), Some(&json))
         } else {
             let json_value = match &json {
@@ -239,20 +268,18 @@ pub fn set_json_preview_data(
             continue;
         };
         let Ok(value) = slint_interpreter::json::value_from_json(&ty, json_value) else {
-            failed_properties.push(format!("Could not convert JSON value for property {name}"));
+            failed_properties
+                .push(format!("Could not convert JSON value for property {property_name}"));
             continue;
         };
 
-        let result = match &container {
-            PropertyContainer::Main => component_instance.set_property(&name, value),
-            PropertyContainer::Global(g) => component_instance.set_global_property(g, &name, value),
-        };
-
-        if let Err(msg) = result {
-            failed_properties.push(format!("Could not set property {name}: {msg}"));
-            continue;
-        } else {
-            properties_set += 1;
+        match set_preview_data(component_instance, &container, &property_name, value) {
+            Err(msg) => {
+                failed_properties.push(msg);
+            }
+            Ok((key, value)) => {
+                result.insert(key, PreviewData { ty, visibility, value: Some(value) });
+            }
         }
     }
 
@@ -260,10 +287,10 @@ pub fn set_json_preview_data(
         return Err(failed_properties);
     }
 
-    if properties_set == 0 {
+    if result.is_empty() {
         Err(vec![format!("No property set")])
     } else {
-        Ok(())
+        Ok(result)
     }
 }
 
@@ -335,131 +362,203 @@ mod tests {
 
         let properties = query_preview_data_properties_and_callbacks(&component_instance);
 
-        assert_eq!(properties.len(), 4);
+        assert_eq!(properties.len(), 12);
 
-        let main = properties.get(&PropertyContainer::Main).unwrap();
+        let main = properties
+            .iter()
+            .filter(|(k, _)| k.container == PropertyContainer::Main)
+            .collect::<Vec<_>>();
 
         assert_eq!(main.len(), 3);
         assert_eq!(
             main[0],
-            PreviewData {
-                name: "main-component-in".into(),
-                ty: i_slint_compiler::langtype::Type::Int32,
-                visibility: i_slint_compiler::object_tree::PropertyVisibility::Input,
-                value: Some(slint_interpreter::Value::Number(65.0)),
-            }
+            (
+                &PreviewDataKey {
+                    container: PropertyContainer::Main,
+                    property_name: "main-component-in".into(),
+                },
+                &PreviewData {
+                    ty: i_slint_compiler::langtype::Type::Int32,
+                    visibility: i_slint_compiler::object_tree::PropertyVisibility::Input,
+                    value: Some(slint_interpreter::Value::Number(65.0)),
+                }
+            )
         );
         assert_eq!(
             main[1],
-            PreviewData {
-                name: "main-component-in-out".into(),
-                ty: i_slint_compiler::langtype::Type::Int32,
-                visibility: i_slint_compiler::object_tree::PropertyVisibility::InOut,
-                value: Some(slint_interpreter::Value::Number(260.0))
-            }
+            (
+                &PreviewDataKey {
+                    container: PropertyContainer::Main,
+                    property_name: "main-component-in-out".into(),
+                },
+                &PreviewData {
+                    ty: i_slint_compiler::langtype::Type::Int32,
+                    visibility: i_slint_compiler::object_tree::PropertyVisibility::InOut,
+                    value: Some(slint_interpreter::Value::Number(260.0))
+                }
+            )
         );
         assert_eq!(
             main[2],
-            PreviewData {
-                name: "main-component-out".into(),
-                ty: i_slint_compiler::langtype::Type::Int32,
-                visibility: i_slint_compiler::object_tree::PropertyVisibility::Output,
-                value: Some(slint_interpreter::Value::Number(130.0))
-            }
+            (
+                &PreviewDataKey {
+                    container: PropertyContainer::Main,
+                    property_name: "main-component-out".into(),
+                },
+                &PreviewData {
+                    ty: i_slint_compiler::langtype::Type::Int32,
+                    visibility: i_slint_compiler::object_tree::PropertyVisibility::Output,
+                    value: Some(slint_interpreter::Value::Number(130.0))
+                }
+            )
         );
 
-        let global = properties.get(&PropertyContainer::Global("MainGlobal".into())).unwrap();
+        let global = properties
+            .iter()
+            .filter(|(k, _)| k.container == PropertyContainer::Global("MainGlobal".into()))
+            .collect::<Vec<_>>();
 
         assert_eq!(global.len(), 3);
         assert_eq!(
             global[0],
-            PreviewData {
-                name: "main-global-in".into(),
-                ty: i_slint_compiler::langtype::Type::Int32,
-                visibility: i_slint_compiler::object_tree::PropertyVisibility::Input,
-                value: Some(slint_interpreter::Value::Number(1.0))
-            }
+            (
+                &PreviewDataKey {
+                    container: PropertyContainer::Global("MainGlobal".into()),
+                    property_name: "main-global-in".into(),
+                },
+                &PreviewData {
+                    ty: i_slint_compiler::langtype::Type::Int32,
+                    visibility: i_slint_compiler::object_tree::PropertyVisibility::Input,
+                    value: Some(slint_interpreter::Value::Number(1.0))
+                }
+            )
         );
         assert_eq!(
             global[1],
-            PreviewData {
-                name: "main-global-in-out".into(),
-                ty: i_slint_compiler::langtype::Type::Int32,
-                visibility: i_slint_compiler::object_tree::PropertyVisibility::InOut,
-                value: Some(slint_interpreter::Value::Number(4.0))
-            }
+            (
+                &PreviewDataKey {
+                    container: PropertyContainer::Global("MainGlobal".into()),
+                    property_name: "main-global-in-out".into(),
+                },
+                &PreviewData {
+                    ty: i_slint_compiler::langtype::Type::Int32,
+                    visibility: i_slint_compiler::object_tree::PropertyVisibility::InOut,
+                    value: Some(slint_interpreter::Value::Number(4.0))
+                }
+            )
         );
         assert_eq!(
             global[2],
-            PreviewData {
-                name: "main-global-out".into(),
-                ty: i_slint_compiler::langtype::Type::Int32,
-                visibility: i_slint_compiler::object_tree::PropertyVisibility::Output,
-                value: Some(slint_interpreter::Value::Number(2.0))
-            }
+            (
+                &PreviewDataKey {
+                    container: PropertyContainer::Global("MainGlobal".into()),
+                    property_name: "main-global-out".into(),
+                },
+                &PreviewData {
+                    ty: i_slint_compiler::langtype::Type::Int32,
+                    visibility: i_slint_compiler::object_tree::PropertyVisibility::Output,
+                    value: Some(slint_interpreter::Value::Number(2.0))
+                }
+            )
         );
 
-        let user1 = properties.get(&PropertyContainer::Global("User1".into())).unwrap();
+        let user1 = properties
+            .iter()
+            .filter(|(k, _)| k.container == PropertyContainer::Global("User1".into()))
+            .collect::<Vec<_>>();
 
         assert_eq!(user1.len(), 3);
 
         assert_eq!(
             user1[0],
-            PreviewData {
-                name: "user1-in".into(),
-                ty: i_slint_compiler::langtype::Type::Int32,
-                visibility: i_slint_compiler::object_tree::PropertyVisibility::Input,
-                value: Some(slint_interpreter::Value::Number(8.0))
-            }
+            (
+                &PreviewDataKey {
+                    container: PropertyContainer::Global("User1".into()),
+                    property_name: "user1-in".into(),
+                },
+                &PreviewData {
+                    ty: i_slint_compiler::langtype::Type::Int32,
+                    visibility: i_slint_compiler::object_tree::PropertyVisibility::Input,
+                    value: Some(slint_interpreter::Value::Number(8.0))
+                }
+            )
         );
         assert_eq!(
             user1[1],
-            PreviewData {
-                name: "user1-in-out".into(),
-                ty: i_slint_compiler::langtype::Type::Int32,
-                visibility: i_slint_compiler::object_tree::PropertyVisibility::InOut,
-                value: Some(slint_interpreter::Value::Number(32.0))
-            }
+            (
+                &PreviewDataKey {
+                    container: PropertyContainer::Global("User1".into()),
+                    property_name: "user1-in-out".into(),
+                },
+                &PreviewData {
+                    ty: i_slint_compiler::langtype::Type::Int32,
+                    visibility: i_slint_compiler::object_tree::PropertyVisibility::InOut,
+                    value: Some(slint_interpreter::Value::Number(32.0))
+                }
+            )
         );
         assert_eq!(
             user1[2],
-            PreviewData {
-                name: "user1-out".into(),
-                ty: i_slint_compiler::langtype::Type::Int32,
-                visibility: i_slint_compiler::object_tree::PropertyVisibility::Output,
-                value: Some(slint_interpreter::Value::Number(16.0))
-            }
+            (
+                &PreviewDataKey {
+                    container: PropertyContainer::Global("User1".into()),
+                    property_name: "user1-out".into(),
+                },
+                &PreviewData {
+                    ty: i_slint_compiler::langtype::Type::Int32,
+                    visibility: i_slint_compiler::object_tree::PropertyVisibility::Output,
+                    value: Some(slint_interpreter::Value::Number(16.0))
+                }
+            )
         );
 
-        let user2 = properties.get(&PropertyContainer::Global("User2".into())).unwrap();
+        let user2 = properties
+            .iter()
+            .filter(|(k, _)| k.container == PropertyContainer::Global("User2".into()))
+            .collect::<Vec<_>>();
 
         assert_eq!(user2.len(), 3);
         assert_eq!(
             user2[0],
-            PreviewData {
-                name: "user2-in".into(),
-                ty: i_slint_compiler::langtype::Type::Int32,
-                visibility: i_slint_compiler::object_tree::PropertyVisibility::Input,
-                value: Some(slint_interpreter::Value::Number(64.0))
-            }
+            (
+                &PreviewDataKey {
+                    container: PropertyContainer::Global("User2".into()),
+                    property_name: "user2-in".into(),
+                },
+                &PreviewData {
+                    ty: i_slint_compiler::langtype::Type::Int32,
+                    visibility: i_slint_compiler::object_tree::PropertyVisibility::Input,
+                    value: Some(slint_interpreter::Value::Number(64.0))
+                }
+            )
         );
         assert_eq!(
             user2[1],
-            PreviewData {
-                name: "user2-in-out".into(),
-                ty: i_slint_compiler::langtype::Type::Int32,
-                visibility: i_slint_compiler::object_tree::PropertyVisibility::InOut,
-                value: Some(slint_interpreter::Value::Number(256.0))
-            }
+            (
+                &PreviewDataKey {
+                    container: PropertyContainer::Global("User2".into()),
+                    property_name: "user2-in-out".into(),
+                },
+                &PreviewData {
+                    ty: i_slint_compiler::langtype::Type::Int32,
+                    visibility: i_slint_compiler::object_tree::PropertyVisibility::InOut,
+                    value: Some(slint_interpreter::Value::Number(256.0))
+                }
+            )
         );
         assert_eq!(
             user2[2],
-            PreviewData {
-                name: "user2-out".into(),
-                ty: i_slint_compiler::langtype::Type::Int32,
-                visibility: i_slint_compiler::object_tree::PropertyVisibility::Output,
-                value: Some(slint_interpreter::Value::Number(128.0))
-            }
+            (
+                &PreviewDataKey {
+                    container: PropertyContainer::Global("User2".into()),
+                    property_name: "user2-out".into(),
+                },
+                &PreviewData {
+                    ty: i_slint_compiler::langtype::Type::Int32,
+                    visibility: i_slint_compiler::object_tree::PropertyVisibility::Output,
+                    value: Some(slint_interpreter::Value::Number(128.0))
+                }
+            )
         );
     }
 }

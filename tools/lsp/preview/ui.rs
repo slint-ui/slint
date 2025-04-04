@@ -7,6 +7,7 @@ use std::{collections::HashMap, iter::once, rc::Rc};
 
 use i_slint_compiler::parser::{syntax_nodes, SyntaxKind, TextRange};
 use i_slint_compiler::{expression_tree, langtype, literals};
+
 use itertools::Itertools;
 use lsp_types::Url;
 use slint::{Model, ModelRc, SharedString, ToSharedString, VecModel};
@@ -114,7 +115,7 @@ pub fn create_ui(style: String, experimental: bool) -> Result<PreviewUi, Platfor
         r: c.red() as i32,
         g: c.green() as i32,
         b: c.blue() as i32,
-        text: color_to_string(c).into(),
+        text: color_to_string(c),
         short_text: color_to_short_string(c).into(),
     });
     api.on_rgba_to_color(|r, g, b, a| {
@@ -143,7 +144,7 @@ pub fn create_ui(style: String, experimental: bool) -> Result<PreviewUi, Platfor
         }
         let row = row as usize;
         if row < model.row_count() {
-            model.as_any().downcast_ref::<VecModel<GradientStop>>().unwrap().remove(row as usize);
+            model.as_any().downcast_ref::<VecModel<GradientStop>>().unwrap().remove(row);
         }
     });
 
@@ -283,10 +284,10 @@ pub fn ui_set_known_components(
     let mut all_components = Vec::with_capacity(
         builtin_components.len() + library_components.len() + file_components.len(),
     );
-    all_components.extend_from_slice(&builtin_components);
-    all_components.extend_from_slice(&std_widgets_components);
-    all_components.extend_from_slice(&library_components);
-    all_components.extend_from_slice(&file_components);
+    all_components.extend_from_slice(&builtin_components[..]);
+    all_components.extend_from_slice(&std_widgets_components[..]);
+    all_components.extend_from_slice(&library_components[..]);
+    all_components.extend_from_slice(&file_components[..]);
 
     let result = Rc::new(VecModel::from(all_components));
     let api = ui.global::<Api>();
@@ -516,7 +517,7 @@ fn set_default_brush(
     }
     value.brush_kind = BrushKind::Solid;
     let text = "#00000000";
-    let color = string_to_color(&text).unwrap();
+    let color = string_to_color(text).unwrap();
     value.gradient_stops =
         Rc::new(VecModel::from(vec![GradientStop { color, position: 0.5 }])).into();
     value.display_string = text.into();
@@ -926,7 +927,7 @@ fn map_value_and_type(
             gradient_stops: Rc::new(VecModel::from(vec![GradientStop { color, position: 0.5 }]))
                 .into(),
             code,
-            accessor_path: mapping.name_prefix.clone().into(),
+            accessor_path: mapping.name_prefix.clone(),
             ..Default::default()
         });
     }
@@ -941,7 +942,7 @@ fn map_value_and_type(
                 kind: PropertyValueKind::Float,
                 value_float: get_value::<f32>(value),
                 code: get_code(value),
-                accessor_path: mapping.name_prefix.clone().into(),
+                accessor_path: mapping.name_prefix.clone(),
                 ..Default::default()
             });
         }
@@ -953,7 +954,7 @@ fn map_value_and_type(
                 kind: PropertyValueKind::Integer,
                 value_int: get_value::<i32>(value),
                 code: get_code(value),
-                accessor_path: mapping.name_prefix.clone().into(),
+                accessor_path: mapping.name_prefix.clone(),
                 ..Default::default()
             });
         }
@@ -967,7 +968,7 @@ fn map_value_and_type(
                 value_int: 0,
                 code: get_code(value),
                 default_selection: 1,
-                accessor_path: mapping.name_prefix.clone().into(),
+                accessor_path: mapping.name_prefix.clone(),
                 ..Default::default()
             });
         }
@@ -981,7 +982,7 @@ fn map_value_and_type(
                 value_int: 0,
                 code: get_code(value),
                 default_selection: 0,
-                accessor_path: mapping.name_prefix.clone().into(),
+                accessor_path: mapping.name_prefix.clone(),
                 ..Default::default()
             });
         }
@@ -995,7 +996,7 @@ fn map_value_and_type(
                 value_int: 0,
                 code: get_code(value),
                 default_selection: 0,
-                accessor_path: mapping.name_prefix.clone().into(),
+                accessor_path: mapping.name_prefix.clone(),
                 ..Default::default()
             });
         }
@@ -1009,7 +1010,7 @@ fn map_value_and_type(
                 value_int: 0,
                 code: get_code(value),
                 default_selection: 0,
-                accessor_path: mapping.name_prefix.clone().into(),
+                accessor_path: mapping.name_prefix.clone(),
                 ..Default::default()
             });
         }
@@ -1023,7 +1024,7 @@ fn map_value_and_type(
                 value_int: 0,
                 code: get_code(value),
                 default_selection: 0,
-                accessor_path: mapping.name_prefix.clone().into(),
+                accessor_path: mapping.name_prefix.clone(),
                 ..Default::default()
             });
         }
@@ -1037,7 +1038,7 @@ fn map_value_and_type(
                 value_int: 0,
                 code: get_code(value),
                 default_selection: 0,
-                accessor_path: mapping.name_prefix.clone().into(),
+                accessor_path: mapping.name_prefix.clone(),
                 ..Default::default()
             });
         }
@@ -1048,7 +1049,7 @@ fn map_value_and_type(
                 kind: PropertyValueKind::String,
                 value_string: get_value::<SharedString>(value),
                 code: get_code(value),
-                accessor_path: mapping.name_prefix.clone().into(),
+                accessor_path: mapping.name_prefix.clone(),
                 ..Default::default()
             });
         }
@@ -1080,7 +1081,7 @@ fn map_value_and_type(
                                 .collect::<Vec<_>>(),
                         ))
                         .into(),
-                        accessor_path: mapping.name_prefix.clone().into(),
+                        accessor_path: mapping.name_prefix.clone(),
                         code: get_code(value),
                         ..Default::default()
                     });
@@ -1098,7 +1099,7 @@ fn map_value_and_type(
                                 .collect::<Vec<_>>(),
                         ))
                         .into(),
-                        accessor_path: mapping.name_prefix.clone().into(),
+                        accessor_path: mapping.name_prefix.clone(),
                         code: get_code(value),
                         ..Default::default()
                     });
@@ -1109,7 +1110,7 @@ fn map_value_and_type(
                         display_string: SharedString::from("Unknown Brush"),
                         kind: PropertyValueKind::Code,
                         value_string: SharedString::from("???"),
-                        accessor_path: mapping.name_prefix.clone().into(),
+                        accessor_path: mapping.name_prefix.clone(),
                         code: get_code(value),
                         ..Default::default()
                     });
@@ -1122,7 +1123,7 @@ fn map_value_and_type(
                 display_string: get_value::<bool>(value).to_shared_string(),
                 kind: PropertyValueKind::Boolean,
                 value_bool: get_value::<bool>(value),
-                accessor_path: mapping.name_prefix.clone().into(),
+                accessor_path: mapping.name_prefix.clone(),
                 code: get_code(value),
                 ..Default::default()
             });
@@ -1143,8 +1144,7 @@ fn map_value_and_type(
                     "{}.{}",
                     enumeration.name,
                     enumeration.values[selected_value]
-                )
-                .into(),
+                ),
                 kind: PropertyValueKind::Enum,
                 value_string: enumeration.name.as_str().into(),
                 default_selection: i32::try_from(enumeration.default_value).unwrap_or_default(),
@@ -1157,7 +1157,7 @@ fn map_value_and_type(
                         .collect::<Vec<_>>(),
                 ))
                 .into(),
-                accessor_path: mapping.name_prefix.clone().into(),
+                accessor_path: mapping.name_prefix.clone(),
                 code: get_code(value),
                 ..Default::default()
             });
@@ -1167,9 +1167,9 @@ fn map_value_and_type(
             let model = get_value::<ModelRc<slint_interpreter::Value>>(value);
 
             for (idx, sub_value) in model.iter().enumerate() {
-                let mut sub_mapping = ValueMapping::default();
-                sub_mapping.name_prefix = mapping.name_prefix.clone();
-                map_value_and_type(&array_ty, &Some(sub_value), &mut sub_mapping);
+                let mut sub_mapping =
+                    ValueMapping { name_prefix: mapping.name_prefix.clone(), ..Default::default() };
+                map_value_and_type(array_ty, &Some(sub_value), &mut sub_mapping);
 
                 let sub_mapping_too_complex = sub_mapping.is_array || sub_mapping.is_too_complex;
                 mapping.is_too_complex = mapping.is_too_complex || sub_mapping_too_complex;
@@ -1203,7 +1203,7 @@ fn map_value_and_type(
                 sub_mapping.name_prefix = header_name.clone();
 
                 map_value_and_type(
-                    &field_ty,
+                    field_ty,
                     &struct_data.get_field(&field).cloned(),
                     &mut sub_mapping,
                 );
@@ -1231,7 +1231,7 @@ fn map_value_and_type(
                 display_string: "Unsupported type".into(),
                 kind: PropertyValueKind::Code,
                 value_string: "???".into(),
-                accessor_path: mapping.name_prefix.clone().into(),
+                accessor_path: mapping.name_prefix.clone(),
                 code: get_code(value),
                 ..Default::default()
             });
@@ -1265,22 +1265,25 @@ fn map_preview_data_to_property_value(
     }
 }
 
-fn map_preview_data_property(preview_data: &preview_data::PreviewData) -> Option<PreviewData> {
-    if !preview_data.is_property() {
+fn map_preview_data_property(
+    key: &preview_data::PreviewDataKey,
+    value: &preview_data::PreviewData,
+) -> Option<PreviewData> {
+    if !value.is_property() {
         return None;
     };
 
-    let has_getter = preview_data.has_getter();
-    let has_setter = preview_data.has_setter();
+    let has_getter = value.has_getter();
+    let has_setter = value.has_setter();
 
     let mut mapping = ValueMapping::default();
-    map_value_and_type(&preview_data.ty, &preview_data.value, &mut mapping);
+    map_value_and_type(&value.ty, &value.value, &mut mapping);
 
     let is_array = mapping.array_values.len() != 1 || mapping.array_values[0].len() != 1;
     let is_too_complex = mapping.is_too_complex;
 
     Some(PreviewData {
-        name: preview_data.name.clone().into(),
+        name: SharedString::from(&key.property_name),
         has_getter,
         has_setter,
         kind: match (is_array, is_too_complex) {
@@ -1293,41 +1296,45 @@ fn map_preview_data_property(preview_data: &preview_data::PreviewData) -> Option
 
 pub fn ui_set_preview_data(
     ui: &PreviewUi,
-    preview_data: HashMap<preview_data::PropertyContainer, Vec<preview_data::PreviewData>>,
+    preview_data: preview_data::PreviewDataMap,
     previewed_component: Option<String>,
 ) {
-    fn fill_container(
+    fn create_container(
         container_name: String,
-        container_id: String,
-        properties: &[preview_data::PreviewData],
-    ) -> PropertyContainer {
-        let properties =
-            properties.iter().filter_map(map_preview_data_property).collect::<Vec<_>>();
-
-        PropertyContainer {
+        it: &mut dyn Iterator<Item = (&preview_data::PreviewDataKey, &preview_data::PreviewData)>,
+    ) -> Option<PropertyContainer> {
+        let (id, props) = it.filter_map(|(k, v)| Some((k, map_preview_data_property(k, v)?))).fold(
+            (None, vec![]),
+            move |mut acc, (key, value)| {
+                acc.0 = Some(acc.0.unwrap_or_else(|| key.container.clone()));
+                acc.1.push(value);
+                acc
+            },
+        );
+        Some(PropertyContainer {
             container_name: container_name.into(),
-            container_id: container_id.into(),
-            properties: Rc::new(VecModel::from(properties)).into(),
-        }
+            container_id: id?.to_string().into(),
+            properties: Rc::new(VecModel::from(props)).into(),
+        })
     }
 
     let mut result: Vec<PropertyContainer> = vec![];
 
-    if let Some(main) = preview_data.get(&preview_data::PropertyContainer::Main) {
-        let c = fill_container(
-            previewed_component.unwrap_or_else(|| "<MAIN>".to_string()),
-            String::new(),
-            main,
-        );
+    if let Some(c) = create_container(
+        previewed_component.unwrap_or_else(|| "<MAIN>".to_string()),
+        &mut preview_data
+            .iter()
+            .filter(|(k, _)| k.container == preview_data::PropertyContainer::Main),
+    ) {
         result.push(c);
     }
 
-    for component_key in
-        preview_data.keys().filter(|k| **k != preview_data::PropertyContainer::Main)
+    for (k, mut chunk) in &preview_data
+        .iter()
+        .filter(|(k, _)| k.container != preview_data::PropertyContainer::Main)
+        .chunk_by(|(k, _)| k.container.clone())
     {
-        if let Some(component) = preview_data.get(component_key) {
-            let component_key = component_key.to_string();
-            let c = fill_container(component_key.clone(), component_key, component);
+        if let Some(c) = create_container(k.to_string(), &mut chunk) {
             result.push(c);
         }
     }
@@ -1338,7 +1345,7 @@ pub fn ui_set_preview_data(
 }
 
 fn to_property_container(container: SharedString) -> preview_data::PropertyContainer {
-    if container.is_empty() {
+    if container.is_empty() || container == "<MAIN>" {
         preview_data::PropertyContainer::Main
     } else {
         preview_data::PropertyContainer::Global(container.to_string())
@@ -1350,12 +1357,12 @@ fn get_property_value(container: SharedString, property_name: SharedString) -> P
         .and_then(|component_instance| {
             preview_data::get_preview_data(
                 &component_instance,
-                to_property_container(container),
-                property_name.to_string(),
+                &to_property_container(container),
+                property_name.as_str(),
             )
         })
         .and_then(|pd| map_preview_data_to_property_value(&pd))
-        .unwrap_or_else(Default::default)
+        .unwrap_or_default()
 }
 
 fn map_preview_data_to_property_value_table(
@@ -1375,19 +1382,18 @@ fn get_property_value_table(
     container: SharedString,
     property_name: SharedString,
 ) -> PropertyValueTable {
-    let (is_array, mut headers, mut values) = preview::component_instance()
+    let (is_array, headers, mut values) = preview::component_instance()
         .and_then(|component_instance| {
             preview_data::get_preview_data(
                 &component_instance,
-                to_property_container(container),
-                property_name.to_string(),
+                &to_property_container(container),
+                property_name.as_str(),
             )
         })
         .map(|pd| map_preview_data_to_property_value_table(&pd))
         .unwrap_or_else(|| (false, Default::default(), Default::default()));
 
-    let headers =
-        Rc::new(VecModel::from(headers.drain(..).map(|s| s.into()).collect::<Vec<_>>())).into();
+    let headers = Rc::new(VecModel::from(headers)).into();
     let values = Rc::new(VecModel::from(
         values.drain(..).map(|cv| Rc::new(VecModel::from(cv)).into()).collect::<Vec<_>>(),
     ))
@@ -1439,12 +1445,12 @@ fn table_row_to_struct(row: ModelRc<PropertyValue>, indent_level: usize) -> Opti
                 0 => None,
                 1 => {
                     let prev = map
-                        .insert(accessor_path.get(0).unwrap().to_string(), NodeKind::Leaf(value));
+                        .insert(accessor_path.first().unwrap().to_string(), NodeKind::Leaf(value));
                     prev.is_none().then_some(())
                 }
                 _ => {
                     let n = map
-                        .entry(accessor_path.get(0).unwrap().to_string())
+                        .entry(accessor_path.first().unwrap().to_string())
                         .or_insert_with(|| NodeKind::Inner(BTreeMap::default()));
 
                     match n {
@@ -1624,7 +1630,7 @@ fn remove_row_from_value_table(table: PropertyValueTable, to_remove: i32) {
     };
 
     if to_remove < vec_model.row_count() {
-        vec_model.remove(to_remove as usize);
+        vec_model.remove(to_remove);
     }
 }
 
@@ -1653,7 +1659,7 @@ fn set_json_preview_data(
             property_name,
             json,
         ) {
-            Ok(()) => SharedString::new(),
+            Ok(_) => SharedString::new(),
             Err(v) => v.first().cloned().unwrap_or_default().into(),
         }
     } else {
@@ -1754,7 +1760,7 @@ fn as_slint_brush(
     }
 
     match kind {
-        BrushKind::Solid => color_to_string(color).into(),
+        BrushKind::Solid => color_to_string(color),
         BrushKind::Linear => {
             format!("@linear-gradient({angle}deg{})", stops_as_string(stops)).into()
         }
@@ -2382,7 +2388,8 @@ export component X {
         type_def: &str,
         type_name: &str,
         code: &str,
-    ) -> crate::preview::preview_data::PreviewData {
+    ) -> (crate::preview::preview_data::PreviewDataKey, crate::preview::preview_data::PreviewData)
+    {
         let component_instance = crate::preview::test::interpret_test(
             "fluent",
             &format!(
@@ -2394,9 +2401,10 @@ export component Tester {{
             "#
             ),
         );
-        let preview_data =
+        let mut data =
             preview_data::query_preview_data_properties_and_callbacks(&component_instance);
-        return preview_data.get(&preview_data::PropertyContainer::Main).unwrap()[0].clone();
+        assert_eq!(data.len(), 1);
+        data.pop_first().unwrap()
     }
 
     fn compare_pv(r: &super::PropertyValue, e: &PropertyValue) {
@@ -2427,10 +2435,9 @@ export component Tester {{
         type_name: &str,
         code: &str,
         expected_data: super::PreviewData,
-    ) -> preview_data::PreviewData {
-        let raw_data = generate_preview_data(visibility, type_def, type_name, code);
-
-        let rp = super::map_preview_data_property(&raw_data).unwrap();
+    ) -> (preview_data::PreviewDataKey, preview_data::PreviewData) {
+        let (key, value) = generate_preview_data(visibility, type_def, type_name, code);
+        let rp = super::map_preview_data_property(&key, &value).unwrap();
 
         eprintln!("*** Validating PreviewData: Received: {rp:?}");
         eprintln!("*** Validating PreviewData: Expected: {expected_data:?}");
@@ -2442,7 +2449,7 @@ export component Tester {{
 
         eprintln!("*** PreviewData is as expected...");
 
-        raw_data
+        (key, value)
     }
 
     fn validate_rp(
@@ -2453,15 +2460,15 @@ export component Tester {{
         expected_data: super::PreviewData,
         expected_value: super::PropertyValue,
     ) {
-        let rp = validate_rp_impl(visibility, type_def, type_name, code, expected_data);
+        let (_, value) = validate_rp_impl(visibility, type_def, type_name, code, expected_data);
 
-        let pv = super::map_preview_data_to_property_value(&rp).unwrap();
+        let pv = super::map_preview_data_to_property_value(&value).unwrap();
         compare_pv(&pv, &expected_value);
 
-        let (is_array, headers, values) = super::map_preview_data_to_property_value_table(&rp);
+        let (is_array, headers, values) = super::map_preview_data_to_property_value_table(&value);
         assert!(!is_array);
         assert!(headers.len() == 1);
-        assert!(headers[0] == "");
+        assert!(headers[0].is_empty());
         assert_eq!(values.len(), 1);
         assert_eq!(values.first().unwrap().len(), 1);
     }
@@ -2477,9 +2484,9 @@ export component Tester {{
         expected_headers: Vec<String>,
         expected_table: Vec<Vec<super::PropertyValue>>,
     ) {
-        let rp = validate_rp_impl(visibility, type_def, type_name, code, expected_data);
+        let (_, value) = validate_rp_impl(visibility, type_def, type_name, code, expected_data);
 
-        let pv = super::map_preview_data_to_property_value(&rp).unwrap();
+        let pv = super::map_preview_data_to_property_value(&value).unwrap();
         compare_pv(
             &pv,
             &super::PropertyValue {
@@ -2489,7 +2496,7 @@ export component Tester {{
             },
         );
 
-        let (is_array, headers, values) = super::map_preview_data_to_property_value_table(&rp);
+        let (is_array, headers, values) = super::map_preview_data_to_property_value_table(&value);
 
         assert_eq!(is_array, expected_is_array);
 
@@ -2734,7 +2741,6 @@ export component Tester {{
                 has_getter: true,
                 has_setter: true,
                 kind: super::PreviewDataKind::Value,
-                ..Default::default()
             },
             super::PropertyValue {
                 display_string: "false".into(),
@@ -2760,7 +2766,6 @@ export component Tester {{
                 has_getter: true,
                 has_setter: true,
                 kind: super::PreviewDataKind::Json,
-                ..Default::default()
             },
             super::PropertyValue {
                 kind: super::PropertyValueKind::Code,
@@ -2784,7 +2789,6 @@ export component Tester {{
                 has_getter: true,
                 has_setter: true,
                 kind: super::PreviewDataKind::Table,
-                ..Default::default()
             },
             "{\n  \"bar\": true,\n  \"count\": 23\n}",
             false,
@@ -2824,7 +2828,6 @@ export component Tester {{
                 has_getter: true,
                 has_setter: true,
                 kind: super::PreviewDataKind::Table,
-                ..Default::default()
                 },
             "{\n  \"first\": {\n    \"c1-1\": \"first of a kind\",\n    \"c1-2\": 23\n  },\n  \"second\": {\n    \"c2-1\": \"second of a kind\",\n    \"c2-2\": 42\n  }\n}",
             false,
@@ -2884,7 +2887,6 @@ export component Tester {{
                 has_getter: true,
                 has_setter: true,
                 kind: super::PreviewDataKind::Table,
-                ..Default::default()
             },
             "[\n  {\n    \"first\": {\n      \"c1-1\": \"first of a kind\",\n      \"c1-2\": 23\n    },\n    \"second\": {\n      \"c2-1\": \"second of a kind\",\n      \"c2-2\": 42\n    }\n  },\n  {\n    \"first\": {\n      \"c1-1\": \"row 2, 1\",\n      \"c1-2\": 3\n    },\n    \"second\": {\n      \"c2-1\": \"row 2, 2\",\n      \"c2-2\": 2\n    }\n  }\n]",
             true,
@@ -2969,7 +2971,6 @@ export component Tester {{
                 has_getter: true,
                 has_setter: true,
                 kind: super::PreviewDataKind::Table,
-                ..Default::default()
             },
             "[\n  true,\n  false\n]",
             true,
