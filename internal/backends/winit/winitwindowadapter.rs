@@ -421,6 +421,7 @@ impl WinitWindowAdapter {
             #[cfg(enable_accesskit)]
             accesskit_adapter: crate::accesskit::AccessKitAdapter::new(
                 self.self_weak.clone(),
+                active_event_loop,
                 &winit_window,
                 self.event_loop_proxy.clone(),
             )

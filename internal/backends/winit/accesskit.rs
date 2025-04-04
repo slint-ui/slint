@@ -20,7 +20,7 @@ use i_slint_core::{properties::PropertyTracker, window::WindowAdapter};
 
 use super::WinitWindowAdapter;
 use crate::SlintEvent;
-use winit::event_loop::EventLoopProxy;
+use winit::event_loop::{ActiveEventLoop, EventLoopProxy};
 
 /// The AccessKit adapter tries to keep the given window adapter's item tree in sync with accesskit's node tree.
 ///
@@ -51,11 +51,16 @@ pub struct AccessKitAdapter {
 impl AccessKitAdapter {
     pub fn new(
         window_adapter_weak: Weak<WinitWindowAdapter>,
+        active_event_loop: &ActiveEventLoop,
         winit_window: &winit::window::Window,
         proxy: EventLoopProxy<SlintEvent>,
     ) -> Self {
         Self {
-            inner: accesskit_winit::Adapter::with_event_loop_proxy(winit_window, proxy),
+            inner: accesskit_winit::Adapter::with_event_loop_proxy(
+                active_event_loop,
+                winit_window,
+                proxy,
+            ),
             window_adapter_weak: window_adapter_weak.clone(),
             nodes: NodeCollection {
                 next_component_id: 1,
