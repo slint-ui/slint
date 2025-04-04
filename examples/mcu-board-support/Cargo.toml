@@ -157,7 +157,7 @@ mipidsi = { version = "0.9.0", optional = true }
 embedded-graphics-core = { version = "0.4", optional = true }
 
 defmt-rtt = { version = "0.4.0", optional = true }
-defmt = { version = "0.3.0", optional = true }
+defmt = { version = "1.0.0", optional = true }
 panic-probe = { version = "0.3.0", optional = true, features = ["print-defmt"] }
 
 embassy-stm32 = { version = "0.2.0", optional = true }
