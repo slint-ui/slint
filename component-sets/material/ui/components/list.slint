@@ -30,19 +30,18 @@ export component Avatar {
     }
 }
 
-export component ListItemTemplate {
+export component ListTile {
     in property <string> text;
     in property <string> supporting_text;
     in property <image> avatar_icon;
     in property <string> avatar_text;
     in property <color> avatar_background;
     in property <color> avatar_foreground;
-    in property <image> action_icon;
+    in property <bool> enabled <=> state_layer.enabled;
 
     property <color> color: MaterialPalette.on_surface;
 
     callback clicked <=> state_layer.clicked;
-    callback action();
 
     min_height: max(MaterialStyleMetrics.size_72, layout.min_height);
 
@@ -77,7 +76,7 @@ export component ListItemTemplate {
                 }
             }
 
-            VerticalLayout {
+            title_layout := VerticalLayout {
                 alignment: center;
                 horizontal_stretch: 1;
 
@@ -96,20 +95,15 @@ export component ListItemTemplate {
                 }
             }
 
-            if root.action_icon.width > 0 && root.action_icon.height > 0 : IconButton {
-                icon: root.action_icon;
-
-                clicked => {
-                    root.action();
-                }
-            }
+            @children
         }
-
-        // Rectangle {
-        //     width: layout.width;
-        //     height: layout.height;
-        //     background: green;
-        // }
     }
+
+    states [
+        disabled when !root.enabled : {
+            state_layer.display_background: false;
+            title_layout.opacity: 38%;
+        }
+    ]
 }
 
