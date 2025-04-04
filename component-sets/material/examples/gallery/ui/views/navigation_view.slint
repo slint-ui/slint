@@ -20,7 +20,9 @@ import {
     AppBar,
     SmallAppBar,
     MediumAppBar,
-    LargeAppBar
+    LargeAppBar,
+    CheckBoxListTile,
+    CheckState
 } from "../../../../material.slint";
 
 import { Group } from "../components/group.slint";
@@ -283,6 +285,37 @@ export component NavigationView {
                             { icon: FilledIcons.calendar_month, enabled: true },
                             { icon: FilledIcons.more_vert, enabled: true },
                         ];
+                    }
+                }
+            }
+        }
+
+        Group {
+            title: "Selection";
+
+            ComponentCard {
+                title: "Checkboxes";
+
+                Vertical {
+                    CheckBoxListTile {
+                        text: "Option 1";
+                        tristate: true;
+                    }
+
+                    CheckBoxListTile {
+                        text: "Option 2";
+                    }
+
+                    CheckBoxListTile {
+                        text: "Option 3";
+                        tristate: true;
+                        error: true;
+                    }
+
+                    CheckBoxListTile {
+                        text: "Option 4";
+                        enabled: false;
+                        check_state: CheckState.checked;
                     }
                 }
             }

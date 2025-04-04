@@ -1,0 +1,104 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { MaterialStyleMetrics } from "../styling/material_style_metrics.slint";
+import { MaterialPalette } from "../styling/material_palette.slint";
+import { Animations } from "../styling/animations.slint";
+import { Icons } from "../icons/icons.slint";
+import { ListTile } from "./list.slint";
+import { StateLayerArea } from "./state_layer.slint";
+import { Icon } from "./icon.slint";
+
+export enum CheckState {
+    unchecked,
+    partially_checked,
+    checked,
+}
+
+export component CheckBox {
+    in_out property <CheckState> check_state;
+    out property <bool> checked: root.check_state == CheckState.checked || root.check_state == CheckState.partially_checked;
+    in property <bool> tristate;
+    in property <bool> error;
+    in property <bool> enabled <=> state_area.enabled;
+
+    min_width: MaterialStyleMetrics.size_48;
+    min_height: self.min_width;
+
+    state_area := StateLayerArea {
+        width: 100%;
+        height: 100%;
+        border_radius: max(self.width, self.height) / 2;
+        color: MaterialPalette.on_surface;
+
+        background_layer := Rectangle {
+            width: MaterialStyleMetrics.size_18;
+            height: self.width;
+            border_radius: MaterialStyleMetrics.border_radius_2;
+            border_width: root.checked ? 0 : 2px;
+            border_color: root.error ? MaterialPalette.error : MaterialPalette.on_surface_variant;
+
+            if root.checked : Icon {
+                colorize: MaterialPalette.on_primary;
+                source: Icons.check;
+
+                states [
+                    partial_checked when root.check_state == CheckState.partially-checked : {
+                        source: Icons.remove;
+                    }
+                ]
+            }
+
+             animate background, border_width {
+                duration: Animations.opacity_duration;
+                easing: Animations.opacity_easing;
+             }
+        }
+
+        clicked => {
+            root.toggle();
+        }
+    }
+
+    public function toggle() {
+        if !root.tristate {
+            root.check_state = root.check_state != CheckState.checked ? CheckState.checked : CheckState.unchecked;
+            return;
+        }
+
+        root.check_state = root.check_state == CheckState.checked ? CheckState.partially_checked :
+            root.check_state == CheckState.partially_checked ? CheckState.unchecked : CheckState.checked;
+    }
+
+    states [
+        disabled when !root.enabled : {
+           state_area.display_background: false;
+           background_layer.border_color: root.checked ? transparent : MaterialPalette.on_surface.with_alpha(38%);
+           background_layer.background: root.checked ? MaterialPalette.on_surface.with_alpha(38%) : transparent;
+        }
+        checked when root.checked : {
+            background_layer.border_width: 0;
+            background_layer.background: root.error ? MaterialPalette.error :  MaterialPalette.primary;
+            state_area.color: background_layer.background;
+        }
+    ]
+}
+
+export component CheckBoxListTile inherits ListTile {
+    in_out property <CheckState> check_state <=> check_box.check_state;
+    out property <bool> checked <=> check_box.checked;
+    in property <bool> tristate <=> check_box.tristate;
+    in property <bool> error <=> check_box.error;
+
+    Rectangle {
+        horizontal-stretch: 0;
+
+        check_box := CheckBox {
+            enabled: root.enabled;
+        }
+    }
+
+    clicked => {
+        check_box.toggle();
+    }
+}

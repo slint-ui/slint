@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 import { ListItem } from "../items/list_item.slint";
-import { Avatar, ListItemTemplate } from "./list.slint";
+import { Avatar, ListTile } from "./list.slint";
 import { MaterialPalette } from "../styling/material_palette.slint";
 import { MaterialStyleMetrics } from "../styling/material_style_metrics.slint";
 import { Typography } from "../styling/typography.slint";
@@ -14,6 +14,20 @@ import { Icons } from "../icons/icons.slint";
 import { HorizontalDivider } from "./divider.slint";
 import { ListView } from "./list_view.slint";
 import { Animations } from "../styling/animations.slint";
+
+component SearchListTile inherits ListTile {
+    in property <image> action_icon;
+
+    callback action();
+
+    if root.action_icon.width > 0 && root.action_icon.height > 0 : IconButton {
+        icon: root.action_icon;
+
+        clicked => {
+            root.action();
+        }
+    }
+}
 
 component SearchIcon {
     in property <image> icon;
@@ -259,7 +273,7 @@ export component SearchBar {
                 if root.items.length > 0 : ListView {
                     horizontal_stretch: 1;
 
-                    for item[index] in root.items : ListItemTemplate {
+                    for item[index] in root.items : SearchListTile {
                         text: item.text;
                         supporting_text: item.supporting_text;
                         avatar_icon: item.avatar_icon;
