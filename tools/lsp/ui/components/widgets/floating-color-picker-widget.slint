@@ -45,8 +45,8 @@ component ColorPicker {
 
     TouchArea {
         moved => {
-            picker-target-x = root.x + self.mouse-x - self.pressed-x;
-            picker-target-y = root.y + self.mouse-y - self.pressed-y;
+            picker-target-x = ((root.x + self.mouse-x - self.pressed-x) / 1px).round() * 1px;
+            picker-target-y = ((root.y + self.mouse-y - self.pressed-y) / 1px).round() * 1px;
 
             if picker-target-x < 0px {
                 root.x = 0px;
