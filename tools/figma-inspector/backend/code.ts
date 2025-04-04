@@ -4,6 +4,8 @@
 
 import { listenTS, updateUI } from "./utils/code-utils.js";
 import { generateSlintSnippet } from "./utils/property-parsing.js";
+import { exportComponentSet } from "./utils/export-components.js";
+
 
 if (figma.editorType === "dev" && figma.mode === "codegen") {
     figma.codegen.on("generate", async ({ node }) => {
@@ -40,5 +42,11 @@ listenTS("copyToClipboard", ({ result }) => {
 figma.on("selectionchange", () => {
     if (figma.editorType === "figma" && figma.mode === "default") {
         updateUI();
+    }
+});
+listenTS("exportAll", ({ result }) => {
+    if (result) {
+        console.clear();
+        exportComponentSet();
     }
 });

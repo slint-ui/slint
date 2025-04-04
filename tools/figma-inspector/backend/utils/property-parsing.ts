@@ -2,7 +2,10 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 export const indentation = "    ";
+
 const rectangleProperties = [
+    "x",
+    "y",
     "width",
     "height",
     "fill",
@@ -10,14 +13,18 @@ const rectangleProperties = [
     "border-radius",
     "border-width",
     "border-color",
+    "background",
 ];
 
 const textProperties = [
+    "x",
+    "y",
     "text",
     "fill",
     "font-family",
     "font-size",
     "font-weight",
+    "color",
 ];
 
 const unsupportedNodeProperties = ["x", "y", "width", "height", "opacity"];
@@ -27,6 +34,69 @@ export type RGBAColor = {
     g: number;
     b: number;
     a: number;
+};
+
+export type ComponentStyle = {
+    width?: number;
+    height?: number;
+    'font-size'?: number;
+    text?: string;
+    background?: string;
+    color?: string;
+    x?: number;
+    y?: number;
+    [key: string]: any;
+};
+
+export const PropertyHandler = {
+    // Parse a property from Figma to our standard format
+    parse(key: string, value: any): any {
+        if (typeof value === 'string') {
+            if (value.endsWith('px')) {
+                return Number(value.replace('px', ''));
+            } else if (key === 'text') {
+                return value.replace(/"/g, '');
+            }
+        }
+        return value;
+    },
+    
+    // Format a property for Slint output
+    format(key: string, value: any): string {
+        if (key === 'text') {
+            return `"${value}"`;
+        } else if (typeof value === 'number') {
+            // Add px to ALL these Slint properties
+            const lengthProperties = [
+                'width', 'height', 'x', 'y', 
+                'border-radius', 'border-width',
+                "font-size", "stroke", "stroke-width",
+                'padding', 'padding-right', 'padding-left', 'padding-top', 'padding-bottom',
+                'spacing', 'margin', 'margin-left', 'margin-right', 'margin-top', 'margin-bottom'
+            ];
+            
+            if (lengthProperties.includes(key)) {
+                return `${value}px`;
+            }
+        }
+        return String(value);
+    },
+    
+    // Extract only properties that differ from base style
+    extractChanges(style: ComponentStyle, baseStyle: ComponentStyle = {}): ComponentStyle {
+        const changes: ComponentStyle = {};
+        for (const [key, value] of Object.entries(style)) {
+            if (baseStyle[key] !== value) {
+                changes[key] = value;
+            }
+        }
+        return changes;
+    },
+    
+    // Clean component names for consistent referencing
+    cleanComponentName(name: string): string {
+        return name.replace(/\d+$/, '');
+    }
 };
 
 export function rgbToHex(rgba: RGBAColor): string {
@@ -228,6 +298,103 @@ export function getBrush(fill: {
     }
 }
 
+function generateChildrenSnippets(sceneNode: SceneNode): string[] {
+    if (!('children' in sceneNode) || !sceneNode.children?.length) {
+        return [];
+    }
+
+    return sceneNode.children.map(child => {
+        switch (child.type) {
+            case "TEXT":
+                return generateTextSnippet(child);
+            case "RECTANGLE":
+            case "COMPONENT":
+            case "INSTANCE":
+                return generateRectangleSnippet(child);
+            case "BOOLEAN_OPERATION":
+                // Handle boolean operations as rectangles for now
+                return generateRectangleSnippet(child);
+            case "FRAME":
+                // Check if it's a layout frame
+                if ('layoutMode' in child && child.layoutMode !== "NONE") {
+                    return generateLayoutSnippet(child) || generateRectangleSnippet(child);
+                }
+                return generateRectangleSnippet(child);
+            default:
+                return generateUnsupportedNodeSnippet(child);
+        }
+    });
+}
+
+function formatLayout(layout: { direction: string; spacing: number; alignment?: string; crossAxisAlignment?: string }): string[] {
+    const properties: string[] = [];
+    
+    if (layout.direction !== "NONE") {
+        properties.push(`${indentation}layout: ${layout.direction.toLowerCase()};`);
+    }
+    if (layout.spacing) {
+        properties.push(`${indentation}spacing: ${layout.spacing}px;`);
+    }
+    if (layout.alignment) {
+        properties.push(`${indentation}alignment: ${layout.alignment.toLowerCase()};`);
+    }
+    if (layout.crossAxisAlignment) {
+        properties.push(`${indentation}cross-alignment: ${layout.crossAxisAlignment.toLowerCase()};`);
+    }
+    
+    return properties;
+}
+
+function formatPadding(padding: { top: number; right: number; bottom: number; left: number }): string[] {
+    const properties: string[] = [];
+    
+    // If all paddings are equal, use single padding property
+    if (padding.top === padding.right && padding.top === padding.bottom && padding.top === padding.left) {
+        properties.push(`${indentation}padding: ${padding.top}px;`);
+    } else {
+        if (padding.top) properties.push(`${indentation}padding-top: ${padding.top}px;`);
+        if (padding.right) properties.push(`${indentation}padding-right: ${padding.right}px;`);
+        if (padding.bottom) properties.push(`${indentation}padding-bottom: ${padding.bottom}px;`);
+        if (padding.left) properties.push(`${indentation}padding-left: ${padding.left}px;`);
+    }
+    
+    return properties;
+}
+
+// Add new function for generating component properties
+export function generateComponentProperties(
+    type: string, 
+    style: ComponentStyle, 
+    indentLevel: number = 1
+): string {
+    const indent = "    ".repeat(indentLevel);
+    const properties: string[] = [];
+
+    Object.entries(style).forEach(([key, value]) => {
+        if (value === undefined || typeof value === 'object') {
+            return;
+        }
+
+        // Use PropertyHandler.format for consistent formatting
+        const formattedValue = PropertyHandler.format(key, value);
+        properties.push(`${indent}${key}: ${formattedValue};`);
+    });
+
+    return properties.join('\n');
+}
+
+export function generateStateProperties(
+    type: string,
+    style: ComponentStyle,
+    prefix: string,
+    indentLevel: number = 1
+): string {
+    return generateComponentProperties(type, style, indentLevel)
+        .split('\n')
+        .map(line => line.replace(/^(\s+)/, `$1${prefix}.`))
+        .join('\n');
+}
+
 export function generateSlintSnippet(sceneNode: SceneNode): string | null {
     const nodeType = sceneNode.type;
 
@@ -241,6 +408,13 @@ export function generateSlintSnippet(sceneNode: SceneNode): string | null {
         case "TEXT": {
             return generateTextSnippet(sceneNode);
         }
+        case "BOOLEAN_OPERATION": {
+            // Properly handle Boolean Operations as Rectangles with fill
+            return generateRectangleSnippet(sceneNode);
+        }
+        // case "COMPONENT_SET": {
+        //     return generateComponentSetSnippet(sceneNode);
+        // }
         default: {
             return generateUnsupportedNodeSnippet(sceneNode);
         }
@@ -308,7 +482,7 @@ export function generateUnsupportedNodeSnippet(sceneNode: SceneNode): string {
         }
     });
 
-    return `//Unsupported type: ${nodeType}\nRectangle {\n${properties.join("\n")}\n}`;
+    return `//Unsupported: ${nodeType}\nRectangle {\n${properties.join("\n")}\n}`;
 }
 
 export function generateRectangleSnippet(sceneNode: SceneNode): string {
@@ -316,20 +490,36 @@ export function generateRectangleSnippet(sceneNode: SceneNode): string {
 
     rectangleProperties.forEach((property) => {
         switch (property) {
+            case "x":
+                if ("x" in sceneNode && typeof sceneNode.x === "number") {
+                    const x = roundNumber(sceneNode.x);
+                    if (x) {
+                        properties.push(`${indentation}x: ${x}px;`);
+                    }
+                }
+                break;
+            case "y":
+                if ("y" in sceneNode && typeof sceneNode.y === "number") {
+                    const y = roundNumber(sceneNode.y);
+                    if (y) {
+                        properties.push(`${indentation}y: ${y}px;`);
+                    }
+                }
+                break;
             case "width":
-                const normalizedWidth = roundNumber(sceneNode.width);
-                if (normalizedWidth) {
-                    properties.push(
-                        `${indentation}width: ${normalizedWidth}px;`,
-                    );
+                if ("width" in sceneNode && typeof sceneNode.width === "number") {
+                    const normalizedWidth = roundNumber(sceneNode.width);
+                    if (normalizedWidth) {
+                        properties.push(`${indentation}width: ${normalizedWidth}px;`);
+                    }
                 }
                 break;
             case "height":
-                const normalizedHeight = roundNumber(sceneNode.height);
-                if (normalizedHeight) {
-                    properties.push(
-                        `${indentation}height: ${normalizedHeight}px;`,
-                    );
+                if ("height" in sceneNode && typeof sceneNode.height === "number") {
+                    const normalizedHeight = roundNumber(sceneNode.height);
+                    if (normalizedHeight) {
+                        properties.push(`${indentation}height: ${normalizedHeight}px;`);
+                    }
                 }
                 break;
             case "fill":
@@ -366,14 +556,77 @@ export function generateRectangleSnippet(sceneNode: SceneNode): string {
                 break;
         }
     });
+    // Handle padding if present
+    if ('paddingLeft' in sceneNode) {
+        const paddingProps = formatPadding({
+            top: sceneNode.paddingTop,
+            right: sceneNode.paddingRight,
+            bottom: sceneNode.paddingBottom,
+            left: sceneNode.paddingLeft
+        });
+        properties.push(...paddingProps);
+    }
 
-    return `Rectangle {\n${properties.join("\n")}\n}`;
+    const childSnippets = generateChildrenSnippets(sceneNode);
+    
+    return `Rectangle {\n${properties.join("\n")}${
+        childSnippets.length > 0 ? '\n' + childSnippets.join('\n') : ''
+    }\n}`;
+}
+
+export function generateLayoutSnippet(sceneNode: SceneNode): string | null {
+    if (!('layoutMode' in sceneNode)) return null;
+
+    const properties: string[] = [];
+    const layoutType = sceneNode.layoutMode === "HORIZONTAL" ? "HorizontalLayout" : "VerticalLayout";
+    
+    if (sceneNode.layoutMode !== "NONE") {
+        if ('itemSpacing' in sceneNode) {
+            properties.push(`${indentation}spacing: ${sceneNode.itemSpacing}px;`);
+        }
+        if ('primaryAxisAlignItems' in sceneNode) {
+            properties.push(`${indentation}alignment: ${sceneNode.primaryAxisAlignItems.toLowerCase()};`);
+        }
+        if ('counterAxisAlignItems' in sceneNode) {
+            properties.push(`${indentation}cross-alignment: ${sceneNode.counterAxisAlignItems.toLowerCase()};`);
+        }
+    }
+
+    const childSnippets = generateChildrenSnippets(sceneNode);
+    
+    if (properties.length === 0 && childSnippets.length === 0) return null;
+
+    return `${layoutType} {\n${properties.join("\n")}${
+        childSnippets.length > 0 ? '\n' + childSnippets.join('\n') : ''
+    }\n}`;
+}
+
+const variantSpecificProperties = ["visible"];
+export function generateComponentSetSnippet(sceneNode: ComponentSetNode): string {
+    // Just handle basic rectangle properties, no variant logic
+    return "It's complicated";
 }
 
 export function generateTextSnippet(sceneNode: SceneNode): string {
     const properties: string[] = [];
     textProperties.forEach((property) => {
         switch (property) {
+            case "x":
+                if ("x" in sceneNode && typeof sceneNode.x === "number") {
+                    const x = roundNumber(sceneNode.x);
+                    if (x) {
+                        properties.push(`${indentation}x: ${x}px;`);
+                    }
+                }
+                break;
+            case "y":
+                if ("y" in sceneNode && typeof sceneNode.y === "number") {
+                    const y = roundNumber(sceneNode.y);
+                    if (y) {
+                        properties.push(`${indentation}y: ${y}px;`);
+                    }
+                }
+                break;
             case "text":
                 if ("characters" in sceneNode) {
                     const characters = sceneNode.characters;
