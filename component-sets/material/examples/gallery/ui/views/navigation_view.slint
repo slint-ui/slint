@@ -22,7 +22,10 @@ import {
     MediumAppBar,
     LargeAppBar,
     CheckBoxListTile,
-    CheckState
+    CheckState,
+    ActionChip,
+    FilterChip,
+    InputChip
 } from "../../../../material.slint";
 
 import { Group } from "../components/group.slint";
@@ -316,6 +319,52 @@ export component NavigationView {
                         text: "Option 4";
                         enabled: false;
                         check_state: CheckState.checked;
+                    }
+                }
+            }
+
+            ComponentCard {
+                title: "Chips";
+
+                Vertical {
+                    Horizontal {
+                        ActionChip {
+                            text: "Assist";
+                            icon: OutlinedIcons.calendar_month;
+                        }
+
+                        FilterChip {
+                            
+                        }
+
+                        InputChip {
+                            
+                        }
+
+                        ActionChip {
+                            text: "Suggestion";
+                        }
+                    }
+                    
+                    Horizontal {            
+                        ActionChip {
+                            text: "Assist";
+                            icon: OutlinedIcons.calendar_month;
+                            enabled: false;
+                        }
+
+                        FilterChip {
+    
+                        }
+
+                        InputChip {
+    
+                        }
+
+                        ActionChip {
+                            text: "Suggestion";
+                            enabled: false;
+                        }
                     }
                 }
             }
