@@ -7,7 +7,7 @@ import {
     getColorTheme,
     subscribeColorTheme,
 } from "./utils/bolt-utils";
-import { copyToClipboard } from "./utils/utils.js";
+import { copyToClipboard, exportAll } from "./utils/utils.js";
 import CodeSnippet from "./snippet/CodeSnippet";
 import "./main.css";
 
@@ -32,14 +32,24 @@ export const App = () => {
             <div className="title">
                 {title}
                 {slintProperties !== "" && (
-                    <span
-                        id="copy-icon"
-                        onClick={() => copyToClipboard(slintProperties)}
-                        onKeyDown={() => copyToClipboard(slintProperties)}
-                        className="copy-icon"
-                    >
-                        📋
-                    </span>
+                    <div>
+                        <span
+                            id="copy-icon"
+                            onClick={() => copyToClipboard(slintProperties)}
+                            onKeyDown={() => copyToClipboard(slintProperties)}
+                            className="copy-icon"
+                        >
+                            📋
+                        </span>
+                        <span
+                            id="export-icon"
+                            onClick={() => exportAll()}
+                            onKeyDown={() => exportAll()}
+                            className="copy-icon"
+                        >
+                            💾
+                        </span>
+                    </div>
                 )}
             </div>
             <CodeSnippet

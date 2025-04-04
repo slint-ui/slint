@@ -9,4 +9,7 @@ export interface EventTS {
     copyToClipboard: {
         result: boolean;
     };
+    exportAll: {
+        result: boolean;
+    };
 }
