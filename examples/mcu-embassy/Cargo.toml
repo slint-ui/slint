@@ -15,7 +15,7 @@ homepage = "https://slint.dev"
 
 [dependencies]
 log = "0.4"
-defmt = { version = "0.3", optional = true, features = ["alloc"] }
+defmt = { version = "1.0", optional = true, features = ["alloc"] }
 defmt-rtt = { version = "0.4", optional = true }
 panic-probe = { version = "0.3", optional = true, features = ["print-defmt"] }
 cortex-m = { version = "0.7.7", optional = true, features = [
