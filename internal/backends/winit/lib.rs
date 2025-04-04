@@ -46,6 +46,7 @@ mod renderer {
     use std::rc::Rc;
 
     use i_slint_core::{graphics::RequestedGraphicsAPI, platform::PlatformError};
+    use winit::event_loop::ActiveEventLoop;
 
     pub trait WinitCompatibleRenderer {
         fn render(&self, window: &i_slint_core::api::Window) -> Result<(), PlatformError>;
@@ -59,6 +60,7 @@ mod renderer {
         // Got winit::Event::Resumed
         fn resume(
             &self,
+            active_event_loop: &ActiveEventLoop,
             window_attributes: winit::window::WindowAttributes,
             requested_graphics_api: Option<RequestedGraphicsAPI>,
         ) -> Result<Rc<winit::window::Window>, PlatformError>;
@@ -638,13 +640,6 @@ impl WinitWindowAccessor for i_slint_core::api::Window {
 }
 
 impl private::WinitWindowAccessorSealed for i_slint_core::api::Window {}
-
-/// Creates a non Slint aware window with winit
-pub fn create_winit_window(
-    window_attributes: winit::window::WindowAttributes,
-) -> Result<winit::window::Window, winit::error::OsError> {
-    event_loop::with_window_target(|eli| Ok(eli.create_window(window_attributes))).unwrap()
-}
 
 #[cfg(test)]
 mod testui {

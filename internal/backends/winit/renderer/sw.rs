@@ -10,6 +10,7 @@ pub use i_slint_core::software_renderer::SoftwareRenderer;
 use i_slint_core::software_renderer::{PremultipliedRgbaColor, RepaintBufferType, TargetPixel};
 use i_slint_core::{graphics::RequestedGraphicsAPI, graphics::Rgb8Pixel};
 use std::{cell::RefCell, rc::Rc};
+use winit::event_loop::ActiveEventLoop;
 
 use super::WinitCompatibleRenderer;
 
@@ -172,15 +173,16 @@ impl super::WinitCompatibleRenderer for WinitSoftwareRenderer {
 
     fn resume(
         &self,
+        active_event_loop: &ActiveEventLoop,
         window_attributes: winit::window::WindowAttributes,
         _requested_graphics_api: Option<RequestedGraphicsAPI>,
     ) -> Result<Rc<winit::window::Window>, PlatformError> {
-        let winit_window = crate::event_loop::with_window_target(|event_loop| {
-            event_loop.create_window(window_attributes).map_err(|winit_os_error| {
-                format!("Error creating native window for software rendering: {winit_os_error}")
-                    .into()
-            })
-        })?;
+        let winit_window =
+            active_event_loop.create_window(window_attributes).map_err(|winit_os_error| {
+                PlatformError::from(format!(
+                    "Error creating native window for software rendering: {winit_os_error}"
+                ))
+            })?;
         let winit_window = Rc::new(winit_window);
 
         let context = softbuffer::Context::new(winit_window.clone())

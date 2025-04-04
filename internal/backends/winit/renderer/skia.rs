@@ -124,15 +124,18 @@ impl super::WinitCompatibleRenderer for WinitSkiaRenderer {
 
     fn resume(
         &self,
+        active_event_loop: &winit::event_loop::ActiveEventLoop,
         window_attributes: winit::window::WindowAttributes,
         requested_graphics_api: Option<RequestedGraphicsAPI>,
     ) -> Result<Rc<winit::window::Window>, PlatformError> {
-        let winit_window = Rc::new(crate::event_loop::with_window_target(|event_loop| {
-            event_loop.create_window(window_attributes).map_err(|winit_os_error| {
-                format!("Error creating native window for Skia rendering: {}", winit_os_error)
-                    .into()
-            })
-        })?);
+        let winit_window = Rc::new(active_event_loop.create_window(window_attributes).map_err(
+            |winit_os_error| {
+                PlatformError::from(format!(
+                    "Error creating native window for Skia rendering: {}",
+                    winit_os_error
+                ))
+            },
+        )?);
 
         let size = winit_window.inner_size();
 

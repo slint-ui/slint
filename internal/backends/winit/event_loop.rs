@@ -103,10 +103,6 @@ pub(crate) enum ActiveOrInactiveEventLoop<'a> {
 }
 
 pub(crate) trait EventLoopInterface {
-    fn create_window(
-        &self,
-        window_attributes: winit::window::WindowAttributes,
-    ) -> Result<winit::window::Window, winit::error::OsError>;
     #[allow(unused)]
     fn event_loop(&self) -> ActiveOrInactiveEventLoop<'_>;
     fn is_wayland(&self) -> bool {
@@ -115,13 +111,6 @@ pub(crate) trait EventLoopInterface {
 }
 
 impl EventLoopInterface for NotRunningEventLoop {
-    fn create_window(
-        &self,
-        window_attributes: winit::window::WindowAttributes,
-    ) -> Result<winit::window::Window, winit::error::OsError> {
-        #[allow(deprecated)]
-        self.instance.create_window(window_attributes)
-    }
     fn event_loop(&self) -> ActiveOrInactiveEventLoop<'_> {
         ActiveOrInactiveEventLoop::Inactive(&self.instance)
     }
@@ -133,12 +122,6 @@ impl EventLoopInterface for NotRunningEventLoop {
 }
 
 impl EventLoopInterface for RunningEventLoop<'_> {
-    fn create_window(
-        &self,
-        window_attributes: winit::window::WindowAttributes,
-    ) -> Result<winit::window::Window, winit::error::OsError> {
-        self.active_event_loop.create_window(window_attributes)
-    }
     fn event_loop(&self) -> ActiveOrInactiveEventLoop<'_> {
         ActiveOrInactiveEventLoop::Active(self.active_event_loop)
     }
@@ -150,7 +133,8 @@ impl EventLoopInterface for RunningEventLoop<'_> {
 }
 
 thread_local! {
-    static ALL_WINDOWS: RefCell<std::collections::HashMap<winit::window::WindowId, Weak<WinitWindowAdapter>>> = RefCell::new(std::collections::HashMap::new());
+    static ACTIVE_WINDOWS: RefCell<std::collections::HashMap<winit::window::WindowId, Weak<WinitWindowAdapter>>> = RefCell::new(std::collections::HashMap::new());
+    static INACTIVE_WINDOWS: RefCell<Vec<Weak<WinitWindowAdapter>>> = RefCell::new(Vec::new());
     pub(crate) static MAYBE_LOOP_INSTANCE: RefCell<Option<NotRunningEventLoop>> = RefCell::default();
 }
 
@@ -221,19 +205,25 @@ pub(crate) fn with_window_target<T>(
 }
 
 pub fn register_window(id: winit::window::WindowId, window: Rc<WinitWindowAdapter>) {
-    ALL_WINDOWS.with(|windows| {
+    ACTIVE_WINDOWS.with(|windows| {
         windows.borrow_mut().insert(id, Rc::downgrade(&window));
     })
 }
 
+pub fn register_inactive_window(window: Rc<WinitWindowAdapter>) {
+    INACTIVE_WINDOWS.with(|windows| {
+        windows.borrow_mut().push(Rc::downgrade(&window));
+    })
+}
+
 pub fn unregister_window(id: winit::window::WindowId) {
-    let _ = ALL_WINDOWS.try_with(|windows| {
+    let _ = ACTIVE_WINDOWS.try_with(|windows| {
         windows.borrow_mut().remove(&id);
     });
 }
 
 pub fn window_by_id(id: winit::window::WindowId) -> Option<Rc<WinitWindowAdapter>> {
-    ALL_WINDOWS.with(|windows| windows.borrow().get(&id).and_then(|weakref| weakref.upgrade()))
+    ACTIVE_WINDOWS.with(|windows| windows.borrow().get(&id).and_then(|weakref| weakref.upgrade()))
 }
 
 /// This enum captures run-time specific events that can be dispatched to the event loop in
@@ -282,11 +272,12 @@ pub struct EventLoopState {
 }
 
 impl winit::application::ApplicationHandler<SlintUserEvent> for EventLoopState {
-    fn resumed(&mut self, _event_loop: &ActiveEventLoop) {
-        ALL_WINDOWS.with(|ws| {
-            for (_, window_weak) in ws.borrow().iter() {
+    fn resumed(&mut self, active_event_loop: &ActiveEventLoop) {
+        INACTIVE_WINDOWS.with(|ws| {
+            let windows_to_activate = std::mem::take(&mut *ws.borrow_mut());
+            for window_weak in windows_to_activate.into_iter() {
                 if let Some(w) = window_weak.upgrade() {
-                    if let Err(e) = w.ensure_window() {
+                    if let Err(e) = w.ensure_window(active_event_loop) {
                         self.loop_error = Some(e);
                     }
                 }
@@ -616,7 +607,7 @@ impl winit::application::ApplicationHandler<SlintUserEvent> for EventLoopState {
 
     fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
         if !event_loop.exiting() {
-            ALL_WINDOWS.with(|windows| {
+            ACTIVE_WINDOWS.with(|windows| {
                 for w in windows.borrow().iter().filter_map(|(_, w)| w.upgrade()) {
                     if w.window().has_active_animations() {
                         w.request_redraw();

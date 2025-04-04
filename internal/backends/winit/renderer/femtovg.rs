@@ -8,6 +8,7 @@ use i_slint_core::renderer::Renderer;
 use i_slint_core::{graphics::RequestedGraphicsAPI, platform::PlatformError};
 use i_slint_renderer_femtovg::{FemtoVGRenderer, FemtoVGRendererExt};
 
+use winit::event_loop::ActiveEventLoop;
 #[cfg(target_arch = "wasm32")]
 use winit::platform::web::WindowExtWebSys;
 
@@ -41,6 +42,7 @@ impl super::WinitCompatibleRenderer for GlutinFemtoVGRenderer {
 
     fn resume(
         &self,
+        active_event_loop: &ActiveEventLoop,
         window_attributes: winit::window::WindowAttributes,
         #[cfg_attr(target_arch = "wasm32", allow(unused_variables))] requested_graphics_api: Option<
             RequestedGraphicsAPI,
