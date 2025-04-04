@@ -1073,6 +1073,8 @@ impl WindowAdapter for WinitWindowAdapter {
         let winit_max_inner = new_constraints.max.map(into_size);
         winit_window_or_none.set_max_inner_size(winit_max_inner);
 
+        // On ios, etc. apps are fullscreen and need to be responsive.
+        #[cfg(not(ios_and_friends))]
         adjust_window_size_to_satisfy_constraints(self, winit_min_inner, winit_max_inner);
 
         // Auto-resize to the preferred size if users (SlintPad) requests it
@@ -1310,6 +1312,7 @@ impl Drop for WinitWindowAdapter {
 }
 
 // Winit doesn't automatically resize the window to satisfy constraints. Qt does it though, and so do we here.
+#[cfg(not(ios_and_friends))]
 fn adjust_window_size_to_satisfy_constraints(
     adapter: &WinitWindowAdapter,
     min_size: Option<winit::dpi::PhysicalSize<f32>>,
