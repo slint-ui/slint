@@ -99,7 +99,7 @@ jobs:
                   fi
             - uses: baptiste0928/cargo-install@v3
               with:
-                  crate: taplo
+                  crate: taplo-cli
             - name: Prepare feature config for binaries
               working-directory: api/node
               shell: bash
