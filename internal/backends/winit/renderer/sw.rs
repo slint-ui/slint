@@ -12,6 +12,7 @@ use i_slint_core::{graphics::RequestedGraphicsAPI, graphics::Rgb8Pixel};
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
+use winit::event_loop::ActiveEventLoop;
 
 use super::WinitCompatibleRenderer;
 
@@ -177,12 +178,12 @@ impl super::WinitCompatibleRenderer for WinitSoftwareRenderer {
 
     fn resume(
         &self,
-        event_loop: &dyn crate::event_loop::EventLoopInterface,
+        active_event_loop: &ActiveEventLoop,
         window_attributes: winit::window::WindowAttributes,
         _requested_graphics_api: Option<RequestedGraphicsAPI>,
     ) -> Result<Arc<winit::window::Window>, PlatformError> {
         let winit_window =
-            event_loop.create_window(window_attributes).map_err(|winit_os_error| {
+            active_event_loop.create_window(window_attributes).map_err(|winit_os_error| {
                 PlatformError::from(format!(
                     "Error creating native window for software rendering: {winit_os_error}"
                 ))
@@ -206,9 +207,5 @@ impl super::WinitCompatibleRenderer for WinitSoftwareRenderer {
         drop(self.surface.borrow_mut().take());
         drop(self._context.borrow_mut().take());
         Ok(())
-    }
-
-    fn is_suspended(&self) -> bool {
-        self._context.borrow().is_none()
     }
 }

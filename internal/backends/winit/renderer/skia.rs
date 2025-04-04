@@ -1,7 +1,6 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use std::cell::Cell;
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -12,17 +11,13 @@ use i_slint_renderer_skia::SkiaRenderer;
 
 pub struct WinitSkiaRenderer {
     renderer: SkiaRenderer,
-    suspended: Cell<bool>,
 }
 
 impl WinitSkiaRenderer {
     pub fn new_suspended(
         shared_backend_data: &Rc<crate::SharedBackendData>,
     ) -> Box<dyn super::WinitCompatibleRenderer> {
-        Box::new(Self {
-            renderer: SkiaRenderer::default(&shared_backend_data.skia_context),
-            suspended: Default::default(),
-        })
+        Box::new(Self { renderer: SkiaRenderer::default(&shared_backend_data.skia_context) })
     }
 
     #[cfg(not(target_os = "android"))]
@@ -31,7 +26,6 @@ impl WinitSkiaRenderer {
     ) -> Box<dyn super::WinitCompatibleRenderer> {
         Box::new(Self {
             renderer: SkiaRenderer::default_software(&shared_backend_data.skia_context),
-            suspended: Default::default(),
         })
     }
 
@@ -39,30 +33,21 @@ impl WinitSkiaRenderer {
     pub fn new_opengl_suspended(
         shared_backend_data: &Rc<crate::SharedBackendData>,
     ) -> Box<dyn super::WinitCompatibleRenderer> {
-        Box::new(Self {
-            renderer: SkiaRenderer::default_opengl(&shared_backend_data.skia_context),
-            suspended: Default::default(),
-        })
+        Box::new(Self { renderer: SkiaRenderer::default_opengl(&shared_backend_data.skia_context) })
     }
 
     #[cfg(target_vendor = "apple")]
     pub fn new_metal_suspended(
         shared_backend_data: &Rc<crate::SharedBackendData>,
     ) -> Box<dyn super::WinitCompatibleRenderer> {
-        Box::new(Self {
-            renderer: SkiaRenderer::default_metal(&shared_backend_data.skia_context),
-            suspended: Default::default(),
-        })
+        Box::new(Self { renderer: SkiaRenderer::default_metal(&shared_backend_data.skia_context) })
     }
 
     #[cfg(feature = "renderer-skia-vulkan")]
     pub fn new_vulkan_suspended(
         shared_backend_data: &Rc<crate::SharedBackendData>,
     ) -> Box<dyn super::WinitCompatibleRenderer> {
-        Box::new(Self {
-            renderer: SkiaRenderer::default_vulkan(&shared_backend_data.skia_context),
-            suspended: Default::default(),
-        })
+        Box::new(Self { renderer: SkiaRenderer::default_vulkan(&shared_backend_data.skia_context) })
     }
 
     #[cfg(target_family = "windows")]
@@ -71,7 +56,6 @@ impl WinitSkiaRenderer {
     ) -> Box<dyn super::WinitCompatibleRenderer> {
         Box::new(Self {
             renderer: SkiaRenderer::default_direct3d(&shared_backend_data.skia_context),
-            suspended: Default::default(),
         })
     }
 
@@ -138,24 +122,24 @@ impl super::WinitCompatibleRenderer for WinitSkiaRenderer {
     }
 
     fn suspend(&self) -> Result<(), PlatformError> {
-        self.suspended.set(true);
         self.renderer.set_pre_present_callback(None);
         self.renderer.suspend()
     }
 
     fn resume(
         &self,
-        event_loop: &dyn crate::event_loop::EventLoopInterface,
+        active_event_loop: &winit::event_loop::ActiveEventLoop,
         window_attributes: winit::window::WindowAttributes,
         requested_graphics_api: Option<RequestedGraphicsAPI>,
     ) -> Result<Arc<winit::window::Window>, PlatformError> {
-        let winit_window =
-            Arc::new(event_loop.create_window(window_attributes).map_err(|winit_os_error| {
+        let winit_window = Arc::new(active_event_loop.create_window(window_attributes).map_err(
+            |winit_os_error| {
                 PlatformError::from(format!(
                     "Error creating native window for Skia rendering: {}",
                     winit_os_error
                 ))
-            })?);
+            },
+        )?);
 
         let size = winit_window.inner_size();
 
@@ -173,12 +157,6 @@ impl super::WinitCompatibleRenderer for WinitSkiaRenderer {
             }
         })));
 
-        self.suspended.set(false);
-
         Ok(winit_window)
-    }
-
-    fn is_suspended(&self) -> bool {
-        self.suspended.get()
     }
 }
