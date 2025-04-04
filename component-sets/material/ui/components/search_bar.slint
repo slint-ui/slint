@@ -19,7 +19,7 @@ component SearchListTile inherits ListTile {
     in property <image> action_icon;
 
     callback action();
-    
+
     if root.action_icon.width > 0 && root.action_icon.height > 0 : IconButton {
         icon: root.action_icon;
 

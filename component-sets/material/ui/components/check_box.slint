@@ -11,7 +11,7 @@ import { Icon } from "./icon.slint";
 
 export enum CheckState {
     unchecked,
-    partially_checked,    
+    partially_checked,
     checked,
 }
 
@@ -48,7 +48,7 @@ export component CheckBox {
                     }
                 ]
             }
-            
+
              animate background, border_width {
                 duration: Animations.opacity_duration;
                 easing: Animations.opacity_easing;
@@ -69,7 +69,7 @@ export component CheckBox {
         root.check_state = root.check_state == CheckState.checked ? CheckState.partially_checked :
             root.check_state == CheckState.partially_checked ? CheckState.unchecked : CheckState.checked;
     }
-   
+
     states [
         disabled when !root.enabled : {
            state_area.display_background: false;
