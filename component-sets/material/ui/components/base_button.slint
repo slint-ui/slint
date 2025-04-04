@@ -9,6 +9,7 @@ import { MaterialStyleMetrics } from "../styling/material_style_metrics.slint";
 
 export component BaseButton inherits StateLayerArea {
     in property <image> icon;
+    in property <color> icon_color: self.color;
     in property <string> text;
     in property <length> horizontal_padding: MaterialStyleMetrics.padding_24;
     in property <length> vertical_padding: MaterialStyleMetrics.padding_10;
@@ -16,25 +17,48 @@ export component BaseButton inherits StateLayerArea {
     in property <length> min_layout_width: MaterialStyleMetrics.size_40;
     in property <length> min_layout_height: MaterialStyleMetrics.size_40;
     in property <length> icon_size: MaterialStyleMetrics.icon_size_40;
-
+    in property <image> avatar;
+    in property <length> avatar_size;
+    in property <color> avatar_background: #00000000;
+    out property <bool> has_icon: root.icon.width > 0 && root.icon.height > 0;
+    out property <bool> has_avatar: root.avatar.width > 0 && root.avatar.height > 0;
+    
     min_width: max(root.min_layout_width, layout.min_width);
     min_height: max(root.min_layout_height, layout.min_height);
     tooltip_offset: root.height / 2 + root.icon_size / 2 + MaterialStyleMetrics.padding_14;
+    padding_left: root.horizontal_padding;
+    padding_right: root.horizontal_padding;
+    padding_top: root.vertical_padding;
+    padding_bottom: root.vertical_padding;
 
     layout := HorizontalLayout {
-        padding_left: root.horizontal_padding;
-        padding_right: root.horizontal_padding;
-        padding_top: root.vertical_padding;
-        padding_bottom: root.vertical_padding;
+        padding_left: root.padding_left;
+        padding_right: root.padding_right;
+        padding_top: root.padding_top;
+        padding_bottom: root.padding_bottom;
         spacing: root.spacing;
         alignment: center;
 
-        if root.icon.width > 0 && root.icon.height > 0 : VerticalLayout {
+        if root.has_icon || root.has_avatar : VerticalLayout {
             alignment: center;
 
-            Icon {
+            if root.has_avatar && root.avatar_size > 0 : Rectangle {
+                width: root.avatar_size;
+                height: self.width;
+                background: root.avatar_background;
+                border-radius: max(self.width, self.height) / 2;
+                clip: true;
+
+                Icon {
+                    width: 100%;
+                    height: 100%;
+                    source: root.avatar;
+                }
+            }
+
+            if root.has_icon : Icon {
                 source: root.icon;
-                colorize: root.color;
+                colorize: root.icon_color;
                 opacity: root.enabled ? 100% : 38%;
                 width: root.icon_size;
             }
