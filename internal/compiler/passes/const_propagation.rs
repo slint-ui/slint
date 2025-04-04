@@ -207,6 +207,7 @@ fn simplify_expression(expr: &mut Expression) -> bool {
         Expression::LayoutCacheAccess { .. } => false,
         Expression::SolveLayout { .. } => false,
         Expression::ComputeLayoutInfo { .. } => false,
+        Expression::DebugHook { .. } => false, // This is not const by design
         _ => {
             let mut result = true;
             expr.visit_mut(|expr| result &= simplify_expression(expr));

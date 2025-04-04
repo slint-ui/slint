@@ -74,7 +74,7 @@ fn eval_const_expr(
     span: &dyn crate::diagnostics::Spanned,
     diag: &mut BuildDiagnostics,
 ) -> Option<f64> {
-    match expression {
+    match super::ignore_debug_hooks(expression) {
         Expression::NumberLiteral(v, Unit::None) => Some(*v),
         Expression::Cast { from, .. } => eval_const_expr(from, name, span, diag),
         Expression::UnaryOp { sub, op: '-' } => eval_const_expr(sub, name, span, diag).map(|v| -v),
