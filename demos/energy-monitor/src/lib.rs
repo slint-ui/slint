@@ -35,6 +35,8 @@ pub fn main() {
 
     let window = MainWindow::new().unwrap();
 
+    window.window().set_fullscreen(true);
+
     // let _ to keep the timer alive.
     #[cfg(all(not(feature = "mcu-board-support"), feature = "chrono"))]
     let _timer = header::setup(&window);
