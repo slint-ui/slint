@@ -49,7 +49,8 @@ export component MainWindow inherits Window {
         {color: #f0f, level: 70%},
         {color: #000, level: 30%},
     ];
-    out property <int> active-page: 0;
+    in-out property <int> active-page: 0;
+    in-out property <bool> dark-mode <=> DemoPalette.dark-mode;
 
     callback quit();
 
