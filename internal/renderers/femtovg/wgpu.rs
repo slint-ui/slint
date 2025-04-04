@@ -102,7 +102,10 @@ impl GraphicsBackend for WGPUBackend {
         height: std::num::NonZeroU32,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let mut surface_config = self.surface_config.borrow_mut();
-        let surface_config = surface_config.as_mut().unwrap();
+        let Some(surface_config) = surface_config.as_mut() else {
+            // When the backend dispatches a resize event while the renderer is suspended, ignore resize requests.
+            return Ok(());
+        };
 
         surface_config.width = width.get();
         surface_config.height = height.get();

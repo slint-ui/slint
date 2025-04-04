@@ -1,7 +1,6 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use std::cell::Cell;
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -11,6 +10,7 @@ use i_slint_renderer_femtovg::{
     opengl, FemtoVGOpenGLRendererExt, FemtoVGRenderer, FemtoVGRendererExt,
 };
 
+use winit::event_loop::ActiveEventLoop;
 #[cfg(target_arch = "wasm32")]
 use winit::platform::web::WindowExtWebSys;
 
@@ -21,14 +21,13 @@ mod glcontext;
 
 pub struct GlutinFemtoVGRenderer {
     renderer: FemtoVGRenderer<opengl::OpenGLBackend>,
-    suspended: Cell<bool>,
 }
 
 impl GlutinFemtoVGRenderer {
     pub fn new_suspended(
         _shared_backend_data: &Rc<crate::SharedBackendData>,
     ) -> Box<dyn WinitCompatibleRenderer> {
-        Box::new(Self { renderer: FemtoVGRenderer::new_suspended(), suspended: Cell::new(true) })
+        Box::new(Self { renderer: FemtoVGRenderer::new_suspended() })
     }
 }
 
@@ -43,7 +42,7 @@ impl super::WinitCompatibleRenderer for GlutinFemtoVGRenderer {
 
     fn resume(
         &self,
-        event_loop: &dyn crate::event_loop::EventLoopInterface,
+        active_event_loop: &ActiveEventLoop,
         window_attributes: winit::window::WindowAttributes,
         #[cfg_attr(target_arch = "wasm32", allow(unused_variables))] requested_graphics_api: Option<
             RequestedGraphicsAPI,
@@ -52,18 +51,19 @@ impl super::WinitCompatibleRenderer for GlutinFemtoVGRenderer {
         #[cfg(not(target_arch = "wasm32"))]
         let (winit_window, opengl_context) = glcontext::OpenGLContext::new_context(
             window_attributes,
-            event_loop.event_loop(),
+            active_event_loop,
             requested_graphics_api.map(TryInto::try_into).transpose()?,
         )?;
 
         #[cfg(target_arch = "wasm32")]
-        let winit_window =
-            Arc::new(event_loop.create_window(window_attributes).map_err(|winit_os_error| {
+        let winit_window = Arc::new(active_event_loop.create_window(window_attributes).map_err(
+            |winit_os_error| {
                 PlatformError::from(format!(
                     "FemtoVG Renderer: Could not create winit window wrapper for DOM canvas: {}",
                     winit_os_error
                 ))
-            })?);
+            },
+        )?);
 
         self.renderer.set_opengl_context(
             #[cfg(not(target_arch = "wasm32"))]
@@ -74,24 +74,17 @@ impl super::WinitCompatibleRenderer for GlutinFemtoVGRenderer {
                 .ok_or_else(|| "FemtoVG Renderer: winit didn't return a canvas")?,
         )?;
 
-        self.suspended.set(false);
-
         Ok(winit_window)
     }
 
     fn suspend(&self) -> Result<(), PlatformError> {
         self.renderer.clear_graphics_context()
     }
-
-    fn is_suspended(&self) -> bool {
-        self.suspended.get()
-    }
 }
 
 #[cfg(all(feature = "renderer-femtovg-wgpu", not(target_family = "wasm")))]
 pub struct WGPUFemtoVGRenderer {
     renderer: FemtoVGRenderer<i_slint_renderer_femtovg::wgpu::WGPUBackend>,
-    suspended: Cell<bool>,
 }
 
 #[cfg(all(feature = "renderer-femtovg-wgpu", not(target_family = "wasm")))]
@@ -102,7 +95,6 @@ impl WGPUFemtoVGRenderer {
         Box::new(Self {
             renderer: FemtoVGRenderer::<i_slint_renderer_femtovg::wgpu::WGPUBackend>::new_suspended(
             ),
-            suspended: Cell::new(true),
         })
     }
 }
@@ -123,17 +115,18 @@ impl WinitCompatibleRenderer for WGPUFemtoVGRenderer {
 
     fn resume(
         &self,
-        event_loop: &dyn crate::event_loop::EventLoopInterface,
+        active_event_loop: &ActiveEventLoop,
         window_attributes: winit::window::WindowAttributes,
         requested_graphics_api: Option<RequestedGraphicsAPI>,
     ) -> Result<Arc<winit::window::Window>, PlatformError> {
-        let winit_window =
-            Arc::new(event_loop.create_window(window_attributes).map_err(|winit_os_error| {
+        let winit_window = Arc::new(active_event_loop.create_window(window_attributes).map_err(
+            |winit_os_error| {
                 PlatformError::from(format!(
-                    "Error creating native window for Skia rendering: {}",
+                    "Error creating native window for FemtoVG rendering: {}",
                     winit_os_error
                 ))
-            })?);
+            },
+        )?);
 
         let size = winit_window.inner_size();
 
@@ -143,12 +136,6 @@ impl WinitCompatibleRenderer for WGPUFemtoVGRenderer {
             requested_graphics_api,
         )?;
 
-        self.suspended.set(false);
-
         Ok(winit_window)
-    }
-
-    fn is_suspended(&self) -> bool {
-        self.suspended.get()
     }
 }
