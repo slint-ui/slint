@@ -24,6 +24,11 @@ export component CheckBox {
 
     min_width: MaterialStyleMetrics.size_48;
     min_height: self.min_width;
+    accessible-enabled: root.enabled;
+    accessible-checkable: true;
+    accessible-checked <=> root.checked;
+    accessible-role: checkbox;
+    accessible-action-default => { state_area.clicked(); }
 
     state_area := StateLayerArea {
         width: 100%;
