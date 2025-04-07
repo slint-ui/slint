@@ -57,3 +57,5 @@ updates:
         patterns:
           - "react"
           - "react-dom"
+          - "@types/react"
+          - "@types/react-dom"
