@@ -444,7 +444,7 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<
                             : "";
 
                     const rowName = path
-                        ? `${path}_${propertyName}`
+                        ? `${path}/${propertyName}`
                         : propertyName;
                     const sanitizedRowName = sanitizeRowName(rowName);
 
@@ -846,7 +846,7 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<
                                 structDefinitions.get(pathKey)!.fields.push({
                                     name: sanitizedChildName,
                                     // Instead of flattening with underscores, use a nested type:
-                                    type: sanitizedChildName, // <-- This is the key change
+                                    type: `${path.join("_")}_${sanitizedChildName}` // Create proper hierarchical reference
                                 });
                             }
                         }
