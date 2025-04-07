@@ -23,7 +23,7 @@ export component BaseButton inherits StateLayerArea {
     in property <color> avatar_background: #00000000;
     out property <bool> has_icon: root.icon.width > 0 && root.icon.height > 0;
     out property <bool> has_avatar: root.avatar.width > 0 && root.avatar.height > 0;
-    
+
     min_width: max(root.min_layout_width, layout.min_width);
     min_height: max(root.min_layout_height, layout.min_height);
     tooltip_offset: root.height / 2 + root.icon_size / 2 + MaterialStyleMetrics.padding_14;
