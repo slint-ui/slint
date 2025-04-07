@@ -364,7 +364,7 @@ component ColorPicker {
             width: 100%;
             height: 40px;
 
-            BrushTypeSelector { }
+            if picker-mode == PickerMode.brush: BrushTypeSelector { }
 
             Rectangle {
                 x: parent.width - self.width - 5px;
