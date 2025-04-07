@@ -333,8 +333,9 @@ export component NavigationView {
                             icon: OutlinedIcons.calendar_month;
                         }
 
-                        FilterChip {
-                            
+                        fc := FilterChip {
+                            checked: true;
+                            text: "Filter";   
                         }
 
                         InputChip {
@@ -354,7 +355,9 @@ export component NavigationView {
                         }
 
                         FilterChip {
-    
+                            checked: fc.checked;
+                            text: "Filter";
+                            enabled: false;
                         }
 
                         InputChip {
