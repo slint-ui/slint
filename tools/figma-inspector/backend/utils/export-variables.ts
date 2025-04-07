@@ -15,87 +15,6 @@ function convertColor(color: RGB | RGBA): string {
     return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
 }
 
-// Helper function to resolve variable references
-
-/**
- * Formats a variable value for use in Slint based on its type
- * @param type The Figma variable type ('COLOR', 'FLOAT', 'STRING', 'BOOLEAN')
- * @param value The raw value from Figma
- * @param defaultValue Whether to return a default value if processing fails
- * @returns An object with formatted value and reference ID if applicable
- */
-function formatValueForSlint(
-    type: string,
-    value: any,
-    defaultValue: boolean = false,
-): { value: string; refId?: string } {
-    // If value is null/undefined and we want defaults
-    if ((value === null || value === undefined) && defaultValue) {
-        return {
-            value:
-                type === "COLOR"
-                    ? "#808080"
-                    : type === "FLOAT"
-                      ? "0px"
-                      : type === "BOOLEAN"
-                        ? "false"
-                        : type === "STRING"
-                          ? '""'
-                          : "",
-        };
-    }
-
-    // Handle each type
-    if (type === "COLOR") {
-        if (typeof value === "object" && value && "r" in value) {
-            return { value: convertColor(value) };
-        } else if (
-            typeof value === "object" &&
-            value &&
-            "type" in value &&
-            value.type === "VARIABLE_ALIAS"
-        ) {
-            return { value: `@ref:${value.id}`, refId: value.id };
-        }
-    } else if (type === "FLOAT") {
-        if (typeof value === "number") {
-            return { value: `${value}px` };
-        } else if (
-            typeof value === "object" &&
-            value &&
-            "type" in value &&
-            value.type === "VARIABLE_ALIAS"
-        ) {
-            return { value: `@ref:${value.id}`, refId: value.id };
-        }
-    } else if (type === "STRING") {
-        if (typeof value === "string") {
-            return { value: `"${value}"` };
-        } else if (
-            typeof value === "object" &&
-            value &&
-            "type" in value &&
-            value.type === "VARIABLE_ALIAS"
-        ) {
-            return { value: `@ref:${value.id}`, refId: value.id };
-        }
-    } else if (type === "BOOLEAN") {
-        if (typeof value === "boolean") {
-            return { value: value ? "true" : "false" };
-        } else if (
-            typeof value === "object" &&
-            value &&
-            "type" in value &&
-            value.type === "VARIABLE_ALIAS"
-        ) {
-            return { value: `@ref:${value.id}`, refId: value.id };
-        }
-    }
-
-    // Return default if we couldn't process
-    return formatValueForSlint(type, null, true);
-}
-
 /**
  * Helper to get the appropriate Slint type for a Figma variable type
  * @param figmaType The Figma variable type ('COLOR', 'FLOAT', 'STRING', 'BOOLEAN')
@@ -205,15 +124,6 @@ function sanitizeRowName(rowName: string): string {
         .replace(/\)/g, "_"); // Replace ) with _
 }
 
-// 3. Create a comprehensive sanitization function for all identifiers
-function sanitizeIdentifier(name: string): string {
-    return name
-        .replace(/&/g, "and")
-        .replace(/\(/g, "_")
-        .replace(/\)/g, "_")
-        .replace(/[^a-zA-Z0-9_\-]/g, "_"); // Replace any other invalid chars
-}
-
 // Helper to sanitize mode names for enum variants
 function sanitizeModeForEnum(name: string): string {
     // Check if the mode name is only digits
@@ -232,158 +142,193 @@ function sanitizeModeForEnum(name: string): string {
 
 // Extract hierarchy from variable name (e.g. "colors/primary/base" → ["colors", "primary", "base"])
 function extractHierarchy(name: string): string[] {
-    // Split by common hierarchy separators
-    const parts = name.split("/");
-    return parts.map((part) => formatVariableName(part));
+    // First try splitting by slashes (the expected format)
+    if (name.includes('/')) {
+        return name.split('/').map(part => formatVariableName(part));
+    }
+    
+    // Then try splitting by underscores for flattened hierarchies
+    else if (name.includes('_')) {
+        return name.split('_').map(part => formatVariableName(part));
+    }
+    
+    // Default case for simple names
+    return [formatVariableName(name)];
 }
 
 function createReferenceExpression(
-  referenceId: string,
-  sourceModeName: string,
-  variablePathsById: Map<string, { collection: string; node: VariableNode; path: string[] }>,
-  collectionStructure: Map<string, any>,
-  currentCollection: string = "",
-  currentPath: string[] = [],
+    referenceId: string,
+    sourceModeName: string,
+    variablePathsById: Map<
+        string,
+        { collection: string; node: VariableNode; path: string[] }
+    >,
+    collectionStructure: Map<string, any>,
+    currentCollection: string = "",
+    currentPath: string[] = [],
 ): {
-  value: string | null;
-  importStatement?: string;
-  isCircular?: boolean;
-  comment?: string;
+    value: string | null;
+    importStatement?: string;
+    isCircular?: boolean;
+    comment?: string;
 } {
-  // Get the target variable info
-  const targetInfo = variablePathsById.get(referenceId);
-  if (!targetInfo) {
-      console.warn(`Reference path not found for ID: ${referenceId}`);
-      return { value: null };
-  }
-  
-  // Access properties directly from stored data
-  const { collection: targetCollection, node: targetNode, path: targetPath } = targetInfo;
-  
-  // IMPROVED CIRCULAR REFERENCE DETECTION
-  // Now we can directly compare paths as arrays
-  let commonParts = 0;
-  for (let i = 0; i < Math.min(currentPath.length, targetPath.length); i++) {
-      if (currentPath[i] === targetPath[i]) {
-          commonParts++;
-      } else {
-          break;
-      }
-  }
-  
-  // Consider it circular if they share at least 2 path parts
-  const isCircularReference =
-      commonParts >= 2 && currentPath.length >= 3 && targetPath.length >= 3;
-      
-  if (isCircularReference) {
-      console.warn(
-          `Detected circular reference: ${currentPath.join('.')} -> ${targetPath.join('.')}`,
-      );
-      
-      // Handle circular reference by resolving the actual value
-      try {
-          const targetCollectionData = collectionStructure.get(targetCollection);
-          if (!targetCollectionData) return { value: null };
-          
-          // Access value directly from the node
-          if (targetNode.valuesByMode) {
-              const targetValue = targetNode.valuesByMode.get(sourceModeName) || 
-                                  targetNode.valuesByMode.values().next().value;
-              
-              if (targetValue && !targetValue.value.startsWith("@ref:")) {
-                  console.log(`Resolved circular reference to actual value: ${targetValue.value}`);
-                  return {
-                      value: targetValue.value,
-                      isCircular: true,
-                      comment: `Original reference: ${targetCollectionData.formattedName}.${targetPath.join('.')}.${sourceModeName}`,
-                  };
-              }
-          }
-      } catch (error) {
-          console.error("Error resolving circular reference:", error);
-      }
-      
-      return { value: null, isCircular: true };
-  }
-
-  const isSelfReference = targetCollection === currentCollection && 
-                       targetPath.length > currentPath.length &&
-                       targetPath.slice(0, currentPath.length).every((part, i) => part === currentPath[i]);
-
-if (isSelfReference) {
-  console.log(`Detected self-reference: ${currentPath.join('.')} -> ${targetPath.join('.')}`);
-  
-  // Get the actual value instead of creating a reference
-  if (targetNode.valuesByMode) {
-    const targetValue = targetNode.valuesByMode.get(sourceModeName) || 
-                        targetNode.valuesByMode.values().next().value;
-    
-    if (targetValue && !targetValue.value.startsWith("@ref:")) {
-      return {
-        value: targetValue.value,
-        comment: `Self-reference resolved: ${targetPath.join('.')}.${sourceModeName}`
-      };
+    // Get the target variable info
+    const targetInfo = variablePathsById.get(referenceId);
+    if (!targetInfo) {
+        console.warn(`Reference path not found for ID: ${referenceId}`);
+        return { value: null };
     }
-  }
-}
-  
-  // Get the target collection data
-  const targetCollectionData = collectionStructure.get(targetCollection);
-  if (!targetCollectionData) {
-      console.warn(
-          `Collection not found: ${targetCollection}`,
-          "Available collections:",
-          Array.from(collectionStructure.keys()).join(", "),
-      );
-      return { value: null };
-  }
-  
-  // Check if this is a cross-collection reference
-  const isCrossCollection = targetCollection !== currentCollection;
-  console.log(`Is cross-collection reference: ${isCrossCollection}`);
-  
-  // Get all modes from target collection
-  const targetModes = [...targetCollectionData.modes];
-  if (targetModes.length === 0) {
-      console.warn(`No modes found in target collection: ${targetCollection}`);
-      return { value: null };
-  }
-  
-  // Find the appropriate mode
-  const targetModeName = targetModes.find(
-      (mode) => sanitizeModeForEnum(mode) === sanitizeModeForEnum(sourceModeName)
-  ) || targetModes.find(mode => mode === sourceModeName) || targetModes[0];
-  
-  const sanitizedMode = sanitizeModeForEnum(targetModeName);
-  
-  // If this is a cross-collection reference, we need an import statement
-  let importStatement: string | undefined = undefined;
-  if (isCrossCollection) {
-      if (targetCollectionData.modes.size > 1) {
-          importStatement = `import { ${targetCollectionData.formattedName}, ${targetCollectionData.formattedName}Mode } from "${targetCollectionData.formattedName}.slint";\n`;
-      } else {
-          importStatement = `import { ${targetCollectionData.formattedName} } from "${targetCollectionData.formattedName}.slint";\n`;
-      }
-  }
-  
-  // Build the property path using the stored path array
-  // Ensure all path components are sanitized
-  const propertyPath = targetPath.map(part => sanitizePropertyName(part)).join(".");
-  
-  // Format the reference expression
-  let referenceExpr = "";
-  if (targetCollectionData.modes.size > 1) {
-      referenceExpr = `${targetCollectionData.formattedName}.${propertyPath}.${sanitizedMode}`;
-  } else {
-      referenceExpr = `${targetCollectionData.formattedName}.${propertyPath}`;
-  }
-  
-  console.log(`Created reference expression: ${referenceExpr}`);
-  
-  return {
-      value: referenceExpr,
-      importStatement: importStatement,
-  };
+
+    // Access properties directly from stored data
+    const {
+        collection: targetCollection,
+        node: targetNode,
+        path: targetPath,
+    } = targetInfo;
+
+    // IMPROVED CIRCULAR REFERENCE DETECTION
+    // Now we can directly compare paths as arrays
+    let commonParts = 0;
+    for (let i = 0; i < Math.min(currentPath.length, targetPath.length); i++) {
+        if (currentPath[i] === targetPath[i]) {
+            commonParts++;
+        } else {
+            break;
+        }
+    }
+
+    // Consider it circular if they share at least 2 path parts
+    const isCircularReference =
+        commonParts >= 2 && currentPath.length >= 3 && targetPath.length >= 3;
+
+    if (isCircularReference) {
+        console.warn(
+            `Detected circular reference: ${currentPath.join(".")} -> ${targetPath.join(".")}`,
+        );
+
+        // Handle circular reference by resolving the actual value
+        try {
+            const targetCollectionData =
+                collectionStructure.get(targetCollection);
+            if (!targetCollectionData) return { value: null };
+
+            // Access value directly from the node
+            if (targetNode.valuesByMode) {
+                const targetValue =
+                    targetNode.valuesByMode.get(sourceModeName) ||
+                    targetNode.valuesByMode.values().next().value;
+
+                if (targetValue && !targetValue.value.startsWith("@ref:")) {
+                    console.log(
+                        `Resolved circular reference to actual value: ${targetValue.value}`,
+                    );
+                    return {
+                        value: targetValue.value,
+                        isCircular: true,
+                        comment: `Original reference: ${targetCollectionData.formattedName}.${targetPath.join(".")}.${sourceModeName}`,
+                    };
+                }
+            }
+        } catch (error) {
+            console.error("Error resolving circular reference:", error);
+        }
+
+        return { value: null, isCircular: true };
+    }
+
+    const isSelfReference =
+        targetCollection === currentCollection &&
+        targetPath.length > currentPath.length &&
+        targetPath
+            .slice(0, currentPath.length)
+            .every((part, i) => part === currentPath[i]);
+
+    if (isSelfReference) {
+        console.log(
+            `Detected self-reference: ${currentPath.join(".")} -> ${targetPath.join(".")}`,
+        );
+
+        // Get the actual value instead of creating a reference
+        if (targetNode.valuesByMode) {
+            const targetValue =
+                targetNode.valuesByMode.get(sourceModeName) ||
+                targetNode.valuesByMode.values().next().value;
+
+            if (targetValue && !targetValue.value.startsWith("@ref:")) {
+                return {
+                    value: targetValue.value,
+                    comment: `Self-reference resolved: ${targetPath.join(".")}.${sourceModeName}`,
+                };
+            }
+        }
+    }
+
+    // Get the target collection data
+    const targetCollectionData = collectionStructure.get(targetCollection);
+    if (!targetCollectionData) {
+        console.warn(
+            `Collection not found: ${targetCollection}`,
+            "Available collections:",
+            Array.from(collectionStructure.keys()).join(", "),
+        );
+        return { value: null };
+    }
+
+    // Check if this is a cross-collection reference
+    const isCrossCollection = targetCollection !== currentCollection;
+    console.log(`Is cross-collection reference: ${isCrossCollection}`);
+
+    // Get all modes from target collection
+    const targetModes = [...targetCollectionData.modes];
+    if (targetModes.length === 0) {
+        console.warn(
+            `No modes found in target collection: ${targetCollection}`,
+        );
+        return { value: null };
+    }
+
+    // Find the appropriate mode
+    const targetModeName =
+        targetModes.find(
+            (mode) =>
+                sanitizeModeForEnum(mode) ===
+                sanitizeModeForEnum(sourceModeName),
+        ) ||
+        targetModes.find((mode) => mode === sourceModeName) ||
+        targetModes[0];
+
+    const sanitizedMode = sanitizeModeForEnum(targetModeName);
+
+    // If this is a cross-collection reference, we need an import statement
+    let importStatement: string | undefined = undefined;
+    if (isCrossCollection) {
+        if (targetCollectionData.modes.size > 1) {
+            importStatement = `import { ${targetCollectionData.formattedName}, ${targetCollectionData.formattedName}Mode } from "${targetCollectionData.formattedName}.slint";\n`;
+        } else {
+            importStatement = `import { ${targetCollectionData.formattedName} } from "${targetCollectionData.formattedName}.slint";\n`;
+        }
+    }
+
+    // Build the property path using the stored path array
+    // Ensure all path components are sanitized
+    const propertyPath = targetPath
+        .map((part) => sanitizePropertyName(part))
+        .join(".");
+
+    // Format the reference expression
+    let referenceExpr = "";
+    if (targetCollectionData.modes.size > 1) {
+        referenceExpr = `${targetCollectionData.formattedName}.${propertyPath}.${sanitizedMode}`;
+    } else {
+        referenceExpr = `${targetCollectionData.formattedName}.${propertyPath}`;
+    }
+
+    console.log(`Created reference expression: ${referenceExpr}`);
+
+    return {
+        value: referenceExpr,
+        importStatement: importStatement,
+    };
 }
 
 interface VariableNode {
@@ -558,7 +503,11 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<
                             ) {
                                 refId = value.id;
                                 formattedValue = `@ref:${value.id}`;
-                            }
+                            }                             
+                            console.log(
+                                `Final formatted value stored for ${sanitizedRowName}.${modeName}: ${formattedValue}`,
+                            );
+
                         } else if (variable.resolvedType === "FLOAT") {
                             if (typeof value === "number") {
                                 formattedValue = `${value}px`;
@@ -610,9 +559,6 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<
                                 );
                                 formattedValue = "false";
                             }
-                            console.log(
-                                `Final formatted value stored for ${sanitizedRowName}.${modeName}: ${formattedValue}`,
-                            );
                         }
 
                         collectionStructure
@@ -628,15 +574,15 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<
 
                     // Store the path for each variable ID
                     variablePathsById.set(variable.id, {
-                      collection: collectionName,
-                      node: {
-                          name: propertyName,
-                          type: variable.resolvedType,
-                          valuesByMode: new Map(),
-                          children: new Map()
-                      },
-                      path: nameParts
-                  });
+                        collection: collectionName,
+                        node: {
+                            name: propertyName,
+                            type: variable.resolvedType,
+                            valuesByMode: new Map(),
+                            children: new Map(),
+                        },
+                        path: nameParts,
+                    });
                 }
 
                 // Force GC between batches
@@ -662,7 +608,7 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<
                             variablePathsById,
                             collectionStructure,
                             collectionName,
-                            rowName.split('/'), // Convert string to array by splitting on path separator
+                            rowName.split("/"), // Convert string to array by splitting on path separator
                         );
 
                         if (refResult.value) {
@@ -722,8 +668,8 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<
             // Process each variable to build the tree
             for (const [varName, modes] of collectionData.variables.entries()) {
                 // Split the path by forward slashes to get the hierarchy
-                const parts = varName.split("/");
-
+                const parts = extractHierarchy(varName);
+                
                 // Navigate the tree and create nodes as needed
                 let currentNode = variableTree;
 
@@ -814,20 +760,32 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<
 
                 // First pass: Build the struct model
                 function buildStructModel(
-                    node: VariableNode,
-                    path: string[] = [],
-                ) {
-                    if (node.name === "root") {
-                        // Process regular structs for children of root
-                        for (const [
-                            childName,
-                            childNode,
-                        ] of node.children.entries()) {
-                            buildStructModel(childNode, [childName]);
-                        }
-                        return;
-                    }
-
+                  node: VariableNode,
+                  path: string[] = [],
+              ) {
+                  if (node.name === "root") {
+                      console.log("DEBUG: Processing root node children:", Array.from(node.children.keys()));
+                      
+                      for (const [childName, childNode] of node.children.entries()) {
+                          console.log(`DEBUG: Root child: ${childName}, hasChildren: ${childNode.children.size > 0}`);
+                          
+                          if (childNode.children.size > 0) {
+                              // Add debug output
+                              console.log(`DEBUG: Creating struct for: ${childName}`);
+                              
+                              // Define a struct for this node
+                              const structName = sanitizePropertyName(childName);
+                              structDefinitions.set(childName, {
+                                  name: `${collectionData.formattedName}_${structName}`,
+                                  fields: [],
+                                  path: [childName],
+                              });
+              
+                              buildStructModel(childNode, [childName]);
+                          }
+                      }
+                      return;
+                  }
                     const currentPath = [...path];
                     const pathKey = currentPath.join("/");
                     const typeName = currentPath.join("_");
@@ -887,37 +845,41 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<
                                 const childPath = [...currentPath, childName];
                                 structDefinitions.get(pathKey)!.fields.push({
                                     name: sanitizedChildName,
-                                    type: childPath.join("_"),
+                                    // Instead of flattening with underscores, use a nested type:
+                                    type: sanitizedChildName, // <-- This is the key change
                                 });
                             }
                         }
                     }
+                    console.log("BUILD STRUCT MODEL:",structDefinitions );
+
                 }
 
                 // Build the instance model
                 function buildInstanceModel(
-                    node: VariableNode,
-                    path: string[] = [],
-                ) {
-                    if (node.name === "root") {
-                        // Process direct properties of root
-                        for (const [
-                            childName,
-                            childNode,
-                        ] of node.children.entries()) {
-                            const sanitizedChildName =
+                  node: VariableNode,
+                  path: string[] = [],
+              ) {
+                  if (node.name === "root") {
+                      console.log("DEBUG: buildInstanceModel processing root children:", Array.from(node.children.keys()));
+                      
+                      for (const [childName, childNode] of node.children.entries()) {
+                          console.log(`DEBUG: Instance for child: ${childName}, hasChildren: ${childNode.children.size > 0}`);
+                                          const sanitizedChildName =
                                 sanitizePropertyName(childName);
-                            const childPath = [sanitizedChildName];
 
                             if (childNode.children.size > 0) {
-                                // Nested struct instance
+                                // Create container object with proper children map
                                 propertyInstances.set(sanitizedChildName, {
                                     name: sanitizedChildName,
-                                    type: sanitizedChildName, // Same as sanitizedChildName for root level
+                                    type: `${collectionData.formattedName}_${sanitizedChildName}`, // Properly reference the struct
                                     children: new Map(),
                                 });
 
-                                buildInstanceModel(childNode, childPath);
+                                // Process children
+                                buildInstanceModel(childNode, [
+                                    sanitizedChildName,
+                                ]);
                             } else if (childNode.valuesByMode) {
                                 // Direct value property
                                 const slintType = getSlintType(
@@ -1038,7 +1000,10 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<
                             );
                         }
                     }
+                    console.log("BUILD INSTANCE MODEL:",propertyInstances );
+
                 }
+
 
                 // First: Generate multi-mode structs
                 const multiModeStructs: string[] = [];
@@ -1523,20 +1488,19 @@ function generateSchemeStructs(
     } else {
         // Multiple modes - build a ternary chain
         let expression = "";
-        
+
         // Build the ternary chain from the first mode to the second-to-last
         for (let i = 0; i < modeArray.length - 1; i++) {
             if (i > 0) expression += "\n        ";
             expression += `current-scheme == ${collectionData.formattedName}Mode.${modeArray[i]} ? root.mode.${modeArray[i]} : `;
         }
-        
+
         // Add the final fallback (last mode)
         expression += `root.mode.${modeArray[modeArray.length - 1]}`;
-        
+
         // Add the expression with proper indentation
         currentSchemeInstance += `\n        ${expression};\n\n`;
     }
-
 
     // Now add the current property that references current-mode
     currentSchemeInstance += `    out property <${schemeName}> current: {\n`;
