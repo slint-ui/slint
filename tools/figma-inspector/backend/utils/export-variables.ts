@@ -51,6 +51,7 @@ function formatStructName(name: string): string {
     sanitizedName = sanitizedName
         .replace(/,\s*/g, "-") // Replace commas (and following spaces) with hyphens
         .replace(/\+/g, "-") // Replace + with hyphens (add this line)
+        .replace(/\:/g, "-") // Replace : with ""
         .replace(/([a-z])([A-Z])/g, "$1-$2") // Add hyphens between camelCase
         .replace(/\s+/g, "-") // Convert spaces to hyphens
         .replace(/--+/g, "-") // Normalize multiple consecutive hyphens to single
@@ -76,6 +77,7 @@ function formatPropertyName(name: string): string {
     sanitizedName = sanitizedName
         .replace(/,\s*/g, "-") // Replace commas (and following spaces) with hyphens
         .replace(/\+/g, "-") // Replace + with hyphens (add this line)
+        .replace(/\:/g, "-") // Replace : with ""
         .replace(/([a-z])([A-Z])/g, "$1-$2") // Add hyphens between camelCase
         .replace(/\s+/g, "-") // Convert spaces to hyphens
         .replace(/--+/g, "-") // Normalize multiple consecutive hyphens to single
@@ -100,6 +102,7 @@ function formatVariableName(name: string): string {
     sanitizedName = sanitizedName
         .replace(/,\s*/g, "-") // Replace commas (and following spaces) with hyphens
         .replace(/\+/g, "-") // Replace + with hyphens (add this line)
+        .replace(/\:/g, "-") // Replace : with ""
         .replace(/([a-z])([A-Z])/g, "$1-$2") // Add hyphens between camelCase
         .replace(/\s+/g, "-") // Convert spaces to hyphens
         .replace(/--+/g, "-") // Normalize multiple consecutive hyphens to single
@@ -146,12 +149,7 @@ function extractHierarchy(name: string): string[] {
     if (name.includes('/')) {
         return name.split('/').map(part => formatVariableName(part));
     }
-    
-    // Then try splitting by underscores for flattened hierarchies
-    else if (name.includes('_')) {
-        return name.split('_').map(part => formatVariableName(part));
-    }
-    
+
     // Default case for simple names
     return [formatVariableName(name)];
 }
