@@ -5,6 +5,7 @@ import { MaterialStyleMetrics } from "../styling/material_style_metrics.slint";
 import { MaterialPalette } from "../styling/material_palette.slint";
 import { BaseButton } from "base_button.slint";
 import { Icons } from "../icons/icons.slint";
+import { Animations } from "../styling/animations.slint";
 
 export struct SegmentedItem {
     icon: image,
@@ -39,6 +40,9 @@ component SegmentedItemTemplate {
         spacing: MaterialStyleMetrics.spacing_8;
         icon: root.icon;
         text: root.text;
+
+        
+        animate width { duration: Animations.standard_accelerate_duration; easing: Animations.standard_easing; }
     }
 
     if !root.last : Rectangle {
