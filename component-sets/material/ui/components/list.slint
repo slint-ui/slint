@@ -7,14 +7,13 @@ import { MaterialStyleMetrics } from "../styling/material_style_metrics.slint";
 import { StateLayerArea } from "./state_layer.slint";
 import { MaterialText } from "./material_text.slint";
 import { Icon } from "./icon.slint";
-import { IconButton } from "icon_button.slint";
 
 export component Avatar {
     in property <image> image;
     in property <color> background: MaterialPalette.primary;
 
-    min_width: MaterialStyleMetrics.size_32;
-    height: self.width;
+    min_height: MaterialStyleMetrics.size_32;
+    width: self.height;
 
     Rectangle {
         width: 100%;
@@ -24,7 +23,6 @@ export component Avatar {
         clip: true;
 
         Image {
-            width: 100%;
             source: root.image;
         }
     }

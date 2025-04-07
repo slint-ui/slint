@@ -15,6 +15,7 @@ export component IconButton {
     in property <string> tooltip <=> base.tooltip;
     in property <bool> enabled <=> base.enabled;
     in property <bool> inverse;
+    in property <bool> inline: false;
 
     callback clicked();
 
@@ -33,7 +34,10 @@ export component IconButton {
         vertical_padding: 0;
         width: self.height;
         display_background: false;
-        icon_size: MaterialStyleMetrics.icon_size_56;
+        icon_size: root.inline ? MaterialStyleMetrics.icon_size_18 : MaterialStyleMetrics.icon_size_24;
+        min_layout_width: root.inline ? MaterialStyleMetrics.icon_size_18 : MaterialStyleMetrics.size_40;
+        min_layout_height: self.min_layout_width;
+        clip_ripple: !root.inline;
 
         clicked => {
             root.toggle();
