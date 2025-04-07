@@ -346,7 +346,10 @@ pub struct HsvaColor {
 
 impl PartialEq for HsvaColor {
     fn eq(&self, other: &Self) -> bool {
-        (self.hue - other.hue).abs() < 0.00001 && (self.saturation - other.saturation).abs() < 0.00001 && (self.value - other.value).abs() < 0.00001 && (self.alpha - other.alpha).abs() < 0.00001
+        (self.hue - other.hue).abs() < 0.00001
+            && (self.saturation - other.saturation).abs() < 0.00001
+            && (self.value - other.value).abs() < 0.00001
+            && (self.alpha - other.alpha).abs() < 0.00001
     }
 }
 
@@ -363,16 +366,19 @@ impl From<RgbaColor<f32>> for HsvaColor {
         let chroma = max - min;
 
         #[allow(clippy::float_cmp)] // `max` is either `red`, `green` or `blue`
-        let hue = num_traits::Euclid::rem_euclid(&(60.
-            * if chroma == 0.0 {
-                0.0
-            } else if max == red {
-                ((green - blue) / chroma) % 6.0
-            } else if max == green {
-                2. + (blue - red) / chroma
-            } else {
-                4. + (red - green) / chroma
-            }), &360.0);
+        let hue = num_traits::Euclid::rem_euclid(
+            &(60.
+                * if chroma == 0.0 {
+                    0.0
+                } else if max == red {
+                    ((green - blue) / chroma) % 6.0
+                } else if max == green {
+                    2. + (blue - red) / chroma
+                } else {
+                    4. + (red - green) / chroma
+                }),
+            &360.0,
+        );
         let saturation = if max == 0. { 0. } else { chroma / max };
 
         Self { hue, saturation, value: max, alpha: col.alpha }
@@ -431,14 +437,24 @@ fn test_rgb_to_hsv() {
 
     // #8a0c77ff ensure the hue ends up positive
     assert_eq!(
-        HsvaColor::from(Color::from_argb_u8(0xff, 0x8a, 0xc, 0x77, ).to_argb_f32()),
+        HsvaColor::from(Color::from_argb_u8(0xff, 0x8a, 0xc, 0x77,).to_argb_f32()),
         HsvaColor { hue: 309.0476, saturation: 0.9130435, value: 0.5411765, alpha: 1.0 }
     );
 
-    let received = RgbaColor::<f32>::from(HsvaColor { hue: 309.0476, saturation: 0.9130435, value: 0.5411765, alpha: 1.0 });
+    let received = RgbaColor::<f32>::from(HsvaColor {
+        hue: 309.0476,
+        saturation: 0.9130435,
+        value: 0.5411765,
+        alpha: 1.0,
+    });
     let expected = Color::from_argb_u8(0xff, 0x8a, 0xc, 0x77).to_argb_f32();
 
-    assert!((received.alpha - expected.alpha).abs() < 0.00001 && (received.red - expected.red).abs() < 0.00001 && (received.green - expected.green).abs() < 0.00001 && (received.blue - expected.blue).abs() < 0.00001);
+    assert!(
+        (received.alpha - expected.alpha).abs() < 0.00001
+            && (received.red - expected.red).abs() < 0.00001
+            && (received.green - expected.green).abs() < 0.00001
+            && (received.blue - expected.blue).abs() < 0.00001
+    );
 
     // Bright greenish, verified via colorizer.org
     assert_eq!(
