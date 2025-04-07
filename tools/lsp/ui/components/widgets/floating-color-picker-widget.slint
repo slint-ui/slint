@@ -35,11 +35,9 @@ component FakeShadowText {
     in property <length> font-size: 11px;
     in property <float> font-weight: 800;
     in property <color> color: white;
-    out property text-height <=> t.height;
-    out property text-width <=> t.width;
 
-    width: 0;
-    height: 0;
+    width: t.width;
+    height: t.height;
 
     fake-shadow := Text {
         x: 1px;
@@ -219,7 +217,7 @@ component ColorModeColorAndApply {
 
             FakeShadowText {
                 x: 25px;
-                y: (parent.height - self.text-height) / 2;
+                y: (parent.height - self.height) / 2;
                 width: 0;
                 height: 0;
 
@@ -260,8 +258,8 @@ component ColorModeColorAndApply {
                 }
 
                 FakeShadowText {
-                    x: parent.width - self.text-width - 5px;
-                    y: (parent.height - self.text-height) / 2;
+                    x: parent.width - self.width - 5px;
+                    y: (parent.height - self.height) / 2;
                     width: 0;
                     height: 0;
 
