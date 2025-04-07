@@ -305,6 +305,27 @@ function createReferenceExpression(
       
       return { value: null, isCircular: true };
   }
+
+  const isSelfReference = targetCollection === currentCollection && 
+                       targetPath.length > currentPath.length &&
+                       targetPath.slice(0, currentPath.length).every((part, i) => part === currentPath[i]);
+
+if (isSelfReference) {
+  console.log(`Detected self-reference: ${currentPath.join('.')} -> ${targetPath.join('.')}`);
+  
+  // Get the actual value instead of creating a reference
+  if (targetNode.valuesByMode) {
+    const targetValue = targetNode.valuesByMode.get(sourceModeName) || 
+                        targetNode.valuesByMode.values().next().value;
+    
+    if (targetValue && !targetValue.value.startsWith("@ref:")) {
+      return {
+        value: targetValue.value,
+        comment: `Self-reference resolved: ${targetPath.join('.')}.${sourceModeName}`
+      };
+    }
+  }
+}
   
   // Get the target collection data
   const targetCollectionData = collectionStructure.get(targetCollection);
@@ -1489,22 +1510,33 @@ function generateSchemeStructs(
     // 6. Generate the current scheme property with current-scheme toggle
     let currentSchemeInstance = `    in-out property <${collectionData.formattedName}Mode> current-scheme: ${[...collectionData.modes][0]};\n`;
 
-    // Add the intermediate property to select the current mode based on the enum
     // Add the current-mode property that dynamically selects based on the enum
-    currentSchemeInstance += `    out property <${schemeName}> current-mode: {\n`;
-    currentSchemeInstance += `        // Dynamic mode selector based on enum value\n`;
+    currentSchemeInstance += `    out property <${schemeName}> current-mode: `;
 
-    // Create a switch-like structure for all available modes
     const modeArray = [...collectionData.modes];
-    for (let i = 0; i < modeArray.length; i++) {
-        const mode = modeArray[i];
-        currentSchemeInstance += `        if (current-scheme == ${collectionData.formattedName}Mode.${mode}) { return root.mode.${mode}; }\n`;
+    if (modeArray.length === 0) {
+        // No modes - empty object
+        currentSchemeInstance += `{};\n\n`;
+    } else if (modeArray.length === 1) {
+        // One mode - direct reference
+        currentSchemeInstance += `root.mode.${modeArray[0]};\n\n`;
+    } else {
+        // Multiple modes - build a ternary chain
+        let expression = "";
+        
+        // Build the ternary chain from the first mode to the second-to-last
+        for (let i = 0; i < modeArray.length - 1; i++) {
+            if (i > 0) expression += "\n        ";
+            expression += `current-scheme == ${collectionData.formattedName}Mode.${modeArray[i]} ? root.mode.${modeArray[i]} : `;
+        }
+        
+        // Add the final fallback (last mode)
+        expression += `root.mode.${modeArray[modeArray.length - 1]}`;
+        
+        // Add the expression with proper indentation
+        currentSchemeInstance += `\n        ${expression};\n\n`;
     }
 
-    // Add fallback to the first mode if somehow none matched
-    currentSchemeInstance += `        // Fallback to first mode\n`;
-    currentSchemeInstance += `        return root.mode.${modeArray[0]};\n`;
-    currentSchemeInstance += `    };\n\n`;
 
     // Now add the current property that references current-mode
     currentSchemeInstance += `    out property <${schemeName}> current: {\n`;
