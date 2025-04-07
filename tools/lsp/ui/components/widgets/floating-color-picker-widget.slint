@@ -24,6 +24,12 @@ export enum PickerMode {
     brush,
 }
 
+export enum BrushMode {
+    color,
+    gradient,
+    svg-color,
+}
+
 component FakeShadowText {
     in property <string> text;
     in property <string> font-family: "Inter";
@@ -63,67 +69,126 @@ component BrushTypeSelector {
     width: 100%;
     height: 100%;
 
+    property <BrushMode> brush-mode: color;
+
     HorizontalLayout {
         padding-left: Styles.left-margin;
         alignment: start;
-        spacing: Styles.standard-margin / 2;
 
         Rectangle {
             y: (parent.height - self.height) / 2;
-            width: 15px;
+            width: 25px;
             height: self.width;
-            vertical-stretch: 1;
+
+            property <bool> is-active: brush-mode == BrushMode.color;
 
             Rectangle {
-                border-radius: 2px;
-                border-width: 1px;
-                border-color: white;
+                visible: is-active;
+                background: Styles.section-color;
+                border-radius: Styles.property-border-radius;
+            }
+
+            TouchArea {
+                clicked => {
+                    brush-mode = BrushMode.color;
+                }
+            }
+
+            Rectangle {
+                width: 15px;
+                height: self.width;
+                opacity: is-active ? 1 : 0.5;
+
                 Rectangle {
-                    width: parent.width - 4px;
-                    height: parent.height - 4px;
+                    border-radius: 2px;
                     border-width: 1px;
                     border-color: white;
-                    background: lightgrey;
+                    Rectangle {
+                        width: parent.width - 4px;
+                        height: parent.height - 4px;
+                        border-width: 1px;
+                        border-color: white;
+                        background: lightgrey;
+                    }
                 }
             }
         }
+        
 
         Rectangle {
             y: (parent.height - self.height) / 2;
-            width: 15px;
+            width: 25px;
             height: self.width;
-            vertical-stretch: 1;
+
+            property <bool> is-active: brush-mode == BrushMode.gradient;
 
             Rectangle {
-                border-radius: 2px;
-                border-width: 1px;
-                border-color: white;
+                visible: is-active;
+                background: Styles.section-color;
+                border-radius: Styles.property-border-radius;
+            }
+
+            TouchArea {
+                clicked => {
+                    brush-mode = BrushMode.gradient;
+                }
+            }
+
+            Rectangle {
+                width: 15px;
+                height: self.width;
+                opacity: is-active ? 1 : 0.5;
+
                 Rectangle {
-                    width: parent.width - 4px;
-                    height: parent.height - 4px;
-                    // border-width: 1px;
-                    // border-color: white;
-                    background: @linear-gradient(90deg, white 0%, transparent 100%);
+                    border-radius: 2px;
+                    border-width: 1px;
+                    border-color: white;
+                    Rectangle {
+                        width: parent.width - 4px;
+                        height: parent.height - 4px;
+                        // border-width: 1px;
+                        // border-color: white;
+                        background: @linear-gradient(90deg, white 0%, transparent 100%);
+                    }
                 }
             }
         }
 
         Rectangle {
             y: (parent.height - self.height) / 2;
-            width: 15px;
+            width: 25px;
             height: self.width;
-            vertical-stretch: 1;
+
+            property <bool> is-active: brush-mode == BrushMode.svg-color;
 
             Rectangle {
-                border-radius: 3px;
-                border-width: 1px;
-                border-color: white;
-                Text {
-                    font-family: "Inter";
-                    font-size: 6px;
-                    color: white;
-                    text: "svg";
-                    font-weight: 100;
+                visible: is-active;
+                background: Styles.section-color;
+                border-radius: Styles.property-border-radius;
+            }
+
+            TouchArea {
+                clicked => {
+                    brush-mode = BrushMode.svg-color;
+                }
+            }
+
+            Rectangle {
+                width: 15px;
+                height: self.width;
+                opacity: is-active ? 1 : 0.5;
+
+                Rectangle {
+                    border-radius: 3px;
+                    border-width: 1px;
+                    border-color: white;
+                    Text {
+                        font-family: "Inter";
+                        font-size: 6px;
+                        color: white;
+                        text: "svg";
+                        font-weight: 100;
+                    }
                 }
             }
         }
