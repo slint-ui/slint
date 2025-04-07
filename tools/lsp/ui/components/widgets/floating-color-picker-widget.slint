@@ -195,6 +195,97 @@ component BrushTypeSelector {
     }
 }
 
+component ColorModeColorAndApply {
+    in property <color> current-color;
+    in property <float> alpha;
+    in property <WidgetMode> widget-mode;
+    width: 100%;
+    vl := VerticalLayout {
+            alignment: center;
+            spacing: 10px;
+            Rectangle {
+                x: Styles.left-margin;
+                width: 170px;
+                height: 25px;
+                background: Styles.section-color;
+                border-radius: Styles.property-border-radius;
+                border-width: 1px;
+
+                Rectangle {
+                    x: 5px;
+                    width: 15px;
+                    height: self.width;
+                    border-radius: 2px;
+                    background: root.current-color;
+                }
+
+                FakeShadowText {
+                    x: 25px;
+                    y: (parent.height - self.text-height) / 2;
+                    width: 0;
+                    height: 0;
+
+                    font-family: "Inter";
+                    font-size: 11px;
+                    color: #9d9d9d;
+                    text: "#";
+                }
+
+                Text {
+                    x: 35px;
+                    font-family: "Inter";
+                    font-size: 12px;
+                    color: Styles.text-color;
+                    text: Api.color-to-data(root.current-color).short-text.to-uppercase();
+                    letter-spacing: 0.8px;
+                }
+
+                divider := Rectangle {
+                    x: parent.width - 45px;
+                    width: 1px;
+                    height: parent.height;
+                    background: Styles.background-color;
+                }
+
+                Rectangle {
+                    x: parent.width - self.width;
+                    width: 43px;
+                    height: parent.height;
+
+                    Text {
+                        x: 5px;
+                        vertical-alignment: center;
+                        font-family: "Inter";
+                        font-size: 12px;
+                        color: Styles.text-color;
+                        text: root.alpha;
+                    }
+
+                    FakeShadowText {
+                        x: parent.width - self.text-width - 5px;
+                        y: (parent.height - self.text-height) / 2;
+                        width: 0;
+                        height: 0;
+
+                        font-family: "Inter";
+                        font-size: 11px;
+                        color: #9d9d9d;
+                        text: "%";
+                    }
+                }
+            }
+
+            if widget-mode == WidgetMode.edit: Button {
+                x: Styles.left-margin;
+                width: 100px;
+                text: "Apply";
+                clicked => {
+                    WindowManager.apply-current-value(Api.color-to-data(root.current-color).text);
+                }
+            }
+        }
+}
+
 component ColorPicker {
     in-out property <float> hue: WindowManager.current-hsv-color.hue;
     in-out property <float> saturation: WindowManager.current-hsv-color.saturation;
@@ -218,7 +309,7 @@ component ColorPicker {
     }
 
     width: Styles.picker-width;
-    height: widget-mode == WidgetMode.edit ? 370px : 355px;
+    height: color-apply.y + color-apply.height + Styles.standard-margin;
 
     TouchArea {
         moved => {
@@ -266,8 +357,8 @@ component ColorPicker {
         BrushTypeSelector { }
 
         Rectangle {
-            x: parent.width - self.width - Styles.right-margin;
-            width: 14px;
+            x: parent.width - self.width - 5px;
+            width: 25px;
             height: self.width;
             background: t-close.has-hover ? Styles.section-color : transparent;
             border-radius: Styles.property-border-radius;
@@ -449,6 +540,11 @@ component ColorPicker {
                         }
                     }
                 }
+                Text {
+                    text: root.hue;
+                    color: white;
+                    font-size: 20px;
+                }
             }
 
             Rectangle {
@@ -573,94 +669,11 @@ component ColorPicker {
         }
     }
 
-    Rectangle {
-        width: 100%;
-        height: 60px;
+    color-apply := ColorModeColorAndApply {
         y: hsva-controls.y + hsva-controls.height + 8px;
-        VerticalLayout {
-            alignment: center;
-            spacing: 10px;
-            Rectangle {
-                x: Styles.left-margin;
-                width: 170px;
-                height: 25px;
-                background: Styles.section-color;
-                border-radius: Styles.property-border-radius;
-                border-width: 1px;
-
-                Rectangle {
-                    x: 5px;
-                    width: 15px;
-                    height: self.width;
-                    border-radius: 2px;
-                    background: root.current-color;
-                }
-
-                FakeShadowText {
-                    x: 25px;
-                    y: (parent.height - self.text-height) / 2;
-                    width: 0;
-                    height: 0;
-
-                    font-family: "Inter";
-                    font-size: 11px;
-                    color: #9d9d9d;
-                    text: "#";
-                }
-
-                Text {
-                    x: 35px;
-                    font-family: "Inter";
-                    font-size: 12px;
-                    color: Styles.text-color;
-                    text: Api.color-to-data(root.current-color).short-text.to-uppercase();
-                    letter-spacing: 0.8px;
-                }
-
-                divider := Rectangle {
-                    x: parent.width - 45px;
-                    width: 1px;
-                    height: parent.height;
-                    background: Styles.background-color;
-                }
-
-                Rectangle {
-                    x: parent.width - self.width;
-                    width: 43px;
-                    height: parent.height;
-
-                    Text {
-                        x: 5px;
-                        vertical-alignment: center;
-                        font-family: "Inter";
-                        font-size: 12px;
-                        color: Styles.text-color;
-                        text: root.alpha;
-                    }
-
-                    FakeShadowText {
-                        x: parent.width - self.text-width - 5px;
-                        y: (parent.height - self.text-height) / 2;
-                        width: 0;
-                        height: 0;
-
-                        font-family: "Inter";
-                        font-size: 11px;
-                        color: #9d9d9d;
-                        text: "%";
-                    }
-                }
-            }
-
-            if widget-mode == WidgetMode.edit: Button {
-                x: Styles.left-margin;
-                width: 100px;
-                text: "Apply";
-                clicked => {
-                    WindowManager.apply-current-value(Api.color-to-data(root.current-color).text);
-                }
-            }
-        }
+        current-color: root.current-color;
+        alpha: root.alpha;
+        widget-mode: root.widget-mode;
     }
 }
 
