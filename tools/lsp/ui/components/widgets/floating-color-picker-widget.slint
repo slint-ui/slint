@@ -12,9 +12,8 @@ export global Styles {
     out property <color> divider-color: Palette.color-scheme == ColorScheme.dark ? #444444 : #e6e6e6;
     out property <color> background-color: Palette.color-scheme == ColorScheme.dark ? #2c2c2c : white;
     out property <brush> picker-border-color: Palette.color-scheme == ColorScheme.dark ? #ffffff17 : transparent;
-    out property <length> left-margin: 16px;
-    out property <length> right-margin: 12px;
     out property <length> standard-margin: 16px;
+    out property <length> small-margin: 12px;
     out property <length> property-border-radius: 5px;
     out property <length> picker-width: 240px;
 }
@@ -72,7 +71,7 @@ component BrushTypeSelector {
     property <BrushMode> brush-mode: color;
 
     HorizontalLayout {
-        padding-left: Styles.left-margin;
+        padding-left: Styles.small-margin;
         alignment: start;
 
         Rectangle {
@@ -113,7 +112,6 @@ component BrushTypeSelector {
                 }
             }
         }
-        
 
         Rectangle {
             y: (parent.height - self.height) / 2;
@@ -201,26 +199,68 @@ component ColorModeColorAndApply {
     in property <WidgetMode> widget-mode;
     width: 100%;
     vl := VerticalLayout {
-            alignment: center;
-            spacing: 10px;
-            Rectangle {
-                x: Styles.left-margin;
-                width: 170px;
-                height: 25px;
-                background: Styles.section-color;
-                border-radius: Styles.property-border-radius;
-                border-width: 1px;
+        alignment: center;
+        spacing: 10px;
+        Rectangle {
+            x: Styles.small-margin;
+            width: 170px;
+            height: 25px;
+            background: Styles.section-color;
+            border-radius: Styles.property-border-radius;
+            border-width: 1px;
 
-                Rectangle {
+            Rectangle {
+                x: 5px;
+                width: 15px;
+                height: self.width;
+                border-radius: 2px;
+                background: root.current-color;
+            }
+
+            FakeShadowText {
+                x: 25px;
+                y: (parent.height - self.text-height) / 2;
+                width: 0;
+                height: 0;
+
+                font-family: "Inter";
+                font-size: 11px;
+                color: #9d9d9d;
+                text: "#";
+            }
+
+            Text {
+                x: 35px;
+                font-family: "Inter";
+                font-size: 12px;
+                color: Styles.text-color;
+                text: Api.color-to-data(root.current-color).short-text.to-uppercase();
+                letter-spacing: 0.8px;
+            }
+
+            divider := Rectangle {
+                x: parent.width - 45px;
+                width: 1px;
+                height: parent.height;
+                background: Styles.background-color;
+            }
+
+            Rectangle {
+                x: parent.width - self.width;
+                width: 43px;
+                height: parent.height;
+
+                Text {
                     x: 5px;
-                    width: 15px;
-                    height: self.width;
-                    border-radius: 2px;
-                    background: root.current-color;
+                    vertical-alignment: center;
+                    font-family: "Inter";
+                    font-size: 12px;
+                    color: Styles.text-color;
+                    text: root.alpha;
                 }
 
                 FakeShadowText {
-                    x: 25px;
+                    x: parent.width - self.text-width - 5px;
                     y: (parent.height - self.text-height) / 2;
                     width: 0;
                     height: 0;
@@ -228,62 +268,32 @@ component ColorModeColorAndApply {
                     font-family: "Inter";
                     font-size: 11px;
                     color: #9d9d9d;
-                    text: "#";
-                }
-
-                Text {
-                    x: 35px;
-                    font-family: "Inter";
-                    font-size: 12px;
-                    color: Styles.text-color;
-                    text: Api.color-to-data(root.current-color).short-text.to-uppercase();
-                    letter-spacing: 0.8px;
-                }
-
-                divider := Rectangle {
-                    x: parent.width - 45px;
-                    width: 1px;
-                    height: parent.height;
-                    background: Styles.background-color;
-                }
-
-                Rectangle {
-                    x: parent.width - self.width;
-                    width: 43px;
-                    height: parent.height;
-
-                    Text {
-                        x: 5px;
-                        vertical-alignment: center;
-                        font-family: "Inter";
-                        font-size: 12px;
-                        color: Styles.text-color;
-                        text: root.alpha;
-                    }
-
-                    FakeShadowText {
-                        x: parent.width - self.text-width - 5px;
-                        y: (parent.height - self.text-height) / 2;
-                        width: 0;
-                        height: 0;
-
-                        font-family: "Inter";
-                        font-size: 11px;
-                        color: #9d9d9d;
-                        text: "%";
-                    }
-                }
-            }
-
-            if widget-mode == WidgetMode.edit: Button {
-                x: Styles.left-margin;
-                width: 100px;
-                text: "Apply";
-                clicked => {
-                    WindowManager.apply-current-value(Api.color-to-data(root.current-color).text);
+                    text: "%";
                 }
             }
         }
+
+        if widget-mode == WidgetMode.edit: Button {
+            x: Styles.small-margin;
+            width: 100px;
+            text: "Apply";
+            clicked => {
+                WindowManager.apply-current-value(Api.color-to-data(root.current-color).text);
+            }
+        }
+    }
+}
+
+component Column {
+    width: 100%;
+    VerticalLayout {
+        @children
+    }
+}
+
+component VerticalSpacer {
+    width: 100%;
+    height: Styles.small-margin;
 }
 
 component ColorPicker {
@@ -309,7 +319,7 @@ component ColorPicker {
     }
 
     width: Styles.picker-width;
-    height: color-apply.y + color-apply.height + Styles.standard-margin;
+    height: content.height;
 
     TouchArea {
         moved => {
@@ -349,128 +359,135 @@ component ColorPicker {
         border-radius: 13px;
     }
 
-    title := Rectangle {
-        y: 0;
-        width: 100%;
-        height: 40px;
-
-        BrushTypeSelector { }
-
-        Rectangle {
-            x: parent.width - self.width - 5px;
-            width: 25px;
-            height: self.width;
-            background: t-close.has-hover ? Styles.section-color : transparent;
-            border-radius: Styles.property-border-radius;
-
-            t-close := TouchArea { }
-
-            Image {
-                source: @image-url("../../assets/close.svg");
-                colorize: Styles.text-color;
-            }
-        }
-
-        Rectangle {
+    content := Column {
+        title := Rectangle {
             width: 100%;
-            height: 1px;
-            x: 0;
-            y: parent.height - self.height;
-            background: Styles.divider-color;
-        }
-    }
+            height: 40px;
 
-    saturation-value-holder := Rectangle {
-        y: title.y + title.height;
-        height: self.width * 0.75;
-        saturation-value := Rectangle {
-            width: parent.width - (Styles.standard-margin * 2);
-            height: parent.height - (Styles.standard-margin * 2);
+            BrushTypeSelector { }
 
             Rectangle {
-                border-radius: 6px;
-                clip: true;
-                hue := Rectangle {
-                    background: hsv(root.hue, 1, 1);
-                }
+                x: parent.width - self.width - 5px;
+                width: 25px;
+                height: self.width;
+                background: t-close.has-hover ? Styles.section-color : transparent;
+                border-radius: Styles.property-border-radius;
 
-                sat := Rectangle {
-                    background: @linear-gradient(90deg, white 0%, transparent 100%);
-                }
+                t-close := TouchArea { }
 
-                val := Rectangle {
-                    background: @linear-gradient(0deg, black 0%, transparent 100%);
-                }
-
-                Rectangle {
-                    border-radius: parent.border-radius;
-                    border-width: 1px;
-                    border-color: Styles.text-color.with-alpha(10%);
-                }
-
-                TouchArea {
-                    moved => {
-                        if self.has-hover {
-                            root.saturation = clamp(self.mouse-x / self.width, 0, 1);
-                            root.value = clamp(1 - (self.mouse-y / self.height), 0, 1);
-                        }
-                    }
-                    changed pressed => {
-                        if self.pressed {
-                            root.saturation = self.mouse-x / self.width;
-                            root.value = 1 - (self.mouse-y / self.height);
-                        }
-                    }
+                Image {
+                    source: @image-url("../../assets/close.svg");
+                    colorize: Styles.text-color;
                 }
             }
 
-            sv-picker := Rectangle {
-                x: 1px + (saturation-value.width - 3px) * root.saturation;
-                y: 1px + (saturation-value.height - 3px) * (1 - root.value);
-                width: 1px;
+            Rectangle {
+                width: 100%;
                 height: 1px;
-                Rectangle {
-                    width: 12px;
-                    height: 12px;
-                    border-radius: self.width / 2;
-                    background: white;
-                    drop-shadow-blur: 5px;
-                    drop-shadow-offset-y: 2px;
-                    drop-shadow-color: #000000b4;
-                }
+                x: 0;
+                y: parent.height - self.height;
+                background: Styles.divider-color;
+            }
+        }
+
+        saturation-value-holder := Rectangle {
+            height: self.width * 0.75;
+            saturation-value := Rectangle {
+                width: parent.width - (Styles.standard-margin * 2);
+                height: parent.height - (Styles.standard-margin * 2);
 
                 Rectangle {
-                    width: 8px;
-                    height: 8px;
-                    border-radius: self.width / 2;
-                    background: hsv(root.hue, root.saturation, root.value);
+                    border-radius: 6px;
+                    clip: true;
+                    hue := Rectangle {
+                        background: hsv(root.hue, 1, 1);
+                    }
+
+                    sat := Rectangle {
+                        background: @linear-gradient(90deg, white 0%, transparent 100%);
+                    }
+
+                    val := Rectangle {
+                        background: @linear-gradient(0deg, black 0%, transparent 100%);
+                    }
+
+                    Rectangle {
+                        border-radius: parent.border-radius;
+                        border-width: 1px;
+                        border-color: Styles.text-color.with-alpha(10%);
+                    }
+
+                    TouchArea {
+                        moved => {
+                            if self.has-hover {
+                                root.saturation = clamp(self.mouse-x / self.width, 0, 1);
+                                root.value = clamp(1 - (self.mouse-y / self.height), 0, 1);
+                            }
+                        }
+                        changed pressed => {
+                            if self.pressed {
+                                root.saturation = self.mouse-x / self.width;
+                                root.value = 1 - (self.mouse-y / self.height);
+                            }
+                        }
+                    }
+                }
+
+                sv-picker := Rectangle {
+                    x: 1px + (saturation-value.width - 3px) * root.saturation;
+                    y: 1px + (saturation-value.height - 3px) * (1 - root.value);
+                    width: 1px;
+                    height: 1px;
+                    Rectangle {
+                        width: 12px;
+                        height: 12px;
+                        border-radius: self.width / 2;
+                        background: white;
+                        drop-shadow-blur: 5px;
+                        drop-shadow-offset-y: 2px;
+                        drop-shadow-color: #000000b4;
+                    }
+
+                    Rectangle {
+                        width: 8px;
+                        height: 8px;
+                        border-radius: self.width / 2;
+                        background: hsv(root.hue, root.saturation, root.value);
+                    }
                 }
             }
         }
-    }
 
-    hsva-controls := Rectangle {
-        y: saturation-value-holder.y + saturation-value-holder.height - 6px;
+        hsva-controls := Rectangle {
+        // y: saturation-value-holder.y + saturation-value-holder.height - 6px;
         width: 100%;
-        height: 56px;
+            height: 56px;
         // The following properties are used to size the hue picker and control the
         // thumb to now go past the visual bounds. But the TouchArea is intentionally larger
         // to be usable.
         property <length> main-width: root.width - (Styles.standard-margin * 2) - main-height;
-        property <length> main-height: 16px;
-        property <length> rounded-end-width: main-height / 2;
-        VerticalLayout {
-            spacing: 12px;
-            Rectangle {
-                width: 100%;
-                height: 16px;
-                hue-picker := Rectangle {
-                    x: Styles.left-margin;
-                    width: root.width - (Styles.standard-margin * 2);
-                    height: main-height;
-                    TouchArea {
-                        moved => {
-                            if self.has-hover {
+            property <length> main-height: 16px;
+            property <length> rounded-end-width: main-height / 2;
+            VerticalLayout {
+                spacing: 12px;
+                Rectangle {
+                    width: 100%;
+                    height: 16px;
+                    hue-picker := Rectangle {
+                        x: Styles.small-margin;
+                        width: root.width - (Styles.standard-margin * 2);
+                        height: main-height;
+                        TouchArea {
+                            moved => {
+                                if self.has-hover {
+                                    if self.mouse-x < main-height {
+                                        root.hue = 0;
+                                    } else {
+                                        root.hue = 359 * clamp((self.mouse-x - rounded-end-width) / (self.width - main-height), 0, 1);
+                                    }
+                                }
+                            }
+                            changed pressed => {
                                 if self.mouse-x < main-height {
                                     root.hue = 0;
                                 } else {
@@ -478,169 +495,170 @@ component ColorPicker {
                                 }
                             }
                         }
-                        changed pressed => {
-                            if self.mouse-x < main-height {
-                                root.hue = 0;
-                            } else {
-                                root.hue = 359 * clamp((self.mouse-x - rounded-end-width) / (self.width - main-height), 0, 1);
+
+                        Rectangle {
+                            border-radius: self.height / 2;
+                            clip: true;
+                            HorizontalLayout {
+                                Rectangle {
+                                    width: self.height / 2;
+                                    height: hue-picker.height;
+                                    background: #ff0000;
+                                }
+
+                                Rectangle {
+                                    width: main-width;
+                                    height: hue-picker.height;
+                                    background: @linear-gradient(90deg, #ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000);
+                                }
+
+                                Rectangle {
+                                    width: self.height / 2;
+                                    height: hue-picker.height;
+                                    background: #ff0000;
+                                }
+                            }
+
+                            Rectangle {
+                                border-radius: parent.border-radius;
+                                border-width: 1px;
+                                border-color: Styles.text-color;
+                                opacity: 10%;
+                            }
+                        }
+
+                        Rectangle {
+                            x: rounded-end-width + (main-width * (root.hue / 360));
+                            width: 0;
+                            height: 0;
+                            Rectangle {
+                                width: 16px;
+                                height: 16px;
+                                border-radius: self.width / 2;
+                                background: white;
+                                drop-shadow-blur: 5px;
+                                drop-shadow-offset-y: 1px;
+                                drop-shadow-color: #000000;
+                            }
+
+                            Rectangle {
+                                width: 8px;
+                                height: 8px;
+                                border-radius: self.width / 2;
+                                background: hsv(root.hue, 1, 1);
                             }
                         }
                     }
 
-                    Rectangle {
-                        border-radius: self.height / 2;
-                        clip: true;
-                        HorizontalLayout {
-                            Rectangle {
-                                width: self.height / 2;
-                                height: hue-picker.height;
-                                background: #ff0000;
-                            }
-
-                            Rectangle {
-                                width: main-width;
-                                height: hue-picker.height;
-                                background: @linear-gradient(90deg, #ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000);
-                            }
-
-                            Rectangle {
-                                width: self.height / 2;
-                                height: hue-picker.height;
-                                background: #ff0000;
-                            }
-                        }
-
-                        Rectangle {
-                            border-radius: parent.border-radius;
-                            border-width: 1px;
-                            border-color: Styles.text-color;
-                            opacity: 10%;
-                        }
-                    }
-
-                    Rectangle {
-                        x: rounded-end-width + (main-width * (root.hue / 360));
-                        width: 0;
-                        height: 0;
-                        Rectangle {
-                            width: 16px;
-                            height: 16px;
-                            border-radius: self.width / 2;
-                            background: white;
-                            drop-shadow-blur: 5px;
-                            drop-shadow-offset-y: 1px;
-                            drop-shadow-color: #000000;
-                        }
-
-                        Rectangle {
-                            width: 8px;
-                            height: 8px;
-                            border-radius: self.width / 2;
-                            background: hsv(root.hue, 1, 1);
-                        }
+                    Text {
+                        text: root.hue;
+                        color: white;
+                        font-size: 20px;
                     }
                 }
-                Text {
-                    text: root.hue;
-                    color: white;
-                    font-size: 20px;
-                }
-            }
 
-            Rectangle {
-                width: 100%;
-                height: 16px;
                 Rectangle {
-                    x: Styles.left-margin;
-                    width: main-width + main-height;
-                    height: main-height;
+                    width: 100%;
+                    height: 16px;
                     Rectangle {
-                        border-radius: self.height / 2;
-                        clip: true;
+                        x: Styles.small-margin;
+                        width: main-width + main-height;
+                        height: main-height;
+                        Rectangle {
+                            border-radius: self.height / 2;
+                            clip: true;
 
-                        HorizontalLayout {
+                            HorizontalLayout {
+                                Rectangle {
+                                    width: self.height / 2;
+                                    height: hue-picker.height;
+                                    background: white;
+                                }
+
+                                Rectangle {
+                                    width: main-width;
+                                    height: hue-picker.height;
+                                    background: white;
+                                }
+
+                                Rectangle {
+                                    width: self.height / 2;
+                                    height: hue-picker.height;
+                                }
+                            }
+
+                            Image {
+                                x: 0;
+                                width: main-width + (self.height / 2);
+                                height: 100%;
+                                vertical-alignment: top;
+                                horizontal-alignment: left;
+                                source: @image-url("../../assets/background-mini.svg");
+                                vertical-tiling: repeat;
+                                horizontal-tiling: repeat;
+                                colorize: #e1e1e1;
+                            }
+
+                            HorizontalLayout {
+                                Rectangle {
+                                    width: self.height / 2;
+                                    height: hue-picker.height;
+                                }
+
+                                Rectangle {
+                                    width: main-width;
+                                    height: hue-picker.height;
+                                    background: @linear-gradient(-90deg, hsv(root.hue, root.saturation, root.value, 1), transparent);
+                                }
+
+                                Rectangle {
+                                    width: self.height / 2;
+                                    height: hue-picker.height;
+                                    background: hsv(root.hue, root.saturation, root.value, 1);
+                                }
+                            }
+
                             Rectangle {
-                                width: self.height / 2;
-                                height: hue-picker.height;
+                                border-radius: parent.border-radius;
+                                border-width: 1px;
+                                border-color: Styles.text-color;
+                                opacity: 10%;
+                            }
+                        }
+
+                        Rectangle {
+                            x: rounded-end-width + (main-width * (root.alpha / 100));
+                            width: 0;
+                            height: 0;
+                            Rectangle {
+                                width: 16px;
+                                height: 16px;
+                                border-radius: self.width / 2;
                                 background: white;
+                                drop-shadow-blur: 5px;
+                                drop-shadow-offset-y: 1px;
+                                drop-shadow-color: #000000;
                             }
 
                             Rectangle {
-                                width: main-width;
-                                height: hue-picker.height;
-                                background: white;
-                            }
-
-                            Rectangle {
-                                width: self.height / 2;
-                                height: hue-picker.height;
+                                width: 8px;
+                                height: 8px;
+                                border-radius: self.width / 2;
+                                background: root.current-color;
                             }
                         }
 
-                        Image {
-                            x: 0;
-                            width: main-width + (self.height / 2);
-                            height: 100%;
-                            vertical-alignment: top;
-                            horizontal-alignment: left;
-                            source: @image-url("../../assets/background-mini.svg");
-                            vertical-tiling: repeat;
-                            horizontal-tiling: repeat;
-                            colorize: #e1e1e1;
-                        }
-
-                        HorizontalLayout {
-                            Rectangle {
-                                width: self.height / 2;
-                                height: hue-picker.height;
+                        TouchArea {
+                            moved => {
+                                if self.has-hover {
+                                    if self.mouse-x < rounded-end-width {
+                                        root.alpha = 0;
+                                    } else {
+                                        root.alpha = (100 * clamp((self.mouse-x - rounded-end-width) / (self.width - main-height), 0, 1)).round();
+                                    }
+                                }
                             }
-
-                            Rectangle {
-                                width: main-width;
-                                height: hue-picker.height;
-                                background: @linear-gradient(-90deg, hsv(root.hue, root.saturation, root.value, 1), transparent);
-                            }
-
-                            Rectangle {
-                                width: self.height / 2;
-                                height: hue-picker.height;
-                                background: hsv(root.hue, root.saturation, root.value, 1);
-                            }
-                        }
-
-                        Rectangle {
-                            border-radius: parent.border-radius;
-                            border-width: 1px;
-                            border-color: Styles.text-color;
-                            opacity: 10%;
-                        }
-                    }
-
-                    Rectangle {
-                        x: rounded-end-width + (main-width * (root.alpha / 100));
-                        width: 0;
-                        height: 0;
-                        Rectangle {
-                            width: 16px;
-                            height: 16px;
-                            border-radius: self.width / 2;
-                            background: white;
-                            drop-shadow-blur: 5px;
-                            drop-shadow-offset-y: 1px;
-                            drop-shadow-color: #000000;
-                        }
-
-                        Rectangle {
-                            width: 8px;
-                            height: 8px;
-                            border-radius: self.width / 2;
-                            background: root.current-color;
-                        }
-                    }
-
-                    TouchArea {
-                        moved => {
-                            if self.has-hover {
+                            changed pressed => {
                                 if self.mouse-x < rounded-end-width {
                                     root.alpha = 0;
                                 } else {
@@ -648,32 +666,31 @@ component ColorPicker {
                                 }
                             }
                         }
-                        changed pressed => {
-                            if self.mouse-x < rounded-end-width {
-                                root.alpha = 0;
-                            } else {
-                                root.alpha = (100 * clamp((self.mouse-x - rounded-end-width) / (self.width - main-height), 0, 1)).round();
-                            }
-                        }
                     }
                 }
             }
+
+            Rectangle {
+                width: 100%;
+                height: 1px;
+                x: 0;
+                y: parent.height - self.height;
+                background: Styles.divider-color;
+            }
         }
 
-        Rectangle {
+        VerticalSpacer { }
+
+        color-apply := ColorModeColorAndApply {
+            current-color: root.current-color;
+            alpha: root.alpha;
+            widget-mode: root.widget-mode;
+        }
+
+        footer := Rectangle {
             width: 100%;
-            height: 1px;
-            x: 0;
-            y: parent.height - self.height;
-            background: Styles.divider-color;
+            height: Styles.standard-margin;
         }
-    }
-
-    color-apply := ColorModeColorAndApply {
-        y: hsva-controls.y + hsva-controls.height + 8px;
-        current-color: root.current-color;
-        alpha: root.alpha;
-        widget-mode: root.widget-mode;
     }
 }
 
