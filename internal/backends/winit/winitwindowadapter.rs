@@ -26,7 +26,7 @@ use corelib::items::{ItemRc, ItemRef};
 
 #[cfg(any(enable_accesskit, muda))]
 use crate::SlintUserEvent;
-use crate::WinitWindowEventResult;
+use crate::{SharedBackendData, WinitWindowEventResult};
 use corelib::api::PhysicalSize;
 use corelib::layout::Orientation;
 use corelib::lengths::LogicalLength;
@@ -244,6 +244,7 @@ impl WinitWindowOrNone {
 /// GraphicsWindow is an implementation of the [WindowAdapter][`crate::eventloop::WindowAdapter`] trait. This is
 /// typically instantiated by entry factory functions of the different graphics back ends.
 pub struct WinitWindowAdapter {
+    shared_backend_data: Rc<SharedBackendData>,
     window: OnceCell<corelib::api::Window>,
     self_weak: Weak<Self>,
     pending_redraw: Cell<bool>,
@@ -302,6 +303,7 @@ pub struct WinitWindowAdapter {
 impl WinitWindowAdapter {
     /// Creates a new reference-counted instance.
     pub(crate) fn new(
+        shared_backend_data: Rc<SharedBackendData>,
         renderer: Box<dyn WinitCompatibleRenderer>,
         window_attributes: winit::window::WindowAttributes,
         requested_graphics_api: Option<RequestedGraphicsAPI>,
@@ -309,6 +311,7 @@ impl WinitWindowAdapter {
         #[cfg(all(muda, target_os = "macos"))] muda_enable_default_menu_bar: bool,
     ) -> Result<Rc<Self>, PlatformError> {
         let self_rc = Rc::new_cyclic(|self_weak| Self {
+            shared_backend_data,
             window: OnceCell::from(corelib::api::Window::new(self_weak.clone() as _)),
             self_weak: self_weak.clone(),
             pending_redraw: Default::default(),
@@ -344,7 +347,7 @@ impl WinitWindowAdapter {
         self_rc.size.set(physical_size_to_slint(&winit_window.inner_size()));
 
         let id = winit_window.id();
-        crate::event_loop::register_window(id, (self_rc.clone()) as _);
+        self_rc.shared_backend_data.register_window(id, (self_rc.clone()) as _);
 
         let scale_factor = std::env::var("SLINT_SCALE_FACTOR")
             .ok()
@@ -399,10 +402,8 @@ impl WinitWindowAdapter {
             .into(),
         };
 
-        crate::event_loop::register_window(
-            winit_window.id(),
-            (self.self_weak.upgrade().unwrap()) as _,
-        );
+        self.shared_backend_data
+            .register_window(winit_window.id(), (self.self_weak.upgrade().unwrap()) as _);
 
         Ok(winit_window)
     }
@@ -421,7 +422,7 @@ impl WinitWindowAdapter {
                 *winit_window_or_none = WinitWindowOrNone::None(attributes.into());
 
                 if let Some(last_instance) = Rc::into_inner(last_window_rc) {
-                    crate::event_loop::unregister_window(last_instance.id());
+                    self.shared_backend_data.unregister_window(last_instance.id());
                     drop(last_instance);
                 } else {
                     i_slint_core::debug_log!(
@@ -1192,7 +1193,7 @@ impl WindowAdapterInternal for WinitWindowAdapter {
 impl Drop for WinitWindowAdapter {
     fn drop(&mut self) {
         if let Some(winit_window) = self.winit_window_or_none.borrow().as_window() {
-            crate::event_loop::unregister_window(winit_window.id());
+            self.shared_backend_data.unregister_window(winit_window.id());
         }
 
         #[cfg(not(use_winit_theme))]

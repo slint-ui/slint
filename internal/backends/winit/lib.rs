@@ -7,13 +7,14 @@
 
 extern crate alloc;
 
-use event_loop::CustomEvent;
+use event_loop::{CustomEvent, EventLoopState};
 use i_slint_core::graphics::{RequestedGraphicsAPI, RequestedOpenGLVersion};
 use i_slint_core::platform::EventLoopProxy;
 use i_slint_core::window::WindowAdapter;
 use renderer::WinitCompatibleRenderer;
+use std::cell::RefCell;
+use std::collections::HashMap;
 use std::rc::Rc;
-#[cfg(not(target_arch = "wasm32"))]
 use std::rc::Weak;
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -112,6 +113,7 @@ fn default_renderer_factory() -> Box<dyn WinitCompatibleRenderer> {
 }
 
 fn try_create_window_with_fallback_renderer(
+    shared_backend_data: &Rc<SharedBackendData>,
     attrs: winit::window::WindowAttributes,
     _proxy: &winit::event_loop::EventLoopProxy<SlintUserEvent>,
     #[cfg(all(muda, target_os = "macos"))] muda_enable_default_menu_bar: bool,
@@ -131,6 +133,7 @@ fn try_create_window_with_fallback_renderer(
     .into_iter()
     .find_map(|renderer_factory| {
         WinitWindowAdapter::new(
+            shared_backend_data.clone(),
             renderer_factory(),
             attrs.clone(),
             None,
@@ -341,11 +344,31 @@ impl BackendBuilder {
             #[cfg(not(target_arch = "wasm32"))]
             clipboard,
             proxy,
+            shared_data: Rc::new(SharedBackendData::default()),
             #[cfg(all(muda, target_os = "macos"))]
             muda_enable_default_menu_bar_bar: self.muda_enable_default_menu_bar_bar,
             #[cfg(target_family = "wasm")]
             spawn_event_loop: self.spawn_event_loop,
         })
+    }
+}
+
+#[derive(Default)]
+pub(crate) struct SharedBackendData {
+    active_windows: RefCell<HashMap<winit::window::WindowId, Weak<WinitWindowAdapter>>>,
+}
+
+impl SharedBackendData {
+    pub fn register_window(&self, id: winit::window::WindowId, window: Rc<WinitWindowAdapter>) {
+        self.active_windows.borrow_mut().insert(id, Rc::downgrade(&window));
+    }
+
+    pub fn unregister_window(&self, id: winit::window::WindowId) {
+        self.active_windows.borrow_mut().remove(&id);
+    }
+
+    pub fn window_by_id(&self, id: winit::window::WindowId) -> Option<Rc<WinitWindowAdapter>> {
+        self.active_windows.borrow().get(&id).and_then(|weakref| weakref.upgrade())
     }
 }
 
@@ -363,6 +386,7 @@ pub struct Backend {
     renderer_factory_fn: fn() -> Box<dyn WinitCompatibleRenderer>,
     event_loop_state: std::cell::RefCell<Option<crate::event_loop::EventLoopState>>,
     proxy: winit::event_loop::EventLoopProxy<SlintUserEvent>,
+    shared_data: Rc<SharedBackendData>,
 
     /// This hook is called before a Window is created.
     ///
@@ -470,6 +494,7 @@ impl i_slint_core::platform::Platform for Backend {
         }
 
         let adapter = WinitWindowAdapter::new(
+            self.shared_data.clone(),
             (self.renderer_factory_fn)(),
             attrs.clone(),
             self.requested_graphics_api.clone(),
@@ -480,6 +505,7 @@ impl i_slint_core::platform::Platform for Backend {
         )
         .or_else(|e| {
             try_create_window_with_fallback_renderer(
+                &self.shared_data,
                 attrs,
                 &self.proxy,
                 #[cfg(all(muda, target_os = "macos"))]
@@ -491,13 +517,17 @@ impl i_slint_core::platform::Platform for Backend {
     }
 
     fn run_event_loop(&self) -> Result<(), PlatformError> {
+        let loop_state = self
+            .event_loop_state
+            .borrow_mut()
+            .take()
+            .unwrap_or_else(|| EventLoopState::new(self.shared_data.clone()));
         #[cfg(target_family = "wasm")]
         {
             if self.spawn_event_loop {
-                return crate::event_loop::spawn();
+                return loop_state.spawn();
             }
         }
-        let loop_state = self.event_loop_state.borrow_mut().take().unwrap_or_default();
         let new_state = loop_state.run()?;
         *self.event_loop_state.borrow_mut() = Some(new_state);
         Ok(())
@@ -509,7 +539,11 @@ impl i_slint_core::platform::Platform for Backend {
         timeout: core::time::Duration,
         _: i_slint_core::InternalToken,
     ) -> Result<core::ops::ControlFlow<()>, PlatformError> {
-        let loop_state = self.event_loop_state.borrow_mut().take().unwrap_or_default();
+        let loop_state = self
+            .event_loop_state
+            .borrow_mut()
+            .take()
+            .unwrap_or_else(|| EventLoopState::new(self.shared_data.clone()));
         let (new_state, status) = loop_state.pump_events(Some(timeout))?;
         *self.event_loop_state.borrow_mut() = Some(new_state);
         match status {
