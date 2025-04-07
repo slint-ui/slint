@@ -202,7 +202,7 @@ component ColorModeColorAndApply {
         alignment: center;
         spacing: 10px;
         Rectangle {
-            x: Styles.small-margin;
+            x: Styles.standard-margin;
             width: 170px;
             height: 25px;
             background: Styles.section-color;
@@ -274,7 +274,7 @@ component ColorModeColorAndApply {
         }
 
         if widget-mode == WidgetMode.edit: Button {
-            x: Styles.small-margin;
+            x: Styles.standard-margin;
             width: 100px;
             text: "Apply";
             clicked => {
@@ -459,9 +459,8 @@ component ColorPicker {
         }
 
         hsva-controls := Rectangle {
-        // y: saturation-value-holder.y + saturation-value-holder.height - 6px;
         width: 100%;
-            height: 56px;
+        height: 56px;
         // The following properties are used to size the hue picker and control the
         // thumb to now go past the visual bounds. But the TouchArea is intentionally larger
         // to be usable.
@@ -474,7 +473,7 @@ component ColorPicker {
                     width: 100%;
                     height: 16px;
                     hue-picker := Rectangle {
-                        x: Styles.small-margin;
+                        x: Styles.standard-margin;
                         width: root.width - (Styles.standard-margin * 2);
                         height: main-height;
                         TouchArea {
@@ -549,19 +548,13 @@ component ColorPicker {
                             }
                         }
                     }
-
-                    Text {
-                        text: root.hue;
-                        color: white;
-                        font-size: 20px;
-                    }
                 }
 
                 Rectangle {
                     width: 100%;
                     height: 16px;
                     Rectangle {
-                        x: Styles.small-margin;
+                        x: Styles.standard-margin;
                         width: main-width + main-height;
                         height: main-height;
                         Rectangle {
