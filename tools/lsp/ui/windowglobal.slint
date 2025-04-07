@@ -12,7 +12,7 @@ export global WindowGlobal {
 }
 
 export global WindowManager {
-    out property <{ hue: float, saturation: float, value: float, alpha: float}> current-hsv-color;
+    in-out property <{ hue: float, saturation: float, value: float, alpha: float}> current-hsv-color;
     out property <bool> showing-color-picker: false;
     out property <WidgetMode> widget-mode: edit;
 

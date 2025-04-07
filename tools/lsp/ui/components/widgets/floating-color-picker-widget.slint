@@ -60,6 +60,8 @@ component FakeShadowText {
         text: root.text;
         font-weight: root.font-weight;
     }
+
+    @children
 }
 
 component BrushTypeSelector {
@@ -193,7 +195,7 @@ component BrushTypeSelector {
 
 component ColorModeColorAndApply {
     in property <color> current-color;
-    in property <float> alpha;
+    in-out property <float> alpha;
     in property <WidgetMode> widget-mode;
     width: 100%;
     vl := VerticalLayout {
@@ -218,8 +220,6 @@ component ColorModeColorAndApply {
             FakeShadowText {
                 x: 25px;
                 y: (parent.height - self.height) / 2;
-                width: 0;
-                height: 0;
 
                 font-family: "Inter";
                 font-size: 11px;
@@ -260,13 +260,25 @@ component ColorModeColorAndApply {
                 FakeShadowText {
                     x: parent.width - self.width - 5px;
                     y: (parent.height - self.height) / 2;
-                    width: 0;
-                    height: 0;
 
                     font-family: "Inter";
                     font-size: 11px;
                     color: #9d9d9d;
                     text: "%";
+
+                    TouchArea {
+                        mouse-cursor: col-resize;
+                        // on moved += or -= root.alpha by one at a time
+                        property <float> initial-x: 0;
+                        changed pressed => {
+                            if self.pressed {
+                                initial-x = WindowManager.current-hsv-color.alpha;
+                            }
+                        }
+                        moved => {
+                            WindowManager.current-hsv-color.alpha = (initial-x + ((self.mouse-x - self.pressed-x ) / 1px) / 100).clamp(0, 1);
+                        }
+                    }
                 }
             }
         }
