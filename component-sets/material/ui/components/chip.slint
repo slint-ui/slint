@@ -25,12 +25,12 @@ export component ActionChip {
     accessible-label: root.text == "" ? root.tooltip : root.text;
     accessible-action-default => { base.clicked(); }
 
-    
+
     border := Rectangle {
         border_radius: base.border_radius;
         border_width: 1px;
         border_color: MaterialPalette.outline;
-        
+
         base := BaseButton {
             min_layout_height: MaterialStyleMetrics.size_32;
             border_radius: MaterialStyleMetrics.border_radius_8;
@@ -43,7 +43,7 @@ export component ActionChip {
             avatar_size: MaterialStyleMetrics.size_18;
         }
     }
-  
+
     states [
         disabled when !root.enabled : {
             base.display_background: false;
@@ -52,7 +52,7 @@ export component ActionChip {
     ]
 }
 
-export component FilterChip {   
+export component FilterChip {
     in property <image> icon <=> base.icon;
     in property <string> text <=> base.text;
     in property <bool> enabled <=> base.enabled;
@@ -66,13 +66,13 @@ export component FilterChip {
     accessible-checkable: true;
     accessible-checked: root.checked;
     accessible-action-default => { base.clicked(); }
-    
+
     border := Rectangle {
         border_radius: base.border_radius;
         border_width: 1px;
         border_color: MaterialPalette.outline;
 
-        
+
         base := BaseButton {
             min_layout_height: MaterialStyleMetrics.size_32;
             border_radius: MaterialStyleMetrics.border_radius_8;
@@ -98,10 +98,10 @@ export component FilterChip {
                 border.background: MaterialPalette.secondary_container;
             }
         ]
-        
+
         animate width { duration: Animations.standard_accelerate_duration; easing: Animations.standard_easing; }
     }
-   
+
     function toggle() {
         root.checked = !root.checked;
     }
@@ -143,7 +143,7 @@ export component InputChip {
         border_width: 1px;
         border_color: MaterialPalette.outline;
         clip: true;
-    
+
         base := BaseButton {
             min_layout_height: MaterialStyleMetrics.size_32;
             border_radius: root.has_avatar ? self.height / 2 : MaterialStyleMetrics.border_radius_8;
@@ -183,7 +183,7 @@ export component InputChip {
                 border.background: MaterialPalette.secondary_container;
             }
         ]
-    
+
         animate width { duration: Animations.standard_accelerate_duration; easing: Animations.standard_easing; }
     }
 
@@ -191,7 +191,7 @@ export component InputChip {
         if !root.checkable {
             return;
         }
-        
+
         root.checked = !root.checked;
     }
 
