@@ -190,8 +190,8 @@ importers:
   tools/figma-inspector:
     dependencies:
       html-react-parser:
-        specifier: 5.2.2
-        version: 5.2.2(@types/react@19.1.0)(react@19.1.0)
+        specifier: 5.2.3
+        version: 5.2.3(@types/react@19.1.0)(react@19.1.0)
       react:
         specifier: 19.1.0
         version: 19.1.0
@@ -2892,8 +2892,8 @@ packages:
   html-escaper@3.0.3:
     resolution: {integrity: sha512-RuMffC89BOWQoY0WKGpIhn5gX3iI54O6nRA0yC124NYVtzjmFWBIiFd8M0x+ZdX0P9R4lADg1mgP8C7PxGOWuQ==}
 
-  html-react-parser@5.2.2:
-    resolution: {integrity: sha512-yA5012CJGSFWYZsgYzfr6HXJgDap38/AEP4ra8Cw+WHIi2ZRDXRX/QVYdumRf1P8zKyScKd6YOrWYvVEiPfGKg==}
+  html-react-parser@5.2.3:
+    resolution: {integrity: sha512-y34oKTu+9T1fKdJE1cN9QWFWu8sx8Qa5tJOafUfMUF5Niah+yF6zlEHhWh7a0iZEcLRPIMw54bY14ajQF7xP7A==}
     peerDependencies:
       '@types/react': 0.14 || 15 || 16 || 17 || 18 || 19
       react: 0.14 || 15 || 16 || 17 || 18 || 19
@@ -7967,7 +7967,7 @@ snapshots:
 
   html-escaper@3.0.3: {}
 
-  html-react-parser@5.2.2(@types/react@19.1.0)(react@19.1.0):
+  html-react-parser@5.2.3(@types/react@19.1.0)(react@19.1.0):
     dependencies:
       domhandler: 5.0.3
       html-dom-parser: 5.0.13
