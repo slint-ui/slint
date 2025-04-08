@@ -289,8 +289,6 @@ pub(crate) struct ComponentExtraData {
     pub(crate) globals: OnceCell<crate::global_component::GlobalStorage>,
     pub(crate) self_weak: OnceCell<ErasedItemTreeBoxWeak>,
     pub(crate) embedding_position: OnceCell<(ItemTreeWeak, u32)>,
-    #[cfg(target_arch = "wasm32")]
-    pub(crate) canvas_id: OnceCell<String>,
 }
 
 struct ErasedRepeaterWithinComponent<'id>(RepeaterWithinItemTree<'id, 'static>);
@@ -460,8 +458,6 @@ pub enum WindowOptions {
     #[default]
     CreateNewWindow,
     UseExistingWindow(WindowAdapterRc),
-    #[cfg(target_arch = "wasm32")]
-    CreateWithCanvasId(String),
     Embed {
         parent_item_tree: ItemTreeWeak,
         parent_item_tree_index: u32,
@@ -1513,11 +1509,6 @@ pub fn instantiate(
         }
         let extra_data = description.extra_data_offset.apply(instance_ref.as_ref());
         extra_data.globals.set(globals).ok().unwrap();
-
-        #[cfg(target_arch = "wasm32")]
-        if let Some(WindowOptions::CreateWithCanvasId(canvas_id)) = window_options {
-            extra_data.canvas_id.set(canvas_id.clone()).unwrap();
-        }
     }
 
     if let Some(WindowOptions::Embed { parent_item_tree, parent_item_tree_index }) = window_options
@@ -2301,12 +2292,7 @@ impl<'a, 'id> InstanceRef<'a, 'id> {
                 let extra_data = description.extra_data_offset.apply(instance);
                 let window_adapter = // We are the root: Create a window adapter
                     i_slint_backend_selector::with_platform(|_b| {
-                        #[cfg(not(target_arch = "wasm32"))]
                         return _b.create_window_adapter();
-                        #[cfg(target_arch = "wasm32")]
-                        i_slint_backend_winit::create_gl_window_with_canvas_id(
-                            extra_data.canvas_id.get().map_or("canvas", |s| s.as_str()),
-                        )
                     })?;
 
                 let comp_rc = extra_data.self_weak.get().unwrap().upgrade().unwrap();

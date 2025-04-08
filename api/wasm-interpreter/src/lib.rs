@@ -4,7 +4,9 @@
 //! This wasm library can be loaded from JS to load and display the content of .slint files
 #![cfg(target_arch = "wasm32")]
 
+use std::cell::RefCell;
 use std::path::Path;
+use std::rc::Rc;
 use wasm_bindgen::prelude::*;
 
 use slint_interpreter::ComponentHandle;
@@ -155,7 +157,10 @@ impl WrappedCompiledComp {
     /// where the result is gonna be rendered
     #[wasm_bindgen]
     pub fn run(&self, canvas_id: String) {
-        let component = self.0.create_with_canvas_id(&canvas_id).unwrap();
+        NEXT_CANVAS_ID.with(|next_id| {
+            *next_id.borrow_mut() = Some(canvas_id);
+        });
+        let component = self.0.create().unwrap();
         component.show().unwrap();
         slint_interpreter::spawn_event_loop().unwrap();
     }
@@ -172,8 +177,11 @@ impl WrappedCompiledComp {
             let canvas_id = canvas_id.clone();
             let resolve = send_wrapper::SendWrapper::new(resolve);
             if let Err(e) = slint_interpreter::invoke_from_event_loop(move || {
+                NEXT_CANVAS_ID.with(|next_id| {
+                    *next_id.borrow_mut() = Some(canvas_id);
+                });
                 let instance =
-                    WrappedInstance(comp.take().create_with_canvas_id(&canvas_id).unwrap());
+                    WrappedInstance(comp.take().create().unwrap());
                 resolve.take().call1(&JsValue::UNDEFINED, &JsValue::from(instance)).unwrap_throw();
             }) {
                 reject
@@ -312,5 +320,55 @@ impl WrappedInstance {
 #[wasm_bindgen]
 pub fn run_event_loop() -> Result<(), JsValue> {
     slint_interpreter::spawn_event_loop().map_err(|e| -> JsValue { format!("{e}").into() })?;
+    Ok(())
+}
+
+thread_local!(
+    static NEXT_CANVAS_ID: Rc<RefCell<Option<String>>> = Default::default();
+);
+
+#[wasm_bindgen(start)]
+pub fn init() -> Result<(), JsValue> {
+    let backend = i_slint_backend_winit::Backend::builder()
+        .with_window_attributes_hook(|mut attrs| {
+            NEXT_CANVAS_ID.with(|next_id| {
+                if let Some(canvas_id) = next_id.borrow_mut().take() {
+                    use i_slint_backend_winit::winit::platform::web::WindowAttributesExtWebSys;
+
+                    use wasm_bindgen::JsCast;
+
+                    let html_canvas = web_sys::window()
+                        .expect("wasm-interpreter: Could not retrieve DOM window")
+                        .document()
+                        .expect("wasm-interpreter: Could not retrieve DOM document")
+                        .get_element_by_id(&canvas_id)
+                        .expect( {
+                            &format!(
+                                "wasm-interpreter: Could not retrieve existing HTML Canvas element '{}'",
+                                canvas_id
+                            )
+                        })
+                        .dyn_into::<web_sys::HtmlCanvasElement>()
+                        .expect(
+                            &format!(
+                                "winit backend: Specified DOM element '{}' is not a HTML Canvas",
+                                canvas_id
+                            )
+                        );
+                    attrs = attrs
+                        .with_canvas(Some(html_canvas))
+                        // Don't activate the window by default, as that will cause the page to scroll,
+                        // ignoring any existing anchors.
+                        .with_active(false);
+                    attrs
+                } else {
+                    attrs
+                }
+            })
+        })
+        .build()
+        .unwrap();
+    i_slint_core::platform::set_platform(Box::new(backend))
+        .map_err(|e| -> JsValue { format!("{e}").into() })?;
     Ok(())
 }
