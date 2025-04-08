@@ -14,7 +14,7 @@ export component TestCase inherits Window {
             title: "File";
             MenuItem {
                 title: "New";
-                activated => { debug("New"); }
+                activated => { result += self.title; debug("New"); }
             }
             MenuItem {
                 title: "Open";
@@ -84,6 +84,13 @@ slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key:
 assert_eq!(instance.get_result(), "");
 slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from("\n"));
 assert_eq!(instance.get_result(), "Recent 43");
+
+instance.set_result("".into());
+slint_testing::send_mouse_click(&instance, 10., 10.);
+slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::DownArrow));
+slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from("\n"));
+assert_eq!(instance.get_result(), "New");
+
 ```
 
 ```cpp
@@ -102,6 +109,12 @@ slint_testing::send_keyboard_string_sequence(&instance, slint::platform::key_cod
 assert_eq(instance.get_result(), "");
 slint_testing::send_keyboard_string_sequence(&instance, "\n");
 assert_eq(instance.get_result(), "Recent 43");
+
+instance.set_result("");
+slint_testing::send_mouse_click(&instance, 10., 10.);
+slint_testing::send_keyboard_string_sequence(&instance, slint::platform::key_codes::DownArrow);
+slint_testing::send_keyboard_string_sequence(&instance, "\n");
+assert_eq(instance.get_result(), "New");
 ```
 
 ```js
@@ -119,5 +132,11 @@ slintlib.private_api.send_keyboard_string_sequence(instance, "\u{F700}");
 assert.equal(instance.result, "");
 slintlib.private_api.send_keyboard_string_sequence(instance, "\n");
 assert.equal(instance.result, "Recent 44");
+
+instance.result = "";
+slintlib.private_api.send_mouse_click(instance, 10., 10.);
+slintlib.private_api.send_keyboard_string_sequence(instance, "\u{F701}");
+slintlib.private_api.send_keyboard_string_sequence(instance, "\n");
+assert.equal(instance.result, "New");
 
 */

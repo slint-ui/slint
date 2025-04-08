@@ -16,7 +16,7 @@ export component TestCase inherits Window {
             MenuSeparator {} // should be hidden
             MenuItem {
                 title: "New";
-                activated => { result += "New"; debug("New"); }
+                activated => { result += self.title; debug("New"); }
             }
             MenuItem {
                 title: "Open";
