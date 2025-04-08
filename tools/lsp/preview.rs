@@ -1010,17 +1010,7 @@ fn finish_parsing(preview_url: &Url, previewed_component: Option<String>, succes
             }
         }
 
-        let uses_widgets = document_cache
-            .get_document(preview_url)
-            .and_then(|d| d.node.as_ref())
-            .map(|n| {
-                n.ImportSpecifier().any(|is| {
-                    is.child_token(i_slint_compiler::parser::SyntaxKind::StringLiteral)
-                        .map(|sl| sl.text() == "\"std-widgets.slint\"")
-                        .unwrap_or_default()
-                })
-            })
-            .unwrap_or_default();
+        let uses_widgets = document_cache.uses_widgets(preview_url);
 
         let mut components = Vec::new();
         component_catalog::builtin_components(&document_cache, &mut components);

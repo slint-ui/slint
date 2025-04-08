@@ -193,6 +193,41 @@ impl DocumentCache {
         self.type_loader.get_document(&path)
     }
 
+    fn uses_widgets_impl(&self, doc_path: PathBuf, dedup: &mut HashSet<PathBuf>) -> bool {
+        if dedup.contains(&doc_path) {
+            return false;
+        }
+
+        if doc_path.starts_with("builtin:/") && doc_path.ends_with("std-widgets.slint") {
+            return true;
+        }
+
+        let Some(doc) = self.get_document_by_path(&doc_path) else {
+            return false;
+        };
+
+        dedup.insert(doc_path.to_path_buf());
+
+        for import in doc.imports.iter().map(|i| PathBuf::from(&i.file)) {
+            if self.uses_widgets_impl(import, dedup) {
+                return true;
+            }
+        }
+
+        false
+    }
+
+    /// Returns a vector of Documents the `doc_url` depends upon
+    pub fn uses_widgets(&self, doc_url: &Url) -> bool {
+        let Some(doc_path) = uri_to_file(doc_url) else {
+            return false;
+        };
+
+        let mut dedup = HashSet::new();
+
+        self.uses_widgets_impl(doc_path, &mut dedup)
+    }
+
     pub fn get_document_by_path<'a>(&'a self, path: &'_ Path) -> Option<&'a Document> {
         self.type_loader.get_document(path)
     }
