@@ -24,6 +24,8 @@ slint-interpreter = { workspace = true, features = [
   "compat-1-2",
   "internal",
 ] }
+i-slint-backend-winit = { workspace = true }
+i-slint-core = { workspace = true }
 send_wrapper = { workspace = true }
 
 vtable = { workspace = true }
