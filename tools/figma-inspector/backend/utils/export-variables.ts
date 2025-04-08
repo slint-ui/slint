@@ -757,112 +757,67 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<
                 const propertyInstances = new Map<string, PropertyInstance>();
 
                 // First pass: Build the struct model
-                function buildStructModel(
-                  node: VariableNode,
-                  path: string[] = [],
-              ) {
-                  if (node.name === "root") {
-                      console.log("DEBUG: Processing root node children:", Array.from(node.children.keys()));
-                      
-                      for (const [childName, childNode] of node.children.entries()) {
-                          console.log(`DEBUG: Root child: ${childName}, hasChildren: ${childNode.children.size > 0}`);
-                          
-                          if (childNode.children.size > 0) {
-                              // Add debug output
-                              console.log(`DEBUG: Creating struct for: ${childName}`);
-                              
-                              // Define a struct for this node
-                              const structName = sanitizePropertyName(childName);
-                              structDefinitions.set(childName, {
-                                  name: `${collectionData.formattedName}_${structName}`,
-                                  fields: [],
-                                  path: [childName],
-                              });
-              
-                              buildStructModel(childNode, [childName]);
-                          }
-                      }
-                      return;
-                  }
+                function buildStructModel(node: VariableNode, path: string[] = []) {
+                    // Special handling for root
+                    if (node.name === "root") {
+                        // Process all root children
+                        for (const [childName, childNode] of node.children.entries()) {
+                            const sanitizedChildName = sanitizePropertyName(childName);
+                            
+                            // Always process child nodes with proper path propagation
+                            buildStructModel(childNode, [childName]); // Keep this single-element path for first level
+                        }
+                        return;
+                    }
+                    
                     const currentPath = [...path];
                     const pathKey = currentPath.join("/");
                     const typeName = currentPath.join("_");
-
-                    // Only generate struct for nodes with children
-                    if (node.children.size > 0) {
-                        // Process child nodes first (recursive definition from deepest to shallowest)
-                        for (const [
-                            childName,
-                            childNode,
-                        ] of node.children.entries()) {
-                            if (childNode.children.size > 0) {
-                                buildStructModel(childNode, [
-                                    ...currentPath,
-                                    childName,
-                                ]);
-                            }
-                        }
-
-                        // Create or update the struct definition
-                        if (!structDefinitions.has(pathKey)) {
-                            structDefinitions.set(pathKey, {
-                                name: typeName,
-                                fields: [],
-                                path: [...currentPath],
+                    
+                    // Always create struct for non-root nodes, even if they don't have children
+                    if (!structDefinitions.has(pathKey)) {
+                        structDefinitions.set(pathKey, {
+                            name: `${collectionData.formattedName}_${typeName}`,
+                            fields: [],
+                            path: [...currentPath],
+                        });
+                    }
+                    
+                    // Process all children recursively, maintaining hierarchical paths
+                    for (const [childName, childNode] of node.children.entries()) {
+                        // Always process child nodes, appending to the path
+                        buildStructModel(childNode, [...currentPath, childName]);
+                        
+                        // Add field to parent struct
+                        const sanitizedChildName = sanitizePropertyName(childName);
+                        if (childNode.valuesByMode) {
+                            console.log("MEBUG: childnode: ", sanitizedChildName);
+                            // Value field
+                            const slintType = getSlintType(childNode.type || "COLOR");
+                            structDefinitions.get(pathKey)!.fields.push({
+                                name: sanitizedChildName,
+                                type: collectionData.modes.size > 1 ? `mode${collectionData.modes.size}_${slintType}` : slintType,
+                                isMultiMode: collectionData.modes.size > 1,
+                            });
+                        } else if (childNode.children.size > 0) {
+                            console.log("MEBUG: childnode > 0: ", sanitizedChildName);
+                            // Struct reference
+                            const childTypeName = [...currentPath, childName].join("_");
+                            structDefinitions.get(pathKey)!.fields.push({
+                                name: sanitizedChildName,
+                                type: `${collectionData.formattedName}_${childTypeName}`,
                             });
                         }
-
-                        // Add fields to the struct
-                        for (const [
-                            childName,
-                            childNode,
-                        ] of node.children.entries()) {
-                            // Skip empty property names
-                            if (!childName || childName.trim() === "") {
-                                continue;
-                            }
-
-                            const sanitizedChildName =
-                                sanitizePropertyName(childName);
-                            if (childNode.valuesByMode) {
-                                const slintType = getSlintType(
-                                    childNode.type || "COLOR",
-                                );
-                                const isMultiMode =
-                                    collectionData.modes.size > 1;
-
-                                structDefinitions.get(pathKey)!.fields.push({
-                                    name: sanitizedChildName,
-                                    type: isMultiMode
-                                        ? `mode${collectionData.modes.size}_${slintType}`
-                                        : slintType,
-                                    isMultiMode,
-                                });
-                            } else if (childNode.children.size > 0) {
-                                // Reference to another struct
-                                const childPath = [...currentPath, childName];
-                                structDefinitions.get(pathKey)!.fields.push({
-                                    name: sanitizedChildName,
-                                    // Instead of flattening with underscores, use a nested type:
-                                    type: `${path.join("_")}_${sanitizedChildName}` // Create proper hierarchical reference
-                                });
-                            }
-                        }
                     }
-                    console.log("BUILD STRUCT MODEL:",structDefinitions );
-
                 }
-
                 // Build the instance model
                 function buildInstanceModel(
                   node: VariableNode,
                   path: string[] = [],
               ) {
                   if (node.name === "root") {
-                      console.log("DEBUG: buildInstanceModel processing root children:", Array.from(node.children.keys()));
                       
                       for (const [childName, childNode] of node.children.entries()) {
-                          console.log(`DEBUG: Instance for child: ${childName}, hasChildren: ${childNode.children.size > 0}`);
                                           const sanitizedChildName =
                                 sanitizePropertyName(childName);
 
@@ -878,6 +833,7 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<
                                 buildInstanceModel(childNode, [
                                     sanitizedChildName,
                                 ]);
+                                buildPropertyHierarchy();
                             } else if (childNode.valuesByMode) {
                                 // Direct value property
                                 const slintType = getSlintType(
@@ -927,7 +883,13 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<
 
                     // For non-root nodes
                     const pathKey = path.join("/");
-
+                    if (!propertyInstances.has(pathKey)) {
+                        propertyInstances.set(pathKey, {
+                            name: path[path.length-1],  
+                            type: `${collectionData.formattedName}_${path.join("_")}`,
+                            children: new Map()
+                        });
+                    }
                     for (const [
                         childName,
                         childNode,
@@ -947,11 +909,12 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<
                             // Add child instance to parent
                             parentInstance.children.set(sanitizedChildName, {
                                 name: sanitizedChildName,
-                                type: childPath.join("_"),
+                                type: `${collectionData.formattedName}_${childPath.join("_")}`,
                                 children: new Map(),
                             });
-
+                            console.log(`Creating instance: ${sanitizedChildName}, type: ${collectionData.formattedName}_${childPath.join("_")}`);
                             buildInstanceModel(childNode, childPath);
+                            buildPropertyHierarchy();
                         } else if (childNode.valuesByMode) {
                             // Get parent instance
                             const parentInstance =
@@ -1001,7 +964,49 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<
                     console.log("BUILD INSTANCE MODEL:",propertyInstances );
 
                 }
-
+                function buildPropertyHierarchy() {
+                    // First find all unique top-level paths
+                    const topLevelPaths = new Set<string>();
+                    
+                    for (const key of propertyInstances.keys()) {
+                        if (key.includes("/")) {
+                            const parts = key.split("/");
+                            topLevelPaths.add(parts[0]);
+                        }
+                    }
+                    
+                    // For each top-level path, create or get the instance
+                    for (const path of topLevelPaths) {
+                        if (!propertyInstances.has(path)) {
+                            propertyInstances.set(path, {
+                                name: path,
+                                type: `${collectionData.formattedName}_${path}`,
+                                children: new Map()
+                            });
+                        }
+                        
+                        // Now process all children of this path
+                        const childPaths = Array.from(propertyInstances.keys())
+                            .filter(k => k.startsWith(`${path}/`));
+                            
+                        for (const childPath of childPaths) {
+                            const childInstance = propertyInstances.get(childPath);
+                            if (!childInstance) continue;
+                            
+                            // Get the parent path
+                            const parts = childPath.split("/");
+                            const parentPath = parts.slice(0, -1).join("/");
+                            const childName = parts[parts.length - 1];
+                            
+                            // Get the parent instance
+                            const parentInstance = propertyInstances.get(parentPath);
+                            if (!parentInstance || !parentInstance.children) continue;
+                            
+                            // Add child to parent
+                            parentInstance.children.set(childName, childInstance);
+                        }
+                    }
+                }
 
                 // First: Generate multi-mode structs
                 const multiModeStructs: string[] = [];
@@ -1016,7 +1021,7 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<
 
                 // Third: Build instance model
                 buildInstanceModel(variableTree);
-
+                buildPropertyHierarchy();
                 // Fourth: Generate code from the models
                 let structsCode = multiModeStructs.join("");
 
@@ -1167,11 +1172,11 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<
                 }
 
                 // Generate all root level instances
-                for (const [
-                    instanceName,
-                    instance,
-                ] of propertyInstances.entries()) {
-                    instancesCode += generateInstanceCode(instance);
+                for (const [instanceName, instance] of propertyInstances.entries()) {
+                    // ONLY GENERATE CODE FOR ACTUAL ROOT PROPERTIES
+                    if (!instanceName.includes("/")) {  // Only true root properties
+                        instancesCode += generateInstanceCode(instance);
+                    }
                 }
 
                 return {
@@ -1245,6 +1250,7 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<
             content += schemeStruct;
             content += schemeModeStruct;
             content += `export global ${collectionData.formattedName} {\n`;
+            
             content += instances;
             content += schemeInstance;
             if (collectionData.modes.size > 1) {
