@@ -446,10 +446,7 @@ fn send_event_via_global_event_loop_proxy(
 
 impl i_slint_core::platform::Platform for Backend {
     fn create_window_adapter(&self) -> Result<Rc<dyn WindowAdapter>, PlatformError> {
-        let mut attrs = WinitWindowAdapter::window_attributes(
-            #[cfg(target_arch = "wasm32")]
-            "canvas".into(),
-        )?;
+        let mut attrs = WinitWindowAdapter::window_attributes()?;
 
         if let Some(hook) = &self.window_attributes_hook {
             attrs = hook(attrs);
