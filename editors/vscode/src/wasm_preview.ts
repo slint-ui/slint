@@ -109,11 +109,7 @@ function getPreviewHtml(
 
     const vscode = acquireVsCodeApi();
     let promises = {};
-    try {
-        slint_preview.run_event_loop();
-    } catch (_) {
-        // This is actually not an error:-/
-    }
+    slint_preview.run_event_loop();
 
     const canvas_id = "canvas";
 
