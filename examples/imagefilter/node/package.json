@@ -9,7 +9,7 @@
     },
     "devDependencies": {
         "@types/node": "20.16.10",
-        "typescript": "5.8.2"
+        "typescript": "5.8.3"
     },
     "scripts": {
         "start": "tsc --build && node ./main.js",
