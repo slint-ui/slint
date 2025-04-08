@@ -181,7 +181,6 @@ component BrushTypeSelector {
 }
 
 component ColorModeColorAndApply {
-    in property <color> current-color;
     in property <WidgetMode> widget-mode;
 
     width: 100%;
@@ -201,7 +200,7 @@ component ColorModeColorAndApply {
                 width: 15px;
                 height: self.width;
                 border-radius: 2px;
-                background: root.current-color;
+                background: PickerData.current-color;
             }
 
             FakeShadowText {
@@ -219,7 +218,7 @@ component ColorModeColorAndApply {
                 font-family: "Inter";
                 font-size: 12px;
                 color: Styles.text-color;
-                text: Api.color-to-data(root.current-color).short-text.to-uppercase();
+                text: Api.color-to-data(PickerData.current-color).short-text.to-uppercase();
                 letter-spacing: 0.8px;
             }
 
@@ -300,7 +299,7 @@ component ColorModeColorAndApply {
             width: 100px;
             text: "Apply";
             clicked => {
-                WindowManager.apply-current-value(Api.color-to-data(root.current-color).text);
+                WindowManager.apply-current-value(Api.color-to-data(PickerData.current-color).text);
             }
         }
     }
@@ -318,108 +317,8 @@ component VerticalSpacer {
     height: Styles.small-margin;
 }
 
-component ColorPicker {
-    in-out property <color> current-color: hsv(PickerData.hue, PickerData.saturation, PickerData.value, PickerData.alpha / 100);
-
-    in property <WidgetMode> widget-mode: edit;
-    in property <PickerMode> picker-mode: color;
-
-    property <length> picker-target-x;
-    property <length> picker-target-y;
-
-    callback close <=> t-close.clicked;
-
-    changed current-color => {
-        if widget-mode == WidgetMode.preview {
-            WindowManager.update-preview-value(Api.color-to-data(root.current-color).text);
-        }
-    }
-
-    width: Styles.picker-width;
-    height: content.height;
-
-    hidden-input := TextInput {
-        visible: false;
-    }
-
-    TouchArea {
-        changed pressed => {
-            if self.pressed {
-                hidden-input.visible = true;
-                hidden-input.focus();
-                hidden-input.clear-focus();
-                hidden-input.visible = false;
-            }
-        }
-        moved => {
-            picker-target-x = ((root.x + self.mouse-x - self.pressed-x) / 1px).round() * 1px;
-            picker-target-y = ((root.y + self.mouse-y - self.pressed-y) / 1px).round() * 1px;
-
-            if picker-target-x < 0px {
-                root.x = 0px;
-            }
-            if picker-target-x > 0px {
-                if picker-target-x < WindowGlobal.window-width - root.width {
-                    root.x = picker-target-x;
-                } else {
-                    root.x = WindowGlobal.window-width - root.width;
-                }
-            }
-            if picker-target-y < 0px {
-                root.y = 0px;
-            }
-            if picker-target-y > 0px {
-                if picker-target-y < WindowGlobal.window-height - root.height {
-                    root.y = picker-target-y;
-                } else {
-                    root.y = WindowGlobal.window-height - root.height;
-                }
-            }
-        }
-    }
-
-    Rectangle {
-        background: Styles.background-color;
-        drop-shadow-blur: 24px;
-        drop-shadow-offset-y: 10px;
-        drop-shadow-color: rgba(0, 0, 0, 0.25);
-        border-width: 0.5px;
-        border-color: Styles.picker-border-color;
-        border-radius: 13px;
-    }
-
-    content := Column {
-        title := Rectangle {
-            width: 100%;
-            height: 40px;
-
-            if picker-mode == PickerMode.brush: BrushTypeSelector { }
-
-            Rectangle {
-                x: parent.width - self.width - 5px;
-                width: 25px;
-                height: self.width;
-                background: t-close.has-hover ? Styles.section-color : transparent;
-                border-radius: Styles.property-border-radius;
-
-                t-close := TouchArea { }
-
-                Image {
-                    source: @image-url("../../assets/close.svg");
-                    colorize: Styles.text-color;
-                }
-            }
-
-            Rectangle {
-                width: 100%;
-                height: 1px;
-                x: 0;
-                y: parent.height - self.height;
-                background: Styles.divider-color;
-            }
-        }
-
-        saturation-value-holder := Rectangle {
+component HsvPicker inherits Column{
+    saturation-value-holder := Rectangle {
             height: self.width * 0.75;
             saturation-value := Rectangle {
                 width: parent.width - (Styles.standard-margin * 2);
@@ -666,7 +565,7 @@ component ColorPicker {
                                 width: 8px;
                                 height: 8px;
                                 border-radius: self.width / 2;
-                                background: root.current-color;
+                                background: PickerData.current-color;
                             }
                         }
 
@@ -700,11 +599,114 @@ component ColorPicker {
                 background: Styles.divider-color;
             }
         }
+}
+
+
+component ColorPicker {
+    property current-color <=> PickerData.current-color;
+    in property <WidgetMode> widget-mode: edit;
+    in property <PickerMode> picker-mode: color;
+
+    property <length> picker-target-x;
+    property <length> picker-target-y;
+
+    callback close <=> t-close.clicked;
+
+    changed current-color => {
+        if widget-mode == WidgetMode.preview {
+            WindowManager.update-preview-value(Api.color-to-data(root.current-color).text);
+        }
+    }
+
+    width: Styles.picker-width;
+    height: content.height;
+
+    hidden-input := TextInput {
+        visible: false;
+    }
+
+    TouchArea {
+        changed pressed => {
+            if self.pressed {
+                hidden-input.visible = true;
+                hidden-input.focus();
+                hidden-input.clear-focus();
+                hidden-input.visible = false;
+            }
+        }
+        moved => {
+            picker-target-x = ((root.x + self.mouse-x - self.pressed-x) / 1px).round() * 1px;
+            picker-target-y = ((root.y + self.mouse-y - self.pressed-y) / 1px).round() * 1px;
+
+            if picker-target-x < 0px {
+                root.x = 0px;
+            }
+            if picker-target-x > 0px {
+                if picker-target-x < WindowGlobal.window-width - root.width {
+                    root.x = picker-target-x;
+                } else {
+                    root.x = WindowGlobal.window-width - root.width;
+                }
+            }
+            if picker-target-y < 0px {
+                root.y = 0px;
+            }
+            if picker-target-y > 0px {
+                if picker-target-y < WindowGlobal.window-height - root.height {
+                    root.y = picker-target-y;
+                } else {
+                    root.y = WindowGlobal.window-height - root.height;
+                }
+            }
+        }
+    }
+
+    Rectangle {
+        background: Styles.background-color;
+        drop-shadow-blur: 24px;
+        drop-shadow-offset-y: 10px;
+        drop-shadow-color: rgba(0, 0, 0, 0.25);
+        border-width: 0.5px;
+        border-color: Styles.picker-border-color;
+        border-radius: 13px;
+    }
+
+    content := Column {
+        title := Rectangle {
+            width: 100%;
+            height: 40px;
+
+            if picker-mode == PickerMode.brush: BrushTypeSelector { }
+
+            Rectangle {
+                x: parent.width - self.width - 5px;
+                width: 25px;
+                height: self.width;
+                background: t-close.has-hover ? Styles.section-color : transparent;
+                border-radius: Styles.property-border-radius;
+
+                t-close := TouchArea { }
+
+                Image {
+                    source: @image-url("../../assets/close.svg");
+                    colorize: Styles.text-color;
+                }
+            }
+
+            Rectangle {
+                width: 100%;
+                height: 1px;
+                x: 0;
+                y: parent.height - self.height;
+                background: Styles.divider-color;
+            }
+        }
+
+        if picker-mode == PickerMode.color: HsvPicker { }
 
         VerticalSpacer { }
 
         color-apply := ColorModeColorAndApply {
-            current-color: root.current-color;
             widget-mode: root.widget-mode;
         }
 
