@@ -86,16 +86,13 @@ impl RenderBuffer for SoftbufferRenderBuffer {
             let damage_rects = dirty_region
                 .iter()
                 .map(|logical| {
-                    let physical_rect: PhysicalRect = logical.to_rect() * scale_factor;
+                    let physical_rect: PhysicalRect =
+                        (logical.to_rect() * scale_factor).round_out();
                     softbuffer::Rect {
                         x: physical_rect.min_x().ceil() as _,
                         y: physical_rect.min_y().ceil() as _,
-                        width: ((physical_rect.width().round() as i32).max(1) as u32)
-                            .try_into()
-                            .unwrap(),
-                        height: ((physical_rect.height().round() as i32).max(1) as u32)
-                            .try_into()
-                            .unwrap(),
+                        width: ((physical_rect.width() as i32).max(1) as u32).try_into().unwrap(),
+                        height: ((physical_rect.height() as i32).max(1) as u32).try_into().unwrap(),
                     }
                 })
                 .collect::<Vec<_>>();
