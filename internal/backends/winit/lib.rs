@@ -164,6 +164,8 @@ pub struct BackendBuilder {
     event_loop_builder: Option<winit::event_loop::EventLoopBuilder<SlintUserEvent>>,
     #[cfg(all(muda, target_os = "macos"))]
     muda_enable_default_menu_bar_bar: bool,
+    #[cfg(target_family = "wasm")]
+    spawn_event_loop: bool,
 }
 
 impl BackendBuilder {
@@ -224,6 +226,14 @@ impl BackendBuilder {
     #[cfg(all(muda, target_os = "macos"))]
     pub fn with_default_menu_bar(mut self, enable: bool) -> Self {
         self.muda_enable_default_menu_bar_bar = enable;
+        self
+    }
+
+    #[cfg(target_family = "wasm")]
+    /// Configures this builder to spawn the event loop using [`winit::platform::web::EventLoopExtWebSys::spawn()`]
+    /// run `run_event_loop()` is called.
+    pub fn with_spawn_event_loop(mut self, enable: bool) -> Self {
+        self.spawn_event_loop = enable;
         self
     }
 
@@ -333,6 +343,8 @@ impl BackendBuilder {
             proxy,
             #[cfg(all(muda, target_os = "macos"))]
             muda_enable_default_menu_bar_bar: self.muda_enable_default_menu_bar_bar,
+            #[cfg(target_family = "wasm")]
+            spawn_event_loop: self.spawn_event_loop,
         })
     }
 }
@@ -373,6 +385,9 @@ pub struct Backend {
 
     #[cfg(all(muda, target_os = "macos"))]
     muda_enable_default_menu_bar_bar: bool,
+
+    #[cfg(target_family = "wasm")]
+    spawn_event_loop: bool,
 }
 
 impl Backend {
@@ -409,6 +424,8 @@ impl Backend {
             event_loop_builder: None,
             #[cfg(all(muda, target_os = "macos"))]
             muda_enable_default_menu_bar_bar: true,
+            #[cfg(target_family = "wasm")]
+            spawn_event_loop: false,
         }
     }
 }
@@ -474,6 +491,12 @@ impl i_slint_core::platform::Platform for Backend {
     }
 
     fn run_event_loop(&self) -> Result<(), PlatformError> {
+        #[cfg(target_family = "wasm")]
+        {
+            if self.spawn_event_loop {
+                return crate::event_loop::spawn();
+            }
+        }
         let loop_state = self.event_loop_state.borrow_mut().take().unwrap_or_default();
         let new_state = loop_state.run()?;
         *self.event_loop_state.borrow_mut() = Some(new_state);
@@ -546,12 +569,6 @@ impl i_slint_core::platform::Platform for Backend {
         let mut pair = clipboard_pair.borrow_mut();
         clipboard::select_clipboard(&mut pair, clipboard).and_then(|c| c.get_contents().ok())
     }
-}
-
-/// Spawn the event loop, using [`winit::platform::web::EventLoopExtWebSys::spawn()`]
-#[cfg(target_arch = "wasm32")]
-pub fn spawn_event_loop() -> Result<(), PlatformError> {
-    crate::event_loop::spawn()
 }
 
 mod private {
