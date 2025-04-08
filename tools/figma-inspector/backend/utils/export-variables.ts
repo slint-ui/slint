@@ -64,7 +64,7 @@ function formatStructName(name: string): string {
 function formatPropertyName(name: string): string {
     // Handle names starting with "." - remove the dot
     let sanitizedName = name.startsWith(".") ? name.substring(1) : name;
-    sanitizedName = sanitizedName.replace(/^[_\-\.]+/, '');
+    sanitizedName = sanitizedName.replace(/^[_\-\.]+/, "");
 
     // If that made it empty, use a default
     if (!sanitizedName || sanitizedName.trim() === "") {
@@ -90,7 +90,7 @@ function formatPropertyName(name: string): string {
 // Helper to format variable name for Slint (kebab-case)
 function formatVariableName(name: string): string {
     let sanitizedName = name.startsWith(".") ? name.substring(1) : name;
-    sanitizedName = sanitizedName.replace(/^[_\-\.]+/, '');
+    sanitizedName = sanitizedName.replace(/^[_\-\.]+/, "");
 
     // If that made it empty, use a default
     if (!sanitizedName || sanitizedName.trim() === "") {
@@ -148,8 +148,8 @@ function sanitizeModeForEnum(name: string): string {
 // Extract hierarchy from variable name (e.g. "colors/primary/base" → ["colors", "primary", "base"])
 function extractHierarchy(name: string): string[] {
     // First try splitting by slashes (the expected format)
-    if (name.includes('/')) {
-        return name.split('/').map(part => formatVariableName(part));
+    if (name.includes("/")) {
+        return name.split("/").map((part) => formatVariableName(part));
     }
 
     // Default case for simple names
@@ -199,49 +199,53 @@ function createReferenceExpression(
 
     // Consider it circular if they share at least 2 path parts
     const isCircularReference =
-        commonParts >= 2 && currentPath.length >= 3 && targetPath.length >= 3;
+        // Basic path comparison
+        (commonParts >= 1 &&
+            // Either direct circular reference (A → A)
+            currentPath.join("/") === targetPath.join("/")) ||
+        // Or nested circular reference (A/B → A or A → A/B)
+        currentPath
+            .join("/")
+            .startsWith(targetPath.join("/")) ||
+        targetPath.join("/").startsWith(currentPath.join("/"));
 
     if (isCircularReference) {
         console.warn(
             `Detected circular reference: ${currentPath.join(".")} -> ${targetPath.join(".")}`,
         );
 
-        // Handle circular reference by resolving the actual value
-        try {
-            const targetCollectionData =
-                collectionStructure.get(targetCollection);
-            if (!targetCollectionData) return { value: null };
+        // Always resolve to a concrete fallback value based on type
+        const targetType = targetNode.type || "COLOR";
+        const slintType = getSlintType(targetType);
 
-            // Access value directly from the node
-            if (targetNode.valuesByMode) {
-                const targetValue =
-                    targetNode.valuesByMode.get(sourceModeName) ||
-                    targetNode.valuesByMode.values().next().value;
+        // Use appropriate default value based on type
+        const defaultValue =
+            slintType === "brush"
+                ? "#808080"
+                : slintType === "length"
+                  ? "0px"
+                  : slintType === "string"
+                    ? '""'
+                    : slintType === "bool"
+                      ? "false"
+                      : "#808080";
 
-                if (targetValue && !targetValue.value.startsWith("@ref:")) {
-                    console.log(
-                        `Resolved circular reference to actual value: ${targetValue.value}`,
-                    );
-                    return {
-                        value: targetValue.value,
-                        isCircular: true,
-                        comment: `Original reference: ${targetCollectionData.formattedName}.${targetPath.join(".")}.${sourceModeName}`,
-                    };
-                }
-            }
-        } catch (error) {
-            console.error("Error resolving circular reference:", error);
-        }
-
-        return { value: null, isCircular: true };
+        return {
+            value: defaultValue,
+            isCircular: true,
+            comment: `Circular reference resolved with default: ${targetCollection}.${targetPath.join(".")}`,
+        };
     }
-
     const isSelfReference =
         targetCollection === currentCollection &&
-        targetPath.length > currentPath.length &&
-        targetPath
-            .slice(0, currentPath.length)
-            .every((part, i) => part === currentPath[i]);
+        // Any variable in the same hierarchical branch
+        (targetPath.join("/").startsWith(currentPath.join("/")) ||
+            currentPath.join("/").startsWith(targetPath.join("/")) ||
+            // Direct sibling references
+            (targetPath.length === currentPath.length &&
+                targetPath
+                    .slice(0, -1)
+                    .every((part, i) => part === currentPath[i])));
 
     if (isSelfReference) {
         console.log(
@@ -249,20 +253,56 @@ function createReferenceExpression(
         );
 
         // Get the actual value instead of creating a reference
-        if (targetNode.valuesByMode) {
+        if (targetNode.valuesByMode && targetNode.valuesByMode.size > 0) {
+            console.log(`MEBUG: valuesByMode exists with ${targetNode.valuesByMode.size} entries`);
+            console.log(`MEBUG: sourceModeName: ${sourceModeName}`);
+            console.log(`MEBUG: valuesByMode has sourceModeName: ${targetNode.valuesByMode.has(sourceModeName)}`);
+            console.log(`MEBUG: valuesByMode keys: ${Array.from(targetNode.valuesByMode.keys()).join(", ")}`);    
             const targetValue =
                 targetNode.valuesByMode.get(sourceModeName) ||
                 targetNode.valuesByMode.values().next().value;
+            console.log(`MEBUG: targetValue: ${targetValue ? JSON.stringify(targetValue) : "undefined"}`);
 
             if (targetValue && !targetValue.value.startsWith("@ref:")) {
+                // Value is a direct value, safe to use
                 return {
                     value: targetValue.value,
                     comment: `Self-reference resolved: ${targetPath.join(".")}.${sourceModeName}`,
                 };
             }
+            const slintType = getSlintType(targetNode.type || "COLOR");
+            const defaultValue =
+                slintType === "brush" ? "#808080" :
+                slintType === "length" ? "0px" :
+                slintType === "string" ? '""' :
+                slintType === "bool" ? "false" : "#808080";
+            
+            return {
+                value: defaultValue,
+                isCircular: true,
+                comment: `Self-reference with circular dependency resolved with default: ${targetCollection}.${targetPath.join(".")}`
+            };    
+
+        } else {
+            // Value is itself a reference, resolve to fallback to avoid circular refs
+            const slintType = getSlintType(targetNode.type || "COLOR");
+            const defaultValue =
+                slintType === "brush"
+                    ? "#808080"
+                    : slintType === "length"
+                      ? "0px"
+                      : slintType === "string"
+                        ? '""'
+                        : slintType === "bool"
+                          ? "false"
+                          : "#808080";
+            return {
+                value: defaultValue,
+                isCircular: true,
+                comment: `Self-reference resolved with default: ${targetCollection}.${targetPath.join(".")}`,
+            };
         }
     }
-
     // Get the target collection data
     const targetCollectionData = collectionStructure.get(targetCollection);
     if (!targetCollectionData) {
@@ -503,11 +543,10 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<
                             ) {
                                 refId = value.id;
                                 formattedValue = `@ref:${value.id}`;
-                            }                             
+                            }
                             console.log(
                                 `Final formatted value stored for ${sanitizedRowName}.${modeName}: ${formattedValue}`,
                             );
-
                         } else if (variable.resolvedType === "FLOAT") {
                             if (typeof value === "number") {
                                 formattedValue = `${value}px`;
@@ -669,7 +708,7 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<
             for (const [varName, modes] of collectionData.variables.entries()) {
                 // Split the path by forward slashes to get the hierarchy
                 const parts = extractHierarchy(varName);
-                
+
                 // Navigate the tree and create nodes as needed
                 let currentNode = variableTree;
 
@@ -759,23 +798,30 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<
                 const propertyInstances = new Map<string, PropertyInstance>();
 
                 // First pass: Build the struct model
-                function buildStructModel(node: VariableNode, path: string[] = []) {
+                function buildStructModel(
+                    node: VariableNode,
+                    path: string[] = [],
+                ) {
                     // Special handling for root
                     if (node.name === "root") {
                         // Process all root children
-                        for (const [childName, childNode] of node.children.entries()) {
-                            const sanitizedChildName = sanitizePropertyName(childName);
-                            
+                        for (const [
+                            childName,
+                            childNode,
+                        ] of node.children.entries()) {
+                            const sanitizedChildName =
+                                sanitizePropertyName(childName);
+
                             // Always process child nodes with proper path propagation
                             buildStructModel(childNode, [childName]); // Keep this single-element path for first level
                         }
                         return;
                     }
-                    
+
                     const currentPath = [...path];
                     const pathKey = currentPath.join("/");
                     const typeName = currentPath.join("_");
-                    
+
                     // Always create struct for non-root nodes, even if they don't have children
                     if (!structDefinitions.has(pathKey)) {
                         structDefinitions.set(pathKey, {
@@ -784,27 +830,48 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<
                             path: [...currentPath],
                         });
                     }
-                    
+
                     // Process all children recursively, maintaining hierarchical paths
-                    for (const [childName, childNode] of node.children.entries()) {
+                    for (const [
+                        childName,
+                        childNode,
+                    ] of node.children.entries()) {
                         // Always process child nodes, appending to the path
-                        buildStructModel(childNode, [...currentPath, childName]);
-                        
+                        buildStructModel(childNode, [
+                            ...currentPath,
+                            childName,
+                        ]);
+
                         // Add field to parent struct
-                        const sanitizedChildName = sanitizePropertyName(childName);
+                        const sanitizedChildName =
+                            sanitizePropertyName(childName);
                         if (childNode.valuesByMode) {
-                            console.log("MEBUG: childnode: ", sanitizedChildName);
+                            console.log(
+                                "MEBUG: childnode: ",
+                                sanitizedChildName,
+                            );
                             // Value field
-                            const slintType = getSlintType(childNode.type || "COLOR");
+                            const slintType = getSlintType(
+                                childNode.type || "COLOR",
+                            );
                             structDefinitions.get(pathKey)!.fields.push({
                                 name: sanitizedChildName,
-                                type: collectionData.modes.size > 1 ? `mode${collectionData.modes.size}_${slintType}` : slintType,
+                                type:
+                                    collectionData.modes.size > 1
+                                        ? `mode${collectionData.modes.size}_${slintType}`
+                                        : slintType,
                                 isMultiMode: collectionData.modes.size > 1,
                             });
                         } else if (childNode.children.size > 0) {
-                            console.log("MEBUG: childnode > 0: ", sanitizedChildName);
+                            console.log(
+                                "MEBUG: childnode > 0: ",
+                                sanitizedChildName,
+                            );
                             // Struct reference
-                            const childTypeName = [...currentPath, childName].join("_");
+                            const childTypeName = [
+                                ...currentPath,
+                                childName,
+                            ].join("_");
                             structDefinitions.get(pathKey)!.fields.push({
                                 name: sanitizedChildName,
                                 type: `${collectionData.formattedName}_${childTypeName}`,
@@ -814,13 +881,15 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<
                 }
                 // Build the instance model
                 function buildInstanceModel(
-                  node: VariableNode,
-                  path: string[] = [],
-              ) {
-                  if (node.name === "root") {
-                      
-                      for (const [childName, childNode] of node.children.entries()) {
-                                          const sanitizedChildName =
+                    node: VariableNode,
+                    path: string[] = [],
+                ) {
+                    if (node.name === "root") {
+                        for (const [
+                            childName,
+                            childNode,
+                        ] of node.children.entries()) {
+                            const sanitizedChildName =
                                 sanitizePropertyName(childName);
 
                             if (childNode.children.size > 0) {
@@ -887,9 +956,9 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<
                     const pathKey = path.join("/");
                     if (!propertyInstances.has(pathKey)) {
                         propertyInstances.set(pathKey, {
-                            name: path[path.length-1],  
+                            name: path[path.length - 1],
                             type: `${collectionData.formattedName}_${path.join("_")}`,
-                            children: new Map()
+                            children: new Map(),
                         });
                     }
                     for (const [
@@ -914,7 +983,9 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<
                                 type: `${collectionData.formattedName}_${childPath.join("_")}`,
                                 children: new Map(),
                             });
-                            console.log(`Creating instance: ${sanitizedChildName}, type: ${collectionData.formattedName}_${childPath.join("_")}`);
+                            console.log(
+                                `Creating instance: ${sanitizedChildName}, type: ${collectionData.formattedName}_${childPath.join("_")}`,
+                            );
                             buildInstanceModel(childNode, childPath);
                             buildPropertyHierarchy();
                         } else if (childNode.valuesByMode) {
@@ -963,49 +1034,55 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<
                             );
                         }
                     }
-                    console.log("BUILD INSTANCE MODEL:",propertyInstances );
-
+                    console.log("BUILD INSTANCE MODEL:", propertyInstances);
                 }
                 function buildPropertyHierarchy() {
                     // First find all unique top-level paths
                     const topLevelPaths = new Set<string>();
-                    
+
                     for (const key of propertyInstances.keys()) {
                         if (key.includes("/")) {
                             const parts = key.split("/");
                             topLevelPaths.add(parts[0]);
                         }
                     }
-                    
+
                     // For each top-level path, create or get the instance
                     for (const path of topLevelPaths) {
                         if (!propertyInstances.has(path)) {
                             propertyInstances.set(path, {
                                 name: path,
                                 type: `${collectionData.formattedName}_${path}`,
-                                children: new Map()
+                                children: new Map(),
                             });
                         }
-                        
+
                         // Now process all children of this path
-                        const childPaths = Array.from(propertyInstances.keys())
-                            .filter(k => k.startsWith(`${path}/`));
-                            
+                        const childPaths = Array.from(
+                            propertyInstances.keys(),
+                        ).filter((k) => k.startsWith(`${path}/`));
+
                         for (const childPath of childPaths) {
-                            const childInstance = propertyInstances.get(childPath);
+                            const childInstance =
+                                propertyInstances.get(childPath);
                             if (!childInstance) continue;
-                            
+
                             // Get the parent path
                             const parts = childPath.split("/");
                             const parentPath = parts.slice(0, -1).join("/");
                             const childName = parts[parts.length - 1];
-                            
+
                             // Get the parent instance
-                            const parentInstance = propertyInstances.get(parentPath);
-                            if (!parentInstance || !parentInstance.children) continue;
-                            
+                            const parentInstance =
+                                propertyInstances.get(parentPath);
+                            if (!parentInstance || !parentInstance.children)
+                                continue;
+
                             // Add child to parent
-                            parentInstance.children.set(childName, childInstance);
+                            parentInstance.children.set(
+                                childName,
+                                childInstance,
+                            );
                         }
                     }
                 }
@@ -1174,9 +1251,13 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<
                 }
 
                 // Generate all root level instances
-                for (const [instanceName, instance] of propertyInstances.entries()) {
+                for (const [
+                    instanceName,
+                    instance,
+                ] of propertyInstances.entries()) {
                     // ONLY GENERATE CODE FOR ACTUAL ROOT PROPERTIES
-                    if (!instanceName.includes("/")) {  // Only true root properties
+                    if (!instanceName.includes("/")) {
+                        // Only true root properties
                         instancesCode += generateInstanceCode(instance);
                     }
                 }
@@ -1252,7 +1333,7 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<
             content += schemeStruct;
             content += schemeModeStruct;
             content += `export global ${collectionData.formattedName} {\n`;
-            
+
             content += instances;
             content += schemeInstance;
             if (collectionData.modes.size > 1) {
