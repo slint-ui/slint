@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { Palette, Button } from "std-widgets.slint";
-import { WindowGlobal, WindowManager, WidgetMode } from "../../windowglobal.slint";
-import { Api } from "../../api.slint";
+import { WindowGlobal, WindowManager } from "../../windowglobal.slint";
+import { Api, PickerMode, BrushMode, WidgetMode } from "../../api.slint";
 
 
 export global Styles {
@@ -18,16 +18,7 @@ export global Styles {
     out property <length> picker-width: 240px;
 }
 
-export enum PickerMode {
-    color,
-    brush,
-}
 
-export enum BrushMode {
-    color,
-    gradient,
-    svg-color,
-}
 
 component FakeShadowText {
     in property <string> text;
@@ -742,6 +733,7 @@ export component ColorPickerView {
         x: root.initial-x;
         y: root.initial-y;
         widget-mode: WindowManager.widget-mode;
+        picker-mode: WindowManager.picker-mode;
 
         close => {
             WindowManager.hide-floating-widget();

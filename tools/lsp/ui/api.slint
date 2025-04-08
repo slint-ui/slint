@@ -121,6 +121,19 @@ export enum BrushKind {
     radial,
 }
 
+export enum WidgetMode { edit, preview }
+
+export enum PickerMode {
+    color,
+    brush,
+}
+
+export enum BrushMode {
+    color,
+    gradient,
+    svg-color,
+}
+
 export struct GradientStop {
     position: float, // between 0 and 1!
     color: color,

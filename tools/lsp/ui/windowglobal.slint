@@ -1,10 +1,11 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-export enum WidgetMode { edit, preview }
 
-import { Api, ColorData, ElementInformation, PropertyInformation, PropertyValue, PropertyValueKind, PreviewData } from "api.slint";
+
+import { Api, ColorData, ElementInformation, PropertyInformation, PropertyValue, PropertyValueKind, PreviewData, WidgetMode, PickerMode } from "./api.slint";
 import { StatusLineApi } from "components/status-line.slint";
+
 
 export global WindowGlobal {
     in-out property <length> window-width;
@@ -15,6 +16,7 @@ export global WindowManager {
     in-out property <{ hue: float, saturation: float, value: float, alpha: float}> current-hsv-color;
     out property <bool> showing-color-picker: false;
     out property <WidgetMode> widget-mode: edit;
+    out property <PickerMode> picker-mode: color;
 
     property <ElementInformation> current-element-information;
     out property <PropertyInformation> current-property-information;
