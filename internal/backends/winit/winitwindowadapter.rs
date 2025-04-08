@@ -415,11 +415,7 @@ impl WinitWindowAdapter {
 
                 let last_window_rc = window.clone();
 
-                let mut attributes = Self::window_attributes(
-                    #[cfg(target_arch = "wasm32")]
-                    "canvas",
-                )
-                .unwrap_or_default();
+                let mut attributes = Self::window_attributes().unwrap_or_default();
                 attributes.inner_size = Some(physical_size_to_winit(self.size.get()).into());
                 attributes.position = last_window_rc.outer_position().ok().map(|pos| pos.into());
                 *winit_window_or_none = WinitWindowOrNone::None(attributes.into());
@@ -441,9 +437,7 @@ impl WinitWindowAdapter {
         Ok(())
     }
 
-    pub(crate) fn window_attributes(
-        #[cfg(target_arch = "wasm32")] canvas_id: &str,
-    ) -> Result<WindowAttributes, PlatformError> {
+    pub(crate) fn window_attributes() -> Result<WindowAttributes, PlatformError> {
         let mut attrs = WindowAttributes::default().with_transparent(true).with_visible(false);
 
         attrs = attrs.with_title("Slint Window".to_string());
@@ -454,29 +448,19 @@ impl WinitWindowAdapter {
 
             use wasm_bindgen::JsCast;
 
-            let html_canvas = web_sys::window()
+            if let Some(html_canvas) = web_sys::window()
                 .ok_or_else(|| "winit backend: Could not retrieve DOM window".to_string())?
                 .document()
                 .ok_or_else(|| "winit backend: Could not retrieve DOM document".to_string())?
-                .get_element_by_id(canvas_id)
-                .ok_or_else(|| {
-                    format!(
-                        "winit backend: Could not retrieve existing HTML Canvas element '{}'",
-                        canvas_id
-                    )
-                })?
-                .dyn_into::<web_sys::HtmlCanvasElement>()
-                .map_err(|_| {
-                    format!(
-                        "winit backend: Specified DOM element '{}' is not a HTML Canvas",
-                        canvas_id
-                    )
-                })?;
-            attrs = attrs
-                .with_canvas(Some(html_canvas))
-                // Don't activate the window by default, as that will cause the page to scroll,
-                // ignoring any existing anchors.
-                .with_active(false)
+                .get_element_by_id("canvas")
+                .and_then(|canvas_elem| canvas_elem.dyn_into::<web_sys::HtmlCanvasElement>().ok())
+            {
+                attrs = attrs
+                    .with_canvas(Some(html_canvas))
+                    // Don't activate the window by default, as that will cause the page to scroll,
+                    // ignoring any existing anchors.
+                    .with_active(false);
+            }
         };
 
         Ok(attrs)
