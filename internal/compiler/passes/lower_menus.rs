@@ -632,16 +632,6 @@ fn generate_menu_entries(
         assert!(borrow_mut.repeated.is_none());
 
         let mut values = HashMap::<SmolStr, Expression>::new();
-        if !is_separator {
-            for prop in ["title"] {
-                if let Some(binding) = borrow_mut.bindings.remove(prop) {
-                    values.insert(SmolStr::new_static(prop), binding.into_inner().expression);
-                }
-            }
-        } else {
-            values.insert(SmolStr::new_static("is_separator"), Expression::BoolLiteral(true));
-        }
-
         state.id += 1;
         let id_str = format_smolstr!("{}", state.id);
         values.insert(SmolStr::new_static("id"), Expression::StringLiteral(id_str.clone()));
@@ -660,6 +650,21 @@ fn generate_menu_entries(
             ));
             values
                 .insert(SmolStr::new_static("has-sub-menu"), Expression::BoolLiteral(true).into());
+        }
+
+        drop(borrow_mut);
+        if !is_separator {
+            for prop in ["title"] {
+                if item.borrow().bindings.contains_key(prop) {
+                    let n = SmolStr::new_static(prop);
+                    values.insert(
+                        n.clone(),
+                        Expression::PropertyReference(NamedReference::new(&item, n)),
+                    );
+                }
+            }
+        } else {
+            values.insert(SmolStr::new_static("is_separator"), Expression::BoolLiteral(true));
         }
 
         entries.push(mk_struct(state.menu_entry.clone(), values));
