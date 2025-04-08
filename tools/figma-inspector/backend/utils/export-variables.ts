@@ -254,14 +254,22 @@ function createReferenceExpression(
 
         // Get the actual value instead of creating a reference
         if (targetNode.valuesByMode && targetNode.valuesByMode.size > 0) {
-            console.log(`MEBUG: valuesByMode exists with ${targetNode.valuesByMode.size} entries`);
+            console.log(
+                `MEBUG: valuesByMode exists with ${targetNode.valuesByMode.size} entries`,
+            );
             console.log(`MEBUG: sourceModeName: ${sourceModeName}`);
-            console.log(`MEBUG: valuesByMode has sourceModeName: ${targetNode.valuesByMode.has(sourceModeName)}`);
-            console.log(`MEBUG: valuesByMode keys: ${Array.from(targetNode.valuesByMode.keys()).join(", ")}`);    
+            console.log(
+                `MEBUG: valuesByMode has sourceModeName: ${targetNode.valuesByMode.has(sourceModeName)}`,
+            );
+            console.log(
+                `MEBUG: valuesByMode keys: ${Array.from(targetNode.valuesByMode.keys()).join(", ")}`,
+            );
             const targetValue =
                 targetNode.valuesByMode.get(sourceModeName) ||
                 targetNode.valuesByMode.values().next().value;
-            console.log(`MEBUG: targetValue: ${targetValue ? JSON.stringify(targetValue) : "undefined"}`);
+            console.log(
+                `MEBUG: targetValue: ${targetValue ? JSON.stringify(targetValue) : "undefined"}`,
+            );
 
             if (targetValue && !targetValue.value.startsWith("@ref:")) {
                 // Value is a direct value, safe to use
@@ -272,17 +280,21 @@ function createReferenceExpression(
             }
             const slintType = getSlintType(targetNode.type || "COLOR");
             const defaultValue =
-                slintType === "brush" ? "#808080" :
-                slintType === "length" ? "0px" :
-                slintType === "string" ? '""' :
-                slintType === "bool" ? "false" : "#808080";
-            
+                slintType === "brush"
+                    ? "#808080"
+                    : slintType === "length"
+                      ? "0px"
+                      : slintType === "string"
+                        ? '""'
+                        : slintType === "bool"
+                          ? "false"
+                          : "#808080";
+
             return {
                 value: defaultValue,
                 isCircular: true,
-                comment: `Self-reference with circular dependency resolved with default: ${targetCollection}.${targetPath.join(".")}`
-            };    
-
+                comment: `Self-reference with circular dependency resolved with default: ${targetCollection}.${targetPath.join(".")}`,
+            };
         } else {
             // Value is itself a reference, resolve to fallback to avoid circular refs
             const slintType = getSlintType(targetNode.type || "COLOR");
@@ -822,8 +834,18 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<
                     const pathKey = currentPath.join("/");
                     const typeName = currentPath.join("_");
 
-                    // Always create struct for non-root nodes, even if they don't have children
-                    if (!structDefinitions.has(pathKey)) {
+                    // Only create a struct if this node will have fields
+                    const hasValueChildren = Array.from(
+                        node.children.values(),
+                    ).some((child) => child.valuesByMode);
+                    const hasStructChildren = Array.from(
+                        node.children.values(),
+                    ).some((child) => child.children.size > 0);
+
+                    if (
+                        (hasValueChildren || hasStructChildren) &&
+                        !structDefinitions.has(pathKey)
+                    ) {
                         structDefinitions.set(pathKey, {
                             name: `${collectionData.formattedName}_${typeName}`,
                             fields: [],

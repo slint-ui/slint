@@ -16,9 +16,5 @@
       "@babel/runtime@<7.26.10": ">=7.26.10",
       "@babel/helpers@<7.26.10": ">=7.26.10"
     }
-  },
-  "dependencies": {
-    "@types/jszip": "3.4.0",
-    "jszip": "3.10.1"
   }
 }
