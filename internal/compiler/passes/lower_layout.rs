@@ -60,7 +60,7 @@ pub fn lower_layouts(
 fn check_preferred_size_100(elem: &ElementRc, prop: &str, diag: &mut BuildDiagnostics) -> bool {
     let ret = if let Some(p) = elem.borrow().bindings.get(prop) {
         if p.borrow().expression.ty() == Type::Percent {
-            if !matches!(p.borrow().expression.ignore_debug_hook(), Expression::NumberLiteral(val, _) if val == 100.)
+            if !matches!(p.borrow().expression.ignore_debug_hooks(), Expression::NumberLiteral(val, _) if *val == 100.)
             {
                 diag.push_error(
                     format!("{prop} must either be a length, or the literal '100%'"),

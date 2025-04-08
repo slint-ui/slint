@@ -149,7 +149,7 @@ pub struct CompilerConfiguration {
     pub debug_info: bool,
 
     /// Generate debug hooks to inspect/override properties.
-    pub debug_hooks: bool,
+    pub debug_hooks: Option<std::hash::RandomState>,
 
     pub components_to_generate: ComponentSelection,
 
@@ -229,7 +229,7 @@ impl CompilerConfiguration {
             translation_domain: None,
             cpp_namespace,
             debug_info,
-            debug_hooks: false,
+            debug_hooks: None,
             components_to_generate: ComponentSelection::ExportedWindows,
             #[cfg(feature = "software-renderer")]
             font_cache: Default::default(),

@@ -641,9 +641,11 @@ pub struct ElementDebugInfo {
     // The id qualified with the enclosing component name. Given `foo := Bar {}` this is `EnclosingComponent::foo`
     pub qualified_id: Option<SmolStr>,
     pub type_name: String,
-    // Hold an id for each element that is unique during this build.
-    // It helps to cross-reference the element in the different build stages the LSP has to deal with.
-    pub element_id: u64,
+    // Hold an id for each element that is unique during this build, based on the source file and
+    // the offset of the `LBrace` token.
+    //
+    // This helps to cross-reference the element in the different build stages the LSP has to deal with.
+    pub element_hash: u64,
     pub node: syntax_nodes::Element,
     // Field to indicate whether this element was a layout that had
     // been lowered into a rectangle in the lower_layouts pass.
@@ -1000,7 +1002,7 @@ impl Element {
             base_type,
             debug: vec![ElementDebugInfo {
                 qualified_id,
-                element_id: 0,
+                element_hash: 0,
                 type_name,
                 node: node.clone(),
                 layout: None,
