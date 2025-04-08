@@ -131,6 +131,7 @@ send_wrapper = { workspace = true }
 serde-wasm-bindgen = "0.6.0"
 wasm-bindgen = "0.2.80"
 wasm-bindgen-futures = "0.4.30"
+i-slint-backend-winit = { workspace = true }
 
 [target.'cfg(target_vendor = "apple")'.dependencies]
 i-slint-backend-winit = { workspace = true, optional = true }

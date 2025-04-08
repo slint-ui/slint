@@ -1644,15 +1644,6 @@ pub fn spawn_local<F: Future + 'static>(fut: F) -> Result<JoinHandle<F::Output>,
         .map_err(|_| EventLoopError::NoEventLoopProvider)?
 }
 
-#[cfg(all(feature = "internal", target_arch = "wasm32"))]
-/// Spawn the event loop.
-///
-/// Like [`run_event_loop()`], but returns immediately as the loop is running within
-/// the browser's runtime
-pub fn spawn_event_loop() -> Result<(), PlatformError> {
-    i_slint_backend_selector::with_platform(|_| i_slint_backend_winit::spawn_event_loop())
-}
-
 /// This module contains a few functions used by the tests
 #[doc(hidden)]
 pub mod testing {

@@ -39,12 +39,26 @@ struct WasmCallbacks {
 
 thread_local! {static WASM_CALLBACKS: RefCell<Option<WasmCallbacks>> = Default::default();}
 
+#[wasm_bindgen(start)]
+pub fn init_backend() -> Result<(), JsValue> {
+    console_error_panic_hook::set_once();
+
+    // Initialize the winit backend when we're used in the browser's main thread.
+    if web_sys::window().is_some() {
+        let backend =
+            i_slint_backend_winit::Backend::builder().with_spawn_event_loop(true).build().unwrap();
+        i_slint_core::platform::set_platform(Box::new(backend))
+            .map_err(|e| -> JsValue { format!("{e}").into() })?;
+    }
+
+    Ok(())
+}
+
 /// Register DOM event handlers on all instance and set up the event loop for that.
-/// You can call this function only once. It will throw an exception but that is safe
-/// to ignore.
+/// You can call this function only once.
 #[wasm_bindgen]
 pub fn run_event_loop() -> Result<(), JsValue> {
-    slint_interpreter::spawn_event_loop().map_err(|e| -> JsValue { format!("{e}").into() })
+    slint_interpreter::run_event_loop().map_err(|e| -> JsValue { format!("{e}").into() })
 }
 
 #[wasm_bindgen]

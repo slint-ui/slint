@@ -72,9 +72,6 @@ pub async fn compile_from_string_with_style(
     style: String,
     optional_import_callback: Option<ImportCallbackFunction>,
 ) -> Result<CompilationResult, JsValue> {
-    #[cfg(feature = "console_error_panic_hook")]
-    console_error_panic_hook::set_once();
-
     #[allow(deprecated)]
     let mut compiler = slint_interpreter::ComponentCompiler::default();
     if !style.is_empty() {
@@ -162,7 +159,8 @@ impl WrappedCompiledComp {
         });
         let component = self.0.create().unwrap();
         component.show().unwrap();
-        slint_interpreter::spawn_event_loop().unwrap();
+        // Merely spawns the event loop, but does not block.
+        slint_interpreter::run_event_loop().unwrap();
     }
     /// Creates this compiled component in a canvas, wrapped in a promise.
     /// The HTML must contains a <canvas> element with the given `canvas_id`
@@ -319,7 +317,8 @@ impl WrappedInstance {
 /// to ignore.
 #[wasm_bindgen]
 pub fn run_event_loop() -> Result<(), JsValue> {
-    slint_interpreter::spawn_event_loop().map_err(|e| -> JsValue { format!("{e}").into() })?;
+    // Merely spawns the event loop, but does not block.
+    slint_interpreter::run_event_loop().map_err(|e| -> JsValue { format!("{e}").into() })?;
     Ok(())
 }
 
@@ -329,7 +328,10 @@ thread_local!(
 
 #[wasm_bindgen(start)]
 pub fn init() -> Result<(), JsValue> {
+    #[cfg(feature = "console_error_panic_hook")]
+    console_error_panic_hook::set_once();
     let backend = i_slint_backend_winit::Backend::builder()
+        .with_spawn_event_loop(true)
         .with_window_attributes_hook(|mut attrs| {
             NEXT_CANVAS_ID.with(|next_id| {
                 if let Some(canvas_id) = next_id.borrow_mut().take() {
