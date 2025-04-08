@@ -786,18 +786,17 @@ impl WindowAdapter for WinitWindowAdapter {
 
             Ok(())
         } else {
-            crate::event_loop::with_window_target(|event_loop| {
-                // Wayland doesn't support hiding a window, only destroying it entirely.
-                if event_loop.is_wayland()
-                    || std::env::var_os("SLINT_DESTROY_WINDOW_ON_HIDE").is_some()
-                {
-                    self.suspend()?;
-                } else {
-                    self.winit_window_or_none.borrow().set_visible(false);
-                }
-
-                Ok(())
-            })?;
+            // Wayland doesn't support hiding a window, only destroying it entirely.
+            if self.winit_window_or_none.borrow().as_window().is_some_and(|winit_window| {
+                use raw_window_handle::HasWindowHandle;
+                winit_window.window_handle().is_ok_and(|h| {
+                    matches!(h.as_raw(), raw_window_handle::RawWindowHandle::Wayland(..))
+                }) || std::env::var_os("SLINT_DESTROY_WINDOW_ON_HIDE").is_some()
+            }) {
+                self.suspend()?;
+            } else {
+                self.winit_window_or_none.borrow().set_visible(false);
+            }
 
             /* FIXME:
             if let Some(existing_blinker) = self.cursor_blinker.borrow().upgrade() {
