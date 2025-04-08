@@ -477,12 +477,12 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<
                 const batchResults = await Promise.all(batchPromises);
 
                 for (const variable of batchResults) {
-                    if (!variable) continue;
+                    if (!variable) {continue};
                     if (
                         !variable.valuesByMode ||
                         Object.keys(variable.valuesByMode).length === 0
                     )
-                        continue;
+                        {continue};
 
                     // Use extractHierarchy to break up variable names
                     const nameParts = extractHierarchy(variable.name);
@@ -532,7 +532,7 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<
                         console.log(
                             `Variable ${variable.name} (${variable.id}) has value type: ${typeof value} value: ${JSON.stringify(value)}`,
                         );
-                        if (!modeInfo) continue;
+                        if (!modeInfo) {continue};
 
                         const modeName = sanitizeModeForEnum(
                             formatPropertyName(modeInfo.name),
@@ -1000,7 +1000,7 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<
                             const parentInstance =
                                 propertyInstances.get(pathKey);
                             if (!parentInstance || !parentInstance.children)
-                                continue;
+                                {continue};
 
                             // Add child instance to parent
                             parentInstance.children.set(sanitizedChildName, {
@@ -1018,7 +1018,7 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<
                             const parentInstance =
                                 propertyInstances.get(pathKey);
                             if (!parentInstance || !parentInstance.children)
-                                continue;
+                                {continue};
 
                             const slintType = getSlintType(
                                 childNode.type || "COLOR",
@@ -1090,7 +1090,7 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<
                         for (const childPath of childPaths) {
                             const childInstance =
                                 propertyInstances.get(childPath);
-                            if (!childInstance) continue;
+                            if (!childInstance) {continue};
 
                             // Get the parent path
                             const parts = childPath.split("/");
@@ -1101,7 +1101,7 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<
                             const parentInstance =
                                 propertyInstances.get(parentPath);
                             if (!parentInstance || !parentInstance.children)
-                                continue;
+                                {continue};
 
                             // Add child to parent
                             parentInstance.children.set(
@@ -1603,7 +1603,7 @@ function generateSchemeStructs(
 
         // Build the ternary chain from the first mode to the second-to-last
         for (let i = 0; i < modeArray.length - 1; i++) {
-            if (i > 0) expression += "\n        ";
+            if (i > 0) {expression += "\n        "};
             expression += `current-scheme == ${collectionData.formattedName}Mode.${modeArray[i]} ? root.mode.${modeArray[i]} : `;
         }
 
@@ -1664,7 +1664,7 @@ function collectMultiModeStructs(
     collectionData: { modes: Set<string> },
     structDefinitions: string[],
 ) {
-    if (collectionData.modes.size <= 1) return;
+    if (collectionData.modes.size <= 1) {return};
 
     // Define all Slint types we want to support
     const allSlintTypes = ["brush", "length", "string", "bool"];
