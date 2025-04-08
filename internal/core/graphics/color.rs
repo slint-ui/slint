@@ -15,7 +15,7 @@ use num_traits::float::Float;
 /// the values are normalized between 0 and 1. If T is u8, they values range
 /// is 0 to 255.
 /// This is merely a helper class for use with [`Color`].
-#[derive(Copy, PartialEq, Clone, Debug, Default)]
+#[derive(Copy, Clone, PartialEq, Debug, Default)]
 pub struct RgbaColor<T> {
     /// The alpha component.
     pub alpha: T,
