@@ -307,6 +307,12 @@ export component PreviewView {
                     }
 
                     Api.resize-to-preferred-size = false;
+
+                    if Api.focus-previewed-element {
+                        preview-area-container.focus();
+                    }
+
+                    Api.focus-previewed-element = false;
                 }
 
                 function resize-to-preview-constraints(width: length, height: length) {
