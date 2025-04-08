@@ -64,6 +64,7 @@ function formatStructName(name: string): string {
 function formatPropertyName(name: string): string {
     // Handle names starting with "." - remove the dot
     let sanitizedName = name.startsWith(".") ? name.substring(1) : name;
+    sanitizedName = sanitizedName.replace(/^[_\-\.]+/, '');
 
     // If that made it empty, use a default
     if (!sanitizedName || sanitizedName.trim() === "") {
@@ -89,6 +90,7 @@ function formatPropertyName(name: string): string {
 // Helper to format variable name for Slint (kebab-case)
 function formatVariableName(name: string): string {
     let sanitizedName = name.startsWith(".") ? name.substring(1) : name;
+    sanitizedName = sanitizedName.replace(/^[_\-\.]+/, '');
 
     // If that made it empty, use a default
     if (!sanitizedName || sanitizedName.trim() === "") {
