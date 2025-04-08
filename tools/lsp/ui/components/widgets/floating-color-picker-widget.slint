@@ -3,7 +3,7 @@
 
 import { Palette, Button } from "std-widgets.slint";
 import { WindowGlobal, WindowManager } from "../../windowglobal.slint";
-import { Api, PickerMode, BrushMode, WidgetMode } from "../../api.slint";
+import { Api, PickerData, PickerMode, BrushMode, WidgetMode } from "../../api.slint";
 
 
 export global Styles {
@@ -17,8 +17,6 @@ export global Styles {
     out property <length> property-border-radius: 5px;
     out property <length> picker-width: 240px;
 }
-
-
 
 component FakeShadowText {
     in property <string> text;
@@ -135,8 +133,6 @@ component BrushTypeSelector {
                     Rectangle {
                         width: parent.width - 4px;
                         height: parent.height - 4px;
-                        // border-width: 1px;
-                        // border-color: white;
                         background: @linear-gradient(90deg, white 0%, transparent 100%);
                     }
                 }
@@ -186,7 +182,6 @@ component BrushTypeSelector {
 
 component ColorModeColorAndApply {
     in property <color> current-color;
-    in-out property <float> alpha;
     in property <WidgetMode> widget-mode;
 
     width: 100%;
@@ -248,7 +243,7 @@ component ColorModeColorAndApply {
                     font-family: "Inter";
                     font-size: 12px;
                     color: Styles.text-color;
-                    text: root.alpha;
+                    text: PickerData.alpha;
                     text-cursor-width: 2px;
                     selection-background-color: #3984ec;
                     input-type: number;
@@ -261,7 +256,7 @@ component ColorModeColorAndApply {
                     }
                     accepted => {
                         self.text = clamp(self.text.to-float(), 0, 100);
-                        WindowManager.current-hsv-color.alpha = self.text.to-float() / 100;
+                        PickerData.alpha = self.text.to-float();
                     }
                     edited => {
                         if self.text.character-count > 3 {
@@ -280,19 +275,20 @@ component ColorModeColorAndApply {
                     color: #9d9d9d;
                     text: "%";
                 }
+
                 Rectangle {
                     x: parent.width - self.width;
                     width: 20px;
                     TouchArea {
                         mouse-cursor: col-resize;
-                        property <float> initial-x: 0;
+                        property <float> initial-alpha: 0;
                         changed pressed => {
                             if self.pressed {
-                                initial-x = WindowManager.current-hsv-color.alpha;
+                                initial-alpha = PickerData.alpha;
                             }
                         }
                         moved => {
-                            WindowManager.current-hsv-color.alpha = (initial-x + ((self.mouse-x - self.pressed-x ) / 1px) / 100).clamp(0, 1);
+                            PickerData.alpha = (initial-alpha + ((self.mouse-x - self.pressed-x) / 1px)).clamp(0, 100).round();
                         }
                     }
                 }
@@ -323,12 +319,7 @@ component VerticalSpacer {
 }
 
 component ColorPicker {
-    in-out property <float> hue: WindowManager.current-hsv-color.hue;
-    in-out property <float> saturation: WindowManager.current-hsv-color.saturation;
-    in-out property <float> value: WindowManager.current-hsv-color.value;
-    // alpha is an int, instead of float to help snap values to whole percentage numbers
-    in-out property <int> alpha: WindowManager.current-hsv-color.alpha * 100;
-    in-out property <color> current-color: hsv(root.hue, root.saturation, root.value, root.alpha / 100);
+    in-out property <color> current-color: hsv(PickerData.hue, PickerData.saturation, PickerData.value, PickerData.alpha / 100);
 
     in property <WidgetMode> widget-mode: edit;
     in property <PickerMode> picker-mode: color;
@@ -349,7 +340,7 @@ component ColorPicker {
 
     hidden-input := TextInput {
         visible: false;
-     }
+    }
 
     TouchArea {
         changed pressed => {
@@ -438,7 +429,7 @@ component ColorPicker {
                     border-radius: 6px;
                     clip: true;
                     hue := Rectangle {
-                        background: hsv(root.hue, 1, 1);
+                        background: hsv(PickerData.hue, 1, 1);
                     }
 
                     sat := Rectangle {
@@ -458,22 +449,22 @@ component ColorPicker {
                     TouchArea {
                         moved => {
                             if self.has-hover {
-                                root.saturation = clamp(self.mouse-x / self.width, 0, 1);
-                                root.value = clamp(1 - (self.mouse-y / self.height), 0, 1);
+                                PickerData.saturation = clamp(self.mouse-x / self.width, 0, 1);
+                                PickerData.value = clamp(1 - (self.mouse-y / self.height), 0, 1);
                             }
                         }
                         changed pressed => {
                             if self.pressed {
-                                root.saturation = self.mouse-x / self.width;
-                                root.value = 1 - (self.mouse-y / self.height);
+                                PickerData.saturation = self.mouse-x / self.width;
+                                PickerData.value = 1 - (self.mouse-y / self.height);
                             }
                         }
                     }
                 }
 
                 sv-picker := Rectangle {
-                    x: 1px + (saturation-value.width - 3px) * root.saturation;
-                    y: 1px + (saturation-value.height - 3px) * (1 - root.value);
+                    x: 1px + (saturation-value.width - 3px) * PickerData.saturation;
+                    y: 1px + (saturation-value.height - 3px) * (1 - PickerData.value);
                     width: 1px;
                     height: 1px;
                     Rectangle {
@@ -490,15 +481,15 @@ component ColorPicker {
                         width: 8px;
                         height: 8px;
                         border-radius: self.width / 2;
-                        background: hsv(root.hue, root.saturation, root.value);
+                        background: hsv(PickerData.hue, PickerData.saturation, PickerData.value);
                     }
                 }
             }
         }
 
         hsva-controls := Rectangle {
-        width: 100%;
-        height: 56px;
+            width: 100%;
+            height: 56px;
         // The following properties are used to size the hue picker and control the
         // thumb to now go past the visual bounds. But the TouchArea is intentionally larger
         // to be usable.
@@ -518,17 +509,17 @@ component ColorPicker {
                             moved => {
                                 if self.has-hover {
                                     if self.mouse-x < main-height {
-                                        root.hue = 0;
+                                        PickerData.hue = 0;
                                     } else {
-                                        root.hue = 359 * clamp((self.mouse-x - rounded-end-width) / (self.width - main-height), 0, 1);
+                                        PickerData.hue = 359 * clamp((self.mouse-x - rounded-end-width) / (self.width - main-height), 0, 1);
                                     }
                                 }
                             }
                             changed pressed => {
                                 if self.mouse-x < main-height {
-                                    root.hue = 0;
+                                    PickerData.hue = 0;
                                 } else {
-                                    root.hue = 359 * clamp((self.mouse-x - rounded-end-width) / (self.width - main-height), 0, 1);
+                                    PickerData.hue = 359 * clamp((self.mouse-x - rounded-end-width) / (self.width - main-height), 0, 1);
                                 }
                             }
                         }
@@ -565,7 +556,7 @@ component ColorPicker {
                         }
 
                         Rectangle {
-                            x: rounded-end-width + (main-width * (root.hue / 360));
+                            x: rounded-end-width + (main-width * (PickerData.hue / 360));
                             width: 0;
                             height: 0;
                             Rectangle {
@@ -582,7 +573,7 @@ component ColorPicker {
                                 width: 8px;
                                 height: 8px;
                                 border-radius: self.width / 2;
-                                background: hsv(root.hue, 1, 1);
+                                background: hsv(PickerData.hue, 1, 1);
                             }
                         }
                     }
@@ -639,13 +630,13 @@ component ColorPicker {
                                 Rectangle {
                                     width: main-width;
                                     height: hue-picker.height;
-                                    background: @linear-gradient(-90deg, hsv(root.hue, root.saturation, root.value, 1), transparent);
+                                    background: @linear-gradient(-90deg, hsv(PickerData.hue, PickerData.saturation, PickerData.value, 1), transparent);
                                 }
 
                                 Rectangle {
                                     width: self.height / 2;
                                     height: hue-picker.height;
-                                    background: hsv(root.hue, root.saturation, root.value, 1);
+                                    background: hsv(PickerData.hue, PickerData.saturation, PickerData.value, 1);
                                 }
                             }
 
@@ -658,7 +649,7 @@ component ColorPicker {
                         }
 
                         Rectangle {
-                            x: rounded-end-width + (main-width * (root.alpha / 100));
+                            x: rounded-end-width + (main-width * (PickerData.alpha / 100));
                             width: 0;
                             height: 0;
                             Rectangle {
@@ -683,17 +674,17 @@ component ColorPicker {
                             moved => {
                                 if self.has-hover {
                                     if self.mouse-x < rounded-end-width {
-                                        root.alpha = 0;
+                                        PickerData.alpha = 0;
                                     } else {
-                                        root.alpha = (100 * clamp((self.mouse-x - rounded-end-width) / (self.width - main-height), 0, 1)).round();
+                                        PickerData.alpha = (100 * clamp((self.mouse-x - rounded-end-width) / (self.width - main-height), 0, 1)).round();
                                     }
                                 }
                             }
                             changed pressed => {
                                 if self.mouse-x < rounded-end-width {
-                                    root.alpha = 0;
+                                    PickerData.alpha = 0;
                                 } else {
-                                    root.alpha = (100 * clamp((self.mouse-x - rounded-end-width) / (self.width - main-height), 0, 1)).round();
+                                    PickerData.alpha = (100 * clamp((self.mouse-x - rounded-end-width) / (self.width - main-height), 0, 1)).round();
                                 }
                             }
                         }
@@ -714,7 +705,6 @@ component ColorPicker {
 
         color-apply := ColorModeColorAndApply {
             current-color: root.current-color;
-            alpha: root.alpha;
             widget-mode: root.widget-mode;
         }
 

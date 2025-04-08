@@ -134,6 +134,14 @@ export enum BrushMode {
     svg-color,
 }
 
+export global PickerData {
+    in-out property <float> hue;
+    in-out property <float> saturation;
+    in-out property <float> value;
+    // alpha is an int, instead of float to help snap values to whole percentage numbers
+    in-out property <int> alpha;
+}
+
 export struct GradientStop {
     position: float, // between 0 and 1!
     color: color,

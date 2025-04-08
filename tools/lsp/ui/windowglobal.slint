@@ -3,7 +3,7 @@
 
 
 
-import { Api, ColorData, ElementInformation, PropertyInformation, PropertyValue, PropertyValueKind, PreviewData, WidgetMode, PickerMode } from "./api.slint";
+import { Api, ColorData, ElementInformation, PickerData, PropertyInformation, PropertyValue, PropertyValueKind, PreviewData, WidgetMode, PickerMode } from "./api.slint";
 import { StatusLineApi } from "components/status-line.slint";
 
 
@@ -13,7 +13,6 @@ export global WindowGlobal {
 }
 
 export global WindowManager {
-    in-out property <{ hue: float, saturation: float, value: float, alpha: float}> current-hsv-color;
     out property <bool> showing-color-picker: false;
     out property <WidgetMode> widget-mode: edit;
     out property <PickerMode> picker-mode: color;
@@ -37,10 +36,12 @@ export global WindowManager {
 
         if current-property-information.value.kind == PropertyValueKind.color {
             // bug? current-hsv-color = current-property-information.value.value-brush.to-hsv() does not work.
-            current-hsv-color.hue = current-property-information.value.value-brush.to-hsv().hue;
-            current-hsv-color.saturation = current-property-information.value.value-brush.to-hsv().saturation;
-            current-hsv-color.value = current-property-information.value.value-brush.to-hsv().value;
-            current-hsv-color.alpha = current-property-information.value.value-brush.to-hsv().alpha;
+            PickerData.hue = current-property-information.value.value-brush.to-hsv().hue;
+            ;
+            PickerData.saturation = current-property-information.value.value-brush.to-hsv().saturation;
+            ;
+            PickerData.value = current-property-information.value.value-brush.to-hsv().value;
+            PickerData.alpha = current-property-information.value.value-brush.to-hsv().alpha * 100;
             showing-color-picker = true;
         }
     }
@@ -59,10 +60,10 @@ export global WindowManager {
 
         if property-value.kind == PropertyValueKind.color {
             // bug? current-hsv-color = current-property-information.value.value-brush.to-hsv() does not work.
-            current-hsv-color.hue = property-value.value-brush.to-hsv().hue;
-            current-hsv-color.saturation = property-value.value-brush.to-hsv().saturation;
-            current-hsv-color.value = property-value.value-brush.to-hsv().value;
-            current-hsv-color.alpha = property-value.value-brush.to-hsv().alpha;
+            PickerData.hue = property-value.value-brush.to-hsv().hue;
+            PickerData.saturation = current-property-information.value.value-brush.to-hsv().saturation;
+            PickerData.value = property-value.value-brush.to-hsv().value;
+            PickerData.alpha = property-value.value-brush.to-hsv().alpha * 100;
             showing-color-picker = true;
         }
     }
