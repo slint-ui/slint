@@ -104,9 +104,6 @@ pub(crate) trait EventLoopInterface {
     ) -> Result<winit::window::Window, winit::error::OsError>;
     #[allow(unused)]
     fn event_loop(&self) -> ActiveOrInactiveEventLoop<'_>;
-    fn is_wayland(&self) -> bool {
-        false
-    }
 }
 
 impl EventLoopInterface for NotRunningEventLoop {
@@ -120,11 +117,6 @@ impl EventLoopInterface for NotRunningEventLoop {
     fn event_loop(&self) -> ActiveOrInactiveEventLoop<'_> {
         ActiveOrInactiveEventLoop::Inactive(&self.instance)
     }
-    #[cfg(all(unix, not(target_vendor = "apple"), feature = "wayland"))]
-    fn is_wayland(&self) -> bool {
-        use winit::platform::wayland::EventLoopExtWayland as _;
-        self.instance.is_wayland()
-    }
 }
 
 impl EventLoopInterface for RunningEventLoop<'_> {
@@ -136,11 +128,6 @@ impl EventLoopInterface for RunningEventLoop<'_> {
     }
     fn event_loop(&self) -> ActiveOrInactiveEventLoop<'_> {
         ActiveOrInactiveEventLoop::Active(self.active_event_loop)
-    }
-    #[cfg(all(unix, not(target_vendor = "apple"), feature = "wayland"))]
-    fn is_wayland(&self) -> bool {
-        use winit::platform::wayland::ActiveEventLoopExtWayland as _;
-        self.active_event_loop.is_wayland()
     }
 }
 
