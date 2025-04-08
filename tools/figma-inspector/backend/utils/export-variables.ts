@@ -1,4 +1,7 @@
-// Helper to convert Figma color values to Slint format
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+ 
+// // Helper to convert Figma color values to Slint format
 function convertColor(color: RGB | RGBA): string {
     const r = Math.round(color.r * 255);
     const g = Math.round(color.g * 255);
