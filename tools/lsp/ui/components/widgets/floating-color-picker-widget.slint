@@ -188,6 +188,7 @@ component ColorModeColorAndApply {
     in property <color> current-color;
     in-out property <float> alpha;
     in property <WidgetMode> widget-mode;
+
     width: 100%;
     vl := VerticalLayout {
         alignment: center;
@@ -236,16 +237,38 @@ component ColorModeColorAndApply {
 
             Rectangle {
                 x: parent.width - self.width;
-                width: 43px;
+                width: 50px;
                 height: parent.height;
 
-                Text {
-                    x: 5px;
+                TextInput {
+                    x: 10px;
+                    height: 15px;
                     vertical-alignment: center;
+                    horizontal-alignment: left;
                     font-family: "Inter";
                     font-size: 12px;
                     color: Styles.text-color;
                     text: root.alpha;
+                    text-cursor-width: 2px;
+                    selection-background-color: #3984ec;
+                    input-type: number;
+                    single-line: true;
+                    wrap: no-wrap;
+                    changed has-focus => {
+                        if self.has-focus {
+                            self.select-all();
+                        }
+                    }
+                    accepted => {
+                        self.text = clamp(self.text.to-float(), 0, 100);
+                        WindowManager.current-hsv-color.alpha = self.text.to-float() / 100;
+                    }
+                    edited => {
+                        if self.text.character-count > 3 {
+                            self.text = clamp(self.text.to-float(), 0, 100);
+                        }
+                    }
+                    enabled: false;
                 }
 
                 FakeShadowText {
@@ -324,7 +347,19 @@ component ColorPicker {
     width: Styles.picker-width;
     height: content.height;
 
+    hidden-input := TextInput {
+        visible: false;
+     }
+
     TouchArea {
+        changed pressed => {
+            if self.pressed {
+                hidden-input.visible = true;
+                hidden-input.focus();
+                hidden-input.clear-focus();
+                hidden-input.visible = false;
+            }
+        }
         moved => {
             picker-target-x = ((root.x + self.mouse-x - self.pressed-x) / 1px).round() * 1px;
             picker-target-y = ((root.y + self.mouse-y - self.pressed-y) / 1px).round() * 1px;
