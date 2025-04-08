@@ -28,7 +28,7 @@
     "capture-console": "1.0.2",
     "jimp": "1.6.0",
     "typedoc": "0.28.2",
-    "typescript": "5.8.2"
+    "typescript": "5.8.3"
   },
   "engines": {
     "node": ">= 10"
