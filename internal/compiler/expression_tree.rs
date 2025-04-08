@@ -1423,7 +1423,7 @@ impl Expression {
     pub fn ignore_debug_hooks(&self) -> &Expression {
         match self {
             Expression::DebugHook { expression, .. } => expression.as_ref(),
-            _ => return self,
+            _ => self,
         }
     }
 }

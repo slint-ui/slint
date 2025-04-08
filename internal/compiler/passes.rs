@@ -93,8 +93,6 @@ pub async fn run_passes(
 
     let global_type_registry = type_loader.global_type_registry.clone();
 
-    inject_debug_hooks::inject_debug_hooks(doc, type_loader);
-
     run_import_passes(doc, type_loader, diag);
     check_public_api::check_public_api(doc, &type_loader.compiler_config, diag);
 
@@ -327,6 +325,7 @@ pub fn run_import_passes(
     type_loader: &crate::typeloader::TypeLoader,
     diag: &mut crate::diagnostics::BuildDiagnostics,
 ) {
+    inject_debug_hooks::inject_debug_hooks(doc, type_loader);
     infer_aliases_types::resolve_aliases(doc, diag);
     resolving::resolve_expressions(doc, type_loader, diag);
     purity_check::purity_check(doc, diag);
