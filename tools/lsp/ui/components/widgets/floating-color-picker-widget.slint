@@ -37,7 +37,7 @@ component FakeShadowText {
         font-family: root.font-family;
         font-size: root.font-size;
         color: black;
-        text: "#";
+        text: t.text;
         font-weight: root.font-weight;
     }
 
@@ -256,10 +256,12 @@ component ColorModeColorAndApply {
                     font-size: 11px;
                     color: #9d9d9d;
                     text: "%";
-
+                }
+                Rectangle {
+                    x: parent.width - self.width;
+                    width: 20px;
                     TouchArea {
                         mouse-cursor: col-resize;
-                        // on moved += or -= root.alpha by one at a time
                         property <float> initial-x: 0;
                         changed pressed => {
                             if self.pressed {
