@@ -1750,6 +1750,9 @@ fn update_preview_area(
         let shared_document_cache = preview_state.document_cache.clone();
 
         if let Some(compiled) = compiled {
+            let api = ui.global::<ui::Api>();
+            api.set_focus_previewed_element(behavior == LoadBehavior::BringWindowToFront);
+
             set_preview_factory(
                 ui,
                 compiled,
