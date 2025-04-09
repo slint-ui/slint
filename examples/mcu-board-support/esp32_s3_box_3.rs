@@ -34,13 +34,14 @@ use embedded_hal_bus::spi::ExclusiveDevice;
 use esp_hal::gpio::InputConfig;
 use esp_println::println;
 use slint::platform::PointerEventButton;
+use esp_hal::clock::CpuClock;
 
 /// Initializes the heap and sets the Slint platform.
 pub fn init() {
     println!("Initializing esp32");
 
     // Initialize peripherals first.
-    let peripherals = esp_hal::init(esp_hal::Config::default());
+    let peripherals = esp_hal::init(esp_hal::Config::default().with_cpu_clock(CpuClock::_240MHz));
     println!("Peripherals initialized");
 
     // Initialize the PSRAM allocator.
@@ -84,14 +85,62 @@ impl slint::platform::Platform for EspBackend {
     }
 
     fn run_event_loop(&self) -> Result<(), slint::PlatformError> {
-        // Initialize the peripherals using the new esp-hal 1.0.0 API.
+        // Take and configure peripherals.
         let mut peripherals = self
             .peripherals
             .borrow_mut()
             .take()
             .expect("Peripherals already taken");
         let mut delay = Delay::new();
-        // I2C initialization.
+
+
+
+        // --- Begin SPI and Display Initialization ---
+        let spi = Spi::<esp_hal::Blocking>::new(
+            peripherals.SPI2,
+            SpiConfig::default()
+                .with_frequency(Rate::from_mhz(40))
+                .with_mode(SpiMode::_0),
+        )
+            .unwrap()
+            .with_sck(peripherals.GPIO7)
+            .with_mosi(peripherals.GPIO6);
+
+        // Display control pins.
+        let dc = Output::new(peripherals.GPIO4, Level::Low, OutputConfig::default());
+        let cs = Output::new(peripherals.GPIO5, Level::Low, OutputConfig::default());
+        // Reset pin for display: GPIO48 (shared with touch, must be high for normal operation).
+        let rst = Output::new(
+            peripherals.GPIO48,
+            Level::High,
+            OutputConfig::default().with_drive_mode(DriveMode::OpenDrain),
+        );
+        // Wrap SPI into a bus.
+        let spi_delay = Delay::new();
+        let spi_device = ExclusiveDevice::new(spi, cs, spi_delay).unwrap();
+        let mut buffer = [0u8; 512];
+        let di = mipidsi::interface::SpiInterface::new(spi_device, dc, &mut buffer);
+
+        // Initialize the display.
+        let display = mipidsi::Builder::new(mipidsi::models::ILI9486Rgb565, di)
+            .reset_pin(rst)
+            .orientation(Orientation::new().rotate(Rotation::Deg180))
+            .color_order(ColorOrder::Bgr)
+            .init(&mut delay)
+            .unwrap();
+
+        // Set up the backlight pin.
+        let mut backlight = Output::new(peripherals.GPIO47, Level::Low, OutputConfig::default());
+        backlight.set_high();
+
+        // Update the Slint window size from the display.
+        let size = display.size();
+        let size = slint::PhysicalSize::new(size.width, size.height);
+        self.window.borrow().as_ref().unwrap().set_size(size);
+
+        // --- End Display Initialization ---
+
+        // Initialize I2C for touch (but delay touch initialization until later).
         let mut i2c = I2c::new(
             peripherals.I2C0,
             esp_hal::i2c::master::Config::default(),
@@ -100,70 +149,20 @@ impl slint::platform::Platform for EspBackend {
             .with_sda(peripherals.GPIO8)
             .with_scl(peripherals.GPIO18);
 
+        // Initialize the touch driver.
         let mut touch = Gt911Blocking::new(0x14);
-        touch.init(&mut i2c).unwrap();
-        // Initialize the touch driver
-        // let mut touch = tt21100::TT21100::new(i2c, Input::new(peripherals.GPIO3, InputConfig::default().with_pull(Pull::Up)))
-        //     .expect("Initialize the touch device");
+        match touch.init(&mut i2c, &mut delay) {
+            Ok(_) => println!("Touch initialized"),
+            Err(e) => println!("Touch initialization failed: {:?}", e),
+        }
 
-        // SPI initialization: using Blocking mode. Update the configuration to use Rate.
-        let spi = Spi::<esp_hal::Blocking>::new(
-            peripherals.SPI2,
-            SpiConfig::default()
-                .with_frequency(Rate::from_mhz(60))
-                .with_mode(SpiMode::_0),
-        )
-            .unwrap()
-            .with_sck(peripherals.GPIO7)
-            .with_mosi(peripherals.GPIO6);
-
-        // Configure display control and chip select pins with an output config.
-        let dc = Output::new(peripherals.GPIO4, Level::Low, OutputConfig::default());
-        let cs = Output::new(peripherals.GPIO5, Level::Low, OutputConfig::default());
-        // Reset pin for display: GPIO48 (OpenDrain required).
-        let rst = Output::new(
-            peripherals.GPIO48,
-            Level::High,
-            OutputConfig::default().with_drive_mode(DriveMode::OpenDrain),
-        );
-
-        // Wrap the SPI bus in an ExclusiveDevice.
-        let spi_delay = Delay::new();
-        let spi_device = ExclusiveDevice::new(spi, cs, spi_delay).unwrap();
-
-        // Create a temporary buffer for the SPI interface.
-        let mut buffer = [0u8; 512];
-        let di = mipidsi::interface::SpiInterface::new(spi_device, dc, &mut buffer);
-
-        // Initialize the display with updated builder settings.
-        let display = mipidsi::Builder::new(mipidsi::models::ILI9486Rgb565, di)
-            .reset_pin(rst)
-            .orientation(Orientation::new().rotate(Rotation::Deg180))
-            .color_order(ColorOrder::Bgr)
-            .init(&mut delay)
-            .unwrap();
-
-        // Set up the backlight pin. Using an output config as required by the new API.
-        let mut backlight = Output::new(peripherals.GPIO47, Level::Low, OutputConfig::default());
-        backlight.set_high();
-
-        // Use the display size to size the Slint window.
-        let size = display.size();
-        let size = slint::PhysicalSize::new(size.width, size.height);
-
-        self.window
-            .borrow()
-            .as_ref()
-            .unwrap()
-            .set_size(size);
-
-        // Prepare a draw buffer that is used by the Slint software renderer.
+        // Prepare a draw buffer for the Slint software renderer.
         let mut buffer_provider = DrawBuffer {
             display,
             buffer: &mut [slint::platform::software_renderer::Rgb565Pixel(0); 320],
         };
 
-        // Variable to track touch state between iterations.
+        // Variable to track the last touch position.
         let mut last_touch = None;
 
         // Main event loop.
@@ -176,8 +175,6 @@ impl slint::platform::Platform for EspBackend {
                     // Active touch detected: Some(point) means a press or move.
                     Ok(Some(point)) => {
                         // Convert GT911 raw coordinates (assumed in pixels) into a PhysicalPosition.
-                        // You may need to adjust this conversion if your coordinate systems differ.
-                        // println!("touch point: {:?}", point);
                         let pos = slint::PhysicalPosition::new(point.x as i32, point.y as i32)
                             .to_logical(window.scale_factor());
 
@@ -186,12 +183,11 @@ impl slint::platform::Platform for EspBackend {
                             if previous_pos != pos {
                                 WindowEvent::PointerMoved { position: pos }
                             } else {
-                                // If the position is the same as last time, skip event generation.
-                                // In this case we simply continue the loop.
+                                // If the position is unchanged, skip event generation.
                                 continue;
                             }
                         } else {
-                            // No previous touch, so generate a PointerPressed event.
+                            // No previous touch recorded, generate a PointerPressed event.
                             WindowEvent::PointerPressed {
                                 position: pos,
                                 button: PointerEventButton::Left,
@@ -201,22 +197,19 @@ impl slint::platform::Platform for EspBackend {
                         // Dispatch the event to Slint.
                         window.try_dispatch_event(event)?;
                     }
-                    // No active touch—report release if a previous touch existed.
+                    // No active touch: if a previous touch existed, dispatch pointer release.
                     Ok(None) => {
                         if let Some(pos) = last_touch.take() {
                             window.try_dispatch_event(WindowEvent::PointerReleased {
                                 position: pos,
                                 button: PointerEventButton::Left,
                             })?;
-                            // Optionally remove hover state.
                             window.try_dispatch_event(WindowEvent::PointerExited)?;
                         }
                     }
-                    // If data is not ready, do nothing.
-                    // Err(gt911_driver::Error::NotReady) => { /* No new data available; ignore */ }
-                    // Log any other errors.
+                    // On errors, you can log them if desired.
                     Err(_) => {
-                    //     println!("GT911 error: {:?}", e);
+                        // Optionally log or ignore errors.
                     }
                 }
 
