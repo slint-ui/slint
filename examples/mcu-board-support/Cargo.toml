@@ -70,7 +70,7 @@ stm32h735g = [
   "slint/libm",
   "getrandom",
 ]
-esp32-s3-box = [
+esp32-s3-box-3 = [
   "slint/unsafe-single-threaded",
   "esp-hal/esp32s3",
   "esp-hal/psram",
@@ -82,7 +82,8 @@ esp32-s3-box = [
   "dep:mipidsi",
   "embedded-graphics-core",
   "slint/libm",
-  "tt21100",
+  #  "tt21100",
+  "gt911",
 ]
 stm32u5g9j-dk2 = [
   "embassy-stm32/stm32u5g9zj",
