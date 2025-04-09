@@ -202,15 +202,18 @@ function createReferenceExpression(
 
     // Consider it circular if they share at least 2 path parts
     const isCircularReference =
-        // Basic path comparison
-        (commonParts >= 1 &&
-            // Either direct circular reference (A → A)
-            currentPath.join("/") === targetPath.join("/")) ||
-        // Or nested circular reference (A/B → A or A → A/B)
+        // Direct circular reference (same path)
+        currentPath.join("/") === targetPath.join("/") ||
+        // Parent-child circular references (already implemented)
         currentPath
             .join("/")
             .startsWith(targetPath.join("/")) ||
-        targetPath.join("/").startsWith(currentPath.join("/"));
+        targetPath.join("/").startsWith(currentPath.join("/")) ||
+        // Sibling circular references with shared ancestor
+        (currentPath.length >= 2 &&
+            targetPath.length >= 2 &&
+            // If they share the first item in the path
+            currentPath[0] === targetPath[0]);
 
     if (isCircularReference) {
         console.warn(
