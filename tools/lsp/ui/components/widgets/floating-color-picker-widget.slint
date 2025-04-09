@@ -337,8 +337,10 @@ component ColorModeColorAndApply {
 }
 
 component Column {
+    in-out property <length> spacing;
     width: 100%;
-    VerticalLayout {
+    vl := VerticalLayout {
+        spacing <=> root.spacing;
         @children
     }
 }
@@ -351,6 +353,7 @@ component VerticalSpacer {
 component GradientStopValue {
     in-out property <color> current-color;
     in-out property <int> current-alpha;
+    in-out property <float> stop-percentage;
     width: 100%;
     height: 30px;
 
@@ -358,6 +361,14 @@ component GradientStopValue {
         width: 180px;
         border-radius: Styles.property-border-radius;
         background: Styles.section-color;
+
+        Rectangle {
+            x: 5px;
+            width: 15px;
+            height: self.width;
+            border-radius: 2px;
+            background: root.current-color;
+        }
 
         FakeShadowText {
             x: 25px;
@@ -524,18 +535,12 @@ component GradientPicker inherits Column {
         }
     }
 
-    GradientStopValue {
-        current-color: #B62F2F;
-        current-alpha: 100;
-    }
-
-    Rectangle {
-        height: Styles.small-margin;
-    }
-
-    GradientStopValue {
-        current-color: black;
-        current-alpha: 100;
+    Column {
+        spacing: 4px;
+        for i[index] in PickerData.current-gradient-stops: GradientStopValue {
+            stop-percentage: i.position;
+            current-color: i.color;
+        }
     }
 }
 
