@@ -328,7 +328,7 @@ impl ItemRc {
             // the Item was most likely a PopupWindow and we don't want to return the item for the purpose of this call
             // (eg, focus/geometry/...)
             match find_mode {
-                ParentItemTraversalMode::FindAllParents => r.upgrade(),
+                ParentItemTraversalMode::FindAllParents => Some(parent),
                 ParentItemTraversalMode::StopAtPopups => None,
             }
         }
