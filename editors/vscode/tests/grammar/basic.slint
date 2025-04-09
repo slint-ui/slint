@@ -1,305 +1,305 @@
-# SYNTAX TEST "source.slint" "Simple tmGrammar test"
+// SYNTAX TEST "source.slint" "Simple tmGrammar test"
 
   // Some comment
-# ^^^^^^^^^^^^^^^ comment.line.double-slash.slint
+//^^^^^^^^^^^^^^^ comment.line.double-slash.slint
 
       /* /* Test */ xyz
-#     ^^^^^^^^^^^^^^^^^ comment.block.slint
+//    ^^^^^^^^^^^^^^^^^ comment.block.slint
      */
-# ^^^^^ comment.block.slint
+//^^^^^ comment.block.slint
       /* /* Test */
-#       ^^^^^^^^^^^ comment.block.slint
+//      ^^^^^^^^^^^ comment.block.slint
      */
-# ^^^^^ comment.block.slint
+//^^^^^ comment.block.slint
   import{}from"std-widgets.slint";
-# ^^^^^^ keyword.other.import.slint
-#         ^^^^ keyword.other.from.slint
-#             ^^^^^^^^^^^^^^^^^^^ string.quoted.double.import-path.slint
+//^^^^^^ keyword.other.import.slint
+//        ^^^^ keyword.other.from.slint
+//            ^^^^^^^^^^^^^^^^^^^ string.quoted.double.import-path.slint
   import { Button}from  "std-widgets.slint"  ;
-# ^^^^^^ keyword.other.import.slint
-#          ^^^^^^ entity.name.type.import-list.slint
-#                 ^^^^ keyword.other.from.slint
-#                       ^^^^^^^^^^^^^^^^^^^ string.quoted.double.import-path.slint
+//^^^^^^ keyword.other.import.slint
+//         ^^^^^^ entity.name.type.import-list.slint
+//                ^^^^ keyword.other.from.slint
+//                      ^^^^^^^^^^^^^^^^^^^ string.quoted.double.import-path.slint
   import { Button as Foo, AboutSlint }from  "std-widgets.slint"  ;
-# ^^^^^^ keyword.other.import.slint
-#          ^^^^^^ entity.name.type.import-list.slint
-#                 ^^ keyword.other.as.slint
-#                    ^^^ entity.name.type.import-list.slint
-#                         ^^^^^^^^^^ entity.name.type.import-list.slint
-#                                     ^^^^ keyword.other.from.slint
-#                                           ^^^^^^^^^^^^^^^^^^^ string.quoted.double.import-path.slint
+//^^^^^^ keyword.other.import.slint
+//         ^^^^^^ entity.name.type.import-list.slint
+//                ^^ keyword.other.as.slint
+//                   ^^^ entity.name.type.import-list.slint
+//                        ^^^^^^^^^^ entity.name.type.import-list.slint
+//                                    ^^^^ keyword.other.from.slint
+//                                          ^^^^^^^^^^^^^^^^^^^ string.quoted.double.import-path.slint
   import {
-# ^^^^^^ keyword.other.import.slint
+//^^^^^^ keyword.other.import.slint
      Button__ as Foo--   ,
-#    ^^^^^^^^ entity.name.type.import-list.slint
-#             ^^ keyword.other.as.slint
-#                ^^^^^ entity.name.type.import-list.slint
+//   ^^^^^^^^ entity.name.type.import-list.slint
+//            ^^ keyword.other.as.slint
+//               ^^^^^ entity.name.type.import-list.slint
      AboutSlint
-#    ^^^^^^^^^^ entity.name.type.import-list.slint
+//   ^^^^^^^^^^ entity.name.type.import-list.slint
   } from  "std-widgets.slint"  ;
-#   ^^^^ keyword.other.from.slint
-#         ^^^^^^^^^^^^^^^^^^^ string.quoted.double.import-path.slint
+//  ^^^^ keyword.other.from.slint
+//        ^^^^^^^^^^^^^^^^^^^ string.quoted.double.import-path.slint
 
   import "font.ttf";
-# ^^^^^^ keyword.other.import.slint
-#        ^^^^^^^^^^ string.quoted.double.import-file.slint
+//^^^^^^ keyword.other.import.slint
+//       ^^^^^^^^^^ string.quoted.double.import-file.slint
       import  "font.ttf"  ;
-#     ^^^^^^ keyword.other.import.slint
-#             ^^^^^^^^^^ string.quoted.double.import-file.slint
+//    ^^^^^^ keyword.other.import.slint
+//            ^^^^^^^^^^ string.quoted.double.import-file.slint
       import"font.ttf"  ;
-#     ^^^^^^ keyword.other.import.slint
-#           ^^^^^^^^^^ string.quoted.double.import-file.slint
+//    ^^^^^^ keyword.other.import.slint
+//          ^^^^^^^^^^ string.quoted.double.import-file.slint
 
   export { Foo as Bar-Ista, AboutSlint }
-# ^^^^^^ keyword.other.export.slint
-#          ^^^ entity.name.type.export-list.slint
-#              ^^ keyword.other.as.slint
-#                 ^^^^^^^^ entity.name.type.export-list.slint
-#                           ^^^^^^^^^^ entity.name.type.export-list.slint
+//^^^^^^ keyword.other.export.slint
+//         ^^^ entity.name.type.export-list.slint
+//             ^^ keyword.other.as.slint
+//                ^^^^^^^^ entity.name.type.export-list.slint
+//                          ^^^^^^^^^^ entity.name.type.export-list.slint
   export {Foo as Bar-Ista,AboutSlint}
-# ^^^^^^ keyword.other.export.slint
-#         ^^^ entity.name.type.export-list.slint
-#             ^^ keyword.other.as.slint
-#                ^^^^^^^^ entity.name.type.export-list.slint
-#                         ^^^^^^^^^^ entity.name.type.export-list.slint
+//^^^^^^ keyword.other.export.slint
+//        ^^^ entity.name.type.export-list.slint
+//            ^^ keyword.other.as.slint
+//               ^^^^^^^^ entity.name.type.export-list.slint
+//                        ^^^^^^^^^^ entity.name.type.export-list.slint
   struct Foobar { }
-# ^^^^^^ keyword.declaration.struct.slint
-#        ^^^^^^ entity.name.type.struct.slint
+//^^^^^^ keyword.declaration.struct.slint
+//       ^^^^^^ entity.name.type.struct.slint
   struct Foobar { test: bat}
-# ^^^^^^ keyword.declaration.struct.slint
-#        ^^^^^^ entity.name.type.struct.slint
-#                 ^^^^ variable.other.struct.field.slint
-#                       ^^^ entity.name.type.struct.field.slint
+//^^^^^^ keyword.declaration.struct.slint
+//       ^^^^^^ entity.name.type.struct.slint
+//                ^^^^ variable.other.struct.field.slint
+//                      ^^^ entity.name.type.struct.field.slint
   export struct Foobar {
-# ^^^^^^ keyword.other.export.slint
-#        ^^^^^^ keyword.declaration.struct.slint
-#               ^^^^^^ entity.name.type.struct.slint
+//^^^^^^ keyword.other.export.slint
+//       ^^^^^^ keyword.declaration.struct.slint
+//              ^^^^^^ entity.name.type.struct.slint
       test        : bat  , // test
-#     ^^^^ variable.other.struct.field.slint
-#                   ^^^ entity.name.type.struct.field.slint
-#                          ^^^^^^^^ comment.line.double-slash.slint
+//    ^^^^ variable.other.struct.field.slint
+//                  ^^^ entity.name.type.struct.field.slint
+//                         ^^^^^^^^ comment.line.double-slash.slint
       foo: bar
-#     ^^^ variable.other.struct.field.slint
-#          ^^^ entity.name.type.struct.field.slint
+//    ^^^ variable.other.struct.field.slint
+//         ^^^ entity.name.type.struct.field.slint
   }
 
   enum Foobar { }
-# ^^^^ keyword.declaration.enum.slint
-#      ^^^^^^ entity.name.type.enum.slint
+//^^^^ keyword.declaration.enum.slint
+//     ^^^^^^ entity.name.type.enum.slint
   enum Foobar { enum1, enum2 , enum3}
-# ^^^^ keyword.declaration.enum.slint
-#      ^^^^^^ entity.name.type.enum.slint
-#               ^^^^^ entity.name.type.enum.value.slint
-#                      ^^^^^ entity.name.type.enum.value.slint
-#                              ^^^^^ entity.name.type.enum.value.slint
+//^^^^ keyword.declaration.enum.slint
+//     ^^^^^^ entity.name.type.enum.slint
+//              ^^^^^ entity.name.type.enum.value.slint
+//                     ^^^^^ entity.name.type.enum.value.slint
+//                             ^^^^^ entity.name.type.enum.value.slint
   enum Foobar { enum1, enum2 , enum3 ,}
-# ^^^^ keyword.declaration.enum.slint
-#      ^^^^^^ entity.name.type.enum.slint
-#               ^^^^^ entity.name.type.enum.value.slint
-#                      ^^^^^ entity.name.type.enum.value.slint
-#                              ^^^^^ entity.name.type.enum.value.slint
+//^^^^ keyword.declaration.enum.slint
+//     ^^^^^^ entity.name.type.enum.slint
+//              ^^^^^ entity.name.type.enum.value.slint
+//                     ^^^^^ entity.name.type.enum.value.slint
+//                             ^^^^^ entity.name.type.enum.value.slint
   export enum Foobar {
-# ^^^^^^ keyword.other.export.slint
-#        ^^^^ keyword.declaration.enum.slint
-#             ^^^^^^ entity.name.type.enum.slint
+//^^^^^^ keyword.other.export.slint
+//       ^^^^ keyword.declaration.enum.slint
+//            ^^^^^^ entity.name.type.enum.slint
 
     foo-bar  , // test
-#   ^^^^^^^ entity.name.type.enum.value.slint
-#              ^^^^^^^ comment.line.double-slash.slint
+//  ^^^^^^^ entity.name.type.enum.value.slint
+//             ^^^^^^^ comment.line.double-slash.slint
   }
 
   export global b     {}
-# ^^^^^^ keyword.other.export.slint
-#        ^^^^^^ keyword.other.global.slint
-#               ^ entity.name.type.global.slint
+//^^^^^^ keyword.other.export.slint
+//       ^^^^^^ keyword.other.global.slint
+//              ^ entity.name.type.global.slint
 
   component b     {}
-# ^^^^^^^^^ keyword.other.component.slint
-#           ^ entity.name.type.component.slint
+//^^^^^^^^^ keyword.other.component.slint
+//          ^ entity.name.type.component.slint
   component b     inherits B_----____ay {}
-# ^^^^^^^^^ keyword.other.component.slint
-#           ^ entity.name.type.component.slint
-#                 ^^^^^^^^ keyword.other.inherits.slint
-#                          ^^^^^^^^^^^ entity.other.inherited-class.component.slint
+//^^^^^^^^^ keyword.other.component.slint
+//          ^ entity.name.type.component.slint
+//                ^^^^^^^^ keyword.other.inherits.slint
+//                         ^^^^^^^^^^^ entity.other.inherited-class.component.slint
   export component b     {}
-# ^^^^^^ keyword.other.export.slint
-#        ^^^^^^^^^ keyword.other.component.slint
-#                  ^ entity.name.type.component.slint
+//^^^^^^ keyword.other.export.slint
+//       ^^^^^^^^^ keyword.other.component.slint
+//                 ^ entity.name.type.component.slint
   export component b     inherits B_----____ay {}
-# ^^^^^^ keyword.other.export.slint
-#        ^^^^^^^^^ keyword.other.component.slint
-#                  ^ entity.name.type.component.slint
-#                        ^^^^^^^^ keyword.other.inherits.slint
-#                                 ^^^^^^^^^^^ entity.other.inherited-class.component.slint
+//^^^^^^ keyword.other.export.slint
+//       ^^^^^^^^^ keyword.other.component.slint
+//                 ^ entity.name.type.component.slint
+//                       ^^^^^^^^ keyword.other.inherits.slint
+//                                ^^^^^^^^^^^ entity.other.inherited-class.component.slint
   export
-# ^^^^^^ keyword.other.export.slint
+//^^^^^^ keyword.other.export.slint
   component b inherits B_----____ay {
-# ^^^^^^^^^ keyword.other.component.slint
-#           ^ entity.name.type.component.slint
-#             ^^^^^^^^ keyword.other.inherits.slint
-#                      ^^^^^^^^^^^ entity.other.inherited-class.component.slint
+//^^^^^^^^^ keyword.other.component.slint
+//          ^ entity.name.type.component.slint
+//            ^^^^^^^^ keyword.other.inherits.slint
+//                     ^^^^^^^^^^^ entity.other.inherited-class.component.slint
 
       // comments work here!
-#     ^^^^^^^^^^^^^^^^^^^^^^ comment.line.double-slash.slint
+//    ^^^^^^^^^^^^^^^^^^^^^^ comment.line.double-slash.slint
 
    property <color> bar ;
-#  ^^^^^^^^ keyword.other.property.slint
-#            ^^^^^ entity.name.type.property.slint
-#                   ^^^ variable.other.property.slint
+// ^^^^^^^^ keyword.other.property.slint
+//           ^^^^^ entity.name.type.property.slint
+//                  ^^^ variable.other.property.slint
    property<color>bar ;
-#  ^^^^^^^^ keyword.other.property.slint
-#           ^^^^^ entity.name.type.property.slint
-#                 ^^^ variable.other.property.slint
+// ^^^^^^^^ keyword.other.property.slint
+//          ^^^^^ entity.name.type.property.slint
+//                ^^^ variable.other.property.slint
    property <color> bar <=> root.baz-feed;
-#  ^^^^^^^^ keyword.other.property.slint
-#            ^^^^^ entity.name.type.property.slint
-#                   ^^^ variable.other.property.slint
-#                           ^^^^^^^^^^^^^ variable.language.scoped-name.slint
+// ^^^^^^^^ keyword.other.property.slint
+//           ^^^^^ entity.name.type.property.slint
+//                  ^^^ variable.other.property.slint
+//                          ^^^^^^^^^^^^^ variable.language.scoped-name.slint
    /* test */ property <int> foo;
-#  ^^^^^^^^^^ comment.block.slint
-#             ^^^^^^^^ keyword.other.property.slint
-#                       ^^^ entity.name.type.property.slint
-#                            ^^^ variable.other.property.slint
+// ^^^^^^^^^^ comment.block.slint
+//            ^^^^^^^^ keyword.other.property.slint
+//                      ^^^ entity.name.type.property.slint
+//                           ^^^ variable.other.property.slint
    in      property <color> bar: Colors.aquamarine ;
-#  ^^ keyword.other.visibility.slint
-#          ^^^^^^^^ keyword.other.property.slint
-#                    ^^^^^ entity.name.type.property.slint
-#                           ^^^ variable.other.property.slint
-#                                ^^^^^^ support.class.colors.slint
-#                                       ^^^^^^^^^^ support.constant.colors.slint
+// ^^ keyword.other.visibility.slint
+//         ^^^^^^^^ keyword.other.property.slint
+//                   ^^^^^ entity.name.type.property.slint
+//                          ^^^ variable.other.property.slint
+//                               ^^^^^^ support.class.colors.slint
+//                                      ^^^^^^^^^^ support.constant.colors.slint
    out     property <color> bar: Colors.aquamarine ;
-#  ^^^ keyword.other.visibility.slint
-#          ^^^^^^^^ keyword.other.property.slint
-#                    ^^^^^ entity.name.type.property.slint
-#                           ^^^ variable.other.property.slint
-#                                ^^^^^^ support.class.colors.slint
-#                                       ^^^^^^^^^^ support.constant.colors.slint
+// ^^^ keyword.other.visibility.slint
+//         ^^^^^^^^ keyword.other.property.slint
+//                   ^^^^^ entity.name.type.property.slint
+//                          ^^^ variable.other.property.slint
+//                               ^^^^^^ support.class.colors.slint
+//                                      ^^^^^^^^^^ support.constant.colors.slint
    in-out  property <color> bar: Colors.aquamarine ;
-#  ^^^^^^ keyword.other.visibility.slint
-#          ^^^^^^^^ keyword.other.property.slint
-#                    ^^^^^ entity.name.type.property.slint
-#                           ^^^ variable.other.property.slint
-#                                ^^^^^^ support.class.colors.slint
-#                                       ^^^^^^^^^^ support.constant.colors.slint
+// ^^^^^^ keyword.other.visibility.slint
+//         ^^^^^^^^ keyword.other.property.slint
+//                   ^^^^^ entity.name.type.property.slint
+//                          ^^^ variable.other.property.slint
+//                               ^^^^^^ support.class.colors.slint
+//                                      ^^^^^^^^^^ support.constant.colors.slint
    private property <color> bar: Colors.aquamarine ;
-#  ^^^^^^^ keyword.other.visibility.slint
-#          ^^^^^^^^ keyword.other.property.slint
-#                    ^^^^^ entity.name.type.property.slint
-#                           ^^^ variable.other.property.slint
-#                                ^^^^^^ support.class.colors.slint
-#                                       ^^^^^^^^^^ support.constant.colors.slint
+// ^^^^^^^ keyword.other.visibility.slint
+//         ^^^^^^^^ keyword.other.property.slint
+//                   ^^^^^ entity.name.type.property.slint
+//                          ^^^ variable.other.property.slint
+//                               ^^^^^^ support.class.colors.slint
+//                                      ^^^^^^^^^^ support.constant.colors.slint
    property <color> bar: #ff00ff00 ;
-#  ^^^^^^^^ keyword.other.property.slint
-#            ^^^^^ entity.name.type.property.slint
-#                   ^^^ variable.other.property.slint
-#                        ^^^^^^^^^ constant.other.color.slint
+// ^^^^^^^^ keyword.other.property.slint
+//           ^^^^^ entity.name.type.property.slint
+//                  ^^^ variable.other.property.slint
+//                       ^^^^^^^^^ constant.other.color.slint
    property <color> bar: -5px;
-#  ^^^^^^^^ keyword.other.property.slint
-#            ^^^^^ entity.name.type.property.slint
-#                   ^^^ variable.other.property.slint
-#                        ^^^^ constant.numeric.slint
+// ^^^^^^^^ keyword.other.property.slint
+//           ^^^^^ entity.name.type.property.slint
+//                  ^^^ variable.other.property.slint
+//                       ^^^^ constant.numeric.slint
    property <color> bar:+5% ;
-#  ^^^^^^^^ keyword.other.property.slint
-#            ^^^^^ entity.name.type.property.slint
-#                   ^^^ variable.other.property.slint
-#                       ^^^ constant.numeric.slint
+// ^^^^^^^^ keyword.other.property.slint
+//           ^^^^^ entity.name.type.property.slint
+//                  ^^^ variable.other.property.slint
+//                      ^^^ constant.numeric.slint
    property <color> bar:5rem; // Foobar
-#  ^^^^^^^^ keyword.other.property.slint
-#            ^^^^^ entity.name.type.property.slint
-#                   ^^^ variable.other.property.slint
-#                       ^^^^ constant.numeric.slint
-#                               ^^^^^^^^^^ comment.line.double-slash.slint
+// ^^^^^^^^ keyword.other.property.slint
+//           ^^^^^ entity.name.type.property.slint
+//                  ^^^ variable.other.property.slint
+//                      ^^^^ constant.numeric.slint
+//                              ^^^^^^^^^^ comment.line.double-slash.slint
 
   callback foo;
-# ^^^^^^^^ keyword.other.function.slint
-#          ^^^ entity.name.function.slint
+//^^^^^^^^ keyword.other.function.slint
+//         ^^^ entity.name.function.slint
   callback foo-bar();
-# ^^^^^^^^ keyword.other.function.slint
-#          ^^^^^^^ entity.name.function.slint
+//^^^^^^^^ keyword.other.function.slint
+//         ^^^^^^^ entity.name.function.slint
   callback foo-bar() -> return-type;
-# ^^^^^^^^ keyword.other.function.slint
-#          ^^^^^^^ entity.name.function.slint
+//^^^^^^^^ keyword.other.function.slint
+//         ^^^^^^^ entity.name.function.slint
                         ^^^^^^^^^^^ entity.name.type.return-type.slint
   callback foo-bar(name: type) -> return-type;
-# ^^^^^^^^ keyword.other.function.slint
-#          ^^^^^^^ entity.name.function.slint
-#                  ^^^^ variable.parameter.function-argument.slint
-#                        ^^^^ entity.name.type.function-argument.slint
+//^^^^^^^^ keyword.other.function.slint
+//         ^^^^^^^ entity.name.function.slint
+//                 ^^^^ variable.parameter.function-argument.slint
+//                       ^^^^ entity.name.type.function-argument.slint
                                   ^^^^^^^^^^^ storage.type
   callback foo-bar(name: type, second: type2) -> return-type;
-# ^^^^^^^^ keyword.other.function.slint
-#          ^^^^^^^ entity.name.function.slint
-#                  ^^^^ variable.parameter.function-argument.slint
-#                        ^^^^ entity.name.type.function-argument.slint
-#                              ^^^^^^ variable.parameter.function-argument.slint
-#                                      ^^^^^ entity.name.type.function-argument.slint
+//^^^^^^^^ keyword.other.function.slint
+//         ^^^^^^^ entity.name.function.slint
+//                 ^^^^ variable.parameter.function-argument.slint
+//                       ^^^^ entity.name.type.function-argument.slint
+//                             ^^^^^^ variable.parameter.function-argument.slint
+//                                     ^^^^^ entity.name.type.function-argument.slint
   pure callback foo;
-# ^^^^ keyword.other.pure.slint
-#      ^^^^^^^^ keyword.other.function.slint
-#               ^^^ entity.name.function.slint
+//^^^^ keyword.other.pure.slint
+//     ^^^^^^^^ keyword.other.function.slint
+//              ^^^ entity.name.function.slint
   pure callback foo-bar  ();
-# ^^^^ keyword.other.pure.slint
-#      ^^^^^^^^ keyword.other.function.slint
-#               ^^^^^^^ entity.name.function.slint
+//^^^^ keyword.other.pure.slint
+//     ^^^^^^^^ keyword.other.function.slint
+//              ^^^^^^^ entity.name.function.slint
   pure callback foo-bar    (    ) -> return-type;
-# ^^^^ keyword.other.pure.slint
-#      ^^^^^^^^ keyword.other.function.slint
-#               ^^^^^^^ entity.name.function.slint
+//^^^^ keyword.other.pure.slint
+//     ^^^^^^^^ keyword.other.function.slint
+//              ^^^^^^^ entity.name.function.slint
                                      ^^^^^^^^^^^ storage.type
   pure callback foo-bar (   name: type) -> return-type;
-# ^^^^ keyword.other.pure.slint
-#      ^^^^^^^^ keyword.other.function.slint
-#               ^^^^^^^ entity.name.function.slint
-#                           ^^^^ variable.parameter.function-argument.slint
-#                                 ^^^^ entity.name.type.function-argument.slint
-#                                          ^^^^^^^^^^^ entity.name.type.return-type.slint
+//^^^^ keyword.other.pure.slint
+//     ^^^^^^^^ keyword.other.function.slint
+//              ^^^^^^^ entity.name.function.slint
+//                          ^^^^ variable.parameter.function-argument.slint
+//                                ^^^^ entity.name.type.function-argument.slint
+//                                         ^^^^^^^^^^^ entity.name.type.return-type.slint
   pure callback foo-bar (   name: type, second: type2) -> return-type;
-# ^^^^ keyword.other.pure.slint
-#      ^^^^^^^^ keyword.other.function.slint
-#               ^^^^^^^ entity.name.function.slint
-#                           ^^^^ variable.parameter.function-argument.slint
-#                                 ^^^^ entity.name.type.function-argument.slint
-#                                       ^^^^^^ variable.parameter.function-argument.slint
-#                                               ^^^^^ entity.name.type.function-argument.slint
-#                                                         ^^^^^^^^^^^ entity.name.type.return-type.slint
+//^^^^ keyword.other.pure.slint
+//     ^^^^^^^^ keyword.other.function.slint
+//              ^^^^^^^ entity.name.function.slint
+//                          ^^^^ variable.parameter.function-argument.slint
+//                                ^^^^ entity.name.type.function-argument.slint
+//                                      ^^^^^^ variable.parameter.function-argument.slint
+//                                              ^^^^^ entity.name.type.function-argument.slint
+//                                                        ^^^^^^^^^^^ entity.name.type.return-type.slint
 
   function foobar(name: type, second) -> boolean {
-# ^^^^^^^^ keyword.other.function.slint
-#          ^^^^^^ entity.name.function.slint
-#                 ^^^^ variable.parameter.function-argument.slint
-#                       ^^^^ entity.name.type.function-argument.slint
-#                             ^^^^^^ entity.name.type.function-argument.slint
-#                                        ^^^^^^^ entity.name.type.return-type.slint
+//^^^^^^^^ keyword.other.function.slint
+//         ^^^^^^ entity.name.function.slint
+//                ^^^^ variable.parameter.function-argument.slint
+//                      ^^^^ entity.name.type.function-argument.slint
+//                            ^^^^^^ entity.name.type.function-argument.slint
+//                                       ^^^^^^^ entity.name.type.return-type.slint
   }
 
       Element {
-#     ^^^^^^^ entity.name.type.element.slint
+//    ^^^^^^^ entity.name.type.element.slint
 
       }
       element-id:=Element{
-#     ^^^^^^^^^^ entity.name.tag.element-id.slint
-#                 ^^^^^^^ entity.name.type.element.slint
+//    ^^^^^^^^^^ entity.name.tag.element-id.slint
+//                ^^^^^^^ entity.name.type.element.slint
 
       }
 
       if true   : Something {
-#     ^^ keyword.control.conditional-element.slint
-#                 ^^^^^^^^^ entity.name.type.element.slint
+//    ^^ keyword.control.conditional-element.slint
+//                ^^^^^^^^^ entity.name.type.element.slint
          foobar: 32;
-#        ^^^^^^ variable.other.property.slint
-#                ^^ constant.numeric.slint
+//       ^^^^^^ variable.other.property.slint
+//               ^^ constant.numeric.slint
       }
       for var [ i ] in something:Loop {
-#     ^^^ keyword.control.repeated-element.slint
-#         ^^^ variable.other.iterator.slint
-#               ^ variable.other.index.slint
-#                   ^^ keyword.control.in.slint
-#                                ^^^^ entity.name.type.element.slint
+//    ^^^ keyword.control.repeated-element.slint
+//        ^^^ variable.other.iterator.slint
+//              ^ variable.other.index.slint
+//                  ^^ keyword.control.in.slint
+//                               ^^^^ entity.name.type.element.slint
       }
       for var in something:Loop {
-#     ^^^ keyword.control.repeated-element.slint
-#         ^^^ variable.other.iterator.slint
-#             ^^ keyword.control.in.slint
-#                          ^^^^ entity.name.type.element.slint
+//    ^^^ keyword.control.repeated-element.slint
+//        ^^^ variable.other.iterator.slint
+//            ^^ keyword.control.in.slint
+//                         ^^^^ entity.name.type.element.slint
       }
   }
