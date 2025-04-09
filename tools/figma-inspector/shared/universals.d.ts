@@ -9,4 +9,13 @@ export interface EventTS {
     copyToClipboard: {
         result: boolean;
     };
+    exportAll: {
+        result: boolean;
+    };
+    exportedFiles: {
+        files: Array<{
+            name: string;
+            content: string;
+        }>;
+    };
 }

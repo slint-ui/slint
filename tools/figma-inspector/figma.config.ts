@@ -16,7 +16,7 @@ export const manifest: PluginManifest = {
     codegenLanguages: [{ label: "Slint", value: "slint" }],
     codegenPreferences: [],
     networkAccess: {
-        allowedDomains: ["none"],
+        allowedDomains: ["https://cdnjs.cloudflare.com"],
     },
     documentAccess: "dynamic-page",
 };
