@@ -1,2 +1,3 @@
 [formatting]
 column_width = 120
+inline_table_expand = false

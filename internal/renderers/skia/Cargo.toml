@@ -57,38 +57,14 @@ softbuffer = { workspace = true, default-features = false }
 bytemuck = { workspace = true }
 
 [target.'cfg(target_family = "windows")'.dependencies]
-windows = { version = "0.61.1", features = [
-  "Win32",
-  "Win32_System_Com",
-  "Win32_Graphics",
-  "Win32_Graphics_Dxgi",
-  "Win32_Graphics_Direct3D12",
-  "Win32_Graphics_Direct3D",
-  "Win32_Foundation",
-  "Win32_Graphics_Dxgi_Common",
-  "Win32_System_Threading",
-  "Win32_Security",
-] }
+windows = { version = "0.61.1", features = ["Win32", "Win32_System_Com", "Win32_Graphics", "Win32_Graphics_Dxgi", "Win32_Graphics_Direct3D12", "Win32_Graphics_Direct3D", "Win32_Foundation", "Win32_Graphics_Dxgi_Common", "Win32_System_Threading", "Win32_Security"] }
 skia-safe = { version = "0.84.0", features = ["d3d"] }
 
 [target.'cfg(target_vendor = "apple")'.dependencies]
 objc2 = { version = "0.6.0" }
-objc2-metal = { version = "0.3.0", default-features = false, features = [
-  "std",
-  "MTLCommandQueue",
-  "MTLCommandBuffer",
-  "MTLResource",
-  "MTLTexture",
-  "MTLTypes",
-] }
+objc2-metal = { version = "0.3.0", default-features = false, features = ["std", "MTLCommandQueue", "MTLCommandBuffer", "MTLResource", "MTLTexture", "MTLTypes"] }
 objc2-foundation = { version = "0.3.0", default-features = false, features = ["std", "NSGeometry"] }
-objc2-quartz-core = { version = "0.3.0", default-features = false, features = [
-  "std",
-  "objc2-metal",
-  "CALayer",
-  "CAMetalLayer",
-  "objc2-core-foundation",
-] }
+objc2-quartz-core = { version = "0.3.0", default-features = false, features = ["std", "objc2-metal", "CALayer", "CAMetalLayer", "objc2-core-foundation"] }
 objc2-app-kit = { version = "0.3.0", default-features = false, features = ["std", "NSResponder", "NSView"] }
 objc2-core-foundation = { version = "0.3.0", default-features = false, features = ["CFCGTypes"] }
 skia-safe = { version = "0.84.0", features = ["metal"] }

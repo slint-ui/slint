@@ -32,22 +32,9 @@ static_cell = { version = "2" }
 #    "libm",
 #] }
 
-slint = { path = "../../api/rs/slint", default-features = false, features = [
-  "compat-1-2",
-  "unsafe-single-threaded",
-  "libm",
-] }
+slint = { path = "../../api/rs/slint", default-features = false, features = ["compat-1-2", "unsafe-single-threaded", "libm"] }
 
-embassy-stm32 = { version = "0.2.0", optional = true, features = [
-  "stm32u5g9zj",
-  "time-driver-any",
-  "exti",
-  "memory-x",
-  "unstable-pac",
-  "chrono",
-  "time",
-  "defmt",
-] }
+embassy-stm32 = { version = "0.2.0", optional = true, features = ["stm32u5g9zj", "time-driver-any", "exti", "memory-x", "unstable-pac", "chrono", "time", "defmt"] }
 embassy-sync = { version = "0.6.1" }
 embassy-executor = { version = "0.7.0", features = ["task-arena-size-32768", "executor-thread"] }
 embassy-time = { version = "0.4.0" }

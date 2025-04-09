@@ -105,10 +105,7 @@ stm32u5g9j-dk2 = [
 ]
 
 [dependencies]
-slint = { version = "=1.11.0", path = "../../api/rs/slint", default-features = false, features = [
-  "compat-1-2",
-  "renderer-software",
-] }
+slint = { version = "=1.11.0", path = "../../api/rs/slint", default-features = false, features = ["compat-1-2", "renderer-software"] }
 i-slint-core = { workspace = true }
 i-slint-core-macros = { version = "=1.11.0", path = "../../internal/core-macros" }
 

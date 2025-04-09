@@ -27,12 +27,7 @@ slint-interpreter = { workspace = true, features = ["std", "compat-1-2", "intern
 spin_on = { workspace = true }
 
 [build-dependencies]
-i-slint-compiler = { workspace = true, features = [
-  "default",
-  "rust",
-  "display-diagnostics",
-  "bundle-translations",
-], optional = true }
+i-slint-compiler = { workspace = true, features = ["default", "rust", "display-diagnostics", "bundle-translations"], optional = true }
 
 spin_on = { workspace = true, optional = true }
 test_driver_lib = { path = "../driverlib" }

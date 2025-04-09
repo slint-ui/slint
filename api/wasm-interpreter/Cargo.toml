@@ -17,13 +17,7 @@ publish = false
 crate-type = ["cdylib"]
 
 [dependencies]
-slint-interpreter = { workspace = true, features = [
-  "std",
-  "backend-winit",
-  "renderer-femtovg",
-  "compat-1-2",
-  "internal",
-] }
+slint-interpreter = { workspace = true, features = ["std", "backend-winit", "renderer-femtovg", "compat-1-2", "internal"] }
 i-slint-backend-winit = { workspace = true }
 i-slint-core = { workspace = true }
 send_wrapper = { workspace = true }

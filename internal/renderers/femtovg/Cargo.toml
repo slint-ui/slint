@@ -49,13 +49,5 @@ core-foundation = { version = "0.9.1" }
 core-text = { version = "20.1.0" }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-web-sys = { workspace = true, features = [
-  "console",
-  "WebGlContextAttributes",
-  "CanvasRenderingContext2d",
-  "HtmlInputElement",
-  "HtmlCanvasElement",
-  "Window",
-  "Document",
-] }
+web-sys = { workspace = true, features = ["console", "WebGlContextAttributes", "CanvasRenderingContext2d", "HtmlInputElement", "HtmlCanvasElement", "Window", "Document"] }
 wasm-bindgen = { version = "0.2" }
