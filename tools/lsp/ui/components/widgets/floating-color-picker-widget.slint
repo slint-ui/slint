@@ -170,6 +170,7 @@ component BrushTypeSelector {
         }
 
         Rectangle {
+            visible: false; // TODO: Bring back when svg-color support is ready
             y: (parent.height - self.height) / 2;
             width: 25px;
             height: self.width;
@@ -898,9 +899,7 @@ component ColorPicker {
             height: 40px;
 
             if picker-mode == PickerMode.brush: BrushTypeSelector {
-                changed brush-mode => {
-                    root.brush-mode = self.brush-mode;
-                }
+                brush-mode <=> root.brush-mode;
             }
 
             Rectangle {
@@ -990,6 +989,7 @@ export component ColorPickerView {
         y: root.initial-y;
         widget-mode: WindowManager.widget-mode;
         picker-mode: WindowManager.picker-mode;
+        brush-mode: WindowManager.brush-mode;
 
         close => {
             WindowManager.hide-floating-widget();

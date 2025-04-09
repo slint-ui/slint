@@ -9,9 +9,10 @@ import { Api, BrushKind, ColorData, GradientStop, PropertyValue, PropertyValueKi
 import { EditorSpaceSettings } from "../../components/styling.slint";
 
 import { ComboBox, Palette } from "std-widgets.slint";
+import { WindowManager } from "../../windowglobal.slint";
 
 export component BrushWidget inherits GridLayout {
-    in property <bool> enabled;
+    // in property <bool> enabled;
     in property <string> property-name;
     in property <PropertyValue> property-value;
     in property <bool> has-code-action <=> sub.has-code-action;
@@ -53,7 +54,7 @@ export component BrushWidget inherits GridLayout {
         angle.text = root.current-angle;
     }
 
-    private property <bool> has-focus: color_main.has-focus || grad_main.has-focus || sliders.has-focus || angle.has-focus;
+    private property <bool> has-focus: color_main.has-focus || grad_main.has-focus  || angle.has-focus; // || sliders.has-focus
 
     function test-color(text: string) -> bool {
         if self.current-brush-kind != BrushKind.solid && grad_main.selected-index >= 0 {
@@ -133,17 +134,20 @@ export component BrushWidget inherits GridLayout {
         VerticalLayout {
             Rectangle {
                 clip: true;
-                height: root.current-brush-kind == BrushKind.solid ? color_main.preferred-height : 0px;
+                height: color_main.preferred-height;// root.current-brush-kind == BrushKind.solid ? color_main.preferred-height : 0px;
 
                 color_main := ColorMainContent {
                     current-color <=> root.current-color;
-                    enabled <=> root.enabled;
+                    // enabled <=> root.enabled;
 
                     set-color-binding(text) => {
                         root.set-brush-binding(root.current-brush-kind, root.current-angle, root.current-color, root.current-gradient-stops);
                     }
                     test-color-binding(text) => {
                         return root.test-brush-binding(root.current-brush-kind, root.current-angle, root.current-color, root.current-gradient-stops);
+                    }
+                    color-preview-clicked => {
+                        WindowManager.show-floating-preview-brush-widget(current-brush-kind);
                     }
                 }
             }
@@ -184,7 +188,7 @@ export component BrushWidget inherits GridLayout {
                     }
 
                     angle := ResettingLineEdit {
-                        enabled <=> root.enabled;
+                        // enabled <=> root.enabled;
 
                         input-type: decimal;
 
@@ -225,17 +229,17 @@ export component BrushWidget inherits GridLayout {
                 }
             }
 
-            sliders := RgbaColorSliders {
-                enabled: root.enabled && (root.current-brush-kind == BrushKind.solid || grad_main.selected-index >= 0);
-                current-color <=> root.current-color;
+            // sliders := RgbaColorSliders {
+            //     // enabled: root.enabled && (root.current-brush-kind == BrushKind.solid || grad_main.selected-index >= 0);
+            //     current-color <=> root.current-color;
 
-                set-color-binding(text) => {
-                    root.set-brush-binding(root.current-brush-kind, root.current-angle, root.current-color, root.current-gradient-stops);
-                }
-                test-color-binding(text) => {
-                    return root.test-color(text);
-                }
-            }
+            //     set-color-binding(text) => {
+            //         root.set-brush-binding(root.current-brush-kind, root.current-angle, root.current-color, root.current-gradient-stops);
+            //     }
+            //     test-color-binding(text) => {
+            //         return root.test-color(text);
+            //     }
+            // }
 
             code-action() => {
                 root.code-action();

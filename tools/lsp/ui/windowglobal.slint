@@ -3,7 +3,7 @@
 
 
 
-import { Api, ColorData, ElementInformation, PickerData, PropertyInformation, PropertyValue, PropertyValueKind, PreviewData, WidgetMode, PickerMode } from "./api.slint";
+import { Api, BrushKind, BrushMode, ColorData, ElementInformation, PickerData, PropertyInformation, PropertyValue, PropertyValueKind, PreviewData, WidgetMode, PickerMode } from "./api.slint";
 import { StatusLineApi } from "components/status-line.slint";
 
 
@@ -16,6 +16,7 @@ export global WindowManager {
     out property <bool> showing-color-picker: false;
     out property <WidgetMode> widget-mode: edit;
     out property <PickerMode> picker-mode: color;
+    out property <BrushMode> brush-mode: color;
 
     property <ElementInformation> current-element-information;
     out property <PropertyInformation> current-property-information;
@@ -25,6 +26,7 @@ export global WindowManager {
 
     callback show-floating-widget(PropertyInformation, ElementInformation);
     callback show-floating-preview-widget(property-container-id: string, preview-data: PreviewData, property-value: PropertyValue);
+    callback show-floating-preview-brush-widget(brush-kind: BrushKind);
     callback hide-floating-widget();
     callback apply-current-value(value: string);
     callback update-preview-value(value: string);
@@ -48,6 +50,8 @@ export global WindowManager {
         current-element-information = { };
         current-property-information = { };
         widget-mode = WidgetMode.edit;
+        picker-mode = PickerMode.color;
+        brush-mode = BrushMode.color;
     }
 
     show-floating-preview-widget(property-container-id, preview-data, property-value) => {
@@ -62,6 +66,19 @@ export global WindowManager {
             PickerData.alpha = property-value.value-brush.to-hsv().alpha * 100;
             showing-color-picker = true;
         }
+    }
+
+    show-floating-preview-brush-widget(brush-kind) => {
+        widget-mode = WidgetMode.preview;
+        picker-mode = PickerMode.brush;
+        if brush-kind == BrushKind.solid {
+            brush-mode = BrushMode.color;
+        } else if brush-kind == BrushKind.linear {
+            brush-mode = BrushMode.gradient;
+        } else if brush-kind == BrushKind.radial {
+            brush-mode = BrushMode.gradient;
+        }
+        showing-color-picker = true;
     }
 
     apply-current-value(text) => {
