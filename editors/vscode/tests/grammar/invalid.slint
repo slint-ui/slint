@@ -1,0 +1,14 @@
+// SYNTAX TEST "source.slint" "invalid words in a component"
+
+component MainWindow inherits Window {
+// <--------- keyword.other.component.slint
+//        ^^^^^^^^^^  entity.name.type.component.slint
+//                   ^^^^^^^^  keyword.other.inherits.slint
+//                            ^^^^^^  entity.other.inherited-class.component.slint
+//                                   ^  punctuation.brackets.curly.slint
+    foo bar foo
+//  ^^^ - variable
+//      ^^^ - variable
+//          ^^^ - variable
+}
+// <- punctuation.brackets.curly.slint
