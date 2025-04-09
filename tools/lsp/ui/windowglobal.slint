@@ -3,7 +3,7 @@
 
 
 
-import { Api, BrushKind, BrushMode, ColorData, ElementInformation, PickerData, PropertyInformation, PropertyValue, PropertyValueKind, PreviewData, WidgetMode, PickerMode } from "./api.slint";
+import { Api, BrushKind, BrushMode, ColorData, ElementInformation, GradientStop, PickerData, PropertyInformation, PropertyValue, PropertyValueKind, PreviewData, WidgetMode, PickerMode } from "./api.slint";
 import { StatusLineApi } from "components/status-line.slint";
 
 
@@ -26,7 +26,7 @@ export global WindowManager {
 
     callback show-floating-widget(PropertyInformation, ElementInformation);
     callback show-floating-preview-widget(property-container-id: string, preview-data: PreviewData, property-value: PropertyValue);
-    callback show-floating-preview-brush-widget(brush-kind: BrushKind);
+    callback show-floating-preview-brush-widget(brush-kind: BrushKind, current-brush: brush, current-gradient-stops: [GradientStop]);
     callback hide-floating-widget();
     callback apply-current-value(value: string);
     callback update-preview-value(value: string);
@@ -68,7 +68,7 @@ export global WindowManager {
         }
     }
 
-    show-floating-preview-brush-widget(brush-kind) => {
+    show-floating-preview-brush-widget(brush-kind, current-brush, current-gradient-stops) => {
         widget-mode = WidgetMode.preview;
         picker-mode = PickerMode.brush;
         if brush-kind == BrushKind.solid {
@@ -78,6 +78,8 @@ export global WindowManager {
         } else if brush-kind == BrushKind.radial {
             brush-mode = BrushMode.gradient;
         }
+        PickerData.current-brush = current-brush;
+        PickerData.current-gradient-stops = current-gradient-stops;
         showing-color-picker = true;
     }
 

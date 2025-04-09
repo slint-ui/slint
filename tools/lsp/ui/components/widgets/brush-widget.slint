@@ -147,7 +147,7 @@ export component BrushWidget inherits GridLayout {
                         return root.test-brush-binding(root.current-brush-kind, root.current-angle, root.current-color, root.current-gradient-stops);
                     }
                     color-preview-clicked => {
-                        WindowManager.show-floating-preview-brush-widget(current-brush-kind);
+                        WindowManager.show-floating-preview-brush-widget(current-brush-kind, current-brush, current-gradient-stops);
                     }
                 }
             }
