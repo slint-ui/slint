@@ -26,7 +26,7 @@ export component TestCase inherits Window {
                     title: "Recent " + num;
                     activated => {
                         if self.title != "Recent " + num {
-                            result += "ERROR: invalid self.title";
+                            result += "Error: invalid self.title";
                         }
                         result += self.title;
                         debug("Recent", num);
