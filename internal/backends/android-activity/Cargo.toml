@@ -16,14 +16,8 @@ version.workspace = true
 path = "lib.rs"
 
 [features]
-game-activity = [
-  "android-activity-06?/game-activity",
-  "android-activity-05?/game-activity",
-]
-native-activity = [
-  "android-activity-06?/native-activity",
-  "android-activity-05?/native-activity",
-]
+game-activity = ["android-activity-06?/game-activity", "android-activity-05?/game-activity"]
+native-activity = ["android-activity-06?/native-activity", "android-activity-05?/native-activity"]
 aa-06 = ["android-activity-06", "ndk-09"]
 aa-05 = ["android-activity-05", "ndk-08"]
 
@@ -36,18 +30,9 @@ android-activity-06 = { package = "android-activity", version = "0.6", optional 
 jni = { version = "0.21", features = ["invocation"] }
 
 # We only depends on the NDK directly to enable raw-window-handle 0.6 which we need for the skia renderer
-ndk-08 = { package = "ndk", version = "0.8.0", optional = true, features = [
-  "rwh_06",
-] }
-ndk-09 = { package = "ndk", version = "0.9.0", optional = true, features = [
-  "rwh_06",
-], default-features = false }
+ndk-08 = { package = "ndk", version = "0.8.0", optional = true, features = ["rwh_06"] }
+ndk-09 = { package = "ndk", version = "0.9.0", optional = true, features = ["rwh_06"], default-features = false }
 
 [package.metadata.docs.rs]
-targets = [
-  "aarch64-linux-android",
-  "armv7-linux-androideabi",
-  "i686-linux-android",
-  "x86_64-linux-android",
-]
+targets = ["aarch64-linux-android", "armv7-linux-androideabi", "i686-linux-android", "x86_64-linux-android"]
 features = ["native-activity", "aa-06"]

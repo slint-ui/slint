@@ -83,12 +83,7 @@ preview-builtin = ["preview-engine"]
 ## Support the external preview optionally used by e.g. the VSCode plugin
 preview-external = []
 
-default = [
-  "backend-default",
-  "renderer-femtovg",
-  "renderer-software",
-  "preview",
-]
+default = ["backend-default", "renderer-femtovg", "renderer-software", "preview"]
 
 [dependencies]
 i-slint-compiler = { workspace = true, features = ["display-diagnostics"] }

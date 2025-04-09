@@ -40,11 +40,7 @@ x11 = [
   "softbuffer?/x11",
   "softbuffer?/x11-dlopen",
 ]
-renderer-femtovg = [
-  "dep:i-slint-renderer-femtovg",
-  "dep:glutin",
-  "dep:glutin-winit",
-]
+renderer-femtovg = ["dep:i-slint-renderer-femtovg", "dep:glutin", "dep:glutin-winit"]
 renderer-skia = ["i-slint-renderer-skia"]
 renderer-skia-opengl = ["renderer-skia", "i-slint-renderer-skia/opengl"]
 renderer-skia-vulkan = ["renderer-skia", "i-slint-renderer-skia/vulkan"]
@@ -74,14 +70,10 @@ raw-window-handle = { version = "0.6", features = ["alloc"] }
 scopeguard = { version = "1.1.0", default-features = false }
 
 # For the FemtoVG renderer
-i-slint-renderer-femtovg = { workspace = true, features = [
-  "default",
-], optional = true }
+i-slint-renderer-femtovg = { workspace = true, features = ["default"], optional = true }
 
 # For the Skia renderer
-i-slint-renderer-skia = { workspace = true, features = [
-  "default",
-], optional = true }
+i-slint-renderer-skia = { workspace = true, features = ["default"], optional = true }
 
 # For the software renderer
 softbuffer = { workspace = true, optional = true, default-features = false }
@@ -110,14 +102,8 @@ web-sys = { workspace = true, features = [
 wasm-bindgen = { version = "0.2" }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-glutin = { workspace = true, optional = true, default-features = false, features = [
-  "egl",
-  "wgl",
-] }
-glutin-winit = { version = "0.5", optional = true, default-features = false, features = [
-  "egl",
-  "wgl",
-] }
+glutin = { workspace = true, optional = true, default-features = false, features = ["egl", "wgl"] }
+glutin-winit = { version = "0.5", optional = true, default-features = false, features = ["egl", "wgl"] }
 accesskit = { version = "0.17", optional = true }
 accesskit_winit = { version = "0.23", optional = true }
 copypasta = { version = "0.10", default-features = false }

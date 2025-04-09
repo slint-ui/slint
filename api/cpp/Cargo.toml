@@ -32,39 +32,19 @@ testing = ["dep:i-slint-backend-testing"]
 backend-qt = ["i-slint-backend-selector/backend-qt", "std"]
 backend-winit = ["i-slint-backend-selector/backend-winit", "std"]
 backend-winit-x11 = ["i-slint-backend-selector/backend-winit-x11", "std"]
-backend-winit-wayland = [
-  "i-slint-backend-selector/backend-winit-wayland",
-  "std",
-]
+backend-winit-wayland = ["i-slint-backend-selector/backend-winit-wayland", "std"]
 backend-linuxkms = ["i-slint-backend-selector/backend-linuxkms", "std"]
-backend-linuxkms-noseat = [
-  "i-slint-backend-selector/backend-linuxkms-noseat",
-  "std",
-]
+backend-linuxkms-noseat = ["i-slint-backend-selector/backend-linuxkms-noseat", "std"]
 renderer-femtovg = ["i-slint-backend-selector/renderer-femtovg"]
-renderer-skia = [
-  "i-slint-backend-selector/renderer-skia",
-  "i-slint-renderer-skia",
-  "raw-window-handle",
-]
-renderer-skia-opengl = [
-  "i-slint-backend-selector/renderer-skia-opengl",
-  "renderer-skia",
-]
-renderer-skia-vulkan = [
-  "i-slint-backend-selector/renderer-skia-vulkan",
-  "renderer-skia",
-]
+renderer-skia = ["i-slint-backend-selector/renderer-skia", "i-slint-renderer-skia", "raw-window-handle"]
+renderer-skia-opengl = ["i-slint-backend-selector/renderer-skia-opengl", "renderer-skia"]
+renderer-skia-vulkan = ["i-slint-backend-selector/renderer-skia-vulkan", "renderer-skia"]
 renderer-software = ["i-slint-backend-selector/renderer-software"]
 gettext = ["i-slint-core/gettext-rs"]
 accessibility = ["i-slint-backend-selector/accessibility"]
 system-testing = ["i-slint-backend-selector/system-testing"]
 
-std = [
-  "i-slint-core/default",
-  "i-slint-core/image-default-formats",
-  "i-slint-backend-selector",
-]
+std = ["i-slint-core/default", "i-slint-core/image-default-formats", "i-slint-backend-selector"]
 freestanding = ["i-slint-core/libm", "i-slint-core/unsafe-single-threaded"]
 experimental = ["i-slint-core/experimental"]
 
@@ -72,28 +52,14 @@ default = ["std", "backend-winit", "renderer-femtovg", "backend-qt"]
 
 [dependencies]
 i-slint-backend-selector = { workspace = true, optional = true }
-i-slint-backend-testing = { workspace = true, optional = true, features = [
-  "ffi",
-] }
-i-slint-renderer-skia = { workspace = true, features = [
-  "default",
-  "x11",
-  "wayland",
-], optional = true }
+i-slint-backend-testing = { workspace = true, optional = true, features = ["ffi"] }
+i-slint-renderer-skia = { workspace = true, features = ["default", "x11", "wayland"], optional = true }
 i-slint-core = { workspace = true, features = ["ffi"] }
-slint-interpreter = { workspace = true, features = [
-  "ffi",
-  "compat-1-2",
-], optional = true }
+slint-interpreter = { workspace = true, features = ["ffi", "compat-1-2"], optional = true }
 raw-window-handle = { version = "0.6", optional = true }
 
-esp-backtrace = { version = "0.14.0", features = [
-  "panic-handler",
-  "println",
-], optional = true }
-esp-println = { version = "0.12.0", default-features = false, features = [
-  "uart",
-], optional = true }
+esp-backtrace = { version = "0.14.0", features = ["panic-handler", "println"], optional = true }
+esp-println = { version = "0.12.0", default-features = false, features = ["uart"], optional = true }
 unicode-segmentation = { workspace = true }
 
 [build-dependencies]

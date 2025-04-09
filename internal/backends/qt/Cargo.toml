@@ -16,14 +16,7 @@ links = "i_slint_backend_qt"                   # just so we can pass metadata to
 [features]
 rtti = ["i-slint-core/rtti"]
 default = ["enable"]
-enable = [
-  "dep:cpp",
-  "dep:lyon_path",
-  "dep:pin-project",
-  "dep:pin-weak",
-  "dep:qttypes",
-  "dep:cpp_build",
-]
+enable = ["dep:cpp", "dep:lyon_path", "dep:pin-project", "dep:pin-weak", "dep:qttypes", "dep:cpp_build"]
 
 [lib]
 path = "lib.rs"
