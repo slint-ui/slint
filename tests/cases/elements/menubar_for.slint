@@ -25,7 +25,10 @@ export component TestCase inherits Window {
                 for num in 45 : MenuItem {
                     title: "Recent " + num;
                     activated => {
-                        result += "Recent " + num;
+                        if self.title != "Recent " + num {
+                            result += "Error: invalid self.title";
+                        }
+                        result += self.title;
                         debug("Recent", num);
                     }
                 }

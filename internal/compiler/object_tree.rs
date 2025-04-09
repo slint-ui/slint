@@ -2212,6 +2212,11 @@ pub fn recurse_elem_including_sub_components_no_borrow<State>(
         .borrow()
         .iter()
         .for_each(|p| recurse_elem_including_sub_components_no_borrow(&p.component, state, vis));
+    component
+        .menu_item_tree
+        .borrow()
+        .iter()
+        .for_each(|c| recurse_elem_including_sub_components_no_borrow(c, state, vis));
 }
 
 /// This visit the binding attached to this element, but does not recurse in children elements
