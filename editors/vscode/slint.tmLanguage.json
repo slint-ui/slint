@@ -28,7 +28,12 @@
         {
             "match": "(?<!-)\\bexport\\b(?!-)",
             "name": "keyword.other.export.slint"
+        },
+        {
+            "comment": "Element contents should in principle not be supported here, but we still want to highlight partial snippets",
+            "include": "#element-contents"
         }
+
     ],
     "repository": {
         "block-comment": {
