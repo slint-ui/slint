@@ -811,6 +811,8 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<
                 // Data structures to hold our model
                 const structDefinitions = new Map<string, StructDefinition>();
                 const propertyInstances = new Map<string, PropertyInstance>();
+                const hasRootModeVariable = variableTree.children.has("mode");
+
 
                 // First pass: Build the struct model
                 function buildStructModel(
@@ -907,24 +909,34 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<
                 // Build the instance model
                 function buildInstanceModel(
                     node: VariableNode,
-                    path: string[] = [],
-                ) {
+                    path: string[] = []
+                ): void {
                     if (node.name === "root") {
-                        for (const [
-                            childName,
-                            childNode,
-                        ] of node.children.entries()) {
-                            const sanitizedChildName =
+                        for (const [childName, childNode] of node.children.entries()) {
+                            // Special case for "mode" variable - rename it to avoid collision
+                            const sanitizedChildName: string = 
+                                childName === "mode" && hasRootModeVariable ? 
+                                "mode-var" : 
                                 sanitizePropertyName(childName);
-
+                            
+                            if (childName === "mode" && hasRootModeVariable) {
+                                console.warn(`⚠️ COLLISION: Found a root-level "mode" variable in ${collectionData.name}.`);
+                                console.warn(`Renaming Figma "mode" variable to "mode-var" to avoid conflict with scheme mode.`);
+                                
+                                try {
+                                    figma.notify("Renamed Figma 'mode' variable to 'mode-var' to avoid conflict", { timeout: 3000 });
+                                } catch (e) {
+                                    // Ignore if not in Figma plugin context
+                                }
+                            }
+                            
+                            // Create the property instance with the appropriate name
                             if (childNode.children.size > 0) {
-                                // Create container object with proper children map
                                 propertyInstances.set(sanitizedChildName, {
                                     name: sanitizedChildName,
-                                    type: `${collectionData.formattedName}_${sanitizedChildName}`, // Properly reference the struct
-                                    children: new Map(),
+                                    type: `${collectionData.formattedName}_${childName}`, // Note: use original name in type
+                                    children: new Map<string, PropertyInstance>(),
                                 });
-
                                 // Process children
                                 buildInstanceModel(childNode, [
                                     sanitizedChildName,
@@ -932,7 +944,7 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<
                                 buildPropertyHierarchy();
                             } else if (childNode.valuesByMode) {
                                 // Direct value property
-                                const slintType = getSlintType(
+                                const slintType: string = getSlintType(
                                     childNode.type || "COLOR",
                                 );
                                 const instance: PropertyInstance = {
@@ -942,7 +954,7 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<
 
                                 if (collectionData.modes.size > 1) {
                                     instance.isMultiMode = true;
-                                    instance.values = new Map();
+                                    instance.values = new Map<string, string>();
 
                                     for (const [
                                         modeName,
@@ -958,10 +970,10 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<
                                     }
                                 } else {
                                     // Single mode
-                                    const firstMode = childNode.valuesByMode
+                                    const firstMode: ModeValue | undefined = childNode.valuesByMode
                                         .values()
                                         .next().value;
-                                    instance.values = new Map();
+                                    instance.values = new Map<string, string>();
                                     instance.values.set(
                                         "value",
                                         firstMode?.value || "",
@@ -978,26 +990,26 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<
                     }
 
                     // For non-root nodes
-                    const pathKey = path.join("/");
+                    const pathKey: string = path.join("/");
                     if (!propertyInstances.has(pathKey)) {
                         propertyInstances.set(pathKey, {
                             name: path[path.length - 1],
                             type: `${collectionData.formattedName}_${path.join("_")}`,
-                            children: new Map(),
+                            children: new Map<string, PropertyInstance>(),
                         });
                     }
                     for (const [
                         childName,
                         childNode,
                     ] of node.children.entries()) {
-                        const sanitizedChildName =
+                        const sanitizedChildName: string =
                             sanitizePropertyName(childName);
-                        const childPath = [...path, sanitizedChildName];
-                        const childPathKey = childPath.join("/");
+                        const childPath: string[] = [...path, sanitizedChildName];
+                        const childPathKey: string = childPath.join("/");
 
                         if (childNode.children.size > 0) {
                             // Get parent instance
-                            const parentInstance =
+                            const parentInstance: PropertyInstance | undefined =
                                 propertyInstances.get(pathKey);
                             if (!parentInstance || !parentInstance.children)
                                 {continue};
@@ -1006,7 +1018,7 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<
                             parentInstance.children.set(sanitizedChildName, {
                                 name: sanitizedChildName,
                                 type: `${collectionData.formattedName}_${childPath.join("_")}`,
-                                children: new Map(),
+                                children: new Map<string, PropertyInstance>(),
                             });
                             console.log(
                                 `Creating instance: ${sanitizedChildName}, type: ${collectionData.formattedName}_${childPath.join("_")}`,
@@ -1015,12 +1027,12 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<
                             buildPropertyHierarchy();
                         } else if (childNode.valuesByMode) {
                             // Get parent instance
-                            const parentInstance =
+                            const parentInstance: PropertyInstance | undefined =
                                 propertyInstances.get(pathKey);
                             if (!parentInstance || !parentInstance.children)
                                 {continue};
 
-                            const slintType = getSlintType(
+                            const slintType: string = getSlintType(
                                 childNode.type || "COLOR",
                             );
                             const instance: PropertyInstance = {
@@ -1030,7 +1042,7 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<
 
                             if (collectionData.modes.size > 1) {
                                 instance.isMultiMode = true;
-                                instance.values = new Map();
+                                instance.values = new Map<string, string>();
 
                                 for (const [
                                     modeName,
@@ -1043,10 +1055,10 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<
                                 }
                             } else {
                                 // Single mode
-                                const firstMode = childNode.valuesByMode
+                                const firstMode: ModeValue | undefined = childNode.valuesByMode
                                     .values()
                                     .next().value;
-                                instance.values = new Map();
+                                instance.values = new Map<string, string>();
                                 instance.values.set(
                                     "value",
                                     firstMode?.value || "",
@@ -1147,14 +1159,15 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<
                 // Generate property instances
                 let instancesCode = "";
 
-                function generateInstanceCode(
-                    instance: PropertyInstance,
-                    path: string[] = [],
-                    indent: string = "    ",
-                ): string {
+                function generateInstanceCode(instance: PropertyInstance, path: string[] = [], indent: string = "    ") {
                     let result = "";
-
+                    
                     if (path.length === 0) {
+                        // Special handling for renamed mode variable
+                        if (instance.name === "mode-var") {
+                            result += `${indent}// NOTE: This property was renamed from "mode" to "mode-var" to avoid collision\n`;
+                            result += `${indent}// with the scheme mode property of the same name.\n`;
+                        }
                         // Root level property
                         const slintType = instance.isMultiMode
                             ? `mode${collectionData.modes.size}_${instance.type}`
@@ -1305,9 +1318,11 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<
             let currentSchemeInstance = "";
 
             if (collectionData.modes.size > 1) {
+                const hasRootModeVariable = variableTree.children.has("mode");
                 const schemeResult = generateSchemeStructs(
                     variableTree,
                     collectionData,
+                    hasRootModeVariable
                 );
                 schemeStruct = schemeResult.schemeStruct;
                 schemeModeStruct = schemeResult.schemeModeStruct;
@@ -1453,6 +1468,7 @@ interface ModeValue {
 function generateSchemeStructs(
     variableTree: VariableNode,
     collectionData: { name: string; formattedName: string; modes: Set<string> },
+    hasRootModeVariable: boolean // Add this parameter
 ) {
     // Maps to hold our data model
     const schemeStructs = new Map<string, SchemeStruct>();
@@ -1570,12 +1586,17 @@ function generateSchemeStructs(
                     );
                     schemeInstance += `${currentIndent}},\n`;
                 } else if (childNode.valuesByMode) {
-                    // This is a leaf value
-                    schemeInstance += `${currentIndent}${childName}: ${collectionData.formattedName}.${currentPath.join(".")}.${mode},\n`;
-                }
-            }
+            // This is a leaf value
+            // Check if this is the renamed "mode" variable at root level
+            const propertyPath = currentPath.join(".");
+            const referencePath = 
+                (hasRootModeVariable && propertyPath === "mode") ? 
+                "mode-var" : propertyPath;
+                
+            schemeInstance += `${currentIndent}${childName}: ${collectionData.formattedName}.${referencePath}.${mode},\n`;
         }
-
+    }
+}
         // Build the mode instance
         addHierarchicalValues();
         schemeInstance += `        },\n`;
@@ -1584,11 +1605,14 @@ function generateSchemeStructs(
     // Close the mode instance
     schemeInstance += `    };\n`;
 
-    // 6. Generate the current scheme property with current-scheme toggle
+    // Generate the current scheme property with current-scheme toggle
     let currentSchemeInstance = `    in-out property <${collectionData.formattedName}Mode> current-scheme: ${[...collectionData.modes][0]};\n`;
 
     // Add the current-mode property that dynamically selects based on the enum
     currentSchemeInstance += `    out property <${schemeName}> current-mode: `;
+
+    // for mode specific disentanglement
+    const modePropertyName = hasRootModeVariable ? "mode-var" : "mode";
 
     const modeArray = [...collectionData.modes];
     if (modeArray.length === 0) {
@@ -1596,7 +1620,7 @@ function generateSchemeStructs(
         currentSchemeInstance += `{};\n\n`;
     } else if (modeArray.length === 1) {
         // One mode - direct reference
-        currentSchemeInstance += `root.mode.${modeArray[0]};\n\n`;
+        currentSchemeInstance += `root.${modePropertyName}.${modeArray[0]};\n\n`;
     } else {
         // Multiple modes - build a ternary chain
         let expression = "";
