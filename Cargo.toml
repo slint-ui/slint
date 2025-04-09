@@ -139,31 +139,15 @@ cfg_aliases = { version = "0.2.0" }
 clap = { version = "4.0", features = ["derive", "wrap_help"] }
 clru = { version = "0.6.0" }
 css-color-parser2 = { version = "1.0.1" }
-derive_more = { version = "2.0.0", default-features = false, features = [
-  "deref",
-  "deref_mut",
-  "into",
-  "from",
-  "add",
-  "add_assign",
-  "mul",
-  "not",
-  "display",
-] }
+derive_more = { version = "2.0.0", default-features = false, features = ["deref", "deref_mut", "into", "from", "add", "add_assign", "mul", "not", "display"] }
 euclid = { version = "0.22.1", default-features = false }
 fontdb = { version = "0.23.0", default-features = false }
 fontdue = { version = "0.9.0" }
 glutin = { version = "0.32.0", default-features = false }
-image = { version = "0.25", default-features = false, features = [
-  "png",
-  "jpeg",
-] }
+image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
 itertools = { version = "0.14" }
 log = { version = "0.4.17" }
-resvg = { version = "0.45.0", default-features = false, features = [
-  "text",
-  "raster-images",
-] }
+resvg = { version = "0.45.0", default-features = false, features = ["text", "raster-images"] }
 rowan = { version = "0.16.1" }
 rustybuzz = { version = "0.20.0" }
 send_wrapper = { version = "0.6.0" }
@@ -177,9 +161,7 @@ ttf-parser = { version = "0.25" }
 web-sys = { version = "0.3.72", default-features = false }
 smol_str = { version = "0.3.1" }
 rayon = { version = "1.10.0", default-features = false }
-raw-window-handle-06 = { package = "raw-window-handle", version = "0.6", features = [
-  "alloc",
-] }
+raw-window-handle-06 = { package = "raw-window-handle", version = "0.6", features = ["alloc"] }
 unicode-segmentation = { version = "1.12.0" }
 glow = { version = "0.16" }
 tikv-jemallocator = { version = "0.6" }

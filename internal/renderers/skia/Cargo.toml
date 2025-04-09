@@ -49,10 +49,7 @@ ash = { version = "^0.37.2", optional = true }
 vulkano = { version = "0.34.0", optional = true, default-features = false }
 
 [target.'cfg(not(target_os = "ios"))'.dependencies]
-glutin = { workspace = true, default-features = false, features = [
-  "egl",
-  "wgl",
-] }
+glutin = { workspace = true, default-features = false, features = ["egl", "wgl"] }
 
 [target.'cfg(not(target_os = "android"))'.dependencies]
 # software renderer fallback
@@ -60,49 +57,16 @@ softbuffer = { workspace = true, default-features = false }
 bytemuck = { workspace = true }
 
 [target.'cfg(target_family = "windows")'.dependencies]
-windows = { version = "0.61.1", features = [
-  "Win32",
-  "Win32_System_Com",
-  "Win32_Graphics",
-  "Win32_Graphics_Dxgi",
-  "Win32_Graphics_Direct3D12",
-  "Win32_Graphics_Direct3D",
-  "Win32_Foundation",
-  "Win32_Graphics_Dxgi_Common",
-  "Win32_System_Threading",
-  "Win32_Security",
-] }
+windows = { version = "0.61.1", features = ["Win32", "Win32_System_Com", "Win32_Graphics", "Win32_Graphics_Dxgi", "Win32_Graphics_Direct3D12", "Win32_Graphics_Direct3D", "Win32_Foundation", "Win32_Graphics_Dxgi_Common", "Win32_System_Threading", "Win32_Security"] }
 skia-safe = { version = "0.84.0", features = ["d3d"] }
 
 [target.'cfg(target_vendor = "apple")'.dependencies]
 objc2 = { version = "0.6.0" }
-objc2-metal = { version = "0.3.0", default-features = false, features = [
-  "std",
-  "MTLCommandQueue",
-  "MTLCommandBuffer",
-  "MTLResource",
-  "MTLTexture",
-  "MTLTypes",
-] }
-objc2-foundation = { version = "0.3.0", default-features = false, features = [
-  "std",
-  "NSGeometry",
-] }
-objc2-quartz-core = { version = "0.3.0", default-features = false, features = [
-  "std",
-  "objc2-metal",
-  "CALayer",
-  "CAMetalLayer",
-  "objc2-core-foundation",
-] }
-objc2-app-kit = { version = "0.3.0", default-features = false, features = [
-  "std",
-  "NSResponder",
-  "NSView",
-] }
-objc2-core-foundation = { version = "0.3.0", default-features = false, features = [
-  "CFCGTypes",
-] }
+objc2-metal = { version = "0.3.0", default-features = false, features = ["std", "MTLCommandQueue", "MTLCommandBuffer", "MTLResource", "MTLTexture", "MTLTypes"] }
+objc2-foundation = { version = "0.3.0", default-features = false, features = ["std", "NSGeometry"] }
+objc2-quartz-core = { version = "0.3.0", default-features = false, features = ["std", "objc2-metal", "CALayer", "CAMetalLayer", "objc2-core-foundation"] }
+objc2-app-kit = { version = "0.3.0", default-features = false, features = ["std", "NSResponder", "NSView"] }
+objc2-core-foundation = { version = "0.3.0", default-features = false, features = ["CFCGTypes"] }
 skia-safe = { version = "0.84.0", features = ["metal"] }
 raw-window-metal = "1.0"
 

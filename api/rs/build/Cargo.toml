@@ -22,13 +22,7 @@ default = []
 sdf-fonts = ["i-slint-compiler/sdf-fonts"]
 
 [dependencies]
-i-slint-compiler = { workspace = true, features = [
-  "default",
-  "rust",
-  "display-diagnostics",
-  "software-renderer",
-  "bundle-translations",
-] }
+i-slint-compiler = { workspace = true, features = ["default", "rust", "display-diagnostics", "software-renderer", "bundle-translations"] }
 
 spin_on = { workspace = true }
 toml_edit = { workspace = true }

@@ -12,16 +12,12 @@ license = "MIT"
 
 [dependencies]
 async-std = "1.12.0"
-chrono = { version = "0.4.38", optional = true, default-features = false, features = [
-  "clock",
-] }
+chrono = { version = "0.4.38", optional = true, default-features = false, features = ["clock"] }
 directories = "6.0"
 log = "0.4.21"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0.115"
-slint = { path = "../../api/rs/slint", features = [
-  "backend-android-activity-06",
-] }
+slint = { path = "../../api/rs/slint", features = ["backend-android-activity-06"] }
 
 [target.'cfg(all(not(target_arch = "wasm32"), not(target_os = "android")))'.dependencies]
 env_logger = "0.11.3"

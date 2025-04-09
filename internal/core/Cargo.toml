@@ -48,12 +48,7 @@ unsafe-single-threaded = []
 
 unicode = ["unicode-script", "unicode-linebreak"]
 
-software-renderer-systemfonts = [
-  "shared-fontdb",
-  "rustybuzz",
-  "fontdue",
-  "software-renderer",
-]
+software-renderer-systemfonts = ["shared-fontdb", "rustybuzz", "fontdue", "software-renderer"]
 software-renderer = ["bytemuck", "rustversion"]
 
 image-decoders = ["dep:image", "dep:clru"]
@@ -87,9 +82,7 @@ lyon_geom = { version = "1.0", optional = true }
 lyon_path = { version = "1.0", optional = true }
 lyon_extra = { version = "1.0.1", optional = true }
 num-traits = { version = "0.2", default-features = false }
-once_cell = { version = "1.5", default-features = false, features = [
-  "critical-section",
-] }
+once_cell = { version = "1.5", default-features = false, features = ["critical-section"] }
 pin-project = "1"
 pin-weak = { version = "1.1", default-features = false }
 # Note: the rgb version is extracted in ci.yaml for rustdoc builds
@@ -124,9 +117,7 @@ fontdue = { workspace = true, optional = true }
 rustversion = { version = "1.0", optional = true }
 
 [target.'cfg(target_family = "unix")'.dependencies]
-gettext-rs = { version = "0.7.1", optional = true, features = [
-  "gettext-system",
-] }
+gettext-rs = { version = "0.7.1", optional = true, features = ["gettext-system"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 web-time = { version = "1.0", optional = true }
@@ -137,32 +128,19 @@ web-sys = { workspace = true, features = ["HtmlImageElement"] }
 fontdb = { workspace = true, optional = true, default-features = true }
 
 [dev-dependencies]
-slint = { path = "../../api/rs/slint", default-features = false, features = [
-  "std",
-  "compat-1-2",
-] }
+slint = { path = "../../api/rs/slint", default-features = false, features = ["std", "compat-1-2"] }
 i-slint-backend-testing = { path = "../backends/testing" }
 rustybuzz = { workspace = true }
 ttf-parser = { workspace = true }
 fontdb = { workspace = true, default-features = true }
 serde_json = { workspace = true }
 tiny-skia = "0.11.0"
-tokio = { version = "1.35", features = [
-  "rt-multi-thread",
-  "macros",
-  "time",
-  "net",
-  "io-util",
-] }
+tokio = { version = "1.35", features = ["rt-multi-thread", "macros", "time", "net", "io-util"] }
 async-compat = { version = "0.2.4" }
 tempfile = { version = "3.12.0" }
 
 [lints.rust]
-unexpected_cfgs = { level = "warn", check-cfg = [
-  "cfg(slint_debug_property)",
-  "cfg(cbindgen)",
-  "cfg(slint_int_coord)",
-] }
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(slint_debug_property)", "cfg(cbindgen)", "cfg(slint_int_coord)"] }
 
 [lints.clippy]
 # Coord is an alias for f32 in most architectures, but not always, so the cast

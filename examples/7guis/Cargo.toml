@@ -29,7 +29,4 @@ name = "cells"
 
 [dependencies]
 slint = { path = "../../api/rs/slint" }
-chrono = { version = "0.4", default-features = false, features = [
-  "clock",
-  "std",
-] }
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }

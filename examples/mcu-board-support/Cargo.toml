@@ -105,10 +105,7 @@ stm32u5g9j-dk2 = [
 ]
 
 [dependencies]
-slint = { version = "=1.11.0", path = "../../api/rs/slint", default-features = false, features = [
-  "compat-1-2",
-  "renderer-software",
-] }
+slint = { version = "=1.11.0", path = "../../api/rs/slint", default-features = false, features = ["compat-1-2", "renderer-software"] }
 i-slint-core = { workspace = true }
 i-slint-core-macros = { version = "=1.11.0", path = "../../internal/core-macros" }
 
@@ -131,14 +128,8 @@ rp235x-hal = { version = "0.2.0", default-features = false, optional = true }
 fugit = { version = "0.3.6", optional = true }
 euclid = { version = "0.22", default-features = false, optional = true }
 
-stm32h7xx-hal = { version = "0.16.0", optional = true, features = [
-  "log-rtt",
-  "ltdc",
-  "xspi",
-] }
-getrandom = { version = "0.2", optional = true, default-features = false, features = [
-  "custom",
-] }
+stm32h7xx-hal = { version = "0.16.0", optional = true, features = ["log-rtt", "ltdc", "xspi"] }
+getrandom = { version = "0.2", optional = true, default-features = false, features = ["custom"] }
 embedded-time = { version = "0.12.0", optional = true }
 embedded-display-controller = { version = "0.2.0", optional = true }
 ft5336 = { version = "0.2", optional = true }
@@ -147,10 +138,7 @@ ft5336 = { version = "0.2", optional = true }
 # esp-hal = { version = "0.22", optional = true }
 esp-alloc = { version = "0.5", optional = true }
 esp-println = { version = "0.12.0", optional = true }
-esp-backtrace = { version = "0.14.0", optional = true, features = [
-  "panic-handler",
-  "println",
-] }
+esp-backtrace = { version = "0.14.0", optional = true, features = ["panic-handler", "println"] }
 tt21100 = { version = "0.1", optional = true }
 
 mipidsi = { version = "0.9.0", optional = true }
