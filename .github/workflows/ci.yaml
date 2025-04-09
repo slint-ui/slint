@@ -380,6 +380,9 @@ jobs:
             - name: Typescript syntax check # has to run after the build as it depends on the wasm
               working-directory: editors/vscode
               run: pnpm type-check
+            - name: Check tmGrammar
+              working-directory: editors/vscode
+              run: pnpm test_grammar
 
     # test to compile the mcu backend for the arm target (no_std)
     mcu:
