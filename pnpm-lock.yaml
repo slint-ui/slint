@@ -10,14 +10,7 @@ overrides:
 
 importers:
 
-  .:
-    dependencies:
-      '@types/jszip':
-        specifier: 3.4.0
-        version: 3.4.0
-      jszip:
-        specifier: 3.10.1
-        version: 3.10.1
+  .: {}
 
   api/node:
     dependencies:
@@ -209,6 +202,9 @@ importers:
       '@figma/plugin-typings':
         specifier: 1.109.0
         version: 1.109.0
+      '@types/jszip':
+        specifier: 3.4.0
+        version: 3.4.0
       '@types/node':
         specifier: 20.16.10
         version: 20.16.10
@@ -224,12 +220,15 @@ importers:
       cross-env:
         specifier: 7.0.3
         version: 7.0.3
+      jszip:
+        specifier: 3.10.1
+        version: 3.10.1
       shiki:
-        specifier: 3.2.1
+        specifier: ^3.2.1
         version: 3.2.1
       typescript:
-        specifier: 5.8.3
-        version: 5.8.3
+        specifier: 5.8.2
+        version: 5.8.2
       vite:
         specifier: 6.2.5
         version: 6.2.5(@types/node@20.16.10)(yaml@2.7.1)
@@ -4359,6 +4358,11 @@ packages:
   typescript@4.9.5:
     resolution: {integrity: sha512-1FXk9E2Hm+QzZQ7z+McJiHL4NW1F2EzMu9Nq9i3zAaGqibafqYwCVU6WyWAuyQRRzOlxou8xZSyXLEN8oKj24g==}
     engines: {node: '>=4.2.0'}
+    hasBin: true
+
+  typescript@5.8.2:
+    resolution: {integrity: sha512-aJn6wq13/afZp/jT9QZmwEjDqqvSGp1VT5GVg+f/t6/oVyrgXM6BY1h9BRh/O5p3PlUPAe+WuiEZOmb/49RqoQ==}
+    engines: {node: '>=14.17'}
     hasBin: true
 
   typescript@5.8.3:
@@ -9853,6 +9857,8 @@ snapshots:
       semver: 7.7.1
 
   typescript@4.9.5: {}
+
+  typescript@5.8.2: {}
 
   typescript@5.8.3: {}
 
