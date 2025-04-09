@@ -4,9 +4,11 @@
 #![no_std]
 #![no_main]
 
+use embedded_hal::delay::DelayNs;
 use esp_hal::peripherals::Peripherals;
 use esp_hal::gpio::DriveMode;
-
+use gt911::Gt911Blocking;
+use log::{error, info};
 use alloc::boxed::Box;
 use alloc::rc::Rc;
 use core::cell::RefCell;
@@ -31,6 +33,7 @@ use slint::platform::WindowEvent;
 use embedded_hal_bus::spi::ExclusiveDevice;
 use esp_hal::gpio::InputConfig;
 use esp_println::println;
+use slint::platform::PointerEventButton;
 
 /// Initializes the heap and sets the Slint platform.
 pub fn init() {
@@ -89,14 +92,16 @@ impl slint::platform::Platform for EspBackend {
             .expect("Peripherals already taken");
         let mut delay = Delay::new();
         // I2C initialization.
-        let i2c = I2c::new(
+        let mut i2c = I2c::new(
             peripherals.I2C0,
-            esp_hal::i2c::master::Config::default().with_frequency(Rate::from_khz(400)),
+            esp_hal::i2c::master::Config::default(),
         )
             .unwrap()
             .with_sda(peripherals.GPIO8)
             .with_scl(peripherals.GPIO18);
 
+        let mut touch = Gt911Blocking::new(0x14);
+        touch.init(&mut i2c).unwrap();
         // Initialize the touch driver
         // let mut touch = tt21100::TT21100::new(i2c, Input::new(peripherals.GPIO3, InputConfig::default().with_pull(Pull::Up)))
         //     .expect("Initialize the touch device");
@@ -159,66 +164,71 @@ impl slint::platform::Platform for EspBackend {
         };
 
         // Variable to track touch state between iterations.
-        // let mut last_touch = None;
+        let mut last_touch = None;
 
         // Main event loop.
         loop {
             slint::platform::update_timers_and_animations();
 
             if let Some(window) = self.window.borrow().clone() {
-                let mut event_count = 0;
-                // Process up to 15 events per frame so that we do not block rendering.
-                // while event_count < 15 && touch.data_available().unwrap() {
-                //     event_count += 1;
-                //     match touch.event() {
-                //         // Discard errors (e.g. transient initialization issues).
-                //         Err(_) => (),
-                //         Ok(tt21100::Event::Button(..)) => (),
-                //         Ok(tt21100::Event::Touch { report: _, touches }) => {
-                //             let button = slint::platform::PointerEventButton::Left;
-                //             if let Some(event) = touches
-                //                 .0
-                //                 .map(|record| {
-                //                     let position = slint::PhysicalPosition::new(
-                //                         // Map coordinates from display to logical coordinates.
-                //                         ((319. - record.x as f32) * size.width as f32 / 319.) as _,
-                //                         (record.y as f32 * size.height as f32 / 239.) as _,
-                //                     )
-                //                         .to_logical(window.scale_factor());
-                //                     match last_touch.replace(position) {
-                //                         Some(_) => WindowEvent::PointerMoved { position },
-                //                         None => WindowEvent::PointerPressed { position, button },
-                //                     }
-                //                 })
-                //                 .or_else(|| {
-                //                     last_touch.take().map(|position| WindowEvent::PointerReleased {
-                //                         position,
-                //                         button,
-                //                     })
-                //                 })
-                //             {
-                //                 let is_pointer_release_event =
-                //                     matches!(event, WindowEvent::PointerReleased { .. });
-                //
-                //                 window.try_dispatch_event(event)?;
-                //
-                //                 // Remove hover state on widgets after a pointer release.
-                //                 if is_pointer_release_event {
-                //                     window.try_dispatch_event(WindowEvent::PointerExited)?;
-                //                 }
-                //             }
-                //         }
-                //     }
-                // }
+                // Poll the GT911 for touch data.
+                match touch.get_touch(&mut i2c) {
+                    // Active touch detected: Some(point) means a press or move.
+                    Ok(Some(point)) => {
+                        // Convert GT911 raw coordinates (assumed in pixels) into a PhysicalPosition.
+                        // You may need to adjust this conversion if your coordinate systems differ.
+                        // println!("touch point: {:?}", point);
+                        let pos = slint::PhysicalPosition::new(point.x as i32, point.y as i32)
+                            .to_logical(window.scale_factor());
 
+                        let event = if let Some(previous_pos) = last_touch.replace(pos) {
+                            // If the position changed, send a PointerMoved event.
+                            if previous_pos != pos {
+                                WindowEvent::PointerMoved { position: pos }
+                            } else {
+                                // If the position is the same as last time, skip event generation.
+                                // In this case we simply continue the loop.
+                                continue;
+                            }
+                        } else {
+                            // No previous touch, so generate a PointerPressed event.
+                            WindowEvent::PointerPressed {
+                                position: pos,
+                                button: PointerEventButton::Left,
+                            }
+                        };
+
+                        // Dispatch the event to Slint.
+                        window.try_dispatch_event(event)?;
+                    }
+                    // No active touch—report release if a previous touch existed.
+                    Ok(None) => {
+                        if let Some(pos) = last_touch.take() {
+                            window.try_dispatch_event(WindowEvent::PointerReleased {
+                                position: pos,
+                                button: PointerEventButton::Left,
+                            })?;
+                            // Optionally remove hover state.
+                            window.try_dispatch_event(WindowEvent::PointerExited)?;
+                        }
+                    }
+                    // If data is not ready, do nothing.
+                    // Err(gt911_driver::Error::NotReady) => { /* No new data available; ignore */ }
+                    // Log any other errors.
+                    Err(_) => {
+                    //     println!("GT911 error: {:?}", e);
+                    }
+                }
+
+                // Render the window if needed.
                 window.draw_if_needed(|renderer| {
                     renderer.render_by_line(&mut buffer_provider);
                 });
+
                 if window.has_active_animations() {
                     continue;
                 }
             }
-            // TODO: Add sleep or power saving functionality if necessary.
         }
     }
 
