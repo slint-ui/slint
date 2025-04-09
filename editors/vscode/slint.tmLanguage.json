@@ -554,7 +554,7 @@
                     "name": "punctuation.other.code-block.slint"
                 },
                 {
-                    "include": "function-call"
+                    "include": "#function-call"
                 },
                 {
                     "include": "#code-block"
