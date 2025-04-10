@@ -93,6 +93,9 @@ fn format_node(
         SyntaxKind::CallbackConnection => {
             return format_callback_connection(node, writer, state);
         }
+        SyntaxKind::CallbackForwarding => {
+            return format_callback_forwarding(node, writer, state);
+        }
         SyntaxKind::CallbackDeclaration => {
             return format_callback_declaration(node, writer, state);
         }
@@ -615,6 +618,27 @@ fn format_callback_connection(
         }
     }
     state.new_line();
+    Ok(())
+}
+
+fn format_callback_forwarding(
+    node: &SyntaxNode,
+    writer: &mut impl TokenWriter,
+    state: &mut FormatState,
+) -> Result<(), std::io::Error> {
+    let mut sub = node.children_with_tokens();
+    if node.child_token(SyntaxKind::Identifier).is_some() {
+        whitespace_to(&mut sub, SyntaxKind::Identifier, writer, state, "")?;
+    }
+    let _ok = whitespace_to(&mut sub, SyntaxKind::FatArrow, writer, state, " ")?
+        && whitespace_to(&mut sub, SyntaxKind::Expression, writer, state, " ")?;
+    if node.child_token(SyntaxKind::Semicolon).is_some() {
+        whitespace_to(&mut sub, SyntaxKind::Semicolon, writer, state, "")?;
+        state.new_line();
+    }
+    for s in sub {
+        fold(s, writer, state)?;
+    }
     Ok(())
 }
 
@@ -2087,6 +2111,17 @@ export component MainWindow2 inherits Rectangle {
     property <int> xx <=> ff.mm;
     callback doo <=> moo;
     property e-e <=> f-f;
+}
+"#,
+        );
+    }
+
+    #[test]
+    fn callback_forwarding() {
+        assert_formatting(
+            "export component Foobar{foo=>bar ;}",
+            r#"export component Foobar {
+    foo => bar;
 }
 "#,
         );
