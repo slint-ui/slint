@@ -17,6 +17,7 @@ use slint::{SharedString, VecModel};
 use crate::{
     common,
     preview::{properties, ui},
+    util,
 };
 
 pub fn map_properties_to_ui(
@@ -69,7 +70,7 @@ pub fn map_properties_to_ui(
 
         declarations.insert(pi.name.clone(), declared_at);
 
-        let value = simplify_value(pi);
+        let value = simplify_value(document_cache, pi);
 
         property_group_from(
             &mut property_groups,
@@ -256,7 +257,164 @@ fn extract_tr_data(tr_node: &syntax_nodes::AtTr, value: &mut ui::PropertyValue) 
     }
 }
 
-fn simplify_value(prop_info: &super::properties::PropertyInformation) -> ui::PropertyValue {
+fn is_gradient_too_complex(expression: &syntax_nodes::AtGradient) -> bool {
+    let is_radial = expression
+        .child_token(SyntaxKind::Identifier)
+        .is_some_and(|t| t.text().trim().replace('_', "-") == "radial-gradient");
+
+    expression.Expression().any(|e| {
+        match e
+            .children_with_tokens()
+            .next()
+            .expect("An expression needs to contain at least one node or token")
+        {
+            i_slint_compiler::parser::NodeOrToken::Node(syntax_node) => match syntax_node.kind() {
+                SyntaxKind::QualifiedName => {
+                    if is_radial && syntax_node.text().to_string().trim() == "circle" {
+                        false
+                    } else if let Some(first_identifier) =
+                        syntax_node.child_token(SyntaxKind::Identifier)
+                    {
+                        first_identifier.text().trim() != "Colors"
+                    } else {
+                        true
+                    }
+                }
+                _ => true,
+            },
+            i_slint_compiler::parser::NodeOrToken::Token(syntax_token) => {
+                !matches!(syntax_token.kind(), SyntaxKind::NumberLiteral | SyntaxKind::ColorLiteral)
+            }
+        }
+    })
+}
+
+#[derive(Default)]
+struct NumberValue {
+    value: f64,
+    unit: expression_tree::Unit,
+    normalized_value: f64,
+}
+
+fn extract_number_from_expression_tree(
+    expression: &expression_tree::Expression,
+) -> Option<NumberValue> {
+    match expression {
+        expression_tree::Expression::NumberLiteral(v, u) => {
+            Some(NumberValue { value: *v, unit: *u, normalized_value: u.normalize(*v) })
+        }
+        expression_tree::Expression::Cast { from, to } => {
+            if *to == langtype::Type::Float32 {
+                extract_number_from_expression_tree(from.as_ref())
+            } else {
+                None
+            }
+        }
+        expression_tree::Expression::BinaryExpression { lhs, rhs, op } => {
+            let lhs = extract_number_from_expression_tree(lhs.as_ref())?;
+            let rhs = extract_number_from_expression_tree(rhs.as_ref())?;
+
+            if lhs.unit != expression_tree::Unit::None
+                && rhs.unit == expression_tree::Unit::None
+                && *op == '*'
+                && (lhs.value * rhs.value == lhs.normalized_value
+                    || lhs.unit == expression_tree::Unit::Percent && rhs.value == 0.01)
+            {
+                // This is just a unit conversion
+                Some(NumberValue {
+                    value: lhs.value,
+                    unit: lhs.unit,
+                    normalized_value: lhs.value * rhs.value,
+                })
+            } else {
+                None
+            }
+        }
+        _ => None,
+    }
+}
+
+fn extract_color_from_expression_tree(
+    expression: &expression_tree::Expression,
+) -> Option<slint::Color> {
+    match expression {
+        expression_tree::Expression::NumberLiteral(v, _) => {
+            Some(slint::Color::from_argb_encoded(*v as u32))
+        }
+        expression_tree::Expression::Cast { from, to } => {
+            if *to == langtype::Type::Color {
+                extract_color_from_expression_tree(from.as_ref())
+            } else {
+                None
+            }
+        }
+        _ => None,
+    }
+}
+
+fn extract_gradient(
+    document_cache: &common::DocumentCache,
+    expression: &syntax_nodes::AtGradient,
+    value: &mut ui::PropertyValue,
+) {
+    if is_gradient_too_complex(expression) {
+        return;
+    }
+
+    let Some(resolved_expression) =
+        util::with_lookup_ctx(document_cache, expression.clone().into(), |ctx| {
+            expression_tree::Expression::from_at_gradient(expression.clone(), ctx)
+        })
+    else {
+        return;
+    };
+
+    fn parse_stops(
+        stops: &[(expression_tree::Expression, expression_tree::Expression)],
+    ) -> Vec<ui::GradientStop> {
+        stops
+            .iter()
+            .filter_map(|(c, p)| {
+                Some(ui::GradientStop {
+                    color: extract_color_from_expression_tree(c)?,
+                    position: extract_number_from_expression_tree(p)?.normalized_value as f32,
+                })
+            })
+            .collect::<Vec<_>>()
+    }
+
+    let stops = match resolved_expression {
+        expression_tree::Expression::LinearGradient { angle, stops } => {
+            let angle = extract_number_from_expression_tree(angle.as_ref());
+            value.value_float = angle.unwrap_or_default().normalized_value as f32;
+            value.display_string = "Linear Gradient".into();
+            value.brush_kind = ui::BrushKind::Linear;
+
+            parse_stops(&stops)
+        }
+        expression_tree::Expression::RadialGradient { stops } => {
+            value.display_string = "Radial Gradient".into();
+            value.brush_kind = ui::BrushKind::Radial;
+            parse_stops(&stops)
+        }
+
+        _ => vec![],
+    };
+
+    value.gradient_stops = Rc::new(VecModel::from(stops)).into();
+    value.value_brush = super::create_brush(
+        value.brush_kind,
+        value.value_float,
+        slint::Color::default(),
+        value.gradient_stops.clone(),
+    );
+    value.kind = ui::PropertyValueKind::Brush;
+}
+
+fn simplify_value(
+    document_cache: &common::DocumentCache,
+    prop_info: &properties::PropertyInformation,
+) -> ui::PropertyValue {
     use i_slint_compiler::expression_tree::Unit;
     use langtype::Type;
 
@@ -321,8 +479,11 @@ fn simplify_value(prop_info: &super::properties::PropertyInformation) -> ui::Pro
         }
         Type::Brush => {
             if let Some(expression) = expression {
-                extract_color(&expression, ui::PropertyValueKind::Brush, &mut value);
-                // TODO: Handle gradients...
+                if let Some(gradient) = expression.AtGradient() {
+                    extract_gradient(document_cache, &gradient, &mut value);
+                } else {
+                    extract_color(&expression, ui::PropertyValueKind::Brush, &mut value);
+                }
             } else if value.code.is_empty() {
                 set_default_brush(ui::PropertyValueKind::Brush, def_val, &mut value);
             }
@@ -491,9 +652,9 @@ mod tests {
     }
 
     fn property_conversion_test(contents: &str, property_line: u32) -> ui::PropertyValue {
-        let (_, pi, _, _) = properties_at_position(contents, property_line, 30).unwrap();
+        let (_, pi, dc, _) = properties_at_position(contents, property_line, 30).unwrap();
         let test1 = pi.iter().find(|pi| pi.name == "test1").unwrap();
-        super::simplify_value(test1)
+        super::simplify_value(&dc, test1)
     }
 
     #[test]
@@ -865,11 +1026,22 @@ export component Test { in property <Foobar> test1; }"#,
             r#"export component Test { in property <brush> test1: @linear-gradient(90deg, #3f87a6 0%, #ebf8e1 50%, #f69d3c 100%); }"#,
             1,
         );
+        assert_eq!(result.kind, ui::PropertyValueKind::Brush);
+
+        let result = property_conversion_test(
+            r#"export component Test { in property <brush> test1: @radial-gradient(circle, #f00 0%, #0f0 50%, #00f 100%); }"#,
+            1,
+        );
+        assert_eq!(result.kind, ui::PropertyValueKind::Brush);
+
+        let result = property_conversion_test(
+            r#"export component Test { in property <brush> test1: @linear-gradient(90deg, #3f87a6 0%, #ebf8e1 50% - 10%, #f69d3c 100%); }"#,
+            1,
+        );
         assert_eq!(result.kind, ui::PropertyValueKind::Code);
 
         let result = property_conversion_test(
-            r#"export component Test { in property <brush> test1: @radial-gradient(circle, #f00 0%, #0f0 50%, #00f 100%)
-            @linear-gradient(90deg, #3f87a6 0%, #ebf8e1 50%, #f69d3c 100%); }"#,
+            r#"export component Test { in property <brush> test1: @radial-gradient(circle, #f00 0%, #0f0 50% - 10%, #00f 100%); }"#,
             1,
         );
         assert_eq!(result.kind, ui::PropertyValueKind::Code);
@@ -937,28 +1109,28 @@ export component X {
         let pi = super::properties::get_properties(&element, super::properties::LayoutKind::None);
 
         let prop = pi.iter().find(|pi| pi.name == "visible").unwrap();
-        let result = super::simplify_value(prop);
+        let result = super::simplify_value(&dc, prop);
         assert_eq!(result.kind, ui::PropertyValueKind::Boolean);
         assert!(result.value_bool);
 
         let prop = pi.iter().find(|pi| pi.name == "enabled").unwrap();
-        let result = super::simplify_value(prop);
+        let result = super::simplify_value(&dc, prop);
         assert_eq!(result.kind, ui::PropertyValueKind::Boolean);
         assert!(result.value_bool);
 
         let prop = pi.iter().find(|pi| pi.name == "text").unwrap();
-        let result = super::simplify_value(prop);
+        let result = super::simplify_value(&dc, prop);
         assert_eq!(result.kind, ui::PropertyValueKind::String);
         assert_eq!(result.value_string, "Ok");
 
         let prop = pi.iter().find(|pi| pi.name == "alias").unwrap();
-        let result = super::simplify_value(prop);
+        let result = super::simplify_value(&dc, prop);
         assert_eq!(result.kind, ui::PropertyValueKind::Float);
         assert_eq!(result.value_float, 45.);
         assert_eq!(result.visual_items.row_data(result.value_int as usize).unwrap(), "cm");
 
         let prop = pi.iter().find(|pi| pi.name == "color").unwrap();
-        let result = super::simplify_value(prop);
+        let result = super::simplify_value(&dc, prop);
         assert_eq!(result.kind, ui::PropertyValueKind::Color);
         assert_eq!(
             result.value_brush,
@@ -992,7 +1164,7 @@ export component X {
         let pi = super::properties::get_properties(&element, super::properties::LayoutKind::None);
 
         let prop = pi.iter().find(|pi| pi.name == "visible").unwrap();
-        let result = super::simplify_value(prop);
+        let result = super::simplify_value(&dc, prop);
         assert_eq!(result.kind, ui::PropertyValueKind::Boolean);
         assert!(result.value_bool);
     }
