@@ -435,7 +435,7 @@ impl Expression {
         }
     }
 
-    fn from_at_gradient(node: syntax_nodes::AtGradient, ctx: &mut LookupCtx) -> Self {
+    pub fn from_at_gradient(node: syntax_nodes::AtGradient, ctx: &mut LookupCtx) -> Self {
         enum GradKind {
             Linear { angle: Box<Expression> },
             Radial,
