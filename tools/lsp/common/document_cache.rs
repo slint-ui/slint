@@ -217,7 +217,7 @@ impl DocumentCache {
         false
     }
 
-    /// Returns a vector of Documents the `doc_url` depends upon
+    /// Returns true if doc_url uses (possibly indirectly) widgets from "std-widgets.slint"
     pub fn uses_widgets(&self, doc_url: &Url) -> bool {
         let Some(doc_path) = uri_to_file(doc_url) else {
             return false;
