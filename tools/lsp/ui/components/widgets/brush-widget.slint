@@ -107,36 +107,15 @@ export component BrushWidget inherits GridLayout {
         }
     }
 
-    // Row {
-    //     kind_cb := ComboBox {
-    //         col: 1;
-
-    //         model: [ "Solid Color", "Linear Gradient", "Radial Gradient"];
-
-    //         changed current-index => {
-    //             if self.current-index == 0 {
-    //                 root.current-brush-kind = BrushKind.solid;
-    //             } else if self.current-index == 1 {
-    //                 root.current-brush-kind = BrushKind.linear;
-    //             } else {
-    //                 root.current-brush-kind = BrushKind.radial;
-    //             }
-
-    //             root.update-brush();
-    //         }
-    //     }
-    // }
-
     Row {
         childIndicator := ChildIndicator {
             horizontal-stretch: 0;
-            // control-hover: kind_cb.has-focus || grad_main.has-focus || color_main.has-focus;
         }
 
         VerticalLayout {
             Rectangle {
                 clip: true;
-                height: color_main.preferred-height;// root.current-brush-kind == BrushKind.solid ? color_main.preferred-height : 0px;
+                height: color_main.preferred-height;
 
                 color_main := ColorMainContent {
                     current-color <=> root.current-color;
@@ -174,84 +153,5 @@ export component BrushWidget inherits GridLayout {
         }
     }
 
-    // Row {
-    //     sub := SecondaryContent {
-    //         col: 1;
-
-    //         open: childIndicator.open;
-
-    //         Rectangle {
-    //             clip: true;
-    //             height: root.current-brush-kind == BrushKind.linear ? self.preferred-height : 0px;
-
-    //             HorizontalLayout {
-    //                 spacing: EditorSpaceSettings.default-spacing;
-    //                 Text {
-    //                     text: "Angle:";
-    //                     vertical-alignment: center;
-    //                 }
-
-    //                 angle := ResettingLineEdit {
-    //                     // enabled <=> root.enabled;
-
-    //                     input-type: decimal;
-
-    //                     edited(text) => {
-    //                         self.can-compile = text.is-float() && root.test-brush-binding(root.current-brush-kind, text.is-empty ? 0.0 : text.to-float(), root.current-color, root.current-gradient-stops);
-    //                         if self.can-compile {
-    //                             root.current-angle = text.is-empty ? 0.0 : text.to-float();
-    //                             root.update-brush();
-    //                         }
-    //                     }
-
-    //                     accepted(text) => {
-    //                         root.set-brush-binding(root.current-brush-kind, root.current-angle, root.current-color, root.current-gradient-stops);
-    //                         update-brush();
-    //                     }
-    //                 }
-
-    //                 Rectangle {
-    //                     Image {
-    //                         source: @image-url("../../assets/dial.svg");
-    //                         height: 30px;
-    //                         rotation-angle: root.current-angle * 1deg;
-    //                         colorize: Palette.foreground.transparentize(0.8);
-    //                     }
-    //                     TouchArea {
-    //                         private property <length> x-pos;
-    //                         private property <length> y-pos;
-
-    //                         moved() => {
-    //                             self.x-pos = self.mouse-x - (self.width / 2);
-    //                             self.y-pos = -1.0 * (self.mouse-y - (self.height / 2));
-    //                             root.current-angle = Math.atan2(self.x-pos / 1px, self.y-pos / 1px) / 1deg;
-    //                             root.update-brush();
-    //                             angle.text = root.current-angle;
-    //                         }
-    //                     }
-    //                 }
-    //             }
-    //         }
-
-    //         // sliders := RgbaColorSliders {
-    //         //     // enabled: root.enabled && (root.current-brush-kind == BrushKind.solid || grad_main.selected-index >= 0);
-    //         //     current-color <=> root.current-color;
-
-    //         //     set-color-binding(text) => {
-    //         //         root.set-brush-binding(root.current-brush-kind, root.current-angle, root.current-color, root.current-gradient-stops);
-    //         //     }
-    //         //     test-color-binding(text) => {
-    //         //         return root.test-color(text);
-    //         //     }
-    //         // }
-
-    //         code-action() => {
-    //             root.code-action();
-    //         }
-    //         reset-action() => {
-    //             root.reset-action();
-    //         }
-    //     }
-    // }
 }
 
