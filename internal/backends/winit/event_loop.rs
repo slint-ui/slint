@@ -137,7 +137,7 @@ thread_local! {
 
 scoped_tls_hkt::scoped_thread_local!(static CURRENT_WINDOW_TARGET : for<'a> &'a RunningEventLoop<'a>);
 
-pub(crate) fn with_window_target<T>(
+pub(crate) fn with_event_loop<T>(
     callback: impl FnOnce(
         &dyn EventLoopInterface,
     ) -> Result<T, Box<dyn std::error::Error + Send + Sync>>,
@@ -214,10 +214,10 @@ impl EventLoopState {
 }
 
 impl winit::application::ApplicationHandler<SlintUserEvent> for EventLoopState {
-    fn resumed(&mut self, _event_loop: &ActiveEventLoop) {
+    fn resumed(&mut self, active_event_loop: &ActiveEventLoop) {
         for (_, window_weak) in self.shared_backend_data.active_windows.borrow().iter() {
             if let Some(w) = window_weak.upgrade() {
-                if let Err(e) = w.ensure_window() {
+                if let Err(e) = w.ensure_window(&RunningEventLoop { active_event_loop }) {
                     self.loop_error = Some(e);
                 }
             }

@@ -59,6 +59,7 @@ mod renderer {
         // Got winit::Event::Resumed
         fn resume(
             &self,
+            event_loop: &dyn crate::event_loop::EventLoopInterface,
             window_attributes: winit::window::WindowAttributes,
             requested_graphics_api: Option<RequestedGraphicsAPI>,
         ) -> Result<Rc<winit::window::Window>, PlatformError>;
@@ -662,7 +663,7 @@ impl private::WinitWindowAccessorSealed for i_slint_core::api::Window {}
 pub fn create_winit_window(
     window_attributes: winit::window::WindowAttributes,
 ) -> Result<winit::window::Window, winit::error::OsError> {
-    event_loop::with_window_target(|eli| Ok(eli.create_window(window_attributes))).unwrap()
+    event_loop::with_event_loop(|eli| Ok(eli.create_window(window_attributes))).unwrap()
 }
 
 #[cfg(test)]
