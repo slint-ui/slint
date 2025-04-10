@@ -342,7 +342,10 @@ impl WinitWindowAdapter {
             muda_enable_default_menu_bar,
         });
 
-        let winit_window = self_rc.ensure_window()?;
+        let winit_window =
+            crate::event_loop::with_event_loop(
+                |event_loop| Ok(self_rc.ensure_window(event_loop)?),
+            )?;
         debug_assert!(!self_rc.renderer.is_suspended());
         self_rc.size.set(physical_size_to_slint(&winit_window.inner_size()));
 
@@ -363,7 +366,10 @@ impl WinitWindowAdapter {
         self.renderer.as_ref()
     }
 
-    pub fn ensure_window(&self) -> Result<Rc<winit::window::Window>, PlatformError> {
+    pub fn ensure_window(
+        &self,
+        event_loop: &dyn crate::event_loop::EventLoopInterface,
+    ) -> Result<Rc<winit::window::Window>, PlatformError> {
         #[allow(unused_mut)]
         let mut window_attributes = match &*self.winit_window_or_none.borrow() {
             WinitWindowOrNone::HasWindow { window, .. } => return Ok(window.clone()),
@@ -388,8 +394,11 @@ impl WinitWindowAdapter {
 
         let mut winit_window_or_none = self.winit_window_or_none.borrow_mut();
 
-        let winit_window =
-            self.renderer.resume(window_attributes, self.requested_graphics_api.clone())?;
+        let winit_window = self.renderer.resume(
+            event_loop,
+            window_attributes,
+            self.requested_graphics_api.clone(),
+        )?;
 
         *winit_window_or_none = WinitWindowOrNone::HasWindow {
             window: winit_window.clone(),
@@ -699,7 +708,9 @@ impl WindowAdapter for WinitWindowAdapter {
         if visible {
             let recreating_window = self.winit_window_or_none.borrow().as_window().is_none();
 
-            let winit_window = self.ensure_window()?;
+            let winit_window = crate::event_loop::with_event_loop(|event_loop| {
+                Ok(self.ensure_window(event_loop)?)
+            })?;
 
             let runtime_window = WindowInner::from_pub(self.window());
 
