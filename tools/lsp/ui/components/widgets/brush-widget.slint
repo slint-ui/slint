@@ -56,7 +56,7 @@ export component BrushWidget inherits GridLayout {
         // angle.text = root.current-angle;
     }
 
-    private property <bool> has-focus: color_main.has-focus || grad_main.has-focus;// || angle.has-focus;  || sliders.has-focus
+    private property <bool> has-focus: color_main.has-focus || grad_main.has-focus;
 
     function test-color(text: string) -> bool {
         if self.current-brush-kind != BrushKind.solid && grad_main.selected-index >= 0 {
