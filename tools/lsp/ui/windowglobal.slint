@@ -30,6 +30,7 @@ export global WindowManager {
     callback hide-floating-widget();
     callback apply-current-value(value: string);
     callback update-preview-value(value: string);
+    callback update-brush();
 
     show-floating-widget(property-information, element-information) => {
         widget-mode = WidgetMode.edit;
@@ -96,5 +97,12 @@ export global WindowManager {
         self.possible_error = Api.set-json-preview-data(current-property-container-id, current-preview-data.name, "\"\{text}\"");
 
         StatusLineApi.help-text = self.possible-error;
+    }
+
+    update-brush() => {
+        PickerData.current-brush = Api.create-brush(BrushKind.linear, 90.0, PickerData.current-brush, PickerData.current-gradient-stops);
+        if widget-mode == WidgetMode.preview {
+            // WindowManager.update-preview-value(Api.color-to-data(PickerData.current-brush).text);
+        }
     }
 }
