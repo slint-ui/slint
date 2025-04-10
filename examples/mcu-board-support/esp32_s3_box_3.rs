@@ -150,7 +150,7 @@ impl slint::platform::Platform for EspBackend {
 
         // Initialize the touch driver.
         let mut touch = Gt911Blocking::new(0x14);
-        match touch.init(&mut i2c) {
+        match touch.init(&mut i2c, &mut delay) {
             Ok(_) => println!("Touch initialized"),
             Err(e) => println!("Touch initialization failed: {:?}", e),
         }
