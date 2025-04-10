@@ -94,6 +94,11 @@ impl slint::platform::Platform for EspBackend {
         let mut delay = Delay::new();
 
 
+        let mut rst = Output::new(
+            peripherals.GPIO48,
+            Level::High,
+            OutputConfig::default().with_drive_mode(DriveMode::OpenDrain),
+        );
 
         // --- Begin SPI and Display Initialization ---
         let spi = Spi::<esp_hal::Blocking>::new(
@@ -109,12 +114,7 @@ impl slint::platform::Platform for EspBackend {
         // Display control pins.
         let dc = Output::new(peripherals.GPIO4, Level::Low, OutputConfig::default());
         let cs = Output::new(peripherals.GPIO5, Level::Low, OutputConfig::default());
-        // Reset pin for display: GPIO48 (shared with touch, must be high for normal operation).
-        let rst = Output::new(
-            peripherals.GPIO48,
-            Level::High,
-            OutputConfig::default().with_drive_mode(DriveMode::OpenDrain),
-        );
+
         // Wrap SPI into a bus.
         let spi_delay = Delay::new();
         let spi_device = ExclusiveDevice::new(spi, cs, spi_delay).unwrap();
@@ -140,10 +140,9 @@ impl slint::platform::Platform for EspBackend {
 
         // --- End Display Initialization ---
 
-        // Initialize I2C for touch (but delay touch initialization until later).
         let mut i2c = I2c::new(
             peripherals.I2C0,
-            esp_hal::i2c::master::Config::default(),
+            esp_hal::i2c::master::Config::default().with_frequency(Rate::from_khz(400)),
         )
             .unwrap()
             .with_sda(peripherals.GPIO8)
