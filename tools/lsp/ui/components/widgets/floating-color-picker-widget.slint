@@ -4,6 +4,7 @@
 import { Palette, Button, ComboBox } from "std-widgets.slint";
 import { WindowGlobal, WindowManager } from "../../windowglobal.slint";
 import { Api, GradientStop } from "../../api.slint";
+import { Icons } from "../../components/styling.slint";
 import { BrushMode, PickerData, PickerMode, WidgetMode } from "../../properties-state.slint";
 
 
@@ -78,7 +79,7 @@ component ColorIndicator {
                 height: 100%;
                 vertical-alignment: top;
                 horizontal-alignment: left;
-                source: @image-url("../../assets/background-tiny.svg");
+                source: Icons.checkerboard-tiny;
                 vertical-tiling: repeat;
                 horizontal-tiling: repeat;
                 colorize: #e1e1e1;
@@ -395,7 +396,7 @@ component GradientSlider {
             Image {
                 width: 10px;
                 rotation-angle: 45deg;
-                source: @image-url("../../assets/black-square.png");
+                source: Icons.black-square;
                 colorize: Styles.section-color;
             }
         }
@@ -609,7 +610,7 @@ component GradientPicker inherits Column {
                     height: 100%;
                     vertical-alignment: top;
                     horizontal-alignment: left;
-                    source: @image-url("../../assets/background-tiny.svg");
+                    source: Icons.checkerboard-tiny;
                     vertical-tiling: repeat;
                     horizontal-tiling: repeat;
                     colorize: #e1e1e1;
@@ -657,7 +658,7 @@ component GradientPicker inherits Column {
             t-plus := TouchArea { }
 
             Image {
-                source: @image-url("../../assets/plus.svg");
+                source: Icons.plus;
                 colorize: Styles.text-color;
             }
         }
@@ -868,7 +869,7 @@ component HsvPicker inherits Column {
                             height: 100%;
                             vertical-alignment: top;
                             horizontal-alignment: left;
-                            source: @image-url("../../assets/background-mini.svg");
+                            source: Icons.checkerboard-mini;
                             vertical-tiling: repeat;
                             horizontal-tiling: repeat;
                             colorize: #e1e1e1;
@@ -1044,7 +1045,7 @@ component ColorPicker {
                 t-close := TouchArea { }
 
                 Image {
-                    source: @image-url("../../assets/close.svg");
+                    source: Icons.close;
                     colorize: Styles.text-color;
                 }
             }
