@@ -21,11 +21,13 @@ import { WindowGlobal, WindowManager } from "../windowglobal.slint";
 
 export component PropertyValueWidget inherits VerticalLayout {
     in property <PropertyValue> property-value;
+    in property <PreviewData> preview-data;
     in property <string> property-name;
     in property <bool> enabled;
     in property <bool> has-code-action: true;
     in property <bool> has-reset-action: true;
     in property <bool> strings-are-translatable: true;
+    in property <string> property-container-id;
 
     callback set-bool-binding(value: bool);
     callback set-color-binding(text: string);
@@ -78,12 +80,13 @@ export component PropertyValueWidget inherits VerticalLayout {
     }
 
     if root.property-value.kind == PropertyValueKind.brush: BrushWidget {
-        enabled <=> root.enabled;
+        // enabled <=> root.enabled;
         property-name <=> root.property-name;
         property-value <=> root.property-value;
+        preview-data <=> root.preview-data;
 
-        has-code-action: root.has-code-action;
-        has-reset-action: root.has-reset-action;
+        // has-code-action: root.has-code-action;
+        // has-reset-action: root.has-reset-action;
 
         test-brush-binding(kind, angle, color, stops) => {
             return root.test-brush-binding(kind, angle, color, stops);
@@ -297,6 +300,8 @@ export component PreviewDataPropertyValueWidget inherits VerticalLayout {
         property-value <=> root.value;
         property-name: root.preview-data.name;
         enabled: root.preview-data.has-setter;
+        property-container-id <=> root.property-container-id;
+        preview-data <=> root.preview-data;
 
         strings-are-translatable: false;
         has-code-action: false;

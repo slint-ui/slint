@@ -5,9 +5,10 @@ import { NameLabel } from "./basics.slint";
 import { ColorMainContent, RgbaColorSliders } from "./color-basics.slint";
 
 import { ColorData, PropertyValue, PropertyValueKind } from "../../api.slint";
+import { WidgetMode } from "../../properties-state.slint";
 import { EditorSpaceSettings } from "../../components/styling.slint";
 import { ComboBox } from "std-widgets.slint";
-import { WindowGlobal, WindowManager, WidgetMode } from "../../windowglobal.slint";
+import { WindowGlobal, WindowManager } from "../../windowglobal.slint";
 
 export component ColorWidget inherits VerticalLayout {
     in property <bool> enabled;

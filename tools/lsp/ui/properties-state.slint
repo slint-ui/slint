@@ -1,0 +1,29 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { GradientStop } from "./api.slint";
+
+export enum WidgetMode { edit, preview }
+
+export enum PickerMode {
+    color,
+    brush,
+}
+
+export enum BrushMode {
+    color,
+    gradient,
+    svg-color,
+}
+
+export global PickerData {
+    in-out property <float> hue;
+    in-out property <float> saturation;
+    in-out property <float> value;
+    // alpha is an int, instead of float to help snap values to whole percentage numbers
+    in-out property <int> alpha;
+    out property <color> current-color: hsv(hue, saturation, value, alpha / 100);
+    in-out property <brush> current-brush;
+    in-out property <[GradientStop]> current-gradient-stops;
+    in-out property <float> current-angle;
+}

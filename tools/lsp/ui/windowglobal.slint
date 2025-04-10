@@ -1,10 +1,12 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-export enum WidgetMode { edit, preview }
 
-import { Api, ColorData, ElementInformation, PropertyInformation, PropertyValue, PropertyValueKind, PreviewData } from "api.slint";
+
+import { Api, BrushKind, ColorData, ElementInformation, GradientStop, PropertyInformation, PropertyValue, PropertyValueKind, PreviewData  } from "./api.slint";
 import { StatusLineApi } from "components/status-line.slint";
+import { BrushMode, PickerData, PickerMode, WidgetMode } from "./properties-state.slint";
+
 
 export global WindowGlobal {
     in-out property <length> window-width;
@@ -12,9 +14,10 @@ export global WindowGlobal {
 }
 
 export global WindowManager {
-    out property <{ hue: float, saturation: float, value: float, alpha: float}> current-hsv-color;
     out property <bool> showing-color-picker: false;
     out property <WidgetMode> widget-mode: edit;
+    out property <PickerMode> picker-mode: color;
+    out property <BrushMode> brush-mode: color;
 
     property <ElementInformation> current-element-information;
     out property <PropertyInformation> current-property-information;
@@ -24,9 +27,11 @@ export global WindowManager {
 
     callback show-floating-widget(PropertyInformation, ElementInformation);
     callback show-floating-preview-widget(property-container-id: string, preview-data: PreviewData, property-value: PropertyValue);
+    callback show-floating-preview-brush-widget(property-container-id: string, preview-data: PreviewData, brush-kind: BrushKind, current-brush: brush, current-gradient-stops: [GradientStop]);
     callback hide-floating-widget();
     callback apply-current-value(value: string);
     callback update-preview-value(value: string);
+    callback update-brush();
 
     show-floating-widget(property-information, element-information) => {
         widget-mode = WidgetMode.edit;
@@ -34,11 +39,10 @@ export global WindowManager {
         current-element-information = element-information;
 
         if current-property-information.value.kind == PropertyValueKind.color {
-            // bug? current-hsv-color = current-property-information.value.value-brush.to-hsv() does not work.
-            current-hsv-color.hue = current-property-information.value.value-brush.to-hsv().hue;
-            current-hsv-color.saturation = current-property-information.value.value-brush.to-hsv().saturation;
-            current-hsv-color.value = current-property-information.value.value-brush.to-hsv().value;
-            current-hsv-color.alpha = current-property-information.value.value-brush.to-hsv().alpha;
+            PickerData.hue = current-property-information.value.value-brush.to-hsv().hue;
+            PickerData.saturation = current-property-information.value.value-brush.to-hsv().saturation;
+            PickerData.value = current-property-information.value.value-brush.to-hsv().value;
+            PickerData.alpha = current-property-information.value.value-brush.to-hsv().alpha * 100;
             showing-color-picker = true;
         }
     }
@@ -48,6 +52,8 @@ export global WindowManager {
         current-element-information = { };
         current-property-information = { };
         widget-mode = WidgetMode.edit;
+        picker-mode = PickerMode.color;
+        brush-mode = BrushMode.color;
     }
 
     show-floating-preview-widget(property-container-id, preview-data, property-value) => {
@@ -56,13 +62,29 @@ export global WindowManager {
         widget-mode = WidgetMode.preview;
 
         if property-value.kind == PropertyValueKind.color {
-            // bug? current-hsv-color = current-property-information.value.value-brush.to-hsv() does not work.
-            current-hsv-color.hue = property-value.value-brush.to-hsv().hue;
-            current-hsv-color.saturation = property-value.value-brush.to-hsv().saturation;
-            current-hsv-color.value = property-value.value-brush.to-hsv().value;
-            current-hsv-color.alpha = property-value.value-brush.to-hsv().alpha;
+            PickerData.hue = property-value.value-brush.to-hsv().hue;
+            PickerData.saturation = current-property-information.value.value-brush.to-hsv().saturation;
+            PickerData.value = property-value.value-brush.to-hsv().value;
+            PickerData.alpha = property-value.value-brush.to-hsv().alpha * 100;
             showing-color-picker = true;
         }
+    }
+
+    show-floating-preview-brush-widget(property-container-id, preview-data, brush-kind, current-brush, current-gradient-stops) => {
+        widget-mode = WidgetMode.preview;
+        picker-mode = PickerMode.brush;
+        current-property-container-id  = property-container-id;
+        current-preview-data = preview-data;
+        if brush-kind == BrushKind.solid {
+            brush-mode = BrushMode.color;
+        } else if brush-kind == BrushKind.linear {
+            brush-mode = BrushMode.gradient;
+        } else if brush-kind == BrushKind.radial {
+            brush-mode = BrushMode.gradient;
+        }
+        PickerData.current-brush = current-brush;
+        PickerData.current-gradient-stops = current-gradient-stops;
+        showing-color-picker = true;
     }
 
     apply-current-value(text) => {
@@ -78,5 +100,16 @@ export global WindowManager {
         self.possible_error = Api.set-json-preview-data(current-property-container-id, current-preview-data.name, "\"\{text}\"");
 
         StatusLineApi.help-text = self.possible-error;
+    }
+
+    property <string> brush-string;
+    update-brush() => {
+        PickerData.current-brush = Api.create-brush(BrushKind.linear, 90.0, PickerData.current-brush, PickerData.current-gradient-stops);
+        if widget-mode == WidgetMode.preview {
+            brush-string = Api.as-slint-brush(BrushKind.linear, PickerData.current-angle, PickerData.current-brush, PickerData.current-gradient-stops);
+            self.possible_error = Api.set-json-preview-data(current-property-container-id, current-preview-data.name, "\"\{brush-string}\"");
+
+           StatusLineApi.help-text = self.possible-error;
+        }
     }
 }
