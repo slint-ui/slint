@@ -5,7 +5,7 @@ import { ChildIndicator, NameLabel, ResettingLineEdit, SecondaryContent } from "
 import { ColorMainContent, RgbaColorSliders } from "./color-basics.slint";
 import { GradientMainContent } from "./gradient-basics.slint";
 
-import { Api, BrushKind, ColorData, GradientStop, PropertyValue, PropertyValueKind } from "../../api.slint";
+import { Api, BrushKind, ColorData, GradientStop, PreviewData, PropertyValue, PropertyValueKind } from "../../api.slint";
 import { EditorSpaceSettings } from "../../components/styling.slint";
 
 import { ComboBox, Palette } from "std-widgets.slint";
@@ -17,6 +17,8 @@ export component BrushWidget inherits GridLayout {
     in property <PropertyValue> property-value;
     in property <bool> has-code-action <=> sub.has-code-action;
     in property <bool> has-reset-action <=> sub.has-reset-action;
+    in property <string> property-container-id;
+    in property <PreviewData> preview-data;
 
     callback code-action();
     callback reset-action();
@@ -147,7 +149,7 @@ export component BrushWidget inherits GridLayout {
                         return root.test-brush-binding(root.current-brush-kind, root.current-angle, root.current-color, root.current-gradient-stops);
                     }
                     color-preview-clicked => {
-                        WindowManager.show-floating-preview-brush-widget(current-brush-kind, current-brush, current-gradient-stops);
+                        WindowManager.show-floating-preview-brush-widget(property-container-id, root.preview-data, current-brush-kind, current-brush, current-gradient-stops);
                     }
                 }
             }
