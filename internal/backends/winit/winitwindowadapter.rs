@@ -342,10 +342,9 @@ impl WinitWindowAdapter {
             muda_enable_default_menu_bar,
         });
 
-        let winit_window =
-            crate::event_loop::with_event_loop(
-                |event_loop| Ok(self_rc.ensure_window(event_loop)?),
-            )?;
+        let winit_window = self_rc
+            .shared_backend_data
+            .with_event_loop(|event_loop| Ok(self_rc.ensure_window(event_loop)?))?;
         debug_assert!(!self_rc.renderer.is_suspended());
         self_rc.size.set(physical_size_to_slint(&winit_window.inner_size()));
 
@@ -708,9 +707,9 @@ impl WindowAdapter for WinitWindowAdapter {
         if visible {
             let recreating_window = self.winit_window_or_none.borrow().as_window().is_none();
 
-            let winit_window = crate::event_loop::with_event_loop(|event_loop| {
-                Ok(self.ensure_window(event_loop)?)
-            })?;
+            let winit_window = self
+                .shared_backend_data
+                .with_event_loop(|event_loop| Ok(self.ensure_window(event_loop)?))?;
 
             let runtime_window = WindowInner::from_pub(self.window());
 

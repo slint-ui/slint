@@ -7,7 +7,7 @@
 
 extern crate alloc;
 
-use event_loop::{CustomEvent, EventLoopState};
+use event_loop::{CustomEvent, EventLoopState, NotRunningEventLoop};
 use i_slint_core::api::EventLoopError;
 use i_slint_core::graphics::{RequestedGraphicsAPI, RequestedOpenGLVersion};
 use i_slint_core::platform::{EventLoopProxy, PlatformError};
@@ -267,16 +267,7 @@ impl BackendBuilder {
 
         // Initialize the winit event loop and propagate errors if for example `DISPLAY` or `WAYLAND_DISPLAY` isn't set.
 
-        let nre = crate::event_loop::NotRunningEventLoop::new(Some(event_loop_builder))?;
-
-        let proxy = nre.instance.create_proxy();
-
-        #[cfg(not(target_arch = "wasm32"))]
-        let clipboard = Rc::downgrade(&nre.clipboard);
-
-        crate::event_loop::MAYBE_LOOP_INSTANCE.with(|loop_instance| {
-            *loop_instance.borrow_mut() = Some(nre);
-        });
+        let shared_data = Rc::new(SharedBackendData::new(event_loop_builder)?);
 
         let renderer_factory_fn = match (
             self.renderer_name.as_deref(),
@@ -341,10 +332,7 @@ impl BackendBuilder {
             renderer_factory_fn,
             event_loop_state: Default::default(),
             window_attributes_hook: self.window_attributes_hook,
-            #[cfg(not(target_arch = "wasm32"))]
-            clipboard,
-            proxy,
-            shared_data: Rc::new(SharedBackendData::default()),
+            shared_data,
             #[cfg(all(muda, target_os = "macos"))]
             muda_enable_default_menu_bar_bar: self.muda_enable_default_menu_bar_bar,
             #[cfg(target_family = "wasm")]
@@ -353,12 +341,57 @@ impl BackendBuilder {
     }
 }
 
-#[derive(Default)]
 pub(crate) struct SharedBackendData {
     active_windows: RefCell<HashMap<winit::window::WindowId, Weak<WinitWindowAdapter>>>,
+    #[cfg(not(target_arch = "wasm32"))]
+    clipboard: std::cell::RefCell<clipboard::ClipboardPair>,
+    not_running_event_loop: RefCell<Option<crate::event_loop::NotRunningEventLoop>>,
+    event_loop_proxy: winit::event_loop::EventLoopProxy<SlintUserEvent>,
 }
 
 impl SharedBackendData {
+    fn new(
+        builder: winit::event_loop::EventLoopBuilder<SlintUserEvent>,
+    ) -> Result<Self, PlatformError> {
+        #[cfg(not(target_arch = "wasm32"))]
+        use raw_window_handle::HasDisplayHandle;
+
+        let nre = NotRunningEventLoop::new(builder)?;
+        let event_loop_proxy = nre.instance.create_proxy();
+        #[cfg(not(target_arch = "wasm32"))]
+        let clipboard = crate::clipboard::create_clipboard(
+            &nre.instance
+                .display_handle()
+                .map_err(|display_err| PlatformError::OtherError(display_err.into()))?,
+        );
+        Ok(Self {
+            active_windows: Default::default(),
+            #[cfg(not(target_arch = "wasm32"))]
+            clipboard: RefCell::new(clipboard),
+            not_running_event_loop: RefCell::new(Some(nre)),
+            event_loop_proxy,
+        })
+    }
+
+    pub(crate) fn with_event_loop<T>(
+        &self,
+        callback: impl FnOnce(
+            &dyn crate::event_loop::EventLoopInterface,
+        ) -> Result<T, Box<dyn std::error::Error + Send + Sync>>,
+    ) -> Result<T, Box<dyn std::error::Error + Send + Sync>> {
+        if crate::event_loop::CURRENT_WINDOW_TARGET.is_set() {
+            crate::event_loop::CURRENT_WINDOW_TARGET.with(|current_target| callback(current_target))
+        } else {
+            match self.not_running_event_loop.borrow().as_ref() {
+                Some(event_loop) => callback(event_loop),
+                None => {
+                    Err(PlatformError::from("Event loop functions called without event loop")
+                        .into())
+                }
+            }
+        }
+    }
+
     pub fn register_window(&self, id: winit::window::WindowId, window: Rc<WinitWindowAdapter>) {
         self.active_windows.borrow_mut().insert(id, Rc::downgrade(&window));
     }
@@ -385,7 +418,6 @@ pub struct Backend {
     requested_graphics_api: Option<RequestedGraphicsAPI>,
     renderer_factory_fn: fn() -> Box<dyn WinitCompatibleRenderer>,
     event_loop_state: std::cell::RefCell<Option<crate::event_loop::EventLoopState>>,
-    proxy: winit::event_loop::EventLoopProxy<SlintUserEvent>,
     shared_data: Rc<SharedBackendData>,
 
     /// This hook is called before a Window is created.
@@ -403,9 +435,6 @@ pub struct Backend {
     /// ```
     pub window_attributes_hook:
         Option<Box<dyn Fn(winit::window::WindowAttributes) -> winit::window::WindowAttributes>>,
-
-    #[cfg(not(target_arch = "wasm32"))]
-    clipboard: Weak<std::cell::RefCell<clipboard::ClipboardPair>>,
 
     #[cfg(all(muda, target_os = "macos"))]
     muda_enable_default_menu_bar_bar: bool,
@@ -468,7 +497,7 @@ impl i_slint_core::platform::Platform for Backend {
             attrs.clone(),
             self.requested_graphics_api.clone(),
             #[cfg(any(enable_accesskit, muda))]
-            self.proxy.clone(),
+            self.shared_data.event_loop_proxy.clone(),
             #[cfg(all(muda, target_os = "macos"))]
             self.muda_enable_default_menu_bar_bar,
         )
@@ -476,7 +505,7 @@ impl i_slint_core::platform::Platform for Backend {
             try_create_window_with_fallback_renderer(
                 &self.shared_data,
                 attrs,
-                &self.proxy,
+                &self.shared_data.event_loop_proxy.clone(),
                 #[cfg(all(muda, target_os = "macos"))]
                 self.muda_enable_default_menu_bar_bar,
             )
@@ -561,7 +590,7 @@ impl i_slint_core::platform::Platform for Backend {
                     .map_err(|_| EventLoopError::EventLoopTerminated)
             }
         }
-        Some(Box::new(Proxy(self.proxy.clone())))
+        Some(Box::new(Proxy(self.shared_data.event_loop_proxy.clone())))
     }
 
     #[cfg(target_arch = "wasm32")]
@@ -571,8 +600,7 @@ impl i_slint_core::platform::Platform for Backend {
 
     #[cfg(not(target_arch = "wasm32"))]
     fn set_clipboard_text(&self, text: &str, clipboard: i_slint_core::platform::Clipboard) {
-        let Some(clipboard_pair) = self.clipboard.upgrade() else { return };
-        let mut pair = clipboard_pair.borrow_mut();
+        let mut pair = self.shared_data.clipboard.borrow_mut();
         if let Some(clipboard) = clipboard::select_clipboard(&mut pair, clipboard) {
             clipboard.set_contents(text.into()).ok();
         }
@@ -585,8 +613,7 @@ impl i_slint_core::platform::Platform for Backend {
 
     #[cfg(not(target_arch = "wasm32"))]
     fn clipboard_text(&self, clipboard: i_slint_core::platform::Clipboard) -> Option<String> {
-        let clipboard_pair = self.clipboard.upgrade()?;
-        let mut pair = clipboard_pair.borrow_mut();
+        let mut pair = self.shared_data.clipboard.borrow_mut();
         clipboard::select_clipboard(&mut pair, clipboard).and_then(|c| c.get_contents().ok())
     }
 }
@@ -658,13 +685,6 @@ impl WinitWindowAccessor for i_slint_core::api::Window {
 }
 
 impl private::WinitWindowAccessorSealed for i_slint_core::api::Window {}
-
-/// Creates a non Slint aware window with winit
-pub fn create_winit_window(
-    window_attributes: winit::window::WindowAttributes,
-) -> Result<winit::window::Window, winit::error::OsError> {
-    event_loop::with_event_loop(|eli| Ok(eli.create_window(window_attributes))).unwrap()
-}
 
 #[cfg(test)]
 mod testui {
