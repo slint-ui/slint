@@ -97,31 +97,59 @@ impl slint::platform::Platform for EspBackend {
         // The following sequence is necessary to properly initialize touch on ESP32-S3-BOX-3
         // Based on issue from ESP-IDF: https://github.com/espressif/esp-bsp/issues/302#issuecomment-1971559689
         // Related code: https://github.com/espressif/esp-bsp/blob/30f0111a97b8fbe2efb7e58366fcf4d26b380f23/components/lcd_touch/esp_lcd_touch_gt911/esp_lcd_touch_gt911.c#L101-L133
+        // --- Begin GT911 I²C Address Selection Sequence ---
+        // Define constants for the two possible addresses.
+        const ESP_LCD_TOUCH_IO_I2C_GT911_ADDRESS: u8 = 0x14;
+        const ESP_LCD_TOUCH_IO_I2C_GT911_ADDRESS_BACKUP: u8 = 0x5D;
+
+        // Our desired address.
+        const DESIRED_ADDR: u8 = 0x14;
+        // For desired address 0x14, assume the configuration’s reset level is false (i.e. 0 means active).
+        let reset_level = Level::Low;
+
+        // Configure the INT pin (GPIO3) as output; starting high because of internal pull-up.
         let mut int_pin = Output::new(
             peripherals.GPIO3,
-            Level::High, // start high because of pull-up
-            OutputConfig::default(), // Use default config (if needed, you can add pull-up here)
+            Level::High,
+            OutputConfig::default(),
         );
-        // Force INT low to select address 0x14.
+        // Force INT low to prepare for address selection.
         int_pin.set_low();
         delay.delay_ms(10);
-        // For 0x14 the desired level is low
         int_pin.set_low();
         delay.delay_ms(1);
 
-        // Now toggle RESET.
-        // Note: Make sure this does not conflict with your display.
-        // Here we assume that if the configuration’s reset level is 0, then the toggle is to high.
+        // Configure the shared RESET pin (GPIO48) as output in open–drain mode.
         let mut rst = Output::new(
             peripherals.GPIO48,
-            Level::Low, // pull low to initiate reset
+            Level::Low, // start in active state
             OutputConfig::default().with_drive_mode(DriveMode::OpenDrain),
         );
-        // According to ESP‑IDF, after INT is toggled, set RESET to the opposite of the config level.
-        rst.set_high(); // if config.levels.reset == 0
+
+        // Set RESET to the reset-active level (here, false).
+        rst.set_level(reset_level);
+        // (Ensure INT remains low.)
+        int_pin.set_low();
         delay.delay_ms(10);
-        // Allow extra time for the GT911 to wake up.
+
+        // Now, select the I²C address:
+        // For GT911 address 0x14, the desired INT level is low; otherwise, for backup (0x5D) it would be high.
+        let gpio_level = if DESIRED_ADDR == ESP_LCD_TOUCH_IO_I2C_GT911_ADDRESS {
+            Level::Low
+        } else if DESIRED_ADDR == ESP_LCD_TOUCH_IO_I2C_GT911_ADDRESS_BACKUP {
+            Level::High
+        } else {
+            Level::Low
+        };
+        int_pin.set_level(gpio_level);
+        delay.delay_ms(1);
+
+        // Toggle the RESET pin:
+        // Release RESET by setting it to the opposite of the reset level.
+        rst.set_level(!reset_level);
+        delay.delay_ms(10);
         delay.delay_ms(50);
+        // --- End GT911 I²C Address Selection Sequence ---
 
         // --- Begin SPI and Display Initialization ---
         let spi = Spi::<esp_hal::Blocking>::new(
@@ -172,10 +200,20 @@ impl slint::platform::Platform for EspBackend {
             .with_scl(peripherals.GPIO18);
 
         // Initialize the touch driver.
-        let mut touch = Gt911Blocking::new(0x14);
+        let mut touch = Gt911Blocking::new(ESP_LCD_TOUCH_IO_I2C_GT911_ADDRESS);
         match touch.init(&mut i2c, &mut delay) {
             Ok(_) => println!("Touch initialized"),
-            Err(e) => println!("Touch initialization failed: {:?}", e),
+            Err(e) => {
+                println!("Touch initialization failed: {:?}", e);
+                let mut touch_fallback = Gt911Blocking::new(ESP_LCD_TOUCH_IO_I2C_GT911_ADDRESS_BACKUP);
+                match touch_fallback.init(&mut i2c, &mut delay) {
+                    Ok(_) => {
+                        println!("Touch initialized with backup address");
+                        touch = touch_fallback;
+                    }
+                    Err(e) => println!("Touch initialization failed with backup address: {:?}", e),
+                }
+            },
         }
 
         // Prepare a draw buffer for the Slint software renderer.
