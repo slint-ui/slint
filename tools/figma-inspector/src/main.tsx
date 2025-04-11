@@ -4,11 +4,12 @@
 import React, { useEffect, useState } from "react";
 import JSZip from "jszip";
 import {
+    dispatchTS,
     listenTS,
     getColorTheme,
     subscribeColorTheme,
 } from "./utils/bolt-utils";
-import { getCopyToClipboard, getExportAll } from "./utils/utils.js";
+import { copyToClipboard } from "./utils/utils.js";
 import CodeSnippet from "./snippet/CodeSnippet";
 import "./main.css";
 
@@ -133,22 +134,7 @@ export const App = () => {
         return () => window.removeEventListener("message", directHandler);
     }, []);
 
-    // Function to communicate with the TypeScript side of the plugin
-    function dispatchTS(eventName: string, payload: {}): void {
-        // Send a message to the plugin code
-        parent.postMessage(
-            {
-                pluginMessage: {
-                    type: eventName,
-                    ...payload,
-                },
-            },
-            "*",
-        );
-    }
-
     // Create the functions with access to dispatchTS
-    const copyToClipboardFn = getCopyToClipboard(dispatchTS);
     const downloadZipFile = async (
         files: Array<{ name: string; content: string }>,
     ) => {
@@ -221,8 +207,8 @@ export const App = () => {
                     <div>
                         <span
                             id="copy-icon"
-                            onClick={() => copyToClipboardFn(slintProperties)}
-                            onKeyDown={() => copyToClipboardFn(slintProperties)}
+                            onClick={() => copyToClipboard(slintProperties)}
+                            onKeyDown={() => copyToClipboard(slintProperties)}
                             className="copy-icon"
                         >
                             📋
