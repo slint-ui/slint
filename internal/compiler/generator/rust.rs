@@ -3353,12 +3353,13 @@ fn generate_resources(doc: &Document) -> Vec<TokenStream> {
                     let data_size = data.len();
                     quote!(
                         #link_section
-                        static #symbol_data : [u8; #data_size]= [#(#data),*];
+                        // (the second array is to ensure alignment)
+                        static #symbol_data : ([u8; #data_size], [u32;0])= ([#(#data),*], []);
                         #link_section
                         static #symbol: sp::StaticTextures = sp::StaticTextures{
                             size: sp::IntSize::new(#width as _, #height as _),
                             original_size: sp::IntSize::new(#unscaled_width as _, #unscaled_height as _),
-                            data: sp::Slice::from_slice(&#symbol_data),
+                            data: sp::Slice::from_slice(&#symbol_data.0),
                             textures: sp::Slice::from_slice(&[
                                 sp::StaticTexture {
                                     rect: sp::euclid::rect(#r_x as _, #r_y as _, #r_w as _, #r_h as _),
