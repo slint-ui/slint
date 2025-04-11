@@ -1196,7 +1196,7 @@ impl WindowAdapterInternal for WinitWindowAdapter {
             &*self.winit_window_or_none.borrow()
         {
             // On Windows, we must destroy the muda menu before re-creating a new one
-            drop(self.muda_adapter.borrow_mut().take());
+            drop(muda_adapter.borrow_mut().take());
             muda_adapter.replace(Some(crate::muda::MudaAdapter::setup(
                 self.menubar.borrow().as_ref().unwrap(),
                 &self.winit_window().unwrap(),
