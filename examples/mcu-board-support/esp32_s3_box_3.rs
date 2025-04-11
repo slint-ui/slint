@@ -30,6 +30,8 @@ use esp_hal::{
 };
 use esp_hal::timer::timg::TimerGroup;
 use esp_hal::timer::Timer;
+use esp_hal::time::Instant;
+use core::borrow::BorrowMut;
 use mipidsi::{options::{Orientation, Rotation, ColorOrder}, Display};
 use slint::platform::WindowEvent;
 use embedded_hal_bus::spi::ExclusiveDevice;
@@ -50,21 +52,22 @@ pub fn init() {
     esp_alloc::psram_allocator!(peripherals.PSRAM, esp_hal::psram);
 
     // Create an EspBackend that now owns the peripherals.
+    // Note: We have added additional fields for the timer (start_ticks, ticks_per_sec, timer0, start_set).
     slint::platform::set_platform(Box::new(EspBackend {
         peripherals: RefCell::new(Some(peripherals)),
         window: RefCell::new(None),
-        start_ticks: 0,
+        start_instant: RefCell::new(Instant::EPOCH),
+        timer0: RefCell::new(None),
     }))
         .expect("backend already initialized");
 }
 
-
-
-#[derive(Default)]
 struct EspBackend {
     window: RefCell<Option<Rc<slint::platform::software_renderer::MinimalSoftwareWindow>>>,
     peripherals: RefCell<Option<Peripherals>>,
-    start_ticks: u32,
+    // Wrap these fields in RefCell so that they can be mutated via &self.
+    start_instant: RefCell<Instant>,
+    timer0: RefCell<Option<esp_hal::timer::timg::Timer>>,
 }
 
 impl slint::platform::Platform for EspBackend {
@@ -78,14 +81,18 @@ impl slint::platform::Platform for EspBackend {
         Ok(window)
     }
 
-
-
-    fn duration_since_start(&self) -> Duration {
-        // let systimer = self.systimer.as_ref().expect("SystemTimer not initialized");
-        let elapsed_ns = 10000;
-        Duration::from_nanos(elapsed_ns)
+    fn duration_since_start(&self) -> core::time::Duration {
+        if let Some(ref t0) = *self.timer0.borrow() {
+            // Convert the raw tick value (assumed to be in microseconds) into an Instant.
+            let now = t0.now();
+            // Subtracting two Instants returns an instance of your HAL’s Duration type.
+            let hal_elapsed = now - *self.start_instant.borrow();
+            // Convert that into a core::time::Duration.
+            core::time::Duration::from_micros(hal_elapsed.as_micros())
+        } else {
+            core::time::Duration::from_nanos(0)
+        }
     }
-
 
     fn run_event_loop(&self) -> Result<(), slint::PlatformError> {
         // Take and configure peripherals.
@@ -96,16 +103,21 @@ impl slint::platform::Platform for EspBackend {
             .expect("Peripherals already taken");
         let mut delay = Delay::new();
 
+        // Initialize timer0 from TIMG0.
         let timer_group0 = TimerGroup::new(peripherals.TIMG0);
         let mut timer0 = timer_group0.timer0;
 
-        // Start the timer
+        // Start the timer.
         timer0.start();
-        let elapsed_cycles = timer0.now();
 
-        println!("Timer initialized");
-        println!("Elapsed cycles: {}", elapsed_cycles);
+        // Read the current tick value; assume timer0.now() returns a u64 representing microseconds.
+        let start = timer0.now();
+        println!("Timer initialized: start_ticks = {}", start);
 
+        // Store the timer and starting tick count in self.
+        // (Assuming self is mutable in run_event_loop() -- if run_event_loop is an instance method with &mut self.)
+        *self.start_instant.borrow_mut() = timer0.now();
+        *self.timer0.borrow_mut() = Some(timer0);
 
         // The following sequence is necessary to properly initialize touch on ESP32-S3-BOX-3
         // Based on issue from ESP-IDF: https://github.com/espressif/esp-bsp/issues/302#issuecomment-1971559689
