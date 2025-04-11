@@ -165,59 +165,6 @@ impl FontRequest {
     }
 }
 
-impl FontRequest {
-    /// Creates a new FontRequest that uses the provide local font properties. If they're not set, i.e.
-    /// the family is an empty string, or the weight is zero, the corresponding properties are fetched
-    /// from the next parent WindowItem.
-    pub fn new_resolved(
-        self_rc: &crate::items::ItemRc,
-        local_font_family: SharedString,
-        local_font_weight: i32,
-        local_font_size: LogicalLength,
-        local_letter_spacing: LogicalLength,
-        local_italic: bool,
-    ) -> Self {
-        let Some(window_item_rc) = self_rc.window_item() else {
-            return Self::default();
-        };
-
-        FontRequest {
-            family: {
-                if !local_font_family.is_empty() {
-                    Some(local_font_family)
-                } else {
-                    crate::items::WindowItem::resolve_font_property(
-                        &window_item_rc,
-                        crate::items::WindowItem::font_family,
-                    )
-                }
-            },
-            weight: {
-                if local_font_weight == 0 {
-                    crate::items::WindowItem::resolve_font_property(
-                        &window_item_rc,
-                        crate::items::WindowItem::font_weight,
-                    )
-                } else {
-                    Some(local_font_weight)
-                }
-            },
-            pixel_size: {
-                if local_font_size.get() == 0 as Coord {
-                    crate::items::WindowItem::resolve_font_property(
-                        &window_item_rc,
-                        crate::items::WindowItem::font_size,
-                    )
-                } else {
-                    Some(local_font_size)
-                }
-            },
-            letter_spacing: Some(local_letter_spacing),
-            italic: local_italic,
-        }
-    }
-}
-
 /// Internal enum to specify which version of OpenGL to request
 /// from the windowing system.
 #[derive(Debug, Clone, PartialEq)]
