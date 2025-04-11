@@ -1,0 +1,86 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Palette } from "std-widgets.slint";
+import { SimpleColumn } from "layout-helpers.slint";
+import { WindowGlobal } from "../windowglobal.slint";
+
+export component DraggablePanel {
+    // Ensure to bing the parent window width and height so the panel can move if the window is resized
+    property <length> parent-window-width: WindowGlobal.window-width;
+    property <length> parent-window-height: WindowGlobal.window-height;
+
+    property <length> panel-target-x;
+    property <length> panel-target-y;
+
+    // If the parent window is resized, we need to make sure the panel is still visible
+    changed parent-window-width => {
+        if root.x + root.width > parent-window-width {
+            root.x = (parent-window-width - root.width).max(0);
+        }
+    }
+
+    changed parent-window-height => {
+        if (root.y + root.height) > parent-window-height {
+            root.y = (parent-window-height - root.height).max(0);
+        }
+    }
+
+    width: 300px;
+    height: content.height;
+
+    hidden-input := TextInput {
+        visible: false;
+    }
+
+    TouchArea {
+        changed pressed => {
+            // Workaround to ensure any item that has focus is de-focused
+            if self.pressed {
+                hidden-input.visible = true;
+                hidden-input.focus();
+                hidden-input.clear-focus();
+                hidden-input.visible = false;
+            }
+        }
+        moved => {
+            panel-target-x = ((root.x + self.mouse-x - self.pressed-x) / 1px).round() * 1px;
+            panel-target-y = ((root.y + self.mouse-y - self.pressed-y) / 1px).round() * 1px;
+
+            if panel-target-x < 0px {
+                root.x = 0px;
+            }
+            if panel-target-x > 0px {
+                if panel-target-x < parent-window-width - root.width {
+                    root.x = panel-target-x;
+                } else {
+                    root.x = parent-window-width - root.width;
+                }
+            }
+            if panel-target-y < 0px {
+                root.y = 0px;
+            }
+            if panel-target-y > 0px {
+                if panel-target-y < parent-window-height - root.height {
+                    root.y = panel-target-y;
+                } else {
+                    root.y = parent-window-height - root.height;
+                }
+            }
+        }
+    }
+
+    Rectangle {
+        background: Palette.background;
+        drop-shadow-blur: 24px;
+        drop-shadow-offset-y: 10px;
+        drop-shadow-color: rgba(0, 0, 0, 0.25);
+        border-width: 0.5px;
+        border-color: Palette.border;
+        border-radius: 13px;
+    }
+
+    content := SimpleColumn {
+        @children
+    }
+}
