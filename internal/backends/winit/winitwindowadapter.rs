@@ -1190,12 +1190,13 @@ impl WindowAdapterInternal for WinitWindowAdapter {
 
     #[cfg(muda)]
     fn setup_menubar(&self, menubar: vtable::VBox<i_slint_core::menus::MenuVTable>) {
-        drop(self.menubar.borrow_mut().take());
         self.menubar.replace(Some(menubar));
 
         if let WinitWindowOrNone::HasWindow { muda_adapter, .. } =
             &*self.winit_window_or_none.borrow()
         {
+            // On Windows, we must destroy the muda menu before re-creating a new one
+            drop(self.muda_adapter.borrow_mut().take());
             muda_adapter.replace(Some(crate::muda::MudaAdapter::setup(
                 self.menubar.borrow().as_ref().unwrap(),
                 &self.winit_window().unwrap(),
