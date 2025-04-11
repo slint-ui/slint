@@ -250,6 +250,11 @@ fn step_into_node(
     }
 }
 
+pub enum ParentItemTraversalMode {
+    FindAllParents,
+    StopAtPopups,
+}
+
 /// A ItemRc is holding a reference to a ItemTree containing the item, and the index of this item
 #[repr(C)]
 #[derive(Clone, Debug)]
@@ -301,7 +306,7 @@ impl ItemRc {
     /// Return the parent Item in the item tree.
     ///
     /// If the item is a the root on its Window or PopupWindow, then the parent is None.
-    pub fn parent_item(&self) -> Option<ItemRc> {
+    pub fn parent_item(&self, find_mode: ParentItemTraversalMode) -> Option<ItemRc> {
         let comp_ref_pin = vtable::VRc::borrow_pin(&self.item_tree);
         let item_tree = crate::item_tree::ItemTreeNodeArray::new(&comp_ref_pin);
 
@@ -322,7 +327,10 @@ impl ItemRc {
         } else {
             // the Item was most likely a PopupWindow and we don't want to return the item for the purpose of this call
             // (eg, focus/geometry/...)
-            None
+            match find_mode {
+                ParentItemTraversalMode::FindAllParents => Some(parent),
+                ParentItemTraversalMode::StopAtPopups => None,
+            }
         }
     }
 
@@ -342,15 +350,16 @@ impl ItemRc {
     /// Returns the clip rect that applies to this item (in window coordinates) as well as the
     /// item's (unclipped) geometry (also in window coordinates).
     fn absolute_clip_rect_and_geometry(&self) -> (LogicalRect, LogicalRect) {
-        let (mut clip, parent_geometry) = self.parent_item().map_or_else(
-            || {
-                (
-                    LogicalRect::from_size((crate::Coord::MAX, crate::Coord::MAX).into()),
-                    Default::default(),
-                )
-            },
-            |parent| parent.absolute_clip_rect_and_geometry(),
-        );
+        let (mut clip, parent_geometry) =
+            self.parent_item(ParentItemTraversalMode::StopAtPopups).map_or_else(
+                || {
+                    (
+                        LogicalRect::from_size((crate::Coord::MAX, crate::Coord::MAX).into()),
+                        Default::default(),
+                    )
+                },
+                |parent| parent.absolute_clip_rect_and_geometry(),
+            );
 
         let geometry = self.geometry().translate(parent_geometry.origin.to_vector());
 
@@ -451,7 +460,7 @@ impl ItemRc {
     pub fn map_to_window(&self, p: LogicalPoint) -> LogicalPoint {
         let mut current = self.clone();
         let mut result = p;
-        while let Some(parent) = current.parent_item() {
+        while let Some(parent) = current.parent_item(ParentItemTraversalMode::StopAtPopups) {
             let geometry = parent.geometry();
             result += geometry.origin.to_vector();
             current = parent.clone();
@@ -471,7 +480,7 @@ impl ItemRc {
         if current.is_root_item_of(item_tree) {
             return result;
         }
-        while let Some(parent) = current.parent_item() {
+        while let Some(parent) = current.parent_item(ParentItemTraversalMode::StopAtPopups) {
             if parent.is_root_item_of(item_tree) {
                 break;
             }
@@ -1458,11 +1467,11 @@ mod tests {
         assert!(fc.first_child().is_none());
         assert!(fc.last_child().is_none());
         assert!(fc.previous_sibling().is_none());
-        assert_eq!(fc.parent_item().unwrap(), item);
+        assert_eq!(fc.parent_item(ParentItemTraversalMode::StopAtPopups).unwrap(), item);
 
         // Examine item between first and last child:
         assert_eq!(fcn, lcp);
-        assert_eq!(lcp.parent_item().unwrap(), item);
+        assert_eq!(lcp.parent_item(ParentItemTraversalMode::StopAtPopups).unwrap(), item);
         assert_eq!(fcn.previous_sibling().unwrap(), fc);
         assert_eq!(fcn.next_sibling().unwrap(), lc);
 
@@ -1470,7 +1479,7 @@ mod tests {
         assert!(lc.first_child().is_none());
         assert!(lc.last_child().is_none());
         assert!(lc.next_sibling().is_none());
-        assert_eq!(lc.parent_item().unwrap(), item);
+        assert_eq!(lc.parent_item(ParentItemTraversalMode::StopAtPopups).unwrap(), item);
     }
 
     #[test]

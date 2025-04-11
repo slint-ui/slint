@@ -20,13 +20,13 @@ When adding an item or a property, it needs to be kept in sync with different pl
 #![allow(non_upper_case_globals)]
 #![allow(missing_docs)] // because documenting each property of items is redundant
 
-use crate::graphics::{Brush, Color};
+use crate::graphics::{Brush, Color, FontRequest};
 use crate::input::{
     FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, KeyEventResult,
     KeyEventType, MouseEvent,
 };
 use crate::item_rendering::{CachedRenderingData, RenderBorderRectangle, RenderRectangle};
-pub use crate::item_tree::ItemRc;
+pub use crate::item_tree::{ItemRc, ItemTreeVTable};
 use crate::layout::LayoutInfo;
 use crate::lengths::{
     LogicalBorderRadius, LogicalLength, LogicalRect, LogicalSize, LogicalVector, PointLengths,
@@ -130,6 +130,7 @@ pub struct ItemVTable {
         core::pin::Pin<VRef<ItemVTable>>,
         orientation: Orientation,
         window_adapter: &WindowAdapterRc,
+        self_rc: &ItemRc,
     ) -> LayoutInfo,
 
     /// Event handler for mouse and touch event. This function is called before being called on children.
@@ -201,6 +202,7 @@ impl Item for Empty {
         self: Pin<&Self>,
         _orientation: Orientation,
         _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
     ) -> LayoutInfo {
         LayoutInfo { stretch: 1., ..LayoutInfo::default() }
     }
@@ -292,6 +294,7 @@ impl Item for Rectangle {
         self: Pin<&Self>,
         _orientation: Orientation,
         _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
     ) -> LayoutInfo {
         LayoutInfo { stretch: 1., ..LayoutInfo::default() }
     }
@@ -392,6 +395,7 @@ impl Item for BasicBorderRectangle {
         self: Pin<&Self>,
         _orientation: Orientation,
         _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
     ) -> LayoutInfo {
         LayoutInfo { stretch: 1., ..LayoutInfo::default() }
     }
@@ -505,6 +509,7 @@ impl Item for BorderRectangle {
         self: Pin<&Self>,
         _orientation: Orientation,
         _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
     ) -> LayoutInfo {
         LayoutInfo { stretch: 1., ..LayoutInfo::default() }
     }
@@ -633,6 +638,7 @@ impl Item for Clip {
         self: Pin<&Self>,
         _orientation: Orientation,
         _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
     ) -> LayoutInfo {
         LayoutInfo { stretch: 1., ..LayoutInfo::default() }
     }
@@ -744,6 +750,7 @@ impl Item for Opacity {
         self: Pin<&Self>,
         _orientation: Orientation,
         _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
     ) -> LayoutInfo {
         LayoutInfo { stretch: 1., ..LayoutInfo::default() }
     }
@@ -861,6 +868,7 @@ impl Item for Layer {
         self: Pin<&Self>,
         _orientation: Orientation,
         _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
     ) -> LayoutInfo {
         LayoutInfo { stretch: 1., ..LayoutInfo::default() }
     }
@@ -953,6 +961,7 @@ impl Item for Rotate {
         self: Pin<&Self>,
         _orientation: Orientation,
         _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
     ) -> LayoutInfo {
         LayoutInfo { stretch: 1., ..LayoutInfo::default() }
     }
@@ -1097,6 +1106,7 @@ impl Item for WindowItem {
         self: Pin<&Self>,
         _orientation: Orientation,
         _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
     ) -> LayoutInfo {
         LayoutInfo::default()
     }
@@ -1167,6 +1177,18 @@ impl RenderRectangle for WindowItem {
     }
 }
 
+fn next_window_item(item: &ItemRc) -> Option<ItemRc> {
+    let root_item_in_local_item_tree = ItemRc::new(item.item_tree().clone(), 0);
+
+    if root_item_in_local_item_tree.downcast::<crate::items::WindowItem>().is_some() {
+        Some(root_item_in_local_item_tree)
+    } else {
+        root_item_in_local_item_tree
+            .parent_item(crate::item_tree::ParentItemTraversalMode::FindAllParents)
+            .and_then(|parent| next_window_item(&parent))
+    }
+}
+
 impl WindowItem {
     pub fn font_family(self: Pin<&Self>) -> Option<SharedString> {
         let maybe_family = self.default_font_family();
@@ -1192,6 +1214,78 @@ impl WindowItem {
             None
         } else {
             Some(font_weight)
+        }
+    }
+
+    pub fn resolve_font_property<T>(
+        self_rc: &ItemRc,
+        property_fn: impl Fn(Pin<&Self>) -> Option<T>,
+    ) -> Option<T> {
+        let mut window_item_rc = self_rc.clone();
+        loop {
+            let window_item = window_item_rc.downcast::<Self>()?;
+            if let Some(result) = property_fn(window_item.as_pin_ref()) {
+                return Some(result);
+            }
+
+            match window_item_rc
+                .parent_item(crate::item_tree::ParentItemTraversalMode::FindAllParents)
+                .and_then(|p| next_window_item(&p))
+            {
+                Some(item) => window_item_rc = item,
+                None => return None,
+            }
+        }
+    }
+
+    /// Creates a new FontRequest that uses the provide local font properties. If they're not set, i.e.
+    /// the family is an empty string, or the weight is zero, the corresponding properties are fetched
+    /// from the next parent WindowItem.
+    pub fn resolved_font_request(
+        self_rc: &crate::items::ItemRc,
+        local_font_family: SharedString,
+        local_font_weight: i32,
+        local_font_size: LogicalLength,
+        local_letter_spacing: LogicalLength,
+        local_italic: bool,
+    ) -> FontRequest {
+        let Some(window_item_rc) = next_window_item(self_rc) else {
+            return FontRequest::default();
+        };
+
+        FontRequest {
+            family: {
+                if !local_font_family.is_empty() {
+                    Some(local_font_family)
+                } else {
+                    crate::items::WindowItem::resolve_font_property(
+                        &window_item_rc,
+                        crate::items::WindowItem::font_family,
+                    )
+                }
+            },
+            weight: {
+                if local_font_weight == 0 {
+                    crate::items::WindowItem::resolve_font_property(
+                        &window_item_rc,
+                        crate::items::WindowItem::font_weight,
+                    )
+                } else {
+                    Some(local_font_weight)
+                }
+            },
+            pixel_size: {
+                if local_font_size.get() == 0 as Coord {
+                    crate::items::WindowItem::resolve_font_property(
+                        &window_item_rc,
+                        crate::items::WindowItem::font_size,
+                    )
+                } else {
+                    Some(local_font_size)
+                }
+            },
+            letter_spacing: Some(local_letter_spacing),
+            italic: local_italic,
         }
     }
 }
@@ -1227,6 +1321,7 @@ impl Item for ContextMenu {
         self: Pin<&Self>,
         _orientation: Orientation,
         _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
     ) -> LayoutInfo {
         LayoutInfo::default()
     }
@@ -1404,6 +1499,7 @@ impl Item for BoxShadow {
         self: Pin<&Self>,
         _orientation: Orientation,
         _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
     ) -> LayoutInfo {
         LayoutInfo { stretch: 1., ..LayoutInfo::default() }
     }
