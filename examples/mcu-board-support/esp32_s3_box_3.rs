@@ -1,73 +1,83 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-#![no_std]
-#![no_main]
-
-use embedded_hal::delay::DelayNs;
-use esp_hal::peripherals::Peripherals;
-use esp_hal::gpio::DriveMode;
-use gt911::Gt911Blocking;
-use log::{error, info};
 use alloc::boxed::Box;
 use alloc::rc::Rc;
 use core::cell::RefCell;
-use core::mem::MaybeUninit;
-use core::time::Duration;
 use embedded_graphics_core::geometry::OriginDimensions;
+use embedded_hal::delay::DelayNs;
 use embedded_hal::digital::OutputPin;
+use embedded_hal_bus::spi::ExclusiveDevice;
 use esp_alloc as _;
 use esp_backtrace as _;
-use esp_hal::{
-    delay::Delay,
-    gpio::{Input, Level, Output, OutputConfig, Pull},
-    i2c::master::I2c,
-    // init,
-    spi::master::{Spi, Config as SpiConfig},
-    spi::Mode as SpiMode,
-    timer::systimer::SystemTimer,
-    time::Rate,
-};
+use esp_hal::clock::CpuClock;
+use esp_hal::gpio::DriveMode;
+use esp_hal::peripherals::Peripherals;
+use esp_hal::time::Instant;
 use esp_hal::timer::timg::TimerGroup;
 use esp_hal::timer::Timer;
-use esp_hal::time::Instant;
-use core::borrow::BorrowMut;
-use mipidsi::{options::{Orientation, Rotation, ColorOrder}, Display};
-use slint::platform::WindowEvent;
-use embedded_hal_bus::spi::ExclusiveDevice;
-use esp_hal::gpio::InputConfig;
-use esp_println::println;
+use esp_hal::{
+    delay::Delay,
+    gpio::{Level, Output, OutputConfig},
+    i2c::master::I2c,
+    // init,
+    spi::master::{Config as SpiConfig, Spi},
+    spi::Mode as SpiMode,
+    time::Rate,
+};
+use esp_println::logger::init_logger_from_env;
+use gt911::Gt911Blocking;
+use log::{error, info};
+use mipidsi::options::{ColorOrder, Orientation, Rotation};
 use slint::platform::PointerEventButton;
-use esp_hal::clock::CpuClock;
+use slint::platform::WindowEvent;
 
-/// Initializes the heap and sets the Slint platform.
-pub fn init() {
-    println!("Initializing esp32");
+struct TimerState {
+    start_instant: Instant,
+    timer0: Option<esp_hal::timer::timg::Timer>,
+}
 
-    // Initialize peripherals first.
-    let peripherals = esp_hal::init(esp_hal::Config::default().with_cpu_clock(CpuClock::_240MHz));
-    println!("Peripherals initialized");
-
-    // Initialize the PSRAM allocator.
-    esp_alloc::psram_allocator!(peripherals.PSRAM, esp_hal::psram);
-
-    // Create an EspBackend that now owns the peripherals.
-    // Note: We have added additional fields for the timer (start_ticks, ticks_per_sec, timer0, start_set).
-    slint::platform::set_platform(Box::new(EspBackend {
-        peripherals: RefCell::new(Some(peripherals)),
-        window: RefCell::new(None),
-        start_instant: RefCell::new(Instant::EPOCH),
-        timer0: RefCell::new(None),
-    }))
-        .expect("backend already initialized");
+// Provide a default implementation for TimerState.
+// We assume that Instant::EPOCH is a good default.
+impl Default for TimerState {
+    fn default() -> Self {
+        TimerState { start_instant: Instant::EPOCH, timer0: None }
+    }
 }
 
 struct EspBackend {
     window: RefCell<Option<Rc<slint::platform::software_renderer::MinimalSoftwareWindow>>>,
     peripherals: RefCell<Option<Peripherals>>,
-    // Wrap these fields in RefCell so that they can be mutated via &self.
-    start_instant: RefCell<Instant>,
-    timer0: RefCell<Option<esp_hal::timer::timg::Timer>>,
+    timer_state: RefCell<TimerState>,
+}
+
+impl Default for EspBackend {
+    fn default() -> Self {
+        EspBackend {
+            window: RefCell::new(None),
+            peripherals: RefCell::new(None),
+            timer_state: RefCell::new(TimerState::default()),
+        }
+    }
+}
+
+/// Initializes the heap and sets the Slint platform.
+pub fn init() {
+    // Initialize peripherals first.
+    let peripherals = esp_hal::init(esp_hal::Config::default().with_cpu_clock(CpuClock::_240MHz));
+    init_logger_from_env();
+    info!("Peripherals initialized");
+
+    // Initialize the PSRAM allocator.
+    esp_alloc::psram_allocator!(peripherals.PSRAM, esp_hal::psram);
+
+    // Create an EspBackend that now owns the peripherals.
+    slint::platform::set_platform(Box::new(EspBackend {
+        peripherals: RefCell::new(Some(peripherals)),
+        window: RefCell::new(None),
+        timer_state: RefCell::new(TimerState::default()),
+    }))
+    .expect("backend already initialized");
 }
 
 impl slint::platform::Platform for EspBackend {
@@ -82,12 +92,10 @@ impl slint::platform::Platform for EspBackend {
     }
 
     fn duration_since_start(&self) -> core::time::Duration {
-        if let Some(ref t0) = *self.timer0.borrow() {
-            // Convert the raw tick value (assumed to be in microseconds) into an Instant.
-            let now = t0.now();
-            // Subtracting two Instants returns an instance of your HAL’s Duration type.
-            let hal_elapsed = now - *self.start_instant.borrow();
-            // Convert that into a core::time::Duration.
+        let ts = self.timer_state.borrow();
+        if let Some(ref t0) = ts.timer0 {
+            let now_ticks = t0.now();
+            let hal_elapsed = now_ticks - ts.start_instant;
             core::time::Duration::from_micros(hal_elapsed.as_micros())
         } else {
             core::time::Duration::from_nanos(0)
@@ -96,28 +104,26 @@ impl slint::platform::Platform for EspBackend {
 
     fn run_event_loop(&self) -> Result<(), slint::PlatformError> {
         // Take and configure peripherals.
-        let mut peripherals = self
-            .peripherals
-            .borrow_mut()
-            .take()
-            .expect("Peripherals already taken");
+        let peripherals = self.peripherals.borrow_mut().take().expect("Peripherals already taken");
         let mut delay = Delay::new();
 
         // Initialize timer0 from TIMG0.
         let timer_group0 = TimerGroup::new(peripherals.TIMG0);
-        let mut timer0 = timer_group0.timer0;
+        let timer0 = timer_group0.timer0;
 
         // Start the timer.
         timer0.start();
 
-        // Read the current tick value; assume timer0.now() returns a u64 representing microseconds.
+        // Read the current tick value.
         let start = timer0.now();
-        println!("Timer initialized: start_ticks = {}", start);
+        info!("Timer initialized: start_ticks = {}", start);
 
-        // Store the timer and starting tick count in self.
-        // (Assuming self is mutable in run_event_loop() -- if run_event_loop is an instance method with &mut self.)
-        *self.start_instant.borrow_mut() = timer0.now();
-        *self.timer0.borrow_mut() = Some(timer0);
+        // Update timer_state (one borrow_mut call).
+        {
+            let mut ts = self.timer_state.borrow_mut();
+            ts.start_instant = start;
+            ts.timer0 = Some(timer0);
+        }
 
         // The following sequence is necessary to properly initialize touch on ESP32-S3-BOX-3
         // Based on issue from ESP-IDF: https://github.com/espressif/esp-bsp/issues/302#issuecomment-1971559689
@@ -133,11 +139,7 @@ impl slint::platform::Platform for EspBackend {
         let reset_level = Level::Low;
 
         // Configure the INT pin (GPIO3) as output; starting high because of internal pull-up.
-        let mut int_pin = Output::new(
-            peripherals.GPIO3,
-            Level::High,
-            OutputConfig::default(),
-        );
+        let mut int_pin = Output::new(peripherals.GPIO3, Level::High, OutputConfig::default());
         // Force INT low to prepare for address selection.
         int_pin.set_low();
         delay.delay_ms(10);
@@ -179,13 +181,11 @@ impl slint::platform::Platform for EspBackend {
         // --- Begin SPI and Display Initialization ---
         let spi = Spi::<esp_hal::Blocking>::new(
             peripherals.SPI2,
-            SpiConfig::default()
-                .with_frequency(Rate::from_mhz(40))
-                .with_mode(SpiMode::_0),
+            SpiConfig::default().with_frequency(Rate::from_mhz(40)).with_mode(SpiMode::_0),
         )
-            .unwrap()
-            .with_sck(peripherals.GPIO7)
-            .with_mosi(peripherals.GPIO6);
+        .unwrap()
+        .with_sck(peripherals.GPIO7)
+        .with_mosi(peripherals.GPIO6);
 
         // Display control pins.
         let dc = Output::new(peripherals.GPIO4, Level::Low, OutputConfig::default());
@@ -220,25 +220,25 @@ impl slint::platform::Platform for EspBackend {
             peripherals.I2C0,
             esp_hal::i2c::master::Config::default().with_frequency(Rate::from_khz(400)),
         )
-            .unwrap()
-            .with_sda(peripherals.GPIO8)
-            .with_scl(peripherals.GPIO18);
+        .unwrap()
+        .with_sda(peripherals.GPIO8)
+        .with_scl(peripherals.GPIO18);
 
         // Initialize the touch driver.
         let mut touch = Gt911Blocking::new(ESP_LCD_TOUCH_IO_I2C_GT911_ADDRESS);
         match touch.init(&mut i2c) {
-            Ok(_) => println!("Touch initialized"),
+            Ok(_) => info!("Touch initialized"),
             Err(e) => {
-                println!("Touch initialization failed: {:?}", e);
-                let mut touch_fallback = Gt911Blocking::new(ESP_LCD_TOUCH_IO_I2C_GT911_ADDRESS_BACKUP);
+                info!("Touch initialization failed: {:?}", e);
+                let touch_fallback = Gt911Blocking::new(ESP_LCD_TOUCH_IO_I2C_GT911_ADDRESS_BACKUP);
                 match touch_fallback.init(&mut i2c) {
                     Ok(_) => {
-                        println!("Touch initialized with backup address");
+                        info!("Touch initialized with backup address");
                         touch = touch_fallback;
                     }
-                    Err(e) => println!("Touch initialization failed with backup address: {:?}", e),
+                    Err(e) => error!("Touch initialization failed with backup address: {:?}", e),
                 }
-            },
+            }
         }
 
         // Prepare a draw buffer for the Slint software renderer.
@@ -322,10 +322,10 @@ struct DrawBuffer<'a, Display> {
 }
 
 impl<
-    DI: mipidsi::interface::Interface<Word = u8>,
-    RST: OutputPin<Error = core::convert::Infallible>,
-> slint::platform::software_renderer::LineBufferProvider
-for &mut DrawBuffer<'_, mipidsi::Display<DI, mipidsi::models::ILI9486Rgb565, RST>>
+        DI: mipidsi::interface::Interface<Word = u8>,
+        RST: OutputPin<Error = core::convert::Infallible>,
+    > slint::platform::software_renderer::LineBufferProvider
+    for &mut DrawBuffer<'_, mipidsi::Display<DI, mipidsi::models::ILI9486Rgb565, RST>>
 {
     type TargetPixel = slint::platform::software_renderer::Rgb565Pixel;
 
@@ -345,7 +345,9 @@ for &mut DrawBuffer<'_, mipidsi::Display<DI, mipidsi::models::ILI9486Rgb565, RST
                 line as u16,
                 range.end as u16,
                 line as u16,
-                buffer.iter().map(|x| embedded_graphics_core::pixelcolor::raw::RawU16::new(x.0).into()),
+                buffer
+                    .iter()
+                    .map(|x| embedded_graphics_core::pixelcolor::raw::RawU16::new(x.0).into()),
             )
             .unwrap();
     }
