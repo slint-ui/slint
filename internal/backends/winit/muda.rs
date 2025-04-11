@@ -13,7 +13,6 @@ use winit::window::Window;
 
 pub struct MudaAdapter {
     entries: Vec<MenuEntry>,
-    menubar: Option<vtable::VBox<MenuVTable>>,
     tracker: Option<Pin<Box<PropertyTracker<MudaPropertyTracker>>>>,
     menu: muda::Menu,
 }
@@ -27,11 +26,7 @@ impl PropertyDirtyHandler for MudaPropertyTracker {
         let win = self.window_adapter_weak.clone();
         i_slint_core::timers::Timer::single_shot(Default::default(), move || {
             if let Some(win) = win.upgrade() {
-                if let Some(winit_window) = win.winit_window() {
-                    if let Some(muda_adapter) = win.muda_adapter.borrow_mut().as_mut() {
-                        muda_adapter.rebuild_menu(&winit_window);
-                    }
-                }
+                win.rebuild_menubar();
             }
         })
     }
@@ -39,7 +34,7 @@ impl PropertyDirtyHandler for MudaPropertyTracker {
 
 impl MudaAdapter {
     pub fn setup(
-        menubar: vtable::VBox<MenuVTable>,
+        menubar: &vtable::VBox<MenuVTable>,
         winit_window: &Window,
         proxy: EventLoopProxy<SlintUserEvent>,
         window_adapter_weak: Weak<WinitWindowAdapter>,
@@ -67,12 +62,16 @@ impl MudaAdapter {
                 window_adapter_weak,
             })));
 
-        let mut s = Self { entries: Default::default(), menubar: Some(menubar), tracker, menu };
-        s.rebuild_menu(winit_window);
+        let mut s = Self { entries: Default::default(), tracker, menu };
+        s.rebuild_menu(winit_window, Some(menubar));
         s
     }
 
-    fn rebuild_menu(&mut self, winit_window: &Window) {
+    pub fn rebuild_menu(
+        &mut self,
+        winit_window: &Window,
+        menubar: Option<&vtable::VBox<MenuVTable>>,
+    ) {
         // clear the menu
         while self.menu.remove_at(0).is_some() {}
         self.entries.clear();
@@ -125,7 +124,7 @@ impl MudaAdapter {
         #[cfg(target_os = "macos")]
         create_default_app_menu(&self.menu).unwrap();
 
-        if let Some(menubar) = self.menubar.as_ref() {
+        if let Some(menubar) = menubar.as_ref() {
             let mut build_menu = || {
                 let mut menu_entries = Default::default();
                 menubar.sub_menu(None, &mut menu_entries);
@@ -151,9 +150,8 @@ impl MudaAdapter {
         }
     }
 
-    pub fn invoke(&self, entry_id: usize) {
+    pub fn invoke(&self, menubar: &vtable::VBox<MenuVTable>, entry_id: usize) {
         let Some(entry) = &self.entries.get(entry_id) else { return };
-        let Some(menubar) = self.menubar.as_ref() else { return };
         menubar.activate(entry);
     }
 
@@ -162,7 +160,7 @@ impl MudaAdapter {
         let menu_bar = muda::Menu::new();
         create_default_app_menu(&menu_bar)?;
         menu_bar.init_for_nsapp();
-        Ok(Self { entries: vec![], menubar: None, menu: menu_bar, tracker: None })
+        Ok(Self { entries: vec![], menu: menu_bar, tracker: None })
     }
 
     #[cfg(target_os = "macos")]

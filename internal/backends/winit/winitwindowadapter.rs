@@ -126,6 +126,8 @@ enum WinitWindowOrNone {
         window: Rc<winit::window::Window>,
         #[cfg(enable_accesskit)]
         accesskit_adapter: RefCell<crate::accesskit::AccessKitAdapter>,
+        #[cfg(muda)]
+        muda_adapter: RefCell<Option<crate::muda::MudaAdapter>>,
     },
     None(RefCell<WindowAttributes>),
 }
@@ -294,7 +296,7 @@ pub struct WinitWindowAdapter {
     xdg_settings_watcher: RefCell<Option<i_slint_core::future::JoinHandle<()>>>,
 
     #[cfg(muda)]
-    pub(crate) muda_adapter: RefCell<Option<crate::muda::MudaAdapter>>,
+    menubar: RefCell<Option<vtable::VBox<i_slint_core::menus::MenuVTable>>>,
 
     #[cfg(all(muda, target_os = "macos"))]
     muda_enable_default_menu_bar: bool,
@@ -337,7 +339,7 @@ impl WinitWindowAdapter {
             #[cfg(not(use_winit_theme))]
             xdg_settings_watcher: Default::default(),
             #[cfg(muda)]
-            muda_adapter: Default::default(),
+            menubar: Default::default(),
             #[cfg(all(muda, target_os = "macos"))]
             muda_enable_default_menu_bar,
         });
@@ -408,6 +410,20 @@ impl WinitWindowAdapter {
                 self.event_loop_proxy.clone(),
             )
             .into(),
+            #[cfg(muda)]
+            muda_adapter: self
+                .menubar
+                .borrow()
+                .as_ref()
+                .map(|menubar| {
+                    crate::muda::MudaAdapter::setup(
+                        menubar,
+                        &self.winit_window().unwrap(),
+                        self.event_loop_proxy.clone(),
+                        self.self_weak.clone(),
+                    )
+                })
+                .into(),
         };
 
         self.shared_backend_data
@@ -502,6 +518,39 @@ impl WinitWindowAdapter {
 
     pub fn winit_window(&self) -> Option<Rc<winit::window::Window>> {
         self.winit_window_or_none.borrow().as_window()
+    }
+
+    #[cfg(muda)]
+    pub fn rebuild_menubar(&self) {
+        let WinitWindowOrNone::HasWindow {
+            window: winit_window,
+            muda_adapter: maybe_muda_adapter,
+            ..
+        } = &*self.winit_window_or_none.borrow()
+        else {
+            return;
+        };
+        let mut maybe_muda_adapter = maybe_muda_adapter.borrow_mut();
+        let Some(muda_adapter) = maybe_muda_adapter.as_mut() else { return };
+        muda_adapter.rebuild_menu(&winit_window, self.menubar.borrow().as_ref());
+    }
+
+    #[cfg(muda)]
+    pub fn muda_event(&self, entry_id: usize) {
+        let Ok(maybe_muda_adapter) = std::cell::Ref::filter_map(
+            self.winit_window_or_none.borrow(),
+            |winit_window_or_none| match winit_window_or_none {
+                WinitWindowOrNone::HasWindow { muda_adapter, .. } => Some(muda_adapter),
+                WinitWindowOrNone::None(..) => None,
+            },
+        ) else {
+            return;
+        };
+        let maybe_muda_adapter = maybe_muda_adapter.borrow();
+        let Some(muda_adapter) = maybe_muda_adapter.as_ref() else { return };
+        let menubar = self.menubar.borrow();
+        let Some(menubar) = menubar.as_ref() else { return };
+        muda_adapter.invoke(menubar, entry_id);
     }
 
     #[cfg(target_arch = "wasm32")]
@@ -673,13 +722,20 @@ impl WinitWindowAdapter {
 
         #[cfg(all(muda, target_os = "macos"))]
         {
-            if self.muda_adapter.borrow().is_none() && self.muda_enable_default_menu_bar {
-                *self.muda_adapter.borrow_mut() =
-                    Some(crate::muda::MudaAdapter::setup_default_menu_bar()?);
-            }
+            if let WinitWindowOrNone::HasWindow { muda_adapter, .. } =
+                &*self.winit_window_or_none.borrow()
+            {
+                if muda_adapter.borrow().is_none()
+                    && self.muda_enable_default_menu_bar
+                    && self.menubar.borrow().is_none()
+                {
+                    *muda_adapter.borrow_mut() =
+                        Some(crate::muda::MudaAdapter::setup_default_menu_bar()?);
+                }
 
-            if let Some(muda_adapter) = self.muda_adapter.borrow().as_ref() {
-                muda_adapter.window_activation_changed(is_active);
+                if let Some(muda_adapter) = muda_adapter.borrow().as_ref() {
+                    muda_adapter.window_activation_changed(is_active);
+                }
             }
         }
 
@@ -1134,13 +1190,20 @@ impl WindowAdapterInternal for WinitWindowAdapter {
 
     #[cfg(muda)]
     fn setup_menubar(&self, menubar: vtable::VBox<i_slint_core::menus::MenuVTable>) {
-        drop(self.muda_adapter.borrow_mut().take());
-        self.muda_adapter.replace(Some(crate::muda::MudaAdapter::setup(
-            menubar,
-            &self.winit_window().unwrap(),
-            self.event_loop_proxy.clone(),
-            self.self_weak.clone(),
-        )));
+        self.menubar.replace(Some(menubar));
+
+        if let WinitWindowOrNone::HasWindow { muda_adapter, .. } =
+            &*self.winit_window_or_none.borrow()
+        {
+            // On Windows, we must destroy the muda menu before re-creating a new one
+            drop(muda_adapter.borrow_mut().take());
+            muda_adapter.replace(Some(crate::muda::MudaAdapter::setup(
+                self.menubar.borrow().as_ref().unwrap(),
+                &self.winit_window().unwrap(),
+                self.event_loop_proxy.clone(),
+                self.self_weak.clone(),
+            )));
+        }
     }
 
     #[cfg(enable_accesskit)]
