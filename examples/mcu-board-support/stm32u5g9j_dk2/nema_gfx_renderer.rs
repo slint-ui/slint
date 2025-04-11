@@ -130,10 +130,6 @@ impl<'a> i_slint_core::software_renderer::TargetPixelBuffer
             _ => return false,
         };
 
-        if src_texture.delta_x != (1 << 0x8) || src_texture.delta_y != (1 << 0x8) {
-            return false;
-        }
-
         //defmt::info!("BLIT");
 
         self.ensure_command_list_bound();
@@ -157,7 +153,6 @@ impl<'a> i_slint_core::software_renderer::TargetPixelBuffer
             );
 
             nema_set_clip(0, 0, self.width, self.height);
-
 
             let mut blop = NEMA_BLOP_NONE;
             if colorize != 0 {
@@ -190,13 +185,15 @@ impl<'a> i_slint_core::software_renderer::TargetPixelBuffer
                 nema_tex_t_NEMA_NOTEX,
             );
 
-            nema_blit_subrect(
+            nema_blit_subrect_fit(
                 x as _,
                 y as _,
                 width as _,
                 height as _,
                 (src_texture.source_offset_x >> 4) as _,
                 (src_texture.source_offset_y >> 4) as _,
+                ((width as i32) << 8) / src_texture.delta_x as i32,
+                ((height as i32) << 8) / src_texture.delta_y as i32,
             );
         }
 
