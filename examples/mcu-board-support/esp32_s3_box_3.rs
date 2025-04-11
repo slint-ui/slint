@@ -28,6 +28,8 @@ use esp_hal::{
     timer::systimer::SystemTimer,
     time::Rate,
 };
+use esp_hal::timer::timg::TimerGroup;
+use esp_hal::timer::Timer;
 use mipidsi::{options::{Orientation, Rotation, ColorOrder}, Display};
 use slint::platform::WindowEvent;
 use embedded_hal_bus::spi::ExclusiveDevice;
@@ -93,6 +95,17 @@ impl slint::platform::Platform for EspBackend {
             .take()
             .expect("Peripherals already taken");
         let mut delay = Delay::new();
+
+        let timer_group0 = TimerGroup::new(peripherals.TIMG0);
+        let mut timer0 = timer_group0.timer0;
+
+        // Start the timer
+        timer0.start();
+        let elapsed_cycles = timer0.now();
+
+        println!("Timer initialized");
+        println!("Elapsed cycles: {}", elapsed_cycles);
+
 
         // The following sequence is necessary to properly initialize touch on ESP32-S3-BOX-3
         // Based on issue from ESP-IDF: https://github.com/espressif/esp-bsp/issues/302#issuecomment-1971559689
@@ -201,12 +214,12 @@ impl slint::platform::Platform for EspBackend {
 
         // Initialize the touch driver.
         let mut touch = Gt911Blocking::new(ESP_LCD_TOUCH_IO_I2C_GT911_ADDRESS);
-        match touch.init(&mut i2c, &mut delay) {
+        match touch.init(&mut i2c) {
             Ok(_) => println!("Touch initialized"),
             Err(e) => {
                 println!("Touch initialization failed: {:?}", e);
                 let mut touch_fallback = Gt911Blocking::new(ESP_LCD_TOUCH_IO_I2C_GT911_ADDRESS_BACKUP);
-                match touch_fallback.init(&mut i2c, &mut delay) {
+                match touch_fallback.init(&mut i2c) {
                     Ok(_) => {
                         println!("Touch initialized with backup address");
                         touch = touch_fallback;
