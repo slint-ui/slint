@@ -7,6 +7,7 @@ import { MaterialText } from "./material_text.slint";
 import { MaterialStyleMetrics } from "../styling/material_style_metrics.slint";
 import { Typography } from "../styling/typography.slint";
 import { MaterialPalette } from "../styling/material_palette.slint";
+import { StateLayerArea } from "state_layer.slint";
 
 component TimeSelector inherits Rectangle {
     in property <bool> selected;
@@ -163,6 +164,162 @@ export component Clock {
     }
 }
 
+component TimePickerInput {
+    in property <bool> read_only <=> text_input.read_only;
+    in property <bool> checked;
+    in_out property <string> text <=> text_input.text;
+
+    callback clicked;
+    callback edited(value: int);
+
+    width: MaterialStyleMetrics.size_90;
+    min_height: max(MaterialStyleMetrics.size_80, layout.min_height);
+    vertical_stretch: 0;
+    horizontal_stretch: 0;
+
+    forward_focus: text_input;
+
+    background_layer := Rectangle {
+        border_radius: MaterialStyleMetrics.border_radius_8;
+        background: MaterialPalette.surface_container_highest;
+        clip: true;
+
+        layout := HorizontalLayout {
+            padding: MaterialStyleMetrics.padding_8;
+
+            text_input := TextInput {
+                vertical_alignment: center;
+                horizontal_alignment: center;
+                color: MaterialPalette.on_surface;
+                font_size: Typography.display_large.font_size;
+                font_weight: Typography.display_large.font_weight;
+                input_type: number;
+                visible: !root.read_only;
+
+                edited => {                    
+                    root.edited(self.text.to_float());
+                }
+            }
+        }
+
+        if root.read_only : StateLayerArea {
+            border_radius: background_layer.border_radius;
+            color: MaterialPalette.on_surface;
+
+            HorizontalLayout {
+                padding: MaterialStyleMetrics.padding_8;
+
+                MaterialText {
+                    text: root.text.to_float() >= 10 ? root.text : "0" + root.text;
+                    style: Typography.display_large;
+                    color: MaterialPalette.on_surface;
+                    horizontal_alignment: center;
+                    vertical_alignment: center;
+                }
+            }
+                      
+            clicked => {
+                root.clicked();
+            }
+        }
+    }
+
+    states [
+        has_focus when text_input.has_focus && !root.read_only: {
+            background_layer.background: MaterialPalette.primary_container;
+            background_layer.border_width: 2px;
+            background_layer.border_color: MaterialPalette.primary;
+            text_input.color: MaterialPalette.on_primary_container;
+        }
+        checked when root.checked: {
+            background_layer.background: MaterialPalette.primary_container;
+            text_input.color: MaterialPalette.on_primary_container;
+        }
+    ]
+}
+
+// component PeriodSelectorItem {
+//     in property <string> text <=> label.text;
+//     in property <bool> checked;
+
+//     callback clicked <=> touch_area.clicked;
+
+//     touch_area := TouchArea { }
+
+//     background_layer := Rectangle { }
+
+//     label := Text {
+//         font_size: root.style.font_size;
+//         font_weight: root.style.font_weight;
+//         color: root.style.foreground;
+//         horizontal_alignment: center;
+//     }
+
+//     states [
+//         checked when root.checked: {
+//             background_layer.background: root.style.background_selected;
+//             label.color: root.style.foreground_selected;
+//         }
+//     ]
+// }
+
+
+// export component PeriodSelector {
+//     in property <bool> am_selected;
+
+//     callback update_period(bool);
+
+//     min_width: max(38px, layout.min_width);
+//     accessible_label: "AM or PM";
+//     accessible_role: checkbox;
+//     accessible_checked: root.am_selected;
+
+//     Rectangle {
+//         border_radius: border.border_radius;
+//         clip: true;
+
+//         layout := VerticalLayout {
+//             PeriodSelectorItem {
+//                 text: "AM";
+//                 checked: root.am_selected;
+//                 style: root.style.item_style;
+
+//                 clicked => {
+//                     if root.am_selected {
+//                         return;
+//                     }
+//                     root.update_period(true);
+//                 }
+//             }
+
+//             Rectangle {
+//                 height: 1px;
+//                 background: border.border_color;
+//                 vertical_stretch: 0;
+//             }
+
+//             PeriodSelectorItem {
+//                 text: "PM";
+//                 checked: !root.am_selected;
+//                 style: root.style.item_style;
+
+//                 clicked => {
+//                     if !root.am_selected {
+//                         return;
+//                     }
+//                     root.update_period(false);
+//                 }
+//             }
+//         }
+//     }
+
+//     border := Rectangle {
+//         border_radius: root.style.border_radius;
+//         border_width: root.style.border_width;
+//         border_color: root.style.border_brush;
+//     }
+// }
+
 export struct Time {
     hour: int,
     minute: int,
@@ -210,8 +367,8 @@ export component TimePicker inherits PopupWindow {
     property <[int]> current_model: root.get_current_model();
     property <int> current_item: root.minutes_selected ? root.index_of_minute(root.current_time.minute) : root.index_of_hour(root.current_time.hour);
     property <Time> current_time: root.time;
-    // property <int> time_picker_hour: hour_time_picker.text.to_float();
-    // property <int> time_picker_minute: minute_time_picker.text.to_float();
+    property <int> time_picker_hour: hour_time_picker.text.to_float();
+    property <int> time_picker_minute: minute_time_picker.text.to_float();
 
     callback ok();
 
@@ -223,7 +380,7 @@ export component TimePicker inherits PopupWindow {
         height: 100%;
         title: root.title;
         icon_actions: [
-            root.keyboard_mode ? Icons.keyboard : Icons.schedule  
+            root.keyboard_mode ? Icons.schedule : Icons.keyboard  
         ];
         actions: [
             root.cancel_text,
@@ -231,6 +388,57 @@ export component TimePicker inherits PopupWindow {
         ];
 
         HorizontalLayout {
+            padding: MaterialStyleMetrics.padding_24;
+            spacing: MaterialStyleMetrics.spacing_52;
+
+            VerticalLayout {
+                alignment: center;
+
+                
+                HorizontalLayout {
+                        alignment: center;
+
+                        hour_time_picker := TimePickerInput {
+                            read_only: !root.keyboard_mode;
+                            checked: self.read_only && !root.minutes_selected;
+                            text: root.current_time.hour;
+
+                            accessible_role: AccessibleRole.text_input;
+                            accessible_value: self.text;
+                            accessible_label: "hour";
+
+                            clicked => {
+                                root.minutes_selected = false;
+                            }
+                        }
+
+                        separator := MaterialText {
+                            min_width: MaterialStyleMetrics.size_24;
+                            text: ":";
+                            color: MaterialPalette.on_surface;
+                            style: Typography.display_large;
+                            vertical_alignment: center;
+                            horizontal_alignment: center;
+                        }
+
+                        minute_time_picker := TimePickerInput {
+                            read_only: !root.keyboard_mode;
+                            checked: self.read_only && root.minutes_selected;
+                            text: root.current_time.minute;
+
+                            accessible_role: AccessibleRole.text_input;
+                            accessible_value: self.text;
+                            accessible_label: "minute";
+
+                            clicked => {
+                                root.minutes_selected = true;
+                            }
+                        }
+                    }
+
+            }
+
+                       
             Clock {
                 model: root.current_model;
                 two_columns: !root.minutes_selected && root.use-24_hour_format;
@@ -275,15 +483,17 @@ export component TimePicker inherits PopupWindow {
         }
     }
 
-    //   pure public function ok_enabled() -> bool {
-    //     if root.selection_mode {
-    //         return root.current_time.hour <= 23 && root.current_time.minute <= 59;
-    //     }
-    //     if root.use-24_hour_format {
-    //         return root.time_picker_hour <= 23 && root.time_picker_minute <= 59;
-    //     }
-    //     root.time_picker_hour <= 12 && root.time_picker_minute <= 59
-    // }
+      pure public function ok_enabled() -> bool {
+        if !root.keyboard_mode {
+            return root.current_time.hour <= 23 && root.current_time.minute <= 59;
+        }
+        
+        if root.use-24_hour_format {
+            return root.time_picker_hour <= 23 && root.time_picker_minute <= 59;
+        }
+        
+        root.time_picker_hour <= 12 && root.time_picker_minute <= 59
+    }
 
     public function get_current_time() -> Time {
         if root.keyboard_mode {
@@ -295,24 +505,24 @@ export component TimePicker inherits PopupWindow {
             }
             return root.current_time;
         }
-        return { hour: 0, minute: 0 }; 
-        // return { hour: root.time_picker_hour, minute: root.time_picker_minute };
+
+        { hour: root.time_picker_hour, minute: root.time_picker_minute }
     }
 
-    // changed selection_mode => {
-    //     if !root.selection_mode {
-    //         return;
-    //     }
+    changed keyboard_mode => {
+        if root.keyboard_mode {
+            return;
+        }
 
-    //     root.update_time(min(root.time_picker_hour, root.use-24_hour_format ? 23 : 12), min(root.time_picker_minute, 59));
-    // }
+        root.update_time(min(root.time_picker_hour, root.use-24_hour_format ? 23 : 12), min(root.time_picker_minute, 59));
+    }
 
     changed time => {
         root.current_time = root.time;
     }
 
     function update_time_by_item(index: int) {
-        // root.update_time_by_value(root.current_model[index]);
+        root.update_time_by_value(root.current_model[index]);
     }
 
     function update_time_by_value(value: int) {
@@ -325,8 +535,8 @@ export component TimePicker inherits PopupWindow {
 
     function update_time(hour: int, minute: int) {
         root.current_time = { hour: hour, minute: minute };
-        // hour_time_picker.text = root.current_time.hour;
-        // minute_time_picker.text = minute;
+        hour_time_picker.text = root.current_time.hour;
+        minute_time_picker.text = minute;
     }
 
     pure function index_of_minute(minute: int) -> int {
