@@ -11,7 +11,7 @@ use super::{
     EventResult, FontMetrics, InputType, Item, ItemConsts, ItemRc, ItemRef, KeyEventArg,
     KeyEventResult, KeyEventType, PointArg, PointerEventButton, RenderingResult,
     TextHorizontalAlignment, TextOverflow, TextStrokeStyle, TextVerticalAlignment, TextWrap,
-    VoidArg,
+    VoidArg, WindowItem,
 };
 use crate::graphics::{Brush, Color, FontRequest};
 use crate::input::{
@@ -158,7 +158,7 @@ impl RenderText for ComplexText {
     }
 
     fn font_request(self: Pin<&Self>, self_rc: &ItemRc) -> FontRequest {
-        FontRequest::new_resolved(
+        WindowItem::resolved_font_request(
             self_rc,
             self.font_family(),
             self.font_weight(),
@@ -320,7 +320,7 @@ impl RenderText for SimpleText {
     }
 
     fn font_request(self: Pin<&Self>, self_rc: &ItemRc) -> FontRequest {
-        FontRequest::new_resolved(
+        WindowItem::resolved_font_request(
             self_rc,
             SharedString::default(),
             self.font_weight(),
@@ -1667,7 +1667,7 @@ impl TextInput {
     }
 
     pub fn font_request(self: Pin<&Self>, self_rc: &ItemRc) -> FontRequest {
-        FontRequest::new_resolved(
+        WindowItem::resolved_font_request(
             self_rc,
             self.font_family(),
             self.font_weight(),
