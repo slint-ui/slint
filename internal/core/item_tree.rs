@@ -754,18 +754,6 @@ impl ItemRc {
         result
     }
 
-    pub fn window_item(&self) -> Option<Self> {
-        let root_item_in_local_item_tree = ItemRc::new(self.item_tree.clone(), 0);
-
-        if root_item_in_local_item_tree.downcast::<crate::items::WindowItem>().is_some() {
-            Some(root_item_in_local_item_tree)
-        } else {
-            root_item_in_local_item_tree
-                .parent_item(ParentItemTraversalMode::FindAllParents)
-                .and_then(|parent| parent.window_item())
-        }
-    }
-
     /// Visit the children of this element and call the visitor to each of them, until the visitor returns [`ControlFlow::Break`].
     /// When the visitor breaks, the function returns the value. If it doesn't break, the function returns None.
     fn visit_descendants_impl<R>(
