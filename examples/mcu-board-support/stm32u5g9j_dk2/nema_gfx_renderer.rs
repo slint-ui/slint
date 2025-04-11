@@ -185,15 +185,22 @@ impl<'a> i_slint_core::software_renderer::TargetPixelBuffer
                 nema_tex_t_NEMA_NOTEX,
             );
 
+            // Try to re-compute the original clip from the source_offset
+            let dst_off_x =
+                ((src_texture.source_offset_x as i32) << 4) / src_texture.delta_x as i32;
+            let dst_off_y =
+                ((src_texture.source_offset_y as i32) << 4) / src_texture.delta_y as i32;
+            nema_set_clip(x as _, y as _, width as _, height as _);
+
             nema_blit_subrect_fit(
-                x as _,
-                y as _,
-                width as _,
-                height as _,
-                (src_texture.source_offset_x >> 4) as _,
-                (src_texture.source_offset_y >> 4) as _,
-                ((width as i32) << 8) / src_texture.delta_x as i32,
-                ((height as i32) << 8) / src_texture.delta_y as i32,
+                x as i32 - dst_off_x,
+                y as i32 - dst_off_y,
+                ((src_texture.width as i32) << 8) / src_texture.delta_x as i32,
+                ((src_texture.height as i32) << 8) / src_texture.delta_y as i32,
+                0,
+                0,
+                src_texture.width as _,
+                src_texture.height as _,
             );
         }
 
