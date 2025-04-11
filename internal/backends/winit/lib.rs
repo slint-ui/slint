@@ -9,7 +9,7 @@ extern crate alloc;
 
 use event_loop::{CustomEvent, EventLoopState, NotRunningEventLoop};
 use i_slint_core::api::EventLoopError;
-use i_slint_core::graphics::{RequestedGraphicsAPI, RequestedOpenGLVersion};
+use i_slint_core::graphics::RequestedGraphicsAPI;
 use i_slint_core::platform::{EventLoopProxy, PlatformError};
 use i_slint_core::window::WindowAdapter;
 use renderer::WinitCompatibleRenderer;
@@ -277,7 +277,7 @@ impl BackendBuilder {
             (Some("gl"), maybe_graphics_api) | (Some("femtovg"), maybe_graphics_api) => {
                 // If a graphics API was requested, double check that it's GL. FemtoVG doesn't support Metal, etc.
                 if let Some(api) = maybe_graphics_api {
-                    RequestedOpenGLVersion::try_from(api.clone())?;
+                    i_slint_core::graphics::RequestedOpenGLVersion::try_from(api.clone())?;
                 }
                 renderer::femtovg::GlutinFemtoVGRenderer::new_suspended
             }
@@ -289,7 +289,7 @@ impl BackendBuilder {
             (Some("skia-opengl"), maybe_graphics_api @ _) => {
                 // If a graphics API was requested, double check that it's GL. FemtoVG doesn't support Metal, etc.
                 if let Some(api) = maybe_graphics_api {
-                    RequestedOpenGLVersion::try_from(api.clone())?;
+                    i_slint_core::graphics::RequestedOpenGLVersion::try_from(api.clone())?;
                 }
                 renderer::skia::WinitSkiaRenderer::new_opengl_suspended
             }
@@ -318,7 +318,7 @@ impl BackendBuilder {
                         renderer::skia::WinitSkiaRenderer::factory_for_graphics_api(Some(_requested_graphics_api))?
                     } else if #[cfg(feature = "renderer-femtovg")] {
                         // If a graphics API was requested, double check that it's GL. FemtoVG doesn't support Metal, etc.
-                        RequestedOpenGLVersion::try_from(_requested_graphics_api.clone())?;
+                        i_slint_core::graphics::RequestedOpenGLVersion::try_from(_requested_graphics_api.clone())?;
                         renderer::femtovg::GlutinFemtoVGRenderer::new_suspended
                     } else {
                         return Err(format!("Graphics API use requested by the compile-time enabled renderers don't support that").into())
