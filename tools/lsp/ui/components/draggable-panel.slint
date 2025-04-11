@@ -2,12 +2,13 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { Palette } from "std-widgets.slint";
-import { SimpleColumn } from "../layout-helpers.slint";
+import { SimpleColumn } from "layout-helpers.slint";
+import { WindowGlobal } from "../windowglobal.slint";
 
 export component DraggablePanel {
     // Ensure to bing the parent window width and height so the panel can move if the window is resized
-    in property <length> parent-window-width;
-    in property <length> parent-window-height;
+    property <length> parent-window-width: WindowGlobal.window-width;
+    property <length> parent-window-height: WindowGlobal.window-height;
 
     property <length> panel-target-x;
     property <length> panel-target-y;

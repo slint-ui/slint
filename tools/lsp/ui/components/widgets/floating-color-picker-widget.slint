@@ -6,9 +6,8 @@ import { WindowGlobal, WindowManager } from "../../windowglobal.slint";
 import { Api, GradientStop } from "../../api.slint";
 import { Icons } from "../../components/styling.slint";
 import { BrushMode, PickerData, PickerMode, WidgetMode } from "../../properties-state.slint";
-import { SimpleColumn } from "../layout-helpers.slint";
-import { DraggablePanel } from "draggable-panel.slint";
-
+import { SimpleColumn } from "../../components/layout-helpers.slint";
+import { DraggablePanel } from "../../components/draggable-panel.slint";
 
 export global Styles {
     out property <color> section-color: Palette.color-scheme == ColorScheme.dark ? #3f3f3f : #f5f5f5;
@@ -958,9 +957,6 @@ component ColorPicker inherits DraggablePanel {
     in property <WidgetMode> widget-mode: edit;
     in property <PickerMode> picker-mode: brush;
     in-out property <BrushMode> brush-mode: color;
-
-    parent-window-width: WindowGlobal.window-width;
-    parent-window-height: WindowGlobal.window-height;
 
     callback close <=> t-close.clicked;
 
