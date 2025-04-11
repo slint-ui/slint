@@ -6,6 +6,8 @@ import { WindowGlobal, WindowManager } from "../../windowglobal.slint";
 import { Api, GradientStop } from "../../api.slint";
 import { Icons } from "../../components/styling.slint";
 import { BrushMode, PickerData, PickerMode, WidgetMode } from "../../properties-state.slint";
+import { SimpleColumn } from "../layout-helpers.slint";
+import { DraggablePanel } from "draggable-panel.slint";
 
 
 export global Styles {
@@ -70,6 +72,7 @@ component ColorIndicator {
             width: 50%;
             background: hsv(hsv-color.hue, hsv-color.saturation, hsv-color.value);
         }
+
         Rectangle {
             x: parent.width / 2;
             width: 50%;
@@ -84,6 +87,7 @@ component ColorIndicator {
                 horizontal-tiling: repeat;
                 colorize: #e1e1e1;
             }
+
             Rectangle {
                 background: root.color;
             }
@@ -344,15 +348,6 @@ component ColorModeColorAndApply {
     }
 }
 
-component Column {
-    in-out property <length> spacing;
-    width: 100%;
-    vl := VerticalLayout {
-        spacing <=> root.spacing;
-        @children
-    }
-}
-
 component VerticalSpacer {
     width: 100%;
     height: Styles.small-margin;
@@ -378,7 +373,6 @@ component GradientSlider {
         TouchArea {
             changed pressed => {
                 if self.pressed {
-
                 }
             }
             moved => {
@@ -388,6 +382,7 @@ component GradientSlider {
                 WindowManager.update-brush();
             }
         }
+
         Rectangle {
             x: parent.width / 2;
             y: 1px;
@@ -572,7 +567,7 @@ component GradientStopValue {
                         }
                     }
                     moved => {
-                        PickerData.current-gradient-stops[stop-index].color = hsv(PickerData.current-gradient-stops[stop-index].color.to-hsv().hue, PickerData.current-gradient-stops[stop-index].color.to-hsv().saturation, PickerData.current-gradient-stops[stop-index].color.to-hsv().value, (initial-alpha + ((self.mouse-x - self.pressed-x) / 1px) / 100).clamp(0, 1) );
+                        PickerData.current-gradient-stops[stop-index].color = hsv(PickerData.current-gradient-stops[stop-index].color.to-hsv().hue, PickerData.current-gradient-stops[stop-index].color.to-hsv().saturation, PickerData.current-gradient-stops[stop-index].color.to-hsv().value, (initial-alpha + ((self.mouse-x - self.pressed-x) / 1px) / 100).clamp(0, 1));
                         WindowManager.update-brush();
                     }
                 }
@@ -581,7 +576,7 @@ component GradientStopValue {
     }
 }
 
-component GradientPicker inherits Column {
+component GradientPicker inherits SimpleColumn {
     Rectangle {
         height: 50px;
 
@@ -615,8 +610,10 @@ component GradientPicker inherits Column {
                     horizontal-tiling: repeat;
                     colorize: #e1e1e1;
                 }
+
                 Rectangle {
-                    background: PickerData.current-brush;//@linear-gradient(-90deg, black 0%, #B62F2F 100%);
+                    background: PickerData.current-brush;
+                    //@linear-gradient(-90deg, black 0%, #B62F2F 100%);
                 }
 
                 Rectangle {
@@ -664,7 +661,7 @@ component GradientPicker inherits Column {
         }
     }
 
-    Column {
+    SimpleColumn {
         spacing: 4px;
         for i[index] in PickerData.current-gradient-stops: GradientStopValue {
             stop-index: index;
@@ -672,7 +669,7 @@ component GradientPicker inherits Column {
     }
 }
 
-component HsvPicker inherits Column {
+component HsvPicker inherits SimpleColumn {
     saturation-value-holder := Rectangle {
         height: self.width * 0.75;
         saturation-value := Rectangle {
@@ -956,14 +953,14 @@ component HsvPicker inherits Column {
     }
 }
 
-component ColorPicker {
+component ColorPicker inherits DraggablePanel {
     property current-color <=> PickerData.current-color;
     in property <WidgetMode> widget-mode: edit;
     in property <PickerMode> picker-mode: brush;
     in-out property <BrushMode> brush-mode: color;
 
-    property <length> picker-target-x;
-    property <length> picker-target-y;
+    parent-window-width: WindowGlobal.window-width;
+    parent-window-height: WindowGlobal.window-height;
 
     callback close <=> t-close.clicked;
 
@@ -974,105 +971,52 @@ component ColorPicker {
     }
 
     width: Styles.picker-width;
-    height: content.height;
 
-    hidden-input := TextInput {
-        visible: false;
-    }
+    title := Rectangle {
+        width: 100%;
+        height: 40px;
 
-    TouchArea {
-        changed pressed => {
-            if self.pressed {
-                hidden-input.visible = true;
-                hidden-input.focus();
-                hidden-input.clear-focus();
-                hidden-input.visible = false;
+        if picker-mode == PickerMode.brush: BrushTypeSelector {
+            brush-mode <=> root.brush-mode;
+        }
+
+        Rectangle {
+            x: parent.width - self.width - 5px;
+            width: 25px;
+            height: self.width;
+            background: t-close.has-hover ? Styles.section-color : transparent;
+            border-radius: Styles.property-border-radius;
+
+            t-close := TouchArea { }
+
+            Image {
+                source: Icons.close;
+                colorize: Styles.text-color;
             }
         }
-        moved => {
-            picker-target-x = ((root.x + self.mouse-x - self.pressed-x) / 1px).round() * 1px;
-            picker-target-y = ((root.y + self.mouse-y - self.pressed-y) / 1px).round() * 1px;
 
-            if picker-target-x < 0px {
-                root.x = 0px;
-            }
-            if picker-target-x > 0px {
-                if picker-target-x < WindowGlobal.window-width - root.width {
-                    root.x = picker-target-x;
-                } else {
-                    root.x = WindowGlobal.window-width - root.width;
-                }
-            }
-            if picker-target-y < 0px {
-                root.y = 0px;
-            }
-            if picker-target-y > 0px {
-                if picker-target-y < WindowGlobal.window-height - root.height {
-                    root.y = picker-target-y;
-                } else {
-                    root.y = WindowGlobal.window-height - root.height;
-                }
-            }
-        }
-    }
-
-    Rectangle {
-        background: Styles.background-color;
-        drop-shadow-blur: 24px;
-        drop-shadow-offset-y: 10px;
-        drop-shadow-color: rgba(0, 0, 0, 0.25);
-        border-width: 0.5px;
-        border-color: Styles.picker-border-color;
-        border-radius: 13px;
-    }
-
-    content := Column {
-        title := Rectangle {
+        Rectangle {
             width: 100%;
-            height: 40px;
-
-            if picker-mode == PickerMode.brush: BrushTypeSelector {
-                brush-mode <=> root.brush-mode;
-            }
-
-            Rectangle {
-                x: parent.width - self.width - 5px;
-                width: 25px;
-                height: self.width;
-                background: t-close.has-hover ? Styles.section-color : transparent;
-                border-radius: Styles.property-border-radius;
-
-                t-close := TouchArea { }
-
-                Image {
-                    source: Icons.close;
-                    colorize: Styles.text-color;
-                }
-            }
-
-            Rectangle {
-                width: 100%;
-                height: 1px;
-                x: 0;
-                y: parent.height - self.height;
-                background: Styles.divider-color;
-            }
+            height: 1px;
+            x: 0;
+            y: parent.height - self.height;
+            background: Styles.divider-color;
         }
+    }
 
-        if brush-mode == BrushMode.color: HsvPicker { }
+    if brush-mode == BrushMode.color: HsvPicker { }
 
-        if brush-mode == BrushMode.color: VerticalSpacer { }
+    if brush-mode == BrushMode.color: VerticalSpacer { }
 
-        if brush-mode == BrushMode.color: color-apply := ColorModeColorAndApply {
-            widget-mode: root.widget-mode;
-        }
+    if brush-mode == BrushMode.color: color-apply := ColorModeColorAndApply {
+        widget-mode: root.widget-mode;
+    }
 
-        if brush-mode == BrushMode.gradient: GradientPicker { }
+    if brush-mode == BrushMode.gradient: GradientPicker { }
 
-        footer := Rectangle {
-            width: 100%;
-            height: Styles.standard-margin;
-        }
+    footer := Rectangle {
+        width: 100%;
+        height: Styles.standard-margin;
     }
 }
 
@@ -1082,34 +1026,6 @@ export component ColorPickerView {
 
     in property <length> initial-x: 0;
     in property <length> initial-y: 0;
-
-    changed width => {
-        if color-picker.x + color-picker.width > root.width {
-            color-picker.x = (root.width - color-picker.width).max(0);
-        }
-    }
-
-    changed height => {
-        if (color-picker.y + color-picker.height) > root.height {
-            color-picker.y = (root.height - color-picker.height).max(0);
-        }
-    }
-
-    pure function cursor-on-picker(mouse-x: length, mouse-y: length) -> bool {
-        if mouse-x < color-picker.x {
-            return false;
-        }
-        if mouse-y < color-picker.y {
-            return false;
-        }
-        if mouse-x > color-picker.x + color-picker.width {
-            return false;
-        }
-        if mouse-y > color-picker.y + color-picker.height {
-            return false;
-        }
-        return true;
-    }
 
     TouchArea {
         changed pressed => {
