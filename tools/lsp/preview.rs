@@ -128,6 +128,7 @@ struct PreviewState {
     preview_loading_delay_timer: Option<slint::Timer>,
     initial_live_data: preview_data::PreviewDataMap,
     current_live_data: preview_data::PreviewDataMap,
+    debug_hook_random_state: std::hash::RandomState,
 }
 
 impl PreviewState {
@@ -1286,6 +1287,7 @@ async fn parse_source(
     source_code: String,
     style: String,
     component: Option<String>,
+    debug_hook_random_state: std::hash::RandomState,
     file_loader_fallback: impl Fn(
             String,
         ) -> core::pin::Pin<
@@ -1321,6 +1323,9 @@ async fn parse_source(
     cc.include_paths = include_paths;
     cc.library_paths = library_paths;
 
+    cc.debug_info = true;
+    cc.debug_hooks = Some(debug_hook_random_state);
+
     let (open_file_fallback, source_file_versions) =
         common::document_cache::document_cache_parts_setup(
             cc,
@@ -1343,7 +1348,12 @@ async fn reload_preview_impl(
 ) -> Result<(), PlatformError> {
     start_parsing();
 
-    if let Some(component_instance) = component_instance() {
+    let (component_instance, debug_hook_random_state) = PREVIEW_STATE.with(|preview_state| {
+        let preview_state = preview_state.borrow();
+        (preview_state.component_instance(), preview_state.debug_hook_random_state.clone())
+    });
+
+    if let Some(component_instance) = component_instance {
         let live_preview_data =
             preview_data::query_preview_data_properties_and_callbacks(&component_instance);
         set_current_live_data(live_preview_data);
@@ -1360,6 +1370,7 @@ async fn reload_preview_impl(
         source,
         style,
         component.component.clone(),
+        debug_hook_random_state,
         move |path| {
             let path = path.to_owned();
             Box::pin(async move {
@@ -1887,6 +1898,7 @@ pub mod test {
 
         let path = main_test_file_name();
         let source_code = code.get(&path).unwrap().clone();
+        let debug_hook_random_state = std::hash::RandomState::default();
         let (diagnostics, component_definition, _, _) = spin_on::spin_on(super::parse_source(
             vec![],
             std::collections::HashMap::new(),
@@ -1895,6 +1907,7 @@ pub mod test {
             source_code.to_string(),
             style.to_string(),
             None,
+            debug_hook_random_state,
             move |path| {
                 let code = code.clone();
                 let path = PathBuf::from(&path);
