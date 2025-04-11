@@ -18,4 +18,9 @@ export interface EventTS {
             content: string;
         }>;
     };
+    monitorVariableChanges: {
+        enabled: boolean;
+    };
+    checkVariableChanges: {};
+    exportToFiles: {};
 }
