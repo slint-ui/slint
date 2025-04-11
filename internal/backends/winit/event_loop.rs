@@ -493,9 +493,7 @@ impl winit::application::ApplicationHandler<SlintUserEvent> for EventLoopState {
                         e.parse::<usize>().ok()?,
                     ))
                 }) {
-                    if let Some(ma) = window.muda_adapter.borrow().as_ref() {
-                        ma.invoke(eid);
-                    }
+                    window.muda_event(eid);
                 };
             }
         }
