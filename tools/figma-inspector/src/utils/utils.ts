@@ -33,34 +33,15 @@ export async function writeTextToClipboard(str: string) {
     }
 }
 
-// Modify these functions to accept dispatchTS
-interface DispatchTSFunction {
-    (action: string, payload: { result: boolean }): void;
-}
-
-type CopyToClipboardFunction = (slintProperties: string) => Promise<void>;
-
-export const getCopyToClipboard =
-    (dispatchTS: DispatchTSFunction): CopyToClipboardFunction =>
-    async (slintProperties: string) => {
-        try {
-            await writeTextToClipboard(slintProperties);
-            dispatchTS("copyToClipboard", {
-                result: true,
-            });
-        } catch (error) {
-            dispatchTS("copyToClipboard", {
-                result: false,
-            });
-        }
-    };
-
-type ExportAllFunction = () => void;
-
-export const getExportAll =
-    (dispatchTS: DispatchTSFunction): ExportAllFunction =>
-    () => {
-        dispatchTS("exportAll", {
+export async function copyToClipboard(slintProperties: string) {
+    try {
+        await writeTextToClipboard(slintProperties);
+        dispatchTS("copyToClipboard", {
             result: true,
         });
-    };
+    } catch (error) {
+        dispatchTS("copyToClipboard", {
+            result: false,
+        });
+    }
+}
