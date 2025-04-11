@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use crate::dynamic_item_tree::InstanceRef;
-use crate::eval::{self, ComponentInstance, EvalLocalContext};
+use crate::eval::{self, EvalLocalContext};
 use crate::Value;
 use i_slint_compiler::expression_tree::Expression;
 use i_slint_compiler::langtype::Type;
@@ -36,10 +36,7 @@ pub(crate) fn compute_layout_info(
     orientation: Orientation,
     local_context: &mut EvalLocalContext,
 ) -> Value {
-    let component = match local_context.component_instance {
-        ComponentInstance::InstanceRef(c) => c,
-        ComponentInstance::GlobalComponent(_) => panic!("Cannot compute layout from a Global"),
-    };
+    let component = local_context.component_instance;
     let expr_eval = |nr: &NamedReference| -> f32 {
         eval::load_property(component, &nr.element(), nr.name()).unwrap().try_into().unwrap()
     };
@@ -75,10 +72,7 @@ pub(crate) fn solve_layout(
     orientation: Orientation,
     local_context: &mut EvalLocalContext,
 ) -> Value {
-    let component = match local_context.component_instance {
-        ComponentInstance::InstanceRef(c) => c,
-        ComponentInstance::GlobalComponent(_) => panic!("Cannot compute layout from a Global"),
-    };
+    let component = local_context.component_instance;
     let expr_eval = |nr: &NamedReference| -> f32 {
         eval::load_property(component, &nr.element(), nr.name()).unwrap().try_into().unwrap()
     };

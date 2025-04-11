@@ -104,7 +104,7 @@ pub(crate) enum ComponentInstance<'a, 'id> {
 pub struct EvalLocalContext<'a, 'id> {
     local_variables: HashMap<SmolStr, Value>,
     function_arguments: Vec<Value>,
-    pub(crate) component_instance: ComponentInstance<'a, 'id>,
+    pub(crate) component_instance: InstanceRef<'a, 'id>,
     /// When Some, a return statement was executed and one must stop evaluating
     return_value: Option<Value>,
 }
@@ -114,7 +114,7 @@ impl<'a, 'id> EvalLocalContext<'a, 'id> {
         Self {
             local_variables: Default::default(),
             function_arguments: Default::default(),
-            component_instance: ComponentInstance::InstanceRef(component),
+            component_instance: component,
             return_value: None,
         }
     }
@@ -125,7 +125,7 @@ impl<'a, 'id> EvalLocalContext<'a, 'id> {
         function_arguments: Vec<Value>,
     ) -> Self {
         Self {
-            component_instance: ComponentInstance::InstanceRef(component),
+            component_instance: component,
             function_arguments,
             local_variables: Default::default(),
             return_value: None,
@@ -146,14 +146,14 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
         Expression::BoolLiteral(b) => Value::Bool(*b),
         Expression::ElementReference(_) => todo!("Element references are only supported in the context of built-in function calls at the moment"),
         Expression::PropertyReference(nr) => {
-            load_property_helper(&local_context.component_instance, &nr.element(), nr.name()).unwrap()
+            load_property_helper(&ComponentInstance::InstanceRef(local_context.component_instance), &nr.element(), nr.name()).unwrap()
         }
-        Expression::RepeaterIndexReference { element } => load_property_helper(&local_context.component_instance,
+        Expression::RepeaterIndexReference { element } => load_property_helper(&ComponentInstance::InstanceRef(local_context.component_instance),
             &element.upgrade().unwrap().borrow().base_type.as_component().root_element,
             crate::dynamic_item_tree::SPECIAL_PROPERTY_INDEX,
         )
         .unwrap(),
-        Expression::RepeaterModelReference { element } => load_property_helper(&local_context.component_instance,
+        Expression::RepeaterModelReference { element } => load_property_helper(&ComponentInstance::InstanceRef(local_context.component_instance),
             &element.upgrade().unwrap().borrow().base_type.as_component().root_element,
             crate::dynamic_item_tree::SPECIAL_PROPERTY_MODEL_DATA,
         )
@@ -209,12 +209,12 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
                     call_item_member_function(nr, local_context)
                 } else {
                     let args = arguments.iter().map(|e| eval_expression(e, local_context)).collect::<Vec<_>>();
-                    call_function(&local_context.component_instance, &nr.element(), nr.name(), args).unwrap()
+                    call_function(&ComponentInstance::InstanceRef(local_context.component_instance), &nr.element(), nr.name(), args).unwrap()
                 }
             }
             Callable::Callback(nr) => {
                 let args = arguments.iter().map(|e| eval_expression(e, local_context)).collect::<Vec<_>>();
-                invoke_callback(&local_context.component_instance, &nr.element(), nr.name(), &args).unwrap()
+                invoke_callback(&ComponentInstance::InstanceRef(local_context.component_instance), &nr.element(), nr.name(), &args).unwrap()
             }
             Callable::Builtin(f) => call_builtin_function(f.clone(), arguments, local_context),
         }
@@ -369,7 +369,7 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
             local_context.return_value.clone().unwrap()
         }
         Expression::LayoutCacheAccess { layout_cache_prop, index, repeater_index } => {
-            let cache = load_property_helper(&local_context.component_instance, &layout_cache_prop.element(), layout_cache_prop.name()).unwrap();
+            let cache = load_property_helper(&ComponentInstance::InstanceRef(local_context.component_instance), &layout_cache_prop.element(), layout_cache_prop.name()).unwrap();
             if let Value::LayoutCache(cache) = cache {
                 if let Some(ri) = repeater_index {
                     let offset : usize = eval_expression(ri, local_context).try_into().unwrap();
@@ -406,24 +406,14 @@ fn call_builtin_function(
     local_context: &mut EvalLocalContext,
 ) -> Value {
     match f {
-        BuiltinFunction::GetWindowScaleFactor => match local_context.component_instance {
-            ComponentInstance::InstanceRef(component) => {
-                Value::Number(component.access_window(|window| window.scale_factor()) as _)
-            }
-            ComponentInstance::GlobalComponent(_) => {
-                panic!("Cannot get the window from a global component")
-            }
-        },
-        BuiltinFunction::GetWindowDefaultFontSize => match local_context.component_instance {
-            ComponentInstance::InstanceRef(component) => {
-                Value::Number(component.access_window(|window| {
-                    window.window_item().unwrap().as_pin_ref().default_font_size().get()
-                }) as _)
-            }
-            ComponentInstance::GlobalComponent(_) => {
-                panic!("Cannot get the window from a global component")
-            }
-        },
+        BuiltinFunction::GetWindowScaleFactor => Value::Number(
+            local_context.component_instance.access_window(|window| window.scale_factor()) as _,
+        ),
+        BuiltinFunction::GetWindowDefaultFontSize => {
+            Value::Number(local_context.component_instance.access_window(|window| {
+                window.window_item().unwrap().as_pin_ref().default_font_size().get()
+            }) as _)
+        }
         BuiltinFunction::AnimationTick => {
             Value::Number(i_slint_core::animations::animation_tick() as f64)
         }
@@ -512,12 +502,7 @@ fn call_builtin_function(
             if arguments.len() != 1 {
                 panic!("internal error: incorrect argument count to SetFocusItem")
             }
-            let component = match local_context.component_instance {
-                ComponentInstance::InstanceRef(c) => c,
-                ComponentInstance::GlobalComponent(_) => {
-                    panic!("Cannot access the focus item from a global component")
-                }
-            };
+            let component = local_context.component_instance;
             if let Expression::ElementReference(focus_item) = &arguments[0] {
                 generativity::make_guard!(guard);
 
@@ -549,12 +534,7 @@ fn call_builtin_function(
             if arguments.len() != 1 {
                 panic!("internal error: incorrect argument count to SetFocusItem")
             }
-            let component = match local_context.component_instance {
-                ComponentInstance::InstanceRef(c) => c,
-                ComponentInstance::GlobalComponent(_) => {
-                    panic!("Cannot access the focus item from a global component")
-                }
-            };
+            let component = local_context.component_instance;
             if let Expression::ElementReference(focus_item) = &arguments[0] {
                 generativity::make_guard!(guard);
 
@@ -586,12 +566,7 @@ fn call_builtin_function(
             if arguments.len() != 1 {
                 panic!("internal error: incorrect argument count to ShowPopupWindow")
             }
-            let component = match local_context.component_instance {
-                ComponentInstance::InstanceRef(c) => c,
-                ComponentInstance::GlobalComponent(_) => {
-                    panic!("Cannot show popup from a global component")
-                }
-            };
+            let component = local_context.component_instance;
             if let Expression::ElementReference(popup_window) = &arguments[0] {
                 let popup_window = popup_window.upgrade().unwrap();
                 let pop_comp = popup_window.borrow().enclosing_component.upgrade().unwrap();
@@ -652,13 +627,7 @@ fn call_builtin_function(
             }
         }
         BuiltinFunction::ClosePopupWindow => {
-            let component = match local_context.component_instance {
-                ComponentInstance::InstanceRef(c) => c,
-                ComponentInstance::GlobalComponent(_) => {
-                    panic!("Cannot show popup from a global component")
-                }
-            };
-
+            let component = local_context.component_instance;
             if let Expression::ElementReference(popup_window) = &arguments[0] {
                 let popup_window = popup_window.upgrade().unwrap();
                 let pop_comp = popup_window.borrow().enclosing_component.upgrade().unwrap();
@@ -696,12 +665,7 @@ fn call_builtin_function(
                 .try_into()
                 .expect("internal error: popup menu position argument should be a point");
 
-            let component = match local_context.component_instance {
-                ComponentInstance::InstanceRef(c) => c,
-                ComponentInstance::GlobalComponent(_) => {
-                    panic!("Cannot show popup from a global component")
-                }
-            };
+            let component = local_context.component_instance;
             let elem = element.upgrade().unwrap();
             generativity::make_guard!(guard);
             let enclosing_component = enclosing_component_for_element(&elem, component, guard);
@@ -821,12 +785,7 @@ fn call_builtin_function(
             if arguments.len() != 3 {
                 panic!("internal error: incorrect argument count to select range function call")
             }
-            let component = match local_context.component_instance {
-                ComponentInstance::InstanceRef(c) => c,
-                ComponentInstance::GlobalComponent(_) => {
-                    panic!("Cannot invoke member function on item from a global component")
-                }
-            };
+            let component = local_context.component_instance;
             if let Expression::ElementReference(element) = &arguments[0] {
                 generativity::make_guard!(guard);
 
@@ -876,14 +835,7 @@ fn call_builtin_function(
                     "internal error: incorrect argument count to item font metrics function call"
                 )
             }
-            let component = match local_context.component_instance {
-                ComponentInstance::InstanceRef(c) => c,
-                ComponentInstance::GlobalComponent(_) => {
-                    panic!(
-                        "Cannot invoke item font metrics function on item from a global component"
-                    )
-                }
-            };
+            let component = local_context.component_instance;
             if let Expression::ElementReference(element) = &arguments[0] {
                 generativity::make_guard!(guard);
 
@@ -1135,30 +1087,20 @@ fn call_builtin_function(
             let a = (1. * a).clamp(0., 1.);
             Value::Brush(Brush::SolidColor(Color::from_hsva(h, s, v, a)))
         }
-        BuiltinFunction::ColorScheme => match local_context.component_instance {
-            ComponentInstance::InstanceRef(component) => component
-                .window_adapter()
-                .internal(corelib::InternalToken)
-                .map_or(ColorScheme::Unknown, |x| x.color_scheme())
-                .into(),
-            ComponentInstance::GlobalComponent(_) => {
-                panic!("Cannot get the window from a global component")
-            }
-        },
-        BuiltinFunction::SupportsNativeMenuBar => match local_context.component_instance {
-            ComponentInstance::InstanceRef(component) => component
-                .window_adapter()
-                .internal(corelib::InternalToken)
-                .is_some_and(|x| x.supports_native_menu_bar())
-                .into(),
-            ComponentInstance::GlobalComponent(_) => {
-                panic!("Cannot get the window from a global component")
-            }
-        },
+        BuiltinFunction::ColorScheme => local_context
+            .component_instance
+            .window_adapter()
+            .internal(corelib::InternalToken)
+            .map_or(ColorScheme::Unknown, |x| x.color_scheme())
+            .into(),
+        BuiltinFunction::SupportsNativeMenuBar => local_context
+            .component_instance
+            .window_adapter()
+            .internal(corelib::InternalToken)
+            .is_some_and(|x| x.supports_native_menu_bar())
+            .into(),
         BuiltinFunction::SetupNativeMenuBar => {
-            let ComponentInstance::InstanceRef(component) = local_context.component_instance else {
-                panic!("SetupNativeMenuBar from a global");
-            };
+            let component = local_context.component_instance;
             if let [Expression::PropertyReference(entries_nr), Expression::PropertyReference(sub_menu_nr), Expression::PropertyReference(activated_nr), Expression::ElementReference(item_tree_root)] =
                 arguments
             {
@@ -1186,11 +1128,12 @@ fn call_builtin_function(
                     component.description.original.root_element.borrow().id,
                     "entries need to be in the main element"
                 );
-                component
+                local_context
+                    .component_instance
                     .description
                     .set_binding(component.borrow(), entries_nr.name(), entries)
                     .unwrap();
-                let i = &local_context.component_instance;
+                let i = &ComponentInstance::InstanceRef(local_context.component_instance);
                 set_callback_handler(i, &sub_menu_nr.element(), sub_menu_nr.name(), sub_menu)
                     .unwrap();
                 set_callback_handler(i, &activated_nr.element(), activated_nr.name(), activated)
@@ -1259,34 +1202,20 @@ fn call_builtin_function(
                     .unwrap_or_default(),
             ))
         }
-        BuiltinFunction::TextInputFocused => match local_context.component_instance {
-            ComponentInstance::InstanceRef(component) => {
-                Value::Bool(component.access_window(|window| window.text_input_focused()) as _)
-            }
-            ComponentInstance::GlobalComponent(_) => {
-                panic!("Cannot get the window from a global component")
-            }
-        },
-        BuiltinFunction::SetTextInputFocused => match local_context.component_instance {
-            ComponentInstance::InstanceRef(component) => {
-                component.access_window(|window| {
-                    window.set_text_input_focused(
-                        eval_expression(&arguments[0], local_context).try_into().unwrap(),
-                    )
-                });
-                Value::Void
-            }
-            ComponentInstance::GlobalComponent(_) => {
-                panic!("Cannot get the window from a global component")
-            }
-        },
+        BuiltinFunction::TextInputFocused => Value::Bool(
+            local_context.component_instance.access_window(|window| window.text_input_focused())
+                as _,
+        ),
+        BuiltinFunction::SetTextInputFocused => {
+            local_context.component_instance.access_window(|window| {
+                window.set_text_input_focused(
+                    eval_expression(&arguments[0], local_context).try_into().unwrap(),
+                )
+            });
+            Value::Void
+        }
         BuiltinFunction::ImplicitLayoutInfo(orient) => {
-            let component = match local_context.component_instance {
-                ComponentInstance::InstanceRef(c) => c,
-                ComponentInstance::GlobalComponent(_) => {
-                    panic!("Cannot access the implicit item size from a global component")
-                }
-            };
+            let component = local_context.component_instance;
             if let [Expression::ElementReference(item)] = arguments {
                 generativity::make_guard!(guard);
 
@@ -1311,12 +1240,7 @@ fn call_builtin_function(
                 panic!("internal error: incorrect argument count to ItemAbsolutePosition")
             }
 
-            let component = match local_context.component_instance {
-                ComponentInstance::InstanceRef(c) => c,
-                ComponentInstance::GlobalComponent(_) => {
-                    panic!("Cannot access the implicit item size from a global component")
-                }
-            };
+            let component = local_context.component_instance;
 
             if let Expression::ElementReference(item) = &arguments[0] {
                 generativity::make_guard!(guard);
@@ -1343,12 +1267,7 @@ fn call_builtin_function(
             if arguments.len() != 1 {
                 panic!("internal error: incorrect argument count to RegisterCustomFontByPath")
             }
-            let component = match local_context.component_instance {
-                ComponentInstance::InstanceRef(c) => c,
-                ComponentInstance::GlobalComponent(_) => {
-                    panic!("Cannot access the implicit item size from a global component")
-                }
-            };
+            let component = local_context.component_instance;
             if let Value::String(s) = eval_expression(&arguments[0], local_context) {
                 if let Some(err) = component
                     .window_adapter()
@@ -1392,25 +1311,15 @@ fn call_builtin_function(
             ))
         }
         BuiltinFunction::Use24HourFormat => Value::Bool(corelib::date_time::use_24_hour_format()),
-        BuiltinFunction::UpdateTimers => match local_context.component_instance {
-            ComponentInstance::InstanceRef(component) => {
-                crate::dynamic_item_tree::update_timers(component);
-                Value::Void
-            }
-            ComponentInstance::GlobalComponent(_) => {
-                panic!("timer in global?")
-            }
-        },
+        BuiltinFunction::UpdateTimers => {
+            crate::dynamic_item_tree::update_timers(local_context.component_instance);
+            Value::Void
+        }
     }
 }
 
 fn call_item_member_function(nr: &NamedReference, local_context: &mut EvalLocalContext) -> Value {
-    let component = match local_context.component_instance {
-        ComponentInstance::InstanceRef(c) => c,
-        ComponentInstance::GlobalComponent(_) => {
-            panic!("Cannot invoke member function on item from a global component")
-        }
-    };
+    let component = local_context.component_instance;
     let elem = nr.element();
     let name = nr.name().as_str();
     generativity::make_guard!(guard);
@@ -1476,7 +1385,7 @@ fn eval_assignment(lhs: &Expression, op: char, rhs: Value, local_context: &mut E
             generativity::make_guard!(guard);
             let enclosing_component = enclosing_component_instance_for_element(
                 &element,
-                &local_context.component_instance,
+                &ComponentInstance::InstanceRef(local_context.component_instance),
                 guard,
             );
 
@@ -1528,10 +1437,7 @@ fn eval_assignment(lhs: &Expression, op: char, rhs: Value, local_context: &mut E
         }
         Expression::RepeaterModelReference { element } => {
             let element = element.upgrade().unwrap();
-            let component_instance = match local_context.component_instance {
-                ComponentInstance::InstanceRef(i) => i,
-                ComponentInstance::GlobalComponent(_) => panic!("can't have repeater in global"),
-            };
+            let component_instance = local_context.component_instance;
             generativity::make_guard!(g1);
             let enclosing_component =
                 enclosing_component_for_element(&element, component_instance, g1);
