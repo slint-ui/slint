@@ -2538,7 +2538,10 @@ thread_local! {
 /// Called by C++'s TimerHandler::timerEvent, or every time a timer might have been started
 pub(crate) fn timer_event() {
     i_slint_core::platform::update_timers_and_animations();
+    restart_timer();
+}
 
+pub(crate) fn restart_timer() {
     let timeout = i_slint_core::timers::TimerList::next_timeout().map(|instant| {
         let now = std::time::Instant::now();
         let instant: std::time::Instant = instant.into();
