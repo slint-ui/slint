@@ -9,6 +9,57 @@ All notable changes to this project are documented in this file.
 
  - Skia renderer: Changed default on Windows to use the software renderer, instead of Direct3D.
  - Color.hsv(): The hue value now wraps instead of clamping between 0 and 360. e.g. a hue of `480` would wrap as expected to `120`. Previously any value equal or greater than 360 would cause the function to output pure black. In the unlikely case an app relied on this keep an eye out as a color will now show up instead of black.
+ - Fixed compilation failure with mingw by disabling jemalloc
+ - Software renderer: fixed drawing background of rotated screen.
+ - Fixed non-square redial gradient (#7899)
+ - Fixed timer starting before property initialization is compplete in the interpreter (#7848)
+ - Fixed ctrl/cmd swap in wasm in macOS browser (#7477)
+ - Software renderer: Fixed overflow for font bigger than 256px (#7936)
+ - Fixed panic in accesskit when opening popups (#7854)
+ - Skia renderer: Fixed artifacts when using the partial renderer (#8066)
+
+### Slint Language
+
+ - Added float.to-fixed and float.to-precision
+ - Added string.to-lowercase and string.to-uppercase
+ - Fixed change handler on a aliased property (#7784, #7747)
+ - Fixed compiler panic when one branch of the `if` statement is not a void expression (#7864)
+ - Fixed `@chidren` as sibling to `Timer` or `PopupWiondow` (#7887)
+ - Deprecated alias to global callbacks and make it an error when setting it (instead of a panic) (#7806)
+ - Conditional element no longer re-instentiate if the condition gets dirty without changing (#3953)
+ - Fix crash if a component get destroyed when a funciton or callback of it is running (#7880)
+ - Added `MenuSeparator` sub-element in `Menu` (#7790)
+ - `Colors.hsv` now accepts hue value outside of 0..360 range by wrapping around
+ - Fixed reading from `MenuItem::title` properties (#8080, #8090)
+
+### Widgets
+
+ - Fix horizontal tab stretch with material
+ - scrollview: fixed scrollthumb size on small sizes (#7809)
+ - MenuBar reacts to hover event when the menu is open (#7822)
+ - Added `Palette.style-name` property
+
+### Rust
+
+### C++
+
+ - Allow vendored corrosion by using find_package to search for it (#7797)
+ - Optimize memory usage avoiding creating dependencies for constant properties
+ - Fixed overflow when subtracting unsigned in the slint languages
+ - esp-idf: select slint::Rgb8Pixel by default when CONFIG_BSP_LCD_COLOR_FORMAT_RGB888 is set
+ - Added support for overriding the translation domain via a CMake target property
+ - Fixed `Math.mod` with negative numbers
+ - Fixed segfault when calling `Model::row_changed` right after `Model::reset` (#8021)
+ - Added `notify_` prefix to the `Model` protected function, and deprecated old names (#3888)
+
+### LSP and Tooling
+
+ - live-preview: Show why no live data is present (#7783)
+ - live-preview: New brush/color input
+ - live-preview: Focus the right widget when the preview is reloaded (#4055)
+ - live-preview: persists the live data when the preview is reloaded
+ - live-preview: Improve std-widget use detection (#8086)
+ - viewer: support gradient in json data (#7913)
 
 ## [1.10.0] - 2025-02-28
 
