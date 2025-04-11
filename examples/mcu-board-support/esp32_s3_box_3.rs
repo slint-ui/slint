@@ -84,6 +84,7 @@ impl slint::platform::Platform for EspBackend {
         Duration::from_nanos(elapsed_ns)
     }
 
+
     fn run_event_loop(&self) -> Result<(), slint::PlatformError> {
         // Take and configure peripherals.
         let mut peripherals = self
@@ -93,12 +94,34 @@ impl slint::platform::Platform for EspBackend {
             .expect("Peripherals already taken");
         let mut delay = Delay::new();
 
+        // The following sequence is necessary to properly initialize touch on ESP32-S3-BOX-3
+        // Based on issue from ESP-IDF: https://github.com/espressif/esp-bsp/issues/302#issuecomment-1971559689
+        // Related code: https://github.com/espressif/esp-bsp/blob/30f0111a97b8fbe2efb7e58366fcf4d26b380f23/components/lcd_touch/esp_lcd_touch_gt911/esp_lcd_touch_gt911.c#L101-L133
+        let mut int_pin = Output::new(
+            peripherals.GPIO3,
+            Level::High, // start high because of pull-up
+            OutputConfig::default(), // Use default config (if needed, you can add pull-up here)
+        );
+        // Force INT low to select address 0x14.
+        int_pin.set_low();
+        delay.delay_ms(10);
+        // For 0x14 the desired level is low
+        int_pin.set_low();
+        delay.delay_ms(1);
 
+        // Now toggle RESET.
+        // Note: Make sure this does not conflict with your display.
+        // Here we assume that if the configuration’s reset level is 0, then the toggle is to high.
         let mut rst = Output::new(
             peripherals.GPIO48,
-            Level::High,
+            Level::Low, // pull low to initiate reset
             OutputConfig::default().with_drive_mode(DriveMode::OpenDrain),
         );
+        // According to ESP‑IDF, after INT is toggled, set RESET to the opposite of the config level.
+        rst.set_high(); // if config.levels.reset == 0
+        delay.delay_ms(10);
+        // Allow extra time for the GT911 to wake up.
+        delay.delay_ms(50);
 
         // --- Begin SPI and Display Initialization ---
         let spi = Spi::<esp_hal::Blocking>::new(
