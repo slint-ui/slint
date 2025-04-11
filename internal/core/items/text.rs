@@ -158,47 +158,14 @@ impl RenderText for ComplexText {
     }
 
     fn font_request(self: Pin<&Self>, self_rc: &ItemRc) -> FontRequest {
-        let Some(window_item_rc) = self_rc.window_item() else {
-            return Default::default();
-        };
-
-        FontRequest {
-            family: {
-                let maybe_family = self.font_family();
-                if !maybe_family.is_empty() {
-                    Some(maybe_family)
-                } else {
-                    super::WindowItem::resolve_font_property(
-                        &window_item_rc,
-                        super::WindowItem::font_family,
-                    )
-                }
-            },
-            weight: {
-                let weight = self.font_weight();
-                if weight == 0 {
-                    super::WindowItem::resolve_font_property(
-                        &window_item_rc,
-                        super::WindowItem::font_weight,
-                    )
-                } else {
-                    Some(weight)
-                }
-            },
-            pixel_size: {
-                let font_size = self.font_size();
-                if font_size.get() == 0 as Coord {
-                    super::WindowItem::resolve_font_property(
-                        &window_item_rc,
-                        super::WindowItem::font_size,
-                    )
-                } else {
-                    Some(font_size)
-                }
-            },
-            letter_spacing: Some(self.letter_spacing()),
-            italic: self.font_italic(),
-        }
+        FontRequest::new_resolved(
+            self_rc,
+            self.font_family(),
+            self.font_weight(),
+            self.font_size(),
+            self.letter_spacing(),
+            self.font_italic(),
+        )
     }
 
     fn color(self: Pin<&Self>) -> Brush {
@@ -353,40 +320,14 @@ impl RenderText for SimpleText {
     }
 
     fn font_request(self: Pin<&Self>, self_rc: &ItemRc) -> FontRequest {
-        let Some(window_item_rc) = self_rc.window_item() else {
-            return Default::default();
-        };
-
-        FontRequest {
-            family: super::WindowItem::resolve_font_property(
-                &window_item_rc,
-                super::WindowItem::font_family,
-            ),
-            weight: {
-                let weight = self.font_weight();
-                if weight == 0 {
-                    super::WindowItem::resolve_font_property(
-                        &window_item_rc,
-                        super::WindowItem::font_weight,
-                    )
-                } else {
-                    Some(weight)
-                }
-            },
-            pixel_size: {
-                let font_size = self.font_size();
-                if font_size.get() == 0 as Coord {
-                    super::WindowItem::resolve_font_property(
-                        &window_item_rc,
-                        super::WindowItem::font_size,
-                    )
-                } else {
-                    Some(font_size)
-                }
-            },
-            letter_spacing: None,
-            italic: false,
-        }
+        FontRequest::new_resolved(
+            self_rc,
+            SharedString::default(),
+            self.font_weight(),
+            self.font_size(),
+            self.letter_spacing(),
+            false,
+        )
     }
 
     fn color(self: Pin<&Self>) -> Brush {
@@ -1726,47 +1667,14 @@ impl TextInput {
     }
 
     pub fn font_request(self: Pin<&Self>, self_rc: &ItemRc) -> FontRequest {
-        let Some(window_item_rc) = self_rc.window_item() else {
-            return Default::default();
-        };
-
-        FontRequest {
-            family: {
-                let maybe_family = self.font_family();
-                if !maybe_family.is_empty() {
-                    Some(maybe_family)
-                } else {
-                    super::WindowItem::resolve_font_property(
-                        &window_item_rc,
-                        super::WindowItem::font_family,
-                    )
-                }
-            },
-            weight: {
-                let weight = self.font_weight();
-                if weight == 0 {
-                    super::WindowItem::resolve_font_property(
-                        &window_item_rc,
-                        super::WindowItem::font_weight,
-                    )
-                } else {
-                    Some(weight)
-                }
-            },
-            pixel_size: {
-                let font_size = self.font_size();
-                if font_size.get() == 0 as Coord {
-                    super::WindowItem::resolve_font_property(
-                        &window_item_rc,
-                        super::WindowItem::font_size,
-                    )
-                } else {
-                    Some(font_size)
-                }
-            },
-            letter_spacing: Some(self.letter_spacing()),
-            italic: self.font_italic(),
-        }
+        FontRequest::new_resolved(
+            self_rc,
+            self.font_family(),
+            self.font_weight(),
+            self.font_size(),
+            self.letter_spacing(),
+            self.font_italic(),
+        )
     }
 
     /// Returns a [`TextInputVisualRepresentation`] struct that contains all the fields necessary for rendering the text input,
