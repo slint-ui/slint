@@ -16,6 +16,15 @@ pub struct NemaGFXEnhancedBuffer<'a> {
     command_list: Option<Box<nema_cmdlist_t>>,
 }
 
+/// ```c
+/// static inline uint32_t nema_blending_mode(uint32_t src_bf, uint32_t dst_bf, uint32_t blops) {
+///    return ( (src_bf) | (dst_bf << 8) | (blops&NEMA_BLOP_MASK) );
+/// }
+/// ```
+fn nema_blending_mode(src_bf: u32, dst_bf: u32, blops: u32) -> u32 {
+    (src_bf) | (dst_bf << 8) | (blops & NEMA_BLOP_MASK)
+}
+
 impl<'a> i_slint_core::software_renderer::TargetPixelBuffer
     for Pin<&mut NemaGFXEnhancedBuffer<'a>>
 {
@@ -103,7 +112,7 @@ impl<'a> i_slint_core::software_renderer::TargetPixelBuffer
         rotation: software_renderer::RenderingRotation,
         composition_mode: software_renderer::CompositionMode,
     ) -> bool {
-        let (source_blend_factor, texture_format) = match src_texture.pixel_format {
+        let (mut source_blend_factor, texture_format) = match src_texture.pixel_format {
             software_renderer::TexturePixelFormat::Rgb => (NEMA_BF_SRCALPHA, NEMA_RGB24),
             software_renderer::TexturePixelFormat::Rgba => (NEMA_BF_SRCALPHA, NEMA_RGBA8888),
             software_renderer::TexturePixelFormat::RgbaPremultiplied => {
@@ -113,6 +122,12 @@ impl<'a> i_slint_core::software_renderer::TargetPixelBuffer
             software_renderer::TexturePixelFormat::SignedDistanceField => {
                 return false;
             }
+        };
+
+        let dst_blend_factor = match composition_mode {
+            software_renderer::CompositionMode::Source => NEMA_BF_ZERO,
+            software_renderer::CompositionMode::SourceOver => NEMA_BF_INVSRCALPHA,
+            _ => return false,
         };
 
         if src_texture.delta_x != (1 << 0x8) || src_texture.delta_y != (1 << 0x8) {
@@ -143,29 +158,33 @@ impl<'a> i_slint_core::software_renderer::TargetPixelBuffer
 
             nema_set_clip(0, 0, self.width, self.height);
 
-            let colorize = slint::Color::from_argb_encoded(colorize);
 
-            nema_set_const_color(nema_rgba(
-                colorize.red(),
-                colorize.green(),
-                colorize.blue(),
-                alpha,
-            ));
-
-            if texture_format == NEMA_A8 {
-                // const color modulation doesn't seem to work with A8 textures, so instead, set the
-                // texture color for the missing channels.
-                nema_set_tex_color(nema_rgba(colorize.red(), colorize.green(), colorize.blue(), 0));
+            let mut blop = NEMA_BLOP_NONE;
+            if colorize != 0 {
+                let colorize = slint::Color::from_argb_encoded(colorize);
+                if texture_format == NEMA_A8 {
+                    // const color modulation doesn't seem to work with A8 textures, so instead, set the
+                    // texture color for the missing channels.
+                    nema_set_tex_color(nema_rgba(
+                        colorize.red(),
+                        colorize.green(),
+                        colorize.blue(),
+                        colorize.alpha(),
+                    ));
+                } else {
+                    nema_set_recolor_color(nema_rgba(
+                        colorize.red(),
+                        colorize.green(),
+                        colorize.blue(),
+                        colorize.alpha(),
+                    ));
+                    blop = NEMA_BLOP_RECOLOR;
+                    source_blend_factor = NEMA_BF_SRCALPHA;
+                }
             }
 
             nema_set_blend(
-                source_blend_factor
-                    | (match composition_mode {
-                        software_renderer::CompositionMode::Source => NEMA_BF_ZERO,
-                        software_renderer::CompositionMode::SourceOver => NEMA_BF_INVSRCALPHA,
-                        _ => todo!(),
-                    } << 8)
-                    | (NEMA_BLOP_MODULATE_RGB & NEMA_BLOP_MASK),
+                nema_blending_mode(source_blend_factor, dst_blend_factor, blop),
                 nema_tex_t_NEMA_TEX0,
                 nema_tex_t_NEMA_TEX1,
                 nema_tex_t_NEMA_NOTEX,
