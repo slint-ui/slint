@@ -11,6 +11,8 @@ export component CodeWidget inherits GridLayout {
     in property <string> property-name;
     in property <PropertyValue> property-value;
 
+    callback update-display-string(value: string);
+
     callback code-action();
     callback reset-action();
 

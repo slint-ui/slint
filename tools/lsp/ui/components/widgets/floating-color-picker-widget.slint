@@ -4,20 +4,12 @@
 import { Palette, Button, ComboBox } from "std-widgets.slint";
 import { WindowGlobal, WindowManager } from "../../windowglobal.slint";
 import { Api, GradientStop } from "../../api.slint";
-import { Icons } from "../../components/styling.slint";
+import { Icons, EditorPalette } from "../../components/styling.slint";
 import { BrushMode, PickerData, PickerMode, WidgetMode } from "../../properties-state.slint";
 import { SimpleColumn } from "../../components/layout-helpers.slint";
 import { DraggablePanel } from "../../components/draggable-panel.slint";
 
 export global Styles {
-    out property <color> section-color: Palette.color-scheme == ColorScheme.dark ? #3f3f3f : #f5f5f5;
-    out property <color> text-color: Palette.color-scheme == ColorScheme.dark ? white : #383838;
-    out property <color> divider-color: Palette.color-scheme == ColorScheme.dark ? #444444 : #e6e6e6;
-    out property <color> background-color: Palette.color-scheme == ColorScheme.dark ? #2c2c2c : white;
-    out property <brush> picker-border-color: Palette.color-scheme == ColorScheme.dark ? #ffffff17 : transparent;
-    out property <length> standard-margin: 16px;
-    out property <length> small-margin: 12px;
-    out property <length> property-border-radius: 5px;
     out property <length> picker-width: 240px;
 }
 
@@ -101,7 +93,7 @@ component BrushTypeSelector {
     in-out property <BrushMode> brush-mode: color;
 
     HorizontalLayout {
-        padding-left: Styles.small-margin;
+        padding-left: EditorPalette.small-margin;
         alignment: start;
 
         Rectangle {
@@ -113,8 +105,8 @@ component BrushTypeSelector {
 
             Rectangle {
                 visible: is-active;
-                background: Styles.section-color;
-                border-radius: Styles.property-border-radius;
+                background: EditorPalette.section-color;
+                border-radius: EditorPalette.property-border-radius;
             }
 
             TouchArea {
@@ -152,8 +144,8 @@ component BrushTypeSelector {
 
             Rectangle {
                 visible: is-active;
-                background: Styles.section-color;
-                border-radius: Styles.property-border-radius;
+                background: EditorPalette.section-color;
+                border-radius: EditorPalette.property-border-radius;
             }
 
             TouchArea {
@@ -190,8 +182,8 @@ component BrushTypeSelector {
 
             Rectangle {
                 visible: is-active;
-                background: Styles.section-color;
-                border-radius: Styles.property-border-radius;
+                background: EditorPalette.section-color;
+                border-radius: EditorPalette.property-border-radius;
             }
 
             TouchArea {
@@ -230,11 +222,11 @@ component ColorModeColorAndApply {
         alignment: center;
         spacing: 10px;
         Rectangle {
-            x: Styles.standard-margin;
+            x: EditorPalette.standard-margin;
             width: 170px;
             height: 25px;
-            background: Styles.section-color;
-            border-radius: Styles.property-border-radius;
+            background: EditorPalette.section-color;
+            border-radius: EditorPalette.property-border-radius;
             border-width: 1px;
 
             Rectangle {
@@ -259,7 +251,7 @@ component ColorModeColorAndApply {
                 x: 35px;
                 font-family: "Inter";
                 font-size: 12px;
-                color: Styles.text-color;
+                color: EditorPalette.text-color;
                 text: Api.color-to-data(PickerData.current-color).short-text.to-uppercase();
                 letter-spacing: 0.8px;
             }
@@ -268,7 +260,7 @@ component ColorModeColorAndApply {
                 x: parent.width - 45px;
                 width: 1px;
                 height: parent.height;
-                background: Styles.background-color;
+                background: Palette.background;
             }
 
             Rectangle {
@@ -283,7 +275,7 @@ component ColorModeColorAndApply {
                     horizontal-alignment: left;
                     font-family: "Inter";
                     font-size: 12px;
-                    color: Styles.text-color;
+                    color: EditorPalette.text-color;
                     text: PickerData.alpha;
                     text-cursor-width: 2px;
                     selection-background-color: #3984ec;
@@ -337,7 +329,7 @@ component ColorModeColorAndApply {
         }
 
         if widget-mode == WidgetMode.edit: Button {
-            x: Styles.standard-margin;
+            x: EditorPalette.standard-margin;
             width: 100px;
             text: "Apply";
             clicked => {
@@ -349,7 +341,7 @@ component ColorModeColorAndApply {
 
 component VerticalSpacer {
     width: 100%;
-    height: Styles.small-margin;
+    height: EditorPalette.small-margin;
 }
 
 component GradientSlider {
@@ -366,7 +358,7 @@ component GradientSlider {
     Rectangle {
         width: 24px;
         height: self.width;
-        background: Styles.section-color;
+        background: EditorPalette.section-color;
         border-radius: 5px;
 
         TouchArea {
@@ -391,7 +383,7 @@ component GradientSlider {
                 width: 10px;
                 rotation-angle: 45deg;
                 source: Icons.black-square;
-                colorize: Styles.section-color;
+                colorize: EditorPalette.section-color;
             }
         }
 
@@ -409,10 +401,10 @@ component GradientStopValue {
     height: 30px;
 
     Rectangle {
-        x: Styles.standard-margin;
+        x: EditorPalette.standard-margin;
         width: 48px;
-        border-radius: Styles.property-border-radius;
-        background: Styles.section-color;
+        border-radius: EditorPalette.property-border-radius;
+        background: EditorPalette.section-color;
         TextInput {
             x: 10px;
             height: 15px;
@@ -420,7 +412,7 @@ component GradientStopValue {
             horizontal-alignment: left;
             font-family: "Inter";
             font-size: 12px;
-            color: Styles.text-color;
+            color: EditorPalette.text-color;
             text: (PickerData.current-gradient-stops[stop-index].position * 100.0).round();
             text-cursor-width: 2px;
             selection-background-color: #3984ec;
@@ -476,8 +468,8 @@ component GradientStopValue {
     Rectangle {
         x: 70px;
         width: 140px;
-        border-radius: Styles.property-border-radius;
-        background: Styles.section-color;
+        border-radius: EditorPalette.property-border-radius;
+        background: EditorPalette.section-color;
 
         ColorIndicator {
             x: 5px;
@@ -498,7 +490,7 @@ component GradientStopValue {
             x: 35px;
             font-family: "Inter";
             font-size: 12px;
-            color: Styles.text-color;
+            color: EditorPalette.text-color;
             text: Api.color-to-data(PickerData.current-gradient-stops[stop-index].color).short-text.to-uppercase();
             letter-spacing: 0.8px;
         }
@@ -507,7 +499,7 @@ component GradientStopValue {
             x: parent.width - 45px;
             width: 1px;
             height: parent.height;
-            background: Styles.background-color;
+            background: Palette.background;
         }
 
         Rectangle {
@@ -520,7 +512,7 @@ component GradientStopValue {
                 horizontal-alignment: left;
                 font-family: "Inter";
                 font-size: 12px;
-                color: Styles.text-color;
+                color: EditorPalette.text-color;
                 text: (PickerData.current-gradient-stops[stop-index].color.to-hsv().alpha * 100.0).round();
                 text-cursor-width: 2px;
                 selection-background-color: #3984ec;
@@ -580,8 +572,8 @@ component GradientPicker inherits SimpleColumn {
         height: 50px;
 
         ComboBox {
-            x: Styles.standard-margin;
-            y: Styles.standard-margin;
+            x: EditorPalette.standard-margin;
+            y: EditorPalette.standard-margin;
             model: ["Linear", "Radial"];
             current-value: "Linear";
         }
@@ -591,11 +583,11 @@ component GradientPicker inherits SimpleColumn {
         height: 80px;
 
         Rectangle {
-            width: parent.width - (Styles.standard-margin * 2);
+            width: parent.width - (EditorPalette.standard-margin * 2);
             height: 30px;
 
             Rectangle {
-                border-radius: Styles.property-border-radius;
+                border-radius: EditorPalette.property-border-radius;
                 clip: true;
                 background: white;
 
@@ -618,7 +610,7 @@ component GradientPicker inherits SimpleColumn {
                 Rectangle {
                     border-radius: parent.border-radius;
                     border-width: 1px;
-                    border-color: Styles.text-color.with-alpha(10%);
+                    border-color: EditorPalette.text-color.with-alpha(10%);
                 }
             }
 
@@ -635,9 +627,9 @@ component GradientPicker inherits SimpleColumn {
     Rectangle {
         height: 50px;
         Text {
-            x: Styles.standard-margin;
-            y: Styles.standard-margin;
-            color: Styles.text-color;
+            x: EditorPalette.standard-margin;
+            y: EditorPalette.standard-margin;
+            color: EditorPalette.text-color;
             text: "Stops";
             font-family: "Inter";
             font-size: 11px;
@@ -648,14 +640,14 @@ component GradientPicker inherits SimpleColumn {
             y: 10px;
             width: 25px;
             height: self.width;
-            background: t-plus.has-hover ? Styles.section-color : transparent;
-            border-radius: Styles.property-border-radius;
+            background: t-plus.has-hover ? EditorPalette.section-color : transparent;
+            border-radius: EditorPalette.property-border-radius;
 
             t-plus := TouchArea { }
 
             Image {
                 source: Icons.plus;
-                colorize: Styles.text-color;
+                colorize: EditorPalette.text-color;
             }
         }
     }
@@ -672,8 +664,8 @@ component HsvPicker inherits SimpleColumn {
     saturation-value-holder := Rectangle {
         height: self.width * 0.75;
         saturation-value := Rectangle {
-            width: parent.width - (Styles.standard-margin * 2);
-            height: parent.height - (Styles.standard-margin * 2);
+            width: parent.width - (EditorPalette.standard-margin * 2);
+            height: parent.height - (EditorPalette.standard-margin * 2);
 
             Rectangle {
                 border-radius: 6px;
@@ -693,7 +685,7 @@ component HsvPicker inherits SimpleColumn {
                 Rectangle {
                     border-radius: parent.border-radius;
                     border-width: 1px;
-                    border-color: Styles.text-color.with-alpha(10%);
+                    border-color: EditorPalette.text-color.with-alpha(10%);
                 }
 
                 TouchArea {
@@ -743,7 +735,7 @@ component HsvPicker inherits SimpleColumn {
         // The following properties are used to size the hue picker and control the
         // thumb to now go past the visual bounds. But the TouchArea is intentionally larger
         // to be usable.
-        property <length> main-width: root.width - (Styles.standard-margin * 2) - main-height;
+        property <length> main-width: root.width - (EditorPalette.standard-margin * 2) - main-height;
         property <length> main-height: 16px;
         property <length> rounded-end-width: main-height / 2;
         VerticalLayout {
@@ -752,8 +744,8 @@ component HsvPicker inherits SimpleColumn {
                 width: 100%;
                 height: 16px;
                 hue-picker := Rectangle {
-                    x: Styles.standard-margin;
-                    width: root.width - (Styles.standard-margin * 2);
+                    x: EditorPalette.standard-margin;
+                    width: root.width - (EditorPalette.standard-margin * 2);
                     height: main-height;
                     TouchArea {
                         moved => {
@@ -800,7 +792,7 @@ component HsvPicker inherits SimpleColumn {
                         Rectangle {
                             border-radius: parent.border-radius;
                             border-width: 1px;
-                            border-color: Styles.text-color;
+                            border-color: EditorPalette.text-color;
                             opacity: 10%;
                         }
                     }
@@ -833,7 +825,7 @@ component HsvPicker inherits SimpleColumn {
                 width: 100%;
                 height: 16px;
                 Rectangle {
-                    x: Styles.standard-margin;
+                    x: EditorPalette.standard-margin;
                     width: main-width + main-height;
                     height: main-height;
                     Rectangle {
@@ -893,7 +885,7 @@ component HsvPicker inherits SimpleColumn {
                         Rectangle {
                             border-radius: parent.border-radius;
                             border-width: 1px;
-                            border-color: Styles.text-color;
+                            border-color: EditorPalette.text-color;
                             opacity: 10%;
                         }
                     }
@@ -947,7 +939,7 @@ component HsvPicker inherits SimpleColumn {
             height: 1px;
             x: 0;
             y: parent.height - self.height;
-            background: Styles.divider-color;
+            background: EditorPalette.divider-color;
         }
     }
 }
@@ -980,14 +972,14 @@ component ColorPicker inherits DraggablePanel {
             x: parent.width - self.width - 5px;
             width: 25px;
             height: self.width;
-            background: t-close.has-hover ? Styles.section-color : transparent;
-            border-radius: Styles.property-border-radius;
+            background: t-close.has-hover ? EditorPalette.section-color : transparent;
+            border-radius: EditorPalette.property-border-radius;
 
             t-close := TouchArea { }
 
             Image {
                 source: Icons.close;
-                colorize: Styles.text-color;
+                colorize: EditorPalette.text-color;
             }
         }
 
@@ -996,7 +988,7 @@ component ColorPicker inherits DraggablePanel {
             height: 1px;
             x: 0;
             y: parent.height - self.height;
-            background: Styles.divider-color;
+            background: EditorPalette.divider-color;
         }
     }
 
@@ -1012,7 +1004,7 @@ component ColorPicker inherits DraggablePanel {
 
     footer := Rectangle {
         width: 100%;
-        height: Styles.standard-margin;
+        height: EditorPalette.standard-margin;
     }
 }
 

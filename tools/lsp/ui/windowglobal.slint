@@ -1,12 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
-
-
-
 import { Api, BrushKind, ColorData, ElementInformation, GradientStop, PropertyInformation, PropertyValue, PropertyValueKind, PreviewData  } from "./api.slint";
 import { StatusLineApi } from "components/status-line.slint";
 import { BrushMode, PickerData, PickerMode, WidgetMode } from "./properties-state.slint";
-
+import { TableData } from "properties-state.slint";
 
 export global WindowGlobal {
     in-out property <length> window-width;
@@ -15,19 +12,22 @@ export global WindowGlobal {
 
 export global WindowManager {
     out property <bool> showing-color-picker: false;
+    out property <bool> showing-table-editor: false;
     out property <WidgetMode> widget-mode: edit;
     out property <PickerMode> picker-mode: color;
     out property <BrushMode> brush-mode: color;
 
     property <ElementInformation> current-element-information;
     out property <PropertyInformation> current-property-information;
-    property <string> current-property-container-id;
-    property <PreviewData> current-preview-data;
+    in-out property <string> current-property-container-id;
+    in-out property <PreviewData> current-preview-data;
     property <string> possible_error;
+    property <string> brush-string;
 
     callback show-floating-widget(PropertyInformation, ElementInformation);
     callback show-floating-preview-widget(property-container-id: string, preview-data: PreviewData, property-value: PropertyValue);
     callback show-floating-preview-brush-widget(property-container-id: string, preview-data: PreviewData, brush-kind: BrushKind, current-brush: brush, current-gradient-stops: [GradientStop]);
+    callback show-floating-table-editor(property-group-id: string, preview-data: PreviewData);
     callback hide-floating-widget();
     callback apply-current-value(value: string);
     callback update-preview-value(value: string);
@@ -49,6 +49,7 @@ export global WindowManager {
 
     hide-floating-widget => {
         showing-color-picker = false;
+        showing-table-editor = false;
         current-element-information = { };
         current-property-information = { };
         widget-mode = WidgetMode.edit;
@@ -73,7 +74,7 @@ export global WindowManager {
     show-floating-preview-brush-widget(property-container-id, preview-data, brush-kind, current-brush, current-gradient-stops) => {
         widget-mode = WidgetMode.preview;
         picker-mode = PickerMode.brush;
-        current-property-container-id  = property-container-id;
+        current-property-container-id = property-container-id;
         current-preview-data = preview-data;
         if brush-kind == BrushKind.solid {
             brush-mode = BrushMode.color;
@@ -85,6 +86,11 @@ export global WindowManager {
         PickerData.current-brush = current-brush;
         PickerData.current-gradient-stops = current-gradient-stops;
         showing-color-picker = true;
+    }
+
+    show-floating-table-editor(property-group-id, preview-data) => {
+        TableData.populate-table(property-group-id, preview-data);
+        showing-table-editor = true;
     }
 
     apply-current-value(text) => {
@@ -102,14 +108,13 @@ export global WindowManager {
         StatusLineApi.help-text = self.possible-error;
     }
 
-    property <string> brush-string;
     update-brush() => {
         PickerData.current-brush = Api.create-brush(BrushKind.linear, 90.0, PickerData.current-brush, PickerData.current-gradient-stops);
         if widget-mode == WidgetMode.preview {
             brush-string = Api.as-slint-brush(BrushKind.linear, PickerData.current-angle, PickerData.current-brush, PickerData.current-gradient-stops);
             self.possible_error = Api.set-json-preview-data(current-property-container-id, current-preview-data.name, "\"\{brush-string}\"");
 
-           StatusLineApi.help-text = self.possible-error;
+            StatusLineApi.help-text = self.possible-error;
         }
     }
 }

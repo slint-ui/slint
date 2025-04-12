@@ -11,6 +11,8 @@ export component IntegerWidget inherits GridLayout {
     in property <string> property-name;
     in property <PropertyValue> property-value;
 
+    callback update-display-string(value: string);
+
     callback test-integer-binding(text: string) -> bool;
     callback set-integer-binding(text: string);
 
@@ -44,7 +46,8 @@ export component IntegerWidget inherits GridLayout {
             }
 
             accepted(text) => {
-                set-integer-binding(text);
+                root.update-display-string(text);
+                root.set-integer-binding(text);
             }
         }
     }

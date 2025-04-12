@@ -1,43 +1,110 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Palette, Button, LineEdit, CheckBox, ScrollView, VerticalBox } from "std-widgets.slint";
-import { Api, ColorData, ElementInformation, PreviewData, PreviewDataKind, PropertyDeclaration, PropertyGroup, PropertyInformation, PropertyValue, PropertyValueKind, PropertyValueTable } from "../api.slint";
-import { EditorSizeSettings, Icons, EditorAnimationSettings, EditorSpaceSettings, EditorSizeSettings, EditorFontSettings, EditorPalette } from "../components/styling.slint";
+import { Palette } from "std-widgets.slint";
+import { Api, PreviewData, PreviewDataKind, PropertyValue, PropertyValueKind, PropertyValueTable } from "../api.slint";
+import { StatusLineApi } from "../components/status-line.slint";
+import { EditorSizeSettings, Icons, EditorSpaceSettings } from "../components/styling.slint";
 import { PropertyValueWidget } from "../components/property-widgets.slint";
 
 export struct CellData {
-    id: string,
-    value: PropertyValue,
+    property-group-id: string,
+    property-name: string,
+
     row: int,
     col: int,
+
     x: length,
     y: length,
     width: length,
-    height: length
-}
+    height: length}
 
-export component EditWindow inherits Rectangle {
-    in property <CellData> current-cell;
-    drop-shadow-blur: 10px;
-    drop-shadow-color: black.transparentize(0.5);
-    drop-shadow-offset-x: 0;
-    drop-shadow-offset-y: 0;
-    border-radius: EditorSizeSettings.radius;
-    width: self.preferred-width;
-    height: self.preferred-height;
-    background: Palette.alternate-background;
+export component EditWindow inherits PopupWindow {
+    close-policy: close-on-click-outside;
+
+    callback test(string) -> bool;
     callback save(string);
     callback close-editor();
-    HorizontalLayout {
-        padding: EditorSpaceSettings.default-padding;
-        padding-left: EditorSpaceSettings.default-padding + 15px;
-        spacing: EditorSpaceSettings.default-spacing;
-        PropertyValueWidget {
-            property-value: current-cell.value;
-            visible: true;
-            property-name: current-cell.id;
-            enabled: true;
+
+    in property <CellData> current-cell-data;
+    in-out property <PropertyValueTable> current-table;
+
+    content := Rectangle {
+        changed height => {
+            parent.height = self.height;
+        }
+
+        drop-shadow-blur: 10px;
+        drop-shadow-color: black.transparentize(0.5);
+        drop-shadow-offset-x: 0;
+        drop-shadow-offset-y: 0;
+        border-radius: EditorSizeSettings.radius;
+        width: self.preferred-width;
+        height: self.preferred-height;
+        background: Palette.alternate-background;
+        hl := HorizontalLayout {
+            padding: EditorSpaceSettings.default-padding;
+            padding-left: EditorSpaceSettings.default-padding;
+            spacing: EditorSpaceSettings.default-spacing;
+
+            PropertyValueWidget {
+                property-value: root.current-table.values[root.current-cell-data.row][root.current-cell-data.col];
+                property-name: root.current-cell-data.property-group-id;
+                enabled: true;
+
+                changed property-value => {
+                    root.current-table.values[root.current-cell-data.row][root.current-cell-data.col] = self.property-value;
+                }
+
+                update-display-string(value) => {
+                    root.current-table.values[root.current-cell-data.row][root.current-cell-data.col].display-string = value;
+                }
+
+                test-color-binding(text) => {
+                    return root.test("\"\{text}\"");
+                }
+                test-brush-binding(kind, angle, color, stops) => {
+                    return root.test(Api.as-json-brush(kind, angle, color, stops));
+                }
+                test-float-binding(text, unit) => {
+                    return root.test(text);
+                }
+                test-code-binding(text) => {
+                    return root.test(text);
+                }
+                test-string-binding(text, is_translated) => {
+                    return root.test(is_translated ? "\"\{text}\"" : text);
+                }
+
+                set-bool-binding(value) => {
+                    debug("set-bool-binding");
+                    root.save(value ? "true" : "false");
+                }
+                set-color-binding(text) => {
+                    debug("set-color-binding");
+                    root.save("\"\{text}\"");
+                }
+                set-brush-binding(kind, angle, color, stops) => {
+                    debug("set-brush-binding");
+                    root.save(Api.as-json-brush(kind, angle, color, stops));
+                }
+                set-float-binding(text, _unit) => {
+                    debug("set-float-binding");
+                    root.save(text);
+                }
+                set-code-binding(text) => {
+                    debug("set-code-binding");
+                    root.save(text);
+                }
+                set-string-binding(text, is_translated) => {
+                    debug("set-string-binding");
+                    root.save(is_translated ? "\"\{text}\"" : text);
+                }
+                set-enum-binding(text) => {
+                    debug("set-enum-binding");
+                    root.save("\"\{text}\"");
+                }
+            }
         }
     }
 }
@@ -47,6 +114,7 @@ component RowMarker inherits Rectangle {
     in property <bool> header: false;
     in property <bool> hovered;
     width: 30px;
+
     if (value > 0):   Rectangle {
         height: 30px;
         background: header ? transparent : Palette.alternate-background;
@@ -81,18 +149,20 @@ component RowMarker inherits Rectangle {
 }
 
 component Cell inherits Rectangle {
-    in property <CellData> cell-data;
-    in property <string> id;
+    in property <PropertyValue> property-value;
+
     in property <bool> is-header: false;
     in property <bool> is-writeable: false;
-    in-out property <bool> is-editing: false;
-    in property <length> cell-width: 100px;
-    property <bool> cell-clicked: false;
-    in property <string> text: "";
-    in-out property <color> bg-color: cell-clicked ? Palette.accent-background.transparentize(0.8) : transparent;
-    callback edit-clicked(CellData);
 
-    width: cell-width;
+    in property <string> text;
+
+    in-out property <color> bg-color: cell-clicked ? Palette.accent-background.transparentize(0.8) : transparent;
+
+    private property <bool> cell-clicked: false;
+
+    callback edit-clicked();
+
+    width: 100px;
     height: 30px;
     border-width: 1px;
     border-color: Palette.border;
@@ -116,128 +186,56 @@ component Cell inherits Rectangle {
 
     if is-writeable: TouchArea {
         clicked => {
-            root.edit-clicked({ id: root.id, value: cell-data.value, row: 0, col: 0 });
+            root.edit-clicked();
         }
     }
 }
 
-export component Spreadsheet inherits ScrollView {
+export component Spreadsheet {
+    in property <string> property-group-id;
     in property <PreviewData> preview-data: {
         name: "Addresses",
         has-getter: true,
         has-setter: true,
         kind: PreviewDataKind.Table,
     };
-    in property <PropertyValueTable> current-table: {
+    in-out property <PropertyValueTable> current-table: {
         is-array: true,
-        headers: ["type", "street", "city", "state", "zip", "favorite","color"],
+        headers: ["type", "street", "city", "state", "zip", "favorite", "color"],
         values: [
             [
-                {
-                    kind: PropertyValueKind.string,
-                    value-string: "home"
-                }, {
-                    kind: PropertyValueKind.string,
-                    value-string: "123 Oak Lane"
-                }, {
-                    kind: PropertyValueKind.string,
-                    value-string: "Richmond"
-                }, {
-                    kind: PropertyValueKind.string,
-                    value-string: "VA"
-                }, {
-                    kind: PropertyValueKind.string,
-                    value-string: "23226"
-                }, {
-                    kind: PropertyValueKind.boolean,
-                    value-bool: true,
-                    value-string: "True"
-                }, {
-                    kind: PropertyValueKind.color,
-                    value-string: "#ff0000"
-                }
-            ], [
-                {
-                    kind: PropertyValueKind.string,
-                    value-string: "work"
-                }, {
-                    kind: PropertyValueKind.string,
-                    value-string: "456 Corporate Blvd"
-                }, {
-                    kind: PropertyValueKind.string,
-                    value-string: "Richmond"
-                }, {
-                    kind: PropertyValueKind.string,
-                    value-string: "VA"
-                }, {
-                    kind: PropertyValueKind.string,
-                    value-string: "23219"
-                }, {
-                    kind: PropertyValueKind.boolean,
-                    value-bool: false,
-                    value-string: "False"
-                }
-            ], [
-                {
-                    kind: PropertyValueKind.string,
-                    value-string: "history"
-                }, {
-                    kind: PropertyValueKind.string,
-                    value-string: "123 Oak Lane"
-                }, {
-                    kind: PropertyValueKind.string,
-                    value-string: "Richmond"
-                }, {
-                    kind: PropertyValueKind.string,
-                    value-string: "VA"
-                }, {
-                    kind: PropertyValueKind.string,
-                    value-string: "23226"
-                }, {
-                    kind: PropertyValueKind.boolean,
-                    value-bool: false,
-                    value-string: "False"
-                }, {
-                    kind: PropertyValueKind.color,
-                    value-string: "#aaff00"
-                }
-            ], [
-                {
-                    kind: PropertyValueKind.string,
-                    value-string: "world"
-                }, {
-                    kind: PropertyValueKind.string,
-                    value-string: "456 Corporate Blvd"
-                }, {
-                    kind: PropertyValueKind.string,
-                    value-string: "Richmond"
-                }, {
-                    kind: PropertyValueKind.string,
-                    value-string: "VA"
-                }, {
-                    kind: PropertyValueKind.string,
-                    value-string: "23219"
-                }, {
-                    kind: PropertyValueKind.boolean,
-                    value-bool: false,
-                    value-string: "False"
-                }, {
-                    kind: PropertyValueKind.color,
-                    value-string: "#ff0000"
-                }
+                { kind: PropertyValueKind.string, display-string: "home" },
+                { kind: PropertyValueKind.string, display-string: "123 Oak Lane" },
+                { kind: PropertyValueKind.string, display-string: "Richmond" },
+                { kind: PropertyValueKind.string, display-string: "VA" },
+                { kind: PropertyValueKind.string, display-string: "23226" },
+                { kind: PropertyValueKind.boolean, value-bool: true, display-string: "true" },
+                { kind: PropertyValueKind.color, display-string: "#ff0000" }
+            ],
+            [
+                { kind: PropertyValueKind.string, display-string: "work" },
+                { kind: PropertyValueKind.string, display-string: "456 Corporate Blvd" },
+                { kind: PropertyValueKind.string, display-string: "Richmond" },
+                { kind: PropertyValueKind.string, display-string: "VA" },
+                { kind: PropertyValueKind.string, display-string: "23219" },
+                { kind: PropertyValueKind.boolean, value-bool: false, display-string: "false" }
+            ],
+            [
+                { kind: PropertyValueKind.string, display-string: "world" },
+                { kind: PropertyValueKind.string, display-string: "456 Corporate Blvd" },
+                { kind: PropertyValueKind.string, display-string: "Richmond" },
+                { kind: PropertyValueKind.string, display-string: "VA" },
+                { kind: PropertyValueKind.string, display-string: "23219" },
+                { kind: PropertyValueKind.boolean, value-bool: false, display-string: "false" },
+                { kind: PropertyValueKind.color, display-string: "#ff0000" }
             ]
         ],
-
     };
 
-    property <CellData> current-cell;
-    property <bool> edit-window-visible: false;
     private property <length> selection-x;
     private property <length> selection-y;
 
-    public function edit-in-spreadsheet(container-name: string, preview-data: PreviewData) {
-         debug("Setting up Spreadsheet:", container-name, preview-data);
-    }
+    private property <CellData> current-cell-data;
 
     VerticalLayout {
         HorizontalLayout {
@@ -252,23 +250,31 @@ export component Spreadsheet inherits ScrollView {
         for data-row[row] in root.current-table.values: HorizontalLayout {
             RowMarker {
                 value: row + 1;
-                hovered: ta.has-hover ? true : false;
+                hovered: ta.has-hover;
+
                 ta := TouchArea {
                     clicked => {
                         root.selection-x = self.x;
                         root.selection-y = self.y;
-                        row_menu.show({x:self.mouse-x + ta.absolute-position.x - row_menu.absolute-position.x,y:self.mouse-y + ta.absolute-position.y - row_menu.absolute-position.y});
+
+                        row_menu.row-number = row;
+                        row_menu.show({
+                            x:self.mouse-x + ta.absolute-position.x - row_menu.absolute-position.x,
+                            y:self.mouse-y + ta.absolute-position.y - row_menu.absolute-position.y
+                        });
                     }
                 }
             }
 
             for value[col] in data-row: Cell {
-                text: value.value-string;
+                text: value.display-string;
                 is-writeable: true;
-                edit-clicked(data) => {
-                    root.current-cell = {
-                        id: data.id,
-                        value: value,  // Now passing the properly typed CellValue
+
+                edit-clicked() => {
+                    root.current-cell-data = {
+                        property-group-id: root.property-group-id,
+                        property-name: preview-data.name,
+                        property-value: root.current-table.values[row][col],
                         row: row,
                         col: col,
                         x: self.x,
@@ -276,46 +282,69 @@ export component Spreadsheet inherits ScrollView {
                         width: self.width,
                         height: self.height
                     };
-                    root.edit-window-visible = true;
+                    ew.show();
                 }
             }
         }
     }
 
-    if (edit-window-visible): ew := EditWindow {
-        x: current-cell.x > 15px ? current-cell.x - EditorSpaceSettings.default-padding - 15px : 0; // TODO the end needs to be windowWidth - current-cell.x < current.cell.width * 2;
-        y: current-cell.y - EditorSpaceSettings.default-padding;
-        current-cell: current-cell;
-        save(new-value) => {
-            // Update the specific field based on col index
-            // if (current-cell.col == 0) {
-            //     addresses[current-cell.row].type = new-value;
-            // } else if (current-cell.col == 1) {
-            //     addresses[current-cell.row].street = new-value;
-            // } else if (current-cell.col == 2) {
-            //     addresses[current-cell.row].city = new-value;
-            // } else if (current-cell.col == 3) {
-            //     addresses[current-cell.row].state = new-value;
-            // } else if (current-cell.col == 4) {
-            //     addresses[current-cell.row].zip = new-value;
-            // }
-            root.edit-window-visible = false;
+    ew := EditWindow {
+        x: self.current-cell-data.x > 15px ? self.current-cell-data.x - EditorSpaceSettings.default-padding - 15px : (self.current-cell-data.x + self.current-cell-data.width > root.width ? root.width - ew.width : 0); // TODO the end needs to be windowWidth - current-cell.x < current.cell.width * 2;
+        y: self.current-cell-data.y - EditorSpaceSettings.default-padding;
+        current-cell-data <=> root.current-cell-data;
+        current-table: root.current-table;
+
+        private property <string> possible-error;
+
+        function edit(new-value: string) -> bool {
+            debug("EW: edit(...): Model has \{root.current-table.values.length} rows");
+            self.current-table.values[self.current-cell-data.row][self.current-cell-data.col].was-edited = true;
+            self.current-table.values[self.current-cell-data.row][self.current-cell-data.col].edited-value = new-value;
+
+            self.possible_error = Api.set-property-value-table(root.property-group-id, root.preview-data.name, root.current-table.values, root.current-table.is-array);
+            StatusLineApi.help-text = self.possible-error;
+
+            return self.possible-error == "";
         }
+
+        test(new-value) => {
+            return edit(new-value);
+        }
+
+        save(new-value) => {
+            edit(new-value);
+            self.close-editor();
+        }
+
         close-editor => {
-            root.edit-window-visible = false;
+            debug("EW: Received close-editor");
+            self.close();
         }
     }
-    row_menu:= ContextMenuArea {
-        in property <int> position;
+
+    row_menu := ContextMenuArea {
+        in-out property <int> row-number;
+
         Menu {
             MenuItem {
                 title: "Add Row Above";
+                activated() => {
+                    Api.insert-row-into-value-table(root.current_table, row_menu.row-number);
+                }
             }
+
             MenuItem {
                 title: "Add Row Below";
+                activated() => {
+                    Api.insert-row-into-value-table(root.current_table, row_menu.row-number + 1);
+                }
             }
+
             MenuItem {
                 title: "Remove Row";
+                activated() => {
+                    Api.remove-row-from-value-table(root.current_table, row_menu.row-number);
+                }
             }
         }
     }
