@@ -68,6 +68,7 @@ members = [
   'tools/viewer',
   'tools/tr-extractor',
   'xtask',
+  "examples/bevy",
 ]
 
 default-members = [
