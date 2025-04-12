@@ -420,12 +420,24 @@ export default defineConfig({
                     errorOnLocalLinks: false,
                 }),
             ],
-            social: {
-                github: "https://github.com/slint-ui/slint",
-                "x.com": "https://x.com/slint_ui",
-                linkedin: "https://www.linkedin.com/company/slint-ui/",
-                mastodon: "https://fosstodon.org/@slint",
-            },
+            social: [
+                {
+                    icon: "github",
+                    label: "GitHub",
+                    href: "https://github.com/slint-ui/slint",
+                },
+                { icon: "x.com", label: "X", href: "https://x.com/slint_ui" },
+                {
+                    icon: "linkedin",
+                    label: "Linkedin",
+                    href: "https://www.linkedin.com/company/slint-ui",
+                },
+                {
+                    icon: "mastodon",
+                    label: "Mastodon",
+                    href: "https://fosstodon.org/@slint",
+                },
+            ],
             favicon: "favicon.svg",
         }),
     ],
