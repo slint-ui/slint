@@ -1,6 +1,6 @@
 use std::fs;
-use zed::LanguageServerId;
-use zed_extension_api::{self as zed, Result};
+use zed::{DownloadedFileType, LanguageServerId};
+use zed_extension_api::{self as zed, Os, Result};
 
 struct SlintExtension {
     cached_binary_path: Option<String>,
@@ -42,11 +42,11 @@ impl SlintExtension {
 
         let (platform, _) = zed::current_platform();
         let asset_name = format!(
-            "slint-lsp-{os}.tar.gz",
-            os = match platform {
-                zed::Os::Mac => "macos",
-                zed::Os::Linux => "linux",
-                zed::Os::Windows => "windows",
+            "slint-lsp-{suffix}",
+            suffix = match platform {
+                Os::Mac => "macos.tar.gz",
+                Os::Linux => "linux.tar.gz",
+                Os::Windows => "windows.zip",
             },
         );
 
@@ -58,6 +58,10 @@ impl SlintExtension {
 
         let version_dir = "slint-lsp".to_string();
         let binary_path = format!("{version_dir}/{version_dir}/slint-lsp");
+        let asset_file_type = match platform {
+            Os::Mac | Os::Linux => DownloadedFileType::GzipTar,
+            Os::Windows => DownloadedFileType::Zip,
+        };
 
         if !fs::metadata(&binary_path).map_or(false, |stat| stat.is_file()) {
             zed::set_language_server_installation_status(
@@ -65,12 +69,8 @@ impl SlintExtension {
                 &zed::LanguageServerInstallationStatus::Downloading,
             );
 
-            zed::download_file(
-                &asset.download_url,
-                &version_dir,
-                zed::DownloadedFileType::GzipTar,
-            )
-            .map_err(|e| format!("failed to download file: {e}"))?;
+            zed::download_file(&asset.download_url, &version_dir, asset_file_type)
+                .map_err(|e| format!("failed to download file: {e}"))?;
 
             let entries =
                 fs::read_dir(".").map_err(|e| format!("failed to list working directory {e}"))?;
