@@ -62,6 +62,9 @@ export global EditorSizeSettings {
     in property <length> property-bar-width: 360px;
     in property <length> radius: 5px;
     in property <length> side-bar-width: 280px;
+    out property <length> standard-margin: 16px;
+    out property <length> small-margin: 12px;
+    out property <length> property-border-radius: 5px;
 }
 
 export global EditorPalette {
@@ -85,9 +88,6 @@ export global EditorPalette {
     out property <color> text-color: Palette.color-scheme == ColorScheme.dark ? white : #383838;
     out property <color> section-color: Palette.color-scheme == ColorScheme.dark ? #3f3f3f : #f5f5f5;
     out property <color> divider-color: Palette.color-scheme == ColorScheme.dark ? #444444 : #e6e6e6;
-    out property <length> standard-margin: 16px;
-    out property <length> small-margin: 12px;
-    out property <length> property-border-radius: 5px;
 }
 
 export global EditorAnimationSettings {

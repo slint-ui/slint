@@ -34,6 +34,7 @@ component TableEditor inherits DraggablePanel {
         height: 40px;
 
         Text {
+            text: "Edit Values";
             color: EditorPalette.text-color;
         }
 
@@ -42,7 +43,7 @@ component TableEditor inherits DraggablePanel {
             width: 25px;
             height: self.width;
             background: t-close.has-hover ? EditorPalette.section-color : transparent;
-            border-radius: EditorPalette.property-border-radius;
+            border-radius: EditorSizeSettings.property-border-radius;
 
             t-close := TouchArea {
                 clicked => {
@@ -75,7 +76,7 @@ component TableEditor inherits DraggablePanel {
             width: root.width;
             spread-sheet := Spreadsheet {
                 init => {
-                    root.content-height = spread-sheet.preferred-height;
+                    root.content-height = spread-sheet.preferred-height + 4px;
                     root.content-width = spread-sheet.preferred-width + 2 * EditorSpaceSettings.default-padding;
                     root.width = Math.min(root.content-width, WindowGlobal.window-width * 0.9);
                 }
@@ -88,7 +89,7 @@ component TableEditor inherits DraggablePanel {
 
     footer := Rectangle {
         width: 100%;
-        height: EditorPalette.standard-margin;
+        height: EditorSizeSettings.standard-margin;
     }
 }
 
