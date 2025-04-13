@@ -17,27 +17,26 @@ component FakeShadowText {
     in property <string> text;
     in property <string> font-family: "Inter";
     in property <length> font-size: 11px;
-    in property <float> font-weight: 800;
-    in property <color> color: white;
+    in property <float> font-weight: 400;
+    in property <color> color: Palette.color-scheme == ColorScheme.dark ? #9d9d9d : #676767;
+    in property <color> shadow-color: black;
 
     width: t.width;
     height: t.height;
 
     fake-shadow := Text {
-        x: 1px;
-        y: 1px;
-        vertical-alignment: center;
+        x: 0.5px;
+        y: 0.5px;
         font-family: root.font-family;
         font-size: root.font-size;
-        color: black;
+        color: root.shadow-color;
         text: t.text;
         font-weight: root.font-weight;
+        opacity: 50%;
+        visible: Palette.color-scheme == ColorScheme.dark;
     }
 
     t := Text {
-        x: 0;
-        y: 0;
-        vertical-alignment: center;
         font-family: root.font-family;
         font-size: root.font-size;
         color: root.color;
@@ -262,13 +261,12 @@ component ColorModeColorAndApply {
 
             Rectangle {
                 x: parent.width - self.width;
-                width: 50px;
+                width: 48px;
                 height: parent.height;
 
                 TextInput {
                     x: 10px;
                     height: 15px;
-                    vertical-alignment: center;
                     horizontal-alignment: left;
                     font-family: "Inter";
                     font-size: 12px;
