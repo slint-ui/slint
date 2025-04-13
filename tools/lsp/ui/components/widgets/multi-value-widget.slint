@@ -10,7 +10,7 @@ import { Button } from "std-widgets.slint";
 
 export component MultiValueWidget inherits GridLayout {
     in property <bool> enabled;
-    in property <string> property-name;
+    in property <string> property-name: preview-data.name;
     in property <PropertyValue> property-value;
     in property <PreviewData> preview-data;
     in property <string> property-group-id;
