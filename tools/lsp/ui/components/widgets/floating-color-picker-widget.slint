@@ -13,6 +13,26 @@ export global Styles {
     out property <length> picker-width: 240px;
 }
 
+component PickerTextInput inherits TextInput {
+    height: 15px;
+    horizontal-alignment: left;
+    font-family: "Inter";
+    font-size: 12px;
+    color: EditorPalette.text-color;
+    text-cursor-width: 2px;
+    selection-background-color: #3984ec;
+    input-type: number;
+    single-line: true;
+    wrap: no-wrap;
+    TouchArea {
+        visible: !parent.has-focus;
+        clicked => {
+            parent.select-all();
+            parent.focus();
+        }
+    }
+}
+
 component FakeShadowText {
     in property <string> text;
     in property <string> font-family: "Inter";
@@ -215,6 +235,10 @@ component BrushTypeSelector {
 
 component ColorModeColorAndApply {
     in property <WidgetMode> widget-mode;
+    property <color> current-color <=> PickerData.current-color;
+    changed current-color => {
+        ti-hex-color.text = Api.color-to-data(PickerData.current-color).short-text.to-uppercase();
+    }
 
     width: 100%;
     vl := VerticalLayout {
@@ -240,13 +264,24 @@ component ColorModeColorAndApply {
                 text: "#";
             }
 
-            Text {
+            ti-hex-color := PickerTextInput {
                 x: 35px;
-                font-family: "Inter";
-                font-size: 12px;
-                color: EditorPalette.text-color;
                 text: Api.color-to-data(PickerData.current-color).short-text.to-uppercase();
                 letter-spacing: 0.8px;
+                input-type: text;
+                accepted => {
+                    if Api.string-is-color("#\{self.text}") {
+                        PickerData.hue = Api.string-to-color("#\{self.text}").to-hsv().hue;
+                        PickerData.saturation = Api.string-to-color("#\{self.text}").to-hsv().saturation;
+                        PickerData.value = Api.string-to-color("#\{self.text}").to-hsv().value;
+                        if self.text.character-count > 6 {
+                            PickerData.alpha = Api.string-to-color("#\{self.text}").to-hsv().alpha * 100;
+                        }
+                    } else {
+                        self.text = Api.color-to-data(PickerData.current-color).short-text.to-uppercase();
+                    }
+                    self.clear-focus();
+                }
             }
 
             divider := Rectangle {
@@ -261,34 +296,19 @@ component ColorModeColorAndApply {
                 width: 48px;
                 height: parent.height;
 
-                TextInput {
+                PickerTextInput {
                     x: 10px;
-                    height: 15px;
-                    horizontal-alignment: left;
-                    font-family: "Inter";
-                    font-size: 12px;
-                    color: EditorPalette.text-color;
                     text: PickerData.alpha;
-                    text-cursor-width: 2px;
-                    selection-background-color: #3984ec;
-                    input-type: number;
-                    single-line: true;
-                    wrap: no-wrap;
-                    changed has-focus => {
-                        if self.has-focus {
-                            self.select-all();
-                        }
-                    }
                     accepted => {
                         self.text = clamp(self.text.to-float(), 0, 100);
                         PickerData.alpha = self.text.to-float();
+                        self.clear-focus();
                     }
                     edited => {
                         if self.text.character-count > 3 {
                             self.text = clamp(self.text.to-float(), 0, 100);
                         }
                     }
-                    enabled: false;
                 }
 
                 FakeShadowText {
@@ -339,6 +359,7 @@ component GradientSlider {
     in property <length> parent-width;
     property <length> slider-target-x;
     in property <int> stop-index;
+    out property pressed <=> ta.pressed;
 
     width: 0;
     height: 0;
@@ -350,16 +371,11 @@ component GradientSlider {
         background: EditorPalette.section-color;
         border-radius: 5px;
 
-        TouchArea {
-            changed pressed => {
-                if self.pressed {
-                }
-            }
+        ta := TouchArea {
             moved => {
                 slider-target-x = ((root.x + self.mouse-x - self.pressed-x) / 1px).round() * 1px;
 
                 PickerData.current-gradient-stops[stop-index].position = clamp(slider-target-x, root.start-limit, root.end-limit) / root.parent-width;
-                WindowManager.update-brush();
             }
         }
 
@@ -384,8 +400,20 @@ component GradientSlider {
 
 component GradientStopValue {
     in property <bool> focused: false;
-
     in-out property <int> stop-index;
+    property <float> stop-data-position: PickerData.current-gradient-stops[stop-index].position;
+    property <color> stop-data-color: PickerData.current-gradient-stops[stop-index].color;
+    changed stop-data-position => {
+        ti-position.text = (stop-data-position * 100.0).round();
+        // Trigger a brush update
+        WindowManager.update-brush();
+    }
+    changed stop-data-color => {
+        ti-alpha.text = (stop-data-color.to-hsv().alpha * 100.0).round();
+        ti-stop-color.text = Api.color-to-data(stop-data-color).short-text.to-uppercase();
+        // Trigger a brush update
+        WindowManager.update-brush();
+    }
     width: 100%;
     height: 30px;
 
@@ -394,34 +422,23 @@ component GradientStopValue {
         width: 48px;
         border-radius: EditorSizeSettings.property-border-radius;
         background: EditorPalette.section-color;
-        TextInput {
+        ti-position := PickerTextInput {
             x: 10px;
-            height: 15px;
-            horizontal-alignment: left;
-            font-family: "Inter";
-            font-size: 12px;
-            color: EditorPalette.text-color;
             text: (PickerData.current-gradient-stops[stop-index].position * 100.0).round();
-            text-cursor-width: 2px;
-            selection-background-color: #3984ec;
-            input-type: number;
-            single-line: true;
-            wrap: no-wrap;
-            // changed has-focus => {
-            //     if self.has-focus {
-            //         self.select-all();
-            //     }
-            // }
-            // accepted => {
-            //     self.text = clamp(self.text.to-float(), 0, 100);
-            //     PickerData.alpha = self.text.to-float();
-            // }
-            // edited => {
-            //     if self.text.character-count > 3 {
-            //         self.text = clamp(self.text.to-float(), 0, 100);
-            //     }
-            // }
-            enabled: false;
+            changed has-focus => {
+                if !self.has-focus {
+                    ti-position.text = (stop-data-position * 100.0).round();
+                }
+            }
+            accepted => {
+                PickerData.current-gradient-stops[stop-index].position = clamp(self.text.to-float(), 0, 100) / 100;
+                self.clear-focus();
+            }
+            edited => {
+                if self.text.character-count > 3 {
+                    self.text = clamp(self.text.to-float(), 0, 100);
+                }
+            }
         }
 
         FakeShadowText {
@@ -444,7 +461,6 @@ component GradientStopValue {
                 }
                 moved => {
                     PickerData.current-gradient-stops[stop-index].position = (initial-stop-percentage + (((self.mouse-x - self.pressed-x) / 1px)) / 100).clamp(0, 1);
-                    WindowManager.update-brush();
                 }
             }
         }
@@ -468,13 +484,27 @@ component GradientStopValue {
             text: "#";
         }
 
-        Text {
+        ti-stop-color := PickerTextInput {
             x: 35px;
-            font-family: "Inter";
-            font-size: 12px;
-            color: EditorPalette.text-color;
             text: Api.color-to-data(PickerData.current-gradient-stops[stop-index].color).short-text.to-uppercase();
             letter-spacing: 0.8px;
+            property <{hue: float, saturation: float, value: float}> hsv-color;
+            accepted => {
+                if Api.string-is-color("#\{self.text}") {
+                    PickerData.hue = Api.string-to-color("#\{self.text}").to-hsv().hue;
+                    PickerData.saturation = Api.string-to-color("#\{self.text}").to-hsv().saturation;
+                    PickerData.value = Api.string-to-color("#\{self.text}").to-hsv().value;
+                    if self.text.character-count > 6 {
+                        PickerData.current-gradient-stops[stop-index].color = Api.string-to-color("#\{self.text}");
+                    } else {
+                        hsv-color = Api.string-to-color("#\{self.text}").to-hsv();
+                        PickerData.current-gradient-stops[stop-index].color = hsv(hsv-color.hue, hsv-color.saturation, hsv-color.value, PickerData.current-gradient-stops[stop-index].color.to-hsv().alpha);
+                    }
+                } else {
+                    self.text = Api.color-to-data(PickerData.current-color).short-text.to-uppercase();
+                }
+                self.clear-focus();
+            }
         }
 
         divider := Rectangle {
@@ -487,35 +517,18 @@ component GradientStopValue {
         Rectangle {
             width: 48px;
             x: parent.width - self.width;
-            TextInput {
+            ti-alpha := PickerTextInput {
                 x: 10px;
-                height: 15px;
-                vertical-alignment: center;
-                horizontal-alignment: left;
-                font-family: "Inter";
-                font-size: 12px;
-                color: EditorPalette.text-color;
                 text: (PickerData.current-gradient-stops[stop-index].color.to-hsv().alpha * 100.0).round();
-                text-cursor-width: 2px;
-                selection-background-color: #3984ec;
-                input-type: number;
-                single-line: true;
-                wrap: no-wrap;
-                changed has-focus => {
-                    if self.has-focus {
-                        self.select-all();
-                    }
-                }
                 accepted => {
-                    self.text = clamp(self.text.to-float(), 0, 100);
-                    PickerData.alpha = self.text.to-float();
+                    PickerData.current-gradient-stops[stop-index].color = hsv(PickerData.current-gradient-stops[stop-index].color.to-hsv().hue, PickerData.current-gradient-stops[stop-index].color.to-hsv().saturation, PickerData.current-gradient-stops[stop-index].color.to-hsv().value, clamp(self.text.to-float(), 0, 100) / 100);
+                    self.clear-focus();
                 }
                 edited => {
                     if self.text.character-count > 3 {
-                        self.text = clamp(self.text.to-float(), 0, 100);
+                        self.text = clamp(self.text.to-float(), 0, 100).round();
                     }
                 }
-                enabled: false;
             }
 
             FakeShadowText {
@@ -538,7 +551,6 @@ component GradientStopValue {
                     }
                     moved => {
                         PickerData.current-gradient-stops[stop-index].color = hsv(PickerData.current-gradient-stops[stop-index].color.to-hsv().hue, PickerData.current-gradient-stops[stop-index].color.to-hsv().saturation, PickerData.current-gradient-stops[stop-index].color.to-hsv().value, (initial-alpha + ((self.mouse-x - self.pressed-x) / 1px) / 100).clamp(0, 1));
-                        WindowManager.update-brush();
                     }
                 }
             }
@@ -547,6 +559,7 @@ component GradientStopValue {
 }
 
 component GradientPicker inherits SimpleColumn {
+    callback clear-focus-panel();
     Rectangle {
         height: 50px;
 
@@ -598,6 +611,11 @@ component GradientPicker inherits SimpleColumn {
                 end-limit: parent.width;
                 parent-width: parent.width;
                 stop-index: index;
+                changed pressed => {
+                    if self.pressed {
+                        root.clear-focus-panel();
+                    }
+                }
             }
         }
     }
@@ -978,7 +996,11 @@ component ColorPicker inherits DraggablePanel {
         widget-mode: root.widget-mode;
     }
 
-    if brush-mode == BrushMode.gradient: GradientPicker { }
+    if brush-mode == BrushMode.gradient: GradientPicker {
+        clear-focus-panel => {
+            root.clear-focus-panel();
+        }
+    }
 
     footer := Rectangle {
         width: 100%;

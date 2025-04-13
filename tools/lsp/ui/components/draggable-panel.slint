@@ -13,6 +13,13 @@ export component DraggablePanel {
     property <length> panel-target-x;
     property <length> panel-target-y;
 
+    public function clear-focus-panel() {
+        hidden-input.visible = true;
+        hidden-input.focus();
+        hidden-input.clear-focus();
+        hidden-input.visible = false;
+    }
+
     // If the parent window is resized, we need to make sure the panel is still visible
     changed parent-window-width => {
         if root.x + root.width > parent-window-width {
@@ -37,10 +44,7 @@ export component DraggablePanel {
         changed pressed => {
             // Workaround to ensure any item that has focus is de-focused
             if self.pressed {
-                hidden-input.visible = true;
-                hidden-input.focus();
-                hidden-input.clear-focus();
-                hidden-input.visible = false;
+                clear-focus-panel();
             }
         }
         moved => {
