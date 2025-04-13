@@ -1,6 +1,6 @@
 use std::fs;
 use zed::{DownloadedFileType, LanguageServerId};
-use zed_extension_api::{self as zed, Os, Result};
+use zed_extension_api::{self as zed, Architecture, Os, Result};
 
 struct SlintExtension {
     cached_binary_path: Option<String>,
@@ -40,15 +40,19 @@ impl SlintExtension {
             },
         )?;
 
-        let (platform, _) = zed::current_platform();
-        let asset_name = format!(
-            "slint-lsp-{suffix}",
-            suffix = match platform {
-                Os::Mac => "macos.tar.gz",
-                Os::Linux => "linux.tar.gz",
-                Os::Windows => "windows.zip",
-            },
-        );
+        let target = zed::current_platform();
+
+        let asset_name = match target {
+            (Os::Mac, _) => "slint-lsp-macos.tar.gz",
+            (Os::Windows, Architecture::X86) | (Os::Windows, Architecture::X8664) => {
+                "slint-lsp-windows.zip"
+            }
+            (Os::Linux, Architecture::X86) | (Os::Linux, Architecture::X8664) => {
+                "slint-lsp-linux.tar.gz"
+            }
+            (Os::Linux, Architecture::Aarch64) => "slint-lsp-aarch64-unknown-linux-gnu.tar.gz",
+            (_, _) => return Err("platform or architecture not supported".to_string()),
+        };
 
         let asset = release
             .assets
@@ -58,7 +62,7 @@ impl SlintExtension {
 
         let version_dir = "slint-lsp".to_string();
         let binary_path = format!("{version_dir}/{version_dir}/slint-lsp");
-        let asset_file_type = match platform {
+        let asset_file_type = match target.0 {
             Os::Mac | Os::Linux => DownloadedFileType::GzipTar,
             Os::Windows => DownloadedFileType::Zip,
         };
