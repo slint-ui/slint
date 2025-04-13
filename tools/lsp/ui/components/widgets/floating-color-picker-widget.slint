@@ -123,12 +123,12 @@ component BrushTypeSelector {
                 Rectangle {
                     border-radius: 2px;
                     border-width: 1px;
-                    border-color: white;
+                    border-color: EditorPalette.text-color;
                     Rectangle {
                         width: parent.width - 4px;
                         height: parent.height - 4px;
                         border-width: 1px;
-                        border-color: white;
+                        border-color: EditorPalette.text-color;
                         background: lightgrey;
                     }
                 }
@@ -162,11 +162,11 @@ component BrushTypeSelector {
                 Rectangle {
                     border-radius: 2px;
                     border-width: 1px;
-                    border-color: white;
+                    border-color: EditorPalette.text-color;
                     Rectangle {
                         width: parent.width - 4px;
                         height: parent.height - 4px;
-                        background: @linear-gradient(90deg, white 0%, transparent 100%);
+                        background: @linear-gradient(90deg, EditorPalette.text-color 0%, transparent 100%);
                     }
                 }
             }
@@ -402,7 +402,6 @@ component GradientStopValue {
         TextInput {
             x: 10px;
             height: 15px;
-            vertical-alignment: center;
             horizontal-alignment: left;
             font-family: "Inter";
             font-size: 12px;
@@ -589,7 +588,6 @@ component GradientPicker inherits SimpleColumn {
 
                 Rectangle {
                     background: PickerData.current-brush;
-                    //@linear-gradient(-90deg, black 0%, #B62F2F 100%);
                 }
 
                 Rectangle {
