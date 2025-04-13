@@ -228,12 +228,9 @@ component ColorModeColorAndApply {
             border-radius: EditorSizeSettings.property-border-radius;
             border-width: 1px;
 
-            Rectangle {
+            ColorIndicator {
                 x: 5px;
-                width: 15px;
-                height: self.width;
-                border-radius: 2px;
-                background: PickerData.current-color;
+                color: PickerData.current-color;
             }
 
             FakeShadowText {
