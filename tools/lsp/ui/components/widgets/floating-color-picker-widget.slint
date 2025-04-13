@@ -17,27 +17,26 @@ component FakeShadowText {
     in property <string> text;
     in property <string> font-family: "Inter";
     in property <length> font-size: 11px;
-    in property <float> font-weight: 800;
-    in property <color> color: white;
+    in property <float> font-weight: 400;
+    in property <color> color: Palette.color-scheme == ColorScheme.dark ? #9d9d9d : #676767;
+    in property <color> shadow-color: black;
 
     width: t.width;
     height: t.height;
 
     fake-shadow := Text {
-        x: 1px;
-        y: 1px;
-        vertical-alignment: center;
+        x: 0.5px;
+        y: 0.5px;
         font-family: root.font-family;
         font-size: root.font-size;
-        color: black;
+        color: root.shadow-color;
         text: t.text;
         font-weight: root.font-weight;
+        opacity: 50%;
+        visible: Palette.color-scheme == ColorScheme.dark;
     }
 
     t := Text {
-        x: 0;
-        y: 0;
-        vertical-alignment: center;
         font-family: root.font-family;
         font-size: root.font-size;
         color: root.color;
@@ -123,12 +122,12 @@ component BrushTypeSelector {
                 Rectangle {
                     border-radius: 2px;
                     border-width: 1px;
-                    border-color: white;
+                    border-color: EditorPalette.text-color;
                     Rectangle {
                         width: parent.width - 4px;
                         height: parent.height - 4px;
                         border-width: 1px;
-                        border-color: white;
+                        border-color: EditorPalette.text-color;
                         background: lightgrey;
                     }
                 }
@@ -162,11 +161,11 @@ component BrushTypeSelector {
                 Rectangle {
                     border-radius: 2px;
                     border-width: 1px;
-                    border-color: white;
+                    border-color: EditorPalette.text-color;
                     Rectangle {
                         width: parent.width - 4px;
                         height: parent.height - 4px;
-                        background: @linear-gradient(90deg, white 0%, transparent 100%);
+                        background: @linear-gradient(90deg, EditorPalette.text-color 0%, transparent 100%);
                     }
                 }
             }
@@ -229,21 +228,15 @@ component ColorModeColorAndApply {
             border-radius: EditorSizeSettings.property-border-radius;
             border-width: 1px;
 
-            Rectangle {
+            ColorIndicator {
                 x: 5px;
-                width: 15px;
-                height: self.width;
-                border-radius: 2px;
-                background: PickerData.current-color;
+                color: PickerData.current-color;
             }
 
             FakeShadowText {
                 x: 25px;
-                y: (parent.height - self.height) / 2;
-
                 font-family: "Inter";
                 font-size: 11px;
-                color: #9d9d9d;
                 text: "#";
             }
 
@@ -265,13 +258,12 @@ component ColorModeColorAndApply {
 
             Rectangle {
                 x: parent.width - self.width;
-                width: 50px;
+                width: 48px;
                 height: parent.height;
 
                 TextInput {
                     x: 10px;
                     height: 15px;
-                    vertical-alignment: center;
                     horizontal-alignment: left;
                     font-family: "Inter";
                     font-size: 12px;
@@ -301,11 +293,8 @@ component ColorModeColorAndApply {
 
                 FakeShadowText {
                     x: parent.width - self.width - 5px;
-                    y: (parent.height - self.height) / 2;
-
                     font-family: "Inter";
                     font-size: 11px;
-                    color: #9d9d9d;
                     text: "%";
                 }
 
@@ -408,7 +397,6 @@ component GradientStopValue {
         TextInput {
             x: 10px;
             height: 15px;
-            vertical-alignment: center;
             horizontal-alignment: left;
             font-family: "Inter";
             font-size: 12px;
@@ -438,11 +426,8 @@ component GradientStopValue {
 
         FakeShadowText {
             x: parent.width - self.width - 5px;
-            y: (parent.height - self.height) / 2;
-
             font-family: "Inter";
             font-size: 11px;
-            color: #9d9d9d;
             text: "%";
         }
 
@@ -478,11 +463,8 @@ component GradientStopValue {
 
         FakeShadowText {
             x: 25px;
-            y: (parent.height - self.height) / 2;
-
             font-family: "Inter";
             font-size: 11px;
-            color: #9d9d9d;
             text: "#";
         }
 
@@ -538,11 +520,8 @@ component GradientStopValue {
 
             FakeShadowText {
                 x: parent.width - self.width - 5px;
-                y: (parent.height - self.height) / 2;
-
                 font-family: "Inter";
                 font-size: 11px;
-                color: #9d9d9d;
                 text: "%";
             }
 
@@ -604,7 +583,6 @@ component GradientPicker inherits SimpleColumn {
 
                 Rectangle {
                     background: PickerData.current-brush;
-                    //@linear-gradient(-90deg, black 0%, #B62F2F 100%);
                 }
 
                 Rectangle {
