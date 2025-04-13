@@ -13,6 +13,26 @@ export global Styles {
     out property <length> picker-width: 240px;
 }
 
+component PickerTextInput inherits TextInput {
+    height: 15px;
+    horizontal-alignment: left;
+    font-family: "Inter";
+    font-size: 12px;
+    color: EditorPalette.text-color;
+    text-cursor-width: 2px;
+    selection-background-color: #3984ec;
+    input-type: number;
+    single-line: true;
+    wrap: no-wrap;
+    TouchArea {
+        visible: !parent.has-focus;
+        clicked => {
+            parent.select-all();
+            parent.focus();
+        }
+    }
+}
+
 component FakeShadowText {
     in property <string> text;
     in property <string> font-family: "Inter";
@@ -261,24 +281,9 @@ component ColorModeColorAndApply {
                 width: 48px;
                 height: parent.height;
 
-                TextInput {
+                PickerTextInput {
                     x: 10px;
-                    height: 15px;
-                    horizontal-alignment: left;
-                    font-family: "Inter";
-                    font-size: 12px;
-                    color: EditorPalette.text-color;
                     text: PickerData.alpha;
-                    text-cursor-width: 2px;
-                    selection-background-color: #3984ec;
-                    input-type: number;
-                    single-line: true;
-                    wrap: no-wrap;
-                    changed has-focus => {
-                        if self.has-focus {
-                            self.select-all();
-                        }
-                    }
                     accepted => {
                         self.text = clamp(self.text.to-float(), 0, 100);
                         PickerData.alpha = self.text.to-float();
@@ -288,7 +293,6 @@ component ColorModeColorAndApply {
                             self.text = clamp(self.text.to-float(), 0, 100);
                         }
                     }
-                    enabled: false;
                 }
 
                 FakeShadowText {
@@ -401,23 +405,11 @@ component GradientStopValue {
         width: 48px;
         border-radius: EditorSizeSettings.property-border-radius;
         background: EditorPalette.section-color;
-        ti-position := TextInput {
+        ti-position := PickerTextInput {
             x: 10px;
-            height: 15px;
-            horizontal-alignment: left;
-            font-family: "Inter";
-            font-size: 12px;
-            color: EditorPalette.text-color;
             text: (PickerData.current-gradient-stops[stop-index].position * 100.0).round();
-            text-cursor-width: 2px;
-            selection-background-color: #3984ec;
-            input-type: number;
-            single-line: true;
-            wrap: no-wrap;
             changed has-focus => {
-                if self.has-focus {
-                    self.select-all();
-                } else {
+                if !self.has-focus {
                     ti-position.text = (stop-data-position * 100.0).round();
                 }
             }
@@ -493,25 +485,9 @@ component GradientStopValue {
         Rectangle {
             width: 48px;
             x: parent.width - self.width;
-            ti-alpha := TextInput {
+            ti-alpha := PickerTextInput {
                 x: 10px;
-                height: 15px;
-                vertical-alignment: center;
-                horizontal-alignment: left;
-                font-family: "Inter";
-                font-size: 12px;
-                color: EditorPalette.text-color;
                 text: (PickerData.current-gradient-stops[stop-index].color.to-hsv().alpha * 100.0).round();
-                text-cursor-width: 2px;
-                selection-background-color: #3984ec;
-                input-type: number;
-                single-line: true;
-                wrap: no-wrap;
-                changed has-focus => {
-                    if self.has-focus {
-                        self.select-all();
-                    }
-                }
                 accepted => {
                     PickerData.current-gradient-stops[stop-index].color = hsv(PickerData.current-gradient-stops[stop-index].color.to-hsv().hue, PickerData.current-gradient-stops[stop-index].color.to-hsv().saturation, PickerData.current-gradient-stops[stop-index].color.to-hsv().value, clamp(self.text.to-float(), 0, 100) / 100);
                 }
