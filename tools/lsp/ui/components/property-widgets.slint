@@ -20,7 +20,7 @@ import { StringWidget } from "./widgets/string-widget.slint";
 import { WindowGlobal, WindowManager } from "../windowglobal.slint";
 
 export component PropertyValueWidget inherits VerticalLayout {
-    in property <PropertyValue> property-value;
+    in-out property <PropertyValue> property-value;
     in property <PreviewData> preview-data;
     in property <string> property-name;
     in property <bool> enabled;
@@ -28,6 +28,8 @@ export component PropertyValueWidget inherits VerticalLayout {
     in property <bool> has-reset-action: true;
     in property <bool> strings-are-translatable: true;
     in property <string> property-container-id;
+
+    callback update-display-string(value: string);
 
     callback set-bool-binding(value: bool);
     callback set-color-binding(text: string);
@@ -46,6 +48,11 @@ export component PropertyValueWidget inherits VerticalLayout {
     callback reset-action();
     callback code-action();
 
+    function update-display-string-impl(value: string) {
+        self.property-value.display-string = value;
+        self.update-display-string(value);
+    }
+
     if root.property-value.kind == PropertyValueKind.boolean: BooleanWidget {
         enabled <=> root.enabled;
         property-name <=> root.property-name;
@@ -54,6 +61,8 @@ export component PropertyValueWidget inherits VerticalLayout {
         set-bool-binding(value) => {
             root.set-bool-binding(value);
         }
+
+        update-display-string(value) => { root.update-display-string-impl(value); }
     }
 
     if root.property-value.kind == PropertyValueKind.color: ColorWidget {
@@ -71,6 +80,9 @@ export component PropertyValueWidget inherits VerticalLayout {
         set-color-binding(text) => {
             root.set-color-binding(text);
         }
+
+        update-display-string(value) => { root.update-display-string-impl(value); }
+
         reset-action() => {
             root.reset-action();
         }
@@ -94,6 +106,9 @@ export component PropertyValueWidget inherits VerticalLayout {
         set-brush-binding(kind, angle, color, stops) => {
             root.set-brush-binding(kind, angle, color, stops);
         }
+
+        update-display-string(value) => { root.update-display-string-impl(value); }
+
         reset-action() => {
             root.reset-action();
         }
@@ -106,6 +121,8 @@ export component PropertyValueWidget inherits VerticalLayout {
         enabled <=> root.enabled;
         property-name <=> root.property-name;
         property-value <=> root.property-value;
+
+        update-display-string(value) => { root.update-display-string-impl(value); }
 
         reset-action() => {
             root.reset-action();
@@ -123,6 +140,8 @@ export component PropertyValueWidget inherits VerticalLayout {
         set-enum-binding(text) => {
             root.set-enum-binding(text);
         }
+
+        update-display-string(value) => { root.update-display-string-impl(value); }
     }
 
     if root.property-value.kind == PropertyValueKind.float: FloatWidget {
@@ -136,6 +155,8 @@ export component PropertyValueWidget inherits VerticalLayout {
         set-float-binding(text, unit) => {
             root.set-float-binding(text, unit);
         }
+
+        update-display-string(value) => { root.update-display-string-impl(value); }
     }
 
     if root.property-value.kind == PropertyValueKind.integer: IntegerWidget {
@@ -149,6 +170,8 @@ export component PropertyValueWidget inherits VerticalLayout {
         set-integer-binding(text) => {
             root.set-code-binding(text);
         }
+
+        update-display-string(value) => { root.update-display-string-impl(value); }
     }
 
      if root.property-value.kind == PropertyValueKind.string: StringWidget {
@@ -160,17 +183,20 @@ export component PropertyValueWidget inherits VerticalLayout {
         has-reset-action: root.has-reset-action;
         is-translatable <=> root.strings-are-translatable;
 
-        reset-action() => {
-            root.reset-action();
-        }
-        code-action() => {
-            root.code-action();
-        }
         test-string-binding(text, is_translated) => {
             return root.test-string-binding(text, is_translated);
         }
         set-string-binding(text, is_translated) => {
             root.set-string-binding(text, is_translated);
+        }
+
+        update-display-string(value) => { root.update-display-string-impl(value); }
+
+        reset-action() => {
+            root.reset-action();
+        }
+        code-action() => {
+            root.code-action();
         }
     }
 }
@@ -279,7 +305,7 @@ export component PreviewDataPropertyValueWidget inherits VerticalLayout {
     private property <PropertyValue> value: Api.get-property-value(root.property-container-id, root.preview-data.name);
     private property <string> possible-error;
 
-    callback edit-in-spreadsheet(rp: PropertyContainer);
+    callback edit-in-table-editor(property-group-id: string, data: PreviewData);
 
     function reset-action() {
         self.set-code-binding(self.value.code);
@@ -347,12 +373,16 @@ export component PreviewDataPropertyValueWidget inherits VerticalLayout {
             return(root.set-code-binding(is_translated ? "\"\{text}\"" : text));
         }
     }
-    if root.preview-data.kind == PreviewDataKind.Table && false: MultiValueWidget {
-        edit-in-spreadsheet(property-group-name, data, values) => {
-            debug("edit-in-spreadsheet TRIGGERED: ", property-group-name, data, values);
+    if root.preview-data.kind == PreviewDataKind.Table: MultiValueWidget {
+        property-value <=> root.value;
+        preview-data: root.preview-data;
+        property-group-id: root.property-container-id;
+
+        edit-in-table-editor(property-group-id, data) => {
+            root.edit-in-table-editor(property-group-id, data);
         }
     }
-    if root.preview-data.kind == PreviewDataKind.Json || (root.preview-data.kind == PreviewDataKind.Table && true): JsonWidget {
+    if root.preview-data.kind == PreviewDataKind.Json: JsonWidget {
         enabled: root.preview-data.has-setter;
         property-name: root.preview-data.name;
         property-value <=> root.value;

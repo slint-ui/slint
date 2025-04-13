@@ -10,12 +10,12 @@ import { Button } from "std-widgets.slint";
 
 export component MultiValueWidget inherits GridLayout {
     in property <bool> enabled;
-    in property <string> property-name;
+    in property <string> property-name: preview-data.name;
     in property <PropertyValue> property-value;
     in property <PreviewData> preview-data;
-    in property <string> property-group-name;
+    in property <string> property-group-id;
 
-    callback edit-in-spreadsheet(property-group-name: string, data: PreviewData, values: [[PropertyValue]]);
+    callback edit-in-table-editor(property-group-id: string, data: PreviewData);
 
     spacing-vertical: EditorSpaceSettings.default-spacing;
     width: 100%;
@@ -37,7 +37,7 @@ export component MultiValueWidget inherits GridLayout {
         Button {
             text: preview-data.has-setter ? @tr("Edit") : @tr("View");
             clicked => {
-                root.edit-in-spreadsheet(root.property-group-name, root.preview-data, [[ ]]);
+                root.edit-in-table-editor(root.property-group-id, root.preview-data);
             }
         }
     }

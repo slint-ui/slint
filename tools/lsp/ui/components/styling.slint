@@ -62,6 +62,9 @@ export global EditorSizeSettings {
     in property <length> property-bar-width: 360px;
     in property <length> radius: 5px;
     in property <length> side-bar-width: 280px;
+    out property <length> standard-margin: 16px;
+    out property <length> small-margin: 12px;
+    out property <length> property-border-radius: 5px;
 }
 
 export global EditorPalette {
@@ -78,10 +81,13 @@ export global EditorPalette {
     out property <brush> interactive-element-selection-secondary: #48dc2a;
     out property <brush> layout-element-selection-primary: #FFC5FC;
     out property <brush> layout-element-selection-secondary: #ff8af9;
-    out property <brush> shadow-gradient: @linear-gradient(0deg,  Palette.foreground.transparentize(1),Palette.foreground.transparentize(0.75));
+    out property <brush> shadow-gradient: @linear-gradient(0deg, Palette.foreground.transparentize(1), Palette.foreground.transparentize(0.75));
 
     out property <brush> state-hovered: root.dark-color-scheme ? #ffffff.with-alpha(0.1) : #000000.with-alpha(0.1);
     out property <brush> state-pressed: root.dark-color-scheme ? #ffffff.with-alpha(0.2) : #000000.with-alpha(0.2);
+    out property <color> text-color: Palette.color-scheme == ColorScheme.dark ? white : #383838;
+    out property <color> section-color: Palette.color-scheme == ColorScheme.dark ? #3f3f3f : #f5f5f5;
+    out property <color> divider-color: Palette.color-scheme == ColorScheme.dark ? #444444 : #e6e6e6;
 }
 
 export global EditorAnimationSettings {

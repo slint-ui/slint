@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { GradientStop } from "./api.slint";
+import { Api, GradientStop, PreviewData, PropertyValueTable } from "./api.slint";
 
 export enum WidgetMode { edit, preview }
 
@@ -26,4 +26,17 @@ export global PickerData {
     in-out property <brush> current-brush;
     in-out property <[GradientStop]> current-gradient-stops;
     in-out property <float> current-angle;
+}
+
+export global TableData {
+    callback populate-table(property-group-id: string, preview-data: PreviewData);
+    out property <string> property-group-id;
+    out property <PreviewData> preview-data;
+    out property <PropertyValueTable> current-table;
+
+    populate-table(property-group-id, preview-data) => {
+        self.property-group-id = property-group-id;
+        self.preview-data = preview-data;
+        self.current-table = Api.get-property-value-table(property-group-id, preview-data.name);
+    }
 }

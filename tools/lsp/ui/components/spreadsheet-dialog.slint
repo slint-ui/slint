@@ -1,31 +1,113 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Button } from "std-widgets.slint";
-import { EditorSpaceSettings } from "../components/styling.slint";
+import { Button, Palette, StandardButton, ScrollView } from "std-widgets.slint";
+import { EditorSpaceSettings, EditorPalette, Icons } from "../components/styling.slint";
 import { Spreadsheet } from "../components/spreadsheet.slint";
+import { Api, PreviewData, PropertyValueTable } from "../api.slint";
 
-import { WindowGlobal } from "../windowglobal.slint";
+import { WindowGlobal, WindowManager } from "../windowglobal.slint";
+import { EditorSizeSettings } from "styling.slint";
+import { TableData } from "../properties-state.slint";
+import { DraggablePanel } from "draggable-panel.slint";
 
-export component SpreadsheetDialog inherits Dialog {
-    width: Math.min(self.preferred-width, WindowGlobal.window-width * 0.9);
-    height: Math.min(self.preferred-height, WindowGlobal.window-height * 0.9);
+component TableEditor inherits DraggablePanel {
+    property <string> property-group-id <=> TableData.property-group-id;
+    property <PreviewData> preview-data <=> TableData.preview-data;
+    property <PropertyValueTable> current-table <=> TableData.current-table;
+    private property <length> initial-x;
+    private property <length> initial-y;
 
-    title: "Edit Values";
+    callback close();
 
-    VerticalLayout {
-        Spreadsheet {
+    property <length> content-height;
+    property <length> content-width;
+
+    close => {
+        WindowManager.hide-floating-widget();
+    }
+
+    width: 240px;
+
+    title := Rectangle {
+        width: 100%;
+        height: 40px;
+
+        Text {
+            text: "Edit Values";
+            color: EditorPalette.text-color;
         }
 
-        HorizontalLayout {
-            alignment: end;
-            padding: 8px;
+        Rectangle {
+            x: parent.width - self.width - 5px;
+            width: 25px;
+            height: self.width;
+            background: t-close.has-hover ? EditorPalette.section-color : transparent;
+            border-radius: EditorSizeSettings.property-border-radius;
 
-            Button {
-                text: "Close";
+            t-close := TouchArea {
                 clicked => {
+                    root.close();
                 }
             }
+
+            Image {
+                source: Icons.close;
+                colorize: EditorPalette.text-color;
+            }
         }
+
+        Rectangle {
+            width: 100%;
+            height: 1px;
+            x: 0;
+            y: parent.height - self.height;
+            background: EditorPalette.divider-color;
+        }
+    }
+
+    Rectangle {
+        width: 100%;
+        height: root.content-height;
+        ScrollView {
+            viewport-width: spread-sheet.preferred-width;
+            viewport-height: spread-sheet.preferred-height;
+            height: 100%;
+            width: root.width;
+            spread-sheet := Spreadsheet {
+                init => {
+                    root.content-height = spread-sheet.preferred-height + 4px;
+                    root.content-width = spread-sheet.preferred-width + 2 * EditorSpaceSettings.default-padding;
+                    root.width = Math.min(root.content-width, WindowGlobal.window-width * 0.9);
+                }
+                property-group-id <=> root.property-group-id;
+                preview-data <=> root.preview-data;
+                current-table <=> root.current-table;
+            }
+        }
+    }
+
+    footer := Rectangle {
+        width: 100%;
+        height: EditorSizeSettings.standard-margin;
+    }
+}
+
+export component TableEditorView {
+    width: 100%;
+    height: 100%;
+
+    in property <length> initial-x: 0;
+    in property <length> initial-y: 0;
+
+    TouchArea {
+        changed pressed => {
+            WindowManager.hide-floating-widget();
+        }
+    }
+
+    table-editor := TableEditor {
+        x: root.initial-x;
+        y: root.initial-y;
     }
 }

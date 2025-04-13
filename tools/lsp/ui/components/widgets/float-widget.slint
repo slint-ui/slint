@@ -13,6 +13,8 @@ export component FloatWidget inherits GridLayout {
     in property <string> property-name;
     in property <PropertyValue> property-value;
 
+    callback update-display-string(value: string);
+
     callback test-float-binding(text: string, unit: string) -> bool;
     callback set-float-binding(text: string, unit: string);
 
@@ -30,6 +32,9 @@ export component FloatWidget inherits GridLayout {
     }
 
     function set-binding() {
+        if number.text != "" {
+            root.update-display-string("\{number.text}\{self.current-unit}");
+        }
         root.set-float-binding(number.text == "" ? "" : number.text, self.current-unit);
     }
 

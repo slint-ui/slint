@@ -23,8 +23,15 @@ export component BrushWidget inherits GridLayout {
     callback code-action();
     callback reset-action();
 
+    callback update-display-string(value: string);
+
     callback test-brush-binding(kind: BrushKind, angle: float, color: color, stops: [GradientStop]) -> bool;
     callback set-brush-binding(kind: BrushKind, angle: float, color: color, stops: [GradientStop]);
+
+    function set-brush-binding_impl(kind: BrushKind, angle: float, color: color, stops: [GradientStop]) {
+        self.update-display-string(kind == BrushKind.solid ? "Solid Color" : kind == BrushKind.linear ? "Linear Gradient" : "Radial Gradient");
+        self.set-brush-binding(kind, angle, color, stops);
+    }
 
     private property <color> current-color;
     private property <brush> current-brush;
@@ -71,7 +78,7 @@ export component BrushWidget inherits GridLayout {
 
     function set-color(text: string) {
         root.current-color = Api.string-to-color(text);
-        root.set-brush-binding(root.current-brush-kind, root.current-angle, root.current-color, root.current-gradient-stops);
+        root.set-brush-binding-impl(root.current-brush-kind, root.current-angle, root.current-color, root.current-gradient-stops);
     }
 
 
@@ -122,7 +129,7 @@ export component BrushWidget inherits GridLayout {
                     // enabled <=> root.enabled;
 
                     set-color-binding(text) => {
-                        root.set-brush-binding(root.current-brush-kind, root.current-angle, root.current-color, root.current-gradient-stops);
+                        root.set-brush-binding-impl(root.current-brush-kind, root.current-angle, root.current-color, root.current-gradient-stops);
                     }
                     test-color-binding(text) => {
                         return root.test-brush-binding(root.current-brush-kind, root.current-angle, root.current-color, root.current-gradient-stops);
@@ -152,6 +159,5 @@ export component BrushWidget inherits GridLayout {
             }
         }
     }
-
 }
 

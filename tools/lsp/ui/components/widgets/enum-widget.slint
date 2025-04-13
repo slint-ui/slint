@@ -19,6 +19,8 @@ export component EnumWidget inherits GridLayout {
         }
     }
 
+    callback update-display-string(value: string);
+
     callback set-enum-binding(text: string);
 
     spacing-vertical: EditorSpaceSettings.default-spacing;
@@ -46,6 +48,7 @@ export component EnumWidget inherits GridLayout {
                 model: root.property-value.visual-items;
 
                 selected(value) => {
+                    root.update-display-string(property-value.value-string + "." + value);
                     root.set-enum-binding(property-value.value-string + "." + value);
                 }
             }

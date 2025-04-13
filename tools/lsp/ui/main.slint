@@ -14,10 +14,9 @@ import { DrawAreaMode, PreviewView } from "./views/preview-view.slint";
 import { OutOfDateBox } from "./components/out-of-date-box.slint";
 import { PropertyView } from "./views/property-view.slint";
 import { PreviewDataView } from "./views/preview-data-view.slint";
-import { SpreadsheetDialog } from "./components/spreadsheet-dialog.slint";
-
 import { WindowGlobal, WindowManager } from "windowglobal.slint";
 import { ColorPickerView, Styles as PickerStyles } from "components/widgets/floating-color-picker-widget.slint";
+import { TableEditorView } from "components/spreadsheet-dialog.slint";
 import "./assets/Inter-VariableFont.ttf";
 
 export { Api }
@@ -34,6 +33,7 @@ export component PreviewUi inherits Window {
     property <bool> show-left-sidebar;
     property <bool> show-right-sidebar;
     property <bool> show-floating-widget <=> WindowManager.showing-color-picker;
+    property <bool> show-floating-table-editor <=> WindowManager.showing-table-editor;
     property <length> initial-floating-x;
 
     title: "Slint Live-Preview";
@@ -146,6 +146,13 @@ export component PreviewUi inherits Window {
     if Api.diagnostic-summary == DiagnosticSummary.Errors: OutOfDateBox {
         x: (parent.width - self.width) / 2;
         y: (parent.height / 10);
+    }
+
+    if show-floating-table-editor: TableEditorView {
+        init => {
+            self.initial-x = root.initial-floating-x;
+            self.initial-y = 50px;
+        }
     }
 
 

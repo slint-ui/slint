@@ -26,6 +26,9 @@ export component ColorWidget inherits VerticalLayout {
 
     padding-left: 16px;
     spacing: EditorSpaceSettings.default-spacing;
+
+    callback update-display-string(value: string);
+
     width: 100%;
 
     function apply-value() {
@@ -73,6 +76,7 @@ export component ColorWidget inherits VerticalLayout {
         set-color-binding(text) => {
             root.set-color-binding(text);
         }
+
         test-color-binding(text) => {
             return root.test-color-binding(text);
         }
