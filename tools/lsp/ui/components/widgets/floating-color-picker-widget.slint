@@ -235,6 +235,10 @@ component BrushTypeSelector {
 
 component ColorModeColorAndApply {
     in property <WidgetMode> widget-mode;
+    property <color> current-color <=> PickerData.current-color;
+    changed current-color => {
+        ti-hex-color.text = Api.color-to-data(PickerData.current-color).short-text.to-uppercase();
+    }
 
     width: 100%;
     vl := VerticalLayout {
@@ -260,13 +264,24 @@ component ColorModeColorAndApply {
                 text: "#";
             }
 
-            Text {
+            ti-hex-color := PickerTextInput {
                 x: 35px;
-                font-family: "Inter";
-                font-size: 12px;
-                color: EditorPalette.text-color;
                 text: Api.color-to-data(PickerData.current-color).short-text.to-uppercase();
                 letter-spacing: 0.8px;
+                input-type: text;
+                accepted => {
+                    if Api.string-is-color("#\{self.text}") {
+                        PickerData.hue = Api.string-to-color("#\{self.text}").to-hsv().hue;
+                        PickerData.saturation = Api.string-to-color("#\{self.text}").to-hsv().saturation;
+                        PickerData.value = Api.string-to-color("#\{self.text}").to-hsv().value;
+                        if self.text.character-count > 6 {
+                            PickerData.alpha = Api.string-to-color("#\{self.text}").to-hsv().alpha * 100;
+                        }
+                    } else {
+                        self.text = Api.color-to-data(PickerData.current-color).short-text.to-uppercase();
+                    }
+                    self.clear-focus();
+                }
             }
 
             divider := Rectangle {
@@ -287,6 +302,7 @@ component ColorModeColorAndApply {
                     accepted => {
                         self.text = clamp(self.text.to-float(), 0, 100);
                         PickerData.alpha = self.text.to-float();
+                        self.clear-focus();
                     }
                     edited => {
                         if self.text.character-count > 3 {
@@ -394,6 +410,7 @@ component GradientStopValue {
     }
     changed stop-data-color => {
         ti-alpha.text = (stop-data-color.to-hsv().alpha * 100.0).round();
+        ti-stop-color.text = Api.color-to-data(stop-data-color).short-text.to-uppercase();
         // Trigger a brush update
         WindowManager.update-brush();
     }
@@ -415,6 +432,7 @@ component GradientStopValue {
             }
             accepted => {
                 PickerData.current-gradient-stops[stop-index].position = clamp(self.text.to-float(), 0, 100) / 100;
+                self.clear-focus();
             }
             edited => {
                 if self.text.character-count > 3 {
@@ -466,13 +484,27 @@ component GradientStopValue {
             text: "#";
         }
 
-        Text {
+        ti-stop-color := PickerTextInput {
             x: 35px;
-            font-family: "Inter";
-            font-size: 12px;
-            color: EditorPalette.text-color;
             text: Api.color-to-data(PickerData.current-gradient-stops[stop-index].color).short-text.to-uppercase();
             letter-spacing: 0.8px;
+            property <{hue: float, saturation: float, value: float}> hsv-color;
+            accepted => {
+                if Api.string-is-color("#\{self.text}") {
+                    PickerData.hue = Api.string-to-color("#\{self.text}").to-hsv().hue;
+                    PickerData.saturation = Api.string-to-color("#\{self.text}").to-hsv().saturation;
+                    PickerData.value = Api.string-to-color("#\{self.text}").to-hsv().value;
+                    if self.text.character-count > 6 {
+                        PickerData.current-gradient-stops[stop-index].color = Api.string-to-color("#\{self.text}");
+                    } else {
+                        hsv-color = Api.string-to-color("#\{self.text}").to-hsv();
+                        PickerData.current-gradient-stops[stop-index].color = hsv(hsv-color.hue, hsv-color.saturation, hsv-color.value, PickerData.current-gradient-stops[stop-index].color.to-hsv().alpha);
+                    }
+                } else {
+                    self.text = Api.color-to-data(PickerData.current-color).short-text.to-uppercase();
+                }
+                self.clear-focus();
+            }
         }
 
         divider := Rectangle {
@@ -490,6 +522,7 @@ component GradientStopValue {
                 text: (PickerData.current-gradient-stops[stop-index].color.to-hsv().alpha * 100.0).round();
                 accepted => {
                     PickerData.current-gradient-stops[stop-index].color = hsv(PickerData.current-gradient-stops[stop-index].color.to-hsv().hue, PickerData.current-gradient-stops[stop-index].color.to-hsv().saturation, PickerData.current-gradient-stops[stop-index].color.to-hsv().value, clamp(self.text.to-float(), 0, 100) / 100);
+                    self.clear-focus();
                 }
                 edited => {
                     if self.text.character-count > 3 {
