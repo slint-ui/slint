@@ -2,15 +2,12 @@
 # SPDX-License-Identifier: MIT
 
 [env]
-ESP_LOG="INFO"
+ESP_LOG = "INFO"
 ESP_HAL_CONFIG_PSRAM_MODE = "octal"
 
 [target.xtensa-esp32s3-none-elf]
 runner = "espflash flash --monitor"
-rustflags = [
-  "-C",
-  "link-arg=-Wl,-Tlinkall.x",
-]
+rustflags = ["-C", "link-arg=-Wl,-Tlinkall.x"]
 
 [build]
 target = "xtensa-esp32s3-none-elf"

@@ -36,7 +36,6 @@ pub use esp32_s3_box_3::*;
 #[cfg(feature = "esp32-s3-box-3")]
 pub use esp_hal::main as entry;
 
-
 #[cfg(not(any(
     feature = "pico-st7789",
     feature = "pico2-st7789",

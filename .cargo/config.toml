@@ -5,9 +5,7 @@
 xtask = "run --package xtask --"
 
 [target.xtensa-esp32s3-none-elf]
-rustflags = [
-  "-C", "link-arg=-nostartfiles",
-]
+rustflags = ["-C", "link-arg=-nostartfiles"]
 
 [target.xtensa-esp32s2-none-elf]
 rustflags = [
