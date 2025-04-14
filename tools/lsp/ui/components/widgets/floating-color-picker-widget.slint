@@ -1000,9 +1000,13 @@ component HsvPicker inherits SimpleColumn {
 
 component ColorPicker inherits DraggablePanel {
     property current-color <=> PickerData.current-color;
+    // Is the picker being used to edit (property tab) or preview (data tab)
     in property <WidgetMode> widget-mode: edit;
+    // Is the property type color or a brush. Don't show  gradient picker for colors
     in property <BrushPropertyType> picker-mode: brush;
+    // The specific current brush type (color, linear, radial, etc)
     in-out property <BrushMode> brush-mode: color;
+    // Which tab is active in the picker (color, gradient, etc)
     in-out property <PickerTab> active-tab: PickerTab.color;
 
     callback close <=> t-close.clicked;
