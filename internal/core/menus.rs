@@ -85,11 +85,12 @@ impl MenuFromItemTree {
                     let item = ItemRc::new(item_tree.clone(), index);
                     let children = self.update_shadow_tree_recursive(&item);
                     let has_sub_menu = !children.is_empty();
+                    let enabled = menu_item.enabled();
                     self.item_cache.borrow_mut().insert(
                         id.clone(),
                         ShadowTreeNode { item: ItemRc::downgrade(&item), children },
                     );
-                    result.push(MenuEntry { title, id, has_sub_menu, is_separator });
+                    result.push(MenuEntry { title, id, has_sub_menu, is_separator, enabled });
                 }
                 VisitChildrenResult::CONTINUE
             };
@@ -143,6 +144,7 @@ pub struct MenuItem {
     pub cached_rendering_data: CachedRenderingData,
     pub title: Property<SharedString>,
     pub activated: Callback<VoidArg>,
+    pub enabled: Property<bool>,
 }
 
 impl crate::items::Item for MenuItem {

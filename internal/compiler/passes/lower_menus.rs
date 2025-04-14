@@ -654,7 +654,7 @@ fn generate_menu_entries(
 
         drop(borrow_mut);
         if !is_separator {
-            for prop in ["title"] {
+            for prop in ["title", "enabled"] {
                 if item.borrow().bindings.contains_key(prop) {
                     let n = SmolStr::new_static(prop);
                     values.insert(

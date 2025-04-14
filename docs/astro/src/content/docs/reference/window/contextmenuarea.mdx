@@ -39,6 +39,12 @@ Use `MenuItem` children of individual menu items, `Menu` children to create sub-
 This is the label of the menu as written in the menu bar or in the parent menu.
 </SlintProperty>
 
+#### enabled
+
+<SlintProperty propName="enabled" typeName="bool" defaultValue="true">
+When disabled, the `Menu` can be selected but not activated.
+</SlintProperty>
+
 ## `MenuItem`
 
 A `MenuItem` represents a single menu entry. It's must be a child of a `Menu` element.
@@ -49,6 +55,12 @@ A `MenuItem` represents a single menu entry. It's must be a child of a `Menu` el
 
 <SlintProperty propName="title" typeName="string" defaultValue='""'>
 The title shown for this menu item.
+</SlintProperty>
+
+#### enabled
+
+<SlintProperty propName="enabled" typeName="bool" defaultValue="true">
+When disabled, the `MenuItem` can be selected but not activated.
 </SlintProperty>
 
 ### Callbacks of `MenuItem`

@@ -115,6 +115,7 @@ export component MenuItemBase {
 
         touch-area := TouchArea {
             visible: !entry.is-separator;
+            enabled: entry.enabled;
 
             layout := HorizontalLayout {
                 padding-top: root.padding-top;
@@ -140,11 +141,12 @@ export component MenuItemBase {
             pointer-event(event) => {
                 if event.kind == PointerEventKind.move && !root.is-current {
                     root.set-current()
-                } else if event.kind == PointerEventKind.down && entry.has-sub-menu {
+                } else if event.kind == PointerEventKind.down && entry.has-sub-menu && entry.enabled {
                     activate(entry, self.absolute-position.y);
                 } else if event.kind == PointerEventKind.up
                         && self.mouse-y > 0 && self.mouse-y < self.height
-                        && self.mouse-x > 0 && self.mouse-x < self.width {
+                        && self.mouse-x > 0 && self.mouse-x < self.width
+                        && entry.enabled {
                     // can't put this in `clicked` because then the menu would close causing a panic in the pointer-event
                     activate(entry, self.absolute-position.y);
                 }
@@ -167,6 +169,9 @@ export component MenuItemBase {
         is-current when root.is-current : {
             background-layer.background: root.current-background;
             label.color: root.current-foreground;
+        }
+        disabled when !entry.enabled : {
+            label.opacity: 0.5;
         }
     ]
 }

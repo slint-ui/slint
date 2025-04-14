@@ -85,12 +85,12 @@ export component PopupMenuImpl inherits Window {
                 }
                 return accept;
             } else if event.text == Key.Return {
-                if current-highlight >= 0 && current-highlight < entries.length {
+                if current-highlight >= 0 && current-highlight < entries.length && entries[current-highlight].enabled {
                     activate(entries[current-highlight], y-pos(current-highlight), current-highlight);
                 }
                 return accept;
             } else if event.text == Key.RightArrow {
-                if current-highlight >= 0 && current-highlight < entries.length && entries[current-highlight].has-sub-menu {
+                if current-highlight >= 0 && current-highlight < entries.length && entries[current-highlight].has-sub-menu && entries[current-highlight].enabled {
                     activate(entries[current-highlight], y-pos(current-highlight), current-highlight);
                 }
                 return accept;
