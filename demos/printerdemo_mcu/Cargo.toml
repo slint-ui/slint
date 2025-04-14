@@ -16,11 +16,15 @@ name = "printerdemo_mcu"
 
 [features]
 simulator = ["slint/renderer-software", "slint/backend-winit", "slint/std"]
+esp32-s3-box-3 = ["esp-hal/esp32s3", "mcu-board-support/esp32-s3-box-3"]
 default = ["simulator"]
 
 [dependencies]
 slint = { path = "../../api/rs/slint", default-features = false, features = ["compat-1-2"] }
 mcu-board-support = { path = "../../examples/mcu-board-support" }
+
+# Workaround for exporting proc macro main
+esp-hal = { version = "1.0.0-beta.0", optional = true }
 
 [build-dependencies]
 slint-build = { path = "../../api/rs/build" }

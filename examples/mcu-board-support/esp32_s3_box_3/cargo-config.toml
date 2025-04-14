@@ -9,13 +9,7 @@ ESP_HAL_CONFIG_PSRAM_MODE = "octal"
 runner = "espflash flash --monitor"
 rustflags = [
   "-C",
-  "force-frame-pointers",
-  "-C",
-  "link-arg=-nostartfiles",
-#  "-C",
-#  "link-arg=-Wl,-Tlinkall.x",
-  "-C",
-  "target-feature=-fp",
+  "link-arg=-Wl,-Tlinkall.x",
 ]
 
 [build]
