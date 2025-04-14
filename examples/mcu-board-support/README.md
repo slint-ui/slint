@@ -210,5 +210,5 @@ When flashing, with `esplash`, you will be prompted to select a USB port. If thi
 To compile and run the demo:
 
 ```sh
-CARGO_PROFILE_RELEASE_OPT_LEVEL=s cargo +esp run -p printerdemo_mcu --target xtensa-esp32s3-none-elf --no-default-features --features=mcu-board-support/esp32-s3-box-3 --release --config examples/mcu-board-support/esp32_s3_box_3/cargo-config.toml
+CARGO_PROFILE_RELEASE_OPT_LEVEL=s cargo +esp run -p printerdemo_mcu --target xtensa-esp32s3-none-elf --no-default-features --features=esp32-s3-box-3 --release --config examples/mcu-board-support/esp32_s3_box_3/cargo-config.toml
 ```
