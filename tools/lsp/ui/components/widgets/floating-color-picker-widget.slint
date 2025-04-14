@@ -13,6 +13,12 @@ export global Styles {
     out property <length> picker-width: 240px;
 }
 
+enum PickerTab {
+    color,
+    gradient,
+    svg-color
+}
+
 component PickerTextInput inherits TextInput {
     height: 15px;
     horizontal-alignment: left;
@@ -109,7 +115,7 @@ component BrushTypeSelector {
     width: 100%;
     height: 100%;
 
-    in-out property <BrushMode> brush-mode: color;
+    in-out property <PickerTab> active-tab: PickerTab.color;
 
     HorizontalLayout {
         padding-left: EditorSizeSettings.small-margin;
@@ -120,7 +126,7 @@ component BrushTypeSelector {
             width: 25px;
             height: self.width;
 
-            property <bool> is-active: brush-mode == BrushMode.color;
+            property <bool> is-active: active-tab == PickerTab.color;
 
             Rectangle {
                 visible: is-active;
@@ -130,7 +136,7 @@ component BrushTypeSelector {
 
             TouchArea {
                 clicked => {
-                    brush-mode = BrushMode.color;
+                    active-tab = PickerTab.color;
                 }
             }
 
@@ -159,7 +165,7 @@ component BrushTypeSelector {
             width: 25px;
             height: self.width;
 
-            property <bool> is-active: brush-mode == BrushMode.gradient;
+            property <bool> is-active: active-tab == PickerTab.gradient;
 
             Rectangle {
                 visible: is-active;
@@ -169,7 +175,7 @@ component BrushTypeSelector {
 
             TouchArea {
                 clicked => {
-                    brush-mode = BrushMode.gradient;
+                    active-tab = PickerTab.gradient;
                 }
             }
 
@@ -197,7 +203,7 @@ component BrushTypeSelector {
             width: 25px;
             height: self.width;
 
-            property <bool> is-active: brush-mode == BrushMode.svg-color;
+            property <bool> is-active: active-tab == PickerTab.svg-color;
 
             Rectangle {
                 visible: is-active;
@@ -207,7 +213,7 @@ component BrushTypeSelector {
 
             TouchArea {
                 clicked => {
-                    brush-mode = BrushMode.svg-color;
+                    active-tab = PickerTab.svg-color;
                 }
             }
 
@@ -997,6 +1003,7 @@ component ColorPicker inherits DraggablePanel {
     in property <WidgetMode> widget-mode: edit;
     in property <BrushPropertyType> picker-mode: brush;
     in-out property <BrushMode> brush-mode: color;
+    in-out property <PickerTab> active-tab: PickerTab.color;
 
     callback close <=> t-close.clicked;
 
@@ -1013,7 +1020,7 @@ component ColorPicker inherits DraggablePanel {
         height: 40px;
 
         if picker-mode == BrushPropertyType.brush: BrushTypeSelector {
-            brush-mode <=> root.brush-mode;
+            active-tab <=> root.active-tab;
         }
 
         Rectangle {
@@ -1040,15 +1047,15 @@ component ColorPicker inherits DraggablePanel {
         }
     }
 
-    if brush-mode == BrushMode.color: HsvPicker { }
+    if active-tab == PickerTab.color: HsvPicker { }
 
-    if brush-mode == BrushMode.color: VerticalSpacer { }
+    if active-tab == PickerTab.color: VerticalSpacer { }
 
-    if brush-mode == BrushMode.color: color-apply := ColorModeColorAndApply {
+    if active-tab == PickerTab.color: color-apply := ColorModeColorAndApply {
         widget-mode: root.widget-mode;
     }
 
-    if brush-mode == BrushMode.gradient: GradientPicker {
+    if active-tab == PickerTab.gradient: GradientPicker {
         clear-focus-panel => {
             root.clear-focus-panel();
         }

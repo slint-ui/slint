@@ -79,9 +79,9 @@ export global WindowManager {
         if brush-kind == BrushKind.solid {
             brush-mode = BrushMode.color;
         } else if brush-kind == BrushKind.linear {
-            brush-mode = BrushMode.gradient;
+            brush-mode = BrushMode.linear;
         } else if brush-kind == BrushKind.radial {
-            brush-mode = BrushMode.gradient;
+            brush-mode = BrushMode.radial;
         }
         PickerData.current-brush = current-brush;
         PickerData.current-gradient-stops = current-gradient-stops;
