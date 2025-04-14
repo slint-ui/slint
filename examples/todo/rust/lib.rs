@@ -54,26 +54,34 @@ fn init() -> State {
         }
     });
 
+    let confirm_dialog = ConfirmDialog::new().unwrap();
+    confirm_dialog
+        .window()
+        .set_modality(slint::WindowModality::WindowModal(main_window.window()))
+        .ok();
+
     let weak_window = main_window.as_weak();
-    main_window.on_popup_confirmed(move || {
-        let window = weak_window.unwrap();
-        window.hide().unwrap();
+    let weak_confirm_dialog = confirm_dialog.as_weak();
+    confirm_dialog.on_yes_clicked(move || {
+        weak_window.unwrap().hide().unwrap();
+        weak_confirm_dialog.unwrap().hide().unwrap();
+    });
+    let weak_confirm_dialog = confirm_dialog.as_weak();
+    confirm_dialog.on_no_clicked(move || {
+        weak_confirm_dialog.unwrap().hide().unwrap();
     });
 
-    {
-        let weak_window = main_window.as_weak();
+    main_window.window().on_close_requested({
         let todo_model = todo_model.clone();
-        main_window.window().on_close_requested(move || {
-            let window = weak_window.unwrap();
-
+        move || {
             if todo_model.iter().any(|t| !t.checked) {
-                window.invoke_show_confirm_popup();
+                confirm_dialog.show().unwrap();
                 slint::CloseRequestResponse::KeepWindowShown
             } else {
                 slint::CloseRequestResponse::HideWindow
             }
-        });
-    }
+        }
+    });
 
     main_window.on_apply_sorting_and_filtering({
         let weak_window = main_window.as_weak();
