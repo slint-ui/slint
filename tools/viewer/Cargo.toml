@@ -67,7 +67,7 @@ itertools = { workspace = true }
 serde_json = { workspace = true }
 smol_str = { workspace = true }
 
-[target.'cfg(not(target_os = "windows"))'.dependencies]
+[target.'cfg(not(any(target_os = "windows", all(target_arch = "aarch64", target_os = "linux"))))'.dependencies]
 tikv-jemallocator = { workspace = true }
 
 [[bin]]

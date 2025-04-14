@@ -33,5 +33,5 @@ proc-macro2 = "1.0.11"
 spin_on = { workspace = true }
 itertools = { workspace = true }
 
-[target.'cfg(not(target_os = "windows"))'.dependencies]
+[target.'cfg(not(any(target_os = "windows", all(target_arch = "aarch64", target_os = "linux"))))'.dependencies]
 tikv-jemallocator = { workspace = true, optional = true }
