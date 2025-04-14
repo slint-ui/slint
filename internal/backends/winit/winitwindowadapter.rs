@@ -246,7 +246,7 @@ impl WinitWindowOrNone {
 /// GraphicsWindow is an implementation of the [WindowAdapter][`crate::eventloop::WindowAdapter`] trait. This is
 /// typically instantiated by entry factory functions of the different graphics back ends.
 pub struct WinitWindowAdapter {
-    shared_backend_data: Rc<SharedBackendData>,
+    pub shared_backend_data: Rc<SharedBackendData>,
     window: OnceCell<corelib::api::Window>,
     self_weak: Weak<Self>,
     pending_redraw: Cell<bool>,

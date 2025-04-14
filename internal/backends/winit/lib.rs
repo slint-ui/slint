@@ -645,6 +645,12 @@ pub trait WinitWindowAccessor: private::WinitWindowAccessorSealed {
         callback: impl FnMut(&i_slint_core::api::Window, &winit::event::WindowEvent) -> WinitWindowEventResult
             + 'static,
     );
+
+    /// Creates a non Slint aware window with winit
+    fn create_winit_window(
+        &self,
+        window_attributes: winit::window::WindowAttributes,
+    ) -> Result<winit::window::Window, winit::error::OsError>;
 }
 
 impl WinitWindowAccessor for i_slint_core::api::Window {
@@ -681,6 +687,23 @@ impl WinitWindowAccessor for i_slint_core::api::Window {
                 .window_event_filter
                 .set(Some(Box::new(move |window, event| callback(window, event))));
         }
+    }
+
+    /// Creates a non Slint aware window with winit
+    fn create_winit_window(
+        &self,
+        window_attributes: winit::window::WindowAttributes,
+    ) -> Result<winit::window::Window, winit::error::OsError> {
+        i_slint_core::window::WindowInner::from_pub(self)
+            .window_adapter()
+            .internal(i_slint_core::InternalToken)
+            .unwrap()
+            .as_any()
+            .downcast_ref::<WinitWindowAdapter>()
+            .unwrap()
+            .shared_backend_data
+            .with_event_loop(|eli| Ok(eli.create_window(window_attributes)))
+            .unwrap()
     }
 }
 
