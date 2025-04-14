@@ -135,6 +135,11 @@ pub trait WindowAdapter {
     /// be called again.
     fn update_window_properties(&self, _properties: WindowProperties<'_>) {}
 
+    /// Re-implement this to provide an implemtation of [`Window::set_modality`].
+    fn set_modality(&self, _: crate::api::WindowModality<'_>) -> Result<(), PlatformError> {
+        Err(PlatformError::Unsupported)
+    }
+
     #[doc(hidden)]
     fn internal(&self, _: crate::InternalToken) -> Option<&dyn WindowAdapterInternal> {
         None
