@@ -113,6 +113,7 @@ component RowMarker inherits Rectangle {
     in property <int> value;
     in property <bool> header: false;
     in property <bool> hovered;
+    in property <bool> show-menu: true;
     width: 30px;
 
     if (value > 0):   Rectangle {
@@ -129,8 +130,9 @@ component RowMarker inherits Rectangle {
                 VerticalLayout {
                     alignment: LayoutAlignment.center;
                     padding: EditorSpaceSettings.default-padding / 4;
+
                     indicator := Image {
-                        visible: hovered;
+                        visible: hovered && show-menu;
                         colorize: Palette.foreground;
                         source: Icons.chevron-down;
                         width: 10px;
@@ -251,12 +253,13 @@ export component Spreadsheet {
             RowMarker {
                 value: row + 1;
                 hovered: ta.has-hover;
+                show-menu: root.current-table.is-array;
 
                 ta := TouchArea {
+                    visible: root.current-table.is-array;
                     clicked => {
                         root.selection-x = self.x;
                         root.selection-y = self.y;
-
                         row_menu.row-number = row;
                         row_menu.show({
                             x:self.mouse-x + ta.absolute-position.x - row_menu.absolute-position.x,
@@ -324,7 +327,6 @@ export component Spreadsheet {
 
     row_menu := ContextMenuArea {
         in-out property <int> row-number;
-
         Menu {
             MenuItem {
                 title: "Add Row Above";
