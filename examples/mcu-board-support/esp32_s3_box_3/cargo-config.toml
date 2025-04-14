@@ -1,6 +1,10 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: MIT
 
+[env]
+ESP_LOG="INFO"
+ESP_HAL_CONFIG_PSRAM_MODE = "octal"
+
 [target.xtensa-esp32s3-none-elf]
 runner = "espflash flash --monitor"
 rustflags = [
@@ -8,8 +12,8 @@ rustflags = [
   "force-frame-pointers",
   "-C",
   "link-arg=-nostartfiles",
-  "-C",
-  "link-arg=-Wl,-Tlinkall.x",
+#  "-C",
+#  "link-arg=-Wl,-Tlinkall.x",
   "-C",
   "target-feature=-fp",
 ]

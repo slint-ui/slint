@@ -27,7 +27,7 @@ use esp_hal::{
 };
 use esp_println::logger::init_logger_from_env;
 use gt911::Gt911Blocking;
-use log::{error, info};
+use log::{error, info, warn};
 use mipidsi::options::{ColorOrder, Orientation, Rotation};
 use slint::platform::PointerEventButton;
 use slint::platform::WindowEvent;
@@ -229,7 +229,7 @@ impl slint::platform::Platform for EspBackend {
         match touch.init(&mut i2c) {
             Ok(_) => info!("Touch initialized"),
             Err(e) => {
-                info!("Touch initialization failed: {:?}", e);
+                warn!("Touch initialization failed: {:?}", e);
                 let touch_fallback = Gt911Blocking::new(ESP_LCD_TOUCH_IO_I2C_GT911_ADDRESS_BACKUP);
                 match touch_fallback.init(&mut i2c) {
                     Ok(_) => {
@@ -308,10 +308,6 @@ impl slint::platform::Platform for EspBackend {
                 }
             }
         }
-    }
-
-    fn debug_log(&self, arguments: core::fmt::Arguments) {
-        esp_println::println!("{}", arguments);
     }
 }
 
