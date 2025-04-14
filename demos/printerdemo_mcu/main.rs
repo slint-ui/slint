@@ -11,6 +11,9 @@ use alloc::vec::Vec;
 use alloc::rc::Rc;
 use slint::Model;
 
+#[allow(unused_imports)]
+use mcu_board_support::prelude::*;
+
 slint::include_modules!();
 
 struct PrinterQueueData {
