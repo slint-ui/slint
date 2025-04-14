@@ -159,8 +159,20 @@ pub fn create_layout(
         builder.add_text(text);
     }
 
+    let no_wrap = wrap == items::TextWrap::NoWrap || overflow == items::TextOverflow::Elide;
+
     let mut paragraph = builder.build();
-    paragraph.layout(max_width.map_or(f32::MAX, |physical_width| physical_width.get()));
+    paragraph.layout(
+        max_width.filter(|_| !no_wrap).map_or(f32::MAX, |physical_width| physical_width.get()),
+    );
+
+    // Layouting out with f32::max when wrapping is disabled, causes an overflow and breaks alignment compensation. Lay out again just wide enough
+    // to fit the largest unwrapped line.
+    if no_wrap
+        && matches!(h_align, TextHorizontalAlignment::Right | TextHorizontalAlignment::Center)
+    {
+        paragraph.layout(paragraph.longest_line() + 1.);
+    }
 
     let layout_height = PhysicalLength::new(paragraph.height());
 
@@ -170,7 +182,25 @@ pub fn create_layout(
         i_slint_core::items::TextVerticalAlignment::Bottom => max_height - layout_height,
     };
 
-    (paragraph, PhysicalPoint::from_lengths(Default::default(), layout_top_y))
+    let layout_top_x = if no_wrap {
+        // With no wrapping, the alignment is done against the layout width that's larger than the available width. Compensate for that
+        // by shifting rendering.
+        match h_align {
+            TextHorizontalAlignment::Left => PhysicalLength::zero(),
+            TextHorizontalAlignment::Center => {
+                let available_width = max_width.unwrap_or(PhysicalLength::new(f32::MAX));
+                (PhysicalLength::new(-paragraph.max_width()) + available_width) / 2.
+            }
+            TextHorizontalAlignment::Right => {
+                let available_width = max_width.unwrap_or(PhysicalLength::new(f32::MAX));
+                PhysicalLength::new(-paragraph.max_width()) + available_width
+            }
+        }
+    } else {
+        PhysicalLength::zero()
+    };
+
+    (paragraph, PhysicalPoint::from_lengths(layout_top_x, layout_top_y))
 }
 
 pub fn font_metrics(
