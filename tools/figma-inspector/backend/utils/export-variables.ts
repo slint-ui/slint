@@ -399,6 +399,479 @@ interface VariableNode {
     children: Map<string, VariableNode>;
 }
 
+// Recursively generate code from the tree structure
+// Replace your generateStructCode function with this version:
+
+interface StructField {
+    name: string;
+    type: string;
+    isMultiMode?: boolean;
+}
+
+interface StructDefinition {
+    name: string;
+    fields: StructField[];
+    path: string[];
+}
+
+interface PropertyInstance {
+    name: string;
+    type: string;
+    isMultiMode?: boolean;
+    values?: Map<string, string>;
+    comment?: string;
+    children?: Map<string, PropertyInstance>;
+}
+
+function generateStructsAndInstances(
+    variableTree: VariableNode,
+    collectionName: string,
+    collectionData: any, // Using any for now, but ideally define a proper interface
+): {
+    structs: string;
+    instances: string;
+} {
+    // Data structures to hold our model
+    const structDefinitions = new Map<string, StructDefinition>();
+    const propertyInstances = new Map<string, PropertyInstance>();
+    const hasRootModeVariable = variableTree.children.has("mode");
+
+    // Build the struct model
+    function buildStructModel(node: VariableNode, path: string[] = []) {
+        // Special handling for root
+        if (node.name === "root") {
+            // Process all root children
+            for (const [childName, childNode] of node.children.entries()) {
+                const sanitizedChildName = sanitizePropertyName(childName);
+
+                // Always process child nodes with proper path propagation
+                buildStructModel(childNode, [childName]); // Keep this single-element path for first level
+            }
+            return;
+        }
+
+        const currentPath = [...path];
+        const pathKey = currentPath.join("/");
+        const typeName = currentPath.join("_");
+
+        // Only create a struct if this node will have fields
+        const hasValueChildren = Array.from(node.children.values()).some(
+            (child) => child.valuesByMode,
+        );
+        const hasStructChildren = Array.from(node.children.values()).some(
+            (child) => child.children.size > 0,
+        );
+
+        if (
+            (hasValueChildren || hasStructChildren) &&
+            !structDefinitions.has(pathKey)
+        ) {
+            structDefinitions.set(pathKey, {
+                name: `${collectionData.formattedName}_${typeName}`,
+                fields: [],
+                path: [...currentPath],
+            });
+        }
+
+        // Process all children recursively, maintaining hierarchical paths
+        for (const [childName, childNode] of node.children.entries()) {
+            // Always process child nodes, appending to the path
+            buildStructModel(childNode, [...currentPath, childName]);
+
+            // Add field to parent struct
+            const sanitizedChildName = sanitizePropertyName(childName);
+            if (childNode.valuesByMode) {
+                console.log("MEBUG: childnode: ", sanitizedChildName);
+                // Value field
+                const slintType = getSlintType(childNode.type || "COLOR");
+                structDefinitions.get(pathKey)!.fields.push({
+                    name: sanitizedChildName,
+                    type:
+                        collectionData.modes.size > 1
+                            ? `mode${collectionData.modes.size}_${slintType}`
+                            : slintType,
+                    isMultiMode: collectionData.modes.size > 1,
+                });
+            } else if (childNode.children.size > 0) {
+                console.log("MEBUG: childnode > 0: ", sanitizedChildName);
+                // Struct reference
+                const childTypeName = [...currentPath, childName].join("_");
+                structDefinitions.get(pathKey)!.fields.push({
+                    name: sanitizedChildName,
+                    type: `${collectionData.formattedName}_${childTypeName}`,
+                });
+            }
+        }
+    }
+    // Build the instance model
+    function buildInstanceModel(node: VariableNode, path: string[] = []): void {
+        if (node.name === "root") {
+            for (const [childName, childNode] of node.children.entries()) {
+                // Special case for "mode" variable - rename it to avoid collision
+                const sanitizedChildName: string =
+                    childName === "mode" && hasRootModeVariable
+                        ? "mode-var"
+                        : sanitizePropertyName(childName);
+
+                if (childName === "mode" && hasRootModeVariable) {
+                    console.warn(
+                        `⚠️ COLLISION: Found a root-level "mode" variable in ${collectionData.name}.`,
+                    );
+                    console.warn(
+                        `Renaming Figma "mode" variable to "mode-var" to avoid conflict with scheme mode.`,
+                    );
+
+                    try {
+                        figma.notify(
+                            "Renamed Figma 'mode' variable to 'mode-var' to avoid conflict",
+                            { timeout: 3000 },
+                        );
+                    } catch (e) {
+                        // Ignore if not in Figma plugin context
+                    }
+                }
+
+                // Create the property instance with the appropriate name
+                if (childNode.children.size > 0) {
+                    propertyInstances.set(sanitizedChildName, {
+                        name: sanitizedChildName,
+                        type: `${collectionData.formattedName}_${childName}`, // Note: use original name in type
+                        children: new Map<string, PropertyInstance>(),
+                    });
+                    // Process children
+                    buildInstanceModel(childNode, [sanitizedChildName]);
+                    buildPropertyHierarchy();
+                } else if (childNode.valuesByMode) {
+                    // Direct value property
+                    const slintType: string = getSlintType(
+                        childNode.type || "COLOR",
+                    );
+                    const instance: PropertyInstance = {
+                        name: sanitizedChildName,
+                        type: slintType,
+                    };
+
+                    if (collectionData.modes.size > 1) {
+                        instance.isMultiMode = true;
+                        instance.values = new Map<string, string>();
+
+                        for (const [
+                            modeName,
+                            data,
+                        ] of childNode.valuesByMode.entries()) {
+                            instance.values.set(modeName, data.value);
+                            if (data.comment) {
+                                instance.comment = data.comment;
+                            }
+                        }
+                    } else {
+                        // Single mode
+                        const firstMode: ModeValue | undefined =
+                            childNode.valuesByMode.values().next().value;
+                        instance.values = new Map<string, string>();
+                        instance.values.set("value", firstMode?.value || "");
+                    }
+
+                    propertyInstances.set(sanitizedChildName, instance);
+                }
+            }
+            return;
+        }
+
+        // For non-root nodes
+        const pathKey: string = path.join("/");
+        if (!propertyInstances.has(pathKey)) {
+            propertyInstances.set(pathKey, {
+                name: path[path.length - 1],
+                type: `${collectionData.formattedName}_${path.join("_")}`,
+                children: new Map<string, PropertyInstance>(),
+            });
+        }
+        for (const [childName, childNode] of node.children.entries()) {
+            const sanitizedChildName: string = sanitizePropertyName(childName);
+            const childPath: string[] = [...path, sanitizedChildName];
+            const childPathKey: string = childPath.join("/");
+
+            if (childNode.children.size > 0) {
+                // Get parent instance
+                const parentInstance: PropertyInstance | undefined =
+                    propertyInstances.get(pathKey);
+                if (!parentInstance || !parentInstance.children) {
+                    continue;
+                }
+
+                // Add child instance to parent
+                parentInstance.children.set(sanitizedChildName, {
+                    name: sanitizedChildName,
+                    type: `${collectionData.formattedName}_${childPath.join("_")}`,
+                    children: new Map<string, PropertyInstance>(),
+                });
+                console.log(
+                    `Creating instance: ${sanitizedChildName}, type: ${collectionData.formattedName}_${childPath.join("_")}`,
+                );
+                buildInstanceModel(childNode, childPath);
+                buildPropertyHierarchy();
+            } else if (childNode.valuesByMode) {
+                // Get parent instance
+                const parentInstance: PropertyInstance | undefined =
+                    propertyInstances.get(pathKey);
+                if (!parentInstance || !parentInstance.children) {
+                    continue;
+                }
+
+                const slintType: string = getSlintType(
+                    childNode.type || "COLOR",
+                );
+                const instance: PropertyInstance = {
+                    name: sanitizedChildName,
+                    type: slintType,
+                };
+
+                if (collectionData.modes.size > 1) {
+                    instance.isMultiMode = true;
+                    instance.values = new Map<string, string>();
+
+                    for (const [
+                        modeName,
+                        data,
+                    ] of childNode.valuesByMode.entries()) {
+                        instance.values.set(modeName, data.value);
+                        if (data.comment) {
+                            instance.comment = data.comment;
+                        }
+                    }
+                } else {
+                    // Single mode
+                    const firstMode: ModeValue | undefined =
+                        childNode.valuesByMode.values().next().value;
+                    instance.values = new Map<string, string>();
+                    instance.values.set("value", firstMode?.value || "");
+                }
+
+                parentInstance.children.set(sanitizedChildName, instance);
+            }
+        }
+        console.log("BUILD INSTANCE MODEL:", propertyInstances);
+    }
+    function buildPropertyHierarchy() {
+        // First find all unique top-level paths
+        const topLevelPaths = new Set<string>();
+
+        for (const key of propertyInstances.keys()) {
+            if (key.includes("/")) {
+                const parts = key.split("/");
+                topLevelPaths.add(parts[0]);
+            }
+        }
+
+        // For each top-level path, create or get the instance
+        for (const path of topLevelPaths) {
+            if (!propertyInstances.has(path)) {
+                propertyInstances.set(path, {
+                    name: path,
+                    type: `${collectionData.formattedName}_${path}`,
+                    children: new Map(),
+                });
+            }
+
+            // Now process all children of this path
+            const childPaths = Array.from(propertyInstances.keys()).filter(
+                (k) => k.startsWith(`${path}/`),
+            );
+
+            for (const childPath of childPaths) {
+                const childInstance = propertyInstances.get(childPath);
+                if (!childInstance) {
+                    continue;
+                }
+
+                // Get the parent path
+                const parts = childPath.split("/");
+                const parentPath = parts.slice(0, -1).join("/");
+                const childName = parts[parts.length - 1];
+
+                // Get the parent instance
+                const parentInstance = propertyInstances.get(parentPath);
+                if (!parentInstance || !parentInstance.children) {
+                    continue;
+                }
+
+                // Add child to parent
+                parentInstance.children.set(childName, childInstance);
+            }
+        }
+    }
+    function generateInstanceCode(
+        instance: PropertyInstance,
+        path: string[] = [],
+        indent: string = "    ",
+    ) {
+        let result = "";
+
+        if (path.length === 0) {
+            // Special handling for renamed mode variable
+            if (instance.name === "mode-var") {
+                result += `${indent}// NOTE: This property was renamed from "mode" to "mode-var" to avoid collision\n`;
+                result += `${indent}// with the scheme mode property of the same name.\n`;
+            }
+            // Root level property
+            const slintType = instance.isMultiMode
+                ? `mode${collectionData.modes.size}_${instance.type}`
+                : instance.type;
+
+            if (instance.children && instance.children.size > 0) {
+                // Struct instance
+                result += `${indent}out property <${instance.type}> ${instance.name}: {\n`;
+
+                for (const [
+                    childName,
+                    childInstance,
+                ] of instance.children.entries()) {
+                    result += generateInstanceCode(
+                        childInstance,
+                        [instance.name, childName],
+                        indent + "    ",
+                    );
+                }
+
+                result += `${indent}};\n\n`;
+            } else if (instance.values) {
+                // Value property
+                if (instance.isMultiMode) {
+                    // Multi-mode property
+                    result += `${indent}out property <${slintType}> ${instance.name}: {\n`;
+
+                    for (const [modeName, value] of instance.values.entries()) {
+                        if (instance.comment) {
+                            result += `${indent}    // ${instance.comment}\n`;
+                        }
+                        result += `${indent}    ${modeName}: ${value},\n`;
+                    }
+
+                    result += `${indent}};\n\n`;
+                } else {
+                    // Single mode property
+                    const value = instance.values.get("value") || "";
+
+                    if (value.startsWith("@ref:")) {
+                        // Unresolved reference
+                        result += `${indent}out property <${instance.type}> ${instance.name}: ${
+                            instance.type === "brush"
+                                ? "#808080"
+                                : instance.type === "length"
+                                  ? "0px"
+                                  : instance.type === "string"
+                                    ? '""'
+                                    : "false"
+                        };\n`;
+                    } else {
+                        result += `${indent}out property <${instance.type}> ${instance.name}: ${value};\n`;
+                    }
+                }
+            }
+        } else {
+            // Nested property
+            if (instance.children && instance.children.size > 0) {
+                // Nested struct
+                result += `${indent}${instance.name}: {\n`;
+
+                for (const [
+                    childName,
+                    childInstance,
+                ] of instance.children.entries()) {
+                    result += generateInstanceCode(
+                        childInstance,
+                        [...path, childName],
+                        indent + "    ",
+                    );
+                }
+
+                result += `${indent}},\n\n`;
+            } else if (instance.values) {
+                // Nested value
+                if (instance.isMultiMode) {
+                    // Multi-mode nested value
+                    result += `${indent}${instance.name}: {\n`;
+
+                    for (const [modeName, value] of instance.values.entries()) {
+                        if (instance.comment) {
+                            result += `${indent}    // ${instance.comment}\n`;
+                        }
+                        result += `${indent}    ${modeName}: ${value},\n`;
+                    }
+
+                    result += `${indent}},\n`;
+                } else {
+                    // Single mode nested value
+                    const value = instance.values.get("value") || "";
+
+                    if (value.startsWith("@ref:")) {
+                        // Unresolved reference
+                        result += `${indent}${instance.name}: ${
+                            instance.type === "brush"
+                                ? "#808080"
+                                : instance.type === "length"
+                                  ? "0px"
+                                  : instance.type === "string"
+                                    ? '""'
+                                    : "false"
+                        },\n`;
+                    } else {
+                        result += `${indent}${instance.name}: ${value},\n`;
+                    }
+                }
+            }
+        }
+
+        return result;
+    }
+
+    // First: Generate multi-mode structs
+    const multiModeStructs: string[] = [];
+    collectMultiModeStructs(variableTree, collectionData, multiModeStructs);
+
+    // Second: Build struct model
+    buildStructModel(variableTree);
+
+    // Third: Build instance model
+    buildInstanceModel(variableTree);
+    buildPropertyHierarchy();
+    // Fourth: Generate code from the models
+    let structsCode = multiModeStructs.join("");
+
+    // Generate structs in sorted order (deepest first)
+    const sortedPaths = Array.from(structDefinitions.keys()).sort(
+        (a, b) => b.split("/").length - a.split("/").length,
+    );
+
+    for (const pathKey of sortedPaths) {
+        const struct = structDefinitions.get(pathKey)!;
+
+        structsCode += `struct ${struct.name} {\n`;
+        for (const field of struct.fields) {
+            structsCode += `    ${field.name}: ${field.type},\n`;
+        }
+        structsCode += `}\n\n`;
+    }
+
+    // Generate property instances
+    let instancesCode = "";
+
+    // Generate all root level instances
+    for (const [instanceName, instance] of propertyInstances.entries()) {
+        // ONLY GENERATE CODE FOR ACTUAL ROOT PROPERTIES
+        if (!instanceName.includes("/")) {
+            // Only true root properties
+            instancesCode += generateInstanceCode(instance);
+        }
+    }
+
+    return {
+        structs: structsCode,
+        instances: instancesCode,
+    };
+}
+
 // For Figma Plugin - Export function with hierarchical structure
 // Export each collection to a separate virtual file
 export async function exportFigmaVariablesToSeparateFiles(): Promise<
@@ -785,564 +1258,10 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<
                 }
             }
 
-            // Recursively generate code from the tree structure
-            // Replace your generateStructCode function with this version:
-
-            interface StructField {
-                name: string;
-                type: string;
-                isMultiMode?: boolean;
-            }
-
-            interface StructDefinition {
-                name: string;
-                fields: StructField[];
-                path: string[];
-            }
-
-            interface PropertyInstance {
-                name: string;
-                type: string;
-                isMultiMode?: boolean;
-                values?: Map<string, string>;
-                comment?: string;
-                children?: Map<string, PropertyInstance>;
-            }
-
-            function generateStructsAndInstances(
-                variableTree: VariableNode,
-                collectionName: string,
-            ): {
-                structs: string;
-                instances: string;
-            } {
-                // Data structures to hold our model
-                const structDefinitions = new Map<string, StructDefinition>();
-                const propertyInstances = new Map<string, PropertyInstance>();
-                const hasRootModeVariable = variableTree.children.has("mode");
-
-                // First pass: Build the struct model
-                function buildStructModel(
-                    node: VariableNode,
-                    path: string[] = [],
-                ) {
-                    // Special handling for root
-                    if (node.name === "root") {
-                        // Process all root children
-                        for (const [
-                            childName,
-                            childNode,
-                        ] of node.children.entries()) {
-                            const sanitizedChildName =
-                                sanitizePropertyName(childName);
-
-                            // Always process child nodes with proper path propagation
-                            buildStructModel(childNode, [childName]); // Keep this single-element path for first level
-                        }
-                        return;
-                    }
-
-                    const currentPath = [...path];
-                    const pathKey = currentPath.join("/");
-                    const typeName = currentPath.join("_");
-
-                    // Only create a struct if this node will have fields
-                    const hasValueChildren = Array.from(
-                        node.children.values(),
-                    ).some((child) => child.valuesByMode);
-                    const hasStructChildren = Array.from(
-                        node.children.values(),
-                    ).some((child) => child.children.size > 0);
-
-                    if (
-                        (hasValueChildren || hasStructChildren) &&
-                        !structDefinitions.has(pathKey)
-                    ) {
-                        structDefinitions.set(pathKey, {
-                            name: `${collectionData.formattedName}_${typeName}`,
-                            fields: [],
-                            path: [...currentPath],
-                        });
-                    }
-
-                    // Process all children recursively, maintaining hierarchical paths
-                    for (const [
-                        childName,
-                        childNode,
-                    ] of node.children.entries()) {
-                        // Always process child nodes, appending to the path
-                        buildStructModel(childNode, [
-                            ...currentPath,
-                            childName,
-                        ]);
-
-                        // Add field to parent struct
-                        const sanitizedChildName =
-                            sanitizePropertyName(childName);
-                        if (childNode.valuesByMode) {
-                            console.log(
-                                "MEBUG: childnode: ",
-                                sanitizedChildName,
-                            );
-                            // Value field
-                            const slintType = getSlintType(
-                                childNode.type || "COLOR",
-                            );
-                            structDefinitions.get(pathKey)!.fields.push({
-                                name: sanitizedChildName,
-                                type:
-                                    collectionData.modes.size > 1
-                                        ? `mode${collectionData.modes.size}_${slintType}`
-                                        : slintType,
-                                isMultiMode: collectionData.modes.size > 1,
-                            });
-                        } else if (childNode.children.size > 0) {
-                            console.log(
-                                "MEBUG: childnode > 0: ",
-                                sanitizedChildName,
-                            );
-                            // Struct reference
-                            const childTypeName = [
-                                ...currentPath,
-                                childName,
-                            ].join("_");
-                            structDefinitions.get(pathKey)!.fields.push({
-                                name: sanitizedChildName,
-                                type: `${collectionData.formattedName}_${childTypeName}`,
-                            });
-                        }
-                    }
-                }
-                // Build the instance model
-                function buildInstanceModel(
-                    node: VariableNode,
-                    path: string[] = [],
-                ): void {
-                    if (node.name === "root") {
-                        for (const [
-                            childName,
-                            childNode,
-                        ] of node.children.entries()) {
-                            // Special case for "mode" variable - rename it to avoid collision
-                            const sanitizedChildName: string =
-                                childName === "mode" && hasRootModeVariable
-                                    ? "mode-var"
-                                    : sanitizePropertyName(childName);
-
-                            if (childName === "mode" && hasRootModeVariable) {
-                                console.warn(
-                                    `⚠️ COLLISION: Found a root-level "mode" variable in ${collectionData.name}.`,
-                                );
-                                console.warn(
-                                    `Renaming Figma "mode" variable to "mode-var" to avoid conflict with scheme mode.`,
-                                );
-
-                                try {
-                                    figma.notify(
-                                        "Renamed Figma 'mode' variable to 'mode-var' to avoid conflict",
-                                        { timeout: 3000 },
-                                    );
-                                } catch (e) {
-                                    // Ignore if not in Figma plugin context
-                                }
-                            }
-
-                            // Create the property instance with the appropriate name
-                            if (childNode.children.size > 0) {
-                                propertyInstances.set(sanitizedChildName, {
-                                    name: sanitizedChildName,
-                                    type: `${collectionData.formattedName}_${childName}`, // Note: use original name in type
-                                    children: new Map<
-                                        string,
-                                        PropertyInstance
-                                    >(),
-                                });
-                                // Process children
-                                buildInstanceModel(childNode, [
-                                    sanitizedChildName,
-                                ]);
-                                buildPropertyHierarchy();
-                            } else if (childNode.valuesByMode) {
-                                // Direct value property
-                                const slintType: string = getSlintType(
-                                    childNode.type || "COLOR",
-                                );
-                                const instance: PropertyInstance = {
-                                    name: sanitizedChildName,
-                                    type: slintType,
-                                };
-
-                                if (collectionData.modes.size > 1) {
-                                    instance.isMultiMode = true;
-                                    instance.values = new Map<string, string>();
-
-                                    for (const [
-                                        modeName,
-                                        data,
-                                    ] of childNode.valuesByMode.entries()) {
-                                        instance.values.set(
-                                            modeName,
-                                            data.value,
-                                        );
-                                        if (data.comment) {
-                                            instance.comment = data.comment;
-                                        }
-                                    }
-                                } else {
-                                    // Single mode
-                                    const firstMode: ModeValue | undefined =
-                                        childNode.valuesByMode
-                                            .values()
-                                            .next().value;
-                                    instance.values = new Map<string, string>();
-                                    instance.values.set(
-                                        "value",
-                                        firstMode?.value || "",
-                                    );
-                                }
-
-                                propertyInstances.set(
-                                    sanitizedChildName,
-                                    instance,
-                                );
-                            }
-                        }
-                        return;
-                    }
-
-                    // For non-root nodes
-                    const pathKey: string = path.join("/");
-                    if (!propertyInstances.has(pathKey)) {
-                        propertyInstances.set(pathKey, {
-                            name: path[path.length - 1],
-                            type: `${collectionData.formattedName}_${path.join("_")}`,
-                            children: new Map<string, PropertyInstance>(),
-                        });
-                    }
-                    for (const [
-                        childName,
-                        childNode,
-                    ] of node.children.entries()) {
-                        const sanitizedChildName: string =
-                            sanitizePropertyName(childName);
-                        const childPath: string[] = [
-                            ...path,
-                            sanitizedChildName,
-                        ];
-                        const childPathKey: string = childPath.join("/");
-
-                        if (childNode.children.size > 0) {
-                            // Get parent instance
-                            const parentInstance: PropertyInstance | undefined =
-                                propertyInstances.get(pathKey);
-                            if (!parentInstance || !parentInstance.children) {
-                                continue;
-                            }
-
-                            // Add child instance to parent
-                            parentInstance.children.set(sanitizedChildName, {
-                                name: sanitizedChildName,
-                                type: `${collectionData.formattedName}_${childPath.join("_")}`,
-                                children: new Map<string, PropertyInstance>(),
-                            });
-                            console.log(
-                                `Creating instance: ${sanitizedChildName}, type: ${collectionData.formattedName}_${childPath.join("_")}`,
-                            );
-                            buildInstanceModel(childNode, childPath);
-                            buildPropertyHierarchy();
-                        } else if (childNode.valuesByMode) {
-                            // Get parent instance
-                            const parentInstance: PropertyInstance | undefined =
-                                propertyInstances.get(pathKey);
-                            if (!parentInstance || !parentInstance.children) {
-                                continue;
-                            }
-
-                            const slintType: string = getSlintType(
-                                childNode.type || "COLOR",
-                            );
-                            const instance: PropertyInstance = {
-                                name: sanitizedChildName,
-                                type: slintType,
-                            };
-
-                            if (collectionData.modes.size > 1) {
-                                instance.isMultiMode = true;
-                                instance.values = new Map<string, string>();
-
-                                for (const [
-                                    modeName,
-                                    data,
-                                ] of childNode.valuesByMode.entries()) {
-                                    instance.values.set(modeName, data.value);
-                                    if (data.comment) {
-                                        instance.comment = data.comment;
-                                    }
-                                }
-                            } else {
-                                // Single mode
-                                const firstMode: ModeValue | undefined =
-                                    childNode.valuesByMode
-                                        .values()
-                                        .next().value;
-                                instance.values = new Map<string, string>();
-                                instance.values.set(
-                                    "value",
-                                    firstMode?.value || "",
-                                );
-                            }
-
-                            parentInstance.children.set(
-                                sanitizedChildName,
-                                instance,
-                            );
-                        }
-                    }
-                    console.log("BUILD INSTANCE MODEL:", propertyInstances);
-                }
-                function buildPropertyHierarchy() {
-                    // First find all unique top-level paths
-                    const topLevelPaths = new Set<string>();
-
-                    for (const key of propertyInstances.keys()) {
-                        if (key.includes("/")) {
-                            const parts = key.split("/");
-                            topLevelPaths.add(parts[0]);
-                        }
-                    }
-
-                    // For each top-level path, create or get the instance
-                    for (const path of topLevelPaths) {
-                        if (!propertyInstances.has(path)) {
-                            propertyInstances.set(path, {
-                                name: path,
-                                type: `${collectionData.formattedName}_${path}`,
-                                children: new Map(),
-                            });
-                        }
-
-                        // Now process all children of this path
-                        const childPaths = Array.from(
-                            propertyInstances.keys(),
-                        ).filter((k) => k.startsWith(`${path}/`));
-
-                        for (const childPath of childPaths) {
-                            const childInstance =
-                                propertyInstances.get(childPath);
-                            if (!childInstance) {
-                                continue;
-                            }
-
-                            // Get the parent path
-                            const parts = childPath.split("/");
-                            const parentPath = parts.slice(0, -1).join("/");
-                            const childName = parts[parts.length - 1];
-
-                            // Get the parent instance
-                            const parentInstance =
-                                propertyInstances.get(parentPath);
-                            if (!parentInstance || !parentInstance.children) {
-                                continue;
-                            }
-
-                            // Add child to parent
-                            parentInstance.children.set(
-                                childName,
-                                childInstance,
-                            );
-                        }
-                    }
-                }
-
-                // First: Generate multi-mode structs
-                const multiModeStructs: string[] = [];
-                collectMultiModeStructs(
-                    variableTree,
-                    collectionData,
-                    multiModeStructs,
-                );
-
-                // Second: Build struct model
-                buildStructModel(variableTree);
-
-                // Third: Build instance model
-                buildInstanceModel(variableTree);
-                buildPropertyHierarchy();
-                // Fourth: Generate code from the models
-                let structsCode = multiModeStructs.join("");
-
-                // Generate structs in sorted order (deepest first)
-                const sortedPaths = Array.from(structDefinitions.keys()).sort(
-                    (a, b) => b.split("/").length - a.split("/").length,
-                );
-
-                for (const pathKey of sortedPaths) {
-                    const struct = structDefinitions.get(pathKey)!;
-
-                    structsCode += `struct ${struct.name} {\n`;
-                    for (const field of struct.fields) {
-                        structsCode += `    ${field.name}: ${field.type},\n`;
-                    }
-                    structsCode += `}\n\n`;
-                }
-
-                // Generate property instances
-                let instancesCode = "";
-
-                function generateInstanceCode(
-                    instance: PropertyInstance,
-                    path: string[] = [],
-                    indent: string = "    ",
-                ) {
-                    let result = "";
-
-                    if (path.length === 0) {
-                        // Special handling for renamed mode variable
-                        if (instance.name === "mode-var") {
-                            result += `${indent}// NOTE: This property was renamed from "mode" to "mode-var" to avoid collision\n`;
-                            result += `${indent}// with the scheme mode property of the same name.\n`;
-                        }
-                        // Root level property
-                        const slintType = instance.isMultiMode
-                            ? `mode${collectionData.modes.size}_${instance.type}`
-                            : instance.type;
-
-                        if (instance.children && instance.children.size > 0) {
-                            // Struct instance
-                            result += `${indent}out property <${instance.type}> ${instance.name}: {\n`;
-
-                            for (const [
-                                childName,
-                                childInstance,
-                            ] of instance.children.entries()) {
-                                result += generateInstanceCode(
-                                    childInstance,
-                                    [instance.name, childName],
-                                    indent + "    ",
-                                );
-                            }
-
-                            result += `${indent}};\n\n`;
-                        } else if (instance.values) {
-                            // Value property
-                            if (instance.isMultiMode) {
-                                // Multi-mode property
-                                result += `${indent}out property <${slintType}> ${instance.name}: {\n`;
-
-                                for (const [
-                                    modeName,
-                                    value,
-                                ] of instance.values.entries()) {
-                                    if (instance.comment) {
-                                        result += `${indent}    // ${instance.comment}\n`;
-                                    }
-                                    result += `${indent}    ${modeName}: ${value},\n`;
-                                }
-
-                                result += `${indent}};\n\n`;
-                            } else {
-                                // Single mode property
-                                const value =
-                                    instance.values.get("value") || "";
-
-                                if (value.startsWith("@ref:")) {
-                                    // Unresolved reference
-                                    result += `${indent}out property <${instance.type}> ${instance.name}: ${
-                                        instance.type === "brush"
-                                            ? "#808080"
-                                            : instance.type === "length"
-                                              ? "0px"
-                                              : instance.type === "string"
-                                                ? '""'
-                                                : "false"
-                                    };\n`;
-                                } else {
-                                    result += `${indent}out property <${instance.type}> ${instance.name}: ${value};\n`;
-                                }
-                            }
-                        }
-                    } else {
-                        // Nested property
-                        if (instance.children && instance.children.size > 0) {
-                            // Nested struct
-                            result += `${indent}${instance.name}: {\n`;
-
-                            for (const [
-                                childName,
-                                childInstance,
-                            ] of instance.children.entries()) {
-                                result += generateInstanceCode(
-                                    childInstance,
-                                    [...path, childName],
-                                    indent + "    ",
-                                );
-                            }
-
-                            result += `${indent}},\n\n`;
-                        } else if (instance.values) {
-                            // Nested value
-                            if (instance.isMultiMode) {
-                                // Multi-mode nested value
-                                result += `${indent}${instance.name}: {\n`;
-
-                                for (const [
-                                    modeName,
-                                    value,
-                                ] of instance.values.entries()) {
-                                    if (instance.comment) {
-                                        result += `${indent}    // ${instance.comment}\n`;
-                                    }
-                                    result += `${indent}    ${modeName}: ${value},\n`;
-                                }
-
-                                result += `${indent}},\n`;
-                            } else {
-                                // Single mode nested value
-                                const value =
-                                    instance.values.get("value") || "";
-
-                                if (value.startsWith("@ref:")) {
-                                    // Unresolved reference
-                                    result += `${indent}${instance.name}: ${
-                                        instance.type === "brush"
-                                            ? "#808080"
-                                            : instance.type === "length"
-                                              ? "0px"
-                                              : instance.type === "string"
-                                                ? '""'
-                                                : "false"
-                                    },\n`;
-                                } else {
-                                    result += `${indent}${instance.name}: ${value},\n`;
-                                }
-                            }
-                        }
-                    }
-
-                    return result;
-                }
-
-                // Generate all root level instances
-                for (const [
-                    instanceName,
-                    instance,
-                ] of propertyInstances.entries()) {
-                    // ONLY GENERATE CODE FOR ACTUAL ROOT PROPERTIES
-                    if (!instanceName.includes("/")) {
-                        // Only true root properties
-                        instancesCode += generateInstanceCode(instance);
-                    }
-                }
-
-                return {
-                    structs: structsCode,
-                    instances: instancesCode,
-                };
-            }
-            // Get structures and instances
             const { structs, instances } = generateStructsAndInstances(
                 variableTree,
                 collectionData.formattedName,
+                collectionData,
             );
 
             // Generate the scheme structs (only for multi-mode collections)
