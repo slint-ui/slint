@@ -135,9 +135,28 @@ pub fn create_ui(style: String, experimental: bool) -> Result<PreviewUi, Platfor
     api.on_as_slint_brush(as_slint_brush);
     api.on_create_brush(create_brush);
     api.on_add_gradient_stop(|model, value| {
-        let m = model.as_any().downcast_ref::<VecModel<_>>().unwrap();
-        m.push(value);
-        (m.row_count() - 1) as i32
+        let m = model.as_any().downcast_ref::<VecModel<GradientStop>>().unwrap();
+
+        let insert_position = {
+            let mut insert_position = m.row_count();
+            for i in 0..m.row_count() {
+                let row = m.row_data(i);
+                if let Some(row) = &row {
+                    if row.position >= value.position {
+                        insert_position = i;
+                    }
+                }
+            }
+            insert_position
+        };
+
+        if insert_position == m.row_count() {
+            m.push(value);
+        } else {
+            m.insert(insert_position, value);
+        }
+
+        (insert_position) as i32
     });
     api.on_remove_gradient_stop(|model, row| {
         if row <= 0 {
@@ -638,6 +657,16 @@ fn map_value_and_type(
         }
         Type::Brush => {
             let brush = get_value::<slint::Brush>(value);
+
+            fn stops<'a>(
+                it: &mut dyn Iterator<Item = &'a i_slint_core::graphics::GradientStop>,
+            ) -> Vec<GradientStop> {
+                let mut stops = it
+                    .map(|gs| GradientStop { color: gs.color, position: gs.position })
+                    .collect::<Vec<_>>();
+                stops.sort_by(|left, right| left.position.total_cmp(&right.position));
+                stops
+            }
             match brush {
                 slint::Brush::SolidColor(c) => {
                     map_color(mapping, c, PropertyValueKind::Brush, get_code(value))
@@ -650,12 +679,7 @@ fn map_value_and_type(
                         brush_kind: BrushKind::Linear,
                         value_float: lg.angle(),
                         value_brush: slint::Brush::LinearGradient(lg.clone()),
-                        gradient_stops: Rc::new(VecModel::from(
-                            lg.stops()
-                                .map(|gs| GradientStop { color: gs.color, position: gs.position })
-                                .collect::<Vec<_>>(),
-                        ))
-                        .into(),
+                        gradient_stops: Rc::new(VecModel::from(stops(&mut lg.stops()))).into(),
                         accessor_path: mapping.name_prefix.clone(),
                         code: get_code(value),
                         ..Default::default()
@@ -668,12 +692,7 @@ fn map_value_and_type(
                         kind: PropertyValueKind::Brush,
                         brush_kind: BrushKind::Radial,
                         value_brush: slint::Brush::RadialGradient(rg.clone()),
-                        gradient_stops: Rc::new(VecModel::from(
-                            rg.stops()
-                                .map(|gs| GradientStop { color: gs.color, position: gs.position })
-                                .collect::<Vec<_>>(),
-                        ))
-                        .into(),
+                        gradient_stops: Rc::new(VecModel::from(stops(&mut rg.stops()))).into(),
                         accessor_path: mapping.name_prefix.clone(),
                         code: get_code(value),
                         ..Default::default()
@@ -1297,16 +1316,13 @@ pub fn ui_set_properties(
     declarations
 }
 
-fn sorted_gradient_stops(
+fn to_slint_gradient_stops(
     stops: ModelRc<GradientStop>,
 ) -> Vec<i_slint_core::graphics::GradientStop> {
-    let mut result = stops
+    stops
         .iter()
         .map(|gs| i_slint_core::graphics::GradientStop { position: gs.position, color: gs.color })
-        .collect::<Vec<_>>();
-    result.sort_by(|left, right| left.position.total_cmp(&right.position));
-
-    result
+        .collect()
 }
 
 fn as_json_brush(
@@ -1325,10 +1341,10 @@ fn as_slint_brush(
     stops: ModelRc<GradientStop>,
 ) -> SharedString {
     fn stops_as_string(stops: ModelRc<GradientStop>) -> String {
-        let stops = sorted_gradient_stops(stops);
+        let stops = to_slint_gradient_stops(stops);
 
         let mut result = String::new();
-        for s in stops {
+        for s in &stops {
             result += &format!(", {} {:.2}%", color_to_string(s.color), s.position * 100.0);
         }
         result
@@ -1349,7 +1365,7 @@ fn create_brush(
     color: slint::Color,
     stops: ModelRc<GradientStop>,
 ) -> slint::Brush {
-    let mut stops = sorted_gradient_stops(stops);
+    let mut stops = to_slint_gradient_stops(stops);
 
     match kind {
         BrushKind::Solid => slint::Brush::SolidColor(color),
