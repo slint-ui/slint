@@ -104,7 +104,7 @@ i-slint-core = { workspace = true, features = ["std"], optional = true }
 slint = { workspace = true, features = ["compat-1-2"], optional = true }
 slint-interpreter = { workspace = true, features = ["compat-1-2", "internal", "internal-highlight", "internal-json", "image-default-formats"], optional = true }
 
-[target.'cfg(not(any(target_os = "windows", target_arch = "wasm32")))'.dependencies]
+[target.'cfg(not(any(target_os = "windows", target_arch = "wasm32", all(target_arch = "aarch64", target_os = "linux"))))'.dependencies]
 tikv-jemallocator = { workspace = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
