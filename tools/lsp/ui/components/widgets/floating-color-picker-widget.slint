@@ -282,6 +282,11 @@ component ColorModeColorAndApply {
                     }
                     self.clear-focus();
                 }
+                edited => {
+                    if self.text.character-count > 8 {
+                        self.text = Api.color-to-data(PickerData.current-color).short-text.to-uppercase();
+                    }
+                }
             }
 
             divider := Rectangle {
@@ -488,7 +493,10 @@ component GradientStopValue {
             x: 35px;
             text: Api.color-to-data(PickerData.current-gradient-stops[stop-index].color).short-text.to-uppercase();
             letter-spacing: 0.8px;
+            input-type: text;
+
             property <{hue: float, saturation: float, value: float}> hsv-color;
+
             accepted => {
                 if Api.string-is-color("#\{self.text}") {
                     PickerData.hue = Api.string-to-color("#\{self.text}").to-hsv().hue;
@@ -504,6 +512,11 @@ component GradientStopValue {
                     self.text = Api.color-to-data(PickerData.current-color).short-text.to-uppercase();
                 }
                 self.clear-focus();
+            }
+            edited => {
+                if self.text.character-count > 8 {
+                    self.text = Api.color-to-data(PickerData.current-color).short-text.to-uppercase();
+                }
             }
         }
 
