@@ -254,29 +254,11 @@ function createReferenceExpression(
                     .every((part, i) => part === currentPath[i])));
 
     if (isSelfReference) {
-        console.log(
-            `Detected self-reference: ${currentPath.join(".")} -> ${targetPath.join(".")}`,
-        );
-
         // Get the actual value instead of creating a reference
         if (targetNode.valuesByMode && targetNode.valuesByMode.size > 0) {
-            console.log(
-                `MEBUG: valuesByMode exists with ${targetNode.valuesByMode.size} entries`,
-            );
-            console.log(`MEBUG: sourceModeName: ${sourceModeName}`);
-            console.log(
-                `MEBUG: valuesByMode has sourceModeName: ${targetNode.valuesByMode.has(sourceModeName)}`,
-            );
-            console.log(
-                `MEBUG: valuesByMode keys: ${Array.from(targetNode.valuesByMode.keys()).join(", ")}`,
-            );
             const targetValue =
                 targetNode.valuesByMode.get(sourceModeName) ||
                 targetNode.valuesByMode.values().next().value;
-            console.log(
-                `MEBUG: targetValue: ${targetValue ? JSON.stringify(targetValue) : "undefined"}`,
-            );
-
             if (targetValue && !targetValue.value.startsWith("@ref:")) {
                 // Value is a direct value, safe to use
                 return {
@@ -334,7 +316,6 @@ function createReferenceExpression(
 
     // Check if this is a cross-collection reference
     const isCrossCollection = targetCollection !== currentCollection;
-    console.log(`Is cross-collection reference: ${isCrossCollection}`);
 
     // Get all modes from target collection
     const targetModes = [...targetCollectionData.modes];
@@ -380,8 +361,6 @@ function createReferenceExpression(
     } else {
         referenceExpr = `${targetCollectionData.formattedName}.${propertyPath}`;
     }
-
-    console.log(`Created reference expression: ${referenceExpr}`);
 
     return {
         value: referenceExpr,
@@ -481,7 +460,6 @@ function generateStructsAndInstances(
             // Add field to parent struct
             const sanitizedChildName = sanitizePropertyName(childName);
             if (childNode.valuesByMode) {
-                console.log("MEBUG: childnode: ", sanitizedChildName);
                 // Value field
                 const slintType = getSlintType(childNode.type || "COLOR");
                 structDefinitions.get(pathKey)!.fields.push({
@@ -493,7 +471,6 @@ function generateStructsAndInstances(
                     isMultiMode: collectionData.modes.size > 1,
                 });
             } else if (childNode.children.size > 0) {
-                console.log("MEBUG: childnode > 0: ", sanitizedChildName);
                 // Struct reference
                 const childTypeName = [...currentPath, childName].join("_");
                 structDefinitions.get(pathKey)!.fields.push({
@@ -606,9 +583,6 @@ function generateStructsAndInstances(
                     type: `${collectionData.formattedName}_${childPath.join("_")}`,
                     children: new Map<string, PropertyInstance>(),
                 });
-                console.log(
-                    `Creating instance: ${sanitizedChildName}, type: ${collectionData.formattedName}_${childPath.join("_")}`,
-                );
                 buildInstanceModel(childNode, childPath);
                 buildPropertyHierarchy();
             } else if (childNode.valuesByMode) {
@@ -651,7 +625,6 @@ function generateStructsAndInstances(
                 parentInstance.children.set(sanitizedChildName, instance);
             }
         }
-        console.log("BUILD INSTANCE MODEL:", propertyInstances);
     }
     function buildPropertyHierarchy() {
         // First find all unique top-level paths
@@ -877,7 +850,6 @@ function generateStructsAndInstances(
 export async function exportFigmaVariablesToSeparateFiles(): Promise<
     Array<{ name: string; content: string }>
 > {
-    console.log("Starting variable export...");
 
     try {
         // Get collections asynchronously
@@ -1008,9 +980,6 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<
                         const modeInfo = collection.modes.find(
                             (m) => m.modeId === modeId,
                         );
-                        console.log(
-                            `Variable ${variable.name} (${variable.id}) has value type: ${typeof value} value: ${JSON.stringify(value)}`,
-                        );
                         if (!modeInfo) {
                             continue;
                         }
@@ -1040,9 +1009,6 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<
                                 refId = value.id;
                                 formattedValue = `@ref:${value.id}`;
                             }
-                            console.log(
-                                `Final formatted value stored for ${sanitizedRowName}.${modeName}: ${formattedValue}`,
-                            );
                         } else if (variable.resolvedType === "FLOAT") {
                             if (typeof value === "number") {
                                 formattedValue = `${value}px`;
@@ -1184,7 +1150,6 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<
         ] of collectionStructure.entries()) {
             // Skip collections with no variables
             if (collectionData.variables.size === 0) {
-                console.log(`Skipping empty collection: ${collectionName}`);
                 continue;
             }
 
@@ -1559,11 +1524,11 @@ function generateSchemeStructs(
     // Close the mode instance
     schemeInstance += `    };\n`;
 
-    // Generate the current scheme property with current-scheme toggle
-    let currentSchemeInstance = `    in-out property <${collectionData.formattedName}Mode> current-scheme: ${[...collectionData.modes][0]};\n`;
+    // Generate the current scheme property with current-mode toggle
+    let currentSchemeInstance = `    in-out property <${collectionData.formattedName}Mode> current-mode: ${[...collectionData.modes][0]};\n`;
 
-    // Add the current-mode property that dynamically selects based on the enum
-    currentSchemeInstance += `    out property <${schemeName}> current-mode: `;
+    // Add the current-scheme property that dynamically selects based on the enum
+    currentSchemeInstance += `    out property <${schemeName}> current-scheme: `;
 
     // for mode specific disentanglement
     const modePropertyName = hasRootModeVariable ? "mode-var" : "mode";
@@ -1584,7 +1549,7 @@ function generateSchemeStructs(
             if (i > 0) {
                 expression += "\n        ";
             }
-            expression += `current-scheme == ${collectionData.formattedName}Mode.${modeArray[i]} ? root.mode.${modeArray[i]} : `;
+            expression += `current-mode == ${collectionData.formattedName}Mode.${modeArray[i]} ? root.mode.${modeArray[i]} : `;
         }
 
         // Add the final fallback (last mode)
@@ -1594,7 +1559,7 @@ function generateSchemeStructs(
         currentSchemeInstance += `\n        ${expression};\n\n`;
     }
 
-    // Now add the current property that references current-mode
+    // Now add the current property that references current-scheme
     currentSchemeInstance += `    out property <${schemeName}> current: {\n`;
 
     // Add properties in the same structure as the scheme
@@ -1620,7 +1585,7 @@ function generateSchemeStructs(
                 const dotPath = currentPath.join(".");
 
                 // This is a leaf value
-                currentSchemeInstance += `${currentIndent}${childName}: current-mode.${dotPath},\n`;
+                currentSchemeInstance += `${currentIndent}${childName}: current-scheme.${dotPath},\n`;
             }
         }
     }
