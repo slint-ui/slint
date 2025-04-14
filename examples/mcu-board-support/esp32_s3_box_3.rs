@@ -37,10 +37,7 @@ struct EspBackend {
 
 impl Default for EspBackend {
     fn default() -> Self {
-        EspBackend {
-            window: RefCell::new(None),
-            peripherals: RefCell::new(None),
-        }
+        EspBackend { window: RefCell::new(None), peripherals: RefCell::new(None) }
     }
 }
 
