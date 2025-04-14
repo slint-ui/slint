@@ -31,6 +31,7 @@ All notable changes to this project are documented in this file.
  - Added `MenuSeparator` sub-element in `Menu` (#7790)
  - `Colors.hsv` now accepts hue value outside of 0..360 range by wrapping around
  - Fixed reading from `MenuItem::title` properties (#8080, #8090)
+ - Add a README file in Simplified Chinese.
 
 ### Widgets
 
