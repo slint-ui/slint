@@ -14,8 +14,6 @@ use esp_hal::clock::CpuClock;
 use esp_hal::gpio::DriveMode;
 use esp_hal::peripherals::Peripherals;
 use esp_hal::time::Instant;
-use esp_hal::timer::timg::TimerGroup;
-use esp_hal::timer::Timer;
 use esp_hal::{
     delay::Delay,
     gpio::{Level, Output, OutputConfig},
@@ -32,23 +30,9 @@ use mipidsi::options::{ColorOrder, Orientation, Rotation};
 use slint::platform::PointerEventButton;
 use slint::platform::WindowEvent;
 
-struct TimerState {
-    start_instant: Instant,
-    timer0: Option<esp_hal::timer::timg::Timer>,
-}
-
-// Provide a default implementation for TimerState.
-// We assume that Instant::EPOCH is a good default.
-impl Default for TimerState {
-    fn default() -> Self {
-        TimerState { start_instant: Instant::EPOCH, timer0: None }
-    }
-}
-
 struct EspBackend {
     window: RefCell<Option<Rc<slint::platform::software_renderer::MinimalSoftwareWindow>>>,
     peripherals: RefCell<Option<Peripherals>>,
-    timer_state: RefCell<TimerState>,
 }
 
 impl Default for EspBackend {
@@ -56,7 +40,6 @@ impl Default for EspBackend {
         EspBackend {
             window: RefCell::new(None),
             peripherals: RefCell::new(None),
-            timer_state: RefCell::new(TimerState::default()),
         }
     }
 }
@@ -75,7 +58,6 @@ pub fn init() {
     slint::platform::set_platform(Box::new(EspBackend {
         peripherals: RefCell::new(Some(peripherals)),
         window: RefCell::new(None),
-        timer_state: RefCell::new(TimerState::default()),
     }))
     .expect("backend already initialized");
 }
@@ -92,38 +74,13 @@ impl slint::platform::Platform for EspBackend {
     }
 
     fn duration_since_start(&self) -> core::time::Duration {
-        let ts = self.timer_state.borrow();
-        if let Some(ref t0) = ts.timer0 {
-            let now_ticks = t0.now();
-            let hal_elapsed = now_ticks - ts.start_instant;
-            core::time::Duration::from_micros(hal_elapsed.as_micros())
-        } else {
-            core::time::Duration::from_nanos(0)
-        }
+        core::time::Duration::from_millis(Instant::now().duration_since_epoch().as_millis())
     }
 
     fn run_event_loop(&self) -> Result<(), slint::PlatformError> {
         // Take and configure peripherals.
         let peripherals = self.peripherals.borrow_mut().take().expect("Peripherals already taken");
         let mut delay = Delay::new();
-
-        // Initialize timer0 from TIMG0.
-        let timer_group0 = TimerGroup::new(peripherals.TIMG0);
-        let timer0 = timer_group0.timer0;
-
-        // Start the timer.
-        timer0.start();
-
-        // Read the current tick value.
-        let start = timer0.now();
-        info!("Timer initialized: start_ticks = {}", start);
-
-        // Update timer_state (one borrow_mut call).
-        {
-            let mut ts = self.timer_state.borrow_mut();
-            ts.start_instant = start;
-            ts.timer0 = Some(timer0);
-        }
 
         // The following sequence is necessary to properly initialize touch on ESP32-S3-BOX-3
         // Based on issue from ESP-IDF: https://github.com/espressif/esp-bsp/issues/302#issuecomment-1971559689
