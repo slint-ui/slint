@@ -7,6 +7,9 @@
 #[cfg(feature = "mcu-board-support")]
 extern crate alloc;
 
+#[cfg(feature = "mcu-board-support")]
+use mcu_board_support::prelude::*;
+
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 

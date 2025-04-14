@@ -99,6 +99,8 @@ The main.rs will look something like this
 #![cfg_attr(not(feature = "simulator"), no_main)]
 slint::include_modules!();
 
+use mcu_board_support::prelude::*;
+
 #[mcu_board_support::entry]
 fn main() -> ! {
     mcu_board_support::init();

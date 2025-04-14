@@ -56,3 +56,8 @@ pub fn init() {}
 
 #[cfg(feature = "stm32u5g9j-dk2")]
 mod embassy;
+
+pub mod prelude {
+    #[cfg(feature = "esp32-s3-box-3")]
+    pub use esp_hal;
+}
