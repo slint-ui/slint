@@ -321,7 +321,8 @@ impl DocumentCache {
         content: String,
         diag: &mut BuildDiagnostics,
     ) -> Result<()> {
-        let path = uri_to_file(url).ok_or("Failed to convert path")?;
+        let path =
+            uri_to_file(url).ok_or_else(|| format!("Failed to convert path for loading: {url}"))?;
         self.type_loader.load_file(&path, &path, content, false, diag).await;
         self.source_file_versions.borrow_mut().insert(path, version);
         Ok(())
@@ -333,7 +334,11 @@ impl DocumentCache {
     }
 
     pub fn drop_document(&mut self, url: &Url) -> Result<()> {
-        let path = uri_to_file(url).ok_or("Failed to convert path")?;
+        let Some(path) = uri_to_file(url) else {
+            // This isn't fatal, but we might want to learn about paths/schemes to support in the future.
+            eprintln!("Failed to convert path for dropping document: {url}");
+            return Ok(());
+        };
         Ok(self.type_loader.drop_document(&path)?)
     }
 
