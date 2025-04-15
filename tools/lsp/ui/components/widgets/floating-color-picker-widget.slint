@@ -8,7 +8,7 @@ import { Icons, EditorPalette, EditorSizeSettings } from "../../components/styli
 import { BrushMode, PickerData, BrushPropertyType, WidgetMode } from "../../properties-state.slint";
 import { SimpleColumn } from "../../components/layout-helpers.slint";
 import { DraggablePanel } from "../../components/draggable-panel.slint";
-import { ColorIndicator } from "./brush-helpers.slint";
+import { ColorIndicator, FakeShadowText, PickerTextInput } from "./brush-helpers.slint";
 
 export global Styles {
     out property <length> picker-width: 240px;
@@ -18,60 +18,6 @@ enum PickerTab {
     color,
     gradient,
     svg-color
-}
-
-component PickerTextInput inherits TextInput {
-    height: 15px;
-    horizontal-alignment: left;
-    font-family: "Inter";
-    font-size: 12px;
-    color: EditorPalette.text-color;
-    text-cursor-width: 2px;
-    selection-background-color: #3984ec;
-    input-type: number;
-    single-line: true;
-    wrap: no-wrap;
-    TouchArea {
-        visible: !parent.has-focus;
-        clicked => {
-            parent.select-all();
-            parent.focus();
-        }
-    }
-}
-
-component FakeShadowText {
-    in property <string> text;
-    in property <string> font-family: "Inter";
-    in property <length> font-size: 11px;
-    in property <float> font-weight: 400;
-    in property <color> color: Palette.color-scheme == ColorScheme.dark ? #9d9d9d : #676767;
-    in property <color> shadow-color: black;
-
-    width: t.width;
-    height: t.height;
-
-    fake-shadow := Text {
-        x: 0.5px;
-        y: 0.5px;
-        font-family: root.font-family;
-        font-size: root.font-size;
-        color: root.shadow-color;
-        text: t.text;
-        font-weight: root.font-weight;
-        opacity: 50%;
-        visible: Palette.color-scheme == ColorScheme.dark;
-    }
-
-    t := Text {
-        font-family: root.font-family;
-        font-size: root.font-size;
-        color: root.color;
-        text: root.text;
-        font-weight: root.font-weight;
-    }
-
-    @children
 }
 
 component BrushTypeSelector {

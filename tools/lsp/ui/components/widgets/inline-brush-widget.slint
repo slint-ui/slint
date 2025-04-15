@@ -2,11 +2,11 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { Palette } from "std-widgets.slint";
-import { BrushKind, PropertyValue, PropertyValueKind } from "../../api.slint";
+import { Api, BrushKind, PropertyValue, PropertyValueKind } from "../../api.slint";
 import { NameLabel } from "./basics.slint";
-import { EditorSpaceSettings } from "../../components/styling.slint";
+import { EditorSpaceSettings, EditorSizeSettings, EditorPalette } from "../../components/styling.slint";
 import { WindowManager } from "../../windowglobal.slint";
-import { ColorIndicator } from "brush-helpers.slint";
+import { ColorIndicator, FakeShadowText, PickerTextInput } from "brush-helpers.slint";
 
 component FocusBorder inherits Rectangle {
     in property <bool> has-focus;
@@ -26,7 +26,7 @@ component FocusBorder inherits Rectangle {
 component CustomLineEdit {
     in-out property <string> text;
     property <bool> enabled: true;
-    property <bool> has-focus: false;
+    in-out property <bool> has-focus: false;
     property <brush> fluent-text-control-border: Palette.color-scheme == ColorScheme.dark ? @linear-gradient(180deg, #FFFFFF14 99.98%, #FFFFFF8A 100%, #FFFFFF8A 100%) : @linear-gradient(180deg, #0000000F 99.99%, #00000073 100%, #00000073 100%);
     out property <brush> fluent-control-input-active: Palette.color-scheme == ColorScheme.dark ? #1E1E1EB3 : #FFFFFF;
 
@@ -101,11 +101,15 @@ export component InlineColorWidget inherits VerticalLayout {
         root.current-color = self.property-value.value-brush;
     }
 
-    private property <bool> has-focus;
-    //TODO: main.has-focus;
+    private property <bool> has-focus: main.has-focus || percent.has-focus;
 
     init => {
         apply-value();
+    }
+
+    changed current-color => {
+        ti-hex-color.text = Api.color-to-data(root.current-color).short-text.to-uppercase();
+        pi.text = (root.current-color.to-hsv().alpha * 100.0).round();
     }
 
     changed has-focus => {
@@ -133,33 +137,97 @@ export component InlineColorWidget inherits VerticalLayout {
         property-value: root.property-value;
     }
 
-    HorizontalLayout {
-        spacing: 4px;
+    Rectangle {
+        width: 100%;
+        height: main.height;
+
         main := CustomLineEdit {
-            ColorIndicator {
+            x: 0;
+            width: parent.width - (percent.width + 10px);
+            has-focus: ti-hex-color.has-focus;
+            ci := ColorIndicator {
                 x: 5px;
                 y: (parent.height - self.height) / 2;
                 color: root.current-color;
+
                 clicked => {
                     root.update-floating-editor();
                 }
             }
+
+            Rectangle {
+                x: ci.x + ci.width + 4px;
+                width: 170px;
+                height: 25px;
+
+                FakeShadowText {
+                    x: 0;
+                    font-family: "Inter";
+                    font-size: 11px;
+                    text: "#";
+                }
+
+                ti-hex-color := PickerTextInput {
+                    x: 10px;
+                    text: Api.color-to-data(root.current-color).short-text.to-uppercase();
+                    letter-spacing: 0.8px;
+                    input-type: text;
+                    property <{hue: float, saturation: float, value: float, alpha: float}> hsv-color;
+                    accepted => {
+                        if Api.string-is-color("#\{self.text}") {
+                            hsv-color.hue = Api.string-to-color("#\{self.text}").to-hsv().hue;
+                            hsv-color.saturation = Api.string-to-color("#\{self.text}").to-hsv().saturation;
+                            hsv-color.value = Api.string-to-color("#\{self.text}").to-hsv().value;
+                            hsv-color.alpha = root.current-color.to-hsv().alpha;
+                            if self.text.character-count > 6 {
+                                hsv-color.alpha = Api.string-to-color("#\{self.text}").to-hsv().alpha;
+                            }
+                            root.set-color-binding(Api.color-to-data(hsv(hsv-color.hue, hsv-color.saturation, hsv-color.value, hsv-color.alpha)).text);
+                        } else {
+                            self.text = Api.color-to-data(root.current-color).short-text.to-uppercase();
+                        }
+                        self.clear-focus();
+                    }
+                    edited => {
+                        if self.text.character-count > 8 {
+                            self.text = Api.color-to-data(root.current-color).short-text.to-uppercase();
+                        }
+                    }
+                }
+            }
+        }
+
+        percent := CustomLineEdit {
+            x: parent.width - self.width;
+            width: 50px;
+            has-focus: pi.has-focus;
+            Rectangle {
+                x: parent.width - self.width;
+                width: 48px;
+                height: parent.height;
+
+                pi := PickerTextInput {
+                    x: 10px;
+                    text: (root.current-color.to-hsv().alpha * 100.0).round();
+                    accepted => {
+                        self.text = clamp(self.text.to-float(), 0, 100);
+                        root.set-color-binding(Api.color-to-data(hsv(root.current-color.to-hsv().hue, root.current-color.to-hsv().saturation, root.current-color.to-hsv().value, self.text.to-float() / 100)).text);
+                        self.clear-focus();
+                    }
+                    edited => {
+                        if self.text.character-count > 3 {
+                            self.text = clamp(self.text.to-float(), 0, 100);
+                        }
+                    }
+                }
+
+                FakeShadowText {
+                    x: parent.width - self.width - 5px;
+                    font-family: "Inter";
+                    font-size: 11px;
+                    text: "%";
+                }
+            }
         }
     }
-
-
-    // main := ColorMainContent {
-    //     current-color <=> root.current-color;
-    //     enabled <=> root.enabled;
-
-    //     set-color-binding(text) => {
-    //         root.set-color-binding(text);
-    //     }
-
-    //     test-color-binding(text) => {
-    //         return root.test-color-binding(text);
-    //     }
-
-  
-    // }
 }
