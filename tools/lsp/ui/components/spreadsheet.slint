@@ -49,7 +49,7 @@ export component EditWindow inherits PopupWindow {
 
             PropertyValueWidget {
                 property-value: root.current-table.values[root.current-cell-data.row][root.current-cell-data.col];
-                property-name: root.current-cell-data.property-group-id;
+                property-name: root.current-table.headers[root.current-cell-data.col];
                 enabled: true;
 
                 changed property-value => {
