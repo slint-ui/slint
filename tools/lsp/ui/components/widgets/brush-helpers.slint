@@ -46,6 +46,25 @@ export component ColorIndicator {
     }
 }
 
+export component GradientIndicator {
+    width: 15px;
+    height: self.width;
+    in property <brush> brush;
+
+    Rectangle {
+        width: 100%;
+        height: 100%;
+        border-radius: 3px;
+        clip: true;
+
+        Rectangle {
+            background: root.brush;
+        }
+
+        @children
+    }
+}
+
 export component PickerTextInput inherits TextInput {
     height: 15px;
     horizontal-alignment: left;

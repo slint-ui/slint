@@ -6,7 +6,7 @@ import { Api, BrushKind, ColorData, GradientStop, PropertyValue, PropertyValueKi
 import { NameLabel } from "./basics.slint";
 import { EditorSpaceSettings, EditorSizeSettings, EditorPalette } from "../../components/styling.slint";
 import { WindowManager } from "../../windowglobal.slint";
-import { ColorIndicator, FakeShadowText, PickerTextInput } from "brush-helpers.slint";
+import { ColorIndicator, GradientIndicator, FakeShadowText, PickerTextInput } from "brush-helpers.slint";
 import { BrushPropertyType } from "../../properties-state.slint";
 
 component FocusBorder inherits Rectangle {
@@ -73,6 +73,8 @@ component InlineColor {
     height: main.height;
 
     in-out property <color> current-color;
+    out property <bool> has-focus: main.has-focus || percent.has-focus;
+
 
     callback indicator-clicked();
     callback set-color-binding(text: string);
@@ -94,7 +96,6 @@ component InlineColor {
             TouchArea {
                 clicked => {
                     root.indicator-clicked();
-                    // root.update-floating-editor();
                 }
             }
         }
@@ -175,6 +176,46 @@ component InlineColor {
     }
 }
 
+component InlineLinearGradient {
+    width: 100%;
+    height: main.height;
+
+    in-out property <brush> current-brush;
+
+    callback indicator-clicked();
+
+    main := CustomLineEdit {
+        x: 0;
+        width: parent.width;
+        ci := GradientIndicator {
+            x: 5px;
+            y: (parent.height - self.height) / 2;
+            brush: root.current-brush;
+
+            TouchArea {
+                clicked => {
+                    root.indicator-clicked();
+                }
+            }
+        }
+
+        Rectangle {
+            x: ci.x + ci.width + 4px;
+            width: 170px;
+            height: 25px;
+
+            Text {
+                x: 10px;
+                text: "Linear Gradient";
+                font-family: "Inter";
+                font-size: 12px;
+                color: EditorPalette.text-color;
+            }
+        }
+    }
+
+}
+
 export component InlineColorWidget inherits VerticalLayout {
     in property <bool> enabled;
     in property <string> property-name;
@@ -205,6 +246,8 @@ export component InlineColorWidget inherits VerticalLayout {
     private property <ColorData> current-color-data: Api.color-to-data(self.current-color);
     private property <BrushKind> current-brush-kind;
     private property <float> current-angle;
+    private property <bool> has-focus;
+
 
     padding-left: 16px;
     spacing: EditorSpaceSettings.default-spacing;
@@ -214,13 +257,31 @@ export component InlineColorWidget inherits VerticalLayout {
     width: 100%;
 
     function apply-value() {
-        root.current-color = self.property-value.value-brush;
+        if self.property-value.kind == PropertyValueKind.brush {
+            root.current-color = self.property-value.value-brush;
+            root.current-color-data = Api.color-to-data(self.property-value.value-brush);
+            root.current-brush = self.property-value.value-brush;
+            root.current-brush-kind = self.property-value.brush-kind;
+            root.current-gradient-stops = self.property-value.gradient-stops;
+            root.current-angle = self.property-value.value-float;
+        }
+        if self.property-value.kind == PropertyValueKind.color {
+            root.current-color = self.property-value.value-brush;
+        }
     }
 
-    private property <bool> has-focus;//: main.has-focus || percent.has-focus;
+    function update-brush() {
+        if self.property-value.kind == PropertyValueKind.brush {
+            // Always use the angle we expect in the preview!
+            root.current-brush = Api.create-brush(root.current-brush-kind, root.current-angle, root.current-brush, root.current-gradient-stops);
+            root.test-brush-binding(root.current-brush-kind, root.current-angle, root.current-brush, root.current-gradient-stops);
+        }
+    }
+
 
     init => {
         apply-value();
+        update-brush();
     }
 
     changed has-focus => {
@@ -243,6 +304,7 @@ export component InlineColorWidget inherits VerticalLayout {
         }
     }
 
+
     NameLabel {
         property-name: root.property-name;
         property-value: root.property-value;
@@ -251,17 +313,24 @@ export component InlineColorWidget inherits VerticalLayout {
     if property-value.brush-kind == BrushKind.solid: InlineColor {
         current-color <=> root.current-color;
 
+        changed has-focus => {
+            root.has-focus = self.has-focus;
+        }
+
         indicator-clicked() => {
             root.update-floating-editor();
-            // if root.brush-property-type == BrushPropertyType.color {
-            //     root.update-floating-editor();
-            // } else {
-            //     WindowManager.show-floating-preview-brush-widget(property-container-id, root.preview-data, current-brush-kind, current-brush, current-gradient-stops);
-            // }
         }
 
         set-color-binding(text) => {
             root.set-color-binding(text);
+        }
+     }
+
+     if property-value.brush-kind == BrushKind.linear: InlineLinearGradient {
+        current-brush <=> root.current-brush;
+
+        indicator-clicked() => {
+            root.update-floating-editor();
         }
      }
 }
