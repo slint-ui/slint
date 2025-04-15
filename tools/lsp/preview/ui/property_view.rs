@@ -314,21 +314,19 @@ fn extract_number_from_expression_tree(
             let lhs = extract_number_from_expression_tree(lhs.as_ref())?;
             let rhs = extract_number_from_expression_tree(rhs.as_ref())?;
 
-            if lhs.unit != expression_tree::Unit::None
-                && rhs.unit == expression_tree::Unit::None
-                && *op == '*'
-                && (lhs.value * rhs.value == lhs.normalized_value
-                    || lhs.unit == expression_tree::Unit::Percent && rhs.value == 0.01)
-            {
-                // This is just a unit conversion
-                Some(NumberValue {
-                    value: lhs.value,
-                    unit: lhs.unit,
-                    normalized_value: lhs.value * rhs.value,
-                })
-            } else {
-                None
-            }
+            let value = match op {
+                '+' => Some(lhs.value + rhs.value),
+                '-' => Some(lhs.value - rhs.value),
+                '*' => Some(lhs.value * rhs.value),
+                '/' => Some(lhs.value / rhs.value),
+                _ => None,
+            };
+
+            value.map(|v| NumberValue {
+                value: v,
+                unit: lhs.unit,
+                normalized_value: lhs.unit.normalize(v),
+            })
         }
         _ => None,
     }
