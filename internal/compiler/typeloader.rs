@@ -1212,7 +1212,6 @@ impl TypeLoader {
         })
         .await;
         if is_loaded {
-            state.borrow_mut().diag.all_loaded_files.insert(path_canon.clone());
             return Some(path_canon);
         }
 

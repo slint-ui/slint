@@ -150,10 +150,7 @@ fn accurate_diagnostics_in_dependencies() {
         &std::env::current_dir().unwrap().join("xxx/reexport.slint"),
         r#"import { Bar } from "bar.slint"; export component Foo inherits Bar { in property <string> reexport; }"#,
     );
-    assert_eq!(
-        diag,
-        HashMap::from_iter([(reexport_url.clone(), vec![]), (bar_url.clone(), vec![])])
-    );
+    assert_eq!(diag, HashMap::from_iter([(reexport_url.clone(), vec![])]));
 
     let (foo_url, diag) = load(
         None,
@@ -161,10 +158,9 @@ fn accurate_diagnostics_in_dependencies() {
         &std::env::current_dir().unwrap().join("xxx/foo.slint"),
         r#"import { Foo } from "reexport.slint"; export component MainWindow inherits Window { Foo { hello: 45; } }"#,
     );
-    //assert_eq!(diag.len(), 3);
-    assert_eq!(diag[&reexport_url], vec![]);
-    //assert_eq!(diag[&bar_url], vec![]);
+
     assert!(diag[&foo_url][0].message.contains("hello"));
+    assert_eq!(diag.len(), 1);
 
     let ctx = Some(std::rc::Rc::new(crate::language::Context {
         document_cache: empty_document_cache().into(),
