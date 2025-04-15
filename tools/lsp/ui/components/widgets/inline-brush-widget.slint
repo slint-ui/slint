@@ -66,15 +66,15 @@ component CustomLineEdit {
     ]
 }
 
-// is the property a color? 
+// is the property a color?
 // is it code or an svg color: If so show the code edit button.
-// At this point it can only be a valid #hex value. So only the color in-line is 
+// At this point it can only be a valid #hex value. So only the color in-line is
 // shown and only the color picker can be launched
 
 // is the property a brush? If so what type of brush?
 // is it code or an svg color: If so show the code edit button.
 // If its a a valid #hex value show that and be able to launch the picker in brush mode, but on the color tab.
-// If its a linear gradient show linear + preview and let the brush picker be launched in brush mode and on the gradient tab.component 
+// If its a linear gradient show linear + preview and let the brush picker be launched in brush mode and on the gradient tab.component
 // If its a radial gradient show radial + preview and let the brush picker be launched in brush mode and on the gradient tab.
 export component InlineColorWidget inherits VerticalLayout {
     in property <bool> enabled;
