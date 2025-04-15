@@ -52,6 +52,9 @@ export global WindowManager {
             PickerData.saturation = current-property-information.value.value-brush.to-hsv().saturation;
             PickerData.value = current-property-information.value.value-brush.to-hsv().value;
             PickerData.alpha = current-property-information.value.value-brush.to-hsv().alpha * 100;
+            PickerData.current-brush = current-property-information.value.value-brush;
+            PickerData.current-gradient-stops = current-property-information.value.gradient-stops;
+            PickerData.current-angle = current-property-information.value.value-float;
             picker-mode = BrushPropertyType.brush;
             showing-color-picker = true;
         }
