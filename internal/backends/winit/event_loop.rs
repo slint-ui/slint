@@ -69,10 +69,15 @@ pub struct EventLoopState {
 
     /// Set to true when pumping events for the shortest amount of time possible.
     pumping_events_instantly: bool,
+
+    custom_application_handler: Option<Box<dyn crate::CustomApplicationHandler>>,
 }
 
 impl EventLoopState {
-    pub fn new(shared_backend_data: Rc<SharedBackendData>) -> Self {
+    pub fn new(
+        shared_backend_data: Rc<SharedBackendData>,
+        custom_application_handler: Option<Box<dyn crate::CustomApplicationHandler>>,
+    ) -> Self {
         Self {
             shared_backend_data,
             cursor_pos: Default::default(),
@@ -81,12 +86,23 @@ impl EventLoopState {
             loop_error: Default::default(),
             current_resize_direction: Default::default(),
             pumping_events_instantly: Default::default(),
+            custom_application_handler,
         }
     }
 }
 
 impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
+        if matches!(
+            self.custom_application_handler
+                .as_mut()
+                .map_or(WinitWindowEventResult::Propagate, |handler| {
+                    handler.resumed(event_loop)
+                }),
+            WinitWindowEventResult::PreventDefault
+        ) {
+            return;
+        }
         if let Err(err) = self.shared_backend_data.create_inactive_windows(event_loop) {
             self.loop_error = Some(err);
         }
@@ -99,10 +115,29 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
         event: WindowEvent,
     ) {
         let Some(window) = self.shared_backend_data.window_by_id(window_id) else {
+            if let Some(handler) = self.custom_application_handler.as_mut() {
+                handler.window_event(event_loop, window_id, None, None, &event);
+            }
             return;
         };
 
-        if let Some(_winit_window) = window.winit_window() {
+        if let Some(winit_window) = window.winit_window() {
+            if matches!(
+                self.custom_application_handler.as_mut().map_or(
+                    WinitWindowEventResult::Propagate,
+                    |handler| handler.window_event(
+                        event_loop,
+                        window_id,
+                        Some(&*winit_window),
+                        Some(window.window()),
+                        &event
+                    )
+                ),
+                WinitWindowEventResult::PreventDefault
+            ) {
+                return;
+            }
+
             if let Some(mut window_event_filter) = window.window_event_filter.take() {
                 let event_result = window_event_filter(window.window(), &event);
                 window.window_event_filter.set(Some(window_event_filter));
@@ -118,7 +153,7 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
                 .accesskit_adapter()
                 .expect("internal error: accesskit adapter must exist when window exists")
                 .borrow_mut()
-                .process_event(&_winit_window, &event);
+                .process_event(&winit_window, &event);
         } else {
             return;
         }
@@ -405,13 +440,35 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
         }
     }
 
-    fn new_events(&mut self, event_loop: &ActiveEventLoop, _cause: winit::event::StartCause) {
+    fn new_events(&mut self, event_loop: &ActiveEventLoop, cause: winit::event::StartCause) {
+        if matches!(
+            self.custom_application_handler
+                .as_mut()
+                .map_or(WinitWindowEventResult::Propagate, |handler| {
+                    handler.new_events(event_loop, cause)
+                }),
+            WinitWindowEventResult::PreventDefault
+        ) {
+            return;
+        }
+
         event_loop.set_control_flow(ControlFlow::Wait);
 
         corelib::platform::update_timers_and_animations();
     }
 
     fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
+        if matches!(
+            self.custom_application_handler
+                .as_mut()
+                .map_or(WinitWindowEventResult::Propagate, |handler| {
+                    handler.about_to_wait(event_loop)
+                }),
+            WinitWindowEventResult::PreventDefault
+        ) {
+            return;
+        }
+
         if let Err(err) = self.shared_backend_data.create_inactive_windows(event_loop) {
             self.loop_error = Some(err);
         }
@@ -438,6 +495,35 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
 
         if self.pumping_events_instantly {
             event_loop.set_control_flow(ControlFlow::Poll);
+        }
+    }
+
+    fn device_event(
+        &mut self,
+        event_loop: &ActiveEventLoop,
+        device_id: winit::event::DeviceId,
+        event: winit::event::DeviceEvent,
+    ) {
+        if let Some(handler) = self.custom_application_handler.as_mut() {
+            handler.device_event(event_loop, device_id, event);
+        }
+    }
+
+    fn suspended(&mut self, event_loop: &ActiveEventLoop) {
+        if let Some(handler) = self.custom_application_handler.as_mut() {
+            handler.suspended(event_loop);
+        }
+    }
+
+    fn exiting(&mut self, event_loop: &ActiveEventLoop) {
+        if let Some(handler) = self.custom_application_handler.as_mut() {
+            handler.exiting(event_loop);
+        }
+    }
+
+    fn memory_warning(&mut self, event_loop: &ActiveEventLoop) {
+        if let Some(handler) = self.custom_application_handler.as_mut() {
+            handler.memory_warning(event_loop);
         }
     }
 }
