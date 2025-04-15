@@ -40,6 +40,12 @@ export component PreviewUi inherits Window {
     icon: @image-url("assets/slint-logo-small-light.png");
     always-on-top <=> Api.always-on-top;
 
+    init => {
+        WindowGlobal.window-width = self.width;
+        WindowGlobal.window-height = self.height;
+        initial-floating-x = (self.width - PickerStyles.picker-width - 300px).max(0);
+    }
+
     changed width => {
         WindowGlobal.window-width = self.width;
         initial-floating-x = (self.width - PickerStyles.picker-width - 300px).max(0);

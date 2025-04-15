@@ -1,0 +1,101 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Palette } from "std-widgets.slint";
+import { Icons } from "../../components/styling.slint";
+import { EditorPalette } from "../../components/styling.slint";
+
+export component ColorIndicator {
+    width: 15px;
+    height: self.width;
+    in property <color> color;
+    property <{hue: float, saturation: float, value: float}> hsv-color: color.to-hsv();
+
+    Rectangle {
+        width: 100%;
+        height: 100%;
+        border-radius: 3px;
+        clip: true;
+        Rectangle {
+            x: 0;
+            width: 50%;
+            background: hsv(hsv-color.hue, hsv-color.saturation, hsv-color.value);
+        }
+
+        Rectangle {
+            x: parent.width / 2;
+            width: 50%;
+            background: white;
+            Image {
+                width: 100%;
+                height: 100%;
+                vertical-alignment: top;
+                horizontal-alignment: left;
+                source: Icons.checkerboard-tiny;
+                vertical-tiling: repeat;
+                horizontal-tiling: repeat;
+                colorize: #e1e1e1;
+            }
+
+            Rectangle {
+                background: root.color;
+            }
+        }
+
+        @children
+    }
+}
+
+export component PickerTextInput inherits TextInput {
+    height: 15px;
+    horizontal-alignment: left;
+    font-family: "Inter";
+    font-size: 12px;
+    color: EditorPalette.text-color;
+    text-cursor-width: 2px;
+    selection-background-color: #3984ec;
+    input-type: number;
+    single-line: true;
+    wrap: no-wrap;
+    TouchArea {
+        visible: !parent.has-focus;
+        clicked => {
+            parent.select-all();
+            parent.focus();
+        }
+    }
+}
+
+export component FakeShadowText {
+    in property <string> text;
+    in property <string> font-family: "Inter";
+    in property <length> font-size: 11px;
+    in property <float> font-weight: 400;
+    in property <color> color: Palette.color-scheme == ColorScheme.dark ? #9d9d9d : #676767;
+    in property <color> shadow-color: black;
+
+    width: t.width;
+    height: t.height;
+
+    fake-shadow := Text {
+        x: 0.5px;
+        y: 0.5px;
+        font-family: root.font-family;
+        font-size: root.font-size;
+        color: root.shadow-color;
+        text: t.text;
+        font-weight: root.font-weight;
+        opacity: 50%;
+        visible: Palette.color-scheme == ColorScheme.dark;
+    }
+
+    t := Text {
+        font-family: root.font-family;
+        font-size: root.font-size;
+        color: root.color;
+        text: root.text;
+        font-weight: root.font-weight;
+    }
+
+    @children
+}

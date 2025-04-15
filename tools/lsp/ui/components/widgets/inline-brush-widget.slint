@@ -1,0 +1,226 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Palette } from "std-widgets.slint";
+import { Api, BrushKind, PropertyValue, PropertyValueKind } from "../../api.slint";
+import { NameLabel } from "./basics.slint";
+import { EditorSpaceSettings, EditorSizeSettings, EditorPalette } from "../../components/styling.slint";
+import { WindowManager } from "../../windowglobal.slint";
+import { ColorIndicator, FakeShadowText, PickerTextInput } from "brush-helpers.slint";
+
+component FocusBorder inherits Rectangle {
+    in property <bool> has-focus;
+
+    background: #326CCF;
+    opacity: 0;
+
+    animate opacity { duration: 150ms; }
+
+    states [
+        focused when root.has-focus: {
+            opacity: 0.5;
+        }
+    ]
+}
+
+component CustomLineEdit {
+    in-out property <string> text;
+    property <bool> enabled: true;
+    in-out property <bool> has-focus: false;
+    property <brush> fluent-text-control-border: Palette.color-scheme == ColorScheme.dark ? @linear-gradient(180deg, #FFFFFF14 99.98%, #FFFFFF8A 100%, #FFFFFF8A 100%) : @linear-gradient(180deg, #0000000F 99.99%, #00000073 100%, #00000073 100%);
+    out property <brush> fluent-control-input-active: Palette.color-scheme == ColorScheme.dark ? #1E1E1EB3 : #FFFFFF;
+
+    width: 100px;
+    height: Palette.style-name == "cupertino" ? 22px : Palette.style-name == "fluent" ? 32px : 33px;
+
+    FocusBorder {
+        visible: Palette.style-name == "cupertino";
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        width: parent.width + 6px;
+        height: parent.height + 6px;
+        has-focus: root.has-focus;
+    }
+
+    background := Rectangle {
+        background: Palette.control-background;
+        border-width: 1px;
+        border-color: Palette.style-name == "fluent" ? fluent-text-control-border : Palette.border;
+        border-radius: Palette.style-name == "fluent" ? 4px : 0px;
+
+        focus-border := Rectangle {
+            x: parent.border-radius;
+            y: parent.height - self.height;
+            width: parent.width - 2 * parent.border-radius;
+            height: 2px;
+        }
+    }
+
+    @children
+
+    states [
+        focused when root.has-focus && Palette.style-name == "fluent": {
+            background.background: fluent-control-input-active;
+            background.border-color: Palette.border;
+            focus-border.background: Palette.accent-background;
+        }
+    ]
+}
+
+export component InlineColorWidget inherits VerticalLayout {
+    in property <bool> enabled;
+    in property <string> property-name;
+    in property <PropertyValue> property-value;
+
+    private property <color> current-color: Colors.transparent;
+
+    callback code-action();
+    callback reset-action();
+
+    callback test-color-binding(text: string) -> bool;
+    callback set-color-binding(text: string);
+    callback update-floating-editor();
+
+    padding-left: 16px;
+    spacing: EditorSpaceSettings.default-spacing;
+
+    callback update-display-string(value: string);
+
+    width: 100%;
+
+    function apply-value() {
+        root.current-color = self.property-value.value-brush;
+    }
+
+    private property <bool> has-focus: main.has-focus || percent.has-focus;
+
+    init => {
+        apply-value();
+    }
+
+    changed current-color => {
+        ti-hex-color.text = Api.color-to-data(root.current-color).short-text.to-uppercase();
+        pi.text = (root.current-color.to-hsv().alpha * 100.0).round();
+    }
+
+    changed has-focus => {
+        if !self.has-focus {
+            apply-value();
+        }
+    }
+
+    changed property-value => {
+        if self.property-value.kind != PropertyValueKind.color && self.property-value.kind != PropertyValueKind.brush {
+            return;
+        }
+        if !self.has-focus {
+            apply-value();
+        }
+
+        // Floating editors need to know the current property details. Call the update if something changes.
+        if WindowManager.showing-color-picker && WindowManager.current-property-information.name == root.property-name {
+            root.update-floating-editor();
+        }
+    }
+
+    NameLabel {
+        property-name: root.property-name;
+        property-value: root.property-value;
+    }
+
+    Rectangle {
+        width: 100%;
+        height: main.height;
+
+        main := CustomLineEdit {
+            x: 0;
+            width: parent.width - (percent.width + 10px);
+            has-focus: ti-hex-color.has-focus;
+            ci := ColorIndicator {
+                x: 5px;
+                y: (parent.height - self.height) / 2;
+                color: root.current-color;
+
+                TouchArea {
+                    clicked => {
+                        root.update-floating-editor();
+                    }
+                }
+            }
+
+            Rectangle {
+                x: ci.x + ci.width + 4px;
+                width: 170px;
+                height: 25px;
+
+                FakeShadowText {
+                    x: 0;
+                    font-family: "Inter";
+                    font-size: 11px;
+                    text: "#";
+                }
+
+                ti-hex-color := PickerTextInput {
+                    x: 10px;
+                    text: Api.color-to-data(root.current-color).short-text.to-uppercase();
+                    letter-spacing: 0.8px;
+                    input-type: text;
+                    property <{hue: float, saturation: float, value: float, alpha: float}> hsv-color;
+                    accepted => {
+                        if Api.string-is-color("#\{self.text}") {
+                            hsv-color.hue = Api.string-to-color("#\{self.text}").to-hsv().hue;
+                            hsv-color.saturation = Api.string-to-color("#\{self.text}").to-hsv().saturation;
+                            hsv-color.value = Api.string-to-color("#\{self.text}").to-hsv().value;
+                            hsv-color.alpha = root.current-color.to-hsv().alpha;
+                            if self.text.character-count > 6 {
+                                hsv-color.alpha = Api.string-to-color("#\{self.text}").to-hsv().alpha;
+                            }
+                            root.set-color-binding(Api.color-to-data(hsv(hsv-color.hue, hsv-color.saturation, hsv-color.value, hsv-color.alpha)).text);
+                        } else {
+                            self.text = Api.color-to-data(root.current-color).short-text.to-uppercase();
+                        }
+                        self.clear-focus();
+                    }
+                    edited => {
+                        if self.text.character-count > 8 {
+                            self.text = Api.color-to-data(root.current-color).short-text.to-uppercase();
+                        }
+                    }
+                }
+            }
+        }
+
+        percent := CustomLineEdit {
+            x: parent.width - self.width;
+            width: 50px;
+            has-focus: pi.has-focus;
+            Rectangle {
+                x: parent.width - self.width;
+                width: 48px;
+                height: parent.height;
+
+                pi := PickerTextInput {
+                    x: 10px;
+                    text: (root.current-color.to-hsv().alpha * 100.0).round();
+                    accepted => {
+                        self.text = clamp(self.text.to-float(), 0, 100);
+                        root.set-color-binding(Api.color-to-data(hsv(root.current-color.to-hsv().hue, root.current-color.to-hsv().saturation, root.current-color.to-hsv().value, self.text.to-float() / 100)).text);
+                        self.clear-focus();
+                    }
+                    edited => {
+                        if self.text.character-count > 3 {
+                            self.text = clamp(self.text.to-float(), 0, 100);
+                        }
+                    }
+                }
+
+                FakeShadowText {
+                    x: parent.width - self.width - 5px;
+                    font-family: "Inter";
+                    font-size: 11px;
+                    text: "%";
+                }
+            }
+        }
+    }
+}

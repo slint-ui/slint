@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 import { Api, BrushKind, ColorData, ElementInformation, GradientStop, PropertyInformation, PropertyValue, PropertyValueKind, PreviewData  } from "./api.slint";
 import { StatusLineApi } from "components/status-line.slint";
-import { BrushMode, PickerData, PickerMode, WidgetMode } from "./properties-state.slint";
+import { BrushMode, PickerData, BrushPropertyType, WidgetMode } from "./properties-state.slint";
 import { TableData } from "properties-state.slint";
 
 export global WindowGlobal {
@@ -14,7 +14,7 @@ export global WindowManager {
     out property <bool> showing-color-picker: false;
     out property <bool> showing-table-editor: false;
     out property <WidgetMode> widget-mode: edit;
-    out property <PickerMode> picker-mode: color;
+    out property <BrushPropertyType> picker-mode: color;
     out property <BrushMode> brush-mode: color;
 
     property <ElementInformation> current-element-information;
@@ -53,7 +53,7 @@ export global WindowManager {
         current-element-information = { };
         current-property-information = { };
         widget-mode = WidgetMode.edit;
-        picker-mode = PickerMode.color;
+        picker-mode = BrushPropertyType.color;
         brush-mode = BrushMode.color;
     }
 
@@ -73,15 +73,15 @@ export global WindowManager {
 
     show-floating-preview-brush-widget(property-container-id, preview-data, brush-kind, current-brush, current-gradient-stops) => {
         widget-mode = WidgetMode.preview;
-        picker-mode = PickerMode.brush;
+        picker-mode = BrushPropertyType.brush;
         current-property-container-id = property-container-id;
         current-preview-data = preview-data;
         if brush-kind == BrushKind.solid {
             brush-mode = BrushMode.color;
         } else if brush-kind == BrushKind.linear {
-            brush-mode = BrushMode.gradient;
+            brush-mode = BrushMode.linear;
         } else if brush-kind == BrushKind.radial {
-            brush-mode = BrushMode.gradient;
+            brush-mode = BrushMode.radial;
         }
         PickerData.current-brush = current-brush;
         PickerData.current-gradient-stops = current-gradient-stops;
