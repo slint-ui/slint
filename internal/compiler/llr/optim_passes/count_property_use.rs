@@ -37,21 +37,8 @@ pub fn count_property_use(root: &CompilationUnit) {
     }
 
     root.for_each_sub_components(&mut |sc, ctx| {
-        // 2. the native items and bindings of used properties
-        for (pr, expr) in &sc.property_init {
-            match pr {
-                PropertyReference::Local { sub_component_path, property_index } => {
-                    let mut sc = sc;
-                    for i in sub_component_path {
-                        sc = &ctx.compilation_unit.sub_components[sc.sub_components[*i].ty];
-                    }
-                    if sc.properties[*property_index].use_count.get() == 0 {
-                        continue;
-                    }
-                }
-                PropertyReference::InNativeItem { .. } => {}
-                _ => unreachable!(),
-            }
+        // 2. the native items and bindings of properties
+        for (_, expr) in &sc.property_init {
             let c = expr.use_count.get();
             expr.use_count.set(c + 1);
             if c == 0 {
