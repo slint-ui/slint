@@ -10,6 +10,7 @@ use core::pin::Pin;
 use std::rc::Rc;
 use std::rc::Weak;
 
+#[cfg(not(target_family = "wasm"))]
 use winit::event_loop::ActiveEventLoop;
 #[cfg(target_arch = "wasm32")]
 use winit::platform::web::WindowExtWebSys;
@@ -243,6 +244,7 @@ impl WinitWindowOrNone {
         }
     }
 
+    #[cfg(enable_accesskit)]
     fn ensure_accesskit_adapter(
         &mut self,
         window_adapter_weak: &Weak<WinitWindowAdapter>,
@@ -405,10 +407,10 @@ impl WinitWindowAdapter {
             };
 
         if let Some(winit_window) = maybe_winit_window {
+            #[cfg(enable_accesskit)]
             if let crate::event_loop::ActiveOrInactiveEventLoop::Active(active_event_loop) =
                 event_loop.event_loop()
             {
-                #[cfg(enable_accesskit)]
                 self.winit_window_or_none.borrow_mut().ensure_accesskit_adapter(
                     &self.self_weak,
                     &self.event_loop_proxy,
