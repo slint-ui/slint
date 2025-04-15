@@ -4,7 +4,7 @@
         "activityBarBadge.background": "#007ACC",
         "checkbox.border": "#6B6B6B",
         "editor.background": "transparent",
-        "editor.foreground": "#D4D4D4",
+        "editor.foreground": "#A4D4D4",
         "editor.inactiveSelectionBackground": "#3A3D41",
         "editor.selectionHighlightBackground": "#ADD6FF26",
         "editorIndentGuide.activeBackground1": "#707070",

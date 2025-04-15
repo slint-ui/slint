@@ -24,14 +24,22 @@ export const dispatchTS = <Key extends keyof EventTS>(
 
 export const listenTS = <Key extends keyof EventTS>(
     eventName: Key,
-    callback: (data: EventTS[Key]) => any,
+    // --- Adjust callback type to expect the whole message ---
+    callback: (data: any) => any, // Use 'any' for simplicity or define a more specific type
     listenOnce = false,
 ) => {
     const func = (event: MessageEvent<any>) => {
-        if (event.data.pluginMessage.event === eventName) {
-            callback(event.data.pluginMessage.data);
-            if (listenOnce) {
-                window.removeEventListener("message", func); // Remove Listener so we only listen once
+        // --- Check for pluginMessage existence ---
+        if (event.data && event.data.pluginMessage) {
+            const pluginMessage = event.data.pluginMessage;
+
+            // --- Check for 'type' property instead of 'event' ---
+            if (pluginMessage.type === eventName) {
+                // --- Pass the whole pluginMessage object to the callback ---
+                callback(pluginMessage);
+                if (listenOnce) {
+                    window.removeEventListener("message", func);
+                }
             }
         }
     };
