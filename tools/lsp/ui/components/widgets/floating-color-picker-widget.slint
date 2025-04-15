@@ -926,6 +926,10 @@ component ColorPicker inherits DraggablePanel {
         }
     }
 
+    init => {
+        active-tab = brush-mode == BrushMode.color ? PickerTab.color : PickerTab.gradient;
+    }
+
     width: Styles.picker-width;
 
     title := Rectangle {

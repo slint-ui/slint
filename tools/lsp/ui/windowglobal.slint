@@ -56,6 +56,7 @@ export global WindowManager {
             PickerData.current-gradient-stops = current-property-information.value.gradient-stops;
             PickerData.current-angle = current-property-information.value.value-float;
             picker-mode = BrushPropertyType.brush;
+            brush-mode = current-property-information.value.brush-kind == BrushKind.solid ? BrushMode.color : current-property-information.value.brush-kind == BrushKind.linear ? BrushMode.linear : BrushMode.radial;
             showing-color-picker = true;
         }
     }
