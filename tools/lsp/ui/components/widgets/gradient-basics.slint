@@ -161,7 +161,7 @@ export component GradientMainContent inherits HorizontalLayout {
 
         ta := TouchArea {
             double-clicked => {
-                root.selected-index = Api.add-gradient-stop(root.gradient-stops, { position: self.mouse-x / self.width, color: Colors.aquamarine });
+                root.selected-index = Api.add-gradient-stop(root.gradient-stops, Api.suggest-gradient-stop-at-position(root.gradient-stops, self.mouse-x / self.width));
 
                 root.update-brush();
             }
