@@ -161,70 +161,51 @@ function extractHierarchy(name: string): string[] {
 
 function createReferenceExpression(
     referenceId: string,
-    sourceModeName: string,
+    sourceModeName: string, // The mode of the variable *requesting* the reference
     variablePathsById: Map<
         string,
         { collection: string; node: VariableNode; path: string[] }
     >,
-    collectionStructure: Map<string, any>,
-    currentCollection: string = "",
-    currentPath: string[] = [],
+    collectionStructure: Map<string, any>, // Assuming 'any' for now, replace with specific type if available
+    currentCollection: string, // The collection of the variable *requesting* the reference
+    currentPath: string[], // The path of the variable *requesting* the reference
+    resolutionStack: string[] = [], // Stack to detect loops
+    exportAsSingleFile: boolean, // Parameter indicating export mode
 ): {
     value: string | null;
     importStatement?: string;
     isCircular?: boolean;
     comment?: string;
 } {
-    // Get the target variable info
+    // --- 1. Get Target Info ---
     const targetInfo = variablePathsById.get(referenceId);
     if (!targetInfo) {
         console.warn(`Reference path not found for ID: ${referenceId}`);
-        return { value: null };
+        return {
+            value: null,
+            comment: `Unresolved reference ID: ${referenceId}`,
+        };
     }
 
-    // Access properties directly from stored data
     const {
         collection: targetCollection,
         node: targetNode,
         path: targetPath,
     } = targetInfo;
 
-    // IMPROVED CIRCULAR REFERENCE DETECTION
-    // Now we can directly compare paths as arrays
-    let commonParts = 0;
-    for (let i = 0; i < Math.min(currentPath.length, targetPath.length); i++) {
-        if (currentPath[i] === targetPath[i]) {
-            commonParts++;
-        } else {
-            break;
-        }
-    }
+    // --- 2. Loop Detection using Resolution Stack ---
+    const targetIdentifier = `${targetCollection}.${targetPath.join(".")}`;
+    const currentIdentifier = `${currentCollection}.${currentPath.join(".")}`;
 
-    // Consider it circular if they share at least 2 path parts
-    const isCircularReference =
-        // Direct circular reference (same path)
-        currentPath.join("/") === targetPath.join("/") ||
-        // Parent-child circular references (already implemented)
-        currentPath
-            .join("/")
-            .startsWith(targetPath.join("/")) ||
-        targetPath.join("/").startsWith(currentPath.join("/")) ||
-        // Sibling circular references with shared ancestor
-        (currentPath.length >= 2 &&
-            targetPath.length >= 2 &&
-            // If they share the first item in the path
-            currentPath[0] === targetPath[0]);
-
-    if (isCircularReference) {
+    if (resolutionStack.includes(targetIdentifier)) {
         console.warn(
-            `Detected circular reference: ${currentPath.join(".")} -> ${targetPath.join(".")}`,
+            `Detected cross-collection loop: ${resolutionStack.join(" -> ")} -> ${targetIdentifier}`,
         );
+        // Add to exportInfo for README (ensure exportInfo is accessible or passed in)
+        // exportInfo.circularReferences.add(`${resolutionStack.join(" -> ")} -> ${targetIdentifier} (resolved with default)`);
 
-        // Always resolve to a concrete fallback value based on type
-        const targetType = targetNode.type || "COLOR";
+        const targetType = targetNode?.type || "COLOR"; // Use targetNode for type info if available
         const slintType = getSlintType(targetType);
-
-        // Use appropriate default value based on type
         const defaultValue =
             slintType === "brush"
                 ? "#808080"
@@ -239,133 +220,123 @@ function createReferenceExpression(
         return {
             value: defaultValue,
             isCircular: true,
-            comment: `Circular reference resolved with default: ${targetCollection}.${targetPath.join(".")}`,
+            comment: `Cross-collection loop resolved with default: ${targetIdentifier}`,
         };
     }
-    const isSelfReference =
-        targetCollection === currentCollection &&
-        // Any variable in the same hierarchical branch
-        (targetPath.join("/").startsWith(currentPath.join("/")) ||
-            currentPath.join("/").startsWith(targetPath.join("/")) ||
-            // Direct sibling references
-            (targetPath.length === currentPath.length &&
-                targetPath
-                    .slice(0, -1)
-                    .every((part, i) => part === currentPath[i])));
 
-    if (isSelfReference) {
-        // Get the actual value instead of creating a reference
-        if (targetNode.valuesByMode && targetNode.valuesByMode.size > 0) {
-            const targetValue =
-                targetNode.valuesByMode.get(sourceModeName) ||
-                targetNode.valuesByMode.values().next().value;
-            if (targetValue && !targetValue.value.startsWith("@ref:")) {
-                // Value is a direct value, safe to use
-                return {
-                    value: targetValue.value,
-                    comment: `Self-reference resolved: ${targetPath.join(".")}.${sourceModeName}`,
-                };
-            }
-            const slintType = getSlintType(targetNode.type || "COLOR");
-            const defaultValue =
-                slintType === "brush"
-                    ? "#808080"
-                    : slintType === "length"
-                      ? "0px"
-                      : slintType === "string"
-                        ? '""'
-                        : slintType === "bool"
-                          ? "false"
-                          : "#808080";
-
-            return {
-                value: defaultValue,
-                isCircular: true,
-                comment: `Self-reference with circular dependency resolved with default: ${targetCollection}.${targetPath.join(".")}`,
-            };
-        } else {
-            // Value is itself a reference, resolve to fallback to avoid circular refs
-            const slintType = getSlintType(targetNode.type || "COLOR");
-            const defaultValue =
-                slintType === "brush"
-                    ? "#808080"
-                    : slintType === "length"
-                      ? "0px"
-                      : slintType === "string"
-                        ? '""'
-                        : slintType === "bool"
-                          ? "false"
-                          : "#808080";
-            return {
-                value: defaultValue,
-                isCircular: true,
-                comment: `Self-reference resolved with default: ${targetCollection}.${targetPath.join(".")}`,
-            };
-        }
-    }
-    // Get the target collection data
+    // --- 3. Resolve Target Value or Nested Reference ---
     const targetCollectionData = collectionStructure.get(targetCollection);
     if (!targetCollectionData) {
+        console.warn(`Target collection data not found: ${targetCollection}`);
+        return {
+            value: null,
+            comment: `Missing target collection data: ${targetCollection}`,
+        };
+    }
+    const targetRowName = sanitizeRowName(targetPath.join("/"));
+    const targetVariableModesMap =
+        targetCollectionData.variables.get(targetRowName);
+
+    if (!targetVariableModesMap) {
         console.warn(
-            `Collection not found: ${targetCollection}`,
-            "Available collections:",
-            Array.from(collectionStructure.keys()).join(", "),
+            `Target variable data not found in collectionStructure: ${targetCollection}.${targetRowName}`,
         );
-        return { value: null };
+        const targetType = targetNode?.type || "COLOR";
+        const slintType = getSlintType(targetType);
+        const defaultValue =
+            slintType === "brush"
+                ? "#FF00FF"
+                : // Error color
+                  slintType === "length"
+                  ? "0px"
+                  : slintType === "string"
+                    ? '""'
+                    : slintType === "bool"
+                      ? "false"
+                      : "#FF00FF";
+        return {
+            value: defaultValue,
+            isCircular: true,
+            comment: `Missing target variable data: ${targetIdentifier}`,
+        };
     }
 
-    // Check if this is a cross-collection reference
-    const isCrossCollection = targetCollection !== currentCollection;
+    const targetValueData =
+        targetVariableModesMap.get(sourceModeName) ||
+        targetVariableModesMap.values().next().value;
 
-    // Get all modes from target collection
-    const targetModes = [...targetCollectionData.modes];
-    if (targetModes.length === 0) {
-        console.warn(
-            `No modes found in target collection: ${targetCollection}`,
-        );
-        return { value: null };
-    }
+    if (targetValueData) {
+        // CASE A: Target is another reference (alias)
+        if (targetValueData.refId) {
+            const nextStack = [...resolutionStack, currentIdentifier];
+            return createReferenceExpression(
+                targetValueData.refId,
+                sourceModeName,
+                variablePathsById,
+                collectionStructure,
+                targetCollection,
+                targetPath,
+                nextStack,
+                exportAsSingleFile, // Pass parameter in recursive call
+            );
+        }
+        // CASE B: Target holds a concrete value
+        else {
+            const sanitizedMode = sanitizeModeForEnum(sourceModeName);
+            const propertyPath = targetPath
+                .map((part) => sanitizePropertyName(part))
+                .join(".");
 
-    // Find the appropriate mode
-    const targetModeName =
-        targetModes.find(
-            (mode) =>
-                sanitizeModeForEnum(mode) ===
-                sanitizeModeForEnum(sourceModeName),
-        ) ||
-        targetModes.find((mode) => mode === sourceModeName) ||
-        targetModes[0];
+            let referenceExpr = "";
+            if (targetCollectionData.modes.size > 1) {
+                referenceExpr = `${targetCollectionData.formattedName}.${propertyPath}.${sanitizedMode}`;
+            } else {
+                referenceExpr = `${targetCollectionData.formattedName}.${propertyPath}`;
+            }
 
-    const sanitizedMode = sanitizeModeForEnum(targetModeName);
+            let importStatement: string | undefined = undefined;
+            const isCrossCollection = targetCollection !== currentCollection;
+            if (isCrossCollection && !exportAsSingleFile) {
+                // Use the parameter
+                if (targetCollectionData.modes.size > 1) {
+                    importStatement = `import { ${targetCollectionData.formattedName}, ${targetCollectionData.formattedName}Mode } from "${targetCollectionData.formattedName}.slint";\n`;
+                } else {
+                    importStatement = `import { ${targetCollectionData.formattedName} } from "${targetCollectionData.formattedName}.slint";\n`;
+                }
+            }
 
-    // If this is a cross-collection reference, we need an import statement
-    let importStatement: string | undefined = undefined;
-    if (isCrossCollection) {
-        if (targetCollectionData.modes.size > 1) {
-            importStatement = `import { ${targetCollectionData.formattedName}, ${targetCollectionData.formattedName}Mode } from "${targetCollectionData.formattedName}.slint";\n`;
-        } else {
-            importStatement = `import { ${targetCollectionData.formattedName} } from "${targetCollectionData.formattedName}.slint";\n`;
+            return {
+                value: referenceExpr,
+                importStatement: importStatement,
+                isCircular: false,
+                comment: targetValueData.comment,
+            };
         }
     }
+    // CASE C: No value data found for the target variable in any relevant mode
+    else {
+        console.warn(
+            `Missing value data for ${targetIdentifier} in mode ${sourceModeName} or fallback (using collectionStructure)`,
+        );
+        const targetType = targetNode?.type || "COLOR";
+        const slintType = getSlintType(targetType);
+        const defaultValue =
+            slintType === "brush"
+                ? "#808080"
+                : slintType === "length"
+                  ? "0px"
+                  : slintType === "string"
+                    ? '""'
+                    : slintType === "bool"
+                      ? "false"
+                      : "#808080";
 
-    // Build the property path using the stored path array
-    // Ensure all path components are sanitized
-    const propertyPath = targetPath
-        .map((part) => sanitizePropertyName(part))
-        .join(".");
-
-    // Format the reference expression
-    let referenceExpr = "";
-    if (targetCollectionData.modes.size > 1) {
-        referenceExpr = `${targetCollectionData.formattedName}.${propertyPath}.${sanitizedMode}`;
-    } else {
-        referenceExpr = `${targetCollectionData.formattedName}.${propertyPath}`;
+        return {
+            value: defaultValue,
+            isCircular: true,
+            comment: `Missing value data resolved with default: ${targetIdentifier}`,
+        };
     }
-
-    return {
-        value: referenceExpr,
-        importStatement: importStatement,
-    };
 }
 
 interface VariableNode {
@@ -418,7 +389,7 @@ function generateStructsAndInstances(
     const exportInfo = {
         renamedVariables: new Set<string>(),
         circularReferences: new Set<string>(),
-        warnings: new Set<string>()
+        warnings: new Set<string>(),
     };
 
     // Build the struct model
@@ -503,7 +474,9 @@ function generateStructsAndInstances(
                     console.warn(
                         `Renaming Figma "mode" variable to "mode-var" to avoid conflict with scheme mode.`,
                     );
-                    exportInfo.renamedVariables.add(`"${childName}" → "${sanitizedChildName}" in ${collectionData.formattedName} (to avoid conflict with scheme mode)`); // Use formattedName
+                    exportInfo.renamedVariables.add(
+                        `"${childName}" → "${sanitizedChildName}" in ${collectionData.formattedName} (to avoid conflict with scheme mode)`,
+                    ); // Use formattedName
 
                     try {
                         figma.notify(
@@ -855,10 +828,8 @@ function generateStructsAndInstances(
 // For Figma Plugin - Export function with hierarchical structure
 // Export each collection to a separate virtual file
 export async function exportFigmaVariablesToSeparateFiles(
-    exportAsSingleFile: boolean = true
-): Promise<
-    Array<{ name: string; content: string }>
-> {
+    exportAsSingleFile: boolean = true,
+): Promise<Array<{ name: string; content: string }>> {
     const exportInfo = {
         renamedVariables: new Set<string>(),
         circularReferences: new Set<string>(),
@@ -1119,42 +1090,62 @@ export async function exportFigmaVariablesToSeparateFiles(
                 .get(collectionName)!
                 .variables.entries()) {
                 for (const [colName, data] of columns.entries()) {
+                    // Check if this specific mode value is a reference
                     if (data.refId) {
+                        // Prepare arguments for the initial call
+                        const currentPathArray = rowName.split("/");
+                        const currentIdentifier = `${collectionName}.${currentPathArray.join(".")}`;
+                        const initialStack = [currentIdentifier];
+
+                        // Call the reference resolution function
                         const refResult = createReferenceExpression(
                             data.refId,
                             colName,
                             variablePathsById,
                             collectionStructure,
                             collectionName,
-                            rowName.split("/"), // Convert string to array by splitting on path separator
+                            currentPathArray,
+                            initialStack,
+                            exportAsSingleFile, // Pass the parameter here
                         );
 
-                        if (refResult.value) {
-                            // Update to handle circular references
-                            const valueToStore = refResult.value;
+                        // Process the result
+                        if (refResult.value !== null) {
                             const updatedValue = {
-                                value: valueToStore,
+                                value: refResult.value,
                                 type: data.type,
                                 refId: refResult.isCircular
                                     ? undefined
-                                    : data.refId, // Remove refId if resolved circular ref
-                                comment: refResult.comment, // Add this line to preserve the comment
+                                    : data.refId,
+                                comment: refResult.comment,
                             };
 
                             collectionStructure
                                 .get(collectionName)!
                                 .variables.get(rowName)!
                                 .set(colName, updatedValue);
-                        } else {
-                            // Fallback...
-                        }
 
-                        // When processing references:
-                        if (
-                            refResult.importStatement &&
-                            !refResult.isCircular
-                        ) {
-                            requiredImports.add(refResult.importStatement);
+                            if (
+                                refResult.importStatement &&
+                                !refResult.isCircular &&
+                                !exportAsSingleFile
+                            ) {
+                                requiredImports.add(refResult.importStatement);
+                            }
+                        } else {
+                            console.warn(
+                                `Failed to resolve reference ${data.refId} for ${currentIdentifier}`,
+                            );
+                            const fallbackValue = {
+                                value: "#FF00FF", // Magenta indicates error
+                                type: data.type,
+                                refId: undefined,
+                                comment: `Failed to resolve reference ${data.refId}`,
+                            };
+                            collectionStructure
+                                .get(collectionName)!
+                                .variables.get(rowName)!
+                                .set(colName, fallbackValue);
                         }
                     }
                 }
@@ -1375,40 +1366,19 @@ export async function exportFigmaVariablesToSeparateFiles(
         let finalOutputFiles: Array<{ name: string; content: string }> = [];
 
         if (exportAsSingleFile) {
-            // --- Combine into a single file ---
+            // --- Combine into a single file by simple concatenation ---
             let combinedContent = "// Combined Slint Design Tokens\n// Generated on " +
                                    new Date().toISOString().split('T')[0] + "\n\n";
-            const uniqueImports = new Set<string>();
-            const uniqueEnums = new Set<string>();
-            const uniqueStructs = new Set<string>(); // Use Set to attempt de-duplication
-            let combinedGlobals = "";
 
+            // Iterate through all the files generated for individual collections
             for (const file of generatedFiles) {
-                // Extract and collect unique imports
-                const importMatches = file.content.match(/import {[^;]+;/g) || [];
-                importMatches.forEach(imp => uniqueImports.add(imp));
-
-                // Extract and collect unique enums
-                const enumMatches = file.content.match(/export enum [\s\S]+?\}/g) || [];
-                enumMatches.forEach(en => uniqueEnums.add(en));
-
-                // Extract and collect unique structs
-                const structMatches = file.content.match(/struct [\s\S]+?\}/g) || [];
-                structMatches.forEach(st => uniqueStructs.add(st)); // Basic de-duplication
-
-                // Extract and append global blocks
-                const globalMatches = file.content.match(/export global [\s\S]+?\}/g) || [];
-                if (globalMatches) {
-                    combinedGlobals += globalMatches.join("\n\n") + "\n\n";
-                }
+                // Append the entire content of the file
+                combinedContent += `// --- Content from ${file.name} ---\n\n`; // Add separator comment
+                combinedContent += file.content;
+                combinedContent += "\n\n// --- End Content from ${file.name} ---\n\n"; // Add separator comment
             }
 
-            // Assemble the final content
-            combinedContent += Array.from(uniqueImports).join("\n") + "\n\n";
-            combinedContent += Array.from(uniqueEnums).join("\n\n") + "\n\n";
-            combinedContent += Array.from(uniqueStructs).join("\n\n") + "\n\n";
-            combinedContent += combinedGlobals;
-
+            // Add the combined content as the single output file
             finalOutputFiles.push({
                 name: "design-tokens.slint",
                 content: combinedContent.trim() // Remove trailing newlines
@@ -1416,18 +1386,19 @@ export async function exportFigmaVariablesToSeparateFiles(
 
         } else {
             // --- Use individual files ---
+            // If not exporting as single file, use the files generated during the loop
             finalOutputFiles = generatedFiles;
         }
 
         // --- (4) Add README ---
+        // (Keep the README generation logic as it is)
         const readmeContent = generateReadmeContent(exportInfo);
         finalOutputFiles.push({
             name: "README.md",
             content: readmeContent,
         });
-        
-        
-        return finalOutputFiles;
+
+        return finalOutputFiles; // Return the final array
     } catch (error) {
         console.error("Error in exportFigmaVariablesToSeparateFiles:", error);
         // Return an error file
@@ -1733,45 +1704,49 @@ function collectMultiModeStructs(
     findUniqueTypeConfigs(node);
 }
 function generateReadmeContent(exportInfo: {
-    renamedVariables: Set<string>; circularReferences: Set<string>; warnings: Set<string>; features: Set<string>; // You can add specific features detected if needed
+    renamedVariables: Set<string>;
+    circularReferences: Set<string>;
+    warnings: Set<string>;
+    features: Set<string>; // You can add specific features detected if needed
     collections: Set<string>;
 }): string {
     let content = "# Figma Design Tokens Export\n\n";
     content += `Generated on ${new Date().toLocaleDateString()}\n\n`;
-    
+
     if (exportInfo.collections.size > 0) {
         content += "## Exported Collections\n\n";
-        exportInfo.collections.forEach(collection => {
+        exportInfo.collections.forEach((collection) => {
             content += `- ${collection}\n`;
         });
         content += "\n";
     }
-    
+
     if (exportInfo.renamedVariables.size > 0) {
         content += "## Renamed Variables\n\n";
-        content += "The following variables were renamed to avoid conflicts:\n\n";
-        exportInfo.renamedVariables.forEach(variable => {
+        content +=
+            "The following variables were renamed to avoid conflicts:\n\n";
+        exportInfo.renamedVariables.forEach((variable) => {
             content += `- ${variable}\n`;
         });
         content += "\n";
     }
-    
+
     if (exportInfo.circularReferences.size > 0) {
         content += "## Circular References\n\n";
-        content += "The following circular references were detected and resolved with defaults:\n\n";
-        exportInfo.circularReferences.forEach(ref => {
+        content +=
+            "The following circular references were detected and resolved with defaults:\n\n";
+        exportInfo.circularReferences.forEach((ref) => {
             content += `- ${ref}\n`;
         });
         content += "\n";
     }
-    
+
     if (exportInfo.warnings.size > 0) {
         content += "## Warnings\n\n";
-        exportInfo.warnings.forEach(warning => {
+        exportInfo.warnings.forEach((warning) => {
             content += `- ${warning}\n`;
         });
     }
-    
+
     return content;
 }
-
