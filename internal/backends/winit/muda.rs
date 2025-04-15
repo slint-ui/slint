@@ -89,15 +89,9 @@ impl MudaAdapter {
                 Box::new(muda::PredefinedMenuItem::separator())
             } else if !entry.has_sub_menu && depth != 0 {
                 // the top level always has a sub menu regardless of entry.has_sub_menu
-                Box::new(muda::MenuItem::with_id(
-                    id.clone(),
-                    &entry.title,
-                    true, /*entry.enabled*/
-                    None,
-                ))
+                Box::new(muda::MenuItem::with_id(id.clone(), &entry.title, entry.enabled, None))
             } else {
-                let sub_menu =
-                    muda::Submenu::with_id(id.clone(), &entry.title, true /*entry.enabled*/);
+                let sub_menu = muda::Submenu::with_id(id.clone(), &entry.title, entry.enabled);
                 if depth < 15 {
                     let mut sub_entries = Default::default();
                     menu.sub_menu(Some(entry), &mut sub_entries);
