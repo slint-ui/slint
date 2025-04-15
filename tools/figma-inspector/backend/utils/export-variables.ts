@@ -414,6 +414,12 @@ function generateStructsAndInstances(
     const structDefinitions = new Map<string, StructDefinition>();
     const propertyInstances = new Map<string, PropertyInstance>();
     const hasRootModeVariable = variableTree.children.has("mode");
+    // Local export info tracking
+    const exportInfo = {
+        renamedVariables: new Set<string>(),
+        circularReferences: new Set<string>(),
+        warnings: new Set<string>()
+    };
 
     // Build the struct model
     function buildStructModel(node: VariableNode, path: string[] = []) {
@@ -497,6 +503,7 @@ function generateStructsAndInstances(
                     console.warn(
                         `Renaming Figma "mode" variable to "mode-var" to avoid conflict with scheme mode.`,
                     );
+                    exportInfo.renamedVariables.add(`"${childName}" → "${sanitizedChildName}" in ${collectionData.formattedName} (to avoid conflict with scheme mode)`); // Use formattedName
 
                     try {
                         figma.notify(
@@ -847,9 +854,20 @@ function generateStructsAndInstances(
 
 // For Figma Plugin - Export function with hierarchical structure
 // Export each collection to a separate virtual file
-export async function exportFigmaVariablesToSeparateFiles(): Promise<
+export async function exportFigmaVariablesToSeparateFiles(
+    exportAsSingleFile: boolean = true
+): Promise<
     Array<{ name: string; content: string }>
 > {
+    const exportInfo = {
+        renamedVariables: new Set<string>(),
+        circularReferences: new Set<string>(),
+        warnings: new Set<string>(),
+        features: new Set<string>(), // You can add specific features detected if needed
+        collections: new Set<string>(),
+    };
+    const generatedFiles: Array<{ name: string; content: string }> = []; // Store intermediate files
+
     try {
         // Get collections asynchronously
         const variableCollections =
@@ -1303,13 +1321,17 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<
                 name: `${collectionData.formattedName}.slint`,
                 content: content,
             });
+            generatedFiles.push({
+                name: `${collectionData.formattedName}.slint`,
+                content: content, // The fully generated content for this file
+            });
 
             console.log(
                 `Generated file for collection: ${collectionData.name}`,
             );
         }
 
-        for (const file of exportedFiles) {
+        for (const file of generatedFiles) {
             // Check if there are any unresolved references left
             if (file.content.includes("@ref:")) {
                 console.warn(`Found unresolved references in ${file.name}`);
@@ -1350,7 +1372,62 @@ export async function exportFigmaVariablesToSeparateFiles(): Promise<
                 );
             }
         }
-        return exportedFiles;
+        let finalOutputFiles: Array<{ name: string; content: string }> = [];
+
+        if (exportAsSingleFile) {
+            // --- Combine into a single file ---
+            let combinedContent = "// Combined Slint Design Tokens\n// Generated on " +
+                                   new Date().toISOString().split('T')[0] + "\n\n";
+            const uniqueImports = new Set<string>();
+            const uniqueEnums = new Set<string>();
+            const uniqueStructs = new Set<string>(); // Use Set to attempt de-duplication
+            let combinedGlobals = "";
+
+            for (const file of generatedFiles) {
+                // Extract and collect unique imports
+                const importMatches = file.content.match(/import {[^;]+;/g) || [];
+                importMatches.forEach(imp => uniqueImports.add(imp));
+
+                // Extract and collect unique enums
+                const enumMatches = file.content.match(/export enum [\s\S]+?\}/g) || [];
+                enumMatches.forEach(en => uniqueEnums.add(en));
+
+                // Extract and collect unique structs
+                const structMatches = file.content.match(/struct [\s\S]+?\}/g) || [];
+                structMatches.forEach(st => uniqueStructs.add(st)); // Basic de-duplication
+
+                // Extract and append global blocks
+                const globalMatches = file.content.match(/export global [\s\S]+?\}/g) || [];
+                if (globalMatches) {
+                    combinedGlobals += globalMatches.join("\n\n") + "\n\n";
+                }
+            }
+
+            // Assemble the final content
+            combinedContent += Array.from(uniqueImports).join("\n") + "\n\n";
+            combinedContent += Array.from(uniqueEnums).join("\n\n") + "\n\n";
+            combinedContent += Array.from(uniqueStructs).join("\n\n") + "\n\n";
+            combinedContent += combinedGlobals;
+
+            finalOutputFiles.push({
+                name: "design-tokens.slint",
+                content: combinedContent.trim() // Remove trailing newlines
+            });
+
+        } else {
+            // --- Use individual files ---
+            finalOutputFiles = generatedFiles;
+        }
+
+        // --- (4) Add README ---
+        const readmeContent = generateReadmeContent(exportInfo);
+        finalOutputFiles.push({
+            name: "README.md",
+            content: readmeContent,
+        });
+        
+        
+        return finalOutputFiles;
     } catch (error) {
         console.error("Error in exportFigmaVariablesToSeparateFiles:", error);
         // Return an error file
@@ -1655,3 +1732,46 @@ function collectMultiModeStructs(
     // Look for any additional types
     findUniqueTypeConfigs(node);
 }
+function generateReadmeContent(exportInfo: {
+    renamedVariables: Set<string>; circularReferences: Set<string>; warnings: Set<string>; features: Set<string>; // You can add specific features detected if needed
+    collections: Set<string>;
+}): string {
+    let content = "# Figma Design Tokens Export\n\n";
+    content += `Generated on ${new Date().toLocaleDateString()}\n\n`;
+    
+    if (exportInfo.collections.size > 0) {
+        content += "## Exported Collections\n\n";
+        exportInfo.collections.forEach(collection => {
+            content += `- ${collection}\n`;
+        });
+        content += "\n";
+    }
+    
+    if (exportInfo.renamedVariables.size > 0) {
+        content += "## Renamed Variables\n\n";
+        content += "The following variables were renamed to avoid conflicts:\n\n";
+        exportInfo.renamedVariables.forEach(variable => {
+            content += `- ${variable}\n`;
+        });
+        content += "\n";
+    }
+    
+    if (exportInfo.circularReferences.size > 0) {
+        content += "## Circular References\n\n";
+        content += "The following circular references were detected and resolved with defaults:\n\n";
+        exportInfo.circularReferences.forEach(ref => {
+            content += `- ${ref}\n`;
+        });
+        content += "\n";
+    }
+    
+    if (exportInfo.warnings.size > 0) {
+        content += "## Warnings\n\n";
+        exportInfo.warnings.forEach(warning => {
+            content += `- ${warning}\n`;
+        });
+    }
+    
+    return content;
+}
+
