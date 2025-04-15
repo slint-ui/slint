@@ -6,24 +6,41 @@ import { listenTS, updateUI } from "./utils/code-utils.js";
 import { generateSlintSnippet } from "./utils/property-parsing.js";
 import { exportFigmaVariablesToSeparateFiles } from "./utils/export-variables.js";
 if (figma.editorType === "dev" && figma.mode === "codegen") {
-    figma.codegen.on("generate", async ({ node }) => {
-        const slintSnippet = generateSlintSnippet(node);
-        return slintSnippet
-            ? [
-                  {
-                      title: "Slint Code: " + node.name,
-                      language: "CSS",
-                      code: slintSnippet,
-                  },
-              ]
-            : [];
+    figma.codegen.on("generate", async ({ node }: { node: SceneNode }) => {
+        try {
+            // Add try...catch for async errors
+            // --- Await the async function ---
+            const slintSnippet = await generateSlintSnippet(node);
+            // --- End Await ---
+
+            return slintSnippet
+                ? [
+                      {
+                          title: "Slint Code: " + node.name,
+                          // Use "CSS" as Figma doesn't support "SLINT" as a language option
+                          language: "CSS",
+                          code: slintSnippet,
+                      },
+                  ]
+                : [];
+        } catch (error) {
+            console.error("Error during codegen generate:", error);
+            // Return an error message or empty array on failure
+            return [
+                {
+                    title: "Error Generating Slint",
+                    language: "PLAINTEXT",
+                    code: `// Failed to generate Slint snippet for ${node.name}:\n// ${error}`,
+                },
+            ];
+        }
     });
 }
 
 if (figma.editorType === "figma" && figma.mode === "default") {
     figma.showUI(__html__, {
         themeColors: true,
-        width: 400,
+        width: 500,
         height: 320,
     });
     updateUI();
@@ -39,24 +56,35 @@ listenTS("copyToClipboard", ({ result }) => {
 
 figma.on("selectionchange", () => {
     if (figma.editorType === "figma" && figma.mode === "default") {
-        updateUI();
+        // Call async function and handle potential errors
+        updateUI().catch((err) =>
+            console.error("Error handling selection change:", err),
+        );
     }
 });
 
-listenTS("exportToFiles", async () => {
+listenTS("exportToFiles", async (payload: { exportAsSingleFile?: boolean }) => {
+    console.log(
+        "[Backend] Received 'exportToFiles' request. Payload:",
+        payload,
+    ); // Check this log
+    const shouldExportAsSingleFile = payload?.exportAsSingleFile ?? false;
+    console.log(
+        `[Backend] Parsed shouldExportAsSingleFile: ${shouldExportAsSingleFile}`,
+    ); // Check this log
     try {
-        const exportedFiles = await exportFigmaVariablesToSeparateFiles();
-        console.log(`Exported ${exportedFiles.length} collection files`);
+        const files = await exportFigmaVariablesToSeparateFiles(
+            shouldExportAsSingleFile,
+        );
+        console.log(`Exported ${files.length} collection files`);
 
         // Send to UI for downloading
         figma.ui.postMessage({
             type: "exportedFiles",
-            files: exportedFiles,
+            files: files,
         });
 
-        figma.notify(
-            `${exportedFiles.length} collection files ready for download!`,
-        );
+        figma.notify(`${files.length} collection files ready for download!`);
     } catch (error) {
         console.error("Error exporting to files:", error);
         figma.notify("Failed to export to files", { error: true });
@@ -79,136 +107,122 @@ const variableMonitoring: {
 // Keep the DEBOUNCE_INTERVAL as a constant
 const DEBOUNCE_INTERVAL = 3000; // 3 seconds
 
-// Replace your monitorVariableChanges handler
 listenTS("monitorVariableChanges", async () => {
-    console.log("Setting up variable change monitoring in plugin");
-
-    // Set up event listeners for variable changes
-    if (
-        figma.variables &&
-        typeof (figma.variables as any).onVariableValueChange === "function"
-    ) {
-        console.log("Setting up onVariableValueChange listener");
-
-        (figma.variables as any).onVariableValueChange(
-            (event: { variableId: string }) => {
-                const now = Date.now();
-
-                // Only process if enough time has passed since last event
-                if (
-                    now - variableMonitoring.lastEventTime >
-                    DEBOUNCE_INTERVAL
-                ) {
-                    variableMonitoring.lastEventTime = now;
-                    console.log("Variable value changed:", event);
-
-                    figma.ui.postMessage({
-                        type: "variableChanged",
-                        data: {
-                            variableId: event.variableId,
-                            timestamp: now,
-                        },
-                    });
-                }
-            },
-        );
-    }
-
-    // Collection changes
-    if (
-        figma.variables &&
-        typeof (figma.variables as any).onVariableCollectionChange ===
-            "function"
-    ) {
-        console.log("Setting up onVariableCollectionChange listener");
-
-        (figma.variables as any).onVariableCollectionChange(
-            (event: { variableCollectionId: string }) => {
-                const now = Date.now();
-
-                // Only process if enough time has passed since last event
-                if (
-                    now - variableMonitoring.lastEventTime >
-                    DEBOUNCE_INTERVAL
-                ) {
-                    variableMonitoring.lastEventTime = now;
-                    console.log("Variable collection changed:", event);
-
-                    figma.ui.postMessage({
-                        type: "variableCollectionChanged",
-                        data: {
-                            collectionId: event.variableCollectionId,
-                            timestamp: now,
-                        },
-                    });
-                }
-            },
-        );
-    }
+    console.log("[Backend] Received 'monitorVariableChanges' from UI."); // <-- Add Log
 
     // Confirm setup to UI
+    console.log(
+        "[Backend] Posting 'variableMonitoringActive' confirmation to UI.",
+    ); // <-- Add Log
     figma.ui.postMessage({
-        type: "variableMonitoringActive",
+        type: "variableMonitoringActive", // Keep this confirmation
         timestamp: Date.now(),
     });
 });
+listenTS("checkVariableChanges", async () => {
+    await checkVariableChanges(); // Call the main async function
+});
 
 // Replace your checkVariableChanges handler
-listenTS("checkVariableChanges", async () => {
+async function checkVariableChanges(isInitialRun = false) {
+    console.log("[Backend] Running checkVariableChanges..."); // Log run
     try {
-        // Use the async version as required
         const collections =
             await figma.variables.getLocalVariableCollectionsAsync();
+        const detailedSnapshotData: Record<string, any> = {};
+        let variableFetchError = false;
 
-        // Create a compact representation of the current state
-        const collectionData = collections.map((c) => ({
-            id: c.id,
-            name: c.name,
-            modeCount: c.modes.length, // simpler representation
-            variableCount: c.variableIds.length,
-        }));
+        for (const collection of collections) {
+            detailedSnapshotData[collection.id] = {
+                id: collection.id,
+                name: collection.name,
+                modes: collection.modes.map((m) => ({
+                    id: m.modeId,
+                    name: m.name,
+                })),
+                variables: {}, // Store variable details here
+            };
 
-        const currentSnapshot = JSON.stringify(collectionData);
+            // Fetch details for each variable in the collection
+            // NOTE: This can be slow for *very* large numbers of variables
+            for (const variableId of collection.variableIds) {
+                try {
+                    const variable =
+                        await figma.variables.getVariableByIdAsync(variableId);
+                    if (variable) {
+                        // Store relevant value data (e.g., valuesByMode)
+                        detailedSnapshotData[collection.id].variables[
+                            variable.id
+                        ] = {
+                            id: variable.id,
+                            name: variable.name,
+                            resolvedType: variable.resolvedType,
+                            // Include valuesByMode to detect value changes
+                            valuesByMode: variable.valuesByMode,
+                        };
+                    }
+                } catch (err) {
+                    console.error(
+                        `[Backend] Error fetching variable ${variableId}:`,
+                        err,
+                    );
+                    variableFetchError = true; // Mark that an error occurred
+                    // Optionally add placeholder data or skip
+                    detailedSnapshotData[collection.id].variables[variableId] =
+                        { error: `Failed to fetch: ${err}` };
+                }
+            }
+        }
 
-        // First run special case
-        if (!variableMonitoring.initialized) {
+        const currentSnapshot = JSON.stringify(detailedSnapshotData);
+        const now = Date.now();
+
+        // Handle initial run or forced update
+        if (isInitialRun || !variableMonitoring.initialized) {
             variableMonitoring.lastSnapshot = currentSnapshot;
             variableMonitoring.initialized = true;
+            variableMonitoring.lastChange = now; // Set initial timestamp
             console.log(
-                "Variable monitoring initialized with baseline snapshot",
+                "[Backend] Variable monitoring initialized/updated with detailed baseline snapshot.",
             );
-            return;
+            // Optionally notify UI that it's initialized, maybe reset its state
+            figma.ui.postMessage({
+                type: "snapshotInitialized",
+                timestamp: now,
+            });
+            return; // Don't compare on the very first run
         }
 
-        // Compare with stored snapshot
-        const now = Date.now();
-        const timeSinceLastChange = now - variableMonitoring.lastChange;
+        // Compare with the stored detailed snapshot
         const hasChanged = variableMonitoring.lastSnapshot !== currentSnapshot;
 
-        // Update reference data when changed
         if (hasChanged) {
+            console.log(
+                "[Backend] Detailed snapshot comparison detected changes.",
+            ); // Log change detection
             variableMonitoring.lastSnapshot = currentSnapshot;
             variableMonitoring.lastChange = now;
-        }
 
-        // Only notify if there's an actual change AND enough time has passed
-        if (hasChanged && timeSinceLastChange > 5000) {
-            console.log("Real variable changes detected in collections");
+            // Post a message indicating changes were found via snapshot
             figma.ui.postMessage({
-                type: "documentSnapshot",
+                type: "documentSnapshot", // Use the existing type the UI listens for
                 timestamp: now,
-                collectionsCount: collections.length,
-                hasChanges: true,
+                hasChanges: true, // Indicate changes found
+                details: variableFetchError
+                    ? "Snapshot updated (some variable errors)"
+                    : "Snapshot updated",
             });
         } else {
-            // Silent no-change indicator
+            console.log("[Backend] No changes detected in detailed snapshot."); // Log no change
         }
     } catch (error) {
+        console.error("[Backend] Error during checkVariableChanges:", error);
         // Notify UI of the error
         figma.ui.postMessage({
-            type: "documentSnapshot",
+            type: "documentSnapshot", // Use existing type
             timestamp: Date.now(),
-            error: String(error),
+            error: `Error checking variables: ${String(error)}`,
+            hasChanges: false, // Indicate no confirmed change due to error
         });
     }
-});
+}
