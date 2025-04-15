@@ -42,6 +42,7 @@ export component EditWindow inherits PopupWindow {
         width: self.preferred-width;
         height: self.preferred-height;
         background: Palette.alternate-background;
+
         hl := HorizontalLayout {
             padding: EditorSpaceSettings.default-padding;
             padding-left: EditorSpaceSettings.default-padding;
@@ -77,31 +78,24 @@ export component EditWindow inherits PopupWindow {
                 }
 
                 set-bool-binding(value) => {
-                    debug("set-bool-binding");
                     root.save(value ? "true" : "false");
                 }
                 set-color-binding(text) => {
-                    debug("set-color-binding");
                     root.save("\"\{text}\"");
                 }
                 set-brush-binding(kind, angle, color, stops) => {
-                    debug("set-brush-binding");
                     root.save(Api.as-json-brush(kind, angle, color, stops));
                 }
                 set-float-binding(text, _unit) => {
-                    debug("set-float-binding");
                     root.save(text);
                 }
                 set-code-binding(text) => {
-                    debug("set-code-binding");
                     root.save(text);
                 }
                 set-string-binding(text, is_translated) => {
-                    debug("set-string-binding");
                     root.save(is_translated ? "\"\{text}\"" : text);
                 }
                 set-enum-binding(text) => {
-                    debug("set-enum-binding");
                     root.save("\"\{text}\"");
                 }
             }
@@ -300,7 +294,6 @@ export component Spreadsheet {
         private property <string> possible-error;
 
         function edit(new-value: string) -> bool {
-            debug("EW: edit(...): Model has \{root.current-table.values.length} rows");
             self.current-table.values[self.current-cell-data.row][self.current-cell-data.col].was-edited = true;
             self.current-table.values[self.current-cell-data.row][self.current-cell-data.col].edited-value = new-value;
 
@@ -320,7 +313,6 @@ export component Spreadsheet {
         }
 
         close-editor => {
-            debug("EW: Received close-editor");
             self.close();
         }
     }
