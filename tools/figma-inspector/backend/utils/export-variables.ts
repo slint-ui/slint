@@ -850,7 +850,6 @@ function generateStructsAndInstances(
 export async function exportFigmaVariablesToSeparateFiles(): Promise<
     Array<{ name: string; content: string }>
 > {
-
     try {
         // Get collections asynchronously
         const variableCollections =
