@@ -147,7 +147,43 @@ function sanitizeModeForEnum(name: string): string {
     // Replace any characters that are invalid in identifiers
     return name.replace(/[^a-zA-Z0-9_]/g, "_");
 }
+// helper to detect cycles in dependency graph
+function detectCycle(dependencies: Map<string, Set<string>>): boolean {
+    const visiting = new Set<string>(); // Nodes currently in the recursion stack
+    const visited = new Set<string>();  // Nodes already fully explored
 
+    function dfs(node: string): boolean {
+        visiting.add(node);
+        visited.add(node);
+
+        const neighbors = dependencies.get(node) || new Set();
+        for (const neighbor of neighbors) {
+            if (!visited.has(neighbor)) {
+                if (dfs(neighbor)) {
+                    return true; // Cycle found downstream
+                }
+            } else if (visiting.has(neighbor)) {
+                // Back edge detected - cycle found!
+                console.warn(`Dependency cycle detected involving: ${node} -> ${neighbor}`);
+                return true;
+            }
+        }
+
+        visiting.delete(node); // Remove node from current path stack
+        return false; // No cycle found from this node
+    }
+
+    // Check for cycles starting from each node
+    for (const node of dependencies.keys()) {
+        if (!visited.has(node)) {
+            if (dfs(node)) {
+                return true; // Cycle found
+            }
+        }
+    }
+
+    return false; // No cycles found in the entire graph
+}
 // Extract hierarchy from variable name (e.g. "colors/primary/base" → ["colors", "primary", "base"])
 function extractHierarchy(name: string): string[] {
     // First try splitting by slashes (the expected format)
@@ -828,7 +864,7 @@ function generateStructsAndInstances(
 // For Figma Plugin - Export function with hierarchical structure
 // Export each collection to a separate virtual file
 export async function exportFigmaVariablesToSeparateFiles(
-    exportAsSingleFile: boolean = true,
+    exportAsSingleFile: boolean = false,
 ): Promise<Array<{ name: string; content: string }>> {
     const exportInfo = {
         renamedVariables: new Set<string>(),
@@ -1081,7 +1117,12 @@ export async function exportFigmaVariablesToSeparateFiles(
 
         // Create a Set to track required imports across all collections
         const requiredImports = new Set<string>();
-
+        const collectionDependencies = new Map<string, Set<string>>();
+        // Initialize for all collections to handle collections that import nothing
+        for (const collection of variableCollections) {
+            const collectionName = formatPropertyName(collection.name);
+            collectionDependencies.set(collectionName, new Set<string>());
+        }
         // FINALLY process references after all collections are initialized
         for (const collection of variableCollections) {
             const collectionName = formatPropertyName(collection.name);
@@ -1124,7 +1165,33 @@ export async function exportFigmaVariablesToSeparateFiles(
                                 .get(collectionName)!
                                 .variables.get(rowName)!
                                 .set(colName, updatedValue);
+                            if (
+                                refResult.importStatement &&
+                                !refResult.isCircular
+                            ) {
+                                // Parse target collection from import statement
+                                const importMatch =
+                                    refResult.importStatement.match(
+                                        /import { ([^,}]+)/,
+                                    );
+                                if (importMatch) {
+                                    const targetCollectionName =
+                                        importMatch[1].trim();
+                                    // Record the dependency: currentCollection -> targetCollectionName
+                                    collectionDependencies
+                                        .get(collectionName)
+                                        ?.add(targetCollectionName);
+                                }
 
+                                // Add import statement ONLY if multi-file mode is intended *initially*
+                                // We'll decide the final mode later based on cycles.
+                                if (!exportAsSingleFile) {
+                                    // Check initial user intent
+                                    requiredImports.add(
+                                        refResult.importStatement,
+                                    );
+                                }
+                            }
                             if (
                                 refResult.importStatement &&
                                 !refResult.isCircular &&
@@ -1162,11 +1229,7 @@ export async function exportFigmaVariablesToSeparateFiles(
             }
 
             // Generate the enum for modes
-            let content = `// Generated Slint file for ${collectionData.name}\n\n`;
-
-            // // Generate global singleton
-            // content += `export global ${collectionData.formattedName} {\n`;
-
+        let content = `// Generated Slint file for ${collectionData.name}\n\n`;
             // Build a hierarchical tree from the flat variables
             const variableTree: VariableNode = {
                 name: "root",
@@ -1286,27 +1349,30 @@ export async function exportFigmaVariablesToSeparateFiles(
             }
 
             // Add the mode enum if needed
-            if (collectionData.modes.size > 1) {
-                content += `export enum ${collectionData.formattedName}Mode {\n`;
-                for (const mode of collectionData.modes) {
-                    content += `    ${mode},\n`;
+            // The variableTree is already built and populated above.
+            // The structs and instances are already generated above.
+
+            // Now filter imports based on what's actually used in the instances
+            for (const importStmt of requiredImports) {
+                // Extract the collection name from the import statement
+                const match = importStmt.match(/import { ([^,}]+)/);
+                if (match) {
+                    const targetCollection = match[1].trim();
+
+                    // Skip self-imports
+                    if (targetCollection === collectionData.formattedName) {
+                        continue;
+                    }
+
+                    // Only include if there's an actual reference to this collection in the instances
+                    if (
+                        instances.includes(`${targetCollection}.`) ||
+                        instances.includes(`${targetCollection}(`)
+                    ) {
+                        content += importStmt;
+                    }
                 }
-                content += `}\n\n`;
             }
-
-            // Build the content
-            content += structs;
-            content += schemeStruct;
-            content += schemeModeStruct;
-            content += `export global ${collectionData.formattedName} {\n`;
-
-            content += instances;
-            content += schemeInstance;
-            if (collectionData.modes.size > 1) {
-                content += currentSchemeInstance;
-            }
-            content += `}\n`;
-
             // Add file to exported files
             exportedFiles.push({
                 name: `${collectionData.formattedName}.slint`,
@@ -1363,30 +1429,35 @@ export async function exportFigmaVariablesToSeparateFiles(
                 );
             }
         }
+        // Check for cycles in the dependency graph
+        const hasCycle = detectCycle(collectionDependencies);
+        
+        // If cycles are detected, force single-file mode
+        const finalExportAsSingleFile = exportAsSingleFile || hasCycle;
+        if (hasCycle && !exportAsSingleFile) {
+            console.warn("Detected collection dependency cycle. Forcing export as single file.");
+        }
+
         let finalOutputFiles: Array<{ name: string; content: string }> = [];
 
-        if (exportAsSingleFile) {
+        if (finalExportAsSingleFile) { // Use the determined flag
             // --- Combine into a single file by simple concatenation ---
             let combinedContent = "// Combined Slint Design Tokens\n// Generated on " +
                                    new Date().toISOString().split('T')[0] + "\n\n";
-
-            // Iterate through all the files generated for individual collections
+             if (hasCycle) {
+                 combinedContent += "// NOTE: Export forced to single file due to cross-collection import cycle.\n\n";
+             }
             for (const file of generatedFiles) {
-                // Append the entire content of the file
-                combinedContent += `// --- Content from ${file.name} ---\n\n`; // Add separator comment
+                combinedContent += `// --- Content from ${file.name} ---\n\n`;
                 combinedContent += file.content;
-                combinedContent += "\n\n// --- End Content from ${file.name} ---\n\n"; // Add separator comment
+                combinedContent += `\n\n// --- End Content from ${file.name} ---\n\n`;
             }
-
-            // Add the combined content as the single output file
             finalOutputFiles.push({
                 name: "design-tokens.slint",
-                content: combinedContent.trim() // Remove trailing newlines
+                content: combinedContent.trim()
             });
-
         } else {
             // --- Use individual files ---
-            // If not exporting as single file, use the files generated during the loop
             finalOutputFiles = generatedFiles;
         }
 
