@@ -19,6 +19,7 @@ use crate::preview::{self, preview_data, properties, SelectionNotification};
 #[cfg(target_arch = "wasm32")]
 use crate::wasm_prelude::*;
 
+mod gradient;
 mod property_view;
 
 slint::include_modules!();
@@ -134,56 +135,11 @@ pub fn create_ui(style: String, experimental: bool) -> Result<PreviewUi, Platfor
     api.on_as_json_brush(as_json_brush);
     api.on_as_slint_brush(as_slint_brush);
     api.on_create_brush(create_brush);
-    api.on_add_gradient_stop(|model, value| {
-        let m = model.as_any().downcast_ref::<VecModel<_>>().unwrap();
-        m.push(value);
-        (m.row_count() - 1) as i32
-    });
-    api.on_remove_gradient_stop(|model, row| {
-        if row <= 0 {
-            return;
-        }
-        let row = row as usize;
-        if row < model.row_count() {
-            model.as_any().downcast_ref::<VecModel<GradientStop>>().unwrap().remove(row);
-        }
-    });
-    api.on_move_gradient_stop(|model, row, new_position| {
-        let mut row_usize = row as usize;
-        if row <= 0 || row_usize >= model.row_count() {
-            return row;
-        }
-
-        let m = model.as_any().downcast_ref::<VecModel<GradientStop>>().unwrap();
-
-        let mut gs = model.row_data(row_usize).unwrap();
-        gs.position = new_position;
-        model.set_row_data(row_usize, gs);
-
-        fn swap_direction(
-            model: &VecModel<GradientStop>,
-            row: usize,
-            value: f32,
-        ) -> Option<(usize, usize)> {
-            let previous = model.row_data(row.saturating_sub(1));
-            let next = model.row_data(row + 1);
-            let previous_order = previous.map(|gs| value.total_cmp(&gs.position));
-            let next_order = next.map(|gs| value.total_cmp(&gs.position));
-
-            match (previous_order, next_order) {
-                (Some(std::cmp::Ordering::Less), _) => Some((row, row - 1)),
-                (_, Some(std::cmp::Ordering::Greater)) => Some((row, row + 1)),
-                _ => None,
-            }
-        }
-
-        if let Some((old_row, new_row)) = swap_direction(m, row_usize, new_position) {
-            m.swap(old_row, new_row);
-            row_usize = new_row;
-        }
-
-        row_usize as i32
-    });
+    api.on_add_gradient_stop(gradient::add_gradient_stop);
+    api.on_remove_gradient_stop(gradient::remove_gradient_stop);
+    api.on_move_gradient_stop(gradient::move_gradient_stop);
+    api.on_suggest_gradient_stop_at_row(gradient::suggest_gradient_stop_at_row);
+    api.on_suggest_gradient_stop_at_position(gradient::suggest_gradient_stop_at_position);
 
     #[cfg(target_vendor = "apple")]
     api.set_control_key_name("command".into());
