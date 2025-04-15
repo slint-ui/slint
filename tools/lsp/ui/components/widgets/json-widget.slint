@@ -19,7 +19,6 @@ export component JsonWidget inherits GridLayout {
     callback set-code-binding(text: string) -> bool;
 
     spacing-vertical: EditorSpaceSettings.default-spacing;
-    width: 100%;
 
     function apply-value() {
         edit.text = root.property-value.code;
