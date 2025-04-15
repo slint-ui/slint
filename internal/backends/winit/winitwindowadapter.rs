@@ -399,7 +399,6 @@ impl WinitWindowAdapter {
         &self,
         event_loop: &dyn crate::event_loop::EventLoopInterface,
     ) -> Result<Rc<winit::window::Window>, PlatformError> {
-        #[allow(unused_mut)]
         let (maybe_winit_window, mut maybe_window_attributes) =
             match &*self.winit_window_or_none.borrow() {
                 WinitWindowOrNone::HasWindow { window, .. } => (Some(window.clone()), None),
@@ -420,7 +419,8 @@ impl WinitWindowAdapter {
 
             return Ok(winit_window);
         }
-        let window_attributes = maybe_window_attributes.unwrap();
+        #[allow(unused_mut)]
+        let mut window_attributes = maybe_window_attributes.unwrap();
 
         #[cfg(all(unix, not(target_vendor = "apple")))]
         {
