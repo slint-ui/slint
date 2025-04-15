@@ -148,6 +148,42 @@ pub fn create_ui(style: String, experimental: bool) -> Result<PreviewUi, Platfor
             model.as_any().downcast_ref::<VecModel<GradientStop>>().unwrap().remove(row);
         }
     });
+    api.on_move_gradient_stop(|model, row, new_position| {
+        let mut row_usize = row as usize;
+        if row <= 0 || row_usize >= model.row_count() {
+            return row;
+        }
+
+        let m = model.as_any().downcast_ref::<VecModel<GradientStop>>().unwrap();
+
+        let mut gs = model.row_data(row_usize).unwrap();
+        gs.position = new_position;
+        model.set_row_data(row_usize, gs);
+
+        fn swap_direction(
+            model: &VecModel<GradientStop>,
+            row: usize,
+            value: f32,
+        ) -> Option<(usize, usize)> {
+            let previous = model.row_data(row.saturating_sub(1));
+            let next = model.row_data(row + 1);
+            let previous_order = previous.map(|gs| value.total_cmp(&gs.position));
+            let next_order = next.map(|gs| value.total_cmp(&gs.position));
+
+            match (previous_order, next_order) {
+                (Some(std::cmp::Ordering::Less), _) => Some((row, row - 1)),
+                (_, Some(std::cmp::Ordering::Greater)) => Some((row, row + 1)),
+                _ => None,
+            }
+        }
+
+        if let Some((old_row, new_row)) = swap_direction(m, row_usize, new_position) {
+            m.swap(old_row, new_row);
+            row_usize = new_row;
+        }
+
+        row_usize as i32
+    });
 
     #[cfg(target_vendor = "apple")]
     api.set_control_key_name("command".into());

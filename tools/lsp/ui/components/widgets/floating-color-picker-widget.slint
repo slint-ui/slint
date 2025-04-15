@@ -358,13 +358,38 @@ component VerticalSpacer {
     height: EditorSizeSettings.small-margin;
 }
 
+struct GradientStopIndexChanged {
+    start-index: int,
+    end-index: int,
+    initiated-by-index: int,
+}
+
 component GradientSlider {
     in property <length> start-limit;
     in property <length> end-limit;
     in property <length> parent-width;
     property <length> slider-target-x;
-    in property <int> stop-index;
+    in-out property <int> stop-index;
     out property pressed <=> ta.pressed;
+
+    in property <GradientStopIndexChanged> index-changed-data;
+
+    callback index-changed(change: GradientStopIndexChanged);
+
+    changed index-changed-data => {
+        if self.previous-stop-index == self.index-changed-data.start-index && self.stop-index == self.index-changed-data.end-index {
+            self.previous-stop-index = -1;
+            return;
+        }
+
+        if self.index-changed-data.start-index < self.stop-index && self.index-changed-data.end-index >= self.stop-index {
+            self.stop-index -= 1;
+        } else if self.index-changed-data.start-index > self.stop-index && self.index-changed-data.end-index <= self.stop-index {
+            self.stop-index += 1;
+        }
+    }
+
+    private property <int> previous-stop-index;
 
     width: 0;
     height: 0;
@@ -380,7 +405,14 @@ component GradientSlider {
             moved => {
                 slider-target-x = ((root.x + self.mouse-x - self.pressed-x) / 1px).round() * 1px;
 
-                PickerData.current-gradient-stops[stop-index].position = clamp(slider-target-x, root.start-limit, root.end-limit) / root.parent-width;
+                root.previous-stop-index = root.stop-index;
+                root.stop-index = Api.move-gradient-stop(PickerData.current-gradient-stops, stop-index, clamp(slider-target-x, root.start-limit, root.end-limit) / root.parent-width);
+
+                if root.previous-stop-index != root.stop-index {
+                    root.index-changed({ start-index: root.previous-stop-index, end-index: root.stop-index });
+                } else {
+                    root.previous-stop-index = -1;
+                }
             }
         }
 
@@ -618,12 +650,19 @@ component GradientPicker inherits SimpleColumn {
                 }
             }
 
+            property <GradientStopIndexChanged> index-changed;
+
             for i[index] in PickerData.current-gradient-stops: GradientSlider {
                 y: parent.height + 10px;
                 start-limit: 0;
                 end-limit: parent.width;
                 parent-width: parent.width;
                 stop-index: index;
+
+                index-changed-data <=> parent.index-changed;
+
+                index-changed(change) => { parent.index-changed = change; }
+
                 changed pressed => {
                     if self.pressed {
                         root.clear-focus-panel();
