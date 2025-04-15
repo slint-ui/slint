@@ -141,8 +141,10 @@ export component InlineColorWidget inherits VerticalLayout {
                 y: (parent.height - self.height) / 2;
                 color: root.current-color;
 
-                clicked => {
-                    root.update-floating-editor();
+                TouchArea {
+                    clicked => {
+                        root.update-floating-editor();
+                    }
                 }
             }
 

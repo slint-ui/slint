@@ -10,7 +10,6 @@ export component ColorIndicator {
     height: self.width;
     in property <color> color;
     property <{hue: float, saturation: float, value: float}> hsv-color: color.to-hsv();
-    callback clicked <=> ta.clicked;
 
     Rectangle {
         width: 100%;
@@ -43,7 +42,7 @@ export component ColorIndicator {
             }
         }
 
-        ta := TouchArea { }
+        @children
     }
 }
 
