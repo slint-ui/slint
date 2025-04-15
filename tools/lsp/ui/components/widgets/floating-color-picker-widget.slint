@@ -8,6 +8,7 @@ import { Icons, EditorPalette, EditorSizeSettings } from "../../components/styli
 import { BrushMode, PickerData, BrushPropertyType, WidgetMode } from "../../properties-state.slint";
 import { SimpleColumn } from "../../components/layout-helpers.slint";
 import { DraggablePanel } from "../../components/draggable-panel.slint";
+import { ColorIndicator } from "./brush-helpers.slint";
 
 export global Styles {
     out property <length> picker-width: 240px;
@@ -71,44 +72,6 @@ component FakeShadowText {
     }
 
     @children
-}
-
-component ColorIndicator {
-    width: 15px;
-    height: self.width;
-    in property <color> color;
-    property <{hue: float, saturation: float, value: float}> hsv-color: color.to-hsv();
-    Rectangle {
-        width: 100%;
-        height: 100%;
-        border-radius: 3px;
-        clip: true;
-        Rectangle {
-            x: 0;
-            width: 50%;
-            background: hsv(hsv-color.hue, hsv-color.saturation, hsv-color.value);
-        }
-
-        Rectangle {
-            x: parent.width / 2;
-            width: 50%;
-            background: white;
-            Image {
-                width: 100%;
-                height: 100%;
-                vertical-alignment: top;
-                horizontal-alignment: left;
-                source: Icons.checkerboard-tiny;
-                vertical-tiling: repeat;
-                horizontal-tiling: repeat;
-                colorize: #e1e1e1;
-            }
-
-            Rectangle {
-                background: root.color;
-            }
-        }
-    }
 }
 
 component BrushTypeSelector {
