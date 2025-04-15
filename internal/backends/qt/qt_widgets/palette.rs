@@ -55,6 +55,7 @@ impl const_field_offset::PinnedDrop for NativePalette {
 impl NativePalette {
     pub fn new() -> Pin<Rc<Self>> {
         Rc::pin(NativePalette {
+            style_name: Default::default(),
             background: Default::default(),
             alternate_background: Default::default(),
             alternate_foreground: Default::default(),
