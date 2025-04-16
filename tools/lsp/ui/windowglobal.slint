@@ -164,9 +164,6 @@ export global WindowManager {
 
     update-preview-value(text) => {
         self.possible_error = Api.set-json-preview-data(current-property-container-id, current-preview-data.name, "\"\{text}\"");
-        if self.possible_error != ""{
-            debug("Error setting preview data: \{self.possible_error}");
-        }
     }
 
     update-brush() => {
@@ -174,8 +171,6 @@ export global WindowManager {
         if widget-mode == WidgetMode.preview {
             brush-string = Api.as-slint-brush(BrushKind.linear, PickerData.current-angle, PickerData.current-brush, PickerData.current-gradient-stops);
             self.possible_error = Api.set-json-preview-data(current-property-container-id, current-preview-data.name, "\"\{brush-string}\"");
-
-            StatusLineApi.help-text = self.possible-error;
         }
     }
 }
