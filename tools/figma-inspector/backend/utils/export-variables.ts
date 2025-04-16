@@ -207,6 +207,13 @@ function createReferenceExpression(
     currentPath: string[], // The path of the variable *requesting* the reference
     resolutionStack: string[] = [], // Stack to detect loops
     exportAsSingleFile: boolean, // Parameter indicating export mode
+    exportInfo: {
+        renamedVariables: Set<string>;
+        circularReferences: Set<string>;
+        warnings: Set<string>;
+        features: Set<string>; // You can add specific features detected if needed
+        collections: Set<string>;
+    }
 ): {
     value: string | null;
     importStatement?: string;
@@ -238,7 +245,7 @@ function createReferenceExpression(
             `Detected cross-collection loop: ${resolutionStack.join(" -> ")} -> ${targetIdentifier}`,
         );
         // Add to exportInfo for README (ensure exportInfo is accessible or passed in)
-        // exportInfo.circularReferences.add(`${resolutionStack.join(" -> ")} -> ${targetIdentifier} (resolved with default)`);
+        exportInfo.circularReferences.add(`${resolutionStack.join(" -> ")} -> ${targetIdentifier} (resolved with default)`);
 
         const targetType = targetNode?.type || "COLOR"; // Use targetNode for type info if available
         const slintType = getSlintType(targetType);
@@ -313,7 +320,8 @@ function createReferenceExpression(
                     targetCollection,
                     targetPath,
                     nextStack,
-                    exportAsSingleFile // Pass parameter in recursive call
+                    exportAsSingleFile,
+                    exportInfo // Pass parameter in recursive call
                 );
             }
             // CASE B: Target holds a concrete value
@@ -353,7 +361,7 @@ function createReferenceExpression(
                             const warningMsg = `Mode mismatch: Source mode '${sourceModeName}' not found in target '${targetIdentifier}'. Using target's first mode '${modeToUse}' for reference.`;
                             console.warn(warningMsg);
                             console.log(`DEBUG: Using fallback target mode: ${modeToUse}`);
-                            // exportInfo.warnings.add(warningMsg);
+                            exportInfo.warnings.add(warningMsg);
                         } else {
                             // Should not happen if modes.size > 1, but handle defensively
                             console.error(`Target ${targetIdentifier} has >1 modes but couldn't get first mode.`);
@@ -382,7 +390,7 @@ function createReferenceExpression(
                     if (sourceCollectionData && sourceCollectionData.modes.size > 1) {
                          const warningMsg = `Mode mismatch: Source '${currentIdentifier}' is multi-mode but target '${targetIdentifier}' is single-mode. Reference uses base path without mode.`;
                          console.warn(warningMsg);
-                         // exportInfo.warnings.add(warningMsg);
+                         exportInfo.warnings.add(warningMsg);
                     }
                 }
     
@@ -972,7 +980,7 @@ export async function exportFigmaVariablesToSeparateFiles(
         for (const collection of variableCollections) {
             const collectionName = formatPropertyName(collection.name);
             const formattedCollectionName = formatStructName(collection.name);
-
+            exportInfo.collections.add(collection.name);
             // Initialize the collection structure
             collectionStructure.set(collectionName, {
                 name: collection.name,
@@ -1204,7 +1212,9 @@ export async function exportFigmaVariablesToSeparateFiles(
                             collectionName,
                             currentPathArray,
                             initialStack,
-                            exportAsSingleFile, // Pass the parameter here
+                            exportAsSingleFile,
+                            exportInfo
+                            // Pass the parameter here
                         );
 
                         // Process the result
@@ -1281,6 +1291,7 @@ export async function exportFigmaVariablesToSeparateFiles(
         const finalExportAsSingleFile = exportAsSingleFile || hasCycle;
         if (hasCycle && !exportAsSingleFile) {
             console.warn("Detected collection dependency cycle. Forcing export as single file.");
+            exportInfo.warnings.add("Detected collection dependency cycle. Forcing export as single file.");
         }
 
         // Generate content for each collection
@@ -1806,6 +1817,10 @@ function generateReadmeContent(exportInfo: {
 }): string {
     let content = "# Figma Design Tokens Export\n\n";
     content += `Generated on ${new Date().toLocaleDateString()}\n\n`;
+    content += "Instructions for use: \n";
+    content += "This library attempts to export a working set of slint design tokens.  They are constructed so that the variables can be called using dot notation. \n";
+    content += "If attempting to use colors that change using modes, procure to use the .current. after the initial global.  Then changing the current-mode variable (using the appropriate global's enum) will allow to switch the mode for every variable using .current. \n\n";
+
 
     if (exportInfo.collections.size > 0) {
         content += "## Exported Collections\n\n";
