@@ -89,7 +89,7 @@ export global WindowManager {
             PickerData.alpha = current-property-information.value.value-brush.to-hsv().alpha * 100;
             PickerData.current-brush-kind = current-property-information.value.brush-kind;
             PickerData.current-brush = current-property-information.value.value-brush;
-            PickerData.current-gradient-stops = current-property-information.value.gradient-stops;
+            PickerData.current-gradient-stops = Api.clone-gradient-stops(current-property-information.value.gradient-stops);
             PickerData.current-angle = current-property-information.value.value-float;
             picker-mode = BrushPropertyType.brush;
             brush-mode = current-property-information.value.brush-kind == BrushKind.solid ? BrushMode.color : current-property-information.value.brush-kind == BrushKind.linear ? BrushMode.linear : BrushMode.radial;
@@ -164,8 +164,6 @@ export global WindowManager {
 
     update-preview-value(text) => {
         self.possible_error = Api.set-json-preview-data(current-property-container-id, current-preview-data.name, "\"\{text}\"");
-
-        StatusLineApi.help-text = self.possible-error;
     }
 
     update-brush() => {
@@ -173,8 +171,6 @@ export global WindowManager {
         if widget-mode == WidgetMode.preview {
             brush-string = Api.as-slint-brush(BrushKind.linear, PickerData.current-angle, PickerData.current-brush, PickerData.current-gradient-stops);
             self.possible_error = Api.set-json-preview-data(current-property-container-id, current-preview-data.name, "\"\{brush-string}\"");
-
-            StatusLineApi.help-text = self.possible-error;
         }
     }
 }

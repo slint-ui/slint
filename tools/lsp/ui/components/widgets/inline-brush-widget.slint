@@ -89,7 +89,7 @@ component InlineColor {
         width: parent.width - (percent.width + 10px);
         has-focus: ti-hex-color.has-focus;
         ci := ColorIndicator {
-            x: 5px;
+            x: (main.height - 15px) / 2;
             y: (parent.height - self.height) / 2;
             color: root.current-color;
 
@@ -189,7 +189,7 @@ component InlineLinearGradient {
         x: 0;
         width: parent.width;
         ci := GradientIndicator {
-            x: 5px;
+            x: (main.height - 15px) / 2;
             y: (parent.height - self.height) / 2;
             brush: root.current-brush;
 

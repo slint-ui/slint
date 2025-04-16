@@ -169,7 +169,7 @@ component ColorModeColorAndApply {
             border-width: 1px;
 
             ColorIndicator {
-                x: 5px;
+                x: (parent.height - 15px) / 2;
                 color: PickerData.current-color;
             }
 
@@ -449,7 +449,7 @@ component GradientStopValue {
             background: EditorPalette.section-color;
 
             ColorIndicator {
-                x: 5px;
+                x: (parent.height - 15px) / 2;
                 color: PickerData.current-gradient-stops[stop-index].color;
                 TouchArea {
                     changed pressed => {
@@ -561,6 +561,31 @@ component GradientStopValue {
                     }
                 }
             }
+        }
+    }
+
+    Rectangle {
+        x: parent.width - self.width - 5px;
+        width: 25px;
+        height: self.width;
+        visible: PickerData.current-gradient-stops.length > 1;
+        Rectangle {
+            opacity: 20%;
+            background: delete-stop-ta.has-hover ? EditorPalette.section-color : transparent;
+            border-radius: EditorSizeSettings.property-border-radius;
+        }
+
+        delete-stop-ta := TouchArea {
+            clicked => {
+                Api.remove-gradient-stop(PickerData.current-gradient-stops, stop-index);
+            }
+        }
+
+        Rectangle {
+            width: 12px;
+            height: 1px;
+            border-radius: self.height / 2;
+            background: EditorPalette.text-color;
         }
     }
 }
@@ -778,7 +803,7 @@ component HsvPicker inherits SimpleColumn {
                     TouchArea {
                         moved => {
                             if self.has-hover {
-                                if self.mouse-x < main-height {
+                                if self.mouse-x < main-height / 2 {
                                     PickerData.hue = 0;
                                 } else {
                                     PickerData.hue = 359 * clamp((self.mouse-x - rounded-end-width) / (self.width - main-height), 0, 1);
@@ -786,7 +811,7 @@ component HsvPicker inherits SimpleColumn {
                             }
                         }
                         changed pressed => {
-                            if self.mouse-x < main-height {
+                            if self.mouse-x < main-height / 2 {
                                 PickerData.hue = 0;
                             } else {
                                 PickerData.hue = 359 * clamp((self.mouse-x - rounded-end-width) / (self.width - main-height), 0, 1);
