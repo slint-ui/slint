@@ -37,7 +37,7 @@ pub fn move_gradient_stop(
     new_position: f32,
 ) -> i32 {
     let mut row_usize = row as usize;
-    if row <= 0 || row_usize >= model.row_count() {
+    if row < 0 || row_usize >= model.row_count() {
         return row;
     }
 
@@ -552,6 +552,55 @@ mod tests {
                 position: 0.1445,
                 color: slint::Color::from_argb_encoded(0xff060606),
             }),
+        );
+        assert_eq!(
+            it.next(),
+            Some(ui::GradientStop {
+                position: 1.0,
+                color: slint::Color::from_argb_encoded(0xff010101)
+            })
+        );
+        assert_eq!(
+            it.next(),
+            Some(ui::GradientStop {
+                position: 1.0,
+                color: slint::Color::from_argb_encoded(0xff020202)
+            })
+        );
+        assert_eq!(it.next(), None);
+
+        let model = make_model();
+
+        assert_eq!(super::move_gradient_stop(model.clone(), 0, 0.05), 1);
+        let mut it = model.iter();
+
+        assert_eq!(
+            it.next(),
+            Some(ui::GradientStop {
+                position: 0.0,
+                color: slint::Color::from_argb_encoded(0xff040404)
+            })
+        );
+        assert_eq!(
+            it.next(),
+            Some(ui::GradientStop {
+                position: 0.05,
+                color: slint::Color::from_argb_encoded(0xff030303)
+            })
+        );
+        assert_eq!(
+            it.next(),
+            Some(ui::GradientStop {
+                position: 0.1445,
+                color: slint::Color::from_argb_encoded(0xff060606),
+            }),
+        );
+        assert_eq!(
+            it.next(),
+            Some(ui::GradientStop {
+                position: 0.5,
+                color: slint::Color::from_argb_encoded(0xff050505)
+            })
         );
         assert_eq!(
             it.next(),
