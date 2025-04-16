@@ -59,7 +59,7 @@ slint-interpreter = { workspace = true, features = ["ffi", "compat-1-2"], option
 raw-window-handle = { version = "0.6", optional = true }
 
 esp-backtrace = { version = "0.15.1", features = ["panic-handler", "println"], optional = true }
-esp-println = { version = "0.13.1", default-features = false, features = ["log", "auto"], optional = true }
+esp-println = { version = "0.13.1", default-features = false, features = ["log", "uart"], optional = true }
 unicode-segmentation = { workspace = true }
 
 [build-dependencies]
