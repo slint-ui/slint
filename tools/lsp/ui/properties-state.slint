@@ -21,21 +21,6 @@ export enum BrushMode {
     code,
 }
 
-export global PickerData {
-    in-out property <float> hue;
-    in-out property <float> saturation;
-    in-out property <float> value;
-    // alpha is an int, instead of float to help snap values to whole percentage numbers
-    in-out property <int> alpha;
-    out property <color> current-color: hsv(hue, saturation, value, alpha / 100);
-    in-out property <BrushKind> current-brush-kind;
-    in-out property <brush> current-brush;
-    in-out property <[GradientStop]> current-gradient-stops;
-    in-out property <float> current-angle;
-
-    in-out property <int> current-stop-index: 0;
-}
-
 export global TableData {
     callback populate-table(property-group-id: string, preview-data: PreviewData);
     out property <string> property-group-id;

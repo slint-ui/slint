@@ -72,13 +72,6 @@ export component PickerTextInput inherits TextInput {
     input-type: number;
     single-line: true;
     wrap: no-wrap;
-    TouchArea {
-        visible: !parent.has-focus;
-        clicked => {
-            parent.select-all();
-            parent.focus();
-        }
-    }
 }
 
 export component FakeShadowText {

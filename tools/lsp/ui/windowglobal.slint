@@ -2,12 +2,45 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 import { Api, BrushKind, ColorData, ElementInformation, GradientStop, PropertyInformation, PropertyValue, PropertyValueKind, PreviewData  } from "./api.slint";
 import { StatusLineApi } from "components/status-line.slint";
-import { BrushMode, PickerData, BrushPropertyType, WidgetMode } from "./properties-state.slint";
+import { BrushMode, BrushPropertyType, WidgetMode } from "./properties-state.slint";
 import { TableData } from "properties-state.slint";
 
 export global WindowGlobal {
     in-out property <length> window-width;
     in-out property <length> window-height;
+}
+
+export global PickerData {
+    in-out property <float> hue;
+    in-out property <float> saturation;
+    in-out property <float> value;
+    // alpha is an int, instead of float to help snap values to whole percentage numbers
+    in-out property <int> alpha;
+    out property <color> current-color: hsv(hue, saturation, value, alpha / 100);
+    in-out property <BrushKind> current-brush-kind;
+    in-out property <brush> current-brush;
+    in-out property <[GradientStop]> current-gradient-stops;
+    in-out property <float> current-angle;
+
+    in-out property <int> current-stop-index: 0;
+    changed current-stop-index => {
+        if WindowManager.showing-color-stop-picker {
+            set-current-stop-as-color();
+        }
+    }
+
+    changed current-color => {
+        if WindowManager.showing-color-stop-picker {
+            current-gradient-stops[current-stop-index].color = current-color;
+        }
+    }
+
+    public function set-current-stop-as-color() {
+        hue = current-gradient-stops[current-stop-index].color.to-hsv().hue;
+        saturation = current-gradient-stops[current-stop-index].color.to-hsv().saturation;
+        value = current-gradient-stops[current-stop-index].color.to-hsv().value;
+        alpha = current-gradient-stops[current-stop-index].color.to-hsv().alpha * 100;
+    }
 }
 
 export global WindowManager {
@@ -49,7 +82,6 @@ export global WindowManager {
             picker-mode = BrushPropertyType.color;
             showing-color-picker = true;
         }
-
         if current-property-information.value.kind == PropertyValueKind.brush {
             PickerData.hue = current-property-information.value.value-brush.to-hsv().hue;
             PickerData.saturation = current-property-information.value.value-brush.to-hsv().saturation;
@@ -113,6 +145,7 @@ export global WindowManager {
     }
 
     show-color-stop-picker => {
+        PickerData.set-current-stop-as-color();
         showing-color-stop-picker = true;
     }
 

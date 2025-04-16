@@ -2,10 +2,10 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { Palette, Button, ComboBox } from "std-widgets.slint";
-import { WindowGlobal, WindowManager } from "../../windowglobal.slint";
+import { WindowGlobal, WindowManager, PickerData } from "../../windowglobal.slint";
 import { Api, GradientStop, BrushKind} from "../../api.slint";
 import { Icons, EditorPalette, EditorSizeSettings } from "../../components/styling.slint";
-import { BrushMode, PickerData, BrushPropertyType, WidgetMode } from "../../properties-state.slint";
+import { BrushMode, BrushPropertyType, WidgetMode } from "../../properties-state.slint";
 import { SimpleColumn } from "../../components/layout-helpers.slint";
 import { DraggablePanel } from "../../components/draggable-panel.slint";
 import { ColorIndicator, FakeShadowText, PickerTextInput } from "./brush-helpers.slint";
@@ -374,8 +374,10 @@ component GradientStopValue {
     height: 32px;
 
     TouchArea {
-        clicked => {
-            PickerData.current-stop-index = stop-index;
+        changed pressed => {
+            if self.pressed {
+                PickerData.current-stop-index = stop-index;
+            }
         }
     }
 
@@ -450,6 +452,11 @@ component GradientStopValue {
                 x: 5px;
                 color: PickerData.current-gradient-stops[stop-index].color;
                 TouchArea {
+                    changed pressed => {
+                        if self.pressed {
+                            PickerData.current-stop-index = stop-index;
+                        }
+                    }
                     clicked => {
                         WindowManager.show-color-stop-picker();
                     }
