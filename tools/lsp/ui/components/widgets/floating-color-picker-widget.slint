@@ -317,6 +317,9 @@ component GradientSlider {
         border-radius: 5px;
 
         ta := TouchArea {
+            changed pressed => {
+                debug("pressed", start-limit, end-limit, parent-width);
+            }
             moved => {
                 slider-target-x = ((root.x + self.mouse-x - self.pressed-x) / 1px).round() * 1px;
 
@@ -519,7 +522,10 @@ component GradientStopValue {
 }
 
 component GradientPicker inherits SimpleColumn {
+    in property <WidgetMode> widget-mode;
+
     callback clear-focus-panel();
+
     Rectangle {
         height: 50px;
 
@@ -621,6 +627,18 @@ component GradientPicker inherits SimpleColumn {
             stop-index: index;
         }
     }
+
+    if widget-mode == WidgetMode.edit: Rectangle {
+        height: EditorSizeSettings.small-margin;
+    }
+    if widget-mode == WidgetMode.edit: Button {
+            x: EditorSizeSettings.standard-margin;
+            width: 100px;
+            text: "Apply";
+            clicked => {
+                WindowManager.apply-current-value(Api.as-slint-brush(PickerData.current-brush-kind, PickerData.current-angle, PickerData.current-brush, PickerData.current-gradient-stops));
+            }
+        }
 }
 
 component HsvPicker inherits SimpleColumn {
@@ -926,6 +944,10 @@ component ColorPicker inherits DraggablePanel {
         }
     }
 
+    init => {
+        active-tab = brush-mode == BrushMode.color ? PickerTab.color : PickerTab.gradient;
+    }
+
     width: Styles.picker-width;
 
     title := Rectangle {
@@ -969,6 +991,7 @@ component ColorPicker inherits DraggablePanel {
     }
 
     if active-tab == PickerTab.gradient: GradientPicker {
+        widget-mode <=> root.widget-mode;
         clear-focus-panel => {
             root.clear-focus-panel();
         }

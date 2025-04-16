@@ -24,7 +24,7 @@ export global WindowManager {
     property <string> possible_error;
     property <string> brush-string;
 
-    callback show-floating-widget(PropertyInformation, ElementInformation);
+    callback show-floating-widget(property-information: PropertyInformation, element-information: ElementInformation);
     callback show-floating-preview-widget(property-container-id: string, preview-data: PreviewData, property-value: PropertyValue);
     callback show-floating-preview-brush-widget(property-container-id: string, preview-data: PreviewData, brush-kind: BrushKind, current-brush: brush, current-gradient-stops: [GradientStop]);
     callback show-floating-table-editor(property-group-id: string, preview-data: PreviewData);
@@ -43,6 +43,21 @@ export global WindowManager {
             PickerData.saturation = current-property-information.value.value-brush.to-hsv().saturation;
             PickerData.value = current-property-information.value.value-brush.to-hsv().value;
             PickerData.alpha = current-property-information.value.value-brush.to-hsv().alpha * 100;
+            picker-mode = BrushPropertyType.color;
+            showing-color-picker = true;
+        }
+
+        if current-property-information.value.kind == PropertyValueKind.brush {
+            PickerData.hue = current-property-information.value.value-brush.to-hsv().hue;
+            PickerData.saturation = current-property-information.value.value-brush.to-hsv().saturation;
+            PickerData.value = current-property-information.value.value-brush.to-hsv().value;
+            PickerData.alpha = current-property-information.value.value-brush.to-hsv().alpha * 100;
+            PickerData.current-brush-kind = current-property-information.value.brush-kind;
+            PickerData.current-brush = current-property-information.value.value-brush;
+            PickerData.current-gradient-stops = current-property-information.value.gradient-stops;
+            PickerData.current-angle = current-property-information.value.value-float;
+            picker-mode = BrushPropertyType.brush;
+            brush-mode = current-property-information.value.brush-kind == BrushKind.solid ? BrushMode.color : current-property-information.value.brush-kind == BrushKind.linear ? BrushMode.linear : BrushMode.radial;
             showing-color-picker = true;
         }
     }
