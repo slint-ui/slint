@@ -396,6 +396,8 @@ component GradientStopValue {
                 changed has-focus => {
                     if !self.has-focus {
                         ti-position.text = (stop-data-position * 100.0).round();
+                    } else {
+                        PickerData.current-stop-index = stop-index;
                     }
                 }
                 accepted => {
