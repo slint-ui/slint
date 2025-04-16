@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import React, { useEffect, useState } from "react";
+import { useEffect, useState, useCallback, useRef, type ReactNode } from "react";
 import JSZip from "jszip";
 import {
     dispatchTS,
@@ -35,11 +35,33 @@ export const App = () => {
         Array<{ name: string; content: string }>
     >([]);
     const [lightOrDarkMode, setLightOrDarkMode] = useState(getColorTheme());
+    // State for the export format toggle
+    const [exportAsSingleFile, setExportAsSingleFile] = useState(false); // Default to multiple files
+    // --- Add state for dropdown visibility ---
+    const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const menuRef = useRef<HTMLDivElement>(null); // Ref for detecting outside clicks
+    const toggleMenu = useCallback(() => {
+        setIsMenuOpen(prev => !prev);
+    }, []);
+        const handleExportClick = useCallback(() => {
+        console.log(`Requesting export. Single file: ${exportAsSingleFile}`);
+        setExportedFiles([]);
+        setExportsAreCurrent(false);
+        dispatchTS("exportToFiles", { exportAsSingleFile: exportAsSingleFile });
+        setIsMenuOpen(false); // Close menu after clicking export
+    }, [exportAsSingleFile]);
+
 
     listenTS("updatePropertiesCallback", (res) => {
         setTitle(res.title || "");
         setSlintProperties(res.slintSnippet || "");
     });
+    const handleCheckboxChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+        const checked = event.target.checked;
+        setExportAsSingleFile(checked);
+        console.log(`Checkbox changed: Export as single file = ${checked}`);
+        // Keep menu open when checkbox is toggled
+    }, []);
 
     // Theme handling
     useEffect(() => {
@@ -96,9 +118,9 @@ export const App = () => {
 
     // Export files handler
     useEffect(() => {
-        const exportFilesHandler = (res: any) => {
+        const exportFilesHandler = async (res: any) => { // Make the handler async
             console.log("Received exportedFiles:", res.files);
-            if (res.files && Array.isArray(res.files)) {
+            if (res.files && Array.isArray(res.files) && res.files.length > 0) { // Ensure files exist
                 console.log(`Setting ${res.files.length} files to state`);
                 setExportedFiles(res.files);
 
@@ -109,8 +131,17 @@ export const App = () => {
                     "Exports marked as current, files count:",
                     res.files.length,
                 );
+
+                // --- Automatically trigger download ---
+                console.log("Automatically triggering download...");
+                await downloadZipFile(res.files); // Call downloadZipFile with the received files
+                // --- End automatic download ---
+
             } else {
-                console.error("Invalid files data:", res);
+                console.error("Invalid or empty files data received:", res);
+                // Reset state if files are invalid/empty after an export attempt
+                setExportedFiles([]);
+                setExportsAreCurrent(false); // Mark as not current if export failed to produce files
             }
         };
 
@@ -126,14 +157,14 @@ export const App = () => {
                 console.log(
                     "DIRECT: Received exportedFiles via window message",
                 );
-                exportFilesHandler(event.data.pluginMessage);
+                exportFilesHandler(event.data.pluginMessage); // Call the same async handler
             }
         };
 
         window.addEventListener("message", directHandler);
         return () => window.removeEventListener("message", directHandler);
     }, []);
-
+    
     // Create the functions with access to dispatchTS
     const downloadZipFile = async (
         files: Array<{ name: string; content: string }>,
@@ -198,6 +229,63 @@ export const App = () => {
         exportsAreCurrent,
         hasProperties: slintProperties !== "",
     });
+    // Add debugging log on each render
+    console.log("Render state:", {
+        exportedFilesCount: exportedFiles.length,
+        exportsAreCurrent,
+        exportAsSingleFile, // Log checkbox state
+        isMenuOpen, // Log menu state
+        hasProperties: slintProperties !== "",
+    });
+
+    // Define styles here or use CSS classes
+    const buttonStyle: React.CSSProperties = {
+        border: `none`,
+        margin: "4px 4px 0px 4px", // Reduced bottom margin
+        borderRadius: "4px",
+        background: lightOrDarkMode === "dark" ? "#4497F7" : "#4497F7",
+        padding: "4px 8px", // Adjusted padding
+        width: "auto", // Let button size naturally
+        minWidth: "140px", // Keep minimum width
+        alignSelf: "center",
+        height: "32px",
+        color: "white",
+        cursor: "pointer",
+        position: "relative", // Needed for absolute positioning of menu
+        textAlign: 'center',
+    };
+
+    const menuStyle: React.CSSProperties = {
+        position: 'absolute',
+        bottom: '100%', // Position below the button
+        left: '50%', // Start at center
+        transform: 'translateX(-50%)', // Center align
+        background: lightOrDarkMode === 'dark' ? '#333' : '#fff',
+        border: `1px solid ${lightOrDarkMode === 'dark' ? '#555' : '#ccc'}`,
+        borderRadius: '4px',
+        boxShadow: '0 2px 5px rgba(0,0,0,0.2)',
+        zIndex: 10,
+        alignContent: 'center',
+        minWidth: '140px', // Ensure menu is wide enough
+        padding: '5px 0', // Padding top/bottom
+        marginTop: '2px', // Small gap below button
+        justifyContent: 'center',
+        display: isMenuOpen ? 'block' : 'none', // Toggle visibility
+    };
+
+    const menuItemStyle: React.CSSProperties = {
+        padding: '8px 12px',
+        fontSize: '12px',
+        cursor: 'pointer',
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        color: lightOrDarkMode === 'dark' ? '#eee' : '#333', // Text color based on theme
+    };
+
+    const menuItemHoverStyle: React.CSSProperties = { // Define hover style separately
+         backgroundColor: lightOrDarkMode === 'dark' ? '#444' : '#f0f0f0',
+    };
 
     return (
         <div className="container">
@@ -216,32 +304,56 @@ export const App = () => {
                     </div>
                 )}
             </div>
+            
             <CodeSnippet
                 code={slintProperties || "// Select a component to inspect"}
                 theme={
                     lightOrDarkMode === "dark" ? "dark-slint" : "light-slint"
                 }
             />
-            <button
-                onClick={() => dispatchTS("exportToFiles", {})}
-                className="export-button"
-                style={{
-                    border: `none`,
-                    margin: "4px 4px 12px 4px",
-                    marginBottom: exportedFiles.length > 0 ? "4px" : "12px",
-                    borderRadius: "4px",
-                    background:
-                        lightOrDarkMode === "dark" ? "#4497F7" : "#4497F7",
-                    padding: "4px",
-                    width: "140px",
-                    alignSelf: "center",
-                    height: "32px",
-                    color: "white",
-                }}
-            >
-                Export All Variables
-            </button>
+<div style={{ position: 'relative', alignSelf: 'center' }} ref={menuRef}>
+                {/* --- Trigger Button --- */}
+                <button
+                    onClick={toggleMenu} // Toggle menu visibility
+                    style={buttonStyle}
+                    className="export-button" // Keep class if needed
+                >
+                    {exportsAreCurrent ? "Design Tokens" : "Design Tokens"}
+                </button>
 
+                {/* --- Dropdown Menu --- */}
+                <div style={menuStyle} className="export-dropdown-menu">
+                    {/* Checkbox Item */}
+                    <label style={{ ...menuItemStyle, cursor: 'pointer' }}
+                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = menuItemHoverStyle.backgroundColor!}
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = ''}
+                    >
+                        <input
+                            type="checkbox"
+                            checked={exportAsSingleFile}
+                            onChange={handleCheckboxChange}
+                            style={{ marginRight: '8px', cursor: 'pointer' }}
+                        />
+                        Single Slint file
+                    </label>
+
+                    {/* Separator (Optional) */}
+                    <hr style={{ margin: '4px 0', border: 'none', borderTop: `1px solid ${lightOrDarkMode === 'dark' ? '#555' : '#ccc'}` }} />
+
+                    {/* Export Action Item */}
+                    <div
+                        role="button" // Semantics
+                        tabIndex={0} // Make focusable
+                        onClick={handleExportClick}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleExportClick(); }} // Keyboard accessibility
+                        style={menuItemStyle}
+                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = menuItemHoverStyle.backgroundColor!}
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = ''}
+                    >
+                        {exportsAreCurrent ? "Export Again" : "Export Now"}
+                    </div>
+                </div>
+            </div>
             <div
                 style={{
                     height: exportedFiles.length > 0 ? "auto" : "0px",

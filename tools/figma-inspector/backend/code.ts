@@ -43,19 +43,22 @@ figma.on("selectionchange", () => {
     }
 });
 
-listenTS("exportToFiles", async () => {
+listenTS("exportToFiles", async (payload: { exportAsSingleFile?: boolean }) => {
+    console.log("[Backend] Received 'exportToFiles' request. Payload:", payload); // Check this log
+    const shouldExportAsSingleFile = payload?.exportAsSingleFile ?? false;
+    console.log(`[Backend] Parsed shouldExportAsSingleFile: ${shouldExportAsSingleFile}`); // Check this log
     try {
-        const exportedFiles = await exportFigmaVariablesToSeparateFiles();
-        console.log(`Exported ${exportedFiles.length} collection files`);
+        const files = await exportFigmaVariablesToSeparateFiles(shouldExportAsSingleFile);
+        console.log(`Exported ${files.length} collection files`);
 
         // Send to UI for downloading
         figma.ui.postMessage({
             type: "exportedFiles",
-            files: exportedFiles,
+            files: files,
         });
 
         figma.notify(
-            `${exportedFiles.length} collection files ready for download!`,
+            `${files.length} collection files ready for download!`,
         );
     } catch (error) {
         console.error("Error exporting to files:", error);
