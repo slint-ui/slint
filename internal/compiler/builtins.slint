@@ -206,6 +206,7 @@ component MenuItem {
     in property <string> title;
     callback activated();
     in property <bool> enabled: true;
+    in property <image> icon;
     //-disallow_global_types_as_child_elements
     //-is_non_item_type
 }
@@ -218,6 +219,7 @@ component MenuSeparator {
 component Menu {
     in property <string> title;
     in property <bool> enabled: true;
+    in property <image> icon;
     MenuItem {}
     MenuSeparator {}
     Menu {}

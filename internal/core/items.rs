@@ -21,7 +21,7 @@ When adding an item or a property, it needs to be kept in sync with different pl
 #![allow(missing_docs)] // because documenting each property of items is redundant
 
 use crate::api::LogicalPosition;
-use crate::graphics::{Brush, Color, FontRequest};
+use crate::graphics::{Brush, Color, FontRequest, Image};
 use crate::input::{
     FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, KeyEventResult,
     KeyEventType, MouseEvent,
