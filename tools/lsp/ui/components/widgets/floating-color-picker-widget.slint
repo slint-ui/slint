@@ -169,7 +169,7 @@ component ColorModeColorAndApply {
             border-width: 1px;
 
             ColorIndicator {
-                x: 5px;
+                x: (parent.height - 15px) / 2;
                 color: PickerData.current-color;
             }
 
@@ -449,7 +449,7 @@ component GradientStopValue {
             background: EditorPalette.section-color;
 
             ColorIndicator {
-                x: 5px;
+                x: (parent.height - 15px) / 2;
                 color: PickerData.current-gradient-stops[stop-index].color;
                 TouchArea {
                     changed pressed => {
