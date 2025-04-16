@@ -631,6 +631,13 @@ component GradientPicker inherits SimpleColumn {
 
                 Rectangle {
                     background: Api.create-brush(BrushKind.linear, 90, PickerData.current-brush, PickerData.current-gradient-stops);
+
+                    TouchArea {
+                        clicked() => {
+                            PickerData.current-stop-index = Api.add-gradient-stop(PickerData.current-gradient-stops, Api.suggest-gradient-stop-at-position(PickerData.current-gradient-stops, self.mouse-x / self.width));
+                            WindowManager.update-brush();
+                        }
+                    }
                 }
 
                 Rectangle {
@@ -685,7 +692,12 @@ component GradientPicker inherits SimpleColumn {
             background: t-plus.has-hover ? EditorPalette.section-color : transparent;
             border-radius: EditorSizeSettings.property-border-radius;
 
-            t-plus := TouchArea { }
+            t-plus := TouchArea {
+                clicked() => {
+                    PickerData.current-stop-index = Api.add-gradient-stop(PickerData.current-gradient-stops, Api.suggest-gradient-stop-at-row(PickerData.current-gradient-stops, PickerData.current-stop-index + 1));
+                    WindowManager.update-brush();
+                }
+            }
 
             Image {
                 source: Icons.plus;
