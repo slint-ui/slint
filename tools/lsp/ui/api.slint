@@ -533,6 +533,7 @@ export global Api {
     pure callback move-gradient-stop(stops: [GradientStop], row: int, new_position: float) -> int;
     pure callback suggest-gradient-stop-at-row(stops: [GradientStop], row: int) -> GradientStop;
     pure callback suggest-gradient-stop-at-position(stops: [GradientStop], position: float) -> GradientStop;
+    pure callback clone-gradient-stops(stops: [GradientStop]) -> [GradientStop];
 
     pure callback create-brush(kind: BrushKind, angle: float, color: color, stops: [GradientStop]) -> brush;
 

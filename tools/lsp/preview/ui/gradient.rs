@@ -5,6 +5,8 @@ use slint::{Model, VecModel};
 
 use crate::preview::ui;
 
+use std::rc::Rc;
+
 fn find_index_for_position(model: &slint::ModelRc<ui::GradientStop>, position: f32) -> usize {
     let position = position.clamp(0.0, 1.0);
 
@@ -144,6 +146,13 @@ pub fn suggest_gradient_stop_at_position(
     let factor = (position - prev.position) / (next.position - prev.position);
 
     interpolate(prev, next, factor)
+}
+
+pub fn clone_gradient_stops(
+    model: slint::ModelRc<ui::GradientStop>,
+) -> slint::ModelRc<ui::GradientStop> {
+    let cloned_data = model.iter().collect::<Vec<_>>();
+    Rc::new(VecModel::from(cloned_data)).into()
 }
 
 #[cfg(test)]

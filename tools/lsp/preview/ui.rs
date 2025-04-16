@@ -140,6 +140,7 @@ pub fn create_ui(style: String, experimental: bool) -> Result<PreviewUi, Platfor
     api.on_move_gradient_stop(gradient::move_gradient_stop);
     api.on_suggest_gradient_stop_at_row(gradient::suggest_gradient_stop_at_row);
     api.on_suggest_gradient_stop_at_position(gradient::suggest_gradient_stop_at_position);
+    api.on_clone_gradient_stops(gradient::clone_gradient_stops);
 
     #[cfg(target_vendor = "apple")]
     api.set_control_key_name("command".into());
