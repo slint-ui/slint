@@ -164,8 +164,9 @@ export global WindowManager {
 
     update-preview-value(text) => {
         self.possible_error = Api.set-json-preview-data(current-property-container-id, current-preview-data.name, "\"\{text}\"");
-
-        StatusLineApi.help-text = self.possible-error;
+        if self.possible_error != ""{
+            debug("Error setting preview data: \{self.possible_error}");
+        }
     }
 
     update-brush() => {
