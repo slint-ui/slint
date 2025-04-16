@@ -338,31 +338,15 @@ function createReferenceExpression(
             let referenceExpr = "";
             const targetModes = targetCollectionData.modes as Set<string>; // Cast for type safety/clarity
 
-            // --- DEBUGGING ---
-            console.log(`DEBUG: Ref Target: ${targetIdentifier}`);
-            console.log(
-                `DEBUG: Source Mode: ${sourceModeName} (Sanitized: ${sanitizedSourceMode})`,
-            );
-            console.log(
-                `DEBUG: Target Modes (${targetModes.size}):`,
-                Array.from(targetModes),
-            );
-            // --- END DEBUGGING ---
-
             if (targetModes.size > 1) {
                 // --- Target is multi-mode ---
                 let modeToUse: string | undefined = undefined;
                 const targetHasSourceMode =
                     targetModes.has(sanitizedSourceMode);
 
-                console.log(
-                    `DEBUG: Target Has Source Mode? ${targetHasSourceMode}`,
-                ); // Debug check result
-
                 if (targetHasSourceMode) {
                     // Target has the specific mode we need - use it
                     modeToUse = sanitizedSourceMode;
-                    console.log(`DEBUG: Using source mode: ${modeToUse}`);
                 } else {
                     // Target is multi-mode BUT doesn't have the source mode.
                     // Fallback to the target's first available mode.
@@ -372,17 +356,12 @@ function createReferenceExpression(
                     if (modeToUse) {
                         const warningMsg = `Mode mismatch: Source mode '${sourceModeName}' not found in target '${targetIdentifier}'. Using target's first mode '${modeToUse}' for reference.`;
                         console.warn(warningMsg);
-                        console.log(
-                            `DEBUG: Using fallback target mode: ${modeToUse}`,
-                        );
                         exportInfo.warnings.add(warningMsg);
                     } else {
                         // Should not happen if modes.size > 1, but handle defensively
                         console.error(
                             `Target ${targetIdentifier} has >1 modes but couldn't get first mode.`,
                         );
-                        console.log(`DEBUG: Failed to find fallback mode.`);
-                        // Fallback further to not using a mode suffix
                     }
                 }
 
@@ -393,16 +372,10 @@ function createReferenceExpression(
                     // Fallback if we couldn't determine a mode (should be rare)
                     referenceExpr = `${targetCollectionData.formattedName}.${propertyPath}`;
                 }
-                console.log(
-                    `DEBUG: Multi-mode Target Ref Expr: ${referenceExpr}`,
-                );
             } else {
                 // --- Target is single-mode ---
                 // No mode suffix needed in the reference path
                 referenceExpr = `${targetCollectionData.formattedName}.${propertyPath}`;
-                console.log(
-                    `DEBUG: Single-mode Target Ref Expr: ${referenceExpr}`,
-                );
 
                 // Add a warning if the source was multi-mode but target is single-mode
                 const sourceCollectionData =
@@ -1311,7 +1284,10 @@ export async function exportFigmaVariablesToSeparateFiles(
 
         // Check for cycles in the dependency graph BEFORE generating file content
         const hasCycle = detectCycle(collectionDependencies);
+        // --- Add Detailed Logging Here ---
+        console.log(`[DEBUG] Before final flag: exportAsSingleFile = ${exportAsSingleFile}, hasCycle = ${hasCycle}`);
         const finalExportAsSingleFile = exportAsSingleFile || hasCycle;
+        console.log(`[DEBUG] After final flag: finalExportAsSingleFile = ${finalExportAsSingleFile}`);
         if (hasCycle && !exportAsSingleFile) {
             console.warn(
                 "Detected collection dependency cycle. Forcing export as single file.",
@@ -1418,6 +1394,7 @@ export async function exportFigmaVariablesToSeparateFiles(
             let content = `// Generated Slint file for ${collectionData.name}\n\n`;
 
             // Add imports ONLY if final mode is multi-file
+            console.log("SINGLE FILE: final:",finalExportAsSingleFile, "not:", exportAsSingleFile);
             if (!finalExportAsSingleFile) {
                 // Iterate through all potentially required imports collected earlier
                 for (const importStmt of requiredImports) {
