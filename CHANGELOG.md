@@ -12,7 +12,7 @@ All notable changes to this project are documented in this file.
  - Fixed compilation failure with mingw by disabling jemalloc
  - Software renderer: fixed drawing background of rotated screen.
  - Fixed non-square redial gradient (#7899)
- - Fixed timer starting before property initialization is compplete in the interpreter (#7848)
+ - Fixed timer starting before property initialization is complete in the interpreter (#7848)
  - Fixed ctrl/cmd swap in wasm in macOS browser (#7477)
  - Software renderer: Fixed overflow for font bigger than 256px (#7936)
  - Fixed panic in accesskit when opening popups (#7854)
@@ -24,11 +24,10 @@ All notable changes to this project are documented in this file.
  - Added string.to-lowercase and string.to-uppercase
  - Fixed change handler on a aliased property (#7784, #7747)
  - Fixed compiler panic when one branch of the `if` statement is not a void expression (#7864)
- - Fixed `@chidren` as sibling to `Timer` or `PopupWiondow` (#7887)
+ - Fixed `@chidren` as sibling to `Timer` or `PopupWindow` (#7887)
  - Deprecated alias to global callbacks and make it an error when setting it (instead of a panic) (#7806)
  - Conditional element no longer re-instentiate if the condition gets dirty without changing (#3953)
  - Fix crash if a component get destroyed when a funciton or callback of it is running (#7880)
- - Added `MenuSeparator` sub-element in `Menu` (#7790)
  - `Colors.hsv` now accepts hue value outside of 0..360 range by wrapping around
  - Fixed reading from `MenuItem::title` properties (#8080, #8090)
 
@@ -38,6 +37,8 @@ All notable changes to this project are documented in this file.
  - scrollview: fixed scrollthumb size on small sizes (#7809)
  - MenuBar reacts to hover event when the menu is open (#7822)
  - Added `Palette.style-name` property
+ - Added `MenuSeparator` sub-element in `Menu` (#7790)
+ - Added `MenuItem::enabled`
 
 ### Rust
 
@@ -59,6 +60,7 @@ All notable changes to this project are documented in this file.
  - live-preview: Focus the right widget when the preview is reloaded (#4055)
  - live-preview: persists the live data when the preview is reloaded
  - live-preview: Improve std-widget use detection (#8086)
+ - live-preview: Added a table to edit model in the data tab
  - viewer: support gradient in json data (#7913)
 
 ## [1.10.0] - 2025-02-28
