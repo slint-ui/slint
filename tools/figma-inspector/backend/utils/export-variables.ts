@@ -301,55 +301,112 @@ function createReferenceExpression(
         targetVariableModesMap.get(sourceModeName) ||
         targetVariableModesMap.values().next().value;
 
-    if (targetValueData) {
-        // CASE A: Target is another reference (alias)
-        if (targetValueData.refId) {
-            const nextStack = [...resolutionStack, currentIdentifier];
-            return createReferenceExpression(
-                targetValueData.refId,
-                sourceModeName,
-                variablePathsById,
-                collectionStructure,
-                targetCollection,
-                targetPath,
-                nextStack,
-                exportAsSingleFile, // Pass parameter in recursive call
-            );
-        }
-        // CASE B: Target holds a concrete value
-        else {
-            const sanitizedMode = sanitizeModeForEnum(sourceModeName);
-            const propertyPath = targetPath
-                .map((part) => sanitizePropertyName(part))
-                .join(".");
-
-            let referenceExpr = "";
-            if (targetCollectionData.modes.size > 1) {
-                referenceExpr = `${targetCollectionData.formattedName}.${propertyPath}.${sanitizedMode}`;
-            } else {
-                referenceExpr = `${targetCollectionData.formattedName}.${propertyPath}`;
+        if (targetValueData) {
+            // CASE A: Target is another reference (alias)
+            if (targetValueData.refId) {
+                const nextStack = [...resolutionStack, currentIdentifier];
+                return createReferenceExpression(
+                    targetValueData.refId,
+                    sourceModeName,
+                    variablePathsById,
+                    collectionStructure,
+                    targetCollection,
+                    targetPath,
+                    nextStack,
+                    exportAsSingleFile // Pass parameter in recursive call
+                );
             }
-
-            let importStatement: string | undefined = undefined;
-            const isCrossCollection = targetCollection !== currentCollection;
-            if (isCrossCollection && !exportAsSingleFile) {
-                // Use the parameter
-                if (targetCollectionData.modes.size > 1) {
-                    importStatement = `import { ${targetCollectionData.formattedName}, ${targetCollectionData.formattedName}Mode } from "${targetCollectionData.formattedName}.slint";\n`;
+            // CASE B: Target holds a concrete value
+            else {
+                const sanitizedSourceMode = sanitizeModeForEnum(sourceModeName); // Mode from the requesting variable
+                const propertyPath = targetPath
+                    .map((part) => sanitizePropertyName(part))
+                    .join(".");
+    
+                let referenceExpr = "";
+                const targetModes = targetCollectionData.modes as Set<string>; // Cast for type safety/clarity
+    
+                // --- DEBUGGING ---
+                console.log(`DEBUG: Ref Target: ${targetIdentifier}`);
+                console.log(`DEBUG: Source Mode: ${sourceModeName} (Sanitized: ${sanitizedSourceMode})`);
+                console.log(`DEBUG: Target Modes (${targetModes.size}):`, Array.from(targetModes));
+                // --- END DEBUGGING ---
+    
+                if (targetModes.size > 1) {
+                    // --- Target is multi-mode ---
+                    let modeToUse: string | undefined = undefined;
+                    const targetHasSourceMode = targetModes.has(sanitizedSourceMode);
+    
+                    console.log(`DEBUG: Target Has Source Mode? ${targetHasSourceMode}`); // Debug check result
+    
+                    if (targetHasSourceMode) {
+                        // Target has the specific mode we need - use it
+                        modeToUse = sanitizedSourceMode;
+                        console.log(`DEBUG: Using source mode: ${modeToUse}`);
+                    } else {
+                        // Target is multi-mode BUT doesn't have the source mode.
+                        // Fallback to the target's first available mode.
+                        const firstTargetMode = targetModes.values().next().value;
+                        modeToUse = firstTargetMode; // Assign the first mode
+    
+                        if (modeToUse) {
+                            const warningMsg = `Mode mismatch: Source mode '${sourceModeName}' not found in target '${targetIdentifier}'. Using target's first mode '${modeToUse}' for reference.`;
+                            console.warn(warningMsg);
+                            console.log(`DEBUG: Using fallback target mode: ${modeToUse}`);
+                            // exportInfo.warnings.add(warningMsg);
+                        } else {
+                            // Should not happen if modes.size > 1, but handle defensively
+                            console.error(`Target ${targetIdentifier} has >1 modes but couldn't get first mode.`);
+                            console.log(`DEBUG: Failed to find fallback mode.`);
+                            // Fallback further to not using a mode suffix
+                        }
+                    }
+    
+                    // Append the determined mode if found
+                    if (modeToUse) {
+                        referenceExpr = `${targetCollectionData.formattedName}.${propertyPath}.${modeToUse}`;
+                    } else {
+                        // Fallback if we couldn't determine a mode (should be rare)
+                        referenceExpr = `${targetCollectionData.formattedName}.${propertyPath}`;
+                    }
+                    console.log(`DEBUG: Multi-mode Target Ref Expr: ${referenceExpr}`);
+    
                 } else {
-                    importStatement = `import { ${targetCollectionData.formattedName} } from "${targetCollectionData.formattedName}.slint";\n`;
+                    // --- Target is single-mode ---
+                    // No mode suffix needed in the reference path
+                    referenceExpr = `${targetCollectionData.formattedName}.${propertyPath}`;
+                    console.log(`DEBUG: Single-mode Target Ref Expr: ${referenceExpr}`);
+    
+                    // Add a warning if the source was multi-mode but target is single-mode
+                    const sourceCollectionData = collectionStructure.get(currentCollection);
+                    if (sourceCollectionData && sourceCollectionData.modes.size > 1) {
+                         const warningMsg = `Mode mismatch: Source '${currentIdentifier}' is multi-mode but target '${targetIdentifier}' is single-mode. Reference uses base path without mode.`;
+                         console.warn(warningMsg);
+                         // exportInfo.warnings.add(warningMsg);
+                    }
                 }
+    
+                // --- Import statement logic (remains the same) ---
+                let importStatement: string | undefined = undefined;
+                const isCrossCollection = targetCollection !== currentCollection;
+                if (isCrossCollection && !exportAsSingleFile) {
+                    // Use the parameter
+                    if (targetCollectionData.modes.size > 1) {
+                        importStatement = `import { ${targetCollectionData.formattedName}, ${targetCollectionData.formattedName}Mode } from "${targetCollectionData.formattedName}.slint";\n`;
+                    } else {
+                        importStatement = `import { ${targetCollectionData.formattedName} } from "${targetCollectionData.formattedName}.slint";\n`;
+                    }
+                }
+    
+                return {
+                    value: referenceExpr,
+                    importStatement: importStatement,
+                    isCircular: false,
+                    comment: targetValueData.comment,
+                };
             }
-
-            return {
-                value: referenceExpr,
-                importStatement: importStatement,
-                isCircular: false,
-                comment: targetValueData.comment,
-            };
         }
-    }
-    // CASE C: No value data found for the target variable in any relevant mode
+        // CASE C: No value data found for the target variable in any relevant mode
     else {
         console.warn(
             `Missing value data for ${targetIdentifier} in mode ${sourceModeName} or fallback (using collectionStructure)`,
@@ -1219,72 +1276,48 @@ export async function exportFigmaVariablesToSeparateFiles(
             }
         }
 
+        // Check for cycles in the dependency graph BEFORE generating file content
+        const hasCycle = detectCycle(collectionDependencies);
+        const finalExportAsSingleFile = exportAsSingleFile || hasCycle;
+        if (hasCycle && !exportAsSingleFile) {
+            console.warn("Detected collection dependency cycle. Forcing export as single file.");
+        }
+
+        // Generate content for each collection
         for (const [
             collectionName,
             collectionData,
         ] of collectionStructure.entries()) {
             // Skip collections with no variables
             if (collectionData.variables.size === 0) {
+                console.log(`Skipping empty collection: ${collectionData.name}`);
                 continue;
             }
 
-            // Generate the enum for modes
-        let content = `// Generated Slint file for ${collectionData.name}\n\n`;
-            // Build a hierarchical tree from the flat variables
-            const variableTree: VariableNode = {
-                name: "root",
-                children: new Map(),
-            };
-
-            // Process each variable to build the tree
+            // Build the variable tree for this collection
+            const variableTree: VariableNode = { name: "root", children: new Map() };
             for (const [varName, modes] of collectionData.variables.entries()) {
-                // Split the path by forward slashes to get the hierarchy
                 const parts = extractHierarchy(varName);
-
-                // Navigate the tree and create nodes as needed
                 let currentNode = variableTree;
-
-                // Process all parts except the last one (which is the property name)
                 for (let i = 0; i < parts.length - 1; i++) {
                     const part = parts[i];
-
                     if (!currentNode.children.has(part)) {
-                        currentNode.children.set(part, {
-                            name: part,
-                            children: new Map(),
-                        });
+                        currentNode.children.set(part, { name: part, children: new Map() });
                     }
-
                     currentNode = currentNode.children.get(part)!;
                 }
-
-                // The last part is the property name
-                const propertyName = sanitizePropertyName(
-                    parts[parts.length - 1],
-                );
-
-                // Create the leaf node with the value
+                const propertyName = sanitizePropertyName(parts[parts.length - 1]);
                 if (!currentNode.children.has(propertyName)) {
-                    // Create a new Map for valuesByMode
-                    const valuesByMode = new Map<
-                        string,
-                        { value: string; refId?: string; comment?: string }
-                    >();
-
-                    // Get the type from the first mode (or default to 'COLOR' if undefined)
+                    const valuesByMode = new Map<string, { value: string; refId?: string; comment?: string }>();
                     const firstModeValue = modes.values().next().value;
                     const type = firstModeValue?.type || "COLOR";
-
-                    // Process each mode's value
                     for (const [modeName, valueData] of modes.entries()) {
                         valuesByMode.set(modeName, {
                             value: valueData.value,
                             refId: valueData.refId,
-                            comment: valueData.comment, // Add this to preserve comments
+                            comment: valueData.comment,
                         });
                     }
-
-                    // Add the node to the tree
                     currentNode.children.set(propertyName, {
                         name: propertyName,
                         type: type,
@@ -1294,19 +1327,30 @@ export async function exportFigmaVariablesToSeparateFiles(
                 }
             }
 
+            // Generate structs and instances code from the tree
+            // This function should return both the struct definitions and the instance code lines
             const { structs, instances } = generateStructsAndInstances(
                 variableTree,
                 collectionData.formattedName,
-                collectionData,
+                collectionData
+                // Pass exportInfo if needed
             );
 
-            // Generate the scheme structs (only for multi-mode collections)
+            // Generate scheme-related code (only if multi-mode)
+            let modeEnum = "";
             let schemeStruct = "";
             let schemeModeStruct = "";
             let schemeInstance = "";
             let currentSchemeInstance = "";
-
             if (collectionData.modes.size > 1) {
+                 // Generate Enum
+                 modeEnum += `export enum ${collectionData.formattedName}Mode {\n`;
+                 for (const mode of collectionData.modes) {
+                     modeEnum += `    ${mode},\n`;
+                 }
+                 modeEnum += `}\n\n`;
+
+                 // Generate Scheme Structs/Instances
                 const hasRootModeVariable = variableTree.children.has("mode");
                 const schemeResult = generateSchemeStructs(
                     variableTree,
@@ -1316,78 +1360,64 @@ export async function exportFigmaVariablesToSeparateFiles(
                 schemeStruct = schemeResult.schemeStruct;
                 schemeModeStruct = schemeResult.schemeModeStruct;
                 schemeInstance = schemeResult.schemeInstance;
-                currentSchemeInstance = schemeResult.currentSchemeInstance; // ADD THIS LINE to capture the value
+                currentSchemeInstance = schemeResult.currentSchemeInstance;
             }
 
-            // Start with file comment
+            // --- Assemble the content string for this collection ---
+            let content = `// Generated Slint file for ${collectionData.name}\n\n`;
 
-            // Now filter imports based on what's actually used in the instances
-            for (const importStmt of requiredImports) {
-                // Extract the collection name from the import statement
-                const match = importStmt.match(/import { ([^,}]+)/);
-                if (match) {
-                    const targetCollection = match[1].trim();
+            // Add imports ONLY if final mode is multi-file
+            if (!finalExportAsSingleFile) {
+                 // Iterate through all potentially required imports collected earlier
+                 for (const importStmt of requiredImports) {
+                     const requiredTargetMatch = importStmt.match(/import { ([^,}]+)/);
+                     const requiredTarget = requiredTargetMatch ? requiredTargetMatch[1].trim() : null;
+                     const importSourceFileMatch = importStmt.match(/from "([^"]+)\.slint";/);
+                     const importSourceFile = importSourceFileMatch ? importSourceFileMatch[1] : null;
 
-                    // Skip self-imports
-                    if (targetCollection === collectionData.formattedName) {
-                        continue;
-                    }
-
-                    // Only include if there's an actual reference to this collection in the instances
-                    if (
-                        instances.includes(`${targetCollection}.`) ||
-                        instances.includes(`${targetCollection}(`)
-                    ) {
-                        content += importStmt;
-                    }
-                }
+                     // Check if this import is relevant for the current file
+                     if (requiredTarget && importSourceFile && importSourceFile !== collectionData.formattedName) {
+                         // Check if the instances string actually uses the target
+                         if (instances.includes(`${requiredTarget}.`) || instances.includes(`${requiredTarget}(`)) {
+                             content += importStmt;
+                         }
+                     }
+                 }
+                 // Add blank line if imports were added
+                 if (content.includes("import ")) {
+                     content += "\n";
+                 }
             }
 
-            // Add a blank line after imports if any were added
-            if (content.includes("import ")) {
-                content += "\n";
-            }
+            // Add Enum (if generated)
+            content += modeEnum;
 
-            // Add the mode enum if needed
-            // The variableTree is already built and populated above.
-            // The structs and instances are already generated above.
+            // Add Structs (multi-mode base structs and specific structs generated by generateStructsAndInstances)
+            content += structs;
 
-            // Now filter imports based on what's actually used in the instances
-            for (const importStmt of requiredImports) {
-                // Extract the collection name from the import statement
-                const match = importStmt.match(/import { ([^,}]+)/);
-                if (match) {
-                    const targetCollection = match[1].trim();
+            // Add Scheme structs (if generated)
+            content += schemeStruct;
+            content += schemeModeStruct;
 
-                    // Skip self-imports
-                    if (targetCollection === collectionData.formattedName) {
-                        continue;
-                    }
+            // Add the main global block containing instances and scheme properties
+            content += `export global ${collectionData.formattedName} {\n`;
+            content += instances; // Add the generated instance code lines
+            content += schemeInstance; // Add scheme instance code (if generated)
+            content += currentSchemeInstance; // Add current-scheme instance code (if generated)
+            content += `}\n`; // Close global block (removed extra \n\n)
 
-                    // Only include if there's an actual reference to this collection in the instances
-                    if (
-                        instances.includes(`${targetCollection}.`) ||
-                        instances.includes(`${targetCollection}(`)
-                    ) {
-                        content += importStmt;
-                    }
-                }
-            }
-            // Add file to exported files
-            exportedFiles.push({
-                name: `${collectionData.formattedName}.slint`,
-                content: content,
-            });
+            // Store the fully assembled content for this collection
             generatedFiles.push({
                 name: `${collectionData.formattedName}.slint`,
-                content: content, // The fully generated content for this file
+                content: content.trim() + "\n", // Trim whitespace and add single trailing newline
             });
 
             console.log(
-                `Generated file for collection: ${collectionData.name}`,
+                `Generated content for collection: ${collectionData.name}`,
             );
         }
 
+        // Post-process generated files (e.g., replace unresolved refs)
         for (const file of generatedFiles) {
             // Check if there are any unresolved references left
             if (file.content.includes("@ref:")) {
@@ -1429,15 +1459,8 @@ export async function exportFigmaVariablesToSeparateFiles(
                 );
             }
         }
-        // Check for cycles in the dependency graph
-        const hasCycle = detectCycle(collectionDependencies);
-        
-        // If cycles are detected, force single-file mode
-        const finalExportAsSingleFile = exportAsSingleFile || hasCycle;
-        if (hasCycle && !exportAsSingleFile) {
-            console.warn("Detected collection dependency cycle. Forcing export as single file.");
-        }
 
+        // Determine final output structure (single vs multiple files)
         let finalOutputFiles: Array<{ name: string; content: string }> = [];
 
         if (finalExportAsSingleFile) { // Use the determined flag
