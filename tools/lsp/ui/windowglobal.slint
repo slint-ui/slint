@@ -60,7 +60,6 @@ export global WindowManager {
 
     callback show-floating-widget(property-information: PropertyInformation, element-information: ElementInformation);
     callback show-floating-preview-widget(property-container-id: string, preview-data: PreviewData, property-value: PropertyValue);
-    callback show-floating-preview-brush-widget(property-container-id: string, preview-data: PreviewData, brush-kind: BrushKind, current-brush: brush, current-gradient-stops: [GradientStop]);
     callback show-floating-table-editor(property-group-id: string, preview-data: PreviewData);
     callback hide-floating-widget();
     callback apply-current-value(value: string);
@@ -114,29 +113,30 @@ export global WindowManager {
         widget-mode = WidgetMode.preview;
 
         if property-value.kind == PropertyValueKind.color {
+            picker-mode = BrushPropertyType.color;
             PickerData.hue = property-value.value-brush.to-hsv().hue;
-            PickerData.saturation = current-property-information.value.value-brush.to-hsv().saturation;
+            PickerData.saturation = property-value.value-brush.to-hsv().saturation;
             PickerData.value = property-value.value-brush.to-hsv().value;
             PickerData.alpha = property-value.value-brush.to-hsv().alpha * 100;
             showing-color-picker = true;
         }
-    }
-
-    show-floating-preview-brush-widget(property-container-id, preview-data, brush-kind, current-brush, current-gradient-stops) => {
-        widget-mode = WidgetMode.preview;
-        picker-mode = BrushPropertyType.brush;
-        current-property-container-id = property-container-id;
-        current-preview-data = preview-data;
-        if brush-kind == BrushKind.solid {
-            brush-mode = BrushMode.color;
-        } else if brush-kind == BrushKind.linear {
-            brush-mode = BrushMode.linear;
-        } else if brush-kind == BrushKind.radial {
-            brush-mode = BrushMode.radial;
+        if property-value.kind == PropertyValueKind.brush {
+            picker-mode = BrushPropertyType.brush;
+            PickerData.hue = property-value.value-brush.to-hsv().hue;
+            PickerData.saturation = property-value.value-brush.to-hsv().saturation;
+            PickerData.value = property-value.value-brush.to-hsv().value;
+            PickerData.alpha = property-value.value-brush.to-hsv().alpha * 100;
+            if property-value.brush-kind == BrushKind.solid {
+                brush-mode = BrushMode.color;
+            } else if property-value.brush-kind == BrushKind.linear {
+                brush-mode = BrushMode.linear;
+            } else if property-value.brush-kind == BrushKind.radial {
+                brush-mode = BrushMode.radial;
+            }
+            PickerData.current-brush = property-value.value-brush;
+            PickerData.current-gradient-stops = property-value.gradient-stops;
+            showing-color-picker = true;
         }
-        PickerData.current-brush = current-brush;
-        PickerData.current-gradient-stops = current-gradient-stops;
-        showing-color-picker = true;
     }
 
     show-floating-table-editor(property-group-id, preview-data) => {
