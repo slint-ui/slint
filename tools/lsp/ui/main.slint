@@ -44,12 +44,12 @@ export component PreviewUi inherits Window {
     init => {
         WindowGlobal.window-width = self.width;
         WindowGlobal.window-height = self.height;
-        initial-floating-x = (self.width - PickerStyles.picker-width - 300px).max(0);
+        initial-floating-x = (self.width - PickerStyles.picker-width - 350px).max(0);
     }
 
     changed width => {
         WindowGlobal.window-width = self.width;
-        initial-floating-x = (self.width - PickerStyles.picker-width - 300px).max(0);
+        initial-floating-x = (self.width - PickerStyles.picker-width - 350px).max(0);
     }
     changed height => {
         WindowGlobal.window-height = self.height;
@@ -184,7 +184,7 @@ export component PreviewUi inherits Window {
         color-stop-mode: true;
 
         init => {
-            self.initial-x = root.initial-floating-x - 200px;
+            self.initial-x = root.initial-floating-x - 240px;
             self.initial-y = 50px;
         }
         close => {

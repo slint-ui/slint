@@ -100,33 +100,15 @@ export component PropertyValueWidget inherits VerticalLayout {
         code-action() => {
             root.code-action();
         }
+
+        init => {
+            // Floating editors need to know the current property details. Call the update if something changes.
+            if WindowManager.showing-color-picker && WindowManager.current-property-information.name == root.property-name {
+                self.update-floating-editor();
+            }
+        }
+
     }
-
-    // if root.property-value.kind == PropertyValueKind.brush: BrushWidget {
-    //     // enabled <=> root.enabled;
-    //     property-name <=> root.property-name;
-    //     property-value <=> root.property-value;
-    //     preview-data <=> root.preview-data;
-
-    //     // has-code-action: root.has-code-action;
-    //     // has-reset-action: root.has-reset-action;
-
-    //     test-brush-binding(kind, angle, color, stops) => {
-    //         return root.test-brush-binding(kind, angle, color, stops);
-    //     }
-    //     set-brush-binding(kind, angle, color, stops) => {
-    //         root.set-brush-binding(kind, angle, color, stops);
-    //     }
-
-    //     update-display-string(value) => { root.update-display-string-impl(value); }
-
-    //     reset-action() => {
-    //         root.reset-action();
-    //     }
-    //     code-action() => {
-    //         root.code-action();
-    //     }
-    // }
 
     if root.property-value.kind == PropertyValueKind.code: CodeWidget {
         enabled <=> root.enabled;
