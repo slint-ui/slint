@@ -34,6 +34,7 @@ export component PreviewUi inherits Window {
     property <bool> show-right-sidebar;
     property <bool> show-floating-widget <=> WindowManager.showing-color-picker;
     property <bool> show-floating-table-editor <=> WindowManager.showing-table-editor;
+    property <bool> show-color-stop-picker <=> WindowManager.showing-color-stop-picker;
     property <length> initial-floating-x;
 
     title: "Slint Live-Preview";
@@ -154,6 +155,12 @@ export component PreviewUi inherits Window {
         y: (parent.height / 10);
     }
 
+    if show-floating-table-editor || show-color-stop-picker || show-floating-widget: TouchArea {
+        changed pressed => {
+            WindowManager.hide-floating-widget();
+        }
+    }
+
     if show-floating-table-editor: TableEditorView {
         init => {
             self.initial-x = root.initial-floating-x;
@@ -166,6 +173,22 @@ export component PreviewUi inherits Window {
         init => {
             self.initial-x = root.initial-floating-x;
             self.initial-y = 50px;
+        }
+        close => {
+            WindowManager.hide-floating-widget();
+        }
+    }
+
+    if show-color-stop-picker: ColorPickerView {
+
+        color-stop-mode: true;
+
+        init => {
+            self.initial-x = root.initial-floating-x - 200px;
+            self.initial-y = 50px;
+        }
+        close => {
+            WindowManager.hide-color-stop-picker();
         }
     }
 
