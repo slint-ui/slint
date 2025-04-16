@@ -218,7 +218,8 @@ component ColorModeColorAndApply {
                 height: parent.height;
 
                 PickerTextInput {
-                    x: 10px;
+                    x: -20px;
+                    horizontal-alignment: right;
                     text: PickerData.alpha;
                     accepted => {
                         self.text = clamp(self.text.to-float(), 0, 100);
@@ -391,8 +392,10 @@ component GradientStopValue {
             border-radius: EditorSizeSettings.property-border-radius;
             background: EditorPalette.section-color;
             ti-position := PickerTextInput {
-                x: 10px;
+                x: -20px;
+                width: 50px;
                 text: (PickerData.current-gradient-stops[stop-index].position * 100.0).round();
+                horizontal-alignment: right;
                 changed has-focus => {
                     if !self.has-focus {
                         ti-position.text = (stop-data-position * 100.0).round();
@@ -411,7 +414,7 @@ component GradientStopValue {
                 }
             }
 
-            FakeShadowText {
+            percent-label := FakeShadowText {
                 x: parent.width - self.width - 5px;
                 font-family: "Inter";
                 font-size: 11px;
@@ -502,7 +505,8 @@ component GradientStopValue {
                 width: 48px;
                 x: parent.width - self.width;
                 ti-alpha := PickerTextInput {
-                    x: 10px;
+                    x: -20px;
+                    horizontal-alignment: right;
                     text: (PickerData.current-gradient-stops[stop-index].color.to-hsv().alpha * 100.0).round();
                     accepted => {
                         PickerData.current-gradient-stops[stop-index].color = hsv(PickerData.current-gradient-stops[stop-index].color.to-hsv().hue, PickerData.current-gradient-stops[stop-index].color.to-hsv().saturation, PickerData.current-gradient-stops[stop-index].color.to-hsv().value, clamp(self.text.to-float(), 0, 100) / 100);
