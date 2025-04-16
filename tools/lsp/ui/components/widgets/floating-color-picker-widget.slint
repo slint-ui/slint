@@ -563,6 +563,31 @@ component GradientStopValue {
             }
         }
     }
+
+    Rectangle {
+        x: parent.width - self.width - 5px;
+        width: 25px;
+        height: self.width;
+        visible: PickerData.current-gradient-stops.length > 1;
+        Rectangle {
+            opacity: 20%;
+            background: delete-stop-ta.has-hover ? EditorPalette.section-color : transparent;
+            border-radius: EditorSizeSettings.property-border-radius;
+        }
+
+        delete-stop-ta := TouchArea {
+            clicked => {
+                Api.remove-gradient-stop(PickerData.current-gradient-stops, stop-index);
+            }
+        }
+
+        Rectangle {
+            width: 12px;
+            height: 1px;
+            border-radius: self.height / 2;
+            background: EditorPalette.text-color;
+        }
+    }
 }
 
 component GradientPicker inherits SimpleColumn {
