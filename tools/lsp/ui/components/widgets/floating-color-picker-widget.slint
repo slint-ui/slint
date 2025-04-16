@@ -2,10 +2,10 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { Palette, Button, ComboBox } from "std-widgets.slint";
-import { WindowGlobal, WindowManager } from "../../windowglobal.slint";
+import { WindowGlobal, WindowManager, PickerData } from "../../windowglobal.slint";
 import { Api, GradientStop, BrushKind} from "../../api.slint";
 import { Icons, EditorPalette, EditorSizeSettings } from "../../components/styling.slint";
-import { BrushMode, PickerData, BrushPropertyType, WidgetMode } from "../../properties-state.slint";
+import { BrushMode, BrushPropertyType, WidgetMode } from "../../properties-state.slint";
 import { SimpleColumn } from "../../components/layout-helpers.slint";
 import { DraggablePanel } from "../../components/draggable-panel.slint";
 import { ColorIndicator, FakeShadowText, PickerTextInput } from "./brush-helpers.slint";
@@ -218,7 +218,8 @@ component ColorModeColorAndApply {
                 height: parent.height;
 
                 PickerTextInput {
-                    x: 10px;
+                    x: -20px;
+                    horizontal-alignment: right;
                     text: PickerData.alpha;
                     accepted => {
                         self.text = clamp(self.text.to-float(), 0, 100);
@@ -373,8 +374,10 @@ component GradientStopValue {
     height: 32px;
 
     TouchArea {
-        clicked => {
-            PickerData.current-stop-index = stop-index;
+        changed pressed => {
+            if self.pressed {
+                PickerData.current-stop-index = stop-index;
+            }
         }
     }
 
@@ -391,8 +394,10 @@ component GradientStopValue {
             border-radius: EditorSizeSettings.property-border-radius;
             background: EditorPalette.section-color;
             ti-position := PickerTextInput {
-                x: 10px;
+                x: -20px;
+                width: 50px;
                 text: (PickerData.current-gradient-stops[stop-index].position * 100.0).round();
+                horizontal-alignment: right;
                 changed has-focus => {
                     if !self.has-focus {
                         ti-position.text = (stop-data-position * 100.0).round();
@@ -411,7 +416,7 @@ component GradientStopValue {
                 }
             }
 
-            FakeShadowText {
+            percent-label := FakeShadowText {
                 x: parent.width - self.width - 5px;
                 font-family: "Inter";
                 font-size: 11px;
@@ -446,6 +451,16 @@ component GradientStopValue {
             ColorIndicator {
                 x: 5px;
                 color: PickerData.current-gradient-stops[stop-index].color;
+                TouchArea {
+                    changed pressed => {
+                        if self.pressed {
+                            PickerData.current-stop-index = stop-index;
+                        }
+                    }
+                    clicked => {
+                        WindowManager.show-color-stop-picker();
+                    }
+                }
             }
 
             FakeShadowText {
@@ -502,7 +517,8 @@ component GradientStopValue {
                 width: 48px;
                 x: parent.width - self.width;
                 ti-alpha := PickerTextInput {
-                    x: 10px;
+                    x: -20px;
+                    horizontal-alignment: right;
                     text: (PickerData.current-gradient-stops[stop-index].color.to-hsv().alpha * 100.0).round();
                     accepted => {
                         PickerData.current-gradient-stops[stop-index].color = hsv(PickerData.current-gradient-stops[stop-index].color.to-hsv().hue, PickerData.current-gradient-stops[stop-index].color.to-hsv().saturation, PickerData.current-gradient-stops[stop-index].color.to-hsv().value, clamp(self.text.to-float(), 0, 100) / 100);
@@ -1040,22 +1056,17 @@ export component ColorPickerView {
 
     in property <length> initial-x: 0;
     in property <length> initial-y: 0;
-
-    TouchArea {
-        changed pressed => {
-            WindowManager.hide-floating-widget();
-        }
-    }
+    in property <bool> color-stop-mode: false;
+    callback close();
 
     color-picker := ColorPicker {
         x: root.initial-x;
         y: root.initial-y;
-        widget-mode: WindowManager.widget-mode;
-        picker-mode: WindowManager.picker-mode;
-        brush-mode: WindowManager.brush-mode;
-
+        widget-mode: color-stop-mode ? WidgetMode.color-stop : WindowManager.widget-mode;
+        picker-mode: color-stop-mode ? BrushPropertyType.color : WindowManager.picker-mode;
+        brush-mode: color-stop-mode ? BrushMode.color : WindowManager.brush-mode;
         close => {
-            WindowManager.hide-floating-widget();
+            root.close();
         }
     }
 }

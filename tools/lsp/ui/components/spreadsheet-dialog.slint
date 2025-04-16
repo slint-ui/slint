@@ -100,12 +100,6 @@ export component TableEditorView {
     in property <length> initial-x: 0;
     in property <length> initial-y: 0;
 
-    TouchArea {
-        changed pressed => {
-            WindowManager.hide-floating-widget();
-        }
-    }
-
     table-editor := TableEditor {
         x: root.initial-x;
         y: root.initial-y;

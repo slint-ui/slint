@@ -3,7 +3,7 @@
 
 import { Api, BrushKind, GradientStop, PreviewData, PropertyValueTable } from "./api.slint";
 
-export enum WidgetMode { edit, preview }
+export enum WidgetMode { edit, preview, color-stop }
 
 // Color and Brush properties are related, but while a <brush> can be a color,
 // a <color> property cannot be a brush. This property type is used to ensure
@@ -19,21 +19,6 @@ export enum BrushMode {
     radial,
     svg-color,
     code,
-}
-
-export global PickerData {
-    in-out property <float> hue;
-    in-out property <float> saturation;
-    in-out property <float> value;
-    // alpha is an int, instead of float to help snap values to whole percentage numbers
-    in-out property <int> alpha;
-    out property <color> current-color: hsv(hue, saturation, value, alpha / 100);
-    in-out property <BrushKind> current-brush-kind;
-    in-out property <brush> current-brush;
-    in-out property <[GradientStop]> current-gradient-stops;
-    in-out property <float> current-angle;
-
-    in-out property <int> current-stop-index: 0;
 }
 
 export global TableData {

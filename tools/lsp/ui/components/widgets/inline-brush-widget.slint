@@ -152,8 +152,9 @@ component InlineColor {
             height: parent.height;
 
             pi := PickerTextInput {
-                x: 10px;
+                x: -20px;
                 text: (root.current-color.to-hsv().alpha * 100.0).round();
+                horizontal-alignment: right;
                 accepted => {
                     self.text = clamp(self.text.to-float(), 0, 100);
                     root.set-color-binding(Api.color-to-data(hsv(root.current-color.to-hsv().hue, root.current-color.to-hsv().saturation, root.current-color.to-hsv().value, self.text.to-float() / 100)).text);
