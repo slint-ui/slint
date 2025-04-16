@@ -121,12 +121,12 @@ export component PreviewUi inherits Window {
                             background: @linear-gradient(90deg, #0000, #0002);
                         }
                         VerticalLayout {
-                            TabWidget {
+                            tw := TabWidget {
                                 width: EditorSizeSettings.property-bar-width - (EditorSpaceSettings.default-padding*2);
                                 current-index: 0;
                                 Tab {
                                     title: "Properties";
-                                    PropertyView {
+                                    if tw.current-index == 0: PropertyView {
                                         opacity: preview.preview-is-current ? 1.0 : 0.3;
                                         enabled: preview.preview-is-current;
                                     }
@@ -134,7 +134,7 @@ export component PreviewUi inherits Window {
 
                                 preview_data_tab := Tab {
                                     title: "Data";
-                                    PreviewDataView {
+                                    if tw.current-index == 1: PreviewDataView {
                                         opacity: preview.preview-is-current ? 1.0 : 0.3;
                                         enabled: preview.preview-is-current;
                                     }

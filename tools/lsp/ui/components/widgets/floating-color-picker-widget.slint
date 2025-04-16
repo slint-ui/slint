@@ -695,6 +695,7 @@ component GradientPicker inherits SimpleColumn {
             t-plus := TouchArea {
                 clicked() => {
                     PickerData.current-stop-index = Api.add-gradient-stop(PickerData.current-gradient-stops, Api.suggest-gradient-stop-at-row(PickerData.current-gradient-stops, PickerData.current-stop-index + 1));
+                    PickerData.current-gradient-stops = Api.clone-gradient-stops(PickerData.current-gradient-stops);
                     WindowManager.update-brush();
                 }
             }

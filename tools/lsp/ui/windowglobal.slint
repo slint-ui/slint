@@ -41,6 +41,7 @@ export global PickerData {
         value = current-gradient-stops[current-stop-index].color.to-hsv().value;
         alpha = current-gradient-stops[current-stop-index].color.to-hsv().alpha * 100;
     }
+
 }
 
 export global WindowManager {
@@ -72,7 +73,6 @@ export global WindowManager {
         widget-mode = WidgetMode.edit;
         current-property-information = property-information;
         current-element-information = element-information;
-
         if current-property-information.value.kind == PropertyValueKind.color {
             PickerData.hue = current-property-information.value.value-brush.to-hsv().hue;
             PickerData.saturation = current-property-information.value.value-brush.to-hsv().saturation;
@@ -82,16 +82,24 @@ export global WindowManager {
             showing-color-picker = true;
         }
         if current-property-information.value.kind == PropertyValueKind.brush {
-            PickerData.hue = current-property-information.value.value-brush.to-hsv().hue;
-            PickerData.saturation = current-property-information.value.value-brush.to-hsv().saturation;
-            PickerData.value = current-property-information.value.value-brush.to-hsv().value;
-            PickerData.alpha = current-property-information.value.value-brush.to-hsv().alpha * 100;
             PickerData.current-brush-kind = current-property-information.value.brush-kind;
             PickerData.current-brush = current-property-information.value.value-brush;
             PickerData.current-gradient-stops = Api.clone-gradient-stops(current-property-information.value.gradient-stops);
             PickerData.current-angle = current-property-information.value.value-float;
             picker-mode = BrushPropertyType.brush;
             brush-mode = current-property-information.value.brush-kind == BrushKind.solid ? BrushMode.color : current-property-information.value.brush-kind == BrushKind.linear ? BrushMode.linear : BrushMode.radial;
+
+            if current-property-information.value.brush-kind == BrushKind.solid {
+                PickerData.hue = current-property-information.value.value-brush.to-hsv().hue;
+                PickerData.saturation = current-property-information.value.value-brush.to-hsv().saturation;
+                PickerData.value = current-property-information.value.value-brush.to-hsv().value;
+                PickerData.alpha = current-property-information.value.value-brush.to-hsv().alpha * 100;
+            } else {
+                PickerData.hue = PickerData.current-gradient-stops[PickerData.current-stop-index].color.to-hsv().hue;
+                PickerData.saturation = PickerData.current-gradient-stops[PickerData.current-stop-index].color.to-hsv().saturation;
+                PickerData.value = PickerData.current-gradient-stops[PickerData.current-stop-index].color.to-hsv().value;
+                PickerData.alpha = PickerData.current-gradient-stops[PickerData.current-stop-index].color.to-hsv().alpha * 100;
+            }
             showing-color-picker = true;
         }
     }
@@ -167,7 +175,7 @@ export global WindowManager {
     }
 
     update-brush() => {
-        PickerData.current-brush = Api.create-brush(BrushKind.linear, 90.0, PickerData.current-brush, PickerData.current-gradient-stops);
+        PickerData.current-brush = Api.create-brush(BrushKind.linear, PickerData.current-angle, PickerData.current-brush, PickerData.current-gradient-stops);
         if widget-mode == WidgetMode.preview {
             brush-string = Api.as-slint-brush(BrushKind.linear, PickerData.current-angle, PickerData.current-brush, PickerData.current-gradient-stops);
             self.possible_error = Api.set-json-preview-data(current-property-container-id, current-preview-data.name, "\"\{brush-string}\"");
