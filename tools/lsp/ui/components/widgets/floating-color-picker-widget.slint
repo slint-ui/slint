@@ -778,7 +778,7 @@ component HsvPicker inherits SimpleColumn {
                     TouchArea {
                         moved => {
                             if self.has-hover {
-                                if self.mouse-x < main-height {
+                                if self.mouse-x < main-height / 2 {
                                     PickerData.hue = 0;
                                 } else {
                                     PickerData.hue = 359 * clamp((self.mouse-x - rounded-end-width) / (self.width - main-height), 0, 1);
@@ -786,7 +786,7 @@ component HsvPicker inherits SimpleColumn {
                             }
                         }
                         changed pressed => {
-                            if self.mouse-x < main-height {
+                            if self.mouse-x < main-height / 2 {
                                 PickerData.hue = 0;
                             } else {
                                 PickerData.hue = 359 * clamp((self.mouse-x - rounded-end-width) / (self.width - main-height), 0, 1);
