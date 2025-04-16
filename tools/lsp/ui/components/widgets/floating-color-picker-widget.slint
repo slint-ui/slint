@@ -3,7 +3,7 @@
 
 import { Palette, Button, ComboBox } from "std-widgets.slint";
 import { WindowGlobal, WindowManager } from "../../windowglobal.slint";
-import { Api, GradientStop } from "../../api.slint";
+import { Api, GradientStop, BrushKind} from "../../api.slint";
 import { Icons, EditorPalette, EditorSizeSettings } from "../../components/styling.slint";
 import { BrushMode, PickerData, BrushPropertyType, WidgetMode } from "../../properties-state.slint";
 import { SimpleColumn } from "../../components/layout-helpers.slint";
@@ -561,7 +561,7 @@ component GradientPicker inherits SimpleColumn {
                 }
 
                 Rectangle {
-                    background: PickerData.current-brush;
+                    background:Api.create-brush(BrushKind.linear, 90, PickerData.current-brush, PickerData.current-gradient-stops);
                 }
 
                 Rectangle {
