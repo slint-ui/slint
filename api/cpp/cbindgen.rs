@@ -14,6 +14,9 @@ fn enums(path: &Path) -> anyhow::Result<()> {
     );
     writeln!(enums_priv, "#pragma once")?;
     writeln!(enums_priv, "// This file is auto-generated from {}", file!())?;
+    writeln!(enums_priv, "#include <slint_properties.h>")?;
+    writeln!(enums_priv, "#include <slint_color.h>")?;
+    writeln!(enums_priv, "#include <slint_image.h>")?;
     writeln!(enums_priv, "#include \"slint_enums.h\"")?;
     writeln!(enums_priv, "namespace slint::cbindgen_private {{")?;
     let mut enums_pub = BufWriter::new(
