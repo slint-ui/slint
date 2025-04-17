@@ -314,6 +314,10 @@ class EditorPaneWidget extends Widget {
             model: model_ref.object.textEditorModel,
         });
 
+        this.#editor.onDidFocusEditorText((_) => {
+            EDITOR_WIDGET!.switch_to_pane(this);
+        });
+
         this.setFlag(Widget.Flag.DisallowLayout);
         this.addClass("content");
         this.addClass("editor");
@@ -358,7 +362,7 @@ export class EditorWidget extends Widget {
     #layout: BoxLayout;
     #tab_map: Map<string, EditorPaneWidget> = new Map();
     #tab_panel: TabPanel | null = null;
-    #open_files: [monaco.IDisposable] = [];
+    #open_files: monaco.IDisposable[] = [];
 
     #client: MonacoLanguageClient | null = null;
 
@@ -430,6 +434,10 @@ export class EditorWidget extends Widget {
                 }
             },
         });
+    }
+
+    switch_to_pane(pane: EditorPaneWidget) {
+        this.#tab_panel!.currentWidget = pane;
     }
 
     private async open_default_content() {
