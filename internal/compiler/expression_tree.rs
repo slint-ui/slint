@@ -79,7 +79,7 @@ pub enum BuiltinFunction {
     ColorScheme,
     SupportsNativeMenuBar,
     /// Setup the native menu bar, or the item-tree based menu bar
-    /// arguments ate: `(ref entries, ref sub-menu, ref activated, item_tree_root?, no_native_menu_bar?)`
+    /// arguments are: `(ref entries, ref sub-menu, ref activated, item_tree_root?, no_native_menu_bar?)`
     /// The two last arguments are only set if the menu is an item tree, in which case, `item_tree_root` is a reference
     /// to the MenuItem tree root (just like the entries in the [`Self::ShowPopupMenu`] call), and `native_menu_bar` is
     /// is a boolean literal that is true when we shouldn't try to setup the native menu bar.
