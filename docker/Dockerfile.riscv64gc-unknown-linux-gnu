@@ -9,7 +9,7 @@ RUN dpkg --add-architecture riscv64 && \
     apt-get update && \
     DEBIAN_FRONTEND=noninteractive  apt-get install --assume-yes libfontconfig1-dev:riscv64 libxcb1-dev:riscv64 libxcb-render0-dev:riscv64 libxcb-shape0-dev:riscv64 libxcb-xfixes0-dev:riscv64 libxkbcommon-dev:riscv64 libinput-dev:riscv64 libgbm-dev:riscv64 python3 python3-pip \
     libfontconfig1-dev \
-    clang libstdc++-10-dev:riscv64 ninja-build
+    clang libstdc++-10-dev:riscv64 ninja-build linux-libc-dev:riscv64=5.4.0-212.232 linux-libc-dev=5.4.0-212.232
 
 # Work around the Skia source build requiring a newer git version (that supports --path-format=relative with rev-parse, as needed by git-sync-deps.py),
 # as well as a disabling of the directory safety checks (https://github.blog/2022-04-12-git-security-vulnerability-announced/#cve-2022-24765) as
