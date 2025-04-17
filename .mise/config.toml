@@ -18,6 +18,7 @@
 node = "20"
 pnpm = "latest"
 taplo = "latest"
+"ubi:rustwasm/wasm-pack" = "latest"
 
 [task_config]
 includes = [".mise/tasks.toml", ".mise/tasks"]
