@@ -635,7 +635,6 @@ export async function generateRectangleSnippet(
         // --- End try...catch ---
     }
 
-    properties.sort();
     return `Rectangle {\n${properties.join("\n")}\n}`;
 }
 export async function generateTextSnippet(
@@ -875,7 +874,6 @@ export async function generateTextSnippet(
         }
     }
 
-    properties.sort();
     console.log(
         `[generateTextSnippet] Finished processing properties for node. Snippet content:\nText {\n${properties.join("\n")}\n}`,
     );
