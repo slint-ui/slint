@@ -1,22 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-// // Helper to convert Figma color values to Slint format
-function convertColor(color: RGB | RGBA): string {
-    const r = Math.round(color.r * 255);
-    const g = Math.round(color.g * 255);
-    const b = Math.round(color.b * 255);
-
-    if ("a" in color) {
-        if (color.a === 1) {
-            return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
-        } else {
-            return `rgba(${r}, ${g}, ${b}, ${color.a})`;
-        }
-    }
-
-    return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
-}
+import { rgbToHex } from "./property-parsing";
 
 /**
  * Helper to get the appropriate Slint type for a Figma variable type
@@ -1084,7 +1069,12 @@ export async function exportFigmaVariablesToSeparateFiles(
                                 value &&
                                 "r" in value
                             ) {
-                                formattedValue = convertColor(value);
+                                formattedValue = rgbToHex({
+                                    r: value.r,
+                                    g: value.g,
+                                    b: value.b,
+                                    a: "a" in value ? value.a : 1,
+                                });
                             } else if (
                                 typeof value === "object" &&
                                 value &&
