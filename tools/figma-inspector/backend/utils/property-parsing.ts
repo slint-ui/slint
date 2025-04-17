@@ -18,6 +18,8 @@ const rectangleProperties = [
 ];
 
 const textProperties = [
+    "x",
+    "y",
     "text",
     "fill",
     "font-family",
@@ -420,6 +422,7 @@ export async function generateSlintSnippet(
 
     switch (nodeType) {
         case "FRAME":
+            return await generateRectangleSnippet(sceneNode); // Await result
         case "RECTANGLE":
         case "COMPONENT": // Add Component type
         case "INSTANCE": // Add Instance type
@@ -653,6 +656,64 @@ export async function generateTextSnippet(
     for (const property of textProperties) {
         try {
             switch (property) {
+                // --- Add case for x ---
+                case "x":
+                    const boundXVarId = (sceneNode as any).boundVariables?.x
+                        ?.id; // Assume direct object binding
+                    let xValue: string | null = null;
+                    if (boundXVarId) {
+                        xValue = await getVariablePathString(boundXVarId);
+                        console.log(
+                            `[generateTextSnippet] x: Using variable path: ${xValue}`,
+                        );
+                    }
+                    if (
+                        !xValue &&
+                        "x" in sceneNode &&
+                        typeof sceneNode.x === "number"
+                    ) {
+                        const x = roundNumber(sceneNode.x);
+                        if (x !== null) {
+                            // roundNumber returns null for 0
+                            xValue = `${x}px`;
+                            console.log(
+                                `[generateTextSnippet] x: Using numeric value: ${xValue}`,
+                            );
+                        }
+                    }
+                    if (xValue) {
+                        properties.push(`${indentation}x: ${xValue};`);
+                    }
+                    break;
+                // --- Add case for y ---
+                case "y":
+                    const boundYVarId = (sceneNode as any).boundVariables?.y
+                        ?.id; // Assume direct object binding
+                    let yValue: string | null = null;
+                    if (boundYVarId) {
+                        yValue = await getVariablePathString(boundYVarId);
+                        console.log(
+                            `[generateTextSnippet] y: Using variable path: ${yValue}`,
+                        );
+                    }
+                    if (
+                        !yValue &&
+                        "y" in sceneNode &&
+                        typeof sceneNode.y === "number"
+                    ) {
+                        const y = roundNumber(sceneNode.y);
+                        if (y !== null) {
+                            // roundNumber returns null for 0
+                            yValue = `${y}px`;
+                            console.log(
+                                `[generateTextSnippet] y: Using numeric value: ${yValue}`,
+                            );
+                        }
+                    }
+                    if (yValue) {
+                        properties.push(`${indentation}y: ${yValue};`);
+                    }
+                    break;
                 case "text":
                     // Assuming 'characters' binding is also an array if it exists
                     const boundCharsVarId = (sceneNode as any).boundVariables
