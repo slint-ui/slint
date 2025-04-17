@@ -22,20 +22,14 @@ const textProperties = [
 
 const unsupportedNodeProperties = ["x", "y", "width", "height", "opacity"];
 
-export type RGBAColor = {
-    r: number;
-    g: number;
-    b: number;
-    a: number;
-};
-
-export function rgbToHex(rgba: RGBAColor): string {
+export function rgbToHex(rgba: RGB | RGBA): string {
     const red = Math.round(rgba.r * 255);
     const green = Math.round(rgba.g * 255);
     const blue = Math.round(rgba.b * 255);
-    const alpha = Math.round(rgba.a * 255);
+    const alphaF = "a" in rgba ? rgba.a : 1;
+    const alpha = Math.round(alphaF);
 
-    const values = rgba.a < 1 ? [red, green, blue, alpha] : [red, green, blue];
+    const values = alphaF < 1 ? [red, green, blue, alpha] : [red, green, blue];
     return "#" + values.map((x) => x.toString(16).padStart(2, "0")).join("");
 }
 
@@ -66,7 +60,7 @@ export function generateRadialGradient(fill: {
 
 export function generateLinearGradient(fill: {
     opacity: number;
-    gradientStops: Array<{ color: RGBAColor; position: number }>;
+    gradientStops: Array<{ color: RGBA; position: number }>;
     gradientTransform: number[][];
 }): string {
     if (!fill.gradientStops || fill.gradientStops.length < 2) {
