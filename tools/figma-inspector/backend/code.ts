@@ -7,7 +7,8 @@ import { generateSlintSnippet } from "./utils/property-parsing.js";
 import { exportFigmaVariablesToSeparateFiles } from "./utils/export-variables.js";
 if (figma.editorType === "dev" && figma.mode === "codegen") {
     figma.codegen.on("generate", async ({ node }: { node: SceneNode }) => {
-        try { // Add try...catch for async errors
+        try {
+            // Add try...catch for async errors
             // --- Await the async function ---
             const slintSnippet = await generateSlintSnippet(node);
             // --- End Await ---
@@ -26,11 +27,11 @@ if (figma.editorType === "dev" && figma.mode === "codegen") {
             console.error("Error during codegen generate:", error);
             // Return an error message or empty array on failure
             return [
-                 {
-                      title: "Error Generating Slint",
-                      language: "PLAINTEXT",
-                      code: `// Failed to generate Slint snippet for ${node.name}:\n// ${error}`,
-                  },
+                {
+                    title: "Error Generating Slint",
+                    language: "PLAINTEXT",
+                    code: `// Failed to generate Slint snippet for ${node.name}:\n// ${error}`,
+                },
             ];
         }
     });
