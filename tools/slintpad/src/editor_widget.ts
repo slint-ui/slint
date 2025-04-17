@@ -390,46 +390,6 @@ export class EditorWidget extends Widget {
         this.clear_editors();
 
         this.open_default_content();
-
-        monaco.editor.registerEditorOpener({
-            openCodeEditor: (_source, uri, position) => {
-                const pane = this.#tab_map.get(uri.toString());
-                if (pane) {
-                    this.#tab_panel!.currentWidget = pane;
-
-                    pane.editor.focus();
-
-                    if (position instanceof monaco.Position) {
-                        pane.editor.setSelection(
-                            {
-                                startLineNumber: position.lineNumber,
-                                startColumn: position.column,
-                                endLineNumber: position.lineNumber,
-                                endColumn: position.column,
-                            },
-                            "lsp:gotoDefinition",
-                        );
-                        pane.editor.revealPositionNearTop(
-                            position,
-                            monaco.editor.ScrollType.Immediate,
-                        );
-                    } else if (position instanceof monaco.Range) {
-                        pane.editor.setSelection(
-                            position,
-                            "lsp:gotoDefinition",
-                        );
-                        pane.editor.revealRangeNearTop(
-                            position,
-                            monaco.editor.ScrollType.Immediate,
-                        );
-                    }
-
-                    return true;
-                } else {
-                    return false;
-                }
-            },
-        });
     }
 
     private async open_default_content() {
