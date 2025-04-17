@@ -3657,27 +3657,35 @@ fn compile_builtin_function_call(
         }
         BuiltinFunction::SetupNativeMenuBar => {
             let window = access_window_field(ctx);
-            if let [llr::Expression::PropertyReference(entries_r), llr::Expression::PropertyReference(sub_menu_r), llr::Expression::PropertyReference(activated_r), llr::Expression::NumberLiteral(tree_index)] = arguments {
+            if let [llr::Expression::PropertyReference(entries_r), llr::Expression::PropertyReference(sub_menu_r), llr::Expression::PropertyReference(activated_r), llr::Expression::NumberLiteral(tree_index), llr::Expression::BoolLiteral(no_native)] = arguments {
                 let current_sub_component = ctx.current_sub_component().unwrap();
                 let item_tree_id = ident(&ctx.compilation_unit.sub_components[current_sub_component.menu_item_trees[*tree_index as usize].root].name);
                 let access_entries = access_member(entries_r, ctx);
                 let access_sub_menu = access_member(sub_menu_r, ctx);
                 let access_activated = access_member(activated_r, ctx);
-                format!(r"
-                    if ({window}.supports_native_menu_bar()) {{
-                        auto item_tree = {item_tree_id}::create(self);
-                        auto item_tree_dyn = item_tree.into_dyn();
-                        vtable::VBox<slint::cbindgen_private::MenuVTable> box{{}};
-                        slint::cbindgen_private::slint_menus_create_wrapper(&item_tree_dyn, &box);
-                        slint::cbindgen_private::slint_windowrc_setup_native_menu_bar(&{window}.handle(), const_cast<slint::cbindgen_private::MenuVTable*>(box.vtable), box.instance);
-                        // The ownership of the VBox is transferred to slint_windowrc_setup_native_menu_bar
-                        box.instance = nullptr;
-                        box.vtable = nullptr;
-                    }} else {{
+                if *no_native {
+                    format!(r"{{
                         auto item_tree = {item_tree_id}::create(self);
                         auto item_tree_dyn = item_tree.into_dyn();
                         slint::private_api::setup_popup_menu_from_menu_item_tree(item_tree_dyn, {access_entries}, {access_sub_menu}, {access_activated});
                     }}")
+                } else {
+                    format!(r"
+                        if ({window}.supports_native_menu_bar()) {{
+                            auto item_tree = {item_tree_id}::create(self);
+                            auto item_tree_dyn = item_tree.into_dyn();
+                            vtable::VBox<slint::cbindgen_private::MenuVTable> box{{}};
+                            slint::cbindgen_private::slint_menus_create_wrapper(&item_tree_dyn, &box);
+                            slint::cbindgen_private::slint_windowrc_setup_native_menu_bar(&{window}.handle(), const_cast<slint::cbindgen_private::MenuVTable*>(box.vtable), box.instance);
+                            // The ownership of the VBox is transferred to slint_windowrc_setup_native_menu_bar
+                            box.instance = nullptr;
+                            box.vtable = nullptr;
+                        }} else {{
+                            auto item_tree = {item_tree_id}::create(self);
+                            auto item_tree_dyn = item_tree.into_dyn();
+                            slint::private_api::setup_popup_menu_from_menu_item_tree(item_tree_dyn, {access_entries}, {access_sub_menu}, {access_activated});
+                        }}")
+                }
             } else if let [entries, llr::Expression::PropertyReference(sub_menu), llr::Expression::PropertyReference(activated)] = arguments {
                 let entries = compile_expression(entries, ctx);
                 let sub_menu = access_member(sub_menu, ctx);

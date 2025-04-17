@@ -1101,7 +1101,7 @@ fn call_builtin_function(
             .into(),
         BuiltinFunction::SetupNativeMenuBar => {
             let component = local_context.component_instance;
-            if let [Expression::PropertyReference(entries_nr), Expression::PropertyReference(sub_menu_nr), Expression::PropertyReference(activated_nr), Expression::ElementReference(item_tree_root)] =
+            if let [Expression::PropertyReference(entries_nr), Expression::PropertyReference(sub_menu_nr), Expression::PropertyReference(activated_nr), Expression::ElementReference(item_tree_root), Expression::BoolLiteral(no_native)] =
                 arguments
             {
                 let menu_item_tree = item_tree_root
@@ -1115,7 +1115,7 @@ fn call_builtin_function(
                     crate::dynamic_item_tree::make_menu_item_tree(&menu_item_tree, &component);
 
                 if let Some(w) = component.window_adapter().internal(i_slint_core::InternalToken) {
-                    if w.supports_native_menu_bar() {
+                    if !no_native && w.supports_native_menu_bar() {
                         w.setup_menubar(vtable::VBox::new(menu_item_tree));
                         return Value::Void;
                     }

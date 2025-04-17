@@ -1314,6 +1314,7 @@ async fn parse_source(
         cc.resource_url_mapper = resource_url_mapper();
     }
     cc.embed_resources = EmbedResourcesKind::ListAllResources;
+    cc.no_native_menu = true;
 
     if !style.is_empty() {
         cc.style = Some(style);
