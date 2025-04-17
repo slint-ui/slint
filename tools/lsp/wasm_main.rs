@@ -278,11 +278,11 @@ impl SlintServer {
                     diagnostics,
                 );
             }
-            M::ShowDocument { file, selection, take_focus } => {
+            M::ShowDocument { file, selection, .. } => {
                 let sn = self.ctx.server_notifier.clone();
                 wasm_bindgen_futures::spawn_local(async move {
                     crate::common::lsp_to_editor::send_show_document_to_editor(
-                        sn, file, selection, take_focus,
+                        sn, file, selection, true,
                     )
                     .await
                 });
