@@ -224,8 +224,8 @@ importers:
         specifier: 3.10.1
         version: 3.10.1
       shiki:
-        specifier: ^3.2.1
-        version: 3.2.1
+        specifier: 3.2.2
+        version: 3.2.2
       typescript:
         specifier: 5.8.3
         version: 5.8.3
