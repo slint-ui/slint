@@ -3085,7 +3085,7 @@ fn compile_builtin_function_call(
         }
         BuiltinFunction::SetupNativeMenuBar => {
             let window_adapter_tokens = access_window_adapter_field(ctx);
-            if let [Expression::PropertyReference(entries_r), Expression::PropertyReference(sub_menu_r), Expression::PropertyReference(activated_r), Expression::NumberLiteral(tree_index)] =
+            if let [Expression::PropertyReference(entries_r), Expression::PropertyReference(sub_menu_r), Expression::PropertyReference(activated_r), Expression::NumberLiteral(tree_index), Expression::BoolLiteral(no_native)] =
                 arguments
             {
                 // We have an MenuItem tree
@@ -3099,12 +3099,19 @@ fn compile_builtin_function_call(
                 let access_sub_menu = access_member(sub_menu_r, ctx).unwrap();
                 let access_activated = access_member(activated_r, ctx).unwrap();
 
+                let native_impl = if *no_native {
+                    quote!()
+                } else {
+                    quote!(if sp::WindowInner::from_pub(#window_adapter_tokens.window()).supports_native_menu_bar() {
+                        sp::WindowInner::from_pub(#window_adapter_tokens.window()).setup_menubar(sp::VBox::new(menu_item_tree));
+                    } else)
+                };
+
                 quote!({
                     let menu_item_tree_instance = #item_tree_id::new(_self.self_weak.get().unwrap().clone()).unwrap();
                     let menu_item_tree = sp::MenuFromItemTree::new(sp::VRc::into_dyn(menu_item_tree_instance));
-                    if sp::WindowInner::from_pub(#window_adapter_tokens.window()).supports_native_menu_bar() {
-                        sp::WindowInner::from_pub(#window_adapter_tokens.window()).setup_menubar(sp::VBox::new(menu_item_tree));
-                    } else {
+                    #native_impl
+                    /*else*/ {
                         let menu_item_tree = sp::Rc::new(menu_item_tree);
                         let menu_item_tree_ = menu_item_tree.clone();
                         #access_entries.set_binding(move || {
