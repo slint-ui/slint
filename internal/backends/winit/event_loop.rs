@@ -25,46 +25,9 @@ use winit::event::WindowEvent;
 use winit::event_loop::ActiveEventLoop;
 use winit::event_loop::ControlFlow;
 use winit::window::ResizeDirection;
+
 pub(crate) struct NotRunningEventLoop {
     pub(crate) instance: winit::event_loop::EventLoop<SlintEvent>,
-}
-
-impl NotRunningEventLoop {
-    pub(crate) fn new(mut builder: crate::EventLoopBuilder) -> Result<Self, PlatformError> {
-        #[cfg(all(unix, not(target_vendor = "apple")))]
-        {
-            #[cfg(feature = "wayland")]
-            {
-                use winit::platform::wayland::EventLoopBuilderExtWayland;
-                builder.with_any_thread(true);
-            }
-            #[cfg(feature = "x11")]
-            {
-                use winit::platform::x11::EventLoopBuilderExtX11;
-                builder.with_any_thread(true);
-
-                // Under WSL, the compositor sometimes crashes. Since we cannot reconnect after the compositor
-                // was restarted, the application panics. This does not happen when using XWayland. Therefore,
-                // when running under WSL, try to connect to X11 instead.
-                #[cfg(feature = "wayland")]
-                if std::fs::metadata("/proc/sys/fs/binfmt_misc/WSLInterop").is_ok()
-                    || std::fs::metadata("/run/WSL").is_ok()
-                {
-                    builder.with_x11();
-                }
-            }
-        }
-        #[cfg(target_family = "windows")]
-        {
-            use winit::platform::windows::EventLoopBuilderExtWindows;
-            builder.with_any_thread(true);
-        }
-
-        let instance =
-            builder.build().map_err(|e| format!("Error initializing winit event loop: {e}"))?;
-
-        Ok(Self { instance })
-    }
 }
 
 pub(crate) struct RunningEventLoop<'a> {
