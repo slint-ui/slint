@@ -39,7 +39,7 @@ function getSlintType(figmaType: string): string {
 }
 
 // Helper to format struct/global name for Slint (PascalCase) with sanitization
-function formatStructName(name: string): string {
+export function formatStructName(name: string): string {
     let sanitizedName = name.startsWith(".") ? name.substring(1) : name;
 
     // If that made it empty, use a default
@@ -116,7 +116,7 @@ function formatVariableName(name: string): string {
     return sanitizedName;
 }
 
-function sanitizePropertyName(name: string): string {
+export function sanitizePropertyName(name: string): string {
     // Check if starts with a digit
     if (/^\d/.test(name)) {
         return `_${name}`;
@@ -187,7 +187,7 @@ function detectCycle(dependencies: Map<string, Set<string>>): boolean {
     return false; // No cycles found in the entire graph
 }
 // Extract hierarchy from variable name (e.g. "colors/primary/base" → ["colors", "primary", "base"])
-function extractHierarchy(name: string): string[] {
+export function extractHierarchy(name: string): string[] {
     // First try splitting by slashes (the expected format)
     if (name.includes("/")) {
         return name.split("/").map((part) => formatVariableName(part));

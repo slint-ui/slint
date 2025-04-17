@@ -45,19 +45,62 @@ export const setStore = async (key: string, value: string) => {
     await figma.clientStorage.setAsync(key, value);
 };
 
-export function updateUI() {
-    const currentSelection = figma.currentPage.selection;
+export async function updateUI() {
+    console.log("[updateUI] Function execution started.");
+    const selection = figma.currentPage.selection;
+    let title = "No selection";
+    let slintSnippet: string | null = null;
+    let messagePayload: any = null; // Define outside try block
 
-    if (currentSelection.length === 0) {
-        const title = "Nothing selected";
-        const slintSnippet = "";
-        figma.ui.postMessage({ title, slintSnippet });
-        dispatchTS("updatePropertiesCallback", { title, slintSnippet });
-        return;
+    try { // --- Wrap more logic ---
+        if (selection.length === 1) {
+            const node = selection[0];
+            title = node.name;
+            // Keep inner try...catch for specific snippet generation error
+            try {
+                console.log(`[updateUI] Calling generateSlintSnippet for node: ${node.name}`);
+                slintSnippet = await generateSlintSnippet(node);
+                // --- Log immediately after await ---
+                console.log(`[updateUI] generateSlintSnippet returned: ${slintSnippet ? 'Snippet received' : 'null'}`);
+            } catch (snippetError) {
+                console.error("[updateUI] Caught error DURING generateSlintSnippet:", snippetError);
+                slintSnippet = "// Error generating snippet. See console.";
+            }
+        } else if (selection.length > 1) {
+            title = "Multiple items selected";
+        }
+
+        // --- Create payload and log within the try block ---
+        messagePayload = {
+            type: "updatePropertiesCallback",
+            title: title,
+            slintSnippet: slintSnippet ?? "// Could not generate snippet.",
+        };
+
+        console.log(`[updateUI] Preparing to post message. Snippet is null: ${slintSnippet === null}`);
+        console.log(`[updateUI] Payload:`, JSON.stringify(messagePayload));
+        // --- End create payload and log ---
+
+    } catch (outerError) { // --- Catch errors during selection handling or payload creation ---
+        console.error("[updateUI] >>> ERROR before posting message:", outerError);
+        // Attempt to create a fallback error payload
+        messagePayload = {
+            type: "updatePropertiesCallback",
+            title: "Error",
+            slintSnippet: `// Error preparing UI update: ${outerError instanceof Error ? outerError.message : outerError}`
+        };
+         console.log(`[updateUI] Created fallback error payload.`);
     }
 
-    const node = currentSelection[0];
-    const title = "Slint Code: " + node.name;
-    const slintSnippet = generateSlintSnippet(node) ?? "";
-    dispatchTS("updatePropertiesCallback", { title, slintSnippet });
+    // --- Post Message (outside the main try block, but payload is guaranteed to exist) ---
+    if (messagePayload) {
+        try {
+            figma.ui.postMessage(messagePayload);
+            console.log(`[updateUI] Successfully posted message to UI.`);
+        } catch (postError) {
+             console.error(`[updateUI] Error POSTING message to UI:`, postError);
+        }
+    } else {
+        console.error("[updateUI] messagePayload was unexpectedly null, cannot post to UI.");
+    }
 }
