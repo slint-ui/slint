@@ -502,7 +502,7 @@ export function generateUnsupportedNodeSnippet(sceneNode: SceneNode): string {
 export async function generateRectangleSnippet(
     sceneNode: SceneNode,
 ): Promise<string> {
-    const properties: string[] = [];
+    const parentProperties: string[] = []; // Renamed for clarity
     if ("boundVariables" in sceneNode) {
         console.log(
             "[generateRectangleSnippet] Inspecting sceneNode.boundVariables:",
@@ -517,6 +517,64 @@ export async function generateRectangleSnippet(
         // --- Add try...catch around each property's logic ---
         try {
             switch (property) {
+                case "x":
+                    const boundXVarId = (sceneNode as any).boundVariables?.x
+                        ?.id; // Assume direct object binding
+                    let xValue: string | null = null;
+                    if (boundXVarId) {
+                        xValue = await getVariablePathString(boundXVarId);
+                        console.log(
+                            `[generateTextSnippet] x: Using variable path: ${xValue}`,
+                        );
+                    }
+                    if (
+                        !xValue &&
+                        "x" in sceneNode &&
+                        typeof sceneNode.x === "number"
+                    ) {
+                        const x = roundNumber(sceneNode.x);
+                        if (x !== null) {
+                            // roundNumber returns null for 0
+                            xValue = `${x}px`;
+                            console.log(
+                                `[generateTextSnippet] x: Using numeric value: ${xValue}`,
+                            );
+                        }
+                    }
+                    if (xValue) {
+                        parentProperties.push(`${indentation}x: ${xValue};`);
+                    }
+                    break;
+                // --- Add case for y ---
+                case "y":
+                    const boundYVarId = (sceneNode as any).boundVariables?.y
+                        ?.id; // Assume direct object binding
+                    let yValue: string | null = null;
+                    if (boundYVarId) {
+                        yValue = await getVariablePathString(boundYVarId);
+                        console.log(
+                            `[generateTextSnippet] y: Using variable path: ${yValue}`,
+                        );
+                    }
+                    if (
+                        !yValue &&
+                        "y" in sceneNode &&
+                        typeof sceneNode.y === "number"
+                    ) {
+                        const y = roundNumber(sceneNode.y);
+                        if (y !== null) {
+                            // roundNumber returns null for 0
+                            yValue = `${y}px`;
+                            console.log(
+                                `[generateTextSnippet] y: Using numeric value: ${yValue}`,
+                            );
+                        }
+                    }
+                    if (yValue) {
+                        parentProperties.push(`${indentation}y: ${yValue};`);
+                    }
+                    break;
+
                 case "width":
                     const boundWidthVarId = (sceneNode as any).boundVariables
                         ?.width?.id;
@@ -532,7 +590,7 @@ export async function generateRectangleSnippet(
                         }
                     }
                     if (widthValue) {
-                        properties.push(`${indentation}width: ${widthValue};`);
+                        parentProperties.push(`${indentation}width: ${widthValue};`);
                     }
                     break;
                 case "height":
@@ -550,7 +608,7 @@ export async function generateRectangleSnippet(
                         }
                     }
                     if (heightValue) {
-                        properties.push(
+                        parentProperties.push(
                             `${indentation}height: ${heightValue};`,
                         );
                     }
@@ -574,14 +632,14 @@ export async function generateRectangleSnippet(
                                 fillValue = getBrush(firstFill);
                             }
                             if (fillValue) {
-                                properties.push(
+                                parentProperties.push(
                                     `${indentation}background: ${fillValue};`,
                                 );
                             }
                         } else {
                             const brush = getBrush(firstFill);
                             if (brush) {
-                                properties.push(
+                                parentProperties.push(
                                     `${indentation}background: ${brush};`,
                                 );
                             }
@@ -590,7 +648,7 @@ export async function generateRectangleSnippet(
                     break;
                 case "opacity":
                     if ("opacity" in sceneNode && sceneNode.opacity !== 1) {
-                        properties.push(
+                        parentProperties.push(
                             `${indentation}opacity: ${Math.round(sceneNode.opacity * 100)}%;`,
                         );
                     }
@@ -599,7 +657,7 @@ export async function generateRectangleSnippet(
                     // --- Ensure this uses await and the new async getBorderRadius ---
                     const borderRadiusProp = await getBorderRadius(sceneNode); // Use await
                     if (borderRadiusProp !== null) {
-                        properties.push(borderRadiusProp);
+                        parentProperties.push(borderRadiusProp);
                         // Use new log message
                         console.log(
                             `[generateRectangleSnippet] Added border-radius property: ${borderRadiusProp.includes("\n") ? "\n" + borderRadiusProp : borderRadiusProp}`,
@@ -617,7 +675,7 @@ export async function generateRectangleSnippet(
                     const borderWidthAndColor =
                         await getBorderWidthAndColor(sceneNode);
                     if (borderWidthAndColor !== null) {
-                        properties.push(...borderWidthAndColor);
+                        parentProperties.push(...borderWidthAndColor);
                     }
                     break;
             }
@@ -628,15 +686,56 @@ export async function generateRectangleSnippet(
                 err,
             );
             // Optionally add a comment to the snippet indicating the error
-            properties.push(
+            parentProperties.push(
                 `${indentation}// Error processing ${property}: ${err instanceof Error ? err.message : err}`,
             );
         }
         // --- End try...catch ---
     }
 
-    return `Rectangle {\n${properties.join("\n")}\n}`;
+
+    parentProperties.sort();
+
+    // --- 2. Process Children Recursively ---
+    let childSnippets: string[] = [];
+    if ("children" in sceneNode && Array.isArray(sceneNode.children)) {
+        console.log(`[generateRectangleSnippet] Processing ${sceneNode.children.length} children for ${sceneNode.name}...`);
+
+        // Create promises for generating each child's snippet
+        const childPromises = sceneNode.children.map(childNode =>
+            generateSlintSnippet(childNode) // <<< --- RECURSIVE CALL --- >>>
+                .catch(err => { // Add catch here to prevent Promise.all failure
+                    console.error(`[generateRectangleSnippet] Error generating snippet for child ${childNode.name}:`, err);
+                    return `// Error generating snippet for child ${childNode.name}`; // Return error comment
+                })
+        );
+
+        // Wait for all child snippets to be generated
+        const resolvedChildSnippets = await Promise.all(childPromises);
+
+        // Filter out null results (unsupported types) and indent valid snippets
+        childSnippets = resolvedChildSnippets
+            .filter((snippet): snippet is string => snippet !== null && snippet.trim() !== "") // Keep non-null, non-empty strings
+            .map(snippet => {
+                // Indent the entire child snippet block
+                return snippet.split('\n').map(line => `${indentation}${line}`).join('\n');
+            });
+
+         console.log(`[generateRectangleSnippet] Finished processing children for ${sceneNode.name}. Got ${childSnippets.length} valid snippets.`);
+    }
+
+    let combinedContent = parentProperties.join("\n");
+    if (childSnippets.length > 0) {
+        // Add a separator if both parent properties and children exist
+        if (parentProperties.length > 0) {
+             combinedContent += "\n\n" + indentation + "// --- Children ---";
+        }
+        combinedContent += "\n" + childSnippets.join("\n\n"); // Add newline between children
+    }
+
+    return `Rectangle {\n${combinedContent}\n}`; // Use Rectangle as base, could be Frame etc.
 }
+
 export async function generateTextSnippet(
     sceneNode: SceneNode,
 ): Promise<string> {
@@ -713,6 +812,45 @@ export async function generateTextSnippet(
                         properties.push(`${indentation}y: ${yValue};`);
                     }
                     break;
+                                case "width":
+                    const boundWidthVarId = (sceneNode as any).boundVariables
+                        ?.width?.id;
+                    let widthValue: string | null = null;
+                    if (boundWidthVarId) {
+                        widthValue =
+                            await getVariablePathString(boundWidthVarId);
+                    }
+                    if (!widthValue && "width" in sceneNode) {
+                        const normalizedWidth = roundNumber(sceneNode.width);
+                        if (normalizedWidth) {
+                            widthValue = `${normalizedWidth}px`;
+                        }
+                    }
+                    if (widthValue) {
+                        properties.push(`${indentation}width: ${widthValue};`);
+                    }
+                    break;
+                case "height":
+                    const boundHeightVarId = (sceneNode as any).boundVariables
+                        ?.height?.id;
+                    let heightValue: string | null = null;
+                    if (boundHeightVarId) {
+                        heightValue =
+                            await getVariablePathString(boundHeightVarId);
+                    }
+                    if (!heightValue && "height" in sceneNode) {
+                        const normalizedHeight = roundNumber(sceneNode.height);
+                        if (normalizedHeight) {
+                            heightValue = `${normalizedHeight}px`;
+                        }
+                    }
+                    if (heightValue) {
+                        properties.push(
+                            `${indentation}height: ${heightValue};`,
+                        );
+                    }
+                    break;
+
                 case "text":
                     // Assuming 'characters' binding is also an array if it exists
                     const boundCharsVarId = (sceneNode as any).boundVariables
