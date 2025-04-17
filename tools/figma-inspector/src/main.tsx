@@ -300,9 +300,18 @@ export const App = () => {
     return (
         <div className="container">
             <div className="title">
-                {title || "Slint Figma Inspector"}
+                {/* Wrap title in a span with ellipsis styles */}
+                <span style={{
+                    display: 'block', // Or 'inline-block'
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    maxWidth: 'calc(100% - 30px)' // Adjust width to leave space for icon
+                 }}>
+                    {title || "Slint Figma Inspector"}
+                </span>
                 {slintProperties !== "" && (
-                    <div>
+                    <div style={{ flexShrink: 0 }}> {/* Prevent icon from shrinking */}
                         <span
                             id="copy-icon"
                             onClick={() => copyToClipboard(slintProperties)}
@@ -314,6 +323,7 @@ export const App = () => {
                     </div>
                 )}
             </div>
+
 
             <CodeSnippet
                 code={slintProperties || "// Select a component to inspect"}
@@ -372,7 +382,7 @@ export const App = () => {
                         onClick={handleExportClick}
                         onKeyDown={(e) => {
                             if (e.key === "Enter" || e.key === " ")
-                                handleExportClick();
+                                {handleExportClick()};
                         }} // Keyboard accessibility
                         style={menuItemStyle}
                         onMouseEnter={(e) =>
