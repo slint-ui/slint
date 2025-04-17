@@ -110,50 +110,84 @@ export async function getBorderRadius(node: SceneNode): Promise<string | null> {
         if (boundCornerRadiusId) {
             const path = await getVariablePathString(boundCornerRadiusId);
             if (path) {
-                console.log(`[getBorderRadius] Using variable path for cornerRadius: ${path}`);
+                console.log(
+                    `[getBorderRadius] Using variable path for cornerRadius: ${path}`,
+                );
                 return `${indentation}border-radius: ${path};`;
             }
-            console.warn(`[getBorderRadius] Failed to get path for bound cornerRadius ID: ${boundCornerRadiusId}`);
+            console.warn(
+                `[getBorderRadius] Failed to get path for bound cornerRadius ID: ${boundCornerRadiusId}`,
+            );
         }
 
         // --- Remove [0] when accessing individual corner IDs ---
         const cornerBindings = [
-            { prop: "topLeftRadius", slint: "border-top-left-radius", id: boundVars?.topLeftRadius?.id },
-            { prop: "topRightRadius", slint: "border-top-right-radius", id: boundVars?.topRightRadius?.id },
-            { prop: "bottomLeftRadius", slint: "border-bottom-left-radius", id: boundVars?.bottomLeftRadius?.id },
-            { prop: "bottomRightRadius", slint: "border-bottom-right-radius", id: boundVars?.bottomRightRadius?.id },
+            {
+                prop: "topLeftRadius",
+                slint: "border-top-left-radius",
+                id: boundVars?.topLeftRadius?.id,
+            },
+            {
+                prop: "topRightRadius",
+                slint: "border-top-right-radius",
+                id: boundVars?.topRightRadius?.id,
+            },
+            {
+                prop: "bottomLeftRadius",
+                slint: "border-bottom-left-radius",
+                id: boundVars?.bottomLeftRadius?.id,
+            },
+            {
+                prop: "bottomRightRadius",
+                slint: "border-bottom-right-radius",
+                id: boundVars?.bottomRightRadius?.id,
+            },
         ] as const;
 
-        const boundIndividualCorners = cornerBindings.filter(c => c.id);
+        const boundIndividualCorners = cornerBindings.filter((c) => c.id);
 
         if (boundIndividualCorners.length > 0) {
             // --- Check if all bound corners use the SAME variable ID ---
-            const allSameId = boundIndividualCorners.every(c => c.id === boundIndividualCorners[0].id);
+            const allSameId = boundIndividualCorners.every(
+                (c) => c.id === boundIndividualCorners[0].id,
+            );
 
             if (allSameId && boundIndividualCorners.length === 4) {
                 // All 4 corners bound to the same variable -> use shorthand border-radius
-                const path = await getVariablePathString(boundIndividualCorners[0].id);
+                const path = await getVariablePathString(
+                    boundIndividualCorners[0].id,
+                );
                 if (path) {
-                    console.log(`[getBorderRadius] Using variable path for uniform border-radius (all corners same): ${path}`);
+                    console.log(
+                        `[getBorderRadius] Using variable path for uniform border-radius (all corners same): ${path}`,
+                    );
                     return `${indentation}border-radius: ${path};`;
                 }
-                 console.warn(`[getBorderRadius] Failed to get path for uniform bound corner ID: ${boundIndividualCorners[0].id}`);
-                 // Fall through to numeric fallback if path fails
+                console.warn(
+                    `[getBorderRadius] Failed to get path for uniform bound corner ID: ${boundIndividualCorners[0].id}`,
+                );
+                // Fall through to numeric fallback if path fails
             } else {
                 // Different variables or not all corners bound -> use individual properties
                 const radiusStrings: string[] = [];
                 for (const corner of boundIndividualCorners) {
                     const path = await getVariablePathString(corner.id);
                     if (path) {
-                        console.log(`[getBorderRadius] Using variable path for ${corner.prop}: ${path}`);
-                        radiusStrings.push(`${indentation}${corner.slint}: ${path};`);
+                        console.log(
+                            `[getBorderRadius] Using variable path for ${corner.prop}: ${path}`,
+                        );
+                        radiusStrings.push(
+                            `${indentation}${corner.slint}: ${path};`,
+                        );
                     } else {
-                         console.warn(`[getBorderRadius] Failed to get path for bound ${corner.prop} ID: ${corner.id}`);
-                         // Fall through to numeric fallback if path fails
+                        console.warn(
+                            `[getBorderRadius] Failed to get path for bound ${corner.prop} ID: ${corner.id}`,
+                        );
+                        // Fall through to numeric fallback if path fails
                     }
                 }
                 if (radiusStrings.length > 0) {
-                     return radiusStrings.join("\n");
+                    return radiusStrings.join("\n");
                 }
             }
         }
@@ -717,22 +751,33 @@ export async function generateTextSnippet(
                     }
                     break;
                 case "font-weight":
-                    // --- Access ID via array index [0] ---
                     const boundWeightVarId = (sceneNode as any).boundVariables
-                        ?.fontWeight?.[0]?.id;
+                        ?.fontWeight?.[0]?.id; // Still use [0] based on Text node structure
                     console.log(
                         `[generateTextSnippet] font-weight: Found bound variable ID? ${boundWeightVarId ?? "No"}`,
                     );
                     let weightValue: string | number | null = null;
+                    let isVariable = false; // Flag to track if value is from a variable
+
                     if (boundWeightVarId) {
-                        weightValue =
+                        const path =
                             await getVariablePathString(boundWeightVarId);
-                        console.log(
-                            `[generateTextSnippet] font-weight: getVariablePathString returned: ${weightValue ?? "null"}`,
-                        );
+                        if (path) {
+                            weightValue = path;
+                            isVariable = true; // Set flag
+                            console.log(
+                                `[generateTextSnippet] font-weight: getVariablePathString returned: ${weightValue}`,
+                            );
+                        } else {
+                            console.warn(
+                                `[generateTextSnippet] font-weight: getVariablePathString returned null for ID ${boundWeightVarId}`,
+                            );
+                        }
                     }
+
+                    // Fallback if not bound or variable path failed
                     if (
-                        !weightValue &&
+                        weightValue === null && // Use strict null check
                         "fontWeight" in sceneNode &&
                         typeof sceneNode.fontWeight === "number"
                     ) {
@@ -741,12 +786,19 @@ export async function generateTextSnippet(
                             `[generateTextSnippet] font-weight: Using fallback value: ${weightValue}`,
                         );
                     }
+
                     if (weightValue !== null) {
+                        // --- Append '/ 1px' if it's a variable path (string) ---
+                        const finalWeightValue = isVariable
+                            ? `${weightValue} / 1px`
+                            : weightValue;
+                        // --- End modification ---
+
                         properties.push(
-                            `${indentation}font-weight: ${weightValue};`,
+                            `${indentation}font-weight: ${finalWeightValue};`,
                         );
                         console.log(
-                            `[generateTextSnippet] font-weight: Added property: ${weightValue}`,
+                            `[generateTextSnippet] font-weight: Added property: ${finalWeightValue}`,
                         );
                     }
                     break;
