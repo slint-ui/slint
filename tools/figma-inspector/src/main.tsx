@@ -387,7 +387,7 @@ export const App = () => {
                                 handleExportClick();
                             }
                         }} // Keyboard accessibility
-                        style={menuItemStyle}
+                        style={{ ...menuItemStyle, padding: "8px 12px" }}
                         onMouseEnter={(e) =>
                             (e.currentTarget.style.backgroundColor =
                                 menuItemHoverStyle.backgroundColor!)
@@ -396,7 +396,7 @@ export const App = () => {
                             (e.currentTarget.style.backgroundColor = "")
                         }
                     >
-                        {exportsAreCurrent ? "Export Again" : "Export Now"}
+                        Export Collections
                     </div>
                 </div>
             </div>
