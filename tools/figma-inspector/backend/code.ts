@@ -6,24 +6,40 @@ import { listenTS, updateUI } from "./utils/code-utils.js";
 import { generateSlintSnippet } from "./utils/property-parsing.js";
 import { exportFigmaVariablesToSeparateFiles } from "./utils/export-variables.js";
 if (figma.editorType === "dev" && figma.mode === "codegen") {
-    figma.codegen.on("generate", async ({ node }) => {
-        const slintSnippet = generateSlintSnippet(node);
-        return slintSnippet
-            ? [
-                  {
-                      title: "Slint Code: " + node.name,
-                      language: "CSS",
-                      code: slintSnippet,
+    figma.codegen.on("generate", async ({ node }: { node: SceneNode }) => {
+        try { // Add try...catch for async errors
+            // --- Await the async function ---
+            const slintSnippet = await generateSlintSnippet(node);
+            // --- End Await ---
+
+            return slintSnippet
+                ? [
+                      {
+                          title: "Slint Code: " + node.name,
+                          // Use "CSS" as Figma doesn't support "SLINT" as a language option
+                          language: "CSS",
+                          code: slintSnippet,
+                      },
+                  ]
+                : [];
+        } catch (error) {
+            console.error("Error during codegen generate:", error);
+            // Return an error message or empty array on failure
+            return [
+                 {
+                      title: "Error Generating Slint",
+                      language: "PLAINTEXT",
+                      code: `// Failed to generate Slint snippet for ${node.name}:\n// ${error}`,
                   },
-              ]
-            : [];
+            ];
+        }
     });
 }
 
 if (figma.editorType === "figma" && figma.mode === "default") {
     figma.showUI(__html__, {
         themeColors: true,
-        width: 400,
+        width: 500,
         height: 320,
     });
     updateUI();
@@ -39,7 +55,10 @@ listenTS("copyToClipboard", ({ result }) => {
 
 figma.on("selectionchange", () => {
     if (figma.editorType === "figma" && figma.mode === "default") {
-        updateUI();
+        // Call async function and handle potential errors
+        updateUI().catch((err) =>
+            console.error("Error handling selection change:", err),
+        );
     }
 });
 
