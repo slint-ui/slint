@@ -44,11 +44,18 @@ figma.on("selectionchange", () => {
 });
 
 listenTS("exportToFiles", async (payload: { exportAsSingleFile?: boolean }) => {
-    console.log("[Backend] Received 'exportToFiles' request. Payload:", payload); // Check this log
+    console.log(
+        "[Backend] Received 'exportToFiles' request. Payload:",
+        payload,
+    ); // Check this log
     const shouldExportAsSingleFile = payload?.exportAsSingleFile ?? false;
-    console.log(`[Backend] Parsed shouldExportAsSingleFile: ${shouldExportAsSingleFile}`); // Check this log
+    console.log(
+        `[Backend] Parsed shouldExportAsSingleFile: ${shouldExportAsSingleFile}`,
+    ); // Check this log
     try {
-        const files = await exportFigmaVariablesToSeparateFiles(shouldExportAsSingleFile);
+        const files = await exportFigmaVariablesToSeparateFiles(
+            shouldExportAsSingleFile,
+        );
         console.log(`Exported ${files.length} collection files`);
 
         // Send to UI for downloading
@@ -57,9 +64,7 @@ listenTS("exportToFiles", async (payload: { exportAsSingleFile?: boolean }) => {
             files: files,
         });
 
-        figma.notify(
-            `${files.length} collection files ready for download!`,
-        );
+        figma.notify(`${files.length} collection files ready for download!`);
     } catch (error) {
         console.error("Error exporting to files:", error);
         figma.notify("Failed to export to files", { error: true });
@@ -86,12 +91,13 @@ listenTS("monitorVariableChanges", async () => {
     console.log("[Backend] Received 'monitorVariableChanges' from UI."); // <-- Add Log
 
     // Confirm setup to UI
-    console.log("[Backend] Posting 'variableMonitoringActive' confirmation to UI."); // <-- Add Log
+    console.log(
+        "[Backend] Posting 'variableMonitoringActive' confirmation to UI.",
+    ); // <-- Add Log
     figma.ui.postMessage({
         type: "variableMonitoringActive", // Keep this confirmation
         timestamp: Date.now(),
     });
-
 });
 listenTS("checkVariableChanges", async () => {
     await checkVariableChanges(); // Call the main async function
@@ -101,7 +107,8 @@ listenTS("checkVariableChanges", async () => {
 async function checkVariableChanges(isInitialRun = false) {
     console.log("[Backend] Running checkVariableChanges..."); // Log run
     try {
-        const collections = await figma.variables.getLocalVariableCollectionsAsync();
+        const collections =
+            await figma.variables.getLocalVariableCollectionsAsync();
         const detailedSnapshotData: Record<string, any> = {};
         let variableFetchError = false;
 
@@ -109,18 +116,24 @@ async function checkVariableChanges(isInitialRun = false) {
             detailedSnapshotData[collection.id] = {
                 id: collection.id,
                 name: collection.name,
-                modes: collection.modes.map(m => ({ id: m.modeId, name: m.name })),
+                modes: collection.modes.map((m) => ({
+                    id: m.modeId,
+                    name: m.name,
+                })),
                 variables: {}, // Store variable details here
             };
 
             // Fetch details for each variable in the collection
             // NOTE: This can be slow for *very* large numbers of variables
             for (const variableId of collection.variableIds) {
-                 try {
-                    const variable = await figma.variables.getVariableByIdAsync(variableId);
+                try {
+                    const variable =
+                        await figma.variables.getVariableByIdAsync(variableId);
                     if (variable) {
                         // Store relevant value data (e.g., valuesByMode)
-                        detailedSnapshotData[collection.id].variables[variable.id] = {
+                        detailedSnapshotData[collection.id].variables[
+                            variable.id
+                        ] = {
                             id: variable.id,
                             name: variable.name,
                             resolvedType: variable.resolvedType,
@@ -128,12 +141,16 @@ async function checkVariableChanges(isInitialRun = false) {
                             valuesByMode: variable.valuesByMode,
                         };
                     }
-                 } catch (err) {
-                    console.error(`[Backend] Error fetching variable ${variableId}:`, err);
+                } catch (err) {
+                    console.error(
+                        `[Backend] Error fetching variable ${variableId}:`,
+                        err,
+                    );
                     variableFetchError = true; // Mark that an error occurred
                     // Optionally add placeholder data or skip
-                    detailedSnapshotData[collection.id].variables[variableId] = { error: `Failed to fetch: ${err}` };
-                 }
+                    detailedSnapshotData[collection.id].variables[variableId] =
+                        { error: `Failed to fetch: ${err}` };
+                }
             }
         }
 
@@ -145,9 +162,14 @@ async function checkVariableChanges(isInitialRun = false) {
             variableMonitoring.lastSnapshot = currentSnapshot;
             variableMonitoring.initialized = true;
             variableMonitoring.lastChange = now; // Set initial timestamp
-            console.log("[Backend] Variable monitoring initialized/updated with detailed baseline snapshot.");
+            console.log(
+                "[Backend] Variable monitoring initialized/updated with detailed baseline snapshot.",
+            );
             // Optionally notify UI that it's initialized, maybe reset its state
-             figma.ui.postMessage({ type: "snapshotInitialized", timestamp: now });
+            figma.ui.postMessage({
+                type: "snapshotInitialized",
+                timestamp: now,
+            });
             return; // Don't compare on the very first run
         }
 
@@ -155,7 +177,9 @@ async function checkVariableChanges(isInitialRun = false) {
         const hasChanged = variableMonitoring.lastSnapshot !== currentSnapshot;
 
         if (hasChanged) {
-            console.log("[Backend] Detailed snapshot comparison detected changes."); // Log change detection
+            console.log(
+                "[Backend] Detailed snapshot comparison detected changes.",
+            ); // Log change detection
             variableMonitoring.lastSnapshot = currentSnapshot;
             variableMonitoring.lastChange = now;
 
@@ -164,12 +188,13 @@ async function checkVariableChanges(isInitialRun = false) {
                 type: "documentSnapshot", // Use the existing type the UI listens for
                 timestamp: now,
                 hasChanges: true, // Indicate changes found
-                details: variableFetchError ? "Snapshot updated (some variable errors)" : "Snapshot updated",
+                details: variableFetchError
+                    ? "Snapshot updated (some variable errors)"
+                    : "Snapshot updated",
             });
         } else {
             console.log("[Backend] No changes detected in detailed snapshot."); // Log no change
         }
-
     } catch (error) {
         console.error("[Backend] Error during checkVariableChanges:", error);
         // Notify UI of the error

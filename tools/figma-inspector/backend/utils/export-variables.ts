@@ -1285,9 +1285,13 @@ export async function exportFigmaVariablesToSeparateFiles(
         // Check for cycles in the dependency graph BEFORE generating file content
         const hasCycle = detectCycle(collectionDependencies);
         // --- Add Detailed Logging Here ---
-        console.log(`[DEBUG] Before final flag: exportAsSingleFile = ${exportAsSingleFile}, hasCycle = ${hasCycle}`);
+        console.log(
+            `[DEBUG] Before final flag: exportAsSingleFile = ${exportAsSingleFile}, hasCycle = ${hasCycle}`,
+        );
         const finalExportAsSingleFile = exportAsSingleFile || hasCycle;
-        console.log(`[DEBUG] After final flag: finalExportAsSingleFile = ${finalExportAsSingleFile}`);
+        console.log(
+            `[DEBUG] After final flag: finalExportAsSingleFile = ${finalExportAsSingleFile}`,
+        );
         if (hasCycle && !exportAsSingleFile) {
             console.warn(
                 "Detected collection dependency cycle. Forcing export as single file.",
@@ -1394,7 +1398,12 @@ export async function exportFigmaVariablesToSeparateFiles(
             let content = `// Generated Slint file for ${collectionData.name}\n\n`;
 
             // Add imports ONLY if final mode is multi-file
-            console.log("SINGLE FILE: final:",finalExportAsSingleFile, "not:", exportAsSingleFile);
+            console.log(
+                "SINGLE FILE: final:",
+                finalExportAsSingleFile,
+                "not:",
+                exportAsSingleFile,
+            );
             if (!finalExportAsSingleFile) {
                 // Iterate through all potentially required imports collected earlier
                 for (const importStmt of requiredImports) {
