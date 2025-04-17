@@ -376,15 +376,46 @@ pub(crate) struct SharedBackendData {
 }
 
 impl SharedBackendData {
-    fn new(builder: EventLoopBuilder) -> Result<Self, PlatformError> {
+    fn new(mut builder: EventLoopBuilder) -> Result<Self, PlatformError> {
         #[cfg(not(target_arch = "wasm32"))]
         use raw_window_handle::HasDisplayHandle;
 
-        let nre = NotRunningEventLoop::new(builder)?;
-        let event_loop_proxy = nre.instance.create_proxy();
+        #[cfg(all(unix, not(target_vendor = "apple")))]
+        {
+            #[cfg(feature = "wayland")]
+            {
+                use winit::platform::wayland::EventLoopBuilderExtWayland;
+                builder.with_any_thread(true);
+            }
+            #[cfg(feature = "x11")]
+            {
+                use winit::platform::x11::EventLoopBuilderExtX11;
+                builder.with_any_thread(true);
+
+                // Under WSL, the compositor sometimes crashes. Since we cannot reconnect after the compositor
+                // was restarted, the application panics. This does not happen when using XWayland. Therefore,
+                // when running under WSL, try to connect to X11 instead.
+                #[cfg(feature = "wayland")]
+                if std::fs::metadata("/proc/sys/fs/binfmt_misc/WSLInterop").is_ok()
+                    || std::fs::metadata("/run/WSL").is_ok()
+                {
+                    builder.with_x11();
+                }
+            }
+        }
+        #[cfg(target_family = "windows")]
+        {
+            use winit::platform::windows::EventLoopBuilderExtWindows;
+            builder.with_any_thread(true);
+        }
+
+        let event_loop =
+            builder.build().map_err(|e| format!("Error initializing winit event loop: {e}"))?;
+
+        let event_loop_proxy = event_loop.create_proxy();
         #[cfg(not(target_arch = "wasm32"))]
         let clipboard = crate::clipboard::create_clipboard(
-            &nre.instance
+            &event_loop
                 .display_handle()
                 .map_err(|display_err| PlatformError::OtherError(display_err.into()))?,
         );
@@ -394,7 +425,9 @@ impl SharedBackendData {
             active_windows: Default::default(),
             #[cfg(not(target_arch = "wasm32"))]
             clipboard: RefCell::new(clipboard),
-            not_running_event_loop: RefCell::new(Some(nre)),
+            not_running_event_loop: RefCell::new(Some(NotRunningEventLoop {
+                instance: event_loop,
+            })),
             event_loop_proxy,
         })
     }
