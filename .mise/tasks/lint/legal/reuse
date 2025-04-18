@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 #MISE description="Run xtask check reuse compliance on all files"
-#MISE tools={ "pipx:reuse" = 5 }
+#MISE tools={ "pipx:reuse" = "5" }
 
 set -e
 
