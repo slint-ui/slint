@@ -26,10 +26,10 @@ export component CustomLineEdit {
     out property <brush> fluent-control-input-active: Palette.color-scheme == ColorScheme.dark ? #1E1E1EB3 : #FFFFFF;
 
     width: 100px;
-    height: StyleMetrics.style-name == "cupertino" ? 22px : StyleMetrics.style-name == "fluent" ? 32px : 33px;
+    height: Platform.style-name == "cupertino" ? 22px : Platform.style-name == "fluent" ? 32px : 33px;
 
     FocusBorder {
-        visible: StyleMetrics.style-name == "cupertino";
+        visible: Platform.style-name == "cupertino";
         x: (parent.width - self.width) / 2;
         y: (parent.height - self.height) / 2;
         width: parent.width + 6px;
@@ -40,8 +40,8 @@ export component CustomLineEdit {
     background := Rectangle {
         background: Palette.control-background;
         border-width: 1px;
-        border-color: StyleMetrics.style-name == "fluent" ? fluent-text-control-border : Palette.border;
-        border-radius: StyleMetrics.style-name == "fluent" ? 4px : 0px;
+        border-color: Platform.style-name == "fluent" ? fluent-text-control-border : Palette.border;
+        border-radius: Platform.style-name == "fluent" ? 4px : 0px;
 
         focus-border := Rectangle {
             x: parent.border-radius;
@@ -54,7 +54,7 @@ export component CustomLineEdit {
     @children
 
     states [
-        focused when root.has-focus && StyleMetrics.style-name == "fluent": {
+        focused when root.has-focus && Platform.style-name == "fluent": {
             background.background: fluent-control-input-active;
             background.border-color: Palette.border;
             focus-border.background: Palette.accent-background;

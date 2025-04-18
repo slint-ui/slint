@@ -75,6 +75,21 @@ export component Example inherits Window {
 }
 ```
 
+In situations where the specific property is not available you can detect the style via `Platform.style-name`.
+
+```slint playground
+import { Palette } from "std-widgets.slint";
+
+export component Example inherits Window {
+    Rectangle {
+        border-radius: Platform.style-name == "fluent" ? 4px : 2px;
+        border-width: Platform.style-name == "fluent" ? 2px : 1px;
+        border-color: Palette.border;
+        background: Palette.background;
+    }
+}
+```
+
 ## Previewing Designs With `slint-viewer`
 
 Select the style either by setting the `SLINT_STYLE` environment variable, or by passing the style name with the `--style` argument:

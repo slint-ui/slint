@@ -107,6 +107,9 @@
     "NumericTypes": {
         "href": "reference/primitive-types/#numeric-types"
     },
+    "Palette": {
+        "href": "reference/std-widgets/overview/#palette-properties"
+    },
     "Path": {
         "href": "reference/elements/path/"
     },

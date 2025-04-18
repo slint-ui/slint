@@ -292,6 +292,10 @@ export default defineConfig({
                                             },
                                         ],
                                     },
+                                    {
+                                        label: "Platform Namespace",
+                                        slug: "reference/global-namespaces/platform",
+                                    },
                                 ],
                             },
                             {
