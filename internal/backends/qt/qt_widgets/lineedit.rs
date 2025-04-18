@@ -76,6 +76,7 @@ impl Item for NativeLineEdit {
         self: Pin<&Self>,
         orientation: Orientation,
         _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
     ) -> LayoutInfo {
         let min = match orientation {
             Orientation::Horizontal => self.native_padding_left() + self.native_padding_right(),

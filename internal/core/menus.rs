@@ -154,6 +154,7 @@ impl crate::items::Item for MenuItem {
         self: Pin<&Self>,
         _orientation: crate::items::Orientation,
         _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
     ) -> crate::layout::LayoutInfo {
         Default::default()
     }
