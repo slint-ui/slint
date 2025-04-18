@@ -27,6 +27,10 @@ run = "cargo fmt --all"
 description = "Run taplo format"
 run = "taplo format"
 
+["fix:pnpm:lock"]
+description = "Update pnpm lock file"
+run = "pnpm i --lockfile-only"
+
 ["fix:ts:format"]
 description = "Run pnpm format:fix"
 run = "pnpm run format:fix"
@@ -67,6 +71,7 @@ depends = ["prepare:pnpm-install"]
 ["prepare:pnpm-install"]
 hide = true
 run = "pnpm install --frozen-lockfile"
+depends = ["fix:pnpm:lock"]
 
 ### CI
 
@@ -79,6 +84,7 @@ depends = [
   "fix:rust:format",
   "fix:text:trailing_spaces",
   "fix:toml:format",
+  "fix:pnpm:lock",
   "fix:ts:biome",
   "fix:ts:format",
 ]
