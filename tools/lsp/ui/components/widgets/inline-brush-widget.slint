@@ -119,7 +119,7 @@ component InlineColor {
                 letter-spacing: 0.8px;
                 input-type: text;
                 property <{hue: float, saturation: float, value: float, alpha: float}> hsv-color;
-                accepted => {
+                function apply-text(text: string) {
                     if Api.string-is-color("#\{self.text}") {
                         hsv-color.hue = Api.string-to-color("#\{self.text}").to-hsv().hue;
                         hsv-color.saturation = Api.string-to-color("#\{self.text}").to-hsv().saturation;
@@ -132,11 +132,19 @@ component InlineColor {
                     } else {
                         self.text = Api.color-to-data(root.current-color).short-text.to-uppercase();
                     }
+                }
+                accepted => {
+                    apply-text(self.text);
                     self.clear-focus();
                 }
                 edited => {
                     if self.text.character-count > 8 {
                         self.text = Api.color-to-data(root.current-color).short-text.to-uppercase();
+                    }
+                }
+                changed has-focus => {
+                    if !self.has-focus {
+                        apply-text(self.text);
                     }
                 }
             }

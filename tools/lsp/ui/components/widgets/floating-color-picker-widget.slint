@@ -185,7 +185,8 @@ component ColorModeColorAndApply {
                 text: Api.color-to-data(PickerData.current-color).short-text.to-uppercase();
                 letter-spacing: 0.8px;
                 input-type: text;
-                accepted => {
+
+                function apply-text(text: string) {
                     if Api.string-is-color("#\{self.text}") {
                         PickerData.hue = Api.string-to-color("#\{self.text}").to-hsv().hue;
                         PickerData.saturation = Api.string-to-color("#\{self.text}").to-hsv().saturation;
@@ -196,11 +197,20 @@ component ColorModeColorAndApply {
                     } else {
                         self.text = Api.color-to-data(PickerData.current-color).short-text.to-uppercase();
                     }
+                }
+
+                accepted => {
+                    apply-text(self.text);
                     self.clear-focus();
                 }
                 edited => {
                     if self.text.character-count > 8 {
                         self.text = Api.color-to-data(PickerData.current-color).short-text.to-uppercase();
+                    }
+                }
+                changed has-focus => {
+                    if !self.has-focus {
+                        apply-text(self.text);
                     }
                 }
             }
@@ -477,8 +487,7 @@ component GradientStopValue {
                 input-type: text;
 
                 property <{hue: float, saturation: float, value: float}> hsv-color;
-
-                accepted => {
+                function apply-text(text: string) {
                     if Api.string-is-color("#\{self.text}") {
                         PickerData.hue = Api.string-to-color("#\{self.text}").to-hsv().hue;
                         PickerData.saturation = Api.string-to-color("#\{self.text}").to-hsv().saturation;
@@ -492,6 +501,10 @@ component GradientStopValue {
                     } else {
                         self.text = Api.color-to-data(PickerData.current-color).short-text.to-uppercase();
                     }
+                }
+
+                accepted => {
+                    apply-text(self.text);
                     self.clear-focus();
                 }
                 edited => {
@@ -502,6 +515,8 @@ component GradientStopValue {
                 changed has-focus => {
                     if self.has-focus {
                         PickerData.current-stop-index = stop-index;
+                    } else {
+                        apply-text(self.text);
                     }
                 }
             }
