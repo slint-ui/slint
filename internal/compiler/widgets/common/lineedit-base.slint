@@ -71,19 +71,32 @@ export component LineEditBase inherits Rectangle {
         Menu {
             MenuItem {
                 title: @tr("Cut");
-                activated => { text-input.cut(); }
+                enabled: root.enabled;
+                activated => {
+                    text-input.cut();
+                }
             }
+
             MenuItem {
                 title: @tr("Copy");
-                activated => { text-input.copy(); }
+                activated => {
+                    text-input.copy();
+                }
             }
+
             MenuItem {
                 title: @tr("Paste");
-                activated => { text-input.paste(); }
+                enabled: root.enabled;
+                activated => {
+                    text-input.paste();
+                }
             }
+
             MenuItem {
                 title: @tr("Select All");
-                activated => { text-input.select-all(); }
+                activated => {
+                    text-input.select-all();
+                }
             }
         }
 
