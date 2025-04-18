@@ -502,8 +502,7 @@ pub fn check_deprecated_stylemetrics(
         && !name.starts_with("layout-"))
     .then(|| format!("Palette.{name}"))
     .map_or(StyleMetricsPropertyUse::Acceptable, |msg| {
-        if is_style_metrics_prop && name == "style-name"
-        {
+        if is_style_metrics_prop && name == "style-name" {
             StyleMetricsPropertyUse::Unacceptable
         } else {
             StyleMetricsPropertyUse::Deprecated(msg)
