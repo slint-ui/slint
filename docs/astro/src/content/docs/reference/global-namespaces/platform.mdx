@@ -1,0 +1,20 @@
+---
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+title: Platform
+description: Platform Namespace
+---
+
+import SlintProperty  from '/src/components/SlintProperty.astro';
+import Link from '/src/components/Link.astro';
+
+The **Platform** namespace contains properties that help deal with platform specific differences.
+
+## Properties
+
+### style-name
+<SlintProperty propName="style-name" typeName="string">
+The name of the currently selected <Link type="StyleWidgets" label="widget style"/>. Some widget
+styles have dark and light variant suffixes, such as `fluent-light`. This property contains the
+style name without the suffix. Use <Link type="Palette" label="Palette"/>'s `color-scheme` to
+determine the currently used scheme.
+</SlintProperty>
