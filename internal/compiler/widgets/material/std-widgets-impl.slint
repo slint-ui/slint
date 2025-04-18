@@ -11,7 +11,7 @@ export { ListItem } from "components.slint";
 export { LineEdit } from "lineedit.slint";
 export { MenuBarItem, MenuBar, MenuFrame, MenuItem } from "menu.slint";
 
-export global StyleMetrics  {
+export global StyleMetrics {
     out property <length> layout-spacing: 16px;
     out property <length> layout-padding: 16px;
     out property <length> text-cursor-width: 2px;
@@ -24,10 +24,10 @@ export global StyleMetrics  {
     out property <bool> dark-color-scheme: Palette.color-scheme == ColorScheme.dark;
     out property <string> default-font-family: "Roboto";
     out property <color> window-background: MaterialPalette.background;
+    out property <string> style-name: "material";
 }
 
 export global Palette {
-    out property <string> style-name: "material";
     out property <brush> background: MaterialPalette.background;
     out property <brush> foreground: MaterialPalette.foreground;
     out property <brush> alternate-background: MaterialPalette.alternate-background;

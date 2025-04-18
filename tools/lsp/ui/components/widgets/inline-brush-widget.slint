@@ -8,6 +8,7 @@ import { EditorSpaceSettings, EditorSizeSettings, EditorPalette } from "../../co
 import { WindowManager } from "../../windowglobal.slint";
 import { ColorIndicator, GradientIndicator, FakeShadowText, PickerTextInput } from "brush-helpers.slint";
 import { BrushPropertyType } from "../../properties-state.slint";
+import { StyleMetrics } from "std-widgets.slint";
 
 component FocusBorder inherits Rectangle {
     in property <bool> has-focus;
@@ -32,10 +33,10 @@ component CustomLineEdit {
     out property <brush> fluent-control-input-active: Palette.color-scheme == ColorScheme.dark ? #1E1E1EB3 : #FFFFFF;
 
     width: 100px;
-    height: Palette.style-name == "cupertino" ? 22px : Palette.style-name == "fluent" ? 32px : 33px;
+    height: StyleMetrics.style-name == "cupertino" ? 22px : StyleMetrics.style-name == "fluent" ? 32px : 33px;
 
     FocusBorder {
-        visible: Palette.style-name == "cupertino";
+        visible: StyleMetrics.style-name == "cupertino";
         x: (parent.width - self.width) / 2;
         y: (parent.height - self.height) / 2;
         width: parent.width + 6px;
@@ -46,8 +47,8 @@ component CustomLineEdit {
     background := Rectangle {
         background: Palette.control-background;
         border-width: 1px;
-        border-color: Palette.style-name == "fluent" ? fluent-text-control-border : Palette.border;
-        border-radius: Palette.style-name == "fluent" ? 4px : 0px;
+        border-color: StyleMetrics.style-name == "fluent" ? fluent-text-control-border : Palette.border;
+        border-radius: StyleMetrics.style-name == "fluent" ? 4px : 0px;
 
         focus-border := Rectangle {
             x: parent.border-radius;
@@ -60,7 +61,7 @@ component CustomLineEdit {
     @children
 
     states [
-        focused when root.has-focus && Palette.style-name == "fluent": {
+        focused when root.has-focus && StyleMetrics.style-name == "fluent": {
             background.background: fluent-control-input-active;
             background.border-color: Palette.border;
             focus-border.background: Palette.accent-background;

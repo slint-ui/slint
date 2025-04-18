@@ -8,7 +8,7 @@ export { LineEdit } from "lineedit.slint";
 import { CupertinoPalette } from "styling.slint";
 export { MenuBarItem, MenuBar, MenuFrame, MenuItem } from "menu.slint";
 
-export global StyleMetrics  {
+export global StyleMetrics {
     out property <length> layout-spacing: 10px;
     out property <length> layout-padding: 12px;
     out property <length> text-cursor-width: 1px;
@@ -19,10 +19,10 @@ export global StyleMetrics  {
     out property <color> textedit-background-disabled: CupertinoPalette.tertiary-control-background;
     out property <color> textedit-text-color-disabled: CupertinoPalette.foreground-secondary;
     out property <bool> dark-color-scheme: Palette.color-scheme == ColorScheme.dark;
+    out property <string> style-name: "cupertino";
 }
 
 export global Palette {
-    out property <string> style-name: "cupertino";
     out property <brush> background: CupertinoPalette.background;
     out property <brush> foreground: CupertinoPalette.foreground;
     out property <brush> alternate-background: CupertinoPalette.alternate-background;
