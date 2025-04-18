@@ -195,7 +195,7 @@ impl Snapshotter {
             all_documents,
             global_type_registry: self.snapshot_type_register(&type_loader.global_type_registry),
             compiler_config: type_loader.compiler_config.clone(),
-            style: type_loader.style.clone(),
+            resolved_style: type_loader.resolved_style.clone(),
         })
     }
 
@@ -840,7 +840,9 @@ impl Snapshotter {
 pub struct TypeLoader {
     pub global_type_registry: Rc<RefCell<TypeRegister>>,
     pub compiler_config: CompilerConfiguration,
-    style: String,
+    /// The style that was specified in the compiler configuration, but resolved. So "native" for example is resolved to the concrete
+    /// style.
+    pub resolved_style: String,
     all_documents: LoadedDocuments,
 }
 
@@ -868,7 +870,7 @@ impl TypeLoader {
         let myself = Self {
             global_type_registry,
             compiler_config,
-            style: style.clone(),
+            resolved_style: style.clone(),
             all_documents: Default::default(),
         };
 
@@ -1528,7 +1530,7 @@ impl TypeLoader {
             .chain(
                 (file_to_import == "std-widgets.slint"
                     || referencing_file.is_some_and(|x| x.starts_with("builtin:/")))
-                .then(|| format!("builtin:/{}", self.style).into()),
+                .then(|| format!("builtin:/{}", self.resolved_style).into()),
             )
             .find_map(|include_dir| {
                 let candidate = crate::pathutils::join(&include_dir, Path::new(file_to_import))?;
