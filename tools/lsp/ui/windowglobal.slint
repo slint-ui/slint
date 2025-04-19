@@ -119,21 +119,20 @@ export global WindowManager {
         current-property-container-id = property-container-id;
         current-preview-data = preview-data;
         widget-mode = WidgetMode.preview;
+        PickerData.hue = property-value.value-brush.to-hsv().hue;
+        PickerData.saturation = property-value.value-brush.to-hsv().saturation;
+        PickerData.value = property-value.value-brush.to-hsv().value;
+        PickerData.alpha = property-value.value-brush.to-hsv().alpha * 100;
+        PickerData.current-brush-kind = property-value.brush-kind;
 
         if property-value.kind == PropertyValueKind.color {
             picker-mode = BrushPropertyType.color;
-            PickerData.hue = property-value.value-brush.to-hsv().hue;
-            PickerData.saturation = property-value.value-brush.to-hsv().saturation;
-            PickerData.value = property-value.value-brush.to-hsv().value;
-            PickerData.alpha = property-value.value-brush.to-hsv().alpha * 100;
+
             showing-color-picker = true;
         }
         if property-value.kind == PropertyValueKind.brush {
             picker-mode = BrushPropertyType.brush;
-            PickerData.hue = property-value.value-brush.to-hsv().hue;
-            PickerData.saturation = property-value.value-brush.to-hsv().saturation;
-            PickerData.value = property-value.value-brush.to-hsv().value;
-            PickerData.alpha = property-value.value-brush.to-hsv().alpha * 100;
+
             if property-value.brush-kind == BrushKind.solid {
                 brush-mode = BrushMode.color;
             } else if property-value.brush-kind == BrushKind.linear {
@@ -175,9 +174,9 @@ export global WindowManager {
     }
 
     update-brush() => {
-        PickerData.current-brush = Api.create-brush(BrushKind.linear, PickerData.current-angle, PickerData.current-brush, PickerData.current-gradient-stops);
+        PickerData.current-brush = Api.create-brush(PickerData.current-brush-kind, PickerData.current-angle, PickerData.current-brush, PickerData.current-gradient-stops);
         if widget-mode == WidgetMode.preview {
-            brush-string = Api.as-slint-brush(BrushKind.linear, PickerData.current-angle, PickerData.current-brush, PickerData.current-gradient-stops);
+            brush-string = Api.as-slint-brush(PickerData.current-brush-kind, PickerData.current-angle, PickerData.current-brush, PickerData.current-gradient-stops);
             self.possible_error = Api.set-json-preview-data(current-property-container-id, current-preview-data.name, "\"\{brush-string}\"");
         }
     }

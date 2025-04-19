@@ -119,7 +119,7 @@ component InlineColor {
                 letter-spacing: 0.8px;
                 input-type: text;
                 property <{hue: float, saturation: float, value: float, alpha: float}> hsv-color;
-                accepted => {
+                function apply-text(text: string) {
                     if Api.string-is-color("#\{self.text}") {
                         hsv-color.hue = Api.string-to-color("#\{self.text}").to-hsv().hue;
                         hsv-color.saturation = Api.string-to-color("#\{self.text}").to-hsv().saturation;
@@ -132,11 +132,19 @@ component InlineColor {
                     } else {
                         self.text = Api.color-to-data(root.current-color).short-text.to-uppercase();
                     }
+                }
+                accepted => {
+                    apply-text(self.text);
                     self.clear-focus();
                 }
                 edited => {
                     if self.text.character-count > 8 {
                         self.text = Api.color-to-data(root.current-color).short-text.to-uppercase();
+                    }
+                }
+                changed has-focus => {
+                    if !self.has-focus {
+                        apply-text(self.text);
                     }
                 }
             }
@@ -178,11 +186,12 @@ component InlineColor {
     }
 }
 
-component InlineLinearGradient {
+component InlineGradient {
     width: 100%;
     height: main.height;
 
     in-out property <brush> current-brush;
+    in-out property <BrushKind> current-brush-kind;
 
     callback indicator-clicked();
 
@@ -208,7 +217,7 @@ component InlineLinearGradient {
 
             Text {
                 x: 10px;
-                text: "Linear Gradient";
+                text: root.current-brush-kind == BrushKind.linear ? "Linear Gradient" : "Radial Gradient";
                 font-family: "Inter";
                 font-size: 12px;
                 color: EditorPalette.text-color;
@@ -323,8 +332,9 @@ export component InlineColorWidget inherits VerticalLayout {
         }
      }
 
-     if property-value.brush-kind == BrushKind.linear: InlineLinearGradient {
+     if property-value.brush-kind == BrushKind.linear || property-value.brush-kind == BrushKind.radial: InlineGradient {
         current-brush <=> root.current-brush;
+        current-brush-kind <=> root.current-brush-kind;
 
         indicator-clicked() => {
             root.update-floating-editor();

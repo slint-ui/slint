@@ -47,6 +47,7 @@ component BrushTypeSelector {
             TouchArea {
                 clicked => {
                     active-tab = PickerTab.color;
+                    PickerData.current-brush-kind = BrushKind.solid;
                 }
             }
 
@@ -86,6 +87,7 @@ component BrushTypeSelector {
             TouchArea {
                 clicked => {
                     active-tab = PickerTab.gradient;
+                    PickerData.current-brush-kind = BrushKind.linear;
                 }
             }
 
@@ -185,7 +187,8 @@ component ColorModeColorAndApply {
                 text: Api.color-to-data(PickerData.current-color).short-text.to-uppercase();
                 letter-spacing: 0.8px;
                 input-type: text;
-                accepted => {
+
+                function apply-text(text: string) {
                     if Api.string-is-color("#\{self.text}") {
                         PickerData.hue = Api.string-to-color("#\{self.text}").to-hsv().hue;
                         PickerData.saturation = Api.string-to-color("#\{self.text}").to-hsv().saturation;
@@ -196,11 +199,20 @@ component ColorModeColorAndApply {
                     } else {
                         self.text = Api.color-to-data(PickerData.current-color).short-text.to-uppercase();
                     }
+                }
+
+                accepted => {
+                    apply-text(self.text);
                     self.clear-focus();
                 }
                 edited => {
                     if self.text.character-count > 8 {
                         self.text = Api.color-to-data(PickerData.current-color).short-text.to-uppercase();
+                    }
+                }
+                changed has-focus => {
+                    if !self.has-focus {
+                        apply-text(self.text);
                     }
                 }
             }
@@ -477,8 +489,7 @@ component GradientStopValue {
                 input-type: text;
 
                 property <{hue: float, saturation: float, value: float}> hsv-color;
-
-                accepted => {
+                function apply-text(text: string) {
                     if Api.string-is-color("#\{self.text}") {
                         PickerData.hue = Api.string-to-color("#\{self.text}").to-hsv().hue;
                         PickerData.saturation = Api.string-to-color("#\{self.text}").to-hsv().saturation;
@@ -492,6 +503,10 @@ component GradientStopValue {
                     } else {
                         self.text = Api.color-to-data(PickerData.current-color).short-text.to-uppercase();
                     }
+                }
+
+                accepted => {
+                    apply-text(self.text);
                     self.clear-focus();
                 }
                 edited => {
@@ -502,6 +517,8 @@ component GradientStopValue {
                 changed has-focus => {
                     if self.has-focus {
                         PickerData.current-stop-index = stop-index;
+                    } else {
+                        apply-text(self.text);
                     }
                 }
             }
@@ -602,7 +619,11 @@ component GradientPicker inherits SimpleColumn {
             x: EditorSizeSettings.standard-margin;
             y: EditorSizeSettings.standard-margin;
             model: ["Linear", "Radial"];
-            current-value: "Linear";
+            current-index: PickerData.current-brush-kind == BrushKind.linear ? 0 : 1;
+            selected(current-value) => {
+                PickerData.current-brush-kind = current-value == "Linear" ? BrushKind.linear : BrushKind.radial;
+            }
+
         }
     }
 

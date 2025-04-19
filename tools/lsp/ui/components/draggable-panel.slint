@@ -47,6 +47,11 @@ export component DraggablePanel {
                 clear-focus-panel();
             }
         }
+        // catch scroll wheel events to stop the live preview from being scrolled
+        scroll-event(event) => {
+            return accept;
+        }
+
         moved => {
             panel-target-x = ((root.x + self.mouse-x - self.pressed-x) / 1px).round() * 1px;
             panel-target-y = ((root.y + self.mouse-y - self.pressed-y) / 1px).round() * 1px;
