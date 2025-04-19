@@ -1,0 +1,33 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Basic test for Platform.os and Platform.style-name. This is done in JS, as with Rust and C++ the style is fixed
+// to fluent.
+
+export component TestCase inherits Window {
+    out property <string> os: Platform.os;
+    out property <string> style-name: Platform.style-name;
+}
+
+/*
+```js
+let instance = new slint.TestCase({});
+let os = instance.os;
+let style_name = instance.style_name;
+console.log(style_name);
+
+const { platform } = require('node:process');
+if (platform === 'win32') {
+    assert.strictEqual(os, "windows");
+    assert.strictEqual(style_name, "fluent");
+} else if (platform === 'darwin') {
+    assert.strictEqual(os, "macos");
+    assert.strictEqual(style_name, "cupertino");
+} else if (platform === 'linux') {
+    assert.strictEqual(os, "linux");
+    assert(style_name == "qt" || style_name == "fluent");
+} else {
+    throw new Error("Unknown platform for this test: " + platform);
+}
+```
+*/

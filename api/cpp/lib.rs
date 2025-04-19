@@ -224,3 +224,8 @@ pub unsafe extern "C" fn slint_set_xdg_app_id(_app_id: &SharedString) {
     i_slint_backend_selector::with_global_context(|ctx| ctx.set_xdg_app_id(_app_id.clone()))
         .unwrap();
 }
+
+#[no_mangle]
+pub unsafe extern "C" fn slint_detect_operating_system(out: &mut SharedString) {
+    *out = i_slint_core::detect_operating_system();
+}

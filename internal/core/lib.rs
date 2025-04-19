@@ -98,3 +98,46 @@ pub type Coord = i32;
 /// This type is not exported from the public API crate, so function having this
 /// parameter cannot be called from the public API without naming it
 pub struct InternalToken;
+
+#[cfg(not(target_family = "wasm"))]
+pub fn detect_operating_system() -> SharedString {
+    let os = if cfg!(target_os = "android") {
+        "android"
+    } else if cfg!(target_os = "ios") {
+        "ios"
+    } else if cfg!(target_os = "macos") {
+        "macos"
+    } else if cfg!(target_os = "windows") {
+        "windows"
+    } else if cfg!(target_os = "linux") {
+        "linux"
+    } else {
+        ""
+    };
+    os.into()
+}
+
+#[cfg(target_family = "wasm")]
+pub fn detect_operating_system() -> SharedString {
+    let mut user_agent =
+        web_sys::window().and_then(|w| w.navigator().user_agent().ok()).unwrap_or_default();
+    user_agent.make_ascii_lowercase();
+    let mut platform =
+        web_sys::window().and_then(|w| w.navigator().platform().ok()).unwrap_or_default();
+    platform.make_ascii_lowercase();
+
+    if user_agent.contains("ipad") || user_agent.contains("iphone") {
+        "ios"
+    } else if user_agent.contains("android") {
+        "android"
+    } else if platform.starts_with("mac") {
+        "macos"
+    } else if platform.starts_with("win") {
+        "windows"
+    } else if platform.starts_with("linux") {
+        "linux"
+    } else {
+        ""
+    }
+    .into()
+}

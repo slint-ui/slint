@@ -91,6 +91,13 @@ inline void debug(const SharedString &str)
     cbindgen_private::slint_debug(&str);
 }
 
+inline SharedString detect_operating_system()
+{
+    SharedString result;
+    cbindgen_private::slint_detect_operation_system(&result);
+    return result;
+}
+
 } // namespace private_api
 
 namespace cbindgen_private {
