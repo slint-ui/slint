@@ -191,6 +191,7 @@ component InlineGradient {
     height: main.height;
 
     in-out property <brush> current-brush;
+    in-out property <BrushKind> current-brush-kind;
 
     callback indicator-clicked();
 
@@ -216,7 +217,7 @@ component InlineGradient {
 
             Text {
                 x: 10px;
-                text: "Linear Gradient";
+                text: root.current-brush-kind == BrushKind.linear ? "Linear Gradient" : "Radial Gradient";
                 font-family: "Inter";
                 font-size: 12px;
                 color: EditorPalette.text-color;
@@ -333,6 +334,7 @@ export component InlineColorWidget inherits VerticalLayout {
 
      if property-value.brush-kind == BrushKind.linear || property-value.brush-kind == BrushKind.radial: InlineGradient {
         current-brush <=> root.current-brush;
+        current-brush-kind <=> root.current-brush-kind;
 
         indicator-clicked() => {
             root.update-floating-editor();
