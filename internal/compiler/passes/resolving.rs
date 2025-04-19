@@ -1423,27 +1423,6 @@ fn continue_lookup_within_element(
     let lookup_result = elem.borrow().lookup_property(&prop_name);
     let local_to_component = lookup_result.is_local_to_component && ctx.is_local_element(elem);
 
-    let err = |ctx: &mut LookupCtx, extra: &str| {
-        let what = match &elem.borrow().base_type {
-            ElementType::Global => {
-                let global = elem.borrow().enclosing_component.upgrade().unwrap();
-                assert!(global.is_global());
-                format!("'{}'", global.id)
-            }
-            ElementType::Component(c) => format!("Element '{}'", c.id),
-            ElementType::Builtin(b) => format!("Element '{}'", b.name),
-            ElementType::Native(_) => unreachable!("the native pass comes later"),
-            ElementType::Error => {
-                assert!(ctx.diag.has_errors());
-                return;
-            }
-        };
-        ctx.diag.push_error(
-            format!("{} does not have a property '{}'{}", what, second.text(), extra),
-            &second,
-        );
-    };
-
     if lookup_result.property_type.is_property_type() {
         if !local_to_component && lookup_result.property_visibility == PropertyVisibility::Private {
             ctx.diag.push_error(format!("The property '{}' is private. Annotate it with 'in', 'out' or 'in-out' to make it accessible from other components", second.text()), &second);
@@ -1461,17 +1440,10 @@ fn continue_lookup_within_element(
                 &lookup_result.resolved_name,
                 &second,
             );
-        } else {
-            match crate::lookup::check_deprecated_stylemetrics(elem, ctx, &prop_name) {
-                crate::lookup::StyleMetricsPropertyUse::Acceptable => {}
-                crate::lookup::StyleMetricsPropertyUse::Deprecated(deprecated) => {
-                    ctx.diag.push_property_deprecation_warning(&prop_name, &deprecated, &second)
-                }
-                crate::lookup::StyleMetricsPropertyUse::Unacceptable => {
-                    err(ctx, "");
-                    return None;
-                }
-            }
+        } else if let Some(deprecated) =
+            crate::lookup::check_deprecated_stylemetrics(elem, ctx, &prop_name)
+        {
+            ctx.diag.push_property_deprecation_warning(&prop_name, &deprecated, &second);
         }
         let prop = Expression::PropertyReference(NamedReference::new(
             elem,
@@ -1521,6 +1493,26 @@ fn continue_lookup_within_element(
             LookupResult::from(callable).into()
         }
     } else {
+        let mut err = |extra: &str| {
+            let what = match &elem.borrow().base_type {
+                ElementType::Global => {
+                    let global = elem.borrow().enclosing_component.upgrade().unwrap();
+                    assert!(global.is_global());
+                    format!("'{}'", global.id)
+                }
+                ElementType::Component(c) => format!("Element '{}'", c.id),
+                ElementType::Builtin(b) => format!("Element '{}'", b.name),
+                ElementType::Native(_) => unreachable!("the native pass comes later"),
+                ElementType::Error => {
+                    assert!(ctx.diag.has_errors());
+                    return;
+                }
+            };
+            ctx.diag.push_error(
+                format!("{} does not have a property '{}'{}", what, second.text(), extra),
+                &second,
+            );
+        };
         if let Some(minus_pos) = second.text().find('-') {
             // Attempt to recover if the user wanted to write "-"
             if elem
@@ -1529,11 +1521,11 @@ fn continue_lookup_within_element(
                 .property_type
                 != Type::Invalid
             {
-                err(ctx, ". Use space before the '-' if you meant a subtraction");
+                err(". Use space before the '-' if you meant a subtraction");
                 return None;
             }
         }
-        err(ctx, "");
+        err("");
         None
     }
 }

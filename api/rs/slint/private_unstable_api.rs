@@ -190,6 +190,7 @@ pub mod re_exports {
     pub use i_slint_core::api::LogicalPosition;
     pub use i_slint_core::callbacks::Callback;
     pub use i_slint_core::date_time::*;
+    pub use i_slint_core::detect_operating_system;
     pub use i_slint_core::graphics::*;
     pub use i_slint_core::input::{
         key_codes::Key, FocusEvent, InputEventResult, KeyEvent, KeyEventResult, KeyboardModifiers,

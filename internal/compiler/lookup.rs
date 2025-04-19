@@ -412,16 +412,10 @@ impl LookupObject for ElementRc {
         f: &mut impl FnMut(&SmolStr, LookupResult) -> Option<R>,
     ) -> Option<R> {
         for (name, prop) in &self.borrow().property_declarations {
-            let deprecated = match check_deprecated_stylemetrics(self, ctx, name) {
-                StyleMetricsPropertyUse::Acceptable => None,
-                StyleMetricsPropertyUse::Deprecated(msg) => Some(msg),
-                StyleMetricsPropertyUse::Unacceptable => continue, // Skip from lookup
-            };
-
             let r = expression_from_reference(
                 NamedReference::new(self, name.clone()),
                 &prop.property_type,
-                deprecated,
+                check_deprecated_stylemetrics(self, ctx, name),
             );
             if let Some(r) = f(name, r) {
                 return Some(r);
@@ -454,12 +448,8 @@ impl LookupObject for ElementRc {
                 || lookup_result.property_visibility != PropertyVisibility::Private)
         {
             let deprecated = (lookup_result.resolved_name != name.as_str())
-                .then(|| Some(lookup_result.resolved_name.to_string()))
-                .or_else(|| match check_deprecated_stylemetrics(self, ctx, name) {
-                    StyleMetricsPropertyUse::Acceptable => Some(None),
-                    StyleMetricsPropertyUse::Deprecated(msg) => Some(Some(msg)),
-                    StyleMetricsPropertyUse::Unacceptable => None,
-                })?;
+                .then(|| lookup_result.resolved_name.to_string())
+                .or_else(|| check_deprecated_stylemetrics(self, ctx, name));
             Some(expression_from_reference(
                 NamedReference::new(self, lookup_result.resolved_name.to_smolstr()),
                 &lookup_result.property_type,
@@ -471,31 +461,17 @@ impl LookupObject for ElementRc {
     }
 }
 
-/// This enum describes the result of checking the use of a property of the StyleMetrics object.
-pub enum StyleMetricsPropertyUse {
-    /// The property is acceptable for use.
-    Acceptable,
-    /// The property is acceptable fo use, but it is deprecated. The string provides the name of the
-    /// property that should be used instead.
-    Deprecated(String),
-    /// The property is not acceptable for use, it is internal.
-    Unacceptable,
-}
-
 pub fn check_deprecated_stylemetrics(
     elem: &ElementRc,
     ctx: &LookupCtx<'_>,
     name: &SmolStr,
-) -> StyleMetricsPropertyUse {
+) -> Option<String> {
     let borrow = elem.borrow();
-
-    let is_style_metrics_prop = matches!(
-        borrow.enclosing_component.upgrade().unwrap().id.as_str(),
-        "StyleMetrics" | "NativeStyleMetrics"
-    );
-
     (!ctx.type_register.expose_internal_types
-        && is_style_metrics_prop
+        && matches!(
+            borrow.enclosing_component.upgrade().unwrap().id.as_str(),
+            "StyleMetrics" | "NativeStyleMetrics"
+        )
         && borrow
             .debug
             .first()
@@ -503,13 +479,6 @@ pub fn check_deprecated_stylemetrics(
             .map_or(true, |x| x.path().starts_with("builtin:"))
         && !name.starts_with("layout-"))
     .then(|| format!("Palette.{name}"))
-    .map_or(StyleMetricsPropertyUse::Acceptable, |msg| {
-        if is_style_metrics_prop && name == "style-name" {
-            StyleMetricsPropertyUse::Unacceptable
-        } else {
-            StyleMetricsPropertyUse::Deprecated(msg)
-        }
-    })
 }
 
 fn expression_from_reference(

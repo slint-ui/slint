@@ -32,6 +32,7 @@ mod lower_accessibility;
 mod lower_component_container;
 mod lower_layout;
 mod lower_menus;
+mod lower_platform;
 mod lower_popups;
 mod lower_property_to_element;
 mod lower_shadows;
@@ -121,6 +122,7 @@ pub async fn run_passes(
         );
         lower_states::lower_states(component, &doc.local_registry, diag);
         lower_text_input_interface::lower_text_input_interface(component);
+        lower_platform::lower_platform(component, type_loader);
         repeater_component::process_repeater_components(component);
         lower_popups::lower_popups(component, &doc.local_registry, diag);
         collect_init_code::collect_init_code(component);
