@@ -840,6 +840,8 @@ impl Snapshotter {
 pub struct TypeLoader {
     pub global_type_registry: Rc<RefCell<TypeRegister>>,
     pub compiler_config: CompilerConfiguration,
+    /// The style that was specified in the compiler configuration, but resolved. So "native" for example is resolved to the concrete
+    /// style.
     pub resolved_style: String,
     all_documents: LoadedDocuments,
 }
