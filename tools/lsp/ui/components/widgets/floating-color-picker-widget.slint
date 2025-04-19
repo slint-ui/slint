@@ -47,6 +47,7 @@ component BrushTypeSelector {
             TouchArea {
                 clicked => {
                     active-tab = PickerTab.color;
+                    PickerData.current-brush-kind = BrushKind.solid;
                 }
             }
 
@@ -86,6 +87,7 @@ component BrushTypeSelector {
             TouchArea {
                 clicked => {
                     active-tab = PickerTab.gradient;
+                    PickerData.current-brush-kind = BrushKind.linear;
                 }
             }
 
