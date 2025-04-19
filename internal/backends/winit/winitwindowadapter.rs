@@ -10,6 +10,8 @@ use core::pin::Pin;
 use std::rc::Rc;
 use std::rc::Weak;
 
+#[cfg(not(target_family = "wasm"))]
+use winit::event_loop::ActiveEventLoop;
 #[cfg(target_arch = "wasm32")]
 use winit::platform::web::WindowExtWebSys;
 #[cfg(target_family = "windows")]
@@ -125,7 +127,7 @@ enum WinitWindowOrNone {
     HasWindow {
         window: Rc<winit::window::Window>,
         #[cfg(enable_accesskit)]
-        accesskit_adapter: RefCell<crate::accesskit::AccessKitAdapter>,
+        accesskit_adapter: Option<RefCell<crate::accesskit::AccessKitAdapter>>,
         #[cfg(muda)]
         muda_adapter: RefCell<Option<crate::muda::MudaAdapter>>,
     },
@@ -238,6 +240,32 @@ impl WinitWindowOrNone {
             Self::HasWindow { window, .. } => window.set_max_inner_size(max_inner_size),
             Self::None(attributes) => {
                 attributes.borrow_mut().max_inner_size = max_inner_size.map(|s| s.into())
+            }
+        }
+    }
+
+    #[cfg(enable_accesskit)]
+    fn ensure_accesskit_adapter(
+        &mut self,
+        window_adapter_weak: &Weak<WinitWindowAdapter>,
+        event_loop_proxy: &EventLoopProxy<SlintUserEvent>,
+        active_event_loop: &ActiveEventLoop,
+    ) {
+        match self {
+            Self::None(..) => {}
+            Self::HasWindow { window, accesskit_adapter, .. } => {
+                if accesskit_adapter.is_some() {
+                    return;
+                }
+                *accesskit_adapter = Some(
+                    crate::accesskit::AccessKitAdapter::new(
+                        window_adapter_weak.clone(),
+                        active_event_loop,
+                        window,
+                        event_loop_proxy.clone(),
+                    )
+                    .into(),
+                );
             }
         }
     }
@@ -371,11 +399,28 @@ impl WinitWindowAdapter {
         &self,
         event_loop: &dyn crate::event_loop::EventLoopInterface,
     ) -> Result<Rc<winit::window::Window>, PlatformError> {
+        let (maybe_winit_window, mut maybe_window_attributes) =
+            match &*self.winit_window_or_none.borrow() {
+                WinitWindowOrNone::HasWindow { window, .. } => (Some(window.clone()), None),
+                WinitWindowOrNone::None(attributes) => (None, Some(attributes.borrow().clone())),
+            };
+
+        if let Some(winit_window) = maybe_winit_window {
+            #[cfg(enable_accesskit)]
+            if let crate::event_loop::ActiveOrInactiveEventLoop::Active(active_event_loop) =
+                event_loop.event_loop()
+            {
+                self.winit_window_or_none.borrow_mut().ensure_accesskit_adapter(
+                    &self.self_weak,
+                    &self.event_loop_proxy,
+                    active_event_loop,
+                );
+            }
+
+            return Ok(winit_window);
+        }
         #[allow(unused_mut)]
-        let mut window_attributes = match &*self.winit_window_or_none.borrow() {
-            WinitWindowOrNone::HasWindow { window, .. } => return Ok(window.clone()),
-            WinitWindowOrNone::None(attributes) => attributes.borrow().clone(),
-        };
+        let mut window_attributes = maybe_window_attributes.unwrap();
 
         #[cfg(all(unix, not(target_vendor = "apple")))]
         {
@@ -404,12 +449,7 @@ impl WinitWindowAdapter {
         *winit_window_or_none = WinitWindowOrNone::HasWindow {
             window: winit_window.clone(),
             #[cfg(enable_accesskit)]
-            accesskit_adapter: crate::accesskit::AccessKitAdapter::new(
-                self.self_weak.clone(),
-                &winit_window,
-                self.event_loop_proxy.clone(),
-            )
-            .into(),
+            accesskit_adapter: None,
             #[cfg(muda)]
             muda_adapter: self
                 .menubar
@@ -674,7 +714,9 @@ impl WinitWindowAdapter {
     ) -> Option<std::cell::Ref<'_, RefCell<crate::accesskit::AccessKitAdapter>>> {
         std::cell::Ref::filter_map(self.winit_window_or_none.borrow(), |wor: &WinitWindowOrNone| {
             match wor {
-                WinitWindowOrNone::HasWindow { accesskit_adapter, .. } => Some(accesskit_adapter),
+                WinitWindowOrNone::HasWindow { accesskit_adapter, .. } => {
+                    accesskit_adapter.as_ref()
+                }
                 WinitWindowOrNone::None(..) => None,
             }
         })
@@ -689,7 +731,11 @@ impl WinitWindowAdapter {
         let Some(self_) = self_weak.upgrade() else { return };
         let winit_window_or_none = self_.winit_window_or_none.borrow();
         match &*winit_window_or_none {
-            WinitWindowOrNone::HasWindow { accesskit_adapter, .. } => callback(accesskit_adapter),
+            WinitWindowOrNone::HasWindow { accesskit_adapter, .. } => {
+                if let Some(adapter) = accesskit_adapter {
+                    callback(adapter)
+                }
+            }
             WinitWindowOrNone::None(..) => {}
         }
     }
