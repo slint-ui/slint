@@ -756,6 +756,10 @@ pub mod skia {
         }
     }
 
+    /// Safety: This is only needed for the Skia renderer when using WGPU, which isn't supported for C++.
+    unsafe impl std::marker::Send for RawHandlePair {}
+    unsafe impl std::marker::Sync for RawHandlePair {}
+
     struct CppRawHandle(Arc<RawHandlePair>);
 
     impl From<(RawWindowHandle, RawDisplayHandle)> for CppRawHandle {

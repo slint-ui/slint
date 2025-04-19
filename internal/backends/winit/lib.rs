@@ -404,11 +404,22 @@ impl BackendBuilder {
             }
             #[cfg(all(enable_skia_renderer, supports_opengl))]
             (Some("skia-opengl"), maybe_graphics_api @ _) => {
-                // If a graphics API was requested, double check that it's GL. FemtoVG doesn't support Metal, etc.
+                // If a graphics API was requested, double check that it's GL.
                 if let Some(api) = maybe_graphics_api {
                     i_slint_core::graphics::RequestedOpenGLVersion::try_from(api)?;
                 }
                 renderer::skia::WinitSkiaRenderer::new_opengl_suspended
+            }
+            #[cfg(all(enable_skia_renderer, feature = "unstable-wgpu-26"))]
+            (Some("skia-wgpu"), maybe_graphics_api @ _) => {
+                if !maybe_graphics_api
+                    .map_or(true, |api| !matches!(api, RequestedGraphicsAPI::WGPU26(..)))
+                {
+                    return Err(
+                        format!("Skia with WGPU doesn't support non-WGPU graphics API").into()
+                    );
+                }
+                renderer::skia::WinitSkiaRenderer::new_wgpu_26_suspended
             }
             #[cfg(all(enable_skia_renderer, not(target_os = "android")))]
             (Some("skia-software"), None) => {
@@ -431,7 +442,13 @@ impl BackendBuilder {
             }
             #[cfg(feature = "unstable-wgpu-26")]
             (None, Some(RequestedGraphicsAPI::WGPU26(..))) => {
-                renderer::femtovg::WGPUFemtoVGRenderer::new_suspended
+                cfg_if::cfg_if! {
+                    if #[cfg(enable_skia_renderer)] {
+                        renderer::skia::WinitSkiaRenderer::new_wgpu_26_suspended
+                    } else {
+                        renderer::femtovg::WGPUFemtoVGRenderer::new_suspended
+                    }
+                }
             }
             (None, Some(_requested_graphics_api)) => {
                 cfg_if::cfg_if! {
