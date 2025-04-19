@@ -60,6 +60,12 @@ unstable-wgpu-24 = [
   "i-slint-renderer-femtovg/unstable-wgpu-24",
   "i-slint-renderer-skia?/unstable-wgpu-24",
 ]
+unstable-wgpu-25 = [
+  "i-slint-core/unstable-wgpu-25",
+  "renderer-skia",
+  "i-slint-renderer-skia/unstable-wgpu-25",
+  "i-slint-renderer-femtovg?/unstable-wgpu-25",
+]
 default = []
 
 [dependencies]

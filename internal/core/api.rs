@@ -286,6 +286,15 @@ pub enum GraphicsAPI<'a> {
         /// The WGPU queue for used for command submission.
         queue: wgpu_24::Queue,
     },
+    #[cfg(feature = "unstable-wgpu-25")]
+    WGPU25 {
+        /// The WGPU instance used for rendering.
+        instance: wgpu_25::Instance,
+        /// The WGPU device used for rendering.
+        device: wgpu_25::Device,
+        /// The WGPU queue for used for command submission.
+        queue: wgpu_25::Queue,
+    },
 }
 
 impl core::fmt::Debug for GraphicsAPI<'_> {
@@ -297,6 +306,8 @@ impl core::fmt::Debug for GraphicsAPI<'_> {
             }
             #[cfg(feature = "unstable-wgpu-24")]
             GraphicsAPI::WGPU24 { .. } => write!(f, "GraphicsAPI::WGPU24"),
+            #[cfg(feature = "unstable-wgpu-25")]
+            GraphicsAPI::WGPU25 { .. } => write!(f, "GraphicsAPI::WGPU25"),
         }
     }
 }

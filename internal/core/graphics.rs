@@ -58,6 +58,8 @@ pub use border_radius::*;
 
 #[cfg(feature = "unstable-wgpu-24")]
 pub mod wgpu_24;
+#[cfg(feature = "unstable-wgpu-25")]
+pub mod wgpu_25;
 
 /// CachedGraphicsData allows the graphics backend to store an arbitrary piece of data associated with
 /// an item, which is typically computed by accessing properties. The dependency_tracker is used to allow
@@ -193,6 +195,9 @@ pub enum RequestedGraphicsAPI {
     #[cfg(feature = "unstable-wgpu-24")]
     /// WGPU 24.x
     WGPU24(wgpu_24::WGPUConfiguration),
+    #[cfg(feature = "unstable-wgpu-25")]
+    /// WGPU 25.x
+    WGPU25(wgpu_25::WGPUConfiguration),
 }
 
 impl TryFrom<RequestedGraphicsAPI> for RequestedOpenGLVersion {
@@ -213,6 +218,10 @@ impl TryFrom<RequestedGraphicsAPI> for RequestedOpenGLVersion {
             #[cfg(feature = "unstable-wgpu-24")]
             RequestedGraphicsAPI::WGPU24(..) => {
                 Err("WGPU 24.x rendering is not supported with an OpenGL renderer".into())
+            }
+            #[cfg(feature = "unstable-wgpu-25")]
+            RequestedGraphicsAPI::WGPU25(..) => {
+                Err("WGPU 25.x rendering is not supported with an OpenGL renderer".into())
             }
         }
     }

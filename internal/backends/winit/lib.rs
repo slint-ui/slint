@@ -428,6 +428,10 @@ impl BackendBuilder {
             (None, Some(RequestedGraphicsAPI::WGPU24(..))) => {
                 renderer::femtovg::WGPUFemtoVGRenderer::new_suspended
             }
+            #[cfg(feature = "unstable-wgpu-25")]
+            (None, Some(RequestedGraphicsAPI::WGPU25(..))) => {
+                renderer::skia::WinitSkiaRenderer::new_wgpu_suspended
+            }
             (None, Some(_requested_graphics_api)) => {
                 cfg_if::cfg_if! {
                     if #[cfg(enable_skia_renderer)] {

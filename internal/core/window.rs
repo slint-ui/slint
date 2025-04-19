@@ -1676,6 +1676,8 @@ pub mod ffi {
                     crate::api::GraphicsAPI::WebGL { .. } => unreachable!(), // We don't support wasm with C++
                     #[cfg(feature = "unstable-wgpu-24")]
                     crate::api::GraphicsAPI::WGPU24 { .. } => GraphicsAPI::Inaccessible, // There is no C++ API for wgpu (maybe wgpu c in the future?)
+                    #[cfg(feature = "unstable-wgpu-25")]
+                    crate::api::GraphicsAPI::WGPU25 { .. } => GraphicsAPI::Inaccessible, // There is no C++ API for wgpu (maybe wgpu c in the future?)
                 };
                 (self.callback)(state, cpp_graphics_api, self.user_data)
             }
