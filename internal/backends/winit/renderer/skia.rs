@@ -74,6 +74,16 @@ impl WinitSkiaRenderer {
         }))
     }
 
+    #[cfg(feature = "unstable-wgpu-26")]
+    pub fn new_wgpu_26_suspended(
+        shared_backend_data: &Rc<crate::SharedBackendData>,
+    ) -> Result<Box<dyn super::WinitCompatibleRenderer>, PlatformError> {
+        Ok(Box::new(Self {
+            renderer: SkiaRenderer::default_wgpu_26(&shared_backend_data.skia_context),
+            requested_graphics_api: shared_backend_data.requested_graphics_api.clone(),
+        }))
+    }
+
     pub fn factory_for_graphics_api(
         requested_graphics_api: Option<&RequestedGraphicsAPI>,
     ) -> Result<
@@ -120,7 +130,7 @@ impl WinitSkiaRenderer {
                     }
                     #[cfg(feature = "unstable-wgpu-26")]
                     RequestedGraphicsAPI::WGPU26(..) => {
-                        return Err(format!("WGPU rendering is not supported by Skia").into());
+                        return Ok(Self::new_wgpu_26_suspended);
                     }
                 }
             }
