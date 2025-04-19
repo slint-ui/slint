@@ -3224,6 +3224,9 @@ fn compile_builtin_function_call(
         BuiltinFunction::UpdateTimers => {
             quote!(_self.update_timers())
         }
+        BuiltinFunction::DetectOperatingSystem => {
+            quote!(sp::detect_operating_system())
+        }
     }
 }
 

@@ -103,6 +103,7 @@ pub enum BuiltinFunction {
     RegisterBitmapFont,
     Translate,
     UpdateTimers,
+    DetectOperatingSystem,
 }
 
 #[derive(Debug, Clone)]
@@ -259,6 +260,7 @@ declare_builtin_function_types!(
     Translate: (Type::String, Type::String, Type::String, Type::Array(Type::String.into())) -> Type::String,
     Use24HourFormat: () -> Type::Bool,
     UpdateTimers: () -> Type::Void,
+    DetectOperatingSystem: () -> Type::String,
 );
 
 impl BuiltinFunction {
@@ -345,6 +347,7 @@ impl BuiltinFunction {
             BuiltinFunction::Translate => false,
             BuiltinFunction::Use24HourFormat => false,
             BuiltinFunction::UpdateTimers => false,
+            BuiltinFunction::DetectOperatingSystem => true,
         }
     }
 
@@ -417,6 +420,7 @@ impl BuiltinFunction {
             BuiltinFunction::Translate => true,
             BuiltinFunction::Use24HourFormat => true,
             BuiltinFunction::UpdateTimers => false,
+            BuiltinFunction::DetectOperatingSystem => true,
         }
     }
 }

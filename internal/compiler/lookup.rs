@@ -114,7 +114,6 @@ pub enum BuiltinNamespace {
     Colors,
     Math,
     Key,
-    Platform,
     SlintInternal,
 }
 
@@ -193,7 +192,6 @@ impl LookupObject for LookupResult {
             }
             LookupResult::Namespace(BuiltinNamespace::Math) => MathFunctions.for_each_entry(ctx, f),
             LookupResult::Namespace(BuiltinNamespace::Key) => KeysLookup.for_each_entry(ctx, f),
-            LookupResult::Namespace(BuiltinNamespace::Platform) => Platform.for_each_entry(ctx, f),
             LookupResult::Namespace(BuiltinNamespace::SlintInternal) => {
                 SlintInternal.for_each_entry(ctx, f)
             }
@@ -210,7 +208,6 @@ impl LookupObject for LookupResult {
             }
             LookupResult::Namespace(BuiltinNamespace::Math) => MathFunctions.lookup(ctx, name),
             LookupResult::Namespace(BuiltinNamespace::Key) => KeysLookup.lookup(ctx, name),
-            LookupResult::Namespace(BuiltinNamespace::Platform) => Platform.lookup(ctx, name),
             LookupResult::Namespace(BuiltinNamespace::SlintInternal) => {
                 SlintInternal.lookup(ctx, name)
             }
@@ -778,28 +775,6 @@ impl LookupObject for SlintInternal {
     }
 }
 
-struct Platform;
-impl LookupObject for Platform {
-    fn for_each_entry<R>(
-        &self,
-        ctx: &LookupCtx,
-        f: &mut impl FnMut(&SmolStr, LookupResult) -> Option<R>,
-    ) -> Option<R> {
-        let mut f = |n, e: LookupResult| f(&SmolStr::new_static(n), e);
-        None.or_else(|| {
-            let style = ctx
-                .type_loader
-                .map(|tl| {
-                    tl.resolved_style.strip_suffix("-dark").unwrap_or_else(|| {
-                        tl.resolved_style.strip_suffix("-light").unwrap_or(&tl.resolved_style)
-                    })
-                })
-                .unwrap_or_default();
-            f("style-name", Expression::StringLiteral(style.into()).into())
-        })
-    }
-}
-
 struct ColorFunctions;
 impl LookupObject for ColorFunctions {
     fn for_each_entry<R>(
@@ -841,7 +816,6 @@ impl LookupObject for BuiltinNamespaceLookup {
         None.or_else(|| f("Colors", LookupResult::Namespace(BuiltinNamespace::Colors)))
             .or_else(|| f("Math", LookupResult::Namespace(BuiltinNamespace::Math)))
             .or_else(|| f("Key", LookupResult::Namespace(BuiltinNamespace::Key)))
-            .or_else(|| f("Platform", LookupResult::Namespace(BuiltinNamespace::Platform)))
             .or_else(|| {
                 if ctx.type_register.expose_internal_types {
                     f("SlintInternal", LookupResult::Namespace(BuiltinNamespace::SlintInternal))

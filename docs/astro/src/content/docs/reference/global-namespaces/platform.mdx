@@ -11,6 +11,31 @@ The **Platform** namespace contains properties that help deal with platform spec
 
 ## Properties
 
+### os
+<SlintProperty propName="os" typeName="string">
+The name of the operating system. Possible values are:
+
+| Operating System | Value     |
+|------------------|-----------|
+| Windows          | `windows` |
+| macOS            | `macos`   |
+| Linux            | `linux`   |
+| Android          | `android` |
+| iOS              | `ios`     |
+
+If the operating system is none of the above, the value of this property is the empty string.
+
+:::note{Note}
+When running in a web browser, the value of this property is computed at run-time by querying the web browser's navigator properties.
+:::
+
+:::note{Note}
+When Slint is ported to new operating systems in the future, this table will be extended.
+:::
+
+</SlintProperty>
+
+
 ### style-name
 <SlintProperty propName="style-name" typeName="string">
 The name of the currently selected <Link type="StyleWidgets" label="widget style"/>. Some widget

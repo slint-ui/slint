@@ -1336,6 +1336,7 @@ fn call_builtin_function(
             crate::dynamic_item_tree::update_timers(local_context.component_instance);
             Value::Void
         }
+        BuiltinFunction::DetectOperatingSystem => i_slint_core::detect_operating_system().into(),
     }
 }
 
