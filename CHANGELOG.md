@@ -36,7 +36,6 @@ All notable changes to this project are documented in this file.
  - Fix horizontal tab stretch with material
  - scrollview: fixed scrollthumb size on small sizes (#7809)
  - MenuBar reacts to hover event when the menu is open (#7822)
- - Added `Palette.style-name` property
  - Added `MenuSeparator` sub-element in `Menu` (#7790)
  - Added `MenuItem::enabled`
 

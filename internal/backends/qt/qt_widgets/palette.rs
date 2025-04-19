@@ -30,7 +30,6 @@ struct PaletteStyleChangeListener : QWidget {
 #[pin]
 #[pin_drop]
 pub struct NativePalette {
-    pub style_name: Property<SharedString>,
     pub background: Property<Brush>,
     pub foreground: Property<Brush>,
     pub alternate_background: Property<Brush>,
@@ -55,7 +54,6 @@ impl const_field_offset::PinnedDrop for NativePalette {
 impl NativePalette {
     pub fn new() -> Pin<Rc<Self>> {
         Rc::pin(NativePalette {
-            style_name: Default::default(),
             background: Default::default(),
             alternate_background: Default::default(),
             alternate_foreground: Default::default(),
