@@ -518,6 +518,11 @@ export global TextInputInterface {
     in property <bool> text-input-focused;
 }
 
+export global Platform {
+    out property <string> os;
+    out property <string> style-name;
+}
+
 export component NativeButton {
     in property <string> text;
     in property <image> icon;
