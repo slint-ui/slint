@@ -94,7 +94,7 @@ inline void debug(const SharedString &str)
 inline SharedString detect_operating_system()
 {
     SharedString result;
-    cbindgen_private::slint_detect_operation_system(&result);
+    cbindgen_private::slint_detect_operating_system(&result);
     return result;
 }
 
