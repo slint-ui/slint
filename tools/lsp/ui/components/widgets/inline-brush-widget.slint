@@ -186,7 +186,7 @@ component InlineColor {
     }
 }
 
-component InlineLinearGradient {
+component InlineGradient {
     width: 100%;
     height: main.height;
 
@@ -331,7 +331,7 @@ export component InlineColorWidget inherits VerticalLayout {
         }
      }
 
-     if property-value.brush-kind == BrushKind.linear: InlineLinearGradient {
+     if property-value.brush-kind == BrushKind.linear || property-value.brush-kind == BrushKind.radial: InlineGradient {
         current-brush <=> root.current-brush;
 
         indicator-clicked() => {
