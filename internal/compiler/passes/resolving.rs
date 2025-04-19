@@ -1583,6 +1583,17 @@ fn maybe_lookup_object(
                     LookupResult::Expression { expression, .. } => {
                         let ty_descr = match expression.ty() {
                             Type::Struct { .. } => String::new(),
+                            Type::Float32
+                                if ctx.property_type == Type::Model
+                                    && matches!(
+                                        expression,
+                                        Expression::NumberLiteral(_, Unit::None),
+                                    ) =>
+                            {
+                                // usually something like `0..foo`
+                                format!(" of float. Range expressions are not supported in Slint, but you can use an integer as a model to repeat something multiple time. Eg: `for i in {}`", next.text())
+                            }
+
                             ty => format!(" of {ty}"),
                         };
                         ctx.diag.push_error(
