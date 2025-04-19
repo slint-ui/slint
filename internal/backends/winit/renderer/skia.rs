@@ -59,6 +59,15 @@ impl WinitSkiaRenderer {
         })
     }
 
+    #[cfg(feature = "unstable-wgpu-25")]
+    pub fn new_wgpu_25_suspended(
+        shared_backend_data: &Rc<crate::SharedBackendData>,
+    ) -> Box<dyn super::WinitCompatibleRenderer> {
+        Box::new(Self {
+            renderer: SkiaRenderer::default_wgpu_25(&shared_backend_data.skia_context),
+        })
+    }
+
     pub fn factory_for_graphics_api(
         requested_graphics_api: Option<&RequestedGraphicsAPI>,
     ) -> Result<
@@ -103,7 +112,7 @@ impl WinitSkiaRenderer {
                     }
                     #[cfg(feature = "unstable-wgpu-25")]
                     RequestedGraphicsAPI::WGPU25(..) => {
-                        return Err(format!("WGPU rendering is not supported by Skia").into());
+                        return Ok(Self::new_wgpu_25_suspended);
                     }
                 }
             }
