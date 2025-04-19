@@ -342,7 +342,7 @@ impl ImageCacheKey {
             #[cfg(not(target_arch = "wasm32"))]
             ImageInner::BorrowedOpenGLTexture(..) => return None,
             ImageInner::NineSlice(nine) => vtable::VRc::borrow(nine).cache_key(),
-            #[cfg(feature = "unstable-wgpu-24")]
+            #[cfg(any(feature = "unstable-wgpu-24", feature = "unstable-wgpu-25"))]
             ImageInner::WGPUTexture(..) => return None,
         };
         if matches!(key, ImageCacheKey::Invalid) {
@@ -378,19 +378,27 @@ impl OpaqueImage for NineSliceImage {
 }
 
 /// Represents a `wgpu::Texture` for each version of WGPU we support.
-#[cfg(feature = "unstable-wgpu-24")]
+#[cfg(any(feature = "unstable-wgpu-24", feature = "unstable-wgpu-25"))]
 #[derive(Clone, Debug)]
 pub enum WGPUTexture {
     /// A texture for WGPU version 24.
     #[cfg(feature = "unstable-wgpu-24")]
     WGPU24Texture(wgpu_24::Texture),
+    #[cfg(feature = "unstable-wgpu-25")]
+    WGPU25Texture(wgpu_25::Texture),
 }
 
-#[cfg(feature = "unstable-wgpu-24")]
+#[cfg(any(feature = "unstable-wgpu-24", feature = "unstable-wgpu-25"))]
 impl OpaqueImage for WGPUTexture {
     fn size(&self) -> IntSize {
         match self {
+            #[cfg(feature = "unstable-wgpu-24")]
             Self::WGPU24Texture(texture) => {
+                let size = texture.size();
+                (size.width, size.height).into()
+            }
+            #[cfg(feature = "unstable-wgpu-25")]
+            Self::WGPU25Texture(texture) => {
                 let size = texture.size();
                 (size.width, size.height).into()
             }
@@ -425,7 +433,7 @@ pub enum ImageInner {
     #[cfg(not(target_arch = "wasm32"))]
     BorrowedOpenGLTexture(BorrowedOpenGLTexture) = 6,
     NineSlice(vtable::VRc<OpaqueImageVTable, NineSliceImage>) = 7,
-    #[cfg(feature = "unstable-wgpu-24")]
+    #[cfg(any(feature = "unstable-wgpu-24", feature = "unstable-wgpu-25"))]
     WGPUTexture(WGPUTexture) = 8,
 }
 
@@ -544,7 +552,7 @@ impl ImageInner {
             #[cfg(not(target_arch = "wasm32"))]
             ImageInner::BorrowedOpenGLTexture(BorrowedOpenGLTexture { size, .. }) => *size,
             ImageInner::NineSlice(nine) => nine.0.size(),
-            #[cfg(feature = "unstable-wgpu-24")]
+            #[cfg(any(feature = "unstable-wgpu-24", feature = "unstable-wgpu-25"))]
             ImageInner::WGPUTexture(texture) => texture.size(),
         }
     }
@@ -977,7 +985,7 @@ impl BorrowedOpenGLTextureBuilder {
     }
 }
 
-#[cfg(feature = "unstable-wgpu-24")]
+#[cfg(any(feature = "unstable-wgpu-24", feature = "unstable-wgpu-25"))]
 #[derive(Debug)]
 #[non_exhaustive]
 /// This enum describes the possible errors that can occur when importing a WGPU texture,
@@ -989,7 +997,7 @@ pub enum WGPUTextureImportError {
     InvalidUsage,
 }
 
-#[cfg(feature = "unstable-wgpu-24")]
+#[cfg(any(feature = "unstable-wgpu-24", feature = "unstable-wgpu-25"))]
 impl core::fmt::Display for WGPUTextureImportError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
@@ -1018,6 +1026,24 @@ impl TryFrom<wgpu_24::Texture> for Image {
             return Err(WGPUTextureImportError::InvalidUsage);
         }
         Ok(Self(ImageInner::WGPUTexture(WGPUTexture::WGPU24Texture(texture))))
+    }
+}
+
+#[cfg(feature = "unstable-wgpu-25")]
+impl TryFrom<wgpu_25::Texture> for Image {
+    type Error = WGPUTextureImportError;
+
+    fn try_from(texture: wgpu_25::Texture) -> Result<Self, Self::Error> {
+        if texture.format() != wgpu_25::TextureFormat::Rgba8Unorm {
+            return Err(WGPUTextureImportError::InvalidFormat);
+        }
+        let usages = texture.usage();
+        if !usages.contains(wgpu_25::TextureUsages::TEXTURE_BINDING)
+            || !usages.contains(wgpu_25::TextureUsages::RENDER_ATTACHMENT)
+        {
+            return Err(WGPUTextureImportError::InvalidUsage);
+        }
+        Ok(Self(ImageInner::WGPUTexture(WGPUTexture::WGPU25Texture(texture))))
     }
 }
 

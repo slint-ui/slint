@@ -30,8 +30,8 @@ pub struct OpenGLSurface {
 impl super::Surface for OpenGLSurface {
     fn new(
         _shared_context: &SkiaSharedContext,
-        window_handle: Arc<dyn raw_window_handle::HasWindowHandle>,
-        display_handle: Arc<dyn raw_window_handle::HasDisplayHandle>,
+        window_handle: Arc<dyn raw_window_handle::HasWindowHandle + Send + Sync>,
+        display_handle: Arc<dyn raw_window_handle::HasDisplayHandle + Send + Sync>,
         size: PhysicalWindowSize,
         requested_graphics_api: Option<RequestedGraphicsAPI>,
     ) -> Result<Self, PlatformError> {

@@ -121,6 +121,16 @@ impl BackendSelector {
         self
     }
 
+    #[cfg(feature = "unstable-wgpu-25")]
+    #[must_use]
+    pub fn require_wgpu_25(
+        mut self,
+        configuration: i_slint_core::graphics::wgpu_25::WGPUConfiguration,
+    ) -> Self {
+        self.requested_graphics_api = Some(RequestedGraphicsAPI::WGPU25(configuration));
+        self
+    }
+
     /// Configures this builder to use the specified winit hook that will be called before a Window is created.
     ///
     /// It can be used to adjust settings of window that will be created.

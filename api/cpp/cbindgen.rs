@@ -240,6 +240,7 @@ fn default_config() -> cbindgen::Config {
         ("target_os = android".into(), "__ANDROID__".into()),
         // Disable Rust WGPU specific API feature
         ("feature = unstable-wgpu-24".into(), "SLINT_DISABLED_CODE".into()),
+        ("feature = unstable-wgpu-25".into(), "SLINT_DISABLED_CODE".into()),
     ]
     .iter()
     .cloned()

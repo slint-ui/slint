@@ -51,6 +51,9 @@ pub mod vulkan_surface;
 #[cfg(any(not(target_vendor = "apple"), target_os = "macos"))]
 pub mod opengl_surface;
 
+#[cfg(feature = "unstable-wgpu-25")]
+mod wgpu_surface;
+
 use i_slint_core::items::TextWrap;
 use itemrenderer::to_skia_rect;
 pub use skia_safe;
@@ -69,8 +72,8 @@ cfg_if::cfg_if! {
 
 fn create_default_surface(
     context: &SkiaSharedContext,
-    window_handle: Arc<dyn raw_window_handle::HasWindowHandle>,
-    display_handle: Arc<dyn raw_window_handle::HasDisplayHandle>,
+    window_handle: Arc<dyn raw_window_handle::HasWindowHandle + Sync + Send>,
+    display_handle: Arc<dyn raw_window_handle::HasDisplayHandle + Sync + Send>,
     size: PhysicalWindowSize,
     requested_graphics_api: Option<RequestedGraphicsAPI>,
 ) -> Result<Box<dyn Surface>, PlatformError> {
@@ -157,8 +160,8 @@ pub struct SkiaRenderer {
     surface: RefCell<Option<Box<dyn Surface>>>,
     surface_factory: fn(
         &SkiaSharedContext,
-        window_handle: Arc<dyn raw_window_handle::HasWindowHandle>,
-        display_handle: Arc<dyn raw_window_handle::HasDisplayHandle>,
+        window_handle: Arc<dyn raw_window_handle::HasWindowHandle + Send + Sync>,
+        display_handle: Arc<dyn raw_window_handle::HasDisplayHandle + Send + Sync>,
         size: PhysicalWindowSize,
         requested_graphics_api: Option<RequestedGraphicsAPI>,
     ) -> Result<Box<dyn Surface>, PlatformError>,
@@ -354,11 +357,44 @@ impl SkiaRenderer {
         }
     }
 
+    #[cfg(feature = "unstable-wgpu-25")]
+    /// Creates a new SkiaRenderer that will always use Skia's Vulkan renderer.
+    pub fn default_wgpu(context: &SkiaSharedContext) -> Self {
+        Self {
+            maybe_window_adapter: Default::default(),
+            rendering_notifier: Default::default(),
+            image_cache: Default::default(),
+            path_cache: Default::default(),
+            rendering_metrics_collector: Default::default(),
+            rendering_first_time: Default::default(),
+            surface: Default::default(),
+            surface_factory: |context,
+                              window_handle,
+                              display_handle,
+                              size,
+                              requested_graphics_api| {
+                wgpu_surface::WGPUSurface::new(
+                    context,
+                    window_handle,
+                    display_handle,
+                    size,
+                    requested_graphics_api,
+                )
+                .map(|r| Box::new(r) as Box<dyn Surface>)
+            },
+            pre_present_callback: Default::default(),
+            partial_rendering_state: create_partial_renderer_state(None),
+            dirty_region_debug_mode: Default::default(),
+            dirty_region_history: Default::default(),
+            shared_context: context.clone(),
+        }
+    }
+
     /// Creates a new renderer is associated with the provided window adapter.
     pub fn new(
         context: &SkiaSharedContext,
-        window_handle: Arc<dyn raw_window_handle::HasWindowHandle>,
-        display_handle: Arc<dyn raw_window_handle::HasDisplayHandle>,
+        window_handle: Arc<dyn raw_window_handle::HasWindowHandle + Send + Sync>,
+        display_handle: Arc<dyn raw_window_handle::HasDisplayHandle + Send + Sync>,
         size: PhysicalWindowSize,
     ) -> Result<Self, PlatformError> {
         Ok(Self::new_with_surface(
@@ -437,8 +473,8 @@ impl SkiaRenderer {
     /// Reset the surface to the window given the window handle
     pub fn set_window_handle(
         &self,
-        window_handle: Arc<dyn raw_window_handle::HasWindowHandle>,
-        display_handle: Arc<dyn raw_window_handle::HasDisplayHandle>,
+        window_handle: Arc<dyn raw_window_handle::HasWindowHandle + Send + Sync>,
+        display_handle: Arc<dyn raw_window_handle::HasDisplayHandle + Send + Sync>,
         size: PhysicalWindowSize,
         requested_graphics_api: Option<RequestedGraphicsAPI>,
     ) -> Result<(), PlatformError> {
@@ -984,8 +1020,8 @@ pub trait Surface {
     /// Creates a new surface with the given window, display, and size.
     fn new(
         shared_context: &SkiaSharedContext,
-        window_handle: Arc<dyn raw_window_handle::HasWindowHandle>,
-        display_handle: Arc<dyn raw_window_handle::HasDisplayHandle>,
+        window_handle: Arc<dyn raw_window_handle::HasWindowHandle + Sync + Send>,
+        display_handle: Arc<dyn raw_window_handle::HasDisplayHandle + Sync + Send>,
         size: PhysicalWindowSize,
         requested_graphics_api: Option<RequestedGraphicsAPI>,
     ) -> Result<Self, PlatformError>
@@ -1045,6 +1081,15 @@ pub trait Surface {
         &self,
         _canvas: &skia_safe::Canvas,
         _texture: &i_slint_core::graphics::BorrowedOpenGLTexture,
+    ) -> Option<skia_safe::Image> {
+        None
+    }
+
+    #[cfg(any(feature = "unstable-wgpu-24", feature = "unstable-wgpu-25"))]
+    fn import_wgpu_texture(
+        &self,
+        _canvas: &skia_safe::Canvas,
+        _texture: &i_slint_core::graphics::WGPUTexture,
     ) -> Option<skia_safe::Image> {
         None
     }

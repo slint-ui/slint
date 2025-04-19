@@ -541,6 +541,12 @@ pub mod wgpu_24 {
     pub use wgpu_24 as wgpu;
 }
 
+#[cfg(feature = "unstable-wgpu-25")]
+pub mod wgpu_25 {
+    pub use i_slint_core::graphics::wgpu_25::*;
+    pub use wgpu_25 as wgpu;
+}
+
 #[cfg(feature = "unstable-winit-030")]
 pub mod winit_030 {
     //! Winit 0.30.x specific types and re-exports.
