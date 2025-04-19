@@ -426,7 +426,13 @@ impl BackendBuilder {
             }
             #[cfg(feature = "unstable-wgpu-25")]
             (None, Some(RequestedGraphicsAPI::WGPU25(..))) => {
-                renderer::femtovg::WGPUFemtoVGRenderer::new_suspended
+                cfg_if::cfg_if! {
+                    if #[cfg(enable_skia_renderer)] {
+                        renderer::skia::WinitSkiaRenderer::new_wgpu_suspended
+                    } else {
+                        renderer::femtovg::WGPUFemtoVGRenderer::new_suspended
+                    }
+                }
             }
             (None, Some(_requested_graphics_api)) => {
                 cfg_if::cfg_if! {
