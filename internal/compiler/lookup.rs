@@ -471,15 +471,17 @@ impl LookupObject for ElementRc {
     }
 }
 
+/// This enum describes the result of checking the use of a property of the StyleMetrics object.
 pub enum StyleMetricsPropertyUse {
+    /// The property is acceptable for use.
     Acceptable,
+    /// The property is acceptable fo use, but it is deprecated. The string provides the name of the
+    /// property that should be used instead.
     Deprecated(String),
+    /// The property is not acceptable for use, it is internal.
     Unacceptable,
 }
 
-/// Returns Some() if name is a deprecated style metrics property.
-/// Returns None if the property is acceptable for regular use.
-/// Returns Err(()) if the property should not be accessible.
 pub fn check_deprecated_stylemetrics(
     elem: &ElementRc,
     ctx: &LookupCtx<'_>,
