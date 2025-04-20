@@ -622,6 +622,7 @@ component GradientPicker inherits SimpleColumn {
             current-index: PickerData.current-brush-kind == BrushKind.linear ? 0 : 1;
             selected(current-value) => {
                 PickerData.current-brush-kind = current-value == "Linear" ? BrushKind.linear : BrushKind.radial;
+                WindowManager.update-brush();
             }
 
         }
