@@ -372,10 +372,6 @@ component GradientSlider {
         ColorIndicator {
             color: PickerData.current-gradient-stops[stop-index].color;
         }
-        Text {
-            color: black;
-            text: root.stop-index;
-        }
     }
 }
 
@@ -687,7 +683,7 @@ component GradientPicker inherits SimpleColumn {
             property <GradientStopIndexChanged> index-changed;
 
             for i[index] in PickerData.current-gradient-stops: GradientSlider {
-                y: parent.height + (self.stop-index * 10px);
+                y: parent.height;
                 start-limit: 0;
                 end-limit: parent.width;
                 parent-width: parent.width;
