@@ -606,6 +606,7 @@ component GradientStopValue {
         delete-stop-ta := TouchArea {
             clicked => {
                 Api.remove-gradient-stop(PickerData.current-gradient-stops, stop-index);
+                PickerData.current-gradient-stops = Api.clone-gradient-stops(PickerData.current-gradient-stops);
             }
         }
 
