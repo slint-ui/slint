@@ -298,27 +298,24 @@ component GradientSlider {
     in property <length> end-limit;
     in property <length> parent-width;
     in property <bool> active;
+    property <bool> being-dragged <=> ta.pressed;
     property <length> slider-target-x;
     in-out property <int> stop-index;
     out property pressed <=> ta.pressed;
 
+    private property <int> previous-stop-index;
     in property <GradientStopIndexChanged> index-changed-data;
 
     callback index-changed(change: GradientStopIndexChanged);
 
     changed index-changed-data => {
-        if self.previous-stop-index == self.index-changed-data.start-index && self.stop-index == self.index-changed-data.end-index {
-            self.previous-stop-index = -1;
-            return;
-        }
-        if self.index-changed-data.start-index < self.stop-index && self.index-changed-data.end-index >= self.stop-index {
-            self.stop-index -= 1;
-        } else if self.index-changed-data.start-index > self.stop-index && self.index-changed-data.end-index <= self.stop-index {
-            self.stop-index += 1;
+        // is the new end index match? If so swap with the start-index
+        if !self.being-dragged {
+            if self.index-changed-data.end-index == self.stop-index {
+                self.stop-index = self.index-changed-data.start-index;
+            }
         }
     }
-
-    private property <int> previous-stop-index;
 
     width: 0;
     height: 0;
@@ -342,8 +339,8 @@ component GradientSlider {
 
                 if root.previous-stop-index != root.stop-index {
                     root.index-changed({ start-index: root.previous-stop-index, end-index: root.stop-index });
-                } else {
-                    root.previous-stop-index = -1;
+                    PickerData.current-stop-index = root.stop-index;
+                    previous-stop-index = root.stop-index;
                 }
             }
             clicked => {
@@ -351,6 +348,11 @@ component GradientSlider {
                     WindowManager.show-color-stop-picker();
                 }
                 block-clicked = false;
+            }
+            changed pressed => {
+                if self.pressed {
+                    PickerData.current-stop-index = stop-index;
+                }
             }
         }
 
@@ -369,6 +371,10 @@ component GradientSlider {
 
         ColorIndicator {
             color: PickerData.current-gradient-stops[stop-index].color;
+        }
+        Text {
+            color: black;
+            text: root.stop-index;
         }
     }
 }
@@ -681,12 +687,12 @@ component GradientPicker inherits SimpleColumn {
             property <GradientStopIndexChanged> index-changed;
 
             for i[index] in PickerData.current-gradient-stops: GradientSlider {
-                y: parent.height + 0px;
+                y: parent.height + (self.stop-index * 10px);
                 start-limit: 0;
                 end-limit: parent.width;
                 parent-width: parent.width;
                 stop-index: index;
-                active: index == PickerData.current-stop-index;
+                active: self.stop-index == PickerData.current-stop-index;
 
                 index-changed-data <=> parent.index-changed;
 
