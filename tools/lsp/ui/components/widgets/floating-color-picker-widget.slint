@@ -297,7 +297,7 @@ component GradientSlider {
     in property <length> start-limit;
     in property <length> end-limit;
     in property <length> parent-width;
-    in property <bool> active;
+    in property <bool> active: stop-index == PickerData.current-stop-index;
     property <bool> being-dragged <=> ta.pressed;
     property <length> slider-target-x;
     in-out property <int> stop-index;
@@ -692,7 +692,6 @@ component GradientPicker inherits SimpleColumn {
                 end-limit: parent.width;
                 parent-width: parent.width;
                 stop-index: index;
-                active: self.stop-index == PickerData.current-stop-index;
 
                 index-changed-data <=> parent.index-changed;
 
@@ -703,7 +702,6 @@ component GradientPicker inherits SimpleColumn {
                 changed pressed => {
                     if self.pressed {
                         root.clear-focus-panel();
-                        PickerData.current-stop-index = index;
                     }
                 }
             }
