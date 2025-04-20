@@ -672,7 +672,7 @@ component GradientPicker inherits SimpleColumn {
             property <GradientStopIndexChanged> index-changed;
 
             for i[index] in PickerData.current-gradient-stops: GradientSlider {
-                y: parent.height + 10px;
+                y: parent.height + 0px;
                 start-limit: 0;
                 end-limit: parent.width;
                 parent-width: parent.width;
