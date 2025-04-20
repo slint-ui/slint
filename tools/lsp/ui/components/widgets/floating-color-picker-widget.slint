@@ -330,10 +330,13 @@ component GradientSlider {
         background: active ? Styles.focused-color : EditorPalette.section-color;
         border-radius: 5px;
 
+        property <bool> block-clicked: false;
         ta := TouchArea {
             moved => {
                 slider-target-x = ((root.x + self.mouse-x - self.pressed-x) / 1px).round() * 1px;
-
+                if root.x != slider-target-x {
+                    block-clicked = true;
+                }
                 root.previous-stop-index = root.stop-index;
                 root.stop-index = Api.move-gradient-stop(PickerData.current-gradient-stops, stop-index, clamp(slider-target-x, root.start-limit, root.end-limit) / root.parent-width);
 
@@ -342,6 +345,12 @@ component GradientSlider {
                 } else {
                     root.previous-stop-index = -1;
                 }
+            }
+            clicked => {
+                if !block-clicked {
+                    WindowManager.show-color-stop-picker();
+                }
+                block-clicked = false;
             }
         }
 
