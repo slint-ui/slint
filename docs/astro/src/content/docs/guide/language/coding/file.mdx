@@ -292,10 +292,14 @@ export { MathLogic } // known as "MathLogic" when using native APIs to access gl
 The following syntax is supported for importing types:
 
 ```slint no-test
-import { export1 } from "module.slint";
-import { export1, export2 } from "module.slint";
-import { export1 as alias1 } from "module.slint";
-import { export1, export2 as alias2, /* ... */ } from "module.slint";
+import { MyButton } from "module.slint";
+import { MyButton, MySwitch } from "module.slint";
+import { MyButton as OtherButton } from "module.slint";
+import {
+    MyButton,
+    /* ... */,
+    MySwitch as OtherSwitch,
+} from "module.slint";
 ```
 
 The following syntax is supported for exporting types:
