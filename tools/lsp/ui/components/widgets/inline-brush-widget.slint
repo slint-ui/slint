@@ -128,7 +128,11 @@ component InlineColor {
                         if self.text.character-count > 6 {
                             hsv-color.alpha = Api.string-to-color("#\{self.text}").to-hsv().alpha;
                         }
-                        root.set-color-binding(Api.color-to-data(hsv(hsv-color.hue, hsv-color.saturation, hsv-color.value, hsv-color.alpha)).text);
+                        if hsv-color.alpha == 1 {
+                            root.set-color-binding("#\{Api.color-to-data(hsv(hsv-color.hue, hsv-color.saturation, hsv-color.value, hsv-color.alpha)).short-text}");
+                        } else {
+                            root.set-color-binding(Api.color-to-data(hsv(hsv-color.hue, hsv-color.saturation, hsv-color.value, hsv-color.alpha)).text);
+                        }
                     } else {
                         self.text = Api.color-to-data(root.current-color).short-text.to-uppercase();
                     }
@@ -166,7 +170,11 @@ component InlineColor {
                 horizontal-alignment: right;
                 accepted => {
                     self.text = clamp(self.text.to-float(), 0, 100);
-                    root.set-color-binding(Api.color-to-data(hsv(root.current-color.to-hsv().hue, root.current-color.to-hsv().saturation, root.current-color.to-hsv().value, self.text.to-float() / 100)).text);
+                    if self.text == "100" {
+                        root.set-color-binding("#\{Api.color-to-data(hsv(root.current-color.to-hsv().hue, root.current-color.to-hsv().saturation, root.current-color.to-hsv().value, 1)).short-text}");
+                    } else {
+                        root.set-color-binding(Api.color-to-data(hsv(root.current-color.to-hsv().hue, root.current-color.to-hsv().saturation, root.current-color.to-hsv().value, self.text.to-float() / 100)).text);
+                    }
                     self.clear-focus();
                 }
                 edited => {

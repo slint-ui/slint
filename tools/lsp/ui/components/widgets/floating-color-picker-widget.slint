@@ -276,7 +276,11 @@ component ColorModeColorAndApply {
             width: 100px;
             text: "Apply";
             clicked => {
-                WindowManager.apply-current-value(Api.color-to-data(PickerData.current-color).text);
+                if PickerData.current-color.to-hsv().alpha == 1 {
+                    WindowManager.apply-current-value("#\{Api.color-to-data(PickerData.current-color).short-text}")
+                } else {
+                    WindowManager.apply-current-value(Api.color-to-data(PickerData.current-color).text);
+                }
             }
         }
     }
