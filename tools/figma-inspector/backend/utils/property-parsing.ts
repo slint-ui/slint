@@ -8,6 +8,8 @@ import {
 
 export const indentation = "    ";
 const rectangleProperties = [
+    "x",
+    "y",
     "width",
     "height",
     "fill",
@@ -20,6 +22,8 @@ const rectangleProperties = [
 const textProperties = [
     "x",
     "y",
+    "width",
+    "height",
     "text",
     "fill",
     "font-family",
@@ -502,7 +506,7 @@ export function generateUnsupportedNodeSnippet(sceneNode: SceneNode): string {
 export async function generateRectangleSnippet(
     sceneNode: SceneNode,
 ): Promise<string> {
-    const parentProperties: string[] = []; // Renamed for clarity
+    const parentProperties: string[] = [];
     if ("boundVariables" in sceneNode) {
         console.log(
             "[generateRectangleSnippet] Inspecting sceneNode.boundVariables:",
@@ -514,7 +518,6 @@ export async function generateRectangleSnippet(
         );
     }
     for (const property of rectangleProperties) {
-        // --- Add try...catch around each property's logic ---
         try {
             switch (property) {
                 case "x":
@@ -541,7 +544,7 @@ export async function generateRectangleSnippet(
                             );
                         }
                     }
-                    if (xValue) {
+                    if (xValue && sceneNode.parent?.type !== "PAGE") {
                         parentProperties.push(`${indentation}x: ${xValue};`);
                     }
                     break;
@@ -570,7 +573,7 @@ export async function generateRectangleSnippet(
                             );
                         }
                     }
-                    if (yValue) {
+                    if (yValue && sceneNode.parent?.type !== "PAGE") {
                         parentProperties.push(`${indentation}y: ${yValue};`);
                     }
                     break;
@@ -590,7 +593,9 @@ export async function generateRectangleSnippet(
                         }
                     }
                     if (widthValue) {
-                        parentProperties.push(`${indentation}width: ${widthValue};`);
+                        parentProperties.push(
+                            `${indentation}width: ${widthValue};`,
+                        );
                     }
                     break;
                 case "height":
@@ -689,6 +694,15 @@ export async function generateRectangleSnippet(
             parentProperties.push(
                 `${indentation}// Error processing ${property}: ${err instanceof Error ? err.message : err}`,
             );
+            console.error(`[generateRectangleSnippet] Error processing property "${property}" for parent ${sceneNode.name}:`, err);
+            parentProperties.push(`${indentation}// Error processing ${property}: ${err instanceof Error ? err.message : err}`);
+            console.error(
+                `[generateRectangleSnippet] Error processing property "${property}" for parent ${sceneNode.name}:`,
+                err,
+            );
+            parentProperties.push(
+                `${indentation}// Error processing ${property}: ${err instanceof Error ? err.message : err}`,
+            );
         }
         // --- End try...catch ---
     }
@@ -699,15 +713,21 @@ export async function generateRectangleSnippet(
     // --- 2. Process Children Recursively ---
     let childSnippets: string[] = [];
     if ("children" in sceneNode && Array.isArray(sceneNode.children)) {
-        console.log(`[generateRectangleSnippet] Processing ${sceneNode.children.length} children for ${sceneNode.name}...`);
+        console.log(
+            `[generateRectangleSnippet] Processing ${sceneNode.children.length} children for ${sceneNode.name}...`,
+        );
 
         // Create promises for generating each child's snippet
-        const childPromises = sceneNode.children.map(childNode =>
+        const childPromises = sceneNode.children.map((childNode) =>
             generateSlintSnippet(childNode) // <<< --- RECURSIVE CALL --- >>>
-                .catch(err => { // Add catch here to prevent Promise.all failure
-                    console.error(`[generateRectangleSnippet] Error generating snippet for child ${childNode.name}:`, err);
+                .catch((err) => {
+                    // Add catch here to prevent Promise.all failure
+                    console.error(
+                        `[generateRectangleSnippet] Error generating snippet for child ${childNode.name}:`,
+                        err,
+                    );
                     return `// Error generating snippet for child ${childNode.name}`; // Return error comment
-                })
+                }),
         );
 
         // Wait for all child snippets to be generated
@@ -715,20 +735,28 @@ export async function generateRectangleSnippet(
 
         // Filter out null results (unsupported types) and indent valid snippets
         childSnippets = resolvedChildSnippets
-            .filter((snippet): snippet is string => snippet !== null && snippet.trim() !== "") // Keep non-null, non-empty strings
-            .map(snippet => {
+            .filter(
+                (snippet): snippet is string =>
+                    snippet !== null && snippet.trim() !== "",
+            ) // Keep non-null, non-empty strings
+            .map((snippet) => {
                 // Indent the entire child snippet block
-                return snippet.split('\n').map(line => `${indentation}${line}`).join('\n');
+                return snippet
+                    .split("\n")
+                    .map((line) => `${indentation}${line}`)
+                    .join("\n");
             });
 
-         console.log(`[generateRectangleSnippet] Finished processing children for ${sceneNode.name}. Got ${childSnippets.length} valid snippets.`);
+        console.log(
+            `[generateRectangleSnippet] Finished processing children for ${sceneNode.name}. Got ${childSnippets.length} valid snippets.`,
+        );
     }
 
     let combinedContent = parentProperties.join("\n");
     if (childSnippets.length > 0) {
         // Add a separator if both parent properties and children exist
         if (parentProperties.length > 0) {
-             combinedContent += "\n\n" + indentation + "// --- Children ---";
+            combinedContent += "\n\n" + indentation + "// --- Children ---";
         }
         combinedContent += "\n" + childSnippets.join("\n\n"); // Add newline between children
     }
@@ -812,7 +840,7 @@ export async function generateTextSnippet(
                         properties.push(`${indentation}y: ${yValue};`);
                     }
                     break;
-                                case "width":
+                case "width":
                     const boundWidthVarId = (sceneNode as any).boundVariables
                         ?.width?.id;
                     let widthValue: string | null = null;
