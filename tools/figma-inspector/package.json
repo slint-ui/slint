@@ -20,7 +20,7 @@
     "type-check": "tsc --noEmit"
   },
   "devDependencies": {
-    "@figma/plugin-typings": "1.109.0",
+    "@figma/plugin-typings": "1.110.0",
     "@types/node": "20.16.10",
     "@types/react": "19.1.1",
     "@types/react-dom": "19.1.2",
