@@ -224,6 +224,61 @@ component InlineGradient {
             }
         }
     }
+}
+
+component UnsetColor {
+    width: 100%;
+    height: main.height;
+
+    in-out property <BrushPropertyType> brush-property-type;
+
+    callback indicator-clicked();
+
+    main := CustomLineEdit {
+        x: 0;
+        width: parent.width;
+        ci := Rectangle {
+            x: (main.height - 15px) / 2;
+            y: (parent.height - self.height) / 2;
+            width: 15px;
+            height: 15px;
+            background: white;
+            border-radius: self.width / 2;
+            clip: true;
+
+            Path {
+                commands: "M 350 50 L 50 250";
+                stroke: red;
+                stroke-width: 1px;
+            }
+
+            Rectangle {
+                border-width: 1px;
+                border-color: Palette.border;
+                border-radius: self.width / 2;
+            }
+
+            TouchArea {
+                clicked => {
+                    root.indicator-clicked();
+                }
+            }
+        }
+
+        Rectangle {
+            x: ci.x + ci.width + 4px;
+            width: 170px;
+            height: 25px;
+
+            Text {
+                x: 10px;
+                text: root.brush-property-type == BrushPropertyType.color ? "color" : "brush";
+                font-family: "Inter";
+                font-size: 12px;
+                color: EditorPalette.text-color;
+            }
+        }
+    }
 
 }
 
@@ -231,7 +286,7 @@ export component InlineColorWidget inherits VerticalLayout {
     in property <bool> enabled;
     in property <string> property-name;
     in property <PropertyValue> property-value;
-    in property <BrushPropertyType> brush-property-type;
+    in-out property <BrushPropertyType> brush-property-type;
     in property <string> property-container-id;
     in property <PreviewData> preview-data;
 
@@ -316,7 +371,15 @@ export component InlineColorWidget inherits VerticalLayout {
         property-value: root.property-value;
     }
 
-    if property-value.brush-kind == BrushKind.solid: InlineColor {
+    if property-value.code == "": UnsetColor {
+        brush-property-type <=> root.brush-property-type;
+
+        indicator-clicked() => {
+            root.update-floating-editor();
+        }
+    }
+
+    if property-value.brush-kind == BrushKind.solid && property-value.code != "": InlineColor {
         current-color <=> root.current-color;
 
         changed has-focus => {
@@ -332,7 +395,7 @@ export component InlineColorWidget inherits VerticalLayout {
         }
      }
 
-     if property-value.brush-kind == BrushKind.linear || property-value.brush-kind == BrushKind.radial: InlineGradient {
+     if (property-value.brush-kind == BrushKind.linear || property-value.brush-kind == BrushKind.radial) && property-value.code != "": InlineGradient {
         current-brush <=> root.current-brush;
         current-brush-kind <=> root.current-brush-kind;
 

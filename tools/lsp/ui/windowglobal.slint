@@ -74,10 +74,18 @@ export global WindowManager {
         current-property-information = property-information;
         current-element-information = element-information;
         if current-property-information.value.kind == PropertyValueKind.color {
-            PickerData.hue = current-property-information.value.value-brush.to-hsv().hue;
-            PickerData.saturation = current-property-information.value.value-brush.to-hsv().saturation;
-            PickerData.value = current-property-information.value.value-brush.to-hsv().value;
-            PickerData.alpha = current-property-information.value.value-brush.to-hsv().alpha * 100;
+            // if there is no color set create a new useful one
+            if current-property-information.value.code == "" {
+                PickerData.hue = 220;
+                PickerData.saturation = 0.5;
+                PickerData.value = 0.5;
+                PickerData.alpha = 100;
+            } else {
+                PickerData.hue = current-property-information.value.value-brush.to-hsv().hue;
+                PickerData.saturation = current-property-information.value.value-brush.to-hsv().saturation;
+                PickerData.value = current-property-information.value.value-brush.to-hsv().value;
+                PickerData.alpha = current-property-information.value.value-brush.to-hsv().alpha * 100;
+            }
             picker-mode = BrushPropertyType.color;
             showing-color-picker = true;
         }
@@ -90,10 +98,18 @@ export global WindowManager {
             brush-mode = current-property-information.value.brush-kind == BrushKind.solid ? BrushMode.color : current-property-information.value.brush-kind == BrushKind.linear ? BrushMode.linear : BrushMode.radial;
 
             if current-property-information.value.brush-kind == BrushKind.solid {
-                PickerData.hue = current-property-information.value.value-brush.to-hsv().hue;
-                PickerData.saturation = current-property-information.value.value-brush.to-hsv().saturation;
-                PickerData.value = current-property-information.value.value-brush.to-hsv().value;
-                PickerData.alpha = current-property-information.value.value-brush.to-hsv().alpha * 100;
+                // if there is no color set create a new useful one
+                if current-property-information.value.code == "" {
+                    PickerData.hue = 220;
+                    PickerData.saturation = 0.5;
+                    PickerData.value = 0.5;
+                    PickerData.alpha = 100;
+                } else {
+                    PickerData.hue = current-property-information.value.value-brush.to-hsv().hue;
+                    PickerData.saturation = current-property-information.value.value-brush.to-hsv().saturation;
+                    PickerData.value = current-property-information.value.value-brush.to-hsv().value;
+                    PickerData.alpha = current-property-information.value.value-brush.to-hsv().alpha * 100;
+                }
             } else {
                 PickerData.hue = PickerData.current-gradient-stops[PickerData.current-stop-index].color.to-hsv().hue;
                 PickerData.saturation = PickerData.current-gradient-stops[PickerData.current-stop-index].color.to-hsv().saturation;
