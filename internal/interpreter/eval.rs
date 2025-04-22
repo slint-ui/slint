@@ -486,6 +486,10 @@ fn call_builtin_function(
             let y: f64 = eval_expression(&arguments[1], local_context).try_into().unwrap();
             Value::Number(x.powf(y))
         }
+        BuiltinFunction::Exp => {
+            let x: f64 = eval_expression(&arguments[0], local_context).try_into().unwrap();
+            Value::Number(x.exp())
+        }
         BuiltinFunction::ToFixed => {
             let n: f64 = eval_expression(&arguments[0], local_context).try_into().unwrap();
             let digits: i32 = eval_expression(&arguments[1], local_context).try_into().unwrap();

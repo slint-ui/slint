@@ -3000,6 +3000,7 @@ fn compile_builtin_function_call(
             let (a1, a2) = (a.next().unwrap(), a.next().unwrap());
             quote!((#a1 as f64).powf(#a2 as f64))
         }
+        BuiltinFunction::Exp => quote!((#(#a)* as f64).exp()),
         BuiltinFunction::ToFixed => {
             let (a1, a2) = (a.next().unwrap(), a.next().unwrap());
             quote!(sp::shared_string_from_number_fixed(#a1 as f64, (#a2 as i32).max(0) as usize))

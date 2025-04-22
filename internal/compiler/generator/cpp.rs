@@ -3520,6 +3520,10 @@ fn compile_builtin_function_call(
             ctx.generator_state.conditional_includes.cmath.set(true);
             format!("std::pow(({}), ({}))", a.next().unwrap(), a.next().unwrap())
         }
+        BuiltinFunction::Exp => {
+            ctx.generator_state.conditional_includes.cmath.set(true);
+            format!("std::exp({})", a.next().unwrap())
+        }
         BuiltinFunction::Sin => {
             ctx.generator_state.conditional_includes.cmath.set(true);
             format!("std::sin(({}) * {})", a.next().unwrap(), pi_180)
