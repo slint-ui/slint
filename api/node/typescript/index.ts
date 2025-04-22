@@ -16,6 +16,8 @@ export { ArrayModel } from "./models";
 
 import { Diagnostic } from "../rust-module.cjs";
 
+import { fileURLToPath } from "node:url";
+
 /**
  *  Represents a two-dimensional point.
  */
@@ -626,7 +628,8 @@ export function loadFile(
     filePath: string | URL,
     options?: LoadFileOptions,
 ): Object {
-    const pathname = filePath instanceof URL ? filePath.pathname : filePath;
+    const pathname =
+        filePath instanceof URL ? fileURLToPath(filePath) : filePath;
     return loadSlint({
         fileData: { filePath: pathname, options },
         from: "file",
@@ -948,7 +951,7 @@ export namespace private_api {
  * ````
  */
 export function initTranslations(domain: string, path: string | URL) {
-    const pathname = path instanceof URL ? path.pathname : path;
+    const pathname = path instanceof URL ? fileURLToPath(path) : path;
     napi.initTranslations(domain, pathname);
 }
 
