@@ -13,9 +13,11 @@ export component TestCase {
 
     out property<bool> test: num_ints == 5 && operations == 10
         && hello_world == (["", "world"])[1] && empty_model.length == 0 && empty_model[45].a.length == 0
-        && array_of_array[1][1] == 2 && [].length == 0 && ninth_int == 0;
+        && array_of_array[1][1] == 2 && [].length == 0 && ninth_int == 0 && minus_int == 0 && decimal_check;
     out property<int> third_int: ints[2];
     out property<int> ninth_int: ints[8];
+    out property<int> minus_int: ints[-1];
+    out property<bool> decimal_check: ints[-0.5] == 1 && ints[2.9] == 3 && ints[-1.3] == 0;
     out property<string> hello_world: [{t: "hello"}, {t: "world"}][1].t;
 
     for xxx in (third_int == 0) ? ints : [] : Rectangle {}
@@ -30,6 +32,7 @@ assert_eq(instance.get_num_ints(), 5);
 assert_eq(instance.get_n(), 4);
 assert_eq(instance.get_third_int(), 3);
 assert_eq(instance.get_ninth_int(), 0);
+assert_eq(instance.get_minus_int(), 0);
 assert_eq(instance.get_test(), true);
 
 auto model = std::make_shared<slint::VectorModel<int>>(std::vector<int>{1, 2, 3, 4, 5, 6, 7});
@@ -41,6 +44,7 @@ assert_eq(instance.get_num_ints(), 8);
 model->set_row_data(2, 100);
 assert_eq(instance.get_third_int(), 100);
 assert_eq(instance.get_ninth_int(), 0);
+assert_eq(instance.get_minus_int(), 0);
 
 model->push_back(9);
 assert_eq(instance.get_ninth_int(), 9);
@@ -58,6 +62,7 @@ assert_eq!(instance.get_num_ints(), 5);
 assert_eq!(instance.get_n(), 4);
 assert_eq!(instance.get_third_int(), 3);
 assert_eq!(instance.get_ninth_int(), 0);
+assert_eq!(instance.get_minus_int(), 0);
 assert_eq!(instance.get_test(), true);
 
 let model: std::rc::Rc<slint::VecModel<i32>> = std::rc::Rc::new(vec![1, 2, 3, 4, 5, 6, 7].into());
@@ -69,6 +74,7 @@ assert_eq!(instance.get_num_ints(), 8);
 model.set_row_data(2, 100);
 assert_eq!(instance.get_third_int(), 100);
 assert_eq!(instance.get_ninth_int(), 0);
+assert_eq!(instance.get_minus_int(), 0);
 
 model.push(9);
 assert_eq!(instance.get_ninth_int(), 9);
@@ -84,6 +90,8 @@ assert.equal(instance.num_ints, 5);
 assert.equal(instance.n, 4);
 assert.equal(instance.third_int, 3);
 assert.equal(instance.ninth_int, 0);
+assert.equal(instance.minus_int, 0);
+assert(instance.test);
 
 let model = new slintlib.ArrayModel([1, 2, 3, 4, 5, 6, 7]);
 instance.ints = model;
@@ -94,6 +102,7 @@ assert.equal(instance.num_ints, 8);
 model.setRowData(2, 100);
 assert.equal(instance.third_int, 100);
 assert.equal(instance.ninth_int, 0);
+assert.equal(instance.minus_int, 0);
 
 model.push(9);
 assert.equal(instance.ninth_int, 9);

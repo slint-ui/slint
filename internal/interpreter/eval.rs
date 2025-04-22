@@ -173,7 +173,7 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
             let index = eval_expression(index, local_context);
             match (array, index) {
                 (Value::Model(model), Value::Number(index)) => {
-                    model.row_data_tracked(index as usize).unwrap_or_else(|| default_value_for_type(&expression.ty()))
+                    model.row_data_tracked(index as isize as usize).unwrap_or_else(|| default_value_for_type(&expression.ty()))
                 }
                 _ => {
                     Value::Void
@@ -1472,8 +1472,8 @@ fn eval_assignment(lhs: &Expression, op: char, rhs: Value, local_context: &mut E
             let index = eval_expression(index, local_context);
             match (array, index) {
                 (Value::Model(model), Value::Number(index)) => {
-                    let index = index as usize;
-                    if (index) < model.row_count() {
+                    if index >= 0. && (index as usize) < model.row_count() {
+                        let index = index as usize;
                         if op == '=' {
                             model.set_row_data(index, rhs);
                         } else {
