@@ -59,10 +59,11 @@ export component TextEditBase inherits Rectangle {
     forward-focus: text-input;
 
     ContextMenuArea {
+        enabled: root.enabled;
         Menu {
             MenuItem {
                 title: @tr("Cut");
-                enabled: root.enabled;
+                enabled: !root.read-only && root.enabled;
                 activated => {
                     text-input.cut();
                 }
@@ -70,14 +71,15 @@ export component TextEditBase inherits Rectangle {
 
             MenuItem {
                 title: @tr("Copy");
+                enabled: !root.text.is-empty;
                 activated => {
                     text-input.copy();
                 }
             }
 
             MenuItem {
+                enabled: !root.read-only && root.enabled;
                 title: @tr("Paste");
-                enabled: root.enabled;
                 activated => {
                     text-input.paste();
                 }
@@ -85,6 +87,7 @@ export component TextEditBase inherits Rectangle {
 
             MenuItem {
                 title: @tr("Select All");
+                enabled: !root.text.is-empty;
                 activated => {
                     text-input.select-all();
                 }

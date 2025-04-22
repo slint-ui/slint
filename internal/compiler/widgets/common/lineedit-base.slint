@@ -68,10 +68,11 @@ export component LineEditBase inherits Rectangle {
     }
 
     ContextMenuArea {
+        enabled: root.enabled;
         Menu {
             MenuItem {
                 title: @tr("Cut");
-                enabled: root.enabled;
+                enabled: !root.read-only && root.enabled;
                 activated => {
                     text-input.cut();
                 }
@@ -79,6 +80,7 @@ export component LineEditBase inherits Rectangle {
 
             MenuItem {
                 title: @tr("Copy");
+                enabled: !root.text.is-empty;
                 activated => {
                     text-input.copy();
                 }
@@ -86,7 +88,7 @@ export component LineEditBase inherits Rectangle {
 
             MenuItem {
                 title: @tr("Paste");
-                enabled: root.enabled;
+                enabled: !root.read-only && root.enabled;
                 activated => {
                     text-input.paste();
                 }
@@ -94,6 +96,7 @@ export component LineEditBase inherits Rectangle {
 
             MenuItem {
                 title: @tr("Select All");
+                enabled: !root.text.is-empty;
                 activated => {
                     text-input.select-all();
                 }

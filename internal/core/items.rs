@@ -1216,6 +1216,7 @@ pub struct ContextMenu {
     pub show: Callback<PointArg>,
     pub cached_rendering_data: CachedRenderingData,
     pub popup_id: Cell<Option<NonZeroU32>>,
+    pub enabled: Property<bool>,
     #[cfg(target_os = "android")]
     long_press_timer: Cell<Option<crate::timers::Timer>>,
 }
@@ -1246,6 +1247,9 @@ impl Item for ContextMenu {
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> InputEventResult {
+        if !self.enabled() {
+            return InputEventResult::EventIgnored;
+        }
         match event {
             MouseEvent::Pressed { position, button: PointerEventButton::Right, .. } => {
                 self.show.call(&(crate::api::LogicalPosition::from_euclid(position),));
@@ -1289,6 +1293,9 @@ impl Item for ContextMenu {
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
+        if !self.enabled() {
+            return KeyEventResult::EventIgnored;
+        }
         if event.event_type == KeyEventType::KeyPressed
             && event.text.starts_with(crate::input::key_codes::Menu)
         {
