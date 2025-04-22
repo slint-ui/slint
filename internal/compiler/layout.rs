@@ -573,3 +573,14 @@ pub fn create_new_prop(elem: &ElementRc, tentative_name: SmolStr, ty: Type) -> N
         }
     }
 }
+
+/// Return true if this type is a layout that has constraints
+pub fn is_layout(base_type: &ElementType) -> bool {
+    match base_type {
+        ElementType::Component(c) => is_layout(&c.root_element.borrow().base_type),
+        ElementType::Builtin(be) => {
+            matches!(be.name.as_str(), "GridLayout" | "HorizontalLayout" | "VerticalLayout")
+        }
+        _ => false,
+    }
+}
