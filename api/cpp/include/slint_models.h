@@ -25,9 +25,9 @@ struct ModelChangeListener
 using ModelPeer = std::weak_ptr<ModelChangeListener>;
 
 template<typename M>
-auto access_array_index(const std::shared_ptr<M> &model, size_t index)
+auto access_array_index(const std::shared_ptr<M> &model, std::ptrdiff_t index)
 {
-    if (!model) {
+    if (!model || index < 0) {
         return decltype(*model->row_data_tracked(index)) {};
     } else if (const auto v = model->row_data_tracked(index)) {
         return *v;

@@ -2381,7 +2381,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             let base_e = compile_expression(array, ctx);
             let index_e = compile_expression(index, ctx);
             let value_e = compile_expression(value, ctx);
-            quote!((#base_e).set_row_data(#index_e as usize, #value_e as _))
+            quote!((#base_e).set_row_data(#index_e as isize as usize, #value_e as _))
         }
         Expression::BinaryExpression { lhs, rhs, op } => {
             let lhs_ty = lhs.ty(ctx);

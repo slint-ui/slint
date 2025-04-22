@@ -17,6 +17,13 @@ TestCase := Rectangle {
         if (first != 1) { return false; }
         bar[0] = 42;
         if (first != 42) { return false; }
+        bar[-1] = 18;
+        bar[3] = 89;
+        bar[-30.5] = 78;
+        bar[1.1] = 7552;
+        if (first != 42) { debug(first, "!= 42"); return false; }
+        bar[0.999] = 8;
+        if (first != 8) { debug(first, "!= 8"); return false; }
         return true;
     }
 

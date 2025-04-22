@@ -3250,9 +3250,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             let base_e = compile_expression(array, ctx);
             let index_e = compile_expression(index, ctx);
             let value_e = compile_expression(value, ctx);
-            format!(
-                "{base_e}->set_row_data({index_e}, {value_e})"
-            )
+            format!("[&](auto index, const auto &base) {{ if (index >= 0. && std::size_t(index) < base->row_count()) base->set_row_data(index, {value_e}); }}({index_e}, {base_e})")
         }
         Expression::BinaryExpression { lhs, rhs, op } => {
             let lhs_str = compile_expression(lhs, ctx);
