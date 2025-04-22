@@ -100,7 +100,6 @@ jobs:
               run: |
                  if [ ! -f ./Cargo.lock ]; then
                    cargo update -p bytemuck_derive --precise 1.8.1
-                   cargo update -p libm --precise 0.2.11
                  fi
             - name: Run tests (not qt)
               run:  cargo test --verbose --all-features --workspace ${{ matrix.extra_args }} --exclude slint-node --exclude pyslint --exclude test-driver-node --exclude slint-node --exclude test-driver-nodejs --exclude test-driver-cpp --exclude mcu-board-support --exclude mcu-embassy --exclude printerdemo_mcu --exclude uefi-demo --exclude slint-cpp --exclude slint-python -- --skip=_qt::t
