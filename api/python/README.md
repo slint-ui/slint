@@ -31,17 +31,6 @@ uv add slint
 The installation will use binaries provided vi macOS, Windows, and Linux for various architectures. If your target platform is not covered by binaries,
 `uv` will automatically build Slint from source. If that happens, you need common software development tools on your machine, as well as [Rust](https://www.rust-lang.org/learn/get-started).
 
-### Building from Source
-
-## Try it out
-
-If you want to just play with this, you can try running our Python port of the [printer demo](../../demos/printerdemo/python/README.md):
-
-```bash
-cd demos/printerdemo/python
-uv run main.py
-```
-
 ## Quick Start
 
 1. Create a new project with `uv init`.
