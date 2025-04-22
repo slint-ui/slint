@@ -87,6 +87,12 @@ export global PickerData {
         }
     }
 
+    changed current-brush-kind => {
+        if WindowManager.widget-mode == WidgetMode.preview {
+            WindowManager.update-brush();
+        }
+    }
+
     public function set-current-stop-as-color() {
         hue = current-gradient-stops[current-stop-index].color.to-hsv().hue;
         saturation = current-gradient-stops[current-stop-index].color.to-hsv().saturation;
@@ -114,6 +120,7 @@ export global WindowManager {
     callback show-floating-preview-widget(property-container-id: string, preview-data: PreviewData, property-value: PropertyValue);
     callback show-floating-table-editor(property-group-id: string, preview-data: PreviewData);
     callback hide-floating-widget();
+    callback hide-floating-color-widget();
     callback apply-current-value(value: string);
     callback update-preview-value(value: string);
     callback update-brush();
@@ -209,6 +216,7 @@ export global WindowManager {
             }
             PickerData.current-brush = property-value.value-brush;
             PickerData.current-gradient-stops = property-value.gradient-stops;
+            PickerData.current-angle = property-value.value-float;
             showing-color-picker = true;
         }
     }
@@ -254,6 +262,15 @@ export global WindowManager {
             } else {
                 self.possible_error = Api.set-json-preview-data(current-property-container-id, current-preview-data.name, "\"\{brush-string}\"");
             }
+        }
+    }
+
+    hide-floating-color-widget() => {
+        if showing-table-editor {
+            showing-color-picker = false;
+            showing-color-stop-picker = false;
+        } else {
+            hide-floating-widget();
         }
     }
 }
