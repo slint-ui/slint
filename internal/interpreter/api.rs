@@ -1798,6 +1798,7 @@ fn globals() {
     }
     export { My-Super_Global as AliasedGlobal }
     export component Dummy {
+        callback alias <=> My-Super_Global.my-callback;
     }"#
             .into(),
             "".into(),
@@ -1901,6 +1902,9 @@ fn globals() {
         instance.invoke_global("My_Super_Global", "yoyo", &[]),
         Err(InvokeError::NoSuchCallable)
     );
+
+    // Alias to global don't crash (#8238)
+    assert_eq!(instance.get_property("alias"), Err(GetPropertyError::NoSuchProperty));
 }
 
 #[test]
