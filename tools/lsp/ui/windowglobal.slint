@@ -120,6 +120,7 @@ export global WindowManager {
     callback show-floating-preview-widget(property-container-id: string, preview-data: PreviewData, property-value: PropertyValue);
     callback show-floating-table-editor(property-group-id: string, preview-data: PreviewData);
     callback hide-floating-widget();
+    callback hide-floating-color-widget();
     callback apply-current-value(value: string);
     callback update-preview-value(value: string);
     callback update-brush();
@@ -261,6 +262,15 @@ export global WindowManager {
             } else {
                 self.possible_error = Api.set-json-preview-data(current-property-container-id, current-preview-data.name, "\"\{brush-string}\"");
             }
+        }
+    }
+
+    hide-floating-color-widget() => {
+        if showing-table-editor {
+            showing-color-picker = false;
+            showing-color-stop-picker = false;
+        } else {
+            hide-floating-widget();
         }
     }
 }
