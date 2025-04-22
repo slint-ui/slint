@@ -751,7 +751,9 @@ impl LookupObject for MathFunctions {
             .or_else(|| f("atan2", b(BuiltinFunction::ATan2)))
             .or_else(|| f("log", b(BuiltinFunction::Log)))
             .or_else(|| f("exp", b(BuiltinFunction::Exp)))
+            .or_else(|| f("ln", b(BuiltinFunction::Ln)))
             .or_else(|| f("pow", b(BuiltinFunction::Pow)))
+            .or_else(|| f("exp", b(BuiltinFunction::Exp)))
     }
 }
 

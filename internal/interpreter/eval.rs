@@ -481,6 +481,10 @@ fn call_builtin_function(
             let y: f64 = eval_expression(&arguments[1], local_context).try_into().unwrap();
             Value::Number(x.log(y))
         }
+        BuiltinFunction::Ln => {
+            let x: f64 = eval_expression(&arguments[0], local_context).try_into().unwrap();
+            Value::Number(x.ln())
+        }
         BuiltinFunction::Pow => {
             let x: f64 = eval_expression(&arguments[0], local_context).try_into().unwrap();
             let y: f64 = eval_expression(&arguments[1], local_context).try_into().unwrap();
