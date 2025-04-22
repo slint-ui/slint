@@ -31,8 +31,8 @@ All notable changes to this project are documented in this file.
    Previously any value equal or greater than 360 would cause the function to output pure black. In the unlikely case an app relied
    on this keep an eye out as a color will now show up instead of black.
  - Fixed reading from `MenuItem::title` properties. (#8080, #8090)
- - Fixed inconsistencies when accessing array at negative index. (#8222)
- - Allow trailing comma in import statements. (#4922)
+ - Fixed inconsistencies when accessing arrays at negative indices. (#8222)
+ - Allow trailing commas in import statements. (#4922)
 
 ### Widgets
 
@@ -64,7 +64,7 @@ All notable changes to this project are documented in this file.
  - live-preview: Persist the live data when the preview is reloaded.
  - live-preview: Improve std-widget use detection. (#8086)
  - live-preview: Added a table to edit model in the data tab.
- - live-preview: Fixed preview of menubar on platforms with native menu bar.
+ - live-preview: Fixed preview of menu bar on platforms with native menu bar.
  - viewer: Support gradients in json data. (#7913)
 
 ## [1.10.0] - 2025-02-28
