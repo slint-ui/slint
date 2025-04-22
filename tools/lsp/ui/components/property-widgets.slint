@@ -13,9 +13,8 @@ import { IntegerWidget } from "./widgets/integer-widget.slint";
 import { JsonWidget } from "./widgets/json-widget.slint";
 import { MultiValueWidget } from "./widgets/multi-value-widget.slint";
 import { StringWidget } from "./widgets/string-widget.slint";
-import { WindowGlobal, WindowManager } from "../windowglobal.slint";
+import { BrushPropertyType, WindowGlobal, WindowManager } from "../windowglobal.slint";
 import { InlineColorWidget } from "widgets/inline-brush-widget.slint";
-import { BrushPropertyType } from "../properties-state.slint";
 
 export component PropertyValueWidget inherits VerticalLayout {
     in-out property <PropertyValue> property-value;

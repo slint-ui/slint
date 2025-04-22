@@ -1,13 +1,65 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
-import { Api, BrushKind, ColorData, ElementInformation, GradientStop, PropertyInformation, PropertyValue, PropertyValueKind, PreviewData  } from "./api.slint";
+import { Api, PropertyValueTable, BrushKind, ColorData, ElementInformation, GradientStop, PropertyInformation, PropertyValue, PropertyValueKind, PreviewData  } from "./api.slint";
 import { StatusLineApi } from "components/status-line.slint";
-import { BrushMode, BrushPropertyType, WidgetMode } from "./properties-state.slint";
-import { TableData } from "properties-state.slint";
 
 export global WindowGlobal {
     in-out property <length> window-width;
     in-out property <length> window-height;
+}
+
+export enum WidgetMode { edit, preview, color-stop }
+
+// Color and Brush properties are related, but while a <brush> can be a color,
+// a <color> property cannot be a brush. This property type is used to ensure
+// <color> properties do not show the more complex brush editor.
+export enum BrushPropertyType {
+    color,
+    brush,
+}
+
+export enum BrushMode {
+    color,
+    linear,
+    radial,
+    svg-color,
+    code,
+}
+
+export global TableData {
+    callback populate-table(property-group-id: string, preview-data: PreviewData);
+    callback show-brush-editor(selected-row: int, selected-col: int);
+    callback set-color-preview(value: string);
+    out property <string> property-group-id;
+    out property <PreviewData> preview-data;
+    out property <PropertyValueTable> current-table;
+    property <string> possible-error;
+
+    property <int> selected-row;
+    property <int> selected-col;
+
+    show-brush-editor(selected-row, selected-col) => {
+        self.selected-row = selected-row;
+        self.selected-col = selected-col;
+        WindowManager.show-floating-preview-widget(self.property-group-id, self.preview-data, self.current-table.values[selected-row][selected-col]);
+    }
+
+    populate-table(property-group-id, preview-data) => {
+        self.property-group-id = property-group-id;
+        self.preview-data = preview-data;
+        self.current-table = Api.get-property-value-table(property-group-id, preview-data.name);
+    }
+
+    set-color-preview(value) => {
+        self.current-table.values[self.selected-row][self.selected-col].was-edited = true;
+        self.current-table.values[self.selected-row][self.selected-col].edited-value = value;
+
+        self.possible_error = Api.set-property-value-table(root.property-group-id, root.preview-data.name, root.current-table.values, root.current-table.is-array);
+        StatusLineApi.help-text = self.possible-error;
+        if self.possible-error == "" {
+            self.populate-table(root.property-group-id, root.preview-data);
+        }
+    }
 }
 
 export global PickerData {
@@ -41,7 +93,6 @@ export global PickerData {
         value = current-gradient-stops[current-stop-index].color.to-hsv().value;
         alpha = current-gradient-stops[current-stop-index].color.to-hsv().alpha * 100;
     }
-
 }
 
 export global WindowManager {
@@ -186,14 +237,23 @@ export global WindowManager {
     }
 
     update-preview-value(text) => {
-        self.possible_error = Api.set-json-preview-data(current-property-container-id, current-preview-data.name, "\"\{text}\"");
+        if WindowManager.showing-table-editor {
+            TableData.set-color-preview("\"\{text}\"");
+        } else {
+            self.possible_error = Api.set-json-preview-data(current-property-container-id, current-preview-data.name, "\"\{text}\"");
+        }
     }
 
     update-brush() => {
         PickerData.current-brush = Api.create-brush(PickerData.current-brush-kind, PickerData.current-angle, PickerData.current-brush, PickerData.current-gradient-stops);
         if widget-mode == WidgetMode.preview {
             brush-string = Api.as-slint-brush(PickerData.current-brush-kind, PickerData.current-angle, PickerData.current-brush, PickerData.current-gradient-stops);
-            self.possible_error = Api.set-json-preview-data(current-property-container-id, current-preview-data.name, "\"\{brush-string}\"");
+
+            if WindowManager.showing-table-editor {
+                TableData.set-color-preview("\"\{brush-string}\"");
+            } else {
+                self.possible_error = Api.set-json-preview-data(current-property-container-id, current-preview-data.name, "\"\{brush-string}\"");
+            }
         }
     }
 }
