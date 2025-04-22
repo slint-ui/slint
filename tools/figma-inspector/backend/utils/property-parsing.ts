@@ -28,7 +28,6 @@ const textProperties = [
 ];
 
 const unsupportedNodeProperties = ["x", "y", "width", "height", "opacity"];
-const useVariables: boolean = true;
 
 export type RGBAColor = {
     r: number;
@@ -104,7 +103,7 @@ function roundNumber(value: number): number | null {
     return Number(value.toFixed(3));
 }
 
-export async function getBorderRadius(node: SceneNode): Promise<string | null> {
+export async function getBorderRadius(node: SceneNode, useVariables:boolean): Promise<string | null> {
     if ("boundVariables" in node) {
         const boundVars = (node as any).boundVariables;
 
@@ -256,6 +255,7 @@ export async function getBorderRadius(node: SceneNode): Promise<string | null> {
 
 export async function getBorderWidthAndColor(
     sceneNode: SceneNode,
+    useVariables: boolean,
 ): Promise<string[] | null> {
     const properties: string[] = [];
     if (
@@ -299,7 +299,7 @@ export async function getBorderWidthAndColor(
     }
     // Fallback or if not bound
     if (!borderColorValue) {
-        borderColorValue = getBrush(firstStroke); // Use existing function for resolved color
+        borderColorValue = await getBrush(firstStroke); // Use existing function for resolved color
     }
 
     if (borderColorValue) {
@@ -309,7 +309,7 @@ export async function getBorderWidthAndColor(
     return properties.length > 0 ? properties : null;
 }
 
-export function getBrush(fill: {
+export async function getBrush(fill: {
     type: string;
     opacity: number;
     color?: { r: number; g: number; b: number };
@@ -318,7 +318,7 @@ export function getBrush(fill: {
         position: number;
     }>;
     gradientTransform?: number[][];
-}): string | null {
+}): Promise<string | null> {
     switch (fill.type) {
         case "SOLID": {
             if (!fill.color) {
@@ -417,19 +417,20 @@ async function getVariablePathString(
 
 export async function generateSlintSnippet(
     sceneNode: SceneNode,
+    useVariables: boolean,
 ): Promise<string | null> {
     // Return Promise
     const nodeType = sceneNode.type;
 
     switch (nodeType) {
         case "FRAME":
-            return await generateRectangleSnippet(sceneNode); // Await result
+            return await generateRectangleSnippet(sceneNode, useVariables); // Await result
         case "RECTANGLE":
         case "COMPONENT": // Add Component type
         case "INSTANCE": // Add Instance type
-            return await generateRectangleSnippet(sceneNode); // Await result
+            return await generateRectangleSnippet(sceneNode, useVariables); // Await result
         case "TEXT":
-            return await generateTextSnippet(sceneNode); // Await result
+            return await generateTextSnippet(sceneNode, useVariables); // Await result
         default:
             // Keep unsupported sync for now, or make async if needed
             return generateUnsupportedNodeSnippet(sceneNode);
@@ -502,6 +503,7 @@ export function generateUnsupportedNodeSnippet(sceneNode: SceneNode): string {
 
 export async function generateRectangleSnippet(
     sceneNode: SceneNode,
+    useVariables: boolean,
 ): Promise<string> {
     const properties: string[] = [];
     if ("boundVariables" in sceneNode) {
@@ -572,7 +574,7 @@ export async function generateRectangleSnippet(
                                     await getVariablePathString(boundVarId);
                             }
                             if (!fillValue) {
-                                fillValue = getBrush(firstFill);
+                                fillValue = await getBrush(firstFill);
                             }
                             if (fillValue) {
                                 properties.push(
@@ -580,7 +582,7 @@ export async function generateRectangleSnippet(
                                 );
                             }
                         } else {
-                            const brush = getBrush(firstFill);
+                            const brush = await getBrush(firstFill);
                             if (brush) {
                                 properties.push(
                                     `${indentation}background: ${brush};`,
@@ -598,7 +600,7 @@ export async function generateRectangleSnippet(
                     break;
                 case "border-radius":
                     // --- Ensure this uses await and the new async getBorderRadius ---
-                    const borderRadiusProp = await getBorderRadius(sceneNode); // Use await
+                    const borderRadiusProp = await getBorderRadius(sceneNode, useVariables); // Use await
                     if (borderRadiusProp !== null) {
                         properties.push(borderRadiusProp);
                         // Use new log message
@@ -616,7 +618,7 @@ export async function generateRectangleSnippet(
                     break;
                 case "border-color":
                     const borderWidthAndColor =
-                        await getBorderWidthAndColor(sceneNode);
+                        await getBorderWidthAndColor(sceneNode, useVariables);
                     if (borderWidthAndColor !== null) {
                         properties.push(...borderWidthAndColor);
                     }
@@ -640,6 +642,7 @@ export async function generateRectangleSnippet(
 }
 export async function generateTextSnippet(
     sceneNode: SceneNode,
+    useVariables: boolean,
 ): Promise<string> {
     const properties: string[] = [];
     if ("boundVariables" in sceneNode) {
@@ -747,7 +750,7 @@ export async function generateTextSnippet(
                                     await getVariablePathString(boundVarId);
                             }
                             if (!fillValue) {
-                                fillValue = getBrush(firstFill);
+                                fillValue = await getBrush(firstFill);
                             }
                             if (fillValue) {
                                 properties.push(
@@ -755,7 +758,7 @@ export async function generateTextSnippet(
                                 );
                             }
                         } else {
-                            const brush = getBrush(firstFill);
+                            const brush = await getBrush(firstFill);
                             if (brush) {
                                 properties.push(
                                     `${indentation}color: ${brush};`,

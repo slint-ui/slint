@@ -62,7 +62,23 @@ export const App = () => {
         setTitle(res.title || "");
         setSlintProperties(res.slintSnippet || "");
     });
-
+    useEffect(() => {
+        const genericMessageHandler = (event: MessageEvent) => {
+            if (event.data?.pluginMessage) {
+                console.log("[UI DEBUG] Generic listener received:", event.data.pluginMessage);
+                if (event.data.pluginMessage.type === "selectionChangedInFigma") {
+                    console.log("[UI DEBUG] SAW selectionChangedInFigma in generic listener!");
+                }
+            }
+        };
+        console.log("[UI DEBUG] Adding generic message listener.");
+        window.addEventListener("message", genericMessageHandler);
+        return () => {
+            console.log("[UI DEBUG] Removing generic message listener.");
+            window.removeEventListener("message", genericMessageHandler);
+        };
+    }, []); // Run only once on mount
+    
     useEffect(() => {
         const handleSelectionChange = () => {
             console.log(
@@ -73,7 +89,9 @@ export const App = () => {
                 useVariables: useVariables,
             });
         };
+        console.log("[UI] Attaching 'selectionChangedInFigma' listener..."); // <-- ADD THIS LOG
         listenTS("selectionChangedInFigma", handleSelectionChange);
+        console.log("[UI] 'selectionChangedInFigma' listener attached."); // <-- ADD THIS LOG
 
         // Also request initial snippet on component mount
         console.log("[UI] Initial mount, requesting snippet update.");
@@ -90,7 +108,7 @@ export const App = () => {
             console.log(`Checkbox changed: Export as single file = ${checked}`);
             // Keep menu open when checkbox is toggled
         },
-        [],
+        [useVariables],
     );
     // --- 2. Update the handleUseVariables handler ---
     const handleUseVariables = useCallback(
@@ -332,19 +350,18 @@ export const App = () => {
 
     return (
         <div className="container">
-            <label style={{ cursor: "pointer", marginRight: "16px" }}>
-                {" "}
-                {/* Add label for better UX */}
-                <input
-                    type="checkbox"
-                    checked={useVariables} // Use state variable
-                    onChange={handleUseVariables} // Use updated handler
-                    style={{ marginRight: "4px", cursor: "pointer" }}
-                />
-                Use Figma Variables
-            </label>
+            
             <div className="title">
                 {/* Wrap title in a span with ellipsis styles */}
+                <span
+                            id="copy-icon"
+                            onClick={() => copyToClipboard(slintProperties)}
+                            onKeyDown={() => copyToClipboard(slintProperties)}
+                            className="copy-icon"
+                        >
+                            📋
+                        </span>
+
                 <span
                     style={{
                         display: "block", // Or 'inline-block'
@@ -356,20 +373,40 @@ export const App = () => {
                 >
                     {title || "Slint Figma Inspector"}
                 </span>
-                {slintProperties !== "" && (
                     <div style={{ flexShrink: 0 }}>
                         {" "}
                         {/* Prevent icon from shrinking */}
-                        <span
-                            id="copy-icon"
-                            onClick={() => copyToClipboard(slintProperties)}
-                            onKeyDown={() => copyToClipboard(slintProperties)}
-                            className="copy-icon"
-                        >
-                            📋
+                        <span>
+                            {" "}
+                            <div
+                                style={{
+                                    display: "flex",
+                                    justifyContent: "flex-end",
+                                }}
+                            >
+                                <label
+                                    style={{
+                                        cursor: "pointer",
+                                        marginRight: "16px",
+                                        fontSize: "12",
+                                    }}
+                                >
+                                    {" "}
+                                    {/* Add label for better UX */}
+                                    <input
+                                        type="checkbox"
+                                        checked={useVariables} // Use state variable
+                                        onChange={handleUseVariables} // Use updated handler
+                                        style={{
+                                            marginRight: "4px",
+                                            cursor: "pointer",
+                                        }}
+                                    />
+                                    Use Figma Variables
+                                </label>
+                            </div>
                         </span>
                     </div>
-                )}
             </div>
 
             <CodeSnippet

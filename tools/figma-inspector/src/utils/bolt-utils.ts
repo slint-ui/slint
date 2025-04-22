@@ -25,12 +25,13 @@ export type EventTS = {
 */
 
 export const dispatchTS = <Key extends keyof EventTS>(
-    event: Key,
+    event: Key, // Parameter name is 'event'
     data: EventTS[Key],
     global = false,
     origin = "*",
 ) => {
-    dispatch({ event, ...data }, global, origin);
+    console.log(`[Backend DispatchTS] Dispatching type: ${event}`, data); // Add log
+    dispatch({ type: event, ...data }, global, origin);
 };
 
 export const listenTS = <Key extends keyof EventTS>(
