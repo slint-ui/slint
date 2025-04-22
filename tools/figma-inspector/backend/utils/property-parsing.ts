@@ -28,6 +28,7 @@ const textProperties = [
 ];
 
 const unsupportedNodeProperties = ["x", "y", "width", "height", "opacity"];
+const useVariables: boolean = true;
 
 export type RGBAColor = {
     r: number;
@@ -109,7 +110,7 @@ export async function getBorderRadius(node: SceneNode): Promise<string | null> {
 
         // --- Remove [0] when accessing cornerRadius ID ---
         const boundCornerRadiusId = boundVars?.cornerRadius?.id;
-        if (boundCornerRadiusId) {
+        if (boundCornerRadiusId && useVariables) {
             const path = await getVariablePathString(boundCornerRadiusId);
             if (path) {
                 console.log(
@@ -271,7 +272,7 @@ export async function getBorderWidthAndColor(
     const boundWidthVarId = firstStroke.boundVariables?.strokeWeight?.id;
     let borderWidthValue: string | null = null;
 
-    if (boundWidthVarId) {
+    if (boundWidthVarId && useVariables) {
         borderWidthValue = await getVariablePathString(boundWidthVarId);
     }
     // Fallback or if not bound
@@ -293,7 +294,7 @@ export async function getBorderWidthAndColor(
     const boundColorVarId = firstStroke.boundVariables?.color?.id;
     let borderColorValue: string | null = null;
 
-    if (boundColorVarId) {
+    if (boundColorVarId && useVariables) {
         borderColorValue = await getVariablePathString(boundColorVarId);
     }
     // Fallback or if not bound
@@ -521,7 +522,7 @@ export async function generateRectangleSnippet(
                     const boundWidthVarId = (sceneNode as any).boundVariables
                         ?.width?.id;
                     let widthValue: string | null = null;
-                    if (boundWidthVarId) {
+                    if (boundWidthVarId && useVariables) {
                         widthValue =
                             await getVariablePathString(boundWidthVarId);
                     }
@@ -539,7 +540,7 @@ export async function generateRectangleSnippet(
                     const boundHeightVarId = (sceneNode as any).boundVariables
                         ?.height?.id;
                     let heightValue: string | null = null;
-                    if (boundHeightVarId) {
+                    if (boundHeightVarId  && useVariables) {
                         heightValue =
                             await getVariablePathString(boundHeightVarId);
                     }
@@ -566,7 +567,7 @@ export async function generateRectangleSnippet(
                             const boundVarId =
                                 firstFill.boundVariables?.color?.id;
                             let fillValue: string | null = null;
-                            if (boundVarId) {
+                            if (boundVarId && useVariables) {
                                 fillValue =
                                     await getVariablePathString(boundVarId);
                             }
@@ -660,7 +661,7 @@ export async function generateTextSnippet(
                     const boundXVarId = (sceneNode as any).boundVariables?.x
                         ?.id; // Assume direct object binding
                     let xValue: string | null = null;
-                    if (boundXVarId) {
+                    if (boundXVarId && useVariables) {
                         xValue = await getVariablePathString(boundXVarId);
                         console.log(
                             `[generateTextSnippet] x: Using variable path: ${xValue}`,
@@ -689,7 +690,7 @@ export async function generateTextSnippet(
                     const boundYVarId = (sceneNode as any).boundVariables?.y
                         ?.id; // Assume direct object binding
                     let yValue: string | null = null;
-                    if (boundYVarId) {
+                    if (boundYVarId && useVariables) {
                         yValue = await getVariablePathString(boundYVarId);
                         console.log(
                             `[generateTextSnippet] y: Using variable path: ${yValue}`,
@@ -718,7 +719,7 @@ export async function generateTextSnippet(
                     const boundCharsVarId = (sceneNode as any).boundVariables
                         ?.characters?.[0]?.id;
                     let textValue: string | null = null;
-                    if (boundCharsVarId) {
+                    if (boundCharsVarId  && useVariables) {
                         textValue =
                             await getVariablePathString(boundCharsVarId);
                     }
@@ -741,7 +742,7 @@ export async function generateTextSnippet(
                             const boundVarId = (sceneNode as any).boundVariables
                                 ?.fills?.[0]?.id;
                             let fillValue: string | null = null;
-                            if (boundVarId) {
+                            if (boundVarId && useVariables) {
                                 fillValue =
                                     await getVariablePathString(boundVarId);
                             }
@@ -782,7 +783,7 @@ export async function generateTextSnippet(
                         `[generateTextSnippet] font-size: Found bound variable ID? ${boundSizeVarId ?? "No"}`,
                     );
                     let sizeValue: string | null = null;
-                    if (boundSizeVarId) {
+                    if (boundSizeVarId && useVariables) {
                         sizeValue = await getVariablePathString(boundSizeVarId);
                         console.log(
                             `[generateTextSnippet] font-size: getVariablePathString returned: ${sizeValue ?? "null"}`,
@@ -819,7 +820,7 @@ export async function generateTextSnippet(
                     let weightValue: string | number | null = null;
                     let isVariable = false; // Flag to track if value is from a variable
 
-                    if (boundWeightVarId) {
+                    if (boundWeightVarId && useVariables) {
                         const path =
                             await getVariablePathString(boundWeightVarId);
                         if (path) {

@@ -56,11 +56,33 @@ export const App = () => {
         dispatchTS("exportToFiles", { exportAsSingleFile: exportAsSingleFile });
         setIsMenuOpen(false); // Close menu after clicking export
     }, [exportAsSingleFile]);
+    const [useVariables, setUseVariables] = useState(false); // Default to false
 
     listenTS("updatePropertiesCallback", (res) => {
         setTitle(res.title || "");
         setSlintProperties(res.slintSnippet || "");
     });
+
+    useEffect(() => {
+        const handleSelectionChange = () => {
+            console.log(
+                "[UI] Received selectionChangedInFigma, requesting snippet update.",
+            );
+            // Request snippet update using the current state of useVariables
+            dispatchTS("generateSnippetRequest", {
+                useVariables: useVariables,
+            });
+        };
+        listenTS("selectionChangedInFigma", handleSelectionChange);
+
+        // Also request initial snippet on component mount
+        console.log("[UI] Initial mount, requesting snippet update.");
+        dispatchTS("generateSnippetRequest", { useVariables: useVariables });
+    }, [useVariables]); // Re-run effect if useVariables changes (to request initial snippet with correct flag)
+    // Or, if you only want selection changes to trigger updates *after* mount,
+    // keep the dependency array empty [] and handle the initial request separately.
+    // The current setup ensures the snippet reflects the checkbox state even on first load.
+
     const handleCheckboxChange = useCallback(
         (event: React.ChangeEvent<HTMLInputElement>) => {
             const checked = event.target.checked;
@@ -69,6 +91,18 @@ export const App = () => {
             // Keep menu open when checkbox is toggled
         },
         [],
+    );
+    // --- 2. Update the handleUseVariables handler ---
+    const handleUseVariables = useCallback(
+        (event: React.ChangeEvent<HTMLInputElement>) => {
+            const checked = event.target.checked;
+            console.log(`[UI] 'Use Variables' checkbox changed: ${checked}`);
+            // Update the state
+            setUseVariables(checked);
+            // Request a new snippet from the backend with the updated preference
+            dispatchTS("generateSnippetRequest", { useVariables: checked });
+        },
+        [], // No dependencies needed here as setUseVariables and dispatchTS are stable
     );
 
     // Theme handling
@@ -298,6 +332,17 @@ export const App = () => {
 
     return (
         <div className="container">
+            <label style={{ cursor: "pointer", marginRight: "16px" }}>
+                {" "}
+                {/* Add label for better UX */}
+                <input
+                    type="checkbox"
+                    checked={useVariables} // Use state variable
+                    onChange={handleUseVariables} // Use updated handler
+                    style={{ marginRight: "4px", cursor: "pointer" }}
+                />
+                Use Figma Variables
+            </label>
             <div className="title">
                 {/* Wrap title in a span with ellipsis styles */}
                 <span
@@ -333,19 +378,21 @@ export const App = () => {
                     lightOrDarkMode === "dark" ? "dark-slint" : "light-slint"
                 }
             />
+
             <div
                 style={{ position: "relative", alignSelf: "center" }}
                 ref={menuRef}
             >
                 {/* --- Trigger Button --- */}
-                <button
-                    onClick={toggleMenu} // Toggle menu visibility
-                    style={buttonStyle}
-                    className="export-button" // Keep class if needed
-                >
-                    {exportsAreCurrent ? "Design Tokens" : "Design Tokens"}
-                </button>
-
+                {useVariables && (
+                    <button
+                        onClick={toggleMenu} // Toggle menu visibility
+                        style={buttonStyle}
+                        className="export-button" // Keep class if needed
+                    >
+                        {exportsAreCurrent ? "Design Tokens" : "Design Tokens"}
+                    </button>
+                )}
                 {/* --- Dropdown Menu --- */}
                 <div style={menuStyle} className="export-dropdown-menu">
                     {/* Checkbox Item */}
