@@ -29,4 +29,12 @@ export component TestCase inherits Window {
         colorize: #91b6;
         image-fit: contain;
     }
+
+    // Just an image with extreme width and height (shouldn't crash)
+    Image {
+        x: 10px; y: 10px;
+        source: @image-url("../../../../../demos/printerdemo/ui/images/ink.svg");
+        width: 0.001px;
+        height: 4000000px;
+    }
 }
