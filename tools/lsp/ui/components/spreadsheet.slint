@@ -6,6 +6,7 @@ import { Api, PreviewData, PreviewDataKind, PropertyValue, PropertyValueKind, Pr
 import { StatusLineApi } from "../components/status-line.slint";
 import { EditorSizeSettings, Icons, EditorSpaceSettings } from "../components/styling.slint";
 import { PropertyValueWidget } from "../components/property-widgets.slint";
+import { TableData } from "../windowglobal.slint";
 
 export struct CellData {
     property-group-id: string,
@@ -28,6 +29,12 @@ export component EditWindow inherits PopupWindow {
 
     in property <CellData> current-cell-data;
     in-out property <PropertyValueTable> current-table;
+    in property <PreviewData> preview-data;
+    in property <string> property-container-id;
+
+    function is-brush(property-value: PropertyValue) -> bool {
+        return property-value.kind == PropertyValueKind.brush || property-value.kind == PropertyValueKind.color;
+    }
 
     content := Rectangle {
         changed height => {
@@ -39,21 +46,27 @@ export component EditWindow inherits PopupWindow {
         drop-shadow-offset-x: 0;
         drop-shadow-offset-y: 0;
         border-radius: EditorSizeSettings.radius;
-        width: self.preferred-width;
+        width: is-brush(root.current-table.values[root.current-cell-data.row][root.current-cell-data.col]) ? 260px : self.preferred-width;
         height: self.preferred-height;
         background: Palette.alternate-background;
 
         hl := HorizontalLayout {
             padding: EditorSpaceSettings.default-padding;
             padding-left: EditorSpaceSettings.default-padding;
+            width: is-brush(root.current-table.values[root.current-cell-data.row][root.current-cell-data.col]) ? 220px : self.preferred-width;
 
-            PropertyValueWidget {
+            pvw := PropertyValueWidget {
                 property-value: root.current-table.values[root.current-cell-data.row][root.current-cell-data.col];
                 property-name: root.current-table.headers[root.current-cell-data.col];
                 enabled: true;
 
                 changed property-value => {
                     root.current-table.values[root.current-cell-data.row][root.current-cell-data.col] = self.property-value;
+                }
+
+                set-current-item() => {
+                    TableData.show-brush-editor(root.current-cell-data.row, root.current-cell-data.col);
+                    close-editor();
                 }
 
                 update-display-string(value) => {
@@ -289,6 +302,8 @@ export component Spreadsheet {
         y: self.current-cell-data.y - EditorSpaceSettings.default-padding;
         current-cell-data <=> root.current-cell-data;
         current-table: root.current-table;
+        preview-data <=> root.preview-data;
+        property-container-id <=> property-group-id;
 
         private property <string> possible-error;
 
@@ -298,7 +313,9 @@ export component Spreadsheet {
 
             self.possible_error = Api.set-property-value-table(root.property-group-id, root.preview-data.name, root.current-table.values, root.current-table.is-array);
             StatusLineApi.help-text = self.possible-error;
-
+            if self.possible-error == "" {
+                TableData.populate-table(root.property-group-id, root.preview-data);
+            }
             return self.possible-error == "";
         }
 
