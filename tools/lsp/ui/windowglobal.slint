@@ -87,6 +87,12 @@ export global PickerData {
         }
     }
 
+    changed current-brush-kind => {
+        if WindowManager.widget-mode == WidgetMode.preview {
+            WindowManager.update-brush();
+        }
+    }
+
     public function set-current-stop-as-color() {
         hue = current-gradient-stops[current-stop-index].color.to-hsv().hue;
         saturation = current-gradient-stops[current-stop-index].color.to-hsv().saturation;
@@ -209,6 +215,7 @@ export global WindowManager {
             }
             PickerData.current-brush = property-value.value-brush;
             PickerData.current-gradient-stops = property-value.gradient-stops;
+            PickerData.current-angle = property-value.value-float;
             showing-color-picker = true;
         }
     }

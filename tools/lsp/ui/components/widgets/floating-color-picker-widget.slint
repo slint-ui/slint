@@ -29,6 +29,10 @@ component BrushTypeSelector {
 
     in-out property <PickerTab> active-tab: PickerTab.color;
 
+    changed active-tab => {
+        WindowManager.hide-color-stop-picker();
+    }
+
     HorizontalLayout {
         padding-left: EditorSizeSettings.small-margin;
         alignment: start;
@@ -1134,7 +1138,7 @@ component ColorPicker inherits DraggablePanel {
     callback close <=> t-close.clicked;
 
     changed current-color => {
-        if widget-mode == WidgetMode.preview {
+        if widget-mode == WidgetMode.preview && PickerData.current-brush-kind == BrushKind.solid {
             WindowManager.update-preview-value(Api.color-to-data(root.current-color).text);
         }
     }
