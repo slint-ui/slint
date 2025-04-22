@@ -66,9 +66,16 @@ export const App = () => {
     useEffect(() => {
         const genericMessageHandler = (event: MessageEvent) => {
             if (event.data?.pluginMessage) {
-                console.log("[UI DEBUG] Generic listener received:", event.data.pluginMessage);
-                if (event.data.pluginMessage.type === "selectionChangedInFigma") {
-                    console.log("[UI DEBUG] SAW selectionChangedInFigma in generic listener!");
+                console.log(
+                    "[UI DEBUG] Generic listener received:",
+                    event.data.pluginMessage,
+                );
+                if (
+                    event.data.pluginMessage.type === "selectionChangedInFigma"
+                ) {
+                    console.log(
+                        "[UI DEBUG] SAW selectionChangedInFigma in generic listener!",
+                    );
                 }
             }
         };
@@ -79,7 +86,7 @@ export const App = () => {
             window.removeEventListener("message", genericMessageHandler);
         };
     }, []); // Run only once on mount
-    
+
     useEffect(() => {
         const handleSelectionChange = () => {
             console.log(
@@ -341,7 +348,7 @@ export const App = () => {
         position: "relative", // Needed for absolute positioning of menu
         textAlign: "center",
         opacity: isMenuOpen ? 0.6 : 1, // Lower opacity when menu is open
-        pointerEvents: isMenuOpen ? 'none' : 'auto', // Prevent clicks when menu is open
+        pointerEvents: isMenuOpen ? "none" : "auto", // Prevent clicks when menu is open
     };
 
     const menuStyle: React.CSSProperties = {
@@ -378,76 +385,98 @@ export const App = () => {
 
     return (
         <div className="container">
-            
-            <div className="title">
-                {/* Wrap title in a span with ellipsis styles */}
+            {/* --- Apply Flexbox to the title div --- */}
+            <div
+                className="title"
+                style={{
+                    display: "flex", // Make it a flex container
+                    alignItems: "center", // Vertically align items in the middle
+                    padding: "4px 8px", // Add some padding like before
+                    borderBottom: `1px solid ${lightOrDarkMode === "dark" ? "#555" : "#ccc"}`, // Optional separator
+                    flexShrink: 0, // Prevent title bar from shrinking
+                }}
+            >
+                {/* 1. Copy Icon (stays on the left) */}
                 <span
-                            id="copy-icon"
-                            onClick={() => copyToClipboard(slintProperties)}
-                            onKeyDown={() => copyToClipboard(slintProperties)}
-                            className="copy-icon"
-                        >
-                            📋
-                        </span>
+                    id="copy-icon"
+                    onClick={() => copyToClipboard(slintProperties)}
+                    onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ")
+                            copyToClipboard(slintProperties);
+                    }} // Added keyboard accessibility
+                    className="copy-icon"
+                    style={{ cursor: "pointer", marginRight: "8px" }} // Add margin to separate from title
+                    role="button" // Semantics
+                    tabIndex={0} // Make focusable
+                >
+                    📋
+                </span>
 
+                {/* 2. Title Text (grows to fill space) */}
                 <span
                     style={{
-                        display: "block", // Or 'inline-block'
+                        // display: "block", // No longer needed with flex
                         whiteSpace: "nowrap",
                         overflow: "hidden",
                         textOverflow: "ellipsis",
-                        maxWidth: "calc(100% - 30px)", // Adjust width to leave space for icon
+                        // maxWidth: "calc(100% - 30px)", // No longer needed, flex handles width
+                        flexGrow: 1, // Allow this span to take available space
+                        textAlign: "left", // Ensure text is left-aligned
                     }}
                 >
                     {title || "Slint Figma Inspector"}
                 </span>
-                    <div style={{ flexShrink: 0 }}>
-                        {" "}
-                        {/* Prevent icon from shrinking */}
-                        <span>
-                            {" "}
-                            <div
+
+                {/* 3. Checkbox Section (stays on the right) */}
+                <div style={{ flexShrink: 0, marginLeft: "8px" }}>
+                    {" "}
+                    {/* Add left margin */}
+                    {/* Removed unnecessary inner spans */}
+                    <div
+                        style={{
+                            display: "flex",
+                            justifyContent: "flex-end", // Keep content aligned right within this div
+                        }}
+                    >
+                        <label
+                            style={{
+                                cursor: "pointer",
+                                // marginRight: "16px", // Margin now on parent div
+                                fontSize: "12px", // Corrected font size syntax
+                                display: "flex", // Align checkbox and text
+                                alignItems: "center",
+                            }}
+                        >
+                            <input
+                                type="checkbox"
+                                checked={useVariables}
+                                onChange={handleUseVariables}
                                 style={{
-                                    display: "flex",
-                                    justifyContent: "flex-end",
+                                    marginRight: "4px",
+                                    cursor: "pointer",
                                 }}
-                            >
-                                <label
-                                    style={{
-                                        cursor: "pointer",
-                                        marginRight: "16px",
-                                        fontSize: "12",
-                                    }}
-                                >
-                                    {" "}
-                                    {/* Add label for better UX */}
-                                    <input
-                                        type="checkbox"
-                                        checked={useVariables} // Use state variable
-                                        onChange={handleUseVariables} // Use updated handler
-                                        style={{
-                                            marginRight: "4px",
-                                            cursor: "pointer",
-                                        }}
-                                    />
-                                    Use Figma Variables
-                                </label>
-                            </div>
-                        </span>
+                            />
+                            Use Figma Variables
+                        </label>
                     </div>
-            </div>
-            <div style={{
-                flexGrow: 1,          
-                overflowY: 'auto',    
-                minHeight: '50px',    
-                position: 'relative'  
-            }}>
-            <CodeSnippet
-                code={slintProperties || "// Select a component to inspect"}
-                theme={
-                    lightOrDarkMode === "dark" ? "dark-slint" : "light-slint"
-                }
-            />
+                </div>
+            </div>{" "}
+            <div
+                style={{
+                    flexGrow: 1,
+                    overflowY: "auto",
+                    minHeight: "50px",
+                    position: "relative",
+                }}
+            >
+                <CodeSnippet
+                    code={slintProperties || "// Select a component to inspect"}
+                    theme={
+                        lightOrDarkMode === "dark"
+                            ? "dark-slint"
+                            : "light-slint"
+                    }
+                />
             </div>
             <div
                 style={{ position: "relative", alignSelf: "center" }}
@@ -464,61 +493,68 @@ export const App = () => {
                         {exportsAreCurrent ? "Design Tokens" : "Design Tokens"}
                     </button>
                 )}
-                
+
                 {/* --- Dropdown Menu --- */}
                 {isMenuOpen && (
-                <div ref={menuRef} style={menuStyle} className="export-dropdown-menu">
-                    {/* Checkbox Item */}
-                    <label
-                        style={{ ...menuItemStyle, cursor: "pointer" }}
-                        onMouseEnter={(e) =>
-                            (e.currentTarget.style.backgroundColor =
-                                menuItemHoverStyle.backgroundColor!)
-                        }
-                        onMouseLeave={(e) =>
-                            (e.currentTarget.style.backgroundColor = "")
-                        }
-                    >
-                        <input
-                            type="checkbox"
-                            checked={exportAsSingleFile}
-                            onChange={handleCheckboxChange}
-                            style={{ marginRight: "8px", cursor: "pointer" }}
-                        />
-                        Single Slint file
-                    </label>
-
-                    {/* Separator (Optional) */}
-                    <hr
-                        style={{
-                            margin: "4px 0",
-                            border: "none",
-                            borderTop: `1px solid ${lightOrDarkMode === "dark" ? "#555" : "#ccc"}`,
-                        }}
-                    />
-
-                    {/* Export Action Item */}
                     <div
-                        role="button" // Semantics
-                        tabIndex={0} // Make focusable
-                        onClick={handleExportClick}
-                        onKeyDown={(e) => {
-                            if (e.key === "Enter" || e.key === " ") {
-                                handleExportClick();
-                            }
-                        }} // Keyboard accessibility
-                        style={{ ...menuItemStyle, padding: "8px 12px" }}
-                        onMouseEnter={(e) =>
-                            (e.currentTarget.style.backgroundColor =
-                                menuItemHoverStyle.backgroundColor!)
-                        }
-                        onMouseLeave={(e) =>
-                            (e.currentTarget.style.backgroundColor = "")
-                        }
+                        ref={menuRef}
+                        style={menuStyle}
+                        className="export-dropdown-menu"
                     >
-                        Export Collections
+                        {/* Checkbox Item */}
+                        <label
+                            style={{ ...menuItemStyle, cursor: "pointer" }}
+                            onMouseEnter={(e) =>
+                                (e.currentTarget.style.backgroundColor =
+                                    menuItemHoverStyle.backgroundColor!)
+                            }
+                            onMouseLeave={(e) =>
+                                (e.currentTarget.style.backgroundColor = "")
+                            }
+                        >
+                            <input
+                                type="checkbox"
+                                checked={exportAsSingleFile}
+                                onChange={handleCheckboxChange}
+                                style={{
+                                    marginRight: "8px",
+                                    cursor: "pointer",
+                                }}
+                            />
+                            Single Slint file
+                        </label>
+
+                        {/* Separator (Optional) */}
+                        <hr
+                            style={{
+                                margin: "4px 0",
+                                border: "none",
+                                borderTop: `1px solid ${lightOrDarkMode === "dark" ? "#555" : "#ccc"}`,
+                            }}
+                        />
+
+                        {/* Export Action Item */}
+                        <div
+                            role="button" // Semantics
+                            tabIndex={0} // Make focusable
+                            onClick={handleExportClick}
+                            onKeyDown={(e) => {
+                                if (e.key === "Enter" || e.key === " ") {
+                                    handleExportClick();
+                                }
+                            }} // Keyboard accessibility
+                            style={{ ...menuItemStyle, padding: "8px 12px" }}
+                            onMouseEnter={(e) =>
+                                (e.currentTarget.style.backgroundColor =
+                                    menuItemHoverStyle.backgroundColor!)
+                            }
+                            onMouseLeave={(e) =>
+                                (e.currentTarget.style.backgroundColor = "")
+                            }
+                        >
+                            Export Collections
+                        </div>
                     </div>
-                </div>
                 )}
             </div>
             <div
