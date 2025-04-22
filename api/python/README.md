@@ -117,16 +117,16 @@ The exported component is exposed as a Python class. To access this class, you h
 
    Any attribute lookup in `slint.loader` is searched for in `sys.path`. If a directory with the name exists, it is
    returned as a loader object, and subsequent attribute lookups follow the same logic.
-   
+
    If the name matches a file with the `.slint` extension, it is automatically loaded with `load_file` and the
    [namespace](https://docs.python.org/3/library/types.html#types.SimpleNamespace) is returned.
-   
+
    If the file name contains a dash, like `app-window.slint`, an attribute lookup for `app_window` tries to
    locate `app_window.slint` and then fall back to `app-window.slint`.
 
 ### Accessing Properties
 
-[Properties](../slint/src/language/syntax/properties) declared as `out` or `in-out` in `.slint` files are visible as 
+[Properties](../slint/src/language/syntax/properties) declared as `out` or `in-out` in `.slint` files are visible as
 properties on the component instance.
 
 ```python
