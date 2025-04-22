@@ -13,6 +13,8 @@ import { ColorIndicator, FakeShadowText, PickerTextInput } from "./brush-helpers
 export global Styles {
     out property <length> picker-width: 240px;
     out property <color> focused-color: #0c8ce9;
+    out property <color> focused-stop-color: Palette.color-scheme == ColorScheme.dark ? #4a5878 : #b5ccdd;
+    out property <color> slider-color: Palette.color-scheme == ColorScheme.dark ? EditorPalette.section-color : #b5ccdd;
 }
 
 enum PickerTab {
@@ -328,7 +330,7 @@ component GradientSlider {
     Rectangle {
         width: 24px;
         height: self.width;
-        background: active ? Styles.focused-color : EditorPalette.section-color;
+        background: active ? Styles.focused-color : Styles.slider-color;
         border-radius: 5px;
 
         property <bool> block-clicked: false;
@@ -369,7 +371,7 @@ component GradientSlider {
                 width: 10px;
                 rotation-angle: 45deg;
                 source: Icons.black-square;
-                colorize: active ? Styles.focused-color : EditorPalette.section-color;
+                colorize: active ? Styles.focused-color : Styles.slider-color;
             }
         }
 
@@ -409,11 +411,11 @@ component GradientStopValue {
     }
 
     Rectangle {
-        background: active ? Styles.focused-color : transparent;
+        background: active ? Styles.focused-stop-color : transparent;
     }
 
     Rectangle {
-        height: 28px;
+        height: 24px;
 
         Rectangle {
             x: EditorSizeSettings.standard-margin;
@@ -629,9 +631,9 @@ component GradientPicker inherits SimpleColumn {
     callback clear-focus-panel();
 
     Rectangle {
-        height: 50px;
+        height: cb.height + EditorSizeSettings.standard-margin;
 
-        ComboBox {
+        cb := ComboBox {
             x: EditorSizeSettings.standard-margin;
             y: EditorSizeSettings.standard-margin;
             model: ["Linear", "Radial"];
@@ -640,14 +642,14 @@ component GradientPicker inherits SimpleColumn {
                 PickerData.current-brush-kind = current-value == "Linear" ? BrushKind.linear : BrushKind.radial;
                 WindowManager.update-brush();
             }
-
         }
     }
 
     gradient-visual := Rectangle {
-        height: 80px;
+        height: 60px;
 
         Rectangle {
+            y: EditorSizeSettings.small-margin;
             width: parent.width - (EditorSizeSettings.standard-margin * 2);
             height: 30px;
 
@@ -710,10 +712,9 @@ component GradientPicker inherits SimpleColumn {
     }
 
     Rectangle {
-        height: 50px;
+        height: 30px;
         Text {
             x: EditorSizeSettings.standard-margin;
-            y: EditorSizeSettings.standard-margin;
             color: EditorPalette.text-color;
             text: "Stops";
             font-family: "Inter";
@@ -722,7 +723,6 @@ component GradientPicker inherits SimpleColumn {
 
         Rectangle {
             x: parent.width - self.width - 5px;
-            y: 10px;
             width: 25px;
             height: self.width;
             background: t-plus.has-hover ? EditorPalette.section-color : transparent;
