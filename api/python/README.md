@@ -1,13 +1,12 @@
 <!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0 -->
 
-# Slint-python (Alpha)
+# Slint-python (Beta)
 
 [Slint](https://slint.dev/) is a UI toolkit that supports different programming languages.
 Slint-python is the integration with Python.
 
-**Warning: Alpha**
-Slint-python is still in the very early stages of development: APIs will change and important features are still being developed,
-the project is overall incomplete.
+**Warning: Beta**
+Slint-python is in a beta phase of development: The APIs are mostly stable but may be subject to further changes. Any changes will be documented in the ChangeLog.
 
 You can track the overall progress for the Python integration by looking at python-labelled issues at https://github.com/slint-ui/slint/labels/a%3Alanguage-python .
 
@@ -19,12 +18,11 @@ in detail.
 ## Prerequisites
 
  * [Python 3](https://python.org/)
- * [pip](https://pypi.org/project/pip/)
- * [uv](https://docs.astral.sh/uv/)
+ * [uv](https://docs.astral.sh/uv/) or [pip](https://pypi.org/project/pip/)
 
 ## Installation
 
-Slint can be installed with `pip` or `uv` from the [Python Package Index](https://pypi.org):
+Slint can be installed with `uv` or `pip` from the [Python Package Index](https://pypi.org):
 
 ```
 uv add slint
