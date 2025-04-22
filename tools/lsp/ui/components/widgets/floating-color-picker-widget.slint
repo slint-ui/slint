@@ -9,6 +9,7 @@ import { BrushMode, BrushPropertyType, WidgetMode } from "../../properties-state
 import { SimpleColumn } from "../../components/layout-helpers.slint";
 import { DraggablePanel } from "../../components/draggable-panel.slint";
 import { ColorIndicator, FakeShadowText, PickerTextInput } from "./brush-helpers.slint";
+import { CustomLineEdit } from "inline-brush-widget.slint";
 
 export global Styles {
     out property <length> picker-width: 240px;
@@ -156,6 +157,8 @@ component BrushTypeSelector {
 component ColorModeColorAndApply {
     in property <WidgetMode> widget-mode;
     property <color> current-color <=> PickerData.current-color;
+    callback clear-focus-panel();
+
     changed current-color => {
         ti-hex-color.text = Api.color-to-data(PickerData.current-color).short-text.to-uppercase();
     }
@@ -277,6 +280,11 @@ component ColorModeColorAndApply {
             x: EditorSizeSettings.standard-margin;
             width: 100px;
             text: "Apply";
+            changed pressed => {
+                if self.pressed {
+                    root.clear-focus-panel();
+                }
+            }
             clicked => {
                 if PickerData.current-color.to-hsv().alpha == 1 {
                     WindowManager.apply-current-value("#\{Api.color-to-data(PickerData.current-color).short-text}")
@@ -627,15 +635,21 @@ component GradientStopValue {
 
 component GradientPicker inherits SimpleColumn {
     in property <WidgetMode> widget-mode;
+    property <float> current-angle <=> PickerData.current-angle;
+
+    changed current-angle => {
+        degrees.text = current-angle.round();
+        WindowManager.update-brush();
+    }
 
     callback clear-focus-panel();
 
     Rectangle {
-        height: cb.height + EditorSizeSettings.standard-margin;
+        height: cb.height + (EditorSizeSettings.small-margin * 2);
 
         cb := ComboBox {
             x: EditorSizeSettings.standard-margin;
-            y: EditorSizeSettings.standard-margin;
+            width: 160px;
             model: ["Linear", "Radial"];
             current-index: PickerData.current-brush-kind == BrushKind.linear ? 0 : 1;
             selected(current-value) => {
@@ -643,13 +657,70 @@ component GradientPicker inherits SimpleColumn {
                 WindowManager.update-brush();
             }
         }
+
+        degrees := CustomLineEdit {
+            x: parent.width - self.width - EditorSizeSettings.standard-margin;
+            width: 40px;
+            visible: cb.current-index == 0;
+            Rectangle {
+                x: parent.width - self.width;
+                width: 48px;
+                height: parent.height;
+
+                pi := PickerTextInput {
+                    x: -12px;
+                    text: PickerData.current-angle.round();
+                    horizontal-alignment: right;
+                    accepted => {
+                        self.text = self.text.to-float().mod(360);
+                        PickerData.current-angle = self.text.to-float();
+                        self.clear-focus();
+                    }
+                    edited => {
+                        if self.text.character-count > 3 {
+                            self.text = self.text.to-float().mod(360);
+                        }
+                    }
+                    changed has-focus => {
+                        if !self.has-focus {
+                            self.text = self.text.to-float().mod(360);
+                            PickerData.current-angle = self.text.to-float();
+                        }
+                    }
+                }
+
+                FakeShadowText {
+                    x: parent.width - self.width - 4px;
+                    font-family: "Inter";
+                    font-size: 11px;
+                    text: "°";
+                }
+
+                Rectangle {
+                    x: parent.width - self.width;
+                    width: 20px;
+                    TouchArea {
+                        mouse-cursor: col-resize;
+                        property <float> initial-angle: 0;
+                        changed pressed => {
+                            if self.pressed {
+                                initial-angle = PickerData.current-angle;
+                            }
+                        }
+                        moved => {
+                            PickerData.current-angle = (initial-angle + ((self.mouse-x - self.pressed-x) * 2 / 1px)).mod(360).round();
+                        }
+                    }
+                }
+            }
+        }
     }
 
     gradient-visual := Rectangle {
-        height: 60px;
+        height: 50px;
 
         Rectangle {
-            y: EditorSizeSettings.small-margin;
+            y: 0;
             width: parent.width - (EditorSizeSettings.standard-margin * 2);
             height: 30px;
 
@@ -755,6 +826,11 @@ component GradientPicker inherits SimpleColumn {
         x: EditorSizeSettings.standard-margin;
         width: 100px;
         text: "Apply";
+        changed pressed => {
+            if self.pressed {
+                root.clear-focus-panel();
+            }
+        }
         clicked => {
             WindowManager.apply-current-value(Api.as-slint-brush(PickerData.current-brush-kind, PickerData.current-angle, PickerData.current-brush, PickerData.current-gradient-stops));
         }
@@ -1108,6 +1184,10 @@ component ColorPicker inherits DraggablePanel {
 
     if active-tab == PickerTab.color: color-apply := ColorModeColorAndApply {
         widget-mode: root.widget-mode;
+
+        clear-focus-panel => {
+            root.clear-focus-panel();
+        }
     }
 
     if active-tab == PickerTab.gradient: GradientPicker {
