@@ -181,7 +181,7 @@ impl_stub_type!(PyBrushInput = PyColor);
 /// shall be filled. A brush can also be applied to the outline of a shape, that means the fill of the outline itself.
 ///
 /// Brushes can only be constructed from solid colors.
-/// 
+///
 /// **Note:** In future, we plan to reduce this constraint and allow for declaring graidient brushes programmatically.
 #[gen_stub_pyclass]
 #[pyclass(name = "Brush")]
