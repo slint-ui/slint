@@ -50,6 +50,13 @@ export component InternalScrollView {
         interactive: false;
         viewport-y <=> native.vertical-value;
         viewport-x <=> native.horizontal-value;
+
+        changed viewport-x => {
+            root.scrolled();
+        }
+        changed viewport-y => {
+            root.scrolled();
+        }
     }
 }
 

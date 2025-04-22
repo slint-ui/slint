@@ -118,6 +118,13 @@ export component ScrollView {
         width: parent.width - 4px;
         height: parent.height - 4px;
 
+        changed viewport-x => {
+            root.scrolled();
+        }
+        changed viewport-y => {
+            root.scrolled();
+        }
+
         @children
     }
 
