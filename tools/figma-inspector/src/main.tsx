@@ -45,7 +45,8 @@ export const App = () => {
     const [exportAsSingleFile, setExportAsSingleFile] = useState(false); // Default to multiple files
     // --- Add state for dropdown visibility ---
     const [isMenuOpen, setIsMenuOpen] = useState(false);
-    const menuRef = useRef<HTMLDivElement>(null); // Ref for detecting outside clicks
+    const menuRef = useRef<HTMLDivElement>(null); // Ref for the menu
+    const buttonRef = useRef<HTMLButtonElement>(null); // Ref for the button
     const toggleMenu = useCallback(() => {
         setIsMenuOpen((prev) => !prev);
     }, []);
@@ -100,7 +101,32 @@ export const App = () => {
     // Or, if you only want selection changes to trigger updates *after* mount,
     // keep the dependency array empty [] and handle the initial request separately.
     // The current setup ensures the snippet reflects the checkbox state even on first load.
+    useEffect(() => {
+        // Only add listener if menu is open
+        if (!isMenuOpen) {
+            return;
+        }
 
+        const handleClickOutside = (event: MouseEvent) => {
+            // Check if the click is outside the menu AND outside the button
+            if (
+                menuRef.current &&
+                !menuRef.current.contains(event.target as Node) &&
+                buttonRef.current && // Also check the button ref
+                !buttonRef.current.contains(event.target as Node)
+            ) {
+                setIsMenuOpen(false); // Close the menu
+            }
+        };
+
+        // Add listener on mount/when menu opens
+        document.addEventListener("mousedown", handleClickOutside);
+
+        // Cleanup listener on unmount/when menu closes
+        return () => {
+            document.removeEventListener("mousedown", handleClickOutside);
+        };
+    }, [isMenuOpen]); // Re-run effect when isMenuOpen changes
     const handleCheckboxChange = useCallback(
         (event: React.ChangeEvent<HTMLInputElement>) => {
             const checked = event.target.checked;
@@ -314,6 +340,8 @@ export const App = () => {
         cursor: "pointer",
         position: "relative", // Needed for absolute positioning of menu
         textAlign: "center",
+        opacity: isMenuOpen ? 0.6 : 1, // Lower opacity when menu is open
+        pointerEvents: isMenuOpen ? 'none' : 'auto', // Prevent clicks when menu is open
     };
 
     const menuStyle: React.CSSProperties = {
@@ -408,14 +436,19 @@ export const App = () => {
                         </span>
                     </div>
             </div>
-
+            <div style={{
+                flexGrow: 1,          
+                overflowY: 'auto',    
+                minHeight: '50px',    
+                position: 'relative'  
+            }}>
             <CodeSnippet
                 code={slintProperties || "// Select a component to inspect"}
                 theme={
                     lightOrDarkMode === "dark" ? "dark-slint" : "light-slint"
                 }
             />
-
+            </div>
             <div
                 style={{ position: "relative", alignSelf: "center" }}
                 ref={menuRef}
@@ -423,6 +456,7 @@ export const App = () => {
                 {/* --- Trigger Button --- */}
                 {useVariables && (
                     <button
+                        ref={buttonRef}
                         onClick={toggleMenu} // Toggle menu visibility
                         style={buttonStyle}
                         className="export-button" // Keep class if needed
@@ -430,8 +464,10 @@ export const App = () => {
                         {exportsAreCurrent ? "Design Tokens" : "Design Tokens"}
                     </button>
                 )}
+                
                 {/* --- Dropdown Menu --- */}
-                <div style={menuStyle} className="export-dropdown-menu">
+                {isMenuOpen && (
+                <div ref={menuRef} style={menuStyle} className="export-dropdown-menu">
                     {/* Checkbox Item */}
                     <label
                         style={{ ...menuItemStyle, cursor: "pointer" }}
@@ -483,6 +519,7 @@ export const App = () => {
                         Export Collections
                     </div>
                 </div>
+                )}
             </div>
             <div
                 style={{
