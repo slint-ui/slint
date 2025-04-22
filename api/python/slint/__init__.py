@@ -255,16 +255,16 @@ def load_file(
     ] = None,
     translation_domain: typing.Optional[str] = None,
 ) -> types.SimpleNamespace:
-    """This function is the low-level entry point into Slint for Python. Loads the `.slint` file at the specified `path`
-    and returns a namespace with all exported components as Python classes, as well as enums and structs.
+    """This function is the low-level entry point into Slint for instantiating components. It loads the `.slint` file at
+    the specified `path` and returns a namespace with all exported components as Python classes, as well as enums, and structs.
 
-    * `quiet`: Set to true to prevent any warnings during compilation to be printed to stderr.
-    * `style`: Set this to use a specific a widget style.
-    * `include_paths`: Additional include paths that will be used to look up `.slint` files imported from other `.slint` files.
-    * `library_paths`: A dictionary that maps library names to their location in the file system. This is used to look up library imports,
-       such as `import { MyButton } from "@mylibrary";`.
-    * `translation_domain`: The domain to use for looking up the catalogue run-time translations. This must match the translation domain
-       used when extracting translations with `slint-tr-extractor`.
+    * `quiet`: Set to true to prevent any warnings during compilation from being printed to stderr.
+    * `style`: Specify a widget style.
+    * `include_paths`: Additional include paths used to look up `.slint` files imported from other `.slint` files.
+    * `library_paths`: A dictionary that maps library names to their location in the file system. This is then used to look up
+       library imports, such as `import { MyButton } from "@mylibrary";`.
+    * `translation_domain`: The domain to use for looking up the catalogue run-time translations. This must match the
+       translation domain used when extracting translations with `slint-tr-extractor`.
 
     """
 
@@ -344,11 +344,14 @@ class SlintAutoLoader:
 
 
 loader = SlintAutoLoader()
-"""The `loader` object is a global object that can be used to load Slint files from the file system. It exposes two stages of attributes:
-1. Any lookup of an attribute in the loader will try to match a file in `sys.path` with the `.slint` extension. For example `loader.my_component` will look for a file `my_component.slint` in the directories in `sys.path`.
-2. Any lookup in the object returned by the first stage will try to match an exported component in the loaded file, or a struct or enum. For example `loader.my_component.MyComponent` will look for an *exported* component named `MyComponent` in the file `my_component.slint`.
+"""Use the global `loader` object to load Slint files from the file system. It exposes two stages of attributes:
+1. Any lookup of an attribute in the loader tries to match a file in `sys.path` with the `.slint` extension. For example
+   `loader.my_component` looks for a file `my_component.slint` in the directories in `sys.path`.
+2. Any lookup in the object returned by the first stage tries to match an exported component in the loaded file, or a
+   struct, or enum. For example `loader.my_component.MyComponent` looks for an *exported* component named `MyComponent`
+   in the file `my_component.slint`.
 
-Note that the first entry in the module search path `sys.path` is the directory that contains the input script.
+**Note:** The first entry in the module search path `sys.path` is the directory that contains the input script.
 
 Example:
 ```python
@@ -393,11 +396,9 @@ def callback(
     ...
     ```
 
-    Use the `name` parameter to specify the name of the callback in the Slint component, if the name of the
-    Python method differs from the name of the callback in the Slint component.
-
-    Use the `global_name` parameter to specify the name of the global in the Slint component, if the callback
-    is to be set on a Slint global object.
+    If your Python method has a different name from the Slint component's callback, use the `name` parameter to specify
+    the correct name. Similarly, use the `global_name` parameter to specify the name of the correct global singleton in
+    the Slint component.
     """
 
     if callable(global_name):
@@ -414,7 +415,7 @@ def callback(
 
 def set_xdg_app_id(app_id: str) -> None:
     """Sets the application id for use on Wayland or X11 with [xdg](https://specifications.freedesktop.org/desktop-entry-spec/latest/)
-    compliant window managers. This must be set before the window is shown, and has only an effect on Wayland or X11."""
+    compliant window managers. This id must be set before the window is shown; it only applies to Wayland or X11."""
 
     native.set_xdg_app_id(app_id)
 
