@@ -135,7 +135,7 @@ Python as properties in the component instance.
 
 For example, this Slint code declares a `PrinterJobQueue` singleton:
 
-```slint,ignore
+```slint
 export global PrinterJobQueue {
     in-out property <int> job-count;
 }
