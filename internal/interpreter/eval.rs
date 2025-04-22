@@ -1529,7 +1529,7 @@ fn load_property_helper(
             let item = unsafe { item_info.item_from_item_tree(enclosing_component.as_ptr()) };
             Ok(item_info.rtti.properties.get(name).ok_or(())?.get(item))
         }
-        ComponentInstance::GlobalComponent(glob) => Ok(glob.as_ref().get_property(name).unwrap()),
+        ComponentInstance::GlobalComponent(glob) => glob.as_ref().get_property(name),
     }
 }
 
