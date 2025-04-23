@@ -3,7 +3,7 @@
 # Changelog
 All notable changes to this project are documented in this file.
 
-## [1.11.0] - TBD
+## [1.11.0] - 2025-04-23
 
 ### General
 
