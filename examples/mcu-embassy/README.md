@@ -35,7 +35,7 @@ cargo install --force --locked probe-rs-tools
 Plug a usbc cable into the ST-LINK port on the dk2 and run the following:
 
 ```bash
-cargo run --bin ui_mcu --release --features=mcu
+cargo run -p mcu-embassy --bin ui_mcu --release --features=mcu
 ```
 
 Troubleshooting:
@@ -72,11 +72,11 @@ To install SDL2 follow the instructions here: https://github.com/Rust-SDL2/rust-
 To run the simulator on a pc:
 ```bash
 # for linux
-cargo run --bin ui_simulator --release --no-default-features --features=simulator --target x86_64-unknown-linux-gnu
+cargo run -p mcu-embassy --bin ui_simulator --release --no-default-features --features=simulator --target x86_64-unknown-linux-gnu
 # for windows
-cargo run --bin ui_simulator --release --no-default-features --features=simulator --target x86_64-pc-windows-msvc
+cargo run -p mcu-embassy --bin ui_simulator --release --no-default-features --features=simulator --target x86_64-pc-windows-msvc
 # for mac
-cargo run --bin ui_simulator --release --no-default-features --features=simulator --target x86_64-apple-darwin
+cargo run -p mcu-embassy --bin ui_simulator --release --no-default-features --features=simulator --target x86_64-apple-darwin
 ```
 
 Note: Instead of specifying a target you can simply remove the arm target in .cargo/config.toml and cargo will use the host by default
