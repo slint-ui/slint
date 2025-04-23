@@ -25,6 +25,7 @@ const textProperties = [
     "font-family",
     "font-size",
     "font-weight",
+    "horizontal-alignment",
 ];
 
 const unsupportedNodeProperties = ["x", "y", "width", "height", "opacity"];
@@ -873,6 +874,44 @@ export async function generateTextSnippet(
                         );
                         console.log(
                             `[generateTextSnippet] font-weight: Added property: ${finalWeightValue}`,
+                        );
+                    }
+                    break;
+                case "horizontal-alignment":
+                    if (
+                        "textAlignHorizontal" in sceneNode &&
+                        typeof sceneNode.textAlignHorizontal === "string"
+                    ) {
+                        let slintValue: string | null = null;
+                        switch (sceneNode.textAlignHorizontal) {
+                            case "LEFT":
+                                slintValue = "left";
+                                break;
+                            case "CENTER":
+                                slintValue = "center";
+                                break;
+                            case "RIGHT":
+                                slintValue = "right";
+                                break;
+                            case "JUSTIFIED":
+                                slintValue = "left"; // Slint has no justify
+                                break;
+                        }
+                        if (slintValue) {
+                            properties.push(
+                                `${indentation}horizontal-alignment: ${slintValue};`,
+                            );
+                            console.log(
+                                `[generateTextSnippet] horizontal-alignment: Added property: ${slintValue}`,
+                            );
+                        } else {
+                            console.log(
+                                `[generateTextSnippet] horizontal-alignment: Skipping unknown Figma value: ${sceneNode.textAlignHorizontal}`,
+                            );
+                        }
+                    } else {
+                        console.log(
+                            `[generateTextSnippet] horizontal-alignment: Property 'textAlignHorizontal' not found or not a string.`,
                         );
                     }
                     break;
