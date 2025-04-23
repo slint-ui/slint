@@ -51,4 +51,3 @@ export const getStore = async (key: string) => {
 export const setStore = async (key: string, value: string) => {
     await figma.clientStorage.setAsync(key, value);
 };
-

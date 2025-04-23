@@ -401,8 +401,9 @@ export const App = () => {
                     id="copy-icon"
                     onClick={() => copyToClipboard(slintProperties)}
                     onKeyDown={(e) => {
-                        if (e.key === "Enter" || e.key === " ")
+                        if (e.key === "Enter" || e.key === " ") {
                             copyToClipboard(slintProperties);
+                        }
                     }} // Added keyboard accessibility
                     className="copy-icon"
                     style={{ cursor: "pointer", marginRight: "8px" }} // Add margin to separate from title

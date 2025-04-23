@@ -23,7 +23,6 @@ export interface EventTS {
 
     checkVariableChanges: Record<string, never>;
     generateSnippetRequest: { useVariables: boolean };
-
 }
 
 export interface EventTS {

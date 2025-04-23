@@ -11,7 +11,10 @@ if (figma.editorType === "dev" && figma.mode === "codegen") {
             // Add try...catch for async errors
             // --- Await the async function ---
             const useVariablesForCodegen = true;
-            const slintSnippet = await generateSlintSnippet(node, useVariablesForCodegen); 
+            const slintSnippet = await generateSlintSnippet(
+                node,
+                useVariablesForCodegen,
+            );
             // --- End Await ---
 
             return slintSnippet
@@ -49,7 +52,9 @@ listenTS("generateSnippetRequest", async (payload) => {
     console.log("[Backend] Entered 'generateSnippetRequest' handler.");
     // --- Extract useVariables from payload (default to false) ---
     const useVariables = payload.useVariables ?? false; // <-- You likely already have this
-    console.log(`[Backend] Received generateSnippetRequest. Use variables: ${useVariables}`);
+    console.log(
+        `[Backend] Received generateSnippetRequest. Use variables: ${useVariables}`,
+    );
 
     const selection = figma.currentPage.selection;
     let title = "Figma Inspector";
@@ -60,16 +65,25 @@ listenTS("generateSnippetRequest", async (payload) => {
         title = node.name;
         try {
             // --- Pass the useVariables value received from UI ---
-            console.log(`[Backend] Calling generateSlintSnippet for ${node.name}. useVariables = ${useVariables} (Type: ${typeof useVariables})`);
+            console.log(
+                `[Backend] Calling generateSlintSnippet for ${node.name}. useVariables = ${useVariables} (Type: ${typeof useVariables})`,
+            );
             slintSnippet = await generateSlintSnippet(node, useVariables);
-            console.log(`[Backend] Finished generating snippet for ${node.name}. Result is null? ${slintSnippet === null}`);
+            console.log(
+                `[Backend] Finished generating snippet for ${node.name}. Result is null? ${slintSnippet === null}`,
+            );
 
             if (slintSnippet === null) {
-                 slintSnippet = `// Unsupported node type: ${node.type}`;
+                slintSnippet = `// Unsupported node type: ${node.type}`;
             }
-             console.log(`[Backend] Generated snippet for ${node.name}. Length: ${slintSnippet?.length ?? 0}`);
+            console.log(
+                `[Backend] Generated snippet for ${node.name}. Length: ${slintSnippet?.length ?? 0}`,
+            );
         } catch (error) {
-            console.error(`[Backend] Error generating snippet for ${node.name}:`, error);
+            console.error(
+                `[Backend] Error generating snippet for ${node.name}:`,
+                error,
+            );
             slintSnippet = `// Error generating snippet for ${node.name}:\n// ${error instanceof Error ? error.message : String(error)}`;
         }
     } else if (selection.length > 1) {
@@ -82,7 +96,9 @@ listenTS("generateSnippetRequest", async (payload) => {
         title: title,
         slintSnippet: slintSnippet,
     });
-     console.log(`[Backend] Sent updatePropertiesCallback to UI. Title: ${title}`);
+    console.log(
+        `[Backend] Sent updatePropertiesCallback to UI. Title: ${title}`,
+    );
 });
 
 listenTS("copyToClipboard", ({ result }) => {
@@ -97,7 +113,7 @@ figma.on("selectionchange", () => {
     console.log("[Backend] Selection changed in Figma, notifying UI."); // <-- Add this line
 
     if (figma.editorType === "figma" && figma.mode === "default") {
-        dispatchTS("selectionChangedInFigma", {}); 
+        dispatchTS("selectionChangedInFigma", {});
     }
 });
 
