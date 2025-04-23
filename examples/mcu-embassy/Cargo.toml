@@ -16,14 +16,14 @@ homepage = "https://slint.dev"
 [dependencies]
 log = "0.4"
 defmt = { version = "1.0", optional = true, features = ["alloc"] }
-defmt-rtt = { version = "0.4", optional = true }
-panic-probe = { version = "0.3", optional = true, features = ["print-defmt"] }
+defmt-rtt = { version = "1.0", optional = true }
+panic-probe = { version = "1.0", optional = true, features = ["print-defmt"] }
 cortex-m = { version = "0.7.7", optional = true, features = ["inline-asm", "critical-section-single-core"] }
 cortex-m-rt = { version = "0.7.3", optional = true }
 slint-generated = { path = "./slint_generated" }
-embedded-alloc = { version = "0.5", optional = true }
+embedded-alloc = { version = "0.6", optional = true }
 heapless = { version = "0.8", default-features = false, features = ["defmt-03"] }
-tinybmp = { version = "0.5" }
+tinybmp = { version = "0.6" }
 static_cell = { version = "2" }
 
 #slint = { version = "1.9.1", default-features = false, features = [
@@ -40,7 +40,7 @@ embassy-executor = { version = "0.7.0", features = ["task-arena-size-32768", "ex
 embassy-time = { version = "0.4.0" }
 embassy-futures = { version = "0.1.1" }
 
-env_logger = { version = "0.9.0", optional = true }
+env_logger = { version = "0.11.8", optional = true }
 sdl2 = { version = "0.37.0", optional = true }
 object-pool = { version = "0.6.0", optional = true }
 embedded-hal = { version = "1.0.0", optional = true }

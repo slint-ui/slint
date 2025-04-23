@@ -775,6 +775,7 @@ pub fn can_drop_at(
                     create_drop_element_workspace_edit(document_cache, component, dm)
                 {
                     workspace_edit_compiles(document_cache, &edit)
+                        == preview::CompilationResult::ChangeCompiles
                 } else {
                     false
                 };
@@ -798,10 +799,14 @@ pub fn can_drop_at(
 pub fn workspace_edit_compiles(
     document_cache: &common::DocumentCache,
     workspace_edit: &lsp_types::WorkspaceEdit,
-) -> bool {
+) -> preview::CompilationResult {
     let Ok(mut result) = text_edit::apply_workspace_edit(document_cache, workspace_edit) else {
-        return false;
+        return preview::CompilationResult::ChangeFails;
     };
+
+    if result.is_empty() {
+        return preview::CompilationResult::NoChange;
+    }
 
     let mut diag = BuildDiagnostics::default();
 
@@ -817,7 +822,11 @@ pub fn workspace_edit_compiles(
         let _ = preview::poll_once(document_cache.load_url(&u, None, c, &mut diag));
     }
 
-    !diag.has_errors()
+    if diag.has_errors() {
+        preview::CompilationResult::ChangeFails
+    } else {
+        preview::CompilationResult::ChangeCompiles
+    }
 }
 
 /// Find the Element to insert into. None means we can not insert at this point.
@@ -867,6 +876,7 @@ pub fn can_move_to(
                     position,
                 ) {
                     workspace_edit_compiles(document_cache, &edit)
+                        == preview::CompilationResult::ChangeCompiles
                 } else {
                     false
                 };
@@ -1273,7 +1283,10 @@ pub fn move_element_to(
         instance_index,
         position,
     )
-    .and_then(|(e, d)| workspace_edit_compiles(document_cache, &e).then_some((e, d)))
+    .and_then(|(e, d)| {
+        (workspace_edit_compiles(document_cache, &e) == preview::CompilationResult::ChangeCompiles)
+            .then_some((e, d))
+    })
 }
 
 #[cfg(test)]
@@ -1355,14 +1368,20 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 582
     fn test_workspace_edit_compiles_ok() {
         let (document_cache, workspace_edit) = workspace_edit_setup(vec![(194, 194, "foo := ")]);
 
-        assert!(super::workspace_edit_compiles(&document_cache, &workspace_edit));
+        assert_eq!(
+            super::workspace_edit_compiles(&document_cache, &workspace_edit),
+            super::preview::CompilationResult::ChangeCompiles
+        );
     }
 
     #[test]
     fn test_workspace_edit_compiles_parse_fails() {
         let (document_cache, workspace_edit) = workspace_edit_setup(vec![(194, 194, "FOOBAR ")]);
 
-        assert!(!super::workspace_edit_compiles(&document_cache, &workspace_edit));
+        assert_eq!(
+            super::workspace_edit_compiles(&document_cache, &workspace_edit),
+            super::preview::CompilationResult::ChangeFails
+        );
     }
 
     #[test]
@@ -1373,7 +1392,10 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 582
             "property <bool> foobar: root.foobar;\n        ",
         )]);
 
-        assert!(!super::workspace_edit_compiles(&document_cache, &workspace_edit));
+        assert_eq!(
+            super::workspace_edit_compiles(&document_cache, &workspace_edit),
+            super::preview::CompilationResult::ChangeFails
+        );
     }
 
     #[test]
@@ -1389,7 +1411,10 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 582
             "    Button { // 318\n                width: parent.button_width;\n                text: \"Press me\";\n            }\n        "
         )]);
 
-        assert!(!super::workspace_edit_compiles(&document_cache, &workspace_edit));
+        assert_eq!(
+            super::workspace_edit_compiles(&document_cache, &workspace_edit),
+            super::preview::CompilationResult::ChangeFails
+        );
     }
 
     #[test]
@@ -1406,7 +1431,24 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 582
             "Rectangle { // 470\n              background: Colors.blue;\n        }\n        "
         ),]);
 
-        assert!(super::workspace_edit_compiles(&document_cache, &workspace_edit));
+        assert_eq!(
+            super::workspace_edit_compiles(&document_cache, &workspace_edit),
+            super::preview::CompilationResult::ChangeCompiles
+        );
+    }
+
+    #[test]
+    fn test_workspace_edit_compiles_no_change() {
+        let (document_cache, workspace_edit) = workspace_edit_setup(vec![(
+            466,
+            540,
+            "Rectangle { // 470\n              background: Colors.blue;\n        }\n        ",
+        )]);
+
+        assert_eq!(
+            super::workspace_edit_compiles(&document_cache, &workspace_edit),
+            super::preview::CompilationResult::ChangeCompiles
+        );
     }
 
     #[test]
@@ -1423,14 +1465,20 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 582
             "Button { // 318\n                    width: parent.button-width;\n                    text: \"Press me\";\n                }"
         ),]);
 
-        assert!(super::workspace_edit_compiles(&document_cache, &workspace_edit));
+        assert_eq!(
+            super::workspace_edit_compiles(&document_cache, &workspace_edit),
+            super::preview::CompilationResult::ChangeCompiles
+        );
     }
 
     #[test]
     fn test_workspace_edit_compiles_edit_button_text_ok() {
         let (document_cache, workspace_edit) = workspace_edit_setup(vec![(409, 417, "xxx")]);
 
-        assert!(super::workspace_edit_compiles(&document_cache, &workspace_edit));
+        assert_eq!(
+            super::workspace_edit_compiles(&document_cache, &workspace_edit),
+            super::preview::CompilationResult::ChangeCompiles
+        );
     }
 
     // #[track_caller]
@@ -1457,7 +1505,10 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 582
         assert_eq!(drop_data.path, test::main_test_file_name());
         assert_eq!(drop_data.selection_offset, selection_offset.into());
 
-        assert!(super::workspace_edit_compiles(&document_cache, &workspace_edit));
+        assert_eq!(
+            super::workspace_edit_compiles(&document_cache, &workspace_edit),
+            super::preview::CompilationResult::ChangeCompiles
+        );
     }
 
     #[test]

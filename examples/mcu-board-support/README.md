@@ -17,6 +17,9 @@ The main.rs will look something like this
 #![cfg_attr(not(feature = "simulator"), no_main)]
 slint::include_modules!();
 
+#[allow(unused_imports)]
+use mcu_board_support::prelude::*;
+
 #[mcu_board_support::entry]
 fn main() -> ! {
     mcu_board_support::init();
@@ -205,13 +208,10 @@ CARGO_PROFILE_RELEASE_OPT_LEVEL=s CARGO_TARGET_THUMBV8M_MAIN_NONE_EABIHF_RUNNER=
 When flashing, with `esplash`, you will be prompted to select a USB port. If this port is always the same, then you can also pass it as a parameter on the command line to avoid the prompt. For example if
 `/dev/ttyUSB1` is the device file for your port, the command line changes to `espflash --monitor /dev/ttyUSB1 path/to/binary/to/flash_and_monitor`.
 
-<!--
 #### ESP32-S3-Box
 
 To compile and run the demo:
 
 ```sh
-CARGO_PROFILE_RELEASE_OPT_LEVEL=s cargo +esp run -p printerdemo_mcu --target xtensa-esp32s3-none-elf --no-default-features --features=mcu-board-support/esp32-s3-box --release --config examples/mcu-board-support/esp32_s3_box/cargo-config.toml
+CARGO_PROFILE_RELEASE_OPT_LEVEL=s cargo +esp run -p printerdemo_mcu --target xtensa-esp32s3-none-elf --no-default-features --features=mcu-board-support/esp32-s3-box-3 --release --config examples/mcu-board-support/esp32_s3_box_3/cargo-config.toml
 ```
-
--->

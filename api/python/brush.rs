@@ -59,10 +59,10 @@ enum PyColorInput {
 
 impl_stub_type!(PyColorInput = String | RgbaColor | RgbColor);
 
-/// A Color object represents a color in the RGB color space with an alpha. Each color channel as well as the alpha is represented as an 8-bit
-/// integer. The alpha channel is 0 for fully transparent and 255 for fully opaque.
+/// A Color object represents a color in the RGB color space with an alpha. Each color channel and the alpha is represented
+/// as an 8-bit integer. The alpha channel is 0 for fully transparent and 255 for fully opaque.
 ///
-/// Construct colors from either a CSS color string, or by specifying the red, green, blue, and (optional) alpha channels in a dict.
+/// Construct colors from a CSS color string, or by specifying the red, green, blue, and (optional) alpha channels in a dict.
 #[gen_stub_pyclass]
 #[pyclass(name = "Color")]
 #[derive(Clone)]
@@ -177,13 +177,12 @@ enum PyBrushInput {
 
 impl_stub_type!(PyBrushInput = PyColor);
 
-/// A brush is a data structure that is used to describe how
-/// a shape, such as a rectangle, path or even text, shall be filled.
-/// A brush can also be applied to the outline of a shape, that means
-/// the fill of the outline itself.
+/// A brush is a data structure that is used to describe how a shape, such as a rectangle, path or even text,
+/// shall be filled. A brush can also be applied to the outline of a shape, that means the fill of the outline itself.
 ///
-/// Brushes can only be constructed from solid colors. This is a restriction we anticipate to lift in the future,
-/// to programmatically also declare gradients.
+/// Brushes can only be constructed from solid colors.
+///
+/// **Note:** In future, we plan to reduce this constraint and allow for declaring graidient brushes programmatically.
 #[gen_stub_pyclass]
 #[pyclass(name = "Brush")]
 pub struct PyBrush {

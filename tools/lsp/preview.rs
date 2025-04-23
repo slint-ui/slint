@@ -476,7 +476,7 @@ fn evaluate_binding(
     let document_cache = document_cache()?;
     let element = document_cache.element_at_offset(&element_url, element_offset)?;
 
-    let edit = if property_value.is_empty() {
+    if property_value.is_empty() {
         properties::remove_binding(element_url, element_version, &element, &property_name).ok()
     } else {
         properties::set_binding(
@@ -486,9 +486,7 @@ fn evaluate_binding(
             &property_name,
             property_value,
         )
-    }?;
-
-    drop_location::workspace_edit_compiles(&document_cache, &edit).then_some(edit)
+    }
 }
 
 // triggered from the UI, running in UI thread
@@ -516,8 +514,21 @@ fn test_binding(
     property_name: slint::SharedString,
     property_value: String,
 ) -> bool {
-    evaluate_binding(element_url, element_version, element_offset, property_name, property_value)
-        .is_some()
+    let Some(edit) = evaluate_binding(
+        element_url,
+        element_version,
+        element_offset,
+        property_name,
+        property_value,
+    ) else {
+        return false;
+    };
+
+    let Some(document_cache) = document_cache() else {
+        return false;
+    };
+
+    drop_location::workspace_edit_compiles(&document_cache, &edit) != CompilationResult::ChangeFails
 }
 
 fn set_code_binding(
@@ -574,7 +585,7 @@ fn set_binding(
         property_name,
         property_value,
     ) {
-        send_workspace_edit("Edit property".to_string(), edit, false);
+        send_workspace_edit("Edit property".to_string(), edit, true);
     }
 }
 
@@ -895,20 +906,28 @@ fn move_selected_element(x: f32, y: f32, mouse_x: f32, mouse_y: f32) {
     }
 }
 
-fn test_workspace_edit(edit: &lsp_types::WorkspaceEdit, test_edit: bool) -> bool {
-    if test_edit {
-        let Some(document_cache) = document_cache() else {
-            return false;
-        };
-        drop_location::workspace_edit_compiles(&document_cache, edit)
-    } else {
-        true
-    }
+#[derive(Debug, Clone, Eq, PartialEq)]
+enum CompilationResult {
+    ChangeCompiles,
+    ChangeFails,
+    NoChange,
+}
+
+fn test_workspace_edit(edit: &lsp_types::WorkspaceEdit) -> CompilationResult {
+    let Some(document_cache) = document_cache() else {
+        return CompilationResult::ChangeFails;
+    };
+    drop_location::workspace_edit_compiles(&document_cache, edit)
 }
 
 fn send_workspace_edit(label: String, edit: lsp_types::WorkspaceEdit, test_edit: bool) -> bool {
-    if !test_workspace_edit(&edit, test_edit) {
-        return false;
+    if test_edit {
+        let test_result = test_workspace_edit(&edit);
+        match test_result {
+            CompilationResult::ChangeCompiles => {}
+            CompilationResult::ChangeFails => return false,
+            CompilationResult::NoChange => return true,
+        }
     }
 
     let workspace_edit_sent = PREVIEW_STATE.with(|preview_state| {
@@ -1010,17 +1029,7 @@ fn finish_parsing(preview_url: &Url, previewed_component: Option<String>, succes
             }
         }
 
-        let uses_widgets = document_cache
-            .get_document(preview_url)
-            .and_then(|d| d.node.as_ref())
-            .map(|n| {
-                n.ImportSpecifier().any(|is| {
-                    is.child_token(i_slint_compiler::parser::SyntaxKind::StringLiteral)
-                        .map(|sl| sl.text() == "\"std-widgets.slint\"")
-                        .unwrap_or_default()
-                })
-            })
-            .unwrap_or_default();
+        let uses_widgets = document_cache.uses_widgets(preview_url);
 
         let mut components = Vec::new();
         component_catalog::builtin_components(&document_cache, &mut components);
@@ -1324,6 +1333,7 @@ async fn parse_source(
         cc.resource_url_mapper = resource_url_mapper();
     }
     cc.embed_resources = EmbedResourcesKind::ListAllResources;
+    cc.no_native_menu = true;
 
     if !style.is_empty() {
         cc.style = Some(style);

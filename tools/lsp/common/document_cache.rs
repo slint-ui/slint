@@ -193,6 +193,41 @@ impl DocumentCache {
         self.type_loader.get_document(&path)
     }
 
+    fn uses_widgets_impl(&self, doc_path: PathBuf, dedup: &mut HashSet<PathBuf>) -> bool {
+        if dedup.contains(&doc_path) {
+            return false;
+        }
+
+        if doc_path.starts_with("builtin:/") && doc_path.ends_with("std-widgets.slint") {
+            return true;
+        }
+
+        let Some(doc) = self.get_document_by_path(&doc_path) else {
+            return false;
+        };
+
+        dedup.insert(doc_path.to_path_buf());
+
+        for import in doc.imports.iter().map(|i| PathBuf::from(&i.file)) {
+            if self.uses_widgets_impl(import, dedup) {
+                return true;
+            }
+        }
+
+        false
+    }
+
+    /// Returns true if doc_url uses (possibly indirectly) widgets from "std-widgets.slint"
+    pub fn uses_widgets(&self, doc_url: &Url) -> bool {
+        let Some(doc_path) = uri_to_file(doc_url) else {
+            return false;
+        };
+
+        let mut dedup = HashSet::new();
+
+        self.uses_widgets_impl(doc_path, &mut dedup)
+    }
+
     pub fn get_document_by_path<'a>(&'a self, path: &'_ Path) -> Option<&'a Document> {
         self.type_loader.get_document(path)
     }
@@ -286,7 +321,8 @@ impl DocumentCache {
         content: String,
         diag: &mut BuildDiagnostics,
     ) -> Result<()> {
-        let path = uri_to_file(url).ok_or("Failed to convert path")?;
+        let path =
+            uri_to_file(url).ok_or_else(|| format!("Failed to convert path for loading: {url}"))?;
         self.type_loader.load_file(&path, &path, content, false, diag).await;
         self.source_file_versions.borrow_mut().insert(path, version);
         Ok(())
@@ -298,7 +334,11 @@ impl DocumentCache {
     }
 
     pub fn drop_document(&mut self, url: &Url) -> Result<()> {
-        let path = uri_to_file(url).ok_or("Failed to convert path")?;
+        let Some(path) = uri_to_file(url) else {
+            // This isn't fatal, but we might want to learn about paths/schemes to support in the future.
+            eprintln!("Failed to convert path for dropping document: {url}");
+            return Ok(());
+        };
         Ok(self.type_loader.drop_document(&path)?)
     }
 

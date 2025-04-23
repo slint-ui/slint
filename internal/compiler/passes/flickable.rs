@@ -12,6 +12,7 @@
 
 use crate::expression_tree::{BindingExpression, Expression, MinMaxOp, NamedReference};
 use crate::langtype::{ElementType, NativeClass, Type};
+use crate::layout::is_layout;
 use crate::object_tree::{Component, Element, ElementRc};
 use crate::typeregister::TypeRegister;
 use core::cell::RefCell;
@@ -206,15 +207,6 @@ fn fixup_geometry(flickable_elem: &ElementRc) {
                 ),
         )
     });
-}
-
-/// Return true if this type is a layout that has constraints
-fn is_layout(base_type: &ElementType) -> bool {
-    if let ElementType::Builtin(be) = base_type {
-        matches!(be.name.as_str(), "GridLayout" | "HorizontalLayout" | "VerticalLayout")
-    } else {
-        false
-    }
 }
 
 /// Set the property binding on the given element to the given expression (computed lazily).

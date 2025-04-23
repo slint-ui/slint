@@ -1,15 +1,14 @@
 <!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0 -->
 
-# Slint-python (Alpha)
+# Slint-python (Beta)
 
 [Slint](https://slint.dev/) is a UI toolkit that supports different programming languages.
 Slint-python is the integration with Python.
 
-**Warning: Alpha**
-Slint-python is still in the very early stages of development: APIs will change and important features are still being developed,
-the project is overall incomplete.
+**Warning**
+Slint-python is in a beta phase of development: The APIs while mostly stable, may be subject to further changes. Any changes will be documented in the ChangeLog.
 
-You can track the overall progress for the Python integration by looking at python-labelled issues at https://github.com/slint-ui/slint/labels/a%3Alanguage-python .
+You can track the progress for the Python integration by looking at python-labelled issues at https://github.com/slint-ui/slint/labels/a%3Alanguage-python .
 
 ## Slint Language Manual
 
@@ -19,35 +18,24 @@ in detail.
 ## Prerequisites
 
  * [Python 3](https://python.org/)
- * [pip](https://pypi.org/project/pip/)
- * [uv](https://docs.astral.sh/uv/)
+ * [uv](https://docs.astral.sh/uv/) or [pip](https://pypi.org/project/pip/)
 
 ## Installation
 
-Slint can be installed with `pip` or `uv` from the [Python Package Index](https://pypi.org):
+Slint can be installed with `uv` or `pip` from the [Python Package Index](https://pypi.org):
 
-```
+```bash
 uv add slint
 ```
 
-The installation will use binaries provided vi macOS, Windows, and Linux for various architectures. If your target platform is not covered by binaries,
-`uv` will automatically build Slint from source. If that happens, you need common software development tools on your machine, as well as [Rust](https://www.rust-lang.org/learn/get-started).
-
-### Building from Source
-
-## Try it out
-
-If you want to just play with this, you can try running our Python port of the [printer demo](../../demos/printerdemo/python/README.md):
-
-```bash
-cd demos/printerdemo/python
-uv run main.py
-```
+The installation uses binaries provided for macOS, Windows, and Linux for various architectures. If your target platform
+is not covered by binaries, `uv` will automatically build Slint from source. If that happens, you will then need some
+software development tools on your machine, as well as [Rust](https://www.rust-lang.org/learn/get-started).
 
 ## Quick Start
 
 1. Create a new project with `uv init`.
-2. Add Slint Python Package Index to your Python project: `uv add slint`
+2. Add the Slint Python package to your Python project: `uv add slint`
 3. Create a file called `app-window.slint`:
 
 ```slint
@@ -108,11 +96,11 @@ export component MainWindow inherits Window {
 }
 ```
 
-The exported component is exposed as a Python class. To access this class, you have two
-options:
+The exported component is exposed as a Python class. To access this class, you have two options:
 
 1. Call `slint.load_file("app.slint")`. The returned object is a [namespace](https://docs.python.org/3/library/types.html#types.SimpleNamespace),
    that provides the `MainWindow` class as well as any other explicitly exported component that inherits `Window`:
+
    ```python
    import slint
    components = slint.load_file("app.slint")
@@ -120,21 +108,26 @@ options:
    ```
 
 2. Use Slint's auto-loader, which lazily loads `.slint` files from `sys.path`:
+
    ```python
    import slint
    # Look for for `app.slint` in `sys.path`:
    main_window = slint.loader.app.MainWindow()
    ```
 
-   Any attribute lookup in `slint.loader` is searched for in `sys.path`. If a directory with the name exists, it is returned as a loader object, and subsequent
-   attribute lookups follow the same logic. If the name matches a file with the `.slint` extension, it is automatically loaded with `load_file` and the
-   [namespace](https://docs.python.org/3/library/types.html#types.SimpleNamespace) is returned, which contains classes for each exported component that
-   inherits `Window`. If the file name contains a dash, like `app-window.slint`, an attribute lookup for `app_window` will
-   first try to locate `app_window.slint` and then fall back to `app-window.slint`.
+   Any attribute lookup in `slint.loader` is searched for in `sys.path`. If a directory with the name exists, it is
+   returned as a loader object, and subsequent attribute lookups follow the same logic.
+
+   If the name matches a file with the `.slint` extension, it is automatically loaded with `load_file` and the
+   [namespace](https://docs.python.org/3/library/types.html#types.SimpleNamespace) is returned.
+
+   If the file name contains a dash, like `app-window.slint`, an attribute lookup for `app_window` tries to
+   locate `app_window.slint` and then fall back to `app-window.slint`.
 
 ### Accessing Properties
 
-[Properties](../slint/src/language/syntax/properties) declared as `out` or `in-out` in `.slint` files are visible as  properties on the component instance.
+[Properties](../slint/src/language/syntax/properties) declared as `out` or `in-out` in `.slint` files are visible as
+properties on the component instance.
 
 ```python
 main_window.counter = 42
@@ -148,7 +141,7 @@ Python as properties in the component instance.
 
 For example, this Slint code declares a `PrinterJobQueue` singleton:
 
-```slint,ignore
+```slint
 export global PrinterJobQueue {
     in-out property <int> job-count;
 }
@@ -161,15 +154,15 @@ print("job count:", instance.PrinterJobQueue.job_count)
 ```
 
 **Note**: Global singletons are instantiated once per component. When declaring multiple components for `export` to Python,
-each instance will have their own instance of associated globals singletons.
+each instance has their own associated globals singletons.
 
 ### Setting and Invoking Callbacks
 
-[Callbacks](src/language/syntax/callbacks) declared in `.slint` files are visible as callable properties on the component instance. Invoke them
-as function to invoke the callback, and assign Python callables to set the callback handler.
+[Callbacks](src/language/syntax/callbacks) declared in `.slint` files are visible as callable properties on the component
+instance. Invoke them as functions to invoke the callback, and assign Python callables to set the callback handler.
 
-Callbacks in Slint can be defined using the `callback` keyword and can be connected to a callback of an other component
-using the `<=>` syntax.
+In Slint, callbacks are defined using the `callback` keyword and can be connected to another component's callback using
+the `<=>` syntax.
 
 **`my-component.slint`**
 
@@ -184,7 +177,7 @@ export component MyComponent inherits Window {
 }
 ```
 
-The callbacks in Slint are exposed as properties and that can be called as a function.
+The callbacks in Slint are exposed as properties and that can be called as functions.
 
 **`main.py`**
 
@@ -215,35 +208,36 @@ class Component(slint.loader.my_component.MyComponent):
 component = Component()
 ```
 
-The `@slint.callback()` decorator accepts a `name` named argument, when the name of the method
-does not match the name of the callback in the `.slint` file. Similarly, a `global_name` argument
-can be used to bind a method to a callback in a global singleton.
+The `@slint.callback()` decorator accepts a `name` argument, if the name of the method does not match the name of the
+callback in the `.slint` file. Similarly, a `global_name` argument can be used to bind a method to a callback in a global
+singleton.
 
 ### Type Mappings
 
-The types used for properties in the Slint Language each translate to specific types in Python. The follow table summarizes the entire mapping:
+Each type used for properties in the Slint Language translates to a specific type in Python. The following table summarizes
+the mapping:
 
 | `.slint` Type | Python Type | Notes |
-| --- | --- | --- |
-| `int` | `int` | |
-| `float` | `float` | |
-| `string` | `str` | |
-| `color` | `slint.Color` |  |
-| `brush` | `slint.Brush` |  |
-| `image` | `slint.Image` |  |
-| `length` | `float` | |
-| `physical_length` | `float` | |
-| `duration` | `float` | The number of milliseconds |
-| `angle` | `float` | The angle in degrees |
-| structure | `dict`/`Struct` | When reading, structures are mapped to data classes, when writing dicts are also accepted. |
-| array | `slint.Model` | |
+| ------------- | ----------- | ----- |
+| `int`         | `int`       |       |
+| `float`       | `float`     |       |
+| `string`      | `str`       |       |
+| `color`       | `slint.Color` |     |
+| `brush`       | `slint.Brush` |     |
+| `image`       | `slint.Image` |     |
+| `length`      | `float`     |       |
+| `physical_length` | `float` |       |
+| `duration`    | `float`     | The number of milliseconds |
+| `angle`       | `float`     | The angle in degrees |
+| structure     | `dict`/`Struct` | When reading, structures are mapped to data classes, when writing dicts are also accepted. |
+| array         | `slint.Model` |     |
 
 ### Arrays and Models
 
-[Array properties](../slint/src/language/syntax/types#arrays-and-models) can be set from Python by passing
-subclasses of `slint.Model`.
+You can set [array properties](../slint/src/language/syntax/types#arrays-and-models) from Python by passing subclasses of
+`slint.Model`.
 
-Use the `slint.ListModel` class to construct a model from an iterable.
+Use the `slint.ListModel` class to construct a model from an iterable:
 
 ```python
 component.model = slint.ListModel([1, 2, 3]);
@@ -266,12 +260,12 @@ When sub-classing `slint.Model`, provide the following methods:
         self.notify_row_changed(row)
 ```
 
-When adding/inserting rows, call `notify_row_added(row, count)` on the super class. Similarly, removal
-requires notifying Slint by calling `notify_row_removed(row, count)`.
+When adding or inserting rows, call `notify_row_added(row, count)` on the super class. Similarly, when removing rows, notify
+Slint by calling `notify_row_removed(row, count)`.
 
 ### Structs
 
-Structs declared in Slint and exposed to Python via `export` are accessible in the namespace returned
+Structs declared in Slint and exposed to Python via `export` are then accessible in the namespace that is returned
 when [instantiating a component](#instantiating-a-component).
 
 **`app.slint`**
@@ -289,7 +283,7 @@ export component MainWindow inherits Window {
 
 **`main.py`**
 
-The exported `MyData` struct can be constructed
+The exported `MyData` struct can be constructed as follows:
 
 ```python
 import slint

@@ -1457,8 +1457,8 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                 let source_to_target_y = source_to_target_y / adjust_y;
                 let source_rect =
                     source_rect.cast::<f32>().scale(adjust_x, adjust_y).round().cast();
-                let dx = Fixed::from_f32(1. / source_to_target_x).unwrap();
-                let dy = Fixed::from_f32(1. / source_to_target_y).unwrap();
+                let Some(dx) = Fixed::from_f32(1. / source_to_target_x) else { return };
+                let Some(dy) = Fixed::from_f32(1. / source_to_target_y) else { return };
 
                 for t in textures.as_slice() {
                     // That's the source rect in the whole image coordinate

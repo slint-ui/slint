@@ -37,7 +37,12 @@ In our written communication we aim to be:
    - Use: "Try out XYZ."
    - Rationale: Use exclamation points sparingly, save them for when they really count. We already have the attention of the reader.
 
-  5. Use Title Case for headings.
+ 5. Use Title Case for headings.
+
+ 6. Use active voice for things *we* did, for example in blog posts.
+   - Avoid: "The foo widget got revamped."
+   - Use: "We revamped the foo widget."
+   - Rationale: We're not joining the audience on the observer's bench, we're announcing the result of our work.
 
 ## Docs
 

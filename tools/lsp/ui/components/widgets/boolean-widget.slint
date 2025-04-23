@@ -11,12 +11,12 @@ import { CheckBox } from "std-widgets.slint";
 export component BooleanWidget inherits GridLayout {
     in property <bool> enabled;
     in property <string> property-name;
-    in property <PropertyValue> property-value;
+    in-out property <PropertyValue> property-value;
 
     callback set-bool-binding(value: bool);
+    callback update-display-string(value: string);
 
     spacing-vertical: EditorSpaceSettings.default-spacing;
-    width: 100%;
 
     Row {
         NameLabel {
@@ -36,9 +36,17 @@ export component BooleanWidget inherits GridLayout {
         checkbox := CheckBox {
             enabled: root.enabled;
             checked: root.property-value.value-bool;
-            text: self.checked ? "True" : "False";
+            text: self.display-string();
+
+            function display-string() -> string {
+                return self.checked ? "true" : "false";
+            }
 
             toggled() => {
+                root.property-value.value-bool = self.checked;
+                // This needs o happen first, or the PropertyValueWidget will not
+                // trigger anything in upate-display-string-impl().
+                root.update-display-string(self.display-string());
                 root.set-bool-binding(self.checked);
             }
         }

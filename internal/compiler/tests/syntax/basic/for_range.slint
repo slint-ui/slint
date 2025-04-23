@@ -1,0 +1,22 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+
+export component Foo {
+    in property <int> count;
+
+    for x in 0..count: Rectangle { }
+    //          ^error{Cannot access the field 'count' of float. Range expressions are not supported in Slint, but you can use an integer as a model to repeat something multiple time. Eg: `for i in count`}
+
+
+    // In these case, we should not suggest to use a model with a count
+
+    property <float> invalid: 0..count;
+    //                           ^error{Cannot access the field 'count' of float$}
+
+    for x in invalid.count: Rectangle { }
+    //               ^error{Cannot access the field 'count' of float$}
+
+    for x in 0.px.count: Rectangle { }
+    //            ^error{Cannot access the field 'count' of length$}
+}

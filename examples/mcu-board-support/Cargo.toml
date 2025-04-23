@@ -70,7 +70,21 @@ stm32h735g = [
   "slint/libm",
   "getrandom",
 ]
-# esp32-s3-box = ["slint/unsafe-single-threaded", "esp-hal/esp32s3", "embedded-hal", "embedded-hal-bus", "esp-alloc", "esp-println/esp32s3", "esp-backtrace/esp32s3", "dep:mipidsi", "embedded-graphics-core", "slint/libm", "tt21100"]
+esp32-s3-box-3 = [
+  "slint/unsafe-single-threaded",
+  "esp-hal/esp32s3",
+  "esp-hal/unstable",             # required for PSRAM support
+  "esp-hal/psram",
+  "embedded-hal",
+  "embedded-hal-bus",
+  "esp-alloc",
+  "esp-println/esp32s3",
+  "esp-backtrace/esp32s3",
+  "dep:mipidsi",
+  "embedded-graphics-core",
+  "slint/libm",
+  "gt911",
+]
 stm32u5g9j-dk2 = [
   "embassy-stm32/stm32u5g9zj",
   "embassy-stm32/time-driver-any",
@@ -116,6 +130,8 @@ pin-weak = { version = "1", default-features = false }
 rgb = "0.8.27"
 cfg-if = "1"
 
+log = "0.4.27"
+
 embedded-alloc = { version = "0.6", optional = true }
 cortex-m-rt = { version = "0.7", optional = true }
 cortex-m = { version = "0.7.2", optional = true }
@@ -135,11 +151,10 @@ embedded-display-controller = { version = "0.2.0", optional = true }
 ft5336 = { version = "0.2", optional = true }
 
 # Commented out until ported to newer version that matches embassy-time needed by stm32u5
-# esp-hal = { version = "0.22", optional = true }
-esp-alloc = { version = "0.5", optional = true }
-esp-println = { version = "0.12.0", optional = true }
-esp-backtrace = { version = "0.14.0", optional = true, features = ["panic-handler", "println"] }
-tt21100 = { version = "0.1", optional = true }
+esp-hal = { version = "1.0.0-beta.0", optional = true }
+esp-alloc = { version = "0.7", optional = true }
+esp-println = { version = "0.13.1", features = ["log"], optional = true }
+esp-backtrace = { version = "0.15.1", optional = true, features = ["panic-handler", "println"] }
 
 mipidsi = { version = "0.9.0", optional = true }
 embedded-graphics-core = { version = "0.4", optional = true }

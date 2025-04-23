@@ -15,10 +15,10 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, Mutex};
 
-#[cfg(not(target_os = "windows"))]
+#[cfg(not(any(target_os = "windows", all(target_arch = "aarch64", target_os = "linux"))))]
 use tikv_jemallocator::Jemalloc;
 
-#[cfg(not(target_os = "windows"))]
+#[cfg(not(any(target_os = "windows", all(target_arch = "aarch64", target_os = "linux"))))]
 #[global_allocator]
 static GLOBAL: Jemalloc = Jemalloc;
 

@@ -28,7 +28,12 @@
         {
             "match": "(?<!-)\\bexport\\b(?!-)",
             "name": "keyword.other.export.slint"
+        },
+        {
+            "comment": "Element contents should in principle not be supported here, but we still want to highlight partial snippets",
+            "include": "#element-contents"
         }
+
     ],
     "repository": {
         "block-comment": {
@@ -503,37 +508,12 @@
                     "include": "#value"
                 },
                 {
-                    "begin": "(\\(\\s*)",
-                    "end": "(\\s*\\))",
-                    "patterns": [
-                        {
-                            "include": "#expression"
-                        }
-                    ]
-                },
-                {
-                    "begin": "(\\[\\s*)",
-                    "end": "(\\s*\\])",
-                    "patterns": [
-                        {
-                            "include": "#expression"
-                        },
-                        {
-                            "match": "\\s*,\\s*"
-                        }
-                    ]
-                },
-                {
-                    "match": "(?<!-)\\b((root|parent|self|[a-zA-Z_][a-zA-Z0-9_-]*)(\\.[a-zA-Z_][a-zA-Z0-9_-]*)*)(?!-)",
+                    "match": "(?<!-)\\b(root|parent|self)(?!-)",
                     "captures": {
                         "1": {
-                            "name": "variable.language.scoped-name.slint"
+                            "name": "variable.language.special-element.slint"
                         }
                     }
-                },
-                {
-                    "match": "All the other expression stuff",
-                    "comment": "FIXME!"
                 }
             ]
         },
@@ -554,7 +534,7 @@
                     "name": "punctuation.other.code-block.slint"
                 },
                 {
-                    "include": "function-call"
+                    "include": "#function-call"
                 },
                 {
                     "include": "#code-block"

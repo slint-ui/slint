@@ -3,10 +3,10 @@
 
 cmake_minimum_required(VERSION 3.21)
 project(slint_cpp_iot_dashboard LANGUAGES CXX)
+include(FetchContent)
 
 if (NOT TARGET Slint::Slint)
     find_package(Slint REQUIRED)
-    include(FetchContent)
 endif()
 
 FetchContent_Declare(fmt

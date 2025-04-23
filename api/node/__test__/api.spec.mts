@@ -13,7 +13,13 @@ const dirname = path.dirname(
 
 // loadFile api
 test("loadFile", (t) => {
-    const demo = loadFile(path.join(dirname, "resources/test.slint")) as any;
+    // Test the URL variant here, to ensure that it works (esp. on Windows)
+    const demo = loadFile(
+        new URL(
+            "resources/test.slint",
+            import.meta.url.replace("build", "__test__"),
+        ),
+    ) as any;
     const test = new demo.Test();
     t.is(test.check, "Test");
 

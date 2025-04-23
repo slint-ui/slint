@@ -380,6 +380,9 @@ jobs:
             - name: Typescript syntax check # has to run after the build as it depends on the wasm
               working-directory: editors/vscode
               run: pnpm type-check
+            - name: Check tmGrammar
+              working-directory: editors/vscode
+              run: pnpm test_grammar
 
     # test to compile the mcu backend for the arm target (no_std)
     mcu:
@@ -487,7 +490,7 @@ jobs:
         uses: ./.github/workflows/tree_sitter.yaml
         with:
             latest: false
-            tag: "v0.24.7"
+            tag: "v0.25.3"
 
     # Checkout a old version of the tests and example, then run the slint-updater on them
     # and check that it worked with the interpreter test.

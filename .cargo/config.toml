@@ -6,9 +6,8 @@ xtask = "run --package xtask --"
 
 [target.xtensa-esp32s3-none-elf]
 rustflags = [
-  # Recommended by the esp-backtrace crate used for panic handler
   "-C",
-  "force-frame-pointers",
+  "link-arg=-nostartfiles",
   # Without this flag, we get miscompilation of floating point operations that cause the clipping region to be totally wrong
   "-C",
   "target-feature=-fp",

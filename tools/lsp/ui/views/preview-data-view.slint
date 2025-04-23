@@ -3,10 +3,11 @@
 
 import { Palette, ScrollView, VerticalBox }  from "std-widgets.slint";
 
-import { Api, PropertyContainer } from "../api.slint";
+import { Api, PropertyContainer, PreviewData } from "../api.slint";
 import { ExpandableGroup } from "../components/expandable-group.slint";
 import { PreviewDataPropertyValueWidget } from "../components/property-widgets.slint";
 import { EditorSpaceSettings } from "../components/styling.slint";
+import { WindowManager } from "../windowglobal.slint";
 
 export component PreviewDataView inherits ScrollView {
 
@@ -45,6 +46,9 @@ export component PreviewDataView inherits ScrollView {
                 for p in ep.properties: PreviewDataPropertyValueWidget {
                     preview-data: p;
                     property-container-id: ep.container-id;
+                    edit-in-table-editor(property-group-id, data) => {
+                         WindowManager.show-floating-table-editor(property-group-id, data);
+                    }
                 }
             }
         }

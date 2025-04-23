@@ -14,10 +14,9 @@ import { DrawAreaMode, PreviewView } from "./views/preview-view.slint";
 import { OutOfDateBox } from "./components/out-of-date-box.slint";
 import { PropertyView } from "./views/property-view.slint";
 import { PreviewDataView } from "./views/preview-data-view.slint";
-import { SpreadsheetDialog } from "./components/spreadsheet-dialog.slint";
-
 import { WindowGlobal, WindowManager } from "windowglobal.slint";
 import { ColorPickerView, Styles as PickerStyles } from "components/widgets/floating-color-picker-widget.slint";
+import { TableEditorView } from "components/spreadsheet-dialog.slint";
 import "./assets/Inter-VariableFont.ttf";
 
 export { Api }
@@ -34,15 +33,23 @@ export component PreviewUi inherits Window {
     property <bool> show-left-sidebar;
     property <bool> show-right-sidebar;
     property <bool> show-floating-widget <=> WindowManager.showing-color-picker;
+    property <bool> show-floating-table-editor <=> WindowManager.showing-table-editor;
+    property <bool> show-color-stop-picker <=> WindowManager.showing-color-stop-picker;
     property <length> initial-floating-x;
 
     title: "Slint Live-Preview";
     icon: @image-url("assets/slint-logo-small-light.png");
     always-on-top <=> Api.always-on-top;
 
+    init => {
+        WindowGlobal.window-width = self.width;
+        WindowGlobal.window-height = self.height;
+        initial-floating-x = (self.width - PickerStyles.picker-width - 350px).max(0);
+    }
+
     changed width => {
         WindowGlobal.window-width = self.width;
-        initial-floating-x = (self.width - PickerStyles.picker-width - 300px).max(0);
+        initial-floating-x = (self.width - PickerStyles.picker-width - 350px).max(0);
     }
     changed height => {
         WindowGlobal.window-height = self.height;
@@ -114,12 +121,12 @@ export component PreviewUi inherits Window {
                             background: @linear-gradient(90deg, #0000, #0002);
                         }
                         VerticalLayout {
-                            TabWidget {
+                            tw := TabWidget {
                                 width: EditorSizeSettings.property-bar-width - (EditorSpaceSettings.default-padding*2);
                                 current-index: 0;
                                 Tab {
                                     title: "Properties";
-                                    PropertyView {
+                                    if tw.current-index == 0: PropertyView {
                                         opacity: preview.preview-is-current ? 1.0 : 0.3;
                                         enabled: preview.preview-is-current;
                                     }
@@ -127,7 +134,7 @@ export component PreviewUi inherits Window {
 
                                 preview_data_tab := Tab {
                                     title: "Data";
-                                    PreviewDataView {
+                                    if tw.current-index == 1: PreviewDataView {
                                         opacity: preview.preview-is-current ? 1.0 : 0.3;
                                         enabled: preview.preview-is-current;
                                     }
@@ -148,11 +155,40 @@ export component PreviewUi inherits Window {
         y: (parent.height / 10);
     }
 
+    if show-floating-table-editor || show-color-stop-picker || show-floating-widget: TouchArea {
+        changed pressed => {
+            WindowManager.hide-floating-widget();
+        }
+    }
+
+    if show-floating-table-editor: TableEditorView {
+        init => {
+            self.initial-x = root.initial-floating-x;
+            self.initial-y = 50px;
+        }
+    }
+
 
     if show-floating-widget: ColorPickerView {
         init => {
             self.initial-x = root.initial-floating-x;
             self.initial-y = 50px;
+        }
+        close => {
+            WindowManager.hide-floating-color-widget();
+        }
+    }
+
+    if show-color-stop-picker: ColorPickerView {
+
+        color-stop-mode: true;
+
+        init => {
+            self.initial-x = root.initial-floating-x - 240px;
+            self.initial-y = 50px;
+        }
+        close => {
+            WindowManager.hide-color-stop-picker();
         }
     }
 

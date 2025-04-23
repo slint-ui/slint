@@ -38,8 +38,8 @@ follows:
 
 - **Embedded**: *Ready*. Slint is being used by customers in production on embedded
     devices running embedded Linux and Windows. The Slint run-time requires less than
-    300KiB of RAM and can run on different processor architectures such as ARM Cortex M,
-    ESP32, STM32 from the MCU category to ARM Cortex A, Intel x86 from the MPU category.
+    300KiB of RAM and can run on different processor architectures such as ARM Cortex M, ARM Cortex A, RISC-V, Intel x86, etc.
+    Refer to <https://slint.dev/supported-boards> for list of supported boards.
 - **Desktop**: *In Progress*. While Slint is a good fit on Windows, Linux and Mac,
     we are working on improving the platform support in subsequent releases.
 - **Web**: *In Progress*. Slint apps can be compiled to WebAssembly and can run
@@ -47,7 +47,7 @@ follows:
     is not one of our primary target platforms. The web support is currently
     limited to demo purposes.
 - **Mobile**
-  - Android: *In Progress*. Track the progress of work here https://github.com/slint-ui/slint/issues/46.
+  - Android: *In Progress*. Track the progress of work here <https://github.com/slint-ui/slint/issues/46>.
   - iOS: *Todo*. Support for iOS will commence after the initial support for Android is completed.
 
 ### Accessibility
@@ -212,7 +212,7 @@ development and user interface components. Our aim is to make developing user
 interfaces fun for everyone: from Python, JavaScript, C++, or Rust developers all the
 way to UI/UX designers. We believe that software grows organically and keeping
 it open source is the best way to sustain that growth. Our team members are
-located remotely in Germany.
+located remotely in Germany, Finland, and US.
 
 ### Stay up to date
 

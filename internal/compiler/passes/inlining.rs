@@ -644,6 +644,22 @@ fn element_require_inlining(elem: &ElementRc) -> bool {
             return true;
         }
 
+        if prop == "padding"
+            || prop == "spacing"
+            || prop.starts_with("padding-")
+            || prop.starts_with("spacing-")
+            || prop == "alignment"
+        {
+            if let ElementType::Component(base) = &elem.borrow().base_type {
+                if crate::layout::is_layout(&base.root_element.borrow().base_type) {
+                    if !base.root_element.borrow().is_binding_set(prop, false) {
+                        // The layout pass need to know that this property is set
+                        return true;
+                    }
+                }
+            }
+        }
+
         let binding = binding.borrow();
         if binding.animation.is_some() && matches!(binding.expression, Expression::Invalid) {
             // If there is an animation but no binding, we must merge the binding with its animation.

@@ -29,17 +29,19 @@ mod stm32u5g9j_dk2;
 #[cfg(feature = "stm32u5g9j-dk2")]
 pub use stm32u5g9j_dk2::*;
 
-// #[cfg(feature = "esp32-s3-box")]
-// mod esp32_s3_box;
-// #[cfg(feature = "esp32-s3-box")]
-// pub use esp32_s3_box::*;
+#[cfg(feature = "esp32-s3-box-3")]
+mod esp32_s3_box_3;
+#[cfg(feature = "esp32-s3-box-3")]
+pub use esp32_s3_box_3::*;
+#[cfg(feature = "esp32-s3-box-3")]
+pub use esp_hal::main as entry;
 
 #[cfg(not(any(
     feature = "pico-st7789",
     feature = "pico2-st7789",
     feature = "stm32h735g",
     feature = "stm32u5g9j-dk2",
-//    feature = "esp32-s3-box"
+    feature = "esp32-s3-box-3"
 )))]
 pub use i_slint_core_macros::identity as entry;
 
@@ -48,9 +50,14 @@ pub use i_slint_core_macros::identity as entry;
     feature = "pico2-st7789",
     feature = "stm32h735g",
     feature = "stm32u5g9j-dk2",
-//    feature = "esp32-s3-box"
+    feature = "esp32-s3-box-3"
 )))]
 pub fn init() {}
 
 #[cfg(feature = "stm32u5g9j-dk2")]
 mod embassy;
+
+pub mod prelude {
+    #[cfg(feature = "esp32-s3-box-3")]
+    pub use esp_hal;
+}

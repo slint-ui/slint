@@ -20,4 +20,8 @@ export SuperSimple := Rectangle {
         Rectangle {}
     }
 
+    for x in 0..32: Rectangle { }
+    //          ^error{Parse error. Range expressions are not supported in Slint. You can use an integer as a model to repeat something multiple time. Eg: `for i in 32 : ...`}
+
+
 }

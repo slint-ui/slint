@@ -314,6 +314,10 @@ class EditorPaneWidget extends Widget {
             model: model_ref.object.textEditorModel,
         });
 
+        this.#editor.onDidFocusEditorText((_) => {
+            EDITOR_WIDGET!.switch_to_pane(this);
+        });
+
         this.setFlag(Widget.Flag.DisallowLayout);
         this.addClass("content");
         this.addClass("editor");
@@ -358,7 +362,7 @@ export class EditorWidget extends Widget {
     #layout: BoxLayout;
     #tab_map: Map<string, EditorPaneWidget> = new Map();
     #tab_panel: TabPanel | null = null;
-    #open_files: [monaco.IDisposable] = [];
+    #open_files: monaco.IDisposable[] = [];
 
     #client: MonacoLanguageClient | null = null;
 
@@ -390,46 +394,10 @@ export class EditorWidget extends Widget {
         this.clear_editors();
 
         this.open_default_content();
+    }
 
-        monaco.editor.registerEditorOpener({
-            openCodeEditor: (_source, uri, position) => {
-                const pane = this.#tab_map.get(uri.toString());
-                if (pane) {
-                    this.#tab_panel!.currentWidget = pane;
-
-                    pane.editor.focus();
-
-                    if (position instanceof monaco.Position) {
-                        pane.editor.setSelection(
-                            {
-                                startLineNumber: position.lineNumber,
-                                startColumn: position.column,
-                                endLineNumber: position.lineNumber,
-                                endColumn: position.column,
-                            },
-                            "lsp:gotoDefinition",
-                        );
-                        pane.editor.revealPositionNearTop(
-                            position,
-                            monaco.editor.ScrollType.Immediate,
-                        );
-                    } else if (position instanceof monaco.Range) {
-                        pane.editor.setSelection(
-                            position,
-                            "lsp:gotoDefinition",
-                        );
-                        pane.editor.revealRangeNearTop(
-                            position,
-                            monaco.editor.ScrollType.Immediate,
-                        );
-                    }
-
-                    return true;
-                } else {
-                    return false;
-                }
-            },
-        });
+    switch_to_pane(pane: EditorPaneWidget) {
+        this.#tab_panel!.currentWidget = pane;
     }
 
     private async open_default_content() {

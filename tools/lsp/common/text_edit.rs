@@ -225,11 +225,15 @@ impl TextEditor {
     }
 
     pub fn finalize(self) -> Option<(String, TextOffsetAdjustments, (usize, usize))> {
-        (!self.adjustments.is_empty()).then_some((
-            self.contents,
-            self.adjustments,
-            self.original_offset_range,
-        ))
+        if self.source_file.source() == Some(&self.contents) {
+            None
+        } else {
+            (!self.adjustments.is_empty()).then_some((
+                self.contents,
+                self.adjustments,
+                self.original_offset_range,
+            ))
+        }
     }
 }
 

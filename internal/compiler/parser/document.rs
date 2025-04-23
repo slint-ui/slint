@@ -313,8 +313,11 @@ fn parse_import_specifier(p: &mut impl Parser) -> bool {
 #[cfg_attr(test, parser_test)]
 /// ```test,ImportIdentifierList
 /// { Type1 }
-/// { Type2, Type3 }
-/// { Type as Alias1, Type as AnotherAlias }
+/// { Type2, }
+/// { Type3, Type4 }
+/// { Type5, Type6, }
+/// { Type as Alias1, Type as AnotherAlias1 }
+/// { Type as Alias2, Type as AnotherAlias2, }
 /// {}
 /// ```
 fn parse_import_identifier_list(p: &mut impl Parser) -> bool {
@@ -322,23 +325,14 @@ fn parse_import_identifier_list(p: &mut impl Parser) -> bool {
     if !p.expect(SyntaxKind::LBrace) {
         return false;
     }
-    if p.test(SyntaxKind::RBrace) {
-        return true;
-    }
     loop {
+        if p.test(SyntaxKind::RBrace) {
+            return true;
+        }
         parse_import_identifier(&mut *p);
-        match p.nth(0).kind() {
-            SyntaxKind::RBrace => {
-                p.consume();
-                return true;
-            }
-            SyntaxKind::Comma => {
-                p.consume();
-            }
-            _ => {
-                p.error("Expected comma or brace");
-                return false;
-            }
+        if !p.test(SyntaxKind::Comma) && p.nth(0).kind() != SyntaxKind::RBrace {
+            p.error("Expected comma or brace");
+            return false;
         }
     }
 }

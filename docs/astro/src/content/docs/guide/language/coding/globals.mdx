@@ -24,9 +24,9 @@ export component Example inherits Rectangle {
 }
 ```
 
-Export a global to make it accessible from other files (see <Link type="Modules" />). Export a global from
-the file also exporting the main application component to make it visible
-to native code in the business logic.
+Export a global to make it accessible from other files (see <Link type="Modules" />). To make your global
+visible to native code with the business logic, re-export a global from the file also exporting the main
+application component.
 
 ```slint
 export global Logic  {

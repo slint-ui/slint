@@ -172,15 +172,16 @@ impl super::WinitCompatibleRenderer for WinitSoftwareRenderer {
 
     fn resume(
         &self,
+        event_loop: &dyn crate::event_loop::EventLoopInterface,
         window_attributes: winit::window::WindowAttributes,
         _requested_graphics_api: Option<RequestedGraphicsAPI>,
     ) -> Result<Rc<winit::window::Window>, PlatformError> {
-        let winit_window = crate::event_loop::with_window_target(|event_loop| {
+        let winit_window =
             event_loop.create_window(window_attributes).map_err(|winit_os_error| {
-                format!("Error creating native window for software rendering: {winit_os_error}")
-                    .into()
-            })
-        })?;
+                PlatformError::from(format!(
+                    "Error creating native window for software rendering: {winit_os_error}"
+                ))
+            })?;
         let winit_window = Rc::new(winit_window);
 
         let context = softbuffer::Context::new(winit_window.clone())

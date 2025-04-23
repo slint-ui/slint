@@ -33,6 +33,10 @@ export Xxx := Rectangle {
 
         background = StyleMetrics.window-background;
 //                                ^warning{The property 'window-background' has been deprecated. Please use 'Palette.window-background' instead}
+
+        // Not really a deprecation test, but handled in the same function :)
+        debug(StyleMetrics.style-name);
+//                         ^error{'StyleMetrics' does not have a property 'style-name'}
     }
 
 }
