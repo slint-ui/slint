@@ -23,7 +23,7 @@ All notable changes to this project are documented in this file.
  - Added `string.to-lowercase()` and `string.to-uppercase()`.
  - Fixed change handler on a aliased property. (#7784, #7747)
  - Fixed compiler panic when one branch of the `if` statement is not a void expression. (#7864)
- - Fixed `@chidren` as sibling to `Timer` or `PopupWindow`. (#7887)
+ - Fixed `@children` as sibling to `Timer` or `PopupWindow`. (#7887)
  - Deprecated alias to global callbacks and make it an error when setting it, instead of a panic. (#7806)
  - Conditional element no longer re-instantiates if the condition gets dirty without changing. (#3953)
  - Fixed crash if a component get destroyed when a funciton or callback of it is running. (#7880)
