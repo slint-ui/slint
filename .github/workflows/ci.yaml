@@ -490,7 +490,7 @@ jobs:
         uses: ./.github/workflows/tree_sitter.yaml
         with:
             latest: false
-            tag: "v0.24.7"
+            tag: "v0.25.3"
 
     # Checkout a old version of the tests and example, then run the slint-updater on them
     # and check that it worked with the interpreter test.
