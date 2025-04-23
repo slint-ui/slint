@@ -32,7 +32,7 @@ impl From<PyTimerMode> for i_slint_core::timers::TimerMode {
 /// period of time.
 ///
 /// Use `Timer.start()` to create a timer that that repeatedly triggers a callback, or
-/// [`Timer::single_shot`] to trigger a callback only once.
+/// `Timer.single_shot()` to trigger a callback only once.
 ///
 /// The timer will automatically stop when garbage collected. You must keep the Timer object
 /// around for as long as you want the timer to keep firing.
