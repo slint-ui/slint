@@ -714,8 +714,13 @@ export async function generateRectangleSnippet(
             parentProperties.push(
                 `${indentation}// Error processing ${property}: ${err instanceof Error ? err.message : err}`,
             );
-            console.error(`[generateRectangleSnippet] Error processing property "${property}" for parent ${sceneNode.name}:`, err);
-            parentProperties.push(`${indentation}// Error processing ${property}: ${err instanceof Error ? err.message : err}`);
+            console.error(
+                `[generateRectangleSnippet] Error processing property "${property}" for parent ${sceneNode.name}:`,
+                err,
+            );
+            parentProperties.push(
+                `${indentation}// Error processing ${property}: ${err instanceof Error ? err.message : err}`,
+            );
             console.error(
                 `[generateRectangleSnippet] Error processing property "${property}" for parent ${sceneNode.name}:`,
                 err,
@@ -726,7 +731,6 @@ export async function generateRectangleSnippet(
         }
         // --- End try...catch ---
     }
-
 
     parentProperties.sort();
 
