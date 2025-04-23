@@ -43,8 +43,6 @@ All notable changes to this project are documented in this file.
  - Added `MenuItem::enabled`.
  - Added `StandardButton::primary`.
 
-### Rust
-
 ### C++
 
  - Allow vendored corrosion by using find_package to search for it. (#7797)
