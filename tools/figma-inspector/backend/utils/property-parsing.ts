@@ -103,7 +103,10 @@ function roundNumber(value: number): number | null {
     return Number(value.toFixed(3));
 }
 
-export async function getBorderRadius(node: SceneNode, useVariables:boolean): Promise<string | null> {
+export async function getBorderRadius(
+    node: SceneNode,
+    useVariables: boolean,
+): Promise<string | null> {
     if ("boundVariables" in node) {
         const boundVars = (node as any).boundVariables;
         console.log("[USE VARIABLES]: ", useVariables);
@@ -551,7 +554,7 @@ export async function generateRectangleSnippet(
                     const boundHeightVarId = (sceneNode as any).boundVariables
                         ?.height?.id;
                     let heightValue: string | null = null;
-                    if (boundHeightVarId  && useVariables) {
+                    if (boundHeightVarId && useVariables) {
                         heightValue =
                             await getVariablePathString(boundHeightVarId);
                     }
@@ -609,7 +612,10 @@ export async function generateRectangleSnippet(
                     break;
                 case "border-radius":
                     // --- Ensure this uses await and the new async getBorderRadius ---
-                    const borderRadiusProp = await getBorderRadius(sceneNode, useVariables); // Use await
+                    const borderRadiusProp = await getBorderRadius(
+                        sceneNode,
+                        useVariables,
+                    ); // Use await
                     if (borderRadiusProp !== null) {
                         properties.push(borderRadiusProp);
                         console.log(
@@ -625,8 +631,10 @@ export async function generateRectangleSnippet(
                 case "border-width": // Handled below
                     break;
                 case "border-color":
-                    const borderWidthAndColor =
-                        await getBorderWidthAndColor(sceneNode, useVariables);
+                    const borderWidthAndColor = await getBorderWidthAndColor(
+                        sceneNode,
+                        useVariables,
+                    );
                     if (borderWidthAndColor !== null) {
                         properties.push(...borderWidthAndColor);
                     }
@@ -730,7 +738,7 @@ export async function generateTextSnippet(
                     const boundCharsVarId = (sceneNode as any).boundVariables
                         ?.characters?.[0]?.id;
                     let textValue: string | null = null;
-                    if (boundCharsVarId  && useVariables) {
+                    if (boundCharsVarId && useVariables) {
                         textValue =
                             await getVariablePathString(boundCharsVarId);
                     }
