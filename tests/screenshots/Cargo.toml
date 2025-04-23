@@ -22,7 +22,7 @@ slint = { workspace = true, features = ["std", "compat-1-2"] }
 i-slint-core = { workspace = true, features = ["default", "software-renderer"] }
 i-slint-backend-testing = { workspace = true }
 image = { workspace = true }
-crossterm = "0.28"
+crossterm = "0.29"
 
 [build-dependencies]
 i-slint-compiler = { workspace = true, features = ["default", "rust", "display-diagnostics", "software-renderer"] }
