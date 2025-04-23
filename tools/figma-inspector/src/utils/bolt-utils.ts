@@ -30,7 +30,6 @@ export const dispatchTS = <Key extends keyof EventTS>(
     global = false,
     origin = "*",
 ) => {
-    console.log(`[Backend DispatchTS] Dispatching type: ${event}`, data); // Add log
     dispatch({ type: event, ...data }, global, origin);
 };
 

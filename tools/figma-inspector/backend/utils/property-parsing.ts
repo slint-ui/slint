@@ -106,7 +106,7 @@ function roundNumber(value: number): number | null {
 export async function getBorderRadius(node: SceneNode, useVariables:boolean): Promise<string | null> {
     if ("boundVariables" in node) {
         const boundVars = (node as any).boundVariables;
-
+        console.log("[USE VARIABLES]: ", useVariables);
         // --- Remove [0] when accessing cornerRadius ID ---
         const boundCornerRadiusId = boundVars?.cornerRadius?.id;
         if (boundCornerRadiusId && useVariables) {
@@ -120,6 +120,12 @@ export async function getBorderRadius(node: SceneNode, useVariables:boolean): Pr
             console.warn(
                 `[getBorderRadius] Failed to get path for bound cornerRadius ID: ${boundCornerRadiusId}`,
             );
+        } else if (boundCornerRadiusId && !useVariables) {
+            // --- Add Log ---
+            console.log(
+                `[getBorderRadius] useVariables is false, skipping variable path lookup for uniform cornerRadius ID: ${boundCornerRadiusId}`,
+            );
+            // --- End Log ---
         }
 
         // --- Remove [0] when accessing individual corner IDs ---
@@ -147,8 +153,11 @@ export async function getBorderRadius(node: SceneNode, useVariables:boolean): Pr
         ] as const;
 
         const boundIndividualCorners = cornerBindings.filter((c) => c.id);
+        console.log(
+            `[getBorderRadius] BEFORE individual check. boundCount: ${boundIndividualCorners.length}, useVariables is currently: ${useVariables}`,
+        );
 
-        if (boundIndividualCorners.length > 0) {
+        if (boundIndividualCorners.length > 0 && useVariables) {
             // --- Check if all bound corners use the SAME variable ID ---
             const allSameId = boundIndividualCorners.every(
                 (c) => c.id === boundIndividualCorners[0].id,
@@ -603,7 +612,6 @@ export async function generateRectangleSnippet(
                     const borderRadiusProp = await getBorderRadius(sceneNode, useVariables); // Use await
                     if (borderRadiusProp !== null) {
                         properties.push(borderRadiusProp);
-                        // Use new log message
                         console.log(
                             `[generateRectangleSnippet] Added border-radius property: ${borderRadiusProp.includes("\n") ? "\n" + borderRadiusProp : borderRadiusProp}`,
                         );

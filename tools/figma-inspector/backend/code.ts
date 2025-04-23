@@ -233,9 +233,6 @@ async function checkVariableChanges(isInitialRun = false) {
         const hasChanged = variableMonitoring.lastSnapshot !== currentSnapshot;
 
         if (hasChanged) {
-            console.log(
-                "[Backend] Detailed snapshot comparison detected changes.",
-            ); // Log change detection
             variableMonitoring.lastSnapshot = currentSnapshot;
             variableMonitoring.lastChange = now;
 
@@ -248,8 +245,6 @@ async function checkVariableChanges(isInitialRun = false) {
                     ? "Snapshot updated (some variable errors)"
                     : "Snapshot updated",
             });
-        } else {
-            console.log("[Backend] No changes detected in detailed snapshot."); // Log no change
         }
     } catch (error) {
         console.error("[Backend] Error during checkVariableChanges:", error);

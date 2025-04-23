@@ -25,12 +25,16 @@ export const listenTS = <Key extends keyof EventTS>(
     callback: (data: EventTS[Key] & { type: Key }) => any, // Adjust type if needed
     listenOnce = false,
 ) => {
-    const func = (pluginMessage: any) => { // The message from figma.ui.on is the payload directly
+    const func = (pluginMessage: any) => {
+        // The message from figma.ui.on is the payload directly
         console.log(`[Backend Listener Raw Msg]:`, pluginMessage); // <-- Add Raw Log
+    const func = (pluginMessage: any) => {
+        // The message from figma.ui.on is the payload directly
+        // console.log(`[Backend Listener Raw Msg]:`, pluginMessage); // <-- Add Raw Log
 
         // --- Check if the received message has the correct type ---
         if (pluginMessage && pluginMessage.type === eventName) {
-            console.log(`[Backend Listener Matched Type]: ${eventName}`); // <-- Add Match Log
+            // console.log(`[Backend Listener Matched Type]: ${eventName}`); // <-- Add Match Log
             callback(pluginMessage); // Pass the received payload
             if (listenOnce) {
                 figma.ui.off("message", func);
