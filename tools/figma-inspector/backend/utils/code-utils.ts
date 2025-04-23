@@ -21,31 +21,28 @@ export const dispatchTS = <Key extends keyof EventTS>(
 
 export const listenTS = <Key extends keyof EventTS>(
     eventName: Key,
-    // The callback likely receives the whole message payload now
-    callback: (data: EventTS[Key] & { type: Key }) => any, // Adjust type if needed
+    callback: (data: EventTS[Key] & { type: Key }) => any,
     listenOnce = false,
 ) => {
+    // --- Define func only ONCE ---
     const func = (pluginMessage: any) => {
         // The message from figma.ui.on is the payload directly
-        console.log(`[Backend Listener Raw Msg]:`, pluginMessage); // <-- Add Raw Log
-    const func = (pluginMessage: any) => {
-        // The message from figma.ui.on is the payload directly
-        // console.log(`[Backend Listener Raw Msg]:`, pluginMessage); // <-- Add Raw Log
+        console.log(`[Backend Listener Raw Msg]:`, pluginMessage); // <-- Uncomment if you want this log
 
         // --- Check if the received message has the correct type ---
         if (pluginMessage && pluginMessage.type === eventName) {
-            // console.log(`[Backend Listener Matched Type]: ${eventName}`); // <-- Add Match Log
+            console.log(`[Backend Listener Matched Type]: ${eventName}`); // <-- Uncomment if you want this log
             callback(pluginMessage); // Pass the received payload
             if (listenOnce) {
                 figma.ui.off("message", func);
             }
         }
     };
+    // --- End single definition ---
 
-    console.log(`[Backend] Attaching listener for type: ${eventName}`); // <-- Add Attach Log
-    figma.ui.on("message", func); // Use figma.ui.on directly
+    console.log(`[Backend] Attaching listener for type: ${eventName}`);
+    figma.ui.on("message", func);
 };
-
 export const getStore = async (key: string) => {
     const value = await figma.clientStorage.getAsync(key);
     return value;
