@@ -1442,7 +1442,9 @@ pub mod ffi {
     #![allow(missing_docs)]
 
     use super::*;
-    use crate::api::{RenderingNotifier, RenderingState, SetRenderingNotifierError};
+    use crate::api::{
+        RenderingNotifier, RenderingState, SetRenderingNotifierError, WindowModality,
+    };
     use crate::graphics::Size;
     use crate::graphics::{IntSize, Rgba8Pixel};
     use crate::SharedVector;
@@ -1917,6 +1919,25 @@ pub mod ffi {
         } else {
             false
         }
+    }
+
+    /// Set the modality of the window to the second window.
+    /// Other can be null, in which case the window is application modal if is_modal is true.
+    #[no_mangle]
+    pub unsafe extern "C" fn slint_windowrc_set_modality(
+        handle: *const WindowAdapterRcOpaque,
+        is_modal: bool,
+        other: *const WindowAdapterRcOpaque,
+    ) -> bool {
+        let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
+        let modality = if is_modal {
+            (other as *const Rc<dyn WindowAdapter>)
+                .as_ref()
+                .map_or(WindowModality::NonModal, |x| WindowModality::WindowModal(x.window()))
+        } else {
+            WindowModality::ApplicationModal
+        };
+        window_adapter.window().set_modality(modality).is_ok()
     }
 }
 

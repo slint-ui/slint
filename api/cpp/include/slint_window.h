@@ -676,6 +676,35 @@ public:
         }
     }
 
+    /// Sets the modality of the window.
+    ///
+    /// A modal window is typically a dialog that blocks the user from interacting with the
+    /// application until the user closes it.
+    ///
+    /// Modal windows do not need taskbar entries as they are shown on top of other windows of the
+    /// application
+    ///
+    /// The argument can either be a `bool` or a `Window` instance.
+    ///
+    /// If false, the window is not modal.
+    /// If true, the window is modal to the application.
+    /// If a `Window` instance, the window is modal to the specified parent window.
+    ///
+    /// Changing the modality while the window is visible has no effect.
+    /// You must [`hide`](Self::hide) the window then [`show`](Self::show) it again to apply the new
+    /// modality.
+    bool set_modality(const Window &other)
+    {
+        return cbindgen_private::slint_windowrc_set_modality(&inner.handle(), true,
+                                                             &other.inner.handle());
+    }
+
+    /// \overload
+    bool set_modality(bool modal)
+    {
+        return cbindgen_private::slint_windowrc_set_modality(&inner.handle(), modal, nullptr);
+    }
+
     /// \private
     private_api::WindowAdapterRc &window_handle() { return inner; }
     /// \private
