@@ -472,7 +472,7 @@ fn process_window(
 
         if let Some(item_tree_root) = item_tree_root {
             arguments.push(item_tree_root.into());
-            arguments.push(Expression::BoolLiteral(!no_native_menu));
+            arguments.push(Expression::BoolLiteral(no_native_menu));
         }
         let setup_menubar = Expression::FunctionCall {
             function: BuiltinFunction::SetupNativeMenuBar.into(),
