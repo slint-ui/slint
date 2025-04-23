@@ -9,7 +9,7 @@ RUN dpkg --add-architecture arm64 && \
     apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install --assume-yes libfontconfig1-dev:arm64 libxcb1-dev:arm64 libxcb-render0-dev:arm64 libxcb-shape0-dev:arm64 libxcb-xfixes0-dev:arm64 libxkbcommon-dev:arm64 libinput-dev:arm64 libgbm-dev:arm64 libssl-dev:arm64 python3 python3-pip \
     libfontconfig1-dev \
-    clang libstdc++-10-dev:arm64 ninja-build linux-libc-dev:arm64=5.4.0-212.232 linux-libc-dev=5.4.0-212.232
+    clang libstdc++-10-dev:arm64 ninja-build
 
 # Work around the Skia source build requiring a newer git version (that supports --path-format=relative with rev-parse, as needed by git-sync-deps.py),
 # as well as a disabling of the directory safety checks (https://github.blog/2022-04-12-git-security-vulnerability-announced/#cve-2022-24765) as
