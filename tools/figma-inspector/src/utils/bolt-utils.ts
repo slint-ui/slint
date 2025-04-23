@@ -12,14 +12,25 @@ export const dispatch = (msg: Message, global = false, origin = "*") => {
     }
     parent.postMessage(data, origin);
 };
+/*
+// Define the types for the events that can be dispatched
+export type EventTS = {
+    exportToFiles: any;
+    monitorVariableChanges: any;
+    checkVariableChanges: any;
+    copyToClipboard: any;
+    generateSnippetRequest: any;
+    // Add more events as needed
+};
+*/
 
 export const dispatchTS = <Key extends keyof EventTS>(
-    event: Key,
+    event: Key, // Parameter name is 'event'
     data: EventTS[Key],
     global = false,
     origin = "*",
 ) => {
-    dispatch({ event, ...data }, global, origin);
+    dispatch({ type: event, ...data }, global, origin);
 };
 
 export const listenTS = <Key extends keyof EventTS>(

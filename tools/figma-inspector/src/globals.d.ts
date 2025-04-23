@@ -2,9 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 export type Message = {
-    event: string;
-    data?: any;
-    callback?: string;
+    type: string; // Allow the 'type' property (required)
+    [key: string]: any; // Allow any other properties spread from 'data'
 };
 
 export interface PluginMessageEvent {
