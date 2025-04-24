@@ -32,7 +32,7 @@
     "typescript": "5.8.3"
   },
   "devDependencies": {
-    "@playwright/test": "1.51.1",
+    "@playwright/test": "1.52.0",
     "cspell": "8.19.2"
   }
 }
