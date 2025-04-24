@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use std::rc::Rc;
+use std::sync::Arc;
 
 use crate::display::RenderingRotation;
 use crate::drmoutput::DrmOutput;
@@ -51,7 +52,7 @@ impl SkiaRendererAdapter {
         device_opener: &crate::DeviceOpener,
     ) -> Result<Box<dyn crate::fullscreenwindowadapter::FullscreenRenderer>, PlatformError> {
         let drm_output = DrmOutput::new(device_opener)?;
-        let display = Rc::new(crate::display::gbmdisplay::GbmDisplay::new(drm_output)?);
+        let display = Arc::new(crate::display::gbmdisplay::GbmDisplay::new(drm_output)?);
 
         let (width, height) = display.drm_output.size();
         let size = i_slint_core::api::PhysicalSize::new(width, height);
