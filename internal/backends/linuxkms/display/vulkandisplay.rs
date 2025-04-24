@@ -9,7 +9,6 @@ use vulkano::instance::{Instance, InstanceCreateFlags, InstanceCreateInfo, Insta
 use vulkano::swapchain::Surface;
 use vulkano::VulkanLibrary;
 
-use std::rc::Rc;
 use std::sync::Arc;
 
 use super::Presenter;
@@ -19,7 +18,7 @@ pub struct VulkanDisplay {
     pub queue_family_index: u32,
     pub surface: Arc<Surface>,
     pub size: PhysicalWindowSize,
-    pub presenter: Rc<dyn Presenter>,
+    pub presenter: Arc<dyn Presenter>,
 }
 
 pub fn create_vulkan_display() -> Result<VulkanDisplay, PlatformError> {

@@ -95,15 +95,15 @@ impl RenderingRotation {
     feature = "renderer-skia-opengl"
 ))]
 pub(crate) mod noop_presenter {
-    use std::rc::Rc;
+    use std::sync::Arc;
 
     // Used when the underlying renderer/display takes care of the presentation to the display
     // and (hopefully) implements vsync.
     pub(crate) struct NoopPresenter {}
 
     impl NoopPresenter {
-        pub(crate) fn new() -> Rc<Self> {
-            Rc::new(Self {})
+        pub(crate) fn new() -> Arc<Self> {
+            Arc::new(Self {})
         }
     }
 

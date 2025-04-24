@@ -1,7 +1,6 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use std::rc::Rc;
 use std::sync::Arc;
 
 use crate::display::RenderingRotation;
@@ -162,7 +161,7 @@ impl crate::fullscreenwindowadapter::FullscreenRenderer for SkiaRendererAdapter 
     }
 }
 struct DrmDumbBufferAccess {
-    display: Rc<dyn crate::display::swdisplay::SoftwareBufferDisplay>,
+    display: Arc<dyn crate::display::swdisplay::SoftwareBufferDisplay>,
 }
 
 impl i_slint_renderer_skia::software_surface::RenderBuffer for DrmDumbBufferAccess {
