@@ -135,11 +135,6 @@ pub trait WindowAdapter {
     /// be called again.
     fn update_window_properties(&self, _properties: WindowProperties<'_>) {}
 
-    /// Re-implement this to provide an implemtation of [`Window::set_modality`].
-    fn set_modality(&self, _: crate::api::WindowModality<'_>) -> Result<(), PlatformError> {
-        Err(PlatformError::Unsupported)
-    }
-
     #[doc(hidden)]
     fn internal(&self, _: crate::InternalToken) -> Option<&dyn WindowAdapterInternal> {
         None
@@ -240,6 +235,13 @@ pub trait WindowAdapterInternal {
     /// Brings the window to the front and focuses it.
     fn bring_to_front(&self) -> Result<(), PlatformError> {
         Ok(())
+    }
+
+    /// Re-implement this to provide an implementation of [`Window::show_modal`].
+    ///
+    /// Note that [`WindowAdaptor::set_visible()`] is not called but this function should also make the window visible.
+    fn show_modal(&self, _: crate::api::WindowModality<'_>) -> Result<(), PlatformError> {
+        Err(PlatformError::Unsupported)
     }
 }
 
@@ -1493,7 +1495,7 @@ pub mod ffi {
         core::ptr::write(target as *mut Rc<dyn WindowAdapter>, window.clone());
     }
 
-    /// Spins an event loop and renders the items of the provided component in this window.
+    /// Calls [`Window::show()`].
     #[no_mangle]
     pub unsafe extern "C" fn slint_windowrc_show(handle: *const WindowAdapterRcOpaque) {
         let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
@@ -1501,7 +1503,7 @@ pub mod ffi {
         window_adapter.window().show().unwrap();
     }
 
-    /// Spins an event loop and renders the items of the provided component in this window.
+    /// Calls [`Window::hide()`].
     #[no_mangle]
     pub unsafe extern "C" fn slint_windowrc_hide(handle: *const WindowAdapterRcOpaque) {
         let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
@@ -1921,23 +1923,17 @@ pub mod ffi {
         }
     }
 
-    /// Set the modality of the window to the second window.
-    /// Other can be null, in which case the window is application modal if is_modal is true.
+    /// Calls [`Window::show_modal()`].
     #[no_mangle]
-    pub unsafe extern "C" fn slint_windowrc_set_modality(
+    pub unsafe extern "C" fn slint_windowrc_show_modal(
         handle: *const WindowAdapterRcOpaque,
-        is_modal: bool,
         other: *const WindowAdapterRcOpaque,
     ) -> bool {
         let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
-        let modality = if is_modal {
-            (other as *const Rc<dyn WindowAdapter>)
-                .as_ref()
-                .map_or(WindowModality::NonModal, |x| WindowModality::WindowModal(x.window()))
-        } else {
-            WindowModality::ApplicationModal
-        };
-        window_adapter.window().set_modality(modality).is_ok()
+        let modality = (other as *const Rc<dyn WindowAdapter>)
+            .as_ref()
+            .map_or(WindowModality::Application, |x| WindowModality::Window(x.window()));
+        window_adapter.window().show_modal(modality).is_ok()
     }
 }
 

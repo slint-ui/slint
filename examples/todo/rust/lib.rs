@@ -55,10 +55,6 @@ fn init() -> State {
     });
 
     let confirm_dialog = ConfirmDialog::new().unwrap();
-    confirm_dialog
-        .window()
-        .set_modality(slint::WindowModality::WindowModal(main_window.window()))
-        .ok();
 
     let weak_window = main_window.as_weak();
     let weak_confirm_dialog = confirm_dialog.as_weak();
@@ -72,14 +68,22 @@ fn init() -> State {
     });
 
     main_window.window().on_close_requested({
+        let weak_window = main_window.as_weak();
         let todo_model = todo_model.clone();
         move || {
-            if todo_model.iter().any(|t| !t.checked) {
-                confirm_dialog.show().unwrap();
-                slint::CloseRequestResponse::KeepWindowShown
-            } else {
-                slint::CloseRequestResponse::HideWindow
+            if let Some(main_window) = weak_window.upgrade() {
+                if todo_model.iter().any(|t| !t.checked) {
+                    if confirm_dialog
+                        .window()
+                        .show_modal(slint::WindowModality::Window(main_window.window()))
+                        .is_err()
+                    {
+                        confirm_dialog.show().unwrap();
+                    }
+                    return slint::CloseRequestResponse::KeepWindowShown;
+                }
             }
+            slint::CloseRequestResponse::HideWindow
         }
     });
 

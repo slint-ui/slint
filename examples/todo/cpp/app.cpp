@@ -36,7 +36,6 @@ AppState create_ui()
     });
 
     auto confirm_dialog = todo_ui::ConfirmDialog::create();
-    confirm_dialog->window().set_modality(demo->window());
     confirm_dialog->on_yes_clicked([demo = slint::ComponentWeakHandle(demo),
                                     confirm_dialog = slint::ComponentWeakHandle(confirm_dialog)] {
         if (auto d = demo.lock()) {
@@ -50,11 +49,15 @@ AppState create_ui()
 
     demo->window().on_close_requested(
             [todo_model, demo = slint::ComponentWeakHandle(demo), confirm_dialog] {
-                int count = todo_model->row_count();
-                for (int i = 0; i < count; ++i) {
-                    if (!todo_model->row_data(i)->checked) {
-                        confirm_dialog->window().show();
-                        return slint::CloseRequestResponse::KeepWindowShown;
+                if (auto demo_lock = demo.lock()) {
+                    int count = todo_model->row_count();
+                    for (int i = 0; i < count; ++i) {
+                        if (!todo_model->row_data(i)->checked) {
+                            if (!confirm_dialog->window().show_modal((*demo_lock)->window())) {
+                                confirm_dialog->window().show();
+                            }
+                            return slint::CloseRequestResponse::KeepWindowShown;
+                        }
                     }
                 }
                 return slint::CloseRequestResponse::HideWindow;

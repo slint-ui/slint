@@ -587,7 +587,7 @@ fn gen_corelib(
             "slint_windowrc_is_minimized",
             "slint_windowrc_is_maximized",
             "slint_windowrc_take_snapshot",
-            "slint_windowrc_set_modality",
+            "slint_windowrc_show_modal",
             "slint_new_path_elements",
             "slint_new_path_events",
             "slint_color_brighter",

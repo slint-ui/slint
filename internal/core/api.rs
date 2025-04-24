@@ -395,24 +395,16 @@ impl raw_window_handle_06::HasDisplayHandle for WindowHandle {
     }
 }
 
-#[derive(Clone, Default)]
+#[derive(Clone)]
 #[non_exhaustive]
-/// Argument to [`Window::set_modality`].
-///
-/// A modal window is typically a dialog that blocks the user from interacting with the application
-/// until the user closes it.
-///
-/// Modal windows do not need taskbar entries as they are shown on top of other windows of the application
+/// Argument to [`Window::show_modal`].
 pub enum WindowModality<'a> {
-    /// The window is not modal.
-    #[default]
-    NonModal,
     /// The window is modal to the application.
     /// The user will be unable to interact with the application while the window is open.
-    ApplicationModal,
+    Application,
     /// The window is modal to the specified parent window.
     /// The user will be unable to interact with the parent window while the window is open.
-    WindowModal(&'a Window),
+    Window(&'a Window),
 }
 
 /// This type represents a window towards the windowing system, that's used to render the
@@ -477,6 +469,25 @@ impl Window {
     /// strong reference.
     pub fn show(&self) -> Result<(), PlatformError> {
         self.0.show()
+    }
+
+    /// Shows the window as a modal window.
+    ///
+    /// A modal window is typically a dialog that blocks the user from interacting with the application
+    /// until the user closes it.
+    ///
+    /// Modal windows do not need taskbar entries as they are shown on top of other windows of the application
+    ///
+    /// See also [`WindowModality`].
+    ///
+    /// If the platform doesn't support modal windows, this function will return an [`PlatformError::Unsupported`].
+    /// The same error will also be returned if the window is already shown.
+    pub fn show_modal(&self, modality: WindowModality) -> Result<(), PlatformError> {
+        if let Some(internal) = self.0.window_adapter().internal(crate::InternalToken) {
+            internal.show_modal(modality)
+        } else {
+            Err(PlatformError::Unsupported)
+        }
     }
 
     /// Hides the window, so that it is not visible anymore. The additional strong
@@ -702,16 +713,6 @@ impl Window {
     /// Note that this function may be slow to call as it may need to re-render the scene.
     pub fn take_snapshot(&self) -> Result<SharedPixelBuffer<Rgba8Pixel>, PlatformError> {
         self.0.window_adapter().renderer().take_snapshot()
-    }
-
-    /// Sets the modality of the window.
-    ///
-    /// See the documentation of [`WindowModality`] for more information.
-    ///
-    /// Changing the modality while the window is visible has no effect.
-    /// You must [`hide`](Self::hide) the window then [`show`](Self::show) it again to apply the new modality.
-    pub fn set_modality(&self, modality: WindowModality<'_>) -> Result<(), PlatformError> {
-        self.0.window_adapter().set_modality(modality)
     }
 }
 

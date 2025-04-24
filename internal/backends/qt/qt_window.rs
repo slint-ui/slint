@@ -2053,42 +2053,6 @@ impl WindowAdapter for QtWindow {
         }};
     }
 
-    fn set_modality(&self, modality: WindowModality) -> Result<(), PlatformError> {
-        let widget_ptr = self.widget_ptr();
-        match modality {
-            WindowModality::NonModal => {
-                cpp!(unsafe [widget_ptr as "QWidget*"] {
-                    widget_ptr->setWindowModality(Qt::NonModal);
-                    widget_ptr->setParent(nullptr);
-                });
-                Ok(())
-            }
-            WindowModality::ApplicationModal => {
-                cpp!(unsafe [widget_ptr as "QWidget*"] {
-                    widget_ptr->setWindowModality(Qt::ApplicationModal);
-                    widget_ptr->setParent(nullptr);
-                    widget_ptr->setWindowFlag(Qt::Dialog);
-                });
-                Ok(())
-            }
-            WindowModality::WindowModal(parent) => {
-                let parent_widget_ptr = WindowInner::from_pub(parent)
-                    .window_adapter()
-                    .internal(i_slint_core::InternalToken)
-                    .and_then(|w| w.as_any().downcast_ref::<QtWindow>())
-                    .ok_or(PlatformError::Unsupported)?
-                    .widget_ptr();
-                cpp!(unsafe [widget_ptr as "QWidget*", parent_widget_ptr as "QWidget*"] {
-                    widget_ptr->setWindowModality(Qt::WindowModal);
-                    widget_ptr->setParent(parent_widget_ptr);
-                    widget_ptr->setWindowFlag(Qt::Dialog);
-                });
-                Ok(())
-            }
-            _ => Err(PlatformError::Unsupported),
-        }
-    }
-
     fn internal(&self, _: i_slint_core::InternalToken) -> Option<&dyn WindowAdapterInternal> {
         Some(self)
     }
@@ -2250,6 +2214,34 @@ impl WindowAdapterInternal for QtWindow {
             widget_ptr->activateWindow();
         }};
         Ok(())
+    }
+
+    fn show_modal(&self, modality: WindowModality) -> Result<(), PlatformError> {
+        let widget_ptr = self.widget_ptr();
+        match modality {
+            WindowModality::Application => {
+                cpp!(unsafe [widget_ptr as "QWidget*"] {
+                    widget_ptr->setWindowModality(Qt::ApplicationModal);
+                    widget_ptr->setParent(nullptr);
+                    widget_ptr->setWindowFlag(Qt::Dialog);
+                });
+            }
+            WindowModality::Window(parent) => {
+                let parent_widget_ptr = WindowInner::from_pub(parent)
+                    .window_adapter()
+                    .internal(i_slint_core::InternalToken)
+                    .and_then(|w| w.as_any().downcast_ref::<QtWindow>())
+                    .ok_or(PlatformError::Unsupported)?
+                    .widget_ptr();
+                cpp!(unsafe [widget_ptr as "QWidget*", parent_widget_ptr as "QWidget*"] {
+                    widget_ptr->setWindowModality(Qt::WindowModal);
+                    widget_ptr->setParent(parent_widget_ptr);
+                    widget_ptr->setWindowFlag(Qt::Dialog);
+                });
+            }
+            _ => return Err(PlatformError::Unsupported),
+        }
+        self.set_visible(true)
     }
 }
 
