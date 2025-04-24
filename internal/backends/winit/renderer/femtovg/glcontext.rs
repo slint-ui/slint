@@ -19,7 +19,7 @@ pub struct OpenGLContext {
     winit_window: Arc<winit::window::Window>,
 }
 
-unsafe impl i_slint_renderer_femtovg::OpenGLInterface for OpenGLContext {
+unsafe impl i_slint_renderer_femtovg::opengl::OpenGLInterface for OpenGLContext {
     fn ensure_current(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         if !self.context.is_current() {
             self.context.make_current(&self.surface).map_err(|glutin_error| -> PlatformError {

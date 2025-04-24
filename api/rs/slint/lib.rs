@@ -417,8 +417,8 @@ pub mod platform {
     /// It is only enabled when the `renderer-femtovg` Slint feature is enabled.
     #[cfg(all(feature = "renderer-femtovg", not(target_os = "android")))]
     pub mod femtovg_renderer {
-        pub use i_slint_renderer_femtovg::FemtoVGRenderer;
-        pub use i_slint_renderer_femtovg::OpenGLInterface;
+        pub use i_slint_renderer_femtovg::opengl::OpenGLInterface;
+        pub use i_slint_renderer_femtovg::FemtoVGOpenGLRenderer as FemtoVGRenderer;
     }
 }
 
