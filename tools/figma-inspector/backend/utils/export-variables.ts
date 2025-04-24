@@ -102,11 +102,39 @@ function formatVariableName(name: string): string {
 }
 
 export function sanitizePropertyName(name: string): string {
-    // Check if starts with a digit
-    if (/^\d/.test(name)) {
-        return `_${name}`;
+    // Handle names starting with "." - remove the dot
+    let sanitizedName = name.startsWith(".") ? name.substring(1) : name;
+
+    // Remove leading invalid chars AFTER initial dot check
+    sanitizedName = sanitizedName.replace(/^[_\-\.\(\)&]+/, "");
+
+    // If that made it empty, use a default
+    if (!sanitizedName || sanitizedName.trim() === "") {
+        sanitizedName = "property"; // Or handle as error?
     }
-    return name;
+
+    // Replace problematic characters BEFORE checking for leading digit
+    sanitizedName = sanitizedName
+        .replace(/&/g, "and") // Replace &
+        .replace(/\(/g, "_") // Replace ( with _
+        .replace(/\)/g, "_") // Replace ) with _
+        .replace(/[^a-zA-Z0-9_]/g, "_") // Replace other invalid chars (including -, +, :, etc.) with _
+        .replace(/__+/g, "_"); // Collapse multiple underscores
+
+    // Remove trailing underscores
+    sanitizedName = sanitizedName.replace(/_+$/, "");
+
+    // Check if starts with a digit AFTER other sanitization
+    if (/^\d/.test(sanitizedName)) {
+        return `_${sanitizedName}`;
+    }
+
+    // Ensure it's not empty again after trailing underscore removal
+    if (!sanitizedName || sanitizedName.trim() === "") {
+        return "property";
+    }
+
+    return sanitizedName.toLowerCase();
 }
 
 function sanitizeRowName(rowName: string): string {
@@ -175,7 +203,7 @@ function detectCycle(dependencies: Map<string, Set<string>>): boolean {
 export function extractHierarchy(name: string): string[] {
     // First try splitting by slashes (the expected format)
     if (name.includes("/")) {
-        return name.split("/").map((part) => formatVariableName(part));
+        return name.split("/").map((part) => sanitizePropertyName(part));
     }
 
     // Default case for simple names
