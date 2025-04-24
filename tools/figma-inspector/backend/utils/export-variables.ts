@@ -101,7 +101,6 @@ function formatVariableName(name: string): string {
     return sanitizedName;
 }
 
-
 export function sanitizePropertyName(name: string): string {
     // Handle names starting with "." - remove the dot
     let sanitizedName = name.startsWith(".") ? name.substring(1) : name;
