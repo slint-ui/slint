@@ -27,7 +27,7 @@
     "ava": "6.2.0",
     "capture-console": "1.0.2",
     "jimp": "1.6.0",
-    "typedoc": "0.28.2",
+    "typedoc": "0.28.3",
     "typescript": "5.8.3"
   },
   "engines": {
