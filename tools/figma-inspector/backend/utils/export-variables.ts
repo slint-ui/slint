@@ -48,59 +48,6 @@ export function formatStructName(name: string): string {
     return sanitizedName;
 }
 
-// Helper to format property name for Slint (kebab-case) with sanitization
-function formatPropertyName(name: string): string {
-    // Handle names starting with "." - remove the dot
-    let sanitizedName = name.startsWith(".") ? name.substring(1) : name;
-    sanitizedName = sanitizedName.replace(/^[_\-\.]+/, "");
-
-    // If that made it empty, use a default
-    if (!sanitizedName || sanitizedName.trim() === "") {
-        sanitizedName = "property";
-    }
-
-    // Replace & with 'and' before other formatting
-    sanitizedName = sanitizedName.replace(/&/g, "and");
-
-    // Process commas first, then handle other transformations
-    sanitizedName = sanitizedName
-        .replace(/,\s*/g, "-") // Replace commas (and following spaces) with hyphens
-        .replace(/\+/g, "-") // Replace + with hyphens (add this line)
-        .replace(/\:/g, "-") // Replace : with ""
-        .replace(/([a-z])([A-Z])/g, "$1-$2") // Add hyphens between camelCase
-        .replace(/\s+/g, "-") // Convert spaces to hyphens
-        .replace(/--+/g, "-") // Normalize multiple consecutive hyphens to single
-        .toLowerCase(); // Convert to lowercase
-
-    return sanitizedName;
-}
-
-// Helper to format variable name for Slint (kebab-case)
-function formatVariableName(name: string): string {
-    let sanitizedName = name.startsWith(".") ? name.substring(1) : name;
-    sanitizedName = sanitizedName.replace(/^[_\-\.]+/, "");
-
-    // If that made it empty, use a default
-    if (!sanitizedName || sanitizedName.trim() === "") {
-        sanitizedName = "property";
-    }
-
-    // Replace & with 'and' before other formatting
-    sanitizedName = sanitizedName.replace(/&/g, "and");
-
-    // Process commas first, then handle other transformations
-    sanitizedName = sanitizedName
-        .replace(/,\s*/g, "-") // Replace commas (and following spaces) with hyphens
-        .replace(/\+/g, "-") // Replace + with hyphens (add this line)
-        .replace(/\:/g, "-") // Replace : with ""
-        .replace(/([a-z])([A-Z])/g, "$1-$2") // Add hyphens between camelCase
-        .replace(/\s+/g, "-") // Convert spaces to hyphens
-        .replace(/--+/g, "-") // Normalize multiple consecutive hyphens to single
-        .toLowerCase(); // Convert to lowercase
-
-    return sanitizedName;
-}
-
 export function sanitizePropertyName(name: string): string {
     // Handle names starting with "." - remove the dot
     let sanitizedName = name.startsWith(".") ? name.substring(1) : name;
@@ -207,7 +154,7 @@ export function extractHierarchy(name: string): string[] {
     }
 
     // Default case for simple names
-    return [formatVariableName(name)];
+    return [sanitizePropertyName(name)];
 }
 
 function createReferenceExpression(
@@ -987,7 +934,7 @@ export async function exportFigmaVariablesToSeparateFiles(
 
         // Initialize structure for all collections first
         for (const collection of variableCollections) {
-            const collectionName = formatPropertyName(collection.name);
+            const collectionName = sanitizePropertyName(collection.name);
             const formattedCollectionName = formatStructName(collection.name);
             exportInfo.collections.add(collection.name);
             // Initialize the collection structure
@@ -1001,7 +948,7 @@ export async function exportFigmaVariablesToSeparateFiles(
             // Add modes to collection
             collection.modes.forEach((mode) => {
                 const sanitizedMode = sanitizeModeForEnum(
-                    formatPropertyName(mode.name),
+                    sanitizePropertyName(mode.name),
                 );
                 collectionStructure
                     .get(collectionName)!
@@ -1011,7 +958,7 @@ export async function exportFigmaVariablesToSeparateFiles(
 
         // THEN process the variables for each collection
         for (const collection of variableCollections) {
-            const collectionName = formatPropertyName(collection.name);
+            const collectionName = sanitizePropertyName(collection.name);
 
             // Process variables in batches
             const batchSize = 5;
@@ -1040,7 +987,7 @@ export async function exportFigmaVariablesToSeparateFiles(
                     const propertyName =
                         nameParts.length > 0
                             ? nameParts[nameParts.length - 1]
-                            : formatPropertyName(variable.name);
+                            : sanitizePropertyName(variable.name);
 
                     const path =
                         nameParts.length > 1
@@ -1083,7 +1030,7 @@ export async function exportFigmaVariablesToSeparateFiles(
                         }
 
                         const modeName = sanitizeModeForEnum(
-                            formatPropertyName(modeInfo.name),
+                            sanitizePropertyName(modeInfo.name),
                         );
 
                         // Format value and track references
@@ -1199,12 +1146,12 @@ export async function exportFigmaVariablesToSeparateFiles(
         const collectionDependencies = new Map<string, Set<string>>();
         // Initialize for all collections to handle collections that import nothing
         for (const collection of variableCollections) {
-            const collectionName = formatPropertyName(collection.name);
+            const collectionName = sanitizePropertyName(collection.name);
             collectionDependencies.set(collectionName, new Set<string>());
         }
         // FINALLY process references after all collections are initialized
         for (const collection of variableCollections) {
-            const collectionName = formatPropertyName(collection.name);
+            const collectionName = sanitizePropertyName(collection.name);
 
             for (const [rowName, columns] of collectionStructure
                 .get(collectionName)!
