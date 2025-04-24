@@ -45,7 +45,8 @@ export const App = () => {
     const [exportAsSingleFile, setExportAsSingleFile] = useState(false); // Default to multiple files
     // --- Add state for dropdown visibility ---
     const [isMenuOpen, setIsMenuOpen] = useState(false);
-    const menuRef = useRef<HTMLDivElement>(null); // Ref for detecting outside clicks
+    const menuRef = useRef<HTMLDivElement>(null); // Ref for the menu
+    const buttonRef = useRef<HTMLButtonElement>(null); // Ref for the button
     const toggleMenu = useCallback(() => {
         setIsMenuOpen((prev) => !prev);
     }, []);
@@ -56,11 +57,83 @@ export const App = () => {
         dispatchTS("exportToFiles", { exportAsSingleFile: exportAsSingleFile });
         setIsMenuOpen(false); // Close menu after clicking export
     }, [exportAsSingleFile]);
+    const [useVariables, setUseVariables] = useState(false); // Default to false
 
     listenTS("updatePropertiesCallback", (res) => {
         setTitle(res.title || "");
         setSlintProperties(res.slintSnippet || "");
     });
+    useEffect(() => {
+        const genericMessageHandler = (event: MessageEvent) => {
+            if (event.data?.pluginMessage) {
+                console.log(
+                    "[UI DEBUG] Generic listener received:",
+                    event.data.pluginMessage,
+                );
+                if (
+                    event.data.pluginMessage.type === "selectionChangedInFigma"
+                ) {
+                    console.log(
+                        "[UI DEBUG] SAW selectionChangedInFigma in generic listener!",
+                    );
+                }
+            }
+        };
+        console.log("[UI DEBUG] Adding generic message listener.");
+        window.addEventListener("message", genericMessageHandler);
+        return () => {
+            console.log("[UI DEBUG] Removing generic message listener.");
+            window.removeEventListener("message", genericMessageHandler);
+        };
+    }, []); // Run only once on mount
+
+    useEffect(() => {
+        const handleSelectionChange = () => {
+            console.log(
+                "[UI] Received selectionChangedInFigma, requesting snippet update.",
+            );
+            // Request snippet update using the current state of useVariables
+            dispatchTS("generateSnippetRequest", {
+                useVariables: useVariables,
+            });
+        };
+        console.log("[UI] Attaching 'selectionChangedInFigma' listener..."); // <-- ADD THIS LOG
+        listenTS("selectionChangedInFigma", handleSelectionChange);
+        console.log("[UI] 'selectionChangedInFigma' listener attached."); // <-- ADD THIS LOG
+
+        // Also request initial snippet on component mount
+        console.log("[UI] Initial mount, requesting snippet update.");
+        dispatchTS("generateSnippetRequest", { useVariables: useVariables });
+    }, [useVariables]); // Re-run effect if useVariables changes (to request initial snippet with correct flag)
+    // Or, if you only want selection changes to trigger updates *after* mount,
+    // keep the dependency array empty [] and handle the initial request separately.
+    // The current setup ensures the snippet reflects the checkbox state even on first load.
+    useEffect(() => {
+        // Only add listener if menu is open
+        if (!isMenuOpen) {
+            return;
+        }
+
+        const handleClickOutside = (event: MouseEvent) => {
+            // Check if the click is outside the menu AND outside the button
+            if (
+                menuRef.current &&
+                !menuRef.current.contains(event.target as Node) &&
+                buttonRef.current && // Also check the button ref
+                !buttonRef.current.contains(event.target as Node)
+            ) {
+                setIsMenuOpen(false); // Close the menu
+            }
+        };
+
+        // Add listener on mount/when menu opens
+        document.addEventListener("mousedown", handleClickOutside);
+
+        // Cleanup listener on unmount/when menu closes
+        return () => {
+            document.removeEventListener("mousedown", handleClickOutside);
+        };
+    }, [isMenuOpen]); // Re-run effect when isMenuOpen changes
     const handleCheckboxChange = useCallback(
         (event: React.ChangeEvent<HTMLInputElement>) => {
             const checked = event.target.checked;
@@ -68,7 +141,19 @@ export const App = () => {
             console.log(`Checkbox changed: Export as single file = ${checked}`);
             // Keep menu open when checkbox is toggled
         },
-        [],
+        [useVariables],
+    );
+    // --- 2. Update the handleUseVariables handler ---
+    const handleUseVariables = useCallback(
+        (event: React.ChangeEvent<HTMLInputElement>) => {
+            const checked = event.target.checked;
+            console.log(`[UI] 'Use Variables' checkbox changed: ${checked}`);
+            // Update the state
+            setUseVariables(checked);
+            // Request a new snippet from the backend with the updated preference
+            dispatchTS("generateSnippetRequest", { useVariables: checked });
+        },
+        [], // No dependencies needed here as setUseVariables and dispatchTS are stable
     );
 
     // Theme handling
@@ -262,6 +347,8 @@ export const App = () => {
         cursor: "pointer",
         position: "relative", // Needed for absolute positioning of menu
         textAlign: "center",
+        opacity: isMenuOpen ? 0.6 : 1, // Lower opacity when menu is open
+        pointerEvents: isMenuOpen ? "none" : "auto", // Prevent clicks when menu is open
     };
 
     const menuStyle: React.CSSProperties = {
@@ -298,107 +385,178 @@ export const App = () => {
 
     return (
         <div className="container">
-            <div className="title">
-                {/* Wrap title in a span with ellipsis styles */}
+            {/* --- Apply Flexbox to the title div --- */}
+            <div
+                className="title"
+                style={{
+                    display: "flex", // Make it a flex container
+                    alignItems: "center", // Vertically align items in the middle
+                    padding: "4px 8px", // Add some padding like before
+                    borderBottom: `1px solid ${lightOrDarkMode === "dark" ? "#555" : "#ccc"}`, // Optional separator
+                    flexShrink: 0, // Prevent title bar from shrinking
+                }}
+            >
+                {/* 1. Copy Icon (stays on the left) */}
+                <span
+                    id="copy-icon"
+                    onClick={() => copyToClipboard(slintProperties)}
+                    onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                            copyToClipboard(slintProperties);
+                        }
+                    }} // Added keyboard accessibility
+                    className="copy-icon"
+                    style={{ cursor: "pointer", marginRight: "8px" }} // Add margin to separate from title
+                    role="button" // Semantics
+                    tabIndex={0} // Make focusable
+                >
+                    📋
+                </span>
+
+                {/* 2. Title Text (grows to fill space) */}
                 <span
                     style={{
-                        display: "block", // Or 'inline-block'
+                        // display: "block", // No longer needed with flex
                         whiteSpace: "nowrap",
                         overflow: "hidden",
                         textOverflow: "ellipsis",
-                        maxWidth: "calc(100% - 30px)", // Adjust width to leave space for icon
+                        // maxWidth: "calc(100% - 30px)", // No longer needed, flex handles width
+                        flexGrow: 1, // Allow this span to take available space
+                        textAlign: "left", // Ensure text is left-aligned
                     }}
                 >
                     {title || "Slint Figma Inspector"}
                 </span>
-                {slintProperties !== "" && (
-                    <div style={{ flexShrink: 0 }}>
-                        {" "}
-                        {/* Prevent icon from shrinking */}
-                        <span
-                            id="copy-icon"
-                            onClick={() => copyToClipboard(slintProperties)}
-                            onKeyDown={() => copyToClipboard(slintProperties)}
-                            className="copy-icon"
-                        >
-                            📋
-                        </span>
-                    </div>
-                )}
-            </div>
 
-            <CodeSnippet
-                code={slintProperties || "// Select a component to inspect"}
-                theme={
-                    lightOrDarkMode === "dark" ? "dark-slint" : "light-slint"
-                }
-            />
+                {/* 3. Checkbox Section (stays on the right) */}
+                <div style={{ flexShrink: 0, marginLeft: "8px" }}>
+                    {" "}
+                    {/* Add left margin */}
+                    {/* Removed unnecessary inner spans */}
+                    <div
+                        style={{
+                            display: "flex",
+                            justifyContent: "flex-end", // Keep content aligned right within this div
+                        }}
+                    >
+                        <label
+                            style={{
+                                cursor: "pointer",
+                                // marginRight: "16px", // Margin now on parent div
+                                fontSize: "12px", // Corrected font size syntax
+                                display: "flex", // Align checkbox and text
+                                alignItems: "center",
+                            }}
+                        >
+                            <input
+                                type="checkbox"
+                                checked={useVariables}
+                                onChange={handleUseVariables}
+                                style={{
+                                    marginRight: "4px",
+                                    cursor: "pointer",
+                                }}
+                            />
+                            Use Figma Variables
+                        </label>
+                    </div>
+                </div>
+            </div>{" "}
+            <div
+                style={{
+                    flexGrow: 1,
+                    overflowY: "auto",
+                    minHeight: "50px",
+                    position: "relative",
+                }}
+            >
+                <CodeSnippet
+                    code={slintProperties || "// Select a component to inspect"}
+                    theme={
+                        lightOrDarkMode === "dark"
+                            ? "dark-slint"
+                            : "light-slint"
+                    }
+                />
+            </div>
             <div
                 style={{ position: "relative", alignSelf: "center" }}
                 ref={menuRef}
             >
                 {/* --- Trigger Button --- */}
-                <button
-                    onClick={toggleMenu} // Toggle menu visibility
-                    style={buttonStyle}
-                    className="export-button" // Keep class if needed
-                >
-                    {exportsAreCurrent ? "Design Tokens" : "Design Tokens"}
-                </button>
+                {useVariables && (
+                    <button
+                        ref={buttonRef}
+                        onClick={toggleMenu} // Toggle menu visibility
+                        style={buttonStyle}
+                        className="export-button" // Keep class if needed
+                    >
+                        {exportsAreCurrent ? "Design Tokens" : "Design Tokens"}
+                    </button>
+                )}
 
                 {/* --- Dropdown Menu --- */}
-                <div style={menuStyle} className="export-dropdown-menu">
-                    {/* Checkbox Item */}
-                    <label
-                        style={{ ...menuItemStyle, cursor: "pointer" }}
-                        onMouseEnter={(e) =>
-                            (e.currentTarget.style.backgroundColor =
-                                menuItemHoverStyle.backgroundColor!)
-                        }
-                        onMouseLeave={(e) =>
-                            (e.currentTarget.style.backgroundColor = "")
-                        }
-                    >
-                        <input
-                            type="checkbox"
-                            checked={exportAsSingleFile}
-                            onChange={handleCheckboxChange}
-                            style={{ marginRight: "8px", cursor: "pointer" }}
-                        />
-                        Single Slint file
-                    </label>
-
-                    {/* Separator (Optional) */}
-                    <hr
-                        style={{
-                            margin: "4px 0",
-                            border: "none",
-                            borderTop: `1px solid ${lightOrDarkMode === "dark" ? "#555" : "#ccc"}`,
-                        }}
-                    />
-
-                    {/* Export Action Item */}
+                {isMenuOpen && (
                     <div
-                        role="button" // Semantics
-                        tabIndex={0} // Make focusable
-                        onClick={handleExportClick}
-                        onKeyDown={(e) => {
-                            if (e.key === "Enter" || e.key === " ") {
-                                handleExportClick();
-                            }
-                        }} // Keyboard accessibility
-                        style={menuItemStyle}
-                        onMouseEnter={(e) =>
-                            (e.currentTarget.style.backgroundColor =
-                                menuItemHoverStyle.backgroundColor!)
-                        }
-                        onMouseLeave={(e) =>
-                            (e.currentTarget.style.backgroundColor = "")
-                        }
+                        ref={menuRef}
+                        style={menuStyle}
+                        className="export-dropdown-menu"
                     >
-                        {exportsAreCurrent ? "Export Again" : "Export Now"}
+                        {/* Checkbox Item */}
+                        <label
+                            style={{ ...menuItemStyle, cursor: "pointer" }}
+                            onMouseEnter={(e) =>
+                                (e.currentTarget.style.backgroundColor =
+                                    menuItemHoverStyle.backgroundColor!)
+                            }
+                            onMouseLeave={(e) =>
+                                (e.currentTarget.style.backgroundColor = "")
+                            }
+                        >
+                            <input
+                                type="checkbox"
+                                checked={exportAsSingleFile}
+                                onChange={handleCheckboxChange}
+                                style={{
+                                    marginRight: "8px",
+                                    cursor: "pointer",
+                                }}
+                            />
+                            Single Slint file
+                        </label>
+
+                        {/* Separator (Optional) */}
+                        <hr
+                            style={{
+                                margin: "4px 0",
+                                border: "none",
+                                borderTop: `1px solid ${lightOrDarkMode === "dark" ? "#555" : "#ccc"}`,
+                            }}
+                        />
+
+                        {/* Export Action Item */}
+                        <div
+                            role="button" // Semantics
+                            tabIndex={0} // Make focusable
+                            onClick={handleExportClick}
+                            onKeyDown={(e) => {
+                                if (e.key === "Enter" || e.key === " ") {
+                                    handleExportClick();
+                                }
+                            }} // Keyboard accessibility
+                            style={{ ...menuItemStyle, padding: "8px 12px" }}
+                            onMouseEnter={(e) =>
+                                (e.currentTarget.style.backgroundColor =
+                                    menuItemHoverStyle.backgroundColor!)
+                            }
+                            onMouseLeave={(e) =>
+                                (e.currentTarget.style.backgroundColor = "")
+                            }
+                        >
+                            Export Collections
+                        </div>
                     </div>
-                </div>
+                )}
             </div>
             <div
                 style={{
