@@ -10,7 +10,7 @@
     "lint:fix": "pnpm --stream -r lint:fix",
     "type-check": "pnpm --stream -r type-check"
   },
-  "packageManager": "pnpm@10.3.0",
+  "packageManager": "pnpm@10.9.0",
   "pnpm": {
     "overrides": {
       "@babel/runtime@<7.26.10": ">=7.26.10",
