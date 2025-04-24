@@ -8,6 +8,8 @@ import {
 
 export const indentation = "    ";
 const rectangleProperties = [
+    "x",
+    "y",
     "width",
     "height",
     "fill",
@@ -528,121 +530,89 @@ export async function generateRectangleSnippet(
             switch (property) {
                 case "x":
                     const boundXVarId = (sceneNode as any).boundVariables?.x
-                        ?.id; // Assume direct object binding
-                    let xValue: string | null = null;
-                    if (boundXVarId) {
-                        xValue = await getVariablePathString(boundXVarId);
-                        console.log(
-                            `[generateTextSnippet] x: Using variable path: ${xValue}`,
-                        );
-                    }
-                    if (
-                        !xValue &&
-                        "x" in sceneNode &&
-                        typeof sceneNode.x === "number"
-                    ) {
-                        const x = roundNumber(sceneNode.x);
-                        if (x !== null) {
-                            // roundNumber returns null for 0
-                            xValue = `${x}px`;
-                            console.log(
-                                `[generateTextSnippet] x: Using numeric value: ${xValue}`,
-                            );
-                        }
-                    }
-                    if (xValue && sceneNode.parent?.type !== "PAGE") {
-                        parentProperties.push(`${indentation}x: ${xValue};`);
-                    }
-                    break;
-                // --- Add case for y ---
-                case "y":
-                    const boundYVarId = (sceneNode as any).boundVariables?.y
-                        ?.id; // Assume direct object binding
-                    let yValue: string | null = null;
-                    if (boundYVarId) {
-                        yValue = await getVariablePathString(boundYVarId);
-                        console.log(
-                            `[generateTextSnippet] y: Using variable path: ${yValue}`,
-                        );
-                    }
-                    if (
-                        !yValue &&
-                        "y" in sceneNode &&
-                        typeof sceneNode.y === "number"
-                    ) {
-                        const y = roundNumber(sceneNode.y);
-                        if (y !== null) {
-                            // roundNumber returns null for 0
-                            yValue = `${y}px`;
-                            console.log(
-                                `[generateTextSnippet] y: Using numeric value: ${yValue}`,
-                            );
-                        }
-                    }
-                    if (yValue && sceneNode.parent?.type !== "PAGE") {
-                        parentProperties.push(`${indentation}y: ${yValue};`);
-                    }
-                    break;
-
-                case "x":
-                    const boundXVarId = (sceneNode as any).boundVariables?.x?.id;
+                        ?.id;
                     let xValue: string | null = null;
                     // --- Add useVariables check here ---
                     if (boundXVarId && useVariables) {
                         xValue = await getVariablePathString(boundXVarId);
                         // --- Correct log source ---
-                        console.log(`[generateRectangleSnippet] x: Using variable path: ${xValue}`);
+                        console.log(
+                            `[generateRectangleSnippet] x: Using variable path: ${xValue}`,
+                        );
                     }
                     // --- Modify numeric fallback ---
-                    if (!xValue && "x" in sceneNode && typeof sceneNode.x === "number") {
+                    if (
+                        !xValue &&
+                        "x" in sceneNode &&
+                        typeof sceneNode.x === "number"
+                    ) {
                         const x = sceneNode.x; // Get raw value
-                        if (x === 0) { // Explicitly handle 0
+                        if (x === 0) {
+                            // Explicitly handle 0
                             xValue = "0px";
                             // --- Correct log source ---
-                            console.log(`[generateRectangleSnippet] x: Using numeric value: ${xValue}`);
+                            console.log(
+                                `[generateRectangleSnippet] x: Using numeric value: ${xValue}`,
+                            );
                         } else {
                             const roundedX = roundNumber(x); // Use roundNumber for non-zero
                             if (roundedX !== null) {
                                 xValue = `${roundedX}px`;
                                 // --- Correct log source ---
-                                console.log(`[generateRectangleSnippet] x: Using numeric value: ${xValue}`);
+                                console.log(
+                                    `[generateRectangleSnippet] x: Using numeric value: ${xValue}`,
+                                );
                             }
                         }
                     }
                     // --- End modification ---
-                    if (xValue && sceneNode.parent?.type !== "PAGE") { // Keep parent check
-                        parentProperties.push(`${indentation}x: ${xValue};`);
+                    if (xValue && sceneNode.parent?.type !== "PAGE") {
+                        // Keep parent check
+                        properties.push(`${indentation}x: ${xValue};`);
                     }
                     break;
 
                 case "y":
-                    const boundYVarId = (sceneNode as any).boundVariables?.y?.id;
+                    const boundYVarId = (sceneNode as any).boundVariables?.y
+                        ?.id;
                     let yValue: string | null = null;
                     // --- Add useVariables check here ---
                     if (boundYVarId && useVariables) {
                         yValue = await getVariablePathString(boundYVarId);
                         // --- Correct log source ---
-                        console.log(`[generateRectangleSnippet] y: Using variable path: ${yValue}`);
+                        console.log(
+                            `[generateRectangleSnippet] y: Using variable path: ${yValue}`,
+                        );
                     }
                     // --- Modify numeric fallback ---
-                    if (!yValue && "y" in sceneNode && typeof sceneNode.y === "number") {
+                    if (
+                        !yValue &&
+                        "y" in sceneNode &&
+                        typeof sceneNode.y === "number"
+                    ) {
                         const y = sceneNode.y; // Get raw value
-                        if (y === 0) { // Explicitly handle 0
+                        if (y === 0) {
+                            // Explicitly handle 0
                             yValue = "0px";
                             // --- Correct log source ---
-                            console.log(`[generateRectangleSnippet] y: Using numeric value: ${yValue}`);
+                            console.log(
+                                `[generateRectangleSnippet] y: Using numeric value: ${yValue}`,
+                            );
                         } else {
                             const roundedY = roundNumber(y); // Use roundNumber for non-zero
                             if (roundedY !== null) {
                                 yValue = `${roundedY}px`;
                                 // --- Correct log source ---
-                                console.log(`[generateRectangleSnippet] y: Using numeric value: ${yValue}`);
+                                console.log(
+                                    `[generateRectangleSnippet] y: Using numeric value: ${yValue}`,
+                                );
                             }
                         }
                     }
                     // --- End modification ---
-                    if (yValue && sceneNode.parent?.type !== "PAGE") { // Keep parent check
-                        parentProperties.push(`${indentation}y: ${yValue};`);
+                    if (yValue && sceneNode.parent?.type !== "PAGE") {
+                        // Keep parent check
+                        properties.push(`${indentation}y: ${yValue};`);
                     }
                     break;
 
@@ -800,20 +770,30 @@ export async function generateTextSnippet(
                             `[generateTextSnippet] x: Using variable path: ${xValue}`,
                         );
                     }
+                    // --- Modify numeric fallback ---
                     if (
                         !xValue &&
                         "x" in sceneNode &&
                         typeof sceneNode.x === "number"
                     ) {
-                        const x = roundNumber(sceneNode.x);
-                        if (x !== null) {
-                            // roundNumber returns null for 0
-                            xValue = `${x}px`;
+                        const x = sceneNode.x; // Get raw value
+                        if (x === 0) {
+                            // Explicitly handle 0
+                            xValue = "0px";
                             console.log(
                                 `[generateTextSnippet] x: Using numeric value: ${xValue}`,
                             );
+                        } else {
+                            const roundedX = roundNumber(x); // Use roundNumber for non-zero
+                            if (roundedX !== null) {
+                                xValue = `${roundedX}px`;
+                                console.log(
+                                    `[generateTextSnippet] x: Using numeric value: ${xValue}`,
+                                );
+                            }
                         }
                     }
+                    // --- End modification ---
                     if (xValue) {
                         properties.push(`${indentation}x: ${xValue};`);
                     }
@@ -829,20 +809,30 @@ export async function generateTextSnippet(
                             `[generateTextSnippet] y: Using variable path: ${yValue}`,
                         );
                     }
+                    // --- Modify numeric fallback ---
                     if (
                         !yValue &&
                         "y" in sceneNode &&
                         typeof sceneNode.y === "number"
                     ) {
-                        const y = roundNumber(sceneNode.y);
-                        if (y !== null) {
-                            // roundNumber returns null for 0
-                            yValue = `${y}px`;
+                        const y = sceneNode.y; // Get raw value
+                        if (y === 0) {
+                            // Explicitly handle 0
+                            yValue = "0px";
                             console.log(
                                 `[generateTextSnippet] y: Using numeric value: ${yValue}`,
                             );
+                        } else {
+                            const roundedY = roundNumber(y); // Use roundNumber for non-zero
+                            if (roundedY !== null) {
+                                yValue = `${roundedY}px`;
+                                console.log(
+                                    `[generateTextSnippet] y: Using numeric value: ${yValue}`,
+                                );
+                            }
                         }
                     }
+                    // --- End modification ---
                     if (yValue) {
                         properties.push(`${indentation}y: ${yValue};`);
                     }
