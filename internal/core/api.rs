@@ -351,9 +351,10 @@ impl std::error::Error for SetRenderingNotifierError {}
 #[derive(Clone)]
 enum WindowHandleInner {
     HandleByAdapter(alloc::rc::Rc<dyn WindowAdapter>),
+    #[cfg(feature = "std")]
     HandleByRcRWH {
-        window_handle_provider: alloc::rc::Rc<dyn raw_window_handle_06::HasWindowHandle>,
-        display_handle_provider: alloc::rc::Rc<dyn raw_window_handle_06::HasDisplayHandle>,
+        window_handle_provider: std::sync::Arc<dyn raw_window_handle_06::HasWindowHandle>,
+        display_handle_provider: std::sync::Arc<dyn raw_window_handle_06::HasDisplayHandle>,
     },
 }
 
@@ -374,6 +375,7 @@ impl raw_window_handle_06::HasWindowHandle for WindowHandle {
     ) -> Result<raw_window_handle_06::WindowHandle<'_>, raw_window_handle_06::HandleError> {
         match &self.inner {
             WindowHandleInner::HandleByAdapter(adapter) => adapter.window_handle_06(),
+            #[cfg(feature = "std")]
             WindowHandleInner::HandleByRcRWH { window_handle_provider, .. } => {
                 window_handle_provider.window_handle()
             }
@@ -388,6 +390,7 @@ impl raw_window_handle_06::HasDisplayHandle for WindowHandle {
     ) -> Result<raw_window_handle_06::DisplayHandle<'_>, raw_window_handle_06::HandleError> {
         match &self.inner {
             WindowHandleInner::HandleByAdapter(adapter) => adapter.display_handle_06(),
+            #[cfg(feature = "std")]
             WindowHandleInner::HandleByRcRWH { display_handle_provider, .. } => {
                 display_handle_provider.display_handle()
             }
@@ -661,20 +664,21 @@ impl Window {
     #[cfg(feature = "raw-window-handle-06")]
     pub fn window_handle(&self) -> WindowHandle {
         let adapter = self.0.window_adapter();
+        #[cfg(feature = "std")]
         if let Some((window_handle_provider, display_handle_provider)) =
             adapter.internal(crate::InternalToken).and_then(|internal| {
                 internal.window_handle_06_rc().ok().zip(internal.display_handle_06_rc().ok())
             })
         {
-            WindowHandle {
+            return WindowHandle {
                 inner: WindowHandleInner::HandleByRcRWH {
                     window_handle_provider,
                     display_handle_provider,
                 },
-            }
-        } else {
-            WindowHandle { inner: WindowHandleInner::HandleByAdapter(adapter) }
+            };
         }
+
+        WindowHandle { inner: WindowHandleInner::HandleByAdapter(adapter) }
     }
 
     /// Takes a snapshot of the window contents and returns it as RGBA8 encoded pixel buffer.

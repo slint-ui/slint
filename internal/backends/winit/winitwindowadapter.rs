@@ -1237,7 +1237,7 @@ impl WindowAdapterInternal for WinitWindowAdapter {
     #[cfg(feature = "raw-window-handle-06")]
     fn window_handle_06_rc(
         &self,
-    ) -> Result<Rc<dyn raw_window_handle::HasWindowHandle>, raw_window_handle::HandleError> {
+    ) -> Result<Arc<dyn raw_window_handle::HasWindowHandle>, raw_window_handle::HandleError> {
         self.winit_window_or_none
             .borrow()
             .as_window()
@@ -1247,7 +1247,7 @@ impl WindowAdapterInternal for WinitWindowAdapter {
     #[cfg(feature = "raw-window-handle-06")]
     fn display_handle_06_rc(
         &self,
-    ) -> Result<Rc<dyn raw_window_handle::HasDisplayHandle>, raw_window_handle::HandleError> {
+    ) -> Result<Arc<dyn raw_window_handle::HasDisplayHandle>, raw_window_handle::HandleError> {
         self.winit_window_or_none
             .borrow()
             .as_window()
