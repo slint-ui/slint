@@ -239,7 +239,9 @@ function createReferenceExpression(
     const targetInfo = variablePathsById.get(referenceId);
     if (!targetInfo) {
         console.warn(`Reference path not found for ID: ${referenceId}`);
-        exportInfo.warnings.add(`Reference path not found for ID: ${referenceId}`);
+        exportInfo.warnings.add(
+            `Reference path not found for ID: ${referenceId}`,
+        );
         return {
             value: null,
             isCircular: true,
@@ -261,44 +263,65 @@ function createReferenceExpression(
     if (resolutionStack.includes(targetIdentifier)) {
         const loopPath = `${resolutionStack.join(" -> ")} -> ${targetIdentifier}`;
         console.warn(`Detected reference loop: ${loopPath}`);
-        exportInfo.circularReferences.add(`${loopPath} (resolved with value/default)`);
+        exportInfo.circularReferences.add(
+            `${loopPath} (resolved with value/default)`,
+        );
 
         // --- Handle Same-Collection Loop by Resolving Target's Value ---
         if (!isCrossCollection) {
-            console.log(`Attempting to break same-collection loop by resolving target's value: ${targetIdentifier}`);
-            const targetCollectionDataLoop = collectionStructure.get(targetCollection);
-            const propertyPathLoop = targetPath.map(part => sanitizePropertyName(part)).join(".");
-            const targetVariableModesMapLoop = targetCollectionDataLoop?.variables.get(propertyPathLoop);
+            console.log(
+                `Attempting to break same-collection loop by resolving target's value: ${targetIdentifier}`,
+            );
+            const targetCollectionDataLoop =
+                collectionStructure.get(targetCollection);
+            const propertyPathLoop = targetPath
+                .map((part) => sanitizePropertyName(part))
+                .join(".");
+            const targetVariableModesMapLoop =
+                targetCollectionDataLoop?.variables.get(propertyPathLoop);
 
             if (targetVariableModesMapLoop) {
-                const sanitizedSourceModeLoop = sanitizeModeForEnum(sourceModeName);
+                const sanitizedSourceModeLoop =
+                    sanitizeModeForEnum(sourceModeName);
                 // Try to get the target's value for the specific mode involved in the loop start
-                let modeDataToUseLoop = targetVariableModesMapLoop.get(sanitizedSourceModeLoop);
+                let modeDataToUseLoop = targetVariableModesMapLoop.get(
+                    sanitizedSourceModeLoop,
+                );
                 let usedModeNameLoop = sanitizedSourceModeLoop;
 
                 // If target doesn't have the exact source mode, try its first mode as fallback
                 if (!modeDataToUseLoop) {
-                    const firstEntry = targetVariableModesMapLoop.entries().next();
+                    const firstEntry = targetVariableModesMapLoop
+                        .entries()
+                        .next();
                     if (!firstEntry.done) {
                         usedModeNameLoop = firstEntry.value[0];
                         modeDataToUseLoop = firstEntry.value[1];
-                        console.warn(`  Loop break: Target ${targetIdentifier} missing mode ${sanitizedSourceModeLoop}, using its mode ${usedModeNameLoop}`);
+                        console.warn(
+                            `  Loop break: Target ${targetIdentifier} missing mode ${sanitizedSourceModeLoop}, using its mode ${usedModeNameLoop}`,
+                        );
                     }
                 }
 
                 // If we found data for a mode AND it has a concrete value (not another alias)
                 if (modeDataToUseLoop && !modeDataToUseLoop.refId) {
-                    console.log(`  Loop break successful: Using concrete value "${modeDataToUseLoop.value}" from ${targetIdentifier} (mode: ${usedModeNameLoop})`);
+                    console.log(
+                        `  Loop break successful: Using concrete value "${modeDataToUseLoop.value}" from ${targetIdentifier} (mode: ${usedModeNameLoop})`,
+                    );
                     return {
                         value: modeDataToUseLoop.value,
                         isCircular: true, // Still mark as circular for info, but provide value
                         comment: `Loop broken by using value from ${targetIdentifier}`,
                     };
                 } else {
-                     console.warn(`  Loop break failed: Target ${targetIdentifier} (mode: ${usedModeNameLoop}) is also an alias or has no value. Falling back to default.`);
+                    console.warn(
+                        `  Loop break failed: Target ${targetIdentifier} (mode: ${usedModeNameLoop}) is also an alias or has no value. Falling back to default.`,
+                    );
                 }
             } else {
-                 console.warn(`  Loop break failed: Could not find target variable data for ${targetIdentifier} during loop break. Falling back to default.`);
+                console.warn(
+                    `  Loop break failed: Could not find target variable data for ${targetIdentifier} during loop break. Falling back to default.`,
+                );
             }
         }
         // --- End Same-Collection Loop Handling ---
@@ -307,11 +330,15 @@ function createReferenceExpression(
         const targetType = targetNode?.type || "COLOR";
         const slintType = getSlintType(targetType);
         const defaultValue =
-            slintType === "brush" ? "#808080" :
-            slintType === "length" ? "0px" :
-            slintType === "string" ? '""' :
-            slintType === "bool" ? "false" :
-            "#808080"; // Fallback default
+            slintType === "brush"
+                ? "#808080"
+                : slintType === "length"
+                  ? "0px"
+                  : slintType === "string"
+                    ? '""'
+                    : slintType === "bool"
+                      ? "false"
+                      : "#808080"; // Fallback default
 
         return {
             value: defaultValue,
@@ -324,7 +351,9 @@ function createReferenceExpression(
     const targetCollectionData = collectionStructure.get(targetCollection);
     if (!targetCollectionData) {
         console.warn(`Target collection data not found: ${targetCollection}`);
-        exportInfo.warnings.add(`Target collection data not found: ${targetCollection}`);
+        exportInfo.warnings.add(
+            `Target collection data not found: ${targetCollection}`,
+        );
         return {
             value: null,
             isCircular: true,
@@ -342,15 +371,21 @@ function createReferenceExpression(
         console.warn(
             `Target variable data not found in collectionStructure: ${targetCollection}.${propertyPath}`,
         );
-         exportInfo.warnings.add(`Target variable data not found: ${targetCollection}.${propertyPath}`);
+        exportInfo.warnings.add(
+            `Target variable data not found: ${targetCollection}.${propertyPath}`,
+        );
         const targetType = targetNode?.type || "COLOR";
         const slintType = getSlintType(targetType);
         const defaultValue =
-            slintType === "brush" ? "#FF00FF" :
-            slintType === "length" ? "0px" :
-            slintType === "string" ? '""' :
-            slintType === "bool" ? "false" :
-            "#FF00FF";
+            slintType === "brush"
+                ? "#FF00FF"
+                : slintType === "length"
+                  ? "0px"
+                  : slintType === "string"
+                    ? '""'
+                    : slintType === "bool"
+                      ? "false"
+                      : "#FF00FF";
 
         return {
             value: defaultValue,
@@ -362,7 +397,9 @@ function createReferenceExpression(
     // --- Determine the correct mode's data to use from the target ---
     const sanitizedSourceMode = sanitizeModeForEnum(sourceModeName);
     const targetModes = targetCollectionData.modes as Set<string>;
-    let modeDataToUse: { value: string; refId?: string; comment?: string } | undefined = undefined;
+    let modeDataToUse:
+        | { value: string; refId?: string; comment?: string }
+        | undefined = undefined;
     let usedModeName: string | undefined = undefined;
 
     if (targetModes.size > 1) {
@@ -370,27 +407,37 @@ function createReferenceExpression(
             modeDataToUse = targetVariableModesMap.get(sanitizedSourceMode);
             usedModeName = sanitizedSourceMode;
         } else {
-            const firstTargetModeEntry = targetVariableModesMap.entries().next();
+            const firstTargetModeEntry = targetVariableModesMap
+                .entries()
+                .next();
             if (!firstTargetModeEntry.done) {
-                 usedModeName = firstTargetModeEntry.value[0];
-                 modeDataToUse = firstTargetModeEntry.value[1];
-                 const warningMsg = `Mode mismatch: Source mode '${sourceModeName}' not found in target '${targetIdentifier}'. Using target's mode '${usedModeName}' for reference.`;
-                 console.warn(warningMsg);
-                 exportInfo.warnings.add(warningMsg);
+                usedModeName = firstTargetModeEntry.value[0];
+                modeDataToUse = firstTargetModeEntry.value[1];
+                const warningMsg = `Mode mismatch: Source mode '${sourceModeName}' not found in target '${targetIdentifier}'. Using target's mode '${usedModeName}' for reference.`;
+                console.warn(warningMsg);
+                exportInfo.warnings.add(warningMsg);
             } else {
-                 console.error(`Target ${targetIdentifier} has >1 modes but couldn't get first mode data.`);
-                 exportInfo.warnings.add(`Could not determine fallback mode for multi-mode target ${targetIdentifier}.`);
+                console.error(
+                    `Target ${targetIdentifier} has >1 modes but couldn't get first mode data.`,
+                );
+                exportInfo.warnings.add(
+                    `Could not determine fallback mode for multi-mode target ${targetIdentifier}.`,
+                );
             }
         }
     } else if (targetModes.size === 1) {
         const firstTargetModeEntry = targetVariableModesMap.entries().next();
-         if (!firstTargetModeEntry.done) {
-             usedModeName = firstTargetModeEntry.value[0];
-             modeDataToUse = firstTargetModeEntry.value[1];
-         } else {
-             console.error(`Target ${targetIdentifier} is single-mode but couldn't get mode data.`);
-             exportInfo.warnings.add(`Could not get data for single-mode target ${targetIdentifier}.`);
-         }
+        if (!firstTargetModeEntry.done) {
+            usedModeName = firstTargetModeEntry.value[0];
+            modeDataToUse = firstTargetModeEntry.value[1];
+        } else {
+            console.error(
+                `Target ${targetIdentifier} is single-mode but couldn't get mode data.`,
+            );
+            exportInfo.warnings.add(
+                `Could not get data for single-mode target ${targetIdentifier}.`,
+            );
+        }
         const sourceCollectionData = collectionStructure.get(currentCollection);
         if (sourceCollectionData && sourceCollectionData.modes.size > 1) {
             const currentIdentifier = `${currentCollection}.${currentPath.join(".")}`;
@@ -399,11 +446,14 @@ function createReferenceExpression(
             exportInfo.warnings.add(warningMsg);
         }
     } else {
-        console.error(`Target collection ${targetCollection} has no modes defined.`);
-        exportInfo.warnings.add(`Target collection ${targetCollection} has no modes defined.`);
+        console.error(
+            `Target collection ${targetCollection} has no modes defined.`,
+        );
+        exportInfo.warnings.add(
+            `Target collection ${targetCollection} has no modes defined.`,
+        );
     }
     // --- End mode data determination ---
-
 
     if (modeDataToUse) {
         // CASE A: Target is another reference (alias)
@@ -431,16 +481,21 @@ function createReferenceExpression(
             if (isCrossCollection) {
                 // --- Different collection: Use the resolved concrete value ---
                 finalValue = modeDataToUse.value;
-                console.log(`[createReferenceExpression] Cross-collection reference ${targetIdentifier} resolved to concrete value: ${finalValue}`);
+                console.log(
+                    `[createReferenceExpression] Cross-collection reference ${targetIdentifier} resolved to concrete value: ${finalValue}`,
+                );
             } else {
                 // --- Same collection: Generate the relative Slint path ---
                 const baseExpr = propertyPath;
                 const needsModeSuffix = targetModes.size > 1;
 
-                finalValue = (needsModeSuffix && usedModeName)
-                    ? `${baseExpr}.${usedModeName}`
-                    : baseExpr;
-                console.log(`[createReferenceExpression] Same-collection reference ${targetIdentifier} resolved to path: ${finalValue}`);
+                finalValue =
+                    needsModeSuffix && usedModeName
+                        ? `${baseExpr}.${usedModeName}`
+                        : baseExpr;
+                console.log(
+                    `[createReferenceExpression] Same-collection reference ${targetIdentifier} resolved to path: ${finalValue}`,
+                );
             }
 
             return {
@@ -456,16 +511,22 @@ function createReferenceExpression(
         console.warn(
             `Missing value data for ${targetIdentifier} in mode ${sourceModeName} or fallback.`,
         );
-        exportInfo.warnings.add(`Missing value data for ${targetIdentifier} in mode ${sourceModeName} or fallback.`);
+        exportInfo.warnings.add(
+            `Missing value data for ${targetIdentifier} in mode ${sourceModeName} or fallback.`,
+        );
 
         const targetType = targetNode?.type || "COLOR";
         const slintType = getSlintType(targetType);
         const defaultValue =
-            slintType === "brush" ? "#FF00FF" :
-            slintType === "length" ? "0px" :
-            slintType === "string" ? '""' :
-            slintType === "bool" ? "false" :
-            "#FF00FF";
+            slintType === "brush"
+                ? "#FF00FF"
+                : slintType === "length"
+                  ? "0px"
+                  : slintType === "string"
+                    ? '""'
+                    : slintType === "bool"
+                      ? "false"
+                      : "#FF00FF";
 
         return {
             value: defaultValue,
