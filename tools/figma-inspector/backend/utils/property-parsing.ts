@@ -97,13 +97,16 @@ function roundNumber(value: number): number | null {
     return Number(value.toFixed(3));
 }
 
-export async function getBorderRadius(node: SceneNode): Promise<string | null> {
+export async function getBorderRadius(
+    node: SceneNode,
+    useVariables: boolean,
+): Promise<string | null> {
     if ("boundVariables" in node) {
         const boundVars = (node as any).boundVariables;
-
+        console.log("[USE VARIABLES]: ", useVariables);
         // --- Remove [0] when accessing cornerRadius ID ---
         const boundCornerRadiusId = boundVars?.cornerRadius?.id;
-        if (boundCornerRadiusId) {
+        if (boundCornerRadiusId && useVariables) {
             const path = await getVariablePathString(boundCornerRadiusId);
             if (path) {
                 console.log(
@@ -114,6 +117,12 @@ export async function getBorderRadius(node: SceneNode): Promise<string | null> {
             console.warn(
                 `[getBorderRadius] Failed to get path for bound cornerRadius ID: ${boundCornerRadiusId}`,
             );
+        } else if (boundCornerRadiusId && !useVariables) {
+            // --- Add Log ---
+            console.log(
+                `[getBorderRadius] useVariables is false, skipping variable path lookup for uniform cornerRadius ID: ${boundCornerRadiusId}`,
+            );
+            // --- End Log ---
         }
 
         // --- Remove [0] when accessing individual corner IDs ---
@@ -141,8 +150,11 @@ export async function getBorderRadius(node: SceneNode): Promise<string | null> {
         ] as const;
 
         const boundIndividualCorners = cornerBindings.filter((c) => c.id);
+        console.log(
+            `[getBorderRadius] BEFORE individual check. boundCount: ${boundIndividualCorners.length}, useVariables is currently: ${useVariables}`,
+        );
 
-        if (boundIndividualCorners.length > 0) {
+        if (boundIndividualCorners.length > 0 && useVariables) {
             // --- Check if all bound corners use the SAME variable ID ---
             const allSameId = boundIndividualCorners.every(
                 (c) => c.id === boundIndividualCorners[0].id,
@@ -249,6 +261,7 @@ export async function getBorderRadius(node: SceneNode): Promise<string | null> {
 
 export async function getBorderWidthAndColor(
     sceneNode: SceneNode,
+    useVariables: boolean,
 ): Promise<string[] | null> {
     const properties: string[] = [];
     if (
@@ -265,7 +278,7 @@ export async function getBorderWidthAndColor(
     const boundWidthVarId = firstStroke.boundVariables?.strokeWeight?.id;
     let borderWidthValue: string | null = null;
 
-    if (boundWidthVarId) {
+    if (boundWidthVarId && useVariables) {
         borderWidthValue = await getVariablePathString(boundWidthVarId);
     }
     // Fallback or if not bound
@@ -287,12 +300,12 @@ export async function getBorderWidthAndColor(
     const boundColorVarId = firstStroke.boundVariables?.color?.id;
     let borderColorValue: string | null = null;
 
-    if (boundColorVarId) {
+    if (boundColorVarId && useVariables) {
         borderColorValue = await getVariablePathString(boundColorVarId);
     }
     // Fallback or if not bound
     if (!borderColorValue) {
-        borderColorValue = getBrush(firstStroke); // Use existing function for resolved color
+        borderColorValue = await getBrush(firstStroke); // Use existing function for resolved color
     }
 
     if (borderColorValue) {
@@ -302,7 +315,7 @@ export async function getBorderWidthAndColor(
     return properties.length > 0 ? properties : null;
 }
 
-export function getBrush(fill: {
+export async function getBrush(fill: {
     type: string;
     opacity: number;
     color?: { r: number; g: number; b: number };
@@ -311,7 +324,7 @@ export function getBrush(fill: {
         position: number;
     }>;
     gradientTransform?: number[][];
-}): string | null {
+}): Promise<string | null> {
     switch (fill.type) {
         case "SOLID": {
             if (!fill.color) {
@@ -410,19 +423,20 @@ async function getVariablePathString(
 
 export async function generateSlintSnippet(
     sceneNode: SceneNode,
+    useVariables: boolean,
 ): Promise<string | null> {
     // Return Promise
     const nodeType = sceneNode.type;
 
     switch (nodeType) {
         case "FRAME":
-            return await generateRectangleSnippet(sceneNode); // Await result
+            return await generateRectangleSnippet(sceneNode, useVariables); // Await result
         case "RECTANGLE":
         case "COMPONENT": // Add Component type
         case "INSTANCE": // Add Instance type
-            return await generateRectangleSnippet(sceneNode); // Await result
+            return await generateRectangleSnippet(sceneNode, useVariables); // Await result
         case "TEXT":
-            return await generateTextSnippet(sceneNode); // Await result
+            return await generateTextSnippet(sceneNode, useVariables); // Await result
         default:
             // Keep unsupported sync for now, or make async if needed
             return generateUnsupportedNodeSnippet(sceneNode);
@@ -495,6 +509,7 @@ export function generateUnsupportedNodeSnippet(sceneNode: SceneNode): string {
 
 export async function generateRectangleSnippet(
     sceneNode: SceneNode,
+    useVariables: boolean,
 ): Promise<string> {
     const properties: string[] = [];
     if ("boundVariables" in sceneNode) {
@@ -515,7 +530,7 @@ export async function generateRectangleSnippet(
                     const boundWidthVarId = (sceneNode as any).boundVariables
                         ?.width?.id;
                     let widthValue: string | null = null;
-                    if (boundWidthVarId) {
+                    if (boundWidthVarId && useVariables) {
                         widthValue =
                             await getVariablePathString(boundWidthVarId);
                     }
@@ -533,7 +548,7 @@ export async function generateRectangleSnippet(
                     const boundHeightVarId = (sceneNode as any).boundVariables
                         ?.height?.id;
                     let heightValue: string | null = null;
-                    if (boundHeightVarId) {
+                    if (boundHeightVarId && useVariables) {
                         heightValue =
                             await getVariablePathString(boundHeightVarId);
                     }
@@ -560,12 +575,12 @@ export async function generateRectangleSnippet(
                             const boundVarId =
                                 firstFill.boundVariables?.color?.id;
                             let fillValue: string | null = null;
-                            if (boundVarId) {
+                            if (boundVarId && useVariables) {
                                 fillValue =
                                     await getVariablePathString(boundVarId);
                             }
                             if (!fillValue) {
-                                fillValue = getBrush(firstFill);
+                                fillValue = await getBrush(firstFill);
                             }
                             if (fillValue) {
                                 properties.push(
@@ -573,7 +588,7 @@ export async function generateRectangleSnippet(
                                 );
                             }
                         } else {
-                            const brush = getBrush(firstFill);
+                            const brush = await getBrush(firstFill);
                             if (brush) {
                                 properties.push(
                                     `${indentation}background: ${brush};`,
@@ -591,10 +606,12 @@ export async function generateRectangleSnippet(
                     break;
                 case "border-radius":
                     // --- Ensure this uses await and the new async getBorderRadius ---
-                    const borderRadiusProp = await getBorderRadius(sceneNode); // Use await
+                    const borderRadiusProp = await getBorderRadius(
+                        sceneNode,
+                        useVariables,
+                    ); // Use await
                     if (borderRadiusProp !== null) {
                         properties.push(borderRadiusProp);
-                        // Use new log message
                         console.log(
                             `[generateRectangleSnippet] Added border-radius property: ${borderRadiusProp.includes("\n") ? "\n" + borderRadiusProp : borderRadiusProp}`,
                         );
@@ -608,8 +625,10 @@ export async function generateRectangleSnippet(
                 case "border-width": // Handled below
                     break;
                 case "border-color":
-                    const borderWidthAndColor =
-                        await getBorderWidthAndColor(sceneNode);
+                    const borderWidthAndColor = await getBorderWidthAndColor(
+                        sceneNode,
+                        useVariables,
+                    );
                     if (borderWidthAndColor !== null) {
                         properties.push(...borderWidthAndColor);
                     }
@@ -633,6 +652,7 @@ export async function generateRectangleSnippet(
 }
 export async function generateTextSnippet(
     sceneNode: SceneNode,
+    useVariables: boolean,
 ): Promise<string> {
     const properties: string[] = [];
     if ("boundVariables" in sceneNode) {
@@ -654,7 +674,7 @@ export async function generateTextSnippet(
                     const boundXVarId = (sceneNode as any).boundVariables?.x
                         ?.id; // Assume direct object binding
                     let xValue: string | null = null;
-                    if (boundXVarId) {
+                    if (boundXVarId && useVariables) {
                         xValue = await getVariablePathString(boundXVarId);
                         console.log(
                             `[generateTextSnippet] x: Using variable path: ${xValue}`,
@@ -683,7 +703,7 @@ export async function generateTextSnippet(
                     const boundYVarId = (sceneNode as any).boundVariables?.y
                         ?.id; // Assume direct object binding
                     let yValue: string | null = null;
-                    if (boundYVarId) {
+                    if (boundYVarId && useVariables) {
                         yValue = await getVariablePathString(boundYVarId);
                         console.log(
                             `[generateTextSnippet] y: Using variable path: ${yValue}`,
@@ -712,7 +732,7 @@ export async function generateTextSnippet(
                     const boundCharsVarId = (sceneNode as any).boundVariables
                         ?.characters?.[0]?.id;
                     let textValue: string | null = null;
-                    if (boundCharsVarId) {
+                    if (boundCharsVarId && useVariables) {
                         textValue =
                             await getVariablePathString(boundCharsVarId);
                     }
@@ -735,12 +755,12 @@ export async function generateTextSnippet(
                             const boundVarId = (sceneNode as any).boundVariables
                                 ?.fills?.[0]?.id;
                             let fillValue: string | null = null;
-                            if (boundVarId) {
+                            if (boundVarId && useVariables) {
                                 fillValue =
                                     await getVariablePathString(boundVarId);
                             }
                             if (!fillValue) {
-                                fillValue = getBrush(firstFill);
+                                fillValue = await getBrush(firstFill);
                             }
                             if (fillValue) {
                                 properties.push(
@@ -748,7 +768,7 @@ export async function generateTextSnippet(
                                 );
                             }
                         } else {
-                            const brush = getBrush(firstFill);
+                            const brush = await getBrush(firstFill);
                             if (brush) {
                                 properties.push(
                                     `${indentation}color: ${brush};`,
@@ -776,7 +796,7 @@ export async function generateTextSnippet(
                         `[generateTextSnippet] font-size: Found bound variable ID? ${boundSizeVarId ?? "No"}`,
                     );
                     let sizeValue: string | null = null;
-                    if (boundSizeVarId) {
+                    if (boundSizeVarId && useVariables) {
                         sizeValue = await getVariablePathString(boundSizeVarId);
                         console.log(
                             `[generateTextSnippet] font-size: getVariablePathString returned: ${sizeValue ?? "null"}`,
@@ -813,7 +833,7 @@ export async function generateTextSnippet(
                     let weightValue: string | number | null = null;
                     let isVariable = false; // Flag to track if value is from a variable
 
-                    if (boundWeightVarId) {
+                    if (boundWeightVarId && useVariables) {
                         const path =
                             await getVariablePathString(boundWeightVarId);
                         if (path) {
