@@ -19,7 +19,8 @@ use crate::display::{gbmdisplay::GbmDisplay, Presenter, RenderingRotation};
 use crate::drmoutput::DrmOutput;
 
 pub struct FemtoVGRendererAdapter {
-    renderer: i_slint_renderer_femtovg::FemtoVGRenderer,
+    renderer:
+        i_slint_renderer_femtovg::FemtoVGRenderer<i_slint_renderer_femtovg::opengl::OpenGLBackend>,
     gbm_display: Rc<GbmDisplay>,
 }
 
@@ -114,7 +115,7 @@ impl GlContextWrapper {
     }
 }
 
-unsafe impl i_slint_renderer_femtovg::OpenGLInterface for GlContextWrapper {
+unsafe impl i_slint_renderer_femtovg::opengl::OpenGLInterface for GlContextWrapper {
     fn ensure_current(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         if !self.glutin_context.is_current() {
             self.glutin_context.make_current(&self.glutin_surface).map_err(
