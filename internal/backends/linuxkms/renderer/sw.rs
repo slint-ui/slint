@@ -7,14 +7,14 @@ use i_slint_core::api::PhysicalSize as PhysicalWindowSize;
 use i_slint_core::platform::PlatformError;
 pub use i_slint_core::software_renderer::SoftwareRenderer;
 use i_slint_core::software_renderer::{PremultipliedRgbaColor, RepaintBufferType, TargetPixel};
-use std::rc::Rc;
+use std::sync::Arc;
 
 use crate::display::RenderingRotation;
 
 pub struct SoftwareRendererAdapter {
     renderer: SoftwareRenderer,
-    display: Rc<dyn crate::display::swdisplay::SoftwareBufferDisplay>,
-    presenter: Rc<dyn crate::display::Presenter>,
+    display: Arc<dyn crate::display::swdisplay::SoftwareBufferDisplay>,
+    presenter: Arc<dyn crate::display::Presenter>,
     size: PhysicalWindowSize,
 }
 

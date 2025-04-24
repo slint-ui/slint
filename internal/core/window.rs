@@ -218,20 +218,24 @@ pub trait WindowAdapterInternal {
     fn setup_menubar(&self, _menubar: vtable::VBox<MenuVTable>) {}
 
     /// Re-implement this to support exposing raw window handles (version 0.6).
-    #[cfg(feature = "raw-window-handle-06")]
+    #[cfg(all(feature = "std", feature = "raw-window-handle-06"))]
     fn window_handle_06_rc(
         &self,
-    ) -> Result<Rc<dyn raw_window_handle_06::HasWindowHandle>, raw_window_handle_06::HandleError>
-    {
+    ) -> Result<
+        std::sync::Arc<dyn raw_window_handle_06::HasWindowHandle>,
+        raw_window_handle_06::HandleError,
+    > {
         Err(raw_window_handle_06::HandleError::NotSupported)
     }
 
     /// Re-implement this to support exposing raw display handles (version 0.6).
-    #[cfg(feature = "raw-window-handle-06")]
+    #[cfg(all(feature = "std", feature = "raw-window-handle-06"))]
     fn display_handle_06_rc(
         &self,
-    ) -> Result<Rc<dyn raw_window_handle_06::HasDisplayHandle>, raw_window_handle_06::HandleError>
-    {
+    ) -> Result<
+        std::sync::Arc<dyn raw_window_handle_06::HasDisplayHandle>,
+        raw_window_handle_06::HandleError,
+    > {
         Err(raw_window_handle_06::HandleError::NotSupported)
     }
 

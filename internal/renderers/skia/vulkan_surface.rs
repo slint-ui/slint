@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use std::cell::{Cell, RefCell};
-use std::rc::Rc;
 use std::sync::Arc;
 
 use i_slint_core::api::{PhysicalSize as PhysicalWindowSize, Window};
@@ -159,8 +158,8 @@ impl VulkanSurface {
 
 impl super::Surface for VulkanSurface {
     fn new(
-        window_handle: Rc<dyn raw_window_handle::HasWindowHandle>,
-        display_handle: Rc<dyn raw_window_handle::HasDisplayHandle>,
+        window_handle: Arc<dyn raw_window_handle::HasWindowHandle>,
+        display_handle: Arc<dyn raw_window_handle::HasDisplayHandle>,
         size: PhysicalWindowSize,
         requested_graphics_api: Option<RequestedGraphicsAPI>,
     ) -> Result<Self, i_slint_core::platform::PlatformError> {

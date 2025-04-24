@@ -9,6 +9,7 @@ use i_slint_core::lengths::ScaleFactor;
 use std::cell::RefCell;
 use std::num::NonZeroU32;
 use std::rc::Rc;
+use std::sync::Arc;
 
 use crate::PhysicalRect;
 
@@ -31,11 +32,11 @@ pub trait RenderBuffer {
 }
 
 struct SoftbufferRenderBuffer {
-    _context: softbuffer::Context<Rc<dyn raw_window_handle::HasDisplayHandle>>,
+    _context: softbuffer::Context<Arc<dyn raw_window_handle::HasDisplayHandle>>,
     surface: RefCell<
         softbuffer::Surface<
-            Rc<dyn raw_window_handle::HasDisplayHandle>,
-            Rc<dyn raw_window_handle::HasWindowHandle>,
+            Arc<dyn raw_window_handle::HasDisplayHandle>,
+            Arc<dyn raw_window_handle::HasWindowHandle>,
         >,
     >,
 }
@@ -113,8 +114,8 @@ pub struct SoftwareSurface {
 
 impl super::Surface for SoftwareSurface {
     fn new(
-        window_handle: Rc<dyn raw_window_handle::HasWindowHandle>,
-        display_handle: Rc<dyn raw_window_handle::HasDisplayHandle>,
+        window_handle: Arc<dyn raw_window_handle::HasWindowHandle>,
+        display_handle: Arc<dyn raw_window_handle::HasDisplayHandle>,
         _size: PhysicalWindowSize,
         _requested_graphics_api: Option<RequestedGraphicsAPI>,
     ) -> Result<Self, i_slint_core::platform::PlatformError> {

@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use std::rc::Rc;
+use std::sync::Arc;
 
 use crate::display::RenderingRotation;
 use crate::drmoutput::DrmOutput;
@@ -13,7 +13,7 @@ use i_slint_renderer_skia::SkiaRendererExt;
 
 pub struct SkiaRendererAdapter {
     renderer: i_slint_renderer_skia::SkiaRenderer,
-    presenter: Rc<dyn crate::display::Presenter>,
+    presenter: Arc<dyn crate::display::Presenter>,
     size: PhysicalWindowSize,
 }
 
@@ -51,7 +51,7 @@ impl SkiaRendererAdapter {
         device_opener: &crate::DeviceOpener,
     ) -> Result<Box<dyn crate::fullscreenwindowadapter::FullscreenRenderer>, PlatformError> {
         let drm_output = DrmOutput::new(device_opener)?;
-        let display = Rc::new(crate::display::gbmdisplay::GbmDisplay::new(drm_output)?);
+        let display = Arc::new(crate::display::gbmdisplay::GbmDisplay::new(drm_output)?);
 
         let (width, height) = display.drm_output.size();
         let size = i_slint_core::api::PhysicalSize::new(width, height);
@@ -161,7 +161,7 @@ impl crate::fullscreenwindowadapter::FullscreenRenderer for SkiaRendererAdapter 
     }
 }
 struct DrmDumbBufferAccess {
-    display: Rc<dyn crate::display::swdisplay::SoftwareBufferDisplay>,
+    display: Arc<dyn crate::display::swdisplay::SoftwareBufferDisplay>,
 }
 
 impl i_slint_renderer_skia::software_surface::RenderBuffer for DrmDumbBufferAccess {

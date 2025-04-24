@@ -3,7 +3,7 @@
 
 use std::cell::{Cell, RefCell};
 use std::os::fd::AsRawFd;
-use std::rc::Rc;
+use std::sync::Arc;
 
 use i_slint_core::platform::PlatformError;
 
@@ -12,7 +12,7 @@ pub struct LinuxFBDisplay {
     back_buffer: RefCell<Box<[u8]>>,
     width: u32,
     height: u32,
-    presenter: Rc<crate::display::noop_presenter::NoopPresenter>,
+    presenter: Arc<crate::display::noop_presenter::NoopPresenter>,
     first_frame: Cell<bool>,
     format: drm::buffer::DrmFourcc,
 }
@@ -20,7 +20,7 @@ pub struct LinuxFBDisplay {
 impl LinuxFBDisplay {
     pub fn new(
         device_opener: &crate::DeviceOpener,
-    ) -> Result<Rc<dyn super::SoftwareBufferDisplay>, PlatformError> {
+    ) -> Result<Arc<dyn super::SoftwareBufferDisplay>, PlatformError> {
         let mut last_err = None;
 
         for fbnum in 0..10 {
@@ -39,7 +39,7 @@ impl LinuxFBDisplay {
     fn new_with_path(
         device_opener: &crate::DeviceOpener,
         path: &std::path::Path,
-    ) -> Result<Rc<dyn super::SoftwareBufferDisplay>, PlatformError> {
+    ) -> Result<Arc<dyn super::SoftwareBufferDisplay>, PlatformError> {
         let fd = device_opener(path)?;
 
         let vinfo = unsafe {
@@ -93,7 +93,7 @@ impl LinuxFBDisplay {
 
         let back_buffer = RefCell::new(vec![0u8; size_bytes].into_boxed_slice());
 
-        Ok(Rc::new(Self {
+        Ok(Arc::new(Self {
             fb: RefCell::new(fb),
             back_buffer,
             width,
@@ -127,7 +127,7 @@ impl super::SoftwareBufferDisplay for LinuxFBDisplay {
         Ok(())
     }
 
-    fn as_presenter(self: Rc<Self>) -> Rc<dyn crate::display::Presenter> {
+    fn as_presenter(self: Arc<Self>) -> Arc<dyn crate::display::Presenter> {
         self.presenter.clone()
     }
 }

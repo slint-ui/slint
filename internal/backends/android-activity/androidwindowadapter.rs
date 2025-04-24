@@ -18,6 +18,7 @@ use i_slint_core::{Property, SharedString};
 use i_slint_renderer_skia::SkiaRenderer;
 use std::cell::Cell;
 use std::rc::Rc;
+use std::sync::Arc;
 
 struct LongPressDetection {
     _timer: Timer,
@@ -216,8 +217,8 @@ impl AndroidWindowAdapter {
                     }
 
                     self.renderer.set_window_handle(
-                        Rc::new(w),
-                        Rc::new(raw_window_handle::DisplayHandle::android()),
+                        Arc::new(w),
+                        Arc::new(raw_window_handle::DisplayHandle::android()),
                         size,
                         None,
                     )?;

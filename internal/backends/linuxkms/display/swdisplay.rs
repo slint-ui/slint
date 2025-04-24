@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use std::rc::Rc;
+use std::sync::Arc;
 
 use i_slint_core::platform::PlatformError;
 
@@ -15,7 +15,7 @@ pub trait SoftwareBufferDisplay {
             drm::buffer::DrmFourcc,
         ) -> Result<(), PlatformError>,
     ) -> Result<(), PlatformError>;
-    fn as_presenter(self: Rc<Self>) -> Rc<dyn super::Presenter>;
+    fn as_presenter(self: Arc<Self>) -> Arc<dyn super::Presenter>;
 }
 
 mod dumbbuffer;
@@ -23,7 +23,7 @@ mod linuxfb;
 
 pub fn new(
     device_opener: &crate::DeviceOpener,
-) -> Result<Rc<dyn SoftwareBufferDisplay>, PlatformError> {
+) -> Result<Arc<dyn SoftwareBufferDisplay>, PlatformError> {
     dumbbuffer::DumbBufferDisplay::new(device_opener)
         .or_else(|_| linuxfb::LinuxFBDisplay::new(device_opener))
 }
