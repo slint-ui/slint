@@ -14,7 +14,7 @@ use i_slint_renderer_skia::SkiaRendererExt;
 
 pub struct SkiaRendererAdapter {
     renderer: i_slint_renderer_skia::SkiaRenderer,
-    presenter: Rc<dyn crate::display::Presenter>,
+    presenter: Arc<dyn crate::display::Presenter>,
     size: PhysicalWindowSize,
 }
 
