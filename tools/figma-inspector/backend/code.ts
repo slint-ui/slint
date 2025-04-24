@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 // cSpell: ignore codegen
 
-import { listenTS, updateUI } from "./utils/code-utils.js";
+import { listenTS, dispatchTS } from "./utils/code-utils.js";
 import { generateSlintSnippet } from "./utils/property-parsing.js";
 import { exportFigmaVariablesToSeparateFiles } from "./utils/export-variables.js";
 if (figma.editorType === "dev" && figma.mode === "codegen") {
@@ -10,7 +10,11 @@ if (figma.editorType === "dev" && figma.mode === "codegen") {
         try {
             // Add try...catch for async errors
             // --- Await the async function ---
-            const slintSnippet = await generateSlintSnippet(node);
+            const useVariablesForCodegen = true;
+            const slintSnippet = await generateSlintSnippet(
+                node,
+                useVariablesForCodegen,
+            );
             // --- End Await ---
 
             return slintSnippet
@@ -43,8 +47,59 @@ if (figma.editorType === "figma" && figma.mode === "default") {
         width: 500,
         height: 320,
     });
-    updateUI();
 }
+listenTS("generateSnippetRequest", async (payload) => {
+    console.log("[Backend] Entered 'generateSnippetRequest' handler.");
+    // --- Extract useVariables from payload (default to false) ---
+    const useVariables = payload.useVariables ?? false; // <-- You likely already have this
+    console.log(
+        `[Backend] Received generateSnippetRequest. Use variables: ${useVariables}`,
+    );
+
+    const selection = figma.currentPage.selection;
+    let title = "Figma Inspector";
+    let slintSnippet: string | null = "// Select a single component to inspect";
+
+    if (selection.length === 1) {
+        const node = selection[0];
+        title = node.name;
+        try {
+            // --- Pass the useVariables value received from UI ---
+            console.log(
+                `[Backend] Calling generateSlintSnippet for ${node.name}. useVariables = ${useVariables} (Type: ${typeof useVariables})`,
+            );
+            slintSnippet = await generateSlintSnippet(node, useVariables);
+            console.log(
+                `[Backend] Finished generating snippet for ${node.name}. Result is null? ${slintSnippet === null}`,
+            );
+
+            if (slintSnippet === null) {
+                slintSnippet = `// Unsupported node type: ${node.type}`;
+            }
+            console.log(
+                `[Backend] Generated snippet for ${node.name}. Length: ${slintSnippet?.length ?? 0}`,
+            );
+        } catch (error) {
+            console.error(
+                `[Backend] Error generating snippet for ${node.name}:`,
+                error,
+            );
+            slintSnippet = `// Error generating snippet for ${node.name}:\n// ${error instanceof Error ? error.message : String(error)}`;
+        }
+    } else if (selection.length > 1) {
+        slintSnippet = "// Select a single component to inspect";
+        title = "Multiple Items Selected";
+    }
+
+    // Send result back to UI using the correct message type
+    dispatchTS("updatePropertiesCallback", {
+        title: title,
+        slintSnippet: slintSnippet,
+    });
+    console.log(
+        `[Backend] Sent updatePropertiesCallback to UI. Title: ${title}`,
+    );
+});
 
 listenTS("copyToClipboard", ({ result }) => {
     if (result) {
@@ -55,11 +110,10 @@ listenTS("copyToClipboard", ({ result }) => {
 });
 
 figma.on("selectionchange", () => {
+    console.log("[Backend] Selection changed in Figma, notifying UI."); // <-- Add this line
+
     if (figma.editorType === "figma" && figma.mode === "default") {
-        // Call async function and handle potential errors
-        updateUI().catch((err) =>
-            console.error("Error handling selection change:", err),
-        );
+        dispatchTS("selectionChangedInFigma", {});
     }
 });
 
@@ -108,12 +162,12 @@ const variableMonitoring: {
 const DEBOUNCE_INTERVAL = 3000; // 3 seconds
 
 listenTS("monitorVariableChanges", async () => {
-    console.log("[Backend] Received 'monitorVariableChanges' from UI."); // <-- Add Log
+    // console.log("[Backend] Received 'monitorVariableChanges' from UI."); // <-- Add Log
 
-    // Confirm setup to UI
-    console.log(
-        "[Backend] Posting 'variableMonitoringActive' confirmation to UI.",
-    ); // <-- Add Log
+    // // Confirm setup to UI
+    // console.log(
+    //     "[Backend] Posting 'variableMonitoringActive' confirmation to UI.",
+    // ); // <-- Add Log
     figma.ui.postMessage({
         type: "variableMonitoringActive", // Keep this confirmation
         timestamp: Date.now(),
@@ -125,7 +179,7 @@ listenTS("checkVariableChanges", async () => {
 
 // Replace your checkVariableChanges handler
 async function checkVariableChanges(isInitialRun = false) {
-    console.log("[Backend] Running checkVariableChanges..."); // Log run
+    // console.log("[Backend] Running checkVariableChanges..."); // Log run
     try {
         const collections =
             await figma.variables.getLocalVariableCollectionsAsync();
@@ -182,9 +236,7 @@ async function checkVariableChanges(isInitialRun = false) {
             variableMonitoring.lastSnapshot = currentSnapshot;
             variableMonitoring.initialized = true;
             variableMonitoring.lastChange = now; // Set initial timestamp
-            console.log(
-                "[Backend] Variable monitoring initialized/updated with detailed baseline snapshot.",
-            );
+
             // Optionally notify UI that it's initialized, maybe reset its state
             figma.ui.postMessage({
                 type: "snapshotInitialized",
@@ -197,9 +249,6 @@ async function checkVariableChanges(isInitialRun = false) {
         const hasChanged = variableMonitoring.lastSnapshot !== currentSnapshot;
 
         if (hasChanged) {
-            console.log(
-                "[Backend] Detailed snapshot comparison detected changes.",
-            ); // Log change detection
             variableMonitoring.lastSnapshot = currentSnapshot;
             variableMonitoring.lastChange = now;
 
@@ -212,8 +261,6 @@ async function checkVariableChanges(isInitialRun = false) {
                     ? "Snapshot updated (some variable errors)"
                     : "Snapshot updated",
             });
-        } else {
-            console.log("[Backend] No changes detected in detailed snapshot."); // Log no change
         }
     } catch (error) {
         console.error("[Backend] Error during checkVariableChanges:", error);
