@@ -25,6 +25,7 @@ backend-linuxkms-noseat = ["i-slint-backend-linuxkms"]
 backend-qt = ["i-slint-backend-qt/enable"]
 
 renderer-femtovg = ["i-slint-backend-winit?/renderer-femtovg", "i-slint-backend-linuxkms?/renderer-femtovg"]
+renderer-femtovg-wgpu = ["i-slint-backend-winit?/renderer-femtovg-wgpu"]
 renderer-skia = ["i-slint-backend-winit?/renderer-skia", "i-slint-backend-linuxkms?/renderer-skia"]
 renderer-skia-opengl = [
   "i-slint-backend-winit?/renderer-skia-opengl",

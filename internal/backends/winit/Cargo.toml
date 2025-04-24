@@ -41,6 +41,7 @@ x11 = [
   "softbuffer?/x11-dlopen",
 ]
 renderer-femtovg = ["dep:i-slint-renderer-femtovg", "dep:glutin", "dep:glutin-winit"]
+renderer-femtovg-wgpu = ["i-slint-renderer-femtovg/wgpu", "renderer-femtovg"]
 renderer-skia = ["i-slint-renderer-skia"]
 renderer-skia-opengl = ["renderer-skia", "i-slint-renderer-skia/opengl"]
 renderer-skia-vulkan = ["renderer-skia", "i-slint-renderer-skia/vulkan"]

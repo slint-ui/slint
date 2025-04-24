@@ -36,6 +36,7 @@ backend-winit-wayland = ["i-slint-backend-selector/backend-winit-wayland", "std"
 backend-linuxkms = ["i-slint-backend-selector/backend-linuxkms", "std"]
 backend-linuxkms-noseat = ["i-slint-backend-selector/backend-linuxkms-noseat", "std"]
 renderer-femtovg = ["i-slint-backend-selector/renderer-femtovg"]
+renderer-femtovg-wgpu = ["i-slint-backend-selector/renderer-femtovg-wgpu"]
 renderer-skia = ["i-slint-backend-selector/renderer-skia", "i-slint-renderer-skia", "raw-window-handle"]
 renderer-skia-opengl = ["i-slint-backend-selector/renderer-skia-opengl", "renderer-skia"]
 renderer-skia-vulkan = ["i-slint-backend-selector/renderer-skia-vulkan", "renderer-skia"]

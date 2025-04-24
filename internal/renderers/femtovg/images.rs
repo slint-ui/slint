@@ -29,6 +29,12 @@ impl OpenGLTextureImporter for femtovg::renderer::OpenGl {
     }
 }
 
+#[cfg(all(feature = "wgpu", not(target_family = "wasm")))]
+impl OpenGLTextureImporter for femtovg::renderer::WGPURenderer {
+    fn convert_texture(_opengl_texture: std::num::NonZero<u32>) -> Self::NativeTexture {
+        todo!()
+    }
+}
 pub struct Texture<R: femtovg::Renderer + OpenGLTextureImporter> {
     pub id: femtovg::ImageId,
     canvas: CanvasRc<R>,

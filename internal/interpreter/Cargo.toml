@@ -81,8 +81,10 @@ backend-linuxkms-noseat = ["i-slint-backend-selector/backend-linuxkms-noseat", "
 backend-default = ["i-slint-backend-selector/default", "dep:i-slint-backend-qt"]
 
 
-## Make the winit backend capable of rendering using the [femtovg](https://crates.io/crates/femtovg) crate.
+## Render using the [FemtoVG](https://crates.io/crates/femtovg) crate.
 renderer-femtovg = ["i-slint-backend-selector/renderer-femtovg", "std"]
+## Render using the [FemtoVG](https://crates.io/crates/femtovg) crate and [WGPU](https://crates.io/crates/wgpu).
+renderer-femtovg-wgpu = ["i-slint-backend-selector/renderer-femtovg-wgpu", "std"]
 
 ## Make the winit backend capable of rendering using [Skia](https://skia.org/).
 ## Must be used in combination with `backend-winit`, `backend-winit-x11`, or `backend-winit-wayland`.
