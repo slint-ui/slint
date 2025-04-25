@@ -238,6 +238,8 @@ fn default_config() -> cbindgen::Config {
         // Disable any wasm guarded code in C++, too - so that there are no gaps in enums.
         ("target_arch = wasm32".into(), "SLINT_TARGET_WASM".into()),
         ("target_os = android".into(), "__ANDROID__".into()),
+        // Disable Rust WGPU specific API feature
+        ("feature = unstable-wgpu-24".into(), "SLINT_DISABLED_CODE".into()),
     ]
     .iter()
     .cloned()

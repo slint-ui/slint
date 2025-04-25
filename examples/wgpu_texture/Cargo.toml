@@ -1,0 +1,23 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: MIT
+
+[package]
+name = "wgpu_texture"
+version = "1.11.0"
+authors = ["Slint Developers <info@slint.dev>"]
+edition = "2021"
+build = "build.rs"
+license = "MIT"
+publish = false
+
+[[bin]]
+path = "main.rs"
+name = "wgpu_texture"
+
+[dependencies]
+slint = { path = "../../api/rs/slint", features = ["unstable-wgpu-24"] }
+wgpu-24 = { workspace = true, features = ["wgsl"] }
+bytemuck = { workspace = true }
+
+[build-dependencies]
+slint-build = { path = "../../api/rs/build" }
