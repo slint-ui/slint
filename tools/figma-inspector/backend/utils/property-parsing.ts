@@ -343,7 +343,6 @@ async function getVariablePathString(
                 const globalName = formatStructName(collection.name);
                 const pathParts = extractHierarchy(variable.name);
                 const slintPath = pathParts.map(sanitizePropertyName).join(".");
-
                 let resultPath = "";
                 if (collection.modes.length > 1) {
                     resultPath = `${globalName}.current.${slintPath}`;
