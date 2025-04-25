@@ -14,7 +14,7 @@ import { JsonWidget } from "./widgets/json-widget.slint";
 import { MultiValueWidget } from "./widgets/multi-value-widget.slint";
 import { StringWidget } from "./widgets/string-widget.slint";
 import { BrushPropertyType, WindowGlobal, WindowManager } from "../windowglobal.slint";
-import { InlineColorWidget } from "widgets/inline-brush-widget.slint";
+import { InlineBrushWidget } from "widgets/inline-brush-widget.slint";
 
 export component PropertyValueWidget inherits VerticalLayout {
     in-out property <PropertyValue> property-value;
@@ -64,7 +64,7 @@ export component PropertyValueWidget inherits VerticalLayout {
         }
     }
 
-    if root.property-value.kind == PropertyValueKind.color || root.property-value.kind == PropertyValueKind.brush: InlineColorWidget {
+    if root.property-value.kind == PropertyValueKind.color || root.property-value.kind == PropertyValueKind.brush: InlineBrushWidget {
         enabled <=> root.enabled;
         property-name <=> root.property-name;
         property-value <=> root.property-value;
