@@ -27,7 +27,7 @@ export interface EventTS {
 
 export interface EventTS {
     monitorVariableChanges: { enabled: boolean };
-    checkVariableChanges: {};
+    checkVariableChanges: Record<string, never>;
     copyToClipboard: { result: boolean };
     exportToFiles: { exportAsSingleFile: boolean };
 }
