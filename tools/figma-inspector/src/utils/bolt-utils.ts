@@ -77,10 +77,8 @@ export const subscribeColorTheme = (
             .matchMedia("(prefers-color-scheme: dark)")
             .addEventListener("change", ({ matches }) => {
                 if (matches) {
-                    console.log("change to dark mode!");
                     callback("dark");
                 } else {
-                    console.log("change to light mode!");
                     callback("light");
                 }
             });

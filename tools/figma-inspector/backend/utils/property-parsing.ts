@@ -104,29 +104,15 @@ export async function getBorderRadius(
 ): Promise<string | null> {
     if ("boundVariables" in node) {
         const boundVars = (node as any).boundVariables;
-        console.log("[USE VARIABLES]: ", useVariables);
-        // --- Remove [0] when accessing cornerRadius ID ---
         const boundCornerRadiusId = boundVars?.cornerRadius?.id;
         if (boundCornerRadiusId && useVariables) {
             const path = await getVariablePathString(boundCornerRadiusId);
             if (path) {
-                console.log(
-                    `[getBorderRadius] Using variable path for cornerRadius: ${path}`,
-                );
                 return `${indentation}border-radius: ${path};`;
             }
-            console.warn(
-                `[getBorderRadius] Failed to get path for bound cornerRadius ID: ${boundCornerRadiusId}`,
-            );
         } else if (boundCornerRadiusId && !useVariables) {
-            // --- Add Log ---
-            console.log(
-                `[getBorderRadius] useVariables is false, skipping variable path lookup for uniform cornerRadius ID: ${boundCornerRadiusId}`,
-            );
-            // --- End Log ---
         }
 
-        // --- Remove [0] when accessing individual corner IDs ---
         const cornerBindings = [
             {
                 prop: "topLeftRadius",
@@ -151,9 +137,6 @@ export async function getBorderRadius(
         ] as const;
 
         const boundIndividualCorners = cornerBindings.filter((c) => c.id);
-        console.log(
-            `[getBorderRadius] BEFORE individual check. boundCount: ${boundIndividualCorners.length}, useVariables is currently: ${useVariables}`,
-        );
 
         if (boundIndividualCorners.length > 0 && useVariables) {
             // --- Check if all bound corners use the SAME variable ID ---
@@ -167,32 +150,16 @@ export async function getBorderRadius(
                     boundIndividualCorners[0].id,
                 );
                 if (path) {
-                    console.log(
-                        `[getBorderRadius] Using variable path for uniform border-radius (all corners same): ${path}`,
-                    );
                     return `${indentation}border-radius: ${path};`;
                 }
-                console.warn(
-                    `[getBorderRadius] Failed to get path for uniform bound corner ID: ${boundIndividualCorners[0].id}`,
-                );
-                // Fall through to numeric fallback if path fails
             } else {
-                // Different variables or not all corners bound -> use individual properties
                 const radiusStrings: string[] = [];
                 for (const corner of boundIndividualCorners) {
                     const path = await getVariablePathString(corner.id);
                     if (path) {
-                        console.log(
-                            `[getBorderRadius] Using variable path for ${corner.prop}: ${path}`,
-                        );
                         radiusStrings.push(
                             `${indentation}${corner.slint}: ${path};`,
                         );
-                    } else {
-                        console.warn(
-                            `[getBorderRadius] Failed to get path for bound ${corner.prop} ID: ${corner.id}`,
-                        );
-                        // Fall through to numeric fallback if path fails
                     }
                 }
                 if (radiusStrings.length > 0) {
@@ -329,14 +296,14 @@ export async function getBrush(fill: {
     switch (fill.type) {
         case "SOLID": {
             if (!fill.color) {
-                console.log("Missing fill colors for solid color value");
+                console.warn("Missing fill colors for solid color value");
                 return "";
             }
             return rgbToHex({ ...fill.color, a: fill.opacity });
         }
         case "GRADIENT_LINEAR": {
             if (!fill.gradientStops || !fill.gradientTransform) {
-                console.log("Missing gradient stops for linear gradient");
+                console.warn("Missing gradient stops for linear gradient");
                 return "";
             }
             return generateLinearGradient({
@@ -347,7 +314,6 @@ export async function getBrush(fill: {
         }
         case "GRADIENT_RADIAL": {
             if (!fill.gradientStops || !fill.gradientTransform) {
-                console.log("Missing gradient stops for radial gradient");
                 return "";
             }
             return generateRadialGradient({
@@ -357,7 +323,7 @@ export async function getBrush(fill: {
             });
         }
         default: {
-            console.log("Unknown fill type:", fill.type);
+            console.warn("Unknown fill type:", fill.type);
             return null;
         }
     }
@@ -366,23 +332,14 @@ export async function getBrush(fill: {
 async function getVariablePathString(
     variableId: string,
 ): Promise<string | null> {
-    console.log(
-        `[getVariablePathString] Fetching details for ID: ${variableId}`,
-    );
     try {
         const variable = await figma.variables.getVariableByIdAsync(variableId);
         if (variable) {
-            console.log(
-                `[getVariablePathString] Fetched variable: ${variable.name}`,
-            );
             const collection =
                 await figma.variables.getVariableCollectionByIdAsync(
                     variable.variableCollectionId,
                 );
             if (collection) {
-                console.log(
-                    `[getVariablePathString] Fetched collection: ${collection.name}`,
-                );
                 const globalName = formatStructName(collection.name); // e.g., "color"
                 const pathParts = extractHierarchy(variable.name); // e.g., ["Text", "Neutral", "Default"]
                 const slintPath = pathParts.map(sanitizePropertyName).join("."); // e.g., "text.neutral.default"
@@ -398,19 +355,12 @@ async function getVariablePathString(
                 }
                 // --- End adjustment ---
 
-                console.log(
-                    `[getVariablePathString] Constructed path: ${resultPath}`,
-                );
                 return resultPath;
             } else {
                 console.warn(
                     `[getVariablePathString] Collection not found for variable ID: ${variableId}`,
                 );
             }
-        } else {
-            console.warn(
-                `[getVariablePathString] Variable not found for ID: ${variableId}`,
-            );
         }
     } catch (err) {
         console.error(
@@ -418,7 +368,6 @@ async function getVariablePathString(
             err,
         );
     }
-    console.log(`[getVariablePathString] Returning null for ID: ${variableId}`);
     return null;
 }
 
@@ -513,16 +462,7 @@ export async function generateRectangleSnippet(
     useVariables: boolean,
 ): Promise<string> {
     const properties: string[] = [];
-    if ("boundVariables" in sceneNode) {
-        console.log(
-            "[generateRectangleSnippet] Inspecting sceneNode.boundVariables:",
-            JSON.stringify((sceneNode as any).boundVariables, null, 2),
-        );
-    } else {
-        console.log(
-            "[generateRectangleSnippet] sceneNode has no boundVariables property.",
-        );
-    }
+
     for (const property of rectangleProperties) {
         // --- Add try...catch around each property's logic ---
         try {
@@ -613,13 +553,6 @@ export async function generateRectangleSnippet(
                     ); // Use await
                     if (borderRadiusProp !== null) {
                         properties.push(borderRadiusProp);
-                        console.log(
-                            `[generateRectangleSnippet] Added border-radius property: ${borderRadiusProp.includes("\n") ? "\n" + borderRadiusProp : borderRadiusProp}`,
-                        );
-                    } else {
-                        console.log(
-                            "[generateRectangleSnippet] No border-radius property added.",
-                        );
                     }
                     break; // --- End border-radius case ---
 
@@ -656,16 +589,6 @@ export async function generateTextSnippet(
     useVariables: boolean,
 ): Promise<string> {
     const properties: string[] = [];
-    if ("boundVariables" in sceneNode) {
-        console.log(
-            "[generateTextSnippet] Inspecting sceneNode.boundVariables:",
-            JSON.stringify((sceneNode as any).boundVariables, null, 2),
-        );
-    } else {
-        console.log(
-            "[generateTextSnippet] sceneNode has no boundVariables property.",
-        );
-    }
 
     for (const property of textProperties) {
         try {
@@ -677,9 +600,6 @@ export async function generateTextSnippet(
                     let xValue: string | null = null;
                     if (boundXVarId && useVariables) {
                         xValue = await getVariablePathString(boundXVarId);
-                        console.log(
-                            `[generateTextSnippet] x: Using variable path: ${xValue}`,
-                        );
                     }
                     if (
                         !xValue &&
@@ -690,9 +610,6 @@ export async function generateTextSnippet(
                         if (x !== null) {
                             // roundNumber returns null for 0
                             xValue = `${x}px`;
-                            console.log(
-                                `[generateTextSnippet] x: Using numeric value: ${xValue}`,
-                            );
                         }
                     }
                     if (xValue) {
@@ -706,9 +623,6 @@ export async function generateTextSnippet(
                     let yValue: string | null = null;
                     if (boundYVarId && useVariables) {
                         yValue = await getVariablePathString(boundYVarId);
-                        console.log(
-                            `[generateTextSnippet] y: Using variable path: ${yValue}`,
-                        );
                     }
                     if (
                         !yValue &&
@@ -719,9 +633,6 @@ export async function generateTextSnippet(
                         if (y !== null) {
                             // roundNumber returns null for 0
                             yValue = `${y}px`;
-                            console.log(
-                                `[generateTextSnippet] y: Using numeric value: ${yValue}`,
-                            );
                         }
                     }
                     if (yValue) {
@@ -793,15 +704,9 @@ export async function generateTextSnippet(
                     // --- Access ID via array index [0] ---
                     const boundSizeVarId = (sceneNode as any).boundVariables
                         ?.fontSize?.[0]?.id;
-                    console.log(
-                        `[generateTextSnippet] font-size: Found bound variable ID? ${boundSizeVarId ?? "No"}`,
-                    );
                     let sizeValue: string | null = null;
                     if (boundSizeVarId && useVariables) {
                         sizeValue = await getVariablePathString(boundSizeVarId);
-                        console.log(
-                            `[generateTextSnippet] font-size: getVariablePathString returned: ${sizeValue ?? "null"}`,
-                        );
                     }
                     if (
                         !sizeValue &&
@@ -811,26 +716,17 @@ export async function generateTextSnippet(
                         const fontSize = roundNumber(sceneNode.fontSize);
                         if (fontSize) {
                             sizeValue = `${fontSize}px`;
-                            console.log(
-                                `[generateTextSnippet] font-size: Using fallback value: ${sizeValue}`,
-                            );
                         }
                     }
                     if (sizeValue) {
                         properties.push(
                             `${indentation}font-size: ${sizeValue};`,
                         );
-                        console.log(
-                            `[generateTextSnippet] font-size: Added property: ${sizeValue}`,
-                        );
                     }
                     break;
                 case "font-weight":
                     const boundWeightVarId = (sceneNode as any).boundVariables
                         ?.fontWeight?.[0]?.id; // Still use [0] based on Text node structure
-                    console.log(
-                        `[generateTextSnippet] font-weight: Found bound variable ID? ${boundWeightVarId ?? "No"}`,
-                    );
                     let weightValue: string | number | null = null;
                     let isVariable = false; // Flag to track if value is from a variable
 
@@ -839,27 +735,17 @@ export async function generateTextSnippet(
                             await getVariablePathString(boundWeightVarId);
                         if (path) {
                             weightValue = path;
-                            isVariable = true; // Set flag
-                            console.log(
-                                `[generateTextSnippet] font-weight: getVariablePathString returned: ${weightValue}`,
-                            );
-                        } else {
-                            console.warn(
-                                `[generateTextSnippet] font-weight: getVariablePathString returned null for ID ${boundWeightVarId}`,
-                            );
+                            isVariable = true;
                         }
                     }
 
                     // Fallback if not bound or variable path failed
                     if (
-                        weightValue === null && // Use strict null check
+                        weightValue === null &&
                         "fontWeight" in sceneNode &&
                         typeof sceneNode.fontWeight === "number"
                     ) {
                         weightValue = sceneNode.fontWeight;
-                        console.log(
-                            `[generateTextSnippet] font-weight: Using fallback value: ${weightValue}`,
-                        );
                     }
 
                     if (weightValue !== null) {
@@ -871,9 +757,6 @@ export async function generateTextSnippet(
 
                         properties.push(
                             `${indentation}font-weight: ${finalWeightValue};`,
-                        );
-                        console.log(
-                            `[generateTextSnippet] font-weight: Added property: ${finalWeightValue}`,
                         );
                     }
                     break;
@@ -904,18 +787,8 @@ export async function generateTextSnippet(
                             properties.push(
                                 `${indentation}horizontal-alignment: ${slintValue}; ${comment}`,
                             );
-                            console.log(
-                                `[generateTextSnippet] horizontal-alignment: Added property: ${slintValue}`,
-                            );
                         } else {
-                            console.log(
-                                `[generateTextSnippet] horizontal-alignment: Skipping unknown Figma value: ${sceneNode.textAlignHorizontal}`,
-                            );
                         }
-                    } else {
-                        console.log(
-                            `[generateTextSnippet] horizontal-alignment: Property 'textAlignHorizontal' not found or not a string.`,
-                        );
                     }
                     break;
             }
@@ -929,9 +802,5 @@ export async function generateTextSnippet(
             );
         }
     }
-
-    console.log(
-        `[generateTextSnippet] Finished processing properties for node. Snippet content:\nText {\n${properties.join("\n")}\n}`,
-    );
     return `Text {\n${properties.join("\n")}\n}`;
 }
