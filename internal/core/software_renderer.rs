@@ -90,7 +90,7 @@ impl RenderingRotation {
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 struct RotationInfo {
     orientation: RenderingRotation,
     screen_size: PhysicalSize,
@@ -263,6 +263,20 @@ impl PhysicalRegion {
                 }
             }
         })
+    }
+
+    fn intersection(&self, clip: &PhysicalRect) -> PhysicalRegion {
+        let mut res = Self::default();
+        let clip = clip.to_box2d();
+        let mut count = 0;
+        for i in 0..self.count {
+            if let Some(r) = self.rectangles[i].intersection(&clip) {
+                res.rectangles[count] = r;
+                count += 1;
+            }
+        }
+        res.count = count;
+        res
     }
 }
 
@@ -1109,10 +1123,14 @@ fn prepare_scene(
 }
 
 trait ProcessScene {
-    fn process_texture(&mut self, geometry: PhysicalRect, texture: SceneTexture<'static>);
+    fn process_scene_texture(&mut self, geometry: PhysicalRect, texture: SceneTexture<'static>);
+    fn process_target_texture(
+        &mut self,
+        texture: &target_pixel_buffer::Texture,
+        clip: PhysicalRect,
+    );
     fn process_rectangle(&mut self, geometry: PhysicalRect, color: PremultipliedRgbaColor);
     fn process_rounded_rectangle(&mut self, geometry: PhysicalRect, data: RoundedRectangle);
-    fn process_shared_image_buffer(&mut self, geometry: PhysicalRect, buffer: SharedBufferCommand);
     fn process_gradient(&mut self, geometry: PhysicalRect, gradient: GradientCommand);
 }
 
@@ -1178,46 +1196,15 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> RenderToBuffer<'_, B> {
     }
 
     fn process_texture_impl(&mut self, geometry: PhysicalRect, texture: SceneTexture<'_>) {
-        self.foreach_region(&geometry, |buffer, rect, extra_left_clip, extra_right_clip| {
-            let tex_src_off_x = (texture.extra.off_x + Fixed::from_integer(extra_left_clip as u16))
-                * Fixed::from_fixed(texture.extra.dx);
-            let tex_src_off_y = (texture.extra.off_y
-                + Fixed::from_integer((rect.origin.y - geometry.origin.y) as u16))
-                * Fixed::from_fixed(texture.extra.dy);
-            if !buffer.draw_texture(
-                rect.origin.x,
-                rect.origin.y,
-                rect.size.width,
-                rect.size.height,
-                target_pixel_buffer::Texture {
-                    bytes: texture.data,
-                    pixel_format: texture.format,
-                    pixel_stride: texture.pixel_stride,
-                    width: texture.source_size().width as u16,
-                    height: texture.source_size().height as u16,
-                    delta_x: texture.extra.dx.0,
-                    delta_y: texture.extra.dy.0,
-                    source_offset_x: tex_src_off_x.0,
-                    source_offset_y: tex_src_off_y.0,
-                },
-                texture.extra.colorize.as_argb_encoded(),
-                texture.extra.alpha,
-                texture.extra.rotation,
-                CompositionMode::default(),
-            ) {
-                let begin = rect.min_x();
-                let end = rect.max_x();
-                for l in rect.y_range() {
-                    draw_functions::draw_texture_line(
-                        &geometry,
-                        PhysicalLength::new(l),
-                        &texture,
-                        &mut buffer.line_slice(l as usize)[begin as usize..end as usize],
-                        extra_left_clip,
-                        extra_right_clip,
-                    );
-                }
-            }
+        self.foreach_ranges(&geometry, |line, buffer, extra_left_clip, extra_right_clip| {
+            draw_functions::draw_texture_line(
+                &geometry,
+                PhysicalLength::new(line),
+                &texture,
+                buffer,
+                extra_left_clip,
+                extra_right_clip,
+            );
         });
     }
 
@@ -1265,12 +1252,23 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> RenderToBuffer<'_, B> {
 impl<T: TargetPixel, B: target_pixel_buffer::TargetPixelBuffer<TargetPixel = T>> ProcessScene
     for RenderToBuffer<'_, B>
 {
-    fn process_texture(&mut self, geometry: PhysicalRect, texture: SceneTexture<'static>) {
-        self.process_texture_impl(geometry, texture)
+    fn process_scene_texture(&mut self, geometry: PhysicalRect, texture: SceneTexture<'static>) {
+        self.process_texture_impl(geometry, texture);
     }
 
-    fn process_shared_image_buffer(&mut self, geometry: PhysicalRect, buffer: SharedBufferCommand) {
-        let texture = buffer.as_texture();
+    fn process_target_texture(
+        &mut self,
+        texture: &target_pixel_buffer::Texture,
+        clip: PhysicalRect,
+    ) {
+        if self.buffer.draw_texture(texture, &self.dirty_region.intersection(&clip)) {
+            return;
+        }
+
+        let Some((texture, geometry)) = SceneTexture::from_target_texture(texture, &clip) else {
+            return;
+        };
+
         self.process_texture_impl(geometry, texture);
     }
 
@@ -1311,31 +1309,57 @@ struct PrepareScene {
 }
 
 impl ProcessScene for PrepareScene {
-    fn process_texture(&mut self, geometry: PhysicalRect, texture: SceneTexture<'static>) {
-        let size = geometry.size;
-        if !size.is_empty() {
-            let texture_index = self.vectors.textures.len() as u16;
-            self.vectors.textures.push(texture);
-            self.items.push(SceneItem {
-                pos: geometry.origin,
-                size,
-                z: self.items.len() as u16,
-                command: SceneCommand::Texture { texture_index },
-            });
-        }
+    fn process_scene_texture(&mut self, geometry: PhysicalRect, texture: SceneTexture<'static>) {
+        let texture_index = self.vectors.textures.len() as u16;
+        self.vectors.textures.push(texture);
+        self.items.push(SceneItem {
+            pos: geometry.origin,
+            size: geometry.size,
+            z: self.items.len() as u16,
+            command: SceneCommand::Texture { texture_index },
+        });
     }
 
-    fn process_shared_image_buffer(&mut self, geometry: PhysicalRect, buffer: SharedBufferCommand) {
-        let size = geometry.size;
-        if !size.is_empty() {
-            let shared_buffer_index = self.vectors.shared_buffers.len() as u16;
-            self.vectors.shared_buffers.push(buffer);
-            self.items.push(SceneItem {
-                pos: geometry.origin,
-                size,
-                z: self.items.len() as u16,
-                command: SceneCommand::SharedBuffer { shared_buffer_index },
-            });
+    fn process_target_texture(
+        &mut self,
+        texture: &target_pixel_buffer::Texture,
+        clip: PhysicalRect,
+    ) {
+        let Some((extra, geometry)) = SceneTextureExtra::from_target_texture(texture, &clip) else {
+            return;
+        };
+        match &texture.data {
+            target_pixel_buffer::TextureDataContainer::Static(texture_data) => {
+                let texture_index = self.vectors.textures.len() as u16;
+                let pixel_stride =
+                    (texture_data.byte_stride / texture_data.pixel_format.bpp()) as u16;
+                self.vectors.textures.push(SceneTexture {
+                    data: texture_data.data,
+                    format: texture_data.pixel_format,
+                    pixel_stride,
+                    extra,
+                });
+                self.items.push(SceneItem {
+                    pos: geometry.origin,
+                    size: geometry.size,
+                    z: self.items.len() as u16,
+                    command: SceneCommand::Texture { texture_index },
+                });
+            }
+            target_pixel_buffer::TextureDataContainer::Shared { buffer, source_rect } => {
+                let shared_buffer_index = self.vectors.shared_buffers.len() as u16;
+                self.vectors.shared_buffers.push(SharedBufferCommand {
+                    buffer: buffer.clone(),
+                    source_rect: *source_rect,
+                    extra,
+                });
+                self.items.push(SceneItem {
+                    pos: geometry.origin,
+                    size: geometry.size,
+                    z: self.items.len() as u16,
+                    command: SceneCommand::SharedBuffer { shared_buffer_index },
+                });
+            }
         }
     }
 
@@ -1438,9 +1462,8 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
             (self.current_state.clip.translate(self.current_state.offset.to_vector()).cast()
                 * self.scale_factor)
                 .round()
-                .cast();
-
-        let tiled_off = tiled.unwrap_or_default();
+                .cast()
+                .transformed(self.rotation);
 
         match image_inner {
             ImageInner::None => (),
@@ -1456,45 +1479,37 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                 let source_to_target_x = source_to_target_x / adjust_x;
                 let source_to_target_y = source_to_target_y / adjust_y;
                 let source_rect =
-                    source_rect.cast::<f32>().scale(adjust_x, adjust_y).round().cast();
-                let Some(dx) = Fixed::from_f32(1. / source_to_target_x) else { return };
-                let Some(dy) = Fixed::from_f32(1. / source_to_target_y) else { return };
+                    source_rect.cast::<f32>().scale(adjust_x, adjust_y).round().to_box2d().cast();
 
                 for t in textures.as_slice() {
+                    let t_rect = t.rect.to_box2d();
                     // That's the source rect in the whole image coordinate
-                    let Some(src_rect) = t.rect.intersection(&source_rect) else { continue };
+                    let Some(src_rect) = t_rect.intersection(&source_rect) else { continue };
 
                     let target_rect = if tiled.is_some() {
-                        // FIXME! there could be gaps between the tiles
                         euclid::Rect::new(offset, fit_size).round().cast::<i32>()
                     } else {
                         // map t.rect to to the target
                         euclid::Rect::<f32, PhysicalPx>::from_untyped(
-                            &src_rect.translate(-source_rect.origin.to_vector()).cast(),
+                            &src_rect.to_rect().translate(-source_rect.min.to_vector()).cast(),
                         )
                         .scale(source_to_target_x, source_to_target_y)
                         .translate(offset.to_vector())
                         .round()
                         .cast::<i32>()
                     };
+                    let target_rect = target_rect.transformed(self.rotation).round();
 
                     let Some(clipped_target) = physical_clip.intersection(&target_rect) else {
                         continue;
                     };
 
-                    let off_x = Fixed::from_integer(tiled_off.x as i32)
-                        + (Fixed::<i32, 8>::from_fixed(dx))
-                            * (clipped_target.origin.x - target_rect.origin.x) as i32;
-                    let off_y = Fixed::from_integer(tiled_off.y as i32)
-                        + (Fixed::<i32, 8>::from_fixed(dy))
-                            * (clipped_target.origin.y - target_rect.origin.y) as i32;
-
-                    let pixel_stride = t.rect.width() as u16;
+                    let pixel_stride = t.rect.width() as usize;
                     let core::ops::Range { start, end } = compute_range_in_buffer(
                         &PhysicalRect::from_untyped(
-                            &src_rect.translate(-t.rect.origin.to_vector()).cast(),
+                            &src_rect.to_rect().translate(-t.rect.origin.to_vector()).cast(),
                         ),
-                        pixel_stride as usize,
+                        pixel_stride,
                     );
                     let bpp = t.format.bpp();
 
@@ -1506,54 +1521,64 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                         global_alpha_u16
                     } as u8;
 
-                    self.processor.process_texture(
-                        clipped_target.cast().transformed(self.rotation),
-                        SceneTexture {
-                            data: &data.as_slice()[t.index..][start * bpp..end * bpp],
-                            pixel_stride,
-                            format: t.format,
-                            extra: SceneTextureExtra {
-                                colorize: color,
-                                alpha,
-                                rotation: self.rotation.orientation,
-                                dx,
-                                dy,
-                                off_x: Fixed::try_from_fixed(off_x).unwrap(),
-                                off_y: Fixed::try_from_fixed(off_y).unwrap(),
-                            },
-                        },
-                    );
+                    let tiling = tiled.map(|tile_o| {
+                        let src_o = src_rect.min - source_rect.min;
+                        let gap = (src_o) + (source_rect.max - src_rect.max);
+                        target_pixel_buffer::TilingInfo {
+                            offset_x: ((src_o.x as f32 - tile_o.x as f32) * source_to_target_x)
+                                .round() as _,
+                            offset_y: ((src_o.y as f32 - tile_o.y as f32) * source_to_target_y)
+                                .round() as _,
+                            dst_tile_width: (src_rect.width() as f32 * source_to_target_x).round()
+                                as _,
+                            dst_tile_height: (src_rect.height() as f32 * source_to_target_y).round()
+                                as _,
+                            gap_x: (gap.x as f32 * source_to_target_x).round() as _,
+                            gap_y: (gap.y as f32 * source_to_target_y).round() as _,
+                        }
+                    });
+
+                    let t = target_pixel_buffer::Texture {
+                        data: target_pixel_buffer::TextureDataContainer::Static(
+                            target_pixel_buffer::TextureData::new(
+                                &data.as_slice()[t.index..][start * bpp..end * bpp],
+                                t.format,
+                                pixel_stride * bpp,
+                                src_rect.size().cast(),
+                            ),
+                        ),
+                        colorize: (colorize.alpha() > 0).then_some(colorize),
+                        alpha,
+                        dst_x: target_rect.origin.x as _,
+                        dst_y: target_rect.origin.y as _,
+                        dst_width: target_rect.size.width as _,
+                        dst_height: target_rect.size.height as _,
+                        rotation: self.rotation.orientation,
+                        tiling,
+                    };
+
+                    self.processor.process_target_texture(&t, clipped_target.cast());
                 }
             }
 
             ImageInner::NineSlice(..) => unreachable!(),
             _ => {
-                let target_rect = euclid::Rect::new(offset, fit_size).round().cast();
+                let target_rect =
+                    euclid::Rect::new(offset, fit_size).round().cast().transformed(self.rotation);
                 let Some(clipped_target) = physical_clip.intersection(&target_rect) else {
                     return;
                 };
+
                 let orig = image_inner.size().cast::<f32>();
                 let svg_target_size = if tiled.is_some() {
                     euclid::size2(orig.width * source_to_target_x, orig.height * source_to_target_y)
+                        .round()
                         .cast()
                 } else {
                     target_rect.size.cast()
                 };
                 if let Some(buffer) = image_inner.render_to_buffer(Some(svg_target_size)) {
                     let buf_size = buffer.size().cast::<f32>();
-                    let dx =
-                        Fixed::from_f32(buf_size.width / orig.width / source_to_target_x).unwrap();
-                    let dy = Fixed::from_f32(buf_size.height / orig.height / source_to_target_y)
-                        .unwrap();
-
-                    let off_x = (Fixed::<i32, 8>::from_fixed(dx))
-                        * (clipped_target.origin.x - target_rect.origin.x) as i32
-                        + Fixed::from_f32(tiled_off.x as f32 * buf_size.width / orig.width)
-                            .unwrap();
-                    let off_y = (Fixed::<i32, 8>::from_fixed(dy))
-                        * (clipped_target.origin.y - target_rect.origin.y) as i32
-                        + Fixed::from_f32(tiled_off.y as f32 * buf_size.height / orig.height)
-                            .unwrap();
 
                     let alpha = if colorize.alpha() > 0 {
                         colorize.alpha() as u16 * global_alpha_u16 / 255
@@ -1561,9 +1586,17 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                         global_alpha_u16
                     } as u8;
 
-                    self.processor.process_shared_image_buffer(
-                        clipped_target.cast().transformed(self.rotation),
-                        SharedBufferCommand {
+                    let tiling = tiled.map(|tile_o| target_pixel_buffer::TilingInfo {
+                        offset_x: (tile_o.x as f32 * -source_to_target_x).round() as _,
+                        offset_y: (tile_o.y as f32 * -source_to_target_y).round() as _,
+                        dst_tile_width: (orig.width * source_to_target_x).round() as _,
+                        dst_tile_height: (orig.height * source_to_target_y).round() as _,
+                        gap_x: 0,
+                        gap_y: 0,
+                    });
+
+                    let t = target_pixel_buffer::Texture {
+                        data: target_pixel_buffer::TextureDataContainer::Shared {
                             buffer: SharedBufferData::SharedImage(buffer),
                             source_rect: PhysicalRect::from_untyped(
                                 &source_rect
@@ -1575,18 +1608,18 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                                     .round()
                                     .cast(),
                             ),
-
-                            extra: SceneTextureExtra {
-                                colorize,
-                                alpha,
-                                rotation: self.rotation.orientation,
-                                dx,
-                                dy,
-                                off_x: Fixed::try_from_fixed(off_x).unwrap(),
-                                off_y: Fixed::try_from_fixed(off_y).unwrap(),
-                            },
                         },
-                    );
+                        colorize: (colorize.alpha() > 0).then_some(colorize),
+                        alpha,
+                        dst_x: target_rect.origin.x as _,
+                        dst_y: target_rect.origin.y as _,
+                        dst_width: target_rect.size.width as _,
+                        dst_height: target_rect.size.height as _,
+                        rotation: self.rotation.orientation,
+                        tiling,
+                    };
+
+                    self.processor.process_target_texture(&t, clipped_target.cast());
                 } else {
                     unimplemented!("The image cannot be rendered")
                 }
@@ -1651,42 +1684,28 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                         let Some(clipped_target) = physical_clip.intersection(&target_rect) else {
                             continue;
                         };
-                        let geometry = clipped_target.translate(offset).round();
-                        let origin = (geometry.origin - offset.round()).round().cast::<i16>();
-                        let off_x = origin.x - target_rect.origin.x as i16;
-                        let off_y = origin.y - target_rect.origin.y as i16;
-                        let pixel_stride = glyph.pixel_stride;
-                        let mut geometry = geometry.cast();
-                        if geometry.size.width > glyph.width.get() - off_x {
-                            geometry.size.width = glyph.width.get() - off_x
-                        }
-                        if geometry.size.height > glyph.height.get() - off_y {
-                            geometry.size.height = glyph.height.get() - off_y
-                        }
-                        let source_size = geometry.size;
-                        if source_size.is_empty() {
-                            continue;
-                        }
 
-                        match &glyph.alpha_map {
+                        let data = match &glyph.alpha_map {
                             fonts::GlyphAlphaMap::Static(data) => {
-                                let texture = if !glyph.sdf {
-                                    SceneTexture {
-                                        data,
-                                        pixel_stride,
-                                        format: TexturePixelFormat::AlphaMap,
-                                        extra: SceneTextureExtra {
-                                            colorize: color,
-                                            // color already is mixed with global alpha
-                                            alpha: color.alpha(),
-                                            rotation: self.rotation.orientation,
-                                            dx: Fixed::from_integer(1),
-                                            dy: Fixed::from_integer(1),
-                                            off_x: Fixed::from_integer(off_x as u16),
-                                            off_y: Fixed::from_integer(off_y as u16),
-                                        },
+                                if glyph.sdf {
+                                    let geometry = clipped_target.translate(offset).round();
+                                    let origin =
+                                        (geometry.origin - offset.round()).round().cast::<i16>();
+                                    let off_x = origin.x - target_rect.origin.x as i16;
+                                    let off_y = origin.y - target_rect.origin.y as i16;
+                                    let pixel_stride = glyph.pixel_stride;
+                                    let mut geometry = geometry.cast();
+                                    if geometry.size.width > glyph.width.get() - off_x {
+                                        geometry.size.width = glyph.width.get() - off_x
                                     }
-                                } else {
+                                    if geometry.size.height > glyph.height.get() - off_y {
+                                        geometry.size.height = glyph.height.get() - off_y
+                                    }
+                                    let source_size = geometry.size;
+                                    if source_size.is_empty() {
+                                        continue;
+                                    }
+
                                     let delta32 = Fixed::<i32, 8>::from_fixed(scale_delta);
                                     let normalize = |x: Fixed<i32, 8>| {
                                         if x < Fixed::from_integer(0) {
@@ -1702,7 +1721,7 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                                     let fract_y =
                                         normalize(glyph.y - Fixed::from_integer(gl_y.get() as _));
                                     let off_y = delta32 * off_y as i32 + fract_y;
-                                    SceneTexture {
+                                    let texture = SceneTexture {
                                         data,
                                         pixel_stride,
                                         format: TexturePixelFormat::SignedDistanceField,
@@ -1716,35 +1735,52 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                                             off_x: Fixed::try_from_fixed(off_x).unwrap(),
                                             off_y: Fixed::try_from_fixed(off_y).unwrap(),
                                         },
-                                    }
+                                    };
+                                    self.processor.process_scene_texture(
+                                        geometry.transformed(self.rotation),
+                                        texture,
+                                    );
+                                    continue;
                                 };
-                                self.processor
-                                    .process_texture(geometry.transformed(self.rotation), texture);
+
+                                target_pixel_buffer::TextureDataContainer::Static(
+                                    target_pixel_buffer::TextureData::new(
+                                        data,
+                                        TexturePixelFormat::AlphaMap,
+                                        glyph.pixel_stride as usize,
+                                        euclid::size2(glyph.width.get(), glyph.height.get()).cast(),
+                                    ),
+                                )
                             }
                             fonts::GlyphAlphaMap::Shared(data) => {
                                 let source_rect = euclid::rect(0, 0, glyph.width.0, glyph.height.0);
-                                self.processor.process_shared_image_buffer(
-                                    geometry.transformed(self.rotation),
-                                    SharedBufferCommand {
-                                        buffer: SharedBufferData::AlphaMap {
-                                            data: data.clone(),
-                                            width: pixel_stride,
-                                        },
-                                        source_rect,
-                                        extra: SceneTextureExtra {
-                                            colorize: color,
-                                            // color already is mixed with global alpha
-                                            alpha: color.alpha(),
-                                            rotation: self.rotation.orientation,
-                                            dx: Fixed::from_integer(1),
-                                            dy: Fixed::from_integer(1),
-                                            off_x: Fixed::from_integer(off_x as u16),
-                                            off_y: Fixed::from_integer(off_y as u16),
-                                        },
+                                target_pixel_buffer::TextureDataContainer::Shared {
+                                    buffer: SharedBufferData::AlphaMap {
+                                        data: data.clone(),
+                                        width: glyph.pixel_stride,
                                     },
-                                );
+                                    source_rect,
+                                }
                             }
-                        }
+                        };
+                        let clipped_target =
+                            clipped_target.translate(offset).round().transformed(self.rotation);
+                        let target_rect =
+                            target_rect.translate(offset).round().transformed(self.rotation);
+                        let t = target_pixel_buffer::Texture {
+                            data,
+                            colorize: Some(color),
+                            // color already is mixed with global alpha
+                            alpha: color.alpha(),
+                            dst_x: target_rect.origin.x as _,
+                            dst_y: target_rect.origin.y as _,
+                            dst_width: target_rect.size.width as _,
+                            dst_height: target_rect.size.height as _,
+                            rotation: self.rotation.orientation,
+                            tiling: None,
+                        };
+
+                        self.processor.process_target_texture(&t, clipped_target.cast());
                     }
                     core::ops::ControlFlow::Continue(())
                 },
@@ -2372,22 +2408,22 @@ impl<T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'_, T
                     )
                     .round_in();
 
-                self.processor.process_shared_image_buffer(
-                    geometry.cast().transformed(self.rotation),
-                    SharedBufferCommand {
+                let t = target_pixel_buffer::Texture {
+                    data: target_pixel_buffer::TextureDataContainer::Shared {
                         buffer: SharedBufferData::SharedImage(img),
                         source_rect,
-                        extra: SceneTextureExtra {
-                            colorize: Default::default(),
-                            alpha: (self.current_state.alpha * 255.) as u8,
-                            rotation: self.rotation.orientation,
-                            dx: Fixed::from_integer(1),
-                            dy: Fixed::from_integer(1),
-                            off_x: Fixed::from_integer(clipped_src.min_x() as _),
-                            off_y: Fixed::from_integer(clipped_src.min_y() as _),
-                        },
                     },
-                );
+                    colorize: None,
+                    alpha: (self.current_state.alpha * 255.) as u8,
+                    dst_x: self.current_state.offset.x as _,
+                    dst_y: self.current_state.offset.y as _,
+                    dst_width: width as _,
+                    dst_height: height as _,
+                    rotation: self.rotation.orientation,
+                    tiling: None,
+                };
+                self.processor
+                    .process_target_texture(&t, geometry.cast().transformed(self.rotation));
             }
         });
     }
