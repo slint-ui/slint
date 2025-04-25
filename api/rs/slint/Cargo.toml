@@ -141,6 +141,8 @@ renderer-winit-software = ["renderer-software"]
 
 ## Render using the [FemtoVG](https://crates.io/crates/femtovg) crate.
 renderer-femtovg = ["i-slint-backend-selector/renderer-femtovg", "dep:i-slint-renderer-femtovg", "std"]
+## Render using the [FemtoVG](https://crates.io/crates/femtovg) crate and [WGPU](https://crates.io/crates/wgpu).
+renderer-femtovg-wgpu = ["i-slint-backend-selector/renderer-femtovg-wgpu", "dep:i-slint-renderer-femtovg", "std"]
 
 ## Render using [Skia](https://skia.org/).
 renderer-skia = ["i-slint-backend-selector/renderer-skia", "std"]

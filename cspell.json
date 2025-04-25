@@ -190,7 +190,9 @@
         "Toradex",
         "Vivante",
         "espflash",
-        "pico"
+        "pico",
+        "wgpu",
+        "WGPU"
     ],
     "ignorePaths": [
         "api/cpp/docs/conf.py",

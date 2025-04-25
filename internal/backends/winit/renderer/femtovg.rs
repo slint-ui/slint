@@ -84,3 +84,66 @@ impl super::WinitCompatibleRenderer for GlutinFemtoVGRenderer {
         self.suspended.get()
     }
 }
+
+#[cfg(all(feature = "renderer-femtovg-wgpu", not(target_family = "wasm")))]
+pub struct WGPUFemtoVGRenderer {
+    renderer: FemtoVGRenderer<i_slint_renderer_femtovg::wgpu::WGPUBackend>,
+    suspended: Cell<bool>,
+}
+
+#[cfg(all(feature = "renderer-femtovg-wgpu", not(target_family = "wasm")))]
+impl WGPUFemtoVGRenderer {
+    pub fn new_suspended() -> Box<dyn WinitCompatibleRenderer> {
+        Box::new(Self {
+            renderer: FemtoVGRenderer::<i_slint_renderer_femtovg::wgpu::WGPUBackend>::new_suspended(
+            ),
+            suspended: Cell::new(true),
+        })
+    }
+}
+
+#[cfg(all(feature = "renderer-femtovg-wgpu", not(target_family = "wasm")))]
+impl WinitCompatibleRenderer for WGPUFemtoVGRenderer {
+    fn render(&self, _window: &i_slint_core::api::Window) -> Result<(), PlatformError> {
+        self.renderer.render()
+    }
+
+    fn as_core_renderer(&self) -> &dyn i_slint_core::renderer::Renderer {
+        &self.renderer
+    }
+
+    fn suspend(&self) -> Result<(), PlatformError> {
+        self.renderer.clear_graphics_context()
+    }
+
+    fn resume(
+        &self,
+        event_loop: &dyn crate::event_loop::EventLoopInterface,
+        window_attributes: winit::window::WindowAttributes,
+        requested_graphics_api: Option<RequestedGraphicsAPI>,
+    ) -> Result<Arc<winit::window::Window>, PlatformError> {
+        let winit_window =
+            Arc::new(event_loop.create_window(window_attributes).map_err(|winit_os_error| {
+                PlatformError::from(format!(
+                    "Error creating native window for Skia rendering: {}",
+                    winit_os_error
+                ))
+            })?);
+
+        let size = winit_window.inner_size();
+
+        self.renderer.set_window_handle(
+            Box::new(winit_window.clone()),
+            crate::winitwindowadapter::physical_size_to_slint(&size),
+            requested_graphics_api,
+        )?;
+
+        self.suspended.set(false);
+
+        Ok(winit_window)
+    }
+
+    fn is_suspended(&self) -> bool {
+        self.suspended.get()
+    }
+}

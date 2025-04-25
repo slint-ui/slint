@@ -37,6 +37,8 @@ mod fonts;
 mod images;
 mod itemrenderer;
 pub mod opengl;
+#[cfg(feature = "wgpu-24")]
+pub mod wgpu;
 
 pub trait WindowSurface<R: femtovg::Renderer> {
     fn render_surface(&self) -> &R::Surface;
@@ -45,6 +47,7 @@ pub trait WindowSurface<R: femtovg::Renderer> {
 pub trait GraphicsBackend {
     type Renderer: femtovg::Renderer + OpenGLTextureImporter;
     type WindowSurface: WindowSurface<Self::Renderer>;
+    const NAME: &'static str;
     fn new_suspended() -> Self;
     fn clear_graphics_context(&self);
     fn begin_surface_rendering(
@@ -107,8 +110,9 @@ impl<B: GraphicsBackend> FemtoVGRenderer<B> {
         let surface = self.graphics_backend.begin_surface_rendering()?;
 
         if self.rendering_first_time.take() {
-            *self.rendering_metrics_collector.borrow_mut() =
-                RenderingMetricsCollector::new("FemtoVG renderer");
+            *self.rendering_metrics_collector.borrow_mut() = RenderingMetricsCollector::new(
+                &format!("FemtoVG renderer with {} backend", B::NAME),
+            );
 
             if let Some(callback) = self.rendering_notifier.borrow_mut().as_mut() {
                 self.with_graphics_api(|api| {

@@ -158,6 +158,7 @@ impl WindowSurface<femtovg::renderer::OpenGl> for GLWindowSurface {
 impl GraphicsBackend for OpenGLBackend {
     type Renderer = femtovg::renderer::OpenGl;
     type WindowSurface = GLWindowSurface;
+    const NAME: &'static str = "OpenGL";
 
     fn new_suspended() -> Self {
         Self { opengl_context: RefCell::new(Box::new(SuspendedRenderer {})) }
