@@ -62,6 +62,7 @@ export global TableData {
     }
 }
 
+
 export global PickerData {
     in-out property <float> hue;
     in-out property <float> saturation;
@@ -73,8 +74,15 @@ export global PickerData {
     in-out property <brush> current-brush;
     in-out property <[GradientStop]> current-gradient-stops;
     in-out property <float> current-angle;
-
     in-out property <int> current-stop-index: 0;
+
+    callback rebuild-gradient-stops();
+    // property <float> current-stop-position: current-gradient-stops[current-stop-index].position;
+
+    // changed current-stop-position => {
+    //     WindowManager.update-brush();
+    // }
+
     changed current-stop-index => {
         if WindowManager.showing-color-stop-picker {
             set-current-stop-as-color();
@@ -93,12 +101,23 @@ export global PickerData {
         }
     }
 
+    changed current-angle => {
+        if WindowManager.widget-mode == WidgetMode.preview {
+            WindowManager.update-brush();
+        }
+    }
+
+    rebuild-gradient-stops => {
+        current-gradient-stops = Api.clone-gradient-stops(current-gradient-stops);
+    }
+
     public function set-current-stop-as-color() {
         hue = current-gradient-stops[current-stop-index].color.to-hsv().hue;
         saturation = current-gradient-stops[current-stop-index].color.to-hsv().saturation;
         value = current-gradient-stops[current-stop-index].color.to-hsv().value;
         alpha = current-gradient-stops[current-stop-index].color.to-hsv().alpha * 100;
     }
+
 }
 
 export global WindowManager {

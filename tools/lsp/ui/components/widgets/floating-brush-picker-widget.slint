@@ -623,7 +623,7 @@ component GradientStopValue {
         delete-stop-ta := TouchArea {
             clicked => {
                 Api.remove-gradient-stop(PickerData.current-gradient-stops, stop-index);
-                PickerData.current-gradient-stops = Api.clone-gradient-stops(PickerData.current-gradient-stops);
+                PickerData.rebuild-gradient-stops();
             }
         }
 
@@ -639,10 +639,10 @@ component GradientStopValue {
 component GradientPicker inherits SimpleColumn {
     in property <WidgetMode> widget-mode;
     property <float> current-angle <=> PickerData.current-angle;
+    property <GradientStopIndexChanged> index-changed;
 
     changed current-angle => {
         degrees.text = current-angle.round();
-        WindowManager.update-brush();
     }
 
     callback clear-focus-panel();
@@ -749,8 +749,7 @@ component GradientPicker inherits SimpleColumn {
                     TouchArea {
                         clicked() => {
                             PickerData.current-stop-index = Api.add-gradient-stop(PickerData.current-gradient-stops, Api.suggest-gradient-stop-at-position(PickerData.current-gradient-stops, self.mouse-x / self.width));
-                            PickerData.current-gradient-stops = Api.clone-gradient-stops(PickerData.current-gradient-stops);
-                            WindowManager.update-brush();
+                            PickerData.rebuild-gradient-stops();
                         }
                     }
                 }
@@ -806,8 +805,7 @@ component GradientPicker inherits SimpleColumn {
             t-plus := TouchArea {
                 clicked() => {
                     PickerData.current-stop-index = Api.add-gradient-stop(PickerData.current-gradient-stops, Api.suggest-gradient-stop-at-row(PickerData.current-gradient-stops, PickerData.current-stop-index + 1));
-                    PickerData.current-gradient-stops = Api.clone-gradient-stops(PickerData.current-gradient-stops);
-                    WindowManager.update-brush();
+                    PickerData.rebuild-gradient-stops();
                 }
             }
 
