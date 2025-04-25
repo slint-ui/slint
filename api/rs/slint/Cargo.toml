@@ -176,6 +176,13 @@ backend-android-activity-05 = [
   "i-slint-backend-android-activity/aa-05",
 ]
 
+## Enable support for [WGPU](http://wgpu.rs) based rendering and expose WGPU based APIs based on WGPU version 24.x.
+##
+## Access to these APIS is valuable, but as WGPU releases new major versions frequently, this feature as well as the
+## APIs guarded with it are *NOT* subject to the usual Slint API stability guarantees. This will may be removed in future
+## minor releases of Slint, likely to be replaced by a feature with a similar name but the WGPU version suffix being bumped.
+unstable-wgpu-24 = ["i-slint-core/unstable-wgpu-24", "i-slint-backend-selector/unstable-wgpu-24"]
+
 [dependencies]
 i-slint-core = { workspace = true }
 slint-macros = { workspace = true }
@@ -220,4 +227,12 @@ bytemuck = { workspace = true }
 i-slint-backend-qt = { workspace = true, features = ["enable"], optional = true }
 
 [package.metadata.docs.rs]
-features = ["document-features", "log", "gettext", "renderer-software", "renderer-femtovg", "raw-window-handle-06"]
+features = [
+  "document-features",
+  "log",
+  "gettext",
+  "renderer-software",
+  "renderer-femtovg",
+  "raw-window-handle-06",
+  "unstable-wgpu-24",
+]

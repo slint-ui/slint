@@ -19,6 +19,7 @@ path = "lib.rs"
 default = []
 wgpu = ["wgpu-24"]
 wgpu-24 = ["dep:wgpu-24", "femtovg/wgpu"]
+unstable-wgpu-24 = ["wgpu-24"]
 
 [dependencies]
 i-slint-core = { workspace = true, features = ["default", "box-shadow-cache", "shared-fontdb"] }

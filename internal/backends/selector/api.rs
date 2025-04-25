@@ -1,6 +1,13 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+#![warn(missing_docs)]
+
+/*!
+This module contains types that are public and re-exported in the slint-rs as well as the slint-interpreter crate as public API,
+in particular the `BackendSelector` type.
+*/
+
 use alloc::boxed::Box;
 use alloc::{format, string::String};
 
@@ -86,6 +93,18 @@ impl BackendSelector {
     #[must_use]
     pub fn require_d3d(mut self) -> Self {
         self.requested_graphics_api = Some(RequestedGraphicsAPI::Direct3D);
+        self
+    }
+
+    /// Adds the requirement to the selector that the backend must render using [WGPU](http://wgpu.rs).
+    /// Use this when you integrate other WGPU-based renderers with a Slint UI.
+    ///
+    /// *Note*: This function is behind a feature flag and may be removed or changed in future minor releases,
+    ///         as new major WGPU releases become available.
+    #[cfg(feature = "unstable-wgpu-24")]
+    #[must_use]
+    pub fn require_wgpu_24(mut self) -> Self {
+        self.requested_graphics_api = Some(RequestedGraphicsAPI::WGPU24);
         self
     }
 

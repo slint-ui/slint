@@ -17,6 +17,7 @@ members = [
   'examples/memory',
   'examples/opengl_underlay',
   'examples/opengl_texture',
+  'examples/wgpu_texture',
   'examples/ffmpeg',
   'examples/gstreamer-player',
   'examples/plotter',

@@ -25,7 +25,7 @@ use i_slint_core::lengths::{
 };
 use i_slint_core::{Brush, Color, ImageInner, SharedString};
 
-use crate::images::OpenGLTextureImporter;
+use crate::images::TextureImporter;
 
 use super::images::{Texture, TextureCacheKey};
 use super::PhysicalSize;
@@ -36,7 +36,7 @@ type FemtovgBoxShadowCache<R> = BoxShadowCache<ItemGraphicsCacheEntry<R>>;
 pub use femtovg::Canvas;
 pub type CanvasRc<R> = Rc<RefCell<Canvas<R>>>;
 
-pub enum ItemGraphicsCacheEntry<R: femtovg::Renderer + OpenGLTextureImporter> {
+pub enum ItemGraphicsCacheEntry<R: femtovg::Renderer + TextureImporter> {
     Texture(Rc<Texture<R>>),
     ColorizedImage {
         // This original image Rc is kept here to keep the image in the shared image cache, so that
@@ -46,7 +46,7 @@ pub enum ItemGraphicsCacheEntry<R: femtovg::Renderer + OpenGLTextureImporter> {
     },
 }
 
-impl<R: femtovg::Renderer + OpenGLTextureImporter> Clone for ItemGraphicsCacheEntry<R> {
+impl<R: femtovg::Renderer + TextureImporter> Clone for ItemGraphicsCacheEntry<R> {
     fn clone(&self) -> Self {
         match self {
             Self::Texture(arg0) => Self::Texture(arg0.clone()),
@@ -58,7 +58,7 @@ impl<R: femtovg::Renderer + OpenGLTextureImporter> Clone for ItemGraphicsCacheEn
     }
 }
 
-impl<R: femtovg::Renderer + OpenGLTextureImporter> ItemGraphicsCacheEntry<R> {
+impl<R: femtovg::Renderer + TextureImporter> ItemGraphicsCacheEntry<R> {
     fn as_texture(&self) -> &Rc<Texture<R>> {
         match self {
             ItemGraphicsCacheEntry::Texture(image) => image,
@@ -81,7 +81,7 @@ struct State {
     current_render_target: femtovg::RenderTarget,
 }
 
-pub struct GLItemRenderer<'a, R: femtovg::Renderer + OpenGLTextureImporter> {
+pub struct GLItemRenderer<'a, R: femtovg::Renderer + TextureImporter> {
     graphics_cache: &'a ItemGraphicsCache<R>,
     texture_cache: &'a RefCell<super::images::TextureCache<R>>,
     box_shadow_cache: FemtovgBoxShadowCache<R>,
@@ -188,13 +188,13 @@ fn clip_path_for_rect_alike_item(
     rect_with_radius_to_path(clip_rect, radius)
 }
 
-impl<'a, R: femtovg::Renderer + OpenGLTextureImporter> GLItemRenderer<'a, R> {
+impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
     pub fn global_alpha_transparent(&self) -> bool {
         self.state.last().unwrap().global_alpha == 0.0
     }
 }
 
-impl<'a, R: femtovg::Renderer + OpenGLTextureImporter> ItemRenderer for GLItemRenderer<'a, R> {
+impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer<'a, R> {
     fn draw_rectangle(
         &mut self,
         rect: Pin<&dyn RenderRectangle>,
@@ -1111,7 +1111,7 @@ impl<'a, R: femtovg::Renderer + OpenGLTextureImporter> ItemRenderer for GLItemRe
     }
 }
 
-impl<'a, R: femtovg::Renderer + OpenGLTextureImporter> GLItemRenderer<'a, R> {
+impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
     pub(super) fn new(
         canvas: &CanvasRc<R>,
         graphics_cache: &'a ItemGraphicsCache<R>,

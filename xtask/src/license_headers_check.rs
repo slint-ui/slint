@@ -532,6 +532,7 @@ lazy_static! {
         ("\\.txt$", LicenseLocation::NoLicense),
         ("\\.ui$", LicenseLocation::NoLicense),
         ("\\.webp$", LicenseLocation::NoLicense),
+        ("\\.wgsl$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
         ("\\.xml$", LicenseLocation::NoLicense),
         ("\\.yaml$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
         ("\\.yml$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),

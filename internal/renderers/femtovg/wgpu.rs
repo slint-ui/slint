@@ -10,6 +10,7 @@ use crate::{FemtoVGRenderer, GraphicsBackend, WindowSurface};
 use wgpu_24 as wgpu;
 
 pub struct WGPUBackend {
+    instance: RefCell<Option<wgpu::Instance>>,
     device: RefCell<Option<wgpu::Device>>,
     queue: RefCell<Option<wgpu::Queue>>,
     surface_config: RefCell<Option<wgpu::SurfaceConfiguration>>,
@@ -33,6 +34,7 @@ impl GraphicsBackend for WGPUBackend {
 
     fn new_suspended() -> Self {
         Self {
+            instance: Default::default(),
             device: Default::default(),
             queue: Default::default(),
             surface_config: Default::default(),
@@ -71,6 +73,22 @@ impl GraphicsBackend for WGPUBackend {
         Ok(())
     }
 
+    #[cfg(feature = "unstable-wgpu-24")]
+    fn with_graphics_api<R>(
+        &self,
+        callback: impl FnOnce(Option<i_slint_core::api::GraphicsAPI<'_>>) -> R,
+    ) -> Result<R, i_slint_core::platform::PlatformError> {
+        let instance = self.instance.borrow().clone();
+        let device = self.device.borrow().clone();
+        let queue = self.queue.borrow().clone();
+        if let (Some(instance), Some(device), Some(queue)) = (instance, device, queue) {
+            Ok(callback(Some(i_slint_core::api::GraphicsAPI::WGPU24 { instance, device, queue })))
+        } else {
+            Ok(callback(None))
+        }
+    }
+
+    #[cfg(not(feature = "unstable-wgpu-24"))]
     fn with_graphics_api<R>(
         &self,
         callback: impl FnOnce(Option<i_slint_core::api::GraphicsAPI<'_>>) -> R,
@@ -104,7 +122,13 @@ impl FemtoVGRenderer<WGPUBackend> {
         size: PhysicalWindowSize,
         requested_graphics_api: Option<RequestedGraphicsAPI>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        if requested_graphics_api.is_some() {
+        if !requested_graphics_api.is_some_and(|_api| {
+            #[cfg(feature = "unstable-wgpu-24")]
+            if matches!(_api, RequestedGraphicsAPI::WGPU24) {
+                return true;
+            }
+            false
+        }) {
             return Err(
                 "The FemtoVG WGPU renderer does not implement renderer selection by graphics API"
                     .into(),
@@ -174,6 +198,7 @@ impl FemtoVGRenderer<WGPUBackend> {
 
         let device = device;
 
+        *self.graphics_backend.instance.borrow_mut() = Some(instance.clone());
         *self.graphics_backend.device.borrow_mut() = Some(device.clone());
         *self.graphics_backend.queue.borrow_mut() = Some(queue.clone());
         *self.graphics_backend.surface_config.borrow_mut() = Some(surface_config);

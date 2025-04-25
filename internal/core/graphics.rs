@@ -187,6 +187,9 @@ pub enum RequestedGraphicsAPI {
     Vulkan,
     /// Direct 3D
     Direct3D,
+    #[cfg(feature = "unstable-wgpu-24")]
+    /// WGPU 24.x
+    WGPU24,
 }
 
 impl TryFrom<RequestedGraphicsAPI> for RequestedOpenGLVersion {
@@ -203,6 +206,10 @@ impl TryFrom<RequestedGraphicsAPI> for RequestedOpenGLVersion {
             }
             RequestedGraphicsAPI::Direct3D => {
                 Err("Direct3D rendering is not supported with an OpenGL renderer".into())
+            }
+            #[cfg(feature = "unstable-wgpu-24")]
+            RequestedGraphicsAPI::WGPU24 => {
+                Err("WGPU 24.x rendering is not supported with an OpenGL renderer".into())
             }
         }
     }

@@ -132,6 +132,8 @@ pub(crate) fn as_skia_image(
         ImageInner::NineSlice(n) => {
             as_skia_image(n.image(), target_size_fn, ImageFit::Preserve, scale_factor, canvas)
         }
+        #[cfg(feature = "unstable-wgpu-24")]
+        ImageInner::WGPUTexture(..) => None,
     }
 }
 

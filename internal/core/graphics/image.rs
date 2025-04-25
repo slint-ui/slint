@@ -342,6 +342,8 @@ impl ImageCacheKey {
             #[cfg(not(target_arch = "wasm32"))]
             ImageInner::BorrowedOpenGLTexture(..) => return None,
             ImageInner::NineSlice(nine) => vtable::VRc::borrow(nine).cache_key(),
+            #[cfg(feature = "unstable-wgpu-24")]
+            ImageInner::WGPUTexture(..) => return None,
         };
         if matches!(key, ImageCacheKey::Invalid) {
             None
@@ -375,6 +377,30 @@ impl OpaqueImage for NineSliceImage {
     }
 }
 
+/// Represents a `wgpu::Texture` for each version of WGPU we support.
+#[cfg(feature = "unstable-wgpu-24")]
+#[derive(Clone, Debug)]
+pub enum WGPUTexture {
+    /// A texture for WGPU version 24.
+    #[cfg(feature = "unstable-wgpu-24")]
+    WGPU24Texture(wgpu_24::Texture),
+}
+
+#[cfg(feature = "unstable-wgpu-24")]
+impl OpaqueImage for WGPUTexture {
+    fn size(&self) -> IntSize {
+        match self {
+            Self::WGPU24Texture(texture) => {
+                let size = texture.size();
+                (size.width, size.height).into()
+            }
+        }
+    }
+    fn cache_key(&self) -> ImageCacheKey {
+        ImageCacheKey::Invalid
+    }
+}
+
 /// A resource is a reference to binary data, for example images. They can be accessible on the file
 /// system or embedded in the resulting binary. Or they might be URLs to a web server and a downloaded
 /// is necessary before they can be used.
@@ -399,6 +425,8 @@ pub enum ImageInner {
     #[cfg(not(target_arch = "wasm32"))]
     BorrowedOpenGLTexture(BorrowedOpenGLTexture) = 6,
     NineSlice(vtable::VRc<OpaqueImageVTable, NineSliceImage>) = 7,
+    #[cfg(feature = "unstable-wgpu-24")]
+    WGPUTexture(WGPUTexture) = 8,
 }
 
 impl ImageInner {
@@ -516,6 +544,8 @@ impl ImageInner {
             #[cfg(not(target_arch = "wasm32"))]
             ImageInner::BorrowedOpenGLTexture(BorrowedOpenGLTexture { size, .. }) => *size,
             ImageInner::NineSlice(nine) => nine.0.size(),
+            #[cfg(feature = "unstable-wgpu-24")]
+            ImageInner::WGPUTexture(texture) => texture.size(),
         }
     }
 }
@@ -944,6 +974,50 @@ impl BorrowedOpenGLTextureBuilder {
     /// Completes the process of building a slint::Image that holds a borrowed OpenGL texture.
     pub fn build(self) -> Image {
         Image(ImageInner::BorrowedOpenGLTexture(self.0))
+    }
+}
+
+#[cfg(feature = "unstable-wgpu-24")]
+#[derive(Debug)]
+#[non_exhaustive]
+/// This enum describes the possible errors that can occur when importing a WGPU texture,
+/// via [`Image::try_from()`].
+pub enum WGPUTextureImportError {
+    /// The texture format is not supported. The only supported format is Rgba8Unorm.
+    InvalidFormat,
+    /// The texture usage must include TEXTURE_BINDING as well as RENDER_ATTACHMENT.
+    InvalidUsage,
+}
+
+#[cfg(feature = "unstable-wgpu-24")]
+impl core::fmt::Display for WGPUTextureImportError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            WGPUTextureImportError::InvalidFormat => f.write_str(
+                "The texture format is not supported. The only supported format is Rgba8Unorm",
+            ),
+            WGPUTextureImportError::InvalidUsage => f.write_str(
+                "The texture usage must include TEXTURE_BINDING as well as RENDER_ATTACHMENT",
+            ),
+        }
+    }
+}
+
+#[cfg(feature = "unstable-wgpu-24")]
+impl TryFrom<wgpu_24::Texture> for Image {
+    type Error = WGPUTextureImportError;
+
+    fn try_from(texture: wgpu_24::Texture) -> Result<Self, Self::Error> {
+        if texture.format() != wgpu_24::TextureFormat::Rgba8Unorm {
+            return Err(WGPUTextureImportError::InvalidFormat);
+        }
+        let usages = texture.usage();
+        if !usages.contains(wgpu_24::TextureUsages::TEXTURE_BINDING)
+            || !usages.contains(wgpu_24::TextureUsages::RENDER_ATTACHMENT)
+        {
+            return Err(WGPUTextureImportError::InvalidUsage);
+        }
+        Ok(Self(ImageInner::WGPUTexture(WGPUTexture::WGPU24Texture(texture))))
     }
 }
 
