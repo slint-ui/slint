@@ -2597,7 +2597,7 @@ fn generate_global(
         ));
     }
 
-    let mut init = vec![];
+    let mut init = vec!["(void)this->globals;".into()];
     let ctx = EvaluationContext::new_global(
         root,
         global_idx,
