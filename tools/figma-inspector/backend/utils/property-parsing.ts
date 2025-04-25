@@ -883,7 +883,7 @@ export async function generateTextSnippet(
                         typeof sceneNode.textAlignHorizontal === "string"
                     ) {
                         let slintValue: string | null = null;
-                        let comment: string | null = null;
+                        let comment: string = "";
                         switch (sceneNode.textAlignHorizontal) {
                             case "LEFT":
                                 slintValue = "left";
@@ -901,11 +901,9 @@ export async function generateTextSnippet(
                                 break;
                         }
                         if (slintValue) {
-                            const propertyString = comment
-                                ? `${indentation}horizontal-alignment: ${slintValue}; ${comment}`
-                                : `${indentation}horizontal-alignment: ${slintValue};`;
-
-                            properties.push(propertyString);
+                            properties.push(
+                                `${indentation}horizontal-alignment: ${slintValue}; ${comment}`,
+                            );
                             console.log(
                                 `[generateTextSnippet] horizontal-alignment: Added property: ${slintValue}`,
                             );
