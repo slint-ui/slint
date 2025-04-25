@@ -164,21 +164,21 @@ function createReferenceExpression(
         string,
         { collection: string; node: VariableNode; path: string[] }
     >,
-    collectionStructure: Map<string, any>, // Assuming 'any' for now, replace with specific type if available
-    currentCollection: string, // The collection of the variable *requesting* the reference
+    collectionStructure: Map<string, any>, // Replace 'any' with a specific type if available
+    currentCollection: string, // The collection name (e.g., "system_colors") of the variable *requesting* the reference
     currentPath: string[], // The path of the variable *requesting* the reference
     resolutionStack: string[] = [], // Stack to detect loops
-    exportAsSingleFile: boolean, // Parameter indicating export mode
+    finalExportAsSingleFile: boolean, // Keep for potential future use
     exportInfo: {
         renamedVariables: Set<string>;
         circularReferences: Set<string>;
         warnings: Set<string>;
-        features: Set<string>; // You can add specific features detected if needed
+        features: Set<string>;
         collections: Set<string>;
     },
 ): {
     value: string | null;
-    importStatement?: string;
+    importStatement?: string; // Keep for structure, but will be undefined
     isCircular?: boolean;
     comment?: string;
 } {
@@ -186,8 +186,12 @@ function createReferenceExpression(
     const targetInfo = variablePathsById.get(referenceId);
     if (!targetInfo) {
         console.warn(`Reference path not found for ID: ${referenceId}`);
+        exportInfo.warnings.add(
+            `Reference path not found for ID: ${referenceId}`,
+        );
         return {
             value: null,
+            isCircular: true,
             comment: `Unresolved reference ID: ${referenceId}`,
         };
     }
@@ -198,20 +202,79 @@ function createReferenceExpression(
         path: targetPath,
     } = targetInfo;
 
-    // --- 2. Loop Detection using Resolution Stack ---
+    const isCrossCollection = targetCollection !== currentCollection;
+
+    // --- 2. Loop Detection ---
     const targetIdentifier = `${targetCollection}.${targetPath.join(".")}`;
-    const currentIdentifier = `${currentCollection}.${currentPath.join(".")}`;
 
     if (resolutionStack.includes(targetIdentifier)) {
-        console.warn(
-            `Detected cross-collection loop: ${resolutionStack.join(" -> ")} -> ${targetIdentifier}`,
-        );
-        // Add to exportInfo for README (ensure exportInfo is accessible or passed in)
+        const loopPath = `${resolutionStack.join(" -> ")} -> ${targetIdentifier}`;
+        console.warn(`Detected reference loop: ${loopPath}`);
         exportInfo.circularReferences.add(
-            `${resolutionStack.join(" -> ")} -> ${targetIdentifier} (resolved with default)`,
+            `${loopPath} (resolved with value/default)`,
         );
 
-        const targetType = targetNode?.type || "COLOR"; // Use targetNode for type info if available
+        // --- Handle Same-Collection Loop by Resolving Target's Value ---
+        if (!isCrossCollection) {
+            console.log(
+                `Attempting to break same-collection loop by resolving target's value: ${targetIdentifier}`,
+            );
+            const targetCollectionDataLoop =
+                collectionStructure.get(targetCollection);
+            const propertyPathLoop = targetPath
+                .map((part) => sanitizePropertyName(part))
+                .join(".");
+            const targetVariableModesMapLoop =
+                targetCollectionDataLoop?.variables.get(propertyPathLoop);
+
+            if (targetVariableModesMapLoop) {
+                const sanitizedSourceModeLoop =
+                    sanitizeModeForEnum(sourceModeName);
+                // Try to get the target's value for the specific mode involved in the loop start
+                let modeDataToUseLoop = targetVariableModesMapLoop.get(
+                    sanitizedSourceModeLoop,
+                );
+                let usedModeNameLoop = sanitizedSourceModeLoop;
+
+                // If target doesn't have the exact source mode, try its first mode as fallback
+                if (!modeDataToUseLoop) {
+                    const firstEntry = targetVariableModesMapLoop
+                        .entries()
+                        .next();
+                    if (!firstEntry.done) {
+                        usedModeNameLoop = firstEntry.value[0];
+                        modeDataToUseLoop = firstEntry.value[1];
+                        console.warn(
+                            `  Loop break: Target ${targetIdentifier} missing mode ${sanitizedSourceModeLoop}, using its mode ${usedModeNameLoop}`,
+                        );
+                    }
+                }
+
+                // If we found data for a mode AND it has a concrete value (not another alias)
+                if (modeDataToUseLoop && !modeDataToUseLoop.refId) {
+                    console.log(
+                        `  Loop break successful: Using concrete value "${modeDataToUseLoop.value}" from ${targetIdentifier} (mode: ${usedModeNameLoop})`,
+                    );
+                    return {
+                        value: modeDataToUseLoop.value,
+                        isCircular: true, // Still mark as circular for info, but provide value
+                        comment: `Loop broken by using value from ${targetIdentifier}`,
+                    };
+                } else {
+                    console.warn(
+                        `  Loop break failed: Target ${targetIdentifier} (mode: ${usedModeNameLoop}) is also an alias or has no value. Falling back to default.`,
+                    );
+                }
+            } else {
+                console.warn(
+                    `  Loop break failed: Could not find target variable data for ${targetIdentifier} during loop break. Falling back to default.`,
+                );
+            }
+        }
+        // --- End Same-Collection Loop Handling ---
+
+        // --- Fallback for Cross-Collection Loops or Failed Same-Collection Break ---
+        const targetType = targetNode?.type || "COLOR";
         const slintType = getSlintType(targetType);
         const defaultValue =
             slintType === "brush"
@@ -222,12 +285,12 @@ function createReferenceExpression(
                     ? '""'
                     : slintType === "bool"
                       ? "false"
-                      : "#808080";
+                      : "#808080"; // Fallback default
 
         return {
             value: defaultValue,
             isCircular: true,
-            comment: `Cross-collection loop resolved with default: ${targetIdentifier}`,
+            comment: `Loop detected, resolved with default: ${targetIdentifier}`,
         };
     }
 
@@ -235,32 +298,42 @@ function createReferenceExpression(
     const targetCollectionData = collectionStructure.get(targetCollection);
     if (!targetCollectionData) {
         console.warn(`Target collection data not found: ${targetCollection}`);
+        exportInfo.warnings.add(
+            `Target collection data not found: ${targetCollection}`,
+        );
         return {
             value: null,
+            isCircular: true,
             comment: `Missing target collection data: ${targetCollection}`,
         };
     }
-    const targetRowName = sanitizeRowName(targetPath.join("/"));
+
+    const propertyPath = targetPath
+        .map((part) => sanitizePropertyName(part))
+        .join(".");
     const targetVariableModesMap =
-        targetCollectionData.variables.get(targetRowName);
+        targetCollectionData.variables.get(propertyPath);
 
     if (!targetVariableModesMap) {
         console.warn(
-            `Target variable data not found in collectionStructure: ${targetCollection}.${targetRowName}`,
+            `Target variable data not found in collectionStructure: ${targetCollection}.${propertyPath}`,
+        );
+        exportInfo.warnings.add(
+            `Target variable data not found: ${targetCollection}.${propertyPath}`,
         );
         const targetType = targetNode?.type || "COLOR";
         const slintType = getSlintType(targetType);
         const defaultValue =
             slintType === "brush"
                 ? "#FF00FF"
-                : // Error color
-                  slintType === "length"
+                : slintType === "length"
                   ? "0px"
                   : slintType === "string"
                     ? '""'
                     : slintType === "bool"
                       ? "false"
                       : "#FF00FF";
+
         return {
             value: defaultValue,
             isCircular: true,
@@ -268,125 +341,139 @@ function createReferenceExpression(
         };
     }
 
-    const targetValueData =
-        targetVariableModesMap.get(sourceModeName) ||
-        targetVariableModesMap.values().next().value;
+    // --- Determine the correct mode's data to use from the target ---
+    const sanitizedSourceMode = sanitizeModeForEnum(sourceModeName);
+    const targetModes = targetCollectionData.modes as Set<string>;
+    let modeDataToUse:
+        | { value: string; refId?: string; comment?: string }
+        | undefined = undefined;
+    let usedModeName: string | undefined = undefined;
 
-    if (targetValueData) {
+    if (targetModes.size > 1) {
+        if (targetVariableModesMap.has(sanitizedSourceMode)) {
+            modeDataToUse = targetVariableModesMap.get(sanitizedSourceMode);
+            usedModeName = sanitizedSourceMode;
+        } else {
+            const firstTargetModeEntry = targetVariableModesMap
+                .entries()
+                .next();
+            if (!firstTargetModeEntry.done) {
+                usedModeName = firstTargetModeEntry.value[0];
+                modeDataToUse = firstTargetModeEntry.value[1];
+                const warningMsg = `Mode mismatch: Source mode '${sourceModeName}' not found in target '${targetIdentifier}'. Using target's mode '${usedModeName}' for reference.`;
+                console.warn(warningMsg);
+                exportInfo.warnings.add(warningMsg);
+            } else {
+                console.error(
+                    `Target ${targetIdentifier} has >1 modes but couldn't get first mode data.`,
+                );
+                exportInfo.warnings.add(
+                    `Could not determine fallback mode for multi-mode target ${targetIdentifier}.`,
+                );
+            }
+        }
+    } else if (targetModes.size === 1) {
+        const firstTargetModeEntry = targetVariableModesMap.entries().next();
+        if (!firstTargetModeEntry.done) {
+            usedModeName = firstTargetModeEntry.value[0];
+            modeDataToUse = firstTargetModeEntry.value[1];
+        } else {
+            console.error(
+                `Target ${targetIdentifier} is single-mode but couldn't get mode data.`,
+            );
+            exportInfo.warnings.add(
+                `Could not get data for single-mode target ${targetIdentifier}.`,
+            );
+        }
+        const sourceCollectionData = collectionStructure.get(currentCollection);
+        if (sourceCollectionData && sourceCollectionData.modes.size > 1) {
+            const currentIdentifier = `${currentCollection}.${currentPath.join(".")}`;
+            const warningMsg = `Mode mismatch: Source '${currentIdentifier}' is multi-mode but target '${targetIdentifier}' is single-mode. Reference uses target's single mode value.`;
+            console.warn(warningMsg);
+            exportInfo.warnings.add(warningMsg);
+        }
+    } else {
+        console.error(
+            `Target collection ${targetCollection} has no modes defined.`,
+        );
+        exportInfo.warnings.add(
+            `Target collection ${targetCollection} has no modes defined.`,
+        );
+    }
+    // --- End mode data determination ---
+
+    if (modeDataToUse) {
         // CASE A: Target is another reference (alias)
-        if (targetValueData.refId) {
-            const nextStack = [...resolutionStack, currentIdentifier];
+        if (modeDataToUse.refId) {
+            // Add current step to stack before recursing
+            const nextStack = [...resolutionStack, targetIdentifier];
+            const nextSourceMode = usedModeName || sourceModeName;
+
             return createReferenceExpression(
-                targetValueData.refId,
-                sourceModeName,
+                modeDataToUse.refId,
+                nextSourceMode,
                 variablePathsById,
                 collectionStructure,
                 targetCollection,
                 targetPath,
                 nextStack,
-                exportAsSingleFile,
-                exportInfo, // Pass parameter in recursive call
+                finalExportAsSingleFile,
+                exportInfo,
             );
         }
         // CASE B: Target holds a concrete value
         else {
-            const sanitizedSourceMode = sanitizeModeForEnum(sourceModeName); // Mode from the requesting variable
-            const propertyPath = targetPath
-                .map((part) => sanitizePropertyName(part))
-                .join(".");
+            let finalValue: string;
 
-            let referenceExpr = "";
-            const targetModes = targetCollectionData.modes as Set<string>; // Cast for type safety/clarity
-
-            if (targetModes.size > 1) {
-                // --- Target is multi-mode ---
-                let modeToUse: string | undefined = undefined;
-                const targetHasSourceMode =
-                    targetModes.has(sanitizedSourceMode);
-
-                if (targetHasSourceMode) {
-                    // Target has the specific mode we need - use it
-                    modeToUse = sanitizedSourceMode;
-                } else {
-                    // Target is multi-mode BUT doesn't have the source mode.
-                    // Fallback to the target's first available mode.
-                    const firstTargetMode = targetModes.values().next().value;
-                    modeToUse = firstTargetMode; // Assign the first mode
-
-                    if (modeToUse) {
-                        const warningMsg = `Mode mismatch: Source mode '${sourceModeName}' not found in target '${targetIdentifier}'. Using target's first mode '${modeToUse}' for reference.`;
-                        console.warn(warningMsg);
-                        exportInfo.warnings.add(warningMsg);
-                    } else {
-                        // Should not happen if modes.size > 1, but handle defensively
-                        console.error(
-                            `Target ${targetIdentifier} has >1 modes but couldn't get first mode.`,
-                        );
-                    }
-                }
-
-                // Append the determined mode if found
-                if (modeToUse) {
-                    referenceExpr = `${targetCollectionData.formattedName}.${propertyPath}.${modeToUse}`;
-                } else {
-                    // Fallback if we couldn't determine a mode (should be rare)
-                    referenceExpr = `${targetCollectionData.formattedName}.${propertyPath}`;
-                }
+            if (isCrossCollection) {
+                // --- Different collection: Use the resolved concrete value ---
+                finalValue = modeDataToUse.value;
+                console.log(
+                    `[createReferenceExpression] Cross-collection reference ${targetIdentifier} resolved to concrete value: ${finalValue}`,
+                );
             } else {
-                // --- Target is single-mode ---
-                // No mode suffix needed in the reference path
-                referenceExpr = `${targetCollectionData.formattedName}.${propertyPath}`;
+                // --- Same collection: Generate the relative Slint path ---
+                const baseExpr = propertyPath;
+                const needsModeSuffix = targetModes.size > 1;
 
-                // Add a warning if the source was multi-mode but target is single-mode
-                const sourceCollectionData =
-                    collectionStructure.get(currentCollection);
-                if (
-                    sourceCollectionData &&
-                    sourceCollectionData.modes.size > 1
-                ) {
-                    const warningMsg = `Mode mismatch: Source '${currentIdentifier}' is multi-mode but target '${targetIdentifier}' is single-mode. Reference uses base path without mode.`;
-                    console.warn(warningMsg);
-                    exportInfo.warnings.add(warningMsg);
-                }
-            }
-
-            // --- Import statement logic (remains the same) ---
-            let importStatement: string | undefined = undefined;
-            const isCrossCollection = targetCollection !== currentCollection;
-            if (isCrossCollection && !exportAsSingleFile) {
-                // Use the parameter
-                if (targetCollectionData.modes.size > 1) {
-                    importStatement = `import { ${targetCollectionData.formattedName}, ${targetCollectionData.formattedName}Mode } from "${targetCollectionData.formattedName}.slint";\n`;
-                } else {
-                    importStatement = `import { ${targetCollectionData.formattedName} } from "${targetCollectionData.formattedName}.slint";\n`;
-                }
+                finalValue =
+                    needsModeSuffix && usedModeName
+                        ? `${baseExpr}.${usedModeName}`
+                        : baseExpr;
+                console.log(
+                    `[createReferenceExpression] Same-collection reference ${targetIdentifier} resolved to path: ${finalValue}`,
+                );
             }
 
             return {
-                value: referenceExpr,
-                importStatement: importStatement,
+                value: finalValue,
+                importStatement: undefined,
                 isCircular: false,
-                comment: targetValueData.comment,
+                comment: modeDataToUse.comment,
             };
         }
     }
     // CASE C: No value data found for the target variable in any relevant mode
     else {
         console.warn(
-            `Missing value data for ${targetIdentifier} in mode ${sourceModeName} or fallback (using collectionStructure)`,
+            `Missing value data for ${targetIdentifier} in mode ${sourceModeName} or fallback.`,
         );
+        exportInfo.warnings.add(
+            `Missing value data for ${targetIdentifier} in mode ${sourceModeName} or fallback.`,
+        );
+
         const targetType = targetNode?.type || "COLOR";
         const slintType = getSlintType(targetType);
         const defaultValue =
             slintType === "brush"
-                ? "#808080"
+                ? "#FF00FF"
                 : slintType === "length"
                   ? "0px"
                   : slintType === "string"
                     ? '""'
                     : slintType === "bool"
                       ? "false"
-                      : "#808080";
+                      : "#FF00FF";
 
         return {
             value: defaultValue,
