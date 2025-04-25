@@ -51,7 +51,6 @@ export const App = () => {
         setIsMenuOpen((prev) => !prev);
     }, []);
     const handleExportClick = useCallback(() => {
-        console.log(`Requesting export. Single file: ${exportAsSingleFile}`);
         setExportedFiles([]);
         setExportsAreCurrent(false);
         dispatchTS("exportToFiles", { exportAsSingleFile: exportAsSingleFile });
@@ -63,46 +62,17 @@ export const App = () => {
         setTitle(res.title || "");
         setSlintProperties(res.slintSnippet || "");
     });
-    useEffect(() => {
-        const genericMessageHandler = (event: MessageEvent) => {
-            if (event.data?.pluginMessage) {
-                console.log(
-                    "[UI DEBUG] Generic listener received:",
-                    event.data.pluginMessage,
-                );
-                if (
-                    event.data.pluginMessage.type === "selectionChangedInFigma"
-                ) {
-                    console.log(
-                        "[UI DEBUG] SAW selectionChangedInFigma in generic listener!",
-                    );
-                }
-            }
-        };
-        console.log("[UI DEBUG] Adding generic message listener.");
-        window.addEventListener("message", genericMessageHandler);
-        return () => {
-            console.log("[UI DEBUG] Removing generic message listener.");
-            window.removeEventListener("message", genericMessageHandler);
-        };
-    }, []); // Run only once on mount
 
     useEffect(() => {
         const handleSelectionChange = () => {
-            console.log(
-                "[UI] Received selectionChangedInFigma, requesting snippet update.",
-            );
             // Request snippet update using the current state of useVariables
             dispatchTS("generateSnippetRequest", {
                 useVariables: useVariables,
             });
         };
-        console.log("[UI] Attaching 'selectionChangedInFigma' listener..."); // <-- ADD THIS LOG
         listenTS("selectionChangedInFigma", handleSelectionChange);
-        console.log("[UI] 'selectionChangedInFigma' listener attached."); // <-- ADD THIS LOG
 
         // Also request initial snippet on component mount
-        console.log("[UI] Initial mount, requesting snippet update.");
         dispatchTS("generateSnippetRequest", { useVariables: useVariables });
     }, [useVariables]); // Re-run effect if useVariables changes (to request initial snippet with correct flag)
     // Or, if you only want selection changes to trigger updates *after* mount,
@@ -138,7 +108,6 @@ export const App = () => {
         (event: React.ChangeEvent<HTMLInputElement>) => {
             const checked = event.target.checked;
             setExportAsSingleFile(checked);
-            console.log(`Checkbox changed: Export as single file = ${checked}`);
             // Keep menu open when checkbox is toggled
         },
         [useVariables],
@@ -147,7 +116,6 @@ export const App = () => {
     const handleUseVariables = useCallback(
         (event: React.ChangeEvent<HTMLInputElement>) => {
             const checked = event.target.checked;
-            console.log(`[UI] 'Use Variables' checkbox changed: ${checked}`);
             // Update the state
             setUseVariables(checked);
             // Request a new snippet from the backend with the updated preference
@@ -188,8 +156,6 @@ export const App = () => {
     useEffect(() => {
         // Add specific variable change detection
         function setupVariableChangeDetection() {
-            console.log("Setting up variable change detection...");
-
             // Request the plugin to start monitoring variable changes
             dispatchTS("monitorVariableChanges", { enabled: true });
         }
@@ -213,22 +179,14 @@ export const App = () => {
     useEffect(() => {
         const exportFilesHandler = async (res: any) => {
             // Make the handler async
-            console.log("Received exportedFiles:", res.files);
             if (res.files && Array.isArray(res.files) && res.files.length > 0) {
                 // Ensure files exist
-                console.log(`Setting ${res.files.length} files to state`);
                 setExportedFiles(res.files);
 
                 // Mark exports as current
                 setExportsAreCurrent(true);
 
-                console.log(
-                    "Exports marked as current, files count:",
-                    res.files.length,
-                );
-
                 // --- Automatically trigger download ---
-                console.log("Automatically triggering download...");
                 await downloadZipFile(res.files); // Call downloadZipFile with the received files
                 // --- End automatic download ---
             } else {
@@ -248,9 +206,6 @@ export const App = () => {
                 event.data.pluginMessage &&
                 event.data.pluginMessage.type === "exportedFiles"
             ) {
-                console.log(
-                    "DIRECT: Received exportedFiles via window message",
-                );
                 exportFilesHandler(event.data.pluginMessage); // Call the same async handler
             }
         };
@@ -264,11 +219,6 @@ export const App = () => {
         files: Array<{ name: string; content: string }>,
     ) => {
         try {
-            console.log(
-                "Creating ZIP with files:",
-                files.map((f) => `${f.name} (${f.content.length} bytes)`),
-            );
-
             if (!files || files.length === 0) {
                 console.error("No files to zip!");
                 return;
@@ -279,16 +229,11 @@ export const App = () => {
 
             // Add each file to the zip with debug logging
             files.forEach((file) => {
-                console.log(
-                    `Adding to ZIP: ${file.name} (${file.content.length} bytes)`,
-                );
                 zip.file(file.name, file.content);
             });
 
             // Generate the zip
-            console.log("Generating ZIP blob...");
             const content = await zip.generateAsync({ type: "blob" });
-            console.log(`ZIP created: ${content.size} bytes`);
 
             // Create download link
             const element = document.createElement("a");
@@ -300,8 +245,6 @@ export const App = () => {
 
             // Clean up
             URL.revokeObjectURL(element.href);
-
-            console.log("ZIP file download initiated");
         } catch (error) {
             console.error("Error creating ZIP file:", error);
 
@@ -318,19 +261,7 @@ export const App = () => {
     };
 
     // Add debugging log on each render
-    console.log("Render state:", {
-        exportedFilesCount: exportedFiles.length,
-        exportsAreCurrent,
-        hasProperties: slintProperties !== "",
-    });
     // Add debugging log on each render
-    console.log("Render state:", {
-        exportedFilesCount: exportedFiles.length,
-        exportsAreCurrent,
-        exportAsSingleFile, // Log checkbox state
-        isMenuOpen, // Log menu state
-        hasProperties: slintProperties !== "",
-    });
 
     // Define styles here or use CSS classes
     const buttonStyle: React.CSSProperties = {

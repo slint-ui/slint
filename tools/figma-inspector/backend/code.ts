@@ -49,12 +49,8 @@ if (figma.editorType === "figma" && figma.mode === "default") {
     });
 }
 listenTS("generateSnippetRequest", async (payload) => {
-    console.log("[Backend] Entered 'generateSnippetRequest' handler.");
     // --- Extract useVariables from payload (default to false) ---
     const useVariables = payload.useVariables ?? false; // <-- You likely already have this
-    console.log(
-        `[Backend] Received generateSnippetRequest. Use variables: ${useVariables}`,
-    );
 
     const selection = figma.currentPage.selection;
     let title = "Figma Inspector";
@@ -65,20 +61,11 @@ listenTS("generateSnippetRequest", async (payload) => {
         title = node.name;
         try {
             // --- Pass the useVariables value received from UI ---
-            console.log(
-                `[Backend] Calling generateSlintSnippet for ${node.name}. useVariables = ${useVariables} (Type: ${typeof useVariables})`,
-            );
             slintSnippet = await generateSlintSnippet(node, useVariables);
-            console.log(
-                `[Backend] Finished generating snippet for ${node.name}. Result is null? ${slintSnippet === null}`,
-            );
 
             if (slintSnippet === null) {
                 slintSnippet = `// Unsupported node type: ${node.type}`;
             }
-            console.log(
-                `[Backend] Generated snippet for ${node.name}. Length: ${slintSnippet?.length ?? 0}`,
-            );
         } catch (error) {
             console.error(
                 `[Backend] Error generating snippet for ${node.name}:`,
@@ -96,9 +83,6 @@ listenTS("generateSnippetRequest", async (payload) => {
         title: title,
         slintSnippet: slintSnippet,
     });
-    console.log(
-        `[Backend] Sent updatePropertiesCallback to UI. Title: ${title}`,
-    );
 });
 
 listenTS("copyToClipboard", ({ result }) => {
@@ -110,27 +94,17 @@ listenTS("copyToClipboard", ({ result }) => {
 });
 
 figma.on("selectionchange", () => {
-    console.log("[Backend] Selection changed in Figma, notifying UI."); // <-- Add this line
-
     if (figma.editorType === "figma" && figma.mode === "default") {
         dispatchTS("selectionChangedInFigma", {});
     }
 });
 
 listenTS("exportToFiles", async (payload: { exportAsSingleFile?: boolean }) => {
-    console.log(
-        "[Backend] Received 'exportToFiles' request. Payload:",
-        payload,
-    ); // Check this log
     const shouldExportAsSingleFile = payload?.exportAsSingleFile ?? false;
-    console.log(
-        `[Backend] Parsed shouldExportAsSingleFile: ${shouldExportAsSingleFile}`,
-    ); // Check this log
     try {
         const files = await exportFigmaVariablesToSeparateFiles(
             shouldExportAsSingleFile,
         );
-        console.log(`Exported ${files.length} collection files`);
 
         // Send to UI for downloading
         figma.ui.postMessage({
@@ -162,12 +136,6 @@ const variableMonitoring: {
 const DEBOUNCE_INTERVAL = 3000; // 3 seconds
 
 listenTS("monitorVariableChanges", async () => {
-    // console.log("[Backend] Received 'monitorVariableChanges' from UI."); // <-- Add Log
-
-    // // Confirm setup to UI
-    // console.log(
-    //     "[Backend] Posting 'variableMonitoringActive' confirmation to UI.",
-    // ); // <-- Add Log
     figma.ui.postMessage({
         type: "variableMonitoringActive", // Keep this confirmation
         timestamp: Date.now(),
@@ -179,7 +147,6 @@ listenTS("checkVariableChanges", async () => {
 
 // Replace your checkVariableChanges handler
 async function checkVariableChanges(isInitialRun = false) {
-    // console.log("[Backend] Running checkVariableChanges..."); // Log run
     try {
         const collections =
             await figma.variables.getLocalVariableCollectionsAsync();

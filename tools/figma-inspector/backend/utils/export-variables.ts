@@ -108,7 +108,16 @@ function sanitizeModeForEnum(name: string): string {
     return name.replace(/[^a-zA-Z0-9_]/g, "_");
 }
 // helper to detect cycles in dependency graph
-function detectCycle(dependencies: Map<string, Set<string>>): boolean {
+function detectCycle(
+    dependencies: Map<string, Set<string>>,
+    exportInfo: {
+        renamedVariables: Set<string>;
+        circularReferences: Set<string>;
+        warnings: Set<string>;
+        features: Set<string>;
+        collections: Set<string>;
+    },
+): boolean {
     const visiting = new Set<string>(); // Nodes currently in the recursion stack
     const visited = new Set<string>(); // Nodes already fully explored
 
@@ -123,16 +132,16 @@ function detectCycle(dependencies: Map<string, Set<string>>): boolean {
                     return true; // Cycle found downstream
                 }
             } else if (visiting.has(neighbor)) {
-                // Back edge detected - cycle found!
-                console.warn(
+                exportInfo.warnings.add(
                     `Dependency cycle detected involving: ${node} -> ${neighbor}`,
                 );
+
                 return true;
             }
         }
 
         visiting.delete(node); // Remove node from current path stack
-        return false; // No cycle found from this node
+        return false;
     }
 
     // Check for cycles starting from each node
@@ -185,7 +194,6 @@ function createReferenceExpression(
     // --- 1. Get Target Info ---
     const targetInfo = variablePathsById.get(referenceId);
     if (!targetInfo) {
-        console.warn(`Reference path not found for ID: ${referenceId}`);
         exportInfo.warnings.add(
             `Reference path not found for ID: ${referenceId}`,
         );
@@ -209,16 +217,12 @@ function createReferenceExpression(
 
     if (resolutionStack.includes(targetIdentifier)) {
         const loopPath = `${resolutionStack.join(" -> ")} -> ${targetIdentifier}`;
-        console.warn(`Detected reference loop: ${loopPath}`);
         exportInfo.circularReferences.add(
             `${loopPath} (resolved with value/default)`,
         );
 
         // --- Handle Same-Collection Loop by Resolving Target's Value ---
         if (!isCrossCollection) {
-            console.log(
-                `Attempting to break same-collection loop by resolving target's value: ${targetIdentifier}`,
-            );
             const targetCollectionDataLoop =
                 collectionStructure.get(targetCollection);
             const propertyPathLoop = targetPath
@@ -244,17 +248,11 @@ function createReferenceExpression(
                     if (!firstEntry.done) {
                         usedModeNameLoop = firstEntry.value[0];
                         modeDataToUseLoop = firstEntry.value[1];
-                        console.warn(
-                            `  Loop break: Target ${targetIdentifier} missing mode ${sanitizedSourceModeLoop}, using its mode ${usedModeNameLoop}`,
-                        );
                     }
                 }
 
                 // If we found data for a mode AND it has a concrete value (not another alias)
                 if (modeDataToUseLoop && !modeDataToUseLoop.refId) {
-                    console.log(
-                        `  Loop break successful: Using concrete value "${modeDataToUseLoop.value}" from ${targetIdentifier} (mode: ${usedModeNameLoop})`,
-                    );
                     return {
                         value: modeDataToUseLoop.value,
                         isCircular: true, // Still mark as circular for info, but provide value
@@ -297,7 +295,6 @@ function createReferenceExpression(
     // --- 3. Resolve Target Value or Nested Reference ---
     const targetCollectionData = collectionStructure.get(targetCollection);
     if (!targetCollectionData) {
-        console.warn(`Target collection data not found: ${targetCollection}`);
         exportInfo.warnings.add(
             `Target collection data not found: ${targetCollection}`,
         );
@@ -315,9 +312,6 @@ function createReferenceExpression(
         targetCollectionData.variables.get(propertyPath);
 
     if (!targetVariableModesMap) {
-        console.warn(
-            `Target variable data not found in collectionStructure: ${targetCollection}.${propertyPath}`,
-        );
         exportInfo.warnings.add(
             `Target variable data not found: ${targetCollection}.${propertyPath}`,
         );
@@ -361,7 +355,6 @@ function createReferenceExpression(
                 usedModeName = firstTargetModeEntry.value[0];
                 modeDataToUse = firstTargetModeEntry.value[1];
                 const warningMsg = `Mode mismatch: Source mode '${sourceModeName}' not found in target '${targetIdentifier}'. Using target's mode '${usedModeName}' for reference.`;
-                console.warn(warningMsg);
                 exportInfo.warnings.add(warningMsg);
             } else {
                 console.error(
@@ -389,13 +382,9 @@ function createReferenceExpression(
         if (sourceCollectionData && sourceCollectionData.modes.size > 1) {
             const currentIdentifier = `${currentCollection}.${currentPath.join(".")}`;
             const warningMsg = `Mode mismatch: Source '${currentIdentifier}' is multi-mode but target '${targetIdentifier}' is single-mode. Reference uses target's single mode value.`;
-            console.warn(warningMsg);
             exportInfo.warnings.add(warningMsg);
         }
     } else {
-        console.error(
-            `Target collection ${targetCollection} has no modes defined.`,
-        );
         exportInfo.warnings.add(
             `Target collection ${targetCollection} has no modes defined.`,
         );
@@ -428,9 +417,6 @@ function createReferenceExpression(
             if (isCrossCollection) {
                 // --- Different collection: Use the resolved concrete value ---
                 finalValue = modeDataToUse.value;
-                console.log(
-                    `[createReferenceExpression] Cross-collection reference ${targetIdentifier} resolved to concrete value: ${finalValue}`,
-                );
             } else {
                 // --- Same collection: Generate the relative Slint path ---
                 const baseExpr = propertyPath;
@@ -440,9 +426,6 @@ function createReferenceExpression(
                     needsModeSuffix && usedModeName
                         ? `${baseExpr}.${usedModeName}`
                         : baseExpr;
-                console.log(
-                    `[createReferenceExpression] Same-collection reference ${targetIdentifier} resolved to path: ${finalValue}`,
-                );
             }
 
             return {
@@ -455,9 +438,6 @@ function createReferenceExpression(
     }
     // CASE C: No value data found for the target variable in any relevant mode
     else {
-        console.warn(
-            `Missing value data for ${targetIdentifier} in mode ${sourceModeName} or fallback.`,
-        );
         exportInfo.warnings.add(
             `Missing value data for ${targetIdentifier} in mode ${sourceModeName} or fallback.`,
         );
@@ -612,12 +592,6 @@ function generateStructsAndInstances(
                         : sanitizePropertyName(childName);
 
                 if (childName === "mode" && hasRootModeVariable) {
-                    console.warn(
-                        `⚠️ COLLISION: Found a root-level "mode" variable in ${collectionData.name}.`,
-                    );
-                    console.warn(
-                        `Renaming Figma "mode" variable to "mode-var" to avoid conflict with scheme mode.`,
-                    );
                     exportInfo.renamedVariables.add(
                         `"${childName}" → "${sanitizedChildName}" in ${collectionData.formattedName} (to avoid conflict with scheme mode)`,
                     ); // Use formattedName
@@ -1206,7 +1180,7 @@ export async function exportFigmaVariablesToSeparateFiles(
                                 value: formattedValue,
                                 type: variable.resolvedType,
                                 refId: refId,
-                                comment: undefined, // Add comment property with undefined default value
+                                comment: undefined,
                             });
                     }
 
@@ -1315,7 +1289,7 @@ export async function exportFigmaVariablesToSeparateFiles(
                                 requiredImports.add(refResult.importStatement);
                             }
                         } else {
-                            console.warn(
+                            exportInfo.warnings.add(
                                 `Failed to resolve reference ${data.refId} for ${currentIdentifier}`,
                             );
                             const fallbackValue = {
@@ -1335,19 +1309,10 @@ export async function exportFigmaVariablesToSeparateFiles(
         }
 
         // Check for cycles in the dependency graph BEFORE generating file content
-        const hasCycle = detectCycle(collectionDependencies);
+        const hasCycle = detectCycle(collectionDependencies, exportInfo);
         // --- Add Detailed Logging Here ---
-        console.log(
-            `[DEBUG] Before final flag: exportAsSingleFile = ${exportAsSingleFile}, hasCycle = ${hasCycle}`,
-        );
         const finalExportAsSingleFile = exportAsSingleFile || hasCycle;
-        console.log(
-            `[DEBUG] After final flag: finalExportAsSingleFile = ${finalExportAsSingleFile}`,
-        );
         if (hasCycle && !exportAsSingleFile) {
-            console.warn(
-                "Detected collection dependency cycle. Forcing export as single file.",
-            );
             exportInfo.warnings.add(
                 "Detected collection dependency cycle. Forcing export as single file.",
             );
@@ -1360,8 +1325,8 @@ export async function exportFigmaVariablesToSeparateFiles(
         ] of collectionStructure.entries()) {
             // Skip collections with no variables
             if (collectionData.variables.size === 0) {
-                console.log(
-                    `Skipping empty collection: ${collectionData.name}`,
+                exportInfo.warnings.add(
+                    `Skipped empty collection: ${collectionData.name}`,
                 );
                 continue;
             }
@@ -1450,12 +1415,6 @@ export async function exportFigmaVariablesToSeparateFiles(
             let content = `// Generated Slint file for ${collectionData.name}\n\n`;
 
             // Add imports ONLY if final mode is multi-file
-            console.log(
-                "SINGLE FILE: final:",
-                finalExportAsSingleFile,
-                "not:",
-                exportAsSingleFile,
-            );
             if (!finalExportAsSingleFile) {
                 // Iterate through all potentially required imports collected earlier
                 for (const importStmt of requiredImports) {
@@ -1514,23 +1473,21 @@ export async function exportFigmaVariablesToSeparateFiles(
                 name: `${collectionData.formattedName}.slint`,
                 content: content.trim() + "\n", // Trim whitespace and add single trailing newline
             });
-
-            console.log(
-                `Generated content for collection: ${collectionData.name}`,
-            );
         }
 
         // Post-process generated files (e.g., replace unresolved refs)
         for (const file of generatedFiles) {
             // Check if there are any unresolved references left
             if (file.content.includes("@ref:")) {
-                console.warn(`Found unresolved references in ${file.name}`);
+                exportInfo.warnings.add(
+                    `Found unresolved references in ${file.name}`,
+                );
 
                 // Replace unresolved references with appropriate defaults based on context
                 file.content = file.content.replace(
                     /(@ref:VariableID:[0-9:]+)/g,
                     (match, reference) => {
-                        console.warn(
+                        exportInfo.warnings.add(
                             `  Replacing unresolved reference: ${reference}`,
                         );
 
@@ -1602,7 +1559,6 @@ export async function exportFigmaVariablesToSeparateFiles(
         return finalOutputFiles; // Return the final array
     } catch (error) {
         console.error("Error in exportFigmaVariablesToSeparateFiles:", error);
-        // Return an error file
         return [
             {
                 name: "error.slint",
