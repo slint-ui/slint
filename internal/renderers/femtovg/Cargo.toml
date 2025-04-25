@@ -18,7 +18,7 @@ path = "lib.rs"
 [features]
 default = []
 wgpu = ["wgpu-24"]
-wgpu-24 = ["dep:wgpu-24", "femtovg/wgpu", "dep:spin_on"]
+wgpu-24 = ["dep:wgpu-24", "femtovg/wgpu"]
 
 [dependencies]
 i-slint-core = { workspace = true, features = ["default", "box-shadow-cache", "shared-fontdb"] }
@@ -42,7 +42,6 @@ glow = { workspace = true }
 unicode-segmentation = { workspace = true }
 
 wgpu-24 = { workspace = true, optional = true, default-features = true }
-spin_on = { version = "0.1", optional = true }
 
 [target.'cfg(target_family = "windows")'.dependencies]
 winapi = { version = "0.3", features = ["dwrite"] }

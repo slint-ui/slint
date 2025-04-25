@@ -117,7 +117,7 @@ impl FemtoVGRenderer<WGPUBackend> {
 
         // wgpu uses async here, but the returned future is ready on first poll on all platforms except WASM,
         // which we don't supoprt right now.
-        let instance = spin_on::spin_on(async {
+        let instance = poll_once(async {
             wgpu::util::new_instance_with_webgpu_detection(&wgpu::InstanceDescriptor {
                 backends,
                 flags: wgpu::InstanceFlags::from_build_config().with_env(),
@@ -127,19 +127,21 @@ impl FemtoVGRenderer<WGPUBackend> {
                 },
             })
             .await
-        });
+        })
+        .expect("internal error: wgpu instance creation is not expected to be async");
 
         let surface = instance.create_surface(window_handle).unwrap();
 
         // wgpu uses async here, but the returned future is ready on first poll on all platforms except WASM,
         // which we don't supoprt right now.
-        let adapter = spin_on::spin_on(async {
+        let adapter = poll_once(async {
             wgpu::util::initialize_adapter_from_env_or_default(&instance, Some(&surface))
                 .await
                 .expect("Failed to find an appropriate adapter")
-        });
+        })
+        .expect("internal error: wgpu adapter creation is not expected to be async");
 
-        let (device, queue) = spin_on::spin_on(async {
+        let (device, queue) = poll_once(async {
             adapter
                 .request_device(
                     &wgpu::DeviceDescriptor {
@@ -154,7 +156,8 @@ impl FemtoVGRenderer<WGPUBackend> {
                 )
                 .await
                 .expect("Failed to create device")
-        });
+        })
+        .expect("internal error: wgpu device creation is not expected to be async");
 
         let mut surface_config =
             surface.get_default_config(&adapter, size.width, size.height).unwrap();
@@ -186,5 +189,23 @@ impl FemtoVGRenderer<WGPUBackend> {
         let canvas = Rc::new(RefCell::new(femtovg_canvas));
         self.reset_canvas(canvas);
         Ok(())
+    }
+}
+
+// Helper function to poll a future once. Remove once the suspension API uses async.
+fn poll_once<F: std::future::Future>(future: F) -> Option<F::Output> {
+    struct DummyWaker();
+    impl std::task::Wake for DummyWaker {
+        fn wake(self: std::sync::Arc<Self>) {}
+    }
+
+    let waker = std::sync::Arc::new(DummyWaker()).into();
+    let mut ctx = std::task::Context::from_waker(&waker);
+
+    let future = std::pin::pin!(future);
+
+    match future.poll(&mut ctx) {
+        std::task::Poll::Ready(result) => Some(result),
+        std::task::Poll::Pending => None,
     }
 }
