@@ -401,14 +401,10 @@ component GradientStopValue {
 
     changed stop-data-position => {
         ti-position.text = (stop-data-position * 100.0).round();
-        // Trigger a brush update
-        WindowManager.update-brush();
     }
     changed stop-data-color => {
         ti-alpha.text = (stop-data-color.to-hsv().alpha * 100.0).round();
         ti-stop-color.text = Api.color-to-data(stop-data-color).short-text.to-uppercase();
-        // Trigger a brush update
-        WindowManager.update-brush();
     }
     width: 100%;
     height: 32px;
@@ -446,7 +442,7 @@ component GradientStopValue {
                     }
                 }
                 accepted => {
-                    PickerData.current-gradient-stops[stop-index].position = clamp(self.text.to-float(), 0, 100) / 100;
+                    PickerData.current-stop-index = Api.move-gradient-stop(PickerData.current-gradient-stops, stop-index, clamp(self.text.to-float(), 0, 100) / 100);
                     self.clear-focus();
                 }
                 edited => {
@@ -461,24 +457,6 @@ component GradientStopValue {
                 font-family: "Inter";
                 font-size: 11px;
                 text: "%";
-            }
-
-            Rectangle {
-                x: parent.width - self.width;
-                width: 20px;
-                TouchArea {
-                    mouse-cursor: col-resize;
-                    property <float> initial-stop-percentage: 0;
-                    changed pressed => {
-                        if self.pressed {
-                            initial-stop-percentage = PickerData.current-gradient-stops[stop-index].position;
-                            PickerData.current-stop-index = stop-index;
-                        }
-                    }
-                    moved => {
-                        PickerData.current-gradient-stops[stop-index].position = (initial-stop-percentage + (((self.mouse-x - self.pressed-x) / 1px)) / 100).clamp(0, 1);
-                    }
-                }
             }
         }
 
@@ -657,7 +635,6 @@ component GradientPicker inherits SimpleColumn {
             current-index: PickerData.current-brush-kind == BrushKind.linear ? 0 : 1;
             selected(current-value) => {
                 PickerData.current-brush-kind = current-value == "Linear" ? BrushKind.linear : BrushKind.radial;
-                WindowManager.update-brush();
             }
         }
 
@@ -1125,7 +1102,6 @@ component HsvPicker inherits SimpleColumn {
 }
 
 component ColorPicker inherits DraggablePanel {
-    property current-color <=> PickerData.current-color;
     // Is the picker being used to edit (property tab) or preview (data tab)
     in property <WidgetMode> widget-mode: edit;
     // Is the property type color or a brush. Don't show  gradient picker for colors
@@ -1136,12 +1112,6 @@ component ColorPicker inherits DraggablePanel {
     in-out property <PickerTab> active-tab: PickerTab.color;
 
     callback close <=> t-close.clicked;
-
-    changed current-color => {
-        if widget-mode == WidgetMode.preview && PickerData.current-brush-kind == BrushKind.solid {
-            WindowManager.update-preview-value(Api.color-to-data(root.current-color).text);
-        }
-    }
 
     init => {
         active-tab = brush-mode == BrushMode.color ? PickerTab.color : PickerTab.gradient;
