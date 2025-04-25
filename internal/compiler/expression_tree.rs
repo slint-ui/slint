@@ -39,7 +39,9 @@ pub enum BuiltinFunction {
     ATan,
     ATan2,
     Log,
+    Ln,
     Pow,
+    Exp,
     ToFixed,
     ToPrecision,
     SetFocusItem,
@@ -174,7 +176,9 @@ declare_builtin_function_types!(
     ATan: (Type::Float32) -> Type::Angle,
     ATan2: (Type::Float32, Type::Float32) -> Type::Angle,
     Log: (Type::Float32, Type::Float32) -> Type::Float32,
+    Ln: (Type::Float32) -> Type::Float32,
     Pow: (Type::Float32, Type::Float32) -> Type::Float32,
+    Exp: (Type::Float32) -> Type::Float32,
     ToFixed: (Type::Float32, Type::Int32) -> Type::String,
     ToPrecision: (Type::Float32, Type::Int32) -> Type::String,
     SetFocusItem: (Type::ElementReference) -> Type::Void,
@@ -294,7 +298,9 @@ impl BuiltinFunction {
             | BuiltinFunction::ACos
             | BuiltinFunction::ASin
             | BuiltinFunction::Log
+            | BuiltinFunction::Ln
             | BuiltinFunction::Pow
+            | BuiltinFunction::Exp
             | BuiltinFunction::ATan
             | BuiltinFunction::ATan2
             | BuiltinFunction::ToFixed
@@ -371,7 +377,9 @@ impl BuiltinFunction {
             | BuiltinFunction::ACos
             | BuiltinFunction::ASin
             | BuiltinFunction::Log
+            | BuiltinFunction::Ln
             | BuiltinFunction::Pow
+            | BuiltinFunction::Exp
             | BuiltinFunction::ATan
             | BuiltinFunction::ATan2
             | BuiltinFunction::ToFixed
