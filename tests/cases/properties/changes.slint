@@ -7,6 +7,9 @@ export global Glob {
     changed v => {
         r += "|" + v;
     }
+
+    private property <int> other: v;
+    changed other => { r += "=" + v }
 }
 
 
@@ -165,7 +168,7 @@ assert_eq!(instance.get_result(), "||sub2(124)root2(124)sub(790)root(790)");
 instance.global::<Glob<'_>>().set_v(88);
 assert_eq!(instance.global::<Glob<'_>>().get_r(), "");
 slint_testing::mock_elapsed_time(100);
-assert_eq!(instance.global::<Glob<'_>>().get_r(), "|88");
+assert_eq!(instance.global::<Glob<'_>>().get_r(), "=88|88");
 ```
 
 ```cpp
@@ -211,7 +214,7 @@ assert_eq(instance.get_result(), "||sub2(124)root2(124)sub(790)root(790)");
 instance.global<Glob>().set_v(88);
 assert_eq(instance.global<Glob>().get_r(), "");
 slint_testing::mock_elapsed_time(100);
-assert_eq(instance.global<Glob>().get_r(), "|88");
+assert_eq(instance.global<Glob>().get_r(), "=88|88");
 ```
 
 ```js
@@ -251,7 +254,7 @@ assert.equal(instance.result, "||sub2(124)root2(124)sub(790)root(790)");
 instance.Glob.v = 88;
 assert.equal(instance.Glob.r, "");
 slintlib.private_api.mock_elapsed_time(100);
-assert.equal(instance.Glob.r, "|88");
+assert.equal(instance.Glob.r, "=88|88");
 ```
 
 */
