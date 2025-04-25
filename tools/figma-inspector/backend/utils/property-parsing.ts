@@ -883,6 +883,7 @@ export async function generateTextSnippet(
                         typeof sceneNode.textAlignHorizontal === "string"
                     ) {
                         let slintValue: string | null = null;
+                        let comment: string | null = null;
                         switch (sceneNode.textAlignHorizontal) {
                             case "LEFT":
                                 slintValue = "left";
@@ -894,13 +895,17 @@ export async function generateTextSnippet(
                                 slintValue = "right";
                                 break;
                             case "JUSTIFIED":
-                                slintValue = "left"; // Slint has no justify
+                                slintValue = "left";
+                                comment =
+                                    "// Note: The value was justified in Figma, but this isn't supported right now";
                                 break;
                         }
                         if (slintValue) {
-                            properties.push(
-                                `${indentation}horizontal-alignment: ${slintValue};`,
-                            );
+                            const propertyString = comment
+                                ? `${indentation}horizontal-alignment: ${slintValue}; ${comment}`
+                                : `${indentation}horizontal-alignment: ${slintValue};`;
+
+                            properties.push(propertyString);
                             console.log(
                                 `[generateTextSnippet] horizontal-alignment: Added property: ${slintValue}`,
                             );
