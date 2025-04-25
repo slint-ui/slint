@@ -789,10 +789,14 @@ pub fn generate(
         }),
     ));
 
+    let mut init_global = vec![];
+
     for (idx, glob) in llr.globals.iter_enumerated() {
+        let name = format_smolstr!("global_{}", concatenate_ident(&glob.name));
         let ty = if glob.is_builtin {
             format_smolstr!("slint::cbindgen_private::{}", glob.name)
         } else if glob.must_generate() {
+            init_global.push(format!("{name}->init();"));
             generate_global(&mut file, &conditional_includes, idx, glob, &llr);
             file.definitions.extend(glob.aliases.iter().map(|name| {
                 Declaration::TypeAlias(TypeAlias {
@@ -809,12 +813,24 @@ pub fn generate(
             Access::Public,
             Declaration::Var(Var {
                 ty: format_smolstr!("std::shared_ptr<{}>", ty),
-                name: format_smolstr!("global_{}", concatenate_ident(&glob.name)),
+                name,
                 init: Some(format!("std::make_shared<{ty}>(this)")),
                 ..Default::default()
             }),
         ));
     }
+
+    globals_struct.members.push((
+        Access::Public,
+        Declaration::Function(Function {
+            name: globals_struct.name.clone(),
+            is_constructor_or_destructor: true,
+            signature: "()".into(),
+            statements: Some(init_global),
+            ..Default::default()
+        }),
+    ));
+
     file.declarations.push(Declaration::Struct(globals_struct));
 
     if let Some(popup_menu) = &llr.popup_menu {
@@ -2581,7 +2597,7 @@ fn generate_global(
         ));
     }
 
-    let mut init = vec!["(void)this->globals;".into()];
+    let mut init = vec![];
     let ctx = EvaluationContext::new_global(
         root,
         global_idx,
@@ -2625,8 +2641,17 @@ fn generate_global(
             name: ident(&global.name),
             signature: "(const class SharedGlobals *globals)".into(),
             is_constructor_or_destructor: true,
-            statements: Some(init),
+            statements: Some(vec![]),
             constructor_member_initializers: vec!["globals(globals)".into()],
+            ..Default::default()
+        }),
+    ));
+    global_struct.members.push((
+        Access::Private,
+        Declaration::Function(Function {
+            name: ident("init"),
+            signature: "() -> void".into(),
+            statements: Some(init),
             ..Default::default()
         }),
     ));
@@ -2638,6 +2663,7 @@ fn generate_global(
             ..Default::default()
         }),
     ));
+    global_struct.friends.push(SmolStr::new_static("SharedGlobals"));
 
     generate_public_api_for_properties(
         &mut global_struct.members,

@@ -122,11 +122,19 @@ pub fn count_property_use(root: &CompilationUnit) {
         }
     });
 
-    // TODO: only visit used function
     for (idx, g) in root.globals.iter_enumerated() {
         let ctx = EvaluationContext::new_global(root, idx, ());
+        // TODO: only visit used function
         for f in &g.functions {
             f.code.visit_property_references(&ctx, &mut visit_property);
+        }
+
+        for (p, e) in &g.change_callbacks {
+            visit_property(
+                &PropertyReference::Local { sub_component_path: vec![], property_index: *p },
+                &ctx,
+            );
+            e.borrow().visit_property_references(&ctx, &mut visit_property);
         }
     }
 
