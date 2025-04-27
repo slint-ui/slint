@@ -307,7 +307,7 @@ function createReferenceExpression(
 
     const propertyPath = targetPath
         .map((part) => sanitizePropertyName(part))
-        .join(".");
+        .join("/");
     const targetVariableModesMap =
         targetCollectionData.variables.get(propertyPath);
 
@@ -1017,7 +1017,7 @@ export async function exportFigmaVariablesToSeparateFiles(
             });
         }
 
-        // THEN process the variables for each collection
+        // process the variables for each collection
         for (const collection of variableCollections) {
             const collectionName = sanitizePropertyName(collection.name);
 
