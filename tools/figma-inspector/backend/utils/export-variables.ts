@@ -214,6 +214,7 @@ function createReferenceExpression(
 
     // Loop Detection
     const targetIdentifier = `${targetCollection}.${targetPath.join(".")}`;
+    const currentIdentifier = `${currentCollection}.${currentPath.join(".")}`;
 
     if (resolutionStack.includes(targetIdentifier)) {
         const loopPath = `${resolutionStack.join(" -> ")} -> ${targetIdentifier}`;
@@ -388,6 +389,33 @@ function createReferenceExpression(
             `Target collection ${targetCollection} has no modes defined.`,
         );
     }
+    const isCrossHierarchy =
+        currentPath.length > 0 &&
+        targetPath.length > 0 &&
+        currentPath[0] !== targetPath[0];
+
+    if (!isCrossCollection && isCrossHierarchy) {
+        // It's a reference to a different top-level group within the same collection
+        // Construct the Slint path to the target variable
+        const slintPath = [
+            targetCollection, // Should be same as currentCollection here
+            ...targetPath.map((part) => sanitizePropertyName(part)),
+        ].join(".");
+        const needsModeSuffix = targetModes.size > 1;
+        const finalValue =
+            needsModeSuffix && usedModeName
+                ? `${slintPath}.${usedModeName}`
+                : slintPath;
+
+        console.log(
+            `[${currentIdentifier}] Detected cross-hierarchy reference to ${targetIdentifier}. Returning path: ${finalValue}`,
+        );
+        return {
+            value: finalValue,
+            isCircular: false,
+            comment: `Reference to variable: ${targetIdentifier}`, // Comment indicating it's a direct reference
+        };
+    }
 
     if (modeDataToUse) {
         // Target is another reference (alias)
@@ -396,7 +424,7 @@ function createReferenceExpression(
             const nextStack = [...resolutionStack, targetIdentifier];
             const nextSourceMode = usedModeName || sourceModeName;
 
-            return createReferenceExpression(
+            const recursiveResult = createReferenceExpression(
                 modeDataToUse.refId,
                 nextSourceMode,
                 variablePathsById,
@@ -407,10 +435,25 @@ function createReferenceExpression(
                 finalExportAsSingleFile,
                 exportInfo,
             );
+            if (recursiveResult.isCircular) {
+                return recursiveResult;
+            } else {
+                const finalComment =
+                    recursiveResult.comment ||
+                    `Resolving binding loop at: ${targetIdentifier}`;
+
+                return {
+                    value: recursiveResult.value,
+                    isCircular: false,
+                    comment: finalComment,
+                    importStatement: recursiveResult.importStatement,
+                };
+            }
         }
         // Target holds a concrete value
         else {
             let finalValue: string;
+            let finalComment: string | undefined = modeDataToUse.comment;
 
             if (isCrossCollection) {
                 const slintPath = [
@@ -426,15 +469,15 @@ function createReferenceExpression(
                         ? `${baseExpr}.${usedModeName}`
                         : baseExpr;
             } else {
-                modeDataToUse.comment = `Resolved same-collection reference to concrete value from ${targetIdentifier}`;
                 finalValue = modeDataToUse.value;
+                finalComment = `Resolved same-collection reference to concrete value from ${targetIdentifier}`;
             }
 
             return {
                 value: finalValue,
                 importStatement: undefined,
                 isCircular: false,
-                comment: modeDataToUse.comment,
+                comment: finalComment,
             };
         }
     }
@@ -493,8 +536,7 @@ interface PropertyInstance {
     name: string;
     type: string;
     isMultiMode?: boolean;
-    values?: Map<string, string>;
-    comment?: string;
+    modeData?: Map<string, { value: string; comment?: string }>;
     children?: Map<string, PropertyInstance>;
 }
 
@@ -616,7 +658,6 @@ function generateStructsAndInstances(
                     });
                     // Process children
                     buildInstanceModel(childNode, [sanitizedChildName]);
-                    buildPropertyHierarchy();
                 } else if (childNode.valuesByMode) {
                     // Direct value property
                     const slintType: string = getSlintType(
@@ -625,28 +666,65 @@ function generateStructsAndInstances(
                     const instance: PropertyInstance = {
                         name: sanitizedChildName,
                         type: slintType,
-                        values: new Map<string, string>(),
+                        modeData: new Map<
+                            string,
+                            { value: string; comment?: string }
+                        >(),
                     };
+
+                    const rowNameKey = sanitizedChildName;
+                    const resolvedVariableModesMap =
+                        collectionData.variables.get(rowNameKey);
+
+                    if (!resolvedVariableModesMap) {
+                        console.error(
+                            `Missing resolved variable data for root key: ${rowNameKey}`,
+                        );
+                        // Add instance even if empty to avoid breaking hierarchy
+                        propertyInstances.set(sanitizedChildName, instance);
+                        continue; // Skip to next child
+                    }
 
                     if (collectionData.modes.size > 1) {
                         instance.isMultiMode = true;
-
-                        for (const [
-                            modeName,
-                            data,
-                        ] of childNode.valuesByMode.entries()) {
-                            instance.values = new Map<string, string>();
-                            instance.values.set(modeName, data.value);
-                            if (data.comment) {
-                                instance.comment = data.comment;
+                        for (const modeName of collectionData.modes) {
+                            const resolvedData =
+                                resolvedVariableModesMap.get(modeName);
+                            if (resolvedData) {
+                                instance.modeData!.set(modeName, {
+                                    value: resolvedData.value,
+                                    comment: resolvedData.comment, // <<< Use resolved comment >>>
+                                });
+                            } else {
+                                console.warn(
+                                    `Missing resolved data for ${rowNameKey} in mode ${modeName}`,
+                                );
+                                instance.modeData!.set(modeName, {
+                                    value: "#FF00FF",
+                                    comment: `Missing data for mode ${modeName}`,
+                                });
                             }
                         }
                     } else {
                         // Single mode
-                        const firstMode: ModeValue | undefined =
-                            childNode.valuesByMode.values().next().value;
-                        instance.values = new Map<string, string>();
-                        instance.values.set("value", firstMode?.value || "");
+                        const singleModeName =
+                            [...collectionData.modes][0] || "value";
+                        const resolvedData =
+                            resolvedVariableModesMap.get(singleModeName);
+                        if (resolvedData) {
+                            instance.modeData!.set(singleModeName, {
+                                value: resolvedData.value,
+                                comment: resolvedData.comment, // <<< Use resolved comment >>>
+                            });
+                        } else {
+                            console.warn(
+                                `Missing resolved data for ${rowNameKey} in single mode ${singleModeName}`,
+                            );
+                            instance.modeData!.set(singleModeName, {
+                                value: "#FF00FF",
+                                comment: `Missing data for mode ${singleModeName}`,
+                            });
+                        }
                     }
 
                     propertyInstances.set(sanitizedChildName, instance);
@@ -684,7 +762,6 @@ function generateStructsAndInstances(
                     children: new Map<string, PropertyInstance>(),
                 });
                 buildInstanceModel(childNode, childPath);
-                buildPropertyHierarchy();
             } else if (childNode.valuesByMode) {
                 // Get parent instance
                 const parentInstance: PropertyInstance | undefined =
@@ -699,30 +776,66 @@ function generateStructsAndInstances(
                 const instance: PropertyInstance = {
                     name: sanitizedChildName,
                     type: slintType,
+                    modeData: new Map<
+                        string,
+                        { value: string; comment?: string }
+                    >(),
                 };
+                const rowNameKey = childPathKey; // Use the pre-calculated childPathKey
+                const resolvedVariableModesMap =
+                    collectionData.variables.get(rowNameKey);
+
+                if (!resolvedVariableModesMap) {
+                    console.error(
+                        `Missing resolved variable data for nested key: ${rowNameKey}`,
+                    );
+                    // Add instance even if empty
+                    propertyInstances.set(childPathKey, instance);
+                    continue; // Skip to next child
+                }
 
                 if (collectionData.modes.size > 1) {
                     instance.isMultiMode = true;
-                    instance.values = new Map<string, string>();
-
-                    for (const [
-                        modeName,
-                        data,
-                    ] of childNode.valuesByMode.entries()) {
-                        instance.values.set(modeName, data.value);
-                        if (data.comment) {
-                            instance.comment = data.comment;
+                    for (const modeName of collectionData.modes) {
+                        const resolvedData =
+                            resolvedVariableModesMap.get(modeName);
+                        if (resolvedData) {
+                            instance.modeData!.set(modeName, {
+                                value: resolvedData.value,
+                                comment: resolvedData.comment, // <<< Use resolved comment >>>
+                            });
+                        } else {
+                            console.warn(
+                                `Missing resolved data for ${rowNameKey} in mode ${modeName}`,
+                            );
+                            instance.modeData!.set(modeName, {
+                                value: "#FF00FF",
+                                comment: `Missing data for mode ${modeName}`,
+                            });
                         }
                     }
                 } else {
                     // Single mode
-                    const firstMode: ModeValue | undefined =
-                        childNode.valuesByMode.values().next().value;
-                    instance.values = new Map<string, string>();
-                    instance.values.set("value", firstMode?.value || "");
+                    const singleModeName =
+                        [...collectionData.modes][0] || "value";
+                    const resolvedData =
+                        resolvedVariableModesMap.get(singleModeName);
+                    if (resolvedData) {
+                        instance.modeData!.set(singleModeName, {
+                            value: resolvedData.value,
+                            comment: resolvedData.comment, // <<< Use resolved comment >>>
+                        });
+                    } else {
+                        console.warn(
+                            `Missing resolved data for ${rowNameKey} in single mode ${singleModeName}`,
+                        );
+                        instance.modeData!.set(singleModeName, {
+                            value: "#FF00FF",
+                            comment: `Missing data for mode ${singleModeName}`,
+                        });
+                    }
                 }
-
-                parentInstance.children.set(sanitizedChildName, instance);
+                propertyInstances.set(childPathKey, instance);
             }
         }
     }
@@ -780,9 +893,9 @@ function generateStructsAndInstances(
         indent: string = "    ",
     ) {
         let result = "";
-
-        if (path.length === 0) {
-            // Special handling for renamed mode variable
+        const isRoot = indent === "    ";
+        // Special handling for renamed mode variable
+        if (isRoot) {
             if (instance.name === "mode-var") {
                 result += `${indent}// NOTE: This property was renamed from "mode" to "mode-var" to avoid collision\n`;
                 result += `${indent}// with the scheme mode property of the same name.\n`;
@@ -806,26 +919,38 @@ function generateStructsAndInstances(
                     );
                 }
                 result += `${indent}};\n\n`;
-            } else if (instance.values) {
-                // Value property
+            } else if (instance.modeData) {
+                const isRoot = indent === "    ";
+                const slintType = instance.isMultiMode
+                    ? `mode${collectionData.modes.size}_${instance.type}`
+                    : instance.type;
+                // Root Value Instance
                 if (instance.isMultiMode) {
-                    // Multi-mode property
-                    result += `${indent}out property <${slintType}> ${instance.name}: {\n`;
-
-                    for (const [modeName, value] of instance.values.entries()) {
-                        if (instance.comment) {
-                            result += `${indent}    // ${instance.comment}\n`;
+                    result += isRoot
+                        ? `${indent}out property <${slintType}> ${instance.name}: {\n`
+                        : `${indent}${instance.name}: {\n`;
+                    for (const [
+                        modeName,
+                        modeInfo,
+                    ] of instance.modeData.entries()) {
+                        if (modeInfo.comment) {
+                            // Check if a comment exists for this specific mode
+                            result += `${indent}    // ${modeInfo.comment}\n`; // Add comment line
                         }
-                        result += `${indent}    ${modeName}: ${value},\n`;
+                        result += `${indent}    ${modeName}: ${modeInfo.value},\n`; // Add value line
                     }
-
-                    result += `${indent}};\n\n`;
+                    result += isRoot ? `${indent}};\n\n` : `${indent}},\n`;
                 } else {
-                    // Single mode property
-                    const value = instance.values.get("value") || "";
-
+                    // Single mode root
+                    const singleModeName =
+                        instance.modeData.keys().next().value || "value";
+                    const modeInfo = instance.modeData.get(singleModeName);
+                    if (modeInfo?.comment) {
+                        result += `${indent}// ${modeInfo.comment}\n`;
+                    }
+                    const value = modeInfo?.value || "";
+                    // Handle unresolved refs (replace with default value logic if needed)
                     if (value.startsWith("@ref:")) {
-                        // Unresolved reference
                         result += `${indent}out property <${instance.type}> ${instance.name}: ${
                             instance.type === "brush"
                                 ? "#808080"
@@ -834,50 +959,55 @@ function generateStructsAndInstances(
                                   : instance.type === "string"
                                     ? '""'
                                     : "false"
-                        };\n`;
+                        };\n`; // Removed extra newline
                     } else {
-                        result += `${indent}out property <${instance.type}> ${instance.name}: ${value};\n`;
+                        result += `${indent}out property <${instance.type}> ${instance.name}: ${value};\n`; // Removed extra newline
                     }
                 }
             }
         } else {
-            // Nested property
+            // Nested property (inside a struct)
             if (instance.children && instance.children.size > 0) {
-                // Nested struct
+                // Nested Struct
                 result += `${indent}${instance.name}: {\n`;
-
                 for (const [
                     childName,
                     childInstance,
                 ] of instance.children.entries()) {
+                    // Recurse for children, increasing indent
                     result += generateInstanceCode(
                         childInstance,
                         [...path, childName],
                         indent + "    ",
                     );
                 }
-
-                result += `${indent}},\n\n`;
-            } else if (instance.values) {
-                // Nested value
+                result += `${indent}},\n`; // Comma for nested struct field
+            } else if (instance.modeData) {
+                // Nested Value
                 if (instance.isMultiMode) {
                     // Multi-mode nested value
                     result += `${indent}${instance.name}: {\n`;
-
-                    for (const [modeName, value] of instance.values.entries()) {
-                        if (instance.comment) {
-                            result += `${indent}    // ${instance.comment}\n`;
+                    for (const [
+                        modeName,
+                        modeInfo,
+                    ] of instance.modeData.entries()) {
+                        if (modeInfo.comment) {
+                            result += `${indent}    // ${modeInfo.comment}\n`;
                         }
-                        result += `${indent}    ${modeName}: ${value},\n`;
+                        result += `${indent}    ${modeName}: ${modeInfo.value},\n`;
                     }
-
-                    result += `${indent}},\n`;
+                    result += `${indent}},\n`; // Comma for nested multi-mode field
                 } else {
-                    // Single mode nested value
-                    const value = instance.values.get("value") || "";
-
+                    // Single mode nested
+                    const singleModeName =
+                        instance.modeData.keys().next().value || "value";
+                    const modeInfo = instance.modeData.get(singleModeName);
+                    if (modeInfo?.comment) {
+                        result += `${indent}// ${modeInfo.comment}\n`;
+                    }
+                    const value = modeInfo?.value || "";
+                    // Handle unresolved refs (replace with default value logic if needed)
                     if (value.startsWith("@ref:")) {
-                        // Unresolved reference
                         result += `${indent}${instance.name}: ${
                             instance.type === "brush"
                                 ? "#808080"
@@ -893,7 +1023,6 @@ function generateStructsAndInstances(
                 }
             }
         }
-
         return result;
     }
 
