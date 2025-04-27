@@ -1713,7 +1713,7 @@ impl QtWindow {
     }
 
     /// Return the QWidget*
-    fn widget_ptr(&self) -> NonNull<()> {
+    pub fn widget_ptr(&self) -> NonNull<()> {
         unsafe { std::mem::transmute_copy::<QWidgetPtr, NonNull<_>>(&self.widget_ptr) }
     }
 
