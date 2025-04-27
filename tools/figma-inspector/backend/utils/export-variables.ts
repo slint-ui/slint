@@ -191,7 +191,7 @@ function createReferenceExpression(
     isCircular?: boolean;
     comment?: string;
 } {
-    // --- 1. Get Target Info ---
+    // Target Info
     const targetInfo = variablePathsById.get(referenceId);
     if (!targetInfo) {
         exportInfo.warnings.add(
@@ -212,7 +212,7 @@ function createReferenceExpression(
 
     const isCrossCollection = targetCollection !== currentCollection;
 
-    // --- 2. Loop Detection ---
+    // Loop Detection
     const targetIdentifier = `${targetCollection}.${targetPath.join(".")}`;
 
     if (resolutionStack.includes(targetIdentifier)) {
@@ -221,7 +221,7 @@ function createReferenceExpression(
             `${loopPath} (resolved with value/default)`,
         );
 
-        // --- Handle Same-Collection Loop by Resolving Target's Value ---
+        //  Handle Same-Collection Loop by Resolving Target's Value
         if (!isCrossCollection) {
             const targetCollectionDataLoop =
                 collectionStructure.get(targetCollection);
@@ -269,9 +269,8 @@ function createReferenceExpression(
                 );
             }
         }
-        // --- End Same-Collection Loop Handling ---
 
-        // --- Fallback for Cross-Collection Loops or Failed Same-Collection Break ---
+        // Fallback for Cross-Collection Loops or Failed Same-Collection Break
         const targetType = targetNode?.type || "COLOR";
         const slintType = getSlintType(targetType);
         const defaultValue =
@@ -292,7 +291,7 @@ function createReferenceExpression(
         };
     }
 
-    // --- Resolve Target Value or Nested Reference ---
+    // Resolve Target Value or Nested Reference
     const targetCollectionData = collectionStructure.get(targetCollection);
     if (!targetCollectionData) {
         exportInfo.warnings.add(
@@ -335,7 +334,7 @@ function createReferenceExpression(
         };
     }
 
-    // --- Determine the correct mode's data to use from the target ---
+    // Determine the correct mode's data to use from the target
     const sanitizedSourceMode = sanitizeModeForEnum(sourceModeName);
     const targetModes = targetCollectionData.modes as Set<string>;
     let modeDataToUse:
@@ -389,7 +388,6 @@ function createReferenceExpression(
             `Target collection ${targetCollection} has no modes defined.`,
         );
     }
-    // --- End mode data determination ---
 
     if (modeDataToUse) {
         // Target is another reference (alias)
@@ -415,10 +413,10 @@ function createReferenceExpression(
             let finalValue: string;
 
             if (isCrossCollection) {
-                // --- Different collection: Use the resolved concrete value ---
+                // Different collection: Use the resolved concrete value
                 finalValue = modeDataToUse.value;
             } else {
-                // --- Same collection: Generate the relative Slint path ---
+                // Same collection: Generate the relative Slint path
                 const baseExpr = propertyPath;
                 const needsModeSuffix = targetModes.size > 1;
 
@@ -1535,11 +1533,11 @@ export async function exportFigmaVariablesToSeparateFiles(
                 content: combinedContent.trim(),
             });
         } else {
-            // --- Use individual files ---
+            // Use individual files
             finalOutputFiles = generatedFiles;
         }
 
-        // --- Add README ---
+        // Add README
         const readmeContent = generateReadmeContent(exportInfo);
         finalOutputFiles.push({
             name: "README.md",
