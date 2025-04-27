@@ -213,7 +213,7 @@ function createReferenceExpression(
     const isCrossCollection = targetCollection !== currentCollection;
 
     // --- 2. Loop Detection ---
-    const targetIdentifier = `${targetCollection}.${targetPath.join(".")}`;
+    const targetIdentifier = `${targetCollection}.${targetPath.join("/")}`;
 
     if (resolutionStack.includes(targetIdentifier)) {
         const loopPath = `${resolutionStack.join(" -> ")} -> ${targetIdentifier}`;
@@ -227,7 +227,7 @@ function createReferenceExpression(
                 collectionStructure.get(targetCollection);
             const propertyPathLoop = targetPath
                 .map((part) => sanitizePropertyName(part))
-                .join(".");
+                .join("/");
             const targetVariableModesMapLoop =
                 targetCollectionDataLoop?.variables.get(propertyPathLoop);
 
@@ -418,8 +418,10 @@ function createReferenceExpression(
                 // --- Different collection: Use the resolved concrete value ---
                 finalValue = modeDataToUse.value;
             } else {
-                // --- Same collection: Generate the relative Slint path ---
-                const baseExpr = propertyPath;
+                const slintPath = targetPath
+                    .map((part) => sanitizePropertyName(part)) // Ensure parts are sanitized
+                    .join(".");
+                const baseExpr = slintPath;
                 const needsModeSuffix = targetModes.size > 1;
 
                 finalValue =
