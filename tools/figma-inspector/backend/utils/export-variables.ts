@@ -292,7 +292,7 @@ function createReferenceExpression(
         };
     }
 
-    // --- 3. Resolve Target Value or Nested Reference ---
+    // --- Resolve Target Value or Nested Reference ---
     const targetCollectionData = collectionStructure.get(targetCollection);
     if (!targetCollectionData) {
         exportInfo.warnings.add(
@@ -392,7 +392,7 @@ function createReferenceExpression(
     // --- End mode data determination ---
 
     if (modeDataToUse) {
-        // CASE A: Target is another reference (alias)
+        // Target is another reference (alias)
         if (modeDataToUse.refId) {
             // Add current step to stack before recursing
             const nextStack = [...resolutionStack, targetIdentifier];
@@ -410,7 +410,7 @@ function createReferenceExpression(
                 exportInfo,
             );
         }
-        // CASE B: Target holds a concrete value
+        // Target holds a concrete value
         else {
             let finalValue: string;
 
@@ -436,7 +436,7 @@ function createReferenceExpression(
             };
         }
     }
-    // CASE C: No value data found for the target variable in any relevant mode
+    // No value data found for the target variable in any relevant mode
     else {
         exportInfo.warnings.add(
             `Missing value data for ${targetIdentifier} in mode ${sourceModeName} or fallback.`,
@@ -474,7 +474,6 @@ interface VariableNode {
 }
 
 // Recursively generate code from the tree structure
-// Replace your generateStructCode function with this version:
 
 interface StructField {
     name: string;
@@ -745,7 +744,7 @@ function generateStructsAndInstances(
                 });
             }
 
-            // Now process all children of this path
+            // process all children of this path
             const childPaths = Array.from(propertyInstances.keys()).filter(
                 (k) => k.startsWith(`${path}/`),
             );
@@ -897,17 +896,17 @@ function generateStructsAndInstances(
         return result;
     }
 
-    // First: Generate multi-mode structs
+    // Generate multi-mode structs
     const multiModeStructs: string[] = [];
     collectMultiModeStructs(variableTree, collectionData, multiModeStructs);
 
-    // Second: Build struct model
+    // Build struct model
     buildStructModel(variableTree);
 
-    // Third: Build instance model
+    // Build instance model
     buildInstanceModel(variableTree);
     buildPropertyHierarchy();
-    // Fourth: Generate code from the models
+    // Generate code from the models
     let structsCode = multiModeStructs.join("");
 
     // Generate structs in sorted order (deepest first)
@@ -930,9 +929,7 @@ function generateStructsAndInstances(
 
     // Generate all root level instances
     for (const [instanceName, instance] of propertyInstances.entries()) {
-        // ONLY GENERATE CODE FOR ACTUAL ROOT PROPERTIES
         if (!instanceName.includes("/")) {
-            // Only true root properties
             instancesCode += generateInstanceCode(instance);
         }
     }
@@ -952,7 +949,7 @@ export async function exportFigmaVariablesToSeparateFiles(
         renamedVariables: new Set<string>(),
         circularReferences: new Set<string>(),
         warnings: new Set<string>(),
-        features: new Set<string>(), // You can add specific features detected if needed
+        features: new Set<string>(),
         collections: new Set<string>(),
     };
     const generatedFiles: Array<{ name: string; content: string }> = []; // Store intermediate files
@@ -1210,7 +1207,7 @@ export async function exportFigmaVariablesToSeparateFiles(
             const collectionName = sanitizePropertyName(collection.name);
             collectionDependencies.set(collectionName, new Set<string>());
         }
-        // FINALLY process references after all collections are initialized
+        // process references after all collections are initialized
         for (const collection of variableCollections) {
             const collectionName = sanitizePropertyName(collection.name);
 
@@ -1273,7 +1270,6 @@ export async function exportFigmaVariablesToSeparateFiles(
                                 }
 
                                 // Add import statement ONLY if multi-file mode is intended *initially*
-                                // We'll decide the final mode later based on cycles.
                                 if (!exportAsSingleFile) {
                                     // Check initial user intent
                                     requiredImports.add(
@@ -1310,7 +1306,6 @@ export async function exportFigmaVariablesToSeparateFiles(
 
         // Check for cycles in the dependency graph BEFORE generating file content
         const hasCycle = detectCycle(collectionDependencies, exportInfo);
-        // --- Add Detailed Logging Here ---
         const finalExportAsSingleFile = exportAsSingleFile || hasCycle;
         if (hasCycle && !exportAsSingleFile) {
             exportInfo.warnings.add(
@@ -1376,7 +1371,6 @@ export async function exportFigmaVariablesToSeparateFiles(
             }
 
             // Generate structs and instances code from the tree
-            // This function should return both the struct definitions and the instance code lines
             const { structs, instances } = generateStructsAndInstances(
                 variableTree,
                 collectionData.formattedName,
@@ -1411,7 +1405,6 @@ export async function exportFigmaVariablesToSeparateFiles(
                 currentSchemeInstance = schemeResult.currentSchemeInstance;
             }
 
-            // --- Assemble the content string for this collection ---
             let content = `// Generated Slint file for ${collectionData.name}\n\n`;
 
             // Add imports ONLY if final mode is multi-file
@@ -1445,7 +1438,6 @@ export async function exportFigmaVariablesToSeparateFiles(
                         }
                     }
                 }
-                // Add blank line if imports were added
                 if (content.includes("import ")) {
                     content += "\n";
                 }
@@ -1525,7 +1517,6 @@ export async function exportFigmaVariablesToSeparateFiles(
 
         if (finalExportAsSingleFile) {
             // Use the determined flag
-            // --- Combine into a single file by simple concatenation ---
             let combinedContent =
                 "// Combined Slint Design Tokens\n// Generated on " +
                 new Date().toISOString().split("T")[0] +
@@ -1548,8 +1539,7 @@ export async function exportFigmaVariablesToSeparateFiles(
             finalOutputFiles = generatedFiles;
         }
 
-        // --- (4) Add README ---
-        // (Keep the README generation logic as it is)
+        // --- Add README ---
         const readmeContent = generateReadmeContent(exportInfo);
         finalOutputFiles.push({
             name: "README.md",
@@ -1672,7 +1662,7 @@ function generateSchemeStructs(
 
     mainSchemeStruct += `}\n\n`;
 
-    // 4. Generate the mode struct
+    // Generate the mode struct
     const schemeModeName = `${collectionData.formattedName}-Scheme-Mode`;
     let schemeModeStruct = `struct ${schemeModeName} {\n`;
 
@@ -1682,7 +1672,7 @@ function generateSchemeStructs(
 
     schemeModeStruct += `}\n\n`;
 
-    // 5. Generate the instance initialization
+    // Generate the instance initialization
     let schemeInstance = `    out property <${schemeModeName}> mode: {\n`;
 
     for (const mode of collectionData.modes) {
