@@ -227,7 +227,7 @@ function createReferenceExpression(
                 collectionStructure.get(targetCollection);
             const propertyPathLoop = targetPath
                 .map((part) => sanitizePropertyName(part))
-                .join(".");
+                .join("/");
             const targetVariableModesMapLoop =
                 targetCollectionDataLoop?.variables.get(propertyPathLoop);
 
@@ -413,17 +413,21 @@ function createReferenceExpression(
             let finalValue: string;
 
             if (isCrossCollection) {
-                // Different collection: Use the resolved concrete value
-                finalValue = modeDataToUse.value;
-            } else {
-                // Same collection: Generate the relative Slint path
-                const baseExpr = propertyPath;
+                const slintPath = [
+                    targetCollection,
+                    ...targetPath.map((part) => sanitizePropertyName(part)),
+                ].join(".");
+                const baseExpr = slintPath;
                 const needsModeSuffix = targetModes.size > 1;
 
+                // Assign the full path string to finalValue
                 finalValue =
                     needsModeSuffix && usedModeName
                         ? `${baseExpr}.${usedModeName}`
                         : baseExpr;
+            } else {
+                modeDataToUse.comment = `Resolved same-collection reference to concrete value from ${targetIdentifier}`;
+                finalValue = modeDataToUse.value;
             }
 
             return {
@@ -621,16 +625,17 @@ function generateStructsAndInstances(
                     const instance: PropertyInstance = {
                         name: sanitizedChildName,
                         type: slintType,
+                        values: new Map<string, string>(),
                     };
 
                     if (collectionData.modes.size > 1) {
                         instance.isMultiMode = true;
-                        instance.values = new Map<string, string>();
 
                         for (const [
                             modeName,
                             data,
                         ] of childNode.valuesByMode.entries()) {
+                            instance.values = new Map<string, string>();
                             instance.values.set(modeName, data.value);
                             if (data.comment) {
                                 instance.comment = data.comment;
@@ -790,7 +795,6 @@ function generateStructsAndInstances(
             if (instance.children && instance.children.size > 0) {
                 // Struct instance
                 result += `${indent}out property <${instance.type}> ${instance.name}: {\n`;
-
                 for (const [
                     childName,
                     childInstance,
@@ -801,7 +805,6 @@ function generateStructsAndInstances(
                         indent + "    ",
                     );
                 }
-
                 result += `${indent}};\n\n`;
             } else if (instance.values) {
                 // Value property
