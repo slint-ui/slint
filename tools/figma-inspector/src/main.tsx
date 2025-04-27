@@ -43,7 +43,7 @@ export const App = () => {
     const [lightOrDarkMode, setLightOrDarkMode] = useState(getColorTheme());
     // State for the export format toggle
     const [exportAsSingleFile, setExportAsSingleFile] = useState(false); // Default to multiple files
-    // --- Add state for dropdown visibility ---
+    //  Add state for dropdown visibility
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const menuRef = useRef<HTMLDivElement>(null); // Ref for the menu
     const buttonRef = useRef<HTMLButtonElement>(null); // Ref for the button
@@ -74,10 +74,7 @@ export const App = () => {
 
         // Also request initial snippet on component mount
         dispatchTS("generateSnippetRequest", { useVariables: useVariables });
-    }, [useVariables]); // Re-run effect if useVariables changes (to request initial snippet with correct flag)
-    // Or, if you only want selection changes to trigger updates *after* mount,
-    // keep the dependency array empty [] and handle the initial request separately.
-    // The current setup ensures the snippet reflects the checkbox state even on first load.
+    }, [useVariables]);
     useEffect(() => {
         // Only add listener if menu is open
         if (!isMenuOpen) {
@@ -112,7 +109,7 @@ export const App = () => {
         },
         [useVariables],
     );
-    // --- 2. Update the handleUseVariables handler ---
+    // Update the handleUseVariables handler
     const handleUseVariables = useCallback(
         (event: React.ChangeEvent<HTMLInputElement>) => {
             const checked = event.target.checked;
@@ -121,7 +118,7 @@ export const App = () => {
             // Request a new snippet from the backend with the updated preference
             dispatchTS("generateSnippetRequest", { useVariables: checked });
         },
-        [], // No dependencies needed here as setUseVariables and dispatchTS are stable
+        [],
     );
 
     // Theme handling
@@ -186,9 +183,9 @@ export const App = () => {
                 // Mark exports as current
                 setExportsAreCurrent(true);
 
-                // --- Automatically trigger download ---
+                //  Automatically trigger download
                 await downloadZipFile(res.files); // Call downloadZipFile with the received files
-                // --- End automatic download ---
+                //  End automatic download
             } else {
                 console.error("Invalid or empty files data received:", res);
                 // Reset state if files are invalid/empty after an export attempt
@@ -260,44 +257,40 @@ export const App = () => {
         }
     };
 
-    // Add debugging log on each render
-    // Add debugging log on each render
-
-    // Define styles here or use CSS classes
     const buttonStyle: React.CSSProperties = {
         border: `none`,
-        margin: "4px 4px 0px 4px", // Reduced bottom margin
+        margin: "4px 4px 0px 4px",
         borderRadius: "4px",
         background: lightOrDarkMode === "dark" ? "#4497F7" : "#4497F7",
-        padding: "4px 8px", // Adjusted padding
-        width: "auto", // Let button size naturally
-        minWidth: "140px", // Keep minimum width
+        padding: "4px 8px",
+        width: "auto",
+        minWidth: "140px",
         alignSelf: "center",
         height: "32px",
         color: "white",
         cursor: "pointer",
-        position: "relative", // Needed for absolute positioning of menu
+        position: "relative",
         textAlign: "center",
-        opacity: isMenuOpen ? 0.6 : 1, // Lower opacity when menu is open
-        pointerEvents: isMenuOpen ? "none" : "auto", // Prevent clicks when menu is open
+        opacity: isMenuOpen ? 0.6 : 1,
+        pointerEvents: isMenuOpen ? "none" : "auto",
     };
 
     const menuStyle: React.CSSProperties = {
         position: "absolute",
-        bottom: "100%", // Position below the button
-        left: "50%", // Start at center
-        transform: "translateX(-50%)", // Center align
+        bottom: "100%",
+        left: "50%",
+        transform: "translateX(-50%)",
         background: lightOrDarkMode === "dark" ? "#333" : "#fff",
         border: `1px solid ${lightOrDarkMode === "dark" ? "#555" : "#ccc"}`,
         borderRadius: "4px",
         boxShadow: "0 2px 5px rgba(0,0,0,0.2)",
         zIndex: 10,
         alignContent: "center",
-        minWidth: "140px", // Ensure menu is wide enough
-        padding: "5px 0", // Padding top/bottom
-        marginTop: "2px", // Small gap below button
+        minWidth: "140px",
+        padding: "5px 0",
+        marginTop: "2px",
         justifyContent: "center",
-        display: isMenuOpen ? "block" : "none", // Toggle visibility
+        display: isMenuOpen ? "block" : "none",
     };
 
     const menuItemStyle: React.CSSProperties = {
@@ -306,28 +299,25 @@ export const App = () => {
         display: "flex",
         justifyContent: "center",
         alignItems: "center",
-        color: lightOrDarkMode === "dark" ? "#eee" : "#333", // Text color based on theme
+        color: lightOrDarkMode === "dark" ? "#eee" : "#333",
     };
 
     const menuItemHoverStyle: React.CSSProperties = {
-        // Define hover style separately
         backgroundColor: lightOrDarkMode === "dark" ? "#444" : "#f0f0f0",
     };
 
     return (
         <div className="container">
-            {/* --- Apply Flexbox to the title div --- */}
             <div
                 className="title"
                 style={{
-                    display: "flex", // Make it a flex container
-                    alignItems: "center", // Vertically align items in the middle
-                    padding: "4px 8px", // Add some padding like before
-                    borderBottom: `1px solid ${lightOrDarkMode === "dark" ? "#555" : "#ccc"}`, // Optional separator
-                    flexShrink: 0, // Prevent title bar from shrinking
+                    display: "flex",
+                    alignItems: "center",
+                    padding: "4px 8px",
+                    borderBottom: `1px solid ${lightOrDarkMode === "dark" ? "#555" : "#ccc"}`,
+                    flexShrink: 0,
                 }}
             >
-                {/* 1. Copy Icon (stays on the left) */}
                 <span
                     id="copy-icon"
                     onClick={() => copyToClipboard(slintProperties)}
@@ -335,47 +325,40 @@ export const App = () => {
                         if (e.key === "Enter" || e.key === " ") {
                             copyToClipboard(slintProperties);
                         }
-                    }} // Added keyboard accessibility
+                    }}
                     className="copy-icon"
-                    style={{ cursor: "pointer", marginRight: "8px" }} // Add margin to separate from title
-                    role="button" // Semantics
-                    tabIndex={0} // Make focusable
+                    style={{ cursor: "pointer", marginRight: "8px" }}
+                    role="button"
+                    tabIndex={0}
                 >
                     📋
                 </span>
 
-                {/* 2. Title Text (grows to fill space) */}
                 <span
                     style={{
-                        // display: "block", // No longer needed with flex
                         whiteSpace: "nowrap",
                         overflow: "hidden",
                         textOverflow: "ellipsis",
-                        // maxWidth: "calc(100% - 30px)", // No longer needed, flex handles width
-                        flexGrow: 1, // Allow this span to take available space
-                        textAlign: "left", // Ensure text is left-aligned
+                        flexGrow: 1,
+                        textAlign: "left",
                     }}
                 >
                     {title || "Slint Figma Inspector"}
                 </span>
 
-                {/* 3. Checkbox Section (stays on the right) */}
                 <div style={{ flexShrink: 0, marginLeft: "8px" }}>
                     {" "}
-                    {/* Add left margin */}
-                    {/* Removed unnecessary inner spans */}
                     <div
                         style={{
                             display: "flex",
-                            justifyContent: "flex-end", // Keep content aligned right within this div
+                            justifyContent: "flex-end",
                         }}
                     >
                         <label
                             style={{
                                 cursor: "pointer",
-                                // marginRight: "16px", // Margin now on parent div
-                                fontSize: "12px", // Corrected font size syntax
-                                display: "flex", // Align checkbox and text
+                                fontSize: "12px",
+                                display: "flex",
                                 alignItems: "center",
                             }}
                         >
