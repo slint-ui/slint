@@ -168,7 +168,7 @@ export async function getBorderRadius(
             }
         }
     }
-    // First check if node has cornerRadius property
+    // check if node has cornerRadius property
     if (node === null || !("cornerRadius" in node) || node.cornerRadius === 0) {
         return null;
     }
@@ -340,20 +340,15 @@ async function getVariablePathString(
                     variable.variableCollectionId,
                 );
             if (collection) {
-                const globalName = formatStructName(collection.name); // e.g., "color"
-                const pathParts = extractHierarchy(variable.name); // e.g., ["Text", "Neutral", "Default"]
-                const slintPath = pathParts.map(sanitizePropertyName).join("."); // e.g., "text.neutral.default"
-
-                // --- Adjust placement of .current ---
+                const globalName = formatStructName(collection.name);
+                const pathParts = extractHierarchy(variable.name);
+                const slintPath = pathParts.map(sanitizePropertyName).join(".");
                 let resultPath = "";
                 if (collection.modes.length > 1) {
-                    // Add .current after the global name
                     resultPath = `${globalName}.current.${slintPath}`;
                 } else {
-                    // No .current needed
                     resultPath = `${globalName}.${slintPath}`;
                 }
-                // --- End adjustment ---
 
                 return resultPath;
             } else {
@@ -380,18 +375,16 @@ export async function generateSlintSnippet(
 
     switch (nodeType) {
         case "FRAME":
-            return await generateRectangleSnippet(sceneNode, useVariables); // Await result
+            return await generateRectangleSnippet(sceneNode, useVariables);
         case "RECTANGLE":
-        case "COMPONENT": // Add Component type
-        case "INSTANCE": // Add Instance type
-            return await generateRectangleSnippet(sceneNode, useVariables); // Await result
+        case "COMPONENT":
+        case "INSTANCE":
+            return await generateRectangleSnippet(sceneNode, useVariables);
         case "TEXT":
-            return await generateTextSnippet(sceneNode, useVariables); // Await result
+            return await generateTextSnippet(sceneNode, useVariables);
         default:
-            // Keep unsupported sync for now, or make async if needed
             return generateUnsupportedNodeSnippet(sceneNode);
     }
-    // return null; // Should be unreachable if default handles all cases
 }
 
 export function generateUnsupportedNodeSnippet(sceneNode: SceneNode): string {
@@ -464,7 +457,6 @@ export async function generateRectangleSnippet(
     const properties: string[] = [];
 
     for (const property of rectangleProperties) {
-        // --- Add try...catch around each property's logic ---
         try {
             switch (property) {
                 case "width":
@@ -546,17 +538,16 @@ export async function generateRectangleSnippet(
                     }
                     break;
                 case "border-radius":
-                    // --- Ensure this uses await and the new async getBorderRadius ---
                     const borderRadiusProp = await getBorderRadius(
                         sceneNode,
                         useVariables,
-                    ); // Use await
+                    );
                     if (borderRadiusProp !== null) {
                         properties.push(borderRadiusProp);
                     }
-                    break; // --- End border-radius case ---
+                    break;
 
-                case "border-width": // Handled below
+                case "border-width":
                     break;
                 case "border-color":
                     const borderWidthAndColor = await getBorderWidthAndColor(
@@ -569,17 +560,14 @@ export async function generateRectangleSnippet(
                     break;
             }
         } catch (err) {
-            // --- Log error specific to this property ---
             console.error(
                 `[generateRectangleSnippet] Error processing property "${property}":`,
                 err,
             );
-            // Optionally add a comment to the snippet indicating the error
             properties.push(
                 `${indentation}// Error processing ${property}: ${err instanceof Error ? err.message : err}`,
             );
         }
-        // --- End try...catch ---
     }
 
     return `Rectangle {\n${properties.join("\n")}\n}`;
@@ -593,7 +581,6 @@ export async function generateTextSnippet(
     for (const property of textProperties) {
         try {
             switch (property) {
-                // --- Add case for x ---
                 case "x":
                     const boundXVarId = (sceneNode as any).boundVariables?.x
                         ?.id; // Assume direct object binding
@@ -616,10 +603,9 @@ export async function generateTextSnippet(
                         properties.push(`${indentation}x: ${xValue};`);
                     }
                     break;
-                // --- Add case for y ---
                 case "y":
                     const boundYVarId = (sceneNode as any).boundVariables?.y
-                        ?.id; // Assume direct object binding
+                        ?.id;
                     let yValue: string | null = null;
                     if (boundYVarId && useVariables) {
                         yValue = await getVariablePathString(boundYVarId);
@@ -701,7 +687,7 @@ export async function generateTextSnippet(
                     }
                     break;
                 case "font-size":
-                    // --- Access ID via array index [0] ---
+                    //  Access ID via array index [0]
                     const boundSizeVarId = (sceneNode as any).boundVariables
                         ?.fontSize?.[0]?.id;
                     let sizeValue: string | null = null;
@@ -749,11 +735,10 @@ export async function generateTextSnippet(
                     }
 
                     if (weightValue !== null) {
-                        // --- Append '/ 1px' if it's a variable path (string) ---
+                        //  Append '/ 1px' if it's a variable path (string)
                         const finalWeightValue = isVariable
                             ? `${weightValue} / 1px`
                             : weightValue;
-                        // --- End modification ---
 
                         properties.push(
                             `${indentation}font-weight: ${finalWeightValue};`,
