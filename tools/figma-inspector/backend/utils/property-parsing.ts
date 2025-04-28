@@ -27,6 +27,7 @@ const textProperties = [
     "font-family",
     "font-size",
     "font-weight",
+    "horizontal-alignment",
 ];
 
 const unsupportedNodeProperties = ["x", "y", "width", "height", "opacity"];
@@ -113,7 +114,6 @@ export async function getBorderRadius(
             }
         }
 
-        // --- Remove [0] when accessing individual corner IDs ---
         const cornerBindings = [
             {
                 prop: "topLeftRadius",
@@ -153,12 +153,7 @@ export async function getBorderRadius(
                 if (path) {
                     return `${indentation}border-radius: ${path};`;
                 }
-                console.warn(
-                    `[getBorderRadius] Failed to get path for uniform bound corner ID: ${boundIndividualCorners[0].id}`,
-                );
-                // Fall through to numeric fallback if path fails
             } else {
-                // Different variables or not all corners bound -> use individual properties
                 const radiusStrings: string[] = [];
                 for (const corner of boundIndividualCorners) {
                     const path = await getVariablePathString(corner.id);
@@ -166,7 +161,6 @@ export async function getBorderRadius(
                         radiusStrings.push(
                             `${indentation}${corner.slint}: ${path};`,
                         );
-                    } else {
                     }
                 }
                 if (radiusStrings.length > 0) {
@@ -175,7 +169,7 @@ export async function getBorderRadius(
             }
         }
     }
-    // First check if node has cornerRadius property
+    // check if node has cornerRadius property
     if (node === null || !("cornerRadius" in node) || node.cornerRadius === 0) {
         return null;
     }
@@ -303,12 +297,14 @@ export async function getBrush(fill: {
     switch (fill.type) {
         case "SOLID": {
             if (!fill.color) {
+                console.warn("Missing fill colors for solid color value");
                 return "";
             }
             return rgbToHex({ ...fill.color, a: fill.opacity });
         }
         case "GRADIENT_LINEAR": {
             if (!fill.gradientStops || !fill.gradientTransform) {
+                console.warn("Missing gradient stops for linear gradient");
                 return "";
             }
             return generateLinearGradient({
@@ -328,6 +324,7 @@ export async function getBrush(fill: {
             });
         }
         default: {
+            console.warn("Unknown fill type:", fill.type);
             return null;
         }
     }
@@ -347,7 +344,6 @@ async function getVariablePathString(
                 const globalName = formatStructName(collection.name);
                 const pathParts = extractHierarchy(variable.name);
                 const slintPath = pathParts.map(sanitizePropertyName).join(".");
-
                 let resultPath = "";
                 if (collection.modes.length > 1) {
                     resultPath = `${globalName}.current.${slintPath}`;
@@ -357,8 +353,10 @@ async function getVariablePathString(
 
                 return resultPath;
             } else {
+                console.warn(
+                    `[getVariablePathString] Collection not found for variable ID: ${variableId}`,
+                );
             }
-        } else {
         }
     } catch (err) {
         console.error(
@@ -378,18 +376,16 @@ export async function generateSlintSnippet(
 
     switch (nodeType) {
         case "FRAME":
-            return await generateRectangleSnippet(sceneNode, useVariables); // Await result
+            return await generateRectangleSnippet(sceneNode, useVariables);
         case "RECTANGLE":
-        case "COMPONENT": // Add Component type
-        case "INSTANCE": // Add Instance type
-            return await generateRectangleSnippet(sceneNode, useVariables); // Await result
+        case "COMPONENT":
+        case "INSTANCE":
+            return await generateRectangleSnippet(sceneNode, useVariables);
         case "TEXT":
-            return await generateTextSnippet(sceneNode, useVariables); // Await result
+            return await generateTextSnippet(sceneNode, useVariables);
         default:
-            // Keep unsupported sync for now, or make async if needed
             return generateUnsupportedNodeSnippet(sceneNode);
     }
-    // return null; // Should be unreachable if default handles all cases
 }
 
 export function generateUnsupportedNodeSnippet(sceneNode: SceneNode): string {
@@ -460,8 +456,8 @@ export async function generateRectangleSnippet(
     useVariables: boolean,
 ): Promise<string> {
     const properties: string[] = [];
+
     for (const property of rectangleProperties) {
-        // --- Add try...catch around each property's logic ---
         try {
             switch (property) {
                 case "x":
@@ -603,18 +599,16 @@ export async function generateRectangleSnippet(
                     }
                     break;
                 case "border-radius":
-                    // --- Ensure this uses await and the new async getBorderRadius ---
                     const borderRadiusProp = await getBorderRadius(
                         sceneNode,
                         useVariables,
-                    ); // Use await
+                    );
                     if (borderRadiusProp !== null) {
                         properties.push(borderRadiusProp);
-                    } else {
                     }
-                    break; // --- End border-radius case ---
+                    break;
 
-                case "border-width": // Handled below
+                case "border-width":
                     break;
                 case "border-color":
                     const borderWidthAndColor = await getBorderWidthAndColor(
@@ -627,17 +621,14 @@ export async function generateRectangleSnippet(
                     break;
             }
         } catch (err) {
-            // --- Log error specific to this property ---
             console.error(
                 `[generateRectangleSnippet] Error processing property "${property}":`,
                 err,
             );
-            // Optionally add a comment to the snippet indicating the error
             properties.push(
                 `${indentation}// Error processing ${property}: ${err instanceof Error ? err.message : err}`,
             );
         }
-        // --- End try...catch ---
     }
 
     return `Rectangle {\n${properties.join("\n")}\n}`;
@@ -651,7 +642,6 @@ export async function generateTextSnippet(
     for (const property of textProperties) {
         try {
             switch (property) {
-                // --- Add case for x ---
                 case "x":
                     const boundXVarId = (sceneNode as any).boundVariables?.x
                         ?.id; // Assume direct object binding
@@ -659,21 +649,15 @@ export async function generateTextSnippet(
                     if (boundXVarId && useVariables) {
                         xValue = await getVariablePathString(boundXVarId);
                     }
-                    // strange figma 0 or null issue - might relate to constraints
                     if (
                         !xValue &&
                         "x" in sceneNode &&
                         typeof sceneNode.x === "number"
                     ) {
-                        const x = sceneNode.x; // Get raw value
-                        if (x === 0) {
-                            // Explicitly handle 0
-                            xValue = "0px";
-                        } else {
-                            const roundedX = roundNumber(x); // Use roundNumber for non-zero
-                            if (roundedX !== null) {
-                                xValue = `${roundedX}px`;
-                            }
+                        const x = roundNumber(sceneNode.x);
+                        if (x !== null) {
+                            // roundNumber returns null for 0
+                            xValue = `${x}px`;
                         }
                     }
                     if (xValue) {
@@ -682,7 +666,7 @@ export async function generateTextSnippet(
                     break;
                 case "y":
                     const boundYVarId = (sceneNode as any).boundVariables?.y
-                        ?.id; // Assume direct object binding
+                        ?.id;
                     let yValue: string | null = null;
                     if (boundYVarId && useVariables) {
                         yValue = await getVariablePathString(boundYVarId);
@@ -692,15 +676,10 @@ export async function generateTextSnippet(
                         "y" in sceneNode &&
                         typeof sceneNode.y === "number"
                     ) {
-                        const y = sceneNode.y; // Get raw value
-                        if (y === 0) {
-                            // Explicitly handle 0
-                            yValue = "0px";
-                        } else {
-                            const roundedY = roundNumber(y); // Use roundNumber for non-zero
-                            if (roundedY !== null) {
-                                yValue = `${roundedY}px`;
-                            }
+                        const y = roundNumber(sceneNode.y);
+                        if (y !== null) {
+                            // roundNumber returns null for 0
+                            yValue = `${y}px`;
                         }
                     }
                     if (yValue) {
@@ -769,7 +748,7 @@ export async function generateTextSnippet(
                     }
                     break;
                 case "font-size":
-                    // --- Access ID via array index [0] ---
+                    //  Access ID via array index [0]
                     const boundSizeVarId = (sceneNode as any).boundVariables
                         ?.fontSize?.[0]?.id;
                     let sizeValue: string | null = null;
@@ -803,14 +782,13 @@ export async function generateTextSnippet(
                             await getVariablePathString(boundWeightVarId);
                         if (path) {
                             weightValue = path;
-                            isVariable = true; // Set flag
-                        } else {
+                            isVariable = true;
                         }
                     }
 
                     // Fallback if not bound or variable path failed
                     if (
-                        weightValue === null && // Use strict null check
+                        weightValue === null &&
                         "fontWeight" in sceneNode &&
                         typeof sceneNode.fontWeight === "number"
                     ) {
@@ -818,15 +796,44 @@ export async function generateTextSnippet(
                     }
 
                     if (weightValue !== null) {
-                        // --- Append '/ 1px' if it's a variable path (string) ---
+                        //  Append '/ 1px' if it's a variable path (string)
                         const finalWeightValue = isVariable
                             ? `${weightValue} / 1px`
                             : weightValue;
-                        // --- End modification ---
 
                         properties.push(
                             `${indentation}font-weight: ${finalWeightValue};`,
                         );
+                    }
+                    break;
+                case "horizontal-alignment":
+                    if (
+                        "textAlignHorizontal" in sceneNode &&
+                        typeof sceneNode.textAlignHorizontal === "string"
+                    ) {
+                        let slintValue: string | null = null;
+                        let comment: string = "";
+                        switch (sceneNode.textAlignHorizontal) {
+                            case "LEFT":
+                                slintValue = "left";
+                                break;
+                            case "CENTER":
+                                slintValue = "center";
+                                break;
+                            case "RIGHT":
+                                slintValue = "right";
+                                break;
+                            case "JUSTIFIED":
+                                slintValue = "left";
+                                comment =
+                                    "// Note: The value was justified in Figma, but this isn't supported right now";
+                                break;
+                        }
+                        if (slintValue) {
+                            properties.push(
+                                `${indentation}horizontal-alignment: ${slintValue}; ${comment}`,
+                            );
+                        }
                     }
                     break;
             }
