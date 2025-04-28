@@ -89,7 +89,7 @@ jobs:
               if: runner.os == 'Linux'
               run: sudo apt-get install libunwind-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good
             - name: Setup headless display
-              uses: pyvista/setup-headless-display-action@v3
+              uses: pyvista/setup-headless-display-action@v4
             - uses: ./.github/actions/setup-rust
               with:
                   toolchain: ${{ matrix.rust_version }}
@@ -136,7 +136,7 @@ jobs:
             - uses: ./.github/actions/install-linux-dependencies
             - uses: ./.github/actions/install-skia-dependencies
             - name: Setup headless display
-              uses: pyvista/setup-headless-display-action@v3
+              uses: pyvista/setup-headless-display-action@v4
             - uses: actions/setup-node@v4
               with:
                 node-version: 20
@@ -191,7 +191,7 @@ jobs:
                   setup-python: false
                   cache: true
             - name: Setup headless display
-              uses: pyvista/setup-headless-display-action@v3
+              uses: pyvista/setup-headless-display-action@v4
             - uses: ./.github/actions/setup-rust
               with:
                   key: x-napi-v2-${{ steps.node-install.outputs.node-version }} # the cache key consists of a manually bumpable version and the node version, as the cached rustc artifacts contain linking information where to find node.lib, which is in a versioned directory.
@@ -199,7 +199,7 @@ jobs:
               with:
                   python-version: "3.12"
             - name: Install uv
-              uses: astral-sh/setup-uv@v5
+              uses: astral-sh/setup-uv@v6
             - uses: fjwillemsen/setup-nox2@v3.0.0
             - name: Run python tests
               working-directory: api/python

@@ -142,10 +142,10 @@ jobs:
               working-directory: api/node
 
             - name: Install uv
-              uses: astral-sh/setup-uv@v5
+              uses: astral-sh/setup-uv@v6
 
             - name: Setup headless display
-              uses: pyvista/setup-headless-display-action@v3
+              uses: pyvista/setup-headless-display-action@v4
 
             - name: "Python docs"
               run: uv run build_docs.py
