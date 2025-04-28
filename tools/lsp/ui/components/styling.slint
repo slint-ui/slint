@@ -67,6 +67,13 @@ export global EditorSizeSettings {
     out property <length> property-border-radius: 5px;
 }
 
+export global PickerStyles {
+    out property <length> picker-width: 240px;
+    out property <color> focused-color: #0c8ce9;
+    out property <color> focused-stop-color: Palette.color-scheme == ColorScheme.dark ? #4a5878 : #b5ccdd;
+    out property <color> slider-color: Palette.color-scheme == ColorScheme.dark ? EditorPalette.section-color : #b5ccdd;
+}
+
 export global EditorPalette {
 
     property <bool> dark-color-scheme: Palette.color-scheme == ColorScheme.dark;

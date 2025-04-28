@@ -1,0 +1,63 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { StyleMetrics, Palette } from "std-widgets.slint";
+
+component FocusBorder inherits Rectangle {
+    in property <bool> has-focus;
+
+    background: #326CCF;
+    opacity: 0;
+
+    animate opacity { duration: 150ms; }
+
+    states [
+        focused when root.has-focus: {
+            opacity: 0.5;
+        }
+    ]
+}
+
+export component CustomLineEdit {
+    in-out property <string> text;
+    property <bool> enabled: true;
+    in-out property <bool> has-focus: false;
+    property <brush> fluent-text-control-border: Palette.color-scheme == ColorScheme.dark ? @linear-gradient(180deg, #FFFFFF14 99.98%, #FFFFFF8A 100%, #FFFFFF8A 100%) : @linear-gradient(180deg, #0000000F 99.99%, #00000073 100%, #00000073 100%);
+    out property <brush> fluent-control-input-active: Palette.color-scheme == ColorScheme.dark ? #1E1E1EB3 : #FFFFFF;
+
+    width: 100px;
+    height: StyleMetrics.style-name == "cupertino" ? 22px : StyleMetrics.style-name == "fluent" ? 32px : 33px;
+
+    FocusBorder {
+        visible: StyleMetrics.style-name == "cupertino";
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        width: parent.width + 6px;
+        height: parent.height + 6px;
+        has-focus: root.has-focus;
+    }
+
+    background := Rectangle {
+        background: Palette.control-background;
+        border-width: 1px;
+        border-color: StyleMetrics.style-name == "fluent" ? fluent-text-control-border : Palette.border;
+        border-radius: StyleMetrics.style-name == "fluent" ? 4px : 0px;
+
+        focus-border := Rectangle {
+            x: parent.border-radius;
+            y: parent.height - self.height;
+            width: parent.width - 2 * parent.border-radius;
+            height: 2px;
+        }
+    }
+
+    @children
+
+    states [
+        focused when root.has-focus && StyleMetrics.style-name == "fluent": {
+            background.background: fluent-control-input-active;
+            background.border-color: Palette.border;
+            focus-border.background: Palette.accent-background;
+        }
+    ]
+}

@@ -1,0 +1,150 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Palette, Button } from "std-widgets.slint";
+import { WidgetMode, WindowManager, PickerData } from "../../../windowglobal.slint";
+import { ColorIndicator, FakeShadowText, PickerTextInput } from "../brush-helpers.slint";
+import { Api } from "../../../api.slint";
+import { EditorPalette, EditorSizeSettings } from "../../../components/styling.slint";
+
+export component ColorModeAndApply {
+    in property <WidgetMode> widget-mode;
+    property <color> current-color <=> PickerData.current-color;
+    callback clear-focus-panel();
+
+    changed current-color => {
+        ti-hex-color.text = Api.color-to-data(PickerData.current-color).short-text.to-uppercase();
+    }
+
+    width: 100%;
+    vl := VerticalLayout {
+        alignment: center;
+        spacing: 10px;
+        Rectangle {
+            x: EditorSizeSettings.standard-margin;
+            width: 170px;
+            height: 25px;
+            background: EditorPalette.section-color;
+            border-radius: EditorSizeSettings.property-border-radius;
+            border-width: 1px;
+
+            ColorIndicator {
+                x: (parent.height - 15px) / 2;
+                color: PickerData.current-color;
+            }
+
+            FakeShadowText {
+                x: 25px;
+                font-family: "Inter";
+                font-size: 11px;
+                text: "#";
+            }
+
+            ti-hex-color := PickerTextInput {
+                x: 35px;
+                text: Api.color-to-data(PickerData.current-color).short-text.to-uppercase();
+                letter-spacing: 0.8px;
+                input-type: text;
+
+                function apply-text(text: string) {
+                    if Api.string-is-color("#\{self.text}") {
+                        PickerData.hue = Api.string-to-color("#\{self.text}").to-hsv().hue;
+                        PickerData.saturation = Api.string-to-color("#\{self.text}").to-hsv().saturation;
+                        PickerData.value = Api.string-to-color("#\{self.text}").to-hsv().value;
+                        if self.text.character-count > 6 {
+                            PickerData.alpha = Api.string-to-color("#\{self.text}").to-hsv().alpha * 100;
+                        }
+                    } else {
+                        self.text = Api.color-to-data(PickerData.current-color).short-text.to-uppercase();
+                    }
+                }
+
+                accepted => {
+                    apply-text(self.text);
+                    self.clear-focus();
+                }
+                edited => {
+                    if self.text.character-count > 8 {
+                        self.text = Api.color-to-data(PickerData.current-color).short-text.to-uppercase();
+                    }
+                }
+                changed has-focus => {
+                    if !self.has-focus {
+                        apply-text(self.text);
+                    }
+                }
+            }
+
+            divider := Rectangle {
+                x: parent.width - 45px;
+                width: 1px;
+                height: parent.height;
+                background: Palette.background;
+            }
+
+            Rectangle {
+                x: parent.width - self.width;
+                width: 48px;
+                height: parent.height;
+
+                PickerTextInput {
+                    x: -20px;
+                    horizontal-alignment: right;
+                    text: PickerData.alpha;
+                    accepted => {
+                        self.text = clamp(self.text.to-float(), 0, 100);
+                        PickerData.alpha = self.text.to-float();
+                        self.clear-focus();
+                    }
+                    edited => {
+                        if self.text.character-count > 3 {
+                            self.text = clamp(self.text.to-float(), 0, 100);
+                        }
+                    }
+                }
+
+                FakeShadowText {
+                    x: parent.width - self.width - 5px;
+                    font-family: "Inter";
+                    font-size: 11px;
+                    text: "%";
+                }
+
+                Rectangle {
+                    x: parent.width - self.width;
+                    width: 20px;
+                    TouchArea {
+                        mouse-cursor: col-resize;
+                        property <float> initial-alpha: 0;
+                        changed pressed => {
+                            if self.pressed {
+                                initial-alpha = PickerData.alpha;
+                            }
+                        }
+                        moved => {
+                            PickerData.alpha = (initial-alpha + ((self.mouse-x - self.pressed-x) / 1px)).clamp(0, 100).round();
+                        }
+                    }
+                }
+            }
+        }
+
+        if widget-mode == WidgetMode.edit: Button {
+            x: EditorSizeSettings.standard-margin;
+            width: 100px;
+            text: "Apply";
+            changed pressed => {
+                if self.pressed {
+                    root.clear-focus-panel();
+                }
+            }
+            clicked => {
+                if PickerData.current-color.to-hsv().alpha == 1 {
+                    WindowManager.apply-current-value("#\{Api.color-to-data(PickerData.current-color).short-text}")
+                } else {
+                    WindowManager.apply-current-value(Api.color-to-data(PickerData.current-color).text);
+                }
+            }
+        }
+    }
+}
