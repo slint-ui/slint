@@ -99,11 +99,10 @@ figma.on("selectionchange", () => {
     }
 });
 
-listenTS("exportToFiles", async (payload: { exportAsSingleFile?: boolean }) => {
-    const shouldExportAsSingleFile = payload?.exportAsSingleFile ?? false;
+listenTS("exportToFiles", async (message) => {
     try {
         const files = await exportFigmaVariablesToSeparateFiles(
-            shouldExportAsSingleFile,
+            message.exportAsSingleFile,
         );
 
         // Send to UI for downloading
