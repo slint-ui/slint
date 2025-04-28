@@ -23,11 +23,5 @@ export interface EventTS {
 
     checkVariableChanges: Record<string, never>;
     generateSnippetRequest: { useVariables: boolean };
-}
-
-export interface EventTS {
-    monitorVariableChanges: { enabled: boolean };
-    checkVariableChanges: Record<string, never>;
-    copyToClipboard: { result: boolean };
     exportToFiles: { exportAsSingleFile: boolean };
 }
