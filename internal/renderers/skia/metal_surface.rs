@@ -33,7 +33,7 @@ impl super::Surface for MetalSurface {
         size: PhysicalWindowSize,
         requested_graphics_api: Option<RequestedGraphicsAPI>,
     ) -> Result<Self, i_slint_core::platform::PlatformError> {
-        if requested_graphics_api.map_or(false, |api| api != RequestedGraphicsAPI::Metal) {
+        if requested_graphics_api.map_or(false, |api| !matches!(api, RequestedGraphicsAPI::Metal)) {
             return Err(format!("Requested non-Metal rendering with Metal renderer").into());
         }
 

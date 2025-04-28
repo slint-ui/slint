@@ -11,13 +11,10 @@ use glutin::{
     prelude::*,
     surface::{SurfaceAttributesBuilder, WindowSurface},
 };
-use i_slint_core::graphics::RequestedGraphicsAPI;
+use i_slint_core::api::{GraphicsAPI, PhysicalSize as PhysicalWindowSize, Window};
+use i_slint_core::graphics::{RequestedGraphicsAPI, RequestedOpenGLVersion};
 use i_slint_core::item_rendering::DirtyRegion;
-use i_slint_core::{api::GraphicsAPI, platform::PlatformError};
-use i_slint_core::{
-    api::{PhysicalSize as PhysicalWindowSize, Window},
-    graphics::RequestedOpenGLVersion,
-};
+use i_slint_core::platform::PlatformError;
 
 /// This surface type renders into the given window with OpenGL, using glutin and glow libraries.
 pub struct OpenGLSurface {

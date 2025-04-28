@@ -101,7 +101,7 @@ impl WinitSkiaRenderer {
                         .into());
                     }
                     #[cfg(feature = "unstable-wgpu-24")]
-                    RequestedGraphicsAPI::WGPU24 => {
+                    RequestedGraphicsAPI::WGPU24(..) => {
                         return Err(format!("WGPU rendering is not supported by Skia").into());
                     }
                 }

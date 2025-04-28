@@ -9,7 +9,6 @@ struct DemoRenderer {
     device: wgpu::Device,
     queue: wgpu::Queue,
     pipeline: wgpu::RenderPipeline,
-    bind_group_layout: wgpu::BindGroupLayout,
     displayed_texture: wgpu::Texture,
     next_texture: wgpu::Texture,
     start_time: std::time::Instant,
@@ -17,7 +16,7 @@ struct DemoRenderer {
 
 #[repr(C)]
 #[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
-struct Uniforms {
+struct PushConstants {
     light_color_and_time: [f32; 4],
 }
 
@@ -30,24 +29,13 @@ impl DemoRenderer {
             ))),
         });
 
-        let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("Bind Group Layout"),
-            entries: &[wgpu::BindGroupLayoutEntry {
-                binding: 0,
-                visibility: wgpu::ShaderStages::FRAGMENT,
-                ty: wgpu::BindingType::Buffer {
-                    ty: wgpu::BufferBindingType::Uniform,
-                    has_dynamic_offset: false,
-                    min_binding_size: None,
-                },
-                count: None,
-            }],
-        });
-
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: None,
-            bind_group_layouts: &[&bind_group_layout],
-            push_constant_ranges: &[],
+            bind_group_layouts: &[],
+            push_constant_ranges: &[wgpu::PushConstantRange {
+                stages: wgpu::ShaderStages::FRAGMENT,
+                range: 0..16, // full size in bytes, aligned
+            }],
         });
 
         let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
@@ -79,7 +67,6 @@ impl DemoRenderer {
             device: device.clone(),
             queue: queue.clone(),
             pipeline,
-            bind_group_layout,
             displayed_texture,
             next_texture,
             start_time: std::time::Instant::now(),
@@ -113,28 +100,8 @@ impl DemoRenderer {
         }
 
         let elapsed: f32 = self.start_time.elapsed().as_millis() as f32 / 500.;
-        let uniforms =
-            Uniforms { light_color_and_time: [light_red, light_green, light_blue, elapsed] };
-        let uniform_buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("Uniform Buffer"),
-            size: std::mem::size_of::<Uniforms>() as wgpu::BufferAddress,
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        });
-        self.queue.write_buffer(&uniform_buffer, 0, bytemuck::bytes_of(&uniforms));
-
-        let bind_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &self.bind_group_layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
-                    buffer: &uniform_buffer,
-                    offset: 0,
-                    size: None,
-                }),
-            }],
-            label: Some("Bind Group"),
-        });
+        let push_constants =
+            PushConstants { light_color_and_time: [light_red, light_green, light_blue, elapsed] };
 
         let mut encoder =
             self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
@@ -154,7 +121,11 @@ impl DemoRenderer {
                 occlusion_query_set: None,
             });
             rpass.set_pipeline(&self.pipeline);
-            rpass.set_bind_group(0, &bind_group, &[]);
+            rpass.set_push_constants(
+                wgpu::ShaderStages::FRAGMENT, // Stage (your constants are for fragment shader)
+                0,                            // Offset in bytes (start at 0)
+                bytemuck::bytes_of(&push_constants),
+            );
             rpass.draw(0..3, 0..1);
         }
 
@@ -169,8 +140,12 @@ impl DemoRenderer {
 }
 
 fn main() {
+    let mut wgpu_settings = slint::WGPU24Settings::default();
+    wgpu_settings.device_required_features = wgpu::Features::PUSH_CONSTANTS;
+    wgpu_settings.device_required_limits.max_push_constant_size = 16;
+
     slint::BackendSelector::new()
-        .require_wgpu_24()
+        .require_wgpu_24(slint::WGPU24Configuration::Automatic(wgpu_settings))
         .select()
         .expect("Unable to create Slint backend with WGPU based renderer");
 

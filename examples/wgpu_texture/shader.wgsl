@@ -24,12 +24,11 @@ fn vs_main(
     return output;
 }
 
-struct Uniforms {
+struct PushConstants {
     light_color_and_time: vec4<f32>,
 };
 
-@group(0) @binding(0)
-var<uniform> u: Uniforms;
+var<push_constant> pc: PushConstants;
 
 fn sdRoundBox(p: vec3<f32>, b: vec3<f32>, r: f32) -> f32 {
     let q = abs(p) - b;
@@ -60,7 +59,7 @@ fn rotateZ(r: vec3<f32>, angle: f32) -> vec3<f32> {
 
 // Distance from the scene
 fn scene(r: vec3<f32>) -> f32 {
-    let iTime = u.light_color_and_time.w;
+    let iTime = pc.light_color_and_time.w;
     let pos = rotateZ(rotateY(r + vec3<f32>(-1.0, -1.0, 4.0), iTime), iTime);
     let cube = vec3<f32>(0.5, 0.5, 0.5);
     let edge = 0.1;
@@ -105,7 +104,7 @@ fn render(fragCoord: vec2<f32>, light_color: vec3<f32>) -> vec4<f32> {
 
 @fragment
 fn fs_main(@location(0) frag_position: vec2<f32>) -> @location(0) vec4<f32> {
-    let selected_light_color = u.light_color_and_time.xyz;
+    let selected_light_color = pc.light_color_and_time.xyz;
     let r = vec2<f32>(0.5 * frag_position.x + 1.0, 0.5 - 0.5 * frag_position.y);
     return render(r, selected_light_color);
 }
