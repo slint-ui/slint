@@ -13,6 +13,8 @@ component ScrollBar inherits Rectangle {
     in-out property <bool> enabled <=> touch-area.enabled;
     in property <ScrollBarPolicy> policy: ScrollBarPolicy.as-needed;
 
+    callback scrolled();
+
     states [
         disabled when !touch-area.enabled : {
             background.border-color: MaterialPalette.control-foreground;
@@ -73,6 +75,7 @@ component ScrollBar inherits Rectangle {
                     root.horizontal ? (touch-area.mouse-x - touch-area.pressed-x) * (root.maximum / (root.width - handle.width))
                                : (touch-area.mouse-y - touch-area.pressed-y) * (root.maximum / (root.height - handle.height))
                 )));
+                root.scrolled();
             }
         }
 
@@ -131,6 +134,8 @@ export component ScrollView {
         maximum: flickable.viewport-height - flickable.height;
         page-size: flickable.height;
         enabled: root.enabled;
+
+        scrolled => {root.scrolled()}
     }
 
     horizontal-bar := ScrollBar {
@@ -142,5 +147,7 @@ export component ScrollView {
         maximum: flickable.viewport-width - flickable.width;
         page-size: flickable.width;
         enabled: root.enabled;
+
+        scrolled => {root.scrolled()}
     }
 }
