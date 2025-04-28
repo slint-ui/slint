@@ -20,6 +20,7 @@ concurrency:
 jobs:
     format_fix:
         runs-on: ubuntu-24.04
+        timeout-minutes: 15
         env:
             CARGO_INCREMENTAL: false
         steps:
@@ -32,6 +33,7 @@ jobs:
 
     lint_typecheck:
         runs-on: ubuntu-24.04
+        timeout-minutes: 15
         env:
             CARGO_INCREMENTAL: false
         steps:
