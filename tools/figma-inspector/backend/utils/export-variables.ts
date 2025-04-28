@@ -610,7 +610,7 @@ function generateStructsAndInstances(
                     name: sanitizedChildName,
                     type:
                         collectionData.modes.size > 1
-                            ? `mode${collectionData.modes.size}_${slintType}`
+                            ? `${collectionData.formattedName}_mode${collectionData.modes.size}_${slintType}`
                             : slintType,
                     isMultiMode: collectionData.modes.size > 1,
                 });
@@ -902,7 +902,7 @@ function generateStructsAndInstances(
             }
             // Root level property
             const slintType = instance.isMultiMode
-                ? `mode${collectionData.modes.size}_${instance.type}`
+                ? `${collectionData.formattedName}_mode${collectionData.modes.size}_${instance.type}`
                 : instance.type;
 
             if (instance.children && instance.children.size > 0) {
@@ -922,7 +922,7 @@ function generateStructsAndInstances(
             } else if (instance.modeData) {
                 const isRoot = indent === "    ";
                 const slintType = instance.isMultiMode
-                    ? `mode${collectionData.modes.size}_${instance.type}`
+                    ? `${collectionData.formattedName}_mode${collectionData.modes.size}_${instance.type}`
                     : instance.type;
                 // Root Value Instance
                 if (instance.isMultiMode) {
@@ -1930,7 +1930,7 @@ function generateSchemeStructs(
 
 function collectMultiModeStructs(
     node: VariableNode,
-    collectionData: { modes: Set<string> },
+    collectionData: { modes: Set<string>; formattedName: string },
     structDefinitions: string[],
 ) {
     if (collectionData.modes.size <= 1) {
@@ -1942,7 +1942,7 @@ function collectMultiModeStructs(
 
     // Generate a struct for each type regardless of whether it's used
     for (const slintType of allSlintTypes) {
-        const structName = `mode${collectionData.modes.size}_${slintType}`;
+        const structName = `${collectionData.formattedName}_mode${collectionData.modes.size}_${slintType}`;
 
         let structDef = `struct ${structName} {\n`;
         for (const mode of collectionData.modes) {
@@ -1961,7 +1961,7 @@ function collectMultiModeStructs(
                 // Skip if we already added this type
                 if (!allSlintTypes.includes(slintType)) {
                     // Add a struct for this additional type
-                    const structName = `mode${collectionData.modes.size}_${slintType}`;
+                    const structName = `${collectionData.formattedName}_mode${collectionData.modes.size}_${slintType}`;
 
                     let structDef = `struct ${structName} {\n`;
                     for (const mode of collectionData.modes) {
