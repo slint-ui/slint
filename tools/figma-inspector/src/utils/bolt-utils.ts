@@ -24,8 +24,7 @@ export const dispatchTS = <Key extends keyof EventTS>(
 
 export const listenTS = <Key extends keyof EventTS>(
     eventName: Key,
-    // --- Adjust callback type to expect the whole message ---
-    callback: (data: any) => any, // Use 'any' for simplicity or define a more specific type
+    callback: (data: EventTS[Key]) => any,
     listenOnce = false,
 ) => {
     const func = (event: MessageEvent<any>) => {
@@ -33,10 +32,10 @@ export const listenTS = <Key extends keyof EventTS>(
         if (event.data && event.data.pluginMessage) {
             const pluginMessage = event.data.pluginMessage;
 
-            // --- Check for 'type' property instead of 'event' ---
             if (pluginMessage.type === eventName) {
-                // --- Pass the whole pluginMessage object to the callback ---
-                callback(pluginMessage);
+                // We've verified the type, so we can safely cast
+                const eventData = pluginMessage as EventTS[Key];
+                callback(eventData);
                 if (listenOnce) {
                     window.removeEventListener("message", func);
                 }
