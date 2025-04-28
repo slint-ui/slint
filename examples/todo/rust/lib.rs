@@ -170,6 +170,10 @@ impl SerializedState {
 
 #[test]
 fn press_add_adds_one_todo() {
+    if option_env!("SLINT_EMIT_DEBUG_INFO").unwrap_or_default() != "1" {
+        println!("This test needs to be build with `SLINT_EMIT_DEBUG_INFO=1` in the environment");
+        return;
+    }
     i_slint_backend_testing::init_no_event_loop();
     use i_slint_backend_testing::{ElementHandle, ElementQuery};
     let state = init();
