@@ -59,7 +59,7 @@ export const App = () => {
     const [useVariables, setUseVariables] = useState(false); // Default to false
 
     listenTS("updatePropertiesCallback", (res) => {
-        setTitle(res.title || "");
+        setTitle(res.title);
         setSlintProperties(res.slintSnippet || "");
     });
 
