@@ -311,3 +311,21 @@ impl i_slint_core::platform::Platform for Backend {
         core::time::Duration::from_millis(duration_ms as u64)
     }
 }
+
+/// This helper trait can be used to obtain access to a pointer to a QtWidget for a given
+/// [`slint::Window`](slint:rust:slint/struct.window).")]
+#[cfg(not(no_qt))]
+pub trait QtWidgetAccessor {
+    fn qt_widget_ptr(&self) -> Option<std::ptr::NonNull<()>>;
+}
+
+#[cfg(not(no_qt))]
+impl QtWidgetAccessor for i_slint_core::api::Window {
+    fn qt_widget_ptr(&self) -> Option<std::ptr::NonNull<()>> {
+        i_slint_core::window::WindowInner::from_pub(self)
+            .window_adapter()
+            .internal(i_slint_core::InternalToken)
+            .and_then(|wa| wa.as_any().downcast_ref::<qt_window::QtWindow>())
+            .map(qt_window::QtWindow::widget_ptr)
+    }
+}
