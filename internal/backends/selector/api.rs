@@ -103,8 +103,11 @@ impl BackendSelector {
     ///         as new major WGPU releases become available.
     #[cfg(feature = "unstable-wgpu-24")]
     #[must_use]
-    pub fn require_wgpu_24(mut self) -> Self {
-        self.requested_graphics_api = Some(RequestedGraphicsAPI::WGPU24);
+    pub fn require_wgpu_24(
+        mut self,
+        configuration: i_slint_core::api::WGPU24Configuration,
+    ) -> Self {
+        self.requested_graphics_api = Some(RequestedGraphicsAPI::WGPU24(configuration));
         self
     }
 

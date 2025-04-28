@@ -260,7 +260,9 @@ impl super::Surface for D3DSurface {
         size: PhysicalWindowSize,
         requested_graphics_api: Option<RequestedGraphicsAPI>,
     ) -> Result<Self, i_slint_core::platform::PlatformError> {
-        if requested_graphics_api.map_or(false, |api| api != RequestedGraphicsAPI::Direct3D) {
+        if requested_graphics_api
+            .map_or(false, |api| !matches!(api, RequestedGraphicsAPI::Direct3D))
+        {
             return Err(format!("Requested non-Direct3D rendering with Direct3D renderer").into());
         }
 

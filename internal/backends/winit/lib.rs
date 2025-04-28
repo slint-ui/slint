@@ -287,7 +287,7 @@ impl BackendBuilder {
             (Some("femtovg-wgpu"), maybe_graphics_api) => {
                 if !maybe_graphics_api.is_some_and(|_api| {
                     #[cfg(feature = "unstable-wgpu-24")]
-                    if matches!(_api, RequestedGraphicsAPI::WGPU24) {
+                    if matches!(_api, RequestedGraphicsAPI::WGPU24(..)) {
                         return true;
                     }
                     false
@@ -331,7 +331,7 @@ impl BackendBuilder {
                 }
             }
             #[cfg(feature = "unstable-wgpu-24")]
-            (None, Some(RequestedGraphicsAPI::WGPU24)) => {
+            (None, Some(RequestedGraphicsAPI::WGPU24(..))) => {
                 renderer::femtovg::WGPUFemtoVGRenderer::new_suspended
             }
             (None, Some(_requested_graphics_api)) => {
