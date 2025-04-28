@@ -188,7 +188,10 @@ export default {
     shiki: {
         langs: [
             JSON.parse(
-                fs.readFileSync("src/misc/Slint-tmLanguage.json", "utf-8"),
+                fs.readFileSync(
+                    "../../editors/vscode/slint.tmLanguage.json",
+                    "utf-8",
+                ),
             ),
         ],
     },
