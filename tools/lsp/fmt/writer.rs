@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use i_slint_compiler::parser::SyntaxToken;
-use std::io::Write;
 
 /// The idea is that each token need to go through this, either with no changes,
 /// or with a new content.
@@ -18,21 +17,31 @@ pub trait TokenWriter {
 }
 
 /// Just write the token stream to a file
-pub struct FileWriter<'a, W> {
-    pub file: &'a mut W,
+#[derive(Default)]
+pub struct StringWriter {
+    content: String,
 }
 
-impl<W: Write> TokenWriter for FileWriter<'_, W> {
+impl StringWriter {
+    pub fn finalize(self) -> String {
+        self.content
+    }
+}
+
+impl TokenWriter for StringWriter {
     fn no_change(&mut self, token: SyntaxToken) -> std::io::Result<()> {
-        self.file.write_all(token.text().as_bytes())
+        self.content.push_str(token.text());
+        Ok(())
     }
 
     fn with_new_content(&mut self, _token: SyntaxToken, contents: &str) -> std::io::Result<()> {
-        self.file.write_all(contents.as_bytes())
+        self.content.push_str(contents);
+        Ok(())
     }
 
     fn insert_before(&mut self, token: SyntaxToken, contents: &str) -> std::io::Result<()> {
-        self.file.write_all(contents.as_bytes())?;
-        self.file.write_all(token.text().as_bytes())
+        self.content.push_str(contents);
+        self.content.push_str(token.text());
+        Ok(())
     }
 }
