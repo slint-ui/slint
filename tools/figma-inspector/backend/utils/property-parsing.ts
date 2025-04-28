@@ -8,6 +8,8 @@ import {
 
 export const indentation = "    ";
 const rectangleProperties = [
+    "x",
+    "y",
     "width",
     "height",
     "fill",
@@ -110,7 +112,6 @@ export async function getBorderRadius(
             if (path) {
                 return `${indentation}border-radius: ${path};`;
             }
-        } else if (boundCornerRadiusId && !useVariables) {
         }
 
         const cornerBindings = [
@@ -459,6 +460,66 @@ export async function generateRectangleSnippet(
     for (const property of rectangleProperties) {
         try {
             switch (property) {
+                case "x":
+                    const boundXVarId = (sceneNode as any).boundVariables?.x
+                        ?.id;
+                    let xValue: string | null = null;
+                    if (boundXVarId && useVariables) {
+                        xValue = await getVariablePathString(boundXVarId);
+                    }
+                    // use number value
+                    if (
+                        !xValue &&
+                        "x" in sceneNode &&
+                        typeof sceneNode.x === "number"
+                    ) {
+                        const x = sceneNode.x; // Get raw value
+                        if (x === 0) {
+                            // Explicitly handle 0
+                            xValue = "0px";
+                        } else {
+                            const roundedX = roundNumber(x); // Use roundNumber for non-zero
+                            if (roundedX !== null) {
+                                xValue = `${roundedX}px`;
+                            }
+                        }
+                    }
+                    if (xValue && sceneNode.parent?.type !== "PAGE") {
+                        properties.push(`${indentation}x: ${xValue};`);
+                    }
+                    break;
+
+                case "y":
+                    const boundYVarId = (sceneNode as any).boundVariables?.y
+                        ?.id;
+                    let yValue: string | null = null;
+                    if (boundYVarId && useVariables) {
+                        yValue = await getVariablePathString(boundYVarId);
+                    }
+                    // use number value
+                    if (
+                        !yValue &&
+                        "y" in sceneNode &&
+                        typeof sceneNode.y === "number"
+                    ) {
+                        const y = sceneNode.y; // Get raw value
+                        if (y === 0) {
+                            // Explicitly handle 0
+                            yValue = "0px";
+                        } else {
+                            const roundedY = roundNumber(y); // Use roundNumber for non-zero
+                            if (roundedY !== null) {
+                                yValue = `${roundedY}px`;
+                            }
+                        }
+                    }
+                    // --- End modification ---
+                    if (yValue && sceneNode.parent?.type !== "PAGE") {
+                        // Keep parent check
+                        properties.push(`${indentation}y: ${yValue};`);
+                    }
+                    break;
+
                 case "width":
                     const boundWidthVarId = (sceneNode as any).boundVariables
                         ?.width?.id;
@@ -772,7 +833,6 @@ export async function generateTextSnippet(
                             properties.push(
                                 `${indentation}horizontal-alignment: ${slintValue}; ${comment}`,
                             );
-                        } else {
                         }
                     }
                     break;
@@ -787,5 +847,6 @@ export async function generateTextSnippet(
             );
         }
     }
+
     return `Text {\n${properties.join("\n")}\n}`;
 }
