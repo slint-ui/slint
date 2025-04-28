@@ -543,7 +543,7 @@ interface PropertyInstance {
 function generateStructsAndInstances(
     variableTree: VariableNode,
     collectionName: string,
-    collectionData: any, // Using any for now, but ideally define a proper interface
+    collectionData: CollectionData, // using strict type interface
 ): {
     structs: string;
     instances: string;
@@ -1069,6 +1069,19 @@ function generateStructsAndInstances(
         instances: instancesCode,
     };
 }
+interface VariableModeData {
+    value: string;
+    type: string;
+    refId?: string;
+    comment?: string;
+}
+
+interface CollectionData {
+    name: string;
+    formattedName: string;
+    modes: Set<string>;
+    variables: Map<string, Map<string, VariableModeData>>;
+}
 
 // For Figma Plugin - Export function with hierarchical structure
 // Export each collection to a separate virtual file
@@ -1093,26 +1106,7 @@ export async function exportFigmaVariablesToSeparateFiles(
         const exportedFiles: Array<{ name: string; content: string }> = [];
 
         // First, initialize the collection structure for ALL collections
-        const collectionStructure = new Map<
-            string,
-            {
-                name: string;
-                formattedName: string;
-                modes: Set<string>;
-                variables: Map<
-                    string,
-                    Map<
-                        string,
-                        {
-                            value: string;
-                            type: string;
-                            refId?: string;
-                            comment?: string;
-                        }
-                    >
-                >;
-            }
-        >();
+        const collectionStructure = new Map<string, CollectionData>();
 
         // Build a global map of variable paths
         const variablePathsById = new Map<
@@ -1193,17 +1187,12 @@ export async function exportFigmaVariablesToSeparateFiles(
                             .get(collectionName)!
                             .variables.has(sanitizedRowName)
                     ) {
-                        collectionStructure.get(collectionName)!.variables.set(
-                            sanitizedRowName,
-                            new Map<
-                                string,
-                                {
-                                    value: string;
-                                    type: string;
-                                    refId?: string;
-                                }
-                            >(),
-                        );
+                        collectionStructure
+                            .get(collectionName)!
+                            .variables.set(
+                                sanitizedRowName,
+                                new Map<string, VariableModeData>(),
+                            );
                     }
 
                     // Process values for each mode
