@@ -170,7 +170,7 @@ impl SerializedState {
 
 #[test]
 fn press_add_adds_one_todo() {
-    if std::env::var_os("SLINT_EMIT_DEBUG_INFO").unwrap_or_default() != "1" {
+    if option_env!("SLINT_EMIT_DEBUG_INFO").unwrap_or_default() != "1" {
         println!("This test needs to be build with `SLINT_EMIT_DEBUG_INFO=1` in the environment");
         return;
     }
