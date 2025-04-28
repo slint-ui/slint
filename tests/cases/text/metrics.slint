@@ -6,9 +6,9 @@ component Text2 inherits  Text {}
 export component TestCase inherits Window {
     width: 100phx;
     height: 100phx;
-    /// The style provides the default font size. Some tests in the CI run with the Qt style, some with our built-in styles.
-    /// The built-in styles don't provide a default font size, so the testing backend provides the last resort fallback.
-    /// To provide a consistent test environment, don't use the style's default font size.
+    // The style provides the default font size. Some tests in the CI run with the Qt style, some with our built-in styles.
+    // The built-in styles don't provide a default font size, so the testing backend provides the last resort fallback.
+    // To provide a consistent test environment, don't use the style's default font size.
     default-font-size: 10px;
     simple-text := Text { }
 
