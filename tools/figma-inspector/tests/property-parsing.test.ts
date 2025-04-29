@@ -109,14 +109,14 @@ test("converts rgb to hex floating #000000", () => {
 test(" No border radius", async () => {
     const jsonNode = findNodeById(testJson, testNoBorderRadius);
     expect(jsonNode).not.toBeNull();
-    const snippet = await getBorderRadius(jsonNode);
+    const snippet = await getBorderRadius(jsonNode, false);
     expect(snippet).toBe(null);
 });
 
 test("Single border radius", async () => {
     const jsonNode = findNodeById(testJson, testBorderRadius55px);
     expect(jsonNode).not.toBeNull();
-    const snippet = await getBorderRadius(jsonNode);
+    const snippet = await getBorderRadius(jsonNode, false);
     expect(snippet).toBe(`${indentation}border-radius: 55px;`);
 });
 
@@ -124,7 +124,7 @@ test("Multiple border radius", async () => {
     const jsonNode = findNodeById(testJson, testBorderRadiusMultiValue);
     expect(jsonNode).not.toBeNull();
     const convertToApiJson = processCornerRadii(jsonNode);
-    const snippet = await getBorderRadius(convertToApiJson);
+    const snippet = await getBorderRadius(convertToApiJson, false);
     const expectedSnippet = `${indentation}border-top-left-radius: 50px;\n${indentation}border-top-right-radius: 28px;\n${indentation}border-bottom-right-radius: 30.343px;`;
     expect(snippet).toBe(expectedSnippet);
 });
@@ -132,7 +132,7 @@ test("Multiple border radius", async () => {
 test("Border width and color", async () => {
     const jsonNode = findNodeById(testJson, testBorderWidthColor);
     expect(jsonNode).not.toBeNull();
-    const snippet = await getBorderWidthAndColor(jsonNode);
+    const snippet = await getBorderWidthAndColor(jsonNode, false);
     const expectedSnippet = [
         `${indentation}border-width: 10.455px;`,
         `${indentation}border-color: #5c53dc;`,
@@ -144,7 +144,7 @@ test("Text node", async () => {
     const jsonNode = findNodeById(testJson, testText);
     expect(jsonNode).not.toBeNull();
     const convertToApiJson = processTextNode(jsonNode);
-    const snippet = await generateTextSnippet(convertToApiJson);
+    const snippet = await generateTextSnippet(convertToApiJson, false);
     const expectedSnippet = `Text {\n${indentation}text: "Monthly";\n${indentation}color: #896fff;\n${indentation}font-family: "Roboto";\n${indentation}font-size: 12px;\n${indentation}font-weight: 400;\n}`;
     expect(snippet).toBe(expectedSnippet);
 });

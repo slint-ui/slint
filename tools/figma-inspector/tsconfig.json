@@ -27,6 +27,7 @@
     "src/**/*.ts",
     "src/**/*.tsx",
     "src/**/*.js",
+    "tests/**/*.ts",
     "shared/universals.d.ts",
     "backend/**/*.ts"
   ]

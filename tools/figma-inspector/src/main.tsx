@@ -405,7 +405,7 @@ export const App = () => {
                         style={buttonStyle}
                         className="export-button" // Keep class if needed
                     >
-                        {exportsAreCurrent ? "Design Tokens" : "Design Tokens"}
+                        {"Design Tokens"}
                     </button>
                 )}
 
