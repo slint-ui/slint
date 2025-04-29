@@ -30,11 +30,14 @@ async function initHighlighter() {
         langs: [slintLang as LanguageRegistration],
         engine: createOnigurumaEngine(OnigurumaEngine),
     });
-};
+}
 
 type HighlightTheme = "dark-slint" | "light-slint";
 
-export default function CodeSnippet({ code, theme,}: { code: string; theme: HighlightTheme }) {
+export default function CodeSnippet({
+    code,
+    theme,
+}: { code: string; theme: HighlightTheme }) {
     const [highlightedCode, setHighlightedCode] = useState<ReactNode | null>(
         null,
     );
