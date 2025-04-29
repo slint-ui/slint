@@ -167,7 +167,7 @@ impl<'id> TypeInfo<'id> {
     ///
     /// Safety, the instance must have been created by `TypeInfo::create_instance`
     unsafe fn delete_instance(instance: *mut Instance) {
-        let mem_layout = (*instance).type_info.mem_layout;
+        let mem_layout = (&(*instance).type_info).mem_layout;
         Self::drop_in_place(instance);
         let mem = instance as *mut u8;
         std::alloc::dealloc(mem, mem_layout);
