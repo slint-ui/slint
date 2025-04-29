@@ -1,3 +1,5 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
 import { create } from "zustand";
 import { dispatchTS, listenTS } from "./bolt-utils";
 import { writeTextToClipboard } from "./utils.js";
