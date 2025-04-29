@@ -16,6 +16,7 @@ export global TableViewPageAdapter  {
     ];
 
     pure callback filter_sort_model([[StandardListViewItem]], string, int, bool) -> [[StandardListViewItem]];
+    filter_sort_model(row-data, filter, sort-index, sort-ascending) => { return row-data; }
 }
 
 export component TableViewPage inherits Page {
