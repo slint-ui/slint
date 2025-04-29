@@ -636,7 +636,7 @@ mod private {
 
 #[i_slint_core_macros::slint_doc]
 /// This helper trait can be used to obtain access to the [`winit::window::Window`] for a given
-/// [`slint::Window`](slint:rust:slint/struct.window).")]
+/// [`slint::Window`](slint:rust:slint/struct.window).
 pub trait WinitWindowAccessor: private::WinitWindowAccessorSealed {
     /// Returns true if a [`winit::window::Window`] exists for this window. This is the case if the window is
     /// backed by this winit backend.
