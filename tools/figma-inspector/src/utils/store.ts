@@ -5,20 +5,26 @@ import { writeTextToClipboard } from "./utils.js";
 interface StoreState {
     title: string;
     slintSnippet: string;
+    useVariables: boolean;
     setTitle: (title: string) => void;
     initializeEventListeners: () => void;
     copyToClipboard: () => Promise<void>;
+    setUseVariables: (useVariables: boolean) => void;
 }
 
 export const useInspectorStore = create<StoreState>()((set, get) => ({
     title: "",
     slintSnippet: "",
+    useVariables: false,
+
     setTitle: (title) => set({ title }),
+
     initializeEventListeners: () => {
         listenTS("updatePropertiesCallback", (res) => {
             set({ title: res.title, slintSnippet: res.slintSnippet || "" });
         });
     },
+
     copyToClipboard: async () => {
         try {
             writeTextToClipboard(get().slintSnippet);
@@ -30,5 +36,10 @@ export const useInspectorStore = create<StoreState>()((set, get) => ({
                 result: false,
             });
         }
+    },
+
+    setUseVariables: (useVariables) => {
+        set({ useVariables })
+        dispatchTS("generateSnippetRequest", { useVariables });
     },
 }));

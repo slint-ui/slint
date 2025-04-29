@@ -36,7 +36,10 @@ const downloadFile = (filename: string, text: string) => {
 export const App = () => {
     const [exportsAreCurrent, setExportsAreCurrent] = useState(false);
 
-    const { title, slintSnippet, copyToClipboard, initializeEventListeners } = useInspectorStore();
+    const {
+        title, slintSnippet, useVariables,
+        copyToClipboard, initializeEventListeners, setUseVariables
+    } = useInspectorStore();
 
     const [exportedFiles, setExportedFiles] = useState<
         Array<{ name: string; content: string }>
@@ -57,7 +60,6 @@ export const App = () => {
         dispatchTS("exportToFiles", { exportAsSingleFile: exportAsSingleFile });
         setIsMenuOpen(false); // Close menu after clicking export
     }, [exportAsSingleFile]);
-    const [useVariables, setUseVariables] = useState(false); // Default to false
 
 
 
@@ -107,17 +109,7 @@ export const App = () => {
         },
         [useVariables],
     );
-    // Update the handleUseVariables handler
-    const handleUseVariables = useCallback(
-        (event: React.ChangeEvent<HTMLInputElement>) => {
-            const checked = event.target.checked;
-            // Update the state
-            setUseVariables(checked);
-            // Request a new snippet from the backend with the updated preference
-            dispatchTS("generateSnippetRequest", { useVariables: checked });
-        },
-        [],
-    );
+
 
     // Theme handling
     useEffect(() => {
@@ -364,7 +356,7 @@ export const App = () => {
                             <input
                                 type="checkbox"
                                 checked={useVariables}
-                                onChange={handleUseVariables}
+                                onChange={(e) => setUseVariables(e.target.checked)}
                                 style={{
                                     marginRight: "4px",
                                     cursor: "pointer",
@@ -419,8 +411,8 @@ export const App = () => {
                         <label
                             style={{ ...menuItemStyle, cursor: "pointer" }}
                             onMouseEnter={(e) =>
-                                (e.currentTarget.style.backgroundColor =
-                                    menuItemHoverStyle.backgroundColor!)
+                            (e.currentTarget.style.backgroundColor =
+                                menuItemHoverStyle.backgroundColor!)
                             }
                             onMouseLeave={(e) =>
                                 (e.currentTarget.style.backgroundColor = "")
@@ -459,8 +451,8 @@ export const App = () => {
                             }} // Keyboard accessibility
                             style={{ ...menuItemStyle, padding: "8px 12px" }}
                             onMouseEnter={(e) =>
-                                (e.currentTarget.style.backgroundColor =
-                                    menuItemHoverStyle.backgroundColor!)
+                            (e.currentTarget.style.backgroundColor =
+                                menuItemHoverStyle.backgroundColor!)
                             }
                             onMouseLeave={(e) =>
                                 (e.currentTarget.style.backgroundColor = "")
@@ -498,7 +490,7 @@ export const App = () => {
                             transition: "all 0.3s ease",
                             opacity: exportsAreCurrent ? "1" : "0.5",
                         }}
-                        // disabled={!exportsAreCurrent}
+                    // disabled={!exportsAreCurrent}
                     >
                         <span style={{ marginRight: "8px" }}>
                             {exportsAreCurrent ? "📦" : "⚠️"}
