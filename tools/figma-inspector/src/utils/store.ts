@@ -8,16 +8,27 @@ interface StoreState {
     title: string;
     slintSnippet: string;
     useVariables: boolean;
+    exportsAreCurrent: boolean;
+    exportedFiles: Array<{ name: string; content: string }>;
+    exportAsSingleFile: boolean;
     setTitle: (title: string) => void;
     initializeEventListeners: () => void;
     copyToClipboard: () => Promise<void>;
     setUseVariables: (useVariables: boolean) => void;
+    setExportsAreCurrent: (exportsAreCurrent: boolean) => void;
+    setExportedFiles: (
+        exportedFiles: Array<{ name: string; content: string }>,
+    ) => void;
+    setExportAsSingleFile: (exportAsSingleFile: boolean) => void;
 }
 
 export const useInspectorStore = create<StoreState>()((set, get) => ({
     title: "",
     slintSnippet: "",
     useVariables: false,
+    exportsAreCurrent: false,
+    exportedFiles: [],
+    exportAsSingleFile: false,
 
     setTitle: (title) => set({ title }),
 
@@ -47,5 +58,17 @@ export const useInspectorStore = create<StoreState>()((set, get) => ({
     setUseVariables: (useVariables) => {
         set({ useVariables })
         dispatchTS("generateSnippetRequest", { useVariables });
+    },
+
+    setExportsAreCurrent: (exportsAreCurrent) => {
+        set({ exportsAreCurrent })
+    },
+
+    setExportedFiles: (exportedFiles) => {
+        set({ exportedFiles })
+    },
+
+    setExportAsSingleFile: (exportAsSingleFile) => {
+        set({ exportAsSingleFile })
     },
 }));

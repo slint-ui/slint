@@ -20,19 +20,15 @@ import { downloadZipFile } from "./utils/utils.js";
 
 
 export const App = () => {
-    const [exportsAreCurrent, setExportsAreCurrent] = useState(false);
 
     const {
-        title, slintSnippet, useVariables,
-        copyToClipboard, initializeEventListeners, setUseVariables
+        exportsAreCurrent, exportedFiles, title, slintSnippet, 
+        useVariables, exportAsSingleFile,
+        copyToClipboard, initializeEventListeners, setUseVariables, setExportsAreCurrent,
+        setExportedFiles, setExportAsSingleFile
     } = useInspectorStore();
 
-    const [exportedFiles, setExportedFiles] = useState<
-        Array<{ name: string; content: string }>
-    >([]);
     const [lightOrDarkMode, setLightOrDarkMode] = useState(getColorTheme());
-    // State for the export format toggle
-    const [exportAsSingleFile, setExportAsSingleFile] = useState(false); // Default to multiple files
     //  Add state for dropdown visibility
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const menuRef = useRef<HTMLDivElement>(null); // Ref for the menu
@@ -74,6 +70,7 @@ export const App = () => {
             document.removeEventListener("mousedown", handleClickOutside);
         };
     }, [isMenuOpen]); // Re-run effect when isMenuOpen changes
+
     const handleCheckboxChange = useCallback(
         (event: React.ChangeEvent<HTMLInputElement>) => {
             const checked = event.target.checked;
