@@ -62,7 +62,7 @@ pub struct TilingInfo {
 
 /// This structure describes the properties of a texture for blending with [`TargetPixelBuffer::draw_texture`].
 #[non_exhaustive]
-pub struct Texture {
+pub struct DrawTextureArgs {
     pub(super) data: TextureDataContainer,
 
     /// When set, the source is to be considered as an alpha map (so for ARGB texture, the RGB component will be ignored).
@@ -91,7 +91,7 @@ pub struct Texture {
     pub tiling: Option<TilingInfo>,
 }
 
-impl Texture {
+impl DrawTextureArgs {
     /// Returns the source image data for this texture
     pub fn source(&self) -> TextureData<'_> {
         match &self.data {
@@ -178,7 +178,7 @@ pub trait TargetPixelBuffer {
     /// The texture must be clipped to the given region.
     /// Returns true if the operation was successful; false if it could not be
     /// implemented and instead the software renderer needs to draw the texture
-    fn draw_texture(&mut self, _: &Texture, _clip: &PhysicalRegion) -> bool {
+    fn draw_texture(&mut self, _: &DrawTextureArgs, _clip: &PhysicalRegion) -> bool {
         false
     }
 }

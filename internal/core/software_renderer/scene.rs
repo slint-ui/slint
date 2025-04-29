@@ -310,7 +310,7 @@ impl<'a> SceneTexture<'a> {
     }
 
     pub fn from_target_texture(
-        texture: &'a super::target_pixel_buffer::Texture,
+        texture: &'a super::target_pixel_buffer::DrawTextureArgs,
         clip: &PhysicalRect,
     ) -> Option<(Self, PhysicalRect)> {
         let (extra, geometry) = SceneTextureExtra::from_target_texture(texture, clip)?;
@@ -344,7 +344,7 @@ pub struct SceneTextureExtra {
 
 impl SceneTextureExtra {
     pub fn from_target_texture(
-        texture: &super::target_pixel_buffer::Texture,
+        texture: &super::target_pixel_buffer::DrawTextureArgs,
         clip: &PhysicalRect,
     ) -> Option<(Self, PhysicalRect)> {
         let geometry: PhysicalRect = euclid::rect(

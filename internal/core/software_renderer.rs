@@ -380,7 +380,9 @@ fn region_line_ranges(
 mod target_pixel_buffer;
 
 #[cfg(feature = "experimental")]
-pub use target_pixel_buffer::{CompositionMode, TargetPixelBuffer, Texture, TexturePixelFormat};
+pub use target_pixel_buffer::{
+    CompositionMode, DrawTextureArgs, TargetPixelBuffer, TexturePixelFormat,
+};
 
 #[cfg(not(feature = "experimental"))]
 use target_pixel_buffer::{CompositionMode, TexturePixelFormat};
@@ -1126,7 +1128,7 @@ trait ProcessScene {
     fn process_scene_texture(&mut self, geometry: PhysicalRect, texture: SceneTexture<'static>);
     fn process_target_texture(
         &mut self,
-        texture: &target_pixel_buffer::Texture,
+        texture: &target_pixel_buffer::DrawTextureArgs,
         clip: PhysicalRect,
     );
     fn process_rectangle(&mut self, geometry: PhysicalRect, color: PremultipliedRgbaColor);
@@ -1258,7 +1260,7 @@ impl<T: TargetPixel, B: target_pixel_buffer::TargetPixelBuffer<TargetPixel = T>>
 
     fn process_target_texture(
         &mut self,
-        texture: &target_pixel_buffer::Texture,
+        texture: &target_pixel_buffer::DrawTextureArgs,
         clip: PhysicalRect,
     ) {
         if self.buffer.draw_texture(texture, &self.dirty_region.intersection(&clip)) {
@@ -1322,7 +1324,7 @@ impl ProcessScene for PrepareScene {
 
     fn process_target_texture(
         &mut self,
-        texture: &target_pixel_buffer::Texture,
+        texture: &target_pixel_buffer::DrawTextureArgs,
         clip: PhysicalRect,
     ) {
         let Some((extra, geometry)) = SceneTextureExtra::from_target_texture(texture, &clip) else {
@@ -1538,7 +1540,7 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                         }
                     });
 
-                    let t = target_pixel_buffer::Texture {
+                    let t = target_pixel_buffer::DrawTextureArgs {
                         data: target_pixel_buffer::TextureDataContainer::Static(
                             target_pixel_buffer::TextureData::new(
                                 &data.as_slice()[t.index..][start * bpp..end * bpp],
@@ -1595,7 +1597,7 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                         gap_y: 0,
                     });
 
-                    let t = target_pixel_buffer::Texture {
+                    let t = target_pixel_buffer::DrawTextureArgs {
                         data: target_pixel_buffer::TextureDataContainer::Shared {
                             buffer: SharedBufferData::SharedImage(buffer),
                             source_rect: PhysicalRect::from_untyped(
@@ -1767,7 +1769,7 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                             clipped_target.translate(offset).round().transformed(self.rotation);
                         let target_rect =
                             target_rect.translate(offset).round().transformed(self.rotation);
-                        let t = target_pixel_buffer::Texture {
+                        let t = target_pixel_buffer::DrawTextureArgs {
                             data,
                             colorize: Some(color),
                             // color already is mixed with global alpha
@@ -2408,7 +2410,7 @@ impl<T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'_, T
                     )
                     .round_in();
 
-                let t = target_pixel_buffer::Texture {
+                let t = target_pixel_buffer::DrawTextureArgs {
                     data: target_pixel_buffer::TextureDataContainer::Shared {
                         buffer: SharedBufferData::SharedImage(img),
                         source_rect,

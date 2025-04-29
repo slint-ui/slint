@@ -362,7 +362,7 @@ mod software_renderer {
 
     #[cfg(feature = "experimental")]
     use i_slint_core::software_renderer::{
-        CompositionMode, PremultipliedRgbaColor, TargetPixelBuffer, Texture,
+        CompositionMode, DrawTextureArgs, PremultipliedRgbaColor, TargetPixelBuffer,
     };
 
     #[cfg(feature = "experimental")]
@@ -391,8 +391,11 @@ mod software_renderer {
             u8,
             CompositionMode,
         ) -> bool,
-        draw_texture:
-            unsafe extern "C" fn(CppTargetPixelBufferUserData, &Texture, &PhysicalRegion) -> bool,
+        draw_texture: unsafe extern "C" fn(
+            CppTargetPixelBufferUserData,
+            &DrawTextureArgs,
+            &PhysicalRegion,
+        ) -> bool,
     }
 
     #[cfg(feature = "experimental")]
@@ -439,7 +442,7 @@ mod software_renderer {
             }
         }
 
-        fn draw_texture(&mut self, texture: &Texture, clip: &PhysicalRegion) -> bool {
+        fn draw_texture(&mut self, texture: &DrawTextureArgs, clip: &PhysicalRegion) -> bool {
             unsafe { (self.draw_texture)(self.user_data, texture, clip) }
         }
     }

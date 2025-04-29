@@ -664,7 +664,7 @@ public:
     using CompositionMode = cbindgen_private::CompositionMode;
     /// Representation of a texture to blend in the destination buffer.
     // (FIXME: this is currently opaque, but should be exposed)
-    using Texture = cbindgen_private::Texture;
+    using DrawTextureArgs = cbindgen_private::DrawTextureArgs;
 
     /// Abstract base class for a target pixel buffer where certain drawing operations can be
     /// delegated. Use this to implement support for hardware accelerators such as DMA2D, PPA, or
@@ -693,8 +693,7 @@ public:
         /// Each pixel of the texture is to be blended with the given colorize color as well as the
         /// alpha value.
         // FIXME: Texture is currently opaque, but should be exposed
-        virtual bool draw_texture(const cbindgen_private::Texture *texture,
-                                  const PhysicalRegion &clip) = 0;
+        virtual bool draw_texture(const DrawTextureArgs *texture, const PhysicalRegion &clip) = 0;
 
     private:
         friend class SoftwareRenderer;
@@ -726,7 +725,7 @@ public:
                                     composition_mode);
                         },
                 .draw_texture =
-                        [](void *self, const cbindgen_private::Texture *texture,
+                        [](void *self, const cbindgen_private::DrawTextureArgs *texture,
                            const cbindgen_private::PhysicalRegion *clip) {
                             auto *buffer = reinterpret_cast<TargetPixelBuffer<PixelType> *>(self);
                             auto clip_region = PhysicalRegion { *clip };
