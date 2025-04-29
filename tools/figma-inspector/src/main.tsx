@@ -1,11 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import {
-    useEffect,
-    useState,
-    useRef
-} from "react";
+import { useEffect, useState, useRef } from "react";
 import {
     dispatchTS,
     getColorTheme,
@@ -16,15 +12,23 @@ import "./main.css";
 import { useInspectorStore } from "./utils/store";
 import { downloadZipFile } from "./utils/utils.js";
 
-
 export const App = () => {
-
     const {
-        exportsAreCurrent, exportedFiles, title, slintSnippet,
-        useVariables, exportAsSingleFile, menuOpen,
-        copyToClipboard, initializeEventListeners, setUseVariables,
-        setExportsAreCurrent, setExportAsSingleFile,
-        setMenuOpen, toggleMenu, exportFiles
+        exportsAreCurrent,
+        exportedFiles,
+        title,
+        slintSnippet,
+        useVariables,
+        exportAsSingleFile,
+        menuOpen,
+        copyToClipboard,
+        initializeEventListeners,
+        setUseVariables,
+        setExportsAreCurrent,
+        setExportAsSingleFile,
+        setMenuOpen,
+        toggleMenu,
+        exportFiles,
     } = useInspectorStore();
 
     const [lightOrDarkMode, setLightOrDarkMode] = useState(getColorTheme());
@@ -57,7 +61,6 @@ export const App = () => {
             document.removeEventListener("mousedown", handleClickOutside);
         };
     }, [menuOpen]); // Re-run effect when isMenuOpen changes
-
 
     // Theme handling
     useEffect(() => {
@@ -219,7 +222,9 @@ export const App = () => {
                             <input
                                 type="checkbox"
                                 checked={useVariables}
-                                onChange={(e) => setUseVariables(e.target.checked)}
+                                onChange={(e) =>
+                                    setUseVariables(e.target.checked)
+                                }
                                 style={{
                                     marginRight: "4px",
                                     cursor: "pointer",
@@ -274,8 +279,8 @@ export const App = () => {
                         <label
                             style={{ ...menuItemStyle, cursor: "pointer" }}
                             onMouseEnter={(e) =>
-                            (e.currentTarget.style.backgroundColor =
-                                menuItemHoverStyle.backgroundColor!)
+                                (e.currentTarget.style.backgroundColor =
+                                    menuItemHoverStyle.backgroundColor!)
                             }
                             onMouseLeave={(e) =>
                                 (e.currentTarget.style.backgroundColor = "")
@@ -284,7 +289,9 @@ export const App = () => {
                             <input
                                 type="checkbox"
                                 checked={exportAsSingleFile}
-                                onChange={(e) => setExportAsSingleFile(e.target.checked)}
+                                onChange={(e) =>
+                                    setExportAsSingleFile(e.target.checked)
+                                }
                                 style={{
                                     marginRight: "8px",
                                     cursor: "pointer",
@@ -314,8 +321,8 @@ export const App = () => {
                             }} // Keyboard accessibility
                             style={{ ...menuItemStyle, padding: "8px 12px" }}
                             onMouseEnter={(e) =>
-                            (e.currentTarget.style.backgroundColor =
-                                menuItemHoverStyle.backgroundColor!)
+                                (e.currentTarget.style.backgroundColor =
+                                    menuItemHoverStyle.backgroundColor!)
                             }
                             onMouseLeave={(e) =>
                                 (e.currentTarget.style.backgroundColor = "")
@@ -353,7 +360,7 @@ export const App = () => {
                             transition: "all 0.3s ease",
                             opacity: exportsAreCurrent ? "1" : "0.5",
                         }}
-                    // disabled={!exportsAreCurrent}
+                        // disabled={!exportsAreCurrent}
                     >
                         <span style={{ marginRight: "8px" }}>
                             {exportsAreCurrent ? "📦" : "⚠️"}
