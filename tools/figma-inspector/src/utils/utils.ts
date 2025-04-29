@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 import { dispatchTS } from "./bolt-utils.js";
 
-export async function writeTextToClipboard(str: string) {
+export function writeTextToClipboard(str: string) {
     const prevActive = document.activeElement;
     const textArea = document.createElement("textarea");
 

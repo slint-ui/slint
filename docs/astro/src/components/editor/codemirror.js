@@ -158,7 +158,7 @@ async function updateWasmPreview(previewContainer, content) {
 // Wrap updateWasmPreview in a debounce function (500ms delay)
 const debouncedUpdateWasmPreview = debounce(updateWasmPreview, 500);
 
-async function initializePreviewContainers(previewContainer, _content) {
+function initializePreviewContainers(previewContainer, _content) {
     const canvas_id = "canvas_" + Math.random().toString(36).substring(2, 9);
     const canvas = document.createElement("canvas");
     canvas.id = canvas_id;
@@ -260,7 +260,7 @@ window.initCodeMirror = function (editorDiv, language, content) {
             previewContainer.classList.add("preview-container");
             editorDiv.classList.add("show-preview");
             extensions.push(
-                EditorView.updateListener.of(async (editor) => {
+                EditorView.updateListener.of((editor) => {
                     if (editor.docChanged) {
                         const newContent = editor.state.doc.toString();
                         debouncedUpdateWasmPreview(
@@ -289,7 +289,7 @@ window.initCodeMirror = function (editorDiv, language, content) {
         loadSlintWasmInterpreter(editor)
             .then(async () => {
                 initializePreviewContainers(previewContainer, content);
-                updateWasmPreview(previewContainer, content);
+                await updateWasmPreview(previewContainer, content);
             })
             .catch((error) => {
                 console.error("Error loading Slint WASM interpreter:", error);
@@ -297,7 +297,7 @@ window.initCodeMirror = function (editorDiv, language, content) {
     }
 };
 
-document.addEventListener("DOMContentLoaded", async function () {
+document.addEventListener("DOMContentLoaded", () => {
     // Find all the divs that need a CodeMirror editor
     document
         .querySelectorAll(".codemirror-editor")

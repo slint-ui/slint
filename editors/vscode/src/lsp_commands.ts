@@ -18,9 +18,6 @@ import * as vscode from "vscode";
 //
 // has the side effect of going around our middleware.
 
-export async function showPreview(
-    url: LspURI,
-    component: string,
-): Promise<unknown> {
+export function showPreview(url: LspURI, component: string): Thenable<unknown> {
     return vscode.commands.executeCommand("slint/showPreview", url, component);
 }

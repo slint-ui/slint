@@ -85,7 +85,7 @@ slint_init(slint_wasm_data).then((_) => {
     });
 
     connection.onDidChangeConfiguration(async (_param: unknown) => {
-        the_lsp.reload_config();
+        await the_lsp.reload_config();
     });
 
     // Listen on the connection

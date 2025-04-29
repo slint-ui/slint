@@ -134,7 +134,7 @@ const variableMonitoring: {
 // Keep the DEBOUNCE_INTERVAL as a constant
 const DEBOUNCE_INTERVAL = 3000; // 3 seconds
 
-listenTS("monitorVariableChanges", async () => {
+listenTS("monitorVariableChanges", () => {
     figma.ui.postMessage({
         type: "variableMonitoringActive", // Keep this confirmation
         timestamp: Date.now(),

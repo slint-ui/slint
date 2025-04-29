@@ -284,7 +284,7 @@ export async function getBorderWidthAndColor(
     return properties.length > 0 ? properties : null;
 }
 
-export async function getBrush(fill: {
+export function getBrush(fill: {
     type: string;
     opacity: number;
     color?: { r: number; g: number; b: number };
@@ -293,7 +293,7 @@ export async function getBrush(fill: {
         position: number;
     }>;
     gradientTransform?: number[][];
-}): Promise<string | null> {
+}): string | null {
     switch (fill.type) {
         case "SOLID": {
             if (!fill.color) {
@@ -574,7 +574,7 @@ export async function generateRectangleSnippet(
                                     await getVariablePathString(boundVarId);
                             }
                             if (!fillValue) {
-                                fillValue = await getBrush(firstFill);
+                                fillValue = getBrush(firstFill);
                             }
                             if (fillValue) {
                                 properties.push(
@@ -582,7 +582,7 @@ export async function generateRectangleSnippet(
                                 );
                             }
                         } else {
-                            const brush = await getBrush(firstFill);
+                            const brush = getBrush(firstFill);
                             if (brush) {
                                 properties.push(
                                     `${indentation}background: ${brush};`,

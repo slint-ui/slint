@@ -16,7 +16,9 @@
             "editors/vscode/out/**"
         ]
     },
-    "organizeImports": { "enabled": false },
+    "organizeImports": {
+        "enabled": false
+    },
     "linter": {
         "enabled": true,
         "ignore": ["api/node/docs/assets/**", "**/dist/**"],
@@ -36,7 +38,8 @@
             "suspicious": {
                 "noDoubleEquals": "error",
                 "noRedundantUseStrict": "warn",
-                "noImplicitAnyLet": "error"
+                "noImplicitAnyLet": "error",
+                "useAwait": "error"
             }
         }
     },

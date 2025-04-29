@@ -415,9 +415,9 @@ export class EditorWidget extends Widget {
                 ),
             );
         } else if (load_url) {
-            return this.project_from_url(load_url);
+            return await this.project_from_url(load_url);
         } else {
-            return this.set_demo(load_demo ?? "");
+            return await this.set_demo(load_demo ?? "");
         }
     }
 
@@ -486,7 +486,7 @@ export class EditorWidget extends Widget {
         return Promise.resolve(pane.editor);
     }
 
-    public async map_url(url_: string): Promise<string | undefined> {
+    public map_url(url_: string): Promise<string | undefined> {
         const js_url = new URL(url_);
 
         const absolute_uri = monaco.Uri.parse(js_url.toString());
@@ -499,7 +499,7 @@ export class EditorWidget extends Widget {
             this.#extra_file_urls[file] = mapped_string;
         }
 
-        return mapped_string;
+        return Promise.resolve(mapped_string);
     }
 
     private get current_editor_pane(): EditorPaneWidget {
@@ -590,7 +590,7 @@ export class EditorWidget extends Widget {
         return true;
     }
 
-    public async set_demo(location: string): Promise<monaco.Uri | null> {
+    public set_demo(location: string): Promise<monaco.Uri | null> {
         if (location) {
             const default_tag = "XXXX_DEFAULT_TAG_XXXX";
             let tag = default_tag.startsWith("XXXX_DEFAULT_TAG_")
