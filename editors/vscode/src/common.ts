@@ -154,7 +154,7 @@ export function activate(
 
     vscode.workspace.onDidChangeConfiguration(async (ev) => {
         if (ev.affectsConfiguration("slint")) {
-            client.client?.sendNotification(
+            await client.client?.sendNotification(
                 "workspace/didChangeConfiguration",
                 { settings: "" },
             );
@@ -171,7 +171,7 @@ export function activate(
                 return;
             }
 
-            lsp_commands.showPreview(ae.document.uri.toString(), "");
+            await lsp_commands.showPreview(ae.document.uri.toString(), "");
         }),
     );
 
@@ -190,7 +190,7 @@ export function activate(
 
     vscode.workspace.onDidChangeConfiguration(async (ev) => {
         if (ev.affectsConfiguration("slint")) {
-            client.client?.sendNotification(
+            await client.client?.sendNotification(
                 "workspace/didChangeConfiguration",
                 { settings: "" },
             );

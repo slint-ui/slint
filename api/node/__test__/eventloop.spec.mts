@@ -36,10 +36,10 @@ test.serial("merged event loops with networking", async (t) => {
             console.log(`server ready at ${host}:${port}`);
 
             (fetch as any)(`http://${host}:${port}/`)
-                .then(async (response) => {
+                .then((response: Response) => {
                     return response.text();
                 })
-                .then((text) => {
+                .then((text: string) => {
                     received_response = text;
                     //console.log("received ", text);
                     quitEventLoop();

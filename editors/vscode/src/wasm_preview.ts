@@ -48,7 +48,7 @@ export function initClientForPreview(
                 }
             }
 
-            previewPanel?.webview.postMessage({
+            await previewPanel?.webview.postMessage({
                 command: "slint/lsp_to_preview",
                 params: message,
             });
@@ -190,12 +190,10 @@ export class PreviewSerializer implements vscode.WebviewPanelSerializer {
         this.context = context;
     }
 
-    async deserializeWebviewPanel(
-        webviewPanel: vscode.WebviewPanel,
-        _state: any,
-    ) {
+    deserializeWebviewPanel(webviewPanel: vscode.WebviewPanel, _state: any) {
         previewPanel = initPreviewPanel(this.context, webviewPanel);
         //// How can we load this state? We can not query the necessary data...
+        return Promise.resolve();
     }
 }
 
@@ -225,7 +223,7 @@ function initPreviewPanel(
     panel.iconPath = Uri.joinPath(context.extensionUri, "slint-file-icon.svg");
     // we will get a preview_ready when the html is loaded and message are ready to be sent
     panel.webview.onDidReceiveMessage(
-        async (message) => {
+        (message) => {
             switch (message.command) {
                 case "map_url":
                     map_url(panel.webview, message.url);

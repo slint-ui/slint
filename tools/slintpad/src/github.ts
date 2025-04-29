@@ -176,7 +176,7 @@ export async function export_to_gist(
     }
 
     const extras: { [path: string]: string } = {};
-    Object.entries(editor.extra_files).forEach(async ([f, u]) => {
+    Object.entries(editor.extra_files).forEach(([f, u]) => {
         extras[f.slice(1)] = u;
     });
 
@@ -333,7 +333,7 @@ async function _process_gist_url(
     return Promise.resolve([url.toString(), null, null]);
 }
 
-async function _process_github_url(url: URL): Promise<[string, null, null]> {
+function _process_github_url(url: URL): Promise<[string, null, null]> {
     const path = url.pathname.split("/");
 
     if (path[3] === "blob") {
@@ -349,7 +349,7 @@ async function _process_github_url(url: URL): Promise<[string, null, null]> {
     }
 }
 
-export async function open_url(
+export function open_url(
     url_string: string,
 ): Promise<[string | null, string | null, UrlMapper | null]> {
     try {
