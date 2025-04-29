@@ -32,16 +32,3 @@ export function writeTextToClipboard(str: string) {
         }
     }
 }
-
-export async function copyToClipboard(slintProperties: string) {
-    try {
-        await writeTextToClipboard(slintProperties);
-        dispatchTS("copyToClipboard", {
-            result: true,
-        });
-    } catch (error) {
-        dispatchTS("copyToClipboard", {
-            result: false,
-        });
-    }
-}

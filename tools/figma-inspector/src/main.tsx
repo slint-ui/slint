@@ -5,9 +5,7 @@ import {
     useEffect,
     useState,
     useCallback,
-    useRef,
-    type ReactNode,
-    use,
+    useRef
 } from "react";
 import JSZip from "jszip";
 import {
@@ -16,7 +14,6 @@ import {
     getColorTheme,
     subscribeColorTheme,
 } from "./utils/bolt-utils";
-import { copyToClipboard } from "./utils/utils.js";
 import CodeSnippet from "./snippet/CodeSnippet";
 import "./main.css";
 import { useInspectorStore } from "./utils/store";
@@ -39,7 +36,7 @@ const downloadFile = (filename: string, text: string) => {
 export const App = () => {
     const [exportsAreCurrent, setExportsAreCurrent] = useState(false);
 
-    const { title, slintSnippet, initializeEventListeners } = useInspectorStore();
+    const { title, slintSnippet, copyToClipboard, initializeEventListeners } = useInspectorStore();
 
     const [exportedFiles, setExportedFiles] = useState<
         Array<{ name: string; content: string }>
@@ -322,10 +319,10 @@ export const App = () => {
             >
                 <span
                     id="copy-icon"
-                    onClick={() => copyToClipboard(slintSnippet)}
+                    onClick={() => copyToClipboard()}
                     onKeyDown={(e) => {
                         if (e.key === "Enter" || e.key === " ") {
-                            copyToClipboard(slintSnippet);
+                            copyToClipboard();
                         }
                     }}
                     className="copy-icon"
