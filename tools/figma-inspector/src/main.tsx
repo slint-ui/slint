@@ -22,31 +22,20 @@ import { downloadZipFile } from "./utils/utils.js";
 export const App = () => {
 
     const {
-        exportsAreCurrent, exportedFiles, title, slintSnippet, 
-        useVariables, exportAsSingleFile,
-        copyToClipboard, initializeEventListeners, setUseVariables, setExportsAreCurrent,
-        setExportedFiles, setExportAsSingleFile
+        exportsAreCurrent, exportedFiles, title, slintSnippet,
+        useVariables, exportAsSingleFile, menuOpen,
+        copyToClipboard, initializeEventListeners, setUseVariables,
+        setExportsAreCurrent, setExportedFiles, setExportAsSingleFile,
+        setMenuOpen, toggleMenu, exportFiles
     } = useInspectorStore();
 
     const [lightOrDarkMode, setLightOrDarkMode] = useState(getColorTheme());
-    //  Add state for dropdown visibility
-    const [isMenuOpen, setIsMenuOpen] = useState(false);
     const menuRef = useRef<HTMLDivElement>(null); // Ref for the menu
     const buttonRef = useRef<HTMLButtonElement>(null); // Ref for the button
-    const toggleMenu = useCallback(() => {
-        setIsMenuOpen((prev) => !prev);
-    }, []);
-    const handleExportClick = useCallback(() => {
-        setExportedFiles([]);
-        setExportsAreCurrent(false);
-        dispatchTS("exportToFiles", { exportAsSingleFile: exportAsSingleFile });
-        setIsMenuOpen(false); // Close menu after clicking export
-    }, [exportAsSingleFile]);
-
 
     useEffect(() => {
         // Only add listener if menu is open
-        if (!isMenuOpen) {
+        if (!menuOpen) {
             return;
         }
 
@@ -58,7 +47,7 @@ export const App = () => {
                 buttonRef.current && // Also check the button ref
                 !buttonRef.current.contains(event.target as Node)
             ) {
-                setIsMenuOpen(false); // Close the menu
+                setMenuOpen(false); // Close the menu
             }
         };
 
@@ -69,16 +58,7 @@ export const App = () => {
         return () => {
             document.removeEventListener("mousedown", handleClickOutside);
         };
-    }, [isMenuOpen]); // Re-run effect when isMenuOpen changes
-
-    const handleCheckboxChange = useCallback(
-        (event: React.ChangeEvent<HTMLInputElement>) => {
-            const checked = event.target.checked;
-            setExportAsSingleFile(checked);
-            // Keep menu open when checkbox is toggled
-        },
-        [useVariables],
-    );
+    }, [menuOpen]); // Re-run effect when isMenuOpen changes
 
 
     // Theme handling
@@ -188,8 +168,8 @@ export const App = () => {
         cursor: "pointer",
         position: "relative",
         textAlign: "center",
-        opacity: isMenuOpen ? 0.6 : 1,
-        pointerEvents: isMenuOpen ? "none" : "auto",
+        opacity: menuOpen ? 0.6 : 1,
+        pointerEvents: menuOpen ? "none" : "auto",
     };
 
     const menuStyle: React.CSSProperties = {
@@ -207,7 +187,7 @@ export const App = () => {
         padding: "5px 0",
         marginTop: "2px",
         justifyContent: "center",
-        display: isMenuOpen ? "block" : "none",
+        display: menuOpen ? "block" : "none",
     };
 
     const menuItemStyle: React.CSSProperties = {
@@ -327,7 +307,7 @@ export const App = () => {
                 )}
 
                 {/* --- Dropdown Menu --- */}
-                {isMenuOpen && (
+                {menuOpen && (
                     <div
                         ref={menuRef}
                         style={menuStyle}
@@ -347,7 +327,7 @@ export const App = () => {
                             <input
                                 type="checkbox"
                                 checked={exportAsSingleFile}
-                                onChange={handleCheckboxChange}
+                                onChange={(e) => setExportAsSingleFile(e.target.checked)}
                                 style={{
                                     marginRight: "8px",
                                     cursor: "pointer",
@@ -369,10 +349,10 @@ export const App = () => {
                         <div
                             role="button" // Semantics
                             tabIndex={0} // Make focusable
-                            onClick={handleExportClick}
+                            onClick={exportFiles}
                             onKeyDown={(e) => {
                                 if (e.key === "Enter" || e.key === " ") {
-                                    handleExportClick();
+                                    exportFiles();
                                 }
                             }} // Keyboard accessibility
                             style={{ ...menuItemStyle, padding: "8px 12px" }}

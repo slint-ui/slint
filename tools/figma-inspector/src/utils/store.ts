@@ -11,6 +11,7 @@ interface StoreState {
     exportsAreCurrent: boolean;
     exportedFiles: Array<{ name: string; content: string }>;
     exportAsSingleFile: boolean;
+    menuOpen: boolean;
     setTitle: (title: string) => void;
     initializeEventListeners: () => void;
     copyToClipboard: () => Promise<void>;
@@ -20,6 +21,9 @@ interface StoreState {
         exportedFiles: Array<{ name: string; content: string }>,
     ) => void;
     setExportAsSingleFile: (exportAsSingleFile: boolean) => void;
+    setMenuOpen: (menuOpen: boolean) => void;
+    toggleMenu: () => void;
+    exportFiles: () => void;
 }
 
 export const useInspectorStore = create<StoreState>()((set, get) => ({
@@ -29,6 +33,7 @@ export const useInspectorStore = create<StoreState>()((set, get) => ({
     exportsAreCurrent: false,
     exportedFiles: [],
     exportAsSingleFile: false,
+    menuOpen: false,
 
     setTitle: (title) => set({ title }),
 
@@ -70,5 +75,18 @@ export const useInspectorStore = create<StoreState>()((set, get) => ({
 
     setExportAsSingleFile: (exportAsSingleFile) => {
         set({ exportAsSingleFile })
+    },
+
+    setMenuOpen: (menuOpen) => {
+        set({ menuOpen })
+    },
+
+    toggleMenu: () => {
+        set({ menuOpen: !get().menuOpen })
+    },
+
+    exportFiles: () => {
+        set({ exportedFiles: [], exportsAreCurrent: false, menuOpen: false });
+        dispatchTS("exportToFiles", { exportAsSingleFile: get().exportAsSingleFile });
     },
 }));
