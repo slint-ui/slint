@@ -11,7 +11,7 @@ use std::num::NonZeroU32;
 use std::rc::Rc;
 use std::sync::Arc;
 
-use crate::PhysicalRect;
+use crate::{PhysicalRect, SkiaSharedContext};
 
 pub trait RenderBuffer {
     fn with_buffer(
@@ -114,6 +114,7 @@ pub struct SoftwareSurface {
 
 impl super::Surface for SoftwareSurface {
     fn new(
+        _shared_context: &SkiaSharedContext,
         window_handle: Arc<dyn raw_window_handle::HasWindowHandle>,
         display_handle: Arc<dyn raw_window_handle::HasDisplayHandle>,
         _size: PhysicalWindowSize,

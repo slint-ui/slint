@@ -5,7 +5,7 @@ use i_slint_core::api::PhysicalSize;
 use i_slint_core::platform::PlatformError;
 use i_slint_core::renderer::Renderer;
 use i_slint_core::window::{InputMethodRequest, WindowAdapter, WindowAdapterInternal};
-use i_slint_renderer_skia::SkiaRenderer;
+use i_slint_renderer_skia::{SkiaRenderer, SkiaSharedContext};
 
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
@@ -41,7 +41,7 @@ impl i_slint_core::platform::Platform for HeadlessBackend {
             size: Default::default(),
             ime_requests: Default::default(),
             mouse_cursor: Default::default(),
-            renderer: SkiaRenderer::default_software(),
+            renderer: SkiaRenderer::default_software(&SkiaSharedContext::default()),
         }))
     }
 

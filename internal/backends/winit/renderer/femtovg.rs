@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use std::cell::Cell;
+use std::rc::Rc;
 use std::sync::Arc;
 
 use i_slint_core::renderer::Renderer;
@@ -24,7 +25,9 @@ pub struct GlutinFemtoVGRenderer {
 }
 
 impl GlutinFemtoVGRenderer {
-    pub fn new_suspended() -> Box<dyn WinitCompatibleRenderer> {
+    pub fn new_suspended(
+        _shared_backend_data: &Rc<crate::SharedBackendData>,
+    ) -> Box<dyn WinitCompatibleRenderer> {
         Box::new(Self { renderer: FemtoVGRenderer::new_suspended(), suspended: Cell::new(true) })
     }
 }
@@ -93,7 +96,9 @@ pub struct WGPUFemtoVGRenderer {
 
 #[cfg(all(feature = "renderer-femtovg-wgpu", not(target_family = "wasm")))]
 impl WGPUFemtoVGRenderer {
-    pub fn new_suspended() -> Box<dyn WinitCompatibleRenderer> {
+    pub fn new_suspended(
+        _shared_backend_data: &Rc<crate::SharedBackendData>,
+    ) -> Box<dyn WinitCompatibleRenderer> {
         Box::new(Self {
             renderer: FemtoVGRenderer::<i_slint_renderer_femtovg::wgpu::WGPUBackend>::new_suspended(
             ),
