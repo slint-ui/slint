@@ -370,22 +370,24 @@ impl SceneTextureExtra {
         };
 
         let source_size = texture.source_size().cast::<i32>();
-        let (dst_w, dst_h) = if let Some(tiling) = &texture.tiling {
+        let (dx, dy) = if let Some(tiling) = &texture.tiling {
             offset -= euclid::vec2(tiling.offset_x, tiling.offset_y).cast();
 
             // FIXME: gap
             tiling.gap_x;
             tiling.gap_y;
 
-            (tiling.dst_tile_width as i32, tiling.dst_tile_height as i32)
-        } else if texture.rotation.is_transpose() {
-            (texture.dst_height as i32, texture.dst_width as i32)
+            (Fixed::from_f32(tiling.scale_x)?, Fixed::from_f32(tiling.scale_y)?)
         } else {
-            (texture.dst_width as i32, texture.dst_height as i32)
+            let (dst_w, dst_h) = if texture.rotation.is_transpose() {
+                (texture.dst_height as i32, texture.dst_width as i32)
+            } else {
+                (texture.dst_width as i32, texture.dst_height as i32)
+            };
+            let dx = Fixed::<i32, 8>::from_fraction(source_size.width, dst_w);
+            let dy = Fixed::<i32, 8>::from_fraction(source_size.height, dst_h);
+            (dx, dy)
         };
-
-        let dx = Fixed::<i32, 8>::from_fraction(source_size.width, dst_w);
-        let dy = Fixed::<i32, 8>::from_fraction(source_size.height, dst_h);
 
         Some((
             Self {

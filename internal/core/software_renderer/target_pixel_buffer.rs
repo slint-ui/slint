@@ -45,14 +45,11 @@ pub struct TilingInfo {
     pub offset_x: i32,
     /// Offset, in destination pixel, of the top border of the tile.
     pub offset_y: i32,
-    /// Width of a tile in destination pixels.
-    /// If this is not the same as the width of the source, the texture must be scaled.
-    /// Note that this doesn't account for rotation.
-    pub dst_tile_width: u32,
-    /// Height of a tile in destination pixels.
-    /// If this is not the same as the height of the source, the texture must be scaled.
-    /// Note that this doesn't account for rotation.
-    pub dst_tile_height: u32,
+
+    /// Scale factor in the x direction, this is the same as source's width / destination's width of the tile
+    pub scale_x: f32,
+    /// Scale factor in the y direction, this is the same as source's height / destination's height of the tile
+    pub scale_y: f32,
 
     /// Gap in destination pixel between two tiles on the horizontal source axis.
     pub gap_x: u32,

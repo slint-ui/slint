@@ -1531,10 +1531,8 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                                 .round() as _,
                             offset_y: ((src_o.y as f32 - tile_o.y as f32) * source_to_target_y)
                                 .round() as _,
-                            dst_tile_width: (src_rect.width() as f32 * source_to_target_x).round()
-                                as _,
-                            dst_tile_height: (src_rect.height() as f32 * source_to_target_y).round()
-                                as _,
+                            scale_x: 1. / source_to_target_x,
+                            scale_y: 1. / source_to_target_y,
                             gap_x: (gap.x as f32 * source_to_target_x).round() as _,
                             gap_y: (gap.y as f32 * source_to_target_y).round() as _,
                         }
@@ -1591,8 +1589,8 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                     let tiling = tiled.map(|tile_o| target_pixel_buffer::TilingInfo {
                         offset_x: (tile_o.x as f32 * -source_to_target_x).round() as _,
                         offset_y: (tile_o.y as f32 * -source_to_target_y).round() as _,
-                        dst_tile_width: (orig.width * source_to_target_x).round() as _,
-                        dst_tile_height: (orig.height * source_to_target_y).round() as _,
+                        scale_x: 1. / source_to_target_x,
+                        scale_y: 1. / source_to_target_y,
                         gap_x: 0,
                         gap_y: 0,
                     });
