@@ -17,13 +17,14 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref || github.run_id }}
   cancel-in-progress: true
 
+env:
+    CARGO_INCREMENTAL: false
+    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
 jobs:
     format_fix:
         runs-on: ubuntu-24.04
         timeout-minutes: 15
-        env:
-            CARGO_INCREMENTAL: false
-            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         steps:
             - uses: actions/checkout@v4
             - uses: jdx/mise-action@v2
@@ -35,9 +36,6 @@ jobs:
     lint_typecheck:
         runs-on: ubuntu-24.04
         timeout-minutes: 15
-        env:
-            CARGO_INCREMENTAL: false
-            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         steps:
             - uses: actions/checkout@v4
             - uses: jdx/mise-action@v2
