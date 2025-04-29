@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 import JSZip from "jszip";
 
-export function writeTextToClipboard(str: string) {
+export function writeTextToClipboard(str: string): boolean {
     const prevActive = document.activeElement;
     const textArea = document.createElement("textarea");
 
@@ -17,20 +17,25 @@ export function writeTextToClipboard(str: string) {
     textArea.focus();
     textArea.select();
 
+    let copySuccessful = false;
+
     try {
         const successful = document.execCommand("copy");
         if (!successful) {
             throw new Error("Copy command failed");
+        } else {
+            copySuccessful = true;
         }
     } catch (e: unknown) {
         const errorMessage = e instanceof Error ? e.message : String(e);
-        throw new Error("Failed to copy text: " + errorMessage);
+        console.error("Failed to copy text: " + errorMessage);
     } finally {
         textArea.remove();
         if (prevActive && prevActive instanceof HTMLElement) {
             prevActive.focus();
         }
     }
+    return copySuccessful;
 }
 
 export const downloadZipFile = async (

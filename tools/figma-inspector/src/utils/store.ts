@@ -14,7 +14,7 @@ interface StoreState {
     menuOpen: boolean;
     setTitle: (title: string) => void;
     initializeEventListeners: () => void;
-    copyToClipboard: () => Promise<void>;
+    copyToClipboard: () => void;
     setUseVariables: (useVariables: boolean) => void;
     setExportsAreCurrent: (exportsAreCurrent: boolean) => void;
     setExportAsSingleFile: (exportAsSingleFile: boolean) => void;
@@ -54,13 +54,14 @@ export const useInspectorStore = create<StoreState>()((set, get) => ({
         });
     },
 
-    copyToClipboard: async () => {
-        try {
-            await writeTextToClipboard(get().slintSnippet);
+    copyToClipboard: () => {
+        const success = writeTextToClipboard(get().slintSnippet);
+
+        if (success) {
             dispatchTS("copyToClipboard", {
                 result: true,
             });
-        } catch (error) {
+        } else {
             dispatchTS("copyToClipboard", {
                 result: false,
             });
