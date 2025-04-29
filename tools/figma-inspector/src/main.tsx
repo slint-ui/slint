@@ -48,19 +48,6 @@ export const App = () => {
     }, [exportAsSingleFile]);
 
 
-
-    useEffect(() => {
-        const handleSelectionChange = () => {
-            // Request snippet update using the current state of useVariables
-            dispatchTS("generateSnippetRequest", {
-                useVariables: useVariables,
-            });
-        };
-        listenTS("selectionChangedInFigma", handleSelectionChange);
-
-        // Also request initial snippet on component mount
-        dispatchTS("generateSnippetRequest", { useVariables: useVariables });
-    }, [useVariables]);
     useEffect(() => {
         // Only add listener if menu is open
         if (!isMenuOpen) {

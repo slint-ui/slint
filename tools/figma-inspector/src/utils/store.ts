@@ -25,6 +25,10 @@ export const useInspectorStore = create<StoreState>()((set, get) => ({
         listenTS("updatePropertiesCallback", (res) => {
             set({ title: res.title, slintSnippet: res.slintSnippet || "" });
         });
+
+        listenTS("selectionChangedInFigma", () => {
+            dispatchTS("generateSnippetRequest", { useVariables: get().useVariables });
+        });
     },
 
     copyToClipboard: async () => {
