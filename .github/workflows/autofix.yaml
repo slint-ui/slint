@@ -23,6 +23,7 @@ jobs:
         timeout-minutes: 15
         env:
             CARGO_INCREMENTAL: false
+            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         steps:
             - uses: actions/checkout@v4
             - uses: jdx/mise-action@v2
@@ -36,6 +37,7 @@ jobs:
         timeout-minutes: 15
         env:
             CARGO_INCREMENTAL: false
+            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         steps:
             - uses: actions/checkout@v4
             - uses: jdx/mise-action@v2
