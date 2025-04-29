@@ -27,6 +27,7 @@ interface StoreState {
 }
 
 export const useInspectorStore = create<StoreState>()((set, get) => ({
+    // Default store values
     title: "",
     slintSnippet: "",
     useVariables: false,
