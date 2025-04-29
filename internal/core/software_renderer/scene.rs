@@ -291,7 +291,7 @@ pub struct SceneTexture<'a> {
     pub extra: SceneTextureExtra,
 }
 
-impl SceneTexture<'_> {
+impl<'a> SceneTexture<'a> {
     pub fn source_size(&self) -> PhysicalSize {
         let mut len = self.data.len();
         if self.format == TexturePixelFormat::SignedDistanceField {
@@ -307,6 +307,23 @@ impl SceneTexture<'_> {
         } else {
             PhysicalSize::new(w as _, (h + 1) as _)
         }
+    }
+
+    pub fn from_target_texture(
+        texture: &'a super::target_pixel_buffer::DrawTextureArgs,
+        clip: &PhysicalRect,
+    ) -> Option<(Self, PhysicalRect)> {
+        let (extra, geometry) = SceneTextureExtra::from_target_texture(texture, clip)?;
+        let source = texture.source();
+        Some((
+            Self {
+                data: source.data,
+                pixel_stride: (source.byte_stride / source.pixel_format.bpp()) as u16,
+                format: source.pixel_format,
+                extra,
+            },
+            geometry,
+        ))
     }
 }
 
@@ -325,16 +342,86 @@ pub struct SceneTextureExtra {
     pub rotation: RenderingRotation,
 }
 
+impl SceneTextureExtra {
+    pub fn from_target_texture(
+        texture: &super::target_pixel_buffer::DrawTextureArgs,
+        clip: &PhysicalRect,
+    ) -> Option<(Self, PhysicalRect)> {
+        let geometry: PhysicalRect = euclid::rect(
+            texture.dst_x as i16,
+            texture.dst_y as i16,
+            texture.dst_width as i16,
+            texture.dst_height as i16,
+        );
+        let geometry = geometry.to_box2d();
+        let clipped_geometry = geometry.intersection(&clip.to_box2d())?;
+
+        let mut offset = match texture.rotation {
+            RenderingRotation::NoRotation => clipped_geometry.min - geometry.min,
+            RenderingRotation::Rotate90 => euclid::vec2(
+                clipped_geometry.min.y - geometry.min.y,
+                geometry.max.x - clipped_geometry.max.x,
+            ),
+            RenderingRotation::Rotate180 => geometry.max - clipped_geometry.max,
+            RenderingRotation::Rotate270 => euclid::vec2(
+                geometry.max.y - clipped_geometry.max.y,
+                clipped_geometry.min.x - geometry.min.x,
+            ),
+        };
+
+        let source_size = texture.source_size().cast::<i32>();
+        let (dx, dy) = if let Some(tiling) = &texture.tiling {
+            offset -= euclid::vec2(tiling.offset_x, tiling.offset_y).cast();
+
+            // FIXME: gap
+            tiling.gap_x;
+            tiling.gap_y;
+
+            (Fixed::from_f32(tiling.scale_x)?, Fixed::from_f32(tiling.scale_y)?)
+        } else {
+            let (dst_w, dst_h) = if texture.rotation.is_transpose() {
+                (texture.dst_height as i32, texture.dst_width as i32)
+            } else {
+                (texture.dst_width as i32, texture.dst_height as i32)
+            };
+            let dx = Fixed::<i32, 8>::from_fraction(source_size.width, dst_w);
+            let dy = Fixed::<i32, 8>::from_fraction(source_size.height, dst_h);
+            (dx, dy)
+        };
+
+        Some((
+            Self {
+                colorize: texture.colorize.unwrap_or_default(),
+                alpha: texture.alpha,
+                rotation: texture.rotation,
+                dx: Fixed::try_from_fixed(dx).ok()?,
+                dy: Fixed::try_from_fixed(dy).ok()?,
+                off_x: Fixed::try_from_fixed(dx * offset.x as i32).ok()?,
+                off_y: Fixed::try_from_fixed(dy * offset.y as i32).ok()?,
+            },
+            clipped_geometry.to_rect(),
+        ))
+    }
+}
+
+#[derive(Clone)]
 pub enum SharedBufferData {
     SharedImage(SharedImageBuffer),
     AlphaMap { data: Rc<[u8]>, width: u16 },
 }
 
 impl SharedBufferData {
-    fn width(&self) -> usize {
+    pub fn width(&self) -> usize {
         match self {
             SharedBufferData::SharedImage(image) => image.width() as usize,
             SharedBufferData::AlphaMap { width, .. } => *width as usize,
+        }
+    }
+    #[allow(unused)]
+    pub fn height(&self) -> usize {
+        match self {
+            SharedBufferData::SharedImage(image) => image.height() as usize,
+            SharedBufferData::AlphaMap { data, width, .. } => data.len() / *width as usize,
         }
     }
 }
