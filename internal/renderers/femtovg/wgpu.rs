@@ -261,8 +261,6 @@ impl FemtoVGRenderer<WGPUBackend> {
         surface_config.format = swapchain_format;
         surface.configure(&device, &surface_config);
 
-        let device = device;
-
         *self.graphics_backend.instance.borrow_mut() = Some(instance.clone());
         *self.graphics_backend.device.borrow_mut() = Some(device.clone());
         *self.graphics_backend.queue.borrow_mut() = Some(queue.clone());
