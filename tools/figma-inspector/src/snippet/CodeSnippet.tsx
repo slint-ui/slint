@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 // cSpell: ignore shiki shikijs
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import parse from "html-react-parser";
 import darkSlint from "./dark-theme.json";
 import lightSlint from "./light-theme.json";
@@ -34,10 +34,7 @@ async function initHighlighter() {
 
 type HighlightTheme = "dark-slint" | "light-slint";
 
-export default function CodeSnippet({
-    code,
-    theme,
-}: { code: string; theme: HighlightTheme }) {
+export default function CodeSnippet({ code, theme }: { code: string; theme: HighlightTheme }) {
     const [highlightedCode, setHighlightedCode] = useState<ReactNode | null>(
         null,
     );
