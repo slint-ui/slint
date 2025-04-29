@@ -2,68 +2,85 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use std::cell::Cell;
+use std::rc::Rc;
 use std::sync::Arc;
 
 use crate::winitwindowadapter::physical_size_to_slint;
 use i_slint_core::graphics::RequestedGraphicsAPI;
 use i_slint_core::platform::PlatformError;
+use i_slint_renderer_skia::SkiaRenderer;
 
 pub struct WinitSkiaRenderer {
-    renderer: i_slint_renderer_skia::SkiaRenderer,
+    renderer: SkiaRenderer,
     suspended: Cell<bool>,
 }
 
 impl WinitSkiaRenderer {
-    pub fn new_suspended() -> Box<dyn super::WinitCompatibleRenderer> {
+    pub fn new_suspended(
+        shared_backend_data: &Rc<crate::SharedBackendData>,
+    ) -> Box<dyn super::WinitCompatibleRenderer> {
         Box::new(Self {
-            renderer: i_slint_renderer_skia::SkiaRenderer::default(),
+            renderer: SkiaRenderer::default(&shared_backend_data.skia_context),
             suspended: Default::default(),
         })
     }
 
     #[cfg(not(target_os = "android"))]
-    pub fn new_software_suspended() -> Box<dyn super::WinitCompatibleRenderer> {
+    pub fn new_software_suspended(
+        shared_backend_data: &Rc<crate::SharedBackendData>,
+    ) -> Box<dyn super::WinitCompatibleRenderer> {
         Box::new(Self {
-            renderer: i_slint_renderer_skia::SkiaRenderer::default_software(),
+            renderer: SkiaRenderer::default_software(&shared_backend_data.skia_context),
             suspended: Default::default(),
         })
     }
 
     #[cfg(not(target_os = "ios"))]
-    pub fn new_opengl_suspended() -> Box<dyn super::WinitCompatibleRenderer> {
+    pub fn new_opengl_suspended(
+        shared_backend_data: &Rc<crate::SharedBackendData>,
+    ) -> Box<dyn super::WinitCompatibleRenderer> {
         Box::new(Self {
-            renderer: i_slint_renderer_skia::SkiaRenderer::default_opengl(),
+            renderer: SkiaRenderer::default_opengl(&shared_backend_data.skia_context),
             suspended: Default::default(),
         })
     }
 
     #[cfg(target_vendor = "apple")]
-    pub fn new_metal_suspended() -> Box<dyn super::WinitCompatibleRenderer> {
+    pub fn new_metal_suspended(
+        shared_backend_data: &Rc<crate::SharedBackendData>,
+    ) -> Box<dyn super::WinitCompatibleRenderer> {
         Box::new(Self {
-            renderer: i_slint_renderer_skia::SkiaRenderer::default_metal(),
+            renderer: SkiaRenderer::default_metal(&shared_backend_data.skia_context),
             suspended: Default::default(),
         })
     }
 
     #[cfg(feature = "renderer-skia-vulkan")]
-    pub fn new_vulkan_suspended() -> Box<dyn super::WinitCompatibleRenderer> {
+    pub fn new_vulkan_suspended(
+        shared_backend_data: &Rc<crate::SharedBackendData>,
+    ) -> Box<dyn super::WinitCompatibleRenderer> {
         Box::new(Self {
-            renderer: i_slint_renderer_skia::SkiaRenderer::default_vulkan(),
+            renderer: SkiaRenderer::default_vulkan(&shared_backend_data.skia_context),
             suspended: Default::default(),
         })
     }
 
     #[cfg(target_family = "windows")]
-    pub fn new_direct3d_suspended() -> Box<dyn super::WinitCompatibleRenderer> {
+    pub fn new_direct3d_suspended(
+        shared_backend_data: &Rc<crate::SharedBackendData>,
+    ) -> Box<dyn super::WinitCompatibleRenderer> {
         Box::new(Self {
-            renderer: i_slint_renderer_skia::SkiaRenderer::default_direct3d(),
+            renderer: SkiaRenderer::default_direct3d(&shared_backend_data.skia_context),
             suspended: Default::default(),
         })
     }
 
     pub fn factory_for_graphics_api(
         requested_graphics_api: Option<&RequestedGraphicsAPI>,
-    ) -> Result<fn() -> Box<dyn crate::WinitCompatibleRenderer>, PlatformError> {
+    ) -> Result<
+        fn(&Rc<crate::SharedBackendData>) -> Box<dyn crate::WinitCompatibleRenderer>,
+        PlatformError,
+    > {
         match requested_graphics_api {
             Some(api) => {
                 match api {

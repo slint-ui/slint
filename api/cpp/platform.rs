@@ -964,6 +964,7 @@ pub mod skia {
 
         let boxed_renderer: Box<SkiaRenderer> = Box::new(
             SkiaRenderer::new(
+                &i_slint_renderer_skia::SkiaSharedContext::default(),
                 handle.0.clone(),
                 handle.0.clone(),
                 PhysicalSize { width: size.width, height: size.height },

@@ -15,6 +15,37 @@ use skia_safe::gpu::mtl;
 use std::cell::RefCell;
 use std::sync::Arc;
 
+use crate::SkiaSharedContext;
+
+pub struct SharedMetalContext {
+    device: Retained<ProtocolObject<dyn objc2_metal::MTLDevice>>,
+    command_queue: Retained<ProtocolObject<dyn objc2_metal::MTLCommandQueue>>,
+}
+
+impl super::SkiaSharedContextInner {
+    fn shared_metal_context(
+        &self,
+    ) -> Result<&SharedMetalContext, i_slint_core::platform::PlatformError> {
+        if let Some(ctx) = self.metal_context.get() {
+            return Ok(ctx);
+        }
+        self.metal_context.set(SharedMetalContext::new()?).ok();
+        Ok(self.metal_context.get().unwrap())
+    }
+}
+
+impl SharedMetalContext {
+    fn new() -> Result<Self, i_slint_core::platform::PlatformError> {
+        let device = objc2_metal::MTLCreateSystemDefaultDevice().ok_or_else(|| {
+            format!("Skia Renderer: Unable to obtain metal system default device")
+        })?;
+        let command_queue = device
+            .newCommandQueue()
+            .ok_or_else(|| format!("Skia Renderer: Unable to create command queue"))?;
+        Ok(Self { device, command_queue })
+    }
+}
+
 /// This surface renders into the given window using Metal. The provided display argument
 /// is ignored, as it has no meaning on macOS.
 pub struct MetalSurface {
@@ -28,6 +59,7 @@ pub struct MetalSurface {
 
 impl super::Surface for MetalSurface {
     fn new(
+        shared_context: &SkiaSharedContext,
         window_handle: Arc<dyn raw_window_handle::HasWindowHandle>,
         _display_handle: Arc<dyn raw_window_handle::HasDisplayHandle>,
         size: PhysicalWindowSize,
@@ -54,9 +86,9 @@ impl super::Surface for MetalSurface {
         // SAFETY: The pointer is a valid `CAMetalLayer`.
         let ca_layer: &CAMetalLayer = unsafe { layer.as_ptr().cast().as_ref() };
 
-        let device = objc2_metal::MTLCreateSystemDefaultDevice().ok_or_else(|| {
-            format!("Skia Renderer: Unable to obtain metal system default device")
-        })?;
+        let shared_context = shared_context.0.shared_metal_context()?;
+
+        let device = &shared_context.device;
 
         unsafe {
             ca_layer.setDevice(Some(&device));
@@ -75,9 +107,7 @@ impl super::Surface for MetalSurface {
         };
         ca_layer.setContentsGravity(gravity);
 
-        let command_queue = device
-            .newCommandQueue()
-            .ok_or_else(|| format!("Skia Renderer: Unable to create command queue"))?;
+        let command_queue = shared_context.command_queue.clone();
 
         let backend = unsafe {
             mtl::BackendContext::new(

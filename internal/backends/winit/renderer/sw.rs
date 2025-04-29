@@ -10,6 +10,7 @@ pub use i_slint_core::software_renderer::SoftwareRenderer;
 use i_slint_core::software_renderer::{PremultipliedRgbaColor, RepaintBufferType, TargetPixel};
 use i_slint_core::{graphics::RequestedGraphicsAPI, graphics::Rgb8Pixel};
 use std::cell::RefCell;
+use std::rc::Rc;
 use std::sync::Arc;
 
 use super::WinitCompatibleRenderer;
@@ -68,7 +69,9 @@ impl TargetPixel for SoftBufferPixel {
 }
 
 impl WinitSoftwareRenderer {
-    pub fn new_suspended() -> Box<dyn WinitCompatibleRenderer> {
+    pub fn new_suspended(
+        _shared_backend_data: &Rc<crate::SharedBackendData>,
+    ) -> Box<dyn WinitCompatibleRenderer> {
         Box::new(Self {
             renderer: SoftwareRenderer::new(),
             _context: RefCell::new(None),

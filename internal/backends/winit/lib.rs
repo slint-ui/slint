@@ -98,16 +98,18 @@ cfg_if::cfg_if! {
     }
 }
 
-fn default_renderer_factory() -> Box<dyn WinitCompatibleRenderer> {
+fn default_renderer_factory(
+    shared_backend_data: &Rc<SharedBackendData>,
+) -> Box<dyn WinitCompatibleRenderer> {
     cfg_if::cfg_if! {
         if #[cfg(enable_skia_renderer)] {
-            renderer::skia::WinitSkiaRenderer::new_suspended()
+            renderer::skia::WinitSkiaRenderer::new_suspended(shared_backend_data)
         } else if #[cfg(feature = "renderer-femtovg-wgpu")] {
-            renderer::femtovg::WGPUFemtoVGRenderer::new_suspended()
+            renderer::femtovg::WGPUFemtoVGRenderer::new_suspended(shared_backend_data)
         } else if #[cfg(feature = "renderer-femtovg")] {
-            renderer::femtovg::GlutinFemtoVGRenderer::new_suspended()
+            renderer::femtovg::GlutinFemtoVGRenderer::new_suspended(shared_backend_data)
         } else if #[cfg(feature = "renderer-software")] {
-            renderer::sw::WinitSoftwareRenderer::new_suspended()
+            renderer::sw::WinitSoftwareRenderer::new_suspended(shared_backend_data)
         } else {
             compile_error!("Please select a feature to build with the winit backend: `renderer-femtovg`, `renderer-skia`, `renderer-skia-opengl`, `renderer-skia-vulkan` or `renderer-software`");
         }
@@ -136,7 +138,7 @@ fn try_create_window_with_fallback_renderer(
     .find_map(|renderer_factory| {
         WinitWindowAdapter::new(
             shared_backend_data.clone(),
-            renderer_factory(),
+            renderer_factory(&shared_backend_data),
             attrs.clone(),
             None,
             #[cfg(any(enable_accesskit, muda))]
@@ -364,6 +366,8 @@ impl BackendBuilder {
 }
 
 pub(crate) struct SharedBackendData {
+    #[cfg(enable_skia_renderer)]
+    skia_context: i_slint_renderer_skia::SkiaSharedContext,
     active_windows: RefCell<HashMap<winit::window::WindowId, Weak<WinitWindowAdapter>>>,
     #[cfg(not(target_arch = "wasm32"))]
     clipboard: std::cell::RefCell<clipboard::ClipboardPair>,
@@ -387,6 +391,8 @@ impl SharedBackendData {
                 .map_err(|display_err| PlatformError::OtherError(display_err.into()))?,
         );
         Ok(Self {
+            #[cfg(enable_skia_renderer)]
+            skia_context: i_slint_renderer_skia::SkiaSharedContext::default(),
             active_windows: Default::default(),
             #[cfg(not(target_arch = "wasm32"))]
             clipboard: RefCell::new(clipboard),
@@ -438,7 +444,7 @@ impl SharedBackendData {
 /// ```
 pub struct Backend {
     requested_graphics_api: Option<RequestedGraphicsAPI>,
-    renderer_factory_fn: fn() -> Box<dyn WinitCompatibleRenderer>,
+    renderer_factory_fn: fn(&Rc<SharedBackendData>) -> Box<dyn WinitCompatibleRenderer>,
     event_loop_state: std::cell::RefCell<Option<crate::event_loop::EventLoopState>>,
     shared_data: Rc<SharedBackendData>,
 
@@ -515,7 +521,7 @@ impl i_slint_core::platform::Platform for Backend {
 
         let adapter = WinitWindowAdapter::new(
             self.shared_data.clone(),
-            (self.renderer_factory_fn)(),
+            (self.renderer_factory_fn)(&self.shared_data),
             attrs.clone(),
             self.requested_graphics_api.clone(),
             #[cfg(any(enable_accesskit, muda))]

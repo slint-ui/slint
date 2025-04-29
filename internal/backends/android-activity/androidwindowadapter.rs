@@ -15,7 +15,7 @@ use i_slint_core::platform::{
 use i_slint_core::timers::{Timer, TimerMode};
 use i_slint_core::window::{InputMethodRequest, WindowInner};
 use i_slint_core::{Property, SharedString};
-use i_slint_renderer_skia::SkiaRenderer;
+use i_slint_renderer_skia::{SkiaRenderer, SkiaSharedContext};
 use std::cell::Cell;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -181,7 +181,7 @@ impl AndroidWindowAdapter {
         Rc::<Self>::new_cyclic(|w| Self {
             app,
             window: Window::new(w.clone()),
-            renderer: SkiaRenderer::default(),
+            renderer: SkiaRenderer::default(&SkiaSharedContext::default()),
             event_queue: Default::default(),
             pending_redraw: Default::default(),
             color_scheme,

@@ -16,6 +16,8 @@ use i_slint_core::graphics::{RequestedGraphicsAPI, RequestedOpenGLVersion};
 use i_slint_core::item_rendering::DirtyRegion;
 use i_slint_core::platform::PlatformError;
 
+use crate::SkiaSharedContext;
+
 /// This surface type renders into the given window with OpenGL, using glutin and glow libraries.
 pub struct OpenGLSurface {
     fb_info: skia_safe::gpu::gl::FramebufferInfo,
@@ -27,6 +29,7 @@ pub struct OpenGLSurface {
 
 impl super::Surface for OpenGLSurface {
     fn new(
+        _shared_context: &SkiaSharedContext,
         window_handle: Arc<dyn raw_window_handle::HasWindowHandle>,
         display_handle: Arc<dyn raw_window_handle::HasDisplayHandle>,
         size: PhysicalWindowSize,

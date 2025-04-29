@@ -8,8 +8,8 @@ use crate::drmoutput::DrmOutput;
 use i_slint_core::api::{PhysicalSize as PhysicalWindowSize, Window};
 use i_slint_core::item_rendering::{DirtyRegion, ItemRenderer};
 use i_slint_core::platform::PlatformError;
-use i_slint_renderer_skia::skia_safe;
 use i_slint_renderer_skia::SkiaRendererExt;
+use i_slint_renderer_skia::{skia_safe, SkiaRenderer, SkiaSharedContext};
 
 pub struct SkiaRendererAdapter {
     renderer: i_slint_renderer_skia::SkiaRenderer,
@@ -33,9 +33,10 @@ impl SkiaRendererAdapter {
         )?;
 
         let renderer = Box::new(Self {
-            renderer: i_slint_renderer_skia::SkiaRenderer::new_with_surface(Box::new(
-                skia_vk_surface,
-            )),
+            renderer: SkiaRenderer::new_with_surface(
+                &SkiaSharedContext::default(),
+                Box::new(skia_vk_surface),
+            ),
             // TODO: For vulkan we don't have a page flip event handling mechanism yet, so drive it with a timer.
             presenter: display.presenter,
             size: display.size,
@@ -67,9 +68,10 @@ impl SkiaRendererAdapter {
             )?;
 
         let renderer = Box::new(Self {
-            renderer: i_slint_renderer_skia::SkiaRenderer::new_with_surface(Box::new(
-                skia_gl_surface,
-            )),
+            renderer: SkiaRenderer::new_with_surface(
+                &SkiaSharedContext::default(),
+                Box::new(skia_gl_surface),
+            ),
             presenter: display.clone(),
             size,
         });
@@ -99,9 +101,10 @@ impl SkiaRendererAdapter {
         let size = i_slint_core::api::PhysicalSize::new(width, height);
 
         let renderer = Box::new(Self {
-            renderer: i_slint_renderer_skia::SkiaRenderer::new_with_surface(Box::new(
-                skia_software_surface,
-            )),
+            renderer: SkiaRenderer::new_with_surface(
+                &SkiaSharedContext::default(),
+                Box::new(skia_software_surface),
+            ),
             presenter: display.as_presenter(),
             size,
         });

@@ -3,6 +3,7 @@
 
 use i_slint_renderer_skia::skia_safe;
 use i_slint_renderer_skia::SkiaRenderer;
+use i_slint_renderer_skia::SkiaSharedContext;
 use slint::platform::software_renderer::{
     MinimalSoftwareWindow, PremultipliedRgbaColor, SoftwareRenderer, TargetPixel,
 };
@@ -72,9 +73,12 @@ struct SkiaTestWindow {
 impl SkiaTestWindow {
     fn new() -> Rc<Self> {
         let render_buffer = Rc::new(SkiaTestSoftwareBuffer::default());
-        let renderer = SkiaRenderer::new_with_surface(Box::new(
-            i_slint_renderer_skia::software_surface::SoftwareSurface::from(render_buffer.clone()),
-        ));
+        let renderer = SkiaRenderer::new_with_surface(
+            &SkiaSharedContext::default(),
+            Box::new(i_slint_renderer_skia::software_surface::SoftwareSurface::from(
+                render_buffer.clone(),
+            )),
+        );
         Rc::new_cyclic(|w: &Weak<Self>| Self {
             window: slint::Window::new(w.clone()),
             renderer,
