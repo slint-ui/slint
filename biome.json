@@ -21,10 +21,7 @@
     },
     "linter": {
         "enabled": true,
-        "ignore": [
-            "api/node/docs/assets/**",
-            "**/dist/**"
-        ],
+        "ignore": ["api/node/docs/assets/**", "**/dist/**"],
         "rules": {
             "recommended": false,
             "complexity": {
