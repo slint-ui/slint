@@ -56,7 +56,7 @@ export const useInspectorStore = create<StoreState>()((set, get) => ({
 
     copyToClipboard: async () => {
         try {
-            writeTextToClipboard(get().slintSnippet);
+            await writeTextToClipboard(get().slintSnippet);
             dispatchTS("copyToClipboard", {
                 result: true,
             });
