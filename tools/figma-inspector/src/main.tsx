@@ -9,7 +9,6 @@ import {
 } from "react";
 import {
     dispatchTS,
-    listenTS,
     getColorTheme,
     subscribeColorTheme,
 } from "./utils/bolt-utils";
@@ -25,7 +24,7 @@ export const App = () => {
         exportsAreCurrent, exportedFiles, title, slintSnippet,
         useVariables, exportAsSingleFile, menuOpen,
         copyToClipboard, initializeEventListeners, setUseVariables,
-        setExportsAreCurrent, setExportedFiles, setExportAsSingleFile,
+        setExportsAreCurrent, setExportAsSingleFile,
         setMenuOpen, toggleMenu, exportFiles
     } = useInspectorStore();
 
@@ -112,47 +111,6 @@ export const App = () => {
             dispatchTS("monitorVariableChanges", { enabled: false });
         };
     }, []);
-
-    // Export files handler
-    useEffect(() => {
-        const exportFilesHandler = async (res: any) => {
-            // Make the handler async
-            if (res.files && Array.isArray(res.files) && res.files.length > 0) {
-                // Ensure files exist
-                setExportedFiles(res.files);
-
-                // Mark exports as current
-                setExportsAreCurrent(true);
-
-                //  Automatically trigger download
-                await downloadZipFile(res.files); // Call downloadZipFile with the received files
-                //  End automatic download
-            } else {
-                console.error("Invalid or empty files data received:", res);
-                // Reset state if files are invalid/empty after an export attempt
-                setExportedFiles([]);
-                setExportsAreCurrent(false); // Mark as not current if export failed to produce files
-            }
-        };
-
-        // Register the handler with listenTS
-        listenTS("exportedFiles", exportFilesHandler);
-
-        // Also add direct message listener as backup
-        const directHandler = (event: MessageEvent) => {
-            if (
-                event.data.pluginMessage &&
-                event.data.pluginMessage.type === "exportedFiles"
-            ) {
-                exportFilesHandler(event.data.pluginMessage); // Call the same async handler
-            }
-        };
-
-        window.addEventListener("message", directHandler);
-        return () => window.removeEventListener("message", directHandler);
-    }, []);
-
-
 
     const buttonStyle: React.CSSProperties = {
         border: `none`,

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 import { create } from "zustand";
 import { dispatchTS, listenTS } from "./bolt-utils";
-import { writeTextToClipboard } from "./utils.js";
+import { downloadZipFile, writeTextToClipboard } from "./utils.js";
 
 interface StoreState {
     title: string;
@@ -17,10 +17,10 @@ interface StoreState {
     copyToClipboard: () => Promise<void>;
     setUseVariables: (useVariables: boolean) => void;
     setExportsAreCurrent: (exportsAreCurrent: boolean) => void;
-    setExportedFiles: (
-        exportedFiles: Array<{ name: string; content: string }>,
-    ) => void;
     setExportAsSingleFile: (exportAsSingleFile: boolean) => void;
+    exportFilesHandler: (
+        files: Array<{ name: string; content: string }>,
+    ) => Promise<void>;
     setMenuOpen: (menuOpen: boolean) => void;
     toggleMenu: () => void;
     exportFiles: () => void;
@@ -43,7 +43,14 @@ export const useInspectorStore = create<StoreState>()((set, get) => ({
         });
 
         listenTS("selectionChangedInFigma", () => {
-            dispatchTS("generateSnippetRequest", { useVariables: get().useVariables });
+            dispatchTS("generateSnippetRequest", {
+                useVariables: get().useVariables,
+            });
+        });
+
+
+        listenTS("exportedFiles", (res) => {
+            get().exportFilesHandler(res.files);
         });
     },
 
@@ -61,32 +68,42 @@ export const useInspectorStore = create<StoreState>()((set, get) => ({
     },
 
     setUseVariables: (useVariables) => {
-        set({ useVariables })
+        set({ useVariables });
         dispatchTS("generateSnippetRequest", { useVariables });
     },
 
     setExportsAreCurrent: (exportsAreCurrent) => {
-        set({ exportsAreCurrent })
-    },
-
-    setExportedFiles: (exportedFiles) => {
-        set({ exportedFiles })
+        set({ exportsAreCurrent });
     },
 
     setExportAsSingleFile: (exportAsSingleFile) => {
-        set({ exportAsSingleFile })
+        set({ exportAsSingleFile });
     },
 
     setMenuOpen: (menuOpen) => {
-        set({ menuOpen })
+        set({ menuOpen });
     },
 
     toggleMenu: () => {
-        set({ menuOpen: !get().menuOpen })
+        set({ menuOpen: !get().menuOpen });
     },
 
     exportFiles: () => {
         set({ exportedFiles: [], exportsAreCurrent: false, menuOpen: false });
-        dispatchTS("exportToFiles", { exportAsSingleFile: get().exportAsSingleFile });
+        dispatchTS("exportToFiles", {
+            exportAsSingleFile: get().exportAsSingleFile,
+        });
+    },
+
+    exportFilesHandler: async (files) => {
+        if (files && Array.isArray(files) && files.length > 0) {
+            set({ exportedFiles: files, exportsAreCurrent: true });
+
+            await downloadZipFile(files);
+
+        } else {
+            console.error("Invalid or empty files data received:", files);
+            set({ exportedFiles: [], exportsAreCurrent: false }); // Mark as not current if export failed to produce files
+        }
     },
 }));
