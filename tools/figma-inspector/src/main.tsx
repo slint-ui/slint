@@ -1,83 +1,43 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import {
-    useEffect,
-    useState,
-    useCallback,
-    useRef,
-    type ReactNode,
-} from "react";
-import JSZip from "jszip";
+import { useEffect, useState, useRef } from "react";
 import {
     dispatchTS,
-    listenTS,
     getColorTheme,
     subscribeColorTheme,
 } from "./utils/bolt-utils";
-import { copyToClipboard } from "./utils/utils.js";
 import CodeSnippet from "./snippet/CodeSnippet";
 import "./main.css";
-
-// Add file download functionality
-const downloadFile = (filename: string, text: string) => {
-    const element = document.createElement("a");
-    element.setAttribute(
-        "href",
-        "data:text/plain;charset=utf-8," + encodeURIComponent(text),
-    );
-    element.setAttribute("download", filename);
-    element.style.display = "none";
-    document.body.appendChild(element);
-    element.click();
-    document.body.removeChild(element);
-};
+import { useInspectorStore } from "./utils/store";
+import { downloadZipFile } from "./utils/utils.js";
 
 export const App = () => {
-    const [exportsAreCurrent, setExportsAreCurrent] = useState(false);
-    const [title, setTitle] = useState("");
-    const [slintProperties, setSlintProperties] = useState("");
-    const [exportedFiles, setExportedFiles] = useState<
-        Array<{ name: string; content: string }>
-    >([]);
+    const {
+        exportsAreCurrent,
+        exportedFiles,
+        title,
+        slintSnippet,
+        useVariables,
+        exportAsSingleFile,
+        menuOpen,
+        copyToClipboard,
+        initializeEventListeners,
+        setUseVariables,
+        setExportsAreCurrent,
+        setExportAsSingleFile,
+        setMenuOpen,
+        toggleMenu,
+        exportFiles,
+    } = useInspectorStore();
+
     const [lightOrDarkMode, setLightOrDarkMode] = useState(getColorTheme());
-    // State for the export format toggle
-    const [exportAsSingleFile, setExportAsSingleFile] = useState(false); // Default to multiple files
-    //  Add state for dropdown visibility
-    const [isMenuOpen, setIsMenuOpen] = useState(false);
     const menuRef = useRef<HTMLDivElement>(null); // Ref for the menu
     const buttonRef = useRef<HTMLButtonElement>(null); // Ref for the button
-    const toggleMenu = useCallback(() => {
-        setIsMenuOpen((prev) => !prev);
-    }, []);
-    const handleExportClick = useCallback(() => {
-        setExportedFiles([]);
-        setExportsAreCurrent(false);
-        dispatchTS("exportToFiles", { exportAsSingleFile: exportAsSingleFile });
-        setIsMenuOpen(false); // Close menu after clicking export
-    }, [exportAsSingleFile]);
-    const [useVariables, setUseVariables] = useState(false); // Default to false
 
-    listenTS("updatePropertiesCallback", (res) => {
-        setTitle(res.title);
-        setSlintProperties(res.slintSnippet || "");
-    });
-
-    useEffect(() => {
-        const handleSelectionChange = () => {
-            // Request snippet update using the current state of useVariables
-            dispatchTS("generateSnippetRequest", {
-                useVariables: useVariables,
-            });
-        };
-        listenTS("selectionChangedInFigma", handleSelectionChange);
-
-        // Also request initial snippet on component mount
-        dispatchTS("generateSnippetRequest", { useVariables: useVariables });
-    }, [useVariables]);
     useEffect(() => {
         // Only add listener if menu is open
-        if (!isMenuOpen) {
+        if (!menuOpen) {
             return;
         }
 
@@ -89,7 +49,7 @@ export const App = () => {
                 buttonRef.current && // Also check the button ref
                 !buttonRef.current.contains(event.target as Node)
             ) {
-                setIsMenuOpen(false); // Close the menu
+                setMenuOpen(false); // Close the menu
             }
         };
 
@@ -100,29 +60,11 @@ export const App = () => {
         return () => {
             document.removeEventListener("mousedown", handleClickOutside);
         };
-    }, [isMenuOpen]); // Re-run effect when isMenuOpen changes
-    const handleCheckboxChange = useCallback(
-        (event: React.ChangeEvent<HTMLInputElement>) => {
-            const checked = event.target.checked;
-            setExportAsSingleFile(checked);
-            // Keep menu open when checkbox is toggled
-        },
-        [useVariables],
-    );
-    // Update the handleUseVariables handler
-    const handleUseVariables = useCallback(
-        (event: React.ChangeEvent<HTMLInputElement>) => {
-            const checked = event.target.checked;
-            // Update the state
-            setUseVariables(checked);
-            // Request a new snippet from the backend with the updated preference
-            dispatchTS("generateSnippetRequest", { useVariables: checked });
-        },
-        [],
-    );
+    }, [menuOpen]); // Re-run effect when isMenuOpen changes
 
     // Theme handling
     useEffect(() => {
+        initializeEventListeners();
         subscribeColorTheme((mode) => {
             setLightOrDarkMode(mode);
         });
@@ -172,91 +114,6 @@ export const App = () => {
         };
     }, []);
 
-    // Export files handler
-    useEffect(() => {
-        const exportFilesHandler = async (res: any) => {
-            // Make the handler async
-            if (res.files && Array.isArray(res.files) && res.files.length > 0) {
-                // Ensure files exist
-                setExportedFiles(res.files);
-
-                // Mark exports as current
-                setExportsAreCurrent(true);
-
-                //  Automatically trigger download
-                await downloadZipFile(res.files); // Call downloadZipFile with the received files
-                //  End automatic download
-            } else {
-                console.error("Invalid or empty files data received:", res);
-                // Reset state if files are invalid/empty after an export attempt
-                setExportedFiles([]);
-                setExportsAreCurrent(false); // Mark as not current if export failed to produce files
-            }
-        };
-
-        // Register the handler with listenTS
-        listenTS("exportedFiles", exportFilesHandler);
-
-        // Also add direct message listener as backup
-        const directHandler = (event: MessageEvent) => {
-            if (
-                event.data.pluginMessage &&
-                event.data.pluginMessage.type === "exportedFiles"
-            ) {
-                exportFilesHandler(event.data.pluginMessage); // Call the same async handler
-            }
-        };
-
-        window.addEventListener("message", directHandler);
-        return () => window.removeEventListener("message", directHandler);
-    }, []);
-
-    // Create the functions with access to dispatchTS
-    const downloadZipFile = async (
-        files: Array<{ name: string; content: string }>,
-    ) => {
-        try {
-            if (!files || files.length === 0) {
-                console.error("No files to zip!");
-                return;
-            }
-
-            // Create a new JSZip instance directly (using the import)
-            const zip = new JSZip();
-
-            // Add each file to the zip with debug logging
-            files.forEach((file) => {
-                zip.file(file.name, file.content);
-            });
-
-            // Generate the zip
-            const content = await zip.generateAsync({ type: "blob" });
-
-            // Create download link
-            const element = document.createElement("a");
-            element.href = URL.createObjectURL(content);
-            element.download = "figma-collections.zip";
-            document.body.appendChild(element);
-            element.click();
-            document.body.removeChild(element);
-
-            // Clean up
-            URL.revokeObjectURL(element.href);
-        } catch (error) {
-            console.error("Error creating ZIP file:", error);
-
-            // Fallback to individual downloads if ZIP creation fails
-            alert(
-                "Couldn't create ZIP file. Downloading files individually...",
-            );
-            files.forEach((file, index) => {
-                setTimeout(() => {
-                    downloadFile(file.name, file.content);
-                }, index * 100);
-            });
-        }
-    };
-
     const buttonStyle: React.CSSProperties = {
         border: `none`,
         margin: "4px 4px 0px 4px",
@@ -271,8 +128,8 @@ export const App = () => {
         cursor: "pointer",
         position: "relative",
         textAlign: "center",
-        opacity: isMenuOpen ? 0.6 : 1,
-        pointerEvents: isMenuOpen ? "none" : "auto",
+        opacity: menuOpen ? 0.6 : 1,
+        pointerEvents: menuOpen ? "none" : "auto",
     };
 
     const menuStyle: React.CSSProperties = {
@@ -290,7 +147,7 @@ export const App = () => {
         padding: "5px 0",
         marginTop: "2px",
         justifyContent: "center",
-        display: isMenuOpen ? "block" : "none",
+        display: menuOpen ? "block" : "none",
     };
 
     const menuItemStyle: React.CSSProperties = {
@@ -320,10 +177,10 @@ export const App = () => {
             >
                 <span
                     id="copy-icon"
-                    onClick={() => copyToClipboard(slintProperties)}
+                    onClick={() => copyToClipboard()}
                     onKeyDown={(e) => {
                         if (e.key === "Enter" || e.key === " ") {
-                            copyToClipboard(slintProperties);
+                            copyToClipboard();
                         }
                     }}
                     className="copy-icon"
@@ -365,7 +222,9 @@ export const App = () => {
                             <input
                                 type="checkbox"
                                 checked={useVariables}
-                                onChange={handleUseVariables}
+                                onChange={(e) =>
+                                    setUseVariables(e.target.checked)
+                                }
                                 style={{
                                     marginRight: "4px",
                                     cursor: "pointer",
@@ -385,7 +244,7 @@ export const App = () => {
                 }}
             >
                 <CodeSnippet
-                    code={slintProperties || "// Select a component to inspect"}
+                    code={slintSnippet || "// Select a component to inspect"}
                     theme={
                         lightOrDarkMode === "dark"
                             ? "dark-slint"
@@ -410,7 +269,7 @@ export const App = () => {
                 )}
 
                 {/* --- Dropdown Menu --- */}
-                {isMenuOpen && (
+                {menuOpen && (
                     <div
                         ref={menuRef}
                         style={menuStyle}
@@ -430,7 +289,9 @@ export const App = () => {
                             <input
                                 type="checkbox"
                                 checked={exportAsSingleFile}
-                                onChange={handleCheckboxChange}
+                                onChange={(e) =>
+                                    setExportAsSingleFile(e.target.checked)
+                                }
                                 style={{
                                     marginRight: "8px",
                                     cursor: "pointer",
@@ -452,10 +313,10 @@ export const App = () => {
                         <div
                             role="button" // Semantics
                             tabIndex={0} // Make focusable
-                            onClick={handleExportClick}
+                            onClick={exportFiles}
                             onKeyDown={(e) => {
                                 if (e.key === "Enter" || e.key === " ") {
-                                    handleExportClick();
+                                    exportFiles();
                                 }
                             }} // Keyboard accessibility
                             style={{ ...menuItemStyle, padding: "8px 12px" }}
