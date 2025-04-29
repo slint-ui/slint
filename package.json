@@ -10,12 +10,8 @@
     "lint:fix": "pnpm --stream -r lint:fix",
     "type-check": "pnpm --stream -r type-check"
   },
-  "packageManager": "pnpm@10.9.0",
+  "packageManager": "pnpm@10.10.0",
   "pnpm": {
-    "overrides": {
-      "@babel/runtime@<7.26.10": ">=7.26.10",
-      "@babel/helpers@<7.26.10": ">=7.26.10"
-    },
     "onlyBuiltDependencies": [
       "@biomejs/biome",
       "esbuild",
