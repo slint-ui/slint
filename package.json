@@ -17,7 +17,9 @@
       "@babel/helpers@<7.26.10": ">=7.26.10"
     },
     "onlyBuiltDependencies": [
-      "esbuild"
+      "@biomejs/biome",
+      "esbuild",
+      "sharp"
     ]
   }
 }
