@@ -7,6 +7,7 @@ import {
     useCallback,
     useRef,
     type ReactNode,
+    use,
 } from "react";
 import JSZip from "jszip";
 import {
@@ -18,6 +19,8 @@ import {
 import { copyToClipboard } from "./utils/utils.js";
 import CodeSnippet from "./snippet/CodeSnippet";
 import "./main.css";
+import { useInspectorStore } from "./utils/store";
+
 
 // Add file download functionality
 const downloadFile = (filename: string, text: string) => {
@@ -35,8 +38,9 @@ const downloadFile = (filename: string, text: string) => {
 
 export const App = () => {
     const [exportsAreCurrent, setExportsAreCurrent] = useState(false);
-    const [title, setTitle] = useState("");
-    const [slintProperties, setSlintProperties] = useState("");
+
+    const { title, slintSnippet, initializeEventListeners } = useInspectorStore();
+
     const [exportedFiles, setExportedFiles] = useState<
         Array<{ name: string; content: string }>
     >([]);
@@ -58,10 +62,7 @@ export const App = () => {
     }, [exportAsSingleFile]);
     const [useVariables, setUseVariables] = useState(false); // Default to false
 
-    listenTS("updatePropertiesCallback", (res) => {
-        setTitle(res.title);
-        setSlintProperties(res.slintSnippet || "");
-    });
+
 
     useEffect(() => {
         const handleSelectionChange = () => {
@@ -123,6 +124,7 @@ export const App = () => {
 
     // Theme handling
     useEffect(() => {
+        initializeEventListeners();
         subscribeColorTheme((mode) => {
             setLightOrDarkMode(mode);
         });
@@ -320,10 +322,10 @@ export const App = () => {
             >
                 <span
                     id="copy-icon"
-                    onClick={() => copyToClipboard(slintProperties)}
+                    onClick={() => copyToClipboard(slintSnippet)}
                     onKeyDown={(e) => {
                         if (e.key === "Enter" || e.key === " ") {
-                            copyToClipboard(slintProperties);
+                            copyToClipboard(slintSnippet);
                         }
                     }}
                     className="copy-icon"
@@ -385,7 +387,7 @@ export const App = () => {
                 }}
             >
                 <CodeSnippet
-                    code={slintProperties || "// Select a component to inspect"}
+                    code={slintSnippet || "// Select a component to inspect"}
                     theme={
                         lightOrDarkMode === "dark"
                             ? "dark-slint"
