@@ -21,23 +21,24 @@
   },
   "devDependencies": {
     "@figma/plugin-typings": "1.110.0",
+    "@types/jszip": "3.4.0",
     "@types/node": "20.16.10",
     "@types/react": "19.1.2",
     "@types/react-dom": "19.1.2",
     "@vitejs/plugin-react": "4.4.1",
     "cross-env": "7.0.3",
+    "jszip": "3.10.1",
     "shiki": "3.3.0",
     "typescript": "5.8.3",
     "vite": "6.3.3",
     "vite-figma-plugin": "0.0.24",
     "vite-plugin-singlefile": "2.2.0",
-    "vitest": "3.1.2",
-    "@types/jszip": "3.4.0",
-    "jszip": "3.10.1"
+    "vitest": "3.1.2"
   },
   "dependencies": {
     "html-react-parser": "5.2.3",
     "react": "19.1.0",
-    "react-dom": "19.1.0"
+    "react-dom": "19.1.0",
+    "zustand": "5.0.3"
   }
 }
