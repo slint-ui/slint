@@ -54,7 +54,9 @@ export const useInspectorStore = create<StoreState>()((set, get) => ({
         });
 
         // On first run check to see if anything is currently selected and show a snippet.
-        dispatchTS("generateSnippetRequest", { useVariables: get().useVariables });
+        dispatchTS("generateSnippetRequest", {
+            useVariables: get().useVariables,
+        });
     },
 
     copyToClipboard: () => {
