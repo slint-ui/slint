@@ -38,9 +38,9 @@ export function writeTextToClipboard(str: string): boolean {
     return copySuccessful;
 }
 
-export const downloadZipFile = async (
+export async function downloadZipFile(
     files: Array<{ name: string; content: string }>,
-) => {
+) {
     try {
         if (!files || files.length === 0) {
             console.error("No files to zip!");
@@ -79,9 +79,9 @@ export const downloadZipFile = async (
             }, index * 100);
         });
     }
-};
+}
 
-const downloadFile = (filename: string, text: string) => {
+function downloadFile(filename: string, text: string) {
     const element = document.createElement("a");
     element.setAttribute(
         "href",
@@ -92,4 +92,4 @@ const downloadFile = (filename: string, text: string) => {
     document.body.appendChild(element);
     element.click();
     document.body.removeChild(element);
-};
+}
