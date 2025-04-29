@@ -4,7 +4,9 @@
 #![doc = include_str!("README.md")]
 #![doc(html_logo_url = "https://slint.dev/logo/slint-logo-square-light.svg")]
 
-use std::cell::{Cell, OnceCell, RefCell};
+#[cfg(any(target_vendor = "apple", skia_backend_vulkan))]
+use std::cell::OnceCell;
+use std::cell::{Cell, RefCell};
 use std::rc::{Rc, Weak};
 use std::sync::Arc;
 
@@ -140,7 +142,7 @@ struct SkiaSharedContextInner {
 /// Create an instance once and pass clones of it to the difference constructor functions, to ensure most
 /// efficient resource usage.
 #[derive(Clone, Default)]
-pub struct SkiaSharedContext(Rc<SkiaSharedContextInner>);
+pub struct SkiaSharedContext(#[allow(dead_code)] Rc<SkiaSharedContextInner>);
 
 /// Use the SkiaRenderer when implementing a custom Slint platform where you deliver events to
 /// Slint and want the scene to be rendered using Skia as underlying graphics library.
