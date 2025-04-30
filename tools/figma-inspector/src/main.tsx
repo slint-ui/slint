@@ -4,61 +4,27 @@
 import { useEffect, useState, useRef } from "react";
 import { getColorTheme, subscribeColorTheme } from "./utils/bolt-utils";
 import CodeSnippet from "./components/snippet/CodeSnippet"
-import { useInspectorStore } from "./utils/store";
-import { downloadZipFile } from "./utils/utils.js";
+import { ExportType, useInspectorStore } from "./utils/store";
+import DialogFrame from "./components/DialogFrame.js";
+import { Button, Checkbox, DropdownMenu } from "figma-kit";
 import "./main.css";
 
 export const App = () => {
     const {
         exportsAreCurrent,
-        exportedFiles,
         title,
         slintSnippet,
         useVariables,
-        exportAsSingleFile,
-        menuOpen,
         copyToClipboard,
         initializeEventListeners,
         setUseVariables,
         setExportsAreCurrent,
-        setExportAsSingleFile,
-        setMenuOpen,
-        toggleMenu,
         exportFiles,
     } = useInspectorStore();
 
     const [lightOrDarkMode, setLightOrDarkMode] = useState(getColorTheme());
-    const menuRef = useRef<HTMLDivElement>(null); // Ref for the menu
-    const buttonRef = useRef<HTMLButtonElement>(null); // Ref for the button
 
-    useEffect(() => {
-        // Only add listener if menu is open
-        if (!menuOpen) {
-            return;
-        }
-
-        const handleClickOutside = (event: MouseEvent) => {
-            // Check if the click is outside the menu AND outside the button
-            if (
-                menuRef.current &&
-                !menuRef.current.contains(event.target as Node) &&
-                buttonRef.current && // Also check the button ref
-                !buttonRef.current.contains(event.target as Node)
-            ) {
-                setMenuOpen(false); // Close the menu
-            }
-        };
-
-        // Add listener on mount/when menu opens
-        document.addEventListener("mousedown", handleClickOutside);
-
-        // Cleanup listener on unmount/when menu closes
-        return () => {
-            document.removeEventListener("mousedown", handleClickOutside);
-        };
-    }, [menuOpen]); // Re-run effect when isMenuOpen changes
-
-    // Theme handling
+    // Init
     useEffect(() => {
         initializeEventListeners();
         subscribeColorTheme((mode) => {
@@ -88,265 +54,60 @@ export const App = () => {
             window.removeEventListener("message", variableChangeHandler);
     }, []);
 
-    const buttonStyle: React.CSSProperties = {
-        border: `none`,
-        margin: "4px 4px 0px 4px",
-        borderRadius: "4px",
-        background: lightOrDarkMode === "dark" ? "#4497F7" : "#4497F7",
-        padding: "4px 8px",
-        width: "auto",
-        minWidth: "140px",
-        alignSelf: "center",
-        height: "32px",
-        color: "white",
-        cursor: "pointer",
-        position: "relative",
-        textAlign: "center",
-        opacity: menuOpen ? 0.6 : 1,
-        pointerEvents: menuOpen ? "none" : "auto",
-    };
-
-    const menuStyle: React.CSSProperties = {
-        position: "absolute",
-        bottom: "100%",
-        left: "50%",
-        transform: "translateX(-50%)",
-        background: lightOrDarkMode === "dark" ? "#333" : "#fff",
-        border: `1px solid ${lightOrDarkMode === "dark" ? "#555" : "#ccc"}`,
-        borderRadius: "4px",
-        boxShadow: "0 2px 5px rgba(0,0,0,0.2)",
-        zIndex: 10,
-        alignContent: "center",
-        minWidth: "140px",
-        padding: "5px 0",
-        marginTop: "2px",
-        justifyContent: "center",
-        display: menuOpen ? "block" : "none",
-    };
-
-    const menuItemStyle: React.CSSProperties = {
-        fontSize: "12px",
-        cursor: "pointer",
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        color: lightOrDarkMode === "dark" ? "#eee" : "#333",
-    };
-
-    const menuItemHoverStyle: React.CSSProperties = {
-        backgroundColor: lightOrDarkMode === "dark" ? "#444" : "#f0f0f0",
-    };
-
     return (
-        <div className="container">
-            <div
-                className="title"
-                style={{
-                    display: "flex",
-                    alignItems: "center",
-                    padding: "4px 8px",
-                    borderBottom: `1px solid ${lightOrDarkMode === "dark" ? "#555" : "#ccc"}`,
-                    flexShrink: 0,
-                }}
-            >
-                <span
-                    id="copy-icon"
-                    onClick={() => copyToClipboard()}
-                    onKeyDown={(e) => {
-                        if (e.key === "Enter" || e.key === " ") {
-                            copyToClipboard();
-                        }
-                    }}
-                    className="copy-icon"
-                    style={{ cursor: "pointer", marginRight: "8px" }}
-                    role="button"
-                    tabIndex={0}
-                >
-                    📋
-                </span>
-
-                <span
-                    style={{
-                        whiteSpace: "nowrap",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        flexGrow: 1,
-                        textAlign: "left",
-                    }}
-                >
-                    {title || "Slint Figma Inspector"}
-                </span>
-
-                <div style={{ flexShrink: 0, marginLeft: "8px" }}>
-                    {" "}
-                    <div
+        <>
+            <DialogFrame>
+                <DialogFrame.Title>
+                    <svg
+                        id="copy-icon"
+                        onClick={() => copyToClipboard()}
+                        onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                                copyToClipboard();
+                            }
+                        }}
+                        className="copy-icon"
+                        style={{ cursor: "pointer", marginRight: "8px" }}
+                        role="button"
+                        tabIndex={0}
+                        width="24" height="24" fill="none" viewBox="0 0 24 24"><path fill="var(--color-icon)" fill-rule="evenodd" d="M10 6h4v1h-4zM9 6a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1 2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2m0 1a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V8a1 1 0 0 0-1-1 1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1m1 3.5a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 0 1h-3a.5.5 0 0 1-.5-.5m.5 2.5a.5.5 0 0 0 0 1h3a.5.5 0 0 0 0-1z" clip-rule="evenodd"></path></svg>
+                    <span
                         style={{
-                            display: "flex",
-                            justifyContent: "flex-end",
+                            whiteSpace: "nowrap",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            flexGrow: 1,
+                            textAlign: "left",
                         }}
                     >
-                        <label
-                            style={{
-                                cursor: "pointer",
-                                fontSize: "12px",
-                                display: "flex",
-                                alignItems: "center",
-                            }}
-                        >
-                            <input
-                                type="checkbox"
-                                checked={useVariables}
-                                onChange={(e) =>
-                                    setUseVariables(e.target.checked)
-                                }
-                                style={{
-                                    marginRight: "4px",
-                                    cursor: "pointer",
-                                }}
-                            />
-                            Use Figma Variables
-                        </label>
-                    </div>
-                </div>
-            </div>{" "}
-            <div
-                style={{
-                    flexGrow: 1,
-                    overflowY: "auto",
-                    minHeight: "50px",
-                    position: "relative",
-                }}
-            >
-                <CodeSnippet
-                    code={slintSnippet || "// Select a component to inspect"}
-                    theme={
-                        lightOrDarkMode === "dark"
-                            ? "dark-slint"
-                            : "light-slint"
-                    }
-                />
-            </div>
-            <div
-                style={{ position: "relative", alignSelf: "center" }}
-                ref={menuRef}
-            >
-                {/* --- Trigger Button --- */}
-                {useVariables && (
-                    <button
-                        ref={buttonRef}
-                        onClick={toggleMenu} // Toggle menu visibility
-                        style={buttonStyle}
-                        className="export-button" // Keep class if needed
-                    >
-                        {"Design Tokens"}
-                    </button>
-                )}
+                        {title || "Slint Figma Inspector"}
+                    </span>
 
-                {/* --- Dropdown Menu --- */}
-                {menuOpen && (
-                    <div
-                        ref={menuRef}
-                        style={menuStyle}
-                        className="export-dropdown-menu"
-                    >
-                        {/* Checkbox Item */}
-                        <label
-                            style={{ ...menuItemStyle, cursor: "pointer" }}
-                            onMouseEnter={(e) =>
-                                (e.currentTarget.style.backgroundColor =
-                                    menuItemHoverStyle.backgroundColor!)
-                            }
-                            onMouseLeave={(e) =>
-                                (e.currentTarget.style.backgroundColor = "")
-                            }
-                        >
-                            <input
-                                type="checkbox"
-                                checked={exportAsSingleFile}
-                                onChange={(e) =>
-                                    setExportAsSingleFile(e.target.checked)
-                                }
-                                style={{
-                                    marginRight: "8px",
-                                    cursor: "pointer",
-                                }}
-                            />
-                            Single Slint file
-                        </label>
+                </DialogFrame.Title>
+                <DialogFrame.Content>
+                    <CodeSnippet
+                        code={slintSnippet || "// Select a component to inspect"}
+                    />
+                </DialogFrame.Content>
+                <DialogFrame.Footer>
 
-                        {/* Separator (Optional) */}
-                        <hr
-                            style={{
-                                margin: "4px 0",
-                                border: "none",
-                                borderTop: `1px solid ${lightOrDarkMode === "dark" ? "#555" : "#ccc"}`,
-                            }}
-                        />
+                    <DropdownMenu.Root >
+                        <DropdownMenu.Trigger asChild>
+                            <Button>Export</Button>
+                        </DropdownMenu.Trigger>
+                        <DropdownMenu.Content style={{
+                        }}>
+                            <DropdownMenu.Item onClick={() => exportFiles(ExportType.SeparateFiles)}>Separate Files…</DropdownMenu.Item>
+                            <DropdownMenu.Item onClick={() => exportFiles(ExportType.SingleFile)}>Single File…</DropdownMenu.Item>
+                        </DropdownMenu.Content>
+                    </DropdownMenu.Root>
 
-                        {/* Export Action Item */}
-                        <div
-                            role="button" // Semantics
-                            tabIndex={0} // Make focusable
-                            onClick={exportFiles}
-                            onKeyDown={(e) => {
-                                if (e.key === "Enter" || e.key === " ") {
-                                    exportFiles();
-                                }
-                            }} // Keyboard accessibility
-                            style={{ ...menuItemStyle, padding: "8px 12px" }}
-                            onMouseEnter={(e) =>
-                                (e.currentTarget.style.backgroundColor =
-                                    menuItemHoverStyle.backgroundColor!)
-                            }
-                            onMouseLeave={(e) =>
-                                (e.currentTarget.style.backgroundColor = "")
-                            }
-                        >
-                            Export Collections
-                        </div>
-                    </div>
-                )}
-            </div>
-            <div
-                style={{
-                    height: exportedFiles.length > 0 ? "auto" : "0px",
-                    overflow: "hidden",
-                    transition: "all 0.3s ease-in-out",
-                }}
-            >
-                {exportedFiles.length > 0 && (
-                    <a
-                        onClick={() => downloadZipFile(exportedFiles)}
-                        style={{
-                            backgroundColor: "transparent",
-                            color:
-                                lightOrDarkMode === "dark" ? "white" : "black",
-                            marginTop: "4px",
-                            marginBottom: "4px",
-                            cursor: exportsAreCurrent
-                                ? "pointer"
-                                : "not-allowed",
-                            fontSize: "0.8rem",
-                            width: "100%",
-                            display: "flex",
-                            justifyContent: "center",
-                            alignItems: "center",
-                            transition: "all 0.3s ease",
-                            opacity: exportsAreCurrent ? "1" : "0.5",
-                        }}
-                        // disabled={!exportsAreCurrent}
-                    >
-                        <span style={{ marginRight: "8px" }}>
-                            {exportsAreCurrent ? "📦" : "⚠️"}
-                        </span>
-                        <span style={{ textDecoration: "underline" }}>
-                            {exportsAreCurrent
-                                ? `Download ZIP (${exportedFiles.length} files)`
-                                : "Files outdated - export again"}
-                        </span>
-                    </a>
-                )}
-            </div>
-        </div>
+                    <Checkbox.Root>
+                        <Checkbox.Input checked={useVariables} onChange={(e) => setUseVariables(e.target.checked)} />
+                        <Checkbox.Label>Use Figma Variables</Checkbox.Label>
+                    </Checkbox.Root>
+                </DialogFrame.Footer>
+            </DialogFrame>
+        </>
     );
 };

@@ -4,26 +4,26 @@ import { create } from "zustand";
 import { dispatchTS, listenTS } from "./bolt-utils";
 import { downloadZipFile, writeTextToClipboard } from "./utils.js";
 
+export enum ExportType {
+    SeparateFiles,
+    SingleFile,
+}
+
 interface StoreState {
     title: string;
     slintSnippet: string;
     useVariables: boolean;
     exportsAreCurrent: boolean;
     exportedFiles: Array<{ name: string; content: string }>;
-    exportAsSingleFile: boolean;
-    menuOpen: boolean;
     setTitle: (title: string) => void;
     initializeEventListeners: () => void;
     copyToClipboard: () => void;
     setUseVariables: (useVariables: boolean) => void;
     setExportsAreCurrent: (exportsAreCurrent: boolean) => void;
-    setExportAsSingleFile: (exportAsSingleFile: boolean) => void;
     exportFilesHandler: (
         files: Array<{ name: string; content: string }>,
     ) => Promise<void>;
-    setMenuOpen: (menuOpen: boolean) => void;
-    toggleMenu: () => void;
-    exportFiles: () => void;
+    exportFiles: (singleOrMultiple: ExportType) => void;
     startVariableCheckInterval: () => void;
 }
 
@@ -35,7 +35,6 @@ export const useInspectorStore = create<StoreState>()((set, get) => ({
     exportsAreCurrent: false,
     exportedFiles: [],
     exportAsSingleFile: false,
-    menuOpen: false,
 
     setTitle: (title) => set({ title }),
 
@@ -85,22 +84,10 @@ export const useInspectorStore = create<StoreState>()((set, get) => ({
         set({ exportsAreCurrent });
     },
 
-    setExportAsSingleFile: (exportAsSingleFile) => {
-        set({ exportAsSingleFile });
-    },
-
-    setMenuOpen: (menuOpen) => {
-        set({ menuOpen });
-    },
-
-    toggleMenu: () => {
-        set({ menuOpen: !get().menuOpen });
-    },
-
-    exportFiles: () => {
-        set({ exportedFiles: [], exportsAreCurrent: false, menuOpen: false });
+    exportFiles: (singleOrMultiple) => {
+        set({ exportedFiles: [], exportsAreCurrent: false });
         dispatchTS("exportToFiles", {
-            exportAsSingleFile: get().exportAsSingleFile,
+            exportAsSingleFile: singleOrMultiple === ExportType.SingleFile ? true : false,
         });
     },
 
