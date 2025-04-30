@@ -18,7 +18,8 @@ import type {
 } from "@shikijs/types";
 import OnigurumaEngine from "shiki/wasm";
 
-import slintLang from "../../../../editors/vscode/slint.tmLanguage.json";
+import slintLang from "../../../../../editors/vscode/slint.tmLanguage.json";
+import { getColorTheme, subscribeColorTheme } from "../../utils/bolt-utils.js";
 
 let highlighter: HighlighterCore | null = null;
 async function initHighlighter() {
@@ -32,15 +33,16 @@ async function initHighlighter() {
     });
 }
 
-type HighlightTheme = "dark-slint" | "light-slint";
-
-export default function CodeSnippet({
-    code,
-    theme,
-}: { code: string; theme: HighlightTheme }) {
+export default function CodeSnippet({ code }: { code: string }) {
     const [highlightedCode, setHighlightedCode] = useState<ReactNode | null>(
         null,
     );
+    const [lightOrDarkMode, setLightOrDarkMode] = useState(getColorTheme());
+    useEffect(() => {
+        subscribeColorTheme((mode) => {
+            setLightOrDarkMode(mode);
+        });
+    }, []);
 
     useEffect(() => {
         let isMounted = true;
@@ -51,7 +53,8 @@ export default function CodeSnippet({
             }
             const html = highlighter!.codeToHtml(code, {
                 lang: "slint",
-                theme: theme,
+                theme:
+                    lightOrDarkMode === "dark" ? "dark-slint" : "light-slint",
             });
 
             if (isMounted) {
@@ -64,10 +67,10 @@ export default function CodeSnippet({
         return () => {
             isMounted = false;
         };
-    }, [code, theme]);
+    }, [code, lightOrDarkMode]);
 
     return (
-        <div className="content" style={{ display: "flex" }}>
+        <div className="code-snippet" style={{ display: "flex" }}>
             {highlightedCode}
         </div>
     );
