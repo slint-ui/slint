@@ -42,7 +42,7 @@ information about the generation functions and how to use them.
 
 This method combines your Rust code with the `.slint` design markup in one file, using a macro:
 
-```rust
+```rust,no_run
 slint::slint!{
     export component HelloWorld inherits Window {
         Text {
@@ -52,7 +52,6 @@ slint::slint!{
     }
 }
 fn main() {
-#   return; // Don't run a window in an example
     HelloWorld::new().unwrap().run().unwrap();
 }
 ```
@@ -472,7 +471,7 @@ pub mod wgpu_24 {
     //! ```
     //!
     //! `main.rs`:
-    //!```rust
+    //!```rust,no_run
     //!
     //! use slint::wgpu_24::wgpu;
     //! use wgpu::util::DeviceExt;
@@ -492,7 +491,6 @@ pub mod wgpu_24 {
     //!    }
     //!}
     //!fn main() -> Result<(), Box<dyn std::error::Error>> {
-    //!#   return Ok(()); // Don't run a window in an example
     //!    slint::BackendSelector::new()
     //!        .require_wgpu_24(slint::wgpu_24::WGPUConfiguration::default())
     //!        .select()?;
