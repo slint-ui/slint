@@ -6,7 +6,7 @@ import { getColorTheme, subscribeColorTheme } from "./utils/bolt-utils";
 import CodeSnippet from "./components/snippet/CodeSnippet";
 import { ExportType, useInspectorStore } from "./utils/store";
 import DialogFrame from "./components/DialogFrame.js";
-import { Button, Checkbox, DropdownMenu } from "figma-kit";
+import { Button, Checkbox, DropdownMenu, Text } from "figma-kit";
 import "./main.css";
 
 export const App = () => {
@@ -102,6 +102,9 @@ export const App = () => {
                     />
                 </DialogFrame.Content>
                 <DialogFrame.Footer>
+                    <div className="border border-secondary  border-[var(--figma-color-bg-brand)]">
+                        <Text className="text-[var(--figma-color-bg-brand)]">Welcome to Figma</Text>
+                    </div>
                     <DropdownMenu.Root>
                         <DropdownMenu.Trigger asChild>
                             <Button>Export</Button>

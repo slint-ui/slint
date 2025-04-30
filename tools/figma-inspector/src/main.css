@@ -1,4 +1,8 @@
 @import "figma-kit/styles.css";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 
 body {
     margin: 0;
