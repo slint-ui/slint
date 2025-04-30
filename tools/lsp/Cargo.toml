@@ -10,7 +10,7 @@ homepage = "https://slint.dev"
 license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
-version = "1.11.0"
+version = "1.12.0"
 categories = ["gui", "development-tools", "command-line-utilities"]
 keywords = ["lsp", "ui", "toolkit"]
 

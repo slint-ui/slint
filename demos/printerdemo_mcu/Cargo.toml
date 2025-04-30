@@ -3,7 +3,7 @@
 
 [package]
 name = "printerdemo_mcu"
-version = "1.11.0"
+version = "1.12.0"
 authors = ["Slint Developers <info@slint.dev>"]
 edition = "2021"
 build = "build.rs"

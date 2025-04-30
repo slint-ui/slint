@@ -4,7 +4,7 @@
 cmake_minimum_required(VERSION 3.21)
 # Select C++ and C as languages, as Corrosion needs ${CMAKE_C_COMPILER}
 # for linking
-project(Slint HOMEPAGE_URL "https://slint.dev/" LANGUAGES C CXX VERSION 1.11.0)
+project(Slint HOMEPAGE_URL "https://slint.dev/" LANGUAGES C CXX VERSION 1.12.0)
 
 include(FeatureSummary)
 include(CMakeDependentOption)

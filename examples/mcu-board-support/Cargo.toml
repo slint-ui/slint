@@ -3,7 +3,7 @@
 
 [package]
 name = "mcu-board-support"
-version = "1.11.0"
+version = "1.12.0"
 authors = ["Slint Developers <info@slint.dev>"]
 edition = "2021"
 license = "MIT"
@@ -119,9 +119,9 @@ stm32u5g9j-dk2 = [
 ]
 
 [dependencies]
-slint = { version = "=1.11.0", path = "../../api/rs/slint", default-features = false, features = ["compat-1-2", "renderer-software"] }
+slint = { version = "=1.12.0", path = "../../api/rs/slint", default-features = false, features = ["compat-1-2", "renderer-software"] }
 i-slint-core = { workspace = true }
-i-slint-core-macros = { version = "=1.11.0", path = "../../internal/core-macros" }
+i-slint-core-macros = { version = "=1.12.0", path = "../../internal/core-macros" }
 
 derive_more = { workspace = true }
 embedded-graphics = { version = "0.8", optional = true }
