@@ -87,7 +87,8 @@ export const useInspectorStore = create<StoreState>()((set, get) => ({
     exportFiles: (singleOrMultiple) => {
         set({ exportedFiles: [], exportsAreCurrent: false });
         dispatchTS("exportToFiles", {
-            exportAsSingleFile: singleOrMultiple === ExportType.SingleFile ? true : false,
+            exportAsSingleFile:
+                singleOrMultiple === ExportType.SingleFile ? true : false,
         });
     },
 

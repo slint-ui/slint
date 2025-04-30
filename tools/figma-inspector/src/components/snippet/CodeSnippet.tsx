@@ -33,9 +33,7 @@ async function initHighlighter() {
     });
 }
 
-export default function CodeSnippet({
-    code
-}: { code: string}) {
+export default function CodeSnippet({ code }: { code: string }) {
     const [highlightedCode, setHighlightedCode] = useState<ReactNode | null>(
         null,
     );
@@ -55,7 +53,8 @@ export default function CodeSnippet({
             }
             const html = highlighter!.codeToHtml(code, {
                 lang: "slint",
-                theme: lightOrDarkMode === "dark" ? "dark-slint" : "light-slint",
+                theme:
+                    lightOrDarkMode === "dark" ? "dark-slint" : "light-slint",
             });
 
             if (isMounted) {

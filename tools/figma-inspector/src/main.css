@@ -1,4 +1,4 @@
-@import 'figma-kit/styles.css';
+@import "figma-kit/styles.css";
 
 body {
     margin: 0;
@@ -59,7 +59,6 @@ body {
     display: flex;
     flex-direction: column;
 }
-
 
 .dialog-frame-footer {
     height: 40px;
