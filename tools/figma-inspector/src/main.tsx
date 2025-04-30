@@ -3,7 +3,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { getColorTheme, subscribeColorTheme } from "./utils/bolt-utils";
-import CodeSnippet from "./snippet/CodeSnippet";
+import CodeSnippet from "./components/snippet/CodeSnippet"
 import { useInspectorStore } from "./utils/store";
 import { downloadZipFile } from "./utils/utils.js";
 import "./main.css";
