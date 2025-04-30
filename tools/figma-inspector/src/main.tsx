@@ -103,7 +103,9 @@ export const App = () => {
                 </DialogFrame.Content>
                 <DialogFrame.Footer>
                     <div className="border border-secondary  border-[var(--figma-color-bg-brand)]">
-                        <Text className="text-[var(--figma-color-bg-brand)]">Welcome to Figma</Text>
+                        <Text className="text-[var(--figma-color-bg-brand)]">
+                            Welcome to Figma
+                        </Text>
                     </div>
                     <DropdownMenu.Root>
                         <DropdownMenu.Trigger asChild>

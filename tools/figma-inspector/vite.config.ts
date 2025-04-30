@@ -24,7 +24,12 @@ figmaPluginInit();
 
 // https://vitejs.dev/config/
 export default defineConfig({
-    plugins: [tailwindcss(), react(), viteSingleFile(), figmaPlugin(config, mode)],
+    plugins: [
+        tailwindcss(),
+        react(),
+        viteSingleFile(),
+        figmaPlugin(config, mode),
+    ],
     build: {
         assetsInlineLimit: Number.POSITIVE_INFINITY,
         emptyOutDir: false,
