@@ -29,9 +29,8 @@ body {
     background-color: var(--figma-color-bg-secondary);
     border-radius: 4px;
     margin: 12px;
-    display: flex; /* Add this */
+    display: flex;
     flex-direction: column;
-    /* overflow: hidden; */
 }
 
 .dialog-frame-title {
