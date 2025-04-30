@@ -3,7 +3,7 @@
 
 slint::include_modules!();
 
-use wgpu_24 as wgpu;
+use slint::wgpu_24::{wgpu, WGPUConfiguration, WGPUSettings};
 
 struct DemoRenderer {
     device: wgpu::Device,
@@ -140,12 +140,12 @@ impl DemoRenderer {
 }
 
 fn main() {
-    let mut wgpu_settings = slint::WGPU24Settings::default();
+    let mut wgpu_settings = WGPUSettings::default();
     wgpu_settings.device_required_features = wgpu::Features::PUSH_CONSTANTS;
     wgpu_settings.device_required_limits.max_push_constant_size = 16;
 
     slint::BackendSelector::new()
-        .require_wgpu_24(slint::WGPU24Configuration::Automatic(wgpu_settings))
+        .require_wgpu_24(WGPUConfiguration::Automatic(wgpu_settings))
         .select()
         .expect("Unable to create Slint backend with WGPU based renderer");
 

@@ -9,10 +9,9 @@ in particular the `BackendSelector` type, to configure the WGPU-based renderer(s
 */
 
 /// This data structure provides settings for initializing WGPU renderers.
-#[cfg(feature = "unstable-wgpu-24")]
 #[derive(Clone, Debug)]
 #[non_exhaustive]
-pub struct WGPU24Settings {
+pub struct WGPUSettings {
     /// The backends to use for the WGPU instance.
     pub backends: wgpu_24::Backends,
     /// The different options that are given to the selected backends.
@@ -33,8 +32,7 @@ pub struct WGPU24Settings {
     pub device_memory_hints: wgpu_24::MemoryHints,
 }
 
-#[cfg(feature = "unstable-wgpu-24")]
-impl Default for WGPU24Settings {
+impl Default for WGPUSettings {
     fn default() -> Self {
         let backends = wgpu_24::Backends::from_env().unwrap_or_default();
         let dx12_shader_compiler = wgpu_24::Dx12Compiler::from_env().unwrap_or_default();
@@ -59,10 +57,9 @@ impl Default for WGPU24Settings {
 }
 
 /// This enum describes the different ways to configure WGPU for rendering.
-#[cfg(feature = "unstable-wgpu-24")]
 #[derive(Clone, Debug)]
 #[non_exhaustive]
-pub enum WGPU24Configuration {
+pub enum WGPUConfiguration {
     /// Use `Manual` if you've initialized WGPU and want to supply the instance, adapter,
     /// device, and queue for use.
     Manual {
@@ -77,12 +74,11 @@ pub enum WGPU24Configuration {
     },
     /// Use `Automatic` if you want to let Slint select the WGPU instance, adapter, and
     /// device, but fine-tune aspects such as memory limits or features.
-    Automatic(WGPU24Settings),
+    Automatic(WGPUSettings),
 }
 
-#[cfg(feature = "unstable-wgpu-24")]
-impl Default for WGPU24Configuration {
+impl Default for WGPUConfiguration {
     fn default() -> Self {
-        Self::Automatic(WGPU24Settings::default())
+        Self::Automatic(WGPUSettings::default())
     }
 }

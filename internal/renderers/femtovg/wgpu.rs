@@ -125,14 +125,19 @@ impl FemtoVGRenderer<WGPUBackend> {
         let (instance, adapter, device, queue, surface) = match requested_graphics_api {
             #[cfg(feature = "unstable-wgpu-24")]
             Some(RequestedGraphicsAPI::WGPU24(
-                i_slint_core::api::WGPU24Configuration::Manual { instance, adapter, device, queue },
+                i_slint_core::graphics::wgpu_24::WGPUConfiguration::Manual {
+                    instance,
+                    adapter,
+                    device,
+                    queue,
+                },
             )) => {
                 let surface = instance.create_surface(window_handle).unwrap();
                 (instance, adapter, device, queue, surface)
             }
             #[cfg(feature = "unstable-wgpu-24")]
             Some(RequestedGraphicsAPI::WGPU24(
-                i_slint_core::api::WGPU24Configuration::Automatic(wgpu24_settings),
+                i_slint_core::graphics::wgpu_24::WGPUConfiguration::Automatic(wgpu24_settings),
             )) => {
                 // wgpu uses async here, but the returned future is ready on first poll on all platforms except WASM,
                 // which we don't supoprt right now.
