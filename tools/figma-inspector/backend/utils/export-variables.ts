@@ -40,6 +40,7 @@ export function formatStructName(name: string): string {
         .replace(/,\s*/g, "-") // Replace commas (and following spaces) with hyphens
         .replace(/\+/g, "-") // Replace + with hyphens (add this line)
         .replace(/\:/g, "-") // Replace : with ""
+        .replace(/—/g, "-") // Replace em dash hyphens
         .replace(/([a-z])([A-Z])/g, "$1-$2") // Add hyphens between camelCase
         .replace(/\s+/g, "-") // Convert spaces to hyphens
         .replace(/--+/g, "-") // Normalize multiple consecutive hyphens to single
@@ -65,6 +66,7 @@ export function sanitizePropertyName(name: string): string {
         .replace(/&/g, "and") // Replace &
         .replace(/\(/g, "_") // Replace ( with _
         .replace(/\)/g, "_") // Replace ) with _
+        .replace(/—/g, "_") // Replace em dash with underscore
         .replace(/[^a-zA-Z0-9_]/g, "_") // Replace other invalid chars (including -, +, :, etc.) with _
         .replace(/__+/g, "_"); // Collapse multiple underscores
 
