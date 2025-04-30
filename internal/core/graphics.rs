@@ -56,6 +56,9 @@ pub mod boxshadowcache;
 pub mod border_radius;
 pub use border_radius::*;
 
+#[cfg(feature = "unstable-wgpu-24")]
+pub mod wgpu_24;
+
 /// CachedGraphicsData allows the graphics backend to store an arbitrary piece of data associated with
 /// an item, which is typically computed by accessing properties. The dependency_tracker is used to allow
 /// for a lazy computation. Typically, back ends store either compute intensive data or handles that refer to
@@ -189,7 +192,7 @@ pub enum RequestedGraphicsAPI {
     Direct3D,
     #[cfg(feature = "unstable-wgpu-24")]
     /// WGPU 24.x
-    WGPU24(crate::api::WGPU24Configuration),
+    WGPU24(wgpu_24::WGPUConfiguration),
 }
 
 impl TryFrom<RequestedGraphicsAPI> for RequestedOpenGLVersion {
