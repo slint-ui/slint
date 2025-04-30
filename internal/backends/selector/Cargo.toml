@@ -56,6 +56,8 @@ unstable-wgpu-24 = [
   "i-slint-backend-winit?/unstable-wgpu-24",
 ]
 
+unstable-winit-030 = ["dep:i-slint-backend-winit"]
+
 # note that default enable the i-slint-backend-qt, but not its enable feature
 default = ["i-slint-backend-qt", "backend-winit"]
 

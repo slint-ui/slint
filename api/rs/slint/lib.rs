@@ -542,3 +542,16 @@ pub mod wgpu_24 {
     pub use i_slint_core::graphics::wgpu_24::*;
     pub use wgpu_24 as wgpu;
 }
+
+#[cfg(feature = "unstable-winit-030")]
+pub mod winit_030 {
+    //! Winit 0.30.x specific types and re-exports.
+    //!
+    //! *Note*: This module is behind a feature flag and may be removed or changed in future minor releases,
+    //!         as new major Winit releases become available.
+    //!
+    //! Use the types and traits in this module in combination with other APIs to access additional window properties,
+    //! create custom windows, or hook into the winit event loop.
+
+    pub use i_slint_backend_winit::{winit, WinitWindowAccessor, WinitWindowEventResult};
+}

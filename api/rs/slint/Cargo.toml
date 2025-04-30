@@ -190,6 +190,18 @@ backend-android-activity-05 = [
 ## ```
 unstable-wgpu-24 = ["i-slint-core/unstable-wgpu-24", "i-slint-backend-selector/unstable-wgpu-24", "dep:wgpu-24"]
 
+## APIs guarded with this feature are *NOT* subject to the usual Slint API stability guarantees, because winit releases new major
+## versions more frequently than Slint. This feature as well as the APIs changed or removed in future minor releases of Slint, likely to be replaced
+## by a feature with a similar name but the winit version suffix being bumped.
+##
+## To avoid unintended compilation failures, we recommend to use the [tilde requirement](https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html#tilde-requirements)
+## in your `Cargo.toml` when enabling this feature:
+##
+## ```toml
+## slint = { version = "~1.12", features = ["unstable-winit-030"] }
+## ```
+unstable-winit-030 = ["backend-winit", "dep:i-slint-backend-winit", "i-slint-backend-selector/unstable-winit-030"]
+
 [dependencies]
 i-slint-core = { workspace = true }
 slint-macros = { workspace = true }
@@ -211,6 +223,8 @@ raw-window-handle-06 = { workspace = true, optional = true }
 unicode-segmentation = { workspace = true }
 
 wgpu-24 = { workspace = true, optional = true }
+
+i-slint-backend-winit = { workspace = true, optional = true }
 
 [target.'cfg(not(target_os = "android"))'.dependencies]
 # FemtoVG is disabled on android because it doesn't compile without setting RUST_FONTCONFIG_DLOPEN=on
