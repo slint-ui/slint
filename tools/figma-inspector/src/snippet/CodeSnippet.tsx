@@ -21,7 +21,7 @@ import OnigurumaEngine from "shiki/wasm";
 import slintLang from "../../../../editors/vscode/slint.tmLanguage.json";
 
 let highlighter: HighlighterCore | null = null;
-const initHighlighter = async () => {
+async function initHighlighter() {
     highlighter = await createHighlighterCore({
         themes: [
             darkSlint as ThemeRegistration,
@@ -30,7 +30,7 @@ const initHighlighter = async () => {
         langs: [slintLang as LanguageRegistration],
         engine: createOnigurumaEngine(OnigurumaEngine),
     });
-};
+}
 
 type HighlightTheme = "dark-slint" | "light-slint";
 

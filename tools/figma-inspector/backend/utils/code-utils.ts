@@ -5,25 +5,25 @@ import type { Message, PluginMessageEvent } from "../../src/globals";
 import type { EventTS } from "../../shared/universals";
 import { generateSlintSnippet } from "./property-parsing.js";
 
-export const dispatch = (data: any, origin = "*") => {
+export function dispatch(data: any, origin = "*") {
     figma.ui.postMessage(data, {
         origin,
     });
-};
+}
 
-export const dispatchTS = <Key extends keyof EventTS>(
+export function dispatchTS<Key extends keyof EventTS>(
     event: Key,
     data: EventTS[Key],
     origin = "*",
-) => {
+) {
     dispatch({ type: event, ...data }, origin);
-};
+}
 
-export const listenTS = <Key extends keyof EventTS>(
+export function listenTS<Key extends keyof EventTS>(
     eventName: Key,
     callback: (data: EventTS[Key] & { type: Key }) => any,
     listenOnce = false,
-) => {
+) {
     const func = (pluginMessage: any) => {
         if (pluginMessage && pluginMessage.type === eventName) {
             callback(pluginMessage);
@@ -34,12 +34,13 @@ export const listenTS = <Key extends keyof EventTS>(
     };
 
     figma.ui.on("message", func);
-};
-export const getStore = async (key: string) => {
+}
+
+export async function getStore(key: string) {
     const value = await figma.clientStorage.getAsync(key);
     return value;
-};
+}
 
-export const setStore = async (key: string, value: string) => {
+export async function setStore(key: string, value: string) {
     await figma.clientStorage.setAsync(key, value);
-};
+}
