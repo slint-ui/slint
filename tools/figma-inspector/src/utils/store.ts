@@ -24,6 +24,7 @@ interface StoreState {
     setMenuOpen: (menuOpen: boolean) => void;
     toggleMenu: () => void;
     exportFiles: () => void;
+    startVariableCheckInterval: () => void;
 }
 
 export const useInspectorStore = create<StoreState>()((set, get) => ({
@@ -57,6 +58,8 @@ export const useInspectorStore = create<StoreState>()((set, get) => ({
         dispatchTS("generateSnippetRequest", {
             useVariables: get().useVariables,
         });
+
+        get().startVariableCheckInterval();
     },
 
     copyToClipboard: () => {
@@ -110,5 +113,10 @@ export const useInspectorStore = create<StoreState>()((set, get) => ({
             console.error("Invalid or empty files data received:", files);
             set({ exportedFiles: [], exportsAreCurrent: false }); // Mark as not current if export failed to produce files
         }
+    },
+    startVariableCheckInterval: () => {
+       setInterval(() => {
+            dispatchTS("checkVariableChanges", {});
+        }, 5000);
     },
 }));

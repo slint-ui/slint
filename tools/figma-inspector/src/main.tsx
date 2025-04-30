@@ -2,15 +2,11 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { useEffect, useState, useRef } from "react";
-import {
-    dispatchTS,
-    getColorTheme,
-    subscribeColorTheme,
-} from "./utils/bolt-utils";
+import { getColorTheme, subscribeColorTheme} from "./utils/bolt-utils";
 import CodeSnippet from "./snippet/CodeSnippet";
-import "./main.css";
 import { useInspectorStore } from "./utils/store";
 import { downloadZipFile } from "./utils/utils.js";
+import "./main.css";
 
 export const App = () => {
     const {
@@ -90,28 +86,6 @@ export const App = () => {
         window.addEventListener("message", variableChangeHandler);
         return () =>
             window.removeEventListener("message", variableChangeHandler);
-    }, []);
-
-    useEffect(() => {
-        // Add specific variable change detection
-        function setupVariableChangeDetection() {
-            // Request the plugin to start monitoring variable changes
-            dispatchTS("monitorVariableChanges", { enabled: true });
-        }
-
-        // Call it on component mount
-        setupVariableChangeDetection();
-
-        // Also poll periodically to check for changes
-        const intervalId = setInterval(() => {
-            dispatchTS("checkVariableChanges", {});
-        }, 5000); // Check every 5 seconds
-
-        return () => {
-            clearInterval(intervalId);
-            // Disable monitoring when component unmounts
-            dispatchTS("monitorVariableChanges", { enabled: false });
-        };
     }, []);
 
     const buttonStyle: React.CSSProperties = {
