@@ -115,7 +115,7 @@ export const useInspectorStore = create<StoreState>()((set, get) => ({
         }
     },
     startVariableCheckInterval: () => {
-       setInterval(() => {
+        setInterval(() => {
             dispatchTS("checkVariableChanges", {});
         }, 5000);
     },

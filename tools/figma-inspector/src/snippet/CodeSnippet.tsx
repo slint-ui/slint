@@ -34,7 +34,10 @@ async function initHighlighter() {
 
 type HighlightTheme = "dark-slint" | "light-slint";
 
-export default function CodeSnippet({ code, theme }: { code: string; theme: HighlightTheme }) {
+export default function CodeSnippet({
+    code,
+    theme,
+}: { code: string; theme: HighlightTheme }) {
     const [highlightedCode, setHighlightedCode] = useState<ReactNode | null>(
         null,
     );
