@@ -3,7 +3,6 @@
 
 // from embassy/examples/stm32u5/src/bin/hspi_memory_mapped.rs
 
-use defmt::info;
 use embassy_stm32::hspi::{AddressSize, DummyCycles, Hspi, HspiWidth, Instance, TransferConfig};
 use embassy_stm32::mode::Async;
 use embassy_stm32::rcc;

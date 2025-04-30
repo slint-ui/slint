@@ -8,8 +8,7 @@ struct AlignedPool([u8; POOL_SIZE]);
 
 static mut NEMA_POOL: AlignedPool = AlignedPool([0; POOL_SIZE]);
 
-static mut LAST_COMMAND_LIST_ID: core::sync::atomic::AtomicI32 =
-    core::sync::atomic::AtomicI32::new(-1);
+static LAST_COMMAND_LIST_ID: core::sync::atomic::AtomicI32 = core::sync::atomic::AtomicI32::new(-1);
 
 static mut RING_BUFFER: nema_gfx_rs::nema_ringbuffer_t = nema_gfx_rs::nema_ringbuffer_t {
     bo: nema_gfx_rs::nema_buffer_t {
@@ -43,9 +42,9 @@ pub unsafe extern "C" fn nema_reg_write(reg: u32, value: u32) {
 pub unsafe extern "C" fn nema_sys_init() -> i32 {
     let err = nema_gfx_rs::tsi_malloc_init_pool_aligned(
         0,
-        NEMA_POOL.0.as_ptr() as _,
-        NEMA_POOL.0.as_ptr() as _,
-        NEMA_POOL.0.len() as i32,
+        &raw mut NEMA_POOL.0 as _,
+        &raw mut NEMA_POOL.0 as _,
+        POOL_SIZE as i32,
         1,
         8,
     );
@@ -155,7 +154,7 @@ impl embassy_stm32::interrupt::typelevel::Handler<embassy_stm32::interrupt::type
         if flags & 0x1 != /* GPU2D_FLAG_CLC */ 0 {
             // clear command list complete flag
             flags &= !0x1;
-            let flags = nema_reg_write(GPU2D_INTERRUPT_CONTROL_REG, flags);
+            nema_reg_write(GPU2D_INTERRUPT_CONTROL_REG, flags);
 
             LAST_COMMAND_LIST_ID.store(
                 nema_reg_read(GPU2D_INTERRUPT_LAST_COMMAND_ID_REG) as _,
