@@ -35,7 +35,7 @@ Beyond the design goals, here’s what makes Slint stand out:
 
 - **Design UI Independently**: Use a declarative language similar to separate your UI from business logic. Designers can work in parallel with developers.
 - **Tooling**: Including out editor integration and Live Preview & Editing to iterate quickly. We also have a Figma plugin.
-- **Stable APIs**: Slint follows a stable 1.x API. We evolve carefully without breaking your code. 
+- **Stable APIs**: Slint follows a stable 1.x API. We evolve carefully without breaking your code.
 
 See what others have built: [#MadeWithSlint](https://madewithslint.com)
 
