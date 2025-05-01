@@ -129,7 +129,7 @@ impl BackendSelector {
     ///
     /// ```rust,no_run
     /// let mut backend = slint::BackendSelector::new()
-    ///     .with_winit+window_attributes_hook(|attributes| attributes.with_content_protected(true))
+    ///     .with_winit_window_attributes_hook(|attributes| attributes.with_content_protected(true))
     ///     .select()
     ///     .unwrap();
     /// ```
