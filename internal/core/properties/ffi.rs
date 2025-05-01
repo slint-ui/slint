@@ -114,7 +114,7 @@ pub unsafe extern "C" fn slint_property_set_binding(
     user_data: *mut c_void,
     drop_user_data: Option<extern "C" fn(*mut c_void)>,
     intercept_set: Option<
-        extern "C" fn(user_data: *mut c_void, pointer_to_Value: *const c_void) -> bool,
+        extern "C" fn(user_data: *mut c_void, pointer_to_value: *const c_void) -> bool,
     >,
     intercept_set_binding: Option<
         extern "C" fn(user_data: *mut c_void, new_binding: *mut c_void) -> bool,
