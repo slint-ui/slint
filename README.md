@@ -8,7 +8,7 @@
 
 **Slint** is an open-source declarative GUI toolkit for building native user interfaces for embedded systems, desktops, and mobile platforms.
 
-Write your UI once in `.slint`, a simple markup language. Connect it to logic written in Rust, C++, JavaScript, or Python.
+Write your UI once in `.slint`, a simple markup language. Connect it to business logic written in Rust, C++, JavaScript, or Python.
 
 ## Why Slint?
 
@@ -33,8 +33,8 @@ The name *Slint* is derived from our design goals:
 
 Beyond the design goals, here’s what makes Slint stand out:
 
-- **Design UI Independently**: Use a declarative language similar to separate your UI from business logic. Designers can work in parallel with developers.
-- **Tooling**: Including out editor integration and Live Preview & Editing to iterate quickly. We also have a Figma plugin.
+- **Independent UI Design**: Use a declarative language similar to separate your UI from business logic. Designers can work in parallel with developers.
+- **Tooling**: Iterate quickly with our Live Preview & editor integrations. Integrate from Figma with the [Slint To Figma plugin](https://www.figma.com/community/plugin/1474418299182276871/figma-to-slint).
 - **Stable APIs**: Slint follows a stable 1.x API. We evolve carefully without breaking your code.
 
 See what others have built: [#MadeWithSlint](https://madewithslint.com)
