@@ -552,6 +552,54 @@ pub mod winit_030 {
     //!
     //! Use the types and traits in this module in combination with other APIs to access additional window properties,
     //! create custom windows, or hook into the winit event loop.
+    //!
+    //! For example, use the [`WinitWindowAccessor`] to obtain access to the underling [`winit::window::Window`]:
+    //!
+    //! `Cargo.toml`:
+    //! ```toml
+    //! slint = { version = "~1.12", features = ["unstable-winit-030"] }
+    //! ```
+    //!
+    //! `main.rs`:
+    //! ```rust,no_run
+    //! // Bring winit and accessor traits into scope.
+    //! use slint::winit_030::{WinitWindowAccessor, winit};
+    //!
+    //! slint::slint!{
+    //!     import { VerticalBox, Button } from "std-widgets.slint";
+    //!     export component HelloWorld inherits Window {
+    //!         callback clicked;
+    //!         VerticalBox {
+    //!             Text {
+    //!                 text: "hello world";
+    //!                 color: green;
+    //!             }
+    //!             Button {
+    //!                 text: "Click me";
+    //!                 clicked => { root.clicked(); }
+    //!             }
+    //!         }
+    //!     }
+    //! }
+    //! fn main() -> Result<(), Box<dyn std::error::Error>> {
+    //!     // Make sure the winit backed is selected:
+    //!    slint::BackendSelector::new()
+    //!        .backend_name("winit".into())
+    //!        .select()?;
+    //!
+    //!     let app = HelloWorld::new()?;
+    //!     let app_weak = app.as_weak();
+    //!     app.on_clicked(move || {
+    //!         // access the winit window
+    //!         let app = app_weak.unwrap();
+    //!         app.window().with_winit_window(|winit_window: &winit::window::Window| {
+    //!             eprintln!("window id = {:#?}", winit_window.id());
+    //!         });
+    //!     });
+    //!     app.run()?;
+    //!     Ok(())
+    //! }
+    //! ```
 
     pub use i_slint_backend_winit::{
         winit, EventLoopBuilder, SlintEvent, WinitWindowAccessor, WinitWindowEventResult,
