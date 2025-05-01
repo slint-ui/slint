@@ -43,11 +43,7 @@ pub struct BackendSelector {
         >,
     >,
     #[cfg(feature = "unstable-winit-030")]
-    winit_event_loop_builder: Option<
-        i_slint_backend_winit::winit::event_loop::EventLoopBuilder<
-            i_slint_backend_winit::SlintUserEvent,
-        >,
-    >,
+    winit_event_loop_builder: Option<i_slint_backend_winit::EventLoopBuilder>,
 }
 
 impl BackendSelector {
@@ -162,9 +158,7 @@ impl BackendSelector {
     #[cfg(feature = "unstable-winit-030")]
     pub fn with_winit_030_event_loop_builder(
         mut self,
-        event_loop_builder: i_slint_backend_winit::winit::event_loop::EventLoopBuilder<
-            i_slint_backend_winit::SlintUserEvent,
-        >,
+        event_loop_builder: i_slint_backend_winit::EventLoopBuilder,
     ) -> Self {
         self.winit_event_loop_builder = Some(event_loop_builder);
         self

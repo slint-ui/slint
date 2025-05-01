@@ -19,7 +19,7 @@ use i_slint_core::SharedString;
 use i_slint_core::{properties::PropertyTracker, window::WindowAdapter};
 
 use super::WinitWindowAdapter;
-use crate::SlintUserEvent;
+use crate::SlintEvent;
 use winit::event_loop::EventLoopProxy;
 
 /// The AccessKit adapter tries to keep the given window adapter's item tree in sync with accesskit's node tree.
@@ -52,7 +52,7 @@ impl AccessKitAdapter {
     pub fn new(
         window_adapter_weak: Weak<WinitWindowAdapter>,
         winit_window: &winit::window::Window,
-        proxy: EventLoopProxy<SlintUserEvent>,
+        proxy: EventLoopProxy<SlintEvent>,
     ) -> Self {
         Self {
             inner: accesskit_winit::Adapter::with_event_loop_proxy(winit_window, proxy),
@@ -728,9 +728,9 @@ struct CachedNode {
     tracker: Pin<Box<PropertyTracker>>,
 }
 
-impl From<accesskit_winit::Event> for SlintUserEvent {
+impl From<accesskit_winit::Event> for SlintEvent {
     fn from(value: accesskit_winit::Event) -> Self {
-        SlintUserEvent(crate::event_loop::CustomEvent::Accesskit(value))
+        SlintEvent(crate::event_loop::CustomEvent::Accesskit(value))
     }
 }
 

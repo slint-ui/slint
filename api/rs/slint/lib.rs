@@ -553,5 +553,7 @@ pub mod winit_030 {
     //! Use the types and traits in this module in combination with other APIs to access additional window properties,
     //! create custom windows, or hook into the winit event loop.
 
-    pub use i_slint_backend_winit::{winit, WinitWindowAccessor, WinitWindowEventResult};
+    pub use i_slint_backend_winit::{
+        winit, EventLoopBuilder, SlintEvent, WinitWindowAccessor, WinitWindowEventResult,
+    };
 }
