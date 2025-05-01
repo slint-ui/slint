@@ -6,7 +6,7 @@ import { getColorTheme, subscribeColorTheme } from "./utils/bolt-utils";
 import CodeSnippet from "./components/snippet/CodeSnippet";
 import { ExportType, useInspectorStore } from "./utils/store";
 import DialogFrame from "./components/DialogFrame.js";
-import { Button, Checkbox, DropdownMenu, Text } from "figma-kit";
+import { Text, Button, Checkbox, DropdownMenu } from "figma-kit";
 import "./main.css";
 
 export const App = () => {
@@ -102,33 +102,6 @@ export const App = () => {
                     />
                 </DialogFrame.Content>
                 <DialogFrame.Footer>
-                    <div className="border border-secondary  border-[var(--figma-color-bg-brand)]">
-                        <Text className="text-[var(--figma-color-bg-brand)]">
-                            Welcome to Figma
-                        </Text>
-                    </div>
-                    <DropdownMenu.Root>
-                        <DropdownMenu.Trigger asChild>
-                            <Button>Export</Button>
-                        </DropdownMenu.Trigger>
-                        <DropdownMenu.Content style={{}}>
-                            <DropdownMenu.Item
-                                onClick={() =>
-                                    exportFiles(ExportType.SeparateFiles)
-                                }
-                            >
-                                Separate Files…
-                            </DropdownMenu.Item>
-                            <DropdownMenu.Item
-                                onClick={() =>
-                                    exportFiles(ExportType.SingleFile)
-                                }
-                            >
-                                Single File…
-                            </DropdownMenu.Item>
-                        </DropdownMenu.Content>
-                    </DropdownMenu.Root>
-
                     <Checkbox.Root>
                         <Checkbox.Input
                             checked={useVariables}
@@ -136,6 +109,56 @@ export const App = () => {
                         />
                         <Checkbox.Label>Use Figma Variables</Checkbox.Label>
                     </Checkbox.Root>
+
+                    <DropdownMenu.Root>
+                        <DropdownMenu.Trigger asChild>
+                            <Button
+                                variant={
+                                    exportsAreCurrent ? "secondary" : "primary"
+                                }
+                                style={{
+                                    visibility: useVariables
+                                        ? "visible"
+                                        : "hidden",
+                                }}
+                            >
+                                Export
+                            </Button>
+                        </DropdownMenu.Trigger>
+                        <DropdownMenu.Content>
+                            <DropdownMenu.Item
+                                onClick={() =>
+                                    exportFiles(ExportType.SeparateFiles)
+                                }
+                            >
+                                Separate Files Per Collection…
+                            </DropdownMenu.Item>
+                            <DropdownMenu.Item
+                                onClick={() =>
+                                    exportFiles(ExportType.SingleFile)
+                                }
+                            >
+                                Singl Design-Tokens File…
+                            </DropdownMenu.Item>
+                        </DropdownMenu.Content>
+                    </DropdownMenu.Root>
+                    <Text
+                        style={{
+                            color: exportsAreCurrent
+                                ? "var(--figma-color-text-disabled)"
+                                : "var(--figma-color-text-primary",
+                        }}
+                    >
+                        {useVariables ? (
+                            exportsAreCurrent ? (
+                                <em>Exports are current</em>
+                            ) : (
+                                "Either variables have changed or no export found"
+                            )
+                        ) : (
+                            ""
+                        )}
+                    </Text>
                 </DialogFrame.Footer>
             </DialogFrame>
         </>
