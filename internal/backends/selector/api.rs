@@ -222,14 +222,14 @@ impl BackendSelector {
                 };
 
                 #[cfg(feature = "unstable-winit-030")]
-                let builder = match self.winit_window_attributes_hook {
+                let builder = match self.winit_window_attributes_hook.take() {
                     Some(hook) => builder.with_window_attributes_hook(hook),
                     None => builder,
                 };
 
                 #[cfg(feature = "unstable-winit-030")]
-                let builder = match self.winit_event_loop_builder {
-                    Some(builder) => builder.with_event_loop_builder(builder),
+                let builder = match self.winit_event_loop_builder.take() {
+                    Some(event_loop_builder) => builder.with_event_loop_builder(event_loop_builder),
                     None => builder,
                 };
 
