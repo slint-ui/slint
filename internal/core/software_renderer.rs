@@ -1154,16 +1154,15 @@ fn process_rectangle_impl(
     clip: &PhysicalRect,
 ) {
     let geom = args.geometry();
-    let Some(clipped) = geom.intersection(clip) else { return };
+    let Some(clipped) = geom.intersection(&clip.cast()) else { return };
     if let Brush::LinearGradient(g) = &args.background {
-        let geom2 = geom.cast::<f32>();
         let angle = g.angle() + args.rotation.angle();
         let tan = angle.to_radians().tan().abs();
         let start = if !tan.is_finite() {
             255.
         } else {
-            let h = tan * geom2.width() as f32;
-            255. * h / (h + geom2.height() as f32)
+            let h = tan * geom.width();
+            255. * h / (h + geom.height())
         } as u8;
         let mut angle = angle as i32 % 360;
         if angle < 0 {
@@ -1207,13 +1206,13 @@ fn process_rectangle_impl(
 
             let (adjust_left, adjust_right) = if (angle % 180) > 90 {
                 (
-                    (geom2.width() * s1.position).floor() as i16,
-                    (geom2.width() * (1. - s2.position)).ceil() as i16,
+                    (geom.width() * s1.position).floor() as i16,
+                    (geom.width() * (1. - s2.position)).ceil() as i16,
                 )
             } else {
                 (
-                    (geom2.width() * (1. - s2.position)).ceil() as i16,
-                    (geom2.width() * s1.position).floor() as i16,
+                    (geom.width() * (1. - s2.position)).ceil() as i16,
+                    (geom.width() * s1.position).floor() as i16,
                 )
             };
 
@@ -1223,26 +1222,26 @@ fn process_rectangle_impl(
                 start,
                 flags,
                 top_clip: Length::new(
-                    clipped.min_y() - geom.min_y() - (geom2.height() * s1.position).floor() as i16,
+                    (clipped.min_y() - geom.min_y() - (geom.height() * s1.position).floor()) as i16,
                 ),
                 bottom_clip: Length::new(
-                    geom.max_y()
-                        - clipped.max_y()
-                        - (geom2.height() * (1. - s2.position)).ceil() as i16,
+                    (geom.max_y() - clipped.max_y() - (geom.height() * (1. - s2.position)).ceil())
+                        as i16,
                 ),
-                left_clip: Length::new(clipped.min_x() - geom.min_x() - adjust_left),
-                right_clip: Length::new(geom.max_x() - clipped.max_x() - adjust_right),
+                left_clip: Length::new((clipped.min_x() - geom.min_x()) as i16 - adjust_left),
+                right_clip: Length::new((geom.max_x() - clipped.max_x()) as i16 - adjust_right),
             };
 
-            let size_y = clipped.height_length() + gr.top_clip + gr.bottom_clip;
-            let size_x = clipped.width_length() + gr.left_clip + gr.right_clip;
+            let act_rect = clipped.round().cast();
+            let size_y = act_rect.height_length() + gr.top_clip + gr.bottom_clip;
+            let size_x = act_rect.width_length() + gr.left_clip + gr.right_clip;
             if size_x.get() == 0 || size_y.get() == 0 {
                 // the position are too close to each other
                 // FIXME: For the first or the last, we should draw a plain color to the end
                 continue;
             }
 
-            processor.process_gradient(clipped, gr);
+            processor.process_gradient(act_rect, gr);
         }
         return;
     }
@@ -1252,7 +1251,7 @@ fn process_rectangle_impl(
         return;
     }
 
-    processor.process_simple_rectangle(clipped, color.into());
+    processor.process_simple_rectangle(clipped.round().cast(), color.into());
 }
 
 struct RenderToBuffer<'a, TargetPixelBuffer> {
@@ -1751,7 +1750,7 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                             let geometry =
                                 clipped_src.translate(offset.cast()).transformed(self.rotation);
                             let args = target_pixel_buffer::DrawRectangleArgs::from_rect(
-                                geometry,
+                                geometry.cast(),
                                 selection.selection_background.into(),
                             );
                             self.processor.process_rectangle(&args, geometry);
@@ -1942,19 +1941,19 @@ impl<T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'_, T
     ) {
         let geom = LogicalRect::from(size);
         if self.should_draw(&geom) {
-            let geom = (geom.translate(self.current_state.offset.to_vector()) * self.scale_factor)
-                .round()
-                .cast()
+            let geom = (geom.translate(self.current_state.offset.to_vector()).cast()
+                * self.scale_factor)
                 .transformed(self.rotation);
 
             let clipped =
-                (self.current_state.clip.translate(self.current_state.offset.to_vector())
+                (self.current_state.clip.translate(self.current_state.offset.to_vector()).cast()
                     * self.scale_factor)
                     .round()
                     .cast()
                     .transformed(self.rotation);
 
-            let mut args = target_pixel_buffer::DrawRectangleArgs::from_rect(geom, rect.background());
+            let mut args =
+                target_pixel_buffer::DrawRectangleArgs::from_rect(geom, rect.background());
             args.alpha = (self.current_state.alpha * 255.) as u8;
             args.rotation = self.rotation.orientation;
             self.processor.process_rectangle(&args, clipped);
@@ -2333,7 +2332,7 @@ impl<T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'_, T
                     }
                 }
                 let args = target_pixel_buffer::DrawRectangleArgs::from_rect(
-                    geometry,
+                    geometry.cast(),
                     self.alpha_color(cursor_color).into(),
                 );
                 self.processor.process_rectangle(&args, geometry);

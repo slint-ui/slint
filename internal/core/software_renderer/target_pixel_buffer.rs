@@ -141,29 +141,31 @@ impl DrawTextureArgs {
 }
 
 /// This structure describes the properties of a rectangle for blending with [`TargetPixelBuffer::draw_rectangle`].
+///
+/// All the coordinate are in physical pixels
 #[non_exhaustive]
 #[derive(Default, Debug)]
 pub struct DrawRectangleArgs {
     /// The x position in the destination buffer
-    pub x: isize,
+    pub x: f32,
     /// The y position in the destination buffer
-    pub y: isize,
+    pub y: f32,
     /// The width of the image in the destination.
-    pub width: usize,
+    pub width: f32,
     /// The height of the image in the destination.
-    pub height: usize,
+    pub height: f32,
 
     /// The top-left radius.
-    pub top_left_radius: u32,
+    pub top_left_radius: f32,
     /// The top-right radius.
-    pub top_right_radius: u32,
+    pub top_right_radius: f32,
     /// The bottom-right radius.
-    pub bottom_right_radius: u32,
+    pub bottom_right_radius: f32,
     /// The bottom-left radius.
-    pub bottom_left_radius: u32,
+    pub bottom_left_radius: f32,
 
     /// The width of the border.
-    pub border_width: u32,
+    pub border_width: f32,
 
     /// The background of the rectangle
     pub background: Brush,
@@ -179,20 +181,20 @@ pub struct DrawRectangleArgs {
 }
 
 impl DrawRectangleArgs {
-    pub(super) fn from_rect(geometry: PhysicalRect, background: Brush) -> Self {
+    pub(super) fn from_rect(geometry: euclid::Rect<f32, PhysicalPx>, background: Brush) -> Self {
         Self {
-            x: geometry.origin.x as _,
-            y: geometry.origin.y as _,
-            width: geometry.size.width as _,
-            height: geometry.size.height as _,
+            x: geometry.origin.x,
+            y: geometry.origin.y,
+            width: geometry.size.width,
+            height: geometry.size.height,
             background,
             alpha: 255,
             ..Default::default()
         }
     }
 
-    pub(super) fn geometry(&self) -> PhysicalRect {
-        euclid::rect(self.x as _, self.y as _, self.width as _, self.height as _)
+    pub(super) fn geometry(&self) -> euclid::Rect<f32, PhysicalPx> {
+        euclid::rect(self.x, self.y, self.width, self.height)
     }
 }
 
