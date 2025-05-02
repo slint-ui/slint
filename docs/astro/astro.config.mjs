@@ -140,6 +140,7 @@ export default defineConfig({
                                 collapsed: true,
                                 items: [
                                     "guide/development/debugging_techniques",
+                                    "guide/development/figma-inspector",
                                     "guide/development/focus",
                                     "guide/development/translations",
                                     "guide/development/fonts",
