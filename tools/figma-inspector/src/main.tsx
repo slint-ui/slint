@@ -6,7 +6,7 @@ import { getColorTheme, subscribeColorTheme } from "./utils/bolt-utils";
 import CodeSnippet from "./components/snippet/CodeSnippet";
 import { ExportType, useInspectorStore } from "./utils/store";
 import DialogFrame from "./components/DialogFrame.js";
-import { Text, Button, Checkbox, DropdownMenu } from "figma-kit";
+import { Button, Checkbox, DropdownMenu, Text } from "figma-kit";
 import "./main.css";
 
 export const App = () => {
@@ -109,7 +109,6 @@ export const App = () => {
                         />
                         <Checkbox.Label>Use Figma Variables</Checkbox.Label>
                     </Checkbox.Root>
-
                     <DropdownMenu.Root>
                         <DropdownMenu.Trigger asChild>
                             <Button
@@ -138,16 +137,19 @@ export const App = () => {
                                     exportFiles(ExportType.SingleFile)
                                 }
                             >
-                                Singl Design-Tokens File…
+                                Single Design-Tokens File…
                             </DropdownMenu.Item>
                         </DropdownMenu.Content>
-                    </DropdownMenu.Root>
+                    </DropdownMenu.Root>{" "}
                     <Text
-                        style={{
-                            color: exportsAreCurrent
-                                ? "var(--figma-color-text-disabled)"
-                                : "var(--figma-color-text-primary",
-                        }}
+                        color={
+                            exportsAreCurrent ? "text-disabled" : "text-primary"
+                        }
+                        // style={{
+                        //     color: exportsAreCurrent
+                        //         ? "var(--figma-color-text-disabled)"
+                        //         : "var(--figma-color-text-primary)",
+                        // }}
                     >
                         {useVariables ? (
                             exportsAreCurrent ? (
