@@ -146,7 +146,7 @@ export const App = () => {
                         style={{
                             color: exportsAreCurrent
                                 ? "var(--figma-color-text-disabled)"
-                                : "var(--figma-color-text-primary",
+                                : "",
                         }}
                     >
                         {useVariables ? (
