@@ -1,0 +1,88 @@
+---
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+title: Figma Variable Export
+description: Exporting Figma Variables to Slint Design Tokens
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+import LangRefLink from '/src/components/LangRefLink.astro';
+
+## Purpose
+
+The primary goal of this feature in  the figma plugin is to bridge the gap between design specifications defined in Figma using Variables and their implementation in a Slint UI project. It automates the creation of Slint code that reflects the structure, values, and modes of your Figma variables.
+
+## Key Features
+
+-   **Type Conversion:** Maps Figma variable types (Color, Float, String, Boolean) to corresponding Slint types (`brush`, `length`, `string`, `bool`).
+-   **Mode Support:** Translates Figma Modes into:
+    -   A Slint `enum` for mode selection (e.g., `MyCollectionMode { light, dark }`).
+    -   Collection-specific multi-mode convenience structs (e.g., `my_collection_mode2_brush { light: brush, dark: brush }`) for properties that vary by mode.
+    -   A `Scheme` struct (`MyCollection-Scheme`) representing the structure of variables.
+    -   A `Scheme-Mode` struct (`MyCollection-Scheme-Mode`) holding instances of the `Scheme` for each mode.
+    -   A global instance (`my_collection`) containing:
+        -   `mode`: An instance of `Scheme-Mode` holding the resolved values for each mode.
+        -   `current-mode`: An `in-out` property using the mode `enum` to control the active mode.
+        -   `current-scheme`: An `out` property dynamically selecting the correct scheme instance based on `current-mode`.
+        -   `current`: An `out` property mirroring the `Scheme` structure, providing direct access to the values of the `current-scheme`.
+-   **Alias Resolution:** Follows variable aliases (references) to find the underlying concrete value or target variable path.
+-   **Hierarchy Generation:** Interprets `/` in Figma variable names (e.g., `colors/background/primary`) to generate nested Slint structs (e.g., `struct Colors_Background { primary: brush; }`).
+-   **Circular Reference Handling:** Detects dependency cycles between variables. If a cycle is detected within the same collection, it attempts to break the loop using the target's concrete value. Otherwise, or if the loop break fails, it resolves with a default value and logs a warning. Collections involved in cycles force a single-file export.
+-   **Name Sanitization:** Cleans up collection, variable, and mode names to be valid Slint identifiers (e.g., converting spaces and special characters to underscores, handling leading digits).
+-   **Export Options:**
+    -   **Separate Files:** Exports each Figma collection into its own `.slint` file. Automatically generates necessary `import` statements between files if cross-collection references exist (unless a cycle forces single-file mode).
+    -   **Single File:** Combines all collections into a single `design-tokens.slint` file. This is also the fallback if dependency cycles are detected.
+-   **README Generation:** Creates a `README.md` file alongside the export, summarizing exported collections, renamed variables, detected circular references, and warnings.
+
+## Usage
+
+1.  **Enable Feature:** 
+    -   Find and enable the "Figma to Slint" plugin in the Figma Plugin Manager.
+    -   Check the "Use Figma Variables" checkbox in the plugin UI.
+2.  **Export:** Click the "Export" button and choose:
+    -   `Separate Files Per Collection…`: Recommended for organization if no recursive references exist. Creates `<collection_name>.slint` files.
+    -   `Single Design-Tokens File…`: Creates `design-tokens.slint`. Necessary if any self references exist.
+3.  **Integrate:**
+    -   Place the generated `.slint` file(s) in your Slint project.
+    -   Import the globals in your main UI `.slint` file(s):
+
+        ```slint
+        // If separate files:
+        import { Colors } from "colors.slint";
+        import { Spacing } from "spacing.slint";
+
+        // If single file:
+        import { Colors, Spacing } from "design-tokens.slint";
+
+        // Use the tokens:
+        MyComponent := Rectangle {
+            background: Colors.current.background.primary; // Access via .current for mode switching
+            height: Spacing.medium; // Access directly if single-mode or not mode-dependent
+        }
+        ```
+
+4.  **Mode Switching:** (For multi-mode collections)
+    -   Modify the `current-mode` property of the imported global:
+
+        ```slint
+        // Example: In your main component's logic
+        init => {
+            // Set initial mode
+            Colors.current-mode = ColorsMode.dark;
+        }
+        // Or in response to a user action:
+        clicked => {
+            Colors.current-mode = (Colors.current-mode == ColorsMode.light) ? ColorsMode.dark : ColorsMode.light;
+        }
+        ```
+
+    -   All properties accessed via `<collection_name>.current.*` will automatically update.
+
+## Naming Conventions & Sanitization
+
+-   **Hierarchy:** Figma uses / in variable names (e.g., `radius/small`, `font/body/weight`) to create nested Slint structs.
+-   **Sanitization:** Collection names, variable names (path segments), and mode names are automatically sanitized:
+    -   Spaces and invalid characters (`&`, `+`, `:`, `-`, etc.) are typically converted to `-` for collection/struct names and `_` for property/enum names.
+    -   Leading/trailing invalid characters are removed.
+    -   Names starting with a digit are prefixed with `_` or `m_`.
+    -   The variable named exactly `mode` at the root of a collection is renamed to `mode-var` in the Slint output to avoid conflicts with the generated scheme `mode` property.
+
