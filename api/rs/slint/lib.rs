@@ -540,3 +540,68 @@ pub mod wgpu_24 {
     pub use i_slint_core::graphics::wgpu_24::*;
     pub use wgpu_24 as wgpu;
 }
+
+#[cfg(feature = "unstable-winit-030")]
+pub mod winit_030 {
+    //! Winit 0.30.x specific types and re-exports.
+    //!
+    //! *Note*: This module is behind a feature flag and may be removed or changed in future minor releases,
+    //!         as new major Winit releases become available.
+    //!
+    //! Use the types and traits in this module in combination with other APIs to access additional window properties,
+    //! create custom windows, or hook into the winit event loop.
+    //!
+    //! For example, use the [`WinitWindowAccessor`] to obtain access to the underling [`winit::window::Window`]:
+    //!
+    //! `Cargo.toml`:
+    //! ```toml
+    //! slint = { version = "~1.12", features = ["unstable-winit-030"] }
+    //! ```
+    //!
+    //! `main.rs`:
+    //! ```rust,no_run
+    //! // Bring winit and accessor traits into scope.
+    //! use slint::winit_030::{WinitWindowAccessor, winit};
+    //!
+    //! slint::slint!{
+    //!     import { VerticalBox, Button } from "std-widgets.slint";
+    //!     export component HelloWorld inherits Window {
+    //!         callback clicked;
+    //!         VerticalBox {
+    //!             Text {
+    //!                 text: "hello world";
+    //!                 color: green;
+    //!             }
+    //!             Button {
+    //!                 text: "Click me";
+    //!                 clicked => { root.clicked(); }
+    //!             }
+    //!         }
+    //!     }
+    //! }
+    //! fn main() -> Result<(), Box<dyn std::error::Error>> {
+    //!     // Make sure the winit backed is selected:
+    //!    slint::BackendSelector::new()
+    //!        .backend_name("winit".into())
+    //!        .select()?;
+    //!
+    //!     let app = HelloWorld::new()?;
+    //!     let app_weak = app.as_weak();
+    //!     app.on_clicked(move || {
+    //!         // access the winit window
+    //!         let app = app_weak.unwrap();
+    //!         app.window().with_winit_window(|winit_window: &winit::window::Window| {
+    //!             eprintln!("window id = {:#?}", winit_window.id());
+    //!         });
+    //!     });
+    //!     app.run()?;
+    //!     Ok(())
+    //! }
+    //! ```
+    //! See also [`BackendSelector::with_winit_030_event_loop_builder()`](crate::BackendSelector::with_winit_030_event_loop_builder())
+    //! and [`BackendSelector::with_winit_030_window_attributes_hook()`](crate::BackendSelector::with_winit_030_window_attributes_hook()).
+
+    pub use i_slint_backend_winit::{
+        winit, EventLoopBuilder, SlintEvent, WinitWindowAccessor, WinitWindowEventResult,
+    };
+}

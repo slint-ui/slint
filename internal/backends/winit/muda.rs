@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use super::WinitWindowAdapter;
-use crate::SlintUserEvent;
+use crate::SlintEvent;
 use core::pin::Pin;
 use i_slint_core::items::MenuEntry;
 use i_slint_core::menus::MenuVTable;
@@ -36,13 +36,13 @@ impl MudaAdapter {
     pub fn setup(
         menubar: &vtable::VBox<MenuVTable>,
         winit_window: &Window,
-        proxy: EventLoopProxy<SlintUserEvent>,
+        proxy: EventLoopProxy<SlintEvent>,
         window_adapter_weak: Weak<WinitWindowAdapter>,
     ) -> Self {
         let menu = muda::Menu::new();
 
         muda::MenuEvent::set_event_handler(Some(move |e| {
-            let _ = proxy.send_event(SlintUserEvent(crate::event_loop::CustomEvent::Muda(e)));
+            let _ = proxy.send_event(SlintEvent(crate::event_loop::CustomEvent::Muda(e)));
         }));
 
         #[cfg(target_os = "windows")]

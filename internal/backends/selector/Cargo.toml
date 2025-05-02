@@ -56,6 +56,8 @@ unstable-wgpu-24 = [
   "i-slint-backend-winit?/unstable-wgpu-24",
 ]
 
+unstable-winit-030 = ["i-slint-backend-winit"]
+
 # note that default enable the i-slint-backend-qt, but not its enable feature
 default = ["i-slint-backend-qt", "backend-winit"]
 
@@ -77,3 +79,6 @@ i-slint-backend-linuxkms = { workspace = true, features = ["default"], optional 
 
 [build-dependencies]
 i-slint-common = { workspace = true }
+
+[dev-dependencies]
+slint = { path = "../../../api/rs/slint", default-features = false, features = ["std", "compat-1-2", "backend-winit", "renderer-software", "unstable-winit-030"] }

@@ -26,7 +26,7 @@ use corelib::items::{ColorScheme, MouseCursor};
 use corelib::items::{ItemRc, ItemRef};
 
 #[cfg(any(enable_accesskit, muda))]
-use crate::SlintUserEvent;
+use crate::SlintEvent;
 use crate::{SharedBackendData, WinitWindowEventResult};
 use corelib::api::PhysicalSize;
 use corelib::layout::Orientation;
@@ -278,7 +278,7 @@ pub struct WinitWindowAdapter {
     virtual_keyboard_helper: RefCell<Option<super::wasm_input_helper::WasmInputHelper>>,
 
     #[cfg(any(enable_accesskit, muda))]
-    event_loop_proxy: EventLoopProxy<SlintUserEvent>,
+    event_loop_proxy: EventLoopProxy<SlintEvent>,
 
     pub(crate) window_event_filter: Cell<
         Option<
@@ -310,7 +310,7 @@ impl WinitWindowAdapter {
         renderer: Box<dyn WinitCompatibleRenderer>,
         window_attributes: winit::window::WindowAttributes,
         requested_graphics_api: Option<RequestedGraphicsAPI>,
-        #[cfg(any(enable_accesskit, muda))] proxy: EventLoopProxy<SlintUserEvent>,
+        #[cfg(any(enable_accesskit, muda))] proxy: EventLoopProxy<SlintEvent>,
         #[cfg(all(muda, target_os = "macos"))] muda_enable_default_menu_bar: bool,
     ) -> Result<Rc<Self>, PlatformError> {
         let self_rc = Rc::new_cyclic(|self_weak| Self {

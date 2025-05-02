@@ -31,7 +31,10 @@ pub use winit;
 /// Internal type used by the winit backend for thread communication and window system updates.
 #[non_exhaustive]
 #[derive(Debug)]
-pub struct SlintUserEvent(CustomEvent);
+pub struct SlintEvent(CustomEvent);
+
+/// Convenience alias for the event loop builder used by Slint.
+pub type EventLoopBuilder = winit::event_loop::EventLoopBuilder<SlintEvent>;
 
 /// Returned by callbacks passed to [`Window::on_winit_window_event`](WinitWindowAccessor::on_winit_window_event)
 /// to determine if winit events should propagate to the Slint event loop.
@@ -119,7 +122,7 @@ fn default_renderer_factory(
 fn try_create_window_with_fallback_renderer(
     shared_backend_data: &Rc<SharedBackendData>,
     attrs: winit::window::WindowAttributes,
-    _proxy: &winit::event_loop::EventLoopProxy<SlintUserEvent>,
+    _proxy: &winit::event_loop::EventLoopProxy<SlintEvent>,
     #[cfg(all(muda, target_os = "macos"))] muda_enable_default_menu_bar: bool,
 ) -> Option<Rc<WinitWindowAdapter>> {
     [
@@ -168,7 +171,7 @@ pub struct BackendBuilder {
     window_attributes_hook:
         Option<Box<dyn Fn(winit::window::WindowAttributes) -> winit::window::WindowAttributes>>,
     renderer_name: Option<String>,
-    event_loop_builder: Option<winit::event_loop::EventLoopBuilder<SlintUserEvent>>,
+    event_loop_builder: Option<EventLoopBuilder>,
     #[cfg(all(muda, target_os = "macos"))]
     muda_enable_default_menu_bar_bar: bool,
     #[cfg(target_family = "wasm")]
@@ -216,10 +219,7 @@ impl BackendBuilder {
     /// Configures this builder to use the specified event loop builder when creating the event
     /// loop during a subsequent call to [`Self::build`].
     #[must_use]
-    pub fn with_event_loop_builder(
-        mut self,
-        event_loop_builder: winit::event_loop::EventLoopBuilder<SlintUserEvent>,
-    ) -> Self {
+    pub fn with_event_loop_builder(mut self, event_loop_builder: EventLoopBuilder) -> Self {
         self.event_loop_builder = Some(event_loop_builder);
         self
     }
@@ -372,13 +372,11 @@ pub(crate) struct SharedBackendData {
     #[cfg(not(target_arch = "wasm32"))]
     clipboard: std::cell::RefCell<clipboard::ClipboardPair>,
     not_running_event_loop: RefCell<Option<crate::event_loop::NotRunningEventLoop>>,
-    event_loop_proxy: winit::event_loop::EventLoopProxy<SlintUserEvent>,
+    event_loop_proxy: winit::event_loop::EventLoopProxy<SlintEvent>,
 }
 
 impl SharedBackendData {
-    fn new(
-        builder: winit::event_loop::EventLoopBuilder<SlintUserEvent>,
-    ) -> Result<Self, PlatformError> {
+    fn new(builder: EventLoopBuilder) -> Result<Self, PlatformError> {
         #[cfg(not(target_arch = "wasm32"))]
         use raw_window_handle::HasDisplayHandle;
 
@@ -587,11 +585,11 @@ impl i_slint_core::platform::Platform for Backend {
     }
 
     fn new_event_loop_proxy(&self) -> Option<Box<dyn EventLoopProxy>> {
-        struct Proxy(winit::event_loop::EventLoopProxy<SlintUserEvent>);
+        struct Proxy(winit::event_loop::EventLoopProxy<SlintEvent>);
         impl EventLoopProxy for Proxy {
             fn quit_event_loop(&self) -> Result<(), EventLoopError> {
                 self.0
-                    .send_event(SlintUserEvent(CustomEvent::Exit))
+                    .send_event(SlintEvent(CustomEvent::Exit))
                     .map_err(|_| EventLoopError::EventLoopTerminated)
             }
 
@@ -610,11 +608,11 @@ impl i_slint_core::platform::Platform for Backend {
                 // all at once.
                 #[cfg(target_arch = "wasm32")]
                 self.0
-                    .send_event(SlintUserEvent(CustomEvent::WakeEventLoopWorkaround))
+                    .send_event(SlintEvent(CustomEvent::WakeEventLoopWorkaround))
                     .map_err(|_| EventLoopError::EventLoopTerminated)?;
 
                 self.0
-                    .send_event(SlintUserEvent(CustomEvent::UserEvent(event)))
+                    .send_event(SlintEvent(CustomEvent::UserEvent(event)))
                     .map_err(|_| EventLoopError::EventLoopTerminated)
             }
         }

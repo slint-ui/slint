@@ -9,7 +9,7 @@
 */
 use crate::drag_resize_window::{handle_cursor_move_for_resize, handle_resize};
 use crate::WinitWindowEventResult;
-use crate::{SharedBackendData, SlintUserEvent};
+use crate::{SharedBackendData, SlintEvent};
 use corelib::graphics::euclid;
 use corelib::input::{KeyEvent, KeyEventType, MouseEvent};
 use corelib::items::{ColorScheme, PointerEventButton};
@@ -26,13 +26,11 @@ use winit::event_loop::ActiveEventLoop;
 use winit::event_loop::ControlFlow;
 use winit::window::ResizeDirection;
 pub(crate) struct NotRunningEventLoop {
-    pub(crate) instance: winit::event_loop::EventLoop<SlintUserEvent>,
+    pub(crate) instance: winit::event_loop::EventLoop<SlintEvent>,
 }
 
 impl NotRunningEventLoop {
-    pub(crate) fn new(
-        mut builder: winit::event_loop::EventLoopBuilder<SlintUserEvent>,
-    ) -> Result<Self, PlatformError> {
+    pub(crate) fn new(mut builder: crate::EventLoopBuilder) -> Result<Self, PlatformError> {
         #[cfg(all(unix, not(target_vendor = "apple")))]
         {
             #[cfg(feature = "wayland")]
@@ -77,7 +75,7 @@ pub(crate) enum ActiveOrInactiveEventLoop<'a> {
     #[allow(unused)]
     Active(&'a ActiveEventLoop),
     #[allow(unused)]
-    Inactive(&'a winit::event_loop::EventLoop<SlintUserEvent>),
+    Inactive(&'a winit::event_loop::EventLoop<SlintEvent>),
 }
 
 pub(crate) trait EventLoopInterface {
@@ -175,7 +173,7 @@ impl EventLoopState {
     }
 }
 
-impl winit::application::ApplicationHandler<SlintUserEvent> for EventLoopState {
+impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
     fn resumed(&mut self, active_event_loop: &ActiveEventLoop) {
         for (_, window_weak) in self.shared_backend_data.active_windows.borrow().iter() {
             if let Some(w) = window_weak.upgrade() {
@@ -462,7 +460,7 @@ impl winit::application::ApplicationHandler<SlintUserEvent> for EventLoopState {
         }
     }
 
-    fn user_event(&mut self, event_loop: &ActiveEventLoop, event: SlintUserEvent) {
+    fn user_event(&mut self, event_loop: &ActiveEventLoop, event: SlintEvent) {
         match event.0 {
             CustomEvent::UserEvent(user_callback) => user_callback(),
             CustomEvent::Exit => event_loop.exit(),
