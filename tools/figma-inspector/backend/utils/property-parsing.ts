@@ -274,7 +274,7 @@ export async function getBorderWidthAndColor(
     }
     // Fallback or if not bound
     if (!borderColorValue) {
-        borderColorValue = await getBrush(firstStroke); // Use existing function for resolved color
+        borderColorValue = getBrush(firstStroke); // Use existing function for resolved color
     }
 
     if (borderColorValue) {
@@ -333,36 +333,29 @@ export function getBrush(fill: {
 async function getVariablePathString(
     variableId: string,
 ): Promise<string | null> {
-    try {
-        const variable = await figma.variables.getVariableByIdAsync(variableId);
-        if (variable) {
-            const collection =
-                await figma.variables.getVariableCollectionByIdAsync(
-                    variable.variableCollectionId,
-                );
-            if (collection) {
-                const globalName = formatStructName(collection.name);
-                const pathParts = extractHierarchy(variable.name);
-                const slintPath = pathParts.map(sanitizePropertyName).join(".");
-                let resultPath = "";
-                if (collection.modes.length > 1) {
-                    resultPath = `${globalName}.current.${slintPath}`;
-                } else {
-                    resultPath = `${globalName}.${slintPath}`;
-                }
-
-                return resultPath;
+    const variable = await figma.variables.getVariableByIdAsync(variableId);
+    if (variable) {
+        const collection =
+            await figma.variables.getVariableCollectionByIdAsync(
+                variable.variableCollectionId,
+            );
+        if (collection) {
+            const globalName = formatStructName(collection.name);
+            const pathParts = extractHierarchy(variable.name);
+            const slintPath = pathParts.map(sanitizePropertyName).join(".");
+            let resultPath = "";
+            if (collection.modes.length > 1) {
+                resultPath = `${globalName}.current.${slintPath}`;
             } else {
-                console.warn(
-                    `[getVariablePathString] Collection not found for variable ID: ${variableId}`,
-                );
+                resultPath = `${globalName}.${slintPath}`;
             }
+
+            return resultPath;
+        } else {
+            console.warn(
+                `[getVariablePathString] Collection not found for variable ID: ${variableId}`,
+            );
         }
-    } catch (err) {
-        console.error(
-            `[getVariablePathString] Error fetching details for ${variableId}:`,
-            err,
-        );
     }
     return null;
 }
@@ -370,8 +363,7 @@ async function getVariablePathString(
 export async function generateSlintSnippet(
     sceneNode: SceneNode,
     useVariables: boolean,
-): Promise<string | null> {
-    // Return Promise
+): Promise<string> {
     const nodeType = sceneNode.type;
 
     switch (nodeType) {
@@ -633,6 +625,7 @@ export async function generateRectangleSnippet(
 
     return `Rectangle {\n${properties.join("\n")}\n}`;
 }
+
 export async function generateTextSnippet(
     sceneNode: SceneNode,
     useVariables: boolean,
@@ -719,7 +712,7 @@ export async function generateTextSnippet(
                                     await getVariablePathString(boundVarId);
                             }
                             if (!fillValue) {
-                                fillValue = await getBrush(firstFill);
+                                fillValue = getBrush(firstFill);
                             }
                             if (fillValue) {
                                 properties.push(
@@ -727,7 +720,7 @@ export async function generateTextSnippet(
                                 );
                             }
                         } else {
-                            const brush = await getBrush(firstFill);
+                            const brush = getBrush(firstFill);
                             if (brush) {
                                 properties.push(
                                     `${indentation}color: ${brush};`,

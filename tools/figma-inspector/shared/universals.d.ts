@@ -23,5 +23,6 @@ export interface EventTS {
 
     checkVariableChanges: Record<string, never>;
     generateSnippetRequest: { useVariables: boolean };
+    nodeChanged;
     exportToFiles: { exportAsSingleFile: boolean };
 }
