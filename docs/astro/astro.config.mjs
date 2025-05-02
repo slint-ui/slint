@@ -61,7 +61,8 @@ export default defineConfig({
                             {
                                 label: "Tooling",
                                 collapsed: true,
-                                items: ["guide/tooling/vscode"],
+                                items: ["guide/tooling/vscode", "guide/tooling/figma-inspector"],
+                                
                             },
                             {
                                 label: "Language",
@@ -140,7 +141,6 @@ export default defineConfig({
                                 collapsed: true,
                                 items: [
                                     "guide/development/debugging_techniques",
-                                    "guide/development/figma-inspector",
                                     "guide/development/focus",
                                     "guide/development/translations",
                                     "guide/development/fonts",
