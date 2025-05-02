@@ -219,8 +219,11 @@ component ContextMenu inherits Empty {
     callback activated(entry: MenuEntry);
     callback sub-menu(entry: MenuEntry) -> [MenuEntry];
     callback show(position: Point);
-    function close() {}
-    function is-open() -> bool {}
+    function close() {
+    }
+    function is-open() -> bool {
+    }
+    in property <bool> enabled: true;
 }
 
 // Lowered in lower_menus pass.
@@ -236,11 +239,13 @@ export component ContextMenuInternal inherits ContextMenu {
 export component ContextMenuArea inherits Empty {
     // This is actually function as part of out interface, but a callback as much is the runtime concerned
     callback show(position: Point);
-    function close() {}
+    function close() {
+    }
     //-default_size_binding:expands_to_parent_geometry
-    Menu {}
-}
+    Menu { }
 
+    in property <bool> enabled: true;
+}
 
 component WindowItem {
     in-out property <length> width;

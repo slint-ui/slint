@@ -6,6 +6,7 @@ import { GallerySettings } from "../gallery_settings.slint";
 import { Page } from "page.slint";
 
 export component TextEditPage inherits Page {
+    show-enable-read-only: true;
     title: @tr("TextEdit");
     description: @tr("Similar to LineEdit, but can be used to enter several lines of text. The widget can be imported from \"std-widgets.slint\".");
 
@@ -19,6 +20,7 @@ export component TextEditPage inherits Page {
                 placeholder-text: @tr("Add some text");
                 wrap: word-wrap;
                 enabled: GallerySettings.widgets-enabled;
+                read-only: GallerySettings.widgets-read-only;
             }
         }
 
@@ -29,6 +31,7 @@ export component TextEditPage inherits Page {
                 text <=> te1.text;
                 wrap: no-wrap;
                 enabled: GallerySettings.widgets-enabled;
+                read-only: GallerySettings.widgets-read-only;
             }
         }
     }

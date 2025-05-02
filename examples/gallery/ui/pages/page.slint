@@ -6,9 +6,10 @@ import { Switch, GridBox, ListView, ScrollView, HorizontalBox, VerticalBox, Pale
 import { GallerySettings } from "../gallery_settings.slint";
 
 export component Page inherits VerticalBox {
-    in property<string> title: "title";
-    in property<string> description: "description";
-    in property<bool> show-enable-switch: true;
+    in property <string> title: "title";
+    in property <string> description: "description";
+    in property <bool> show-enable-switch: true;
+    in property <bool> show-enable-read-only: false;
 
     accessible-role: tab-panel;
     accessible-label: root.title;
@@ -20,12 +21,19 @@ export component Page inherits VerticalBox {
         }
 
         // Spacer
-        Rectangle {}
+        Rectangle { }
 
         if show-enable-switch: Switch {
             horizontal-stretch: 0;
             text: @tr("Widgets enabled");
             checked <=> GallerySettings.widgets-enabled;
+            enabled: true;
+        }
+
+        if show-enable-read-only: Switch {
+            horizontal-stretch: 0;
+            text: @tr("Widgets read-only");
+            checked <=> GallerySettings.widgets-read-only;
             enabled: true;
         }
 
