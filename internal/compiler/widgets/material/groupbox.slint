@@ -5,8 +5,9 @@ import { MaterialPalette, MaterialFontSettings } from "styling.slint";
 
 // A container widget with a title.
 export component GroupBox {
-    in property <string> title <=> i-text.text;
+    in property <string> title;
     in property <bool> enabled: true;
+    in property <length> content-padding: 16px;
 
     accessible-role: groupbox;
     accessible-label: root.title;
@@ -14,16 +15,15 @@ export component GroupBox {
 
     states [
         disabled when !root.enabled : {
-            i-background.border-color: MaterialPalette.control-foreground;
-            i-background.opacity: 0.38;
-            i-text.opacity: 0.38;
+            background.border-color: MaterialPalette.control-foreground;
+            background.opacity: 0.38;
         }
     ]
 
     VerticalLayout {
         spacing: 4px;
 
-        i-text := Text {
+        if root.title != "" : Text {
             color: MaterialPalette.control-foreground;
             // FIXME after Roboto font can be loaded
             //font-family: MaterialFontSettings.body-small.font;
@@ -31,21 +31,26 @@ export component GroupBox {
             font-weight: MaterialFontSettings.body-small.font-weight;
             overflow: elide;
             horizontal-alignment: center;
+            text: root.title;
+
+            states [
+                disabled when !root.enabled : {
+                    opacity: 0.38;
+                }
+            ]
         }
 
-        i-background := Rectangle {
+        background := Rectangle {
             border-radius: 16px;
             border-width: 1px;
             border-color: MaterialPalette.border;
             vertical-stretch: 1;
             background: MaterialPalette.alternate-background;
 
-            HorizontalLayout {
-                padding: 16px;
+            GridLayout {
+                padding: root.content-padding;
 
-                GridLayout {
-                    @children
-                }
+                @children
             }
         }
     }

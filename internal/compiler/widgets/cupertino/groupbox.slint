@@ -4,8 +4,9 @@
 import { CupertinoFontSettings, CupertinoPalette } from "styling.slint";
 
 export component GroupBox {
-    in property <string> title <=> label.text;
+    in property <string> title;
     in property <bool> enabled: true;
+    in property <length> content-padding: 8px;
 
     accessible-role: groupbox;
     accessible-label: root.title;
@@ -16,7 +17,7 @@ export component GroupBox {
         padding-top: 12px;
         padding-bottom: 12px;
 
-        label := Text {
+        if root.title != "" : Text {
             vertical-stretch: 0;
             color: !root.enabled ? CupertinoPalette.foreground-secondary : CupertinoPalette.foreground;
             font-size: CupertinoFontSettings.body-strong.font-size;
@@ -31,7 +32,7 @@ export component GroupBox {
             border-color: CupertinoPalette.border;
 
             GridLayout {
-                padding: 8px;
+                padding: root.content-padding;
 
                 @children
             }

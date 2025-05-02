@@ -4,8 +4,9 @@
 import { CosmicFontSettings, CosmicPalette } from "styling.slint";
 
 export component GroupBox {
-    in property <string> title <=> label.text;
+    in property <string> title;
     in property <bool> enabled: true;
+    in property <length> content-padding: 8px;
 
     accessible-role: groupbox;
     accessible-label: root.title;
@@ -16,11 +17,12 @@ export component GroupBox {
         padding-top: 16px;
         padding-bottom: 8px;
 
-        label := Text {
+        if root.title != "" : Text {
             vertical-stretch: 0;
             color: !root.enabled ? CosmicPalette.text-disabled : CosmicPalette.control-foreground;
             font-size: CosmicFontSettings.body-strong.font-size;
             font-weight: CosmicFontSettings.body-strong.font-weight;
+            text: root.title;
         }
 
         Rectangle {
@@ -29,7 +31,7 @@ export component GroupBox {
             border-radius: 8px;
 
             GridLayout {
-                padding: 8px;
+                padding: root.content-padding;
 
                 @children
             }

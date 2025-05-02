@@ -4,6 +4,7 @@
 export component GroupBox {
     in property title <=> native.title;
     in property enabled <=> native.enabled;
+    in property <length> content-padding: -1px;
 
     accessible-role: groupbox;
     accessible-label: root.title;
@@ -11,10 +12,10 @@ export component GroupBox {
 
     native := NativeGroupBox {
         GridLayout {
-            padding-left: native.native-padding-left;
-            padding-right: native.native-padding-right;
-            padding-top: native.native-padding-top;
-            padding-bottom: native.native-padding-bottom;
+            padding-left: root.content-padding >= 0 ? root.content-padding : native.native-padding-left;
+            padding-right: root.content-padding >= 0 ? root.content-padding : native.native-padding-right;
+            padding-top: root.content-padding >= 0 ? root.content-padding : native.native-padding-top;
+            padding-bottom: root.content-padding >= 0 ? root.content-padding : native.native-padding-bottom;
 
             @children
         }
