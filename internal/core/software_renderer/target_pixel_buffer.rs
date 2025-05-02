@@ -4,7 +4,7 @@
 use super::*;
 
 use crate::graphics::IntSize;
-pub use crate::graphics::{CompositionMode, TexturePixelFormat};
+pub use crate::graphics::TexturePixelFormat;
 
 /// The pixel data of a for the source of a [`Texture`].
 #[derive(Clone)]
@@ -140,6 +140,62 @@ impl DrawTextureArgs {
     }
 }
 
+/// This structure describes the properties of a rectangle for blending with [`TargetPixelBuffer::draw_rectangle`].
+#[non_exhaustive]
+#[derive(Default, Debug)]
+pub struct DrawRectangleArgs {
+    /// The x position in the destination buffer
+    pub x: isize,
+    /// The y position in the destination buffer
+    pub y: isize,
+    /// The width of the image in the destination.
+    pub width: usize,
+    /// The height of the image in the destination.
+    pub height: usize,
+
+    /// The top-left radius.
+    pub top_left_radius: u32,
+    /// The top-right radius.
+    pub top_right_radius: u32,
+    /// The bottom-right radius.
+    pub bottom_right_radius: u32,
+    /// The bottom-left radius.
+    pub bottom_left_radius: u32,
+
+    /// The width of the border.
+    pub border_width: u32,
+
+    /// The background of the rectangle
+    pub background: Brush,
+    /// The border of the rectangle
+    pub border: Brush,
+
+    /// A value between 0 and 255 that specifies the opacity.
+    /// A value of 0 would mean that the rectangle is fully transparent (so nothing is drawn),
+    /// and a value of 255 would mean fully opaque.
+    pub alpha: u8,
+    /// An extra rotation that should be applied to the gradient
+    pub rotation: RenderingRotation,
+}
+
+impl DrawRectangleArgs {
+    pub(super) fn from_rect(geometry: PhysicalRect, background: Brush) -> Self {
+        Self {
+            x: geometry.origin.x as _,
+            y: geometry.origin.y as _,
+            width: geometry.size.width as _,
+            height: geometry.size.height as _,
+            background,
+            alpha: 255,
+            ..Default::default()
+        }
+    }
+
+    pub(super) fn geometry(&self) -> PhysicalRect {
+        euclid::rect(self.x as _, self.y as _, self.width as _, self.height as _)
+    }
+}
+
 /// This trait represents access to a buffer of pixels the software renderer can render into, as well
 /// as certain operations that the renderer will try to delegate to this trait. Implement these functions
 /// to delegate rendering further to hardware-provided 2D acceleration units, such as DMA2D or PXP.
@@ -147,27 +203,19 @@ pub trait TargetPixelBuffer {
     /// The pixel type the buffer represents.
     type TargetPixel: TargetPixel;
 
-    /// The optimal type for a color that can be blended
-    //type BlendableColor: Copy + From<Color> + From<PremultipliedRgbaColor>;
-
     /// Returns a slice of pixels for the given line.
     fn line_slice(&mut self, line_number: usize) -> &mut [Self::TargetPixel];
 
     /// Returns the number of lines the buffer has. This is typically the height in pixels.
     fn num_lines(&self) -> usize;
 
-    /// Fills the buffer with a rectangle at the specified position with the given size and the
-    /// provided color. Returns true if the operation was successful; false if it could not be
-    /// implemented and instead the software renderer needs to draw the rectangle.
-    fn fill_rectangle(
-        &mut self,
-        _x: i16,
-        _y: i16,
-        _width: i16,
-        _height: i16,
-        _color: PremultipliedRgbaColor,
-        _composition_mode: CompositionMode,
-    ) -> bool {
+    /// Fill the background of the buffer with the given brush.
+    fn fill_background(&mut self, _brush: &Brush, _region: &PhysicalRegion) -> bool {
+        false
+    }
+
+    /// Draw a rectangle specified by the DrawRectangleArgs. That rectangle must be clipped to the given region
+    fn draw_rectangle(&mut self, _: &DrawRectangleArgs, _clip: &PhysicalRegion) -> bool {
         false
     }
 
