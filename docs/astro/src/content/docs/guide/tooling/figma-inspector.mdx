@@ -7,11 +7,11 @@ description: Exporting Figma Variables to Slint Design Tokens
 import { Tabs, TabItem } from '@astrojs/starlight/components';
 import LangRefLink from '/src/components/LangRefLink.astro';
 
-## Purpose
+## Setting up the Figma Inspector
+First of all, find and enable the "Figma to Slint" plugin in the Figma Plugin Manager.
+The inspector currently has 2 functions.  One is to inspect individual Figma objects for their properties, and the other is to export the variables defined in Figma so they are useable in Slint directly. 
 
-The primary goal of this feature in  the figma plugin is to bridge the gap between design specifications defined in Figma using Variables and their implementation in a Slint UI project. It automates the creation of Slint code that reflects the structure, values, and modes of your Figma variables.
-
-## Key Features
+## Key Features of Variable Export
 
 -   **Type Conversion:** Maps Figma variable types (Color, Float, String, Boolean) to corresponding Slint types (`brush`, `length`, `string`, `bool`).
 -   **Mode Support:** Translates Figma Modes into:
@@ -36,8 +36,8 @@ The primary goal of this feature in  the figma plugin is to bridge the gap betwe
 ## Usage
 
 1.  **Enable Feature:** 
-    -   Find and enable the "Figma to Slint" plugin in the Figma Plugin Manager.
     -   Check the "Use Figma Variables" checkbox in the plugin UI.
+    -   Now when selecting objects to inspect you should see variable names instead of resolved values (if they are assigned)
 2.  **Export:** Click the "Export" button and choose:
     -   `Separate Files Per Collection…`: Recommended for organization if no recursive references exist. Creates `<collection_name>.slint` files.
     -   `Single Design-Tokens File…`: Creates `design-tokens.slint`. Necessary if any self references exist.
