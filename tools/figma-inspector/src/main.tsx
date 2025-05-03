@@ -142,13 +142,11 @@ export const App = () => {
                             </DropdownMenu.Item>
                         </DropdownMenu.Content>
                     </DropdownMenu.Root>
-                    <Text
-                        style={{
-                            color: exportsAreCurrent
-                                ? "var(--figma-color-text-disabled)"
-                                : "var(--figma-color-text-primary",
-                        }}
-                    >
+                    <Text style={{
+                        color: exportsAreCurrent
+                            ? "var(--figma-color-text-disabled)"
+                            : "var(--figma-color-text-secondary",
+                    }}>
                         {useVariables ? (
                             exportsAreCurrent ? (
                                 <em>Exports are current</em>
