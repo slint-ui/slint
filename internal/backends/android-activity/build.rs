@@ -1,120 +1,75 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+use std::env;
 use std::path::PathBuf;
-use std::process::Command;
-use std::{env, fs};
+
+use android_build::{Dexer, JavaBuild};
 
 fn main() {
-    // unit test: `#[test]` fn are not run in build.rs, so we need to call it manually
-    test_parse_version();
-
     if !env::var("TARGET").unwrap().contains("android") {
         return;
     }
+    let release_mode = env::var("PROFILE").as_ref().map(|s| s.as_str()) == Ok("release");
 
-    let out_dir: PathBuf = env::var_os("OUT_DIR").unwrap().into();
+    // This is the only Java source file
+    let java_src = "SlintAndroidJavaHelper.java";
+    let java_src_path = format!("java/{java_src}");
 
     let slint_path: PathBuf = ["dev", "slint", "android-activity"].iter().collect();
-    let java_class = "SlintAndroidJavaHelper.java";
 
-    let mut out_class = out_dir.clone();
-    out_class.push("java");
-    out_class.push(slint_path);
+    let out_dir: PathBuf = env::var_os("OUT_DIR").unwrap().into();
+    let mut out_class_dir = out_dir.clone();
+    out_class_dir.push("java");
+    out_class_dir.push(slint_path);
 
-    let android_home =
-        PathBuf::from(env_var("ANDROID_HOME").or_else(|_| env_var("ANDROID_SDK_ROOT")).expect(
-            "Please set the ANDROID_HOME environment variable to the path of the Android SDK",
-        ));
-
-    let classpath = find_latest_version(android_home.join("platforms"), "android.jar")
-        .expect("No Android platforms found");
-
-    // Try to locate javac and java
-    let javac_java = env_var("JAVA_HOME")
-        .map(|home| PathBuf::from(home).join("bin"))
-        .map(|bin| (bin.join("javac"), bin.join("java")));
-    let (javac_path, java_path) = if let Ok(ref javac_java) = javac_java {
-        (javac_java.0.to_str().unwrap(), javac_java.1.to_str().unwrap())
-    } else {
-        ("javac", "java")
-    };
-
-    let handle_java_err = |err: std::io::Error| {
-        if err.kind() == std::io::ErrorKind::NotFound {
-            panic!("Could not locate the java compiler. Please ensure that the JAVA_HOME environment variable is set correctly.")
-        } else {
-            panic!("Could not run {javac_path}: {err}")
-        }
-    };
-
-    // Check version
-    let o = Command::new(&javac_path).arg("-version").output().unwrap_or_else(handle_java_err);
-    if !o.status.success() {
-        panic!("Failed to get javac version: {}", String::from_utf8_lossy(&o.stderr));
+    if out_class_dir.try_exists().unwrap_or(false) {
+        let _ = std::fs::remove_dir_all(&out_class_dir);
     }
-    let mut version_output = String::from_utf8_lossy(&o.stdout);
-    if version_output.is_empty() {
-        // old version of java used stderr
-        version_output = String::from_utf8_lossy(&o.stderr);
-    }
-    let java_ver = parse_javac_version_output(&version_output);
-    if java_ver < 8 {
-        panic!("The detected Java version is too old. The minimum required version is Java 8. Your Java version: {version_output:?} (parsed as {java_ver})")
-    }
+    std::fs::create_dir_all(&out_class_dir)
+        .unwrap_or_else(|e| panic!("Cannot create output directory {out_class_dir:?} - {e}"));
 
-    std::fs::create_dir_all(&out_class)
-        .unwrap_or_else(|e| panic!("Cannot create output directory {out_class:?} - {e}"));
+    let android_jar = android_build::android_jar(None).expect("No Android platforms found");
 
-    // Compile the Java file into a .class file
-    let o = Command::new(&javac_path)
-        .arg(format!("java/{java_class}"))
-        .arg("-d")
-        .arg(out_class.as_os_str())
-        .arg("-classpath")
-        .arg(&classpath)
-        .args(if java_ver != 8 { &["--release", "8"] } else { &[] as &[&str] })
-        .args(&["-encoding", "UTF-8"])
+    // Compile the Java file into .class files
+    let o = JavaBuild::new()
+        .file(&java_src_path)
+        .class_path(&android_jar)
+        .classes_out_dir(&out_class_dir)
+        .java_source_version(8)
+        .java_target_version(8)
+        .debug_info(android_build::DebugInfo {
+            line_numbers: !release_mode,
+            variables: !release_mode,
+            source_files: !release_mode,
+        })
+        .command()
+        .unwrap_or_else(|e| panic!("Could not generate the java compiler command: {e}"))
+        .args(["-encoding", "UTF-8"])
         .output()
-        .unwrap_or_else(handle_java_err);
+        .unwrap_or_else(|e| panic!("Could not run the java compiler: {e}"));
 
     if !o.status.success() {
         panic!("Java compilation failed: {}", String::from_utf8_lossy(&o.stderr));
     }
 
-    // Convert the .class file into a .dex file
-    let d8_path = find_latest_version(android_home.join("build-tools"), "lib")
-        .map(|path| path.join("d8.jar"))
-        .expect("d8 tool not found");
-
-    // collect all the *.class files
-    let classes = fs::read_dir(&out_class)
+    let o = Dexer::new()
+        .android_jar(&android_jar)
+        .class_path(&out_class_dir)
+        .collect_classes(&out_class_dir)
         .unwrap()
-        .filter_map(Result::ok)
-        .filter(|entry| entry.path().extension() == Some(std::ffi::OsStr::new("class")))
-        .map(|entry| entry.path())
-        .collect::<Vec<_>>();
-
-    let o = Command::new(&java_path)
-        // class path of D8 itself
-        .arg("-classpath")
-        .arg(&d8_path)
-        .arg("com.android.tools.r8.D8")
-        // class path of D8's input
-        .arg("--classpath")
-        .arg(&out_class)
-        .args(&classes)
-        .arg("--output")
-        .arg(out_dir.as_os_str())
-        // workaround for the DexClassLoader in Android 7.x
-        .arg("--min-api")
-        .arg("20")
+        .release(release_mode)
+        .android_min_api(20) // disable multidex for single dex file output
+        .out_dir(out_dir)
+        .command()
+        .unwrap_or_else(|e| panic!("Could not generate the D8 command: {e}"))
         .output()
-        .unwrap_or_else(|err| panic!("Error running {d8_path:?}: {err}"));
+        .unwrap_or_else(|e| panic!("Error running D8: {e}"));
 
     if !o.status.success() {
         eprintln!("Dex conversion failed: {}", String::from_utf8_lossy(&o.stderr));
-
+        let javac = android_build::javac().unwrap();
+        let java_ver = android_build::check_javac_version(&javac).unwrap();
         if java_ver >= 21 {
             eprintln!("WARNING: JDK version 21 is known to cause an error with older android SDK");
             eprintln!("See https://github.com/slint-ui/slint/issues/4973");
@@ -123,42 +78,5 @@ fn main() {
         panic!("Dex conversion failed");
     }
 
-    println!("cargo:rerun-if-changed=java/{java_class}");
-}
-
-fn parse_javac_version_output(version_output: &str) -> i32 {
-    let version = version_output
-        .split_whitespace()
-        .nth(1)
-        .and_then(|v| v.split('-').next())
-        .unwrap_or_default();
-    let mut java_ver: i32 = version.split('.').next().unwrap_or("0").parse().unwrap_or(0);
-    if java_ver == 1 {
-        // Before java 9, the version was something like javac 1.8
-        java_ver = version.split('.').nth(1).unwrap_or("0").parse().unwrap_or(0);
-    }
-    java_ver
-}
-
-//#[test] doesn't work in build.rs so it is called from main. Impact on build time should be negligible
-fn test_parse_version() {
-    assert_eq!(parse_javac_version_output("javac 1.8.0_292"), 8);
-    assert_eq!(parse_javac_version_output("javac 17.0.13"), 17);
-    assert_eq!(parse_javac_version_output("javac 21.0.5"), 21);
-    assert_eq!(parse_javac_version_output("javac 24-ea"), 24);
-    assert_eq!(parse_javac_version_output("error"), 0);
-    assert_eq!(parse_javac_version_output("javac error"), 0);
-}
-
-fn env_var(var: &str) -> Result<String, env::VarError> {
-    println!("cargo:rerun-if-env-changed={var}");
-    env::var(var)
-}
-
-fn find_latest_version(base: PathBuf, arg: &str) -> Option<PathBuf> {
-    fs::read_dir(base)
-        .ok()?
-        .filter_map(|entry| Some(entry.ok()?.path().join(arg)))
-        .filter(|path| path.exists())
-        .max()
+    println!("cargo:rerun-if-changed={java_src_path}");
 }
