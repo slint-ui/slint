@@ -36,14 +36,10 @@
     "vitest": "3.1.2"
   },
   "dependencies": {
-    "@tailwindcss/vite": "4.1.5",
-    "autoprefixer": "10.4.21",
     "figma-kit": "1.0.0-beta.19",
     "html-react-parser": "5.2.3",
-    "postcss": "8.5.3",
     "react": "19.1.0",
     "react-dom": "19.1.0",
-    "tailwindcss": "3.4.17",
     "zustand": "5.0.4"
   }
 }
