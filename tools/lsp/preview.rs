@@ -1135,6 +1135,8 @@ pub enum LoadBehavior {
     Reload,
     /// Load the preview and make the window visible if it wasn't already.
     Load,
+    /// Load the preview and make the window visible if it wasn't already.
+    LoadWithoutLiveData,
     /// We show the preview because the user asked for it. The UI should become visible and focused if it wasn't already
     BringWindowToFront,
 }
@@ -1149,7 +1151,7 @@ pub fn reload_preview() {
         return;
     };
 
-    load_preview(pc, LoadBehavior::Load);
+    load_preview(pc, LoadBehavior::LoadWithoutLiveData);
 }
 
 async fn reload_timer_function() {
@@ -1254,9 +1256,9 @@ pub fn load_preview(preview_component: PreviewComponent, behavior: LoadBehavior)
                     return;
                 }
             }
-            LoadBehavior::Load | LoadBehavior::BringWindowToFront => {
-                cache.set_current_component(preview_component)
-            }
+            LoadBehavior::Load
+            | LoadBehavior::LoadWithoutLiveData
+            | LoadBehavior::BringWindowToFront => cache.set_current_component(preview_component),
         }
 
         cache.current_load_behavior = Some(behavior);
@@ -1364,8 +1366,11 @@ async fn reload_preview_impl(
     start_parsing();
 
     if let Some(component_instance) = component_instance() {
-        let live_preview_data =
-            preview_data::query_preview_data_properties_and_callbacks(&component_instance);
+        let live_preview_data = if behavior != LoadBehavior::LoadWithoutLiveData {
+            preview_data::query_preview_data_properties_and_callbacks(&component_instance)
+        } else {
+            preview_data::PreviewDataMap::default()
+        };
         set_current_live_data(live_preview_data);
     }
 
