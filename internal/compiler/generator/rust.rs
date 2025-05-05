@@ -290,7 +290,6 @@ fn generate_public_component(
             pub fn new() -> core::result::Result<Self, slint::PlatformError> {
                 let inner = #inner_component_id::new()?;
                 #init_bundle_translations
-                inner.globals.get().unwrap().init();
                 #inner_component_id::user_init(sp::VRc::map(inner.clone(), |x| x));
                 // ensure that the window exist as this point so further call to window() don't panic
                 inner.globals.get().unwrap().window_adapter_ref()?;
@@ -379,16 +378,14 @@ fn generate_shared_globals(
             root_item_tree_weak : sp::VWeak<sp::ItemTreeVTable>,
         }
         impl SharedGlobals {
-            fn new(root_item_tree_weak : sp::VWeak<sp::ItemTreeVTable>) -> Self {
-                Self {
+            fn new(root_item_tree_weak : sp::VWeak<sp::ItemTreeVTable>) -> sp::Rc<Self> {
+                let _self = sp::Rc::new(Self {
                     #(#global_names : #global_types::new(),)*
                     window_adapter : ::core::default::Default::default(),
                     root_item_tree_weak,
-                }
-            }
-
-            fn init(self: &sp::Rc<Self>) {
-                #(self.#global_names.clone().init(self);)*
+                });
+                #(_self.#global_names.clone().init(&_self);)*
+                _self
             }
 
             fn window_adapter_impl(&self) -> sp::Rc<dyn sp::WindowAdapter> {
@@ -1520,7 +1517,7 @@ fn generate_item_tree(
     } else if parent_ctx.is_some() {
         quote!(parent.upgrade().unwrap().globals.get().unwrap().clone())
     } else {
-        quote!(sp::Rc::new(SharedGlobals::new(sp::VRc::downgrade(&self_dyn_rc))))
+        quote!(SharedGlobals::new(sp::VRc::downgrade(&self_dyn_rc)))
     };
     let globals_arg = is_popup_menu.then(|| quote!(globals: sp::Rc<SharedGlobals>));
 

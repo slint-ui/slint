@@ -3,38 +3,48 @@
 
 // This tests that constant property from global are properly initialized
 
-global Glob := {
-    property <int> a: 3;
-    property <int> b: a + 3;
+global Glob {
+    in-out property <int> a: 3;
+    in-out property <int> b: a + 3;
 }
 
-global Glob2 := {
-    property <int> a: other;
-    property <int> other: 5;
+global Glob2  {
+    in-out property <int> a: other;
+    in-out property <int> other: 5;
+
+    // A constant property that is not going to be inlined
+    out property <int> const-no-inline: {
+        debug("this debug message should make no-inline to not be inlined");
+        82
+    }
 }
 
-TestCase := Rectangle {
+export component TestCase inherits Window {
     r := Rectangle {
         property <int> value1: Glob.b;
         property <int> value2: true ? Glob2.a : 88;
     }
-    property <bool> test: r.value1 + r.value2 == 3+3 +5;
+    out property <int> value3: Glob2.const-no-inline;
+    out property <bool> test: r.value1 + r.value2 == 3+3 +5 && value3 == 82;
 }
 
 /*
 ```rust
 let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_value3(), 82);
 assert!(instance.get_test());
 ```
 
 ```cpp
 auto handle = TestCase::create();
 const TestCase &instance = *handle;
+assert_eq(instance.get_value3(), 82);
 assert(instance.get_test());
 ```
 
 ```js
 let instance = new slint.TestCase({});
+assert.equal(instance.value3, 82);
 assert(instance.test);
 ```
 
