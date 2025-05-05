@@ -283,11 +283,11 @@ importers:
         specifier: ~8.0.4
         version: 8.0.4
       '@lumino/default-theme':
-        specifier: 2.1.9
-        version: 2.1.9
+        specifier: 2.1.10
+        version: 2.1.10
       '@lumino/widgets':
-        specifier: 2.7.0
-        version: 2.7.0
+        specifier: 2.7.1
+        version: 2.7.1
       '@playwright/test':
         specifier: 1.52.0
         version: 1.52.0
@@ -1541,8 +1541,8 @@ packages:
   '@lumino/coreutils@2.2.1':
     resolution: {integrity: sha512-yij4TnxDIum7xfFUsVvZB0oLv4shs2mNbn3juwtEIsruvVBPmurNzKX0Y8z2QetbP2AZ6MSFtBzEKsihf0H0VA==}
 
-  '@lumino/default-theme@2.1.9':
-    resolution: {integrity: sha512-qduykbyWPqTAGoR8SyT2p9T1h8vqnJTziJLGFsAoGKq4XbPeM+0PL9AZPtT5pb6GuNH9thkXvWBDolFhKllXXw==}
+  '@lumino/default-theme@2.1.10':
+    resolution: {integrity: sha512-75RUcfYyI2ZWN2dSfTB2C2NXiO0s117TSBYxtJf0vpJz79Nh38CFkElXDSBqKgNdIyv19uoZbxFm8/1OgmXx7Q==}
 
   '@lumino/disposable@2.1.4':
     resolution: {integrity: sha512-qTJiDbglPE2QnG4x4gtBcRbcfKQibxyyinNGKcNDrcK2TGTbbhK5PpMQ8d70l2V2Xw2pb/LfksBAg5pxkJ/G4A==}
@@ -1568,8 +1568,8 @@ packages:
   '@lumino/virtualdom@2.0.3':
     resolution: {integrity: sha512-q2C8eBxPvvOOQjN3KuxZ+vJi082JH/GF7KwMdaWsy5g+7wjKdnXPuLQFTBLOrVqIzmbxBDlLeFr93CEhdQXcyQ==}
 
-  '@lumino/widgets@2.7.0':
-    resolution: {integrity: sha512-I7vXPY0YFo2p9JOI0M5Nh5qnF+cGOCwtTwx+T5f4mtfaJFKsA0SY8hE/Z8IgDswMiY2cYpvSSj220Ilh/qtg7Q==}
+  '@lumino/widgets@2.7.1':
+    resolution: {integrity: sha512-gGq3zB1260gG1aK1m3SkqVoWZ/yfUxCKZvUOmRKLIcZPJUs33bgessm4P65oY5C1eAXalU4erLmKBiBaOn5gtw==}
 
   '@mapbox/node-pre-gyp@2.0.0':
     resolution: {integrity: sha512-llMXd39jtP0HpQLVI37Bf1m2ADlEb35GYSh1SDSLsBhR+5iCxiNGlT31yqbNtVHygHAtMy6dWFERpU2JgufhPg==}
@@ -7326,10 +7326,10 @@ snapshots:
     dependencies:
       '@lumino/algorithm': 2.0.3
 
-  '@lumino/default-theme@2.1.9':
+  '@lumino/default-theme@2.1.10':
     dependencies:
       '@lumino/dragdrop': 2.1.6
-      '@lumino/widgets': 2.7.0
+      '@lumino/widgets': 2.7.1
 
   '@lumino/disposable@2.1.4':
     dependencies:
@@ -7360,7 +7360,7 @@ snapshots:
     dependencies:
       '@lumino/algorithm': 2.0.3
 
-  '@lumino/widgets@2.7.0':
+  '@lumino/widgets@2.7.1':
     dependencies:
       '@lumino/algorithm': 2.0.3
       '@lumino/commands': 2.3.2
