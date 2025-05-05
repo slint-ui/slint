@@ -44,6 +44,6 @@
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "tailwindcss": "3.4.17",
-    "zustand": "5.0.3"
+    "zustand": "5.0.4"
   }
 }
