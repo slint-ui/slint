@@ -156,6 +156,7 @@ export default defineConfig({
                                     "guide/platforms/desktop",
                                     "guide/platforms/embedded",
                                     "guide/platforms/mobile",
+                                    "guide/platforms/web",
                                 ],
                             },
                             {
