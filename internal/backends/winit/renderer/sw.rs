@@ -53,6 +53,8 @@ impl From<PremultipliedRgbaColor> for SoftBufferPixel {
 }
 
 impl TargetPixel for SoftBufferPixel {
+    type BlendableColor = PremultipliedRgbaColor;
+
     fn blend(&mut self, color: PremultipliedRgbaColor) {
         let mut x = PremultipliedRgbaColor::from(*self);
         x.blend(color);

@@ -1231,7 +1231,7 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> RenderToBuffer<'_, B> {
                 match composition_mode {
                     CompositionMode::Source => {
                         let mut fill_col = B::TargetPixel::background();
-                        B::TargetPixel::blend(&mut fill_col, color);
+                        B::TargetPixel::blend(&mut fill_col, color.into());
                         for l in rect.y_range() {
                             buffer.line_slice(l as usize)[begin as usize..end as usize]
                                 .fill(fill_col)
