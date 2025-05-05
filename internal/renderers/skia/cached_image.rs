@@ -2,8 +2,6 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use crate::PhysicalSize;
-#[cfg(skia_backend_opengl)]
-use i_slint_core::graphics::BorrowedOpenGLTexture;
 use i_slint_core::graphics::{
     cache as core_cache, Image, ImageCacheKey, ImageInner, IntRect, IntSize, OpaqueImage,
     OpaqueImageVTable, SharedImageBuffer,
@@ -36,6 +34,7 @@ pub(crate) fn as_skia_image(
     image_fit: ImageFit,
     scale_factor: ScaleFactor,
     canvas: &skia_safe::Canvas,
+    surface: Option<&dyn crate::Surface>,
 ) -> Option<skia_safe::Image> {
     let image_inner: &ImageInner = (&image).into();
     match image_inner {
@@ -90,48 +89,17 @@ pub(crate) fn as_skia_image(
         ImageInner::BackendStorage(x) => {
             vtable::VRc::borrow(x).downcast::<SkiaCachedImage>().map(|x| x.image.clone())
         }
-        #[cfg(skia_backend_opengl)]
-        ImageInner::BorrowedOpenGLTexture(BorrowedOpenGLTexture {
-            texture_id,
-            size,
-            origin,
-            ..
-        }) => unsafe {
-            let mut texture_info = skia_safe::gpu::gl::TextureInfo::from_target_and_id(
-                glow::TEXTURE_2D,
-                texture_id.get(),
-            );
-            texture_info.format = glow::RGBA8;
-            let backend_texture = skia_safe::gpu::backend_textures::make_gl(
-                (size.width as _, size.height as _),
-                skia_safe::gpu::Mipmapped::No,
-                texture_info,
-                "Borrowed GL texture",
-            );
-            skia_safe::image::Image::from_texture(
-                canvas.recording_context().as_mut().unwrap(),
-                &backend_texture,
-                match origin {
-                    i_slint_core::graphics::BorrowedOpenGLTextureOrigin::TopLeft => {
-                        skia_safe::gpu::SurfaceOrigin::TopLeft
-                    }
-                    i_slint_core::graphics::BorrowedOpenGLTextureOrigin::BottomLeft => {
-                        skia_safe::gpu::SurfaceOrigin::BottomLeft
-                    }
-                    _ => unimplemented!(
-                        "internal error: missing implementation for BorrowedOpenGLTextureOrigin"
-                    ),
-                },
-                skia_safe::ColorType::RGBA8888,
-                skia_safe::AlphaType::Unpremul,
-                None,
-            )
-        },
-        #[cfg(not(skia_backend_opengl))]
-        ImageInner::BorrowedOpenGLTexture(..) => None,
-        ImageInner::NineSlice(n) => {
-            as_skia_image(n.image(), target_size_fn, ImageFit::Preserve, scale_factor, canvas)
+        ImageInner::BorrowedOpenGLTexture(texture) => {
+            surface.and_then(|surface| surface.import_opengl_texture(canvas, texture))
         }
+        ImageInner::NineSlice(n) => as_skia_image(
+            n.image(),
+            target_size_fn,
+            ImageFit::Preserve,
+            scale_factor,
+            canvas,
+            surface,
+        ),
         #[cfg(feature = "unstable-wgpu-24")]
         ImageInner::WGPUTexture(..) => None,
     }

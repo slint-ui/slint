@@ -570,6 +570,7 @@ impl SkiaRenderer {
         let mut skia_item_renderer = itemrenderer::SkiaItemRenderer::new(
             skia_canvas,
             window,
+            surface,
             &self.image_cache,
             &self.path_cache,
             &mut box_shadow_cache,
@@ -1038,6 +1039,14 @@ pub trait Surface {
 
     fn use_partial_rendering(&self) -> bool {
         false
+    }
+
+    fn import_opengl_texture(
+        &self,
+        _canvas: &skia_safe::Canvas,
+        _texture: &i_slint_core::graphics::BorrowedOpenGLTexture,
+    ) -> Option<skia_safe::Image> {
+        None
     }
 
     /// Implementations should return self to allow upcasting.
