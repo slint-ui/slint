@@ -7,7 +7,6 @@ import { figmaPlugin, figmaPluginInit, runAction } from "vite-figma-plugin";
 
 import react from "@vitejs/plugin-react";
 import { config } from "./figma.config";
-import tailwindcss from "@tailwindcss/vite";
 
 const action = process.env.ACTION;
 const mode = process.env.MODE;
@@ -24,12 +23,7 @@ figmaPluginInit();
 
 // https://vitejs.dev/config/
 export default defineConfig({
-    plugins: [
-        tailwindcss(),
-        react(),
-        viteSingleFile(),
-        figmaPlugin(config, mode),
-    ],
+    plugins: [react(), viteSingleFile(), figmaPlugin(config, mode)],
     build: {
         assetsInlineLimit: Number.POSITIVE_INFINITY,
         emptyOutDir: false,
