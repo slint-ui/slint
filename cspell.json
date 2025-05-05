@@ -201,7 +201,8 @@
         "cspell.json",
         "LICENSES",
         "examples/*/lang/**",
-        ".github/workflows/*.yaml"
+        ".github/workflows/*.yaml",
+        "**/package.json"
     ],
     "ignoreRegExpList": [
         // Color encodings in all languages:

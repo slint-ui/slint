@@ -16,6 +16,7 @@
     "lint:fix": "biome lint --fix",
     "format": "biome format",
     "format:fix": "biome format --write",
+    "spellcheck": "cspell --no-progress --gitignore --exclude 'archive/**' \"./**/*.{ts,tsx}\"",
     "test": "vitest",
     "type-check": "tsc --noEmit"
   },

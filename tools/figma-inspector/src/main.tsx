@@ -138,7 +138,7 @@ export const App = () => {
                                     exportFiles(ExportType.SingleFile)
                                 }
                             >
-                                Singl Design-Tokens File…
+                                Single Design-Tokens File…
                             </DropdownMenu.Item>
                         </DropdownMenu.Content>
                     </DropdownMenu.Root>
