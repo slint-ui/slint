@@ -409,9 +409,6 @@ function createReferenceExpression(
                 ? `${slintPath}.${usedModeName}`
                 : slintPath;
 
-        console.log(
-            `[${currentIdentifier}] Detected cross-hierarchy reference to ${targetIdentifier}. Returning path: ${finalValue}`,
-        );
         return {
             value: finalValue,
             isCircular: false,
@@ -456,28 +453,45 @@ function createReferenceExpression(
         else {
             let finalValue: string;
             let finalComment: string | undefined = modeDataToUse.comment;
+            let importStatement: string | undefined = undefined;
 
             if (isCrossCollection) {
-                const slintPath = [
-                    targetCollection,
-                    ...targetPath.map((part) => sanitizePropertyName(part)),
-                ].join(".");
-                const baseExpr = slintPath;
-                const needsModeSuffix = targetModes.size > 1;
+                const targetCollectionDataForImport =
+                    collectionStructure.get(targetCollection);
+                const targetFormattedName =
+                    targetCollectionDataForImport?.formattedName;
 
-                // Assign the full path string to finalValue
-                finalValue =
-                    needsModeSuffix && usedModeName
-                        ? `${baseExpr}.${usedModeName}`
-                        : baseExpr;
+                if (!targetFormattedName) {
+                    exportInfo.warnings.add(
+                        `Could not find formatted name for target collection key: ${targetCollection} when generating import.`,
+                    );
+                    finalValue = modeDataToUse.value;
+                    finalComment = `Resolved same-collection reference to concrete value from ${targetIdentifier}`;
+                    importStatement = undefined;
+                } else {
+                    const slintPath = [
+                        targetFormattedName,
+                        ...targetPath.map((part) => sanitizePropertyName(part)),
+                    ].join(".");
+                    const baseExpr = slintPath;
+                    const needsModeSuffix = targetModes.size > 1;
+
+                    // Assign the full path string to finalValue
+                    finalValue =
+                        needsModeSuffix && usedModeName
+                            ? `${baseExpr}.${usedModeName}`
+                            : baseExpr;
+                    importStatement = `import { ${targetFormattedName} } from "./${targetFormattedName}.slint";\n`;
+                }
             } else {
                 finalValue = modeDataToUse.value;
                 finalComment = `Resolved same-collection reference to concrete value from ${targetIdentifier}`;
+                importStatement = undefined;
             }
 
             return {
                 value: finalValue,
-                importStatement: undefined,
+                importStatement: importStatement,
                 isCircular: false,
                 comment: finalComment,
             };
