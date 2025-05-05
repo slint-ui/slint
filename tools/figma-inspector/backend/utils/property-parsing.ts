@@ -335,10 +335,9 @@ async function getVariablePathString(
 ): Promise<string | null> {
     const variable = await figma.variables.getVariableByIdAsync(variableId);
     if (variable) {
-        const collection =
-            await figma.variables.getVariableCollectionByIdAsync(
-                variable.variableCollectionId,
-            );
+        const collection = await figma.variables.getVariableCollectionByIdAsync(
+            variable.variableCollectionId,
+        );
         if (collection) {
             const globalName = formatStructName(collection.name);
             const pathParts = extractHierarchy(variable.name);

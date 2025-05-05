@@ -53,7 +53,7 @@ export const useInspectorStore = create<StoreState>()((set, get) => ({
             dispatchTS("generateSnippetRequest", {
                 useVariables: get().useVariables,
             });
-        })
+        });
 
         listenTS("exportedFiles", (res) => {
             get().exportFilesHandler(res.files);
