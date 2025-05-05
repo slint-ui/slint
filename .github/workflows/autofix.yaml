@@ -28,6 +28,9 @@ jobs:
         steps:
             - uses: actions/checkout@v4
             - uses: jdx/mise-action@v2
+              with:
+                log_level: debug
+                cache: false
             - name: Run fixes
               run: mise run --force --jobs=1 'ci:autofix:fix'
             - name: Suggest format changes
@@ -39,5 +42,8 @@ jobs:
         steps:
             - uses: actions/checkout@v4
             - uses: jdx/mise-action@v2
+              with:
+                log_level: debug
+                cache: false
             - name: Run lints
               run: mise run --force --jobs=1 'ci:autofix:lint'
