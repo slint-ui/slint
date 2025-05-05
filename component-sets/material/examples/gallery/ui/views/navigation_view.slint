@@ -26,7 +26,8 @@ import {
     ActionChip,
     FilterChip,
     InputChip,
-    TimePicker
+    TimePicker,
+    DatePicker
 } from "../../../../material.slint";
 
 import { Group } from "../components/group.slint";
@@ -378,6 +379,15 @@ export component NavigationView {
             ComponentCard {
                 Horizontal {
                     alignment: center;
+        
+                    TextButton {
+                        icon: OutlinedIcons.schedule;
+                        text: "Show date picker";
+
+                        clicked => {
+                            date_picker.show();
+                        }
+                    }
 
                     TextButton {
                         icon: OutlinedIcons.schedule;
@@ -455,6 +465,17 @@ export component NavigationView {
 
         ok => {
             time_picker.close();
+        }
+    }
+
+    date_picker := DatePicker {
+        x: -root.absolute_position.x;
+        y: -root.absolute_position.y;
+        width: MainWindowAdapter.width;
+        height: MainWindowAdapter.height;
+
+        ok => {
+            date_picker.close();
         }
     }
 }
