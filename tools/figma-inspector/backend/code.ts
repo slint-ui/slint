@@ -7,37 +7,22 @@ import { generateSlintSnippet } from "./utils/property-parsing.js";
 import { exportFigmaVariablesToSeparateFiles } from "./utils/export-variables.js";
 if (figma.editorType === "dev" && figma.mode === "codegen") {
     figma.codegen.on("generate", async ({ node }: { node: SceneNode }) => {
-        try {
-            // Add try...catch for async errors
-            // --- Await the async function ---
-            const useVariablesForCodegen = true;
-            const slintSnippet = await generateSlintSnippet(
-                node,
-                useVariablesForCodegen,
-            );
-            // --- End Await ---
+        const useVariablesForCodegen = true;
+        const slintSnippet = await generateSlintSnippet(
+            node,
+            useVariablesForCodegen,
+        );
 
-            return slintSnippet
-                ? [
-                      {
-                          title: "Slint Code: " + node.name,
-                          // Use "CSS" as Figma doesn't support "SLINT" as a language option
-                          language: "CSS",
-                          code: slintSnippet,
-                      },
-                  ]
-                : [];
-        } catch (error) {
-            console.error("Error during codegen generate:", error);
-            // Return an error message or empty array on failure
-            return [
-                {
-                    title: "Error Generating Slint",
-                    language: "PLAINTEXT",
-                    code: `// Failed to generate Slint snippet for ${node.name}:\n// ${error}`,
-                },
-            ];
-        }
+        return slintSnippet
+            ? [
+                  {
+                      title: "Slint Code: " + node.name,
+                      // Use "CSS" as Figma doesn't support "SLINT" as a language option
+                      language: "CSS",
+                      code: slintSnippet,
+                  },
+              ]
+            : [];
     });
 }
 
@@ -48,11 +33,18 @@ if (figma.editorType === "figma" && figma.mode === "default") {
         height: 320,
     });
 }
+
 listenTS("generateSnippetRequest", async (payload) => {
-    // --- Extract useVariables from payload (default to false) ---
     const useVariables = payload.useVariables ?? false; // <-- You likely already have this
 
+    // Listen for node changes as property changes don't trigger a selectionChanged update
+    const node = figma.currentPage;
+    node.on("nodechange", () => {
+        dispatchTS("nodeChanged", {});
+    });
+
     const selection = figma.currentPage.selection;
+
     let title = "Figma Inspector";
     let slintSnippet: string | null = "// Select a single component to inspect";
 
