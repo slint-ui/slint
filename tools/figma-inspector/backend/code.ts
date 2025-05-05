@@ -8,9 +8,10 @@ import { exportFigmaVariablesToSeparateFiles } from "./utils/export-variables.js
 
 if (figma.editorType === "dev" && figma.mode === "codegen") {
     figma.codegen.on("generate", async ({ node }: { node: SceneNode }) => {
-
         const useVariablesForCodegen =
-            figma.codegen.preferences.customSettings.useVariables === "true" ? true : false;
+            figma.codegen.preferences.customSettings.useVariables === "true"
+                ? true
+                : false;
         const slintSnippet = await generateSlintSnippet(
             node,
             useVariablesForCodegen,
