@@ -9,6 +9,8 @@ export component PopupMenuImpl inherits Window {
     in property <[MenuEntry]> entries: [];
 
     property <int> current-highlight: -1;
+    // `y` position of the currently highlighted menu entry
+    property <length> current-highlight-y-pos;
     property <int> current-open: -1;
     property <length> px: 1rem / 14;
 
@@ -24,6 +26,12 @@ export component PopupMenuImpl inherits Window {
             for entry[index] in entries: MenuItem {
                 entry: entry;
                 is-current: current-highlight == index;
+
+                changed is-current => {
+                    if self.is-current {
+                        current-highlight-y-pos = self.absolute-position.y - root.absolute-position.y;
+                    }
+                }
 
                 set-current => {
                     focus-scope.focus();
@@ -50,17 +58,13 @@ export component PopupMenuImpl inherits Window {
 
                 if current-highlight >= 0 {
                     if entries[current-highlight].has-sub-menu {
-                        activate(entries[current-highlight], y-pos(current-highlight), current-highlight);
+                        activate(entries[current-highlight], current-highlight-y-pos, current-highlight);
                     } else {
                         current-open = -1;
                         sub-menu.close();
                     }
                 }
             }
-        }
-
-        function y-pos(idx: int) -> length {
-            frame.padding + idx * (frame.height - 2 * frame.padding) / entries.length
         }
 
         key-pressed(event) => {
@@ -86,12 +90,12 @@ export component PopupMenuImpl inherits Window {
                 return accept;
             } else if event.text == Key.Return {
                 if current-highlight >= 0 && current-highlight < entries.length && entries[current-highlight].enabled {
-                    activate(entries[current-highlight], y-pos(current-highlight), current-highlight);
+                    activate(entries[current-highlight], current-highlight-y-pos, current-highlight);
                 }
                 return accept;
             } else if event.text == Key.RightArrow {
                 if current-highlight >= 0 && current-highlight < entries.length && entries[current-highlight].has-sub-menu && entries[current-highlight].enabled {
-                    activate(entries[current-highlight], y-pos(current-highlight), current-highlight);
+                    activate(entries[current-highlight], current-highlight-y-pos, current-highlight);
                 }
                 return accept;
             } else if event.text == Key.LeftArrow {
