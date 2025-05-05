@@ -178,7 +178,7 @@ component TimePickerInput {
     horizontal_stretch: 0;
 
     forward_focus: text_input;
-
+        
     background_layer := Rectangle {
         border_radius: MaterialStyleMetrics.border_radius_8;
         background: MaterialPalette.surface_container_highest;
@@ -217,13 +217,13 @@ component TimePickerInput {
                     vertical_alignment: center;
                 }
             }
-                      
+              
             clicked => {
                 root.clicked();
             }
         }
     }
-
+    
     states [
         has_focus when text_input.has_focus && !root.read_only: {
             background_layer.background: MaterialPalette.primary_container;
@@ -238,87 +238,121 @@ component TimePickerInput {
     ]
 }
 
-// component PeriodSelectorItem {
-//     in property <string> text <=> label.text;
-//     in property <bool> checked;
+component PeriodSelectorItem {
+    in property <string> text <=> label.text;
+    in property <bool> checked;
 
-//     callback clicked <=> touch_area.clicked;
+    callback clicked <=> state_layer.clicked;
 
-//     touch_area := TouchArea { }
+    background_layer := Rectangle {     
+        state_layer := StateLayerArea {
+            color: label.color;
+            
+            label := MaterialText {
+                color: MaterialPalette.on_surface_variant;
+                horizontal_alignment: center;
+            }
+        }
+    }
 
-//     background_layer := Rectangle { }
-
-//     label := Text {
-//         font_size: root.style.font_size;
-//         font_weight: root.style.font_weight;
-//         color: root.style.foreground;
-//         horizontal_alignment: center;
-//     }
-
-//     states [
-//         checked when root.checked: {
-//             background_layer.background: root.style.background_selected;
-//             label.color: root.style.foreground_selected;
-//         }
-//     ]
-// }
+    states [
+        checked when root.checked: {
+            background_layer.background: MaterialPalette.tertiary_container;
+            label.color: MaterialPalette.on_tertiary_container;
+        }
+    ]
+}
 
 
-// export component PeriodSelector {
-//     in property <bool> am_selected;
+component PeriodSelector {
+    in property <bool> am_selected;
+    in property <bool> horizontal;
 
-//     callback update_period(bool);
+    callback update_period(am_selected: bool);
 
-//     min_width: max(38px, layout.min_width);
-//     accessible_label: "AM or PM";
-//     accessible_role: checkbox;
-//     accessible_checked: root.am_selected;
+    min_width: max(MaterialStyleMetrics.size_52, layout.min_width);
+    min_height: max(root.horizontal ? MaterialStyleMetrics.size_38 : MaterialStyleMetrics.size_80, layout.min_height);
+    accessible_label: "AM or PM";
+    accessible_role: checkbox;
+    accessible_checked: root.am_selected;
 
-//     Rectangle {
-//         border_radius: border.border_radius;
-//         clip: true;
+    Rectangle {
+        border_radius: border.border_radius;
+        clip: true;
 
-//         layout := VerticalLayout {
-//             PeriodSelectorItem {
-//                 text: "AM";
-//                 checked: root.am_selected;
-//                 style: root.style.item_style;
+        layout := VerticalLayout {
+            if root.horizontal : HorizontalLayout {                    
+                PeriodSelectorItem {
+                    text: "AM";
+                    checked: root.am_selected;
 
-//                 clicked => {
-//                     if root.am_selected {
-//                         return;
-//                     }
-//                     root.update_period(true);
-//                 }
-//             }
+                    clicked => {
+                        if root.am_selected {
+                            return;
+                        }
+                        root.update_period(true);
+                    }
+                }
 
-//             Rectangle {
-//                 height: 1px;
-//                 background: border.border_color;
-//                 vertical_stretch: 0;
-//             }
+                Rectangle {
+                    width: 1px;
+                    background: border.border_color;
+                    vertical_stretch: 0;
+                }
 
-//             PeriodSelectorItem {
-//                 text: "PM";
-//                 checked: !root.am_selected;
-//                 style: root.style.item_style;
+                PeriodSelectorItem {
+                    text: "PM";
+                    checked: !root.am_selected;
 
-//                 clicked => {
-//                     if !root.am_selected {
-//                         return;
-//                     }
-//                     root.update_period(false);
-//                 }
-//             }
-//         }
-//     }
+                    clicked => {
+                        if !root.am_selected {
+                            return;
+                        }
+                        root.update_period(false);
+                    }
+                }
+            }
 
-//     border := Rectangle {
-//         border_radius: root.style.border_radius;
-//         border_width: root.style.border_width;
-//         border_color: root.style.border_brush;
-//     }
-// }
+            if !root.horizontal : VerticalLayout {         
+                PeriodSelectorItem {
+                    text: "AM";
+                    checked: root.am_selected;
+
+                    clicked => {
+                        if root.am_selected {
+                            return;
+                        }
+                        root.update_period(true);
+                    }
+                }
+
+                Rectangle {
+                    height: 1px;
+                    background: border.border_color;
+                    vertical_stretch: 0;
+                }
+
+                PeriodSelectorItem {
+                    text: "PM";
+                    checked: !root.am_selected;
+
+                    clicked => {
+                        if !root.am_selected {
+                            return;
+                        }
+                        root.update_period(false);
+                    }
+                }
+            }  
+        }
+    }
+
+    border := Rectangle {
+        border_radius: MaterialStyleMetrics.border_radius_8;
+        border_width: 1px;
+        border_color: MaterialPalette.outline;
+    }
+}
 
 export struct Time {
     hour: int,
@@ -327,11 +361,13 @@ export struct Time {
 }
 
 export component TimePicker inherits PopupWindow {
-    in property <bool> use_24_hour_format;
+    in property <bool> use_24_hour_format: true;
     in property <string> title: @tr("Select time");
     in property <string> cancel_text: @tr("Cancel");
     in property <string> ok_text: @tr("Ok");
     in property <Time> time: { hour: 12 };
+    in property <string> hour_labl: @tr("Hour");
+    in property <string> minute_label: @tr("Minute");
 
     property <bool> keyboard_mode;
     property <bool> minutes_selected;
@@ -369,6 +405,7 @@ export component TimePicker inherits PopupWindow {
     property <Time> current_time: root.time;
     property <int> time_picker_hour: hour_time_picker.text.to_float();
     property <int> time_picker_minute: minute_time_picker.text.to_float();
+    property <bool> horizontal: root.width >= MaterialStyleMetrics.size_572;
 
     callback ok();
 
@@ -387,59 +424,98 @@ export component TimePicker inherits PopupWindow {
             root.ok_text  
         ];
 
-        HorizontalLayout {
-            padding: MaterialStyleMetrics.padding_24;
+        layout := HorizontalLayout {
             spacing: MaterialStyleMetrics.spacing_52;
-
+            
             VerticalLayout {
                 alignment: center;
-
+                spacing: MaterialStyleMetrics.spacing_8;
                 
                 HorizontalLayout {
-                        alignment: center;
+                    alignment: center;
 
-                        hour_time_picker := TimePickerInput {
-                            read_only: !root.keyboard_mode;
-                            checked: self.read_only && !root.minutes_selected;
-                            text: root.current_time.hour;
+                    hour_time_picker := TimePickerInput {
+                        read_only: !root.keyboard_mode;
+                        checked: self.read_only && !root.minutes_selected;
+                        text: root.current_time.hour;
 
-                            accessible_role: AccessibleRole.text_input;
-                            accessible_value: self.text;
-                            accessible_label: "hour";
+                        accessible_role: AccessibleRole.text_input;
+                        accessible_value: self.text;
+                        accessible_label: "hour";
 
-                            clicked => {
-                                root.minutes_selected = false;
-                            }
-                        }
-
-                        separator := MaterialText {
-                            min_width: MaterialStyleMetrics.size_24;
-                            text: ":";
-                            color: MaterialPalette.on_surface;
-                            style: Typography.display_large;
-                            vertical_alignment: center;
-                            horizontal_alignment: center;
-                        }
-
-                        minute_time_picker := TimePickerInput {
-                            read_only: !root.keyboard_mode;
-                            checked: self.read_only && root.minutes_selected;
-                            text: root.current_time.minute;
-
-                            accessible_role: AccessibleRole.text_input;
-                            accessible_value: self.text;
-                            accessible_label: "minute";
-
-                            clicked => {
-                                root.minutes_selected = true;
-                            }
+                        clicked => {
+                            root.minutes_selected = false;
                         }
                     }
 
-            }
+                    separator := MaterialText {
+                        min_width: MaterialStyleMetrics.size_24;
+                        text: ":";
+                        color: MaterialPalette.on_surface;
+                        style: Typography.display_large;
+                        vertical_alignment: center;
+                        horizontal_alignment: center;
+                    }
 
-                       
-            Clock {
+                    minute_time_picker := TimePickerInput {
+                        read_only: !root.keyboard_mode;
+                        checked: self.read_only && root.minutes_selected;
+                        text: root.current_time.minute;
+
+                        accessible_role: AccessibleRole.text_input;
+                        accessible_value: self.text;
+                        accessible_label: "minute";
+
+                        clicked => {
+                            root.minutes_selected = true;
+                        }
+                    }
+
+                    // spacer
+                    if !root.use_24_hour_format && (!root.horizontal || root.keyboard_mode) : Rectangle {
+                        width: MaterialStyleMetrics.spacing_12;
+                    }
+  
+                    if !root.use_24_hour_format && (!root.horizontal || root.keyboard_mode) : PeriodSelector {
+                        am_selected: root.am_selected;
+
+                        update-period(am) => {
+                            root.am-selected = am;
+                        }
+                    }
+                }
+
+                // labels
+                if root.keyboard_mode : HorizontalLayout {
+                    alignment: start;
+
+                    MaterialText {
+                        width: hour_time_picker.width;
+                        text: root.hour_labl;
+                        color: MaterialPalette.on_surface_variant;
+                    }
+
+                    Rectangle {
+                        width: MaterialStyleMetrics.size_24;
+                    }
+
+                    MaterialText {
+                        text: root.minute_label;
+                        color: MaterialPalette.on_surface_variant;
+                    }
+                }                   
+
+                if !root.use_24_hour_format && !root.keyboard_mode && root.horizontal : PeriodSelector {
+                    am_selected: root.am_selected;
+                    horizontal: true;
+
+                    update-period(am) => {
+                        root.am-selected = am;
+                    }
+                }
+            }
+             
+            if root.horizontal && !root.keyboard_mode : Clock {
                 model: root.current_model;
                 two_columns: !root.minutes_selected && root.use-24_hour_format;
                 current_item: root.current_item;
@@ -452,6 +528,28 @@ export component TimePicker inherits PopupWindow {
                     if !root.minutes_selected {
                         root.minutes_selected = true;
                     }
+                }
+            }
+        }
+
+        // spacer
+        if !root.horizontal && !root.keyboard_mode : Rectangle {
+            height: MaterialStyleMetrics.spacing_12;
+        }
+        
+        if !root.horizontal && !root.keyboard_mode : Clock {
+            model: root.current_model;
+            two_columns: !root.minutes_selected && root.use-24_hour_format;
+            current_item: root.current_item;
+            total: root.minutes_selected ? 60 : root.use-24_hour_format ? 24 : 12;
+            current_value: root.minutes_selected ? root.current_time.minute : root.current_time.hour;
+            height: self.width;
+
+            current_item_changed(index) => {
+                root.update_time_by_item(index);
+
+                if !root.minutes_selected {
+                    root.minutes_selected = true;
                 }
             }
         }
@@ -483,7 +581,7 @@ export component TimePicker inherits PopupWindow {
         }
     }
 
-      pure public function ok_enabled() -> bool {
+    pure public function ok_enabled() -> bool {
         if !root.keyboard_mode {
             return root.current_time.hour <= 23 && root.current_time.minute <= 59;
         }
