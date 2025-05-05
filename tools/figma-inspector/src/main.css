@@ -74,6 +74,7 @@ body {
 
 .code-snippet {
     width: 100%;
+    max-width: 100%;
     font-size: 12px;
     white-space: pre-wrap;
     font-family: "Roboto Mono", Monaco, "Courier New", monospace;
@@ -85,6 +86,7 @@ body {
     counter-increment: step 0;
     padding-left: 3rem;
     position: relative;
+    box-sizing: border-box;
 }
 
 .code-snippet .line {
