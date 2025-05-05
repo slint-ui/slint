@@ -32,6 +32,7 @@
     "typescript": "5.8.3",
     "vite": "6.3.4",
     "vite-figma-plugin": "0.0.24",
+    "vite-plugin-singlefile": "2.2.0",
     "vitest": "3.1.2"
   },
   "dependencies": {
