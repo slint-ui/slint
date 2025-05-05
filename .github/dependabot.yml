@@ -61,4 +61,4 @@ updates:
           - "@types/react-dom"
       lumino:
         patterns:
-          - "@lumino*"
+          - "@lumino/*"
