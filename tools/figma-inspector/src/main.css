@@ -67,7 +67,7 @@ body {
     counter-increment: step;
     width: 30px;
     position: absolute;
-    left: -55px; 
+    left: -55px;
     text-align: right;
     color: var(--figma-color-text-tertiary);
 }
@@ -83,7 +83,7 @@ body {
     overflow-x: auto;
     counter-reset: step;
     counter-increment: step 0;
-    padding-left: 3rem; 
+    padding-left: 3rem;
     position: relative;
 }
 
