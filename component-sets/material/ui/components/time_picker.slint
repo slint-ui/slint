@@ -38,7 +38,7 @@ component TimeSelector inherits Rectangle {
     ]
 }
 
-export component Clock {
+component Clock {
     in property <[int]> model;
     in property <bool> two_columns;
     in property <int> total;
@@ -67,7 +67,7 @@ export component Clock {
     background_layer := Rectangle {
         border_radius: max(self.width, self.height) / 2;
         background: MaterialPalette.surface_container_highest;
-    
+
         if root.current_item >= 0 || root.current_item < root.model.length: Path {
             stroke: MaterialPalette.primary;
             stroke_width: 2px;
@@ -127,7 +127,7 @@ export component Clock {
         }
     }
 
-  
+
     pure function value_to_angle(value: int) -> angle {
         if root.two_columns {
             if value >= root.half_total {
@@ -178,7 +178,7 @@ component TimePickerInput {
     horizontal_stretch: 0;
 
     forward_focus: text_input;
-        
+
     background_layer := Rectangle {
         border_radius: MaterialStyleMetrics.border_radius_8;
         background: MaterialPalette.surface_container_highest;
@@ -196,7 +196,7 @@ component TimePickerInput {
                 input_type: number;
                 visible: !root.read_only;
 
-                edited => {                    
+                edited => {
                     root.edited(self.text.to_float());
                 }
             }
@@ -217,13 +217,13 @@ component TimePickerInput {
                     vertical_alignment: center;
                 }
             }
-              
+
             clicked => {
                 root.clicked();
             }
         }
     }
-    
+
     states [
         has_focus when text_input.has_focus && !root.read_only: {
             background_layer.background: MaterialPalette.primary_container;
@@ -244,10 +244,10 @@ component PeriodSelectorItem {
 
     callback clicked <=> state_layer.clicked;
 
-    background_layer := Rectangle {     
+    background_layer := Rectangle {
         state_layer := StateLayerArea {
             color: label.color;
-            
+
             label := MaterialText {
                 color: MaterialPalette.on_surface_variant;
                 horizontal_alignment: center;
@@ -281,7 +281,7 @@ component PeriodSelector {
         clip: true;
 
         layout := VerticalLayout {
-            if root.horizontal : HorizontalLayout {                    
+            if root.horizontal : HorizontalLayout {
                 PeriodSelectorItem {
                     text: "AM";
                     checked: root.am_selected;
@@ -313,7 +313,7 @@ component PeriodSelector {
                 }
             }
 
-            if !root.horizontal : VerticalLayout {         
+            if !root.horizontal : VerticalLayout {
                 PeriodSelectorItem {
                     text: "AM";
                     checked: root.am_selected;
@@ -343,7 +343,7 @@ component PeriodSelector {
                         root.update_period(false);
                     }
                 }
-            }  
+            }
         }
     }
 
@@ -417,20 +417,20 @@ export component TimePicker inherits PopupWindow {
         height: 100%;
         title: root.title;
         icon_actions: [
-            root.keyboard_mode ? Icons.schedule : Icons.keyboard  
+            root.keyboard_mode ? Icons.schedule : Icons.keyboard
         ];
         actions: [
             root.cancel_text,
-            root.ok_text  
+            root.ok_text
         ];
 
         layout := HorizontalLayout {
             spacing: MaterialStyleMetrics.spacing_52;
-            
+
             VerticalLayout {
                 alignment: center;
                 spacing: MaterialStyleMetrics.spacing_8;
-                
+
                 HorizontalLayout {
                     alignment: center;
 
@@ -475,7 +475,7 @@ export component TimePicker inherits PopupWindow {
                     if !root.use_24_hour_format && (!root.horizontal || root.keyboard_mode) : Rectangle {
                         width: MaterialStyleMetrics.spacing_12;
                     }
-  
+
                     if !root.use_24_hour_format && (!root.horizontal || root.keyboard_mode) : PeriodSelector {
                         am_selected: root.am_selected;
 
@@ -503,7 +503,7 @@ export component TimePicker inherits PopupWindow {
                         text: root.minute_label;
                         color: MaterialPalette.on_surface_variant;
                     }
-                }                   
+                }
 
                 if !root.use_24_hour_format && !root.keyboard_mode && root.horizontal : PeriodSelector {
                     am_selected: root.am_selected;
@@ -514,7 +514,7 @@ export component TimePicker inherits PopupWindow {
                     }
                 }
             }
-             
+
             if root.horizontal && !root.keyboard_mode : Clock {
                 model: root.current_model;
                 two_columns: !root.minutes_selected && root.use-24_hour_format;
@@ -536,7 +536,7 @@ export component TimePicker inherits PopupWindow {
         if !root.horizontal && !root.keyboard_mode : Rectangle {
             height: MaterialStyleMetrics.spacing_12;
         }
-        
+
         if !root.horizontal && !root.keyboard_mode : Clock {
             model: root.current_model;
             two_columns: !root.minutes_selected && root.use-24_hour_format;
@@ -575,7 +575,7 @@ export component TimePicker inherits PopupWindow {
                 return;
             }
         }
-    
+
         close => {
             root.close();
         }
@@ -585,11 +585,11 @@ export component TimePicker inherits PopupWindow {
         if !root.keyboard_mode {
             return root.current_time.hour <= 23 && root.current_time.minute <= 59;
         }
-        
+
         if root.use-24_hour_format {
             return root.time_picker_hour <= 23 && root.time_picker_minute <= 59;
         }
-        
+
         root.time_picker_hour <= 12 && root.time_picker_minute <= 59
     }
 

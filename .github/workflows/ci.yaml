@@ -33,7 +33,7 @@ jobs:
           with:
             token: ${{ github.token }}
             filters: .github/ci_path_filters.yaml
-            
+
     build_and_test:
         needs: files-changed
         if: needs.files-changed.outputs.slint == 'true'
