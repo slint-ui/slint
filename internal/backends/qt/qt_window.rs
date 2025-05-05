@@ -183,7 +183,7 @@ cpp! {{
             if (!isMouseButtonDown && rust_window == this->rust_window) {
                 return;
             }
-            isMouseButtonDown = false;
+            isMouseButtonDown = event->button() != Qt::NoButton;
 
             int button = event->button();
             rust!(Slint_mouseReleaseEvent [rust_window: &QtWindow as "void*", pos: qttypes::QPoint as "QPoint", button: u32 as "int" ] {
