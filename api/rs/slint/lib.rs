@@ -66,7 +66,7 @@ your main `.slint` file:
 
 */
 #![doc = i_slint_core_macros::slint_doc_str!("In your Cargo.toml add a `build` assignment and use the [`slint-build`](slint:rust:slint_build/) crate in `build-dependencies`:")]
-/*
+/*!
 
 ```toml
 [package]
@@ -348,12 +348,12 @@ pub fn spawn_local<F: core::future::Future + 'static>(
         .map_err(|_| EventLoopError::NoEventLoopProvider)?
 }
 
+#[i_slint_core_macros::slint_doc]
 /// Include the code generated with the slint-build crate from the build script. After calling `slint_build::compile`
 /// in your `build.rs` build script, the use of this macro includes the generated Rust code and makes the exported types
 /// available for you to instantiate.
 ///
-/// Check the documentation of the `slint-build` crate for more information.
-#[doc = i_slint_core_macros::slint_doc_str!("Check the documentation of the [`slint-build`](slint:rust:slint_build/) crate for more information.")]
+/// Check the documentation of the [`slint-build`](slint:rust:slint_build) crate for more information.
 #[macro_export]
 macro_rules! include_modules {
     () => {
