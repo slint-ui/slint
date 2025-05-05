@@ -4,6 +4,7 @@
 import { defineConfig } from "vite";
 import { viteSingleFile } from "vite-plugin-singlefile";
 import { figmaPlugin, figmaPluginInit, runAction } from "vite-figma-plugin";
+import { viteStaticCopy } from "vite-plugin-static-copy";
 
 import react from "@vitejs/plugin-react";
 import { config } from "./figma.config";
