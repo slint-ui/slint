@@ -36,6 +36,7 @@ pub struct SkiaItemRenderer<'a> {
     pub canvas: &'a skia_safe::Canvas,
     pub scale_factor: ScaleFactor,
     pub window: &'a i_slint_core::api::Window,
+    surface: Option<&'a dyn crate::Surface>,
     state_stack: Vec<RenderState>,
     current_state: RenderState,
     image_cache: &'a ItemCache<Option<skia_safe::Image>>,
@@ -47,6 +48,7 @@ impl<'a> SkiaItemRenderer<'a> {
     pub fn new(
         canvas: &'a skia_safe::Canvas,
         window: &'a i_slint_core::api::Window,
+        surface: Option<&'a dyn crate::Surface>,
         image_cache: &'a ItemCache<Option<skia_safe::Image>>,
         path_cache: &'a ItemCache<Option<(Vector2D<f32, PhysicalPx>, skia_safe::Path)>>,
         box_shadow_cache: &'a mut SkiaBoxShadowCache,
@@ -55,6 +57,7 @@ impl<'a> SkiaItemRenderer<'a> {
             canvas,
             scale_factor: ScaleFactor::new(window.scale_factor()),
             window,
+            surface,
             state_stack: vec![],
             current_state: RenderState { alpha: 1.0, translation: Default::default() },
             image_cache,
@@ -194,6 +197,7 @@ impl<'a> SkiaItemRenderer<'a> {
                 if tiling != Default::default() { ImageFit::Preserve } else { item.image_fit() },
                 self.scale_factor,
                 self.canvas,
+                self.surface,
             )
             .and_then(|skia_image| {
                 let brush = item.colorize();
@@ -336,6 +340,7 @@ impl<'a> SkiaItemRenderer<'a> {
             let mut sub_renderer = SkiaItemRenderer::new(
                 canvas,
                 self.window,
+                self.surface,
                 self.image_cache,
                 self.path_cache,
                 self.box_shadow_cache,
@@ -939,6 +944,7 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
             ImageFit::Fill,
             self.scale_factor,
             self.canvas,
+            self.surface,
         );
 
         let skia_image = match skia_image {

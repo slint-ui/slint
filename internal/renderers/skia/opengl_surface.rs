@@ -12,7 +12,7 @@ use glutin::{
     surface::{SurfaceAttributesBuilder, WindowSurface},
 };
 use i_slint_core::api::{GraphicsAPI, PhysicalSize as PhysicalWindowSize, Window};
-use i_slint_core::graphics::{RequestedGraphicsAPI, RequestedOpenGLVersion};
+use i_slint_core::graphics::{BorrowedOpenGLTexture, RequestedGraphicsAPI, RequestedOpenGLVersion};
 use i_slint_core::item_rendering::DirtyRegion;
 use i_slint_core::platform::PlatformError;
 
@@ -149,6 +149,44 @@ impl super::Surface for OpenGLSurface {
             }
         };
         Ok(rgb_bits + config.alpha_size())
+    }
+
+    fn import_opengl_texture(
+        &self,
+        canvas: &skia_safe::Canvas,
+        BorrowedOpenGLTexture { texture_id, size, origin, .. }: &BorrowedOpenGLTexture,
+    ) -> Option<skia_safe::Image> {
+        unsafe {
+            let mut texture_info = skia_safe::gpu::gl::TextureInfo::from_target_and_id(
+                glow::TEXTURE_2D,
+                texture_id.get(),
+            );
+            texture_info.format = glow::RGBA8;
+            let backend_texture = skia_safe::gpu::backend_textures::make_gl(
+                (size.width as _, size.height as _),
+                skia_safe::gpu::Mipmapped::No,
+                texture_info,
+                "Borrowed GL texture",
+            );
+            skia_safe::image::Image::from_texture(
+                canvas.recording_context().as_mut().unwrap(),
+                &backend_texture,
+                match origin {
+                    i_slint_core::graphics::BorrowedOpenGLTextureOrigin::TopLeft => {
+                        skia_safe::gpu::SurfaceOrigin::TopLeft
+                    }
+                    i_slint_core::graphics::BorrowedOpenGLTextureOrigin::BottomLeft => {
+                        skia_safe::gpu::SurfaceOrigin::BottomLeft
+                    }
+                    _ => unimplemented!(
+                        "internal error: missing implementation for BorrowedOpenGLTextureOrigin"
+                    ),
+                },
+                skia_safe::ColorType::RGBA8888,
+                skia_safe::AlphaType::Unpremul,
+                None,
+            )
+        }
     }
 }
 
