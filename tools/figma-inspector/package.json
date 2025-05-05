@@ -40,13 +40,6 @@
     "html-react-parser": "5.2.3",
     "react": "19.1.0",
     "react-dom": "19.1.0",
-<<<<<<< ours
     "zustand": "5.0.4"
-||||||| ancestor
-    "zustand": "5.0.3"
-=======
-    "vite-plugin-static-copy": "2.3.1",
-    "zustand": "5.0.3"
->>>>>>> theirs
   }
 }
