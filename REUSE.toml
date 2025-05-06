@@ -109,7 +109,7 @@ path = [
   "component-sets/material/docs/**.json",
   "component-sets/material/docs/**.svg",
   "component-sets/material/docs/**.css",
-  "component-sets/material/docs/**.webp"
+  "component-sets/material/docs/**.webp",
 ]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"

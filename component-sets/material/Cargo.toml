@@ -11,4 +11,3 @@ description = "Material Design 3 component set for Slint"
 version.workspace = true
 homepage = "https://slint.rs"
 rust-version.workspace = true
-
