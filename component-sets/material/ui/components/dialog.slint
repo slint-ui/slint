@@ -89,18 +89,20 @@ export component FullscreenDialog inherits PopupWindow {
     }
 }
 
-export component Dialog inherits PopupWindow {
+export component BaseDialog {
     in property <string> title;
     in property <image> icon;
+    in property <[image]> icon_actions;
     in property <string> default_action_text;
     in property <[string]> actions;
 
     property <bool> has_icon: root.icon.width > 0 && root.icon.height > 0;
 
     callback default_action();
+    callback icon_action(index: int);
     callback action(index: int);
+    callback close();
 
-    close_policy: no_auto_close;
     forward_focus: focus_scope;
 
     focus_scope := FocusScope {
@@ -128,10 +130,10 @@ export component Dialog inherits PopupWindow {
 
         VerticalLayout {
             alignment: center;
+            padding: MaterialStyleMetrics.padding_56;
 
             HorizontalLayout {
                 alignment: center;
-                padding: MaterialStyleMetrics.padding_56;
 
                 background_layer := Rectangle {
                     opacity: 0;
@@ -159,8 +161,18 @@ export component Dialog inherits PopupWindow {
                             @children
 
                             HorizontalLayout {
-                                alignment: end;
                                 spacing: MaterialStyleMetrics.spacing_8;
+
+                                for icon_action[index] in root.icon_actions : IconButton {
+                                    icon: icon_action;
+
+                                    clicked => {
+                                        root.icon_action(index);
+                                    }
+                                }
+
+                                // Spacer
+                                Rectangle {}
 
                                 for action[index] in root.actions : TextButton {
                                     text: action;
@@ -192,13 +204,36 @@ export component Dialog inherits PopupWindow {
         }
     }
 
-
     Timer {
         interval: 50ms;
 
         triggered => {
             background_layer.opacity = 1;
             self.running = false;
+        }
+    }
+}
+
+export component Dialog inherits PopupWindow {
+    in property <string> title <=> base.title;
+    in property <image> icon <=> base.icon;
+    in property <string> default_action_text <=> base.default_action_text;
+    in property <[string]> actions <=> base.actions;
+
+    callback default_action <=> base.default_action;
+    callback action <=> base.action;
+
+    close_policy: no_auto_close;
+    forward_focus: base;
+
+    base := BaseDialog {
+        width: 100%;
+        height: 100%;
+
+        @children
+
+        close => {
+            root.close();
         }
     }
 }
