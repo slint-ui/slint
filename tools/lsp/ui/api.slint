@@ -217,6 +217,11 @@ export struct ElementInformation {
     range: Range,
 }
 
+export struct PaletteEntry {
+    name: string,
+    value: PropertyValue,
+}
+
 export global Api {
     // # Properties
     // ## General preview state:
@@ -257,6 +262,9 @@ export global Api {
 
     // set to true to resize
     in property <bool> resize-to-preferred-size: false;
+
+    // ## Palette data:
+    in-out property <[PaletteEntry]> palettes;
 
     // ## Property Editor
     in-out property <ElementInformation> current-element;
