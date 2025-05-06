@@ -135,7 +135,7 @@ component Clock {
             }
             return clamp(value / root.half_total * 1turn, 0, 0.99999turn) - root.rotation;
         }
-        
+
         clamp(value / root.total * 1turn, 0, 0.99999turn) - root.rotation
     }
 
@@ -143,7 +143,7 @@ component Clock {
         if root.two_columns && value >= root.half_total {
             return root.center + (root.radius_inner / 1px * cos(root.value_to_angle(value))) * 1px;
         }
-        
+
         root.center + (root.radius_outer / 1px * cos(root.value_to_angle(value))) * 1px
     }
 
@@ -158,7 +158,7 @@ component Clock {
         if root.two_columns && value >= root.half_total {
             return root.center + (root.radius_inner / 1px * sin(root.value_to_angle(value))) * 1px;
         }
-        
+
         root.center + (root.radius_outer / 1px * sin(root.value_to_angle(value))) * 1px
     }
 
@@ -595,10 +595,10 @@ export component TimePicker inherits PopupWindow {
                 if root.current_time.hour == 12 {
                     return { hour: 0, minute: root.current_time.minute };
                 }
-                
+
                 return { hour: root.current_time.hour + 12, minute: root.current_time.minute };
             }
-            
+
             return root.current_time;
         }
 
@@ -626,7 +626,7 @@ export component TimePicker inherits PopupWindow {
             root.update_time(root.current_time.hour, value);
             return;
         }
-        
+
         root.update_time(value, root.current_time.minute);
     }
 
@@ -648,15 +648,15 @@ export component TimePicker inherits PopupWindow {
         if hour == 12 {
             return 0;
         }
-        
+
         if hour == 0 {
             return 12;
         }
-        
+
         if !root.use-24_hour_format && hour > 12 {
             return hour - 12;
         }
-        
+
         hour
     }
 
@@ -668,7 +668,7 @@ export component TimePicker inherits PopupWindow {
         if root.use-24_hour_format {
             return root.use-24_hour_format_model;
         }
-        
+
         root.twelf_hour_model
     }
 }
