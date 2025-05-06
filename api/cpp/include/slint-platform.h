@@ -665,6 +665,8 @@ public:
     /// Representation of a texture to blend in the destination buffer.
     // (FIXME: this is currently opaque, but should be exposed)
     using DrawTextureArgs = cbindgen_private::DrawTextureArgs;
+    /// Arguments for draw_rectagle
+    using DrawRectangleArgs = cbindgen_private::DrawRectangleArgs;
 
     /// Abstract base class for a target pixel buffer where certain drawing operations can be
     /// delegated. Use this to implement support for hardware accelerators such as DMA2D, PPA, or
@@ -695,6 +697,13 @@ public:
         // FIXME: Texture is currently opaque, but should be exposed
         virtual bool draw_texture(const DrawTextureArgs *texture, const PhysicalRegion &clip) = 0;
 
+        /// Fill the background of the buffer with the given brush.
+        virtual bool fill_background(const Brush &brush, const PhysicalRegion &clip) = 0;
+
+        /// Draw a rectangle specified by the DrawRectangleArgs. That rectangle must be clipped to
+        /// the given region
+        virtual bool draw_rectangle(const DrawRectangleArgs *args, const PhysicalRegion &clip) = 0;
+
     private:
         friend class SoftwareRenderer;
         cbindgen_private::CppTargetPixelBuffer<PixelType> wrap()
@@ -714,15 +723,19 @@ public:
                             auto *buffer = reinterpret_cast<TargetPixelBuffer<PixelType> *>(self);
                             return buffer->num_lines();
                         },
-                .fill_rectangle =
-                        [](void *self, int16_t x, int16_t y, int16_t width, int16_t height,
-                           uint8_t red, uint8_t green, uint8_t blue, uint8_t alpha,
-                           CompositionMode composition_mode) {
+                .fill_background =
+                        [](void *self, const Brush *brush,
+                           const cbindgen_private::PhysicalRegion *clip) {
                             auto *buffer = reinterpret_cast<TargetPixelBuffer<PixelType> *>(self);
-                            return buffer->fill_rectangle(
-                                    x, y, width, height,
-                                    Color::from_argb_uint8(alpha, red, green, blue),
-                                    composition_mode);
+                            auto clip_region = PhysicalRegion { *clip };
+                            return buffer->fill_background(*brush, clip_region);
+                        },
+                .draw_rectangle =
+                        [](void *self, const cbindgen_private::DrawRectangleArgs *args,
+                           const cbindgen_private::PhysicalRegion *clip) {
+                            auto *buffer = reinterpret_cast<TargetPixelBuffer<PixelType> *>(self);
+                            auto clip_region = PhysicalRegion { *clip };
+                            return buffer->draw_rectangle(args, clip_region);
                         },
                 .draw_texture =
                         [](void *self, const cbindgen_private::DrawTextureArgs *texture,
