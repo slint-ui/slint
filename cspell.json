@@ -148,6 +148,7 @@
         "rustc",
         "rustdoc",
         "rustdocs",
+        "rustflags",
         "rvalue",
         "scrollview",
         "SDK",
