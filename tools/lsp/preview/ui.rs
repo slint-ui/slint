@@ -20,6 +20,7 @@ use crate::preview::{self, preview_data, properties, SelectionNotification};
 use crate::wasm_prelude::*;
 
 mod gradient;
+mod palette;
 mod property_view;
 
 slint::include_modules!();
@@ -185,6 +186,12 @@ pub fn set_diagnostics(ui: &PreviewUi, diagnostics: &[slint_interpreter::Diagnos
 
     let api = ui.global::<Api>();
     api.set_diagnostic_summary(summary);
+}
+
+pub fn ui_set_palettes(ui: &PreviewUi) {
+    let palettes = Rc::new(VecModel::from(palette::collect_palettes())).into();
+    let api = ui.global::<Api>();
+    api.set_palettes(palettes);
 }
 
 pub fn ui_set_known_components(
