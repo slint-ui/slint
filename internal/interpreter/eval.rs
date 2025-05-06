@@ -867,7 +867,7 @@ fn call_builtin_function(
                 );
                 metrics.into()
             } else {
-                panic!("internal error: argument to set-selection-offsetsAll must be an element")
+                panic!("internal error: argument to item-font-metrics must be an element")
             }
         }
         BuiltinFunction::StringIsFloat => {

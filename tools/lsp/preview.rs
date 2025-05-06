@@ -28,6 +28,7 @@ use crate::wasm_prelude::*;
 mod debug;
 mod drop_location;
 mod element_selection;
+pub mod eval;
 mod ext;
 mod preview_data;
 use ext::ElementRcNodeExt;
@@ -1061,6 +1062,8 @@ fn finish_parsing(preview_url: &Url, previewed_component: Option<String>, succes
 
         apply_live_preview_data();
 
+        let palettes = ui::collect_palettes(&document_cache, preview_url);
+
         PREVIEW_STATE.with(|preview_state| {
             let mut preview_state = preview_state.borrow_mut();
             preview_state.known_components = components;
@@ -1075,7 +1078,7 @@ fn finish_parsing(preview_url: &Url, previewed_component: Option<String>, succes
                 .unwrap_or_default();
 
             if let Some(ui) = &preview_state.ui {
-                ui::ui_set_palettes(ui);
+                ui::ui_set_palettes(ui, palettes);
                 ui::ui_set_uses_widgets(ui, uses_widgets);
                 ui::ui_set_known_components(ui, &preview_state.known_components, index);
                 ui::ui_set_preview_data(ui, preview_data, previewed_component);
