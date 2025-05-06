@@ -695,14 +695,14 @@ public:
         /// Each pixel of the texture is to be blended with the given colorize color as well as the
         /// alpha value.
         // FIXME: Texture is currently opaque, but should be exposed
-        virtual bool draw_texture(const DrawTextureArgs *texture, const PhysicalRegion &clip) = 0;
+        virtual bool draw_texture(const DrawTextureArgs &texture, const PhysicalRegion &clip) = 0;
 
         /// Fill the background of the buffer with the given brush.
         virtual bool fill_background(const Brush &brush, const PhysicalRegion &clip) = 0;
 
         /// Draw a rectangle specified by the DrawRectangleArgs. That rectangle must be clipped to
-        /// the given region
-        virtual bool draw_rectangle(const DrawRectangleArgs *args, const PhysicalRegion &clip) = 0;
+        /// the given region.
+        virtual bool draw_rectangle(const DrawRectangleArgs &args, const PhysicalRegion &clip) = 0;
 
     private:
         friend class SoftwareRenderer;
@@ -735,14 +735,14 @@ public:
                            const cbindgen_private::PhysicalRegion *clip) {
                             auto *buffer = reinterpret_cast<TargetPixelBuffer<PixelType> *>(self);
                             auto clip_region = PhysicalRegion { *clip };
-                            return buffer->draw_rectangle(args, clip_region);
+                            return buffer->draw_rectangle(*args, clip_region);
                         },
                 .draw_texture =
                         [](void *self, const cbindgen_private::DrawTextureArgs *texture,
                            const cbindgen_private::PhysicalRegion *clip) {
                             auto *buffer = reinterpret_cast<TargetPixelBuffer<PixelType> *>(self);
                             auto clip_region = PhysicalRegion { *clip };
-                            return buffer->draw_texture(texture, clip_region);
+                            return buffer->draw_texture(*texture, clip_region);
                         }
             };
         }
