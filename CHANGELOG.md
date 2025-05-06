@@ -3,6 +3,23 @@
 # Changelog
 All notable changes to this project are documented in this file.
 
+## [1.11.0] - TBD
+
+### General
+
+ - Added `renderer-femtovg-wgpu` (Rust) / `SLINT_FEATURE_RENDERER_FEMTOVG_WGPU` (CMake) as new rendering option,
+   based on [WGPU](https://wgpu.rs/).
+
+### Slint Language
+
+ - Added `Platform.style-name` and `Platform.os` properties to permit style and OS dependent code.
+
+### Rust
+
+ - Added `unstable-winit-030` feature along with `slint::winit_030` module in the API to provide access
+   to winit APIs.
+ - Added `unstable-wgpu-24` feature along with `slint::wgpu_24` module to enable Slint <> WPU interoperatiblity.
+
 ## [1.11.0] - 2025-04-23
 
 ### General
