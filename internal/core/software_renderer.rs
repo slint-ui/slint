@@ -31,7 +31,7 @@ use crate::lengths::{
 use crate::renderer::RendererSealed;
 use crate::textlayout::{AbstractFont, FontMetrics, TextParagraphLayout};
 use crate::window::{WindowAdapter, WindowInner};
-use crate::{Brush, Color, Coord, ImageInner, StaticTextures};
+use crate::{Brush, Color, ImageInner, StaticTextures};
 use alloc::rc::{Rc, Weak};
 use alloc::{vec, vec::Vec};
 use core::cell::{Cell, RefCell};
@@ -381,11 +381,11 @@ mod target_pixel_buffer;
 
 #[cfg(feature = "experimental")]
 pub use target_pixel_buffer::{
-    CompositionMode, DrawTextureArgs, TargetPixelBuffer, TexturePixelFormat,
+    DrawRectangleArgs, DrawTextureArgs, TargetPixelBuffer, TexturePixelFormat,
 };
 
 #[cfg(not(feature = "experimental"))]
-use target_pixel_buffer::{CompositionMode, TexturePixelFormat};
+use target_pixel_buffer::TexturePixelFormat;
 
 struct TargetPixelSlice<'a, T> {
     data: &'a mut [T],
@@ -605,12 +605,22 @@ impl SoftwareRenderer {
                 drop(i);
 
                 renderer.actual_renderer.processor.dirty_region = dirty_region.clone();
-                renderer.actual_renderer.processor.process_rectangle_impl(
-                    screen_rect.transformed(rotation),
+                if !renderer
+                    .actual_renderer
+                    .processor
+                    .buffer
+                    .fill_background(&background, &dirty_region)
+                {
+                    let mut bg = TargetPixel::background();
                     // TODO: gradient background
-                    background.color().into(),
-                    CompositionMode::Source,
-                );
+                    TargetPixel::blend(&mut bg, background.color().into());
+                    renderer.actual_renderer.processor.foreach_ranges(
+                        &dirty_region.bounding_rect(),
+                        |_, buffer, _, _| {
+                            buffer.fill(bg);
+                        },
+                    );
+                }
 
                 for (component, origin) in components {
                     crate::item_rendering::render_component_items(
@@ -1131,9 +1141,189 @@ trait ProcessScene {
         texture: &target_pixel_buffer::DrawTextureArgs,
         clip: PhysicalRect,
     );
-    fn process_rectangle(&mut self, geometry: PhysicalRect, color: PremultipliedRgbaColor);
+    fn process_rectangle(&mut self, _: &target_pixel_buffer::DrawRectangleArgs, clip: PhysicalRect);
+
+    fn process_simple_rectangle(&mut self, geometry: PhysicalRect, color: PremultipliedRgbaColor);
     fn process_rounded_rectangle(&mut self, geometry: PhysicalRect, data: RoundedRectangle);
     fn process_gradient(&mut self, geometry: PhysicalRect, gradient: GradientCommand);
+}
+
+fn process_rectangle_impl(
+    processor: &mut dyn ProcessScene,
+    args: &target_pixel_buffer::DrawRectangleArgs,
+    clip: &PhysicalRect,
+) {
+    let geom = args.geometry();
+    let Some(clipped) = geom.intersection(&clip.cast()) else { return };
+
+    let color = if let Brush::LinearGradient(g) = &args.background {
+        let angle = g.angle() + args.rotation.angle();
+        let tan = angle.to_radians().tan().abs();
+        let start = if !tan.is_finite() {
+            255.
+        } else {
+            let h = tan * geom.width();
+            255. * h / (h + geom.height())
+        } as u8;
+        let mut angle = angle as i32 % 360;
+        if angle < 0 {
+            angle += 360;
+        }
+        let mut stops = g
+            .stops()
+            .copied()
+            .map(|mut s| {
+                s.color = alpha_color(s.color, args.alpha);
+                s
+            })
+            .peekable();
+        let mut idx = 0;
+        let stop_count = g.stops().count();
+        while let (Some(mut s1), Some(mut s2)) = (stops.next(), stops.peek().copied()) {
+            let mut flags = 0;
+            if (angle % 180) > 90 {
+                flags |= 0b1;
+            }
+            if angle <= 90 || angle > 270 {
+                core::mem::swap(&mut s1, &mut s2);
+                s1.position = 1. - s1.position;
+                s2.position = 1. - s2.position;
+                if idx == 0 {
+                    flags |= 0b100;
+                }
+                if idx == stop_count - 2 {
+                    flags |= 0b010;
+                }
+            } else {
+                if idx == 0 {
+                    flags |= 0b010;
+                }
+                if idx == stop_count - 2 {
+                    flags |= 0b100;
+                }
+            }
+
+            idx += 1;
+
+            let (adjust_left, adjust_right) = if (angle % 180) > 90 {
+                (
+                    (geom.width() * s1.position).floor() as i16,
+                    (geom.width() * (1. - s2.position)).ceil() as i16,
+                )
+            } else {
+                (
+                    (geom.width() * (1. - s2.position)).ceil() as i16,
+                    (geom.width() * s1.position).floor() as i16,
+                )
+            };
+
+            let gr = GradientCommand {
+                color1: s1.color.into(),
+                color2: s2.color.into(),
+                start,
+                flags,
+                top_clip: Length::new(
+                    (clipped.min_y() - geom.min_y() - (geom.height() * s1.position).floor()) as i16,
+                ),
+                bottom_clip: Length::new(
+                    (geom.max_y() - clipped.max_y() - (geom.height() * (1. - s2.position)).ceil())
+                        as i16,
+                ),
+                left_clip: Length::new((clipped.min_x() - geom.min_x()) as i16 - adjust_left),
+                right_clip: Length::new((geom.max_x() - clipped.max_x()) as i16 - adjust_right),
+            };
+
+            let act_rect = clipped.round().cast();
+            let size_y = act_rect.height_length() + gr.top_clip + gr.bottom_clip;
+            let size_x = act_rect.width_length() + gr.left_clip + gr.right_clip;
+            if size_x.get() == 0 || size_y.get() == 0 {
+                // the position are too close to each other
+                // FIXME: For the first or the last, we should draw a plain color to the end
+                continue;
+            }
+
+            processor.process_gradient(act_rect, gr);
+        }
+        Color::default()
+    } else {
+        alpha_color(args.background.color(), args.alpha)
+    };
+
+    let mut border_color =
+        PremultipliedRgbaColor::from(alpha_color(args.border.color(), args.alpha));
+    let color = PremultipliedRgbaColor::from(color);
+    let mut border = PhysicalLength::new(args.border_width as _);
+    if border_color.alpha == 0 {
+        border = PhysicalLength::new(0);
+    } else if border_color.alpha < 255 {
+        // Find a color for the border which is an equivalent to blend the background and then the border.
+        // In the end, the resulting of blending the background and the color is
+        // (A + B) + C, where A is the buffer color, B is the background, and C is the border.
+        // which expands to (A*(1-Bα) + B*Bα)*(1-Cα) + C*Cα = A*(1-(Bα+Cα-Bα*Cα)) + B*Bα*(1-Cα) + C*Cα
+        // so let the new alpha be: Nα = Bα+Cα-Bα*Cα, then this is A*(1-Nα) + N*Nα
+        // with N = (B*Bα*(1-Cα) + C*Cα)/Nα
+        // N being the equivalent color of the border that mixes the background and the border
+        // In pre-multiplied space, the formula simplifies further N' = B'*(1-Cα) + C'
+        let b = border_color;
+        let b_alpha_16 = b.alpha as u16;
+        border_color = PremultipliedRgbaColor {
+            red: ((color.red as u16 * (255 - b_alpha_16)) / 255) as u8 + b.red,
+            green: ((color.green as u16 * (255 - b_alpha_16)) / 255) as u8 + b.green,
+            blue: ((color.blue as u16 * (255 - b_alpha_16)) / 255) as u8 + b.blue,
+            alpha: (color.alpha as u16 + b_alpha_16 - (color.alpha as u16 * b_alpha_16) / 255)
+                as u8,
+        }
+    }
+
+    let radius = PhysicalBorderRadius {
+        top_left: args.top_left_radius as _,
+        top_right: args.top_right_radius as _,
+        bottom_right: args.bottom_right_radius as _,
+        bottom_left: args.bottom_left_radius as _,
+        _unit: Default::default(),
+    };
+
+    if !radius.is_zero() {
+        // Add a small value to make sure that the clip is always positive despite floating point shenanigans
+        const E: f32 = 0.00001;
+
+        processor.process_rounded_rectangle(
+            clipped.round().cast(),
+            RoundedRectangle {
+                radius,
+                width: border,
+                border_color,
+                inner_color: color,
+                top_clip: PhysicalLength::new((clipped.min_y() - geom.min_y() + E) as _),
+                bottom_clip: PhysicalLength::new((geom.max_y() - clipped.max_y() + E) as _),
+                left_clip: PhysicalLength::new((clipped.min_x() - geom.min_x() + E) as _),
+                right_clip: PhysicalLength::new((geom.max_x() - clipped.max_x() + E) as _),
+            },
+        );
+        return;
+    }
+
+    if color.alpha > 0 {
+        if let Some(r) =
+            geom.round().cast().inflate(-border.get(), -border.get()).intersection(clip)
+        {
+            processor.process_simple_rectangle(r, color);
+        }
+    }
+
+    if border_color.alpha > 0 {
+        let mut add_border = |r: PhysicalRect| {
+            if let Some(r) = r.intersection(clip) {
+                processor.process_simple_rectangle(r, border_color);
+            }
+        };
+        let b = border.get();
+        let g = geom.round().cast();
+        add_border(euclid::rect(g.min_x(), g.min_y(), g.width(), b));
+        add_border(euclid::rect(g.min_x(), g.min_y() + g.height() - b, g.width(), b));
+        add_border(euclid::rect(g.min_x(), g.min_y() + b, b, g.height() - b - b));
+        add_border(euclid::rect(g.min_x() + g.width() - b, g.min_y() + b, b, g.height() - b - b));
+    }
 }
 
 struct RenderToBuffer<'a, TargetPixelBuffer> {
@@ -1209,51 +1399,9 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> RenderToBuffer<'_, B> {
             );
         });
     }
-
-    fn process_rectangle_impl(
-        &mut self,
-        geometry: PhysicalRect,
-        color: PremultipliedRgbaColor,
-        composition_mode: CompositionMode,
-    ) {
-        self.foreach_region(&geometry, |buffer, rect, _extra_left_clip, _extra_right_clip| {
-            if !buffer.fill_rectangle(
-                rect.origin.x,
-                rect.origin.y,
-                rect.size.width,
-                rect.size.height,
-                color,
-                composition_mode,
-            ) {
-                let begin = rect.min_x();
-                let end = rect.max_x();
-
-                match composition_mode {
-                    CompositionMode::Source => {
-                        let mut fill_col = B::TargetPixel::background();
-                        B::TargetPixel::blend(&mut fill_col, color);
-                        for l in rect.y_range() {
-                            buffer.line_slice(l as usize)[begin as usize..end as usize]
-                                .fill(fill_col)
-                        }
-                    }
-                    CompositionMode::SourceOver => {
-                        for l in rect.y_range() {
-                            <B::TargetPixel>::blend_slice(
-                                &mut buffer.line_slice(l as usize)[begin as usize..end as usize],
-                                color,
-                            )
-                        }
-                    }
-                }
-            }
-        })
-    }
 }
 
-impl<T: TargetPixel, B: target_pixel_buffer::TargetPixelBuffer<TargetPixel = T>> ProcessScene
-    for RenderToBuffer<'_, B>
-{
+impl<B: target_pixel_buffer::TargetPixelBuffer> ProcessScene for RenderToBuffer<'_, B> {
     fn process_scene_texture(&mut self, geometry: PhysicalRect, texture: SceneTexture<'static>) {
         self.process_texture_impl(geometry, texture);
     }
@@ -1274,8 +1422,16 @@ impl<T: TargetPixel, B: target_pixel_buffer::TargetPixelBuffer<TargetPixel = T>>
         self.process_texture_impl(geometry, texture);
     }
 
-    fn process_rectangle(&mut self, geometry: PhysicalRect, color: PremultipliedRgbaColor) {
-        self.process_rectangle_impl(geometry, color, CompositionMode::default());
+    fn process_rectangle(
+        &mut self,
+        args: &target_pixel_buffer::DrawRectangleArgs,
+        clip: PhysicalRect,
+    ) {
+        if self.buffer.draw_rectangle(args, &self.dirty_region.intersection(&clip)) {
+            return;
+        }
+
+        process_rectangle_impl(self, args, &clip);
     }
 
     fn process_rounded_rectangle(&mut self, geometry: PhysicalRect, rr: RoundedRectangle) {
@@ -1288,6 +1444,12 @@ impl<T: TargetPixel, B: target_pixel_buffer::TargetPixelBuffer<TargetPixel = T>>
                 extra_left_clip,
                 extra_right_clip,
             );
+        });
+    }
+
+    fn process_simple_rectangle(&mut self, geometry: PhysicalRect, color: PremultipliedRgbaColor) {
+        self.foreach_ranges(&geometry, |_line, buffer, _extra_left_clip, _extra_right_clip| {
+            <B::TargetPixel>::blend_slice(buffer, color)
         });
     }
 
@@ -1365,7 +1527,15 @@ impl ProcessScene for PrepareScene {
         }
     }
 
-    fn process_rectangle(&mut self, geometry: PhysicalRect, color: PremultipliedRgbaColor) {
+    fn process_rectangle(
+        &mut self,
+        args: &target_pixel_buffer::DrawRectangleArgs,
+        clip: PhysicalRect,
+    ) {
+        process_rectangle_impl(self, args, &clip);
+    }
+
+    fn process_simple_rectangle(&mut self, geometry: PhysicalRect, color: PremultipliedRgbaColor) {
         let size = geometry.size;
         if !size.is_empty() {
             let z = self.items.len() as u16;
@@ -1651,8 +1821,11 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                         if let Some(clipped_src) = geometry.intersection(&physical_clip.cast()) {
                             let geometry =
                                 clipped_src.translate(offset.cast()).transformed(self.rotation);
-                            self.processor
-                                .process_rectangle(geometry, selection.selection_background.into());
+                            let args = target_pixel_buffer::DrawRectangleArgs::from_rect(
+                                geometry.cast(),
+                                selection.selection_background.into(),
+                            );
+                            self.processor.process_rectangle(&args, geometry);
                         }
                     }
                     let scale_delta = paragraph.layout.font.scale_delta();
@@ -1804,6 +1977,19 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
     }
 }
 
+fn alpha_color(color: Color, alpha: u8) -> Color {
+    if alpha < 255 {
+        Color::from_argb_u8(
+            ((color.alpha() as u32 * alpha as u32) / 255) as u8,
+            color.red(),
+            color.green(),
+            color.blue(),
+        )
+    } else {
+        color
+    }
+}
+
 struct SelectionInfo {
     selection_color: Color,
     selection_background: Color,
@@ -1818,7 +2004,6 @@ struct RenderState {
 }
 
 impl<T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'_, T> {
-    #[allow(clippy::unnecessary_cast)] // Coord!
     fn draw_rectangle(
         &mut self,
         rect: Pin<&dyn RenderRectangle>,
@@ -1828,124 +2013,25 @@ impl<T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'_, T
     ) {
         let geom = LogicalRect::from(size);
         if self.should_draw(&geom) {
-            let clipped = match geom.intersection(&self.current_state.clip) {
-                Some(geom) => geom,
-                None => return,
-            };
+            let geom = (geom.translate(self.current_state.offset.to_vector()).cast()
+                * self.scale_factor)
+                .transformed(self.rotation);
 
-            let background = rect.background();
-            if let Brush::LinearGradient(g) = background {
-                let geom2 = (geom.cast() * self.scale_factor).transformed(self.rotation);
-                let clipped2 = (clipped.cast() * self.scale_factor).transformed(self.rotation);
-                let act_rect = (clipped.translate(self.current_state.offset.to_vector()).cast()
+            let clipped =
+                (self.current_state.clip.translate(self.current_state.offset.to_vector()).cast()
                     * self.scale_factor)
                     .round()
                     .cast()
                     .transformed(self.rotation);
-                let axis_angle = (360. - self.rotation.orientation.angle()) % 360.;
-                let angle = g.angle() - axis_angle;
-                let tan = angle.to_radians().tan().abs();
-                let start = if !tan.is_finite() {
-                    255.
-                } else {
-                    let h = tan * geom2.width() as f32;
-                    255. * h / (h + geom2.height() as f32)
-                } as u8;
-                let mut angle = angle as i32 % 360;
-                if angle < 0 {
-                    angle += 360;
-                }
-                let mut stops = g.stops().copied().peekable();
-                let mut idx = 0;
-                let stop_count = g.stops().count();
-                while let (Some(mut s1), Some(mut s2)) = (stops.next(), stops.peek().copied()) {
-                    let mut flags = 0;
-                    if (angle % 180) > 90 {
-                        flags |= 0b1;
-                    }
-                    if angle <= 90 || angle > 270 {
-                        core::mem::swap(&mut s1, &mut s2);
-                        s1.position = 1. - s1.position;
-                        s2.position = 1. - s2.position;
-                        if idx == 0 {
-                            flags |= 0b100;
-                        }
-                        if idx == stop_count - 2 {
-                            flags |= 0b010;
-                        }
-                    } else {
-                        if idx == 0 {
-                            flags |= 0b010;
-                        }
-                        if idx == stop_count - 2 {
-                            flags |= 0b100;
-                        }
-                    }
 
-                    idx += 1;
-
-                    let (adjust_left, adjust_right) = if (angle % 180) > 90 {
-                        (
-                            (geom2.width() * s1.position).floor() as i16,
-                            (geom2.width() * (1. - s2.position)).ceil() as i16,
-                        )
-                    } else {
-                        (
-                            (geom2.width() * (1. - s2.position)).ceil() as i16,
-                            (geom2.width() * s1.position).floor() as i16,
-                        )
-                    };
-
-                    let gr = GradientCommand {
-                        color1: self.alpha_color(s1.color).into(),
-                        color2: self.alpha_color(s2.color).into(),
-                        start,
-                        flags,
-                        top_clip: Length::new(
-                            (clipped2.min_y() - geom2.min_y()) as i16
-                                - (geom2.height() * s1.position).floor() as i16,
-                        ),
-                        bottom_clip: Length::new(
-                            (geom2.max_y() - clipped2.max_y()) as i16
-                                - (geom2.height() * (1. - s2.position)).ceil() as i16,
-                        ),
-                        left_clip: Length::new(
-                            (clipped2.min_x() - geom2.min_x()) as i16 - adjust_left,
-                        ),
-                        right_clip: Length::new(
-                            (geom2.max_x() - clipped2.max_x()) as i16 - adjust_right,
-                        ),
-                    };
-
-                    let size_y = act_rect.height_length() + gr.top_clip + gr.bottom_clip;
-                    let size_x = act_rect.width_length() + gr.left_clip + gr.right_clip;
-                    if size_x.get() == 0 || size_y.get() == 0 {
-                        // the position are too close to each other
-                        // FIXME: For the first or the last, we should draw a plain color to the end
-                        continue;
-                    }
-
-                    self.processor.process_gradient(act_rect, gr);
-                }
-                return;
-            }
-
-            let color = self.alpha_color(background.color());
-
-            if color.alpha() == 0 {
-                return;
-            }
-            let geometry = (clipped.translate(self.current_state.offset.to_vector()).cast()
-                * self.scale_factor)
-                .round()
-                .cast()
-                .transformed(self.rotation);
-
-            self.processor.process_rectangle(geometry, color.into());
+            let mut args =
+                target_pixel_buffer::DrawRectangleArgs::from_rect(geom, rect.background());
+            args.alpha = (self.current_state.alpha * 255.) as u8;
+            args.rotation = self.rotation.orientation;
+            self.processor.process_rectangle(&args, clipped);
         }
     }
 
-    #[allow(clippy::unnecessary_cast)] // Coord
     fn draw_border_rectangle(
         &mut self,
         rect: Pin<&dyn RenderBorderRectangle>,
@@ -1955,125 +2041,43 @@ impl<T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'_, T
     ) {
         let geom = LogicalRect::from(size);
         if self.should_draw(&geom) {
-            let mut border = rect.border_width();
-            let radius = rect.border_radius();
-            // FIXME: gradients
-            let color = self.alpha_color(rect.background().color());
-            let border_color = if border.get() as f32 > 0.01 {
-                self.alpha_color(rect.border_color().color())
-            } else {
-                Color::default()
+            let geom = (geom.translate(self.current_state.offset.to_vector()).cast()
+                * self.scale_factor)
+                .transformed(self.rotation);
+
+            let clipped =
+                (self.current_state.clip.translate(self.current_state.offset.to_vector()).cast()
+                    * self.scale_factor)
+                    .round()
+                    .cast()
+                    .transformed(self.rotation);
+
+            let radius = (rect.border_radius().cast() * self.scale_factor)
+                .transformed(self.rotation)
+                .min(BorderRadius::from_length(geom.width_length() / 2.))
+                .min(BorderRadius::from_length(geom.height_length() / 2.));
+
+            let border = rect.border_width().cast() * self.scale_factor;
+            let border_color =
+                if border.get() > 0.01 { rect.border_color() } else { Default::default() };
+
+            let args = target_pixel_buffer::DrawRectangleArgs {
+                x: geom.origin.x,
+                y: geom.origin.y,
+                width: geom.size.width,
+                height: geom.size.height,
+                top_left_radius: radius.top_left,
+                top_right_radius: radius.top_right,
+                bottom_right_radius: radius.bottom_right,
+                bottom_left_radius: radius.bottom_left,
+                border_width: border.get(),
+                background: rect.background(),
+                border: border_color,
+                alpha: (self.current_state.alpha * 255.) as u8,
+                rotation: self.rotation.orientation,
             };
 
-            let mut border_color = PremultipliedRgbaColor::from(border_color);
-            let color = PremultipliedRgbaColor::from(color);
-            if border_color.alpha == 0 {
-                border = LogicalLength::new(0 as _);
-            } else if border_color.alpha < 255 {
-                // Find a color for the border which is an equivalent to blend the background and then the border.
-                // In the end, the resulting of blending the background and the color is
-                // (A + B) + C, where A is the buffer color, B is the background, and C is the border.
-                // which expands to (A*(1-Bα) + B*Bα)*(1-Cα) + C*Cα = A*(1-(Bα+Cα-Bα*Cα)) + B*Bα*(1-Cα) + C*Cα
-                // so let the new alpha be: Nα = Bα+Cα-Bα*Cα, then this is A*(1-Nα) + N*Nα
-                // with N = (B*Bα*(1-Cα) + C*Cα)/Nα
-                // N being the equivalent color of the border that mixes the background and the border
-                // In pre-multiplied space, the formula simplifies further N' = B'*(1-Cα) + C'
-                let b = border_color;
-                let b_alpha_16 = b.alpha as u16;
-                border_color = PremultipliedRgbaColor {
-                    red: ((color.red as u16 * (255 - b_alpha_16)) / 255) as u8 + b.red,
-                    green: ((color.green as u16 * (255 - b_alpha_16)) / 255) as u8 + b.green,
-                    blue: ((color.blue as u16 * (255 - b_alpha_16)) / 255) as u8 + b.blue,
-                    alpha: (color.alpha as u16 + b_alpha_16
-                        - (color.alpha as u16 * b_alpha_16) / 255) as u8,
-                }
-            }
-
-            if !radius.is_zero() {
-                let radius = radius
-                    .min(LogicalBorderRadius::from_length(geom.width_length() / 2 as Coord))
-                    .min(LogicalBorderRadius::from_length(geom.height_length() / 2 as Coord));
-                if let Some(clipped) = geom.intersection(&self.current_state.clip) {
-                    let geom2 = (geom.cast() * self.scale_factor).transformed(self.rotation);
-                    let clipped2 = (clipped.cast() * self.scale_factor).transformed(self.rotation);
-                    let geometry =
-                        (clipped.translate(self.current_state.offset.to_vector()).cast()
-                            * self.scale_factor)
-                            .round()
-                            .cast()
-                            .transformed(self.rotation);
-                    let radius =
-                        (radius.cast() * self.scale_factor).cast().transformed(self.rotation);
-                    // Add a small value to make sure that the clip is always positive despite floating point shenanigans
-                    const E: f32 = 0.00001;
-
-                    self.processor.process_rounded_rectangle(
-                        geometry,
-                        RoundedRectangle {
-                            radius,
-                            width: (border.cast() * self.scale_factor).cast(),
-                            border_color,
-                            inner_color: color,
-                            top_clip: PhysicalLength::new(
-                                (clipped2.min_y() - geom2.min_y() + E) as _,
-                            ),
-                            bottom_clip: PhysicalLength::new(
-                                (geom2.max_y() - clipped2.max_y() + E) as _,
-                            ),
-                            left_clip: PhysicalLength::new(
-                                (clipped2.min_x() - geom2.min_x() + E) as _,
-                            ),
-                            right_clip: PhysicalLength::new(
-                                (geom2.max_x() - clipped2.max_x() + E) as _,
-                            ),
-                        },
-                    );
-                }
-                return;
-            }
-
-            if color.alpha > 0 {
-                if let Some(r) = geom
-                    .inflate(-border.get(), -border.get())
-                    .intersection(&self.current_state.clip)
-                {
-                    let geometry = (r.translate(self.current_state.offset.to_vector()).cast()
-                        * self.scale_factor)
-                        .round()
-                        .cast()
-                        .transformed(self.rotation);
-                    self.processor.process_rectangle(geometry, color);
-                }
-            }
-
-            // FIXME: gradients
-            if border_color.alpha > 0 {
-                let mut add_border = |r: LogicalRect| {
-                    if let Some(r) = r.intersection(&self.current_state.clip) {
-                        let geometry =
-                            (r.translate(self.current_state.offset.to_vector()).try_cast()?
-                                * self.scale_factor)
-                                .round()
-                                .try_cast()?
-                                .transformed(self.rotation);
-                        self.processor.process_rectangle(geometry, border_color);
-                    }
-                    Some(())
-                };
-                let b = border.get();
-                let err = || {
-                    panic!(
-                        "invalid border rectangle {geom:?} border={b} state={:?}",
-                        self.current_state
-                    )
-                };
-                add_border(euclid::rect(0 as _, 0 as _, geom.width(), b)).unwrap_or_else(err);
-                add_border(euclid::rect(0 as _, geom.height() - b, geom.width(), b))
-                    .unwrap_or_else(err);
-                add_border(euclid::rect(0 as _, b, b, geom.height() - b - b)).unwrap_or_else(err);
-                add_border(euclid::rect(geom.width() - b, b, b, geom.height() - b - b))
-                    .unwrap_or_else(err);
-            }
+            self.processor.process_rectangle(&args, clipped);
         }
     }
 
@@ -2316,7 +2320,11 @@ impl<T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'_, T
                         cursor_color = color;
                     }
                 }
-                self.processor.process_rectangle(geometry, self.alpha_color(cursor_color).into());
+                let args = target_pixel_buffer::DrawRectangleArgs::from_rect(
+                    geometry.cast(),
+                    self.alpha_color(cursor_color).into(),
+                );
+                self.processor.process_rectangle(&args, geometry);
             }
         }
     }

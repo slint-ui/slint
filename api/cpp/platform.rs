@@ -13,7 +13,7 @@ use i_slint_core::platform::{Clipboard, Platform, PlatformError};
 use i_slint_core::renderer::Renderer;
 use i_slint_core::window::ffi::WindowAdapterRcOpaque;
 use i_slint_core::window::{WindowAdapter, WindowProperties};
-use i_slint_core::SharedString;
+use i_slint_core::{Brush, SharedString};
 
 type WindowAdapterUserData = *mut c_void;
 
@@ -103,10 +103,7 @@ pub extern "C" fn slint_window_properties_get_title(wp: &WindowProperties, out: 
 }
 
 #[no_mangle]
-pub extern "C" fn slint_window_properties_get_background(
-    wp: &WindowProperties,
-    out: &mut i_slint_core::Brush,
-) {
+pub extern "C" fn slint_window_properties_get_background(wp: &WindowProperties, out: &mut Brush) {
     *out = wp.background();
 }
 
@@ -361,9 +358,7 @@ mod software_renderer {
     use i_slint_core::SharedVector;
 
     #[cfg(feature = "experimental")]
-    use i_slint_core::software_renderer::{
-        CompositionMode, DrawTextureArgs, PremultipliedRgbaColor, TargetPixelBuffer,
-    };
+    use i_slint_core::software_renderer::{DrawRectangleArgs, DrawTextureArgs, TargetPixelBuffer};
 
     #[cfg(feature = "experimental")]
     type CppTargetPixelBufferUserData = *mut c_void;
@@ -379,17 +374,12 @@ mod software_renderer {
             slice_len: *mut usize,
         ),
         num_lines: unsafe extern "C" fn(CppTargetPixelBufferUserData) -> usize,
-        fill_rectangle: unsafe extern "C" fn(
+        fill_background:
+            unsafe extern "C" fn(CppTargetPixelBufferUserData, &Brush, &PhysicalRegion) -> bool,
+        draw_rectangle: unsafe extern "C" fn(
             CppTargetPixelBufferUserData,
-            i16,
-            i16,
-            i16,
-            i16,
-            u8,
-            u8,
-            u8,
-            u8,
-            CompositionMode,
+            &DrawRectangleArgs,
+            &PhysicalRegion,
         ) -> bool,
         draw_texture: unsafe extern "C" fn(
             CppTargetPixelBufferUserData,
@@ -417,29 +407,18 @@ mod software_renderer {
             unsafe { (self.num_lines)(self.user_data) }
         }
 
-        fn fill_rectangle(
+        /// Fill the background of the buffer with the given brush.
+        fn fill_background(
             &mut self,
-            x: i16,
-            y: i16,
-            width: i16,
-            height: i16,
-            color: PremultipliedRgbaColor,
-            composition_mode: CompositionMode,
+            brush: &i_slint_core::Brush,
+            region: &PhysicalRegion,
         ) -> bool {
-            unsafe {
-                (self.fill_rectangle)(
-                    self.user_data,
-                    x,
-                    y,
-                    width,
-                    height,
-                    color.red,
-                    color.green,
-                    color.blue,
-                    color.alpha,
-                    composition_mode,
-                )
-            }
+            unsafe { (self.fill_background)(self.user_data, brush, region) }
+        }
+
+        /// Draw a rectangle specified by the DrawRectangleArgs. That rectangle must be clipped to the given region
+        fn draw_rectangle(&mut self, args: &DrawRectangleArgs, clip: &PhysicalRegion) -> bool {
+            unsafe { (self.draw_rectangle)(self.user_data, args, clip) }
         }
 
         fn draw_texture(&mut self, texture: &DrawTextureArgs, clip: &PhysicalRegion) -> bool {
