@@ -21,6 +21,7 @@ use crate::wasm_prelude::*;
 
 mod gradient;
 mod palette;
+pub use palette::collect_palettes;
 mod property_view;
 
 slint::include_modules!();
@@ -188,8 +189,8 @@ pub fn set_diagnostics(ui: &PreviewUi, diagnostics: &[slint_interpreter::Diagnos
     api.set_diagnostic_summary(summary);
 }
 
-pub fn ui_set_palettes(ui: &PreviewUi) {
-    let palettes = Rc::new(VecModel::from(palette::collect_palettes())).into();
+pub fn ui_set_palettes(ui: &PreviewUi, values: Vec<PaletteEntry>) {
+    let palettes = Rc::new(VecModel::from(values)).into();
     let api = ui.global::<Api>();
     api.set_palettes(palettes);
 }
@@ -824,11 +825,15 @@ fn map_value_and_type(
     };
 }
 
-fn map_preview_data_to_property_value(
-    preview_data: &preview_data::PreviewData,
+pub fn map_value_and_type_to_property_value(
+    ty: &langtype::Type,
+    value: &Option<slint_interpreter::Value>,
+    name_prefix: &str,
 ) -> Option<PropertyValue> {
-    let mut mapping = ValueMapping::default();
-    map_value_and_type(&preview_data.ty, &preview_data.value, &mut mapping);
+    let mut mapping =
+        ValueMapping { name_prefix: SharedString::from(name_prefix), ..Default::default() };
+
+    map_value_and_type(ty, value, &mut mapping);
 
     if mapping.is_too_complex
         || mapping.array_values.len() != 1
@@ -838,6 +843,12 @@ fn map_preview_data_to_property_value(
     } else {
         mapping.array_values.first().and_then(|av| av.first()).cloned()
     }
+}
+
+fn map_preview_data_to_property_value(
+    preview_data: &preview_data::PreviewData,
+) -> Option<PropertyValue> {
+    map_value_and_type_to_property_value(&preview_data.ty, &preview_data.value, "")
 }
 
 fn map_preview_data_property(

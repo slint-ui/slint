@@ -16,7 +16,7 @@ use slint::{SharedString, VecModel};
 
 use crate::{
     common,
-    preview::{properties, ui},
+    preview::{self, properties, ui},
     util,
 };
 
@@ -180,118 +180,6 @@ fn convert_number_literal(
     }
 }
 
-#[derive(Clone, Debug, Default)]
-struct ExtractedColor {
-    pub value: Option<slint::Color>,
-    pub name: Option<String>,
-}
-
-fn extract_color_from_evaluated_expression(
-    evaluated_expression: &expression_tree::Expression,
-) -> ExtractedColor {
-    fn extract_color_from_evaluated_expression_impl(
-        evaluated_expression: &expression_tree::Expression,
-        mut palette_name: Vec<String>,
-        struct_level: usize,
-    ) -> ExtractedColor {
-        match evaluated_expression {
-            expression_tree::Expression::Cast { from, to }
-                if matches!(
-                    *to,
-                    langtype::Type::Color | langtype::Type::Struct(_) | langtype::Type::Brush
-                ) =>
-            {
-                return extract_color_from_evaluated_expression_impl(
-                    from,
-                    palette_name,
-                    struct_level,
-                );
-            }
-            expression_tree::Expression::NumberLiteral(value, unit)
-                if *unit == expression_tree::Unit::None =>
-            {
-                return ExtractedColor {
-                    value: Some(slint::Color::from_argb_encoded(*value as u32)),
-                    name: if palette_name.is_empty() {
-                        None
-                    } else {
-                        Some(palette_name.iter().rev().join("."))
-                    },
-                };
-            }
-            expression_tree::Expression::PropertyReference(source)
-                if source.element().borrow().base_type == langtype::ElementType::Global =>
-            {
-                let elem = source.element();
-                let elem = elem.borrow();
-                if let Some(component_name) =
-                    elem.enclosing_component.upgrade().map(|c| c.id.clone())
-                {
-                    if let Some(binding) = elem.bindings.get(source.name()) {
-                        palette_name.push(source.name().to_string());
-                        palette_name.push(component_name.to_string());
-
-                        let struct_level = palette_name.len().saturating_sub(3);
-
-                        return extract_color_from_evaluated_expression_impl(
-                            &binding.borrow().expression,
-                            palette_name,
-                            struct_level,
-                        );
-                    }
-                }
-            }
-            expression_tree::Expression::StructFieldAccess { base, name } => {
-                palette_name.push(name.to_string());
-                return extract_color_from_evaluated_expression_impl(
-                    base,
-                    palette_name,
-                    struct_level,
-                );
-            }
-            expression_tree::Expression::Struct { values, .. } => {
-                if let Some(part) = palette_name.get(struct_level) {
-                    if let Some(value) = values.get(&SmolStr::from(part)) {
-                        return extract_color_from_evaluated_expression_impl(
-                            value,
-                            palette_name,
-                            struct_level.saturating_sub(1),
-                        );
-                    }
-                }
-            }
-            expression_tree::Expression::Condition { true_expr, .. } => {
-                return extract_color_from_evaluated_expression_impl(
-                    true_expr,
-                    palette_name,
-                    struct_level,
-                );
-            }
-            expression_tree::Expression::CodeBlock(cb) => {
-                let Some(expr) = cb.first() else {
-                    return ExtractedColor::default();
-                };
-                return extract_color_from_evaluated_expression_impl(
-                    expr,
-                    palette_name,
-                    struct_level,
-                );
-            }
-            expression_tree::Expression::StoreLocalVariable { value, .. } => {
-                return extract_color_from_evaluated_expression_impl(
-                    value,
-                    palette_name,
-                    struct_level,
-                );
-            }
-            _ => {}
-        };
-        ExtractedColor::default()
-    }
-
-    extract_color_from_evaluated_expression_impl(evaluated_expression, Vec::new(), 0)
-}
-
 fn extract_color(
     expression: &Option<syntax_nodes::Expression>,
     evaluated_expression: &Option<expression_tree::Expression>,
@@ -306,43 +194,32 @@ fn extract_color(
         }
     }
     if let Some(ev) = evaluated_expression {
-        let color = extract_color_from_evaluated_expression(ev);
-        match color {
-            ExtractedColor { value: None, name: None } => {
-                // leave this as code...
-            }
-            ExtractedColor { value: color, name } => {
-                let value_string = name
-                    .clone()
-                    .unwrap_or_else(|| {
-                        let expression_string =
-                            expression.as_ref().map(|e| e.text().to_string()).unwrap_or_default();
-                        let expression_string = expression_string.trim();
+        if let Some(slint_interpreter::Value::Brush(b)) =
+            preview::eval::fully_eval_expression_tree_expression(ev)
+        {
+            let color_string = color_to_string(b.color());
+            let expression_string = expression
+                .as_ref()
+                .map(|e| SharedString::from(e.text().to_string().trim()))
+                .unwrap_or_else(|| color_string.clone());
+            let value_string = if expression
+                .as_ref()
+                .and_then(|e| e.child_node(SyntaxKind::QualifiedName))
+                .is_some()
+            {
+                expression_string.clone()
+            } else {
+                SharedString::new()
+            };
 
-                        let color_name =
-                            expression_string.strip_prefix("Colors.").unwrap_or(expression_string);
-                        match i_slint_compiler::lookup::named_colors().get(color_name) {
-                            Some(c) if *c == color.unwrap_or_default().as_argb_encoded() => {
-                                format!("Colors.{color_name}")
-                            }
-                            _ => String::new(),
-                        }
-                    })
+            value.display_string = expression_string;
+            value.kind = kind;
+            value.value_brush = b.clone();
+            value.value_string = value_string;
+            value.gradient_stops =
+                Rc::new(VecModel::from(vec![ui::GradientStop { color: b.color(), position: 0.5 }]))
                     .into();
-                value.display_string = name
-                    .as_ref()
-                    .map(SharedString::from)
-                    .unwrap_or_else(|| color_to_string(color.unwrap_or_default()));
-                value.kind = kind;
-                value.value_brush = slint::Brush::SolidColor(color.unwrap_or_default());
-                value.value_string = value_string;
-                value.gradient_stops = Rc::new(VecModel::from(vec![ui::GradientStop {
-                    color: color.unwrap_or_default(),
-                    position: 0.5,
-                }]))
-                .into();
-                return true;
-            }
+            return true;
         }
     }
     false
@@ -507,10 +384,16 @@ fn extract_gradient(
         stops
             .iter()
             .filter_map(|(c, p)| {
-                Some(ui::GradientStop {
-                    color: extract_color_from_evaluated_expression(c).value?,
-                    position: extract_number_from_expression_tree(p)?.normalized_value as f32,
-                })
+                if let slint_interpreter::Value::Brush(b) =
+                    preview::eval::fully_eval_expression_tree_expression(c)?
+                {
+                    Some(ui::GradientStop {
+                        color: b.color(),
+                        position: extract_number_from_expression_tree(p)?.normalized_value as f32,
+                    })
+                } else {
+                    None
+                }
             })
             .collect::<Vec<_>>()
     }
@@ -543,16 +426,6 @@ fn extract_gradient(
     value.kind = ui::PropertyValueKind::Brush;
 }
 
-fn eval_binding_expression(
-    document_cache: &common::DocumentCache,
-    expression: syntax_nodes::BindingExpression,
-) -> Option<expression_tree::Expression> {
-    let e = expression.clone();
-    util::with_lookup_ctx(document_cache, e.clone().into(), |ctx| {
-        expression_tree::Expression::from_binding_expression_node(e.into(), ctx)
-    })
-}
-
 fn simplify_value(
     document_cache: &common::DocumentCache,
     prop_info: &properties::PropertyInformation,
@@ -567,7 +440,7 @@ fn simplify_value(
     let eval_result = expression
         .as_ref()
         .and_then(|e| e.parent())
-        .and_then(|e| eval_binding_expression(document_cache, e.into()));
+        .and_then(|e| crate::preview::eval::eval_binding_expression(document_cache, e.into()));
 
     let mut value = ui::PropertyValue {
         code: code_block_or_expression
