@@ -3,6 +3,7 @@
 
 use alloc::boxed::Box;
 use core::pin::Pin;
+use euclid::num::Round;
 use nema_gfx_rs::*;
 
 use slint::platform::software_renderer;
@@ -51,14 +52,6 @@ impl<'a> i_slint_core::software_renderer::TargetPixelBuffer
         let slint::Brush::SolidColor(color) = brush else { return false };
         unsafe {
             self.ensure_command_list_bound();
-            nema_bind_dst_tex(
-                self.data.as_ptr() as _,
-                self.width,
-                self.height,
-                NEMA_RGB565,
-                (self.pixel_stride * core::mem::size_of::<software_renderer::Rgb565Pixel>()) as i32,
-            );
-
             nema_set_clip(0, 0, self.width, self.height);
             nema_set_blend(
                 NEMA_BF_ONE,
@@ -67,16 +60,7 @@ impl<'a> i_slint_core::software_renderer::TargetPixelBuffer
                 nema_tex_t_NEMA_NOTEX,
             );
 
-            nema_bind_dst_tex(
-                self.data.as_ptr() as _,
-                self.width,
-                self.height,
-                NEMA_RGB565,
-                (self.pixel_stride * core::mem::size_of::<software_renderer::Rgb565Pixel>()) as i32,
-            );
-
             let color = nema_rgba(color.red(), color.green(), color.blue(), color.alpha());
-
             for (origin, size) in region.iter() {
                 nema_fill_rect(
                     origin.x as i32,
@@ -108,14 +92,6 @@ impl<'a> i_slint_core::software_renderer::TargetPixelBuffer
         let slint::Brush::SolidColor(background) = args.background else { return false };
         self.ensure_command_list_bound();
         unsafe {
-            nema_bind_dst_tex(
-                self.data.as_ptr() as _,
-                self.width,
-                self.height,
-                NEMA_RGB565,
-                (self.pixel_stride * core::mem::size_of::<software_renderer::Rgb565Pixel>()) as i32,
-            );
-
             nema_set_blend(
                 NEMA_BF_ONE | (NEMA_BF_INVSRCALPHA << 8),
                 nema_tex_t_NEMA_TEX0,
@@ -140,8 +116,8 @@ impl<'a> i_slint_core::software_renderer::TargetPixelBuffer
                 nema_set_clip(origin.x as _, origin.y as _, size.width as _, size.height as _);
                 if radius <= 0. {
                     nema_fill_rect(
-                        args.x as i32,
-                        args.y as i32,
+                        args.x.round() as i32,
+                        args.y.round() as i32,
                         args.width as i32,
                         args.height as i32,
                         color,
@@ -209,14 +185,6 @@ impl<'a> i_slint_core::software_renderer::TargetPixelBuffer
                 texture_format,
                 source.byte_stride as i32,
                 NEMA_FILTER_PS as _,
-            );
-
-            nema_bind_dst_tex(
-                self.data.as_ptr() as _,
-                self.width,
-                self.height,
-                NEMA_RGB565,
-                (self.pixel_stride * core::mem::size_of::<software_renderer::Rgb565Pixel>()) as i32,
             );
 
             nema_set_clip(0, 0, self.width, self.height);
@@ -297,6 +265,14 @@ impl<'a> NemaGFXEnhancedBuffer<'a> {
             let mut cl = Box::new(nema_cl_create());
             nema_cl_bind_circular(cl.as_mut());
             self.command_list = Some(cl);
+
+            nema_bind_dst_tex(
+                self.data.as_ptr() as _,
+                self.width,
+                self.height,
+                NEMA_RGB565,
+                (self.pixel_stride * core::mem::size_of::<software_renderer::Rgb565Pixel>()) as i32,
+            );
         }
     }
 

@@ -194,6 +194,7 @@ stm32u5g9j-dk2 = [
   "embassy-futures",
   "i-slint-core/experimental",
   "nema-gfx-rs",
+  "euclid/libm",
 ]
 
 [dependencies]
