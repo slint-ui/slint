@@ -652,10 +652,12 @@ impl DeclarationNodeQuery {
         ) -> Option<TokenInformation> {
             let element = node.parent()?;
             assert_eq!(element.kind(), SyntaxKind::Element);
-            let component = element.parent()?;
-            assert_eq!(component.kind(), SyntaxKind::Component);
+            let component_or_subelement = element.parent()?;
+            assert!([SyntaxKind::Component, SyntaxKind::SubElement]
+                .contains(&component_or_subelement.kind()));
 
-            let declared_identifier = component.child_node(SyntaxKind::DeclaredIdentifier)?;
+            let declared_identifier =
+                component_or_subelement.child_node(SyntaxKind::DeclaredIdentifier)?;
 
             let token = main_identifier(&declared_identifier)?;
             let info = common::token_info::token_info(document_cache, token.clone())?;
@@ -3192,6 +3194,82 @@ export component re_name-me {
                 panic!("Unexpected file!");
             }
         }
+    }
+
+    #[test]
+    fn test_rename_property_in_subelement() {
+        let document_cache = test::compile_test_with_sources(
+            "fluent",
+            HashMap::from([(
+                Url::from_file_path(test::main_test_file_name()).unwrap(),
+                r#"
+component Baz {
+    in-out property <int> re_name-me /* <- TEST_ME_1 */: 42;
+}
+
+export component Bar {
+    Baz {
+        re_name-me /* <- TEST_ME_2 */: 23;
+    }
+}
+                "#
+                .to_string(),
+            )]),
+            true, // Component `Foo` is replacing a component with the same name
+        );
+
+        let edited_text = rename_tester(&document_cache, &test::main_test_file_name(), "_1");
+
+        assert_eq!(edited_text.len(), 1);
+
+        assert!(edited_text[0].contents.contains("component Baz {"));
+        assert!(edited_text[0].contents.contains("<int> XxxYyyZzz /* <- TEST_ME_1 */: 42;"));
+        assert!(edited_text[0].contents.contains("    XxxYyyZzz /* <- TEST_ME_2 */: 23;"));
+
+        let edited_text = rename_tester(&document_cache, &test::main_test_file_name(), "_2");
+
+        assert_eq!(edited_text.len(), 1);
+
+        assert!(edited_text[0].contents.contains("component Baz {"));
+        assert!(edited_text[0].contents.contains("<int> XxxYyyZzz /* <- TEST_ME_1 */: 42;"));
+        assert!(edited_text[0].contents.contains("    XxxYyyZzz /* <- TEST_ME_2 */: 23;"));
+    }
+
+    #[test]
+    fn test_rename_property_defined_in_subelement() {
+        let document_cache = test::compile_test_with_sources(
+            "fluent",
+            HashMap::from([(
+                Url::from_file_path(test::main_test_file_name()).unwrap(),
+                r#"
+export component Bar {
+    id := Rectangle {
+        in-out property <int> re_name-me /* <- TEST_ME_1 */: 42;
+    }
+
+    in-out property <int> usage: id.re_name-me /* <- TEST_ME_2 */;
+}
+                "#
+                .to_string(),
+            )]),
+            true, // Component `Foo` is replacing a component with the same name
+        );
+
+        let edited_text = rename_tester(&document_cache, &test::main_test_file_name(), "_1");
+
+        assert_eq!(edited_text.len(), 1);
+
+        assert!(edited_text[0].contents.contains("export component Bar {"));
+        assert!(edited_text[0].contents.contains("<int> XxxYyyZzz /* <- TEST_ME_1 */: 42;"));
+        assert!(edited_text[0].contents.contains("usage: id.XxxYyyZzz /* <- TEST_ME_2 */;"));
+
+        let edited_text = rename_tester(&document_cache, &test::main_test_file_name(), "_2");
+
+        assert_eq!(edited_text.len(), 1);
+
+        assert!(edited_text[0].contents.contains("export component Bar {"));
+        assert!(edited_text[0].contents.contains("<int> XxxYyyZzz /* <- TEST_ME_1 */: 42;"));
+        assert!(edited_text[0].contents.contains("usage: id.XxxYyyZzz /* <- TEST_ME_2 */;"));
     }
 
     #[test]
