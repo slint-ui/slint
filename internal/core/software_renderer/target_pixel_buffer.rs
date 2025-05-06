@@ -176,7 +176,7 @@ pub struct DrawRectangleArgs {
     /// A value of 0 would mean that the rectangle is fully transparent (so nothing is drawn),
     /// and a value of 255 would mean fully opaque.
     pub alpha: u8,
-    /// An extra rotation that should be applied to the gradient
+    /// An extra rotation that should be applied to the gradient (and only to the gradient, it doesn't impact the border radius)
     pub rotation: RenderingRotation,
 }
 

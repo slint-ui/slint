@@ -31,7 +31,7 @@ use crate::lengths::{
 use crate::renderer::RendererSealed;
 use crate::textlayout::{AbstractFont, FontMetrics, TextParagraphLayout};
 use crate::window::{WindowAdapter, WindowInner};
-use crate::{Brush, Color, Coord, ImageInner, StaticTextures};
+use crate::{Brush, Color, ImageInner, StaticTextures};
 use alloc::rc::{Rc, Weak};
 use alloc::{vec, vec::Vec};
 use core::cell::{Cell, RefCell};
@@ -381,7 +381,7 @@ mod target_pixel_buffer;
 
 #[cfg(feature = "experimental")]
 pub use target_pixel_buffer::{
-    CompositionMode, DrawRectangleArgs, DrawTextureArgs, TargetPixelBuffer, TexturePixelFormat,
+    DrawRectangleArgs, DrawTextureArgs, TargetPixelBuffer, TexturePixelFormat,
 };
 
 #[cfg(not(feature = "experimental"))]
@@ -1155,7 +1155,8 @@ fn process_rectangle_impl(
 ) {
     let geom = args.geometry();
     let Some(clipped) = geom.intersection(&clip.cast()) else { return };
-    if let Brush::LinearGradient(g) = &args.background {
+
+    let color = if let Brush::LinearGradient(g) = &args.background {
         let angle = g.angle() + args.rotation.angle();
         let tan = angle.to_radians().tan().abs();
         let start = if !tan.is_finite() {
@@ -1243,15 +1244,86 @@ fn process_rectangle_impl(
 
             processor.process_gradient(act_rect, gr);
         }
+        Color::default()
+    } else {
+        alpha_color(args.background.color(), args.alpha)
+    };
+
+    let mut border_color =
+        PremultipliedRgbaColor::from(alpha_color(args.border.color(), args.alpha));
+    let color = PremultipliedRgbaColor::from(color);
+    let mut border = PhysicalLength::new(args.border_width as _);
+    if border_color.alpha == 0 {
+        border = PhysicalLength::new(0);
+    } else if border_color.alpha < 255 {
+        // Find a color for the border which is an equivalent to blend the background and then the border.
+        // In the end, the resulting of blending the background and the color is
+        // (A + B) + C, where A is the buffer color, B is the background, and C is the border.
+        // which expands to (A*(1-Bα) + B*Bα)*(1-Cα) + C*Cα = A*(1-(Bα+Cα-Bα*Cα)) + B*Bα*(1-Cα) + C*Cα
+        // so let the new alpha be: Nα = Bα+Cα-Bα*Cα, then this is A*(1-Nα) + N*Nα
+        // with N = (B*Bα*(1-Cα) + C*Cα)/Nα
+        // N being the equivalent color of the border that mixes the background and the border
+        // In pre-multiplied space, the formula simplifies further N' = B'*(1-Cα) + C'
+        let b = border_color;
+        let b_alpha_16 = b.alpha as u16;
+        border_color = PremultipliedRgbaColor {
+            red: ((color.red as u16 * (255 - b_alpha_16)) / 255) as u8 + b.red,
+            green: ((color.green as u16 * (255 - b_alpha_16)) / 255) as u8 + b.green,
+            blue: ((color.blue as u16 * (255 - b_alpha_16)) / 255) as u8 + b.blue,
+            alpha: (color.alpha as u16 + b_alpha_16 - (color.alpha as u16 * b_alpha_16) / 255)
+                as u8,
+        }
+    }
+
+    let radius = PhysicalBorderRadius {
+        top_left: args.top_left_radius as _,
+        top_right: args.top_right_radius as _,
+        bottom_right: args.bottom_right_radius as _,
+        bottom_left: args.bottom_left_radius as _,
+        _unit: Default::default(),
+    };
+
+    if !radius.is_zero() {
+        // Add a small value to make sure that the clip is always positive despite floating point shenanigans
+        const E: f32 = 0.00001;
+
+        processor.process_rounded_rectangle(
+            clipped.round().cast(),
+            RoundedRectangle {
+                radius,
+                width: border,
+                border_color,
+                inner_color: color,
+                top_clip: PhysicalLength::new((clipped.min_y() - geom.min_y() + E) as _),
+                bottom_clip: PhysicalLength::new((geom.max_y() - clipped.max_y() + E) as _),
+                left_clip: PhysicalLength::new((clipped.min_x() - geom.min_x() + E) as _),
+                right_clip: PhysicalLength::new((geom.max_x() - clipped.max_x() + E) as _),
+            },
+        );
         return;
     }
 
-    let color = alpha_color(args.background.color(), args.alpha);
-    if color.alpha() == 0 {
-        return;
+    if color.alpha > 0 {
+        if let Some(r) =
+            geom.round().cast().inflate(-border.get(), -border.get()).intersection(clip)
+        {
+            processor.process_simple_rectangle(r, color);
+        }
     }
 
-    processor.process_simple_rectangle(clipped.round().cast(), color.into());
+    if border_color.alpha > 0 {
+        let mut add_border = |r: PhysicalRect| {
+            if let Some(r) = r.intersection(clip) {
+                processor.process_simple_rectangle(r, border_color);
+            }
+        };
+        let b = border.get();
+        let g = geom.round().cast();
+        add_border(euclid::rect(g.min_x(), g.min_y(), g.width(), b));
+        add_border(euclid::rect(g.min_x(), g.min_y() + g.height() - b, g.width(), b));
+        add_border(euclid::rect(g.min_x(), g.min_y() + b, b, g.height() - b - b));
+        add_border(euclid::rect(g.min_x() + g.width() - b, g.min_y() + b, b, g.height() - b - b));
+    }
 }
 
 struct RenderToBuffer<'a, TargetPixelBuffer> {
@@ -1960,7 +2032,6 @@ impl<T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'_, T
         }
     }
 
-    #[allow(clippy::unnecessary_cast)] // Coord
     fn draw_border_rectangle(
         &mut self,
         rect: Pin<&dyn RenderBorderRectangle>,
@@ -1970,125 +2041,43 @@ impl<T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'_, T
     ) {
         let geom = LogicalRect::from(size);
         if self.should_draw(&geom) {
-            let mut border = rect.border_width();
-            let radius = rect.border_radius();
-            // FIXME: gradients
-            let color = self.alpha_color(rect.background().color());
-            let border_color = if border.get() as f32 > 0.01 {
-                self.alpha_color(rect.border_color().color())
-            } else {
-                Color::default()
+            let geom = (geom.translate(self.current_state.offset.to_vector()).cast()
+                * self.scale_factor)
+                .transformed(self.rotation);
+
+            let clipped =
+                (self.current_state.clip.translate(self.current_state.offset.to_vector()).cast()
+                    * self.scale_factor)
+                    .round()
+                    .cast()
+                    .transformed(self.rotation);
+
+            let radius = (rect.border_radius().cast() * self.scale_factor)
+                .transformed(self.rotation)
+                .min(BorderRadius::from_length(geom.width_length() / 2.))
+                .min(BorderRadius::from_length(geom.height_length() / 2.));
+
+            let border = rect.border_width().cast() * self.scale_factor;
+            let border_color =
+                if border.get() > 0.01 { rect.border_color() } else { Default::default() };
+
+            let args = target_pixel_buffer::DrawRectangleArgs {
+                x: geom.origin.x,
+                y: geom.origin.y,
+                width: geom.size.width,
+                height: geom.size.height,
+                top_left_radius: radius.top_left,
+                top_right_radius: radius.top_right,
+                bottom_right_radius: radius.bottom_right,
+                bottom_left_radius: radius.bottom_left,
+                border_width: border.get(),
+                background: rect.background(),
+                border: border_color,
+                alpha: (self.current_state.alpha * 255.) as u8,
+                rotation: self.rotation.orientation,
             };
 
-            let mut border_color = PremultipliedRgbaColor::from(border_color);
-            let color = PremultipliedRgbaColor::from(color);
-            if border_color.alpha == 0 {
-                border = LogicalLength::new(0 as _);
-            } else if border_color.alpha < 255 {
-                // Find a color for the border which is an equivalent to blend the background and then the border.
-                // In the end, the resulting of blending the background and the color is
-                // (A + B) + C, where A is the buffer color, B is the background, and C is the border.
-                // which expands to (A*(1-Bα) + B*Bα)*(1-Cα) + C*Cα = A*(1-(Bα+Cα-Bα*Cα)) + B*Bα*(1-Cα) + C*Cα
-                // so let the new alpha be: Nα = Bα+Cα-Bα*Cα, then this is A*(1-Nα) + N*Nα
-                // with N = (B*Bα*(1-Cα) + C*Cα)/Nα
-                // N being the equivalent color of the border that mixes the background and the border
-                // In pre-multiplied space, the formula simplifies further N' = B'*(1-Cα) + C'
-                let b = border_color;
-                let b_alpha_16 = b.alpha as u16;
-                border_color = PremultipliedRgbaColor {
-                    red: ((color.red as u16 * (255 - b_alpha_16)) / 255) as u8 + b.red,
-                    green: ((color.green as u16 * (255 - b_alpha_16)) / 255) as u8 + b.green,
-                    blue: ((color.blue as u16 * (255 - b_alpha_16)) / 255) as u8 + b.blue,
-                    alpha: (color.alpha as u16 + b_alpha_16
-                        - (color.alpha as u16 * b_alpha_16) / 255) as u8,
-                }
-            }
-
-            if !radius.is_zero() {
-                let radius = radius
-                    .min(LogicalBorderRadius::from_length(geom.width_length() / 2 as Coord))
-                    .min(LogicalBorderRadius::from_length(geom.height_length() / 2 as Coord));
-                if let Some(clipped) = geom.intersection(&self.current_state.clip) {
-                    let geom2 = (geom.cast() * self.scale_factor).transformed(self.rotation);
-                    let clipped2 = (clipped.cast() * self.scale_factor).transformed(self.rotation);
-                    let geometry =
-                        (clipped.translate(self.current_state.offset.to_vector()).cast()
-                            * self.scale_factor)
-                            .round()
-                            .cast()
-                            .transformed(self.rotation);
-                    let radius =
-                        (radius.cast() * self.scale_factor).cast().transformed(self.rotation);
-                    // Add a small value to make sure that the clip is always positive despite floating point shenanigans
-                    const E: f32 = 0.00001;
-
-                    self.processor.process_rounded_rectangle(
-                        geometry,
-                        RoundedRectangle {
-                            radius,
-                            width: (border.cast() * self.scale_factor).cast(),
-                            border_color,
-                            inner_color: color,
-                            top_clip: PhysicalLength::new(
-                                (clipped2.min_y() - geom2.min_y() + E) as _,
-                            ),
-                            bottom_clip: PhysicalLength::new(
-                                (geom2.max_y() - clipped2.max_y() + E) as _,
-                            ),
-                            left_clip: PhysicalLength::new(
-                                (clipped2.min_x() - geom2.min_x() + E) as _,
-                            ),
-                            right_clip: PhysicalLength::new(
-                                (geom2.max_x() - clipped2.max_x() + E) as _,
-                            ),
-                        },
-                    );
-                }
-                return;
-            }
-
-            if color.alpha > 0 {
-                if let Some(r) = geom
-                    .inflate(-border.get(), -border.get())
-                    .intersection(&self.current_state.clip)
-                {
-                    let geometry = (r.translate(self.current_state.offset.to_vector()).cast()
-                        * self.scale_factor)
-                        .round()
-                        .cast()
-                        .transformed(self.rotation);
-                    self.processor.process_simple_rectangle(geometry, color);
-                }
-            }
-
-            // FIXME: gradients
-            if border_color.alpha > 0 {
-                let mut add_border = |r: LogicalRect| {
-                    if let Some(r) = r.intersection(&self.current_state.clip) {
-                        let geometry =
-                            (r.translate(self.current_state.offset.to_vector()).try_cast()?
-                                * self.scale_factor)
-                                .round()
-                                .try_cast()?
-                                .transformed(self.rotation);
-                        self.processor.process_simple_rectangle(geometry, border_color);
-                    }
-                    Some(())
-                };
-                let b = border.get();
-                let err = || {
-                    panic!(
-                        "invalid border rectangle {geom:?} border={b} state={:?}",
-                        self.current_state
-                    )
-                };
-                add_border(euclid::rect(0 as _, 0 as _, geom.width(), b)).unwrap_or_else(err);
-                add_border(euclid::rect(0 as _, geom.height() - b, geom.width(), b))
-                    .unwrap_or_else(err);
-                add_border(euclid::rect(0 as _, b, b, geom.height() - b - b)).unwrap_or_else(err);
-                add_border(euclid::rect(geom.width() - b, b, b, geom.height() - b - b))
-                    .unwrap_or_else(err);
-            }
+            self.processor.process_rectangle(&args, clipped);
         }
     }
 
