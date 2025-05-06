@@ -47,18 +47,10 @@ impl<'a> i_slint_core::software_renderer::TargetPixelBuffer
         self.data.len() / self.pixel_stride
     }
 
-    fn fill_rectangle(
-        &mut self,
-        x: i16,
-        y: i16,
-        width: i16,
-        height: i16,
-        color: software_renderer::PremultipliedRgbaColor,
-        composition_mode: software_renderer::CompositionMode,
-    ) -> bool {
-        self.ensure_command_list_bound();
-
+    fn fill_background(&mut self, brush: &slint::Brush, region: &PhysicalRegion) -> bool {
+        let slint::Brush::SolidColor(color) = brush else { return false };
         unsafe {
+            self.ensure_command_list_bound();
             nema_bind_dst_tex(
                 self.data.as_ptr() as _,
                 self.width,
@@ -68,36 +60,118 @@ impl<'a> i_slint_core::software_renderer::TargetPixelBuffer
             );
 
             nema_set_clip(0, 0, self.width, self.height);
-
             nema_set_blend(
-                match composition_mode {
-                    software_renderer::CompositionMode::Source => NEMA_BF_ONE,
-                    software_renderer::CompositionMode::SourceOver => {
-                        NEMA_BF_ONE | (NEMA_BF_INVSRCALPHA << 8)
-                    }
-                    _ => todo!(),
-                },
+                NEMA_BF_ONE,
                 nema_tex_t_NEMA_TEX0,
                 nema_tex_t_NEMA_NOTEX,
                 nema_tex_t_NEMA_NOTEX,
             );
 
-            let a16 = color.alpha as u16;
-            let r = (color.red as u16 * 255u16 / a16) as u8;
-            let g = (color.green as u16 * 255u16 / a16) as u8;
-            let b = (color.blue as u16 * 255u16 / a16) as u8;
-
-            nema_fill_rect(
-                x as i32,
-                y as i32,
-                width as i32,
-                height as i32,
-                nema_rgba(r, g, b, color.alpha),
+            nema_bind_dst_tex(
+                self.data.as_ptr() as _,
+                self.width,
+                self.height,
+                NEMA_RGB565,
+                (self.pixel_stride * core::mem::size_of::<software_renderer::Rgb565Pixel>()) as i32,
             );
+
+            let color = nema_rgba(color.red(), color.green(), color.blue(), color.alpha());
+
+            for (origin, size) in region.iter() {
+                nema_fill_rect(
+                    origin.x as i32,
+                    origin.y as i32,
+                    size.width as i32,
+                    size.height as i32,
+                    color,
+                );
+                self.ops_count += 1;
+            }
+        }
+        true
+    }
+
+    fn draw_rectangle(
+        &mut self,
+        args: &software_renderer::DrawRectangleArgs,
+        clip: &PhysicalRegion,
+    ) -> bool {
+        let radius = args.top_left_radius;
+        if args.top_right_radius != radius
+            || args.bottom_right_radius != radius
+            || args.bottom_left_radius != radius
+        {
+            return false;
         }
 
-        self.ops_count += 1;
+        // TODO: gradients
+        let slint::Brush::SolidColor(background) = args.background else { return false };
+        self.ensure_command_list_bound();
+        unsafe {
+            nema_bind_dst_tex(
+                self.data.as_ptr() as _,
+                self.width,
+                self.height,
+                NEMA_RGB565,
+                (self.pixel_stride * core::mem::size_of::<software_renderer::Rgb565Pixel>()) as i32,
+            );
 
+            nema_set_blend(
+                NEMA_BF_ONE | (NEMA_BF_INVSRCALPHA << 8),
+                nema_tex_t_NEMA_TEX0,
+                nema_tex_t_NEMA_NOTEX,
+                nema_tex_t_NEMA_NOTEX,
+            );
+
+            let color = nema_rgba(
+                background.red(),
+                background.green(),
+                background.blue(),
+                (background.alpha() as u16 * args.alpha as u16 / 255) as _,
+            );
+            let border_color = args.border.color();
+            let border_color = nema_rgba(
+                border_color.red(),
+                border_color.green(),
+                border_color.blue(),
+                (border_color.alpha() as u16 * args.alpha as u16 / 255) as _,
+            );
+            for (origin, size) in clip.iter() {
+                nema_set_clip(origin.x as _, origin.y as _, size.width as _, size.height as _);
+                if radius <= 0. {
+                    nema_fill_rect(
+                        args.x as i32,
+                        args.y as i32,
+                        args.width as i32,
+                        args.height as i32,
+                        color,
+                    );
+                } else {
+                    nema_fill_rounded_rect_aa(
+                        args.x,
+                        args.y,
+                        args.width,
+                        args.height,
+                        radius,
+                        color,
+                    );
+                }
+                self.ops_count += 1;
+                let b = args.border_width;
+                if b > 0.1 {
+                    nema_draw_rounded_rect_aa(
+                        args.x + b / 2.0,
+                        args.y + b / 2.0,
+                        args.width - b,
+                        args.height - b,
+                        radius,
+                        b,
+                        border_color,
+                    );
+                    self.ops_count += 1;
+                }
+            }
+        }
         true
     }
 
