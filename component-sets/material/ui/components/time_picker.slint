@@ -1,0 +1,674 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { BaseDialog } from "./dialog.slint";
+import { Icons } from "../icons/icons.slint";
+import { MaterialText } from "./material_text.slint";
+import { MaterialStyleMetrics } from "../styling/material_style_metrics.slint";
+import { Typography } from "../styling/typography.slint";
+import { MaterialPalette } from "../styling/material_palette.slint";
+import { StateLayerArea } from "state_layer.slint";
+
+component TimeSelector inherits Rectangle {
+    in property <bool> selected;
+    in property <int> value;
+
+    callback clicked <=> touch_area.clicked;
+
+    width: max(MaterialStyleMetrics.size_48, text_label.min_width);
+    height: max(MaterialStyleMetrics.size_48, text_label.min_height);
+    border_radius: max(root.width, root.height) / 2;
+    vertical_stretch: 0;
+    horizontal_stretch: 0;
+
+    touch_area := TouchArea {
+        text_label := MaterialText {
+            text: root.value;
+            vertical_alignment: center;
+            horizontal_alignment: center;
+            style: Typography.body_large;
+            color: MaterialPalette.on_surface;
+        }
+    }
+
+    states [
+        selected when root.selected: {
+            text_label.color: MaterialPalette.on_primary;
+        }
+    ]
+}
+
+component Clock {
+    in property <[int]> model;
+    in property <bool> two_columns;
+    in property <int> total;
+    in_out property <int> current_item;
+    in property <int> current_value;
+
+    callback current_item_changed(index: int);
+
+    property <length> radius: max(root.width, root.height) / 2;
+    property <length> picker_ditameter: MaterialStyleMetrics.size_48;
+    property <length> center: root.radius - root.picker_ditameter / 2;
+    property <length> outer_padding: 2px;
+    property <length> inner_padding: 32px;
+    property <length> radius_outer: root.center - root.outer_padding;
+    property <length> radius_inner: root.center - root.inner_padding;
+    property <int> half_total: root.total / 2;
+    property <angle> rotation: 0.25turn;
+    property <length> current_x: get_index_x(root.current_value);
+    property <length> current_y: get_index_y(root.current_value);
+
+    min_width: MaterialStyleMetrics.size_256;
+    min_height: self.min_width;
+    vertical_stretch: 0;
+    horizontal_stretch: 0;
+
+    background_layer := Rectangle {
+        border_radius: max(self.width, self.height) / 2;
+        background: MaterialPalette.surface_container_highest;
+
+        if root.current_item >= 0 || root.current_item < root.model.length: Path {
+            stroke: MaterialPalette.primary;
+            stroke_width: 2px;
+            viewbox_width: self.width / 1px;
+            viewbox_height: self.height / 1px;
+
+            MoveTo {
+                x: root.width / 2px;
+                y: root.height / 2px;
+            }
+
+            LineTo {
+                x: (root.current_x + root.picker_ditameter / 2) / 1px;
+                y: (root.current_y + root.picker_ditameter / 2) / 1px;
+            }
+        }
+
+        Rectangle {
+            width: MaterialStyleMetrics.size_8;
+            height: self.width;
+            background: MaterialPalette.primary;
+            border_radius: self.width / 2;
+        }
+
+        if root.current_item < root.model.length: Rectangle {
+            x: root.current_x;
+            y: root.current_y;
+            width: root.picker_ditameter;
+            height: root.picker_ditameter;
+            border_radius: root.picker_ditameter / 2;
+                background: MaterialPalette.primary;
+
+            if root.current_item < 0: Rectangle {
+                width: MaterialStyleMetrics.size_4;
+                height: self.width;
+                border_radius: self.width / 2;
+                background: MaterialPalette.on_primary;
+            }
+        }
+
+        for val[index] in root.model: TimeSelector {
+            x: get_index_x(val);
+            y: get_index_y(val);
+            width: root.picker_ditameter;
+            height: root.picker_ditameter;
+            value: val;
+            selected: index == root.current_item;
+            accessible_role: button;
+            accessible_label: @tr("{} Hours or minutes of {}", val, root.total);
+            accessible_action_default => {
+                self.clicked();
+            }
+
+            clicked => {
+                root.set_current_item(index);
+            }
+        }
+    }
+
+
+    pure function value_to_angle(value: int) -> angle {
+        if root.two_columns {
+            if value >= root.half_total {
+                return clamp((value - root.half_total) / root.half_total * 1turn, 0, 0.999999turn) - root.rotation;
+            }
+            return clamp(value / root.half_total * 1turn, 0, 0.99999turn) - root.rotation;
+        }
+
+        clamp(value / root.total * 1turn, 0, 0.99999turn) - root.rotation
+    }
+
+    pure function get_index_x(value: int) -> length {
+        if root.two_columns && value >= root.half_total {
+            return root.center + (root.radius_inner / 1px * cos(root.value_to_angle(value))) * 1px;
+        }
+
+        root.center + (root.radius_outer / 1px * cos(root.value_to_angle(value))) * 1px
+    }
+
+    pure function get_index_y(value: int) -> length {
+        // this is only for 24 mode
+        if root.total == 24 && value == 0 {
+            return root.center + (root.radius_inner / 1px * sin(root.value_to_angle(value))) * 1px;
+        }
+        if root.total == 24 && value == 12 {
+            return root.center + (root.radius_outer / 1px * sin(root.value_to_angle(value))) * 1px;
+        }
+        if root.two_columns && value >= root.half_total {
+            return root.center + (root.radius_inner / 1px * sin(root.value_to_angle(value))) * 1px;
+        }
+
+        root.center + (root.radius_outer / 1px * sin(root.value_to_angle(value))) * 1px
+    }
+
+    function set_current_item(index: int) {
+        root.current_item_changed(index);
+    }
+}
+
+component TimePickerInput {
+    in property <bool> read_only <=> text_input.read_only;
+    in property <bool> checked;
+    in_out property <string> text <=> text_input.text;
+
+    callback clicked;
+    callback edited(value: int);
+
+    width: MaterialStyleMetrics.size_90;
+    min_height: max(MaterialStyleMetrics.size_80, layout.min_height);
+    vertical_stretch: 0;
+    horizontal_stretch: 0;
+
+    forward_focus: text_input;
+
+    background_layer := Rectangle {
+        border_radius: MaterialStyleMetrics.border_radius_8;
+        background: MaterialPalette.surface_container_highest;
+        clip: true;
+
+        layout := HorizontalLayout {
+            padding: MaterialStyleMetrics.padding_8;
+
+            text_input := TextInput {
+                vertical_alignment: center;
+                horizontal_alignment: center;
+                color: MaterialPalette.on_surface;
+                font_size: Typography.display_large.font_size;
+                font_weight: Typography.display_large.font_weight;
+                input_type: number;
+                visible: !root.read_only;
+
+                edited => {
+                    root.edited(self.text.to_float());
+                }
+            }
+        }
+
+        if root.read_only : StateLayerArea {
+            border_radius: background_layer.border_radius;
+            color: MaterialPalette.on_surface;
+
+            HorizontalLayout {
+                padding: MaterialStyleMetrics.padding_8;
+
+                MaterialText {
+                    text: root.text.to_float() >= 10 ? root.text : "0" + root.text;
+                    style: Typography.display_large;
+                    color: MaterialPalette.on_surface;
+                    horizontal_alignment: center;
+                    vertical_alignment: center;
+                }
+            }
+
+            clicked => {
+                root.clicked();
+            }
+        }
+    }
+
+    states [
+        has_focus when text_input.has_focus && !root.read_only: {
+            background_layer.background: MaterialPalette.primary_container;
+            background_layer.border_width: 2px;
+            background_layer.border_color: MaterialPalette.primary;
+            text_input.color: MaterialPalette.on_primary_container;
+        }
+        checked when root.checked: {
+            background_layer.background: MaterialPalette.primary_container;
+            text_input.color: MaterialPalette.on_primary_container;
+        }
+    ]
+}
+
+component PeriodSelectorItem {
+    in property <string> text <=> label.text;
+    in property <bool> checked;
+
+    callback clicked <=> state_layer.clicked;
+
+    background_layer := Rectangle {
+        state_layer := StateLayerArea {
+            color: label.color;
+
+            label := MaterialText {
+                color: MaterialPalette.on_surface_variant;
+                horizontal_alignment: center;
+            }
+        }
+    }
+
+    states [
+        checked when root.checked: {
+            background_layer.background: MaterialPalette.tertiary_container;
+            label.color: MaterialPalette.on_tertiary_container;
+        }
+    ]
+}
+
+
+component PeriodSelector {
+    in property <bool> am_selected;
+    in property <bool> horizontal;
+
+    callback update_period(am_selected: bool);
+
+    min_width: max(MaterialStyleMetrics.size_52, layout.min_width);
+    min_height: max(root.horizontal ? MaterialStyleMetrics.size_38 : MaterialStyleMetrics.size_80, layout.min_height);
+    accessible_label: "AM or PM";
+    accessible_role: checkbox;
+    accessible_checked: root.am_selected;
+
+    Rectangle {
+        border_radius: border.border_radius;
+        clip: true;
+
+        layout := VerticalLayout {
+            if root.horizontal : HorizontalLayout {
+                PeriodSelectorItem {
+                    text: "AM";
+                    checked: root.am_selected;
+
+                    clicked => {
+                        if root.am_selected {
+                            return;
+                        }
+                        root.update_period(true);
+                    }
+                }
+
+                Rectangle {
+                    width: 1px;
+                    background: border.border_color;
+                    vertical_stretch: 0;
+                }
+
+                PeriodSelectorItem {
+                    text: "PM";
+                    checked: !root.am_selected;
+
+                    clicked => {
+                        if !root.am_selected {
+                            return;
+                        }
+                        root.update_period(false);
+                    }
+                }
+            }
+
+            if !root.horizontal : VerticalLayout {
+                PeriodSelectorItem {
+                    text: "AM";
+                    checked: root.am_selected;
+
+                    clicked => {
+                        if root.am_selected {
+                            return;
+                        }
+                        root.update_period(true);
+                    }
+                }
+
+                Rectangle {
+                    height: 1px;
+                    background: border.border_color;
+                    vertical_stretch: 0;
+                }
+
+                PeriodSelectorItem {
+                    text: "PM";
+                    checked: !root.am_selected;
+
+                    clicked => {
+                        if !root.am_selected {
+                            return;
+                        }
+                        root.update_period(false);
+                    }
+                }
+            }
+        }
+    }
+
+    border := Rectangle {
+        border_radius: MaterialStyleMetrics.border_radius_8;
+        border_width: 1px;
+        border_color: MaterialPalette.outline;
+    }
+}
+
+export struct Time {
+    hour: int,
+    minute: int,
+    second: int
+}
+
+export component TimePicker inherits PopupWindow {
+    in property <bool> use_24_hour_format: true;
+    in property <string> title: @tr("Select time");
+    in property <string> cancel_text: @tr("Cancel");
+    in property <string> ok_text: @tr("Ok");
+    in property <Time> time: { hour: 12 };
+    in property <string> hour_labl: @tr("Hour");
+    in property <string> minute_label: @tr("Minute");
+
+    property <bool> keyboard_mode;
+    property <bool> minutes_selected;
+    property <bool> am_selected: true;
+    property <[int]> twelf_hour_model: [12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+    property <[int]> use-24_hour_format_model: [
+        12,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        0,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23
+    ];
+    property <[int]> minute_model: [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55];
+    property <[int]> current_model: root.get_current_model();
+    property <int> current_item: root.minutes_selected ? root.index_of_minute(root.current_time.minute) : root.index_of_hour(root.current_time.hour);
+    property <Time> current_time: root.time;
+    property <int> time_picker_hour: hour_time_picker.text.to_float();
+    property <int> time_picker_minute: minute_time_picker.text.to_float();
+    property <bool> horizontal: root.width >= MaterialStyleMetrics.size_572;
+
+    callback ok();
+
+    close_policy: no_auto_close;
+    forward_focus: base;
+
+    base := BaseDialog {
+        width: 100%;
+        height: 100%;
+        title: root.title;
+        icon_actions: [
+            root.keyboard_mode ? Icons.schedule : Icons.keyboard
+        ];
+        actions: [
+            root.cancel_text,
+            root.ok_text
+        ];
+
+        layout := HorizontalLayout {
+            spacing: MaterialStyleMetrics.spacing_52;
+
+            VerticalLayout {
+                alignment: center;
+                spacing: MaterialStyleMetrics.spacing_8;
+
+                HorizontalLayout {
+                    alignment: center;
+
+                    hour_time_picker := TimePickerInput {
+                        read_only: !root.keyboard_mode;
+                        checked: self.read_only && !root.minutes_selected;
+                        text: root.current_time.hour;
+
+                        accessible_role: AccessibleRole.text_input;
+                        accessible_value: self.text;
+                        accessible_label: "hour";
+
+                        clicked => {
+                            root.minutes_selected = false;
+                        }
+                    }
+
+                    separator := MaterialText {
+                        min_width: MaterialStyleMetrics.size_24;
+                        text: ":";
+                        color: MaterialPalette.on_surface;
+                        style: Typography.display_large;
+                        vertical_alignment: center;
+                        horizontal_alignment: center;
+                    }
+
+                    minute_time_picker := TimePickerInput {
+                        read_only: !root.keyboard_mode;
+                        checked: self.read_only && root.minutes_selected;
+                        text: root.current_time.minute;
+
+                        accessible_role: AccessibleRole.text_input;
+                        accessible_value: self.text;
+                        accessible_label: "minute";
+
+                        clicked => {
+                            root.minutes_selected = true;
+                        }
+                    }
+
+                    // spacer
+                    if !root.use_24_hour_format && (!root.horizontal || root.keyboard_mode) : Rectangle {
+                        width: MaterialStyleMetrics.spacing_12;
+                    }
+
+                    if !root.use_24_hour_format && (!root.horizontal || root.keyboard_mode) : PeriodSelector {
+                        am_selected: root.am_selected;
+
+                        update-period(am) => {
+                            root.am-selected = am;
+                        }
+                    }
+                }
+
+                // labels
+                if root.keyboard_mode : HorizontalLayout {
+                    alignment: start;
+
+                    MaterialText {
+                        width: hour_time_picker.width;
+                        text: root.hour_labl;
+                        color: MaterialPalette.on_surface_variant;
+                    }
+
+                    Rectangle {
+                        width: MaterialStyleMetrics.size_24;
+                    }
+
+                    MaterialText {
+                        text: root.minute_label;
+                        color: MaterialPalette.on_surface_variant;
+                    }
+                }
+
+                if !root.use_24_hour_format && !root.keyboard_mode && root.horizontal : PeriodSelector {
+                    am_selected: root.am_selected;
+                    horizontal: true;
+
+                    update-period(am) => {
+                        root.am-selected = am;
+                    }
+                }
+            }
+
+            if root.horizontal && !root.keyboard_mode : Clock {
+                model: root.current_model;
+                two_columns: !root.minutes_selected && root.use-24_hour_format;
+                current_item: root.current_item;
+                total: root.minutes_selected ? 60 : root.use-24_hour_format ? 24 : 12;
+                current_value: root.minutes_selected ? root.current_time.minute : root.current_time.hour;
+
+                current_item_changed(index) => {
+                    root.update_time_by_item(index);
+
+                    if !root.minutes_selected {
+                        root.minutes_selected = true;
+                    }
+                }
+            }
+        }
+
+        // spacer
+        if !root.horizontal && !root.keyboard_mode : Rectangle {
+            height: MaterialStyleMetrics.spacing_12;
+        }
+
+        if !root.horizontal && !root.keyboard_mode : Clock {
+            model: root.current_model;
+            two_columns: !root.minutes_selected && root.use-24_hour_format;
+            current_item: root.current_item;
+            total: root.minutes_selected ? 60 : root.use-24_hour_format ? 24 : 12;
+            current_value: root.minutes_selected ? root.current_time.minute : root.current_time.hour;
+            height: self.width;
+
+            current_item_changed(index) => {
+                root.update_time_by_item(index);
+
+                if !root.minutes_selected {
+                    root.minutes_selected = true;
+                }
+            }
+        }
+
+        icon_action(index) => {
+            if index == 0 {
+                root.keyboard_mode = !root.keyboard_mode;
+            }
+        }
+
+        action(index) => {
+            // cancel
+            if index == 0 {
+                root.close();
+            } else if index == 1 {
+                root.ok();
+            }
+        }
+
+        close => {
+            root.close();
+        }
+    }
+
+    pure public function ok_enabled() -> bool {
+        if !root.keyboard_mode {
+            return root.current_time.hour <= 23 && root.current_time.minute <= 59;
+        }
+
+        if root.use-24_hour_format {
+            return root.time_picker_hour <= 23 && root.time_picker_minute <= 59;
+        }
+
+        root.time_picker_hour <= 12 && root.time_picker_minute <= 59
+    }
+
+    public function get_current_time() -> Time {
+        if root.keyboard_mode {
+            if !root.use-24_hour_format && !root.am_selected {
+                if root.current_time.hour == 12 {
+                    return { hour: 0, minute: root.current_time.minute };
+                }
+
+                return { hour: root.current_time.hour + 12, minute: root.current_time.minute };
+            }
+
+            return root.current_time;
+        }
+
+        return { hour: root.time_picker_hour, minute: root.time_picker_minute };
+    }
+
+    changed keyboard_mode => {
+        if root.keyboard_mode {
+            return;
+        }
+
+        root.update_time(min(root.time_picker_hour, root.use-24_hour_format ? 23 : 12), min(root.time_picker_minute, 59));
+    }
+
+    changed time => {
+        root.current_time = root.time;
+    }
+
+    function update_time_by_item(index: int) {
+        root.update_time_by_value(root.current_model[index]);
+    }
+
+    function update_time_by_value(value: int) {
+        if root.minutes_selected {
+            root.update_time(root.current_time.hour, value);
+            return;
+        }
+
+        root.update_time(value, root.current_time.minute);
+    }
+
+    function update_time(hour: int, minute: int) {
+        root.current_time = { hour: hour, minute: minute };
+        hour_time_picker.text = root.current_time.hour;
+        minute_time_picker.text = minute;
+    }
+
+    pure function index_of_minute(minute: int) -> int {
+        if mod(minute, 5) != 0 {
+            return -1;
+        }
+
+        minute / 5
+    }
+
+    pure function index_of_hour(hour: int) -> int {
+        if hour == 12 {
+            return 0;
+        }
+
+        if hour == 0 {
+            return 12;
+        }
+
+        if !root.use-24_hour_format && hour > 12 {
+            return hour - 12;
+        }
+
+        hour
+    }
+
+    pure function get_current_model() -> [int] {
+        if root.minutes_selected {
+            return root.minute_model;
+        }
+
+        if root.use-24_hour_format {
+            return root.use-24_hour_format_model;
+        }
+
+        root.twelf_hour_model
+    }
+}

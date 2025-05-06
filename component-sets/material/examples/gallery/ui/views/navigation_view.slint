@@ -25,7 +25,8 @@ import {
     CheckState,
     ActionChip,
     FilterChip,
-    InputChip
+    InputChip,
+    TimePicker
 } from "../../../../material.slint";
 
 import { Group } from "../components/group.slint";
@@ -373,6 +374,21 @@ export component NavigationView {
                     }
                 }
             }
+
+            ComponentCard {
+                Horizontal {
+                    alignment: center;
+
+                    TextButton {
+                        icon: OutlinedIcons.schedule;
+                        text: "Show time picker";
+
+                        clicked => {
+                            time_picker.show();
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -429,5 +445,17 @@ export component NavigationView {
                 ]
             }
         ];
+    }
+
+    time_picker := TimePicker {
+        // this is used to place the popup on 0,0 of the window and also to fill the window
+        x: -root.absolute_position.x;
+        y: -root.absolute_position.y;
+        width: MainWindowAdapter.width;
+        height: MainWindowAdapter.height;
+
+        ok => {
+            time_picker.close();
+        }
     }
 }
