@@ -96,7 +96,6 @@ enum Commands {
 struct Format {
     #[arg(name = "path to .slint file(s)", action)]
     paths: Vec<std::path::PathBuf>,
-
     /// modify the file inline instead of printing to stdout
     #[arg(short, long, action)]
     inline: bool,
@@ -234,11 +233,13 @@ fn main() {
     }
 
     if let Some(Commands::Format(args)) = args.command {
-        let _ = fmt::tool::run(args.paths, args.inline).map_err(|e| {
-            eprintln!("{e}");
-            std::process::exit(1);
-        });
-        std::process::exit(0);
+        match fmt::tool::run(args.paths, args.inline) {
+            Ok(error_count) => std::process::exit(error_count.try_into().unwrap_or(254)),
+            Err(e) => {
+                eprintln!("{e}");
+                std::process::exit(255);
+            }
+        }
     }
 
     if let Ok(panic_log_file) = std::env::var("SLINT_LSP_PANIC_LOG") {

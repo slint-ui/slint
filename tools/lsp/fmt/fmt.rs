@@ -1297,7 +1297,7 @@ fn format_member_access(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::fmt::writer::FileWriter;
+    use crate::fmt::writer::StringWriter;
     use i_slint_compiler::diagnostics::BuildDiagnostics;
 
     // FIXME more descriptive errors when an assertion fails
@@ -1311,9 +1311,9 @@ mod tests {
         );
         // Turn the syntax node into a document
         let doc = syntax_nodes::Document::new(syntax_node).unwrap();
-        let mut file = Vec::new();
-        format_document(doc, &mut FileWriter { file: &mut file }).unwrap();
-        assert_eq!(String::from_utf8(file).unwrap(), formatted);
+        let mut writer = StringWriter::default();
+        format_document(doc, &mut writer).unwrap();
+        assert_eq!(writer.finalize(), formatted);
     }
 
     #[test]
