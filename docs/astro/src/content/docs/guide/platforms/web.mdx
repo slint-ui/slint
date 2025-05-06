@@ -4,11 +4,17 @@ title: Web
 description: Running Slint on the Web with Wasm
 ---
 
-While Slint is mainly designed for native applications (desktop, embedded, mobile),
-it can also run in a web browser using WebAssembly (Wasm).
+import Link from '/src/components/Link.astro';
 
 :::caution[Caution]
-Currently, only the Rust language is supported when targeting the web, and the only renderer available is FemtoVG.
+Only Rust supports using Slint with WebAssembly.
+:::
+
+Slint applications run on desktop, embedded, and mobile platforms.
+Slint applications written with Rust can also be cross-compiled to WebAssembly (Wasm) and run in the web browser.
+
+:::note[Note]
+Slint cross-compiled for Wasm uses the  <Link type="WinitBackend" label="Winit backend" /> with the FemtoVG renderer.
 :::
 
 Slint renders your UI into a HTML `<canvas>` element using [WebGL](https://developer.mozilla.org/en-US/docs/Web/API/WebGL_API), without using the DOM or CSS.
@@ -28,21 +34,18 @@ Instead, it is best suited for:
 
 ## Building for Wasm
 
-To compile and run a Slint application in the browser, you will use
-[`wasm-bindgen`](https://rustwasm.github.io/docs/wasm-bindgen/) and [`wasm-pack`](https://rustwasm.github.io/wasm-pack/).
-
 For a step-by-step walkthrough, check out the last chapter of the <Link type="quickstart" />.
 
 Below is a summary of the main steps:
 
-In your `Cargo.toml`, set the crate type to `"cdylib"` and add `wasm-bindgen` as a dependency for the `wasm32` target:
+In your `Cargo.toml`, set the crate type to `"cdylib"` and add [`wasm-bindgen`](https://rustwasm.github.io/wasm-bindgen/) as a dependency for the "wasm" target:
 
 ```toml
 [lib]
 #...
 crate-type = ["cdylib"]
 
-[target.'cfg(target_arch = "wasm32")'.dependencies]
+[target.'cfg(target_family = "wasm")'.dependencies]
 wasm-bindgen = { version = "0.2" }
 ```
 
@@ -50,12 +53,12 @@ Use the `wasm-bindgen(start)` attribute to mark the application's entry point.
 The UI is created and run as usual:
 
 ```rust
-#[cfg(target_arch = "wasm32")]
+#[cfg(target_family = "wasm")]
 use wasm_bindgen::prelude::*;
 
 slint::include_modules!(); // or slint!(...)
 
-#[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
+#[cfg_attr(target_family = "wasm", wasm_bindgen(start))]
 pub fn main() {
     // Usual application code
     let main_window = MainWindow::new().unwrap();
@@ -63,7 +66,7 @@ pub fn main() {
 }
 ```
 
-Build the application using wasm-pack:
+Build the application using [wasm-pack](https://rustwasm.github.io/wasm-pack/).
 
 ```bash
 wasm-pack build --release --target web
@@ -88,9 +91,9 @@ Replace `YOUR_APPLICATION` with the name of your crate.
 Many web browser load `.wasm` files only in trusted contexts. If during development you observe the browser producing permission errors, then you may need to serve files through a web server, instead of the file system directly.
 :::
 
-## Clipboard Support in TextInput
+## Clipboard Support
 
-Slint's `TextInput` component supports copy and paste when running in the browser.
+Slint's text input widgets supports copy and paste when running in the browser.
 This is implemented using the browser's clipboard API via the `web-sys` crate.
 Because the clipboard API in `web-sys` is still unstable, you need to opt in by setting the following environment variable when building:
 
