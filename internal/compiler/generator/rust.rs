@@ -290,9 +290,9 @@ fn generate_public_component(
             pub fn new() -> core::result::Result<Self, slint::PlatformError> {
                 let inner = #inner_component_id::new()?;
                 #init_bundle_translations
-                #inner_component_id::user_init(sp::VRc::map(inner.clone(), |x| x));
                 // ensure that the window exist as this point so further call to window() don't panic
                 inner.globals.get().unwrap().window_adapter_ref()?;
+                #inner_component_id::user_init(sp::VRc::map(inner.clone(), |x| x));
                 core::result::Result::Ok(Self(inner))
             }
 
