@@ -331,7 +331,6 @@ fn gen_corelib(
         "SortOrder",
         "BitmapFont",
         "PhysicalRegion",
-        "CompositionMode",
     ]
     .iter()
     .chain(items.iter())

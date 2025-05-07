@@ -658,10 +658,6 @@ public:
     };
 
 #    ifdef SLINT_FEATURE_EXPERIMENTAL
-    /// This enum describes the how pixels from a source are merged with the pixels in a destination
-    /// image. This is a sub-set of the standard
-    /// [Porter-Duff](https://en.wikipedia.org/wiki/Alpha_compositing) modes.
-    using CompositionMode = cbindgen_private::CompositionMode;
     /// Representation of a texture to blend in the destination buffer.
     // (FIXME: this is currently opaque, but should be exposed)
     using DrawTextureArgs = cbindgen_private::DrawTextureArgs;
@@ -684,12 +680,6 @@ public:
         virtual std::span<PixelType> line_slice(std::size_t line_number) = 0;
         /// Returns the number of lines in the buffer. This is the height of the buffer in pixels.
         virtual std::size_t num_lines() = 0;
-
-        /// Fill a rectangle at the specified pixel coordinates with the given color. Return true
-        /// if the operation succeeded; false otherwise;
-        virtual bool fill_rectangle(int16_t x, int16_t y, int16_t width, int16_t height,
-                                    const RgbaColor<uint8_t> &premultiplied_color,
-                                    CompositionMode composition_mode) = 0;
 
         /// Draw a portion of provided texture to the specified pixel coordinates.
         /// Each pixel of the texture is to be blended with the given colorize color as well as the

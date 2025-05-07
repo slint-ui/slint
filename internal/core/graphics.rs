@@ -224,21 +224,6 @@ impl From<RequestedOpenGLVersion> for RequestedGraphicsAPI {
     }
 }
 
-/// This enum describes the how pixels from a source are merged with the pixels in a destination image.
-/// This is a sub-set of the standard [Porter-Duff](https://en.wikipedia.org/wiki/Alpha_compositing) modes.
-#[repr(u8)]
-#[allow(dead_code)]
-#[derive(Default, Copy, Clone, Debug)]
-#[non_exhaustive]
-pub enum CompositionMode {
-    /// Only pixels from the source target are drawn.
-    Source,
-    /// The source is placed over the destination.
-    #[default]
-    SourceOver,
-    // TODO: maybe add more modes (e.g. xor, plus darker, etc.)
-}
-
 /// Internal module for use by cbindgen and the C++ platform API layer.
 #[cfg(feature = "ffi")]
 pub mod ffi {
