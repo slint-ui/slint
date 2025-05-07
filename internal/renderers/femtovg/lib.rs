@@ -547,9 +547,9 @@ impl<B: GraphicsBackend> FemtoVGRendererExt for FemtoVGRenderer<B> {
 
     fn clear_graphics_context(&self) -> Result<(), i_slint_core::platform::PlatformError> {
         // Ensure the context is current before the renderer is destroyed
-        self.graphics_backend.with_graphics_api(|_| {
+        self.graphics_backend.with_graphics_api(|api| {
             // If we've rendered a frame before, then we need to invoke the RenderingTearDown notifier.
-            if !self.rendering_first_time.get() {
+            if !self.rendering_first_time.get() && api.is_some() {
                 if let Some(callback) = self.rendering_notifier.borrow_mut().as_mut() {
                     self.with_graphics_api(|api| {
                         callback.notify(RenderingState::RenderingTeardown, &api)
