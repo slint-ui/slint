@@ -3,7 +3,8 @@
 
 name: 🐞 Bug Report
 description: Report a bug or unexpected behavior in Slint
-labels: ["bug", "need triaging"]
+labels: ["need triaging"]
+type: "Bug"
 body:
 - type: markdown
   attributes:
