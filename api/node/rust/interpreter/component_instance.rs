@@ -253,12 +253,12 @@ impl JsComponentInstance {
         env: Env,
         callback_name: &String,
         arguments: Vec<JsUnknown>,
-        args: &Vec<Type>,
+        args: &[Type],
     ) -> Result<Vec<Value>> {
         let count = args.len();
         let args = arguments
             .into_iter()
-            .zip(args.into_iter())
+            .zip(args)
             .map(|(a, ty)| super::value::to_value(&env, a, ty))
             .collect::<Result<Vec<_>, _>>()?;
         if args.len() != count {
@@ -381,7 +381,7 @@ pub struct RefCountedReference {
 
 impl RefCountedReference {
     pub fn new<T: NapiRaw>(env: &Env, value: T) -> Result<Self> {
-        Ok(Self { env: env.clone(), reference: env.create_reference(value)? })
+        Ok(Self { env: *env, reference: env.create_reference(value)? })
     }
 
     pub fn get<T: NapiValue>(&self) -> Result<T> {

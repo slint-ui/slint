@@ -11,7 +11,7 @@ use slint_interpreter::{
 };
 use std::collections::HashMap;
 use std::io::{BufReader, BufWriter};
-use std::path::PathBuf;
+use std::path::Path;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, Mutex};
 
@@ -203,7 +203,7 @@ fn init_compiler(
             watch_with_retry(data_path, &watcher);
         }
         compiler.set_file_loader(move |path| {
-            watch_with_retry(&path.into(), &watcher);
+            watch_with_retry(path, &watcher);
             Box::pin(async { None })
         })
     }
@@ -217,7 +217,7 @@ fn init_compiler(
     compiler
 }
 
-fn watch_with_retry(path: &PathBuf, watcher: &Arc<Mutex<notify::RecommendedWatcher>>) {
+fn watch_with_retry(path: &Path, watcher: &Arc<Mutex<notify::RecommendedWatcher>>) {
     notify::Watcher::watch(
         &mut *watcher.lock().unwrap(),
         path,
@@ -225,7 +225,7 @@ fn watch_with_retry(path: &PathBuf, watcher: &Arc<Mutex<notify::RecommendedWatch
     )
     .unwrap_or_else(|err| match err.kind {
         notify::ErrorKind::PathNotFound | notify::ErrorKind::Generic(_) => {
-            let path = path.clone();
+            let path = path.to_path_buf();
             let watcher = watcher.clone();
             static RETRY_DURATION: u64 = 100;
             i_slint_core::timers::Timer::single_shot(

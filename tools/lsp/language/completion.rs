@@ -120,7 +120,7 @@ pub(crate) fn completion_at(
         if let Some(colon) = n.child_token(SyntaxKind::Colon) {
             if offset >= colon.text_range().end() {
                 return with_lookup_ctx(document_cache, node, |ctx| {
-                    resolve_expression_scope(ctx, document_cache, snippet_support).map(Into::into)
+                    resolve_expression_scope(ctx, document_cache, snippet_support)
                 })?;
             }
         }
@@ -173,15 +173,15 @@ pub(crate) fn completion_at(
         node.kind(),
         SyntaxKind::Type | SyntaxKind::ArrayType | SyntaxKind::ObjectType | SyntaxKind::ReturnType
     ) {
-        return resolve_type_scope(token, document_cache).map(Into::into);
+        return resolve_type_scope(token, document_cache);
     } else if syntax_nodes::PropertyDeclaration::new(node.clone()).is_some() {
         if token.kind() == SyntaxKind::LAngle {
-            return resolve_type_scope(token, document_cache).map(Into::into);
+            return resolve_type_scope(token, document_cache);
         }
     } else if let Some(n) = syntax_nodes::CallbackDeclaration::new(node.clone()) {
         let paren = n.child_token(SyntaxKind::LParent)?;
         if token.token.text_range().start() >= paren.token.text_range().end() {
-            return resolve_type_scope(token, document_cache).map(Into::into);
+            return resolve_type_scope(token, document_cache);
         }
     } else if matches!(
         node.kind(),
@@ -223,7 +223,7 @@ pub(crate) fn completion_at(
         }
 
         return with_lookup_ctx(document_cache, node, |ctx| {
-            resolve_expression_scope(ctx, document_cache, snippet_support).map(Into::into)
+            resolve_expression_scope(ctx, document_cache, snippet_support)
         })?;
     } else if let Some(q) = syntax_nodes::QualifiedName::new(node.clone()) {
         match q.parent()?.kind() {
@@ -260,7 +260,7 @@ pub(crate) fn completion_at(
                 return Some(result);
             }
             SyntaxKind::Type => {
-                return resolve_type_scope(token, document_cache).map(Into::into);
+                return resolve_type_scope(token, document_cache);
             }
             SyntaxKind::Expression => {
                 return with_lookup_ctx(document_cache, node, |ctx| {
@@ -269,9 +269,8 @@ pub(crate) fn completion_at(
                         t.kind() != SyntaxKind::Identifier && t.token != token.token
                     });
                     let first = it.next();
-                    if first.as_ref().map_or(true, |f| f.token == token.token) {
-                        return resolve_expression_scope(ctx, document_cache, snippet_support)
-                            .map(Into::into);
+                    if first.as_ref().is_none_or(|f| f.token == token.token) {
+                        return resolve_expression_scope(ctx, document_cache, snippet_support);
                     }
                     let first = i_slint_compiler::parser::normalize_identifier(first?.text());
                     let global = i_slint_compiler::lookup::global_lookup();
@@ -398,10 +397,10 @@ pub(crate) fn completion_at(
         if parent.kind() == SyntaxKind::PropertyChangedCallback {
             return properties_for_changed_callbacks(parent, document_cache);
         }
-    } else if node.kind() == SyntaxKind::PropertyChangedCallback {
-        if offset > node.child_token(SyntaxKind::Identifier)?.text_range().end() {
-            return properties_for_changed_callbacks(node, document_cache);
-        }
+    } else if node.kind() == SyntaxKind::PropertyChangedCallback
+        && offset > node.child_token(SyntaxKind::Identifier)?.text_range().end()
+    {
+        return properties_for_changed_callbacks(node, document_cache);
     }
     None
 }

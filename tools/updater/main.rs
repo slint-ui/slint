@@ -63,7 +63,7 @@ fn main() -> std::io::Result<()> {
 fn process_rust_file(source: String, mut file: impl Write, args: &Cli) -> std::io::Result<()> {
     let mut last = 0;
     for range in i_slint_compiler::lexer::locate_slint_macro(&source) {
-        file.write_all(source[last..=range.start].as_bytes())?;
+        file.write_all(&source.as_bytes()[last..=range.start])?;
         last = range.end;
         let code = &source[range];
 
@@ -77,7 +77,7 @@ fn process_rust_file(source: String, mut file: impl Write, args: &Cli) -> std::i
             diag.print();
         }
     }
-    file.write_all(source[last..].as_bytes())
+    file.write_all(&source.as_bytes()[last..])
 }
 
 fn process_markdown_file(source: String, mut file: impl Write, args: &Cli) -> std::io::Result<()> {
@@ -94,7 +94,7 @@ fn process_markdown_file(source: String, mut file: impl Write, args: &Cli) -> st
         } else {
             break 'l;
         };
-        file.write_all(source_slice[..=code_start - 1].as_bytes())?;
+        file.write_all(&source_slice.as_bytes()[..=code_start - 1])?;
         source_slice = &source_slice[code_start..];
         let code = &source_slice[..code_end];
         source_slice = &source_slice[code_end..];

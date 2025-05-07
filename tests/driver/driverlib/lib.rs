@@ -20,7 +20,7 @@ impl TestCase {
             .to_string_lossy()
             .replace([std::path::MAIN_SEPARATOR, '-'], "_");
         if let Some(requested_style) = &self.requested_style {
-            result.push_str("_");
+            result.push('_');
             result.push_str(requested_style);
         }
         result

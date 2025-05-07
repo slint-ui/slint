@@ -22,10 +22,7 @@ pub(crate) fn fold_node(
             } else if let Some(twb) = s.TwoWayBinding() {
                 let nr = super::lookup_changes::with_lookup_ctx(state, |lookup_ctx| {
                     lookup_ctx.property_type = Type::InferredCallback;
-                    let r = i_slint_compiler::passes::resolving::resolve_two_way_binding(
-                        twb, lookup_ctx,
-                    );
-                    r
+                    i_slint_compiler::passes::resolving::resolve_two_way_binding(twb, lookup_ctx)
                 })
                 .flatten();
 

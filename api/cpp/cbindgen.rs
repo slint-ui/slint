@@ -469,7 +469,7 @@ fn gen_corelib(
     // slint_timer_internal.h:
     let timer_config = {
         let mut tmp = config.clone();
-        tmp.export.include = vec![
+        tmp.export.include = [
             "TimerMode",
             "slint_timer_start",
             "slint_timer_singleshot",

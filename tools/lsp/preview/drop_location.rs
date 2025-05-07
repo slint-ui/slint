@@ -327,7 +327,7 @@ fn insert_position_at_end(
             == SyntaxKind::Whitespace
             && before_closing.text().contains('\n')
         {
-            let bracket_indent = before_closing.text().split('\n').last().unwrap(); // must exist in this branch
+            let bracket_indent = before_closing.text().split('\n').next_back().unwrap(); // must exist in this branch
             (
                 "    ".to_string(),
                 format!("{bracket_indent}    "),
@@ -398,7 +398,7 @@ fn insert_position_before_child(
             let (pre_indent, indent) = if before_first_token.kind() == SyntaxKind::Whitespace
                 && before_first_token.text().contains('\n')
             {
-                let element_indent = before_first_token.text().split('\n').last().unwrap(); // must exist in this branch
+                let element_indent = before_first_token.text().split('\n').next_back().unwrap(); // must exist in this branch
                 ("".to_string(), element_indent.to_string())
             } else if before_first_token.kind() == SyntaxKind::Whitespace
                 && !before_first_token.text().contains('\n')
@@ -466,7 +466,7 @@ fn insert_position_before_first_component(
                 if token.prev_token().is_some() {
                     let nl_count = token.text().chars().filter(|c| c == &'\n').count();
                     let replacement_range =
-                        token.text().split('\n').last().map(|s| s.len()).unwrap_or(0) as u32;
+                        token.text().split('\n').next_back().map(|s| s.len()).unwrap_or(0) as u32;
 
                     if nl_count >= 2 {
                         (String::new(), replacement_range)
@@ -913,7 +913,8 @@ fn pretty_node_removal_range(node: &SyntaxNode) -> Option<TextRange> {
     {
         before_et.text_range().end()
             - TextSize::from(
-                before_et.text().split('\n').last().map(|s| s.len()).unwrap_or_default() as u32,
+                before_et.text().split('\n').next_back().map(|s| s.len()).unwrap_or_default()
+                    as u32,
             )
     } else if before_et.kind() == SyntaxKind::Whitespace {
         before_et.text_range().start() // Cut away all WS!
