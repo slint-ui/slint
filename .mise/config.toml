@@ -13,11 +13,11 @@
 # doxygen = "1.13.2" ## This is not available anywhere
 # graphviz = "12.2.1" ## This is not available anywhere
 
-"aqua:sharkdp/fd" = "latest"
+"aqua:sharkdp/fd" = "10.2.0"
 "rust" = { version = "stable", profile = "default" }
 node = "20"
 pnpm = "10.10.0"
-taplo = "0.13.2"
+taplo = "0.9.3"
 "ubi:rustwasm/wasm-pack" = "0.13.1"
 
 [task_config]
