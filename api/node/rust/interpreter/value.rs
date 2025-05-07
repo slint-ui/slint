@@ -109,7 +109,7 @@ pub fn to_value(env: &Env, unknown: JsUnknown, typ: &Type) -> Result<Value> {
         Type::Color => {
             match unknown.get_type() {
                 Ok(ValueType::String) => {
-                    return Ok(unknown.coerce_to_string().and_then(|str| string_to_brush(str))?);
+                    return unknown.coerce_to_string().and_then(string_to_brush)
                 }
                 Ok(ValueType::Object) => {
                     if let Ok(rgb_color) = unknown.coerce_to_object() {
@@ -125,7 +125,7 @@ pub fn to_value(env: &Env, unknown: JsUnknown, typ: &Type) -> Result<Value> {
         Type::Brush => {
             match unknown.get_type() {
                 Ok(ValueType::String) => {
-                    return Ok(unknown.coerce_to_string().and_then(|str| string_to_brush(str))?);
+                    return unknown.coerce_to_string().and_then(string_to_brush);
                 }
                 Ok(ValueType::Object) => {
                     if let Ok(obj) = unknown.coerce_to_object() {
@@ -277,7 +277,7 @@ pub fn to_value(env: &Env, unknown: JsUnknown, typ: &Type) -> Result<Value> {
         | Type::InferredCallback
         | Type::Function { .. }
         | Type::Callback { .. }
-        | Type::ComponentFactory { .. }
+        | Type::ComponentFactory
         | Type::Easing
         | Type::PathData
         | Type::LayoutCache
@@ -292,7 +292,7 @@ fn string_to_brush(js_string: JsString) -> Result<Value> {
         .parse::<css_color_parser2::Color>()
         .map_err(|_| napi::Error::from_reason(format!("Could not convert {string} to Brush.")))?;
 
-    Ok(Value::Brush(Brush::from(Color::from_argb_u8((c.a * 255.) as u8, c.r, c.g, c.b)).into()))
+    Ok(Value::Brush(Brush::from(Color::from_argb_u8((c.a * 255.) as u8, c.r, c.g, c.b))))
 }
 
 fn brush_from_color(rgb_color: Object) -> Result<Value> {

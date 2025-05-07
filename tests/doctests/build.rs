@@ -17,7 +17,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     {
         let entry = entry?;
         let path = entry.path();
-        if path.extension().map_or(true, |e| e != "md" && e != "mdx") {
+        if path.extension().is_none_or(|e| e != "md" && e != "mdx") {
             continue;
         }
 

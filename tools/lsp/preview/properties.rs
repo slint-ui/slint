@@ -812,7 +812,7 @@ pub fn remove_binding(
                             .and_then(|t| {
                                 if t.kind() == SyntaxKind::Whitespace && t.text().contains('\n') {
                                     let to_sub =
-                                        t.text().split('\n').last().unwrap_or_default().len()
+                                        t.text().split('\n').next_back().unwrap_or_default().len()
                                             as u32;
                                     start.checked_sub(to_sub.into())
                                 } else {

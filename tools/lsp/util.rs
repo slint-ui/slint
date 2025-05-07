@@ -100,7 +100,7 @@ pub fn find_element_indent(element: &common::ElementRcNode) -> Option<String> {
     let mut token = element.with_element_node(|node| node.first_token()?.prev_token());
     while let Some(t) = token {
         if t.kind() == SyntaxKind::Whitespace && t.text().contains('\n') {
-            return t.text().split('\n').last().map(|s| s.to_owned());
+            return t.text().split('\n').next_back().map(|s| s.to_owned());
         }
         token = t.prev_token();
     }

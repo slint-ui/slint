@@ -99,7 +99,7 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
     if !output.status.success() {
         print!("{}", String::from_utf8_lossy(output.stdout.as_ref()));
         print!("{}", String::from_utf8_lossy(output.stderr.as_ref()));
-        return Err(String::from_utf8_lossy(output.stderr.as_ref()).to_owned().into());
+        return Err(String::from_utf8_lossy(output.stderr.as_ref()).into_owned().into());
     }
 
     Ok(())

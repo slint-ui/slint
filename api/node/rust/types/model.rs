@@ -41,7 +41,7 @@ pub(crate) fn js_into_rust_model(
         })?;
     Ok(Rc::new(JsModel {
         shared_model_notify,
-        env: env.clone(),
+        env: *env,
         js_impl: RefCountedReference::new(env, maybe_js_impl)?,
         row_data_type: row_data_type.clone(),
     })
@@ -230,7 +230,7 @@ impl ReadOnlyRustModel {
 
     pub fn into_js(self, env: &Env) -> Result<JsUnknown> {
         let model = self.0.clone();
-        let iterator_env = env.clone();
+        let iterator_env = *env;
 
         let mut obj = self.into_instance(*env)?.as_object(*env);
 

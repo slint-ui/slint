@@ -36,11 +36,9 @@ pub fn process_events() -> napi::Result<ProcessEventsResult> {
         b.process_events(std::time::Duration::ZERO, i_slint_core::InternalToken)
     })
     .map_err(|e| napi::Error::from_reason(e.to_string()))
-    .and_then(|result| {
-        Ok(match result {
-            core::ops::ControlFlow::Continue(()) => ProcessEventsResult::Continue,
-            core::ops::ControlFlow::Break(()) => ProcessEventsResult::Exited,
-        })
+    .map(|result| match result {
+        core::ops::ControlFlow::Continue(()) => ProcessEventsResult::Continue,
+        core::ops::ControlFlow::Break(()) => ProcessEventsResult::Exited,
     })
 }
 
@@ -125,7 +123,7 @@ pub fn print_to_console(env: Env, function: &str, arguments: core::fmt::Argument
         return;
     };
 
-    if let Err(err) = log_fn.call(None, &vec![js_message.into_unknown()]) {
+    if let Err(err) = log_fn.call(None, &[js_message.into_unknown()]) {
         eprintln!("Unable to invoke console.{function}: {err}");
     }
 }
