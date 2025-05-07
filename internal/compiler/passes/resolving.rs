@@ -999,7 +999,13 @@ impl Expression {
 
         let expected_ty = match operator_class(op) {
             OperatorClass::ComparisonOp => {
-                Self::common_target_type_for_type_list([lhs.ty(), rhs.ty()].iter().cloned())
+                let ty =
+                    Self::common_target_type_for_type_list([lhs.ty(), rhs.ty()].iter().cloned());
+                if !matches!(op, '=' | '!') && !ty.as_unit_product().is_some() && ty != Type::String
+                {
+                    ctx.diag.push_error(format!("Values of type {ty} cannot be compared"), &node);
+                }
+                ty
             }
             OperatorClass::LogicalOp => Type::Bool,
             OperatorClass::ArithmeticOp => {

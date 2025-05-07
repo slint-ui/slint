@@ -13,6 +13,10 @@ TestCase := Rectangle {
 
     property<string> my_str: "hello";
     property<bool> t7: my_str == "hello";
+
+    property<bool> string-cmp: "fooa" < "foob";
+
+    out property <bool> test: t1 && !t2 && t3 && t4 && t5 && !t6 && t7 && string-cmp;
 }
 /*
 ```cpp
@@ -25,6 +29,9 @@ assert_eq(instance.get_t4(), true);
 assert_eq(instance.get_t5(), true);
 assert_eq(instance.get_t6(), false);
 assert_eq(instance.get_t7(), true);
+
+assert_eq(instance.get_string_cmp(), true);
+assert_eq(instance.get_test(), true);
 
 instance.set_hello(45);
 assert_eq(instance.get_t1(), true);
@@ -72,6 +79,9 @@ assert_eq!(instance.get_t5(), true);
 assert_eq!(instance.get_t6(), false);
 assert_eq!(instance.get_t7(), true);
 
+assert_eq!(instance.get_string_cmp(), true);
+assert_eq!(instance.get_test(), true);
+
 instance.set_hello(45);
 assert_eq!(instance.get_t1(), true);
 assert_eq!(instance.get_t2(), true);
@@ -115,6 +125,9 @@ assert.equal(instance.t4, true);
 assert.equal(instance.t5, true);
 assert.equal(instance.t6, false);
 assert.equal(instance.t7, true);
+
+assert.equal(instance.string_cmp, true);
+assert.equal(instance.test, true);
 
 instance.hello = 45;
 assert.equal(instance.t1, true);
