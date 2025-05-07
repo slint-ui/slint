@@ -3,22 +3,38 @@
 # Changelog
 All notable changes to this project are documented in this file.
 
-## [1.11.0] - TBD
+## [1.12.0] - TBD
 
 ### General
 
  - Added `renderer-femtovg-wgpu` (Rust) / `SLINT_FEATURE_RENDERER_FEMTOVG_WGPU` (CMake) as new rendering option,
    based on [WGPU](https://wgpu.rs/).
+ - Fix the way Window::default-font is applied, making it work in the live preview.
 
 ### Slint Language
 
+ - Added `Math.exp` and `Math.ln`
  - Added `Platform.style-name` and `Platform.os` properties to permit style and OS dependent code.
+ - Fixed changed callback on private global properties (#8269)
+ - Added `ContextMenuArea::enabled`
+ - Slint compilation error for comparison of types that can't be compared with less or greater operator.
+
+### Widgets
+
+ - Fixed `ScrollView` scrollbar actions not triggering `scrolled` callback (#8170)
+ - Added content-padding to GroupBox (#8314)
+ - TextEdit/LineEdit: disable context menu action when the widget is disabled or read-only
 
 ### Rust
 
  - Added `unstable-winit-030` feature along with `slint::winit_030` module in the API to provide access
    to winit APIs.
  - Added `unstable-wgpu-24` feature along with `slint::wgpu_24` module to enable Slint <> WPU interoperatiblity.
+
+### LSP and Tooling
+
+ - live_preview: Do not apply live data changes after "Reload"
+ - figma-inspector: ... TODO ...
 
 ## [1.11.0] - 2025-04-23
 
