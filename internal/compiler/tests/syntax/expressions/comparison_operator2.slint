@@ -1,0 +1,15 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component C  {
+
+    out property <bool> color-cmp: Colors.red > Colors.blue;
+    //                             ^error{Values of type color cannot be compared}
+    out property <bool> bool-cmp: true > false;
+    //                            ^error{Values of type bool cannot be compared}
+    out property <bool> string-cmp: "eee" > "ddd";
+    out property <bool> array-cmp: [45] < [45];
+    //                             ^error{Values of type \[float\] cannot be compared}
+    out property <bool> struct-cmp: { foo: 45 } <= { foo: 45 };
+    //                              ^error{Values of type \{ foo: float,\} cannot be compared}
+}
