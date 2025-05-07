@@ -7,18 +7,18 @@
 
 ## C++:
 "ubi:EmbarkStudios/cargo-about" = "0.6.6"
-"pipx:cmake" = "latest"
-"pipx:ninja" = "latest"
-"pipx:pipenv" = "latest"
-# doxygen = "latest" ## This is not available anywhere
-# graphviz = "latest" ## This is not available anywhere
+"pipx:cmake" = "4.0.0"
+"pipx:ninja" = "1.11.1.4"
+"pipx:pipenv" = "2025.0.2"
+# doxygen = "1.13.2" ## This is not available anywhere
+# graphviz = "12.2.1" ## This is not available anywhere
 
-"aqua:sharkdp/fd" = "latest"
+"aqua:sharkdp/fd" = "10.2.0"
 "rust" = { version = "stable", profile = "default" }
 node = "20"
-pnpm = "latest"
-taplo = "latest"
-"ubi:rustwasm/wasm-pack" = "latest"
+pnpm = "10.10.0"
+taplo = "0.9.3"
+"ubi:rustwasm/wasm-pack" = "0.13.1"
 
 [task_config]
 includes = [".mise/tasks.toml", ".mise/tasks"]

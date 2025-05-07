@@ -8,7 +8,7 @@
 ["fix:cpp:format"]
 description = "Run clang format fix on all C++ files"
 run = '''fd '.*\.(h|H|hpp|hxx|h\+\+|c|C|cpp|cxx|c\+\+)$' -0 | xargs -0 clang-format -i'''
-tools = { "pipx:clang-format" = "latest" }
+tools = { "pipx:clang-format" = "20.1.3" }
 
 ["fix:legal:copyright"]
 description = "Run the check_license_headers --fix xtask"
@@ -17,7 +17,7 @@ run = "cargo xtask check_license_headers --fix-it"
 ["fix:python:format"]
 description = "Run ruff format"
 run = "ruff format"
-tools = { "ruff" = "latest" }
+tools = { "ruff" = "0.11.8" }
 
 ["fix:rust:format"]
 description = "Run cargo fmt --all"
@@ -56,7 +56,7 @@ dir = "editors/vscode"
 sources = ["tools/lsp/Cargo.toml", "tools/lsp/**/*.rs", "tools/lsp/ui/**/*.slint"]
 outputs = ["tools/lsp/pkg/*"]
 run = "pnpm run build:wasm_lsp"
-tools = { "npm:wasm-pack" = "latest" }
+tools = { "npm:wasm-pack" = "0.13.1" }
 depends = ["prepare:pnpm-install"]
 
 ["build:interpreter:wasm"]
@@ -65,7 +65,7 @@ dir = "tools/slintpad"
 sources = ["api/wasm-interpreter/Cargo.toml", "api/wasm-interpreter/src/**/*.rs"]
 outputs = ["api/wasm-interpreter/pkg/*"]
 run = "pnpm run build:wasm_interpreter"
-tools = { "npm:wasm-pack" = "latest" }
+tools = { "npm:wasm-pack" = "0.13.1" }
 depends = ["prepare:pnpm-install"]
 
 ["prepare:pnpm-install"]
