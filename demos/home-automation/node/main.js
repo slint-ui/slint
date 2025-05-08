@@ -6,9 +6,9 @@ import * as slint from "slint-ui";
 
 const ui = slint.loadFile("../ui/demo.slint");
 const window = new ui.AppWindow();
-let api = window.Api;
-let date = api.current_date;
-let time = api.current_time;
+const api = window.Api;
+const date = api.current_date;
+const time = api.current_time;
 
 const timer = setInterval(() => {
     const now = new Date();

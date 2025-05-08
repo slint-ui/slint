@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-use chrono::{Local, Timelike, Datelike};
+use chrono::{Datelike, Local, Timelike};
 use slint::{Timer, TimerMode};
 
 #[cfg(target_arch = "wasm32")]
