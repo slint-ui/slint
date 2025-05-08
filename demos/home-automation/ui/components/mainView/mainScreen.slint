@@ -11,7 +11,7 @@ import { Measurements, Palette, Animation, Style } from "../../common.slint";
 import { AppState, ComponentData, Orientation } from "../../appState.slint";
 import { FullScreenView } from "fullScreenView.slint";
 import { Page } from "../../../../printerdemo/ui/common.slint";
-import { HaText } from "../general/haText.slint";
+import { HaText, HaMonoText } from "../general/haText.slint";
 import { Api } from "../../api.slint";
 
 export component PageButton inherits Rectangle {
@@ -140,15 +140,17 @@ export component MainScreen inherits Rectangle {
         }
         if showing-time: HorizontalLayout {
             alignment: center;
-            HaText {
-                text: Api.current-time.hour.mod(12) == 0 ? 12 : Api.current-time.hour.mod(12);
+            HaMonoText {
+                text: Api.current-time.hour.mod(12) == 0 ? 12 :
+                      Api.current-time.hour.mod(12) < 10 ? " " + Api.current-time.hour.mod(12) :
+                      Api.current-time.hour.mod(12);
                 horizontal-alignment: center;
                 vertical-alignment: center;
                 color: Palette.info-foreground;
                 font-size: Style.H1-font-size;
             }
 
-            HaText {
+            HaMonoText {
                 text: ":";
                 horizontal-alignment: center;
                 vertical-alignment: center;
@@ -156,8 +158,8 @@ export component MainScreen inherits Rectangle {
                 font-size: Style.H1-font-size;
             }
 
-            HaText {
-                text: Api.current-time.minute;
+            HaMonoText {
+                text: Api.current-time.minute < 10 ? "0" + Api.current-time.minute : Api.current-time.minute;
                 horizontal-alignment: center;
                 vertical-alignment: center;
                 color: Palette.info-foreground;
