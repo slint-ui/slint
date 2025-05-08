@@ -1,11 +1,10 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
-import { Animation, Measurements, Colors, Style, Palette } from "../common.slint";
+import { Animation, Style, Palette } from "../common.slint";
 import { Control} from "control.slint";
-import { AppState, Orientation } from "../appState.slint";
+import { AppState } from "../appState.slint";
 import { HaText } from "general/haText.slint";
 import { LineEdit } from "std-widgets.slint";
-import { InnerShadowRectangle } from "general/innerShadowRectangle.slint";
 
 export component ArmButton inherits Rectangle {
     callback clicked;
