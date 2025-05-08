@@ -27,13 +27,13 @@ export global Api {
     out property <Orientation> orientation <=> AppState.orientation;
     in-out property <bool> graphics-accelerator-available <=> AppState.graphics-accelerator-available;
 
-    in property <Date> current-date: {
+    in-out property <Date> current-date: {
         year: 2025,
         month: 3,
         day: 18,
     };
 
-    in property <Time> current-time: {
+    in-out property <Time> current-time: {
         hour: 15,
         minute: 12,
         second: 33,
