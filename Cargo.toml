@@ -11,6 +11,7 @@ members = [
   'api/python',
   'api/wasm-interpreter',
   'examples/7guis',
+  "examples/bevy",
   'examples/gallery',
   'examples/imagefilter/rust',
   'examples/maps',
@@ -68,7 +69,6 @@ members = [
   'tools/viewer',
   'tools/tr-extractor',
   'xtask',
-  "examples/bevy",
 ]
 
 default-members = [
