@@ -532,6 +532,8 @@ pub enum PreviewToLspMessage {
     SendWorkspaceEdit { label: Option<String>, edit: lsp_types::WorkspaceEdit },
     /// Pass a `ShowMessage` notification on to the editor
     SendShowMessage { message: lsp_types::ShowMessageParams },
+    /// Senf a telemetry event
+    TelemetryEvent(serde_json::Map<String, serde_json::Value>),
 }
 
 /// Information on the Element types available

@@ -302,6 +302,14 @@ impl SlintServer {
                     .server_notifier
                     .send_notification::<lsp_types::notification::ShowMessage>(message);
             }
+            M::TelemetryEvent(object) => {
+                let _ = self
+                    .ctx
+                    .server_notifier
+                    .send_notification::<lsp_types::notification::TelemetryEvent>(
+                        lsp_types::OneOf::Left(object),
+                    );
+            }
         }
         Ok(())
     }
