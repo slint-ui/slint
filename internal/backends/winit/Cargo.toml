@@ -96,9 +96,10 @@ vtable = { workspace = true }
 web-sys = { workspace = true, features = ["HtmlInputElement", "HtmlCanvasElement", "Window", "Document", "Event", "KeyboardEvent", "InputEvent", "CompositionEvent", "DomStringMap", "ClipboardEvent", "DataTransfer"] }
 wasm-bindgen = { version = "0.2" }
 
-[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+[target.'cfg(all(not(target_arch = "wasm32"), not(all(target_vendor = "apple", not(target_os = "macos")))))'.dependencies]
 glutin = { workspace = true, optional = true, default-features = false, features = ["egl", "wgl"] }
 glutin-winit = { version = "0.5", optional = true, default-features = false, features = ["egl", "wgl"] }
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 accesskit = { version = "0.19", optional = true }
 accesskit_winit = { version = "0.27", optional = true }
 copypasta = { version = "0.10", default-features = false }
@@ -111,6 +112,10 @@ futures = { version = "0.3.31" }
 [target.'cfg(target_os = "macos")'.dependencies]
 # For GL rendering
 objc2-app-kit = { version = "0.3.0" }
+
+[target.'cfg(all(target_vendor = "apple", not(target_os = "macos")))'.dependencies]
+# Enable Skia by default on Apple platforms with iOS, etc. (but not macOS). See also enable_skia_renderer in build.rs
+i-slint-renderer-skia = { workspace = true, features = ["default"] }
 
 [build-dependencies]
 cfg_aliases = { workspace = true }

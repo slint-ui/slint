@@ -69,7 +69,10 @@ mod renderer {
         ) -> Result<Arc<winit::window::Window>, PlatformError>;
     }
 
-    #[cfg(any(feature = "renderer-femtovg", feature = "renderer-femtovg-wgpu"))]
+    #[cfg(any(
+        all(feature = "renderer-femtovg", supports_opengl),
+        feature = "renderer-femtovg-wgpu"
+    ))]
     pub(crate) mod femtovg;
     #[cfg(enable_skia_renderer)]
     pub(crate) mod skia;
@@ -108,7 +111,7 @@ fn default_renderer_factory(
             renderer::skia::WinitSkiaRenderer::new_suspended(shared_backend_data)
         } else if #[cfg(feature = "renderer-femtovg-wgpu")] {
             renderer::femtovg::WGPUFemtoVGRenderer::new_suspended(shared_backend_data)
-        } else if #[cfg(feature = "renderer-femtovg")] {
+        } else if #[cfg(all(feature = "renderer-femtovg", supports_opengl))] {
             renderer::femtovg::GlutinFemtoVGRenderer::new_suspended(shared_backend_data)
         } else if #[cfg(feature = "renderer-software")] {
             renderer::sw::WinitSoftwareRenderer::new_suspended(shared_backend_data)
@@ -131,7 +134,7 @@ fn try_create_window_with_fallback_renderer(
             feature = "renderer-skia-vulkan"
         ))]
         renderer::skia::WinitSkiaRenderer::new_suspended,
-        #[cfg(feature = "renderer-femtovg")]
+        #[cfg(all(feature = "renderer-femtovg", supports_opengl))]
         renderer::femtovg::GlutinFemtoVGRenderer::new_suspended,
         #[cfg(feature = "renderer-software")]
         renderer::sw::WinitSoftwareRenderer::new_suspended,
@@ -276,7 +279,10 @@ impl BackendBuilder {
             self.renderer_name.as_deref(),
             self.requested_graphics_api.as_ref(),
         ) {
-            #[cfg(any(feature = "renderer-femtovg", feature = "renderer-femtovg-wgpu"))]
+            #[cfg(any(
+                all(feature = "renderer-femtovg", supports_opengl),
+                feature = "renderer-femtovg-wgpu"
+            ))]
             (Some("gl"), maybe_graphics_api) | (Some("femtovg"), maybe_graphics_api) => {
                 // If a graphics API was requested, double check that it's GL. FemtoVG doesn't support Metal, etc.
                 if let Some(api) = maybe_graphics_api {
@@ -339,7 +345,7 @@ impl BackendBuilder {
                 cfg_if::cfg_if! {
                     if #[cfg(enable_skia_renderer)] {
                         renderer::skia::WinitSkiaRenderer::factory_for_graphics_api(Some(_requested_graphics_api))?
-                    } else if #[cfg(feature = "renderer-femtovg")] {
+                    } else if #[cfg(all(feature = "renderer-femtovg", supports_opengl))] {
                         // If a graphics API was requested, double check that it's GL. FemtoVG doesn't support Metal, etc.
                         i_slint_core::graphics::RequestedOpenGLVersion::try_from(_requested_graphics_api.clone())?;
                         renderer::femtovg::GlutinFemtoVGRenderer::new_suspended
