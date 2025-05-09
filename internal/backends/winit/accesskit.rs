@@ -651,20 +651,12 @@ impl NodeCollection {
             .and_then(|s| s.parse::<usize>().ok())
         {
             node.set_position_in_set(position_in_set);
-            let mut item = item.clone();
-            while let Some(parent) = item.parent_item(ParentItemTraversalMode::StopAtPopups) {
-                if !parent.is_accessible() {
-                    item = parent;
-                    continue;
-                }
-                if let Some(size_of_set) = parent
-                    .accessible_string_property(AccessibleStringProperty::ItemCount)
-                    .and_then(|s| s.parse::<usize>().ok())
-                {
-                    node.set_size_of_set(size_of_set);
-                }
-                break;
-            }
+        }
+        if let Some(size_of_set) = item
+            .accessible_string_property(AccessibleStringProperty::ItemCount)
+            .and_then(|s| s.parse::<usize>().ok())
+        {
+            node.set_size_of_set(size_of_set);
         }
 
         let supported = item.supported_accessibility_actions();
