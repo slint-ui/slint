@@ -8,14 +8,11 @@ mod slint_bevy_adapter;
 mod web_asset;
 
 slint::slint! {
-import { Palette, Button, ComboBox, GroupBox, GridBox, Slider, VerticalBox, ProgressIndicator } from "std-widgets.slint";
+import { Palette, Button, ComboBox, GroupBox, GridBox, Slider, HorizontalBox, VerticalBox, ProgressIndicator } from "std-widgets.slint";
 export component AppWindow inherits Window {
     in property <image> texture <=> i.source;
     out property <length> requested-texture-width: i.width;
     out property <length> requested-texture-height: i.height;
-    out property <float> selected-red <=> red.value;
-    out property <float> selected-green <=> green.value;
-    out property <float> selected-blue <=> blue.value;
 
     in property <bool> show-loading-screen: true;
     in property <string> download-url;
@@ -25,49 +22,15 @@ export component AppWindow inherits Window {
     preferred-width: 500px;
     preferred-height: 600px;
 
-    VerticalLayout {
+    VerticalBox {
         alignment: start;
-        GroupBox {
-            title: "Light Color Controls";
+        Rectangle {
+            background: Palette.alternate-background;
 
-            GridBox {
-                Row {
-                    Text {
-                        text: "Red:";
-                        vertical-alignment: center;
-                    }
-
-                    red := Slider {
-                        minimum: 0.1;
-                        maximum: 1.0;
-                        value: 0.2;
-                    }
-                }
-
-                Row {
-                    Text {
-                        text: "Green:";
-                        vertical-alignment: center;
-                    }
-
-                    green := Slider {
-                        minimum: 0.1;
-                        maximum: 1.0;
-                        value: 0.5;
-                    }
-                }
-
-                Row {
-                    Text {
-                        text: "Blue:";
-                        vertical-alignment: center;
-                    }
-
-                    blue := Slider {
-                        minimum: 0.1;
-                        maximum: 1.0;
-                        value: 0.9;
-                    }
+            HorizontalBox {
+                Text {
+                    text: "This text is rendered using Slint. The animation below is rendered using Bevy code.";
+                    wrap: word-wrap;
                 }
             }
         }
@@ -106,20 +69,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let (download_progress_sender, download_progress_receiver) =
         smol::channel::bounded::<(SharedString, f32)>(5);
 
-    let (light_color_sender, light_color_receiver) =
-        smol::channel::bounded::<bevy::color::LinearRgba>(1);
-
     let (new_texture_receiver, control_message_sender) =
         spin_on::spin_on(slint_bevy_adapter::run_bevy_app_with_slint(
             |app| {
                 app.add_plugins(web_asset::WebAssetReaderPlugin(download_progress_sender));
             },
             |mut app| {
-                app.insert_resource::<LightColorSource>(LightColorSource(light_color_receiver))
-                    .add_systems(Startup, setup)
-                    .add_systems(Update, animate_camera)
-                    .add_systems(Update, update_light_color)
-                    .run();
+                app.add_systems(Startup, setup).add_systems(Update, animate_camera).run();
             },
         ))?;
 
@@ -163,18 +119,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         if let Ok(image) = new_texture.try_into() {
             app.set_texture(image);
         }
-
-        let red = app.get_selected_red();
-        let green = app.get_selected_green();
-        let blue = app.get_selected_blue();
-        let light_color_sender = light_color_sender.clone();
-        slint::spawn_local(async move {
-            light_color_sender
-                .send(bevy::color::LinearRgba { red, green, blue, alpha: 1. })
-                .await
-                .unwrap();
-        })
-        .unwrap();
     })?;
 
     let app_weak = app_window.as_weak();
@@ -199,9 +143,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-#[derive(Resource)]
-struct LightColorSource(smol::channel::Receiver<bevy::color::LinearRgba>);
-
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(DirectionalLight { illuminance: 100_000.0, ..default() });
     commands.spawn((
@@ -217,14 +158,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 .from_asset("https://github.com/KhronosGroup/glTF-Sample-Assets/raw/refs/heads/main/Models/DamagedHelmet/glTF-Binary/DamagedHelmet.glb"),
         ),
     ));
-}
-
-fn update_light_color(mut lights: Query<&mut PointLight>, color_source: Res<LightColorSource>) {
-    if let Ok(new_color) = color_source.0.try_recv() {
-        for mut light in lights.iter_mut() {
-            light.color = bevy::color::Color::LinearRgba(new_color);
-        }
-    }
 }
 
 fn animate_camera(mut cameras: Query<&mut Transform, With<Camera3d>>, time: Res<Time>) {
