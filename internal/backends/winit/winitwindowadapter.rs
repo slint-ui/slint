@@ -356,12 +356,7 @@ impl WinitWindowAdapter {
             muda_enable_default_menu_bar,
         });
 
-        if crate::event_loop::ACTIVE_EVENT_LOOP.is_set() {
-            crate::event_loop::ACTIVE_EVENT_LOOP
-                .with(|active_event_loop| self_rc.ensure_window(active_event_loop))?;
-        } else {
-            self_rc.shared_backend_data.register_inactive_window((self_rc.clone()) as _);
-        };
+        self_rc.shared_backend_data.register_inactive_window((self_rc.clone()) as _);
 
         Ok(self_rc)
     }
@@ -782,10 +777,7 @@ impl WinitWindowAdapter {
         if matches!(visibility, WindowVisibility::ShownFirstTime | WindowVisibility::Shown) {
             let recreating_window = matches!(visibility, WindowVisibility::Shown);
 
-            let winit_window = if crate::event_loop::ACTIVE_EVENT_LOOP.is_set() {
-                crate::event_loop::ACTIVE_EVENT_LOOP
-                    .with(|active_event_loop| self.ensure_window(active_event_loop))?
-            } else {
+            let Some(winit_window) = self.winit_window() else {
                 // Can't really show it on the screen, safe it in the attributes and try again later.
                 self.winit_window_or_none.borrow().set_visible(true);
                 return Ok(());
