@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT
 
 [package]
-name = "bevy"
+name = "bevy_example"
 version = "1.12.0"
 authors = ["Slint Developers <info@slint.dev>"]
 edition = "2021"
@@ -11,7 +11,7 @@ license = "MIT"
 description = "Slint Bevy Integration Example"
 
 [[bin]]
-name = "bevy"
+name = "bevy_example"
 path = "main.rs"
 
 [dependencies]
