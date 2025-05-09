@@ -452,6 +452,23 @@ impl SharedBackendData {
         }
     }
 
+    pub fn create_inactive_windows(
+        &self,
+        event_loop: &winit::event_loop::ActiveEventLoop,
+    ) -> Result<(), PlatformError> {
+        let mut inactive_windows = self.inactive_windows.take();
+        let mut result = Ok(());
+        while let Some(window_weak) = inactive_windows.pop() {
+            if let Some(err) = window_weak.upgrade().and_then(|w| w.ensure_window(event_loop).err())
+            {
+                result = Err(err);
+                break;
+            }
+        }
+        self.inactive_windows.borrow_mut().extend(inactive_windows);
+        result
+    }
+
     pub fn window_by_id(&self, id: winit::window::WindowId) -> Option<Rc<WinitWindowAdapter>> {
         self.active_windows.borrow().get(&id).and_then(|weakref| weakref.upgrade())
     }
