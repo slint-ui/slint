@@ -581,6 +581,11 @@ async fn handle_preview_to_lsp_message(
             ctx.server_notifier
                 .send_notification::<lsp_types::notification::ShowMessage>(message)?;
         }
+        M::TelemetryEvent(object) => {
+            ctx.server_notifier.send_notification::<lsp_types::notification::TelemetryEvent>(
+                lsp_types::OneOf::Left(object),
+            )?
+        }
     }
     Ok(())
 }

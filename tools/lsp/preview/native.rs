@@ -176,6 +176,10 @@ pub(super) fn open_ui_impl(preview_state: &mut PreviewState) -> Result<(), slint
         Some(ui) => ui,
         None => {
             let ui = super::ui::create_ui(default_style, experimental)?;
+            crate::preview::send_telemetry(&mut [(
+                "type".to_string(),
+                serde_json::to_value("preview_opened").unwrap(),
+            )]);
             preview_state.ui.insert(ui)
         }
     };

@@ -538,6 +538,8 @@ fn set_code_binding(
     property_name: slint::SharedString,
     property_value: slint::SharedString,
 ) {
+    send_telemetry(&mut [("type".to_string(), serde_json::to_value("property_changed").unwrap())]);
+
     set_binding(
         element_url,
         element_version,
@@ -685,6 +687,8 @@ fn can_drop_component(component_index: i32, x: f32, y: f32, on_drop_area: bool) 
 
 // triggered from the UI, running in UI thread
 fn drop_component(component_index: i32, x: f32, y: f32) {
+    send_telemetry(&mut [("type".to_string(), serde_json::to_value("component_dropped").unwrap())]);
+
     let Some(document_cache) = document_cache() else {
         return;
     };
@@ -1884,6 +1888,17 @@ pub fn lsp_to_preview_message(message: crate::common::LspToPreviewMessage) {
             highlight(url, offset.into());
         }
     }
+}
+
+pub fn send_telemetry(data: &mut [(String, serde_json::Value)]) {
+    let object = {
+        let mut object = serde_json::Map::new();
+        for (name, value) in data.iter_mut() {
+            object.insert(std::mem::take(name), std::mem::take(value));
+        }
+        object
+    };
+    send_message_to_lsp(crate::common::PreviewToLspMessage::TelemetryEvent(object));
 }
 
 #[cfg(test)]
