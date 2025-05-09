@@ -1,6 +1,12 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
+//! This module provides function(s) to integrate a bevy App into a Slint application.
+//!
+//! The integration's entry point is [`run_bevy_app_with_slint()`], which will launch the
+//! bevy [`App`] in a thread separate from the main thread and supply textures of the rendered
+//! scenes via channels.
+
 use std::sync::Arc;
 
 use slint::wgpu_24::wgpu;
@@ -8,19 +14,34 @@ use slint::wgpu_24::wgpu;
 use bevy::{
     prelude::*,
     render::{
+        RenderApp, RenderPlugin,
         extract_resource::{ExtractResource, ExtractResourcePlugin},
         render_graph::{self, NodeRunError, RenderGraph, RenderGraphContext, RenderLabel},
         renderer::RenderContext,
         settings::RenderCreation,
-        RenderApp, RenderPlugin,
     },
 };
 
+/// This enum describes the two kinds of message the Slint application send to the bevy integration thread.
 pub enum ControlMessage {
+    /// Send this message when you don't need a previously received texture anymore.
     ReleaseFrontBufferTexture { texture: wgpu::Texture },
+    /// Send this message to adjust the size of the scene textures.
     ResizeBuffers { width: u32, height: u32 },
 }
 
+/// Initializes Bevy and Slint, spawns a bevy [`App`], and supplies textures of the rendered scenes via channels.
+///
+/// Use the `bevy_app_pre_default_plugins_callback` callback to add any plugins to the app before the default plugins.
+/// Use the `bevy_main` callback to add systems, plugins, etc. to your app and call [`App::run()`].
+///
+/// If successful, this function returns two channels:
+/// - Use the receiver channel to obtain textures for use in the Slint UI. These textures have the scene of your default
+///   camera rendered into.
+/// - Use the [`ControlMessage`] sender channel to return textures that you don't need anymore, as well as to inform the
+///   renderer to resize the texture if needed.
+///
+/// *Note*: At the moment only one single camera is supported.
 pub async fn run_bevy_app_with_slint(
     bevy_app_pre_default_plugins_callback: impl FnOnce(&mut App) + Send + 'static,
     bevy_main: impl FnOnce(App) + Send + 'static,
@@ -193,7 +214,7 @@ pub async fn run_bevy_app_with_slint(
 #[derive(Resource, Deref)]
 struct FrontBufferReturnSender(smol::channel::Sender<wgpu::Texture>);
 /// Plugin for Render world part of work
-pub struct SlintRenderToTexturePlugin(smol::channel::Sender<wgpu::Texture>);
+struct SlintRenderToTexturePlugin(smol::channel::Sender<wgpu::Texture>);
 impl Plugin for SlintRenderToTexturePlugin {
     fn build(&self, app: &mut App) {
         let render_app = app.sub_app_mut(RenderApp);
