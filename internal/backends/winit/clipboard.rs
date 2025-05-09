@@ -42,9 +42,8 @@ pub fn create_clipboard(
         if #[cfg(all(
             unix,
             not(any(
-                target_os = "macos",
+                target_vendor = "apple",
                 target_os = "android",
-                target_os = "ios",
                 target_os = "emscripten"
             ))
         ))]

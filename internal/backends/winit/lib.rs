@@ -600,7 +600,7 @@ impl i_slint_core::platform::Platform for Backend {
         Ok(())
     }
 
-    #[cfg(all(not(target_arch = "wasm32"), not(target_os = "ios")))]
+    #[cfg(all(not(target_arch = "wasm32"), not(ios_and_friends)))]
     fn process_events(
         &self,
         timeout: core::time::Duration,
@@ -765,7 +765,7 @@ mod testui {
 }
 
 // Sorry, can't test with rust test harness and multiple threads.
-#[cfg(not(any(target_arch = "wasm32", target_os = "macos", target_os = "ios")))]
+#[cfg(not(any(target_arch = "wasm32", target_vendor = "apple")))]
 #[test]
 fn test_window_accessor_and_rwh() {
     slint::platform::set_platform(Box::new(crate::Backend::new().unwrap())).unwrap();

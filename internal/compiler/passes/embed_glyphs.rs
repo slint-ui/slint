@@ -310,8 +310,7 @@ fn get_fallback_fonts(
 
     #[cfg(not(any(
         target_family = "windows",
-        target_os = "macos",
-        target_os = "ios",
+        target_vendor = "apple",
         target_arch = "wasm32",
         target_os = "android"
     )))]

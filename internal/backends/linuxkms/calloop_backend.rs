@@ -18,12 +18,7 @@ use i_slint_core::platform::PlatformError;
 
 use crate::fullscreenwindowadapter::FullscreenWindowAdapter;
 
-#[cfg(not(any(
-    target_family = "windows",
-    target_os = "macos",
-    target_os = "ios",
-    target_arch = "wasm32"
-)))]
+#[cfg(not(any(target_family = "windows", target_vendor = "apple", target_arch = "wasm32")))]
 mod input;
 
 #[derive(Clone)]

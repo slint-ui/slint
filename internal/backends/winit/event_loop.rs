@@ -455,36 +455,34 @@ impl EventLoopState {
             .ok_or_else(|| PlatformError::from("Nested event loops are not supported"))?;
         let mut winit_loop = not_running_loop_instance;
 
-        #[cfg(all(not(target_arch = "wasm32"), not(target_os = "ios")))]
-        {
-            use winit::platform::run_on_demand::EventLoopExtRunOnDemand as _;
-            winit_loop
-                .run_app_on_demand(&mut self)
-                .map_err(|e| format!("Error running winit event loop: {e}"))?;
+        cfg_if::cfg_if! {
+            if #[cfg(any(target_arch = "wasm32", ios_and_friends))] {
+                winit_loop
+                    .run_app(&mut self)
+                    .map_err(|e| format!("Error running winit event loop: {e}"))?;
+                // This can't really happen, as run() doesn't return
+                Ok(Self::new(self.shared_backend_data.clone()))
+            } else {
+                use winit::platform::run_on_demand::EventLoopExtRunOnDemand as _;
+                winit_loop
+                    .run_app_on_demand(&mut self)
+                    .map_err(|e| format!("Error running winit event loop: {e}"))?;
 
-            // Keep the EventLoop instance alive and re-use it in future invocations of run_event_loop().
-            // Winit does not support creating multiple instances of the event loop.
-            self.shared_backend_data.not_running_event_loop.replace(Some(winit_loop));
+                // Keep the EventLoop instance alive and re-use it in future invocations of run_event_loop().
+                // Winit does not support creating multiple instances of the event loop.
+                self.shared_backend_data.not_running_event_loop.replace(Some(winit_loop));
 
-            if let Some(error) = self.loop_error {
-                return Err(error);
+                if let Some(error) = self.loop_error {
+                    return Err(error);
+                }
+                Ok(self)
             }
-            Ok(self)
-        }
-
-        #[cfg(any(target_arch = "wasm32", target_os = "ios"))]
-        {
-            winit_loop
-                .run_app(&mut self)
-                .map_err(|e| format!("Error running winit event loop: {e}"))?;
-            // This can't really happen, as run() doesn't return
-            Ok(Self::new(self.shared_backend_data.clone()))
         }
     }
 
     /// Runs the event loop and renders the items in the provided `component` in its
     /// own window.
-    #[cfg(all(not(target_arch = "wasm32"), not(target_os = "ios")))]
+    #[cfg(all(not(target_arch = "wasm32"), not(ios_and_friends)))]
     pub fn pump_events(
         mut self,
         timeout: Option<std::time::Duration>,

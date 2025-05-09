@@ -48,7 +48,7 @@ pub mod d3d_surface;
 #[cfg(skia_backend_vulkan)]
 pub mod vulkan_surface;
 
-#[cfg(not(target_os = "ios"))]
+#[cfg(any(not(target_vendor = "apple"), target_os = "macos"))]
 pub mod opengl_surface;
 
 use i_slint_core::items::TextWrap;
@@ -222,7 +222,7 @@ impl SkiaRenderer {
         }
     }
 
-    #[cfg(not(target_os = "ios"))]
+    #[cfg(any(not(target_vendor = "apple"), target_os = "macos"))]
     /// Creates a new SkiaRenderer that will always use Skia's OpenGL renderer.
     pub fn default_opengl(context: &SkiaSharedContext) -> Self {
         Self {

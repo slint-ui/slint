@@ -14,8 +14,7 @@ pub struct FontDatabase {
     db: Arc<fontdb::Database>,
     #[cfg(not(any(
         target_family = "windows",
-        target_os = "macos",
-        target_os = "ios",
+        target_vendor = "apple",
         target_arch = "wasm32",
         target_os = "android",
     )))]
@@ -62,8 +61,7 @@ thread_local! {
 
 #[cfg(not(any(
     target_family = "windows",
-    target_os = "macos",
-    target_os = "ios",
+    target_vendor = "apple",
     target_arch = "wasm32",
     target_os = "android",
 )))]
@@ -116,8 +114,7 @@ fn init_fontdb() -> FontDatabase {
 
     #[cfg(not(any(
         target_family = "windows",
-        target_os = "macos",
-        target_os = "ios",
+        target_vendor = "apple",
         target_arch = "wasm32",
         target_os = "android",
     )))]
@@ -146,8 +143,7 @@ fn init_fontdb() -> FontDatabase {
         cfg_if::cfg_if! {
             if #[cfg(not(any(
                 target_family = "windows",
-                target_os = "macos",
-                target_os = "ios",
+                target_vendor = "apple",
                 target_arch = "wasm32",
                 target_os = "android",
             )))] {
@@ -180,8 +176,7 @@ fn init_fontdb() -> FontDatabase {
         db: Arc::new(font_db),
         #[cfg(not(any(
             target_family = "windows",
-            target_os = "macos",
-            target_os = "ios",
+            target_vendor = "apple",
             target_arch = "wasm32",
             target_os = "android",
         )))]
