@@ -60,7 +60,7 @@ jobs:
                       rust_version: "nightly"
                     # Bevy doesn't compile with 1.82 but requires a newer version
                     - rust_version: "1.82"
-                      maybe_exclude_bevy: "--exclude bevy"
+                      maybe_exclude_bevy: "--exclude bevy_example"
                 exclude:
                     - os: macos-14
                       rust_version: "1.82"
