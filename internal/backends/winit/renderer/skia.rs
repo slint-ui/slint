@@ -29,7 +29,7 @@ impl WinitSkiaRenderer {
         })
     }
 
-    #[cfg(not(target_os = "ios"))]
+    #[cfg(not(ios_and_friends))]
     pub fn new_opengl_suspended(
         shared_backend_data: &Rc<crate::SharedBackendData>,
     ) -> Box<dyn super::WinitCompatibleRenderer> {
@@ -69,9 +69,9 @@ impl WinitSkiaRenderer {
             Some(api) => {
                 match api {
                     RequestedGraphicsAPI::OpenGL(_) => {
-                        #[cfg(not(target_os = "ios"))]
+                        #[cfg(not(ios_and_friends))]
                         return Ok(Self::new_opengl_suspended);
-                        #[cfg(target_os = "ios")]
+                        #[cfg(ios_and_friends)]
                         return Err(format!(
                             "OpenGL rendering requested but this is not supported on iOS"
                         )

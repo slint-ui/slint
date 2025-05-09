@@ -103,7 +103,7 @@ accesskit = { version = "0.19", optional = true }
 accesskit_winit = { version = "0.27", optional = true }
 copypasta = { version = "0.10", default-features = false }
 
-[target.'cfg(not(any(target_family = "windows", target_os = "macos", target_os = "ios", target_arch = "wasm32")))'.dependencies]
+[target.'cfg(not(any(target_family = "windows", target_vendor = "apple", target_arch = "wasm32")))'.dependencies]
 # Use same version and executor as accesskit
 zbus = { version = "4.4.0", default-features = false, features = ["async-io"] }
 futures = { version = "0.3.31" }

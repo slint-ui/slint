@@ -1717,16 +1717,15 @@ impl TextInput {
 
         let text_color = self.color();
 
-        let cursor_color =
-            if cfg!(any(target_os = "android", target_os = "macos", target_os = "ios")) {
-                if cursor_position.is_some() {
-                    self.selection_background_color().with_alpha(1.)
-                } else {
-                    Default::default()
-                }
+        let cursor_color = if cfg!(any(target_os = "android", target_vendor = "apple")) {
+            if cursor_position.is_some() {
+                self.selection_background_color().with_alpha(1.)
             } else {
-                text_color.color()
-            };
+                Default::default()
+            }
+        } else {
+            text_color.color()
+        };
 
         let mut repr = TextInputVisualRepresentation {
             text,

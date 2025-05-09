@@ -6,10 +6,11 @@ use cfg_aliases::cfg_aliases;
 fn main() {
     // Setup cfg aliases
     cfg_aliases! {
+       ios_and_friends: { all(target_vendor = "apple", not(target_os = "macos"))},
        enable_skia_renderer: { any(feature = "renderer-skia", feature = "renderer-skia-opengl", feature = "renderer-skia-vulkan")},
        enable_accesskit: { all(feature = "accessibility", not(target_arch = "wasm32")) },
-       supports_opengl: { all(any(enable_skia_renderer, feature = "renderer-femtovg"), not(target_os = "ios")) },
-       use_winit_theme: { any(target_family = "windows", target_os = "macos", target_os = "ios", target_arch = "wasm32") },
+       supports_opengl: { all(any(enable_skia_renderer, feature = "renderer-femtovg"), not(ios_and_friends)) },
+       use_winit_theme: { any(target_family = "windows", target_vendor = "apple", target_arch = "wasm32") },
        muda: { all(feature = "muda", any(target_os = "windows", target_os = "macos")) },
     }
     // This uses `web_sys_unstable_api`, which is typically set via `RUST_FLAGS`
