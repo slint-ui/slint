@@ -917,6 +917,8 @@ impl Item for TextInput {
                 self.has_focus.set(true);
                 self.show_cursor(window_adapter);
                 WindowInner::from_pub(window_adapter.window()).set_text_input_focused(true);
+                WindowInner::from_pub(window_adapter.window())
+                    .set_text_input_focused_type(Some(self.input_type()));
                 // FIXME: This should be tracked by a PropertyTracker in window and toggled when read_only() toggles.
                 if !self.read_only() {
                     if let Some(w) = window_adapter.internal(crate::InternalToken) {
@@ -940,6 +942,7 @@ impl Item for TextInput {
                         .set(self.as_ref().cursor_position_byte_offset());
                 }
                 WindowInner::from_pub(window_adapter.window()).set_text_input_focused(false);
+                WindowInner::from_pub(window_adapter.window()).set_text_input_focused_type(None);
                 if !self.read_only() {
                     if let Some(window_adapter) = window_adapter.internal(crate::InternalToken) {
                         window_adapter.input_method_request(InputMethodRequest::Disable);
