@@ -433,7 +433,7 @@ impl WinitWindowAdapter {
                 .map(|menubar| {
                     crate::muda::MudaAdapter::setup(
                         menubar,
-                        &self.winit_window().unwrap(),
+                        &winit_window,
                         self.event_loop_proxy.clone(),
                         self.self_weak.clone(),
                     )
@@ -699,12 +699,13 @@ impl WinitWindowAdapter {
     pub(crate) fn accesskit_adapter(
         &self,
     ) -> Option<std::cell::Ref<'_, RefCell<crate::accesskit::AccessKitAdapter>>> {
-        std::cell::Ref::filter_map(self.winit_window_or_none.borrow(), |wor: &WinitWindowOrNone| {
-            match wor {
+        std::cell::Ref::filter_map(
+            self.winit_window_or_none.try_borrow().ok()?,
+            |wor: &WinitWindowOrNone| match wor {
                 WinitWindowOrNone::HasWindow { accesskit_adapter, .. } => Some(accesskit_adapter),
                 WinitWindowOrNone::None(..) => None,
-            }
-        })
+            },
+        )
         .ok()
     }
 
