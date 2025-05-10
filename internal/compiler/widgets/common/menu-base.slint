@@ -123,6 +123,15 @@ export component MenuItemBase {
                 padding-left: root.padding-left;
                 padding-right: root.padding-right;
 
+                spacing: 10px;
+
+                Image {
+                    width: root.icon-size;
+                    y: (parent.height - self.height) / 2;
+                    source: entry.icon;
+                    accessible-role: none;
+                }
+
                 label := Text {
                     text: entry.title;
                     color: root.default-foreground;
