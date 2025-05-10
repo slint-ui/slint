@@ -195,9 +195,9 @@ impl BackendSelector {
         self.selected = true;
 
         #[cfg(any(
-           feature = "i-slint-backend-qt",
-           feature = "i-slint-backend-winit",
-           feature = "i-slint-backend-linuxkms"
+            feature = "i-slint-backend-qt",
+            feature = "i-slint-backend-winit",
+            feature = "i-slint-backend-linuxkms"
         ))]
         if self.backend.is_none() || self.renderer.is_none() {
             let backend_config = std::env::var("SLINT_BACKEND").unwrap_or_default();
