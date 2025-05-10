@@ -92,17 +92,8 @@ cfg_if::cfg_if! {
         pub fn create_backend() -> Result<Box<dyn Platform + 'static>, PlatformError>  {
 
             let backend_config = std::env::var("SLINT_BACKEND").unwrap_or_default();
-
             let backend_config = backend_config.to_lowercase();
-            let (event_loop, _renderer) = backend_config.split_once('-').unwrap_or(match backend_config.as_str() {
-                "qt" => ("qt", ""),
-                "gl" | "winit" => ("winit", ""),
-                "femtovg" => ("winit", "femtovg"),
-                "skia" => ("winit", "skia"),
-                "sw" | "software" => ("winit", "software"),
-                "linuxkms" => ("linuxkms", ""),
-                x => (x, ""),
-            });
+            let (event_loop, _renderer) = parse_backend_env_var(backend_config.as_str());
 
             match event_loop {
                 #[cfg(all(feature = "i-slint-backend-qt", not(no_qt)))]
@@ -131,6 +122,18 @@ cfg_if::cfg_if! {
         pub type NativeGlobals = ();
         pub const HAS_NATIVE_STYLE: bool = false;
     }
+}
+
+pub fn parse_backend_env_var(backend_config: &str) -> (&str, &str) {
+    backend_config.split_once('-').unwrap_or(match backend_config {
+        "qt" => ("qt", ""),
+        "gl" | "winit" => ("winit", ""),
+        "femtovg" => ("winit", "femtovg"),
+        "skia" => ("winit", "skia"),
+        "sw" | "software" => ("winit", "software"),
+        "linuxkms" => ("linuxkms", ""),
+        x => (x, ""),
+    })
 }
 
 /// Run the callback with the platform abstraction.

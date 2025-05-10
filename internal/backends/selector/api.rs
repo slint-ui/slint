@@ -194,6 +194,23 @@ impl BackendSelector {
     fn select_internal(&mut self) -> Result<(), PlatformError> {
         self.selected = true;
 
+        #[cfg(any(
+            feature = "i-slint-backend-qt",
+            feature = "i-slint-backend-winit",
+            feature = "i-slint-backend-linuxkms"
+        ))]
+        if self.backend.is_none() || self.renderer.is_none() {
+            let backend_config = std::env::var("SLINT_BACKEND").unwrap_or_default();
+            let backend_config = backend_config.to_lowercase();
+            let (backend, renderer) = super::parse_backend_env_var(backend_config.as_str());
+            if !backend.is_empty() {
+                self.backend.get_or_insert_with(|| backend.to_owned());
+            }
+            if !renderer.is_empty() {
+                self.renderer.get_or_insert_with(|| renderer.to_owned());
+            }
+        }
+
         let backend_name = self.backend.as_deref().unwrap_or(super::DEFAULT_BACKEND_NAME);
 
         let backend: Box<dyn i_slint_core::platform::Platform> = match backend_name {
