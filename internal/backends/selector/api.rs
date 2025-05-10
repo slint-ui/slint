@@ -213,7 +213,7 @@ impl BackendSelector {
 
         let backend_name = self.backend.as_deref().unwrap_or(super::DEFAULT_BACKEND_NAME);
 
-        let backend: Box<dyn i_slint_core::platform::Platform> = match backend_name.as_ref() {
+        let backend: Box<dyn i_slint_core::platform::Platform> = match backend_name {
             #[cfg(all(feature = "i-slint-backend-linuxkms", target_os = "linux"))]
             "linuxkms" => {
                 if self.requested_graphics_api.is_some() {
