@@ -4,7 +4,7 @@ import { DoorState, Doors } from "../general/doors.slint";
 import { WidgetLoader } from "widgetLoader.slint";
 import { WidgetLoaderSoftwareRenderer } from "widgetLoaderSoftwareRenderer.slint";
 import { Palette as StdPalette } from "std-widgets.slint";
-import { Palette, Style } from "../../common.slint";
+import { Palette, Animation, Style } from "../../common.slint";
 import { AppState, Orientation } from "../../appState.slint";
 import { FullScreenView } from "fullScreenView.slint";
 import { Page } from "../../../../printerdemo/ui/common.slint";
@@ -100,8 +100,13 @@ export component MainScreen inherits Rectangle {
         x: 30px;
         y: AppState.orientation == Orientation.landscape ? 35px : 36px;
         source: @image-url("../../images/slint-logo.png");
-        opacity: 50%;
-        colorize: white;
+        animate opacity { duration: Animation.transition-duration; }
+        states [
+            kiosk-mode when AppState.kiosk-mode : {
+                opacity: 50%;
+                colorize: white;
+            }
+        ]
     }
 
     Rectangle {
