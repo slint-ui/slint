@@ -45,14 +45,14 @@ As the name suggests, Reactivity is all about parts of the user interface automa
 to changes. The above example looks simple, but when run it does several things:
 
 - The `Rectangle` will follow the mouse around as you move it.
-- If you `click` anywhere  the `Rectangle` will change color.
+- If you `click` anywhere the `Rectangle` will change color.
 - The `Text` elements will update their text to show the current position of the `Rectangle`.
 
 The 'magic' here is built into the Slint language directly. There is no need to opt into this or define
-specific stateful items. The `Rectangle` will automatically updates because it's `x` and `y` properties
+specific stateful items. The `Rectangle` will automatically update because its `x` and `y` properties
 are bound to the `mouse-x` and `mouse-y` properties of the `TouchArea` element. This was done by giving
 the `TouchArea` a name to identify it `ta` and then using the name in what Slint calls an `expression`
-to track values. Its as simples as `x: ta.mouse-x;` and `y: ta.mouse-y;`. The mouse-x and mouse-y properties
+to track values. It's as simple as `x: ta.mouse-x;` and `y: ta.mouse-y;`. The mouse-x and mouse-y properties
 are built into the `TouchArea` and automatically update as the cursor moves over them.
 
 The `TouchArea` also has a `pressed` property that is only `true` when the cursor is pressed or clicked down.

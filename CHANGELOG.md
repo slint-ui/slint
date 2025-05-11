@@ -54,12 +54,12 @@ All notable changes to this project are documented in this file.
 
  - Added `float.to-fixed()` and `float.to-precision()`.
  - Added `string.to-lowercase()` and `string.to-uppercase()`.
- - Fixed change handler on a aliased property. (#7784, #7747)
+ - Fixed change handler on an aliased property. (#7784, #7747)
  - Fixed compiler panic when one branch of the `if` statement is not a void expression. (#7864)
  - Fixed `@children` as sibling to `Timer` or `PopupWindow`. (#7887)
  - Deprecated alias to global callbacks and make it an error when setting it, instead of a panic. (#7806)
  - Conditional element no longer re-instantiates if the condition gets dirty without changing. (#3953)
- - Fixed crash if a component get destroyed when a funciton or callback of it is running. (#7880)
+ - Fixed crash if a component get destroyed when a function or callback of it is running. (#7880)
  - `Color.hsv()`: The hue value now wraps instead of clamping between 0 and 360. e.g. a hue of `480` would wrap as expected to `120`.
    Previously any value equal or greater than 360 would cause the function to output pure black. In the unlikely case an app relied
    on this keep an eye out as a color will now show up instead of black.
@@ -182,7 +182,7 @@ All notable changes to this project are documented in this file.
 ### Slint Language
 
  - Added `AccessibleRole::tab-panel` and fixed accessibility on `TabWidget` (#7270)
- - Added `AccessibleRole::groupbox` and fixed accessibility on on `GroupBox`
+ - Added `AccessibleRole::groupbox` and fixed accessibility on `GroupBox`
  - Better error recovery when element name is missing.
  - Added warning when a type name overwrites another.
  - Added `Path::anti-alias` property.
@@ -1650,7 +1650,7 @@ as well as the [Rust migration guide for the `sixtyfps` crate](api/rs/slint/migr
  - `Slider` now has a `changed` callback.
  - Added `TabWidget` widget.
  - Rust: `sixtyfps::Image` can now be constructed from image data provided by `sixtyfps::SharedPixelBuffer`.
-   This enables integrating with other low-level software rendering or the the popular Rust image crate.
+   This enables integrating with other low-level software rendering or the popular Rust image crate.
  - VSCode extension: added an option to specify command line arguments for the LSP.
 
 ### Fixed

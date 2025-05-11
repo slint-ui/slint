@@ -13,7 +13,7 @@
 
 /// Use the functions and classes in this namespace for in-process UI testing.
 ///
-/// This module is still experimental - it's API is subject to changes and not stabilized yet. To
+/// This module is still experimental - its API is subject to changes and not stabilized yet. To
 /// use the module, you must enable the `SLINT_FEATURE_EXPERIMENTAL=ON` and `SLINT_FEATURE_TESTING`
 /// CMake options.
 namespace slint::testing {
@@ -36,7 +36,7 @@ class ElementHandle
     explicit ElementHandle(const cbindgen_private::ElementHandle *inner) : inner(*inner) { }
 
 public:
-    /// Visits visible elements within a component and call the visitor for each of them.
+    /// Visits visible elements within a component and calls the visitor for each of them.
     ///
     /// The visitor must be a callable object that accepts an `ElementHandle` and returns either
     /// `void`, or a type that can be converted to `bool`.
@@ -44,7 +44,7 @@ public:
     ///   visited.
     /// - If the visitor returns a type that can be converted to `bool`, the visitation continues as
     ///   long as the conversion result is false; otherwise, it stops, returning that value.
-    ///   If the visitor never returns something that convertts to true, then the function returns a
+    ///   If the visitor never returns something that converts to true, then the function returns a
     ///   default constructed value;
     ///
     /// ```cpp

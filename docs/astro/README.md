@@ -10,7 +10,7 @@
 
 
 ## 🚀 Project Structure
-The documentation site is built with [Astro Starlight](https://starlight.astro.build/) and reuses it's
+The documentation site is built with [Astro Starlight](https://starlight.astro.build/) and reuses its
 project structure.
 
 ```

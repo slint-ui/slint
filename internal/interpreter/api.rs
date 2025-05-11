@@ -99,7 +99,7 @@ impl From<LangType> for ValueType {
 #[repr(u8)]
 pub enum Value {
     /// There is nothing in this value. That's the default.
-    /// For example, a function that do not return a result would return a Value::Void
+    /// For example, a function that does not return a result would return a Value::Void
     #[default]
     Void = 0,
     /// An `int` or a `float` (this is also used for unit based type such as `length` or `angle`)
@@ -1209,7 +1209,7 @@ pub fn print_diagnostics(diagnostics: &[Diagnostic]) {
     build_diagnostics.print();
 }
 
-/// This represent an instance of a dynamic component
+/// This represents an instance of a dynamic component
 ///
 /// You can create an instance with the [`ComponentDefinition::create`] function.
 ///
@@ -1516,7 +1516,7 @@ impl ComponentInstance {
         )
     }
 
-    /// Find the the `element` that was defined at the text position.
+    /// Find the `element` that was defined at the text position.
     ///
     /// WARNING: this is not part of the public API
     #[cfg(feature = "internal-highlight")]
