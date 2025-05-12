@@ -29,6 +29,6 @@ When opening a pull request, you will be asked to sign a
 
 ## Coding Style
 
-For the Rust portion of the code base, the CI enforce the coding style via rustfmt.
-For the C++ portion of the code base, the CI enforce the coding style via `clang-format`.
+For the Rust portion of the code base, the CI enforces the coding style via rustfmt.
+For the C++ portion of the code base, the CI enforces the coding style via `clang-format`.
 

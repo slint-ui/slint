@@ -50,7 +50,7 @@ namespace platform {
 /// Internal interface for a renderer for use with the WindowAdapter.
 ///
 /// This class is not intended to be re-implemented. In places where this class is required, use
-/// of one the existing implementations such as SoftwareRenderer or SkiaRenderer.
+/// one of the existing implementations such as SoftwareRenderer or SkiaRenderer.
 class AbstractRenderer
 {
 private:
@@ -201,7 +201,7 @@ public:
     ///
     /// The default implementation does nothing
     ///
-    /// This function should sent the size to the Windowing system. If the window size actually
+    /// This function should send the size to the Windowing system. If the window size actually
     /// changes, you should call slint::Window::dispatch_resize_event to propagate the new size
     /// to the slint view.
     virtual void set_size(slint::PhysicalSize) { }
@@ -282,7 +282,7 @@ public:
             /// should not be able to be resized larger than this size. If it is left unset, there
             /// is no maximum size.
             std::optional<LogicalSize> max;
-            /// This represents the preferred size of the window. This is the size the window
+            /// This represents the preferred size of the window. This is the size of the window
             /// should have by default
             LogicalSize preferred;
         };
@@ -403,7 +403,7 @@ public:
     /// or re-enter from the event loop
     virtual void quit_event_loop() { }
 
-    /// An task that is passed to the Platform::run_in_event_loop function and needs to be
+    /// A task that is passed to the Platform::run_in_event_loop function and needs to be
     /// run in the event loop and not in any other thread.
     class Task
     {
@@ -449,7 +449,7 @@ public:
     /// This function is called by slint::invoke_from_event_loop().
     /// It can be called from any thread, but the passed function must only be called
     /// from the event loop.
-    /// Reimplements this function and move the event to the event loop before calling
+    /// Reimplements this function and moves the event to the event loop before calling
     /// Task::run()
     virtual void run_in_event_loop(Task) { }
 };
@@ -668,7 +668,7 @@ public:
     /// delegated. Use this to implement support for hardware accelerators such as DMA2D, PPA, or
     /// PXP on Microcontrollers.
     ///
-    /// **Note**: This class is still experimental - it's API is subject to changes and not
+    /// **Note**: This class is still experimental - its API is subject to changes and not
     /// stabilized yet. To use the class, you must enable the `SLINT_FEATURE_EXPERIMENTAL=ON` CMake
     /// option.
     template<typename PixelType>
@@ -825,7 +825,7 @@ public:
 #    ifdef SLINT_FEATURE_EXPERIMENTAL
     /// Renders into the given TargetPixelBuffer.
     ///
-    /// **Note**: This class is still experimental - it's API is subject to changes and not
+    /// **Note**: This class is still experimental - its API is subject to changes and not
     /// stabilized yet. To use the class, you must enable the `SLINT_FEATURE_EXPERIMENTAL=ON` CMake
     /// option.
     PhysicalRegion render(TargetPixelBuffer<Rgb8Pixel> *buffer) const
@@ -837,7 +837,7 @@ public:
 
     /// Renders into the given TargetPixelBuffer.
     ///
-    /// **Note**: This class is still experimental - it's API is subject to changes and not
+    /// **Note**: This class is still experimental - its API is subject to changes and not
     /// stabilized yet. To use the class, you must enable the `SLINT_FEATURE_EXPERIMENTAL=ON` CMake
     /// option.
     PhysicalRegion render(TargetPixelBuffer<Rgb565Pixel> *buffer) const
@@ -861,7 +861,7 @@ public:
         Rotate270 = 270,
     };
 
-    /// Set how the window need to be rotated in the buffer.
+    /// Set how the window needs to be rotated in the buffer.
     ///
     /// This is typically used to implement screen rotation in software
     void set_rendering_rotation(RenderingRotation rotation)

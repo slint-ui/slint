@@ -546,7 +546,7 @@ impl ElementType {
                         if !tr.expose_internal_types
                             && matches!(&t, Self::Builtin(e) if e.is_internal)
                         {
-                            format!("Unknown element '{name}'. (The type exist as an internal type, but cannot be accessed in this scope)")
+                            format!("Unknown element '{name}'. (The type exists as an internal type, but cannot be accessed in this scope)")
                         } else {
                             return Ok(t);
                         }
@@ -564,7 +564,7 @@ impl ElementType {
             }
             _ => tr.lookup_element(name).and_then(|t| {
                 if !tr.expose_internal_types && matches!(&t, Self::Builtin(e) if e.is_internal) {
-                    Err(format!("Unknown element '{name}'. (The type exist as an internal type, but cannot be accessed in this scope)"))
+                    Err(format!("Unknown element '{name}'. (The type exists as an internal type, but cannot be accessed in this scope)"))
                 } else {
                     Ok(t)
                 }
@@ -704,7 +704,7 @@ pub struct BuiltinElement {
     pub name: SmolStr,
     pub native_class: Rc<NativeClass>,
     pub properties: BTreeMap<SmolStr, BuiltinPropertyInfo>,
-    /// Additional builtin element that can be accpeted as child of this element
+    /// Additional builtin element that can be accepted as child of this element
     /// (example `Tab` in `TabWidget`, `Row` in `GridLayout` and the path elements in `Path`)
     pub additional_accepted_child_types: HashMap<SmolStr, Rc<BuiltinElement>>,
     /// `Self` is conceptually in `additional_accepted_child_types` (which it can't otherwise that'd make a Rc loop)
@@ -731,7 +731,7 @@ pub struct PropertyLookupResult<'a> {
     pub property_type: Type,
     pub property_visibility: PropertyVisibility,
     pub declared_pure: Option<bool>,
-    /// True if the property is part of the the current component (for visibility purposes)
+    /// True if the property is part of the current component (for visibility purposes)
     pub is_local_to_component: bool,
     /// True if the property in the direct base of the component (for visibility purposes)
     pub is_in_direct_base: bool,

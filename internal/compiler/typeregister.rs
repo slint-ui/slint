@@ -358,13 +358,13 @@ impl TypeRegister {
 
     /// Insert a type into the type register with its builtin type name.
     ///
-    /// Returns false if a it replaced an existing type.
+    /// Returns false if it replaced an existing type.
     pub fn insert_type(&mut self, t: Type) -> bool {
         self.types.insert(t.to_smolstr(), t).is_none()
     }
     /// Insert a type into the type register with a specified name.
     ///
-    /// Returns false if a it replaced an existing type.
+    /// Returns false if it replaced an existing type.
     pub fn insert_type_with_name(&mut self, t: Type, name: SmolStr) -> bool {
         self.types.insert(name, t).is_none()
     }
@@ -622,7 +622,7 @@ impl TypeRegister {
         self.lookup(qualified[0].as_ref())
     }
 
-    /// Add the component with it's defined name
+    /// Add the component with its defined name
     ///
     /// Returns false if there was already an element with the same name
     pub fn add(&mut self, comp: Rc<Component>) -> bool {

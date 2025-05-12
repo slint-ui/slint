@@ -174,7 +174,7 @@ cpp! {{
             //       This confuses Slint, so eat this event.
             //
             //       One example is a popup is shown in the close event that
-            //       then ignores the the close request to ask the user what to
+            //       then ignores the close request to ask the user what to
             //       do. The stray release event will then close the popup
             //       straight away
             //
