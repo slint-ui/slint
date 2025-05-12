@@ -312,6 +312,10 @@ pub struct WinitWindowAdapter {
 
     #[cfg(all(muda, target_os = "macos"))]
     muda_enable_default_menu_bar: bool,
+
+    /// Winit's window_icon API has no way of checking if the window icon is
+    /// the same as a previously set one, so keep track of that here.
+    window_icon_cache_key: RefCell<Option<ImageCacheKey>>,
 }
 
 impl WinitWindowAdapter {
@@ -354,6 +358,7 @@ impl WinitWindowAdapter {
             menubar: Default::default(),
             #[cfg(all(muda, target_os = "macos"))]
             muda_enable_default_menu_bar,
+            window_icon_cache_key: Default::default(),
         });
 
         self_rc.shared_backend_data.register_inactive_window((self_rc.clone()) as _);
@@ -958,7 +963,13 @@ impl WindowAdapter for WinitWindowAdapter {
 
         let winit_window_or_none = self.winit_window_or_none.borrow();
 
-        winit_window_or_none.set_window_icon(icon_to_winit(window_item.icon()));
+        // Update the icon only if it changes, to avoid flashing.
+        let icon_image = window_item.icon();
+        let icon_image_cache_key = ImageCacheKey::new((&icon_image).into());
+        if *self.window_icon_cache_key.borrow() != icon_image_cache_key {
+            *self.window_icon_cache_key.borrow_mut() = icon_image_cache_key;
+            winit_window_or_none.set_window_icon(icon_to_winit(icon_image));
+        }
         winit_window_or_none.set_title(&properties.title());
         winit_window_or_none.set_decorations(
             !window_item.no_frame() || winit_window_or_none.fullscreen().is_some(),
