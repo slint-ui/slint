@@ -78,7 +78,6 @@ run = "pnpm install --frozen-lockfile"
 depends = ["fix:pnpm:lock"]
 
 
-
 ### CI
 
 ["ci:autofix:fix"]
