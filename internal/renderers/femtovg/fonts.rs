@@ -686,7 +686,7 @@ pub(crate) fn layout_text_lines(
                 break;
             }
             let index = start + index;
-            let line = &string[start..index];
+            let line = string[start..index].trim_end_matches('\n');
             let text_metrics = text_context.measure_text(0., 0., line, paint).unwrap();
             process_line(line, y, start, &text_metrics);
             y += font_height;
@@ -695,7 +695,7 @@ pub(crate) fn layout_text_lines(
             let index = if single_line {
                 string.len()
             } else {
-                string[start..].find('\n').map_or(string.len(), |i| start + i + 1)
+                string[start..].find('\n').map_or(string.len(), |i| start + i)
             };
             let line = &string[start..index];
             let text_metrics = text_context.measure_text(0., 0., line, paint).unwrap();
@@ -722,7 +722,7 @@ pub(crate) fn layout_text_lines(
                             process_line(txt, y, start, &text_metrics);
                         }
                         y += font_height;
-                        start = index;
+                        start = index + 1;
                         continue 'lines;
                     }
                 }
@@ -730,13 +730,13 @@ pub(crate) fn layout_text_lines(
                     let elided = format!("{}…", line.strip_suffix('\n').unwrap_or(line));
                     process_line(&elided, y, start, &text_metrics);
                     y += font_height;
-                    start = index;
+                    start = index + 1;
                     continue 'lines;
                 }
             }
             process_line(line, y, start, &text_metrics);
             y += font_height;
-            start = index;
+            start = index + 1;
         }
     }
 
