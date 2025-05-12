@@ -212,13 +212,11 @@ impl BackendSelector {
         }
 
         let backend_name = self.backend.as_deref().unwrap_or_else(|| {
+            // Only the winit backend supports graphics API requests right now, so prefer that over
+            // aborting.
             #[cfg(feature = "i-slint-backend-winit")]
-            {
-                // Only the winit backend supports graphics API requests right now, so prefer that over
-                // aborting.
-                if self.requested_graphics_api.is_some() {
-                    return "winit";
-                }
+            if self.requested_graphics_api.is_some() {
+                return "winit";
             }
             super::DEFAULT_BACKEND_NAME
         });
