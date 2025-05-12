@@ -211,7 +211,15 @@ impl BackendSelector {
             }
         }
 
-        let backend_name = self.backend.as_deref().unwrap_or(super::DEFAULT_BACKEND_NAME);
+        let backend_name = self.backend.as_deref().unwrap_or_else(|| {
+            // Only the winit backend supports graphics API requests right now, so prefer that over
+            // aborting.
+            #[cfg(feature = "i-slint-backend-winit")]
+            if self.requested_graphics_api.is_some() {
+                return "winit";
+            }
+            super::DEFAULT_BACKEND_NAME
+        });
 
         let backend: Box<dyn i_slint_core::platform::Platform> = match backend_name {
             #[cfg(all(feature = "i-slint-backend-linuxkms", target_os = "linux"))]
