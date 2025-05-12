@@ -176,4 +176,4 @@ panic = "abort"
 panic = "abort"
 
 [patch.crates-io]
-cc = { git = "https://github.com/rust-lang/cc-rs", branch = "main" }
+skia-safe = { git = "https://github.com/slint-ui/rust-skia", branch = "simon/ccrs-fix" }
