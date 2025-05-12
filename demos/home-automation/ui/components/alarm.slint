@@ -40,7 +40,6 @@ export component Alarm inherits Control {
     property <bool> unlocked: false;
     property <bool> is-active: false;
     property <string> passcode;
-    property <string> indirect-passcode: passcode == "-1" ? "" : passcode;
     show-label: false;
 
     clip: AppState.graphics-accelerator-available;
@@ -125,7 +124,7 @@ export component Alarm inherits Control {
                         background: Palette.alternate-background;
                         le := LineEdit {
                             font-size: Style.H1-font-size;
-                            text: root.indirect-passcode;
+                            text: root.passcode;
                             input-type: password;
                             width: 145px;
                         }
@@ -180,14 +179,10 @@ export component Alarm inherits Control {
                                 label: num;
                                 enabled: root.full-screen;
                                 clicked => {
-                                    if num >= 0 && root.passcode == -1 {
-                                        root.passcode = num;
-                                    } else if passcode.character-count > 4 {
-                                        root.passcode = -1;
+                                    if passcode.character-count >= 4 || num == -2 {
+                                        root.passcode = "";;
                                     } else if num >= 0 {
                                         root.passcode += num;
-                                    } else if num == -2 {
-                                        root.passcode = -1;
                                     }
                                 }
                             }
