@@ -6,5 +6,5 @@ This example shows how to integrate Bevy 3D rendering into Slint, using WGPU.
 
 The example can be run on desktop platforms.
 
-![TODO: Screenshot of the Bevy Demo](https://github.com/user-attachments/assets/753c1cc8-ccbf-416f-a130-48b401ff14c0)
+![TODO: Screenshot of the Bevy Demo](https://github.com/user-attachments/assets/69785864-b6ae-40e1-8f62-4f70677d930e)
 
