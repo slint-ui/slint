@@ -3,8 +3,6 @@
 
 #include "dashboard.h"
 
-#include <fmt/core.h>
-
 void Widget::set_property(std::string_view name, const slint::interpreter::Value &value)
 {
     if (m_ui)
@@ -36,13 +34,13 @@ std::string WidgetLocation::location_bindings() const
 {
     auto maybe_binding = [](std::string_view name, const auto &opt_value) -> std::string {
         if (opt_value.has_value()) {
-            return fmt::format("               {}: {};\n", name, *opt_value);
+            return std::format("               {}: {};\n", name, *opt_value);
         } else {
             return "";
         }
     };
 
-    return fmt::format(
+    return std::format(
             R"slint(row: {};
                col: {};
 {}{})slint",
@@ -67,7 +65,7 @@ int DashboardBuilder::register_widget(WidgetPtr widget)
     widgets_used.insert(widget_type_name);
 
     auto widget_id = int(widgets.size());
-    auto widget_name = fmt::format("widget_{}", widget_id);
+    auto widget_name = std::format("widget_{}", widget_id);
     widgets.push_back({ widget_name, widget });
     return widget_id;
 }
@@ -86,7 +84,7 @@ DashboardBuilder::build(slint::interpreter::ComponentCompiler &compiler) const
 
     if (widget_imports.size() > 0) {
         widget_imports =
-                fmt::format("import {{ {} }} from \"iot-dashboard.slint\";", widget_imports);
+                std::format("import {{ {} }} from \"iot-dashboard.slint\";", widget_imports);
     }
 
     // Vector of name/type_name of properties forwarded through the MainContent {} element.
@@ -98,7 +96,7 @@ DashboardBuilder::build(slint::interpreter::ComponentCompiler &compiler) const
     for (const auto &[widget_id, location] : grid_widgets) {
         const auto &[widget_name, widget_ptr] = widgets[widget_id];
 
-        main_grid.append(fmt::format(
+        main_grid.append(std::format(
                 R"slint(
             {0} := {1} {{
                 {2}
@@ -114,11 +112,11 @@ DashboardBuilder::build(slint::interpreter::ComponentCompiler &compiler) const
             forwarded_property_name.append(property.name);
 
             main_content_properties.append(
-                    fmt::format("    in-out property <{0}> {1} <=> {2}.{3};\n", property.type_name,
+                    std::format("    in-out property <{0}> {1} <=> {2}.{3};\n", property.type_name,
                                 forwarded_property_name, widget_name, property.name));
 
             exposed_properties.append(
-                    fmt::format("    in-out property <{0}> {1} <=> main_content.{1};\n",
+                    std::format("    in-out property <{0}> {1} <=> main_content.{1};\n",
                                 property.type_name, forwarded_property_name));
         }
     }
@@ -126,7 +124,7 @@ DashboardBuilder::build(slint::interpreter::ComponentCompiler &compiler) const
     for (const auto widget_id : top_bar_widgets) {
         const auto &[widget_name, widget_ptr] = widgets[widget_id];
 
-        top_bar.append(fmt::format(
+        top_bar.append(std::format(
                 R"slint(
             {0} := {1} {{
             }}
@@ -140,13 +138,13 @@ DashboardBuilder::build(slint::interpreter::ComponentCompiler &compiler) const
             std::string forwarded_property_name = properties_prefix;
             forwarded_property_name.append(property.name);
 
-            exposed_properties.append(fmt::format("    in-out property <{0}> {1} <=> {2}.{3};\n",
+            exposed_properties.append(std::format("    in-out property <{0}> {1} <=> {2}.{3};\n",
                                                   property.type_name, forwarded_property_name,
                                                   widget_name, property.name));
         }
     }
 
-    auto source_code = fmt::format(
+    auto source_code = std::format(
             R"slint(
 
 {0}
