@@ -49,6 +49,15 @@ export component PageButton inherits Rectangle {
     }
 }
 
+component PageButtonHighlighter {
+    Rectangle {
+        y: parent.height - parent.height * 15%;
+        width: parent.width * 50%;
+        height: 1px;
+        background: white;
+    }
+}
+
 export component MainScreen inherits Rectangle {
     property <int> internal-target-page: AppState.target-page;
     property <bool> transitioning: false;
@@ -273,11 +282,28 @@ export component MainScreen inherits Rectangle {
                     }
                 }
 
-                HorizontalLayout {
+                // We need to have two different highlighter because of #7999
+                if AppState.graphics-accelerator-available: PageButtonHighlighter {
+                    x: home.x + (tabs.spacing + self.width) * AppState.target-page;
+                    animate x {
+                        duration: Animation.transition-duration;
+                        easing: ease-in-out-sine;
+                    }
+                    width: AppState.orientation == Orientation.landscape ? 120px : 140px;
+                    height: 100%;
+                }
+
+                if !AppState.graphics-accelerator-available : PageButtonHighlighter {
+                    x: home.x + (tabs.spacing + self.width) * AppState.target-page;
+                    width: AppState.orientation == Orientation.landscape ? 120px : 140px;
+                    height: 100%;
+                }
+
+                tabs := HorizontalLayout {
                     alignment: center;
                     spacing: 0px;
                     y: AppState.graphics-accelerator-available ? 0 : -5px;
-                    PageButton {
+                    home := PageButton {
                         label: "Home";
                         target-page: 0;
                     }
