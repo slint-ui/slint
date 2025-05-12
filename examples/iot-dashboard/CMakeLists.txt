@@ -2,6 +2,10 @@
 # SPDX-License-Identifier: MIT
 
 cmake_minimum_required(VERSION 3.21)
+
+# for the use of std::format
+set(CMAKE_OSX_DEPLOYMENT_TARGET 13)
+
 project(slint_cpp_iot_dashboard LANGUAGES CXX)
 include(FetchContent)
 
