@@ -963,6 +963,7 @@ impl WindowAdapter for WinitWindowAdapter {
 
         let winit_window_or_none = self.winit_window_or_none.borrow();
 
+        // Update the icon only if it changes, to avoid flashing.
         let icon_image = window_item.icon();
         let icon_image_cache_key = ImageCacheKey::new((&icon_image).into());
         if *self.window_icon_cache_key.borrow() != icon_image_cache_key {
