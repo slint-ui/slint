@@ -11,6 +11,7 @@ use std::rc::Rc;
 use std::rc::Weak;
 use std::sync::Arc;
 
+use i_slint_core::lengths::{PhysicalPx, ScaleFactor};
 use winit::event_loop::ActiveEventLoop;
 #[cfg(target_arch = "wasm32")]
 use winit::platform::web::WindowExtWebSys;
@@ -76,12 +77,14 @@ fn physical_size_to_winit(size: PhysicalSize) -> winit::dpi::PhysicalSize<u32> {
     winit::dpi::PhysicalSize::new(size.width, size.height)
 }
 
-fn icon_to_winit(icon: corelib::graphics::Image) -> Option<winit::window::Icon> {
+fn icon_to_winit(
+    icon: corelib::graphics::Image,
+    size: euclid::Size2D<Coord, PhysicalPx>,
+) -> Option<winit::window::Icon> {
     let image_inner: &ImageInner = (&icon).into();
 
-    let pixel_buffer = match image_inner {
-        ImageInner::EmbeddedImage { buffer, .. } => buffer.clone(),
-        _ => return None,
+    let Some(pixel_buffer) = image_inner.render_to_buffer(Some(size.cast())) else {
+        return None;
     };
 
     // This could become a method in SharedPixelBuffer...
@@ -963,12 +966,18 @@ impl WindowAdapter for WinitWindowAdapter {
 
         let winit_window_or_none = self.winit_window_or_none.borrow();
 
+        // Use our scale factor instead of winit's logical size to take a scale factor override into account.
+        let sf = self.window().scale_factor();
+
         // Update the icon only if it changes, to avoid flashing.
         let icon_image = window_item.icon();
         let icon_image_cache_key = ImageCacheKey::new((&icon_image).into());
         if *self.window_icon_cache_key.borrow() != icon_image_cache_key {
             *self.window_icon_cache_key.borrow_mut() = icon_image_cache_key;
-            winit_window_or_none.set_window_icon(icon_to_winit(icon_image));
+            winit_window_or_none.set_window_icon(icon_to_winit(
+                icon_image,
+                i_slint_core::lengths::LogicalSize::new(64., 64.) * ScaleFactor::new(sf),
+            ));
         }
         winit_window_or_none.set_title(&properties.title());
         winit_window_or_none.set_decorations(
@@ -985,9 +994,6 @@ impl WindowAdapter for WinitWindowAdapter {
         if self.window_level.replace(new_window_level) != new_window_level {
             winit_window_or_none.set_window_level(new_window_level);
         }
-
-        // Use our scale factor instead of winit's logical size to take a scale factor override into account.
-        let sf = self.window().scale_factor();
 
         let mut width = window_item.width().get() as f32;
         let mut height = window_item.height().get() as f32;
