@@ -33,6 +33,6 @@
   },
   "devDependencies": {
     "@playwright/test": "1.52.0",
-    "cspell": "8.19.4"
+    "cspell": "9.0.1"
   }
 }
