@@ -31,6 +31,11 @@ run = "taplo format"
 description = "Update pnpm lock file"
 run = "pnpm i --lockfile-only"
 
+["fix:pnpm:dedupe"]
+description = "Run pnpm dedupe"
+run = "pnpm dedupe"
+depends = ["prepare:pnpm-install"]
+
 ["fix:ts:format"]
 description = "Run pnpm format:fix"
 run = "pnpm run format:fix"
@@ -73,6 +78,7 @@ hide = true
 run = "pnpm install --frozen-lockfile"
 depends = ["fix:pnpm:lock"]
 
+
 ### CI
 
 ["ci:autofix:fix"]
@@ -85,6 +91,7 @@ depends = [
   "fix:text:trailing_spaces",
   "fix:toml:format",
   "fix:pnpm:lock",
+  "fix:pnpm:dedupe",
   "fix:ts:biome",
   "fix:ts:format",
 ]
