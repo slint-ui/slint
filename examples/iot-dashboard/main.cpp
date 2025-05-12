@@ -42,10 +42,13 @@ ClockWidget::ClockWidget() : clock_update_timer(std::chrono::seconds(1), [this] 
 
 void ClockWidget::update_clock()
 {
-    auto current_time =
-            std::format("{:%OH:%OM:%OS}",
-                        std::chrono::current_zone()->to_local(std::chrono::system_clock::now()));
-
+    auto now = std::chrono::system_clock::now();
+#if __cpp_lib_chrono >= 201907L
+    std::string current_time =
+            std::format("{:%OH:%OM:%OS}", std::chrono::current_zone()->to_local(now));
+#else
+    std::string current_time = std::format("{:%OH:%OM:%OS}", now);
+#endif
     set_property("time", slint::SharedString(current_time));
 }
 
