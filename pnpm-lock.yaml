@@ -223,8 +223,8 @@ importers:
         specifier: 3.10.1
         version: 3.10.1
       shiki:
-        specifier: 3.3.0
-        version: 3.3.0
+        specifier: 3.4.0
+        version: 3.4.0
       typescript:
         specifier: 5.8.3
         version: 5.8.3
@@ -6962,7 +6962,7 @@ snapshots:
   '@expressive-code/plugin-shiki@0.41.2':
     dependencies:
       '@expressive-code/core': 0.41.2
-      shiki: 3.3.0
+      shiki: 3.4.0
 
   '@expressive-code/plugin-text-markers@0.41.2':
     dependencies:
