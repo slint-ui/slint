@@ -19,6 +19,8 @@ use std::cell::RefCell;
 
 mod named_colors;
 
+pub use named_colors::named_colors;
+
 /// Contains information which allow to lookup identifier in expressions
 pub struct LookupCtx<'a> {
     /// the name of the property for which this expression refers.
