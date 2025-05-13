@@ -1,0 +1,522 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: MIT
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+# Translators:
+# Tasuku Suzuki <tasuku.suzuki@slint-ui.com>, 2025
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-05-13 00:15+0000\n"
+"PO-Revision-Date: 2023-06-06 13:52+0000\n"
+"Last-Translator: Tasuku Suzuki <tasuku.suzuki@slint-ui.com>, 2023\n"
+"Language-Team: Japanese (https://app.transifex.com/slint/teams/170022/ja/)\n"
+"Language: ja\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"X-Language: ja_JP\n"
+"X-Source-Language: _US\n"
+
+#: ui/pages/about_page.slint:9
+msgctxt "AboutPage"
+msgid "About"
+msgstr "このアプリについて"
+
+#: ui/pages/about_page.slint:11
+msgctxt "AboutPage"
+msgid ""
+"Are you curious now? Check out the docs and getting starteds from the Github "
+"repository and the website https://slint.dev and try it yourself."
+msgstr ""
+"興味が湧きましたか？GitHubリポジトリとウェブサイト https://slint.dev からド"
+"キュメントとスタートガイドをチェックして、自分で試してみてください。"
+
+#: ui/pages/easings_page.slint:55
+msgctxt "EasingsPage"
+msgid "Easings"
+msgstr "イージング"
+
+#: ui/pages/easings_page.slint:56
+msgctxt "EasingsPage"
+msgid "Easing demos"
+msgstr "イージングデモ"
+
+#: ui/pages/easings_page.slint:66
+msgctxt "EasingsPage"
+msgid "Animate All"
+msgstr "すべてをアニメーション"
+
+#: ui/pages/easings_page.slint:102
+msgctxt "EasingsPage"
+msgid "Duration:"
+msgstr "移動時間："
+
+#: ui/pages/controls_page.slint:10
+msgctxt "ControlsPage"
+msgid "Controls"
+msgstr "コントロール"
+
+#: ui/pages/controls_page.slint:12
+msgctxt "ControlsPage"
+msgid ""
+"This page gives an overview of the default widget set provided by Slint. The "
+"widgets are available in different styles native, fluent-(dark/light) and "
+"material-(dark/light). The widgets can be imported from \"std-"
+"widgets.slint\"."
+msgstr ""
+"このページではSlintが提供するデフォルトのウィジェットセットの概要を説明しま"
+"す。ウィジェットはネイティブ、fluent-(dark/light)、material-(dark/light)など"
+"のさまざまなスタイルで利用できます。ウィジェットは\"std-widgets.slint\"からイ"
+"ンポートできます。"
+
+#: ui/pages/controls_page.slint:16
+msgctxt "ControlsPage"
+msgid "Buttons"
+msgstr "ボタン"
+
+#: ui/pages/controls_page.slint:25
+msgctxt "ControlsPage"
+msgid "Regular Button"
+msgstr "通常ボタン"
+
+#: ui/pages/controls_page.slint:30
+msgctxt "ControlsPage"
+msgid "Primary Button with Icon"
+msgstr "アイコン付きプライマリボタン"
+
+#: ui/pages/controls_page.slint:44
+msgctxt "ControlsPage"
+msgid "ON"
+msgstr "オン"
+
+#: ui/pages/controls_page.slint:44
+msgctxt "ControlsPage"
+msgid "OFF"
+msgstr "オフ"
+
+#: ui/pages/controls_page.slint:53
+msgctxt "ControlsPage"
+msgid "Primary Button with colorized icon"
+msgstr "色付きアイコン付きプライマリボタン"
+
+#: ui/pages/controls_page.slint:64
+msgctxt "ControlsPage"
+msgid "CheckBox - ComboBox - Switch"
+msgstr "チェックボックス - コンボボックス - スイッチ"
+
+#: ui/pages/controls_page.slint:72
+msgctxt "ControlsPage"
+msgid "(checked)"
+msgstr "（チェック済み）"
+
+#: ui/pages/controls_page.slint:72
+msgctxt "ControlsPage"
+msgid "(unchecked)"
+msgstr "（未チェック）"
+
+#: ui/pages/controls_page.slint:78
+msgctxt "ControlsPage"
+msgid "Select Something"
+msgstr "このコンボボックスから"
+
+#: ui/pages/controls_page.slint:78
+msgctxt "ControlsPage"
+msgid "From this"
+msgstr "なにかを"
+
+#: ui/pages/controls_page.slint:78
+msgctxt "ControlsPage"
+msgid "Combobox"
+msgstr "選択してください"
+
+#: ui/pages/controls_page.slint:83
+msgctxt "ControlsPage"
+msgid "Flight Mode"
+msgstr "機内モード"
+
+#: ui/pages/controls_page.slint:91
+msgctxt "ControlsPage"
+msgid "LineEdit - SpinBox - TimePickerPopup - DatePickerPopup"
+msgstr "ラインエディット - スピンボックス - 時間選択 - 日付選択"
+
+#: ui/pages/controls_page.slint:99
+msgctxt "ControlsPage"
+msgid "Enter some text"
+msgstr "テキストを入力"
+
+#: ui/pages/controls_page.slint:111
+msgctxt "ControlsPage"
+msgid "Open TimePickerPopup"
+msgstr "時間を選択"
+
+#: ui/pages/controls_page.slint:119
+msgctxt "ControlsPage"
+msgid "Open DatePickerPopup"
+msgstr "日付を選択"
+
+#: ui/pages/controls_page.slint:129
+msgctxt "ControlsPage"
+msgid "Slider"
+msgstr "スライダー"
+
+#: ui/pages/controls_page.slint:142
+msgctxt "ControlsPage"
+msgid "ProgressIndicator | Spinner"
+msgstr "進捗インジケーター | スピナー"
+
+#: ui/pages/controls_page.slint:170
+msgctxt "ControlsPage"
+msgid "indeterminate"
+msgstr "未確定"
+
+#: ui/pages/controls_page.slint:178
+msgctxt "ControlsPage"
+msgid "TabWidget"
+msgstr "タブウィジェット"
+
+#: ui/pages/controls_page.slint:182
+msgctxt "ControlsPage"
+msgid "Tab 1"
+msgstr "タブ 1"
+
+#: ui/pages/controls_page.slint:188
+msgctxt "ControlsPage"
+msgid "Content of tab 1"
+msgstr "タブ1のコンテンツ"
+
+#: ui/pages/controls_page.slint:194
+msgctxt "ControlsPage"
+msgid "Click me"
+msgstr "クリックしてください"
+
+#: ui/pages/controls_page.slint:203
+msgctxt "ControlsPage"
+msgid "Tab 2"
+msgstr "タブ 2"
+
+#: ui/pages/controls_page.slint:209
+msgctxt "ControlsPage"
+msgid "Content of tab 2"
+msgstr "タブ2のコンテンツ"
+
+#: ui/pages/controls_page.slint:215
+msgctxt "ControlsPage"
+msgid "Check me"
+msgstr "チェックしてください"
+
+#: ui/pages/controls_page.slint:224
+msgctxt "ControlsPage"
+msgid "Tab 3"
+msgstr "タブ 3"
+
+#: ui/pages/controls_page.slint:228
+msgctxt "ControlsPage"
+msgid "Content of tab 3"
+msgstr "タブ3のコンテンツ"
+
+#: ui/pages/list_view_page.slint:9 ui/pages/list_view_page.slint:55
+msgctxt "ListViewPage"
+msgid "ListView"
+msgstr "リストビュー"
+
+#: ui/pages/list_view_page.slint:11
+msgctxt "ListViewPage"
+msgid ""
+"ListViews can be used to display a list of elements. The StandardListBox is "
+"like the default ListView just with a default text based definition of the "
+"visual items. Both can be imported from \"std-widgets.slint\""
+msgstr ""
+"ListViewは要素のリストを表示するために使用できます。StandardListBoxはデフォル"
+"トのListViewに似ていますが、視覚的なアイテムのデフォルトテキストベースの定義"
+"があります。どちらも\"std-widgets.slint\"からインポートできます"
+
+#: ui/pages/list_view_page.slint:15
+msgctxt "ListViewPage"
+msgid "Scroll Bar Policy:"
+msgstr "スクロールバーポリシー："
+
+#: ui/pages/list_view_page.slint:31
+msgctxt "ListViewPage"
+msgid "Vertical:"
+msgstr "垂直："
+
+#: ui/pages/list_view_page.slint:36 ui/pages/list_view_page.slint:46
+msgctxt "ListViewPage"
+msgid "As Needed"
+msgstr "必要に応じて"
+
+#: ui/pages/list_view_page.slint:36 ui/pages/list_view_page.slint:46
+msgctxt "ListViewPage"
+msgid "Always On"
+msgstr "常にオン"
+
+#: ui/pages/list_view_page.slint:36 ui/pages/list_view_page.slint:46
+msgctxt "ListViewPage"
+msgid "Always Off"
+msgstr "常にオフ"
+
+#: ui/pages/list_view_page.slint:41
+msgctxt "ListViewPage"
+msgid "Horizontal:"
+msgstr "水平："
+
+#: ui/pages/list_view_page.slint:67
+msgctxt "ListViewPage"
+msgid "Item {}"
+msgstr "アイテム {}"
+
+#: ui/pages/list_view_page.slint:74
+msgctxt "ListViewPage"
+msgid "StandardListView"
+msgstr "標準リストビュー"
+
+#: ui/pages/list_view_page.slint:81 ui/pages/list_view_page.slint:82
+#: ui/pages/list_view_page.slint:83 ui/pages/list_view_page.slint:84
+#: ui/pages/list_view_page.slint:85 ui/pages/list_view_page.slint:86
+#: ui/pages/list_view_page.slint:87
+msgctxt "ListViewPage"
+msgid "Lorem"
+msgstr "いろはにほへと ちりぬるを"
+
+#: ui/pages/list_view_page.slint:81 ui/pages/list_view_page.slint:82
+#: ui/pages/list_view_page.slint:83 ui/pages/list_view_page.slint:84
+#: ui/pages/list_view_page.slint:85 ui/pages/list_view_page.slint:86
+#: ui/pages/list_view_page.slint:87
+msgctxt "ListViewPage"
+msgid "ipsum"
+msgstr "わかよたれそつねならむ"
+
+#: ui/pages/list_view_page.slint:81 ui/pages/list_view_page.slint:82
+#: ui/pages/list_view_page.slint:83 ui/pages/list_view_page.slint:84
+#: ui/pages/list_view_page.slint:85 ui/pages/list_view_page.slint:86
+#: ui/pages/list_view_page.slint:87
+msgctxt "ListViewPage"
+msgid "dolor"
+msgstr "うゐのおくやま"
+
+#: ui/pages/list_view_page.slint:81 ui/pages/list_view_page.slint:82
+#: ui/pages/list_view_page.slint:83 ui/pages/list_view_page.slint:84
+#: ui/pages/list_view_page.slint:85 ui/pages/list_view_page.slint:86
+#: ui/pages/list_view_page.slint:87
+msgctxt "ListViewPage"
+msgid "sit"
+msgstr "けふこえて"
+
+#: ui/pages/list_view_page.slint:81 ui/pages/list_view_page.slint:82
+#: ui/pages/list_view_page.slint:83 ui/pages/list_view_page.slint:84
+#: ui/pages/list_view_page.slint:85 ui/pages/list_view_page.slint:86
+#: ui/pages/list_view_page.slint:87
+msgctxt "ListViewPage"
+msgid "amet"
+msgstr "あさきゆめみし"
+
+#: ui/pages/list_view_page.slint:81 ui/pages/list_view_page.slint:82
+#: ui/pages/list_view_page.slint:83 ui/pages/list_view_page.slint:84
+#: ui/pages/list_view_page.slint:85 ui/pages/list_view_page.slint:86
+#: ui/pages/list_view_page.slint:87
+msgctxt "ListViewPage"
+msgid "consetetur"
+msgstr "ゑひもせす"
+
+#: ui/pages/page.slint:28
+msgctxt "Page"
+msgid "Widgets enabled"
+msgstr "有効／無効"
+
+#: ui/pages/page.slint:35
+msgctxt "Page"
+msgid "Widgets read-only"
+msgstr "読み取り専用"
+
+#: ui/pages/page.slint:42
+msgctxt "Page"
+msgid "Dark Mode"
+msgstr "ダークモード"
+
+#: ui/pages/table_view_page.slint:26
+msgctxt "TableViewPage"
+msgid "TableView"
+msgstr "テーブルビュー"
+
+#: ui/pages/table_view_page.slint:28
+msgctxt "TableViewPage"
+msgid ""
+"StandardTableView can be used to display a list of text elements in columns "
+"and rows. It can be imported from \"std-widgets.slint\""
+msgstr ""
+"StandardTableViewは列と行でテキスト要素のリストを表示するために使用できます。"
+"\"std-widgets.slint\"からインポートできます"
+
+#: ui/pages/table_view_page.slint:34
+msgctxt "TableViewPage"
+msgid "StandardTableView"
+msgstr "標準テーブルビュー"
+
+#: ui/pages/table_view_page.slint:52
+msgctxt "TableViewPage"
+msgid "Header 1"
+msgstr "ヘッダー 1"
+
+#: ui/pages/table_view_page.slint:53
+msgctxt "TableViewPage"
+msgid "Header 2"
+msgstr "ヘッダー 2"
+
+#: ui/pages/table_view_page.slint:54
+msgctxt "TableViewPage"
+msgid "Header 3"
+msgstr "ヘッダー 3"
+
+#: ui/pages/table_view_page.slint:55
+msgctxt "TableViewPage"
+msgid "Header 4"
+msgstr "ヘッダー 4"
+
+#: ui/pages/table_view_page.slint:62
+msgctxt "TableViewPage"
+msgid "Filter by Header 1:"
+msgstr "ヘッダー１によるフィルタリング"
+
+#: ui/pages/table_view_page.slint:66
+msgctxt "TableViewPage"
+msgid "Enter filter text"
+msgstr "テキストを入力"
+
+#: ui/pages/text_edit_page.slint:10
+msgctxt "TextEditPage"
+msgid "TextEdit"
+msgstr "テキストエディット"
+
+#: ui/pages/text_edit_page.slint:11
+msgctxt "TextEditPage"
+msgid ""
+"Similar to LineEdit, but can be used to enter several lines of text. The "
+"widget can be imported from \"std-widgets.slint\"."
+msgstr ""
+"LineEditに似ていますが、複数行のテキストを入力するために使用できます。この"
+"ウィジェットは\"std-widgets.slint\"からインポートできます。"
+
+#: ui/pages/text_edit_page.slint:15
+msgctxt "TextEditPage"
+msgid "Word-Wrap"
+msgstr "折り返しあり"
+
+#. min-width: 200px;
+#: ui/pages/text_edit_page.slint:19
+msgctxt "TextEditPage"
+msgid ""
+"This is our TextEdit widget, which allows for editing text that spans over "
+"multiple paragraphs.\n"
+"For example this line starts in a new paragraph.\n"
+"\n"
+"When the amount of lines - due to wrapping and number of paragraphs - "
+"exceeds the available vertical height, a vertical scrollbar is shown that "
+"allows scrolling.\n"
+"You may want to enter a bit of text here then in order to make them visible."
+msgstr ""
+"これは複数の段落にまたがるテキストの編集を可能にするTextEditウィジェットで"
+"す。\n"
+"例えば、この行は新しい段落で始まります。\n"
+"\n"
+"行数が（折り返しや段落数により）利用可能な垂直高さを超えると、スクロールを可"
+"能にする垂直スクロールバーが表示されます。\n"
+"スクロールバーを表示させるには、ここにテキストを入力してみてください。"
+
+#: ui/pages/text_edit_page.slint:20
+msgctxt "TextEditPage"
+msgid "Add some text"
+msgstr "テキストを追加"
+
+#: ui/pages/text_edit_page.slint:28
+msgctxt "TextEditPage"
+msgid "No-Wrap"
+msgstr "折り返しなし"
+
+#: gallery.slint:14 gallery.slint:41
+msgctxt "App"
+msgid "Slint Widgets Gallery"
+msgstr "ウィジェットギャラリー"
+
+#: gallery.slint:19
+msgctxt "MenuBar"
+msgid "File"
+msgstr "ファイル"
+
+#: gallery.slint:20
+msgctxt "MenuBar"
+msgid "Open"
+msgstr "開く"
+
+#: gallery.slint:22
+msgctxt "MenuBar"
+msgid "Open Recent"
+msgstr "最近使用したファイル"
+
+#: gallery.slint:23
+msgctxt "MenuBar"
+msgid "Recent {}"
+msgstr "最近使用したファイル {}"
+
+#: gallery.slint:26
+msgctxt "MenuBar"
+msgid "Save"
+msgstr "保存"
+
+#: gallery.slint:28
+msgctxt "MenuBar"
+msgid "Save As"
+msgstr "名前をつけて保存"
+
+#: gallery.slint:29
+msgctxt "MenuBar"
+msgid "Name {}"
+msgstr "新しいファイル名 {}"
+
+#: gallery.slint:33
+msgctxt "MenuBar"
+msgid "Edit"
+msgstr "編集"
+
+#: gallery.slint:34
+msgctxt "MenuBar"
+msgid "Copy"
+msgstr "コピー"
+
+#: gallery.slint:35
+msgctxt "MenuBar"
+msgid "Paste"
+msgstr "貼り付け"
+
+#: gallery.slint:42
+msgctxt "Menu"
+msgid "Controls"
+msgstr "コントロール"
+
+#: gallery.slint:42
+msgctxt "Menu"
+msgid "ListView"
+msgstr "リストビュー"
+
+#: gallery.slint:42
+msgctxt "Menu"
+msgid "TableView"
+msgstr "テーブルビュー"
+
+#: gallery.slint:42
+msgctxt "Menu"
+msgid "TextEdit"
+msgstr "テキストエディット"
+
+#: gallery.slint:42
+msgctxt "Menu"
+msgid "Easings"
+msgstr "イージング"
+
+#: gallery.slint:42
+msgctxt "Menu"
+msgid "About"
+msgstr "このアプリについて"
