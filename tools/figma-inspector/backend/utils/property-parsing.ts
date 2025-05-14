@@ -381,6 +381,8 @@ export async function generateSlintSnippet(
         case "FRAME":
             return await generateRectangleSnippet(sceneNode, useVariables);
         case "RECTANGLE":
+        case "GROUP":
+            return await generateRectangleSnippet(sceneNode, useVariables);
         case "COMPONENT":
         case "INSTANCE":
             return await generateRectangleSnippet(sceneNode, useVariables);
