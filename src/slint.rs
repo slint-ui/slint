@@ -19,7 +19,7 @@ impl SlintExtension {
         // }
 
         if let Some(path) = &self.cached_binary_path {
-            if fs::metadata(path).map_or(false, |stat| stat.is_file()) {
+            if fs::metadata(path).is_ok_and(|stat| stat.is_file()) {
                 zed::set_language_server_installation_status(
                     language_server_id,
                     &zed::LanguageServerInstallationStatus::None,
@@ -69,21 +69,21 @@ impl SlintExtension {
         let extension_dir = "slint-lsp";
         let binary_path = format!("{extension_dir}/{target_name}/slint-lsp");
 
-        if !fs::metadata(&binary_path).map_or(false, |stat| stat.is_file()) {
+        if !fs::metadata(&binary_path).is_ok_and(|stat| stat.is_file()) {
             zed::set_language_server_installation_status(
                 language_server_id,
                 &zed::LanguageServerInstallationStatus::Downloading,
             );
 
-            zed::download_file(&asset.download_url, &extension_dir, asset_file_type)
+            zed::download_file(&asset.download_url, extension_dir, asset_file_type)
                 .map_err(|e| format!("failed to download file: {e}"))?;
 
             let entries =
                 fs::read_dir(".").map_err(|e| format!("failed to list working directory {e}"))?;
             for entry in entries {
                 let entry = entry.map_err(|e| format!("failed to load directory entry {e}"))?;
-                if entry.file_name().to_str() != Some(&extension_dir) {
-                    fs::remove_dir_all(&entry.path()).ok();
+                if entry.file_name().to_str() != Some(extension_dir) {
+                    fs::remove_dir_all(entry.path()).ok();
                 }
             }
 
