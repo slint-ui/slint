@@ -376,6 +376,7 @@ export async function generateSlintSnippet(
     useVariables: boolean,
 ): Promise<string> {
     const nodeType = sceneNode.type;
+    const nodeId = sanitizePropertyName(sceneNode.name);
 
     switch (nodeType) {
         case "FRAME":
@@ -463,6 +464,7 @@ export async function generateRectangleSnippet(
     useVariables: boolean,
 ): Promise<string> {
     const properties: string[] = [];
+    const nodeId = sanitizePropertyName(sceneNode.name);
 
     for (const property of rectangleProperties) {
         try {
@@ -638,13 +640,14 @@ export async function generateRectangleSnippet(
         }
     }
 
-    return `Rectangle {\n${properties.join("\n")}\n}`;
+    return `${nodeId} := Rectangle {\n${properties.join("\n")}\n}`;
 }
 export async function generatePathNodeSnippet(
     sceneNode: SceneNode,
     useVariables: boolean,
 ): Promise<string> {
     const properties: string[] = [];
+    const nodeId = sanitizePropertyName(sceneNode.name);
 
     for (const property of pathProperties) {
         try {
@@ -918,13 +921,14 @@ export async function generatePathNodeSnippet(
         }
     }
 
-    return `Path {\n${properties.join("\n")}\n}`;
+    return `${nodeId} := Path {\n${properties.join("\n")}\n}`;
 }
 export async function generateTextSnippet(
     sceneNode: SceneNode,
     useVariables: boolean,
 ): Promise<string> {
     const properties: string[] = [];
+    const nodeId = sanitizePropertyName(sceneNode.name);
 
     for (const property of textProperties) {
         try {
@@ -1135,5 +1139,5 @@ export async function generateTextSnippet(
         }
     }
 
-    return `Text {\n${properties.join("\n")}\n}`;
+    return `${nodeId} := Text {\n${properties.join("\n")}\n}`;
 }
