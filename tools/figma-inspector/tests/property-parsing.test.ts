@@ -6,6 +6,7 @@ import {
     rgbToHex,
     indentation,
     generateSlintSnippet,
+    generatePathNodeSnippet,
     getBorderWidthAndColor,
     generateTextSnippet,
 } from "../backend/utils/property-parsing";
@@ -20,6 +21,7 @@ const testFrameNode = "156:3609";
 const testNoBorderRadius = "201:272";
 const testBorderWidthColor = "212:279";
 const testText = "156:3612";
+const testVector = "I156:3927;50:2347";
 
 function findNodeById(obj: any, targetId: string): any {
     if (Array.isArray(obj)) {
@@ -68,7 +70,19 @@ function processCornerRadii(json: any): any {
 
     return json;
 }
-
+function processVectorNode(json: any): any {
+    // You can expand this as needed for your test expectations
+    if (json.type === "VECTOR") {
+        return {
+            ...json,
+            vectorPaths: json.vectorPaths || [],
+            strokes: json.strokes || [],
+            strokeWeight: json.strokeWeight ?? 1,
+            exportAsync: async () => `<svg><path d="M10 10L90 90"/></svg>`,
+        };
+    }
+    return json;
+}
 // Convert test JSON to match the API object.
 function processTextNode(json: any): any {
     if (json.type === "TEXT" && json.style) {
@@ -145,6 +159,16 @@ test("Text node", async () => {
     expect(jsonNode).not.toBeNull();
     const convertToApiJson = processTextNode(jsonNode);
     const snippet = await generateTextSnippet(convertToApiJson, false);
-    const expectedSnippet = `Text {\n${indentation}text: "Monthly";\n${indentation}color: #896fff;\n${indentation}font-family: "Roboto";\n${indentation}font-size: 12px;\n${indentation}font-weight: 400;\n}`;
+    const expectedSnippet = `monthly := Text {\n${indentation}text: "Monthly";\n${indentation}color: #896fff;\n${indentation}font-family: "Roboto";\n${indentation}font-size: 12px;\n${indentation}font-weight: 400;\n}`;
+    expect(snippet).toBe(expectedSnippet);
+});
+
+test("Vector node", async () => {
+    const jsonNode = findNodeById(testJson, testVector);
+    expect(jsonNode).not.toBeNull();
+    const convertToApiJson = processVectorNode(jsonNode);
+
+    const snippet = await generatePathNodeSnippet(convertToApiJson, false);
+    const expectedSnippet = `vector_1 := Path {\n${indentation}commands: "M10 10L90 90";\n${indentation}stroke-width: 1px;\n}`;
     expect(snippet).toBe(expectedSnippet);
 });
