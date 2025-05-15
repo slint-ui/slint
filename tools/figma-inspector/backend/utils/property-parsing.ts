@@ -47,7 +47,7 @@ export function rgbToHex(rgba: RGB | RGBA): string {
     const green = Math.round(rgba.g * 255);
     const blue = Math.round(rgba.b * 255);
     const alphaF = "a" in rgba ? rgba.a : 1;
-    const alpha = Math.round(alphaF);
+    const alpha = Math.round(alphaF * 255);
 
     const values = alphaF < 1 ? [red, green, blue, alpha] : [red, green, blue];
     return "#" + values.map((x) => x.toString(16).padStart(2, "0")).join("");
