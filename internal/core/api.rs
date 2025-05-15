@@ -414,6 +414,18 @@ impl raw_window_handle_06::HasDisplayHandle for WindowHandle {
     }
 }
 
+#[derive(Clone)]
+#[non_exhaustive]
+/// Argument to [`Window::show_modal`].
+pub enum WindowModality<'a> {
+    /// The window is modal to the application.
+    /// The user will be unable to interact with the application while the window is open.
+    Application,
+    /// The window is modal to the specified parent window.
+    /// The user will be unable to interact with the parent window while the window is open.
+    Window(&'a Window),
+}
+
 /// This type represents a window towards the windowing system, that's used to render the
 /// scene of a component. It provides API to control windowing system specific aspects such
 /// as the position on the screen.
@@ -476,6 +488,25 @@ impl Window {
     /// strong reference.
     pub fn show(&self) -> Result<(), PlatformError> {
         self.0.show()
+    }
+
+    /// Shows the window as a modal window.
+    ///
+    /// A modal window is typically a dialog that blocks the user from interacting with the application
+    /// until the user closes it.
+    ///
+    /// Modal windows do not need taskbar entries as they are shown on top of other windows of the application
+    ///
+    /// See also [`WindowModality`].
+    ///
+    /// If the platform doesn't support modal windows, this function will return an [`PlatformError::Unsupported`].
+    /// The same error will also be returned if the window is already shown.
+    pub fn show_modal(&self, modality: WindowModality) -> Result<(), PlatformError> {
+        if let Some(internal) = self.0.window_adapter().internal(crate::InternalToken) {
+            internal.show_modal(modality)
+        } else {
+            Err(PlatformError::Unsupported)
+        }
     }
 
     /// Hides the window, so that it is not visible anymore. The additional strong
@@ -1049,6 +1080,9 @@ pub enum PlatformError {
     /// There is already a platform set from another thread.
     SetPlatformError(crate::platform::SetPlatformError),
 
+    /// The operation is not supported by the current platform.
+    Unsupported,
+
     /// Another platform-specific error occurred
     Other(String),
     /// Another platform-specific error occurred.
@@ -1080,6 +1114,9 @@ impl core::fmt::Display for PlatformError {
             }
             PlatformError::SetPlatformError(_) => {
                 f.write_str("The Slint platform was initialized in another thread")
+            }
+            PlatformError::Unsupported => {
+                f.write_str("The operation is not supported by the current platform")
             }
             PlatformError::Other(str) => f.write_str(str),
             #[cfg(feature = "std")]
