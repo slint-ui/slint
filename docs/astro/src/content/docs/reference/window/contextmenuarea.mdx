@@ -51,6 +51,11 @@ This is the label of the menu as written in the menu bar or in the parent menu.
 When disabled, the `Menu` can be selected but not activated.
 </SlintProperty>
 
+### icon
+<SlintProperty propName="icon" typeName="image">
+The icon shown next to the title when in a parent menu.
+</SlintProperty>
+
 ## `MenuItem`
 
 A `MenuItem` represents a single menu entry. It must be a child of a `Menu` element.
@@ -67,6 +72,11 @@ The title shown for this menu item.
 
 <SlintProperty propName="enabled" typeName="bool" defaultValue="true">
 When disabled, the `MenuItem` can be selected but not activated.
+</SlintProperty>
+
+### icon
+<SlintProperty propName="icon" typeName="image">
+The icon shown next to the title.
 </SlintProperty>
 
 ### Callbacks of `MenuItem`
