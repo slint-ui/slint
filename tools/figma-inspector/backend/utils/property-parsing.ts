@@ -30,6 +30,16 @@ const textProperties = [
     "horizontal-alignment",
 ];
 
+const pathProperties = [
+    "width",
+    "height",
+    "x",
+    "y",
+    "commands",
+    "fill",
+    "stroke",
+    "stroke-width",
+];
 const unsupportedNodeProperties = ["x", "y", "width", "height", "opacity"];
 
 export function rgbToHex(rgba: RGB | RGBA): string {
@@ -37,7 +47,7 @@ export function rgbToHex(rgba: RGB | RGBA): string {
     const green = Math.round(rgba.g * 255);
     const blue = Math.round(rgba.b * 255);
     const alphaF = "a" in rgba ? rgba.a : 1;
-    const alpha = Math.round(alphaF);
+    const alpha = Math.round(alphaF * 255);
 
     const values = alphaF < 1 ? [red, green, blue, alpha] : [red, green, blue];
     return "#" + values.map((x) => x.toString(16).padStart(2, "0")).join("");
@@ -45,7 +55,7 @@ export function rgbToHex(rgba: RGB | RGBA): string {
 
 export function generateRadialGradient(fill: {
     opacity: number;
-    gradientStops: Array<{
+    gradientStops: ReadonlyArray<{
         color: { r: number; g: number; b: number; a: number };
         position: number;
     }>;
@@ -70,7 +80,7 @@ export function generateRadialGradient(fill: {
 
 export function generateLinearGradient(fill: {
     opacity: number;
-    gradientStops: Array<{ color: RGBA; position: number }>;
+    gradientStops: ReadonlyArray<{ color: RGBA; position: number }>;
     gradientTransform: number[][];
 }): string {
     if (!fill.gradientStops || fill.gradientStops.length < 2) {
@@ -286,21 +296,23 @@ export async function getBorderWidthAndColor(
 
 export function getBrush(fill: {
     type: string;
-    opacity: number;
+    opacity?: number; // Allow opacity to be optional
     color?: { r: number; g: number; b: number };
-    gradientStops?: Array<{
+    gradientStops?: ReadonlyArray<{
         color: { r: number; g: number; b: number; a: number };
         position: number;
     }>;
     gradientTransform?: number[][];
 }): string | null {
+    const opacity = fill.opacity ?? 1; // Default to 1 if opacity is undefined
+
     switch (fill.type) {
         case "SOLID": {
             if (!fill.color) {
                 console.warn("Missing fill colors for solid color value");
                 return "";
             }
-            return rgbToHex({ ...fill.color, a: fill.opacity });
+            return rgbToHex({ ...fill.color, a: opacity });
         }
         case "GRADIENT_LINEAR": {
             if (!fill.gradientStops || !fill.gradientTransform) {
@@ -308,7 +320,7 @@ export function getBrush(fill: {
                 return "";
             }
             return generateLinearGradient({
-                opacity: fill.opacity,
+                opacity: opacity,
                 gradientStops: fill.gradientStops,
                 gradientTransform: fill.gradientTransform,
             });
@@ -318,7 +330,7 @@ export function getBrush(fill: {
                 return "";
             }
             return generateRadialGradient({
-                opacity: fill.opacity,
+                opacity: opacity,
                 gradientStops: fill.gradientStops,
                 gradientTransform: fill.gradientTransform,
             });
@@ -364,16 +376,21 @@ export async function generateSlintSnippet(
     useVariables: boolean,
 ): Promise<string> {
     const nodeType = sceneNode.type;
+    const nodeId = sanitizePropertyName(sceneNode.name);
 
     switch (nodeType) {
         case "FRAME":
             return await generateRectangleSnippet(sceneNode, useVariables);
         case "RECTANGLE":
+        case "GROUP":
+            return await generateRectangleSnippet(sceneNode, useVariables);
         case "COMPONENT":
         case "INSTANCE":
             return await generateRectangleSnippet(sceneNode, useVariables);
         case "TEXT":
             return await generateTextSnippet(sceneNode, useVariables);
+        case "VECTOR":
+            return await generatePathNodeSnippet(sceneNode, useVariables);
         default:
             return generateUnsupportedNodeSnippet(sceneNode);
     }
@@ -447,6 +464,7 @@ export async function generateRectangleSnippet(
     useVariables: boolean,
 ): Promise<string> {
     const properties: string[] = [];
+    const nodeId = sanitizePropertyName(sceneNode.name);
 
     for (const property of rectangleProperties) {
         try {
@@ -622,14 +640,295 @@ export async function generateRectangleSnippet(
         }
     }
 
-    return `Rectangle {\n${properties.join("\n")}\n}`;
+    return `${nodeId} := Rectangle {\n${properties.join("\n")}\n}`;
 }
+export async function generatePathNodeSnippet(
+    sceneNode: SceneNode,
+    useVariables: boolean,
+): Promise<string> {
+    const properties: string[] = [];
+    const nodeId = sanitizePropertyName(sceneNode.name);
 
+    for (const property of pathProperties) {
+        try {
+            switch (property) {
+                case "x":
+                    const boundPathXVarId = (sceneNode as any).boundVariables?.x
+                        ?.id;
+                    let xPathValue: string | null = null;
+                    if (boundPathXVarId && useVariables) {
+                        xPathValue =
+                            await getVariablePathString(boundPathXVarId);
+                    }
+                    if (
+                        !xPathValue &&
+                        "x" in sceneNode &&
+                        typeof sceneNode.x === "number"
+                    ) {
+                        const x = sceneNode.x;
+                        if (x === 0) {
+                            xPathValue = "0px";
+                        } else {
+                            const roundedX = roundNumber(x);
+                            if (roundedX !== null) {
+                                xPathValue = `${roundedX}px`;
+                            }
+                        }
+                    }
+                    if (xPathValue && sceneNode.parent?.type !== "PAGE") {
+                        properties.push(`${indentation}x: ${xPathValue};`);
+                    }
+                    break;
+                case "y":
+                    const boundPathYVarId = (sceneNode as any).boundVariables?.y
+                        ?.id;
+                    let yPathValue: string | null = null;
+                    if (boundPathYVarId && useVariables) {
+                        yPathValue =
+                            await getVariablePathString(boundPathYVarId);
+                    }
+                    if (
+                        !yPathValue &&
+                        "y" in sceneNode &&
+                        typeof sceneNode.y === "number"
+                    ) {
+                        const y = sceneNode.y;
+                        if (y === 0) {
+                            yPathValue = "0px";
+                        } else {
+                            const roundedY = roundNumber(y);
+                            if (roundedY !== null) {
+                                yPathValue = `${roundedY}px`;
+                            }
+                        }
+                    }
+                    if (yPathValue && sceneNode.parent?.type !== "PAGE") {
+                        properties.push(`${indentation}y: ${yPathValue};`);
+                    }
+                    break;
+                case "width":
+                    const boundPathWidthVarId = (sceneNode as any)
+                        .boundVariables?.width?.id;
+                    let widthPathValue: string | null = null;
+                    if (boundPathWidthVarId && useVariables) {
+                        widthPathValue =
+                            await getVariablePathString(boundPathWidthVarId);
+                    }
+                    if (
+                        !widthPathValue &&
+                        "width" in sceneNode &&
+                        typeof sceneNode.width === "number"
+                    ) {
+                        const w = sceneNode.width;
+                        if (w === 0) {
+                            widthPathValue = "0px";
+                        } else {
+                            const roundedW = roundNumber(w);
+                            if (roundedW !== null) {
+                                widthPathValue = `${roundedW}px`;
+                            }
+                        }
+                    }
+                    if (widthPathValue) {
+                        properties.push(
+                            `${indentation}width: ${widthPathValue};`,
+                        );
+                    }
+                    break;
+                case "height":
+                    const boundPathHeightVarId = (sceneNode as any)
+                        .boundVariables?.height?.id;
+                    let heightPathValue: string | null = null;
+                    if (boundPathHeightVarId && useVariables) {
+                        heightPathValue =
+                            await getVariablePathString(boundPathHeightVarId);
+                    }
+                    if (
+                        !heightPathValue &&
+                        "height" in sceneNode &&
+                        typeof sceneNode.height === "number"
+                    ) {
+                        const h = sceneNode.height;
+                        if (h === 0) {
+                            heightPathValue = "0px";
+                        } else {
+                            const roundedH = roundNumber(h);
+                            if (roundedH !== null) {
+                                heightPathValue = `${roundedH}px`;
+                            }
+                        }
+                    }
+                    if (heightPathValue) {
+                        properties.push(
+                            `${indentation}height: ${heightPathValue};`,
+                        );
+                    }
+                    break;
+                case "commands":
+                    if (sceneNode.type === "VECTOR") {
+                        try {
+                            const svgString = await sceneNode.exportAsync({
+                                format: "SVG_STRING",
+                            });
+                            const match = svgString.match(
+                                /<path[^>]*d=(["'])(.*?)\1/,
+                            );
+                            if (match && match[2]) {
+                                const pathCommands = match[2];
+                                properties.push(
+                                    `${indentation}commands: "${pathCommands}";`,
+                                );
+                            } else {
+                                console.warn(
+                                    "[generatePathNodeSnippet] Could not extract path commands from SVG for node:",
+                                    sceneNode.id,
+                                );
+                                properties.push(
+                                    `${indentation}// Could not extract path commands from SVG`,
+                                );
+                            }
+                        } catch (e) {
+                            console.error(
+                                "[generatePathNodeSnippet] Error exporting SVG for node:",
+                                sceneNode.id,
+                                e,
+                            );
+                            properties.push(
+                                `${indentation}// Error exporting SVG: ${e instanceof Error ? e.message : e}`,
+                            );
+                        }
+                    }
+                    break;
+                case "fill":
+                    if (
+                        "fills" in sceneNode &&
+                        Array.isArray(sceneNode.fills) &&
+                        sceneNode.fills.length > 0 &&
+                        sceneNode.fills[0].visible !== false
+                    ) {
+                        const firstFill = sceneNode.fills[0] as Paint;
+                        if (firstFill.type === "SOLID") {
+                            const boundVarId = (firstFill as any).boundVariables
+                                ?.color?.id;
+                            let fillValue: string | null = null;
+                            if (boundVarId && useVariables) {
+                                fillValue =
+                                    await getVariablePathString(boundVarId);
+                            }
+                            if (!fillValue) {
+                                fillValue = getBrush(firstFill);
+                            }
+                            if (fillValue) {
+                                properties.push(
+                                    `${indentation}fill: ${fillValue};`,
+                                );
+                            }
+                        } else {
+                            const brush = getBrush(firstFill);
+                            if (brush) {
+                                properties.push(
+                                    `${indentation}fill: ${brush};`,
+                                );
+                            }
+                        }
+                    }
+                    break;
+                case "stroke":
+                    if (
+                        "strokes" in sceneNode &&
+                        Array.isArray(sceneNode.strokes) &&
+                        sceneNode.strokes.length > 0 &&
+                        sceneNode.strokes[0].visible !== false
+                    ) {
+                        const firstStroke = sceneNode.strokes[0] as Paint;
+                        const boundColorVarId = (firstStroke as any)
+                            .boundVariables?.color?.id;
+                        let strokeValue: string | null = null;
+                        if (boundColorVarId && useVariables) {
+                            strokeValue =
+                                await getVariablePathString(boundColorVarId);
+                        }
+                        if (!strokeValue) {
+                            strokeValue = getBrush(firstStroke);
+                        }
+                        if (strokeValue) {
+                            properties.push(
+                                `${indentation}stroke: ${strokeValue};`,
+                            );
+                        }
+                    }
+                    break;
+                case "stroke-width":
+                    const boundSWVarId = (sceneNode as any).boundVariables
+                        ?.strokeWeight?.id;
+                    let strokeWValue: string | null = null;
+                    if (boundSWVarId && useVariables) {
+                        strokeWValue =
+                            await getVariablePathString(boundSWVarId);
+                    }
+                    if (
+                        !strokeWValue &&
+                        "strokeWeight" in sceneNode &&
+                        typeof sceneNode.strokeWeight === "number"
+                    ) {
+                        const sw = sceneNode.strokeWeight;
+                        if (sw === 0) {
+                            strokeWValue = "0px";
+                        } else {
+                            const roundedSw = roundNumber(sw);
+                            if (roundedSw !== null) {
+                                strokeWValue = `${roundedSw}px`;
+                            }
+                        }
+                    }
+                    if (strokeWValue) {
+                        if (strokeWValue !== "0px") {
+                            if (
+                                "strokes" in sceneNode &&
+                                Array.isArray(sceneNode.strokes) &&
+                                sceneNode.strokes.some(
+                                    (s) => s.visible !== false,
+                                )
+                            ) {
+                                properties.push(
+                                    `${indentation}stroke-width: ${strokeWValue};`,
+                                );
+                            }
+                        } else {
+                            if (
+                                "strokes" in sceneNode &&
+                                Array.isArray(sceneNode.strokes) &&
+                                sceneNode.strokes.some(
+                                    (s) => s.visible !== false,
+                                )
+                            ) {
+                                properties.push(
+                                    `${indentation}stroke-width: ${strokeWValue};`,
+                                );
+                            }
+                        }
+                    }
+                    break;
+            }
+        } catch (err) {
+            console.error(
+                `[generatePathNodeSnippet] Error processing property "${property}":`,
+                err,
+            );
+            properties.push(
+                `${indentation}// Error processing ${property}: ${err instanceof Error ? err.message : err}`,
+            );
+        }
+    }
+
+    return `${nodeId} := Path {\n${properties.join("\n")}\n}`;
+}
 export async function generateTextSnippet(
     sceneNode: SceneNode,
     useVariables: boolean,
 ): Promise<string> {
     const properties: string[] = [];
+    const nodeId = sanitizePropertyName(sceneNode.name);
 
     for (const property of textProperties) {
         try {
@@ -840,5 +1139,5 @@ export async function generateTextSnippet(
         }
     }
 
-    return `Text {\n${properties.join("\n")}\n}`;
+    return `${nodeId} := Text {\n${properties.join("\n")}\n}`;
 }
