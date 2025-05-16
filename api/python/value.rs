@@ -10,20 +10,8 @@ use std::collections::HashMap;
 
 #[gen_stub_pyclass]
 pub struct PyValue(pub slint_interpreter::Value);
-struct PyValueRef<'a>(&'a slint_interpreter::Value);
 
 impl<'py> IntoPyObject<'py> for PyValue {
-    type Target = PyAny;
-    type Output = Bound<'py, Self::Target>;
-    type Error = PyErr;
-
-    fn into_pyobject(self, py: Python<'py>) -> Result<Self::Output, Self::Error> {
-        // Share the conversion code below that operates on the reference
-        PyValueRef(&self.0).into_pyobject(py)
-    }
-}
-
-impl<'a, 'py> IntoPyObject<'py> for PyValueRef<'a> {
     type Target = PyAny;
     type Output = Bound<'py, Self::Target>;
     type Error = PyErr;
