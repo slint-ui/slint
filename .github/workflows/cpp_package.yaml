@@ -149,9 +149,10 @@ jobs:
               with:
                   old-ubuntu: true
             - uses: dtolnay/rust-toolchain@stable
+            - uses: cargo-bins/cargo-binstall@main
             - name: install espup
               run: |
-                  cargo install espup
+                  cargo binstall espup
                   espup install
                   rustup default esp
             - name: add esp toolchains to PATH
