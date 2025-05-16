@@ -26,7 +26,7 @@ impl<'py> IntoPyObject<'py> for PyValue {
                 crate::image::PyImage::from(image).into_bound_py_any(py)
             }
             slint_interpreter::Value::Model(model) => {
-                crate::models::PyModelShared::rust_into_js_model(model, py).map_or_else(
+                crate::models::PyModelShared::rust_into_py_model(model, py).map_or_else(
                     || crate::models::ReadOnlyRustModel::from(model).into_bound_py_any(py),
                     |m| Ok(m),
                 )

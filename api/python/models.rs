@@ -155,7 +155,7 @@ impl i_slint_core::model::Model for PyModelShared {
 }
 
 impl PyModelShared {
-    pub fn rust_into_js_model<'py>(
+    pub fn rust_into_py_model<'py>(
         model: &ModelRc<slint_interpreter::Value>,
         py: Python<'py>,
     ) -> Option<Bound<'py, PyAny>> {
