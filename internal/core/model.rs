@@ -161,10 +161,10 @@ pub trait Model {
         ModelIterator::new(self)
     }
 
-    /// Return something that can be downcast'ed (typically self)
+    /// Return something that can be downcast'ed (typically self).
     ///
-    /// This is useful to get back to the actual model from a [`ModelRc`] stored
-    /// in a ItemTree.
+    /// Use this to retrieve the concrete model from a [`ModelRc`] stored
+    /// in your tree of UI elements.
     ///
     /// ```
     /// # use i_slint_core::model::*;
@@ -175,10 +175,56 @@ pub trait Model {
     /// assert_eq!(handle.row_data(3).unwrap(), 4);
     /// ```
     ///
-    /// Note: the default implementation returns nothing interesting. this method should be
-    /// implemented by model implementation to return something useful. For example:
+    /// Note: Custom models must implement this method for the cast to succeed.
+    /// A valid implementation is to return `self`:
     /// ```ignore
     ///     fn as_any(&self) -> &dyn core::any::Any { self }
+    /// ```
+    ///
+    /// A common reason why the dowcast fails at run-time is because of a type-mismatch
+    /// between the model created and the model downcasted. To debug this at compile time,
+    /// try matching the model type used for the downcast explicitly at model creation time.
+    /// In the following example, the downcast fails at run-time:
+    ///
+    /// ```
+    /// # use i_slint_core::model::*;
+    /// # use std::rc::Rc;
+    /// let model = VecModel::from_slice(&[3i32, 2, 1])
+    ///     .filter(Box::new(|v: &i32| *v >= 2) as Box<dyn Fn(&i32) -> bool>);
+    /// let model_rc = ModelRc::new(model);
+    /// assert!(model_rc.as_any()
+    ///     .downcast_ref::<FilterModel<VecModel<i32>, Box<dyn Fn(&i32) -> bool>>>()
+    ///     .is_none());
+    /// ```
+    ///
+    /// To debug this, let's make the type explicit. It fails to compile.
+    ///
+    /// ```compile_fail
+    /// # use i_slint_core::model::*;
+    /// # use std::rc::Rc;
+    /// let model: FilterModel<VecModel<i32>, Box<dyn Fn(&i32) -> bool>>
+    ///     = VecModel::from_slice(&[3i32, 2, 1])
+    ///       .filter(Box::new(|v: &i32| *v >= 2) as Box<dyn Fn(&i32) -> bool>);
+    /// let model_rc = ModelRc::new(model);
+    /// assert!(model_rc.as_any()
+    ///     .downcast_ref::<FilterModel<VecModel<i32>, Box<dyn Fn(&i32) -> bool>>>()
+    ///     .is_none());
+    /// ```
+    ///
+    /// The compiler tells us that the type of model is not `FilterModel<VecModel<..>>`,
+    /// but instead `from_slice()` already returns a `ModelRc`, so the correct type to
+    /// use for the downcast is wrapped in `ModelRc`:
+    ///
+    /// ```
+    /// # use i_slint_core::model::*;
+    /// # use std::rc::Rc;
+    /// let model: FilterModel<ModelRc<i32>, Box<dyn Fn(&i32) -> bool>>
+    ///     = VecModel::from_slice(&[3i32, 2, 1])
+    ///       .filter(Box::new(|v: &i32| *v >= 2) as Box<dyn Fn(&i32) -> bool>);
+    /// let model_rc = ModelRc::new(model);
+    /// assert!(model_rc.as_any()
+    ///     .downcast_ref::<FilterModel<ModelRc<i32>, Box<dyn Fn(&i32) -> bool>>>()
+    ///     .is_some());
     /// ```
     fn as_any(&self) -> &dyn core::any::Any {
         &()
