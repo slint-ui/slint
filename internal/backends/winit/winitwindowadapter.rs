@@ -604,6 +604,7 @@ impl WinitWindowAdapter {
                     self.resize_event(size)?;
                     Ok(true)
                 } else {
+                    self.pending_requested_size.set(size.into());
                     // None means that we'll get a `WindowEvent::Resized` later
                     Ok(false)
                 }
@@ -629,6 +630,7 @@ impl WinitWindowAdapter {
         if size.width > 0 && size.height > 0 {
             let physical_size = physical_size_to_slint(&size);
             self.size.set(physical_size);
+            self.pending_requested_size.set(None);
             let scale_factor = WindowInner::from_pub(self.window()).scale_factor();
             self.window().try_dispatch_event(WindowEvent::Resized {
                 size: physical_size.to_logical(scale_factor),
