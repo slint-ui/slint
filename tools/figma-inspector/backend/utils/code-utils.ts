@@ -1,9 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import type { Message, PluginMessageEvent } from "../../src/globals";
 import type { EventTS } from "../../shared/universals";
-import { generateSlintSnippet } from "./property-parsing.js";
 
 export function dispatch(data: any, origin = "*") {
     figma.ui.postMessage(data, {

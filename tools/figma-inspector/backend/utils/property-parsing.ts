@@ -376,7 +376,6 @@ export async function generateSlintSnippet(
     useVariables: boolean,
 ): Promise<string> {
     const nodeType = sceneNode.type;
-    const nodeId = sanitizePropertyName(sceneNode.name);
 
     switch (nodeType) {
         case "FRAME":

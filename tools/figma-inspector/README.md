@@ -64,7 +64,7 @@ As of writing Figma has real test support. Testing is limited to unit testing so
 You can find the test files under `/tests`. This folder also includes the JSON export of a real Figma file
 to test against. The easiest way to update the file is to to edit it in Figma and then use a personal access token to get a JSON version.
 
-To get an access Token in Figma go to the home screen. Then top right click the loggedin user name. Then `Settings` and then the `Security` tab. Scroll to the bottom and choose `Generate new token`. Then save the token in a secure private place.
+To get an access Token in Figma go to the home screen. Then top right click the logged in user name. Then `Settings` and then the `Security` tab. Scroll to the bottom and choose `Generate new token`. Then save the token in a secure private place.
 
 You then need to get the file ID. Open figma.com, login and open the file. You will then have a url like
 `https://www.figma.com/design/njC6jSUbrYpqLRJ2dyV6NT/energy-test-file?node-id=113-2294&p=f&t=5IDwrGIFUnri3Z17-0`. The ID is the part of the URL after `/design/` so in this example `njC6jSUbrYpqLRJ2dyV6NT`.
@@ -77,7 +77,7 @@ curl -H 'X-Figma-Token: <YOUR_ACCESS_TOKEN>' \
 -o figma_output.json
 ```
 
-Vitest can then be run in hot reload mode for ease of test developmet with:
+Vitest can then be run in hot reload mode for ease of test development with:
 
 ```sh
 pnpm test
