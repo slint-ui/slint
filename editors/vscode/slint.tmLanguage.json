@@ -160,6 +160,17 @@
                             "include": "#comment"
                         }
                     ]
+                },
+                {
+                    "match": "\\s*(from)\\s*(\"[^\"]*\")\\s*;",
+                    "captures": {
+                        "1": {
+                            "name": "keyword.other.from.slint"
+                        },
+                        "2": {
+                            "name": "string.quoted.double.export-path.slint"
+                        }
+                    }
                 }
             ]
         },
