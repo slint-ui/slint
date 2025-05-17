@@ -18,7 +18,6 @@ export function findNodeById(obj: any, targetId: string): any {
         for (const item of obj) {
             const result = findNodeById(item, targetId);
             if (result) {
-                console.log(result);
                 return result;
             }
         }
@@ -30,7 +29,6 @@ export function findNodeById(obj: any, targetId: string): any {
         for (const key in obj) {
             const result = findNodeById(obj[key], targetId);
             if (result) {
-                console.log(result);
                 return result;
             }
         }
