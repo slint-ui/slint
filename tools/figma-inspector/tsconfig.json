@@ -15,6 +15,7 @@
     "jsx": "react-jsx",
     "checkJs": true,
     "isolatedModules": true,
+    "noUnusedLocals": true,
     "lib": ["es2017", "dom"],
     "typeRoots": [
       "../../node_modules/@figma",

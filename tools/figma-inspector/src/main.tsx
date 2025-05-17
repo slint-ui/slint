@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { getColorTheme, subscribeColorTheme } from "./utils/bolt-utils";
 import CodeSnippet from "./components/snippet/CodeSnippet";
 import { ExportType, useInspectorStore } from "./utils/store";
@@ -22,7 +22,7 @@ export const App = () => {
         exportFiles,
     } = useInspectorStore();
 
-    const [lightOrDarkMode, setLightOrDarkMode] = useState(getColorTheme());
+    const [_lightOrDarkMode, setLightOrDarkMode] = useState(getColorTheme());
 
     // Init
     useEffect(() => {

@@ -216,7 +216,6 @@ function createReferenceExpression(
 
     // Loop Detection
     const targetIdentifier = `${targetCollection}.${targetPath.join(".")}`;
-    const currentIdentifier = `${currentCollection}.${currentPath.join(".")}`;
 
     if (resolutionStack.includes(targetIdentifier)) {
         const loopPath = `${resolutionStack.join(" -> ")} -> ${targetIdentifier}`;
@@ -581,7 +580,6 @@ function generateStructsAndInstances(
         if (node.name === "root") {
             // Process all root children
             for (const [childName, childNode] of node.children.entries()) {
-                const sanitizedChildName = sanitizePropertyName(childName);
 
                 // Always process child nodes with proper path propagation
                 buildStructModel(childNode, [childName]); // Keep this single-element path for first level
@@ -916,10 +914,6 @@ function generateStructsAndInstances(
                 result += `${indent}// NOTE: This property was renamed from "mode" to "mode-var" to avoid collision\n`;
                 result += `${indent}// with the scheme mode property of the same name.\n`;
             }
-            // Root level property
-            const slintType = instance.isMultiMode
-                ? `${collectionData.formattedName}_mode${collectionData.modes.size}_${instance.type}`
-                : instance.type;
 
             if (instance.children && instance.children.size > 0) {
                 // Struct instance
@@ -1117,9 +1111,6 @@ export async function exportFigmaVariablesToSeparateFiles(
         // Get collections asynchronously
         const variableCollections =
             await figma.variables.getLocalVariableCollectionsAsync();
-
-        // Array to store all exported files
-        const exportedFiles: Array<{ name: string; content: string }> = [];
 
         // First, initialize the collection structure for ALL collections
         const collectionStructure = new Map<string, CollectionData>();
@@ -1450,7 +1441,7 @@ export async function exportFigmaVariablesToSeparateFiles(
 
         // Generate content for each collection
         for (const [
-            collectionName,
+            _collectionName,
             collectionData,
         ] of collectionStructure.entries()) {
             // Skip collections with no variables
@@ -1705,12 +1696,6 @@ interface SchemeStruct {
     path: string[];
 }
 
-interface ModeValue {
-    value: string;
-    refId?: string;
-    comment?: string;
-}
-
 // Main function for generating scheme structs
 function generateSchemeStructs(
     variableTree: VariableNode,
@@ -1960,7 +1945,7 @@ function collectMultiModeStructs(
 
     // Still scan the tree for any other types we might have missed (for future proofing)
     function findUniqueTypeConfigs(node: VariableNode) {
-        for (const [childName, childNode] of node.children.entries()) {
+        for (const [_childName, childNode] of node.children.entries()) {
             if (childNode.valuesByMode && childNode.valuesByMode.size > 0) {
                 const slintType = getSlintType(childNode.type || "COLOR");
                 // Skip if we already added this type
