@@ -16,6 +16,7 @@
     "checkJs": true,
     "isolatedModules": true,
     "noUnusedLocals": true,
+    "noUnusedParameters": true,
     "lib": ["es2017", "dom"],
     "typeRoots": [
       "../../node_modules/@figma",

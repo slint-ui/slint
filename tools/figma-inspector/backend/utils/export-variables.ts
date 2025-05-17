@@ -557,7 +557,7 @@ interface PropertyInstance {
 
 function generateStructsAndInstances(
     variableTree: VariableNode,
-    collectionName: string,
+    _collectionName: string,
     collectionData: CollectionData, // using strict type interface
 ): {
     structs: string;
@@ -1604,7 +1604,7 @@ export async function exportFigmaVariablesToSeparateFiles(
                 // Replace unresolved references with appropriate defaults based on context
                 file.content = file.content.replace(
                     /(@ref:VariableID:[0-9:]+)/g,
-                    (match, reference) => {
+                    (_match, reference) => {
                         exportInfo.warnings.add(
                             `  Replacing unresolved reference: ${reference}`,
                         );
