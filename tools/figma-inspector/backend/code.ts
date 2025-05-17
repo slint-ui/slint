@@ -55,20 +55,14 @@ listenTS("generateSnippetRequest", async (payload) => {
     if (selection.length === 1) {
         const node = selection[0];
         title = node.name;
-        try {
-            // --- Pass the useVariables value received from UI ---
-            slintSnippet = await generateSlintSnippet(node, useVariables);
 
-            if (slintSnippet === null) {
-                slintSnippet = `// Unsupported node type: ${node.type}`;
-            }
-        } catch (error) {
-            console.error(
-                `[Backend] Error generating snippet for ${node.name}:`,
-                error,
-            );
-            slintSnippet = `// Error generating snippet for ${node.name}:\n// ${error instanceof Error ? error.message : String(error)}`;
+        // --- Pass the useVariables value received from UI ---
+        slintSnippet = await generateSlintSnippet(node, useVariables);
+
+        if (slintSnippet === null) {
+            slintSnippet = `// Unsupported node type: ${node.type}`;
         }
+
     } else if (selection.length > 1) {
         slintSnippet = "// Select a single component to inspect";
         title = "Multiple Items Selected";
