@@ -18,7 +18,7 @@ export function findNodeById(obj: any, targetId: string): any {
         for (const item of obj) {
             const result = findNodeById(item, targetId);
             if (result) {
-                console.log(result)
+                console.log(result);
                 return result;
             }
         }
@@ -30,7 +30,7 @@ export function findNodeById(obj: any, targetId: string): any {
         for (const key in obj) {
             const result = findNodeById(obj[key], targetId);
             if (result) {
-                console.log(result)
+                console.log(result);
                 return result;
             }
         }
@@ -136,7 +136,10 @@ test("converts rgb to hex floating #000000", () => {
 });
 
 test(" No border radius", async () => {
-    const jsonNode = findNodeByName(testJson, "rectangle no corner radius test");
+    const jsonNode = findNodeByName(
+        testJson,
+        "rectangle no corner radius test",
+    );
     expect(jsonNode).not.toBeNull();
     const snippet = await getBorderRadius(jsonNode, false);
     expect(snippet).toBe(null);

@@ -580,7 +580,6 @@ function generateStructsAndInstances(
         if (node.name === "root") {
             // Process all root children
             for (const [childName, childNode] of node.children.entries()) {
-
                 // Always process child nodes with proper path propagation
                 buildStructModel(childNode, [childName]); // Keep this single-element path for first level
             }

@@ -62,7 +62,6 @@ listenTS("generateSnippetRequest", async (payload) => {
         if (slintSnippet === null) {
             slintSnippet = `// Unsupported node type: ${node.type}`;
         }
-
     } else if (selection.length > 1) {
         slintSnippet = "// Select a single component to inspect";
         title = "Multiple Items Selected";
@@ -120,7 +119,6 @@ const variableMonitoring: {
     lastChange: 0,
     lastEventTime: 0,
 };
-
 
 listenTS("monitorVariableChanges", () => {
     figma.ui.postMessage({
