@@ -62,6 +62,11 @@
 //            ^^ keyword.other.as.slint
 //               ^^^^^^^^ entity.name.type.export-list.slint
 //                        ^^^^^^^^^^ entity.name.type.export-list.slint
+  export { Foo } from "bar.slint";
+//^^^^^^ keyword.other.export.slint
+//         ^^^ entity.name.type.export-list.slint
+//               ^^^^ keyword.other.from.slint
+//                    ^^^^^^^^^^^ string.quoted.double.export-path.slint
   struct Foobar { }
 //^^^^^^ keyword.declaration.struct.slint
 //       ^^^^^^ entity.name.type.struct.slint
