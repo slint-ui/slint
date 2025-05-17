@@ -5,7 +5,6 @@ import {
     getBorderRadius,
     rgbToHex,
     indentation,
-    generateSlintSnippet,
     generatePathNodeSnippet,
     getBorderWidthAndColor,
     generateTextSnippet,
@@ -14,20 +13,12 @@ import { expect, test } from "vitest";
 
 const testJson = require("./figma_output.json");
 
-// Json node ID for various tests.
-const testBorderRadius55px = "163:266";
-const testBorderRadiusMultiValue = "163:267";
-const testFrameNode = "156:3609";
-const testNoBorderRadius = "201:272";
-const testBorderWidthColor = "212:279";
-const testText = "156:3612";
-const testVector = "I156:3927;50:2347";
-
-function findNodeById(obj: any, targetId: string): any {
+export function findNodeById(obj: any, targetId: string): any {
     if (Array.isArray(obj)) {
         for (const item of obj) {
             const result = findNodeById(item, targetId);
             if (result) {
+                console.log(result)
                 return result;
             }
         }
@@ -38,6 +29,30 @@ function findNodeById(obj: any, targetId: string): any {
 
         for (const key in obj) {
             const result = findNodeById(obj[key], targetId);
+            if (result) {
+                console.log(result)
+                return result;
+            }
+        }
+    }
+    return null;
+}
+
+function findNodeByName(obj: any, targetName: string): any {
+    if (Array.isArray(obj)) {
+        for (const item of obj) {
+            const result = findNodeByName(item, targetName);
+            if (result) {
+                return result;
+            }
+        }
+    } else if (typeof obj === "object" && obj !== null) {
+        if (obj.name === targetName) {
+            return obj;
+        }
+
+        for (const key in obj) {
+            const result = findNodeByName(obj[key], targetName);
             if (result) {
                 return result;
             }
@@ -121,21 +136,21 @@ test("converts rgb to hex floating #000000", () => {
 });
 
 test(" No border radius", async () => {
-    const jsonNode = findNodeById(testJson, testNoBorderRadius);
+    const jsonNode = findNodeByName(testJson, "rectangle no corner radius test");
     expect(jsonNode).not.toBeNull();
     const snippet = await getBorderRadius(jsonNode, false);
     expect(snippet).toBe(null);
 });
 
 test("Single border radius", async () => {
-    const jsonNode = findNodeById(testJson, testBorderRadius55px);
+    const jsonNode = findNodeByName(testJson, "border-test 1");
     expect(jsonNode).not.toBeNull();
     const snippet = await getBorderRadius(jsonNode, false);
     expect(snippet).toBe(`${indentation}border-radius: 55px;`);
 });
 
 test("Multiple border radius", async () => {
-    const jsonNode = findNodeById(testJson, testBorderRadiusMultiValue);
+    const jsonNode = findNodeByName(testJson, "border-test 2");
     expect(jsonNode).not.toBeNull();
     const convertToApiJson = processCornerRadii(jsonNode);
     const snippet = await getBorderRadius(convertToApiJson, false);
@@ -144,7 +159,7 @@ test("Multiple border radius", async () => {
 });
 
 test("Border width and color", async () => {
-    const jsonNode = findNodeById(testJson, testBorderWidthColor);
+    const jsonNode = findNodeByName(testJson, "stroke test 2");
     expect(jsonNode).not.toBeNull();
     const snippet = await getBorderWidthAndColor(jsonNode, false);
     const expectedSnippet = [
@@ -155,7 +170,7 @@ test("Border width and color", async () => {
 });
 
 test("Text node", async () => {
-    const jsonNode = findNodeById(testJson, testText);
+    const jsonNode = findNodeByName(testJson, "Monthly");
     expect(jsonNode).not.toBeNull();
     const convertToApiJson = processTextNode(jsonNode);
     const snippet = await generateTextSnippet(convertToApiJson, false);
@@ -164,11 +179,15 @@ test("Text node", async () => {
 });
 
 test("Vector node", async () => {
-    const jsonNode = findNodeById(testJson, testVector);
+    const jsonNode = findNodeByName(testJson, "vector test");
     expect(jsonNode).not.toBeNull();
     const convertToApiJson = processVectorNode(jsonNode);
-
     const snippet = await generatePathNodeSnippet(convertToApiJson, false);
-    const expectedSnippet = `vector_1 := Path {\n${indentation}commands: "M10 10L90 90";\n${indentation}stroke-width: 1px;\n}`;
+    const expectedSnippet = `vector_test := Path {
+${indentation}commands: "M10 10L90 90";
+${indentation}fill: #2e5adf;
+${indentation}stroke: #000000;
+${indentation}stroke-width: 2.5px;
+}`;
     expect(snippet).toBe(expectedSnippet);
 });
