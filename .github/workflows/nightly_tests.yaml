@@ -142,3 +142,25 @@ jobs:
             - name: Check
               run: cargo check --target=x86_64-unknown-uefi -p uefi-demo
 
+    ios:
+        strategy:
+            matrix:
+              demo:
+                - demos/home-automation/rust
+                - demos/energy-monitor
+              include:
+                - demo: demos/home-automation/rust
+                  scheme: "Home Automation"
+                - demo: demos/energy-monitor
+                  scheme: "Energy Monitor"
+        runs-on: macos-14
+        steps:
+            - uses: actions/checkout@v4
+            - uses: ./.github/actions/setup-rust
+              with:
+                  target: aarch64-apple-ios-sim
+            - run: brew install xcodegen
+            - run: xcodegen -s ios-project.yml
+              working-directory: ${{ matrix.demo }}
+            - run: xcodebuild -scheme "${{ matrix.scheme }}" -destination 'platform=iOS Simulator,name=iPhone 16' build
+              working-directory: ${{ matrix.demo }}
