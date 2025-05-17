@@ -5,6 +5,9 @@
 
 #![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 
+#[cfg(target_env = "musl")]
+compile_error!("Compiling with MUSL is not supported by this crate.");
+
 /*!
 # Slint
 
