@@ -151,8 +151,10 @@ jobs:
               include:
                 - demo: demos/home-automation/rust
                   scheme: "Home Automation"
+                  bundle_id: com.slint.demos.HomeAutomation.HomeAutomation
                 - demo: demos/energy-monitor
                   scheme: "Energy Monitor"
+                  bundle_id: com.slint.demos.EnergyMonitor.EnergyMonitor
         runs-on: macos-14
         steps:
             - uses: actions/checkout@v4
@@ -164,3 +166,25 @@ jobs:
               working-directory: ${{ matrix.demo }}
             - run: xcodebuild -scheme "${{ matrix.scheme }}" -destination 'platform=iOS Simulator,name=iPhone 16' build
               working-directory: ${{ matrix.demo }}
+            - name: "Boot Simulator"
+              run: |
+                xcrun simctl boot "iPhone 16"
+                sleep 10
+            - name: "Install"
+              run: |
+                APP_PATH=$(find ~/Library/Developer/Xcode/DerivedData -name "${{ matrix.scheme }}.app" | head -n 1)
+                echo "Found app bundle at $APP_PATH"
+                xcrun simctl install booted "$APP_PATH"
+            - name: "Launch"
+              run: |
+                xcrun simctl launch booted "${{ matrix.bundle_id }}"
+                sleep 5
+            - name: "Screenshot"
+              run: xcrun simctl io booted screenshot "${{ matrix.scheme }}.png"
+            - name: Upload Screenshot Artifact
+              uses: actions/upload-artifact@v4
+              with:
+                name: ${{matrix.scheme}}-screenshot
+                path: ${{ matrix.scheme }}.png
+
+
