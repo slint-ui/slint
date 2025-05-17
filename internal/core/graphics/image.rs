@@ -813,6 +813,19 @@ impl Image {
         })
     }
 
+    /// Returns the [WGPU](http://wgpu.rs) 24.x texture that this image wraps; returns None if the image does not
+    /// hold such a previously wrapped texture.
+    ///
+    /// *Note*: This function is behind a feature flag and may be removed or changed in future minor releases,
+    ///         as new major WGPU releases become available.
+    #[cfg(feature = "unstable-wgpu-24")]
+    pub fn to_wgpu_24_texture(&self) -> Option<wgpu_24::Texture> {
+        match &self.0 {
+            ImageInner::WGPUTexture(WGPUTexture::WGPU24Texture(texture)) => Some(texture.clone()),
+            _ => None,
+        }
+    }
+
     /// Creates a new Image from an existing OpenGL texture. The texture remains borrowed by Slint
     /// for the duration of being used for rendering, such as when assigned as source property to
     /// an `Image` element. It's the application's responsibility to delete the texture when it is
@@ -983,7 +996,7 @@ impl BorrowedOpenGLTextureBuilder {
 /// This enum describes the possible errors that can occur when importing a WGPU texture,
 /// via [`Image::try_from()`].
 pub enum WGPUTextureImportError {
-    /// The texture format is not supported. The only supported format is Rgba8Unorm.
+    /// The texture format is not supported. The only supported format is Rgba8Unorm and Rgba8UnormSrgb.
     InvalidFormat,
     /// The texture usage must include TEXTURE_BINDING as well as RENDER_ATTACHMENT.
     InvalidUsage,
@@ -994,7 +1007,7 @@ impl core::fmt::Display for WGPUTextureImportError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             WGPUTextureImportError::InvalidFormat => f.write_str(
-                "The texture format is not supported. The only supported format is Rgba8Unorm",
+                "The texture format is not supported. The only supported format is Rgba8Unorm and Rgba8UnormSrgb",
             ),
             WGPUTextureImportError::InvalidUsage => f.write_str(
                 "The texture usage must include TEXTURE_BINDING as well as RENDER_ATTACHMENT",
@@ -1008,7 +1021,9 @@ impl TryFrom<wgpu_24::Texture> for Image {
     type Error = WGPUTextureImportError;
 
     fn try_from(texture: wgpu_24::Texture) -> Result<Self, Self::Error> {
-        if texture.format() != wgpu_24::TextureFormat::Rgba8Unorm {
+        if texture.format() != wgpu_24::TextureFormat::Rgba8Unorm
+            && texture.format() != wgpu_24::TextureFormat::Rgba8UnormSrgb
+        {
             return Err(WGPUTextureImportError::InvalidFormat);
         }
         let usages = texture.usage();
