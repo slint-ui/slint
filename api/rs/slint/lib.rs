@@ -5,9 +5,6 @@
 
 #![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 
-#[cfg(target_env = "musl")]
-compile_error!("Compiling with MUSL is not supported by this crate.");
-
 /*!
 # Slint
 
@@ -203,6 +200,9 @@ each instance will have their own instance of associated globals singletons.
 #![doc(html_logo_url = "https://slint.dev/logo/slint-logo-square-light.svg")]
 #![cfg_attr(not(feature = "std"), no_std)]
 #![allow(clippy::needless_doctest_main)] // We document how to write a main function
+
+#[cfg(target_env = "musl")]
+compile_error!("Compiling with MUSL is not supported by this crate.");
 
 extern crate alloc;
 
