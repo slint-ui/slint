@@ -152,9 +152,11 @@ jobs:
                 - demo: demos/home-automation/rust
                   scheme: "Home Automation"
                   bundle_id: com.slint.demos.HomeAutomation.HomeAutomation
+                  device: iPad Pro 13-inch (M4)
                 - demo: demos/energy-monitor
                   scheme: "Energy Monitor"
                   bundle_id: com.slint.demos.EnergyMonitor.EnergyMonitor
+                  device: iPhone 16
         runs-on: macos-14
         steps:
             - uses: actions/checkout@v4
@@ -164,11 +166,11 @@ jobs:
             - run: brew install xcodegen
             - run: xcodegen -s ios-project.yml
               working-directory: ${{ matrix.demo }}
-            - run: xcodebuild -scheme "${{ matrix.scheme }}" -destination 'platform=iOS Simulator,name=iPhone 16' build
+            - run: xcodebuild -scheme "${{ matrix.scheme }}" -destination 'platform=iOS Simulator,name=${{ matrix.device }}' build
               working-directory: ${{ matrix.demo }}
             - name: "Boot Simulator"
               run: |
-                xcrun simctl boot "iPhone 16"
+                xcrun simctl boot "${{ matrix.device }}"
                 sleep 10
             - name: "Install"
               run: |
