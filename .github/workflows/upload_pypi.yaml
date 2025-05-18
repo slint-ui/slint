@@ -72,6 +72,73 @@ jobs:
                 name: python-package-distributions-${{ matrix.platform.runner }}-${{ strategy.job-index }}
                 path: api/python/wheelhouse/*.whl
 
+    ios_binaries:
+        strategy:
+            matrix:
+                target:
+                    - aarch64-apple-ios-sim
+                    - aarch64-apple-ios
+                include:
+                    - target: aarch64-apple-ios-sim
+                      sim_suffix: SIM_
+                      python_sim_suffix: _x86_64-simulator
+                      arch: arm64
+                      sdk_name: iphonesimulator
+                    - target: aarch64-apple-ios
+                      arch: x86_64
+                      sdk_name: iphoneos
+
+        runs-on: macos-14
+        steps:
+            - uses: actions/checkout@v4
+            - uses: ./.github/actions/setup-rust
+              with:
+                  target: aarch64-apple-ios
+            - uses: actions/setup-python@v5
+              with:
+                python-version: '3.12'
+            - uses: baptiste0928/cargo-install@v3
+              with:
+                  crate: taplo-cli
+            - name: Prepare feature config for binaries
+              working-directory: api/python
+              shell: bash
+              run: |
+                cat Cargo.toml | taplo format --option column_width=100000 --stdin-filepath=Cargo.toml - | \
+                  perl -p -e 's,^\s*default\s*=.*,,' | \
+                  perl -p -e 's,# binaries:\s?,,' > Cargo.toml.new
+                cat Cargo.toml.new | taplo format --stdin-filepath=Cargo.toml - > Cargo.toml
+                rm Cargo.toml.new
+                taplo get -f Cargo.toml features.default
+
+            - run: |
+                git clone https://github.com/beeware/mobile-forge.git
+                cd mobile-forge
+                source ./setup-iOS.sh 3.13
+                PYTHONDIR="$PWD/support/3.13/iOS/Python.xcframework/ios-arm64${{ matrix.python_sim_suffix}}"
+                echo PYTHONDIR="$PYTHONDIR" >> $GITHUB_ENV
+                OSX_SDKROOT=$(xcrun --sdk macosx --show-sdk-path)
+                echo "OSX_SDKROOT=$OSX_SDKROOT" >> $GITHUB_ENV
+                IOS_SDKROOT=$(xcrun --sdk ${{ matrix.sdk_name }} --show-sdk-path)
+                echo "IOS_SDKROOT=$IOS_SDKROOT" >> $GITHUB_ENV
+                echo "PYO3_CROSS_PYTHON_VERSION=3.13" >> $GITHUB_ENV
+                echo "SDKROOT=$OSX_SDKROOT" >> $GITHUB_ENV
+                echo "PYO3_CROSS_LIB_DIR=$PYTHONDIR" >> $GITHUB_ENV
+                echo CARGO_TARGET_AARCH64_APPLE_IOS_${{ matrix.sim_suffix }}RUSTFLAGS="-C link-arg=-isysroot -C link-arg=$IOS_SDKROOT -C link-arg=-arch -C link-arg=${{ matrix.arch }} -C link-arg=-miphoneos-version-min=14.0 -C link-arg=-F -C link-arg=$PYTHONDIR -C link-arg=-framework	-C link-arg=Python" >> $GITHUB_ENV
+
+            - name: Build a binary wheel
+              uses: PyO3/maturin-action@v1
+              with:
+                  working-directory: api/python
+                  target: ${{ matrix.target }}
+                  args: --release --out wheelhouse --find-interpreter
+
+            - name: Store the distribution packages
+              uses: actions/upload-artifact@v4
+              with:
+                name: python-package-distributions-${{ matrix.target }}
+                path: api/python/wheelhouse/*.whl
+
     build_source_package:
         name: Build source package
         runs-on: ubuntu-latest
@@ -127,7 +194,7 @@ jobs:
       if: ${{ github.event.inputs.release == 'true' }}
       name: >-
           Publish Python 🐍 distribution 📦 to PyPI
-      needs: [build_binaries, build_source_package]
+      needs: [build_binaries, ios_binaries, build_source_package]
       runs-on: ubuntu-latest
       environment:
           name: pypi
