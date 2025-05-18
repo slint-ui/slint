@@ -188,6 +188,9 @@
     "backends_and_renderers": {
         "href": "guide/backends-and-renderers/backends_and_renderers/"
     },
+    "skia_renderer": {
+        "href": "guide/backends-and-renderers/backends_and_renderers/#skia-renderer"
+    },
     "globals": {
         "href": "guide/language/coding/globals/"
     },
