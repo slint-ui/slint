@@ -1,0 +1,66 @@
+---
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+title: iOS
+description: iOS Platform Guide
+---
+
+import { Code } from '@astrojs/starlight/components';
+
+:::note[Note]
+Developing Slint application for iOS requires Rust as programming language.
+:::
+
+A Rust-based Slint application can be cross-compiled to iOS and will run on iPhones, iPads, and the
+respective simulators.
+
+# Prerequisites
+
+ - A computer running macOS.
+ - An up-to-date installation of [Xcode](https://developer.apple.com/xcode/).
+ - [Xcodegen](https://github.com/yonaskolb/XcodeGen?tab=readme-ov-file#installing)
+ - [Rust](https://rustup.rs). Add the target and simulator toolchains using `rustup target add aarch64-apple-ios` and `rustup target add aarch64-apple-ios-sim`
+
+# Adding iOS Support to a Rust Application
+
+The following steps assume that you have a Rust application with Slint prepared. If you're just getting started, use our [Slint Rust Template](https://github.com/slint-ui/slint-rust-template)
+to a minimal hello world running.
+
+Building, deploying, and submission of iOS applications to the App Store must be done through Xcode. Use [Xcodegen](https://github.com/yonaskolb/XcodeGen) to create an Xcode project
+from a minimal description.
+
+1. Start by creating a file called `project.yml` with the following contents:
+
+```yml
+name: My App
+options:
+  bundleIdPrefix: com.company.MyApp
+targets:
+  MyApp:
+    type: application
+    platform: iOS
+    deploymentTarget: "12.0"
+    info:
+        path: Info.plist
+    sources: []
+    postCompileScripts:
+      - script: |
+          build_for_ios_with_cargo.bash slint-rust-template
+        outputFileLists:
+            $TARGET_BUILD_DIR/$EXECUTABLE_PATH
+```
+
+This configuration file delegates the build process to cargo through a shell script.
+
+:::note[Note]
+The shell script is invoked with the name of the binary that cargo produces. Adjust it to match the name of your project.
+:::
+
+2. Paste the following script code into a new file called `build_for_ios_with_cargo.bash`:
+
+import scriptContent from '../../scripts/build_for_ios_with_cargo.bash?raw'
+
+<Code code={scriptContent} lang="bash" />
+
+3. Make it executable with `chmod +x build_for_ios_with_cargo.bash`.
+
+4. Run `xcodegen` to create a `My App.xcodeproj`, and open the `My App.xcodeproj` in Xcode. Now you can build, deploy, and debug your iOS application.
