@@ -56,6 +56,28 @@ let main = new ui.Main();
 main.greeting = "Hello friends";
 ```
 </TabItem>
+<TabItem label="Python">
+
+You can specify the style by setting the `SLINT_STYLE` environment variable in the beginning of your Python script:
+
+```python
+import slint
+import os
+
+
+os.environ["SLINT_STYLE"] = "material"
+# or
+# os.environ.setdefault("SLINT_STYLE", "material")
+
+
+class MainWindow(slint.loader.ui.app.AppWindow): ...
+
+
+main_window = MainWindow()
+main_window.show()
+main_window.run()
+```
+</TabItem>
 </Tabs>
 
 ## Using Style Properties In Your Own Components
