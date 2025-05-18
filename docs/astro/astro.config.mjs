@@ -155,8 +155,10 @@ export default defineConfig({
                                 items: [
                                     "guide/platforms/desktop",
                                     "guide/platforms/embedded",
-                                    "guide/platforms/mobile",
+                                    "guide/platforms/android",
+                                    "guide/platforms/ios",
                                     "guide/platforms/web",
+                                    "guide/platforms/other",
                                 ],
                             },
                             {

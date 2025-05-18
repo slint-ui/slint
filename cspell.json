@@ -194,7 +194,9 @@
         "espflash",
         "pico",
         "wgpu",
-        "WGPU"
+        "WGPU",
+        "Xcodegen",
+        "Xcodeproj",
     ],
     "ignorePaths": [
         "api/cpp/docs/conf.py",
