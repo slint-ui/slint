@@ -9,11 +9,11 @@ import Link from '/src/components/Link.astro';
 import { Image } from 'astro:assets';
 
 :::note[Note]
-Developing Slint application for iOS requires Rust as programming language.
+When developing Slint applications for iOS, you can only use Rust as the programming language.
 :::
 
-A Rust-based Slint application can be cross-compiled to iOS and will run on iPhones, iPads, and the
-respective simulators. This is implemented by means of the <Link type="WinitBackend" label="Winit backend" /> and the
+A Rust-based Slint application can be cross-compiled to iOS and runs on iPhones, iPads, and their
+respective simulators. This is implemented through the <Link type="WinitBackend" label="Winit backend" /> and the
 <Link type="skia_renderer" label="Skia Renderer" />.
 
 ## Prerequisites
@@ -21,16 +21,17 @@ respective simulators. This is implemented by means of the <Link type="WinitBack
  * A computer running macOS.
  * An up-to-date installation of [Xcode](https://developer.apple.com/xcode/).
  * [Xcodegen](https://github.com/yonaskolb/XcodeGen?tab=readme-ov-file#installing).
- * [Rust](https://rustup.rs).
- * Add the Rust target and simulator toolchains using `rustup target add aarch64-apple-ios` and `rustup target add aarch64-apple-ios-sim`.
+ * [Rust](https://rustup.rs)
+ * The Rust device and simulator toolchains. Run `rustup target add aarch64-apple-ios` and `rustup target add aarch64-apple-ios-sim`
+   to add them.
 
-## Adding iOS Support to a existing Rust Application
+## Adding iOS Support to an existing Rust Application
 
 The following steps assume that you have a Rust application with Slint prepared. If you're just getting started, use our [Slint Rust Template](https://github.com/slint-ui/slint-rust-template)
-to a minimal hello world running.
+to get a minimal application running.
 
-Building, deploying, and submission of iOS applications to the App Store must be done through Xcode. Use [Xcodegen](https://github.com/yonaskolb/XcodeGen) to create an Xcode project
-from a minimal description.
+Use XCode to building, deploy, and submit iOS applications to the App Store.
+Use [Xcodegen](https://github.com/yonaskolb/XcodeGen) to create an Xcode project from a minimal description.
 
 1. Verify that your application compiles for iOS, by running:
 
@@ -59,15 +60,15 @@ targets:
             $TARGET_BUILD_DIR/$EXECUTABLE_PATH
 ```
 
-Adjust the name, bundle id, etc. fields as needed.
+Adjust the name, bundle id, and other fields as needed.
 
 This configuration file delegates the build process to cargo through a shell script.
 
 :::note[Note]
-The shell script is invoked with the name of the binary that cargo produces. Adjust it to match the name of your project.
+The shell script is invoked with the name of the binary that cargo produces. Update it to match the name of your project.
 :::
 
-2. Paste the following script code into a new file called `build_for_ios_with_cargo.bash`:
+2. In a new file called `build_for_ios_with_cargo.bash`, paste the following script code:
 
 import scriptContent from './../../../../../../../scripts/build_for_ios_with_cargo.bash?raw'
 
@@ -75,7 +76,7 @@ import scriptContent from './../../../../../../../scripts/build_for_ios_with_car
 
 3. Make the script executable with `chmod +x build_for_ios_with_cargo.bash`.
 
-4. Run `xcodegen` to create a `My App.xcodeproj`, and open the `My App.xcodeproj` in Xcode. Now you can build, deploy, and debug your iOS application.
+4. Run `xcodegen` to create `My App.xcodeproj`, and open it in Xcode. Now you can build, deploy, and debug your iOS application.
 
 import iosScreenshot from '/src/assets/ios-simulator.webp';
 
