@@ -6,6 +6,7 @@ description: iOS Platform Guide
 
 import { Code } from '@astrojs/starlight/components';
 import Link from '/src/components/Link.astro';
+import { Image } from 'astro:assets';
 
 :::note[Note]
 Developing Slint application for iOS requires Rust as programming language.
@@ -75,3 +76,7 @@ import scriptContent from './../../../../../../../scripts/build_for_ios_with_car
 3. Make the script executable with `chmod +x build_for_ios_with_cargo.bash`.
 
 4. Run `xcodegen` to create a `My App.xcodeproj`, and open the `My App.xcodeproj` in Xcode. Now you can build, deploy, and debug your iOS application.
+
+import iosScreenshot from '/src/assets/ios-simulator.webp';
+
+<Image src={iosScreenshot} style={{width: "500px"}} alt="Screenshot Slint Template running in iOS Simulator"  />
