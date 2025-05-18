@@ -118,7 +118,7 @@ export component MainScreen inherits Rectangle {
         ]
     }
 
-    Rectangle {
+    if AppState.orientation == Orientation.landscape: Rectangle {
         property <bool> showing-time: true;
         property <length> margin: AppState.graphics-accelerator-available ? 5px : 20px;
         width: 200px;
@@ -184,7 +184,7 @@ export component MainScreen inherits Rectangle {
             }
         }
     }
-    if AppState.orientation == Orientation.portrait:  HorizontalLayout {
+    if AppState.orientation == Orientation.portrait: HorizontalLayout {
         y: root.height - self.height - 10px;
         alignment: center;
         spacing: 30px;
