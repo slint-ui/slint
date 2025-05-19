@@ -53,9 +53,9 @@ impl SlintExtension {
             (_, _) => return Err("platform or architecture not supported".to_string()),
         };
 
-        let (asset_file_type, asset_name_ext) = match target.0 {
-            Os::Mac | Os::Linux => (DownloadedFileType::GzipTar, ".tar.gz"),
-            Os::Windows => (DownloadedFileType::Zip, ".zip"),
+        let (asset_file_type, asset_name_ext, binary_ext) = match target.0 {
+            Os::Mac | Os::Linux => (DownloadedFileType::GzipTar, ".tar.gz", ""),
+            Os::Windows => (DownloadedFileType::Zip, ".zip", ".exe"),
         };
 
         let asset_name = format!("{target_name}{asset_name_ext}");
@@ -67,7 +67,14 @@ impl SlintExtension {
             .ok_or_else(|| format!("no asset found matching {:?}", asset_name))?;
 
         let extension_dir = "slint-lsp";
-        let binary_path = format!("{extension_dir}/{target_name}/slint-lsp");
+        let binary_path = format!(
+            "{extension_dir}/{}/slint-lsp{binary_ext}",
+            if target_name == "slint-lsp-aarch64-unknown-linux-gnu" {
+                target_name
+            } else {
+                "slint-lsp"
+            },
+        );
 
         if !fs::metadata(&binary_path).map_or(false, |stat| stat.is_file()) {
             zed::set_language_server_installation_status(
