@@ -22,8 +22,6 @@ export component App inherits Window {
     background: UsecasesPalette.use-material ? Palette.alternate-background : Palette.background;
 
     main-view := MainView {
-        width: 100%;
-        height: 100%;
         break-layout: root.width < 480px;
     }
 
