@@ -14,6 +14,9 @@ export global MainViewAdapter {
 export component MainView {
     in property <bool> break-layout;
 
+    preferred-height: 100%;
+    preferred-width: 100%;
+
     forward-focus: focus-scope;
     focus-scope := FocusScope { }
 
