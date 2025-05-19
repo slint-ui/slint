@@ -247,14 +247,14 @@ importers:
         specifier: 1.9.4
         version: 1.9.4
       '@codingame/monaco-vscode-api':
-        specifier: ~8.0.4
-        version: 8.0.4
+        specifier: ~17.1.0
+        version: 17.1.0
       '@codingame/monaco-vscode-configuration-service-override':
         specifier: ~8.0.4
         version: 8.0.4
       '@codingame/monaco-vscode-editor-api':
-        specifier: ~8.0.4
-        version: 8.0.4
+        specifier: ~17.1.0
+        version: 17.1.0
       '@codingame/monaco-vscode-files-service-override':
         specifier: ~8.0.4
         version: 8.0.4
@@ -585,14 +585,218 @@ packages:
     bundledDependencies:
       - is-unicode-supported
 
+  '@codingame/monaco-vscode-0764a541-f621-5022-a1f8-cbdadacae5ec-common@17.1.0':
+    resolution: {integrity: sha512-idzfWcy8mp7qdqMsYBALmaYa0gHhqAa1aQnSh2wLYp/ASwNBa+zXph91Z9KgZABR/EsiG29ymn6O5/to/2725g==}
+
+  '@codingame/monaco-vscode-0b087f42-a5a3-5eb9-9bfd-1eebc1bba163-common@17.1.0':
+    resolution: {integrity: sha512-ZSzNSzcr65JC4Kkpb4+E0YvUirP5ZUnER4eSgVt7fx88L9/V/VUDymbFGfXNrOIPy/9Cw+vq5yKjxr8CNZLGeg==}
+
+  '@codingame/monaco-vscode-0c06bfba-d24d-5c4d-90cd-b40cefb7f811-common@17.1.0':
+    resolution: {integrity: sha512-NoSzVI5OMc3bpcOwljAKiXjbWkbdf4OXp/mWRtFeaOac5xMV9/NRQH72jPt3DYNYjaD9J8CBzqEor2BfxHvmIw==}
+
+  '@codingame/monaco-vscode-0cc5da60-f921-59b9-bd8c-a018e93c0a6f-common@17.1.0':
+    resolution: {integrity: sha512-ZRr3XXbEShJlacg6/QWQG86WV5pS/hsjIArTVySJA+bHLjGTWBc9C5qRHc2fYwSQN2WylLROxoJzLU6AMZa6sg==}
+
+  '@codingame/monaco-vscode-15626ec7-b165-51e1-8caf-7bcc2ae9b95a-common@17.1.0':
+    resolution: {integrity: sha512-UyCyxF/tTCzYlTh+DNIF8klnXKC1VjC+4z2hq+juBPBWdsR3gvTFsz4CjAk0vQqHdE1D+4bhceVwWVGlPnZPgQ==}
+
+  '@codingame/monaco-vscode-1ae7d696-d960-5ac6-97a3-9fe7c8c3a793-common@17.1.0':
+    resolution: {integrity: sha512-WsMG5X/8NM2NslCz+YNN723gWCoIdLawiHzW9PheyPwkc7f2VthcayyXRst10OdYgVV+fn4xDUcUTog6Ev1sBg==}
+
+  '@codingame/monaco-vscode-1ba786a5-b7d7-5d26-8a85-ae48ee2a74a4-common@17.1.0':
+    resolution: {integrity: sha512-eKdaukOx9QsutwBmfcmKJE4MlH4NKkm+gfODdhTE8V5cKCjkYvmiFSw05KGmjPoSp8CwCZuJjU0DgY8UG2B0Mg==}
+
+  '@codingame/monaco-vscode-1cb11a73-359e-5a2f-9e95-6989cc9858ee-common@17.1.0':
+    resolution: {integrity: sha512-+TaMchNvzEolWg/U2rL5mQtr428FRnwLpoEHItkJUWXLwGY7WmRoLv2LtVwxQ7jrQAYIjReKje/eW0+LVd+YUw==}
+
+  '@codingame/monaco-vscode-1cc4ea0a-c5b6-54ed-bb60-078a99119b55-common@17.1.0':
+    resolution: {integrity: sha512-BtksA58WMgjTGkdaDFDadgtXMtKQ4qpIE6yaDM8kCHNVMEQziF+7KeMBIB/p3wAyfqE+jsu5H0m6Jb7se0DEbA==}
+
+  '@codingame/monaco-vscode-210e86a9-a91b-5273-b05d-390c776dde1f-common@17.1.0':
+    resolution: {integrity: sha512-NgqidSMK4fWmdkihwLeV65kNkdRX6Cqb+AEEo3SUq07oN/8bZkxxg0ng1kuuQzKnB/EYIsI0lZZoRnLXrdJD6w==}
+
+  '@codingame/monaco-vscode-256d5b78-0649-50e9-8354-2807f95f68f4-common@17.1.0':
+    resolution: {integrity: sha512-GDrVV6I/1GugxIY03mbVpy/xMtl13+WIaF3i+JhX2OWxTqeqYEZ4UBdsvjqXb7FxI5qhP7r3TpFoutVJ8XezcA==}
+
+  '@codingame/monaco-vscode-2a94c04a-b85b-5669-b06b-89c1bfa11cb9-common@17.1.0':
+    resolution: {integrity: sha512-/R8AKqxRAxHo4xI29NAzxTlFDo3tFNOZ9a05XO4BvnvjBJUm5QZj3wl++VNWLbWLmoabP6AoISFUsjh9tPHAPA==}
+
+  '@codingame/monaco-vscode-2cbab29e-9393-5de6-b701-9a9555360b6b-common@17.1.0':
+    resolution: {integrity: sha512-BqAcRey9+9KOvLS8OzQSA53G0Ks29yD/JDLM7RRq7At37xAYCBpvpbSP+FGewpr4KQaiVs2dgJaXn5eojPkDvg==}
+
+  '@codingame/monaco-vscode-2f06fe84-148e-5e6b-a7ca-c7989c5f128a-common@17.1.0':
+    resolution: {integrity: sha512-qapwdiv62ZcQO45UrkZN8SRJKu2utAZnwxcc/qnQvHpMFXWUYWUB/+Z0Hvp3ipubNaqB4V9MhLQFaXXjyBBhtw==}
+
+  '@codingame/monaco-vscode-324f9a6e-6231-5bfc-af17-e147abd2dfd2-common@17.1.0':
+    resolution: {integrity: sha512-zmkcQb/ZIgPYAQisjy5Ichm85uQteVkV75J5m8zHm6bWFqsUTxqer6+jF9yt9s6sj7X8/XKXBwVb2qu7rC65Fw==}
+
+  '@codingame/monaco-vscode-34a0ffd3-b9f5-5699-b43b-38af5732f38a-common@17.1.0':
+    resolution: {integrity: sha512-IftYMLlRtMheVsW+oHOqwRmvIB/DW225JTX7h4chZfZ0jU/6yUwci9C1vPfz+EG0YCl1nG8Nb10f0l2s0CKLew==}
+
+  '@codingame/monaco-vscode-3cf6a388-482f-5484-a806-0525ad9ad8af-common@17.1.0':
+    resolution: {integrity: sha512-otKQUVQRxF5muGSW7ZeTgwKqqEWGtL6TgXOFGJ78I3SMDSO+k+VkEpWM04cORyT6pPSPXRfDAUz6AzuHHSGINg==}
+
+  '@codingame/monaco-vscode-407531d3-fdae-5387-8c41-49ba0e9574b5-common@17.1.0':
+    resolution: {integrity: sha512-iSSFvBImglu6BCQkfrTTfS9Sz9qaBEwE2Zj/7AXyH2dDhsKM6/c+sddvrM0HvE9HCaQ5dqAbV05zzR51VvcpDw==}
+
+  '@codingame/monaco-vscode-40cada32-7e9c-528a-81fc-766e4da54147-common@17.1.0':
+    resolution: {integrity: sha512-vJRvUfxY4Y1Umbp/Z9fWgC8I19iZExRwif4rgIqzdsdtMX5uGt+NRcPTazdz7OE6GnINLJpKmrgYlQp6qye5qA==}
+
+  '@codingame/monaco-vscode-42931eb9-e564-530c-bafc-fa23ab43a070-common@17.1.0':
+    resolution: {integrity: sha512-uWe2+kJKLPHjztWvmug6u3nO/1DJKCyUiGEPaHpiGOhtqBHFgROqsdsqTabngnDL8CoSY5gkLsgZPoJn3l2c7g==}
+
+  '@codingame/monaco-vscode-4a0e04a7-c3bd-5fb7-9d3b-4fd047cc9e59-common@17.1.0':
+    resolution: {integrity: sha512-bzRkYlE2q5gF0egNhFlJqbtsdgZ23zC8enwLQrfWUtGwPOaX0EddwbZhd2q49k9438QY3dwBCtBv9kOzP7CzqA==}
+
+  '@codingame/monaco-vscode-4a3ac544-9a61-534c-88df-756262793ef7-common@17.1.0':
+    resolution: {integrity: sha512-2Uxbgn29RwRSKGec1eEP8xBPoCH8DlPintbdWqW9a0+8ceCPxqqpuB0sHBQnx9xPtGx8bEKrwN8e4wiMdbM2fg==}
+
+  '@codingame/monaco-vscode-51fed910-d648-5620-9b80-9232cd79d116-common@17.1.0':
+    resolution: {integrity: sha512-O7vJBuSKHqtHhpG6xcvyLGu+x5+7DS1e5mLQjTHTVC49Iif6RRXQcan16XLumwUTCF36kOCXpRZGycC5P9CmGw==}
+
+  '@codingame/monaco-vscode-5452e2b7-9081-5f95-839b-4ab3544ce28f-common@17.1.0':
+    resolution: {integrity: sha512-KzCt5+I7GbjchSih8B6hDYZ8KRKGiwTMyhluLMR9wek0CLNptNEuyOEoFxEzsO7bwXiv9l3YNWy7IoCCzXnGBA==}
+
+  '@codingame/monaco-vscode-5945a5e2-a66c-5a82-bd2c-1965724b29eb-common@17.1.0':
+    resolution: {integrity: sha512-3EjlFD3MpGIRYwbdM/4yrRxpcn5KQSTiBaoI48xMgC9Sb78Gfc6GK17QVq0jNGoTgIJWPwuJa1HrUepXM6Bdzg==}
+
+  '@codingame/monaco-vscode-65619f8f-0eab-5d8b-855a-43b6353fe527-common@17.1.0':
+    resolution: {integrity: sha512-0fGwKUbp0eNL8vSMFx3Y61I9sHBF8pE00nrZJj8L7Ni3kwj7Z1PKW8w6yDDf9R24RunAUVMOBMPlF/o7/j3Shw==}
+
+  '@codingame/monaco-vscode-6845754f-e617-5ed9-8aaa-6ca3653a9532-common@17.1.0':
+    resolution: {integrity: sha512-5tmg8Zr7REW7w2IvDtW0q2hdUIJxw8S+IZXs1B3WpsZoLHaRpwZmDA0PAo4/V07hlygHy/rltst9mRDBVbGq0w==}
+
+  '@codingame/monaco-vscode-6bf85d7b-e6e3-54e9-9bc1-7e08d663f0f6-common@17.1.0':
+    resolution: {integrity: sha512-Qe8SOTX7ll8JE/3IcC5of1Q2g7KCzva1jSrWWhUhcOn57I7MhGnetU+KBXI9Ov5tLgnbaV8hE2T9br+nQ1o//w==}
+
+  '@codingame/monaco-vscode-7443a901-21f6-577a-9674-42893b997ee0-common@17.1.0':
+    resolution: {integrity: sha512-nkqmQ9dipqU8FWTMb+jJco0xmXReJ/Q8EwTT0Bf5B7cbe9gLF1bRx6nbyz35f6A7Al1GzgCsJkhZZOI7AeR6Ng==}
+
+  '@codingame/monaco-vscode-7bbc9e7d-eeae-55fc-8bf9-dc2f66e0dc73-common@17.1.0':
+    resolution: {integrity: sha512-r4eRbnXbAfSrNCIl79yVkkW4CknRQ/IwFCc/GhbeqXE+V0W7qLAkYCfGKP+Z4IeV4cbIboai/JkkbBP+2om0vg==}
+
+  '@codingame/monaco-vscode-7f39b6f1-3542-5430-8760-0f404d7a7cee-common@17.1.0':
+    resolution: {integrity: sha512-Zm1NinvGiTEQB5Bce2dSIDYd7Gb2tuCWHi+Tqu9w24hwjXPA5mNHIYZzPwnBdM3exBfYAW4XwGUYIwhQI71LNQ==}
+
+  '@codingame/monaco-vscode-85886bdb-61c5-52f1-8eb7-d1d32f6f8cbd-common@17.1.0':
+    resolution: {integrity: sha512-1JUjvXt2J4pUb9sJ6mR0hogt2F4r5n/XNz6sPrznJXkNqhAFp2y+kYPvwxr9w0B6lRuJxjXwNPW1M0/jlBYdyg==}
+
+  '@codingame/monaco-vscode-86d65fc6-30f9-5dca-9501-e249de688591-common@17.1.0':
+    resolution: {integrity: sha512-Lo5UM2ZKsm8hoDAznE/1xfzbvjr7/6SQpPM86hNHuM94+cS6h4f9qX8LPeFq+LdFqxdjygkBevgMExeSxqam2A==}
+
+  '@codingame/monaco-vscode-897bebad-39df-57cb-8a57-36a271d038be-common@17.1.0':
+    resolution: {integrity: sha512-5FChEP6H+1M9ifmWTJs4xK+68c34w6LeAcZJa6jpfJ6140H57owKuqWwVuzaO4Nn5kCIrob5R9ePHREF+Pw9Xg==}
+
+  '@codingame/monaco-vscode-8ccb7637-50ea-5359-97bf-00015d7fe567-common@17.1.0':
+    resolution: {integrity: sha512-4/nym2m200aSdkaTTZzHRJVuQYRzUtzxFPKfespom+hYd0hbQg04UfVuDRwnf8H13tPA3OXmjlrvmKKas379EA==}
+
+  '@codingame/monaco-vscode-912ff6c1-e6aa-58cf-bd7f-50cf27bdb591-common@17.1.0':
+    resolution: {integrity: sha512-UKoTEoi4CN0sLghNmRikJrp9Y81j5xXxwEwpGo5QOTHq7pi9zF5Ltm57/Kxq8dqSrtookLwsPZgiubwDypigpg==}
+
+  '@codingame/monaco-vscode-95ea5c7c-15cf-50aa-8e24-38039b06b4a6-common@17.1.0':
+    resolution: {integrity: sha512-LGQ/EPYumQ2ur+4X2S/CPlfAVEsyU2LiqiD7uFtBBRNdl4AWj50HToAuGflz8NnAkENpDWj4MuujuHgIwfWQpw==}
+
+  '@codingame/monaco-vscode-96e83782-7f38-572e-8787-02e981f1c54f-common@17.1.0':
+    resolution: {integrity: sha512-YXpLZRZaucccXdSaSqHU68vlXqyclQawJfeA7QIZJ3obbtS3H2MlvYZPWp6clOkRxQAhTjKzs1VpXd2AUCBM0A==}
+
+  '@codingame/monaco-vscode-97284942-b044-5fbb-b53b-3f46d2468746-common@17.1.0':
+    resolution: {integrity: sha512-mOmru+JfnjvgTtyYlLz/iaEf0c/KNUjMerr9RZPC0/+iL3/IFGGlMQDWOCYixCJS2WFV8AB9tsDjYIfb1wdEGQ==}
+
+  '@codingame/monaco-vscode-9a1a5840-af83-5d07-a156-ba32a36c5c4b-common@17.1.0':
+    resolution: {integrity: sha512-KS0m96ByKKzIoHVS/Pm3OQXOy1vcnAGVpwFsphnhOLWV6i2ti8Zd40DhC+rRq75Udz03EOZLwI4ixBbn5rZT8Q==}
+
+  '@codingame/monaco-vscode-9c72783f-914c-50be-b9ef-da16356d81a8-common@17.1.0':
+    resolution: {integrity: sha512-PffaVs+gyFiYsdbSI46kC2v1MXwVaD+dXNOJQHVNLKEJcJIyowk+snEx7cImaGcekoOhazhDPepRKHexSaO3uA==}
+
+  '@codingame/monaco-vscode-9ee79c1a-3f03-568b-8eac-b02513a98b68-common@17.1.0':
+    resolution: {integrity: sha512-+Vjng7r9WTLUyD8NVjIJzEsuKKy8K0/jJXlvCk3MLezPe8+oRo6R2nLNnEvQcH8jaRKyDwui1Z+yADCU4RgMQQ==}
+
+  '@codingame/monaco-vscode-9f229325-8261-585c-a552-16085958c680-common@17.1.0':
+    resolution: {integrity: sha512-vIU5qZHIHCktBv4zH6lmSoPD1SgstlK0gLEGO/oojZmvVot3rQhfJlsJZUW8xB2+CHBOcMqn65J4weq+kLWkCg==}
+
+  '@codingame/monaco-vscode-a2719803-af40-5ae9-a29f-8a2231c33056-common@17.1.0':
+    resolution: {integrity: sha512-sgEa7T4i5klTzSWDsR7J8mxhGpvf+vd0xi/HMQYQAmFfWWYpydZRcFbrT7My/GKV0sqPl6UpKinKf/vA33g2Ew==}
+
+  '@codingame/monaco-vscode-a7c9ae3c-16d2-5d17-86b2-981be7094566-common@17.1.0':
+    resolution: {integrity: sha512-o/fmKohLplcxuDlChGCYBDonsdRPzT0J9QNbf9wlPzm5Qi30jJNI+W7X31Cdgnrr15wkKG2zn67VYtUB6bASfg==}
+
+  '@codingame/monaco-vscode-abed5a84-8a82-5f84-9412-88a736235bae-common@17.1.0':
+    resolution: {integrity: sha512-GJ0D2OPHzFvW9KkP8SwZfmXo0MO9nF14nPBVQQXf5Pv+HBpBWbvfBpJru1LxT6ed7+SwYj2OPCUMcbgy9WA3FQ==}
+
+  '@codingame/monaco-vscode-api@17.1.0':
+    resolution: {integrity: sha512-H8mZCFZBexfMnC+2PYdmMofJlKsgpOArRipvfn+HOF2D6ZIqlvcWyRTOgEz2Bwq8bUF+XJQCglfeEtTePGd3LA==}
+
   '@codingame/monaco-vscode-api@8.0.4':
     resolution: {integrity: sha512-qZ+HwIijDvzwwWscMA73y9ARu5zUaENOdzi0jQftJP9j2k96cRghsaCV25OgnmpZ/1BemjB4HhHCcr71Gq+GPQ==}
+
+  '@codingame/monaco-vscode-b4efa70b-52b9-5670-ab5c-f10b10b6834e-common@17.1.0':
+    resolution: {integrity: sha512-w+CRE7mv15l046thyC6INDDbuV01yi2C9FNRQozg+vhelnDQ2tsbPk2FB7t6pYO4ROCOasFCZa8eyL7s/p/6NQ==}
+
+  '@codingame/monaco-vscode-base-service-override@17.1.0':
+    resolution: {integrity: sha512-iZEMbm8v5Qtbsyl1LG0u3EvMmpctLzxNwjpzyKUJKMGzVDuFFL2+pY2IBvbVES9kzIm3kS6br5gVnsOO1qy4ZA==}
 
   '@codingame/monaco-vscode-base-service-override@8.0.4':
     resolution: {integrity: sha512-tTIA68KRYgSPHyanjqTUGQro+t67vShxAGNjM2Iz7dhqMOYZhYA4oIwI4Q0A+QWBC2HKOCNkwFoc5pqconw5YA==}
 
+  '@codingame/monaco-vscode-bba55be6-41a2-50cd-a3cc-8bafa35bfa89-common@17.1.0':
+    resolution: {integrity: sha512-pDz1DLmtSUs5nUI06JBMDH+/7TwO07ULx9h2oHl43ttuJBDEUOlEbkEpvvXnHHeKQA/tQzv7AStbpwn84T9nSg==}
+
+  '@codingame/monaco-vscode-be8ddbb5-094a-5657-b1cc-fe106c94c632-common@17.1.0':
+    resolution: {integrity: sha512-qEqIePM2cwXuYhAYUnou7wSyx4wNasSN6CNyPLpegU4Wudo2ZFlJJrNWwE71PP0yJSXB2Ezn2FlFZZqa0c5+oA==}
+
+  '@codingame/monaco-vscode-bed2b49f-41ae-5ed2-b61a-1105500a3f8a-common@17.1.0':
+    resolution: {integrity: sha512-RMZ5ABMD7eL1ONmZ311RvjLPyH8xbI7MLReRaE+SHOn6c0q63XPgNmjvYVwNWOuK2O3Rjx8CewjliR7t9qoY9A==}
+
+  '@codingame/monaco-vscode-bf94ddb5-e436-506a-9763-5ab86b642508-common@17.1.0':
+    resolution: {integrity: sha512-fQty+Q0owSUb/z/tf2Ihfduqjo/wcag2VrZ1s4J76RBCrul6AkpxgqLzcrQpt8gxPj7VtXY8iWGWqz7xtmxDsA==}
+
+  '@codingame/monaco-vscode-c3c61c00-c254-5856-9dc9-d7929c1f9062-common@17.1.0':
+    resolution: {integrity: sha512-MFpo9JXCNQZpNo4ClldD/3vVorO+O6yY+XLehaig++0B1DuKhMHPvYA+gpB4ssZdAjl0WUmlkKGI9OwUPuRjbA==}
+
+  '@codingame/monaco-vscode-c465110a-57c0-59d7-a6b2-be0a4db7e517-common@17.1.0':
+    resolution: {integrity: sha512-HvrLsbOuvPNvuH0MMHB1HnM9QjvH2N3oq2lBY+Ai+VvjisUZhYxVIPdruTTzDsNjKwQFBnv9Tt7DQBv/2stbag==}
+
+  '@codingame/monaco-vscode-c8227507-8e59-53d6-b50b-71c0ab384cf4-common@17.1.0':
+    resolution: {integrity: sha512-/fDIBD8MHWA8v5JSFN65b5xcVMeWM7YgYaojVymjSGwfUWLB4mQXLHVVWnOBvUhqoJwWMhrDq7HkNrbv3KE58A==}
+
+  '@codingame/monaco-vscode-cea4d01f-6526-5c2f-8b09-b168fead499f-common@17.1.0':
+    resolution: {integrity: sha512-+ks6Z6I93LJ7zDWMKeKvmcJqeKp0OYe8kg0jR6I3e11v3Wczj6iPzGtR8MGPGcuzBCLFoOf4WjHoBndif43GnA==}
+
   '@codingame/monaco-vscode-configuration-service-override@8.0.4':
     resolution: {integrity: sha512-Fx8wRY3G2s3fpcQWGBMEe7fUmDhPFSkn+b/DwPCTiyo9IX+uKk8w097XjJBwCk0wVHgOcYs4GKPsip5IqJkydw==}
+
+  '@codingame/monaco-vscode-d0fb86d3-2a47-594e-955b-9a24631a7124-common@17.1.0':
+    resolution: {integrity: sha512-kyfzgxoI9tt2V3bDFBofQw9hCFyuXgCOsfw8ytVbNicKn5/vW8ZQYpFPE1icIbTnEJM5+Mp1pD9vFeCh+kTjhg==}
+
+  '@codingame/monaco-vscode-d609a7d3-bf87-551a-884f-550a8b327ec5-common@17.1.0':
+    resolution: {integrity: sha512-ZwZ6wyVYevL/8v62DjRETG4nqoTb5PpENrnv6Vloq3tYuKEaHin2vQG0MnRUqSZRJdN5F2wfvfkRKdQJ1z56Uw==}
+
+  '@codingame/monaco-vscode-d7f659f5-da33-5ea8-a3b8-9b94f2cf5f33-common@17.1.0':
+    resolution: {integrity: sha512-eGCnCgphlzWrZvAloNLAFFNqKhANcjSSoCpssKvR4FL8t3xgMMm/07rYEkh0RMhJgXK+mPLqpR2SMNSh5VRogg==}
+
+  '@codingame/monaco-vscode-d987325e-3e05-53aa-b9ff-6f97476f64db-common@17.1.0':
+    resolution: {integrity: sha512-AHu8aVGwk3wark6x18dF+3O2/MT0d0lfBHJSkckaVZA76KqF+dyuOfhkuS5fXMMLA5MuAJgevvzKKz63pbyjGw==}
+
+  '@codingame/monaco-vscode-e28ac690-06d5-5ee9-92d1-02df70296354-common@17.1.0':
+    resolution: {integrity: sha512-T6IzUK7Xc74HnSe6nHQySyG9zOUSsyKL9E1Evfi220grkeqBpQKjpTKXZ0ff+TG7TKDVMF3K2szSfNkGCxAELg==}
+
+  '@codingame/monaco-vscode-e67a0dae-5b2c-54e6-8d61-90102c78362d-common@17.1.0':
+    resolution: {integrity: sha512-dZ23y08kWT3fmyTPkWcM9kNml3qj1zDf7mmJDAncWUhXttOwml5jKOu2Z7dkx0ERiVrEHD8dBcT37ToYzIsQkQ==}
+
+  '@codingame/monaco-vscode-ea14e352-8f1c-5569-b79a-8a96a53e8abe-common@17.1.0':
+    resolution: {integrity: sha512-H2PWV7W7vy/VR1K/BiuZRxCzijb9BXRy9Q1VqFQjle+PB/p1hmnI6aw1VDrE9zDmwLocUfY2RzLFQHbNVfQ75A==}
+
+  '@codingame/monaco-vscode-eb7d5efd-2e60-59f8-9ba4-9a8ae8cb2957-common@17.1.0':
+    resolution: {integrity: sha512-8lCZ+22jZgjs4u27OAO9NqUKf0MGNJSRmSEIJDQcINehiS1nxRQBRoufZ+wq3SsYNUhEXhfvrUoBG0PDRAQfOw==}
+
+  '@codingame/monaco-vscode-eba0b9b3-174c-5dae-9867-a37810ca1808-common@17.1.0':
+    resolution: {integrity: sha512-DPIkD1f1Wm4S+q4xlf0uKu1MJ3i+YjYSzV7KfjF9YYjk+A66vlFL3qxrgRjg77iJHel0PLFzHBgqKTs/J1hwwg==}
+
+  '@codingame/monaco-vscode-ecf3436d-6064-5fbd-a760-37a211ce79c7-common@17.1.0':
+    resolution: {integrity: sha512-D94BuuvzyixnylfypTx6+1ofluLBPCqoKXfv3otiZBkoJvAP61U3ChFIO0s/BgzoIVs2z2Oh1MSHb52qbfcudQ==}
+
+  '@codingame/monaco-vscode-editor-api@17.1.0':
+    resolution: {integrity: sha512-HVgsdnz5eANsMqU+s8ZLFqLoUd2fy7E5R+nXffylXGgpTuGk1oZdU92M5uqFL32lSqaYU3o9qs5djxWNFkM6LQ==}
 
   '@codingame/monaco-vscode-editor-api@8.0.4':
     resolution: {integrity: sha512-rKUdFRsnzTV1dj6FL/MD+cBIUAGv9aJNz8bTx4BA5sDK3lDWuifhdCBvk4WZEj6glfXe3sEfGXKy1Vp5btDOJQ==}
@@ -600,14 +804,41 @@ packages:
   '@codingame/monaco-vscode-editor-service-override@8.0.4':
     resolution: {integrity: sha512-is77poIqjYAcve9AYlUrkMfgtjWlH1D9ebxGjk4Y2UHvmQvsrRFuaGvzEt4YpgNLd+0hSyuH+R0HWSOq3uN2BA==}
 
+  '@codingame/monaco-vscode-environment-service-override@17.1.0':
+    resolution: {integrity: sha512-Ngoqh7jhyQq3DgyDsNyzbTDKb8HKiw5953iQh+y26tfFFsbHstvyxKx0TWd1SXyY8UtoR2Y41NJiFytS4r23BQ==}
+
   '@codingame/monaco-vscode-environment-service-override@8.0.4':
     resolution: {integrity: sha512-3PBqEag0RaACIYiPdtDqxn4BS48yMq1uNCrNYm9E2P1On7JaCLNPHrQfE9Et6HbJT9qPzdcfbD5IwevQbCym5Q==}
+
+  '@codingame/monaco-vscode-extensions-service-override@17.1.0':
+    resolution: {integrity: sha512-YwiNfjTdA+pEPndQ6+gNnkG2/JZLEco5oE7FQ3/9iPPBa67IecfywpgxqBIXao8Yk64h9Su6+TREnVGqvITIzQ==}
 
   '@codingame/monaco-vscode-extensions-service-override@8.0.4':
     resolution: {integrity: sha512-uEOpSXGxC6W3uaKwj5p+WXsvkVqD1ONDNOCy8ZEHskpkN6KO/0XE927OvpF75JsqXHjNTmstSxTjU9/GykpruA==}
 
+  '@codingame/monaco-vscode-f22e7e55-aee8-5b52-a6bc-950efd9f5890-common@17.1.0':
+    resolution: {integrity: sha512-xFwOjei3c846d70N8uEW25G5fRYxr2zBPZVjIGBFrgZbqrw3bLFfmuQgN+iy/Ypsa41+sb8g4FQgVQg3QUuwAg==}
+
+  '@codingame/monaco-vscode-f48982c4-9e82-55e2-b800-20e6d1e6096f-common@17.1.0':
+    resolution: {integrity: sha512-PGGw23cN0TIqZPygpu0Fdj3mK8NO2tlxaCbHgoNXFliECkWY9xgvfkempG6EQcuX+AfJ5Y7x0/J21mXVUoUlhA==}
+
+  '@codingame/monaco-vscode-fab30422-b487-5f4e-8d30-8b4d266e3fcd-common@17.1.0':
+    resolution: {integrity: sha512-YnG5VaIVLzPSD+yvo6fQd4tKaSaw6kr8FyU6QcGb6xM/lgJyscqO/tY4JEtdEvWpWo2EtbhTejZ9Eu0TzZz/Rw==}
+
+  '@codingame/monaco-vscode-fc3b1755-9783-51f9-b3e6-45e7ef6fe6e3-common@17.1.0':
+    resolution: {integrity: sha512-8+auNxnwdTFeqnFjHFSV/JStKMEznnDmVTGZL/vRwfJtcKbMgo4LiC8Jvoznqa9VQeIqX6YYI5RidhlCb04Fzg==}
+
+  '@codingame/monaco-vscode-fc42f049-7883-579d-bb0b-2aa1010a19a8-common@17.1.0':
+    resolution: {integrity: sha512-Yi5x11Ad9EA6TYy3o8Wi3X2h6eNebVO6bLAU0ilwbj10rFNZboh16ylKvZVFuJlTSYkH3j6Phr9q1BKPEY2Zvg==}
+
+  '@codingame/monaco-vscode-files-service-override@17.1.0':
+    resolution: {integrity: sha512-JbhcXyQ98S30NycD50B+sHic0yS3uI9C7LjsGga5KOefYqLuPkPYxktg46wdzSZJB0lhme99rs1Bpz8dGkNYDQ==}
+
   '@codingame/monaco-vscode-files-service-override@8.0.4':
     resolution: {integrity: sha512-DCvbxgE6wwOoUsKGlinOB7vYx7HoVUviqWY913Fux4K7/wYWpBcNVtK8kmKs7euPJPeAsl06PJFaXaS3Qjfkqg==}
+
+  '@codingame/monaco-vscode-host-service-override@17.1.0':
+    resolution: {integrity: sha512-JRMZnqfisgKEW1xwYlXXEIe+oJYH3nO53G6j8lSvVhZw9Ew4zATYNvcdo1s0KuOIJ2teN50DP7cYkH6JSy6vHg==}
 
   '@codingame/monaco-vscode-host-service-override@8.0.4':
     resolution: {integrity: sha512-VT8jFmnzMpi6DuSgA8c/F0MVh+fApLH75ledgMqfsKC1vSDOkV0IaPPBHRfPYDPvXCrnOtfdpvP0hFrdg1ytig==}
@@ -660,6 +891,9 @@ packages:
   '@codingame/monaco-vscode-languages-service-override@8.0.4':
     resolution: {integrity: sha512-GXd2fKQa96tNv0gFB3nT/yWUc+4pZM/2L8KcfOOuNRWEOjm9TbOWmNZyWGi2Abf4vAdLNKVtJBX1+SoDkwoQdw==}
 
+  '@codingame/monaco-vscode-layout-service-override@17.1.0':
+    resolution: {integrity: sha512-9oiDIwPuwgJrf6PAYyvu7Ogo0JJ4xngxaX0RjNqgQFWXjdL9v9hbWj0iDSSFvoBu/15OOgwHyvuKwlbU13AL9w==}
+
   '@codingame/monaco-vscode-layout-service-override@8.0.4':
     resolution: {integrity: sha512-DrF1vRJG8vPOaqC06fu99yjvtIcuTza5vAQdH19FfDi87vyk3BeFsnj7H7Z0fRK/wQigBcNzXYbUkuE93I95IQ==}
 
@@ -671,6 +905,9 @@ packages:
 
   '@codingame/monaco-vscode-monarch-service-override@8.0.4':
     resolution: {integrity: sha512-OrlE+ffvGf9C6xfkcO6rEiuy4GJQJQ+dSByxHyfLXA9qCWn/dHpYfjpr83YIlBG0tNoBdAYnx2iLgAo6y5Tzkw==}
+
+  '@codingame/monaco-vscode-quickaccess-service-override@17.1.0':
+    resolution: {integrity: sha512-SyGEEpclrBnENB4IU2ENpkPqFSgpvqE5uTsPP41DLoCgkFlqw832dV/ABD9KhgX+lLAopLJMVlpm5DsdDrs1Ew==}
 
   '@codingame/monaco-vscode-quickaccess-service-override@8.0.4':
     resolution: {integrity: sha512-VXHVKRqtieKf+BTTUwcT++tJEb/k7PI2vLR3Lgsh2t0We7ydPOPLTDA99/Ls3yuM+i6IvKqBXc+WomN8MRS1rw==}
@@ -3763,6 +4000,10 @@ packages:
     resolution: {integrity: sha512-Q1PKVMK/uu+yjdlobgWIYkUOCR1SqUmW9m/eUJNNj4zI2N12i25v8fYpVf+zCakQeaTdBdhnZTFbVIAVZIVVOg==}
     engines: {node: '>=0.1.90'}
 
+  jschardet@3.1.4:
+    resolution: {integrity: sha512-/kmVISmrwVwtyYU40iQUOp3SUPk2dhNCMsZBQX0R1/jZ8maaXJ/oZIzUOiyOqcgtLnETFKYChbJ5iDC/eWmFHg==}
+    engines: {node: '>=0.1.90'}
+
   jsesc@3.1.0:
     resolution: {integrity: sha512-/sM3dO2FOzXjKQhJuo0Q173wf2KOo8t4I8vHy6lF9poUp7bKT0/NHE8fPX23PwfhnykfqnC2xRxOnVw5XuGIaA==}
     engines: {node: '>=6'}
@@ -3937,6 +4178,11 @@ packages:
 
   markdown-table@3.0.4:
     resolution: {integrity: sha512-wiYz4+JrLyb/DqW2hkFJxP7Vd7JuTDm77fvbM8VfEQdmSMqcImWeeRbHwZjBjIFki/VaMK2BhFi7oUUZeM5bqw==}
+
+  marked@14.0.0:
+    resolution: {integrity: sha512-uIj4+faQ+MgHgwUW1l2PsPglZLOLOT1uErt06dAPtx2kjteLAkbsd/0FiYg/MGS+i7ZKLb7w2WClxHkzOOuryQ==}
+    engines: {node: '>= 18'}
+    hasBin: true
 
   matcher@5.0.0:
     resolution: {integrity: sha512-s2EMBOWtXFc8dgqvoAzKJXxNHibcdJMV0gwqKUaw9E2JBJuGUK7DrNKrA6g/i+v72TT16+6sVm5mS3thaMLQUw==}
@@ -6088,6 +6334,276 @@ snapshots:
       picocolors: 1.1.1
       sisteransi: 1.0.5
 
+  '@codingame/monaco-vscode-0764a541-f621-5022-a1f8-cbdadacae5ec-common@17.1.0':
+    dependencies:
+      '@codingame/monaco-vscode-api': 17.1.0
+      '@codingame/monaco-vscode-c8227507-8e59-53d6-b50b-71c0ab384cf4-common': 17.1.0
+
+  '@codingame/monaco-vscode-0b087f42-a5a3-5eb9-9bfd-1eebc1bba163-common@17.1.0':
+    dependencies:
+      '@codingame/monaco-vscode-7bbc9e7d-eeae-55fc-8bf9-dc2f66e0dc73-common': 17.1.0
+      '@codingame/monaco-vscode-api': 17.1.0
+
+  '@codingame/monaco-vscode-0c06bfba-d24d-5c4d-90cd-b40cefb7f811-common@17.1.0':
+    dependencies:
+      '@codingame/monaco-vscode-86d65fc6-30f9-5dca-9501-e249de688591-common': 17.1.0
+      '@codingame/monaco-vscode-api': 17.1.0
+      '@codingame/monaco-vscode-c8227507-8e59-53d6-b50b-71c0ab384cf4-common': 17.1.0
+
+  '@codingame/monaco-vscode-0cc5da60-f921-59b9-bd8c-a018e93c0a6f-common@17.1.0':
+    dependencies:
+      '@codingame/monaco-vscode-api': 17.1.0
+      '@codingame/monaco-vscode-c8227507-8e59-53d6-b50b-71c0ab384cf4-common': 17.1.0
+      '@codingame/monaco-vscode-f22e7e55-aee8-5b52-a6bc-950efd9f5890-common': 17.1.0
+
+  '@codingame/monaco-vscode-15626ec7-b165-51e1-8caf-7bcc2ae9b95a-common@17.1.0':
+    dependencies:
+      '@codingame/monaco-vscode-api': 17.1.0
+
+  '@codingame/monaco-vscode-1ae7d696-d960-5ac6-97a3-9fe7c8c3a793-common@17.1.0':
+    dependencies:
+      '@codingame/monaco-vscode-912ff6c1-e6aa-58cf-bd7f-50cf27bdb591-common': 17.1.0
+      '@codingame/monaco-vscode-api': 17.1.0
+
+  '@codingame/monaco-vscode-1ba786a5-b7d7-5d26-8a85-ae48ee2a74a4-common@17.1.0':
+    dependencies:
+      '@codingame/monaco-vscode-7443a901-21f6-577a-9674-42893b997ee0-common': 17.1.0
+      '@codingame/monaco-vscode-api': 17.1.0
+
+  '@codingame/monaco-vscode-1cb11a73-359e-5a2f-9e95-6989cc9858ee-common@17.1.0':
+    dependencies:
+      '@codingame/monaco-vscode-4a0e04a7-c3bd-5fb7-9d3b-4fd047cc9e59-common': 17.1.0
+      '@codingame/monaco-vscode-51fed910-d648-5620-9b80-9232cd79d116-common': 17.1.0
+      '@codingame/monaco-vscode-97284942-b044-5fbb-b53b-3f46d2468746-common': 17.1.0
+      '@codingame/monaco-vscode-api': 17.1.0
+
+  '@codingame/monaco-vscode-1cc4ea0a-c5b6-54ed-bb60-078a99119b55-common@17.1.0':
+    dependencies:
+      '@codingame/monaco-vscode-api': 17.1.0
+      '@codingame/monaco-vscode-bed2b49f-41ae-5ed2-b61a-1105500a3f8a-common': 17.1.0
+
+  '@codingame/monaco-vscode-210e86a9-a91b-5273-b05d-390c776dde1f-common@17.1.0':
+    dependencies:
+      '@codingame/monaco-vscode-api': 17.1.0
+
+  '@codingame/monaco-vscode-256d5b78-0649-50e9-8354-2807f95f68f4-common@17.1.0':
+    dependencies:
+      '@codingame/monaco-vscode-34a0ffd3-b9f5-5699-b43b-38af5732f38a-common': 17.1.0
+      '@codingame/monaco-vscode-api': 17.1.0
+
+  '@codingame/monaco-vscode-2a94c04a-b85b-5669-b06b-89c1bfa11cb9-common@17.1.0':
+    dependencies:
+      '@codingame/monaco-vscode-4a3ac544-9a61-534c-88df-756262793ef7-common': 17.1.0
+      '@codingame/monaco-vscode-api': 17.1.0
+      '@codingame/monaco-vscode-e67a0dae-5b2c-54e6-8d61-90102c78362d-common': 17.1.0
+
+  '@codingame/monaco-vscode-2cbab29e-9393-5de6-b701-9a9555360b6b-common@17.1.0':
+    dependencies:
+      '@codingame/monaco-vscode-407531d3-fdae-5387-8c41-49ba0e9574b5-common': 17.1.0
+      '@codingame/monaco-vscode-api': 17.1.0
+
+  '@codingame/monaco-vscode-2f06fe84-148e-5e6b-a7ca-c7989c5f128a-common@17.1.0':
+    dependencies:
+      '@codingame/monaco-vscode-api': 17.1.0
+      '@codingame/monaco-vscode-c8227507-8e59-53d6-b50b-71c0ab384cf4-common': 17.1.0
+
+  '@codingame/monaco-vscode-324f9a6e-6231-5bfc-af17-e147abd2dfd2-common@17.1.0':
+    dependencies:
+      '@codingame/monaco-vscode-86d65fc6-30f9-5dca-9501-e249de688591-common': 17.1.0
+      '@codingame/monaco-vscode-api': 17.1.0
+      '@codingame/monaco-vscode-c8227507-8e59-53d6-b50b-71c0ab384cf4-common': 17.1.0
+
+  '@codingame/monaco-vscode-34a0ffd3-b9f5-5699-b43b-38af5732f38a-common@17.1.0':
+    dependencies:
+      '@codingame/monaco-vscode-api': 17.1.0
+
+  '@codingame/monaco-vscode-3cf6a388-482f-5484-a806-0525ad9ad8af-common@17.1.0':
+    dependencies:
+      '@codingame/monaco-vscode-65619f8f-0eab-5d8b-855a-43b6353fe527-common': 17.1.0
+      '@codingame/monaco-vscode-86d65fc6-30f9-5dca-9501-e249de688591-common': 17.1.0
+      '@codingame/monaco-vscode-97284942-b044-5fbb-b53b-3f46d2468746-common': 17.1.0
+      '@codingame/monaco-vscode-api': 17.1.0
+      '@codingame/monaco-vscode-bed2b49f-41ae-5ed2-b61a-1105500a3f8a-common': 17.1.0
+      '@codingame/monaco-vscode-c3c61c00-c254-5856-9dc9-d7929c1f9062-common': 17.1.0
+      '@codingame/monaco-vscode-c8227507-8e59-53d6-b50b-71c0ab384cf4-common': 17.1.0
+      '@codingame/monaco-vscode-f48982c4-9e82-55e2-b800-20e6d1e6096f-common': 17.1.0
+
+  '@codingame/monaco-vscode-407531d3-fdae-5387-8c41-49ba0e9574b5-common@17.1.0':
+    dependencies:
+      '@codingame/monaco-vscode-api': 17.1.0
+
+  '@codingame/monaco-vscode-40cada32-7e9c-528a-81fc-766e4da54147-common@17.1.0':
+    dependencies:
+      '@codingame/monaco-vscode-2cbab29e-9393-5de6-b701-9a9555360b6b-common': 17.1.0
+      '@codingame/monaco-vscode-34a0ffd3-b9f5-5699-b43b-38af5732f38a-common': 17.1.0
+      '@codingame/monaco-vscode-api': 17.1.0
+      '@codingame/monaco-vscode-c8227507-8e59-53d6-b50b-71c0ab384cf4-common': 17.1.0
+
+  '@codingame/monaco-vscode-42931eb9-e564-530c-bafc-fa23ab43a070-common@17.1.0':
+    dependencies:
+      '@codingame/monaco-vscode-0b087f42-a5a3-5eb9-9bfd-1eebc1bba163-common': 17.1.0
+      '@codingame/monaco-vscode-9f229325-8261-585c-a552-16085958c680-common': 17.1.0
+      '@codingame/monaco-vscode-api': 17.1.0
+      '@codingame/monaco-vscode-bed2b49f-41ae-5ed2-b61a-1105500a3f8a-common': 17.1.0
+      '@codingame/monaco-vscode-c465110a-57c0-59d7-a6b2-be0a4db7e517-common': 17.1.0
+
+  '@codingame/monaco-vscode-4a0e04a7-c3bd-5fb7-9d3b-4fd047cc9e59-common@17.1.0':
+    dependencies:
+      '@codingame/monaco-vscode-api': 17.1.0
+
+  '@codingame/monaco-vscode-4a3ac544-9a61-534c-88df-756262793ef7-common@17.1.0':
+    dependencies:
+      '@codingame/monaco-vscode-api': 17.1.0
+
+  '@codingame/monaco-vscode-51fed910-d648-5620-9b80-9232cd79d116-common@17.1.0':
+    dependencies:
+      '@codingame/monaco-vscode-api': 17.1.0
+
+  '@codingame/monaco-vscode-5452e2b7-9081-5f95-839b-4ab3544ce28f-common@17.1.0':
+    dependencies:
+      '@codingame/monaco-vscode-1cc4ea0a-c5b6-54ed-bb60-078a99119b55-common': 17.1.0
+      '@codingame/monaco-vscode-api': 17.1.0
+
+  '@codingame/monaco-vscode-5945a5e2-a66c-5a82-bd2c-1965724b29eb-common@17.1.0':
+    dependencies:
+      '@codingame/monaco-vscode-3cf6a388-482f-5484-a806-0525ad9ad8af-common': 17.1.0
+      '@codingame/monaco-vscode-86d65fc6-30f9-5dca-9501-e249de688591-common': 17.1.0
+      '@codingame/monaco-vscode-97284942-b044-5fbb-b53b-3f46d2468746-common': 17.1.0
+      '@codingame/monaco-vscode-9c72783f-914c-50be-b9ef-da16356d81a8-common': 17.1.0
+      '@codingame/monaco-vscode-api': 17.1.0
+      '@codingame/monaco-vscode-c8227507-8e59-53d6-b50b-71c0ab384cf4-common': 17.1.0
+      '@codingame/monaco-vscode-f48982c4-9e82-55e2-b800-20e6d1e6096f-common': 17.1.0
+
+  '@codingame/monaco-vscode-65619f8f-0eab-5d8b-855a-43b6353fe527-common@17.1.0':
+    dependencies:
+      '@codingame/monaco-vscode-api': 17.1.0
+
+  '@codingame/monaco-vscode-6845754f-e617-5ed9-8aaa-6ca3653a9532-common@17.1.0':
+    dependencies:
+      '@codingame/monaco-vscode-api': 17.1.0
+
+  '@codingame/monaco-vscode-6bf85d7b-e6e3-54e9-9bc1-7e08d663f0f6-common@17.1.0':
+    dependencies:
+      '@codingame/monaco-vscode-0cc5da60-f921-59b9-bd8c-a018e93c0a6f-common': 17.1.0
+      '@codingame/monaco-vscode-85886bdb-61c5-52f1-8eb7-d1d32f6f8cbd-common': 17.1.0
+      '@codingame/monaco-vscode-96e83782-7f38-572e-8787-02e981f1c54f-common': 17.1.0
+      '@codingame/monaco-vscode-api': 17.1.0
+      '@codingame/monaco-vscode-c8227507-8e59-53d6-b50b-71c0ab384cf4-common': 17.1.0
+      '@codingame/monaco-vscode-f22e7e55-aee8-5b52-a6bc-950efd9f5890-common': 17.1.0
+
+  '@codingame/monaco-vscode-7443a901-21f6-577a-9674-42893b997ee0-common@17.1.0':
+    dependencies:
+      '@codingame/monaco-vscode-api': 17.1.0
+
+  '@codingame/monaco-vscode-7bbc9e7d-eeae-55fc-8bf9-dc2f66e0dc73-common@17.1.0':
+    dependencies:
+      '@codingame/monaco-vscode-api': 17.1.0
+
+  '@codingame/monaco-vscode-7f39b6f1-3542-5430-8760-0f404d7a7cee-common@17.1.0':
+    dependencies:
+      '@codingame/monaco-vscode-324f9a6e-6231-5bfc-af17-e147abd2dfd2-common': 17.1.0
+      '@codingame/monaco-vscode-9c72783f-914c-50be-b9ef-da16356d81a8-common': 17.1.0
+      '@codingame/monaco-vscode-api': 17.1.0
+      '@codingame/monaco-vscode-c8227507-8e59-53d6-b50b-71c0ab384cf4-common': 17.1.0
+      '@codingame/monaco-vscode-d0fb86d3-2a47-594e-955b-9a24631a7124-common': 17.1.0
+
+  '@codingame/monaco-vscode-85886bdb-61c5-52f1-8eb7-d1d32f6f8cbd-common@17.1.0':
+    dependencies:
+      '@codingame/monaco-vscode-api': 17.1.0
+      '@codingame/monaco-vscode-c8227507-8e59-53d6-b50b-71c0ab384cf4-common': 17.1.0
+
+  '@codingame/monaco-vscode-86d65fc6-30f9-5dca-9501-e249de688591-common@17.1.0':
+    dependencies:
+      '@codingame/monaco-vscode-api': 17.1.0
+      '@codingame/monaco-vscode-c8227507-8e59-53d6-b50b-71c0ab384cf4-common': 17.1.0
+
+  '@codingame/monaco-vscode-897bebad-39df-57cb-8a57-36a271d038be-common@17.1.0':
+    dependencies:
+      '@codingame/monaco-vscode-api': 17.1.0
+
+  '@codingame/monaco-vscode-8ccb7637-50ea-5359-97bf-00015d7fe567-common@17.1.0':
+    dependencies:
+      '@codingame/monaco-vscode-210e86a9-a91b-5273-b05d-390c776dde1f-common': 17.1.0
+      '@codingame/monaco-vscode-86d65fc6-30f9-5dca-9501-e249de688591-common': 17.1.0
+      '@codingame/monaco-vscode-897bebad-39df-57cb-8a57-36a271d038be-common': 17.1.0
+      '@codingame/monaco-vscode-api': 17.1.0
+      '@codingame/monaco-vscode-bed2b49f-41ae-5ed2-b61a-1105500a3f8a-common': 17.1.0
+      '@codingame/monaco-vscode-c8227507-8e59-53d6-b50b-71c0ab384cf4-common': 17.1.0
+
+  '@codingame/monaco-vscode-912ff6c1-e6aa-58cf-bd7f-50cf27bdb591-common@17.1.0':
+    dependencies:
+      '@codingame/monaco-vscode-api': 17.1.0
+
+  '@codingame/monaco-vscode-95ea5c7c-15cf-50aa-8e24-38039b06b4a6-common@17.1.0':
+    dependencies:
+      '@codingame/monaco-vscode-9c72783f-914c-50be-b9ef-da16356d81a8-common': 17.1.0
+      '@codingame/monaco-vscode-api': 17.1.0
+
+  '@codingame/monaco-vscode-96e83782-7f38-572e-8787-02e981f1c54f-common@17.1.0':
+    dependencies:
+      '@codingame/monaco-vscode-0764a541-f621-5022-a1f8-cbdadacae5ec-common': 17.1.0
+      '@codingame/monaco-vscode-2cbab29e-9393-5de6-b701-9a9555360b6b-common': 17.1.0
+      '@codingame/monaco-vscode-api': 17.1.0
+      '@codingame/monaco-vscode-c8227507-8e59-53d6-b50b-71c0ab384cf4-common': 17.1.0
+      '@codingame/monaco-vscode-f22e7e55-aee8-5b52-a6bc-950efd9f5890-common': 17.1.0
+
+  '@codingame/monaco-vscode-97284942-b044-5fbb-b53b-3f46d2468746-common@17.1.0':
+    dependencies:
+      '@codingame/monaco-vscode-api': 17.1.0
+
+  '@codingame/monaco-vscode-9a1a5840-af83-5d07-a156-ba32a36c5c4b-common@17.1.0':
+    dependencies:
+      '@codingame/monaco-vscode-34a0ffd3-b9f5-5699-b43b-38af5732f38a-common': 17.1.0
+      '@codingame/monaco-vscode-api': 17.1.0
+
+  '@codingame/monaco-vscode-9c72783f-914c-50be-b9ef-da16356d81a8-common@17.1.0':
+    dependencies:
+      '@codingame/monaco-vscode-api': 17.1.0
+      '@codingame/monaco-vscode-c8227507-8e59-53d6-b50b-71c0ab384cf4-common': 17.1.0
+      '@codingame/monaco-vscode-d0fb86d3-2a47-594e-955b-9a24631a7124-common': 17.1.0
+
+  '@codingame/monaco-vscode-9ee79c1a-3f03-568b-8eac-b02513a98b68-common@17.1.0':
+    dependencies:
+      '@codingame/monaco-vscode-api': 17.1.0
+      '@codingame/monaco-vscode-b4efa70b-52b9-5670-ab5c-f10b10b6834e-common': 17.1.0
+
+  '@codingame/monaco-vscode-9f229325-8261-585c-a552-16085958c680-common@17.1.0':
+    dependencies:
+      '@codingame/monaco-vscode-1ae7d696-d960-5ac6-97a3-9fe7c8c3a793-common': 17.1.0
+      '@codingame/monaco-vscode-210e86a9-a91b-5273-b05d-390c776dde1f-common': 17.1.0
+      '@codingame/monaco-vscode-324f9a6e-6231-5bfc-af17-e147abd2dfd2-common': 17.1.0
+      '@codingame/monaco-vscode-51fed910-d648-5620-9b80-9232cd79d116-common': 17.1.0
+      '@codingame/monaco-vscode-5945a5e2-a66c-5a82-bd2c-1965724b29eb-common': 17.1.0
+      '@codingame/monaco-vscode-api': 17.1.0
+      '@codingame/monaco-vscode-c465110a-57c0-59d7-a6b2-be0a4db7e517-common': 17.1.0
+      '@codingame/monaco-vscode-e28ac690-06d5-5ee9-92d1-02df70296354-common': 17.1.0
+      '@codingame/monaco-vscode-fab30422-b487-5f4e-8d30-8b4d266e3fcd-common': 17.1.0
+
+  '@codingame/monaco-vscode-a2719803-af40-5ae9-a29f-8a2231c33056-common@17.1.0':
+    dependencies:
+      '@codingame/monaco-vscode-api': 17.1.0
+
+  '@codingame/monaco-vscode-a7c9ae3c-16d2-5d17-86b2-981be7094566-common@17.1.0':
+    dependencies:
+      '@codingame/monaco-vscode-api': 17.1.0
+
+  '@codingame/monaco-vscode-abed5a84-8a82-5f84-9412-88a736235bae-common@17.1.0':
+    dependencies:
+      '@codingame/monaco-vscode-api': 17.1.0
+
+  '@codingame/monaco-vscode-api@17.1.0':
+    dependencies:
+      '@codingame/monaco-vscode-base-service-override': 17.1.0
+      '@codingame/monaco-vscode-environment-service-override': 17.1.0
+      '@codingame/monaco-vscode-extensions-service-override': 17.1.0
+      '@codingame/monaco-vscode-files-service-override': 17.1.0
+      '@codingame/monaco-vscode-host-service-override': 17.1.0
+      '@codingame/monaco-vscode-layout-service-override': 17.1.0
+      '@codingame/monaco-vscode-quickaccess-service-override': 17.1.0
+      '@vscode/iconv-lite-umd': 0.7.0
+      jschardet: 3.1.4
+      marked: 14.0.0
+
   '@codingame/monaco-vscode-api@8.0.4':
     dependencies:
       '@codingame/monaco-vscode-base-service-override': 8.0.4
@@ -6100,14 +6616,158 @@ snapshots:
       '@vscode/iconv-lite-umd': 0.7.0
       jschardet: 3.1.3
 
+  '@codingame/monaco-vscode-b4efa70b-52b9-5670-ab5c-f10b10b6834e-common@17.1.0':
+    dependencies:
+      '@codingame/monaco-vscode-api': 17.1.0
+
+  '@codingame/monaco-vscode-base-service-override@17.1.0':
+    dependencies:
+      '@codingame/monaco-vscode-2cbab29e-9393-5de6-b701-9a9555360b6b-common': 17.1.0
+      '@codingame/monaco-vscode-34a0ffd3-b9f5-5699-b43b-38af5732f38a-common': 17.1.0
+      '@codingame/monaco-vscode-407531d3-fdae-5387-8c41-49ba0e9574b5-common': 17.1.0
+      '@codingame/monaco-vscode-912ff6c1-e6aa-58cf-bd7f-50cf27bdb591-common': 17.1.0
+      '@codingame/monaco-vscode-9a1a5840-af83-5d07-a156-ba32a36c5c4b-common': 17.1.0
+      '@codingame/monaco-vscode-api': 17.1.0
+      '@codingame/monaco-vscode-c8227507-8e59-53d6-b50b-71c0ab384cf4-common': 17.1.0
+      '@codingame/monaco-vscode-d987325e-3e05-53aa-b9ff-6f97476f64db-common': 17.1.0
+
   '@codingame/monaco-vscode-base-service-override@8.0.4':
     dependencies:
       vscode: '@codingame/monaco-vscode-api@8.0.4'
+
+  '@codingame/monaco-vscode-bba55be6-41a2-50cd-a3cc-8bafa35bfa89-common@17.1.0':
+    dependencies:
+      '@codingame/monaco-vscode-324f9a6e-6231-5bfc-af17-e147abd2dfd2-common': 17.1.0
+      '@codingame/monaco-vscode-86d65fc6-30f9-5dca-9501-e249de688591-common': 17.1.0
+      '@codingame/monaco-vscode-api': 17.1.0
+      '@codingame/monaco-vscode-c8227507-8e59-53d6-b50b-71c0ab384cf4-common': 17.1.0
+
+  '@codingame/monaco-vscode-be8ddbb5-094a-5657-b1cc-fe106c94c632-common@17.1.0':
+    dependencies:
+      '@codingame/monaco-vscode-api': 17.1.0
+
+  '@codingame/monaco-vscode-bed2b49f-41ae-5ed2-b61a-1105500a3f8a-common@17.1.0':
+    dependencies:
+      '@codingame/monaco-vscode-api': 17.1.0
+
+  '@codingame/monaco-vscode-bf94ddb5-e436-506a-9763-5ab86b642508-common@17.1.0':
+    dependencies:
+      '@codingame/monaco-vscode-api': 17.1.0
+
+  '@codingame/monaco-vscode-c3c61c00-c254-5856-9dc9-d7929c1f9062-common@17.1.0':
+    dependencies:
+      '@codingame/monaco-vscode-65619f8f-0eab-5d8b-855a-43b6353fe527-common': 17.1.0
+      '@codingame/monaco-vscode-86d65fc6-30f9-5dca-9501-e249de688591-common': 17.1.0
+      '@codingame/monaco-vscode-9c72783f-914c-50be-b9ef-da16356d81a8-common': 17.1.0
+      '@codingame/monaco-vscode-api': 17.1.0
+      '@codingame/monaco-vscode-bed2b49f-41ae-5ed2-b61a-1105500a3f8a-common': 17.1.0
+      '@codingame/monaco-vscode-c8227507-8e59-53d6-b50b-71c0ab384cf4-common': 17.1.0
+      '@codingame/monaco-vscode-d0fb86d3-2a47-594e-955b-9a24631a7124-common': 17.1.0
+      '@codingame/monaco-vscode-f48982c4-9e82-55e2-b800-20e6d1e6096f-common': 17.1.0
+      '@codingame/monaco-vscode-fc3b1755-9783-51f9-b3e6-45e7ef6fe6e3-common': 17.1.0
+
+  '@codingame/monaco-vscode-c465110a-57c0-59d7-a6b2-be0a4db7e517-common@17.1.0':
+    dependencies:
+      '@codingame/monaco-vscode-1ba786a5-b7d7-5d26-8a85-ae48ee2a74a4-common': 17.1.0
+      '@codingame/monaco-vscode-324f9a6e-6231-5bfc-af17-e147abd2dfd2-common': 17.1.0
+      '@codingame/monaco-vscode-3cf6a388-482f-5484-a806-0525ad9ad8af-common': 17.1.0
+      '@codingame/monaco-vscode-51fed910-d648-5620-9b80-9232cd79d116-common': 17.1.0
+      '@codingame/monaco-vscode-97284942-b044-5fbb-b53b-3f46d2468746-common': 17.1.0
+      '@codingame/monaco-vscode-api': 17.1.0
+      '@codingame/monaco-vscode-b4efa70b-52b9-5670-ab5c-f10b10b6834e-common': 17.1.0
+      '@codingame/monaco-vscode-bed2b49f-41ae-5ed2-b61a-1105500a3f8a-common': 17.1.0
+      '@codingame/monaco-vscode-c8227507-8e59-53d6-b50b-71c0ab384cf4-common': 17.1.0
+      '@codingame/monaco-vscode-ecf3436d-6064-5fbd-a760-37a211ce79c7-common': 17.1.0
+      '@codingame/monaco-vscode-fab30422-b487-5f4e-8d30-8b4d266e3fcd-common': 17.1.0
+      marked: 14.0.0
+
+  '@codingame/monaco-vscode-c8227507-8e59-53d6-b50b-71c0ab384cf4-common@17.1.0':
+    dependencies:
+      '@codingame/monaco-vscode-api': 17.1.0
+
+  '@codingame/monaco-vscode-cea4d01f-6526-5c2f-8b09-b168fead499f-common@17.1.0':
+    dependencies:
+      '@codingame/monaco-vscode-api': 17.1.0
 
   '@codingame/monaco-vscode-configuration-service-override@8.0.4':
     dependencies:
       '@codingame/monaco-vscode-files-service-override': 8.0.4
       vscode: '@codingame/monaco-vscode-api@8.0.4'
+
+  '@codingame/monaco-vscode-d0fb86d3-2a47-594e-955b-9a24631a7124-common@17.1.0':
+    dependencies:
+      '@codingame/monaco-vscode-9c72783f-914c-50be-b9ef-da16356d81a8-common': 17.1.0
+      '@codingame/monaco-vscode-api': 17.1.0
+      '@codingame/monaco-vscode-c8227507-8e59-53d6-b50b-71c0ab384cf4-common': 17.1.0
+
+  '@codingame/monaco-vscode-d609a7d3-bf87-551a-884f-550a8b327ec5-common@17.1.0':
+    dependencies:
+      '@codingame/monaco-vscode-api': 17.1.0
+      '@codingame/monaco-vscode-c8227507-8e59-53d6-b50b-71c0ab384cf4-common': 17.1.0
+
+  '@codingame/monaco-vscode-d7f659f5-da33-5ea8-a3b8-9b94f2cf5f33-common@17.1.0':
+    dependencies:
+      '@codingame/monaco-vscode-2cbab29e-9393-5de6-b701-9a9555360b6b-common': 17.1.0
+      '@codingame/monaco-vscode-a2719803-af40-5ae9-a29f-8a2231c33056-common': 17.1.0
+      '@codingame/monaco-vscode-api': 17.1.0
+      '@codingame/monaco-vscode-c8227507-8e59-53d6-b50b-71c0ab384cf4-common': 17.1.0
+
+  '@codingame/monaco-vscode-d987325e-3e05-53aa-b9ff-6f97476f64db-common@17.1.0': {}
+
+  '@codingame/monaco-vscode-e28ac690-06d5-5ee9-92d1-02df70296354-common@17.1.0':
+    dependencies:
+      '@codingame/monaco-vscode-324f9a6e-6231-5bfc-af17-e147abd2dfd2-common': 17.1.0
+      '@codingame/monaco-vscode-407531d3-fdae-5387-8c41-49ba0e9574b5-common': 17.1.0
+      '@codingame/monaco-vscode-51fed910-d648-5620-9b80-9232cd79d116-common': 17.1.0
+      '@codingame/monaco-vscode-9ee79c1a-3f03-568b-8eac-b02513a98b68-common': 17.1.0
+      '@codingame/monaco-vscode-api': 17.1.0
+      '@codingame/monaco-vscode-b4efa70b-52b9-5670-ab5c-f10b10b6834e-common': 17.1.0
+      '@codingame/monaco-vscode-bed2b49f-41ae-5ed2-b61a-1105500a3f8a-common': 17.1.0
+      '@codingame/monaco-vscode-c465110a-57c0-59d7-a6b2-be0a4db7e517-common': 17.1.0
+      '@codingame/monaco-vscode-fab30422-b487-5f4e-8d30-8b4d266e3fcd-common': 17.1.0
+      '@codingame/monaco-vscode-fc42f049-7883-579d-bb0b-2aa1010a19a8-common': 17.1.0
+      marked: 14.0.0
+
+  '@codingame/monaco-vscode-e67a0dae-5b2c-54e6-8d61-90102c78362d-common@17.1.0':
+    dependencies:
+      '@codingame/monaco-vscode-65619f8f-0eab-5d8b-855a-43b6353fe527-common': 17.1.0
+      '@codingame/monaco-vscode-api': 17.1.0
+      '@codingame/monaco-vscode-c8227507-8e59-53d6-b50b-71c0ab384cf4-common': 17.1.0
+
+  '@codingame/monaco-vscode-ea14e352-8f1c-5569-b79a-8a96a53e8abe-common@17.1.0':
+    dependencies:
+      '@codingame/monaco-vscode-api': 17.1.0
+      '@codingame/monaco-vscode-bed2b49f-41ae-5ed2-b61a-1105500a3f8a-common': 17.1.0
+      '@codingame/monaco-vscode-d0fb86d3-2a47-594e-955b-9a24631a7124-common': 17.1.0
+
+  '@codingame/monaco-vscode-eb7d5efd-2e60-59f8-9ba4-9a8ae8cb2957-common@17.1.0':
+    dependencies:
+      '@codingame/monaco-vscode-65619f8f-0eab-5d8b-855a-43b6353fe527-common': 17.1.0
+      '@codingame/monaco-vscode-9ee79c1a-3f03-568b-8eac-b02513a98b68-common': 17.1.0
+      '@codingame/monaco-vscode-api': 17.1.0
+      '@codingame/monaco-vscode-b4efa70b-52b9-5670-ab5c-f10b10b6834e-common': 17.1.0
+      '@codingame/monaco-vscode-bed2b49f-41ae-5ed2-b61a-1105500a3f8a-common': 17.1.0
+      '@codingame/monaco-vscode-c8227507-8e59-53d6-b50b-71c0ab384cf4-common': 17.1.0
+
+  '@codingame/monaco-vscode-eba0b9b3-174c-5dae-9867-a37810ca1808-common@17.1.0':
+    dependencies:
+      '@codingame/monaco-vscode-324f9a6e-6231-5bfc-af17-e147abd2dfd2-common': 17.1.0
+      '@codingame/monaco-vscode-api': 17.1.0
+
+  '@codingame/monaco-vscode-ecf3436d-6064-5fbd-a760-37a211ce79c7-common@17.1.0':
+    dependencies:
+      '@codingame/monaco-vscode-2cbab29e-9393-5de6-b701-9a9555360b6b-common': 17.1.0
+      '@codingame/monaco-vscode-65619f8f-0eab-5d8b-855a-43b6353fe527-common': 17.1.0
+      '@codingame/monaco-vscode-7443a901-21f6-577a-9674-42893b997ee0-common': 17.1.0
+      '@codingame/monaco-vscode-912ff6c1-e6aa-58cf-bd7f-50cf27bdb591-common': 17.1.0
+      '@codingame/monaco-vscode-97284942-b044-5fbb-b53b-3f46d2468746-common': 17.1.0
+      '@codingame/monaco-vscode-api': 17.1.0
+      '@codingame/monaco-vscode-c8227507-8e59-53d6-b50b-71c0ab384cf4-common': 17.1.0
+
+  '@codingame/monaco-vscode-editor-api@17.1.0':
+    dependencies:
+      '@codingame/monaco-vscode-5452e2b7-9081-5f95-839b-4ab3544ce28f-common': 17.1.0
+      '@codingame/monaco-vscode-api': 17.1.0
 
   '@codingame/monaco-vscode-editor-api@8.0.4':
     dependencies:
@@ -6117,18 +6777,113 @@ snapshots:
     dependencies:
       vscode: '@codingame/monaco-vscode-api@8.0.4'
 
+  '@codingame/monaco-vscode-environment-service-override@17.1.0':
+    dependencies:
+      '@codingame/monaco-vscode-abed5a84-8a82-5f84-9412-88a736235bae-common': 17.1.0
+      '@codingame/monaco-vscode-api': 17.1.0
+
   '@codingame/monaco-vscode-environment-service-override@8.0.4':
     dependencies:
       vscode: '@codingame/monaco-vscode-api@8.0.4'
+
+  '@codingame/monaco-vscode-extensions-service-override@17.1.0':
+    dependencies:
+      '@codingame/monaco-vscode-0b087f42-a5a3-5eb9-9bfd-1eebc1bba163-common': 17.1.0
+      '@codingame/monaco-vscode-1cc4ea0a-c5b6-54ed-bb60-078a99119b55-common': 17.1.0
+      '@codingame/monaco-vscode-256d5b78-0649-50e9-8354-2807f95f68f4-common': 17.1.0
+      '@codingame/monaco-vscode-2a94c04a-b85b-5669-b06b-89c1bfa11cb9-common': 17.1.0
+      '@codingame/monaco-vscode-324f9a6e-6231-5bfc-af17-e147abd2dfd2-common': 17.1.0
+      '@codingame/monaco-vscode-34a0ffd3-b9f5-5699-b43b-38af5732f38a-common': 17.1.0
+      '@codingame/monaco-vscode-42931eb9-e564-530c-bafc-fa23ab43a070-common': 17.1.0
+      '@codingame/monaco-vscode-4a3ac544-9a61-534c-88df-756262793ef7-common': 17.1.0
+      '@codingame/monaco-vscode-6845754f-e617-5ed9-8aaa-6ca3653a9532-common': 17.1.0
+      '@codingame/monaco-vscode-7f39b6f1-3542-5430-8760-0f404d7a7cee-common': 17.1.0
+      '@codingame/monaco-vscode-86d65fc6-30f9-5dca-9501-e249de688591-common': 17.1.0
+      '@codingame/monaco-vscode-8ccb7637-50ea-5359-97bf-00015d7fe567-common': 17.1.0
+      '@codingame/monaco-vscode-9c72783f-914c-50be-b9ef-da16356d81a8-common': 17.1.0
+      '@codingame/monaco-vscode-api': 17.1.0
+      '@codingame/monaco-vscode-bba55be6-41a2-50cd-a3cc-8bafa35bfa89-common': 17.1.0
+      '@codingame/monaco-vscode-be8ddbb5-094a-5657-b1cc-fe106c94c632-common': 17.1.0
+      '@codingame/monaco-vscode-bf94ddb5-e436-506a-9763-5ab86b642508-common': 17.1.0
+      '@codingame/monaco-vscode-c3c61c00-c254-5856-9dc9-d7929c1f9062-common': 17.1.0
+      '@codingame/monaco-vscode-c8227507-8e59-53d6-b50b-71c0ab384cf4-common': 17.1.0
+      '@codingame/monaco-vscode-d7f659f5-da33-5ea8-a3b8-9b94f2cf5f33-common': 17.1.0
+      '@codingame/monaco-vscode-e67a0dae-5b2c-54e6-8d61-90102c78362d-common': 17.1.0
+      '@codingame/monaco-vscode-eb7d5efd-2e60-59f8-9ba4-9a8ae8cb2957-common': 17.1.0
+      '@codingame/monaco-vscode-eba0b9b3-174c-5dae-9867-a37810ca1808-common': 17.1.0
+      '@codingame/monaco-vscode-f22e7e55-aee8-5b52-a6bc-950efd9f5890-common': 17.1.0
+      '@codingame/monaco-vscode-f48982c4-9e82-55e2-b800-20e6d1e6096f-common': 17.1.0
+      '@codingame/monaco-vscode-fab30422-b487-5f4e-8d30-8b4d266e3fcd-common': 17.1.0
+      '@codingame/monaco-vscode-files-service-override': 17.1.0
 
   '@codingame/monaco-vscode-extensions-service-override@8.0.4':
     dependencies:
       '@codingame/monaco-vscode-files-service-override': 8.0.4
       vscode: '@codingame/monaco-vscode-api@8.0.4'
 
+  '@codingame/monaco-vscode-f22e7e55-aee8-5b52-a6bc-950efd9f5890-common@17.1.0':
+    dependencies:
+      '@codingame/monaco-vscode-34a0ffd3-b9f5-5699-b43b-38af5732f38a-common': 17.1.0
+      '@codingame/monaco-vscode-a7c9ae3c-16d2-5d17-86b2-981be7094566-common': 17.1.0
+      '@codingame/monaco-vscode-api': 17.1.0
+      '@codingame/monaco-vscode-c8227507-8e59-53d6-b50b-71c0ab384cf4-common': 17.1.0
+
+  '@codingame/monaco-vscode-f48982c4-9e82-55e2-b800-20e6d1e6096f-common@17.1.0':
+    dependencies:
+      '@codingame/monaco-vscode-95ea5c7c-15cf-50aa-8e24-38039b06b4a6-common': 17.1.0
+      '@codingame/monaco-vscode-9c72783f-914c-50be-b9ef-da16356d81a8-common': 17.1.0
+      '@codingame/monaco-vscode-api': 17.1.0
+      '@codingame/monaco-vscode-d0fb86d3-2a47-594e-955b-9a24631a7124-common': 17.1.0
+
+  '@codingame/monaco-vscode-fab30422-b487-5f4e-8d30-8b4d266e3fcd-common@17.1.0':
+    dependencies:
+      '@codingame/monaco-vscode-0764a541-f621-5022-a1f8-cbdadacae5ec-common': 17.1.0
+      '@codingame/monaco-vscode-1cb11a73-359e-5a2f-9e95-6989cc9858ee-common': 17.1.0
+      '@codingame/monaco-vscode-324f9a6e-6231-5bfc-af17-e147abd2dfd2-common': 17.1.0
+      '@codingame/monaco-vscode-3cf6a388-482f-5484-a806-0525ad9ad8af-common': 17.1.0
+      '@codingame/monaco-vscode-4a0e04a7-c3bd-5fb7-9d3b-4fd047cc9e59-common': 17.1.0
+      '@codingame/monaco-vscode-51fed910-d648-5620-9b80-9232cd79d116-common': 17.1.0
+      '@codingame/monaco-vscode-5945a5e2-a66c-5a82-bd2c-1965724b29eb-common': 17.1.0
+      '@codingame/monaco-vscode-97284942-b044-5fbb-b53b-3f46d2468746-common': 17.1.0
+      '@codingame/monaco-vscode-api': 17.1.0
+      '@codingame/monaco-vscode-b4efa70b-52b9-5670-ab5c-f10b10b6834e-common': 17.1.0
+      '@codingame/monaco-vscode-bed2b49f-41ae-5ed2-b61a-1105500a3f8a-common': 17.1.0
+      '@codingame/monaco-vscode-c8227507-8e59-53d6-b50b-71c0ab384cf4-common': 17.1.0
+      marked: 14.0.0
+
+  '@codingame/monaco-vscode-fc3b1755-9783-51f9-b3e6-45e7ef6fe6e3-common@17.1.0':
+    dependencies:
+      '@codingame/monaco-vscode-9c72783f-914c-50be-b9ef-da16356d81a8-common': 17.1.0
+      '@codingame/monaco-vscode-api': 17.1.0
+      '@codingame/monaco-vscode-c8227507-8e59-53d6-b50b-71c0ab384cf4-common': 17.1.0
+      '@codingame/monaco-vscode-d0fb86d3-2a47-594e-955b-9a24631a7124-common': 17.1.0
+      '@codingame/monaco-vscode-f48982c4-9e82-55e2-b800-20e6d1e6096f-common': 17.1.0
+
+  '@codingame/monaco-vscode-fc42f049-7883-579d-bb0b-2aa1010a19a8-common@17.1.0':
+    dependencies:
+      '@codingame/monaco-vscode-api': 17.1.0
+
+  '@codingame/monaco-vscode-files-service-override@17.1.0':
+    dependencies:
+      '@codingame/monaco-vscode-0c06bfba-d24d-5c4d-90cd-b40cefb7f811-common': 17.1.0
+      '@codingame/monaco-vscode-15626ec7-b165-51e1-8caf-7bcc2ae9b95a-common': 17.1.0
+      '@codingame/monaco-vscode-2f06fe84-148e-5e6b-a7ca-c7989c5f128a-common': 17.1.0
+      '@codingame/monaco-vscode-51fed910-d648-5620-9b80-9232cd79d116-common': 17.1.0
+      '@codingame/monaco-vscode-86d65fc6-30f9-5dca-9501-e249de688591-common': 17.1.0
+      '@codingame/monaco-vscode-api': 17.1.0
+      '@codingame/monaco-vscode-c8227507-8e59-53d6-b50b-71c0ab384cf4-common': 17.1.0
+      '@codingame/monaco-vscode-cea4d01f-6526-5c2f-8b09-b168fead499f-common': 17.1.0
+
   '@codingame/monaco-vscode-files-service-override@8.0.4':
     dependencies:
       vscode: '@codingame/monaco-vscode-api@8.0.4'
+
+  '@codingame/monaco-vscode-host-service-override@17.1.0':
+    dependencies:
+      '@codingame/monaco-vscode-2cbab29e-9393-5de6-b701-9a9555360b6b-common': 17.1.0
+      '@codingame/monaco-vscode-34a0ffd3-b9f5-5699-b43b-38af5732f38a-common': 17.1.0
+      '@codingame/monaco-vscode-api': 17.1.0
+      '@codingame/monaco-vscode-d0fb86d3-2a47-594e-955b-9a24631a7124-common': 17.1.0
 
   '@codingame/monaco-vscode-host-service-override@8.0.4':
     dependencies:
@@ -6200,6 +6955,13 @@ snapshots:
       '@codingame/monaco-vscode-files-service-override': 8.0.4
       vscode: '@codingame/monaco-vscode-api@8.0.4'
 
+  '@codingame/monaco-vscode-layout-service-override@17.1.0':
+    dependencies:
+      '@codingame/monaco-vscode-6bf85d7b-e6e3-54e9-9bc1-7e08d663f0f6-common': 17.1.0
+      '@codingame/monaco-vscode-85886bdb-61c5-52f1-8eb7-d1d32f6f8cbd-common': 17.1.0
+      '@codingame/monaco-vscode-api': 17.1.0
+      '@codingame/monaco-vscode-c8227507-8e59-53d6-b50b-71c0ab384cf4-common': 17.1.0
+
   '@codingame/monaco-vscode-layout-service-override@8.0.4':
     dependencies:
       vscode: '@codingame/monaco-vscode-api@8.0.4'
@@ -6215,6 +6977,17 @@ snapshots:
   '@codingame/monaco-vscode-monarch-service-override@8.0.4':
     dependencies:
       vscode: '@codingame/monaco-vscode-api@8.0.4'
+
+  '@codingame/monaco-vscode-quickaccess-service-override@17.1.0':
+    dependencies:
+      '@codingame/monaco-vscode-2cbab29e-9393-5de6-b701-9a9555360b6b-common': 17.1.0
+      '@codingame/monaco-vscode-34a0ffd3-b9f5-5699-b43b-38af5732f38a-common': 17.1.0
+      '@codingame/monaco-vscode-40cada32-7e9c-528a-81fc-766e4da54147-common': 17.1.0
+      '@codingame/monaco-vscode-9a1a5840-af83-5d07-a156-ba32a36c5c4b-common': 17.1.0
+      '@codingame/monaco-vscode-api': 17.1.0
+      '@codingame/monaco-vscode-d0fb86d3-2a47-594e-955b-9a24631a7124-common': 17.1.0
+      '@codingame/monaco-vscode-d609a7d3-bf87-551a-884f-550a8b327ec5-common': 17.1.0
+      '@codingame/monaco-vscode-ea14e352-8f1c-5569-b79a-8a96a53e8abe-common': 17.1.0
 
   '@codingame/monaco-vscode-quickaccess-service-override@8.0.4':
     dependencies:
@@ -9665,6 +10438,8 @@ snapshots:
 
   jschardet@3.1.3: {}
 
+  jschardet@3.1.4: {}
+
   jsesc@3.1.0: {}
 
   json-buffer@3.0.1: {}
@@ -9814,6 +10589,8 @@ snapshots:
       uc.micro: 2.1.0
 
   markdown-table@3.0.4: {}
+
+  marked@14.0.0: {}
 
   matcher@5.0.0:
     dependencies:
