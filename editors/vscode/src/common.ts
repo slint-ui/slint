@@ -133,6 +133,9 @@ export function languageClientOptions(
 
 export function prepare_client(client: BaseLanguageClient) {
     client.registerFeature(new snippets.SnippetTextEditFeature());
+    client.onNotification(new NotificationType("telemetry/event"), (params) => {
+        console.log("Received telemetry event:", params);
+    });
 }
 
 // VSCode Plugin lifecycle related:
