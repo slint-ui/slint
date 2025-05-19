@@ -151,11 +151,11 @@ jobs:
               include:
                 - demo: demos/home-automation/rust
                   scheme: "Home Automation"
-                  bundle_id: com.slint.demos.HomeAutomation.HomeAutomation
+                  bundle_id: dev.slint.demos.HomeAutomation
                   device: iPad Pro 13-inch (M4)
                 - demo: demos/energy-monitor
                   scheme: "Energy Monitor"
-                  bundle_id: com.slint.demos.EnergyMonitor.EnergyMonitor
+                  bundle_id: dev.slint.demos.EnergyMonitor
                   device: iPhone 16
         runs-on: macos-14
         steps:

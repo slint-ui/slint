@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT
 name: Home Automation
 options:
-  bundleIdPrefix: com.slint.demos.HomeAutomation
+  bundleIdPrefix: dev.slint.demos
 targets:
   Home Automation:
     type: application
