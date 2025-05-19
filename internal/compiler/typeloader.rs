@@ -1655,9 +1655,14 @@ fn get_native_style(all_loaded_files: &mut std::collections::BTreeSet<PathBuf>) 
                 )
             })
         });
+
     if let Some(style) = target_path.and_then(|target_path| {
-        all_loaded_files.insert(target_path.clone());
-        std::fs::read_to_string(target_path).map(|style| style.trim().into()).ok()
+        std::fs::read_to_string(&target_path)
+            .map(|style| {
+                all_loaded_files.insert(target_path);
+                style.trim().into()
+            })
+            .ok()
     }) {
         return style;
     }
