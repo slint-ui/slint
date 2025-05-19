@@ -14,9 +14,6 @@ fn enums(path: &Path) -> anyhow::Result<()> {
     );
     writeln!(enums_priv, "#pragma once")?;
     writeln!(enums_priv, "// This file is auto-generated from {}", file!())?;
-    writeln!(enums_priv, "#include <slint_properties.h>")?;
-    writeln!(enums_priv, "#include <slint_color.h>")?;
-    writeln!(enums_priv, "#include <slint_image.h>")?;
     writeln!(enums_priv, "#include \"slint_enums.h\"")?;
     writeln!(enums_priv, "namespace slint::cbindgen_private {{")?;
     let mut enums_pub = BufWriter::new(
@@ -123,6 +120,7 @@ fn builtin_structs(path: &Path) -> anyhow::Result<()> {
     writeln!(structs_priv, "#include \"slint_builtin_structs.h\"")?;
     writeln!(structs_priv, "#include \"slint_enums_internal.h\"")?;
     writeln!(structs_priv, "#include \"slint_point.h\"")?;
+    writeln!(structs_priv, "#include \"slint_image.h\"")?;
     writeln!(structs_priv, "namespace slint::cbindgen_private {{")?;
     writeln!(structs_priv, "enum class KeyEventType : uint8_t;")?;
     macro_rules! struct_file {
@@ -500,7 +498,7 @@ fn gen_corelib(
                 "BorrowedOpenGLTextureOrigin"
             ],
             "slint_image_internal.h",
-            "namespace slint::cbindgen_private { struct ParsedSVG{}; struct HTMLImage{}; using namespace vtable; namespace types{ struct NineSliceImage{}; } }",
+            "#include \"slint_color.h\"\nnamespace slint::cbindgen_private { struct ParsedSVG{}; struct HTMLImage{}; using namespace vtable; namespace types{ struct NineSliceImage{}; } }",
         ),
         (
             vec!["Color", "slint_color_brighter", "slint_color_darker",
