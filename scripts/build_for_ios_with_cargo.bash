@@ -48,3 +48,10 @@ done
 
 # Combine executables, and place them at the output path excepted by Xcode
 lipo -create -output "$TARGET_BUILD_DIR/$EXECUTABLE_PATH" "${executables[@]}"
+
+# Force code signing every run for device builds (non-simulator)
+if [ $IS_SIMULATOR -eq 0 ]; then
+    codesign --force --sign "${EXPANDED_CODE_SIGN_IDENTITY}" \
+             --entitlements "${TARGET_TEMP_DIR}/${PRODUCT_NAME}.app.xcent" \
+             "${TARGET_BUILD_DIR}/${EXECUTABLE_PATH}"
+fi
