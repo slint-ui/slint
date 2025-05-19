@@ -91,7 +91,7 @@ export component AppWindow inherits Window {
                     }
                 }
             }
-            
+
         }
     }
 }
