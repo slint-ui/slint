@@ -19,11 +19,6 @@ export component AppWindow inherits Window {
     in property <string> download-url;
     in property <percent> download-progress;
 
-    property <duration> orbitDuration: 5s;
-    property <[angle]> offSets: [0deg, 45deg, 90deg, 135deg, 180deg, 225deg, 270deg, 315deg];
-    property <angle> orbit-animation:  (360deg * animation-tick() / orbitDuration).mod(360deg);
-    property <angle> attack-animation: (360deg * animation-tick() / 20s).mod(360deg);
-
     in property <[string]> available-models;
     callback load-model(index: int);
 
