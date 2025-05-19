@@ -181,6 +181,7 @@ pub trait Model {
     ///     fn as_any(&self) -> &dyn core::any::Any { self }
     /// ```
     ///
+    /// ## Troubleshooting
     /// A common reason why the dowcast fails at run-time is because of a type-mismatch
     /// between the model created and the model downcasted. To debug this at compile time,
     /// try matching the model type used for the downcast explicitly at model creation time.
