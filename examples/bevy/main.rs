@@ -9,6 +9,8 @@ mod web_asset;
 
 slint::slint! {
 import { Palette, Button, ComboBox, GroupBox, GridBox, Slider, HorizontalBox, VerticalBox, ProgressIndicator } from "std-widgets.slint";
+import { Orbiter } from "../orbit-animation/orbiter.slint";
+
 export component AppWindow inherits Window {
     in property <image> texture <=> i.source;
     out property <length> requested-texture-width: i.width;
@@ -17,6 +19,11 @@ export component AppWindow inherits Window {
     in property <bool> show-loading-screen: false;
     in property <string> download-url;
     in property <percent> download-progress;
+
+    property <duration> orbitDuration: 5s;
+    property <[angle]> offSets: [0deg, 45deg, 90deg, 135deg, 180deg, 225deg, 270deg, 315deg];
+    property <angle> orbit-animation:  (360deg * animation-tick() / orbitDuration).mod(360deg);
+    property <angle> attack-animation: (360deg * animation-tick() / 20s).mod(360deg);
 
     in property <[string]> available-models;
     callback load-model(index: int);
@@ -49,31 +56,42 @@ export component AppWindow inherits Window {
             }
         }
 
-        i := Image {
-            image-fit: fill;
+        Rectangle {
             width: 100%;
             height: 100%;
-            preferred-width: self.source.width * 1px;
-            preferred-height: self.source.height * 1px;
+            if !show-loading-screen: Text {
+                y: 80px;
+                width: 450px;
+                font-size: 14px;
+                text: "This text is also rendered using Slint. It can be seen because Bevy is rendering with a transparent background.";
+                wrap: word-wrap;
+            }
+            i := Image {
+                image-fit: fill;
+                width: 100%;
+                height: 100%;
+                preferred-width: self.source.width * 1px;
+                preferred-height: self.source.height * 1px;
 
-            if show-loading-screen: Rectangle {
-                background: Palette.background;
-                VerticalBox {
-                    alignment: start;
-                    Text {
-                        horizontal-alignment: center;
-                        text: "Downloading Assets";
-                    }
-                    Text {
-                        text: download-url;
-                        overflow: elide;
-                    }
-                    ProgressIndicator {
-                        indeterminate: download-url.is-empty;
-                        progress: root.download-progress;
+                if show-loading-screen: Rectangle {
+                    VerticalBox {
+                        alignment: start;
+                        Text {
+                            horizontal-alignment: center;
+                            text: "Downloading Assets";
+                        }
+                        Text {
+                            text: download-url;
+                            overflow: elide;
+                        }
+                        ProgressIndicator {
+                            indeterminate: download-url.is-empty;
+                            progress: root.download-progress;
+                        }
                     }
                 }
             }
+            
         }
     }
 }
