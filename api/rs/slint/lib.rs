@@ -201,6 +201,9 @@ each instance will have their own instance of associated globals singletons.
 #![cfg_attr(not(feature = "std"), no_std)]
 #![allow(clippy::needless_doctest_main)] // We document how to write a main function
 
+#[cfg(target_env = "musl")]
+compile_error!("Compiling with MUSL is not supported by this crate.");
+
 extern crate alloc;
 
 #[cfg(not(feature = "compat-1-2"))]
