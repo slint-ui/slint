@@ -208,7 +208,7 @@ export component MainScreen inherits Rectangle {
         }
         HorizontalLayout {
             HaText {
-                text: Api.current-time.hour.mod(12);
+                text: Api.current-time.hour.mod(12) == 0 ? 12 : Api.current-time.hour.mod(12);
                 horizontal-alignment: center;
                 vertical-alignment: center;
                 color: Palette.info-foreground;
