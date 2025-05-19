@@ -3,6 +3,8 @@
 name: Home Automation
 options:
   bundleIdPrefix: dev.slint.demos
+settings:
+  ENABLE_USER_SCRIPT_SANDBOXING: NO
 targets:
   Home Automation:
     type: application

@@ -3,6 +3,8 @@
 name: Energy Monitor
 options:
   bundleIdPrefix: dev.slint.demos
+settings:
+  ENABLE_USER_SCRIPT_SANDBOXING: NO
 targets:
   Energy Monitor:
     type: application
