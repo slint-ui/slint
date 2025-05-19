@@ -9,7 +9,6 @@ mod web_asset;
 
 slint::slint! {
 import { Palette, Button, ComboBox, GroupBox, GridBox, Slider, HorizontalBox, VerticalBox, ProgressIndicator } from "std-widgets.slint";
-import { Orbiter } from "../orbit-animation/orbiter.slint";
 
 export component AppWindow inherits Window {
     in property <image> texture <=> i.source;
@@ -118,6 +117,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     .add_systems(Startup, setup)
                     .add_systems(Update, reload_model_from_channel(model_selector_receiver))
                     .add_systems(Update, animate_camera)
+                    .insert_resource(ClearColor(Color::NONE))
                     .run();
             },
         ))?;

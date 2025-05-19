@@ -178,7 +178,6 @@ pub async fn run_bevy_app_with_slint(
         app.set_runner(runner);
         app.insert_resource(BackBuffer(None));
         bevy_app_pre_default_plugins_callback(&mut app);
-        app.insert_resource(ClearColor(Color::NONE));
         app.add_plugins(
             DefaultPlugins.set(ImagePlugin::default_nearest()).set(RenderPlugin {
                 render_creation: RenderCreation::manual(
