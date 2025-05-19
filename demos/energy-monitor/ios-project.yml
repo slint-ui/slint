@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT
 name: Energy Monitor
 options:
-  bundleIdPrefix: com.slint.demos.EnergyMonitor
+  bundleIdPrefix: dev.slint.demos
 targets:
   Energy Monitor:
     type: application
