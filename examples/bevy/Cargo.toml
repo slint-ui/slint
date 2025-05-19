@@ -1,0 +1,23 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: MIT
+
+[package]
+name = "bevy-example"
+version = "1.12.0"
+authors = ["Slint Developers <info@slint.dev>"]
+edition = "2021"
+publish = false
+license = "MIT"
+description = "Slint Bevy Integration Example"
+
+[[bin]]
+name = "bevy_example"
+path = "main.rs"
+
+[dependencies]
+slint = { path = "../../api/rs/slint", features = ["unstable-wgpu-24"] }
+spin_on = { version = "0.1" }
+bevy = { version = "0.16.0", default-features = false, features = ["bevy_core_pipeline", "bevy_pbr", "bevy_window", "bevy_scene", "bevy_gltf", "bevy_log", "jpeg", "png", "tonemapping_luts", "multi_threaded"] }
+smol = { version = "2.0.0" }
+async-compat = { version = "0.2.4" }
+reqwest = { version = "0.12", features = ["stream"] }

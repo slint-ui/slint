@@ -58,6 +58,9 @@ jobs:
                       extra_args: "--exclude ffmpeg --exclude gstreamer-player"
                     - os: ubuntu-22.04
                       rust_version: "nightly"
+                    # Bevy doesn't compile with 1.82 but requires a newer version
+                    - rust_version: "1.82"
+                      maybe_exclude_bevy: "--exclude bevy-example"
                 exclude:
                     - os: macos-14
                       rust_version: "1.82"
@@ -103,12 +106,12 @@ jobs:
                    cargo update -p typed-index-collections  --precise 3.2.3
                  fi
             - name: Run tests (not qt)
-              run:  cargo test --verbose --all-features --workspace ${{ matrix.extra_args }} --exclude slint-node --exclude pyslint --exclude test-driver-node --exclude slint-node --exclude test-driver-nodejs --exclude test-driver-cpp --exclude mcu-board-support --exclude mcu-embassy --exclude printerdemo_mcu --exclude uefi-demo --exclude slint-cpp --exclude slint-python -- --skip=_qt::t
+              run:  cargo test --verbose --all-features --workspace ${{ matrix.extra_args }} ${{ matrix.maybe_exclude_bevy }} --exclude slint-node --exclude pyslint --exclude test-driver-node --exclude slint-node --exclude test-driver-nodejs --exclude test-driver-cpp --exclude mcu-board-support --exclude mcu-embassy --exclude printerdemo_mcu --exclude uefi-demo --exclude slint-cpp --exclude slint-python -- --skip=_qt::t
               env:
                   SLINT_CREATE_SCREENSHOTS: 1
               shell: bash
             - name: Run tests (qt)
-              run: cargo test --verbose --all-features --workspace ${{ matrix.extra_args }} --exclude slint-node --exclude pyslint --exclude test-driver-node --exclude slint-node --exclude test-driver-nodejs --exclude test-driver-cpp --exclude mcu-board-support --exclude mcu-embassy --exclude printerdemo_mcu --exclude uefi-demo --exclude slint-cpp --exclude slint-python --bin test-driver-rust -- _qt --test-threads=1
+              run: cargo test --verbose --all-features --workspace ${{ matrix.extra_args }} ${{ matrix.maybe_exclude_bevy }} --exclude slint-node --exclude pyslint --exclude test-driver-node --exclude slint-node --exclude test-driver-nodejs --exclude test-driver-cpp --exclude mcu-board-support --exclude mcu-embassy --exclude printerdemo_mcu --exclude uefi-demo --exclude slint-cpp --exclude slint-python --bin test-driver-rust -- _qt --test-threads=1
               shell: bash
             - name: Archive screenshots after failed tests
               if: ${{ failure() }}
