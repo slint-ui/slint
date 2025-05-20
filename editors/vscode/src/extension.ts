@@ -22,6 +22,12 @@ import { newProject } from "./quick_picks.js";
 
 let statusBar: vscode.StatusBarItem;
 
+const initialTelemetry = {
+    preview_opened: 0,
+    property_changed: 0,
+    data_json_changed: 0,
+};
+
 const program_extension = process.platform === "win32" ? ".exe" : "";
 
 interface Platform {
@@ -261,26 +267,12 @@ function handleTelemetryEvent(
     telemetryType: string,
     globalState: vscode.Memento,
 ) {
-    switch (telemetryType) {
-        case "preview_opened": {
-            const currentCount = globalState.get("preview_opened", 0);
-            globalState.update("preview_opened", currentCount + 1);
-            break;
-        }
-        case "property_changed": {
-            const currentCount = globalState.get("property_changed", 0);
-            globalState.update("property_changed", currentCount + 1);
-            break;
-        }
-        case "data_json_changed": {
-            const currentCount = globalState.get("data_json_changed", 0);
-            globalState.update("data_json_changed", currentCount + 1);
-            break;
-        }
-        default:
-            console.log("Received unknown telemetry event:", telemetryType);
-            break;
-    }
+    const telemetryState: Record<string, number> = globalState.get(
+        "telemetryState",
+        JSON.parse(JSON.stringify(initialTelemetry)),
+    );
+    telemetryState[telemetryType] += 1;
+    globalState.update("telemetryState", telemetryState);
 }
 
 function startTelemetryTimer(
@@ -304,28 +296,22 @@ function startTelemetryTimer(
         if (timeSinceLastUsage > 1000 * 60 * 59) {
             context.globalState.update("lastUsage", now);
 
-            const previewCount = context.globalState.get("preview_opened", 0);
-            const propertyTabCount = context.globalState.get(
-                "property_changed",
-                0,
+            const telemetryState = context.globalState.get(
+                "telemetryState",
+                {},
             );
-            const dataTabCount = context.globalState.get(
-                "data_json_changed",
-                0,
-            );
-            if (previewCount + propertyTabCount + dataTabCount > 0) {
-                const usageData = {
-                    preview_opened: previewCount,
-                    property_changed: propertyTabCount,
-                    data_json_changed: dataTabCount,
-                };
 
-                // Reset the counters
-                context.globalState.update("preview_opened", 0);
-                context.globalState.update("property_changed", 0);
-                context.globalState.update("data_json_changed", 0);
+            const hasPositiveValue = Object.values(
+                telemetryState as Record<string, number>,
+            ).some((value) => value > 0);
 
-                telemetryLogger.logUsage("live-preview-stats", usageData);
+            if (hasPositiveValue) {
+                telemetryLogger.logUsage("live-preview-stats", telemetryState);
+
+                context.globalState.update(
+                    "telemetryState",
+                    JSON.parse(JSON.stringify(initialTelemetry)),
+                );
             }
         }
     }
