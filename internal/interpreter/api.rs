@@ -10,8 +10,7 @@ use i_slint_core::model::{Model, ModelExt, ModelRc};
 #[cfg(feature = "internal")]
 use i_slint_core::window::WindowInner;
 use i_slint_core::{PathData, SharedVector};
-use smol_str::{SmolStr, StrExt};
-use std::borrow::Cow;
+use smol_str::SmolStr;
 use std::collections::HashMap;
 use std::future::Future;
 use std::path::{Path, PathBuf};
@@ -341,7 +340,7 @@ macro_rules! declare_value_enum_conversion {
             fn from(v: i_slint_core::items::$Name) -> Self {
                 Value::EnumerationValue(
                     stringify!($Name).to_owned(),
-                    v.to_string().trim_start_matches("r#").replace('_', "-"),
+                    i_slint_compiler::parser::normalize_identifier(v.to_string().trim_start_matches("r#")).to_string(),
                 )
             }
         }
@@ -357,7 +356,7 @@ macro_rules! declare_value_enum_conversion {
 
                         <i_slint_core::items::$Name>::from_str(value.as_str())
                             .or_else(|_| {
-                                let norm = value.as_str().replace('-', "_");
+                                let norm = i_slint_compiler::parser::normalize_identifier(value.as_str());
                                 <i_slint_core::items::$Name>::from_str(&norm)
                                     .or_else(|_| <i_slint_core::items::$Name>::from_str(&format!("r#{}", norm)))
                             })
@@ -487,21 +486,8 @@ fn value_model_conversion() {
     assert!(err.is_err());
 }
 
-/// Normalize the identifier to use dashes
-pub(crate) fn normalize_identifier(ident: &str) -> Cow<'_, str> {
-    if ident.contains('_') {
-        ident.replace('_', "-").into()
-    } else {
-        ident.into()
-    }
-}
-
-pub(crate) fn normalize_identifier_smolstr(ident: &str) -> SmolStr {
-    if ident.contains('_') {
-        ident.replace_smolstr("_", "-")
-    } else {
-        ident.into()
-    }
+pub(crate) fn normalize_identifier(ident: &str) -> SmolStr {
+    i_slint_compiler::parser::normalize_identifier(ident)
 }
 
 /// This type represents a runtime instance of structure in `.slint`.
@@ -526,7 +512,7 @@ pub(crate) fn normalize_identifier_smolstr(ident: &str) -> SmolStr {
 /// assert_eq!(s.get_field("foo").cloned().unwrap().try_into(), Ok(45u32));
 /// ```
 #[derive(Clone, PartialEq, Debug, Default)]
-pub struct Struct(pub(crate) HashMap<String, Value>);
+pub struct Struct(pub(crate) HashMap<SmolStr, Value>);
 impl Struct {
     /// Get the value for a given struct field
     pub fn get_field(&self, name: &str) -> Option<&Value> {
@@ -534,11 +520,7 @@ impl Struct {
     }
     /// Set the value of a given struct field
     pub fn set_field(&mut self, name: String, value: Value) {
-        if name.contains('_') {
-            self.0.insert(name.replace('_', "-"), value);
-        } else {
-            self.0.insert(name, value);
-        }
+        self.0.insert(normalize_identifier(&name), value);
     }
 
     /// Iterate over all the fields in this struct
@@ -549,11 +531,7 @@ impl Struct {
 
 impl FromIterator<(String, Value)> for Struct {
     fn from_iter<T: IntoIterator<Item = (String, Value)>>(iter: T) -> Self {
-        Self(
-            iter.into_iter()
-                .map(|(s, v)| (if s.contains('_') { s.replace('_', "-") } else { s }, v))
-                .collect(),
-        )
+        Self(iter.into_iter().map(|(s, v)| (normalize_identifier(&s), v)).collect())
     }
 }
 
@@ -1258,7 +1236,7 @@ impl ComponentInstance {
             .root_element
             .borrow()
             .property_declarations
-            .get(name.as_ref())
+            .get(&name)
             .is_none_or(|d| !d.expose_in_public_api)
         {
             return Err(GetPropertyError::NoSuchProperty);
@@ -1276,10 +1254,7 @@ impl ComponentInstance {
         let comp = self.inner.unerase(guard);
         let d = comp.description();
         let elem = d.original.root_element.borrow();
-        let decl = elem
-            .property_declarations
-            .get(name.as_ref())
-            .ok_or(SetPropertyError::NoSuchProperty)?;
+        let decl = elem.property_declarations.get(&name).ok_or(SetPropertyError::NoSuchProperty)?;
 
         if !decl.expose_in_public_api {
             return Err(SetPropertyError::NoSuchProperty);
@@ -1344,7 +1319,7 @@ impl ComponentInstance {
         generativity::make_guard!(guard);
         let comp = self.inner.unerase(guard);
         comp.description()
-            .invoke(comp.borrow(), &normalize_identifier_smolstr(name), args)
+            .invoke(comp.borrow(), &normalize_identifier(name), args)
             .map_err(|()| InvokeError::NoSuchCallable)
     }
 
@@ -1380,7 +1355,7 @@ impl ComponentInstance {
         generativity::make_guard!(guard);
         let comp = self.inner.unerase(guard);
         comp.description()
-            .get_global(comp.borrow(), &normalize_identifier(global))
+            .get_global(comp.borrow(), &&normalize_identifier(global))
             .map_err(|()| GetPropertyError::NoSuchProperty)? // FIXME: should there be a NoSuchGlobal error?
             .as_ref()
             .get_property(&normalize_identifier(property))
@@ -1397,10 +1372,10 @@ impl ComponentInstance {
         generativity::make_guard!(guard);
         let comp = self.inner.unerase(guard);
         comp.description()
-            .get_global(comp.borrow(), &normalize_identifier(global))
+            .get_global(comp.borrow(), &&normalize_identifier(global))
             .map_err(|()| SetPropertyError::NoSuchProperty)? // FIXME: should there be a NoSuchGlobal error?
             .as_ref()
-            .set_property(&normalize_identifier(property), value)
+            .set_property(&&normalize_identifier(property), value)
     }
 
     /// Set a handler for the callback in the exported global singleton. A callback with that
@@ -1469,7 +1444,7 @@ impl ComponentInstance {
             .description()
             .get_global(comp.borrow(), &normalize_identifier(global))
             .map_err(|()| InvokeError::NoSuchCallable)?; // FIXME: should there be a NoSuchGlobal error?
-        let callable_name = normalize_identifier_smolstr(callable_name);
+        let callable_name = normalize_identifier(callable_name);
         if matches!(
             comp.description()
                 .original

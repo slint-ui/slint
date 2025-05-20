@@ -184,13 +184,13 @@ pub fn value_from_json(t: &langtype::Type, v: &serde_json::Value) -> Result<Valu
             langtype::Type::Struct(s) => Ok(crate::Struct(
                 obj.iter()
                     .map(|(k, v)| {
-                        let k = k.to_smolstr();
+                        let k = crate::api::normalize_identifier(k);
                         match s.fields.get(&k) {
-                            Some(t) => value_from_json(t, v).map(|v| (k.to_string(), v)),
+                            Some(t) => value_from_json(t, v).map(|v| (k, v)),
                             None => Err(format!("Found unknown field in struct: {k}")),
                         }
                     })
-                    .collect::<Result<HashMap<String, Value>, _>>()?,
+                    .collect::<Result<HashMap<smol_str::SmolStr, Value>, _>>()?,
             )
             .into()),
             _ => Err("Got a struct where none was expected".into()),
@@ -227,7 +227,7 @@ pub fn value_to_json(value: &Value) -> Result<serde_json::Value, String> {
 
         gradient += ")";
 
-        serde_json::Value::String(gradient.into())
+        serde_json::Value::String(gradient)
     }
 
     match value {

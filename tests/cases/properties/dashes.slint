@@ -1,10 +1,21 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
- Test-Case := Rectangle {
+struct __strange- {
+    _-indeed--: int,
+}
 
+export global _-Foo-- {
+    out property<int> _-foo-: 815;
+}
+
+Test-Case := Rectangle {
     property<length> property-x1: xxx-foo.border-width;
     property<length> property-x2: xxx_foo.border_width;
+
+    __-id- := Rectangle {
+        property<_-strange-> struct-property: { _-indeed--: 23 };
+    }
 
     xxx-foo := Rectangle {
         border-width: 42phx;
@@ -14,6 +25,8 @@
     property<int> hello--world: -hello-42 - 2; // -42 - 2 = -44
     property<int> this--has-6-slashes--: 42-hello--world; // 42 - -44  = 86
 
+    out property<int> _-test_property-: 42;
+    out property<int> __test_property2: _--id_.struct-property._-indeed--;
 }
 /*
 ```cpp
@@ -22,6 +35,10 @@ const Test_Case &instance = *handle;
 assert_eq(instance.get_property_x1(), 42);
 assert_eq(instance.get_property_x2(), 42);
 assert_eq(instance.get_this__has_6_slashes__(), 86);
+assert_eq(instance.get___test_property_(), 42);
+assert_eq(instance.get___test_property2(), 23);
+
+assert_eq(handle->global<__Foo__>().get___foo_(), 815);
 ```
 
 ```rust
@@ -29,6 +46,11 @@ let instance = Test_Case::new().unwrap();
 assert_eq!(instance.get_property_x1(), 42.);
 assert_eq!(instance.get_property_x2(), 42.);
 assert_eq!(instance.get_this__has_6_slashes__(), 86);
+assert_eq!(instance.get___test_property_(), 42);
+assert_eq!(instance.get___test_property2(), 23);
+
+let foo = instance.global::<__Foo__<'_>>();
+assert_eq!(foo.get___foo_(), 815);
 ```
 
 ```js
@@ -36,5 +58,9 @@ var instance = new slint.Test_Case({});
 assert.equal(instance.property_x1, 42);
 assert.equal(instance.property_x2, 42);
 assert.equal(instance.this__has_6_slashes__, 86);
+assert.equal(instance.__test_property_, 42);
+assert.equal(instance.__test_property2, 23);
+
+assert.equal(instance.__Foo__.__foo_, 815);
 ```
 */
