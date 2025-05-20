@@ -25,16 +25,14 @@ The inspector currently has 2 functions.  One is to inspect individual Figma obj
 
     | Figma Variable Type | Slint Type |
     | ------------------- | ---------- |
-    | Color               | `brush`    | **** |
+    | Color               | `brush`    |
     | Float               | `length`   |
     | String              | `string`   |
     | Boolean             | `bool`     |
--   **Mode Support:** Translates Figma Modes into:
-    -   A Slint `enum` for mode selection (e.g., `MyCollectionMode { light, dark }`).
-    -   Collection-specific multi-mode convenience structs (e.g., `my_collection_mode2_brush { light: brush, dark: brush }`) for properties that vary by mode.
-    -   A `Scheme` struct (`MyCollection-Scheme`) representing the structure of variables.
-    -   A `Scheme-Mode` struct (`MyCollection-Scheme-Mode`) holding instances of the `Scheme` for each mode.
-    -   A global instance (`my_collection`) containing:
+
+-   **Mode Support:** 
+  For a figma file where Mode `MyCollection` has modes `light` and `dark`, the exporter will create a Slint `enum` for mode selection (e.g., `MyCollectionMode { light, dark }`).
+  The file also contains a `Scheme` struct (`MyCollection-Scheme`) representing the structure of variables. A `Scheme-Mode` struct (`MyCollection-Scheme-Mode`) holds instances of the `Scheme` for each mode. And finally a global instance (`my_collection`) which contains:
         -   `mode`: An instance of `Scheme-Mode` holding the resolved values for each mode.
         -   `current-mode`: An `in-out` property using the mode `enum` to control the active mode.
         -   `current-scheme`: An `out` property dynamically selecting the correct scheme instance based on `current-mode`.
