@@ -10,7 +10,7 @@ import LangRefLink from '/src/components/LangRefLink.astro';
 ## Introduction
 The "Figma to Slint" plugin bridges the gap between Figma designs and Slint user interfaces. It provides two primary functionalities:
 
-1.  **Object Inspection:** Allows developers to select any object on the Figma canvas and view its properties (like dimensions, colors, fonts, etc.)formatted as a Slint code snippet. This is useful for quickly translating visual design elements into Slint code.  When paired with the variable export, this inserts variables into the code, if they are used in the figma file. 
+1.  **Object Inspection:** Allows developers to select any object on the Figma canvas and view its properties (like dimensions, colors, fonts, etc.)formatted as a Slint code snippet. This is useful for quickly translating visual design elements into Slint code.  When paired with the variable export, this inserts variables into the code, if they are used in the figma file.
 2.  **Variable Export:** Enables the export of design tokens (variables for colors, numbers, strings, and booleans) defined in Figma directly into `.slint` files. This feature supports Figma's modes, allowing for themeable designs (e.g., light and dark modes) and generates the necessary Slint structs, enums, and global instances to use these tokens seamlessly in your Slint application.
 
 ## Setting up the Figma Inspector
@@ -19,8 +19,8 @@ The inspector currently has 2 functions.  One is to inspect individual Figma obj
 
 ## Key Features of Variable Export
 
--   **Type Conversion:** 
-    
+-   **Type Conversion:**
+
     The plugin maps Figma variable types to their corresponding Slint types as follows:
 
     | Figma Variable Type | Slint Type |
@@ -30,7 +30,7 @@ The inspector currently has 2 functions.  One is to inspect individual Figma obj
     | String              | `string`   |
     | Boolean             | `bool`     |
 
--   **Mode Support:** 
+-   **Mode Support:**
   For a figma file where Mode `MyCollection` has modes `light` and `dark`, the exporter will create a Slint `enum` for mode selection (e.g., `MyCollectionMode { light, dark }`).
   The file also contains a `Scheme` struct (`MyCollection-Scheme`) representing the structure of variables. A `Scheme-Mode` struct (`MyCollection-Scheme-Mode`) holds instances of the `Scheme` for each mode. And finally a global instance (`my_collection`) which contains:
         -   `mode`: An instance of `Scheme-Mode` holding the resolved values for each mode.
@@ -38,7 +38,7 @@ The inspector currently has 2 functions.  One is to inspect individual Figma obj
         -   `current-scheme`: An `out` property dynamically selecting the correct scheme instance based on `current-mode`.
         -   `current`: An `out` property mirroring the `Scheme` structure, providing direct access to the values of the `current-scheme`.
 -   **Alias Resolution:** Follows variable aliases (references) to find the underlying concrete value or target variable path.
--   **Hierarchy Generation:** Interprets `/` in Figma like  
+-   **Hierarchy Generation:** Interprets `/` in Figma like
     `colors/background/primary`
   to generate nested Slint structs so the corresponding variables are nested for dot notation in Slint, thus the above example turns into `colors.background.primary`
 -   **Circular Reference Handling:** Detects dependency cycles between variables. If a cycle is detected within the same collection, it attempts to break the loop using the target's concrete value. Otherwise, or if the loop break fails, it resolves with a default value and logs a warning. Collections involved in cycles force a single-file export.
@@ -53,7 +53,7 @@ The inspector currently has 2 functions.  One is to inspect individual Figma obj
 1.  **Inspector:**
     -   Bring up the plugin UI and select any object you'd like to inspect.
     ![alt text](../../../../assets/guide/tooling/inspect.webp)
-    
+
 2.  **Variables:**
     -   To see and export variables, check the "Use Figma Variables" checkbox in the plugin UI.
     ![alt text](../../../../assets/guide/tooling/use-variables.webp)
@@ -68,7 +68,7 @@ The inspector currently has 2 functions.  One is to inspect individual Figma obj
 
 
 ## Design-Token File Structure
-      
+
 1. **Import**
     ```slint
     // If separate files:
@@ -116,6 +116,6 @@ The inspector currently has 2 functions.  One is to inspect individual Figma obj
     -   Any variable named exactly `mode` at the root of a collection is renamed to `mode-var` in the Slint output to avoid conflicts with the generated scheme `mode` property.
 
     #### Example
-    Variable `Color & Shade (only #hex values)` in a collection named `Color Primitives` 
-    would get turned into 
+    Variable `Color & Shade (only #hex values)` in a collection named `Color Primitives`
+    would get turned into
     `color-primitives.color_and_shade_only_hex_values`
