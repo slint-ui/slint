@@ -84,11 +84,11 @@ jobs:
                       python_sim_suffix: _x86_64-simulator
                       arch: arm64
                       sdk_name: iphonesimulator
-                      tag: ios_12_0_arm64_iphonesimulator
+                      tag: ios_13_0_arm64_iphonesimulator
                     - target: aarch64-apple-ios
                       arch: x86_64
                       sdk_name: iphoneos
-                      tag: ios_12_0_arm64_iphoneos
+                      tag: ios_13_0_arm64_iphoneos
 
         runs-on: macos-14
         steps:
