@@ -1208,7 +1208,7 @@ fn set_json_preview_data(
     json_string: SharedString,
 ) -> SharedString {
     crate::preview::send_telemetry(&mut [(
-        "type".to_string(), 
+        "type".to_string(),
         serde_json::to_value("data_json_changed").unwrap(),
     )]);
 
@@ -1238,7 +1238,6 @@ fn set_json_preview_data(
     } else {
         SharedString::from("No preview loaded")
     }
-
 }
 
 fn update_properties(
