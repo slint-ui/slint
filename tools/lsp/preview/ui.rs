@@ -1207,7 +1207,10 @@ fn set_json_preview_data(
     property_name: SharedString,
     json_string: SharedString,
 ) -> SharedString {
-    crate::preview::send_telemetry(&mut [("type".to_string(), serde_json::to_value("data_json_changed").unwrap())]);
+    crate::preview::send_telemetry(&mut [(
+        "type".to_string(), 
+        serde_json::to_value("data_json_changed").unwrap(),
+    )]);
 
     let property_name = (!property_name.is_empty()).then_some(property_name.to_string());
 

@@ -133,9 +133,6 @@ export function languageClientOptions(
 
 export function prepare_client(client: BaseLanguageClient) {
     client.registerFeature(new snippets.SnippetTextEditFeature());
-    client.onNotification(new NotificationType("telemetry/event"), (params) => {
-        console.log("Received telemetry event:", params);
-    });
 }
 
 // VSCode Plugin lifecycle related:
@@ -153,6 +150,12 @@ export function activate(
 
     client.add_updater((cl) => {
         wasm_preview.initClientForPreview(context, cl);
+        cl?.onNotification(
+            new NotificationType("telemetry/event"),
+            (params: any) => {
+                handleTelemetryEvent(params.type, context.globalState);
+            },
+        );
     });
 
     vscode.workspace.onDidChangeConfiguration(async (ev) => {
@@ -262,4 +265,30 @@ async function maybeSendStartupTelemetryEvent(
     }
 
     telemetryLogger.logUsage("extension-activated", usageData);
+}
+
+function handleTelemetryEvent(
+    telemetryType: string,
+    globalState: vscode.Memento,
+) {
+    switch (telemetryType) {
+        case "preview_opened": {
+            const currentCount = globalState.get("preview_opened", 0);
+            globalState.update("preview_opened", currentCount + 1);
+            break;
+        }
+        case "property_changed": {
+            const currentCount = globalState.get("property_changed", 0);
+            globalState.update("property_changed", currentCount + 1);
+            break;
+        }
+        case "data_json_changed": {
+            const currentCount = globalState.get("data_json_changed", 0);
+            globalState.update("data_json_changed", currentCount + 1);
+            break;
+        }
+        default:
+            console.log("Received unknown telemetry event:", telemetryType);
+            break;
+    }
 }
