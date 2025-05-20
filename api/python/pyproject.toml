@@ -7,7 +7,7 @@ build-backend = "maturin"
 
 [project]
 name = "slint"
-version = "1.12.0a2"
+version = "1.12.0a3"
 requires-python = ">= 3.12"
 authors = [{ name = "Slint Team", email = "info@slint.dev" }]
 classifiers = [
@@ -28,7 +28,6 @@ classifiers = [
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.10",
 ]
-dependencies = ["maturin>=1.8.2"]
 
 [project.urls]
 Homepage = "https://slint.dev"
