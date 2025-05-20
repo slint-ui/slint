@@ -10,6 +10,7 @@ import { existsSync } from "node:fs";
 import * as vscode from "vscode";
 import { SlintTelemetrySender } from "./telemetry";
 import * as common from "./common";
+import { NotificationType } from "vscode-languageclient";
 
 import {
     LanguageClient,
@@ -187,6 +188,13 @@ function startClient(
                     });
             }
         });
+
+        cl?.onNotification(
+            new NotificationType("telemetry/event"),
+            (params: any) => {
+                handleTelemetryEvent(params.type, context.globalState);
+            },
+        );
     });
 
     const cl = new LanguageClient(
@@ -241,8 +249,84 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(
         vscode.commands.registerCommand("slint.newProject", newProject),
     );
+
+    startTelemetryTimer(context, telemetryLogger);
 }
 
 export function deactivate(): Thenable<void> | undefined {
     return common.deactivate();
+}
+
+function handleTelemetryEvent(
+    telemetryType: string,
+    globalState: vscode.Memento,
+) {
+    switch (telemetryType) {
+        case "preview_opened": {
+            const currentCount = globalState.get("preview_opened", 0);
+            globalState.update("preview_opened", currentCount + 1);
+            break;
+        }
+        case "property_changed": {
+            const currentCount = globalState.get("property_changed", 0);
+            globalState.update("property_changed", currentCount + 1);
+            break;
+        }
+        case "data_json_changed": {
+            const currentCount = globalState.get("data_json_changed", 0);
+            globalState.update("data_json_changed", currentCount + 1);
+            break;
+        }
+        default:
+            console.log("Received unknown telemetry event:", telemetryType);
+            break;
+    }
+}
+
+function startTelemetryTimer(
+    context: vscode.ExtensionContext,
+    telemetryLogger: vscode.TelemetryLogger,
+) {
+    checkForTelemetry();
+
+    const _oneHourTimer = setInterval(
+        () => {
+            checkForTelemetry();
+        },
+        1000 * 60 * 60,
+    );
+
+    function checkForTelemetry() {
+        const now = Date.now();
+        const timeSinceLastUsage =
+            now - context.globalState.get("lastUsage", 0);
+
+        if (timeSinceLastUsage > 1000 * 60 * 59) {
+            context.globalState.update("lastUsage", now);
+
+            const previewCount = context.globalState.get("preview_opened", 0);
+            const propertyTabCount = context.globalState.get(
+                "property_changed",
+                0,
+            );
+            const dataTabCount = context.globalState.get(
+                "data_json_changed",
+                0,
+            );
+            if (previewCount + propertyTabCount + dataTabCount > 0) {
+                const usageData = {
+                    preview_opened: previewCount,
+                    property_changed: propertyTabCount,
+                    data_json_changed: dataTabCount,
+                };
+
+                // Reset the counters
+                context.globalState.update("preview_opened", 0);
+                context.globalState.update("property_changed", 0);
+                context.globalState.update("data_json_changed", 0);
+
+                telemetryLogger.logUsage("live-preview-stats", usageData);
+            }
+        }
+    }
 }
