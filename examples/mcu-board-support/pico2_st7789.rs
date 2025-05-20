@@ -28,7 +28,7 @@ mod rp_pico2;
 use rp_pico2::hal::{self, pac, prelude::*, timer::CopyableTimer0, Timer};
 use slint::platform::{software_renderer as renderer, PointerEventButton, WindowEvent};
 
-const HEAP_SIZE: usize = 200 * 1024;
+const HEAP_SIZE: usize = 400 * 1024;
 static mut HEAP: [u8; HEAP_SIZE] = [0; HEAP_SIZE];
 
 #[global_allocator]
