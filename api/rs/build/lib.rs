@@ -190,6 +190,18 @@ impl CompilerConfiguration {
         Self { config }
     }
 
+    /// Configures the compiler to emit additional debug info when compiling Slint code.
+    /// 
+    /// This is the equivalent to setting `SLINT_EMIT_DEBUG_INFO=1` and using the `slint!()` macro 
+    /// and is primarily used by `i-slint-backend-testing`.
+    #[doc(hidden)]
+    #[must_use]
+    pub fn with_debug_info(self) -> Self {
+        let mut config = self.config;
+        config.debug_info = true;
+        Self { config }
+    }
+
     /// Configures the compiler to use Signed Distance Field (SDF) encoding for fonts.
     ///
     /// This flag only takes effect when `embed_resources` is set to [`EmbedResourcesKind::EmbedForSoftwareRenderer`],
