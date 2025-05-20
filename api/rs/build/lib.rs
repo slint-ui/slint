@@ -196,9 +196,9 @@ impl CompilerConfiguration {
     /// and is primarily used by `i-slint-backend-testing`.
     #[doc(hidden)]
     #[must_use]
-    pub fn with_debug_info(self) -> Self {
+    pub fn with_debug_info(self, enable: bool) -> Self {
         let mut config = self.config;
-        config.debug_info = true;
+        config.debug_info = enable;
         Self { config }
     }
 
