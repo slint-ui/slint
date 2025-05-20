@@ -227,7 +227,7 @@ pub extern "C" fn slint_interpreter_struct_set_field<'a>(
     stru.as_struct_mut().set_field(std::str::from_utf8(&name).unwrap().into(), value.clone())
 }
 
-type StructIterator<'a> = std::collections::hash_map::Iter<'a, String, Value>;
+type StructIterator<'a> = std::collections::hash_map::Iter<'a, SmolStr, Value>;
 #[repr(C)]
 pub struct StructIteratorOpaque<'a>([usize; 5], std::marker::PhantomData<StructIterator<'a>>);
 const _: [(); std::mem::size_of::<StructIteratorOpaque>()] =
@@ -313,7 +313,7 @@ pub unsafe extern "C" fn slint_interpreter_component_instance_invoke(
     let comp = inst.unerase(guard);
     match comp.description().invoke(
         comp.borrow(),
-        &normalize_identifier_smolstr(std::str::from_utf8(&name).unwrap()),
+        &normalize_identifier(std::str::from_utf8(&name).unwrap()),
         args.as_slice(),
     ) {
         Ok(val) => Box::into_raw(Box::new(val)),
@@ -467,8 +467,7 @@ pub unsafe extern "C" fn slint_interpreter_component_instance_invoke_global(
                     args.as_slice().iter().cloned().collect(),
                 )
             } else {
-                g.as_ref()
-                    .invoke_callback(&normalize_identifier_smolstr(callable_name), args.as_slice())
+                g.as_ref().invoke_callback(&normalize_identifier(callable_name), args.as_slice())
             }
         }) {
         Ok(val) => Box::into_raw(Box::new(val)),

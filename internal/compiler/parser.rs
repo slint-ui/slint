@@ -13,7 +13,7 @@ This module has different sub modules with the actual parser functions
 */
 
 use crate::diagnostics::{BuildDiagnostics, SourceFile, Spanned};
-use smol_str::{SmolStr, StrExt};
+use smol_str::SmolStr;
 use std::fmt::Display;
 
 mod document;
@@ -1013,7 +1013,29 @@ pub fn identifier_text(node: &SyntaxNode) -> Option<SmolStr> {
 }
 
 pub fn normalize_identifier(ident: &str) -> SmolStr {
-    ident.replace_smolstr("_", "-")
+    let mut builder = smol_str::SmolStrBuilder::default();
+    for (pos, c) in ident.chars().enumerate() {
+        match (pos, c) {
+            (0, '-') | (0, '_') => builder.push('_'),
+            (_, '_') => builder.push('-'),
+            (_, c) => builder.push(c),
+        }
+    }
+    builder.finish()
+}
+
+#[test]
+fn test_normalize_identifier() {
+    assert_eq!(normalize_identifier("true"), SmolStr::new("true"));
+    assert_eq!(normalize_identifier("foo_bar"), SmolStr::new("foo-bar"));
+    assert_eq!(normalize_identifier("-foo_bar"), SmolStr::new("_foo-bar"));
+    assert_eq!(normalize_identifier("-foo-bar"), SmolStr::new("_foo-bar"));
+    assert_eq!(normalize_identifier("foo_bar_"), SmolStr::new("foo-bar-"));
+    assert_eq!(normalize_identifier("foo_bar-"), SmolStr::new("foo-bar-"));
+    assert_eq!(normalize_identifier("_foo_bar_"), SmolStr::new("_foo-bar-"));
+    assert_eq!(normalize_identifier("__1"), SmolStr::new("_-1"));
+    assert_eq!(normalize_identifier("--1"), SmolStr::new("_-1"));
+    assert_eq!(normalize_identifier("--1--"), SmolStr::new("_-1--"));
 }
 
 // Actual parser

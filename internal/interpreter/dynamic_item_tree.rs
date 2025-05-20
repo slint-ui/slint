@@ -510,7 +510,7 @@ impl ItemTreeDescription<'_> {
     > {
         let g = self.compiled_globals.as_ref().expect("Root component should have globals");
         g.exported_globals_by_name
-            .get(crate::normalize_identifier(name).as_ref())
+            .get(&crate::normalize_identifier(name))
             .and_then(|global_idx| g.compiled_globals.get(*global_idx))
             .map(|global| internal_properties_to_public(global.public_properties()))
     }

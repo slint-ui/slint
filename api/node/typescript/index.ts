@@ -461,8 +461,15 @@ function loadSlint(loadData: LoadData): Object {
 
                 // globals
                 instance!.definition().globals.forEach((globalName) => {
-                    if (componentHandle[globalName] !== undefined) {
-                        console.warn("Duplicated property name " + globalName);
+                    const jsName = translateName(globalName);
+                    if (componentHandle[jsName] !== undefined) {
+                        console.warn(
+                            "Duplicated property name " +
+                                globalName +
+                                " (In JS: " +
+                                jsName +
+                                ")",
+                        );
                     } else {
                         const globalObject = Object.create({});
 
@@ -576,7 +583,7 @@ function loadSlint(loadData: LoadData): Object {
                                 }
                             });
 
-                        Object.defineProperty(componentHandle, globalName, {
+                        Object.defineProperty(componentHandle, jsName, {
                             get() {
                                 return globalObject;
                             },
