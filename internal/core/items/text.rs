@@ -532,14 +532,7 @@ impl Item for TextInput {
                 };
                 let text = self_rc.as_pin_ref().text();
                 let cursor_pos = self_rc.as_pin_ref().unchecked_cursor_position_byte_offset();
-                if cursor_pos < 0 {
-                    return 0;
-                }
-                let text_len = text.len() as i32;
-                if cursor_pos > text_len {
-                    return text_len;
-                }
-                cursor_pos
+                safe_byte_offset(cursor_pos, &text) as i32
             }
         });
         self.anchor_position_byte_offset.set_binding({
@@ -549,15 +542,8 @@ impl Item for TextInput {
                     return 0;
                 };
                 let text = self_rc.as_pin_ref().text();
-                let cursor_pos = self_rc.as_pin_ref().unchecked_anchor_position_byte_offset();
-                if cursor_pos < 0 {
-                    return 0;
-                }
-                let text_len = text.len() as i32;
-                if cursor_pos > text_len {
-                    return text_len;
-                }
-                cursor_pos
+                let anchor_pos = self_rc.as_pin_ref().unchecked_anchor_position_byte_offset();
+                safe_byte_offset(anchor_pos, &text) as i32
             }
         });
     }
