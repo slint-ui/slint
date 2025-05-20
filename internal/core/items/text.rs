@@ -973,9 +973,7 @@ impl Item for TextInput {
                 self.has_focus.set(false);
                 self.hide_cursor();
                 if matches!(event, FocusEvent::FocusOut) {
-                    self.as_ref()
-                        .anchor_position_byte_offset
-                        .set(self.as_ref().cursor_position_byte_offset());
+                    self.clear_selection(window_adapter, self_rc);
                 }
                 WindowInner::from_pub(window_adapter.window()).set_text_input_focused(false);
                 if !self.read_only() {
@@ -1630,7 +1628,7 @@ impl TextInput {
     pub fn clear_selection(self: Pin<&Self>, _: &Rc<dyn WindowAdapter>, _: &ItemRc) {
         self.as_ref()
             .unchecked_anchor_position_byte_offset
-            .set(self.as_ref().cursor_position_byte_offset());
+            .set(self.as_ref().unchecked_cursor_position_byte_offset());
     }
 
     pub fn select_word(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>, self_rc: &ItemRc) {
