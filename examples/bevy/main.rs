@@ -9,6 +9,7 @@ mod web_asset;
 
 slint::slint! {
 import { Palette, Button, ComboBox, GroupBox, GridBox, Slider, HorizontalBox, VerticalBox, ProgressIndicator } from "std-widgets.slint";
+
 export component AppWindow inherits Window {
     in property <image> texture <=> i.source;
     out property <length> requested-texture-width: i.width;
@@ -49,31 +50,42 @@ export component AppWindow inherits Window {
             }
         }
 
-        i := Image {
-            image-fit: fill;
+        Rectangle {
             width: 100%;
             height: 100%;
-            preferred-width: self.source.width * 1px;
-            preferred-height: self.source.height * 1px;
+            if !show-loading-screen: Text {
+                y: 80px;
+                width: 450px;
+                font-size: 14px;
+                text: "This text is also rendered using Slint. It can be seen because Bevy is rendering with a transparent background.";
+                wrap: word-wrap;
+            }
+            i := Image {
+                image-fit: fill;
+                width: 100%;
+                height: 100%;
+                preferred-width: self.source.width * 1px;
+                preferred-height: self.source.height * 1px;
 
-            if show-loading-screen: Rectangle {
-                background: Palette.background;
-                VerticalBox {
-                    alignment: start;
-                    Text {
-                        horizontal-alignment: center;
-                        text: "Downloading Assets";
-                    }
-                    Text {
-                        text: download-url;
-                        overflow: elide;
-                    }
-                    ProgressIndicator {
-                        indeterminate: download-url.is-empty;
-                        progress: root.download-progress;
+                if show-loading-screen: Rectangle {
+                    VerticalBox {
+                        alignment: start;
+                        Text {
+                            horizontal-alignment: center;
+                            text: "Downloading Assets";
+                        }
+                        Text {
+                            text: download-url;
+                            overflow: elide;
+                        }
+                        ProgressIndicator {
+                            indeterminate: download-url.is-empty;
+                            progress: root.download-progress;
+                        }
                     }
                 }
             }
+
         }
     }
 }
@@ -100,6 +112,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     .add_systems(Startup, setup)
                     .add_systems(Update, reload_model_from_channel(model_selector_receiver))
                     .add_systems(Update, animate_camera)
+                    .insert_resource(ClearColor(Color::NONE))
                     .run();
             },
         ))?;
