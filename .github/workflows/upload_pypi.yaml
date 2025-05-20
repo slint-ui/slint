@@ -84,9 +84,11 @@ jobs:
                       python_sim_suffix: _x86_64-simulator
                       arch: arm64
                       sdk_name: iphonesimulator
+                      tag: ios_12_0_arm64_iphonesimulator
                     - target: aarch64-apple-ios
                       arch: x86_64
                       sdk_name: iphoneos
+                      tag: ios_12_0_arm64_iphoneos
 
         runs-on: macos-14
         steps:
@@ -128,6 +130,8 @@ jobs:
 
             - name: Build a binary wheel
               uses: PyO3/maturin-action@v1
+              env:
+                  _PYTHON_HOST_PLATFORM: ${{ matrix.tag }}
               with:
                   working-directory: api/python
                   target: ${{ matrix.target }}
