@@ -1460,11 +1460,11 @@ impl TextInput {
     }
 
     pub fn anchor_position(self: Pin<&Self>, text: &str) -> usize {
-        safe_byte_offset(self.anchor_position_byte_offset(), text)
+        safe_byte_offset(self.unchecked_anchor_position_byte_offset(), text)
     }
 
     pub fn cursor_position(self: Pin<&Self>, text: &str) -> usize {
-        safe_byte_offset(self.cursor_position_byte_offset(), text)
+        safe_byte_offset(self.unchecked_cursor_position_byte_offset(), text)
     }
 
     fn ime_properties(
