@@ -191,8 +191,8 @@ impl CompilerConfiguration {
     }
 
     /// Configures the compiler to emit additional debug info when compiling Slint code.
-    /// 
-    /// This is the equivalent to setting `SLINT_EMIT_DEBUG_INFO=1` and using the `slint!()` macro 
+    ///
+    /// This is the equivalent to setting `SLINT_EMIT_DEBUG_INFO=1` and using the `slint!()` macro
     /// and is primarily used by `i-slint-backend-testing`.
     #[doc(hidden)]
     #[must_use]
