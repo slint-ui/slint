@@ -453,7 +453,7 @@ impl Snapshotter {
             .transitions
             .iter()
             .map(|t| object_tree::Transition {
-                is_out: t.is_out,
+                direction: t.direction,
                 state_id: t.state_id.clone(),
                 property_animations: t
                     .property_animations
@@ -570,7 +570,7 @@ impl Snapshotter {
                             .iter()
                             .map(|tpa| object_tree::TransitionPropertyAnimation {
                                 state_id: tpa.state_id,
-                                is_out: tpa.is_out,
+                                direction: tpa.direction,
                                 animation: self.create_and_snapshot_element(&tpa.animation),
                             })
                             .collect(),

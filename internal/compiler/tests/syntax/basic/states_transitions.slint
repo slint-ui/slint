@@ -38,7 +38,10 @@ export TestCase := Rectangle {
             animate border { duration: 120ms; }
             animate color, text.text { duration: 300ms; }
 ///                        ^error{'text.text' is not a property that can be animated}
+        }
 
+        in-out checked: {
+            animate color { duration: 100ms; }
         }
     ]
 
@@ -57,6 +60,10 @@ export component NewSyntax {
             color: blue; // same as root.color
             text.color: red;
             border: 42;
+
+            in-out {
+                animate color { duration: 100ms; }
+            }
         }
         pressed when touch.pressed: {
             color: green;

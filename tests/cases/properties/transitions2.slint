@@ -6,6 +6,7 @@ TestCase := Rectangle {
     property<int> top_level: 4;
     property<int> active_index: 0;
     property<int> some_prop: 5;
+    property<int> another_prop: 100;
     text1 := Text {
         property<int> foo: 85 + top_level;
     }
@@ -19,6 +20,13 @@ TestCase := Rectangle {
             }
             out {
                 animate text1.foo { duration: 300ms; }
+            }
+        }
+
+        yyy when active_index == 3 : {
+            another_prop: 500;
+            in-out {
+                animate another_prop { duration: 100ms; }
             }
         }
     ]
@@ -53,6 +61,23 @@ assert!(instance.get_text1_foo() > 70);
 assert!(instance.get_text1_foo() < 87);
 slint_testing::mock_elapsed_time(30);
 assert_eq!(instance.get_text1_foo(), 85 + 4);
+
+assert_eq!(instance.get_another_prop(), 100);
+instance.set_active_index(3);
+assert_eq!(instance.get_another_prop(), 100);
+slint_testing::mock_elapsed_time(75); // 75% of the animation
+assert!(instance.get_another_prop() > 100);
+assert!(instance.get_another_prop() < 500);
+slint_testing::mock_elapsed_time(25); // 100% of the animation
+assert_eq!(instance.get_another_prop(), 500);
+
+instance.set_active_index(1);
+assert_eq!(instance.get_another_prop(), 500);
+slint_testing::mock_elapsed_time(75); // 75% of the animation
+assert!(instance.get_another_prop() > 100);
+assert!(instance.get_another_prop() < 500);
+slint_testing::mock_elapsed_time(25); // 100% of the animation
+assert_eq!(instance.get_another_prop(), 100);
 ```
 
 
@@ -78,6 +103,23 @@ assert(instance.get_text1_foo() > 70);
 assert(instance.get_text1_foo() < 87);
 slint_testing::mock_elapsed_time(30);
 assert_eq(instance.get_text1_foo(), 85 + 4);
+
+assert_eq(instance.get_another_prop(), 100);
+instance.set_active_index(3);
+assert_eq(instance.get_another_prop(), 100);
+slint_testing::mock_elapsed_time(75); // 75% of the animation
+assert(instance.get_another_prop() > 100);
+assert(instance.get_another_prop() < 500);
+slint_testing::mock_elapsed_time(25); // 100% of the animation
+assert_eq(instance.get_another_prop(), 500);
+
+instance.set_active_index(1);
+assert_eq(instance.get_another_prop(), 500);
+slint_testing::mock_elapsed_time(75); // 75% of the animation
+assert(instance.get_another_prop() > 100);
+assert(instance.get_another_prop() < 500);
+slint_testing::mock_elapsed_time(25); // 100% of the animation
+assert_eq(instance.get_another_prop(), 100);
 ```
 
 
@@ -102,6 +144,23 @@ assert(instance.text1_foo > 70);
 assert(instance.text1_foo < 87);
 slintlib.private_api.mock_elapsed_time(30);
 assert.equal(instance.text1_foo, 85 + 4);
+
+assert.equal(instance.another_prop, 100);
+instance.active_index = 3;
+assert.equal(instance.another_prop, 100);
+slintlib.private_api.mock_elapsed_time(75); // 75% of the animation
+assert(instance.another_prop > 100);
+assert(instance.another_prop < 500);
+slintlib.private_api.mock_elapsed_time(25); // 100% of the animation
+assert.equal(instance.another_prop, 500);
+
+instance.active_index = 1;
+assert.equal(instance.another_prop, 500);
+slintlib.private_api.mock_elapsed_time(75); // 75% of the animation
+assert(instance.another_prop > 100);
+assert(instance.another_prop < 500);
+slintlib.private_api.mock_elapsed_time(25); // 100% of the animation
+assert.equal(instance.another_prop, 100);
 ```
 
 */

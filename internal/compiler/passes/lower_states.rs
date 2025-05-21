@@ -161,7 +161,7 @@ fn lower_transitions_in_element(
 
             let t = TransitionPropertyAnimation {
                 state_id: *state,
-                is_out: transition.is_out,
+                direction: transition.direction,
                 animation,
             };
             props.entry(p).or_insert_with(|| (span.clone(), vec![])).1.push(t);
