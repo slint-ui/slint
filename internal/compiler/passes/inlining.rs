@@ -511,7 +511,7 @@ fn duplicate_property_animation(
                 .iter()
                 .map(|a| TransitionPropertyAnimation {
                     state_id: a.state_id,
-                    is_out: a.is_out,
+                    direction: a.direction,
                     animation: duplicate_element_with_mapping(
                         &a.animation,
                         mapping,
@@ -568,7 +568,7 @@ fn duplicate_transition(
     priority_delta: i32,
 ) -> Transition {
     Transition {
-        is_out: t.is_out,
+        direction: t.direction,
         state_id: t.state_id.clone(),
         property_animations: t
             .property_animations

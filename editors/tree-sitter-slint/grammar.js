@@ -235,7 +235,7 @@ module.exports = grammar({
 
     in_out_transition: ($) =>
       seq(
-        choice("in", "out"),
+        choice("in", "out", "in-out"),
         optional(seq($.expression, ":")),
         "{",
         repeat($.animate_statement),
