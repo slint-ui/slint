@@ -11,6 +11,7 @@ import { ColorIndicator, FakeShadowText, PickerTextInput } from "./brush-helpers
 import { CustomLineEdit } from "./widget-helpers.slint";
 import { ColorModeAndApply } from "./floating-brush-sections/color-mode-and-apply.slint";
 import { GradientPicker } from "./floating-brush-sections/gradient-ui.slint";
+import { PalettePicker } from "floating-brush-sections/palettes.slint";
 
 enum PickerTab {
     color,
@@ -509,6 +510,10 @@ component ColorPicker inherits DraggablePanel {
         clear-focus-panel => {
             root.clear-focus-panel();
         }
+    }
+
+    PalettePicker {
+
     }
 
     footer := Rectangle {
