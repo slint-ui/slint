@@ -547,4 +547,7 @@ export global Api {
 
     // Get the property declaration/definition ranges
     callback property-declaration-ranges(property-name: string) -> PropertyDeclaration;
+
+    // Palettes:
+    pure callback filter-palettes(palettes: [PaletteEntry], pattern: string) -> [PaletteEntry];
 }

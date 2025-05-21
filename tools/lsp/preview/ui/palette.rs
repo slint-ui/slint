@@ -9,7 +9,7 @@ use crate::{
 use lsp_types::Url;
 
 use i_slint_compiler::{expression_tree, langtype, object_tree};
-use slint::SharedString;
+use slint::{Model, SharedString};
 
 fn collect_colors_palette() -> Vec<ui::PaletteEntry> {
     let colors = i_slint_compiler::lookup::named_colors();
@@ -152,6 +152,47 @@ pub fn collect_palettes(
     document_uri: &Url,
 ) -> Vec<ui::PaletteEntry> {
     collect_palette_from_globals(document_cache, document_uri, collect_colors_palette())
+}
+
+pub fn filter_palettes(
+    input: slint::ModelRc<ui::PaletteEntry>,
+    pattern: slint::SharedString,
+) -> slint::ModelRc<ui::PaletteEntry> {
+    let pattern = pattern.to_string();
+    std::rc::Rc::new(slint::VecModel::from(filter_palettes_iter(&mut input.iter(), &pattern)))
+        .into()
+}
+
+fn filter_palettes_iter(
+    input: &mut impl Iterator<Item = ui::PaletteEntry>,
+    pattern: &str,
+) -> Vec<ui::PaletteEntry> {
+    use nucleo_matcher::{pattern, Config, Matcher};
+
+    let mut matcher = Matcher::new(Config::DEFAULT.match_paths());
+    let pattern = pattern::Pattern::parse(
+        pattern,
+        pattern::CaseMatching::Ignore,
+        pattern::Normalization::Smart,
+    );
+
+    input
+        .filter(|p| {
+            let terms = [format!(
+                "{} %kind:{:?} %is_brush:{}",
+                p.name,
+                p.value.kind,
+                if [ui::PropertyValueKind::Color, ui::PropertyValueKind::Brush]
+                    .contains(&p.value.kind)
+                {
+                    "yes"
+                } else {
+                    "no"
+                }
+            )];
+            !pattern.match_list(terms.iter(), &mut matcher).is_empty()
+        })
+        .collect::<Vec<_>>()
 }
 
 #[cfg(test)]
@@ -347,5 +388,40 @@ export component Main { }
         compare(&result[3], "Test.palette.light.color1", 0x11, 0x00, 0x00);
         compare(&result[4], "Test.palette.light.color2", 0x00, 0x11, 0x00);
         compare(&result[5], "Test.palette.light.color3", 0x00, 0x00, 0x11);
+    }
+
+    #[test]
+    fn test_filter_palette() {
+        let palette = super::collect_colors_palette();
+
+        assert_eq!(filter_palettes_iter(&mut palette.iter().cloned(), "'FOO").len(), 0);
+        assert_eq!(
+            filter_palettes_iter(&mut palette.iter().cloned(), "'%kind:Color").len(),
+            palette.len()
+        );
+        assert_eq!(
+            filter_palettes_iter(&mut palette.iter().cloned(), "'%is_brush:yes").len(),
+            palette.len()
+        );
+        assert_eq!(filter_palettes_iter(&mut palette.iter().cloned(), "'%kind:UNKNOWN").len(), 0);
+        assert_eq!(
+            filter_palettes_iter(&mut palette.iter().cloned(), "'Colors.aquamarine").len(),
+            1
+        );
+        assert_eq!(
+            filter_palettes_iter(&mut palette.iter().cloned(), "Colors.aquamarine").len(),
+            2
+        );
+        assert_eq!(
+            filter_palettes_iter(&mut palette.iter().cloned(), "Colors.aquamarine '%kind:Color")
+                .len(),
+            2
+        );
+        assert_eq!(filter_palettes_iter(&mut palette.iter().cloned(), "aquamarine").len(), 2);
+        assert_eq!(
+            filter_palettes_iter(&mut palette.iter().cloned(), "^Colors.").len(),
+            palette.len()
+        );
+        assert_eq!(filter_palettes_iter(&mut palette.iter().cloned(), "!^Colors.").len(), 0);
     }
 }
