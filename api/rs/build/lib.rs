@@ -58,6 +58,7 @@ use std::path::Path;
 use i_slint_compiler::diagnostics::BuildDiagnostics;
 
 /// The structure for configuring aspects of the compilation of `.slint` markup files to Rust.
+#[derive(Clone)]
 pub struct CompilerConfiguration {
     config: i_slint_compiler::CompilerConfiguration,
 }
