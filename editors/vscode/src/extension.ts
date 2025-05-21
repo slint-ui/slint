@@ -10,6 +10,7 @@ import { existsSync } from "node:fs";
 import * as vscode from "vscode";
 import { SlintTelemetrySender } from "./telemetry";
 import * as common from "./common";
+import { NotificationType } from "vscode-languageclient";
 
 import {
     LanguageClient,
@@ -20,6 +21,12 @@ import {
 import { newProject } from "./quick_picks.js";
 
 let statusBar: vscode.StatusBarItem;
+
+const initialTelemetry = {
+    preview_opened: 0,
+    property_changed: 0,
+    data_json_changed: 0,
+};
 
 const program_extension = process.platform === "win32" ? ".exe" : "";
 
@@ -187,6 +194,13 @@ function startClient(
                     });
             }
         });
+
+        cl?.onNotification(
+            new NotificationType("telemetry/event"),
+            (params: any) => {
+                handleTelemetryEvent(params.type, context.globalState);
+            },
+        );
     });
 
     const cl = new LanguageClient(
@@ -241,8 +255,64 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(
         vscode.commands.registerCommand("slint.newProject", newProject),
     );
+
+    startTelemetryTimer(context, telemetryLogger);
 }
 
 export function deactivate(): Thenable<void> | undefined {
     return common.deactivate();
+}
+
+function handleTelemetryEvent(
+    telemetryType: string,
+    globalState: vscode.Memento,
+) {
+    const telemetryState: Record<string, number> = globalState.get(
+        "telemetryState",
+        JSON.parse(JSON.stringify(initialTelemetry)),
+    );
+    telemetryState[telemetryType] += 1;
+    globalState.update("telemetryState", telemetryState);
+}
+
+function startTelemetryTimer(
+    context: vscode.ExtensionContext,
+    telemetryLogger: vscode.TelemetryLogger,
+) {
+    checkForTelemetry();
+
+    const _oneHourTimer = setInterval(
+        () => {
+            checkForTelemetry();
+        },
+        1000 * 60 * 60,
+    );
+
+    function checkForTelemetry() {
+        const now = Date.now();
+        const timeSinceLastUsage =
+            now - context.globalState.get("lastUsage", 0);
+
+        if (timeSinceLastUsage > 1000 * 60 * 59) {
+            context.globalState.update("lastUsage", now);
+
+            const telemetryState = context.globalState.get(
+                "telemetryState",
+                {},
+            );
+
+            const hasPositiveValue = Object.values(
+                telemetryState as Record<string, number>,
+            ).some((value) => value > 0);
+
+            if (hasPositiveValue) {
+                telemetryLogger.logUsage("live-preview-stats", telemetryState);
+
+                context.globalState.update(
+                    "telemetryState",
+                    JSON.parse(JSON.stringify(initialTelemetry)),
+                );
+            }
+        }
+    }
 }

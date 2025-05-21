@@ -11,10 +11,9 @@ import * as wasm_preview from "./wasm_preview";
 import * as lsp_commands from "./lsp_commands";
 import * as snippets from "./snippets";
 
-import {
-    type BaseLanguageClient,
-    type LanguageClientOptions,
-    NotificationType,
+import type {
+    BaseLanguageClient,
+    LanguageClientOptions,
 } from "vscode-languageclient";
 
 export class ClientHandle {

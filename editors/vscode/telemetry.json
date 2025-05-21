@@ -23,6 +23,23 @@
                 "purpose": "PerformanceAndHealth",
                 "comment": "The location of the panic in the slint-lsp code"
             }
+        },
+        "live-preview-stats": {
+            "preview_opened": {
+                "classification": "PublicNonPersonalData",
+                "purpose": "PerformanceAndHealth",
+                "comment": "Times the live preview has been opened"
+            },
+            "property_changed": {
+                "classification": "PublicNonPersonalData",
+                "purpose": "PerformanceAndHealth",
+                "comment": "Times a value in the property tab has been changed"
+            },
+            "data_json_changed": {
+                "classification": "PublicNonPersonalData",
+                "purpose": "PerformanceAndHealth",
+                "comment": "Times a property in the data tab has been changed"
+            }
         }
     },
     "commonProperties": {
