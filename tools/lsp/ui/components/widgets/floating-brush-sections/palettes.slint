@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { SimpleColumn } from "../../layout-helpers.slint";
-import { Api } from "../../../api.slint";
+import { Api, PaletteEntry } from "../../../api.slint";
 import { EditorSizeSettings } from "../../styling.slint";
 import { ScrollView } from "std-widgets.slint";
 
@@ -27,12 +27,14 @@ export component PalettePicker  {
 
     property <int> rows: 9;
 
+    property <[PaletteEntry]> palette-entries: Api.filter_palettes(Api.palettes, "%is_brush:yes !^Colors.");
+
     ScrollView {
         width: 100%;
         height: 100%;
         viewport-height: (Api.palettes.length / rows).floor() * 24px;
 
-        for i[index] in Api.palettes : PaletteIcon {
+        for i[index] in root.palette-entries : PaletteIcon {
             x: EditorSizeSettings.standard-margin + (index.mod(rows) * 24px);
             y: (index / rows).floor() * 24px;
             name: i.name;
