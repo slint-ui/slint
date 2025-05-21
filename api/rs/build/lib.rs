@@ -400,6 +400,7 @@ pub fn compile(path: impl AsRef<std::path::Path>) -> Result<(), CompileError> {
 ///     .with_style("material".into());
 /// slint_build::compile_with_config("ui/hello.slint", config).unwrap();
 /// ```
+/// 
 ///
 /// or for multiple slint modules, use the [`glob`](https://docs.rs/glob/latest/glob/) crate:
 /// ```rust,no_run
@@ -408,7 +409,7 @@ pub fn compile(path: impl AsRef<std::path::Path>) -> Result<(), CompileError> {
 ///     slint_build::CompilerConfiguration::new()
 ///     .with_style("material".into());
 /// for module in glob("ui/*.slint").expect("Failed to find slint files") {
-///     slint_build::compile_with_config(module.unwrap(), config.clone()).unwrap();
+        slint_build::compile_with_config(module.unwrap(), config.clone()).unwrap();
 /// }
 /// ```
 pub fn compile_with_config(
