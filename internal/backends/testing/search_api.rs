@@ -10,7 +10,7 @@ use i_slint_core::window::WindowInner;
 use i_slint_core::SharedString;
 
 fn warn_missing_debug_info() {
-    i_slint_core::debug_log!("The use of the ElementHandle API requires the presence of debug info in Slint compiler generated code. Set the `SLINT_EMIT_DEBUG_INFO=1` environment variable at application build time")
+    i_slint_core::debug_log!("The use of the ElementHandle API requires the presence of debug info in Slint compiler generated code. Set the `SLINT_EMIT_DEBUG_INFO=1` environment variable at application build time or use `compile_with_config` and `with_debug_info` with `slint_build`'s `CompilerConfiguration`")
 }
 
 mod internal {
