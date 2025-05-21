@@ -86,7 +86,7 @@ jobs:
                       sdk_name: iphonesimulator
                       tag: ios_13_0_arm64_iphonesimulator
                     - target: aarch64-apple-ios
-                      arch: x86_64
+                      arch: arm64
                       sdk_name: iphoneos
                       tag: ios_13_0_arm64_iphoneos
 
