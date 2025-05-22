@@ -28,6 +28,8 @@ export component App inherits Window {
                 title: @tr("MenuBar" => "Save As");
                 for x in 10: MenuItem { title: @tr("MenuBar" => "Name {}", x+1);  }
             }
+            MenuSeparator {}
+            MenuItem { title: @tr("MenuBar" => "MenuItem with Icon"); icon: @image-url("thumbsup.png"); }
         }
         Menu {
             title: @tr("MenuBar" => "Edit");

@@ -119,6 +119,7 @@ fn builtin_structs(path: &Path) -> anyhow::Result<()> {
     writeln!(structs_priv, "// This file is auto-generated from {}", file!())?;
     writeln!(structs_priv, "#include \"slint_builtin_structs.h\"")?;
     writeln!(structs_priv, "#include \"slint_enums_internal.h\"")?;
+    writeln!(structs_priv, "#include \"slint_image.h\"")?;
     writeln!(structs_priv, "namespace slint::cbindgen_private {{")?;
     writeln!(structs_priv, "enum class KeyEventType : uint8_t;")?;
     macro_rules! struct_file {
@@ -520,7 +521,7 @@ fn gen_corelib(
             ],
             vec!["Color"],
             "slint_image_internal.h",
-            "namespace slint::cbindgen_private { struct ParsedSVG{}; struct HTMLImage{}; using namespace vtable; namespace types{ struct NineSliceImage{}; } }",
+            "#include \"slint_color.h\"\nnamespace slint::cbindgen_private { struct ParsedSVG{}; struct HTMLImage{}; using namespace vtable; namespace types{ struct NineSliceImage{}; } }",
         ),
         (
             vec!["Color", "slint_color_brighter", "slint_color_darker",
