@@ -265,6 +265,7 @@ export global Api {
 
     // ## Palette data:
     in-out property <[PaletteEntry]> palettes;
+    in-out property <[color]> recent-colors;
 
     // ## Property Editor
     in-out property <ElementInformation> current-element;
@@ -550,4 +551,5 @@ export global Api {
 
     // Palettes:
     pure callback filter-palettes(palettes: [PaletteEntry], pattern: string) -> [PaletteEntry];
+    callback add-recent-color(color);
 }

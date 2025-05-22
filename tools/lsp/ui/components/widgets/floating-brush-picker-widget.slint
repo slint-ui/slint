@@ -11,7 +11,7 @@ import { ColorIndicator, FakeShadowText, PickerTextInput } from "./brush-helpers
 import { CustomLineEdit } from "./widget-helpers.slint";
 import { ColorModeAndApply } from "./floating-brush-sections/color-mode-and-apply.slint";
 import { GradientPicker } from "./floating-brush-sections/gradient-ui.slint";
-import { PalettePicker } from "floating-brush-sections/palettes.slint";
+import { RecentColorPicker } from "floating-brush-sections/palettes.slint";
 
 enum PickerTab {
     color,
@@ -452,8 +452,7 @@ component ColorPicker inherits DraggablePanel {
     in-out property <BrushMode> brush-mode: color;
     // Which tab is active in the picker (color, gradient, etc)
     in-out property <PickerTab> active-tab: PickerTab.color;
-    property <bool> show-palettes: active-tab == PickerTab.color && palettes.length > 0;
-    property <[PaletteEntry]> palettes: Api.filter_palettes(Api.palettes, "%is_brush:yes !^Colors.");
+    property <bool> show-palettes: active-tab == PickerTab.color;
 
     callback close <=> t-close.clicked;
 
@@ -516,8 +515,8 @@ component ColorPicker inherits DraggablePanel {
 
     if show-palettes : VerticalSpacer { }
 
-    if show-palettes: PalettePicker {
-        palette-entries <=> root.palettes;
+    if show-palettes: RecentColorPicker {
+        recent-colors <=> Api.recent-colors;
      }
 
     footer := Rectangle {

@@ -25,9 +25,8 @@ component PaletteIcon {
     ta := TouchArea { }
 }
 
-export component PalettePicker inherits SimpleColumn {
-    in property <[PaletteEntry]> palette-entries;
-    property <int> rows: 9;
+export component RecentColorPicker inherits SimpleColumn {
+    in property <[color]> recent-colors;
 
     Rectangle {
         width: 100%;
@@ -37,24 +36,22 @@ export component PalettePicker inherits SimpleColumn {
     Rectangle {
         height: EditorSizeSettings.small-margin;
     }
-    ScrollView {
+    Rectangle {
         width: 100%;
-        height: min((3 * 24px) - 8px, (palette-entries.length / rows).ceil() * 24px);
-        viewport-height: (palette-entries.length / rows).ceil() * 24px - 8px;
+        height: 24px;
 
-        for i[index] in root.palette-entries : PaletteIcon {
-            x: EditorSizeSettings.standard-margin + (index.mod(rows) * 24px);
-            y: (index / rows).floor() * 24px;
-            name: i.name;
-            brush: i.value.value-brush;
-            brush-kind: i.value.brush-kind;
+        for i[index] in root.recent-colors : PaletteIcon {
+            x: EditorSizeSettings.standard-margin + index * 24px;
+            name: "";
+            brush: i;
+            brush-kind: BrushKind.solid;
 
             clicked => {
                 PickerData.hue = self.brush.to-hsv().hue;
                 PickerData.saturation = self.brush.to-hsv().saturation;
                 PickerData.value = self.brush.to-hsv().value;
                 PickerData.alpha = self.brush.to-hsv().alpha * 100;
-                PickerData.current-brush-kind = i.value.brush-kind;
+                PickerData.current-brush-kind = BrushKind.solid;
             }
         }
     }
