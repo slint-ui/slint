@@ -28,8 +28,10 @@ export component ColorIndicator {
         Rectangle {
             x: parent.width / 2;
             width: 50%;
-            background: white;
+            // work around lack of masking by hiding the background and checkerboard when alpha is 1
+            background: root.color.to-hsv().alpha < 1 ? white : transparent;
             Image {
+                visible: root.color.to-hsv().alpha < 1;
                 width: 100%;
                 height: 100%;
                 vertical-alignment: top;
@@ -47,7 +49,7 @@ export component ColorIndicator {
         Rectangle {
             border-radius: root.border-radius;
             border-width: root.border-width;
-            border-color: white.with-alpha(10%);
+            border-color: white.with-alpha(8%);
         }
 
         @children
