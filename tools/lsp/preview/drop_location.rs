@@ -819,7 +819,7 @@ pub fn workspace_edit_compiles(
     }) {
         diag = BuildDiagnostics::default(); // reset errors that might be due to missing changes elsewhere
 
-        let _ = preview::poll_once(document_cache.load_url(&u, None, c, &mut diag));
+        let _ = common::poll_once(document_cache.load_url(&u, None, c, &mut diag));
     }
 
     if diag.has_errors() {
