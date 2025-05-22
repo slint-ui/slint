@@ -1,0 +1,71 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { MaterialStyleMetrics } from "../styling/material_style_metrics.slint";
+import { MaterialPalette } from "../styling/material_palette.slint";
+import { FocusTouchArea, StateLayer, Ripple } from "./state_layer.slint";
+
+export component Switch {
+    in_out property <bool> checked;
+    in property <bool> enabled: true;
+    in property <string> tooltip <=> touch_area.tooltip;
+
+    min_width: MaterialStyleMetrics.size_52;
+    min_height: MaterialStyleMetrics.size_32;
+    
+    accessible-enabled: root.enabled;
+    accessible-checkable: true;
+    accessible-checked <=> root.checked;
+    accessible-role: checkbox;
+    accessible-action-default => { touch_area.clicked(); }
+    forward_focus: touch_area;
+
+    touch_area := FocusTouchArea {
+        enabled: root.enabled;
+        
+        background_layer := Rectangle {
+            background: MaterialPalette.surface_container_highest;
+            border_radius: self.height / 2;
+            border_width: 2px;
+            border_color: MaterialPalette.outline;
+
+            state_layer := StateLayer {
+                width: self.height;
+                height: root.height + MaterialStyleMetrics.size_8;
+                border_radius: self.height / 2;
+                // background: indicator.background;
+                has_hover: touch_area.has_hover;
+                has_focus: touch_area.has_focus;
+                pressed: touch_area.pressed;
+                enabled: root.enabled;
+
+                // ripple
+                if root.enabled && (touch_area.pressed || touch_area.enter_pressed) : Ripple {
+                    pressed_x: touch_area.pressed_x;
+                    pressed_y: touch_area.pressed_y;
+                    width: 100%;
+                    height: 100%;
+                    border_radius: state_layer.border_radius;
+                    color: state_layer.background;
+                    clip_ripple: true;
+                }
+
+                indicator := Rectangle {
+                    width: self.height;
+                    height: background_layer.height / 2;
+                    border_radius: self.height / 2;
+                    background: MaterialPalette.outline;
+                }
+            }
+        }
+    }
+
+    states [
+        pressed when touch_area.pressed: {
+            state_layer.background: indicator.background;
+        }
+        hover when touch_area.has_hover: {
+            state_layer.background: indicator.background;
+        }
+    ]
+}
