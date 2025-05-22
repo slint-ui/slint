@@ -41,6 +41,25 @@ component BackgroundExpr2 inherits Rectangle {
     }
 }
 
+
+export global Issue8485  {
+
+    pure public function format_nullable_duration( has-value: bool, precision: int) -> string {
+        if has-value {
+            return "";
+        } else {
+            if precision == 1 {
+                return "aaa";
+            }
+            if precision == 2 {
+                return "bbb";
+            }
+            return "-";
+        }
+    }
+}
+
+
 export component TestCase {
 
     bkg1 := BackgroundExpr { cond: true; }
@@ -53,7 +72,8 @@ export component TestCase {
     out property <bool> test:
     {
         return bkg1.background == Colors.blue && bkg2.background == Colors.red
-            && bkg3.background == Colors.orange && bkg4.background == Colors.pink && bkg5.background == Colors.blue;
+            && bkg3.background == Colors.orange && bkg4.background == Colors.pink && bkg5.background == Colors.blue
+            && Issue8485.format_nullable_duration(false, 2) == "bbb";
     }
 
 
