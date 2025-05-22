@@ -3,7 +3,7 @@
 
 import { Palette, Button, ComboBox } from "std-widgets.slint";
 import { WindowGlobal, WindowManager, PickerData, BrushMode, BrushPropertyType, WidgetMode} from "../../windowglobal.slint";
-import { Api, GradientStop, BrushKind} from "../../api.slint";
+import { Api, GradientStop, BrushKind, PaletteEntry } from "../../api.slint";
 import { Icons, EditorPalette, EditorSizeSettings, PickerStyles } from "../../components/styling.slint";
 import { SimpleColumn } from "../../components/layout-helpers.slint";
 import { DraggablePanel } from "../../components/draggable-panel.slint";
@@ -452,6 +452,8 @@ component ColorPicker inherits DraggablePanel {
     in-out property <BrushMode> brush-mode: color;
     // Which tab is active in the picker (color, gradient, etc)
     in-out property <PickerTab> active-tab: PickerTab.color;
+    property <bool> show-palettes: active-tab == PickerTab.color && palettes.length > 0;
+    property <[PaletteEntry]> palettes: Api.filter_palettes(Api.palettes, "%is_brush:yes !^Colors.");
 
     callback close <=> t-close.clicked;
 
@@ -512,13 +514,15 @@ component ColorPicker inherits DraggablePanel {
         }
     }
 
-    PalettePicker {
+    if show-palettes : VerticalSpacer { }
 
-    }
+    if show-palettes: PalettePicker {
+        palette-entries <=> root.palettes;
+     }
 
     footer := Rectangle {
         width: 100%;
-        height: EditorSizeSettings.standard-margin;
+        height: EditorSizeSettings.small-margin;
     }
 }
 
