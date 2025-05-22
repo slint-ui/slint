@@ -59,7 +59,41 @@ pub struct Flickable {
 }
 
 impl Item for Flickable {
-    fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
+    fn init(self: Pin<&Self>, self_rc: &ItemRc) {
+        self.data.in_bound_change_handler.init_delayed(
+            self_rc.downgrade(),
+            // Binding that returns if the Flickable is out of bounds:
+            |self_weak| {
+                let Some(flick_rc) = self_weak.upgrade() else { return false };
+                let Some(flick) = flick_rc.downcast::<Flickable>() else { return false };
+                let flick = flick.as_pin_ref();
+                let geo = flick_rc.geometry();
+                let zero = LogicalLength::zero();
+                let vpx = flick.viewport_x();
+                if vpx > zero || vpx < (geo.width_length() - flick.viewport_width()).min(zero) {
+                    return true;
+                }
+                let vpy = flick.viewport_y();
+                if vpy > zero || vpy < (geo.height_length() - flick.viewport_height()).min(zero) {
+                    return true;
+                }
+                false
+            },
+            // Change event handler that puts the Flickable in bounds if it's not already
+            |self_weak, out_of_bound| {
+                let Some(flick_rc) = self_weak.upgrade() else { return };
+                let Some(flick) = flick_rc.downcast::<Flickable>() else { return };
+                let flick = flick.as_pin_ref();
+                if *out_of_bound {
+                    let vpx = flick.viewport_x();
+                    let vpy = flick.viewport_y();
+                    let p = ensure_in_bound(flick, LogicalPoint::from_lengths(vpx, vpy), &flick_rc);
+                    (Flickable::FIELD_OFFSETS.viewport_x).apply_pin(flick).set(p.x_length());
+                    (Flickable::FIELD_OFFSETS.viewport_y).apply_pin(flick).set(p.y_length());
+                }
+            },
+        );
+    }
 
     fn layout_info(
         self: Pin<&Self>,
@@ -211,6 +245,8 @@ struct FlickableDataInner {
 #[derive(Default, Debug)]
 pub struct FlickableData {
     inner: RefCell<FlickableDataInner>,
+    /// Tracker that tracks the property to make sure that the flickable is in bounds
+    in_bound_change_handler: crate::properties::ChangeTracker,
 }
 
 impl FlickableData {
