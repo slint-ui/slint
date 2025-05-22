@@ -6,7 +6,7 @@
 use std::collections::HashMap;
 
 use super::PreviewState;
-use crate::common::{PreviewToLspMessage, SourceFileVersion};
+use crate::common::{self, PreviewToLspMessage, SourceFileVersion};
 use crate::ServerNotifier;
 use slint_interpreter::ComponentHandle;
 use std::future::Future;
@@ -33,11 +33,8 @@ static GUI_EVENT_LOOP_STATE_REQUEST: LazyLock<Mutex<RequestedGuiEventLoopState>>
 
 thread_local! {static CLI_ARGS: std::cell::OnceCell<crate::Cli> = Default::default();}
 
-pub fn run_in_ui_thread<F: Future<Output = ()> + 'static>(
-    create_future: impl Send + FnOnce() -> F + 'static,
-) -> Result<(), String> {
-    // Wake up the main thread to start the event loop, if possible
-    {
+pub fn lsp_to_preview_message(message: common::LspToPreviewMessage) {
+    fn ensure_ui_event_loop() -> Result<(), String> {
         let mut state_request = GUI_EVENT_LOOP_STATE_REQUEST.lock().unwrap();
         if *state_request == RequestedGuiEventLoopState::Uninitialized {
             *state_request = RequestedGuiEventLoopState::StartLoop;
@@ -51,12 +48,38 @@ pub fn run_in_ui_thread<F: Future<Output = ()> + 'static>(
         if let RequestedGuiEventLoopState::InitializationError(err) = &*state_request {
             return Err(err.clone());
         }
+
+        Ok(())
     }
 
-    i_slint_core::api::invoke_from_event_loop(move || {
-        slint::spawn_local(create_future()).unwrap();
-    })
-    .map_err(|e| e.to_string())
+    fn run_in_ui_thread<F: Future<Output = ()> + 'static>(
+        create_future: impl Send + FnOnce() -> F + 'static,
+    ) -> Result<(), String> {
+        i_slint_core::api::invoke_from_event_loop(move || {
+            slint::spawn_local(create_future()).unwrap();
+        })
+        .map_err(|e| e.to_string())
+    }
+
+    let loop_is_started = {
+        *GUI_EVENT_LOOP_STATE_REQUEST.lock().unwrap() == RequestedGuiEventLoopState::LoopStarted
+    };
+
+    if matches!(message, common::LspToPreviewMessage::ShowPreview(_)) && !loop_is_started {
+        if let Err(e) = ensure_ui_event_loop() {
+            super::send_platform_error_notification(&e);
+        }
+
+        send_message_to_lsp(PreviewToLspMessage::RequestState { unused: true });
+        return;
+    }
+    if loop_is_started {
+        if let Err(e) = run_in_ui_thread(move || async move {
+            super::lsp_to_preview_message_impl(message);
+        }) {
+            super::send_platform_error_notification(&e);
+        }
+    }
 }
 
 /// This is the main entry for the Slint event loop. It runs on the main thread,
@@ -250,7 +273,7 @@ pub fn notify_diagnostics(
     };
 
     for (url, (version, diagnostics)) in diagnostics {
-        crate::common::lsp_to_editor::notify_lsp_diagnostics(&sender, url, version, diagnostics)?;
+        common::lsp_to_editor::notify_lsp_diagnostics(&sender, url, version, diagnostics)?;
     }
     Some(())
 }
@@ -260,9 +283,8 @@ pub fn ask_editor_to_show_document(file: &str, selection: lsp_types::Range, take
         return;
     };
     let Ok(url) = lsp_types::Url::from_file_path(file) else { return };
-    let fut = crate::common::lsp_to_editor::send_show_document_to_editor(
-        sender, url, selection, take_focus,
-    );
+    let fut =
+        common::lsp_to_editor::send_show_document_to_editor(sender, url, selection, take_focus);
     slint_interpreter::spawn_local(fut).unwrap(); // Fire and forget.
 }
 
