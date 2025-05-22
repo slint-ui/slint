@@ -1,6 +1,13 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+//! This is the live-preview part of the program.
+//!
+//! All functions defined in this file must be called in the UI thread! Different rules
+//! may apply to the functions re-exported from the  `wasm` and `native` modules!
+//! These functions integrate the preview with the surrounding environment which in
+//! the case of `native` runs in a separate thread at this time.
+
 use crate::common::{
     self, component_catalog, rename_component, ComponentInformation, ElementRcNode,
     PreviewComponent, PreviewConfig, PreviewToLspMessage, SourceFileVersion,
@@ -250,7 +257,6 @@ fn search_for_parent_element(root: &ElementRc, child: &ElementRc) -> Option<Elem
     None
 }
 
-// triggered from the UI, running in UI thread
 fn property_declaration_ranges(name: slint::SharedString) -> ui::PropertyDeclaration {
     let name = name.to_string();
     PREVIEW_STATE
@@ -265,7 +271,6 @@ fn property_declaration_ranges(name: slint::SharedString) -> ui::PropertyDeclara
         .unwrap_or_default()
 }
 
-// triggered from the UI, running in UI thread
 fn add_new_component() {
     fn find_component_name() -> Option<String> {
         PREVIEW_STATE.with(|preview_state| {
@@ -389,7 +394,6 @@ pub fn find_last_component_identifier(
     last_identifier
 }
 
-// triggered from the UI, running in UI thread
 fn rename_component(
     old_name: slint::SharedString,
     old_url: slint::SharedString,
@@ -473,7 +477,6 @@ fn evaluate_binding(
     }
 }
 
-// triggered from the UI, running in UI thread
 fn test_code_binding(
     element_url: slint::SharedString,
     element_version: i32,
@@ -575,7 +578,6 @@ fn set_binding(
     }
 }
 
-// triggered from the UI, running in UI thread
 fn show_component(name: slint::SharedString, url: slint::SharedString) {
     let name = name.to_string();
     let Ok(url) = Url::parse(url.as_ref()) else {
@@ -605,7 +607,6 @@ fn show_component(name: slint::SharedString, url: slint::SharedString) {
     ask_editor_to_show_document(&file.to_string_lossy(), lsp_types::Range::new(start, start), false)
 }
 
-// triggered from the UI, running in UI thread
 fn show_document_offset_range(url: slint::SharedString, start: i32, end: i32, take_focus: bool) {
     fn internal(
         url: slint::SharedString,
@@ -633,7 +634,6 @@ fn show_document_offset_range(url: slint::SharedString, start: i32, end: i32, ta
     }
 }
 
-// triggered from the UI, running in UI thread
 fn show_preview_for(name: slint::SharedString, url: slint::SharedString) {
     let name = name.to_string();
     let Ok(url) = Url::parse(url.as_ref()) else {
@@ -645,7 +645,6 @@ fn show_preview_for(name: slint::SharedString, url: slint::SharedString) {
     load_preview(current, LoadBehavior::Load);
 }
 
-// triggered from the UI, running in UI thread
 fn can_drop_component(component_index: i32, x: f32, y: f32, on_drop_area: bool) -> bool {
     if !on_drop_area {
         set_drop_mark(&None);
@@ -669,7 +668,6 @@ fn can_drop_component(component_index: i32, x: f32, y: f32, on_drop_area: bool) 
     })
 }
 
-// triggered from the UI, running in UI thread
 fn drop_component(component_index: i32, x: f32, y: f32) {
     send_telemetry(&mut [("type".to_string(), serde_json::to_value("component_dropped").unwrap())]);
 
@@ -712,7 +710,6 @@ fn placeholder_node_text(selected: &common::ElementRcNode) -> String {
     Default::default()
 }
 
-// triggered from the UI, running in UI thread
 fn delete_selected_element() {
     let Some(selected) = selected_element() else {
         return;
@@ -745,7 +742,6 @@ fn delete_selected_element() {
     send_workspace_edit("Delete element".to_string(), edit, true);
 }
 
-// triggered from the UI, running in UI thread
 fn resize_selected_element(x: f32, y: f32, width: f32, height: f32) {
     let Some(element_selection) = &selected_element() else {
         return;
@@ -837,7 +833,6 @@ fn resize_selected_element_impl(
     .map(|edit| (edit, format!("{op} element")))
 }
 
-// triggered from the UI, running in UI thread
 fn can_move_selected_element(x: f32, y: f32, mouse_x: f32, mouse_y: f32) -> bool {
     let position = LogicalPoint::new(x, y);
     let mouse_position = LogicalPoint::new(mouse_x, mouse_y);
@@ -860,7 +855,6 @@ fn can_move_selected_element(x: f32, y: f32, mouse_x: f32, mouse_y: f32) -> bool
     )
 }
 
-// triggered from the UI, running in UI thread
 fn move_selected_element(x: f32, y: f32, mouse_x: f32, mouse_y: f32) {
     let position = LogicalPoint::new(x, y);
     let mouse_position = LogicalPoint::new(mouse_x, mouse_y);
@@ -1267,27 +1261,23 @@ pub fn load_preview(preview_component: PreviewComponent, behavior: LoadBehavior)
         cache.loading_state = PreviewFutureState::PreLoading;
     };
 
-    if let Err(e) = run_in_ui_thread(move || async move {
-        PREVIEW_STATE.with(|preview_state| {
-            preview_state
-                .borrow_mut()
-                .preview_loading_delay_timer
-                .get_or_insert_with(|| {
-                    let timer = slint::Timer::default();
-                    timer.start(
-                        slint::TimerMode::SingleShot,
-                        core::time::Duration::from_millis(50),
-                        || {
-                            let _ = slint::spawn_local(reload_timer_function());
-                        },
-                    );
-                    timer
-                })
-                .restart();
-        });
-    }) {
-        send_platform_error_notification(&e);
-    }
+    PREVIEW_STATE.with(|preview_state| {
+        preview_state
+            .borrow_mut()
+            .preview_loading_delay_timer
+            .get_or_insert_with(|| {
+                let timer = slint::Timer::default();
+                timer.start(
+                    slint::TimerMode::SingleShot,
+                    core::time::Duration::from_millis(50),
+                    || {
+                        let _ = slint::spawn_local(reload_timer_function());
+                    },
+                );
+                timer
+            })
+            .restart();
+    });
 }
 
 async fn parse_source(
@@ -1421,8 +1411,6 @@ fn send_platform_error_notification(platform_error_str: &str) {
 }
 
 /// This sets up the preview area to show the ComponentInstance
-///
-/// This must be run in the UI thread.
 fn set_preview_factory(
     ui: &ui::PreviewUi,
     compiled: ComponentDefinition,
@@ -1462,18 +1450,16 @@ pub fn highlight(url: Option<Url>, offset: TextSize) {
 
     let cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
     if url.as_ref().is_none_or(|url| cache.dependencies.contains(url)) {
-        let _ = run_in_ui_thread(move || async move {
-            if Some((path.clone(), offset)) == selected.map(|s| (s.path, s.offset)) {
-                // Already selected!
-                return;
-            }
-            element_selection::select_element_at_source_code_position(
-                path,
-                offset,
-                None,
-                SelectionNotification::Never,
-            );
-        });
+        if Some((path.clone(), offset)) == selected.map(|s| (s.path, s.offset)) {
+            // Already selected!
+            return;
+        }
+        element_selection::select_element_at_source_code_position(
+            path,
+            offset,
+            None,
+            SelectionNotification::Never,
+        );
     }
 }
 
@@ -1748,14 +1734,12 @@ fn document_cache_from(preview_state: &PreviewState) -> Option<Rc<common::Docume
 }
 
 fn set_show_preview_ui(show_preview_ui: bool) {
-    let _ = run_in_ui_thread(move || async move {
-        PREVIEW_STATE.with(|preview_state| {
-            let preview_state = preview_state.borrow();
-            if let Some(ui) = &preview_state.ui {
-                let api = ui.global::<ui::Api>();
-                api.set_show_preview_ui(show_preview_ui)
-            }
-        })
+    PREVIEW_STATE.with(|preview_state| {
+        let preview_state = preview_state.borrow();
+        if let Some(ui) = &preview_state.ui {
+            let api = ui.global::<ui::Api>();
+            api.set_show_preview_ui(show_preview_ui)
+        }
     });
 }
 
@@ -1857,7 +1841,7 @@ fn update_preview_area(
     Ok(())
 }
 
-pub fn lsp_to_preview_message(message: crate::common::LspToPreviewMessage) {
+fn lsp_to_preview_message_impl(message: crate::common::LspToPreviewMessage) {
     use crate::common::LspToPreviewMessage as M;
     match message {
         M::InvalidateContents { url } => invalidate_contents(&url),

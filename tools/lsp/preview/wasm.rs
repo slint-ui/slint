@@ -6,7 +6,7 @@
 
 use std::collections::HashMap;
 
-use crate::common::SourceFileVersion;
+use crate::common;
 use crate::wasm_prelude::*;
 use slint_interpreter::ComponentHandle;
 use std::cell::RefCell;
@@ -191,13 +191,6 @@ fn invoke_from_event_loop_wrapped_in_promise(
     }))
 }
 
-pub fn run_in_ui_thread<F: Future<Output = ()> + 'static>(
-    create_future: impl Send + FnOnce() -> F + 'static,
-) -> Result<(), String> {
-    slint::spawn_local(create_future()).map_err(|e| e.to_string())?;
-    Ok(())
-}
-
 pub fn resource_url_mapper(
 ) -> Option<Rc<dyn Fn(&str) -> Pin<Box<dyn Future<Output = Option<String>>>>>> {
     let callback = WASM_CALLBACKS.with_borrow(|callbacks| {
@@ -213,7 +206,7 @@ pub fn resource_url_mapper(
     }))
 }
 
-pub fn send_message_to_lsp(message: crate::common::PreviewToLspMessage) {
+pub fn send_message_to_lsp(message: common::PreviewToLspMessage) {
     WASM_CALLBACKS.with_borrow(|callbacks| {
         if let Some(callbacks) = &callbacks {
             let notifier = js_sys::Function::from((callbacks.lsp_notifier).clone());
@@ -224,23 +217,19 @@ pub fn send_message_to_lsp(message: crate::common::PreviewToLspMessage) {
 }
 
 pub fn notify_diagnostics(
-    diagnostics: HashMap<lsp_types::Url, (SourceFileVersion, Vec<lsp_types::Diagnostic>)>,
+    diagnostics: HashMap<lsp_types::Url, (common::SourceFileVersion, Vec<lsp_types::Diagnostic>)>,
 ) -> Option<()> {
     for (uri, (version, diagnostics)) in diagnostics {
-        send_message_to_lsp(crate::common::PreviewToLspMessage::Diagnostics {
-            uri,
-            version,
-            diagnostics,
-        });
+        send_message_to_lsp(common::PreviewToLspMessage::Diagnostics { uri, version, diagnostics });
     }
     Some(())
 }
 
 pub fn ask_editor_to_show_document(file: &str, selection: lsp_types::Range, take_focus: bool) {
     let Ok(file) = lsp_types::Url::from_file_path(file) else { return };
-    send_message_to_lsp(crate::common::PreviewToLspMessage::ShowDocument {
-        file,
-        selection,
-        take_focus,
-    });
+    send_message_to_lsp(common::PreviewToLspMessage::ShowDocument { file, selection, take_focus });
+}
+
+pub fn lsp_to_preview_message(message: common::LspToPreviewMessage) {
+    super::lsp_to_preview_message_impl(message);
 }

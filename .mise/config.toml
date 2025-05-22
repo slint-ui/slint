@@ -16,7 +16,7 @@
 "aqua:sharkdp/fd" = "10.2.0"
 "rust" = { version = "stable", profile = "default" }
 node = "20"
-pnpm = "10.10.0"
+pnpm = "10.11.0"
 taplo = "0.9.3"
 "ubi:rustwasm/wasm-pack" = "0.13.1"
 
