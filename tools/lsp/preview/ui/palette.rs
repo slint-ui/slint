@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+use std::rc::Rc;
+
 use crate::{
     common,
     preview::{properties, ui},
@@ -9,7 +11,27 @@ use crate::{
 use lsp_types::Url;
 
 use i_slint_compiler::{expression_tree, langtype, object_tree};
-use slint::{Model, SharedString};
+use slint::{ComponentHandle, Model, SharedString};
+
+pub fn setup(ui: &ui::PreviewUi) {
+    let api = ui.global::<ui::Api>();
+
+    api.on_filter_palettes(filter_palettes);
+}
+
+pub fn collect_palette(
+    document_cache: &common::DocumentCache,
+    document_uri: &Url,
+) -> Vec<ui::PaletteEntry> {
+    collect_palette_from_globals(document_cache, document_uri, collect_colors_palette())
+}
+
+pub fn set_palette(ui: &ui::PreviewUi, values: Vec<ui::PaletteEntry>) {
+    let palettes = Rc::new(slint::VecModel::from(values)).into();
+
+    let api = ui.global::<ui::Api>();
+    api.set_palettes(palettes);
+}
 
 fn collect_colors_palette() -> Vec<ui::PaletteEntry> {
     let colors = i_slint_compiler::lookup::named_colors();
@@ -147,14 +169,7 @@ fn collect_palette_from_globals(
     values
 }
 
-pub fn collect_palettes(
-    document_cache: &common::DocumentCache,
-    document_uri: &Url,
-) -> Vec<ui::PaletteEntry> {
-    collect_palette_from_globals(document_cache, document_uri, collect_colors_palette())
-}
-
-pub fn filter_palettes(
+fn filter_palettes(
     input: slint::ModelRc<ui::PaletteEntry>,
     pattern: slint::SharedString,
 ) -> slint::ModelRc<ui::PaletteEntry> {

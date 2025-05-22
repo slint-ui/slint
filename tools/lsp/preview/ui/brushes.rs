@@ -1,11 +1,138 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use slint::{Model, VecModel};
+//! Handle colors and brushes in the UI
+
+use slint::{ComponentHandle, Model, VecModel};
 
 use crate::preview::ui;
 
 use std::rc::Rc;
+
+pub fn setup(ui: &ui::PreviewUi) {
+    let api = ui.global::<ui::Api>();
+
+    api.on_add_gradient_stop(add_gradient_stop);
+    api.on_remove_gradient_stop(remove_gradient_stop);
+    api.on_move_gradient_stop(move_gradient_stop);
+    api.on_suggest_gradient_stop_at_row(suggest_gradient_stop_at_row);
+    api.on_suggest_gradient_stop_at_position(suggest_gradient_stop_at_position);
+    api.on_clone_gradient_stops(clone_gradient_stops);
+
+    api.on_as_json_brush(as_json_brush);
+    api.on_as_slint_brush(as_slint_brush);
+    api.on_create_brush(create_brush);
+
+    api.on_string_to_color(|s| string_to_color(s.as_ref()).unwrap_or_default());
+    api.on_string_is_color(|s| string_to_color(s.as_ref()).is_some());
+    api.on_color_to_data(|c| ui::ColorData {
+        a: c.alpha() as i32,
+        r: c.red() as i32,
+        g: c.green() as i32,
+        b: c.blue() as i32,
+        text: color_to_string(c),
+        short_text: color_to_short_string(c).into(),
+    });
+    api.on_rgba_to_color(|r, g, b, a| {
+        if (0..256).contains(&r)
+            && (0..256).contains(&g)
+            && (0..256).contains(&b)
+            && (0..256).contains(&a)
+        {
+            slint::Color::from_argb_u8(a as u8, r as u8, g as u8, b as u8)
+        } else {
+            slint::Color::default()
+        }
+    });
+}
+
+pub fn color_to_string(color: slint::Color) -> slint::SharedString {
+    let a = color.alpha();
+    let r = color.red();
+    let g = color.green();
+    let b = color.blue();
+
+    slint::format!("#{r:02x}{g:02x}{b:02x}{a:02x}")
+}
+
+fn color_to_short_string(color: slint::Color) -> String {
+    let r = color.red();
+    let g = color.green();
+    let b = color.blue();
+
+    format!("{r:02x}{g:02x}{b:02x}")
+}
+
+pub fn string_to_color(text: &str) -> Option<slint::Color> {
+    i_slint_compiler::literals::parse_color_literal(text).map(slint::Color::from_argb_encoded)
+}
+
+fn as_json_brush(
+    kind: ui::BrushKind,
+    angle: f32,
+    color: slint::Color,
+    stops: slint::ModelRc<ui::GradientStop>,
+) -> slint::SharedString {
+    format!("\"{}\"", as_slint_brush(kind, angle, color, stops)).into()
+}
+
+fn as_slint_brush(
+    kind: ui::BrushKind,
+    angle: f32,
+    color: slint::Color,
+    stops: slint::ModelRc<ui::GradientStop>,
+) -> slint::SharedString {
+    fn stops_as_string(stops: slint::ModelRc<ui::GradientStop>) -> String {
+        let stops = sorted_gradient_stops(stops);
+
+        let mut result = String::new();
+        for s in stops {
+            result += &format!(", {} {:.2}%", color_to_string(s.color), s.position * 100.0);
+        }
+        result
+    }
+
+    match kind {
+        ui::BrushKind::Solid => color_to_string(color),
+        ui::BrushKind::Linear => {
+            format!("@linear-gradient({angle}deg{})", stops_as_string(stops)).into()
+        }
+        ui::BrushKind::Radial => {
+            format!("@radial-gradient(circle{})", stops_as_string(stops)).into()
+        }
+    }
+}
+
+fn sorted_gradient_stops(
+    stops: slint::ModelRc<ui::GradientStop>,
+) -> Vec<i_slint_core::graphics::GradientStop> {
+    let mut result = stops
+        .iter()
+        .map(|gs| i_slint_core::graphics::GradientStop { position: gs.position, color: gs.color })
+        .collect::<Vec<_>>();
+    result.sort_by(|left, right| left.position.total_cmp(&right.position));
+
+    result
+}
+
+pub fn create_brush(
+    kind: ui::BrushKind,
+    angle: f32,
+    color: slint::Color,
+    stops: slint::ModelRc<ui::GradientStop>,
+) -> slint::Brush {
+    let mut stops = sorted_gradient_stops(stops);
+
+    match kind {
+        ui::BrushKind::Solid => slint::Brush::SolidColor(color),
+        ui::BrushKind::Linear => slint::Brush::LinearGradient(
+            i_slint_core::graphics::LinearGradientBrush::new(angle, stops.drain(..)),
+        ),
+        ui::BrushKind::Radial => slint::Brush::RadialGradient(
+            i_slint_core::graphics::RadialGradientBrush::new_circle(stops.drain(..)),
+        ),
+    }
+}
 
 fn find_index_for_position(model: &slint::ModelRc<ui::GradientStop>, position: f32) -> usize {
     let position = position.clamp(0.0, 1.0);
@@ -16,14 +143,14 @@ fn find_index_for_position(model: &slint::ModelRc<ui::GradientStop>, position: f
         .unwrap_or(model.row_count())
 }
 
-pub fn add_gradient_stop(model: slint::ModelRc<ui::GradientStop>, value: ui::GradientStop) -> i32 {
+fn add_gradient_stop(model: slint::ModelRc<ui::GradientStop>, value: ui::GradientStop) -> i32 {
     let insert_pos = find_index_for_position(&model, value.position);
     let m = model.as_any().downcast_ref::<VecModel<_>>().unwrap();
     m.insert(insert_pos, value);
     (insert_pos) as i32
 }
 
-pub fn remove_gradient_stop(model: slint::ModelRc<ui::GradientStop>, row: i32) {
+fn remove_gradient_stop(model: slint::ModelRc<ui::GradientStop>, row: i32) {
     if row < 0 {
         return;
     }
@@ -33,11 +160,7 @@ pub fn remove_gradient_stop(model: slint::ModelRc<ui::GradientStop>, row: i32) {
     }
 }
 
-pub fn move_gradient_stop(
-    model: slint::ModelRc<ui::GradientStop>,
-    row: i32,
-    new_position: f32,
-) -> i32 {
+fn move_gradient_stop(model: slint::ModelRc<ui::GradientStop>, row: i32, new_position: f32) -> i32 {
     let mut row_usize = row as usize;
     if row < 0 || row_usize >= model.row_count() {
         return row;
@@ -90,7 +213,7 @@ fn fallback_gradient_stop(position: f32) -> ui::GradientStop {
     ui::GradientStop { position, color: slint::Color::from_argb_u8(0xff, 0x80, 0x80, 0x80) }
 }
 
-pub fn suggest_gradient_stop_at_row(
+fn suggest_gradient_stop_at_row(
     model: slint::ModelRc<ui::GradientStop>,
     row: i32,
 ) -> ui::GradientStop {
@@ -117,7 +240,7 @@ pub fn suggest_gradient_stop_at_row(
     interpolate(prev, next, 0.5)
 }
 
-pub fn suggest_gradient_stop_at_position(
+fn suggest_gradient_stop_at_position(
     model: slint::ModelRc<ui::GradientStop>,
     position: f32,
 ) -> ui::GradientStop {
@@ -148,7 +271,7 @@ pub fn suggest_gradient_stop_at_position(
     interpolate(prev, next, factor)
 }
 
-pub fn clone_gradient_stops(
+fn clone_gradient_stops(
     model: slint::ModelRc<ui::GradientStop>,
 ) -> slint::ModelRc<ui::GradientStop> {
     let cloned_data = model.iter().collect::<Vec<_>>();
