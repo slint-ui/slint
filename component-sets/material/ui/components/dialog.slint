@@ -128,76 +128,70 @@ export component BaseDialog {
         width: 100%;
         height: 100%;
 
-        VerticalLayout {
-            alignment: center;
-            padding: MaterialStyleMetrics.padding_56;
+        background_layer := Rectangle {
+            x: (parent.width - self.width) / 2;
+            y: (parent.height - self.height) / 2;
+            width: layout.min_width;
+            height: layout.min_height;
+            opacity: 0;
+            border_radius: MaterialStyleMetrics.border_radius_28;
+            background: MaterialPalette.surface_container_high;
 
-            HorizontalLayout {
-                alignment: center;
+            TouchArea {
+                layout := VerticalLayout {
+                    padding: MaterialStyleMetrics.padding_24;
+                    spacing: MaterialStyleMetrics.spacing_16;
 
-                background_layer := Rectangle {
-                    opacity: 0;
-                    border_radius: MaterialStyleMetrics.border_radius_28;
-                    background: MaterialPalette.surface_container_high;
+                    if root.has_icon : Icon {
+                        x: (parent.width - self.width) / 2;
+                        colorize: MaterialPalette.on_surface;
+                        source: root.icon;
+                    }
 
-                    TouchArea {
-                        VerticalLayout {
-                            padding: MaterialStyleMetrics.padding_24;
-                            spacing: MaterialStyleMetrics.spacing_16;
+                    if root.title != "" : MaterialText {
+                        horizontal_alignment: root.has_icon ? center : left;
+                        text: root.title;
+                        style: Typography.headline_small;
+                        color: MaterialPalette.on_surface;
+                    }
 
-                            if root.has_icon : Icon {
-                                x: (parent.width - self.width) / 2;
-                                colorize: MaterialPalette.on_surface;
-                                source: root.icon;
+                    @children
+
+                    HorizontalLayout {
+                        spacing: MaterialStyleMetrics.spacing_8;
+
+                        for icon_action[index] in root.icon_actions : IconButton {
+                            icon: icon_action;
+
+                            clicked => {
+                                root.icon_action(index);
                             }
+                        }
 
-                            if root.title != "" : MaterialText {
-                                horizontal_alignment: root.has_icon ? center : left;
-                                text: root.title;
-                                style: Typography.headline_small;
-                                color: MaterialPalette.on_surface;
+                        // Spacer
+                        Rectangle {}
+
+                        for action[index] in root.actions : TextButton {
+                            text: action;
+
+                            clicked => {
+                                root.action(index);
                             }
+                        }
 
-                            @children
+                        if root.default_action_text != "" : FilledButton {
+                            text: root.default_action_text;
 
-                            HorizontalLayout {
-                                spacing: MaterialStyleMetrics.spacing_8;
-
-                                for icon_action[index] in root.icon_actions : IconButton {
-                                    icon: icon_action;
-
-                                    clicked => {
-                                        root.icon_action(index);
-                                    }
-                                }
-
-                                // Spacer
-                                Rectangle {}
-
-                                for action[index] in root.actions : TextButton {
-                                    text: action;
-
-                                    clicked => {
-                                        root.action(index);
-                                    }
-                                }
-
-                                if root.default_action_text != "" : FilledButton {
-                                    text: root.default_action_text;
-
-                                    clicked => {
-                                        root.default_action();
-                                    }
-                                }
+                            clicked => {
+                                root.default_action();
                             }
                         }
                     }
-
-                    animate opacity { duration: Animations.opacity_duration; easing: Animations.opacity_easing; }
                 }
             }
-        }
 
+            animate opacity { duration: Animations.opacity_duration; easing: Animations.opacity_easing; }
+        }
 
         clicked => {
             root.close();

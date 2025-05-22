@@ -407,7 +407,7 @@ export component TimePicker inherits PopupWindow {
     property <int> current_item: root.minutes_selected ? root.index_of_minute(root.current_time.minute) : root.index_of_hour(root.current_time.hour);
     property <Time> current_time: root.time;
     property <int> time_picker_hour: hour_time_picker.text.to_float();
-    property <int> time_picker_minute: minute_time_picker.text.to_float();
+    property <int> time_picker_minute:  minute_time_picker.text.to_float();
     property <bool> horizontal: root.width >= MaterialStyleMetrics.size_572;
 
     callback ok();

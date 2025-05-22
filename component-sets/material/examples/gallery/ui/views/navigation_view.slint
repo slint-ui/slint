@@ -26,7 +26,8 @@ import {
     ActionChip,
     FilterChip,
     InputChip,
-    TimePicker
+    TimePicker,
+    Switch
 } from "../../../../material.slint";
 
 import { Group } from "../components/group.slint";
@@ -376,6 +377,8 @@ export component NavigationView {
             }
 
             ComponentCard {
+                title: "Time picker";
+
                 Horizontal {
                     alignment: center;
 
@@ -385,6 +388,37 @@ export component NavigationView {
 
                         clicked => {
                             time_picker.show();
+                        }
+                    }
+                }
+            }
+
+            ComponentCard {
+                title: "Switches";
+
+                Vertical {
+                    Horizontal {
+                        alignment: space_around;
+
+                        Switch {}
+
+                        Switch {
+                            off_icon: FilledIcons.close;
+                            on_icon: FilledIcons.check;
+                        }
+                    }
+
+                    Horizontal {
+                        alignment: space_around;
+
+                        Switch {
+                            enabled: false;
+                        }
+
+                        Switch {
+                            enabled: false;
+                            on_icon: FilledIcons.check;
+                            off_icon: FilledIcons.close;
                         }
                     }
                 }
