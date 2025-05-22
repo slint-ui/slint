@@ -52,7 +52,7 @@ impl ModelTracker for () {
 
 /// A Model is providing Data for the repeated elements with `for` in the `.slint` language
 ///
-/// If the model can be changed, the type implementing the Model trait should holds
+/// If the model can be changed, the type implementing the Model trait should hold
 /// a [`ModelNotify`], and is responsible to call functions on it to let the UI know that
 /// something has changed.
 ///
