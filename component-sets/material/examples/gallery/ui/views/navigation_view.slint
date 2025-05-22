@@ -396,14 +396,32 @@ export component NavigationView {
             ComponentCard {
                 title: "Switches";
 
-                HorizontalLayout {
-                    alignment: space_between;
+                Vertical {
+                    Horizontal {
+                        alignment: space_around;
+                        
+                        Switch {}
+                        
+                        Switch {
+                            off_icon: FilledIcons.close;
+                            on_icon: FilledIcons.check;
+                        }
+                    }
 
-                    Switch {}
-                    Switch {}
-                    
-                    Switch {}
-                    Switch {}
+                    Horizontal {                   
+                        alignment: space_around;
+
+                        Switch {
+                            enabled: false;
+                        }
+
+                        Switch {
+                            // checked: true;
+                            enabled: false;
+                            on_icon: FilledIcons.check;
+                            off_icon: FilledIcons.close;
+                        }
+                    }
                 }
             }
         }
