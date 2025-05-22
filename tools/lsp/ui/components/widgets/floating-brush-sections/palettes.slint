@@ -25,18 +25,22 @@ component PaletteIcon {
     ta := TouchArea { }
 }
 
-export component PalettePicker  {
-    height: 70px;
-
+export component PalettePicker inherits SimpleColumn {
+    in property <[PaletteEntry]> palette-entries;
     property <int> rows: 9;
 
-    in property <[PaletteEntry]> palette-entries;
-
-    ScrollView {
-        y: EditorSizeSettings.small-margin;
+    Rectangle {
         width: 100%;
-        height: 100%;
-        viewport-height: (Api.palettes.length / rows).floor() * 24px;
+        height: 1px;
+        background: EditorPalette.divider-color;
+    }
+    Rectangle {
+        height: EditorSizeSettings.small-margin;
+    }
+    ScrollView {
+        width: 100%;
+        height: min((3 * 24px) - 8px, (palette-entries.length / rows).ceil() * 24px);
+        viewport-height: (palette-entries.length / rows).ceil() * 24px - 8px;
 
         for i[index] in root.palette-entries : PaletteIcon {
             x: EditorSizeSettings.standard-margin + (index.mod(rows) * 24px);
