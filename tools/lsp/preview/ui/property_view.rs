@@ -16,11 +16,13 @@ use slint::{SharedString, VecModel};
 
 use crate::{
     common,
-    preview::{self, properties, ui},
+    preview::ui::{
+        self,
+        brushes::{color_to_string, create_brush, string_to_color},
+    },
+    preview::{self, properties},
     util,
 };
-
-use super::color_to_string;
 
 pub fn map_properties_to_ui(
     document_cache: &common::DocumentCache,
@@ -243,7 +245,7 @@ fn set_default_brush(
     }
     value.brush_kind = ui::BrushKind::Solid;
     let text = "#00000000";
-    let color = ui::string_to_color(text).unwrap();
+    let color = string_to_color(text).unwrap();
     value.gradient_stops =
         Rc::new(VecModel::from(vec![ui::GradientStop { color, position: 0.5 }])).into();
     value.display_string = text.into();
@@ -417,7 +419,7 @@ fn extract_gradient(
     };
 
     value.gradient_stops = Rc::new(VecModel::from(stops)).into();
-    value.value_brush = super::create_brush(
+    value.value_brush = create_brush(
         value.brush_kind,
         value.value_float,
         slint::Color::default(),

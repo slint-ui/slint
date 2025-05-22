@@ -23,7 +23,7 @@ pub fn setup(ui: &ui::PreviewUi) {
     });
 }
 
-pub fn add_recent_color(ui: ui::PreviewUi, value: slint::Color) {
+fn add_recent_color(ui: ui::PreviewUi, value: slint::Color) {
     eprintln!("RUST SIDE: add_recent_color: {value:?}");
 
     let api = ui.global::<ui::Api>();

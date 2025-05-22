@@ -6,7 +6,7 @@ use std::path::PathBuf;
 use std::{collections::HashMap, iter::once, rc::Rc};
 
 use i_slint_compiler::parser::TextRange;
-use i_slint_compiler::{expression_tree, langtype, literals};
+use i_slint_compiler::{expression_tree, langtype};
 
 use itertools::Itertools;
 use slint::{Model, ModelRc, SharedString, ToSharedString, VecModel};
@@ -19,9 +19,8 @@ use crate::preview::{self, preview_data, properties, SelectionNotification};
 #[cfg(target_arch = "wasm32")]
 use crate::wasm_prelude::*;
 
-mod gradient;
-mod palette;
-pub use palette::collect_palettes;
+mod brushes;
+pub mod palette;
 mod property_view;
 mod recent_colors;
 
@@ -113,40 +112,9 @@ pub fn create_ui(style: String, experimental: bool) -> Result<PreviewUi, Platfor
     api.on_set_json_preview_data(set_json_preview_data);
 
     api.on_string_to_code(string_to_code);
-    api.on_string_to_color(|s| string_to_color(s.as_ref()).unwrap_or_default());
-    api.on_string_is_color(|s| string_to_color(s.as_ref()).is_some());
-    api.on_color_to_data(|c| ColorData {
-        a: c.alpha() as i32,
-        r: c.red() as i32,
-        g: c.green() as i32,
-        b: c.blue() as i32,
-        text: color_to_string(c),
-        short_text: color_to_short_string(c).into(),
-    });
-    api.on_rgba_to_color(|r, g, b, a| {
-        if (0..256).contains(&r)
-            && (0..256).contains(&g)
-            && (0..256).contains(&b)
-            && (0..256).contains(&a)
-        {
-            slint::Color::from_argb_u8(a as u8, r as u8, g as u8, b as u8)
-        } else {
-            slint::Color::default()
-        }
-    });
 
-    api.on_as_json_brush(as_json_brush);
-    api.on_as_slint_brush(as_slint_brush);
-    api.on_create_brush(create_brush);
-    api.on_add_gradient_stop(gradient::add_gradient_stop);
-    api.on_remove_gradient_stop(gradient::remove_gradient_stop);
-    api.on_move_gradient_stop(gradient::move_gradient_stop);
-    api.on_suggest_gradient_stop_at_row(gradient::suggest_gradient_stop_at_row);
-    api.on_suggest_gradient_stop_at_position(gradient::suggest_gradient_stop_at_position);
-    api.on_clone_gradient_stops(gradient::clone_gradient_stops);
-
-    api.on_filter_palettes(palette::filter_palettes);
-
+    brushes::setup(&ui);
+    palette::setup(&ui);
     recent_colors::setup(&ui);
 
     #[cfg(target_vendor = "apple")]
@@ -192,12 +160,6 @@ pub fn set_diagnostics(ui: &PreviewUi, diagnostics: &[slint_interpreter::Diagnos
 
     let api = ui.global::<Api>();
     api.set_diagnostic_summary(summary);
-}
-
-pub fn ui_set_palettes(ui: &PreviewUi, values: Vec<PaletteEntry>) {
-    let palettes = Rc::new(VecModel::from(values)).into();
-    let api = ui.global::<Api>();
-    api.set_palettes(palettes);
 }
 
 pub fn ui_set_known_components(
@@ -337,27 +299,6 @@ fn string_to_code(
     }
 }
 
-fn color_to_string(color: slint::Color) -> SharedString {
-    let a = color.alpha();
-    let r = color.red();
-    let g = color.green();
-    let b = color.blue();
-
-    slint::format!("#{r:02x}{g:02x}{b:02x}{a:02x}")
-}
-
-fn color_to_short_string(color: slint::Color) -> String {
-    let r = color.red();
-    let g = color.green();
-    let b = color.blue();
-
-    format!("{r:02x}{g:02x}{b:02x}")
-}
-
-fn string_to_color(text: &str) -> Option<slint::Color> {
-    literals::parse_color_literal(text).map(slint::Color::from_argb_encoded)
-}
-
 fn unit_model(units: &[expression_tree::Unit]) -> ModelRc<SharedString> {
     Rc::new(VecModel::from(
         units.iter().map(|u| u.to_string().into()).collect::<Vec<SharedString>>(),
@@ -494,7 +435,7 @@ fn map_value_and_type(
         kind: PropertyValueKind,
         code: SharedString,
     ) {
-        let color_string = color_to_string(color);
+        let color_string = brushes::color_to_string(color);
         mapping.headers.push(mapping.name_prefix.clone());
         mapping.current_values.push(PropertyValue {
             kind,
@@ -1316,71 +1257,6 @@ pub fn ui_set_properties(
     api.set_current_element(next_element);
 
     declarations
-}
-
-fn sorted_gradient_stops(
-    stops: ModelRc<GradientStop>,
-) -> Vec<i_slint_core::graphics::GradientStop> {
-    let mut result = stops
-        .iter()
-        .map(|gs| i_slint_core::graphics::GradientStop { position: gs.position, color: gs.color })
-        .collect::<Vec<_>>();
-    result.sort_by(|left, right| left.position.total_cmp(&right.position));
-
-    result
-}
-
-fn as_json_brush(
-    kind: BrushKind,
-    angle: f32,
-    color: slint::Color,
-    stops: ModelRc<GradientStop>,
-) -> SharedString {
-    format!("\"{}\"", as_slint_brush(kind, angle, color, stops)).into()
-}
-
-fn as_slint_brush(
-    kind: BrushKind,
-    angle: f32,
-    color: slint::Color,
-    stops: ModelRc<GradientStop>,
-) -> SharedString {
-    fn stops_as_string(stops: ModelRc<GradientStop>) -> String {
-        let stops = sorted_gradient_stops(stops);
-
-        let mut result = String::new();
-        for s in stops {
-            result += &format!(", {} {:.2}%", color_to_string(s.color), s.position * 100.0);
-        }
-        result
-    }
-
-    match kind {
-        BrushKind::Solid => color_to_string(color),
-        BrushKind::Linear => {
-            format!("@linear-gradient({angle}deg{})", stops_as_string(stops)).into()
-        }
-        BrushKind::Radial => format!("@radial-gradient(circle{})", stops_as_string(stops)).into(),
-    }
-}
-
-fn create_brush(
-    kind: BrushKind,
-    angle: f32,
-    color: slint::Color,
-    stops: ModelRc<GradientStop>,
-) -> slint::Brush {
-    let mut stops = sorted_gradient_stops(stops);
-
-    match kind {
-        BrushKind::Solid => slint::Brush::SolidColor(color),
-        BrushKind::Linear => slint::Brush::LinearGradient(
-            i_slint_core::graphics::LinearGradientBrush::new(angle, stops.drain(..)),
-        ),
-        BrushKind::Radial => slint::Brush::RadialGradient(
-            i_slint_core::graphics::RadialGradientBrush::new_circle(stops.drain(..)),
-        ),
-    }
 }
 
 #[cfg(test)]
