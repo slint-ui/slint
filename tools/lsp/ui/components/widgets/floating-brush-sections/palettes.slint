@@ -30,7 +30,7 @@ export component PalettePicker  {
 
     property <int> rows: 9;
 
-    property <[PaletteEntry]> palette-entries: Api.filter_palettes(Api.palettes, "%is_brush:yes !^Colors.");
+    in property <[PaletteEntry]> palette-entries;
 
     ScrollView {
         y: EditorSizeSettings.small-margin;
