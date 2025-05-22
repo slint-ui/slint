@@ -1,7 +1,10 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use super::{BindingHolder, BindingResult, BindingVTable, DependencyListHead};
+use super::{
+    single_linked_list_pin::SingleLinkedListPinHead, BindingHolder, BindingResult, BindingVTable,
+    DependencyListHead, DependencyNode,
+};
 use alloc::boxed::Box;
 use core::cell::Cell;
 use core::marker::PhantomPinned;
@@ -24,6 +27,7 @@ struct ChangeTrackerInner<T, EvalFn, NotifyFn, Data> {
 ///
 /// When the property changes, the ChangeTracker is added to a thread local list, and the notify
 /// callback is called when the [`Self::run_change_handlers()`] method is called
+#[derive(Debug)]
 pub struct ChangeTracker {
     /// (Actually a `BindingHolder<ChangeTrackerInner>`)
     inner: Cell<*mut BindingHolder>,
@@ -52,6 +56,30 @@ impl ChangeTracker {
         data: Data,
         eval_fn: EF,
         notify_fn: NF,
+    ) {
+        self.init_impl(data, eval_fn, notify_fn, false);
+    }
+
+    /// Initialize the change tracker with the given data and callbacks.
+    ///
+    /// Same as [`Self::init`], but the first eval function is called in a future evaluation of the event loop.
+    /// This means that the change tracker will consider the value as default initialized, and the eval function will
+    /// be called the firs ttime if the initial value is not equal to the default constructed value.
+    pub fn init_delayed<Data, T: Default + PartialEq, EF: Fn(&Data) -> T, NF: Fn(&Data, &T)>(
+        &self,
+        data: Data,
+        eval_fn: EF,
+        notify_fn: NF,
+    ) {
+        self.init_impl(data, eval_fn, notify_fn, true);
+    }
+
+    fn init_impl<Data, T: Default + PartialEq, EF: Fn(&Data) -> T, NF: Fn(&Data, &T)>(
+        &self,
+        data: Data,
+        eval_fn: EF,
+        notify_fn: NF,
+        delayed: bool,
     ) {
         self.clear();
         let inner = ChangeTrackerInner { eval_fn, notify_fn, value: T::default(), data };
@@ -105,8 +133,17 @@ impl ChangeTracker {
         };
 
         let raw = Box::into_raw(Box::new(holder));
+        unsafe { self.set_internal(raw as *mut BindingHolder) };
+        if delayed {
+            let mut dep_nodes = SingleLinkedListPinHead::default();
+            let node = dep_nodes.push_front(DependencyNode::new(raw as *const BindingHolder));
+            CHANGED_NODES.with(|changed_nodes| {
+                changed_nodes.append(node);
+            });
+            unsafe { (*core::ptr::addr_of_mut!((*raw).dep_nodes)).set(dep_nodes) };
+            return;
+        }
         let value = unsafe {
-            self.set_internal(raw as *mut BindingHolder);
             let pinned_holder = Pin::new_unchecked((raw as *mut BindingHolder).as_ref().unwrap());
             let inner = core::ptr::addr_of!((*raw).binding).as_ref().unwrap();
             super::CURRENT_BINDING.set(Some(pinned_holder), || (inner.eval_fn)(&inner.data))

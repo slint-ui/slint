@@ -1,0 +1,132 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+
+export component TestCase inherits Window {
+    width: 500phx;
+    height: 500phx;
+
+    fli := Flickable {
+        x: 50phx;
+        y: 10phx;
+        width: 250phx;
+        height: 300phx;
+        viewport-height: 800phx;
+        viewport-width: 400phx;
+    }
+
+    in-out property fli_width <=> fli.width;
+    in-out property fli_height <=> fli.height;
+    in-out property fli_viewport_width <=> fli.viewport_width;
+    in-out property fli_viewport_height <=> fli.viewport_height;
+    in-out property fli_viewport_x <=> fli.viewport_x;
+    in-out property fli_viewport_y <=> fli.viewport_y;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_fli_width(), 250.0);
+assert_eq!(instance.get_fli_height(), 300.0);
+assert_eq!(instance.get_fli_viewport_width(), 400.0);
+assert_eq!(instance.get_fli_viewport_height(), 800.0);
+assert_eq!(instance.get_fli_viewport_x(), 0.0);
+assert_eq!(instance.get_fli_viewport_y(), 0.0);
+
+instance.set_fli_viewport_x(-100.0);
+instance.set_fli_viewport_y(100.0);
+
+assert_eq!(instance.get_fli_viewport_x(), -100.0);
+assert_eq!(instance.get_fli_viewport_y(), 100.0);
+
+slint_testing::mock_elapsed_time(1); // let change handler run
+
+assert_eq!(instance.get_fli_viewport_x(), -100.0);
+assert_eq!(instance.get_fli_viewport_y(), 0.0);
+
+instance.set_fli_viewport_y(-200.0);
+instance.set_fli_width(350.0);
+
+slint_testing::mock_elapsed_time(1); // let change handler run
+assert_eq!(instance.get_fli_viewport_y(), -200.0);
+assert_eq!(instance.get_fli_viewport_x(), -50.0); // we must stay in bounds
+
+instance.set_fli_viewport_height(315.0);
+slint_testing::mock_elapsed_time(1);
+assert_eq!(instance.get_fli_viewport_y(), -15.0);
+assert_eq!(instance.get_fli_viewport_x(), -50.0);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+assert_eq(instance.get_fli_width(), 250.0);
+assert_eq(instance.get_fli_height(), 300.0);
+assert_eq(instance.get_fli_viewport_width(), 400.0);
+assert_eq(instance.get_fli_viewport_height(), 800.0);
+assert_eq(instance.get_fli_viewport_x(), 0.0);
+assert_eq(instance.get_fli_viewport_y(), 0.0);
+
+instance.set_fli_viewport_x(-100.0);
+instance.set_fli_viewport_y(100.0);
+
+assert_eq(instance.get_fli_viewport_x(), -100.0);
+assert_eq(instance.get_fli_viewport_y(), 100.0);
+
+slint_testing::mock_elapsed_time(1); // let change handler run
+
+assert_eq(instance.get_fli_viewport_x(), -100.0);
+assert_eq(instance.get_fli_viewport_y(), 0.0);
+
+instance.set_fli_viewport_y(-200.0);
+instance.set_fli_width(350.0);
+
+slint_testing::mock_elapsed_time(1); // let change handler run
+assert_eq(instance.get_fli_viewport_y(), -200.0);
+assert_eq(instance.get_fli_viewport_x(), -50.0); // we must stay in bounds
+
+instance.set_fli_viewport_height(315.0);
+slint_testing::mock_elapsed_time(1);
+assert_eq(instance.get_fli_viewport_y(), -15.0);
+assert_eq(instance.get_fli_viewport_x(), -50.0);
+```
+
+```js
+var instance = new slint.TestCase();
+
+assert.equal(instance.fli_width, 250);
+assert.equal(instance.fli_height, 300);
+assert.equal(instance.fli_viewport_width, 400);
+assert.equal(instance.fli_viewport_height, 800);
+assert.equal(instance.fli_viewport_x, 0);
+assert.equal(instance.fli_viewport_y, 0);
+
+instance.fli_viewport_x = -100;
+instance.fli_viewport_y = 100;
+
+assert.equal(instance.fli_viewport_x, -100);
+assert.equal(instance.fli_viewport_y, 100);
+
+slintlib.private_api.mock_elapsed_time(1); // let change handler run
+
+assert.equal(instance.fli_viewport_x, -100);
+assert.equal(instance.fli_viewport_y, 0);
+
+instance.fli_viewport_y = -200;
+instance.fli_width = 350;
+
+slintlib.private_api.mock_elapsed_time(1); // let change handler run
+assert.equal(instance.fli_viewport_y, -200);
+assert.equal(instance.fli_viewport_x, -50); // we must stay in bounds
+
+instance.fli_viewport_height = 315;
+slintlib.private_api.mock_elapsed_time(1);
+assert.equal(instance.fli_viewport_y, -15);
+assert.equal(instance.fli_viewport_x, -50);
+```
+
+
+
+
+*/
