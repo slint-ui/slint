@@ -10,11 +10,15 @@ export component ColorIndicator {
     width: 15px;
     height: self.width;
     in property <color> color;
+    in property <length> border-radius;
+    in property <length> border-width;
     property <{hue: float, saturation: float, value: float}> hsv-color: color.to-hsv();
 
     Rectangle {
         width: 100%;
         height: 100%;
+        border-radius: root.border-radius;
+        clip: border-radius > 0;
         Rectangle {
             x: 0;
             width: 50%;
@@ -39,6 +43,11 @@ export component ColorIndicator {
             Rectangle {
                 background: root.color;
             }
+        }
+        Rectangle {
+            border-radius: root.border-radius;
+            border-width: root.border-width;
+            border-color: white.with-alpha(10%);
         }
 
         @children
