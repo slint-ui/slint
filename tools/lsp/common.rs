@@ -578,6 +578,26 @@ impl ComponentInformation {
     }
 }
 
+/// Poll a future once and return its result if it was `Ready` afterwards
+/// or `None` otherwise.
+#[cfg(feature = "preview-engine")]
+pub fn poll_once<F: std::future::Future>(future: F) -> Option<F::Output> {
+    struct DummyWaker();
+    impl std::task::Wake for DummyWaker {
+        fn wake(self: std::sync::Arc<Self>) {}
+    }
+
+    let waker = std::sync::Arc::new(DummyWaker()).into();
+    let mut ctx = std::task::Context::from_waker(&waker);
+
+    let future = std::pin::pin!(future);
+
+    match future.poll(&mut ctx) {
+        std::task::Poll::Ready(result) => Some(result),
+        std::task::Poll::Pending => None,
+    }
+}
+
 #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
 pub mod lsp_to_editor {
     pub fn notify_lsp_diagnostics(
