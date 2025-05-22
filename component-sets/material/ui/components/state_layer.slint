@@ -87,11 +87,11 @@ export component FocusTouchArea inherits TouchArea {
     out property <bool> enter_pressed;
     in property <string> tooltip;
     in property <length> tooltip_offset;
-    
+
     callback key_pressed(KeyEvent) -> EventResult;
 
     forward_focus: focus_scope;
-    
+
     focus_scope := FocusScope {
         x: 0;
         width: 0px;
@@ -127,7 +127,7 @@ export component FocusTouchArea inherits TouchArea {
 
     @children
 
-    
+
     if root.tooltip != "" && root.has_hover && !MaterialWindowAdapter.disable_hover && !root.pressed : ToolTip {
         y: root.tooltip_offset;
         text: root.tooltip;

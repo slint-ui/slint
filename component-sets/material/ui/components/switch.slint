@@ -19,7 +19,7 @@ export component Switch {
 
     min_width: MaterialStyleMetrics.size_52;
     min_height: MaterialStyleMetrics.size_32;
-    
+
     accessible-enabled: root.enabled;
     accessible-checkable: true;
     accessible-checked <=> root.checked;
@@ -29,7 +29,7 @@ export component Switch {
 
     touch_area := FocusTouchArea {
         enabled: root.enabled;
-        
+
         background_layer := Rectangle {
             background: root.checked ? MaterialPalette.primary : MaterialPalette.surface_container_highest;
             border_radius: self.height / 2;
@@ -57,12 +57,12 @@ export component Switch {
                     clip_ripple: true;
                 }
             }
-            
+
             indicator := Rectangle {
                 padding: root.checked || root.has_icon ? MaterialStyleMetrics.padding_4 : MaterialStyleMetrics.padding_8;
 
                 property <length> default_height: background_layer.height - 2 * self.padding;
-                
+
                 x: self.padding - (self.height - self.default_height) / 2;
                 width: self.height;
                 height: self.default_height;
@@ -78,7 +78,7 @@ export component Switch {
                         easing: Animations.opacity_easing;
                     }
                 }
-    
+
                 animate height {
                     duration: Animations.emphasized_accelerate_duration;
                     easing: Animations.emphasized_easing;
@@ -99,7 +99,7 @@ export component Switch {
                                 easing: Animations.emphasized_easing;
                             }
                         }
-                            
+
                         out {
                             animate x {
                                 duration: Animations.emphasized_accelerate_duration;
@@ -109,7 +109,7 @@ export component Switch {
                     }
                 ]
             }
-            
+
             animate background, border_color {
                 duration: Animations.opacity_duration;
                 easing: Animations.opacity_easing;
