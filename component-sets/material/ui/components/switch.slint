@@ -1,0 +1,145 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { MaterialStyleMetrics } from "../styling/material_style_metrics.slint";
+import { Animations } from "../styling/animations.slint";
+import { MaterialPalette } from "../styling/material_palette.slint";
+import { FocusTouchArea, StateLayer, Ripple } from "./state_layer.slint";
+import { Icon } from "./icon.slint";
+
+export component Switch {
+    in_out property <bool> checked;
+    in property <bool> enabled: true;
+    in property <string> tooltip <=> touch_area.tooltip;
+    in property <image> on_icon;
+    in property <image> off_icon;
+
+    property <bool> has_icon: (root.checked && root.on_icon.width > 0 && root.on_icon.height > 0) || (root.off_icon.width > 0 && root.off_icon.height > 0);
+    property <color> foreground: root.checked ? MaterialPalette.on_primary_container : MaterialPalette.surface_container_highest;
+
+    min_width: MaterialStyleMetrics.size_52;
+    min_height: MaterialStyleMetrics.size_32;
+
+    accessible-enabled: root.enabled;
+    accessible-checkable: true;
+    accessible-checked <=> root.checked;
+    accessible-role: checkbox;
+    accessible-action-default => { touch_area.clicked(); }
+    forward_focus: touch_area;
+
+    touch_area := FocusTouchArea {
+        enabled: root.enabled;
+
+        background_layer := Rectangle {
+            background: root.checked ? MaterialPalette.primary : MaterialPalette.surface_container_highest;
+            border_radius: self.height / 2;
+            border_width: root.checked ? 0 : 2px;
+            border_color: MaterialPalette.outline;
+
+            state_layer := StateLayer {
+                x: indicator.x + (indicator.width - self.width) / 2;
+                width: self.height;
+                height: root.height + MaterialStyleMetrics.size_8;
+                border_radius: self.height / 2;
+                has_hover: touch_area.has_hover;
+                has_focus: touch_area.has_focus;
+                pressed: touch_area.pressed;
+                enabled: root.enabled;
+
+                // ripple
+                if root.enabled && (touch_area.pressed || touch_area.enter_pressed) : Ripple {
+                    pressed_x: touch_area.pressed_x;
+                    pressed_y: touch_area.pressed_y;
+                    width: 100%;
+                    height: 100%;
+                    border_radius: state_layer.border_radius;
+                    color: state_layer.background;
+                    clip_ripple: true;
+                }
+            }
+
+            indicator := Rectangle {
+                padding: root.checked || root.has_icon ? MaterialStyleMetrics.padding_4 : MaterialStyleMetrics.padding_8;
+
+                property <length> default_height: background_layer.height - 2 * self.padding;
+
+                x: self.padding - (self.height - self.default_height) / 2;
+                width: self.height;
+                height: self.default_height;
+                border_radius: self.height / 2;
+                background: root.checked ? MaterialPalette.primary_container : MaterialPalette.outline;
+
+                if root.has_icon : Icon {
+                    source: root.checked ? root.on_icon : root.off_icon;
+                    colorize: root.foreground;
+
+                    animate colorize {
+                        duration: Animations.opacity_duration;
+                        easing: Animations.opacity_easing;
+                    }
+                }
+
+                animate height {
+                    duration: Animations.emphasized_accelerate_duration;
+                    easing: Animations.emphasized_easing;
+                }
+
+                animate background {
+                    duration: Animations.opacity_duration;
+                    easing: Animations.opacity_easing;
+                }
+
+                states [
+                    checked when root.checked : {
+                        x: background_layer.width - self.padding - self.width;
+
+                        in {
+                            animate x {
+                                duration: Animations.emphasized_accelerate_duration;
+                                easing: Animations.emphasized_easing;
+                            }
+                        }
+
+                        out {
+                            animate x {
+                                duration: Animations.emphasized_accelerate_duration;
+                                easing: Animations.emphasized_easing;
+                            }
+                        }
+                    }
+                ]
+            }
+
+            animate background, border_color {
+                duration: Animations.opacity_duration;
+                easing: Animations.opacity_easing;
+            }
+        }
+
+        clicked => {
+            root.toggle();
+        }
+    }
+
+    function toggle() {
+        root.checked = !root.checked;
+    }
+
+    states [
+        disabled when !root.enabled : {
+           state_layer.display_background: false;
+           indicator.background: root.checked ? MaterialPalette.surface : MaterialPalette.outline.with_alpha(MaterialPalette.disable_opacity);
+           background_layer.background: (root.checked ? MaterialPalette.on_surface : MaterialPalette.surface_variant).with_alpha(MaterialPalette.state_layer_opacity_disabled);
+           background_layer.border_color: MaterialPalette.on_surface.with_alpha(MaterialPalette.state_layer_opacity_disabled);
+           foreground: root.checked ? MaterialPalette.on_surface.with_alpha(MaterialPalette.disable_opacity) : MaterialPalette.surface_container_highest;
+        }
+        pressed when touch_area.pressed: {
+            state_layer.background: indicator.background;
+            indicator.height: background_layer.height - 2px;
+            indicator.background: root.checked ? MaterialPalette.primary_container :  MaterialPalette.on_surface_variant;
+        }
+        hover when touch_area.has_hover: {
+            state_layer.background: indicator.background;
+        }
+    ]
+}

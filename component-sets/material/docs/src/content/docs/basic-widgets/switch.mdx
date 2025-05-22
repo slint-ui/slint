@@ -1,0 +1,86 @@
+---
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+title: Switch
+description: Switch api.
+---
+
+import CodeSnippetMD from '/src/components/CodeSnippetMD.astro';
+import SlintProperty  from '/src/components/SlintProperty.astro';
+
+{/* <CodeSnippetMD>
+```slint
+import { Switch } from "std-widgets.slint";
+export component Example inherits Window {
+    width: 200px;
+    height: 52px;
+    background: transparent;
+    Switch {
+        x: 5px;
+        width: parent.width;
+        height: parent.height;
+    }
+}
+```
+</CodeSnippetMD> */}
+
+Use a `Switch` to let the user toggle between on and off states, for example to enable or disable a feature. Consider using a `CheckBox` element instead if the action resembles more a selection of options.
+
+## Properties
+
+### checked
+<SlintProperty propName="checked" typeName="bool" defaultValue="false" propertyVisibility="in-out">
+Whether the switch is checked (on) or not (off).
+```slint "checked: true;"
+Switch {
+    checked: true;
+}
+```
+</SlintProperty>
+
+### enabled
+<SlintProperty propName="enabled" typeName="bool" defaultValue="true">
+Defaults to true. When false, the switch can't be toggled.
+</SlintProperty>
+
+### tooltip
+<SlintProperty propName="tooltip" typeName="string">
+The tooltip text for the switch.
+```slint 'tooltip: "Enable feature";'
+Switch {
+    tooltip: "Toggle me";
+}
+```
+</SlintProperty>
+
+### on_icon
+<SlintProperty propName="on_icon" typeName="image">
+The icon to show when the switch is checked (on).
+```slint 'on_icon: @image-url("icon_on.png");'
+Switch {
+    on_icon: @image-url("icon_on.png");
+}
+```
+</SlintProperty>
+
+### off_icon
+<SlintProperty propName="off_icon" typeName="image">
+The icon to show when the switch is not checked (off).
+```slint 'off_icon: @image-url("icon_off.png");'
+Switch {
+    off_icon: @image-url("icon_off.png");
+}
+```
+</SlintProperty>
+
+## Callbacks
+
+### toggled()
+The switch value changed
+
+```slint {3-5}
+Switch {
+    changed checked => {
+        debug("Switch checked: ", self.checked);
+    }
+}
+```

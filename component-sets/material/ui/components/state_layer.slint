@@ -82,23 +82,15 @@ export component StateLayer {
     animate state_layer_opacity { duration: Animations.opacity_duration; easing: Animations.opacity_easing; }
 }
 
-export component StateLayerArea inherits TouchArea {
-    in property <color> color;
-    in property <length> border_radius;
-    in property <bool> transparent_background;
-    in property <string> tooltip;
-    in property <length> tooltip_offset;
-    in property <bool> display_background: true;
-    in property <bool> clip_ripple: true;
+export component FocusTouchArea inherits TouchArea {
     out property <bool> has_focus <=> focus_scope.has_focus;
     out property <bool> enter_pressed;
-
-    property <bool> popup_open;
-    property <bool> has_h: root.mouse-x > 0 && root.mouse-x < root.width && root.mouse-y > 0 && root.mouse-y < root.height;
+    in property <string> tooltip;
+    in property <length> tooltip_offset;
 
     callback key_pressed(KeyEvent) -> EventResult;
 
-    forward-focus: focus_scope;
+    forward_focus: focus_scope;
 
     focus_scope := FocusScope {
         x: 0;
@@ -133,6 +125,25 @@ export component StateLayerArea inherits TouchArea {
         }
     }
 
+    @children
+
+
+    if root.tooltip != "" && root.has_hover && !MaterialWindowAdapter.disable_hover && !root.pressed : ToolTip {
+        y: root.tooltip_offset;
+        text: root.tooltip;
+    }
+}
+
+export component StateLayerArea inherits FocusTouchArea {
+    in property <color> color;
+    in property <length> border_radius;
+    in property <bool> transparent_background;
+    in property <bool> display_background: true;
+    in property <bool> clip_ripple: true;
+
+    property <bool> popup_open;
+    property <bool> has_h: root.mouse-x > 0 && root.mouse-x < root.width && root.mouse-y > 0 && root.mouse-y < root.height;
+
     if !root.enabled || (root.enabled && (root.has_focus || root.pressed || root.enter_pressed || root.has_hover)) : StateLayer {
         width: 100%;
         height: 100%;
@@ -157,9 +168,4 @@ export component StateLayerArea inherits TouchArea {
     }
 
     @children
-
-    if root.tooltip != "" && root.has_hover && !MaterialWindowAdapter.disable_hover && !root.pressed : ToolTip {
-        y: root.tooltip_offset;
-        text: root.tooltip;
-    }
 }
