@@ -180,19 +180,19 @@ fn filter_palettes(
 
 fn filter_palettes_iter(
     input: &mut impl Iterator<Item = ui::PaletteEntry>,
-    pattern: &str,
+    needle: &str,
 ) -> Vec<ui::PaletteEntry> {
     use nucleo_matcher::{pattern, Config, Matcher};
 
     let mut matcher = Matcher::new(Config::DEFAULT.match_paths());
     let pattern = pattern::Pattern::parse(
-        pattern,
+        needle,
         pattern::CaseMatching::Ignore,
         pattern::Normalization::Smart,
     );
 
-    input
-        .filter(|p| {
+    let mut all_matches = input
+        .filter_map(|p| {
             let terms = [format!(
                 "{} %kind:{:?} %is_brush:{}",
                 p.name,
@@ -205,9 +205,29 @@ fn filter_palettes_iter(
                     "no"
                 }
             )];
-            !pattern.match_list(terms.iter(), &mut matcher).is_empty()
+            pattern.match_list(terms.iter(), &mut matcher).pop().map(|(_, v)| (v, p))
         })
-        .collect::<Vec<_>>()
+        .collect::<Vec<_>>();
+
+    // sort by value, highest first. Sort names with the same value alphabetically
+    all_matches.sort_by(|r, l| match l.0.cmp(&r.0) {
+        std::cmp::Ordering::Less => std::cmp::Ordering::Less,
+        std::cmp::Ordering::Equal => r.1.name.cmp(&l.1.name),
+        std::cmp::Ordering::Greater => std::cmp::Ordering::Greater,
+    });
+
+    let cut_off = {
+        let lowest_value = all_matches.last().map(|(v, _)| *v).unwrap_or_default();
+        let highest_value = all_matches.first().map(|(v, _)| *v).unwrap_or_default();
+
+        if all_matches.len() < 10 {
+            lowest_value
+        } else {
+            highest_value - (highest_value - lowest_value) / 2
+        }
+    };
+
+    all_matches.drain(..).take_while(|(v, _)| *v >= cut_off).map(|(_, p)| p).collect::<Vec<_>>()
 }
 
 #[cfg(test)]
@@ -407,7 +427,11 @@ export component Main { }
 
     #[test]
     fn test_filter_palette() {
-        let palette = super::collect_colors_palette();
+        let palette = {
+            let mut v = super::collect_colors_palette();
+            v.sort_by_key(|p| p.name.clone());
+            v
+        };
 
         assert_eq!(filter_palettes_iter(&mut palette.iter().cloned(), "'FOO").len(), 0);
         assert_eq!(
@@ -438,5 +462,21 @@ export component Main { }
             palette.len()
         );
         assert_eq!(filter_palettes_iter(&mut palette.iter().cloned(), "!^Colors.").len(), 0);
+        assert_eq!(
+            filter_palettes_iter(&mut palette.iter().cloned(), "^Colors.").len(),
+            palette.len()
+        );
+
+        let reds = filter_palettes_iter(&mut palette.iter().cloned(), "^Colors. red");
+
+        assert!(reds.len() >= 6);
+        assert!(reds.len() <= 12);
+
+        assert_eq!(reds.first().unwrap().name, "Colors.red");
+        assert_eq!(reds.get(1).unwrap().name, "Colors.darkred");
+        assert_eq!(reds.get(2).unwrap().name, "Colors.indianred");
+        assert_eq!(reds.get(3).unwrap().name, "Colors.mediumvioletred");
+        assert_eq!(reds.get(4).unwrap().name, "Colors.orangered");
+        assert_eq!(reds.get(5).unwrap().name, "Colors.palevioletred");
     }
 }
