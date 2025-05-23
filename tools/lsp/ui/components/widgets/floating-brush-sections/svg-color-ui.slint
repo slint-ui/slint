@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { SimpleColumn } from "../../layout-helpers.slint";
-import { EditorSpaceSettings, EditorSizeSettings, EditorPalette, PickerStyles } from "../../styling.slint";
+import { EditorSpaceSettings, EditorSizeSettings, EditorPalette, Icons, PickerStyles } from "../../styling.slint";
 import { ColorIndicator } from "../brush-helpers.slint";
 import { ListView } from "std-widgets.slint";
 import { Api, PaletteEntry } from "../../../api.slint";
@@ -55,12 +55,77 @@ component SvgColorIndicator {
     }
 }
 
+component SearchBar {
+    height: 24px;
+    out property text <=> ti.text;
+
+    Rectangle {
+        x: EditorSizeSettings.standard-margin;
+        width: parent.width - EditorSizeSettings.standard-margin * 2;
+        height: 24px;
+        border-width: 1px;
+        border-color: EditorPalette.text-color.with-alpha(0.1);
+        border-radius: self.height / 2;
+
+        ti := TextInput {
+            x: EditorSizeSettings.standard-margin;
+            vertical-alignment: center;
+            horizontal-alignment: left;
+            font-family: "Inter";
+            font-size: 12px;
+            color: EditorPalette.text-color;
+            text-cursor-width: 2px;
+            selection-background-color: #3984ec;
+            single-line: true;
+            wrap: no-wrap;
+        }
+
+        Text {
+            x: EditorSizeSettings.standard-margin;
+            text: "Search";
+            horizontal-alignment: left;
+            font-family: "Inter";
+            font-size: 12px;
+            color: EditorPalette.text-color;
+            opacity: 0.4;
+            visible: ti.text == "";
+        }
+
+        Rectangle {
+            x: parent.width - self.width - 3px;
+            width: 18px;
+            opacity: ti.text != "" ? 1 : 0;
+            animate opacity { duration: 70ms; }
+
+            Image {
+                width: 15px;
+                source: Icons.close;
+                colorize: EditorPalette.text-color;
+            }
+
+            Rectangle {
+                width: 18px;
+                height: self.width;
+                background: EditorPalette.text-color.with-alpha(0.1);
+                border-radius: self.height / 2;
+                TouchArea {
+                    clicked => {
+                        ti.text = "";
+                    }
+                }
+            }
+        }
+    }
+}
+
 export component SvgColorPicker inherits SimpleColumn {
     in property <string> filter-text;
-    property <[PaletteEntry]> palettes: Api.filter-palettes(Api.palettes, filter-text);
+    property <[PaletteEntry]> palettes: Api.filter-palettes(Api.palettes, "\{filter-text} \{sb.text}");
     Rectangle {
         height: EditorSizeSettings.small-margin;
     }
+
+    sb := SearchBar { }
 
     ListView {
         width: 100%;

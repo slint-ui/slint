@@ -562,11 +562,11 @@ component ColorPicker inherits DraggablePanel {
     }
 
     if active-tab == PickerTab.svg-color: SvgColorPicker {
-        filter-text: "^Color";
+        filter-text: "^Colors.";
      }
 
     if active-tab == PickerTab.globals: SvgColorPicker {
-        filter-text: "!^Color";
+        filter-text: "!^Colors.";
     }
 
     footer := Rectangle {
