@@ -104,7 +104,7 @@ export component ScrollView {
     in-out property <length> viewport-y <=> flickable.viewport-y;
     in property <ScrollBarPolicy> vertical-scrollbar-policy <=> vertical-bar.policy;
     in property <ScrollBarPolicy> horizontal-scrollbar-policy <=> horizontal-bar.policy;
-    in property <bool> draggable <=> flickable.interactive;
+    in property <bool> mouse-drag <=> flickable.interactive;
 
     callback scrolled <=> flickable.flicked;
 

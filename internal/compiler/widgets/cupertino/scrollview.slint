@@ -100,7 +100,7 @@ export component ScrollView {
     in-out property <length> viewport-y <=> flickable.viewport-y;
     in property <ScrollBarPolicy> vertical-scrollbar-policy <=> vertical-bar.policy;
     in property <ScrollBarPolicy> horizontal-scrollbar-policy <=> horizontal-bar.policy;
-    in property <bool> draggable <=> flickable.interactive;
+    in property <bool> mouse-drag <=> flickable.interactive;
 
     // FIXME: remove. This property is currently set by the ListView and is used by the native style to draw the scrollbar differently when it has focus
     in-out property <bool> has-focus;
