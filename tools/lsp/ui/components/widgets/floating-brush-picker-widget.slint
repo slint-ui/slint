@@ -12,6 +12,7 @@ import { CustomLineEdit } from "./widget-helpers.slint";
 import { ColorModeAndApply } from "./floating-brush-sections/color-mode-and-apply.slint";
 import { GradientPicker } from "./floating-brush-sections/gradient-ui.slint";
 import { RecentColorPicker } from "floating-brush-sections/palettes.slint";
+import { SvgColorPicker } from "floating-brush-sections/svg-color-ui.slint";
 
 enum PickerTab {
     color,
@@ -24,6 +25,7 @@ component BrushTypeSelector {
     height: 100%;
 
     in-out property <PickerTab> active-tab: PickerTab.color;
+    in property <bool> supports-gradient;
 
     changed active-tab => {
         WindowManager.hide-color-stop-picker();
@@ -73,7 +75,7 @@ component BrushTypeSelector {
             }
         }
 
-        Rectangle {
+        if supports-gradient: Rectangle {
             y: (parent.height - self.height) / 2;
             width: 25px;
             height: self.width;
@@ -112,7 +114,6 @@ component BrushTypeSelector {
         }
 
         Rectangle {
-            visible: false; // TODO: Bring back when svg-color support is ready
             y: (parent.height - self.height) / 2;
             width: 25px;
             height: self.width;
@@ -466,8 +467,9 @@ component ColorPicker inherits DraggablePanel {
         width: 100%;
         height: 40px;
 
-        if picker-mode == BrushPropertyType.brush: BrushTypeSelector {
+        BrushTypeSelector {
             active-tab <=> root.active-tab;
+            supports-gradient: picker-mode == BrushPropertyType.brush;
         }
 
         Rectangle {
@@ -517,7 +519,9 @@ component ColorPicker inherits DraggablePanel {
 
     if show-palettes: RecentColorPicker {
         recent-colors <=> Api.recent-colors;
-     }
+    }
+
+    if active-tab == PickerTab.svg-color: SvgColorPicker { }
 
     footer := Rectangle {
         width: 100%;
