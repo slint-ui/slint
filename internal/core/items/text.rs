@@ -15,8 +15,7 @@ use super::{
 };
 use crate::graphics::{Brush, Color, FontRequest};
 use crate::input::{
-    key_codes, FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, KeyEvent,
-    KeyboardModifiers, MouseEvent, StandardShortcut, TextShortcut,
+    key_codes, FocusEvent, FocusEventReason, FocusEventResult, InputEventFilterResult, InputEventResult, KeyEvent, KeyboardModifiers, MouseEvent, StandardShortcut, TextShortcut
 };
 use crate::item_rendering::{CachedRenderingData, ItemRenderer, RenderText};
 use crate::layout::{LayoutInfo, Orientation};
@@ -910,7 +909,7 @@ impl Item for TextInput {
         self_rc: &ItemRc,
     ) -> FocusEventResult {
         match event {
-            FocusEvent::FocusIn | FocusEvent::WindowReceivedFocus => {
+            FocusEvent::FocusIn(reason) | FocusEvent::WindowReceivedFocus(reason) => {
                 self.has_focus.set(true);
                 self.show_cursor(window_adapter);
                 WindowInner::from_pub(window_adapter.window()).set_text_input_focused(true);
@@ -923,10 +922,10 @@ impl Item for TextInput {
                     }
                 }
             }
-            FocusEvent::FocusOut | FocusEvent::WindowLostFocus => {
+            FocusEvent::FocusOut(_) | FocusEvent::WindowLostFocus(_) => {
                 self.has_focus.set(false);
                 self.hide_cursor();
-                if matches!(event, FocusEvent::FocusOut) {
+                if matches!(event, FocusEvent::FocusOut(_)) {
                     self.as_ref()
                         .anchor_position_byte_offset
                         .set(self.as_ref().cursor_position_byte_offset());
@@ -1777,7 +1776,7 @@ impl TextInput {
         self_rc: &ItemRc,
     ) {
         if !self.has_focus() {
-            WindowInner::from_pub(window_adapter.window()).set_focus_item(self_rc, true);
+            WindowInner::from_pub(window_adapter.window()).set_focus_item(self_rc, true, FocusEventReason::Mouse);
         } else if !self.read_only() {
             if let Some(w) = window_adapter.internal(crate::InternalToken) {
                 w.input_method_request(InputMethodRequest::Enable(

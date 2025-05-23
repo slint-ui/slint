@@ -2,8 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use i_slint_core::{
-    input::key_codes,
-    input::{FocusEventResult, KeyEventType},
+    input::{key_codes, FocusEventReason, FocusEventResult, KeyEventType},
     items::PointerEventButton,
 };
 
@@ -211,7 +210,7 @@ impl Item for NativeSlider {
                 click_count: _,
             } => {
                 if !self.has_focus() {
-                    WindowInner::from_pub(window_adapter.window()).set_focus_item(self_rc, true);
+                    WindowInner::from_pub(window_adapter.window()).set_focus_item(self_rc, true, FocusEventReason::Mouse);
                 }
                 data.pressed_x = if vertical { pos.y as f32 } else { pos.x as f32 };
                 data.pressed = 1;
@@ -317,7 +316,7 @@ impl Item for NativeSlider {
             Self::FIELD_OFFSETS
                 .has_focus
                 .apply_pin(self)
-                .set(event == &FocusEvent::FocusIn || event == &FocusEvent::WindowReceivedFocus);
+                .set(matches!(event, FocusEvent::FocusIn(_) | FocusEvent::WindowReceivedFocus(_)));
             FocusEventResult::FocusAccepted
         } else {
             FocusEventResult::FocusIgnored
