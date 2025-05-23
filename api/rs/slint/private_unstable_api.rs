@@ -193,7 +193,7 @@ pub mod re_exports {
     pub use i_slint_core::detect_operating_system;
     pub use i_slint_core::graphics::*;
     pub use i_slint_core::input::{
-        key_codes::Key, FocusEvent, InputEventResult, KeyEvent, KeyEventResult, KeyboardModifiers,
+        key_codes::Key, FocusEvent, FocusEventReason, InputEventResult, KeyEvent, KeyEventResult, KeyboardModifiers,
         MouseEvent,
     };
     pub use i_slint_core::item_tree::{
