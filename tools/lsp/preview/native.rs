@@ -5,7 +5,6 @@
 
 use std::collections::HashMap;
 
-use super::PreviewState;
 use crate::common::{self, PreviewToLspMessage, SourceFileVersion};
 use crate::ServerNotifier;
 use slint_interpreter::ComponentHandle;
@@ -177,16 +176,17 @@ pub fn quit_ui_event_loop() {
     *SERVER_NOTIFIER.lock().unwrap() = None
 }
 
-pub(super) fn open_ui_impl(preview_state: &mut PreviewState) -> Result<(), slint::PlatformError> {
+pub(super) fn open_ui_impl(
+    preview_state: &mut super::PreviewState,
+) -> Result<(), slint::PlatformError> {
     let (default_style, show_preview_ui, fullscreen) = {
-        let cache = super::CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
-        let style = cache.config.style.clone();
+        let style = preview_state.config.style.clone();
         let style = if style.is_empty() {
             CLI_ARGS.with(|args| args.get().map(|a| a.style.clone()).unwrap_or_default())
         } else {
             style
         };
-        let hide_ui = cache
+        let hide_ui = preview_state
             .config
             .hide_ui
             .or_else(|| CLI_ARGS.with(|args| args.get().map(|a| a.no_toolbar)))
@@ -209,30 +209,30 @@ pub(super) fn open_ui_impl(preview_state: &mut PreviewState) -> Result<(), slint
         }
     };
 
-    super::CONTENT_CACHE.get_or_init(Default::default).lock().unwrap().ui_is_visible = true;
+    preview_state.ui_is_visible = true;
 
     let api = ui.global::<crate::preview::ui::Api>();
     api.set_show_preview_ui(show_preview_ui);
     ui.window().set_fullscreen(fullscreen);
     ui.window().on_close_requested(|| {
-        let mut cache = super::CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
-        cache.ui_is_visible = false;
+        super::PREVIEW_STATE.with(|preview_state| {
+            let mut preview_state = preview_state.borrow_mut();
+            preview_state.ui_is_visible = false;
+        });
         slint::CloseRequestResponse::HideWindow
     });
     Ok(())
 }
 
+/// Potentially called from other thread!
 pub fn close_ui() {
-    {
-        let mut cache = super::CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
-        if !cache.ui_is_visible {
+    let _ = super::PREVIEW_STATE.with(|preview_state| {
+        let mut preview_state = preview_state.borrow_mut();
+        if !preview_state.ui_is_visible {
             return; // UI is already down!
         }
-        cache.ui_is_visible = false;
-    }
+        preview_state.ui_is_visible = false;
 
-    super::PREVIEW_STATE.with(move |preview_state| {
-        let mut preview_state = preview_state.borrow_mut();
         let ui = preview_state.ui.take();
         if let Some(ui) = ui {
             ui.hide().unwrap();
