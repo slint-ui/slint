@@ -909,7 +909,7 @@ impl Item for TextInput {
         self_rc: &ItemRc,
     ) -> FocusEventResult {
         match event {
-            FocusEvent::FocusIn(reason) | FocusEvent::WindowReceivedFocus(reason) => {
+            FocusEvent::FocusIn(_reason) | FocusEvent::WindowReceivedFocus(_reason) => {
                 self.has_focus.set(true);
                 self.show_cursor(window_adapter);
                 WindowInner::from_pub(window_adapter.window()).set_text_input_focused(true);
@@ -924,7 +924,7 @@ impl Item for TextInput {
                     #[cfg(not(target_vendor = "apple"))]
                     {
                         // check self.enabled() to make sure it doesn't select disabled (greyed-out) inputs
-                        if *reason == FocusEventReason::Keyboard && self.enabled() {
+                        if *_reason == FocusEventReason::Keyboard && self.enabled() {
                             self.select_all(window_adapter, self_rc);
                         }
                     }
