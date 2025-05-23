@@ -358,10 +358,109 @@ mod software_renderer {
     use i_slint_core::SharedVector;
 
     #[cfg(feature = "experimental")]
-    use i_slint_core::software_renderer::{DrawRectangleArgs, DrawTextureArgs, TargetPixelBuffer};
+    use i_slint_core::software_renderer::{TargetPixelBuffer, TexturePixelFormat};
 
     #[cfg(feature = "experimental")]
     type CppTargetPixelBufferUserData = *mut c_void;
+
+    #[cfg(feature = "experimental")]
+    #[repr(C)]
+    pub struct DrawTextureArgs {
+        pub image_data: *const u8,
+        pub pixel_format: TexturePixelFormat,
+        pub byte_stride: usize,
+        pub width: u32,
+        pub height: u32,
+
+        pub colorize: i_slint_core::Color,
+        pub alpha: u8,
+
+        pub dst_x: isize,
+        pub dst_y: isize,
+        pub dst_width: usize,
+        pub dst_height: usize,
+        /// 0, 90, 180, or 270
+        pub rotation: i32,
+
+        pub has_tiling: bool,
+
+        pub tiling_offset_x: i32,
+        pub tiling_offset_y: i32,
+        pub tiling_scale_x: f32,
+        pub tiling_scale_y: f32,
+        pub tiling_gap_x: u32,
+        pub tiling_gap_y: u32,
+    }
+    #[cfg(feature = "experimental")]
+    impl From<&i_slint_core::software_renderer::DrawTextureArgs> for DrawTextureArgs {
+        fn from(from: &i_slint_core::software_renderer::DrawTextureArgs) -> Self {
+            let source = from.source();
+            Self {
+                image_data: source.data.as_ptr(),
+                pixel_format: source.pixel_format,
+                byte_stride: source.byte_stride,
+                width: source.width,
+                height: source.height,
+                colorize: from.colorize.unwrap_or_default(),
+                alpha: from.alpha,
+                dst_x: from.dst_x,
+                dst_y: from.dst_y,
+                dst_width: from.dst_width,
+                dst_height: from.dst_height,
+                rotation: from.rotation.angle() as _,
+                has_tiling: from.tiling.is_some(),
+                tiling_offset_x: from.tiling.as_ref().map(|t| t.offset_x).unwrap_or_default(),
+                tiling_offset_y: from.tiling.as_ref().map(|t| t.offset_y).unwrap_or_default(),
+                tiling_scale_x: from.tiling.as_ref().map(|t| t.scale_x).unwrap_or_default(),
+                tiling_scale_y: from.tiling.as_ref().map(|t| t.scale_y).unwrap_or_default(),
+                tiling_gap_x: from.tiling.as_ref().map(|t| t.gap_x).unwrap_or_default(),
+                tiling_gap_y: from.tiling.as_ref().map(|t| t.gap_y).unwrap_or_default(),
+            }
+        }
+    }
+
+    #[cfg(feature = "experimental")]
+    #[repr(C)]
+    pub struct DrawRectangleArgs {
+        pub x: f32,
+        pub y: f32,
+        pub width: f32,
+        pub height: f32,
+
+        pub top_left_radius: f32,
+        pub top_right_radius: f32,
+        pub bottom_right_radius: f32,
+        pub bottom_left_radius: f32,
+
+        pub border_width: f32,
+
+        pub background: Brush,
+        pub border: Brush,
+
+        pub alpha: u8,
+        /// 0, 90, 180, or 270
+        pub rotation: i32,
+    }
+    #[cfg(feature = "experimental")]
+    impl From<&i_slint_core::software_renderer::DrawRectangleArgs> for DrawRectangleArgs {
+        fn from(from: &i_slint_core::software_renderer::DrawRectangleArgs) -> Self {
+            Self {
+                x: from.x,
+                y: from.y,
+                width: from.width,
+                height: from.height,
+                top_left_radius: from.top_left_radius,
+                top_right_radius: from.top_right_radius,
+                bottom_right_radius: from.bottom_right_radius,
+                bottom_left_radius: from.bottom_left_radius,
+                border_width: from.border_width,
+                background: from.background.clone(),
+                border: from.border.clone(),
+                alpha: from.alpha,
+                rotation: from.rotation.angle() as _,
+            }
+        }
+    }
 
     #[repr(C)]
     #[cfg(feature = "experimental")]
@@ -417,12 +516,22 @@ mod software_renderer {
         }
 
         /// Draw a rectangle specified by the DrawRectangleArgs. That rectangle must be clipped to the given region
-        fn draw_rectangle(&mut self, args: &DrawRectangleArgs, clip: &PhysicalRegion) -> bool {
-            unsafe { (self.draw_rectangle)(self.user_data, args, clip) }
+        fn draw_rectangle(
+            &mut self,
+            args: &i_slint_core::software_renderer::DrawRectangleArgs,
+            clip: &PhysicalRegion,
+        ) -> bool {
+            let args = args.into();
+            unsafe { (self.draw_rectangle)(self.user_data, &args, clip) }
         }
 
-        fn draw_texture(&mut self, texture: &DrawTextureArgs, clip: &PhysicalRegion) -> bool {
-            unsafe { (self.draw_texture)(self.user_data, texture, clip) }
+        fn draw_texture(
+            &mut self,
+            texture: &i_slint_core::software_renderer::DrawTextureArgs,
+            clip: &PhysicalRegion,
+        ) -> bool {
+            let texture = texture.into();
+            unsafe { (self.draw_texture)(self.user_data, &texture, clip) }
         }
     }
 
