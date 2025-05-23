@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { Palette, Button, ComboBox } from "std-widgets.slint";
-import { WindowGlobal, WindowManager, PickerData, BrushMode, BrushPropertyType, WidgetMode} from "../../windowglobal.slint";
+import { WindowGlobal, WindowManager, PickerData, PickerTab,BrushMode, BrushPropertyType, WidgetMode} from "../../windowglobal.slint";
 import { Api, GradientStop, BrushKind, PaletteEntry } from "../../api.slint";
 import { Icons, EditorPalette, EditorSizeSettings, PickerStyles } from "../../components/styling.slint";
 import { SimpleColumn } from "../../components/layout-helpers.slint";
@@ -14,180 +14,106 @@ import { GradientPicker } from "./floating-brush-sections/gradient-ui.slint";
 import { RecentColorPicker } from "floating-brush-sections/palettes.slint";
 import { SvgColorPicker } from "floating-brush-sections/svg-color-ui.slint";
 
-enum PickerTab {
-    color,
-    gradient,
-    svg-color,
-    globals
+
+
+component TabIcon inherits Rectangle {
+    width: 25px;
+    height: self.width;
+
+    in property <PickerTab> picker-tab;
+    property <bool> is-active: picker-tab == PickerData.active-tab;
+
+    Rectangle {
+        visible: is-active;
+        background: EditorPalette.text-color.with-alpha(20%);
+        border-radius: EditorSizeSettings.property-border-radius;
+    }
+
+    ta := TouchArea {
+        clicked => {
+            PickerData.active-tab = picker-tab;
+        }
+    }
+
+    Rectangle {
+        width: 15px;
+        height: self.width;
+        opacity: is-active ? 1 : 0.5;
+
+        Rectangle {
+            border-radius: 2px;
+            border-width: 1px;
+            border-color: EditorPalette.text-color;
+
+            @children
+        }
+    }
 }
 
 component BrushTypeSelector {
     width: 100%;
     height: 100%;
 
-    in-out property <PickerTab> active-tab: PickerTab.color;
     in property <bool> supports-gradient;
-
-    changed active-tab => {
-        WindowManager.hide-color-stop-picker();
-    }
 
     HorizontalLayout {
         padding-left: EditorSizeSettings.small-margin;
         alignment: start;
 
-        Rectangle {
+        TabIcon {
             y: (parent.height - self.height) / 2;
-            width: 25px;
-            height: self.width;
+            picker-tab: PickerTab.color;
 
-            property <bool> is-active: active-tab == PickerTab.color;
-
-            Rectangle {
-                visible: is-active;
-                background: EditorPalette.section-color;
-                border-radius: EditorSizeSettings.property-border-radius;
-            }
-
-            TouchArea {
-                clicked => {
-                    active-tab = PickerTab.color;
-                    PickerData.current-brush-kind = BrushKind.solid;
-                }
-            }
-
-            Rectangle {
-                width: 15px;
-                height: self.width;
-                opacity: is-active ? 1 : 0.5;
-
+            Rectangle{
                 Rectangle {
-                    border-radius: 2px;
+                    width: parent.width - 4px;
+                    height: parent.height - 4px;
                     border-width: 1px;
                     border-color: EditorPalette.text-color;
-                    Rectangle {
-                        width: parent.width - 4px;
-                        height: parent.height - 4px;
-                        border-width: 1px;
-                        border-color: EditorPalette.text-color;
-                        background: lightgrey;
-                    }
+                    background: lightgrey;
                 }
             }
         }
 
-        if supports-gradient: Rectangle {
+        if supports-gradient: TabIcon {
             y: (parent.height - self.height) / 2;
-            width: 25px;
-            height: self.width;
-
-            property <bool> is-active: active-tab == PickerTab.gradient;
+            picker-tab: PickerTab.gradient;
 
             Rectangle {
-                visible: is-active;
-                background: EditorPalette.section-color;
-                border-radius: EditorSizeSettings.property-border-radius;
-            }
-
-            TouchArea {
-                clicked => {
-                    active-tab = PickerTab.gradient;
-                    PickerData.current-brush-kind = BrushKind.linear;
-                }
-            }
-
-            Rectangle {
-                width: 15px;
-                height: self.width;
-                opacity: is-active ? 1 : 0.5;
-
                 Rectangle {
-                    border-radius: 2px;
-                    border-width: 1px;
-                    border-color: EditorPalette.text-color;
-                    Rectangle {
-                        width: parent.width - 4px;
-                        height: parent.height - 4px;
-                        background: @linear-gradient(90deg, EditorPalette.text-color 0%, transparent 100%);
-                    }
+                    width: parent.width - 4px;
+                    height: parent.height - 4px;
+                    background: @linear-gradient(90deg, EditorPalette.text-color 0%, transparent 100%);
                 }
             }
         }
 
-        Rectangle {
+        TabIcon {
             y: (parent.height - self.height) / 2;
-            width: 25px;
-            height: self.width;
-
-            property <bool> is-active: active-tab == PickerTab.svg-color;
+            picker-tab: PickerTab.svg-color;
 
             Rectangle {
-                visible: is-active;
-                background: EditorPalette.section-color;
-                border-radius: EditorSizeSettings.property-border-radius;
-            }
-
-            TouchArea {
-                clicked => {
-                    active-tab = PickerTab.svg-color;
-                }
-            }
-
-            Rectangle {
-                width: 15px;
-                height: self.width;
-                opacity: is-active ? 1 : 0.5;
-
-                Rectangle {
-                    border-radius: 3px;
-                    border-width: 1px;
-                    border-color: white;
-                    Text {
-                        font-family: "Inter";
-                        font-size: 6px;
-                        color: white;
-                        text: "svg";
-                        font-weight: 100;
-                    }
+                Text {
+                    font-family: "Inter";
+                    font-size: 6px;
+                    color: EditorPalette.text-color;
+                    text: "svg";
+                    font-weight: 600;
                 }
             }
         }
 
-        Rectangle {
+        TabIcon {
             y: (parent.height - self.height) / 2;
-            width: 25px;
-            height: self.width;
-
-            property <bool> is-active: active-tab == PickerTab.globals;
+            picker-tab: PickerTab.globals;
 
             Rectangle {
-                visible: is-active;
-                background: EditorPalette.section-color;
-                border-radius: EditorSizeSettings.property-border-radius;
-            }
-
-            TouchArea {
-                clicked => {
-                    active-tab = PickerTab.globals;
-                }
-            }
-
-            Rectangle {
-                width: 15px;
-                height: self.width;
-                opacity: is-active ? 1 : 0.5;
-
-                Rectangle {
-                    border-radius: 3px;
-                    border-width: 1px;
-                    border-color: white;
-                    Text {
-                        font-family: "Inter";
-                        font-size: 6px;
-                        color: white;
-                        text: "G";
-                        font-weight: 100;
-                    }
+                Text {
+                    font-family: "Inter";
+                    font-size: 8px;
+                    color: EditorPalette.text-color;
+                    text: "G";
+                    font-weight: 800;
                 }
             }
         }
@@ -198,7 +124,6 @@ component VerticalSpacer {
     width: 100%;
     height: EditorSizeSettings.small-margin;
 }
-
 
 component HsvPicker inherits SimpleColumn {
     saturation-value-holder := Rectangle {
@@ -491,15 +416,11 @@ component ColorPicker inherits DraggablePanel {
     in property <BrushPropertyType> picker-mode: brush;
     // The specific current brush type (color, linear, radial, etc)
     in-out property <BrushMode> brush-mode: color;
-    // Which tab is active in the picker (color, gradient, etc)
-    in-out property <PickerTab> active-tab: PickerTab.color;
-    property <bool> show-palettes: active-tab == PickerTab.color;
+    property <PickerTab> active-tab: widget-mode == WidgetMode.color-stop ? PickerTab.color : PickerData.active-tab;
+
+    property <bool> show-palettes: PickerData.active-tab == PickerTab.color;
 
     callback close <=> t-close.clicked;
-
-    init => {
-        active-tab = brush-mode == BrushMode.color ? PickerTab.color : PickerTab.gradient;
-    }
 
     width: PickerStyles.picker-width;
 
@@ -507,8 +428,7 @@ component ColorPicker inherits DraggablePanel {
         width: 100%;
         height: 40px;
 
-        BrushTypeSelector {
-            active-tab <=> root.active-tab;
+        if widget-mode != WidgetMode.color-stop: BrushTypeSelector {
             supports-gradient: picker-mode == BrushPropertyType.brush;
         }
 
@@ -555,7 +475,7 @@ component ColorPicker inherits DraggablePanel {
         }
     }
 
-    if show-palettes : VerticalSpacer { }
+    if show-palettes: VerticalSpacer { }
 
     if show-palettes: RecentColorPicker {
         recent-colors <=> Api.recent-colors;
@@ -563,7 +483,7 @@ component ColorPicker inherits DraggablePanel {
 
     if active-tab == PickerTab.svg-color: SvgColorPicker {
         filter-text: "^Colors.";
-     }
+    }
 
     if active-tab == PickerTab.globals: SvgColorPicker {
         filter-text: "!^Colors.";

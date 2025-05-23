@@ -21,6 +21,13 @@ export global WindowGlobal {
 
 export enum WidgetMode { edit, preview, color-stop }
 
+export enum PickerTab {
+    color,
+    gradient,
+    svg-color,
+    globals
+}
+
 // Color and Brush properties are related, but while a <brush> can be a color,
 // a <color> property cannot be a brush. This property type is used to ensure
 // <color> properties do not show the more complex brush editor.
@@ -89,6 +96,7 @@ export global PickerData {
     in-out property <int> current-stop-index: 0;
     property <float> current-stop-position: current-gradient-stops[current-stop-index].position;
     property <color> current-stop-color: current-gradient-stops[current-stop-index].color;
+    in-out property <PickerTab> active-tab: PickerTab.color;
 
     callback rebuild-gradient-stops();
 
@@ -130,6 +138,10 @@ export global PickerData {
     changed current-stop-color => {
         update-brush();
         WindowManager.update-brush-preview();
+    }
+
+    changed active-tab => {
+        WindowManager.hide-color-stop-picker();
     }
 
     rebuild-gradient-stops => {
@@ -190,10 +202,21 @@ export global WindowManager {
         }
     }
 
+    function set-active-tab(brush-mode: BrushMode) {
+        if brush-mode == BrushMode.color {
+            PickerData.active-tab = PickerTab.color;
+        } else if brush-mode == BrushMode.linear {
+            PickerData.active-tab = PickerTab.gradient;
+        } else if brush-mode == BrushMode.radial {
+            PickerData.active-tab = PickerTab.gradient;
+        }
+    }
+
     show-floating-widget(property-information, element-information) => {
         widget-mode = WidgetMode.edit;
         current-property-information = property-information;
         current-element-information = element-information;
+
         if current-property-information.value.kind == PropertyValueKind.color {
             // if there is no color set create a new useful one
             if current-property-information.value.code == "" {
@@ -232,6 +255,7 @@ export global WindowManager {
             }
             showing-color-picker = true;
         }
+        set-active-tab(brush-mode);
         PickerData.update-brush();
     }
 
@@ -244,6 +268,7 @@ export global WindowManager {
         widget-mode = WidgetMode.edit;
         picker-mode = BrushPropertyType.color;
         brush-mode = BrushMode.color;
+        PickerData.active-tab = PickerTab.color;
     }
 
     show-floating-preview-widget(property-container-id, preview-data, property-value) => {
@@ -258,7 +283,7 @@ export global WindowManager {
 
         if property-value.kind == PropertyValueKind.color {
             picker-mode = BrushPropertyType.color;
-
+            PickerData.active-tab = PickerTab.color;
             showing-color-picker = true;
         }
         if property-value.kind == PropertyValueKind.brush {
@@ -266,9 +291,12 @@ export global WindowManager {
 
             if property-value.brush-kind == BrushKind.solid {
                 brush-mode = BrushMode.color;
+                PickerData.active-tab = PickerTab.color;
             } else if property-value.brush-kind == BrushKind.linear {
                 brush-mode = BrushMode.linear;
+                PickerData.active-tab = PickerTab.gradient;
             } else if property-value.brush-kind == BrushKind.radial {
+                PickerData.active-tab = PickerTab.gradient;
                 brush-mode = BrushMode.radial;
             }
             PickerData.current-gradient-stops = property-value.gradient-stops;
