@@ -18,6 +18,7 @@ use i_slint_compiler::expression_tree::{
 use i_slint_compiler::langtype::Type;
 use i_slint_compiler::namedreference::NamedReference;
 use i_slint_compiler::object_tree::ElementRc;
+use i_slint_core::input::FocusEventReason;
 use i_slint_core as corelib;
 use i_slint_core::items::ItemRc;
 use smol_str::SmolStr;
@@ -532,6 +533,7 @@ fn call_builtin_function(
                             item_info.item_index(),
                         ),
                         true,
+                        FocusEventReason::BuiltinFunction,
                     )
                 });
                 Value::Void
@@ -564,6 +566,7 @@ fn call_builtin_function(
                             item_info.item_index(),
                         ),
                         false,
+                        FocusEventReason::BuiltinFunction,
                     )
                 });
                 Value::Void
