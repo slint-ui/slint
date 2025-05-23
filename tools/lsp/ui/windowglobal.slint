@@ -1,6 +1,17 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
-import { Api, PropertyValueTable, BrushKind, ColorData, ElementInformation, GradientStop, PropertyInformation, PropertyValue, PropertyValueKind, PreviewData  } from "./api.slint";
+import {
+    Api,
+    PropertyValueTable,
+    BrushKind,
+    ColorData,
+    ElementInformation,
+    GradientStop,
+    PropertyInformation,
+    PropertyValue,
+    PropertyValueKind,
+    PreviewData,
+} from "./api.slint";
 import { StatusLineApi } from "components/status-line.slint";
 
 export global WindowGlobal {
@@ -62,7 +73,6 @@ export global TableData {
     }
 }
 
-
 export global PickerData {
     in-out property <float> hue;
     in-out property <float> saturation;
@@ -81,7 +91,6 @@ export global PickerData {
     property <color> current-stop-color: current-gradient-stops[current-stop-index].color;
 
     callback rebuild-gradient-stops();
-
 
     changed current-stop-index => {
         update-brush();
@@ -139,7 +148,6 @@ export global PickerData {
     public function update-brush() {
         self.current-brush = Api.create-brush(current-brush-kind, current-angle, current-color, current-gradient-stops);
     }
-
 }
 
 export global WindowManager {
@@ -168,6 +176,20 @@ export global WindowManager {
     callback show-color-stop-picker();
     callback hide-color-stop-picker();
 
+    function set-default-color() {
+        if Api.recent-colors.length > 0 {
+            PickerData.hue = Api.recent-colors[0].to-hsv().hue;
+            PickerData.saturation = Api.recent-colors[0].to-hsv().saturation;
+            PickerData.value = Api.recent-colors[0].to-hsv().value;
+            PickerData.alpha = Api.recent-colors[0].to-hsv().alpha * 100;
+        } else {
+            PickerData.hue = 220;
+            PickerData.saturation = 0.5;
+            PickerData.value = 0.5;
+            PickerData.alpha = 100;
+        }
+    }
+
     show-floating-widget(property-information, element-information) => {
         widget-mode = WidgetMode.edit;
         current-property-information = property-information;
@@ -175,10 +197,7 @@ export global WindowManager {
         if current-property-information.value.kind == PropertyValueKind.color {
             // if there is no color set create a new useful one
             if current-property-information.value.code == "" {
-                PickerData.hue = 220;
-                PickerData.saturation = 0.5;
-                PickerData.value = 0.5;
-                PickerData.alpha = 100;
+                set-default-color();
             } else {
                 PickerData.hue = current-property-information.value.value-brush.to-hsv().hue;
                 PickerData.saturation = current-property-information.value.value-brush.to-hsv().saturation;
@@ -198,10 +217,7 @@ export global WindowManager {
             if current-property-information.value.brush-kind == BrushKind.solid {
                 // if there is no color set create a new useful one
                 if current-property-information.value.code == "" {
-                    PickerData.hue = 220;
-                    PickerData.saturation = 0.5;
-                    PickerData.value = 0.5;
-                    PickerData.alpha = 100;
+                    set-default-color();
                 } else {
                     PickerData.hue = current-property-information.value.value-brush.to-hsv().hue;
                     PickerData.saturation = current-property-information.value.value-brush.to-hsv().saturation;
