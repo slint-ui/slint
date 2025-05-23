@@ -8,7 +8,8 @@ use super::{
 };
 use crate::api::LogicalPosition;
 use crate::input::{
-    FocusEvent, FocusEventReason, FocusEventResult, InputEventFilterResult, InputEventResult, KeyEvent, KeyEventResult, KeyEventType, MouseEvent
+    FocusEvent, FocusEventReason, FocusEventResult, InputEventFilterResult, InputEventResult,
+    KeyEvent, KeyEventResult, KeyEventType, MouseEvent,
 };
 use crate::item_rendering::CachedRenderingData;
 use crate::layout::{LayoutInfo, Orientation};
@@ -293,7 +294,11 @@ impl Item for FocusScope {
         self_rc: &ItemRc,
     ) -> InputEventResult {
         if self.enabled() && matches!(event, MouseEvent::Pressed { .. }) && !self.has_focus() {
-            WindowInner::from_pub(window_adapter.window()).set_focus_item(self_rc, true, FocusEventReason::Mouse);
+            WindowInner::from_pub(window_adapter.window()).set_focus_item(
+                self_rc,
+                true,
+                FocusEventReason::Mouse,
+            );
             InputEventResult::EventAccepted
         } else {
             InputEventResult::EventIgnored

@@ -210,7 +210,11 @@ impl Item for NativeSlider {
                 click_count: _,
             } => {
                 if !self.has_focus() {
-                    WindowInner::from_pub(window_adapter.window()).set_focus_item(self_rc, true, FocusEventReason::Mouse);
+                    WindowInner::from_pub(window_adapter.window()).set_focus_item(
+                        self_rc,
+                        true,
+                        FocusEventReason::Mouse,
+                    );
                 }
                 data.pressed_x = if vertical { pos.y as f32 } else { pos.x as f32 };
                 data.pressed = 1;

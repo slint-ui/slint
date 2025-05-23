@@ -18,8 +18,8 @@ use i_slint_compiler::expression_tree::{
 use i_slint_compiler::langtype::Type;
 use i_slint_compiler::namedreference::NamedReference;
 use i_slint_compiler::object_tree::ElementRc;
-use i_slint_core::input::FocusEventReason;
 use i_slint_core as corelib;
+use i_slint_core::input::FocusEventReason;
 use i_slint_core::items::ItemRc;
 use smol_str::SmolStr;
 use std::collections::HashMap;

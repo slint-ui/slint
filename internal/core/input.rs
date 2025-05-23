@@ -470,7 +470,7 @@ pub enum FocusEventReason {
     /// AccessKit caused the event
     AccessKit,
     /// The window manager changed the active window and caused the event
-    ActiveWindow
+    ActiveWindow,
 }
 
 /// This event is sent to a component and items when they receive or loose
