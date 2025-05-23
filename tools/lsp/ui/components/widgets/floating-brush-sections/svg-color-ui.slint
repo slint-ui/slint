@@ -1,0 +1,77 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { SimpleColumn } from "../../layout-helpers.slint";
+import { EditorSpaceSettings, EditorSizeSettings, EditorPalette, PickerStyles } from "../../styling.slint";
+import { ColorIndicator } from "../brush-helpers.slint";
+import { ListView } from "std-widgets.slint";
+import { Api, PaletteEntry } from "../../../api.slint";
+import { WindowManager } from "../../../windowglobal.slint";
+
+component SvgColorIndicator {
+    in property <string> name;
+    in property <color> color;
+    callback clicked <=> ta.clicked;
+
+    width: PickerStyles.picker-width;
+    height: 24px;
+    Rectangle {
+        x: EditorSizeSettings.standard-margin - 6px;
+        width: parent.width - EditorSizeSettings.standard-margin * 2;
+        height: 100%;
+        background: EditorPalette.text-color.with-alpha(0.1);
+        border-radius: 6px;
+        visible: ta.has-hover;
+    }
+
+    ta := TouchArea { }
+
+    HorizontalLayout {
+        y: (parent.height - self.height) / 2;
+        height: 16px;
+        alignment: start;
+        Rectangle {
+            width: EditorSizeSettings.standard-margin;
+        }
+
+        ColorIndicator {
+            width: 100%;
+            height: 100%;
+            color <=> root.color;
+            border-radius: 5px;
+            border-width: 1px;
+        }
+
+        Rectangle {
+            width: EditorSizeSettings.standard-margin;
+        }
+
+        t := Text {
+            color: EditorPalette.text-color;
+            font-family: "Inter";
+            font-size: 11px;
+            text <=> root.name;
+        }
+    }
+}
+
+export component SvgColorPicker inherits SimpleColumn {
+    in property <string> filter-text;
+    property <[PaletteEntry]> palettes: Api.filter-palettes(Api.palettes, filter-text);
+    Rectangle {
+        height: EditorSizeSettings.small-margin;
+    }
+
+    ListView {
+        width: 100%;
+        height: 200px;
+        for i[index] in palettes: SvgColorIndicator {
+            name: i.name;
+            color: i.value.value-brush;
+            clicked => {
+                WindowManager.apply-current-value(i.name);
+                WindowManager.hide-floating-color-widget();
+            }
+        }
+    }
+}
