@@ -54,26 +54,38 @@ fn init() -> State {
         }
     });
 
+    let confirm_dialog = ConfirmDialog::new().unwrap();
+
     let weak_window = main_window.as_weak();
-    main_window.on_popup_confirmed(move || {
-        let window = weak_window.unwrap();
-        window.hide().unwrap();
+    let weak_confirm_dialog = confirm_dialog.as_weak();
+    confirm_dialog.on_yes_clicked(move || {
+        weak_window.unwrap().hide().unwrap();
+        weak_confirm_dialog.unwrap().hide().unwrap();
+    });
+    let weak_confirm_dialog = confirm_dialog.as_weak();
+    confirm_dialog.on_no_clicked(move || {
+        weak_confirm_dialog.unwrap().hide().unwrap();
     });
 
-    {
+    main_window.window().on_close_requested({
         let weak_window = main_window.as_weak();
         let todo_model = todo_model.clone();
-        main_window.window().on_close_requested(move || {
-            let window = weak_window.unwrap();
-
-            if todo_model.iter().any(|t| !t.checked) {
-                window.invoke_show_confirm_popup();
-                slint::CloseRequestResponse::KeepWindowShown
-            } else {
-                slint::CloseRequestResponse::HideWindow
+        move || {
+            if let Some(main_window) = weak_window.upgrade() {
+                if todo_model.iter().any(|t| !t.checked) {
+                    if confirm_dialog
+                        .window()
+                        .show_modal(slint::WindowModality::Window(main_window.window()))
+                        .is_err()
+                    {
+                        confirm_dialog.show().unwrap();
+                    }
+                    return slint::CloseRequestResponse::KeepWindowShown;
+                }
             }
-        });
-    }
+            slint::CloseRequestResponse::HideWindow
+        }
+    });
 
     main_window.on_apply_sorting_and_filtering({
         let weak_window = main_window.as_weak();
