@@ -167,7 +167,9 @@ pub fn quit_ui_event_loop() {
         GUI_EVENT_LOOP_NOTIFIER.notify_one();
     }
 
-    close_ui();
+    let _ = i_slint_core::api::invoke_from_event_loop(move || {
+        close_ui();
+    });
 
     let _ = i_slint_core::api::quit_event_loop();
 
@@ -229,20 +231,13 @@ pub fn close_ui() {
         cache.ui_is_visible = false;
     }
 
-    i_slint_core::api::invoke_from_event_loop(move || {
-        super::PREVIEW_STATE.with(move |preview_state| {
-            let mut preview_state = preview_state.borrow_mut();
-            close_ui_impl(&mut preview_state)
-        });
-    })
-    .unwrap(); // TODO: Handle Error
-}
-
-fn close_ui_impl(preview_state: &mut PreviewState) {
-    let ui = preview_state.ui.take();
-    if let Some(ui) = ui {
-        ui.hide().unwrap();
-    }
+    super::PREVIEW_STATE.with(move |preview_state| {
+        let mut preview_state = preview_state.borrow_mut();
+        let ui = preview_state.ui.take();
+        if let Some(ui) = ui {
+            ui.hide().unwrap();
+        }
+    });
 }
 
 #[cfg(target_vendor = "apple")]
