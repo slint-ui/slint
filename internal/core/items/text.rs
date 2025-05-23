@@ -15,7 +15,8 @@ use super::{
 };
 use crate::graphics::{Brush, Color, FontRequest};
 use crate::input::{
-    key_codes, FocusEvent, FocusEventReason, FocusEventResult, InputEventFilterResult, InputEventResult, KeyEvent, KeyboardModifiers, MouseEvent, StandardShortcut, TextShortcut
+    key_codes, FocusEvent, FocusEventReason, FocusEventResult, InputEventFilterResult,
+    InputEventResult, KeyEvent, KeyboardModifiers, MouseEvent, StandardShortcut, TextShortcut,
 };
 use crate::item_rendering::{CachedRenderingData, ItemRenderer, RenderText};
 use crate::layout::{LayoutInfo, Orientation};
@@ -1784,7 +1785,11 @@ impl TextInput {
         self_rc: &ItemRc,
     ) {
         if !self.has_focus() {
-            WindowInner::from_pub(window_adapter.window()).set_focus_item(self_rc, true, FocusEventReason::Mouse);
+            WindowInner::from_pub(window_adapter.window()).set_focus_item(
+                self_rc,
+                true,
+                FocusEventReason::Mouse,
+            );
         } else if !self.read_only() {
             if let Some(w) = window_adapter.internal(crate::InternalToken) {
                 w.input_method_request(InputMethodRequest::Enable(

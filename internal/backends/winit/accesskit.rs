@@ -741,7 +741,11 @@ impl DeferredAccessKitAction {
     pub fn invoke(&self, window: &Window) {
         match self {
             DeferredAccessKitAction::SetFocus(item) => {
-                WindowInner::from_pub(window).set_focus_item(item, true, FocusEventReason::AccessKit);
+                WindowInner::from_pub(window).set_focus_item(
+                    item,
+                    true,
+                    FocusEventReason::AccessKit,
+                );
             }
             DeferredAccessKitAction::InvokeAccessibleAction(item, accessibility_action) => {
                 item.accessible_action(accessibility_action);
