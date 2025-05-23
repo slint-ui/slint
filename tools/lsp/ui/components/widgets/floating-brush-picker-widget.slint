@@ -17,7 +17,8 @@ import { SvgColorPicker } from "floating-brush-sections/svg-color-ui.slint";
 enum PickerTab {
     color,
     gradient,
-    svg-color
+    svg-color,
+    globals
 }
 
 component BrushTypeSelector {
@@ -146,6 +147,45 @@ component BrushTypeSelector {
                         font-size: 6px;
                         color: white;
                         text: "svg";
+                        font-weight: 100;
+                    }
+                }
+            }
+        }
+
+        Rectangle {
+            y: (parent.height - self.height) / 2;
+            width: 25px;
+            height: self.width;
+
+            property <bool> is-active: active-tab == PickerTab.globals;
+
+            Rectangle {
+                visible: is-active;
+                background: EditorPalette.section-color;
+                border-radius: EditorSizeSettings.property-border-radius;
+            }
+
+            TouchArea {
+                clicked => {
+                    active-tab = PickerTab.globals;
+                }
+            }
+
+            Rectangle {
+                width: 15px;
+                height: self.width;
+                opacity: is-active ? 1 : 0.5;
+
+                Rectangle {
+                    border-radius: 3px;
+                    border-width: 1px;
+                    border-color: white;
+                    Text {
+                        font-family: "Inter";
+                        font-size: 6px;
+                        color: white;
+                        text: "G";
                         font-weight: 100;
                     }
                 }
@@ -521,7 +561,13 @@ component ColorPicker inherits DraggablePanel {
         recent-colors <=> Api.recent-colors;
     }
 
-    if active-tab == PickerTab.svg-color: SvgColorPicker { }
+    if active-tab == PickerTab.svg-color: SvgColorPicker {
+        filter-text: "^Color";
+     }
+
+    if active-tab == PickerTab.globals: SvgColorPicker { 
+        filter-text: "!^Color";
+    }
 
     footer := Rectangle {
         width: 100%;

@@ -16,7 +16,7 @@ component SvgColorIndicator {
     width: PickerStyles.picker-width;
     height: 24px;
     Rectangle {
-        x: EditorSizeSettings.standard-margin - 3px;
+        x: EditorSizeSettings.standard-margin - 6px;
         width: parent.width - EditorSizeSettings.standard-margin * 2;
         height: 100%;
         background: EditorPalette.text-color.with-alpha(0.1);
@@ -56,7 +56,8 @@ component SvgColorIndicator {
 }
 
 export component SvgColorPicker inherits SimpleColumn {
-    property <[PaletteEntry]> palettes: Api.filter-palettes(Api.palettes, "^Color");
+    in property <string> filter-text;
+    property <[PaletteEntry]> palettes: Api.filter-palettes(Api.palettes, filter-text);
     Rectangle {
         height: EditorSizeSettings.small-margin;
     }
