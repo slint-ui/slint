@@ -124,7 +124,8 @@ Add this build task to your `.vscode/tasks.json`:
 			"command": "build",
 			"args": [
 				"--package=printerdemo_mcu",
-				"--features=mcu-pico-st7789",
+				"--no-default-features",
+				"--features=mcu-board-support/pico-st7789",
 				"--target=thumbv6m-none-eabi",
 				"--profile=release-with-debug"
 			],
