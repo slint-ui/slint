@@ -920,6 +920,14 @@ impl Item for TextInput {
                             self.ime_properties(window_adapter, self_rc),
                         ));
                     }
+
+                    #[cfg(not(target_vendor = "apple"))]
+                    {
+                        // check self.enabled() to make sure it doesn't select disabled (greyed-out) inputs
+                        if *reason == FocusEventReason::Keyboard && self.enabled() {
+                            self.select_all(window_adapter, self_rc);
+                        }
+                    }
                 }
             }
             FocusEvent::FocusOut(_) | FocusEvent::WindowLostFocus(_) => {
