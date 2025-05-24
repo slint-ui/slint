@@ -71,7 +71,7 @@ SLINT_TEST_FILTER=layout cargo test -p test-driver-rust
 ```
 
 Instead of putting everything in a slint! macro, it's possible to tell the driver to do the
-compilation in the build.rs, with the builod-time feature:
+compilation in the build.rs, with the build-time feature:
 
 ```
 SLINT_TEST_FILTER=layout cargo test -p test-driver-rust --features build-time
