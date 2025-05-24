@@ -28,7 +28,7 @@ use lsp_types::{
     DidOpenTextDocumentParams, InitializeParams, Url,
 };
 
-use clap::{Parser, Subcommand};
+use clap::{Args, Parser, Subcommand};
 use itertools::Itertools;
 use lsp_server::{Connection, ErrorCode, IoThreads, Message, RequestId, Response};
 use std::cell::RefCell;
@@ -92,6 +92,18 @@ pub struct Cli {
 enum Commands {
     /// Format slint files
     Format(fmt::Format),
+    /// Run live preview
+    LivePreview(LivePreview),
+}
+
+#[derive(Args, Clone, Debug)]
+struct LivePreview {
+    /// The file to open
+    #[arg(name = "path to .slint file", action)]
+    path: Option<std::path::PathBuf>,
+    /// The file to open
+    #[arg(long)]
+    remote_controlled: bool,
 }
 
 enum OutgoingRequest {
@@ -110,8 +122,6 @@ pub struct ServerNotifier {
     sender: crossbeam_channel::Sender<Message>,
     queue: OutgoingRequestQueue,
     use_external_preview: Arc<atomic::AtomicBool>,
-    #[cfg(feature = "preview-engine")]
-    preview_to_lsp_sender: crossbeam_channel::Sender<crate::common::PreviewToLspMessage>,
 }
 
 impl ServerNotifier {
@@ -163,28 +173,12 @@ impl ServerNotifier {
         }))
     }
 
-    pub fn send_message_to_preview(&self, message: common::LspToPreviewMessage) {
-        if self.use_external_preview() {
-            let _ = self.send_notification::<common::LspToPreviewMessage>(message);
-        } else {
-            #[cfg(feature = "preview-builtin")]
-            connector::lsp_to_preview_message(message);
-        }
-    }
-
-    #[cfg(feature = "preview-engine")]
-    pub fn send_message_to_lsp(&self, message: common::PreviewToLspMessage) {
-        let _ = self.preview_to_lsp_sender.send(message);
-    }
-
     #[cfg(test)]
     pub fn dummy() -> Self {
         Self {
             sender: crossbeam_channel::unbounded().0,
             queue: Default::default(),
             use_external_preview: Default::default(),
-            #[cfg(feature = "preview-engine")]
-            preview_to_lsp_sender: crossbeam_channel::unbounded().0,
         }
     }
 }
@@ -257,39 +251,78 @@ fn main() {
         crate::fmt::run_formatter(args);
     }
 
-    #[cfg(feature = "preview-engine")]
-    {
-        let cli_args = args.clone();
-        let lsp_thread = std::thread::Builder::new()
-            .name("LanguageServer".into())
-            .spawn(move || {
-                /// Make sure we quit the event loop even if we panic
-                struct QuitEventLoop;
-                impl Drop for QuitEventLoop {
-                    fn drop(&mut self) {
-                        connector::quit_ui_event_loop();
+    if let Some(c) = &args.command {
+        match c {
+            Commands::Format(fmt) => {
+                let _ = fmt::tool::run(&fmt.paths, fmt.inline).map_err(|e| {
+                    eprintln!("{e}");
+                    std::process::exit(1);
+                });
+            }
+            Commands::LivePreview(lp) => {
+                match (lp.remote_controlled, &lp.path) {
+                    (true, &Some(_)) => {
+                        eprintln!("You can not provide a file path when remote-controlling the live preview");
+                        std::process::exit(1);
                     }
-                }
-                let quit_ui_loop = QuitEventLoop;
-
-                let threads = match run_lsp_server(args) {
-                    Ok(threads) => threads,
-                    Err(error) => {
-                        eprintln!("Error running LSP server: {error}");
-                        return;
+                    (true, &None) => match preview::run_preview() {
+                        Ok(()) => {
+                            std::process::exit(0);
+                        }
+                        Err(e) => {
+                            eprintln!("Error: {e}");
+                            std::process::exit(1);
+                        }
+                    },
+                    (false, &None) => {
+                        eprintln!(
+                            "You need to provide a file path (or remote contol the live preview)"
+                        );
+                        std::process::exit(2);
+                    }
+                    (false, Some(p)) => {
+                        eprintln!("Would live preview {p:?} -- if that was supported yet;-).");
+                        std::process::exit(0);
                     }
                 };
-
-                drop(quit_ui_loop);
-                threads.join().unwrap();
-            })
-            .unwrap();
-
-        connector::start_ui_event_loop(cli_args);
-        lsp_thread.join().unwrap();
+            }
+        }
+        std::process::exit(0);
     }
 
-    #[cfg(not(feature = "preview-engine"))]
+    // #[cfg(feature = "preview-engine")]
+    // {
+    //     let cli_args = args.clone();
+    //     let lsp_thread = std::thread::Builder::new()
+    //         .name("LanguageServer".into())
+    //         .spawn(move || {
+    //             /// Make sure we quit the event loop even if we panic
+    //             struct QuitEventLoop;
+    //             impl Drop for QuitEventLoop {
+    //                 fn drop(&mut self) {
+    //                     connector::quit_ui_event_loop();
+    //                 }
+    //             }
+    //             let quit_ui_loop = QuitEventLoop;
+
+    //             let threads = match run_lsp_server(args) {
+    //                 Ok(threads) => threads,
+    //                 Err(error) => {
+    //                     eprintln!("Error running LSP server: {error}");
+    //                     return;
+    //                 }
+    //             };
+
+    //             drop(quit_ui_loop);
+    //             threads.join().unwrap();
+    //         })
+    //         .unwrap();
+
+    //     connector::start_ui_event_loop(cli_args);
+    //     lsp_thread.join().unwrap();
+    // }
+
+    // #[cfg(not(feature = "preview-engine"))]
     match run_lsp_server(args) {
         Ok(threads) => threads.join().unwrap(),
         Err(error) => {
@@ -325,14 +358,14 @@ fn main_loop(connection: Connection, init_param: InitializeParams, cli_args: Cli
         sender: connection.sender.clone(),
         queue: request_queue.clone(),
         use_external_preview: Default::default(),
-        #[cfg(feature = "preview-engine")]
-        preview_to_lsp_sender,
     };
+
+    let to_preview = Rc::new(crate::connector::ToPreview::new(preview_to_lsp_sender));
 
     #[cfg(feature = "preview-builtin")]
     connector::set_server_notifier(server_notifier.clone());
 
-    let server_notifier_ = server_notifier.clone();
+    let to_preview_clone = to_preview.clone();
     let compiler_config = CompilerConfiguration {
         style: Some(if cli_args.style.is_empty() { "native".into() } else { cli_args.style }),
         include_paths: cli_args.include_paths,
@@ -342,21 +375,17 @@ fn main_loop(connection: Connection, init_param: InitializeParams, cli_args: Cli
             .filter_map(|entry| entry.split('=').collect_tuple().map(|(k, v)| (k.into(), v.into())))
             .collect(),
         open_import_fallback: Some(Rc::new(move |path| {
-            let server_notifier = server_notifier_.clone();
+            let to_preview = to_preview_clone.clone();
             Box::pin(async move {
                 let contents = std::fs::read_to_string(&path);
                 if let Ok(url) = Url::from_file_path(&path) {
                     if let Ok(contents) = &contents {
-                        server_notifier.send_message_to_preview(
-                            common::LspToPreviewMessage::SetContents {
-                                url: common::VersionedUrl::new(url, None),
-                                contents: contents.clone(),
-                            },
-                        )
+                        let _ = to_preview.send(&common::LspToPreviewMessage::SetContents {
+                            url: common::VersionedUrl::new(url, None),
+                            contents: contents.clone(),
+                        });
                     } else {
-                        server_notifier.send_message_to_preview(
-                            common::LspToPreviewMessage::ForgetFile { url },
-                        )
+                        let _ = to_preview.send(&common::LspToPreviewMessage::ForgetFile { url });
                     }
                 }
                 Some(contents.map(|c| (None, c)))
@@ -373,6 +402,8 @@ fn main_loop(connection: Connection, init_param: InitializeParams, cli_args: Cli
         #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
         to_show: Default::default(),
         open_urls: Default::default(),
+        #[cfg(feature = "preview-engine")]
+        to_preview,
     });
 
     let mut futures = Vec::<Pin<Box<dyn Future<Output = Result<()>>>>>::new();

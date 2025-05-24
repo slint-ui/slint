@@ -1,12 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-//! This is the live-preview part of the program.
+//! This is what connects the live-preview part to the outside world.
 //!
-//! All functions defined in this file must be called in the UI thread! Different rules
-//! may apply to the functions re-exported from the  `wasm` and `native` modules!
-//! These functions integrate the preview with the surrounding environment which in
-//! the case of `native` runs in a separate thread at this time.
+//! This file is tricky: Most functions may be called from a different thread!
 
 #[cfg(all(target_arch = "wasm32", feature = "preview-external"))]
 mod wasm;

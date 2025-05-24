@@ -130,6 +130,39 @@ impl PreviewState {
 }
 thread_local! {pub static PREVIEW_STATE: std::cell::RefCell<PreviewState> = Default::default();}
 
+pub fn run_preview() -> std::result::Result<(), slint::PlatformError> {
+    let (lsp_to_preview_sender, lsp_to_preview_receiver) =
+        crossbeam_channel::unbounded::<crate::common::LspToPreviewMessage>();
+    // TODO: Set experimental an style!
+    let to_lsp = crate::connector::ToLsp::new(lsp_to_preview_sender);
+    let ui = ui::create_ui(String::new(), true)?;
+
+    slint::spawn_local(async move {
+        async move || {
+            crossbeam_channel::select!(
+                recv(lsp_to_preview_receiver) -> msg => {
+                    if let Ok(msg) = msg {
+                        connector::lsp_to_preview_message(msg)
+                    }
+                }
+            )
+        }
+    })
+    .unwrap();
+
+    to_lsp.send(&common::PreviewToLspMessage::RequestState { unused: true });
+
+    PREVIEW_STATE.with(move |preview_state| {
+        let mut preview_state = preview_state.borrow_mut();
+        preview_state.ui = Some(ui);
+        preview_state.ui_is_visible = true;
+
+        preview_state.ui.as_ref().unwrap().run()?;
+
+        Ok(())
+    })
+}
+
 // Just mark the cache as "read from disk" by setting the version to None.
 // Do not reset the code: We can check once the LSP has re-read it from disk
 // whether we need to refresh the preview or not.

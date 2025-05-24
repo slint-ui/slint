@@ -21,7 +21,7 @@ pub struct Format {
 pub fn run_formatter(args: Format) -> ! {
     #[cfg(not(target_arch = "wasm32"))]
     {
-        let _ = tool::run(args.paths, args.inline).map_err(|e| {
+        let _ = tool::run(&args.paths, args.inline).map_err(|e| {
             eprintln!("{e}");
             std::process::exit(1);
         });
