@@ -30,7 +30,7 @@ display-diagnostics = ["codemap", "codemap-diagnostic"]
 # Enable the support to render images and font in the binary
 software-renderer = ["image", "dep:resvg", "fontdue", "i-slint-common/shared-fontdb", "dep:rayon"]
 # Enable support to embed the fonts as signed distance fields
-sdf-fonts = ["dep:fdsm", "dep:ttf-parser-fdsm", "dep:nalgebra", "dep:rayon"]
+sdf-fonts = ["dep:fdsm", "dep:fdsm-ttf-parser", "dep:nalgebra", "dep:rayon"]
 
 # Translation bundler
 bundle-translations = ["dep:polib"]
@@ -62,8 +62,8 @@ image = { workspace = true, optional = true, features = ["default"] }
 resvg = { workspace = true, optional = true }
 # font embedding
 fontdue = { workspace = true, optional = true, features = ["parallel"] }
-fdsm = { version = "0.6.0", optional = true, features = ["ttf-parser"] }
-ttf-parser-fdsm = { package = "ttf-parser", version = "0.24.1", optional = true }
+fdsm = { version = "0.7.0", optional = true }
+fdsm-ttf-parser = { version = "0.1.2", optional = true }
 nalgebra = { version = "0.33.0", optional = true }
 rayon = { workspace = true, optional = true }
 # translations
