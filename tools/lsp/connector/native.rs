@@ -6,6 +6,7 @@
 use std::collections::HashMap;
 
 use crate::common::{self, PreviewToLspMessage, SourceFileVersion};
+use crate::preview;
 use crate::ServerNotifier;
 use slint_interpreter::ComponentHandle;
 use std::future::Future;
@@ -177,7 +178,7 @@ pub fn quit_ui_event_loop() {
 }
 
 pub(super) fn open_ui_impl(
-    preview_state: &mut super::PreviewState,
+    preview_state: &mut preview::PreviewState,
 ) -> Result<(), slint::PlatformError> {
     let (default_style, show_preview_ui, fullscreen) = {
         let style = preview_state.config.style.clone();
@@ -200,8 +201,8 @@ pub(super) fn open_ui_impl(
     let ui = match preview_state.ui.as_ref() {
         Some(ui) => ui,
         None => {
-            let ui = super::ui::create_ui(default_style, experimental)?;
-            crate::preview::send_telemetry(&mut [(
+            let ui = crate::preview::ui::create_ui(default_style, experimental)?;
+            super::send_telemetry(&mut [(
                 "type".to_string(),
                 serde_json::to_value("preview_opened").unwrap(),
             )]);
@@ -215,7 +216,7 @@ pub(super) fn open_ui_impl(
     api.set_show_preview_ui(show_preview_ui);
     ui.window().set_fullscreen(fullscreen);
     ui.window().on_close_requested(|| {
-        super::PREVIEW_STATE.with(|preview_state| {
+        preview::PREVIEW_STATE.with(|preview_state| {
             let mut preview_state = preview_state.borrow_mut();
             preview_state.ui_is_visible = false;
         });
@@ -226,7 +227,7 @@ pub(super) fn open_ui_impl(
 
 /// Potentially called from other thread!
 pub fn close_ui() {
-    let _ = super::PREVIEW_STATE.with(|preview_state| {
+    let _ = preview::PREVIEW_STATE.with(|preview_state| {
         let mut preview_state = preview_state.borrow_mut();
         if !preview_state.ui_is_visible {
             return; // UI is already down!
@@ -243,7 +244,7 @@ pub fn close_ui() {
 #[cfg(target_vendor = "apple")]
 fn toggle_always_on_top() {
     i_slint_core::api::invoke_from_event_loop(move || {
-        super::PREVIEW_STATE.with(move |preview_state| {
+        preview::PREVIEW_STATE.with(move |preview_state| {
             let preview_state = preview_state.borrow_mut();
             let Some(ui) = preview_state.ui.as_ref() else { return };
             let api = ui.global::<crate::preview::ui::Api>();
@@ -355,7 +356,7 @@ fn init_apple_platform(
         if menu_event.id == close_id {
             close_ui();
         } else if menu_event.id == reload_id {
-            super::reload_preview();
+            preview::reload_preview();
         } else if menu_event.id == keep_on_top_id {
             toggle_always_on_top();
         }

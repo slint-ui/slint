@@ -12,6 +12,7 @@ use crate::common::{
     self, component_catalog, rename_component, ComponentInformation, ElementRcNode,
     PreviewComponent, PreviewConfig, PreviewToLspMessage, SourceFileVersion,
 };
+use crate::connector;
 use crate::preview::element_selection::ElementSelection;
 use crate::util;
 use i_slint_compiler::object_tree::ElementRc;
@@ -40,14 +41,6 @@ mod preview_data;
 use ext::ElementRcNodeExt;
 mod properties;
 pub mod ui;
-#[cfg(all(target_arch = "wasm32", feature = "preview-external"))]
-mod wasm;
-#[cfg(all(target_arch = "wasm32", feature = "preview-external"))]
-pub use wasm::*;
-#[cfg(all(not(target_arch = "wasm32"), feature = "preview-builtin"))]
-mod native;
-#[cfg(all(not(target_arch = "wasm32"), feature = "preview-builtin"))]
-pub use native::*;
 
 /// The state of the preview engine:
 ///
@@ -85,8 +78,8 @@ struct SourceCodeCacheEntry {
 type SourceCodeCache = HashMap<Url, SourceCodeCacheEntry>;
 
 #[derive(Default)]
-struct PreviewState {
-    ui: Option<ui::PreviewUi>,
+pub struct PreviewState {
+    pub ui: Option<ui::PreviewUi>,
     property_range_declarations: Option<ui::PropertyDeclarations>,
     handle: Rc<RefCell<Option<slint_interpreter::ComponentInstance>>>,
     document_cache: Rc<RefCell<Option<Rc<common::DocumentCache>>>>,
@@ -101,11 +94,11 @@ struct PreviewState {
     source_code: SourceCodeCache,
     resources: HashSet<Url>,
     dependencies: HashSet<Url>,
-    config: PreviewConfig,
+    pub config: PreviewConfig,
     current_previewed_component: Option<PreviewComponent>,
     current_load_behavior: Option<LoadBehavior>,
     loading_state: PreviewFutureState,
-    ui_is_visible: bool,
+    pub ui_is_visible: bool,
 }
 
 impl PreviewState {
@@ -135,12 +128,12 @@ impl PreviewState {
         }
     }
 }
-thread_local! {static PREVIEW_STATE: std::cell::RefCell<PreviewState> = Default::default();}
+thread_local! {pub static PREVIEW_STATE: std::cell::RefCell<PreviewState> = Default::default();}
 
 // Just mark the cache as "read from disk" by setting the version to None.
 // Do not reset the code: We can check once the LSP has re-read it from disk
 // whether we need to refresh the preview or not.
-fn invalidate_contents(url: &lsp_types::Url) {
+pub fn invalidate_contents(url: &lsp_types::Url) {
     PREVIEW_STATE.with(|preview_state| {
         let mut preview_state = preview_state.borrow_mut();
         if let Some(cache_entry) = preview_state.source_code.get_mut(url) {
@@ -149,7 +142,7 @@ fn invalidate_contents(url: &lsp_types::Url) {
     })
 }
 
-fn delete_document(url: &lsp_types::Url) {
+pub fn delete_document(url: &lsp_types::Url) {
     let (current, url_is_used, ui_is_visible) = PREVIEW_STATE.with(|preview_state| {
         let mut preview_state = preview_state.borrow_mut();
         preview_state.source_code.remove(url);
@@ -211,7 +204,7 @@ fn apply_live_preview_data() {
     }
 }
 
-fn set_contents(url: &common::VersionedUrl, content: String) {
+pub fn set_contents(url: &common::VersionedUrl, content: String) {
     if let Some((ui_is_visible, current)) = PREVIEW_STATE.with(|preview_state| {
         let mut preview_state = preview_state.borrow_mut();
 
@@ -522,7 +515,10 @@ fn set_code_binding(
     property_name: slint::SharedString,
     property_value: slint::SharedString,
 ) {
-    send_telemetry(&mut [("type".to_string(), serde_json::to_value("property_changed").unwrap())]);
+    connector::send_telemetry(&mut [(
+        "type".to_string(),
+        serde_json::to_value("property_changed").unwrap(),
+    )]);
 
     set_binding(
         element_url,
@@ -601,7 +597,11 @@ fn show_component(name: slint::SharedString, url: slint::SharedString) {
 
     let start =
         util::text_size_to_lsp_position(&identifier.source_file, identifier.text_range().start());
-    ask_editor_to_show_document(&file.to_string_lossy(), lsp_types::Range::new(start, start), false)
+    connector::ask_editor_to_show_document(
+        &file.to_string_lossy(),
+        lsp_types::Range::new(start, start),
+        false,
+    )
 }
 
 fn show_document_offset_range(url: slint::SharedString, start: i32, end: i32, take_focus: bool) {
@@ -627,7 +627,11 @@ fn show_document_offset_range(url: slint::SharedString, start: i32, end: i32, ta
     }
 
     if let Some((f, s, e)) = internal(url, start, end) {
-        ask_editor_to_show_document(&f.to_string_lossy(), lsp_types::Range::new(s, e), take_focus);
+        connector::ask_editor_to_show_document(
+            &f.to_string_lossy(),
+            lsp_types::Range::new(s, e),
+            take_focus,
+        );
     }
 }
 
@@ -666,7 +670,10 @@ fn can_drop_component(component_index: i32, x: f32, y: f32, on_drop_area: bool) 
 }
 
 fn drop_component(component_index: i32, x: f32, y: f32) {
-    send_telemetry(&mut [("type".to_string(), serde_json::to_value("component_dropped").unwrap())]);
+    connector::send_telemetry(&mut [(
+        "type".to_string(),
+        serde_json::to_value("component_dropped").unwrap(),
+    )]);
 
     let Some(document_cache) = document_cache() else {
         return;
@@ -914,7 +921,10 @@ fn send_workspace_edit(label: String, edit: lsp_types::WorkspaceEdit, test_edit:
     });
 
     if !workspace_edit_sent {
-        send_message_to_lsp(PreviewToLspMessage::SendWorkspaceEdit { label: Some(label), edit });
+        connector::send_message_to_lsp(PreviewToLspMessage::SendWorkspaceEdit {
+            label: Some(label),
+            edit,
+        });
         return true;
     }
     false
@@ -1068,7 +1078,7 @@ fn finish_parsing(preview_url: &Url, previewed_component: Option<String>, succes
     });
 }
 
-fn config_changed(config: PreviewConfig) {
+pub fn config_changed(config: PreviewConfig) {
     let Some((current, ui_is_visible, hide_ui)) = PREVIEW_STATE.with(move |preview_state| {
         let mut preview_state = preview_state.borrow_mut();
         (preview_state.config != config).then(|| {
@@ -1189,7 +1199,7 @@ async fn reload_timer_function() {
                 PREVIEW_STATE.with(|preview_state| {
                     preview_state.borrow_mut().loading_state = PreviewFutureState::Pending;
                 });
-                send_platform_error_notification(&e.to_string());
+                connector::send_platform_error_notification(&e.to_string());
                 return;
             }
         }
@@ -1233,7 +1243,7 @@ async fn reload_timer_function() {
                         let sf = &node.source_file;
                         (sf.path().to_owned(), util::text_size_to_lsp_position(sf, se.offset))
                     });
-                    ask_editor_to_show_document(
+                    connector::ask_editor_to_show_document(
                         &path.to_string_lossy(),
                         lsp_types::Range::new(pos, pos),
                         false,
@@ -1325,7 +1335,7 @@ async fn parse_source(
     };
     #[cfg(target_arch = "wasm32")]
     {
-        cc.resource_url_mapper = resource_url_mapper();
+        cc.resource_url_mapper = connector::resource_url_mapper();
     }
     cc.embed_resources = EmbedResourcesKind::ListAllResources;
     cc.no_native_menu = true;
@@ -1403,23 +1413,13 @@ async fn reload_preview_impl(
             }
         });
         let diags = convert_diagnostics(&diagnostics, &source_file_versions.borrow());
-        notify_diagnostics(diags);
+        connector::notify_diagnostics(diags);
     }
 
     update_preview_area(compiled, behavior, open_import_fallback, source_file_versions)?;
 
     finish_parsing(&component.url, loaded_component_name, success);
     Ok(())
-}
-
-/// Sends a notification back to the editor when the preview fails to load because of a slint::PlatformError.
-fn send_platform_error_notification(platform_error_str: &str) {
-    let message = format!("Error displaying the Slint preview window: {platform_error_str}");
-    // Also output the message in the console in case the user missed the notification in the editor
-    eprintln!("{message}");
-    send_message_to_lsp(PreviewToLspMessage::SendShowMessage {
-        message: lsp_types::ShowMessageParams { typ: lsp_types::MessageType::ERROR, message },
-    })
 }
 
 /// This sets up the preview area to show the ComponentInstance
@@ -1713,7 +1713,7 @@ fn set_selected_element(
                     util::text_size_to_lsp_position(sf, node.text_range().start()),
                 )
             });
-            ask_editor_to_show_document(
+            connector::ask_editor_to_show_document(
                 &path.to_string_lossy(),
                 lsp_types::Range::new(pos, pos),
                 false,
@@ -1765,7 +1765,7 @@ fn set_current_style(style: String) {
     });
 }
 
-fn get_current_style() -> String {
+pub fn get_current_style() -> String {
     PREVIEW_STATE.with(|preview_state| -> String {
         let preview_state = preview_state.borrow();
         if let Some(ui) = &preview_state.ui {
@@ -1803,8 +1803,7 @@ fn update_preview_area(
         let mut preview_state = preview_state.borrow_mut();
         preview_state.workspace_edit_sent = false;
 
-        #[cfg(not(target_arch = "wasm32"))]
-        native::open_ui_impl(&mut preview_state)?;
+        connector::open_ui_callback(&mut preview_state)?;
 
         let ui = preview_state.ui.as_ref().unwrap();
         let shared_handle = preview_state.handle.clone();
@@ -1851,37 +1850,6 @@ fn update_preview_area(
 
     element_selection::reselect_element();
     Ok(())
-}
-
-fn lsp_to_preview_message_impl(message: crate::common::LspToPreviewMessage) {
-    use crate::common::LspToPreviewMessage as M;
-    match message {
-        M::InvalidateContents { url } => invalidate_contents(&url),
-        M::ForgetFile { url } => delete_document(&url),
-        M::SetContents { url, contents } => {
-            set_contents(&url, contents);
-        }
-        M::SetConfiguration { config } => {
-            config_changed(config);
-        }
-        M::ShowPreview(pc) => {
-            load_preview(pc, LoadBehavior::BringWindowToFront);
-        }
-        M::HighlightFromEditor { url, offset } => {
-            highlight(url, offset.into());
-        }
-    }
-}
-
-pub fn send_telemetry(data: &mut [(String, serde_json::Value)]) {
-    let object = {
-        let mut object = serde_json::Map::new();
-        for (name, value) in data.iter_mut() {
-            object.insert(std::mem::take(name), std::mem::take(value));
-        }
-        object
-    };
-    send_message_to_lsp(crate::common::PreviewToLspMessage::TelemetryEvent(object));
 }
 
 #[cfg(test)]

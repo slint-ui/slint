@@ -6,8 +6,8 @@
 
 use std::collections::HashMap;
 
-use crate::common;
 use crate::wasm_prelude::*;
+use crate::{common, preview};
 use slint_interpreter::ComponentHandle;
 use std::cell::RefCell;
 use std::future::Future;
@@ -82,12 +82,12 @@ impl PreviewConnector {
             let reject_c = send_wrapper::SendWrapper::new(reject.clone());
             let style = style.clone();
             if let Err(e) = slint_interpreter::invoke_from_event_loop(move || {
-                super::PREVIEW_STATE.with(move |preview_state| {
+                preview::PREVIEW_STATE.with(move |preview_state| {
                     if preview_state.borrow().ui.is_some() {
                         reject_c.take().call1(&JsValue::UNDEFINED,
                             &JsValue::from("PreviewConnector already set up.")).unwrap_throw();
                     } else {
-                        match super::ui::create_ui(style, experimental) {
+                        match preview::ui::create_ui(style, experimental) {
                             Ok(ui) => {
                                 preview_state.borrow_mut().ui = Some(ui);
                                 resolve.take().call1(&JsValue::UNDEFINED,
@@ -113,12 +113,12 @@ impl PreviewConnector {
 
     #[wasm_bindgen]
     pub fn current_style(&self) -> JsValue {
-        super::get_current_style().into()
+        preview::get_current_style().into()
     }
 
     #[wasm_bindgen]
     pub fn show_ui(&self) -> Result<js_sys::Promise, JsValue> {
-        super::PREVIEW_STATE.with(|preview_state| {
+        preview::PREVIEW_STATE.with(|preview_state| {
             let mut preview_state = preview_state.borrow_mut();
             preview_state.ui_is_visible = true;
         });
@@ -135,12 +135,12 @@ impl PreviewConnector {
 }
 
 fn invoke_from_event_loop_wrapped_in_promise(
-    callback: impl FnOnce(&super::ui::PreviewUi) -> Result<(), slint_interpreter::PlatformError>
+    callback: impl FnOnce(&preview::ui::PreviewUi) -> Result<(), slint_interpreter::PlatformError>
         + 'static,
 ) -> Result<js_sys::Promise, JsValue> {
     let callback = std::cell::RefCell::new(Some(callback));
     Ok(js_sys::Promise::new(&mut |resolve, reject| {
-        super::PREVIEW_STATE.with(|preview_state| {
+        preview::PREVIEW_STATE.with(|preview_state| {
         let Some(inst_weak) = preview_state.borrow().ui.as_ref().map(|ui| ui.as_weak()) else {
             reject.call1(&JsValue::UNDEFINED, &JsValue::from("Ui is not up yet")).unwrap_throw();
             return;

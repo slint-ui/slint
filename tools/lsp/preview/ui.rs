@@ -69,7 +69,7 @@ pub fn create_ui(style: String, experimental: bool) -> Result<PreviewUi, Platfor
     api.on_show_document(|file, line, column| {
         use lsp_types::{Position, Range};
         let pos = Position::new((line as u32).saturating_sub(1), (column as u32).saturating_sub(1));
-        super::ask_editor_to_show_document(&file, Range::new(pos, pos), false)
+        crate::connector::ask_editor_to_show_document(&file, Range::new(pos, pos), false)
     });
     api.on_show_document_offset_range(super::show_document_offset_range);
     api.on_show_preview_for(super::show_preview_for);
@@ -1171,7 +1171,7 @@ fn set_json_preview_data(
     property_name: SharedString,
     json_string: SharedString,
 ) -> SharedString {
-    crate::preview::send_telemetry(&mut [(
+    crate::connector::send_telemetry(&mut [(
         "type".to_string(),
         serde_json::to_value("data_json_changed").unwrap(),
     )]);
