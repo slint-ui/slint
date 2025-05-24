@@ -135,10 +135,11 @@ public:
                 items, &inner);
     }
 
-    void set_focus_item(const ItemTreeRc &component_rc, uint32_t item_index, bool set_focus)
+    void set_focus_item(const ItemTreeRc &component_rc, uint32_t item_index, bool set_focus,
+                        cbindgen_private::FocusEventReason reason)
     {
         cbindgen_private::ItemRc item_rc { component_rc, item_index };
-        cbindgen_private::slint_windowrc_set_focus_item(&inner, &item_rc, set_focus);
+        cbindgen_private::slint_windowrc_set_focus_item(&inner, &item_rc, set_focus, reason);
     }
 
     void set_component(const cbindgen_private::ItemTreeWeak &weak) const
