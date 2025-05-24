@@ -28,7 +28,7 @@ use lsp_types::{
     DidOpenTextDocumentParams, InitializeParams, Url,
 };
 
-use clap::{Args, Parser, Subcommand};
+use clap::{Parser, Subcommand};
 use itertools::Itertools;
 use lsp_server::{Connection, ErrorCode, IoThreads, Message, RequestId, Response};
 use std::cell::RefCell;
@@ -91,17 +91,7 @@ pub struct Cli {
 #[derive(Subcommand, Clone)]
 enum Commands {
     /// Format slint files
-    Format(Format),
-}
-
-#[derive(Args, Clone)]
-struct Format {
-    #[arg(name = "path to .slint file(s)", action)]
-    paths: Vec<std::path::PathBuf>,
-
-    /// modify the file inline instead of printing to stdout
-    #[arg(short, long, action)]
-    inline: bool,
+    Format(fmt::Format),
 }
 
 enum OutgoingRequest {
@@ -229,20 +219,7 @@ impl RequestHandler {
     }
 }
 
-fn main() {
-    let args: Cli = Cli::parse();
-    if !args.backend.is_empty() {
-        std::env::set_var("SLINT_BACKEND", &args.backend);
-    }
-
-    if let Some(Commands::Format(args)) = args.command {
-        let _ = fmt::tool::run(args.paths, args.inline).map_err(|e| {
-            eprintln!("{e}");
-            std::process::exit(1);
-        });
-        std::process::exit(0);
-    }
-
+fn setup_panic_hook() {
     if let Ok(panic_log_file) = std::env::var("SLINT_LSP_PANIC_LOG") {
         let default_hook = std::panic::take_hook();
         std::panic::set_hook(Box::new(move |info| {
@@ -265,6 +242,19 @@ fn main() {
             }
             default_hook(info);
         }));
+    }
+}
+
+fn main() {
+    setup_panic_hook();
+
+    let args: Cli = Cli::parse();
+    if !args.backend.is_empty() {
+        std::env::set_var("SLINT_BACKEND", &args.backend);
+    }
+
+    if let Some(Commands::Format(args)) = args.command {
+        crate::fmt::run_formatter(args);
     }
 
     #[cfg(feature = "preview-engine")]
