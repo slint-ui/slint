@@ -151,10 +151,7 @@ export global PickerData {
     }
 
     public function set-current-stop-as-color() {
-        hue = current-gradient-stops[current-stop-index].color.to-hsv().hue;
-        saturation = current-gradient-stops[current-stop-index].color.to-hsv().saturation;
-        value = current-gradient-stops[current-stop-index].color.to-hsv().value;
-        alpha = current-gradient-stops[current-stop-index].color.to-hsv().alpha * 100;
+        set-color(current-gradient-stops[current-stop-index].color);
     }
 
     public function update-brush() {
@@ -172,10 +169,7 @@ export global PickerData {
         if Api.recent-colors.length > 0 {
             set-color(Api.recent-colors[0]);
         } else {
-            PickerData.hue = 220;
-            PickerData.saturation = 0.5;
-            PickerData.value = 0.5;
-            PickerData.alpha = 100;
+            set-color(#2479f4);
         }
     }
 }
