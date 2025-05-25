@@ -160,6 +160,24 @@ export global PickerData {
     public function update-brush() {
         self.current-brush = Api.create-brush(current-brush-kind, current-angle, current-color, current-gradient-stops);
     }
+
+    public function set-color(color: color) {
+        PickerData.hue = color.to-hsv().hue;
+        PickerData.saturation = color.to-hsv().saturation;
+        PickerData.value = color.to-hsv().value;
+        PickerData.alpha = color.to-hsv().alpha * 100;
+    }
+
+    public function set-default-color() {
+        if Api.recent-colors.length > 0 {
+            set-color(Api.recent-colors[0]);
+        } else {
+            PickerData.hue = 220;
+            PickerData.saturation = 0.5;
+            PickerData.value = 0.5;
+            PickerData.alpha = 100;
+        }
+    }
 }
 
 export global WindowManager {
@@ -188,17 +206,13 @@ export global WindowManager {
     callback show-color-stop-picker();
     callback hide-color-stop-picker();
 
-    function set-default-color() {
-        if Api.recent-colors.length > 0 {
-            PickerData.hue = Api.recent-colors[0].to-hsv().hue;
-            PickerData.saturation = Api.recent-colors[0].to-hsv().saturation;
-            PickerData.value = Api.recent-colors[0].to-hsv().value;
-            PickerData.alpha = Api.recent-colors[0].to-hsv().alpha * 100;
-        } else {
-            PickerData.hue = 220;
-            PickerData.saturation = 0.5;
-            PickerData.value = 0.5;
-            PickerData.alpha = 100;
+    function set-active-tab(brush-mode: BrushMode) {
+        if brush-mode == BrushMode.color {
+            PickerData.active-tab = PickerTab.color;
+        } else if brush-mode == BrushMode.linear {
+            PickerData.active-tab = PickerTab.gradient;
+        } else if brush-mode == BrushMode.radial {
+            PickerData.active-tab = PickerTab.gradient;
         }
     }
 
@@ -220,12 +234,9 @@ export global WindowManager {
         if current-property-information.value.kind == PropertyValueKind.color {
             // if there is no color set create a new useful one
             if current-property-information.value.code == "" {
-                set-default-color();
+                PickerData.set-default-color();
             } else {
-                PickerData.hue = current-property-information.value.value-brush.to-hsv().hue;
-                PickerData.saturation = current-property-information.value.value-brush.to-hsv().saturation;
-                PickerData.value = current-property-information.value.value-brush.to-hsv().value;
-                PickerData.alpha = current-property-information.value.value-brush.to-hsv().alpha * 100;
+                PickerData.set-color(current-property-information.value.value-brush);
             }
             picker-mode = BrushPropertyType.color;
             showing-color-picker = true;
@@ -240,18 +251,12 @@ export global WindowManager {
             if current-property-information.value.brush-kind == BrushKind.solid {
                 // if there is no color set create a new useful one
                 if current-property-information.value.code == "" {
-                    set-default-color();
+                    PickerData.set-default-color();
                 } else {
-                    PickerData.hue = current-property-information.value.value-brush.to-hsv().hue;
-                    PickerData.saturation = current-property-information.value.value-brush.to-hsv().saturation;
-                    PickerData.value = current-property-information.value.value-brush.to-hsv().value;
-                    PickerData.alpha = current-property-information.value.value-brush.to-hsv().alpha * 100;
+                    PickerData.set-color(current-property-information.value.value-brush);
                 }
             } else {
-                PickerData.hue = PickerData.current-gradient-stops[PickerData.current-stop-index].color.to-hsv().hue;
-                PickerData.saturation = PickerData.current-gradient-stops[PickerData.current-stop-index].color.to-hsv().saturation;
-                PickerData.value = PickerData.current-gradient-stops[PickerData.current-stop-index].color.to-hsv().value;
-                PickerData.alpha = PickerData.current-gradient-stops[PickerData.current-stop-index].color.to-hsv().alpha * 100;
+                PickerData.set-color(PickerData.current-gradient-stops[PickerData.current-stop-index].color);
             }
             showing-color-picker = true;
         }
@@ -275,10 +280,7 @@ export global WindowManager {
         current-property-container-id = property-container-id;
         current-preview-data = preview-data;
         widget-mode = WidgetMode.preview;
-        PickerData.hue = property-value.value-brush.to-hsv().hue;
-        PickerData.saturation = property-value.value-brush.to-hsv().saturation;
-        PickerData.value = property-value.value-brush.to-hsv().value;
-        PickerData.alpha = property-value.value-brush.to-hsv().alpha * 100;
+        PickerData.set-color(property-value.value-brush);
         PickerData.current-brush-kind = property-value.brush-kind;
 
         if property-value.kind == PropertyValueKind.color {
