@@ -2499,10 +2499,11 @@ impl Transition {
         if let Some(star) = trs.child_token(SyntaxKind::Star) {
             diag.push_error("catch-all not yet implemented".into(), &star);
         };
-        let direction_text = trs.first_child_or_token()
+        let direction_text = trs
+            .first_child_or_token()
             .and_then(|t| t.as_token().map(|tok| tok.text().to_string()))
             .unwrap_or_default();
-        
+
         Transition {
             direction: match direction_text.as_str() {
                 "in" => TransitionDirection::In,
@@ -2510,7 +2511,10 @@ impl Transition {
                 "in-out" => TransitionDirection::InOut,
                 "in_out" => TransitionDirection::InOut,
                 _ => {
-                    eprintln!("WARNING: Unknown transition direction: '{}', defaulting to In", direction_text);
+                    eprintln!(
+                        "WARNING: Unknown transition direction: '{}', defaulting to In",
+                        direction_text
+                    );
                     TransitionDirection::In
                 }
             },

@@ -1423,10 +1423,10 @@ pub fn animation_for_property(
                         let is_previous_state = a.state_id == state_info.previous_state;
                         let is_current_state = a.state_id == state_info.current_state;
                         match (a.direction, is_previous_state, is_current_state) {
-                            (TransitionDirection::In, true, false) |
-                            (TransitionDirection::Out, false, true) |
-                            (TransitionDirection::InOut, false, true) |
-                            (TransitionDirection::InOut, true, false) => {
+                            (TransitionDirection::In, true, false)
+                            | (TransitionDirection::Out, false, true)
+                            | (TransitionDirection::InOut, false, true)
+                            | (TransitionDirection::InOut, true, false) => {
                                 return (
                                     eval::new_struct_with_bindings(
                                         &a.animation.borrow().bindings,
@@ -1434,7 +1434,7 @@ pub fn animation_for_property(
                                     ),
                                     state_info.change_time,
                                 );
-                            },
+                            }
                             _ => {}
                         }
                     }
