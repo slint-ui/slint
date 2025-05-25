@@ -216,16 +216,6 @@ export global WindowManager {
         }
     }
 
-    function set-active-tab(brush-mode: BrushMode) {
-        if brush-mode == BrushMode.color {
-            PickerData.active-tab = PickerTab.color;
-        } else if brush-mode == BrushMode.linear {
-            PickerData.active-tab = PickerTab.gradient;
-        } else if brush-mode == BrushMode.radial {
-            PickerData.active-tab = PickerTab.gradient;
-        }
-    }
-
     show-floating-widget(property-information, element-information) => {
         widget-mode = WidgetMode.edit;
         current-property-information = property-information;
