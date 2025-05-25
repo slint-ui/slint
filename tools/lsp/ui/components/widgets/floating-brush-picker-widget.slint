@@ -31,7 +31,7 @@ component TabIcon inherits Rectangle {
 
     ta := TouchArea {
         clicked => {
-            PickerData.active-tab = picker-tab;
+            PickerData.set-active-tab(picker-tab);
         }
     }
 
@@ -508,8 +508,8 @@ export component ColorPickerView {
         x: root.initial-x;
         y: root.initial-y;
         widget-mode: color-stop-mode ? WidgetMode.color-stop : WindowManager.widget-mode;
-        picker-mode: color-stop-mode ? BrushPropertyType.color : WindowManager.picker-mode;
-        brush-mode: color-stop-mode ? BrushMode.color : WindowManager.brush-mode;
+        picker-mode: color-stop-mode ? BrushPropertyType.color : PickerData.picker-mode;
+        brush-mode: color-stop-mode ? BrushMode.color : PickerData.brush-mode;
         close => {
             root.close();
         }
