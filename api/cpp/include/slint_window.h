@@ -350,6 +350,34 @@ public:
         return inner.is_visible();
     }
 
+    /// Show the window as a modal window.
+    ///
+    /// A modal window is typically a dialog that blocks the user from interacting with the
+    /// application until the user closes it.
+    ///
+    /// Modal windows do not need taskbar entries as they are shown on top of other windows of the
+    /// application
+    ///
+    /// Using this overload, the window is shown as a modal window for the specified window.
+    /// the `show_modal()` overload taking no arguments shows the window as a modal window for the
+    /// application.
+    ///
+    /// This function reutns false if the plaftorm doesn't support modal windows, or if the window
+    /// is already shown.
+    bool show_modal(const Window &other)
+    {
+        private_api::assert_main_thread();
+        return cbindgen_private::slint_windowrc_show_modal(&inner.handle(), &other.inner.handle());
+    }
+
+    /// \overload
+    /// Same as `show_modal(const Window &other)`, but makes the window application modal
+    bool show_modal()
+    {
+        private_api::assert_main_thread();
+        return cbindgen_private::slint_windowrc_show_modal(&inner.handle(), nullptr);
+    }
+
     /// This function allows registering a callback that's invoked during the different phases of
     /// rendering. This allows custom rendering on top or below of the scene.
     ///

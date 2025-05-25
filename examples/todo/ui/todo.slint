@@ -10,6 +10,16 @@ export struct TodoItem  {
     checked: bool,
 }
 
+export component ConfirmDialog inherits Dialog {
+    confirm_popup_text := Text {
+        text: "Some items are not done, are you sure you wish to quit?";
+        wrap: word-wrap;
+    }
+
+    StandardButton { kind: yes; }
+    StandardButton { kind: no; }
+}
+
 export component MainWindow inherits Window {
     in property <[TodoItem]> todo-model: [
         { title: "Implement the .slint file", checked: true },
@@ -28,38 +38,10 @@ export component MainWindow inherits Window {
 
     callback todo-added(string);
     callback remove-done();
-    callback popup_confirmed;
-    callback show_confirm_popup;
     callback apply_sorting_and_filtering();
-
-    show_confirm_popup => { confirm_popup.show(); }
 
     preferred-width: 400px;
     preferred-height: 600px;
-
-    confirm_popup := PopupWindow {
-        x: 40px;
-        y: 100px;
-        width: min(confirm_popup_layout.preferred-width, root.width - 80px);
-
-        Rectangle {
-            background: Palette.background;
-            border-color: Palette.border;
-            border-width: 1px;
-        }
-
-        confirm_popup_layout := Dialog {
-            height:100%; width: 100%;
-
-            confirm_popup_text := Text {
-                text: "Some items are not done, are you sure you wish to quit?";
-                wrap: word-wrap;
-            }
-
-            StandardButton { kind: yes; clicked => { root.popup_confirmed(); } }
-            StandardButton { kind: no; }
-        }
-    }
 
     VerticalBox {
         HorizontalBox {
