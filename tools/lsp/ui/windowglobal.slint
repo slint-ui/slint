@@ -43,6 +43,11 @@ export enum BrushMode {
     code,
 }
 
+export enum GradientType {
+    linear,
+    radial,
+}
+
 export global TableData {
     callback populate-table(property-group-id: string, preview-data: PreviewData);
     callback show-brush-editor(selected-row: int, selected-col: int);
@@ -82,7 +87,10 @@ export global TableData {
 export global PickerData {
     out property <PickerTab> active-tab: PickerTab.color;
     out property <BrushPropertyType> picker-mode: color;
-    in-out property <BrushMode> brush-mode: color;
+    out property <BrushMode> brush-mode: color;
+    // Used to remember the last used gradient type so it won't change if the user
+    // switches Picker tab
+    in-out property <GradientType> last-used-gradient-type: linear;
 
     in-out property <float> hue;
     in-out property <float> saturation;
@@ -103,6 +111,7 @@ export global PickerData {
 
     callback rebuild-gradient-stops();
     callback set-active-tab(picker-tab: PickerTab);
+    callback set-gradient-type(gradient-type: GradientType);
     callback reset();
 
     changed current-stop-index => {
@@ -162,8 +171,9 @@ export global PickerData {
             brush-mode = BrushMode.color;
         }
         if picker-tab == PickerTab.gradient {
-            if brush-mode == BrushMode.radial {
+            if last-used-gradient-type == GradientType.radial {
                 current-brush-kind = BrushKind.radial;
+                brush-mode = BrushMode.radial;
             } else {
                 current-brush-kind = BrushKind.linear;
                 brush-mode = BrushMode.linear;
@@ -171,10 +181,22 @@ export global PickerData {
         }
     }
 
+    set-gradient-type(gradient-type) => {
+        last-used-gradient-type = gradient-type;
+        if gradient-type == GradientType.linear {
+            current-brush-kind = BrushKind.linear;
+            brush-mode = BrushMode.linear;
+        } else {
+            current-brush-kind = BrushKind.radial;
+            brush-mode = BrushMode.radial;
+        }
+    }
+
     reset => {
         brush-mode = BrushMode.color;
         active-tab = PickerTab.color;
         picker-mode = BrushPropertyType.color;
+        last-used-gradient-type = GradientType.linear;
     }
 
     public function set-current-stop-as-color() {
@@ -213,6 +235,12 @@ export global PickerData {
             }
         } else {
             PickerData.set-color(PickerData.current-gradient-stops[PickerData.current-stop-index].color);
+            if property-value.brush-kind == BrushKind.radial {
+                set-gradient-type(GradientType.radial)
+            }
+            if property-value.brush-kind == BrushKind.linear {
+                set-gradient-type(GradientType.linear)
+            }
         }
 
         update-brush();
