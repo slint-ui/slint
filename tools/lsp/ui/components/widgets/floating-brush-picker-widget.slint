@@ -1,19 +1,16 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Palette, Button, ComboBox } from "std-widgets.slint";
-import { WindowGlobal, WindowManager, PickerData, PickerTab,BrushMode, BrushPropertyType, WidgetMode} from "../../windowglobal.slint";
-import { Api, GradientStop, BrushKind, PaletteEntry } from "../../api.slint";
+import { Palette } from "std-widgets.slint";
+import { WindowGlobal, WindowManager, PickerData, PickerTab, BrushMode, BrushPropertyType, WidgetMode } from "../../windowglobal.slint";
+import { Api } from "../../api.slint";
 import { Icons, EditorPalette, EditorSizeSettings, PickerStyles } from "../../components/styling.slint";
 import { SimpleColumn } from "../../components/layout-helpers.slint";
 import { DraggablePanel } from "../../components/draggable-panel.slint";
-import { ColorIndicator, FakeShadowText, PickerTextInput } from "./brush-helpers.slint";
-import { CustomLineEdit } from "./widget-helpers.slint";
 import { ColorModeAndApply } from "./floating-brush-sections/color-mode-and-apply.slint";
 import { GradientPicker } from "./floating-brush-sections/gradient-ui.slint";
 import { RecentColorPicker } from "floating-brush-sections/palettes.slint";
 import { SvgColorPicker } from "floating-brush-sections/svg-color-ui.slint";
-
 
 
 component TabIcon inherits Rectangle {
