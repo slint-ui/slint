@@ -415,7 +415,7 @@ component ColorPicker inherits DraggablePanel {
     in-out property <BrushMode> brush-mode: color;
     property <PickerTab> active-tab: widget-mode == WidgetMode.color-stop ? PickerTab.color : PickerData.active-tab;
 
-    property <bool> show-palettes: PickerData.active-tab == PickerTab.color;
+    property <bool> show-recent: widget-mode == WidgetMode.color-stop || PickerData.active-tab == PickerTab.color;
 
     callback close <=> t-close.clicked;
 
@@ -472,9 +472,9 @@ component ColorPicker inherits DraggablePanel {
         }
     }
 
-    if show-palettes: VerticalSpacer { }
+    if show-recent: VerticalSpacer { }
 
-    if show-palettes: RecentColorPicker {
+    if show-recent: RecentColorPicker {
         recent-colors <=> Api.recent-colors;
     }
 
