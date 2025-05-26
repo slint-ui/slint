@@ -1058,7 +1058,7 @@ fn set_property_value_table(
         return "Could not process input values".into();
     };
 
-    set_json_preview_data(container, property_name, json_string.into())
+    set_json_preview_data(container, property_name, json_string.into(), false)
 }
 
 fn default_property_value(source: &PropertyValue) -> PropertyValue {
@@ -1170,11 +1170,14 @@ fn set_json_preview_data(
     container: SharedString,
     property_name: SharedString,
     json_string: SharedString,
+    send_telemetry: bool,
 ) -> SharedString {
-    crate::preview::send_telemetry(&mut [(
-        "type".to_string(),
-        serde_json::to_value("data_json_changed").unwrap(),
-    )]);
+    if send_telemetry {
+        crate::preview::send_telemetry(&mut [(
+            "type".to_string(),
+            serde_json::to_value("data_json_changed").unwrap(),
+        )]);
+    }
 
     let property_name = (!property_name.is_empty()).then_some(property_name.to_string());
 

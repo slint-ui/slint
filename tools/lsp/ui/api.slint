@@ -532,7 +532,7 @@ export global Api {
     pure callback insert-row-into-value-table(table: PropertyValueTable, insert-before: int);
     pure callback remove-row-from-value-table(table: PropertyValueTable, remove-row: int);
 
-    pure callback set-json-preview-data(component: string, name: string, json-value: string) -> string;
+    pure callback set-json-preview-data(component: string, name: string, json-value: string, send-telemetry: bool) -> string;
 
     pure callback as-json-brush(kind: BrushKind, angle: float, color: color, stops: [GradientStop]) -> string;
 

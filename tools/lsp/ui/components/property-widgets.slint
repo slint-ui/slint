@@ -314,11 +314,21 @@ export component PreviewDataPropertyValueWidget inherits VerticalLayout {
     }
 
     function set-code-binding(text: string) -> bool {
-        self.possible_error = Api.set-json-preview-data(root.property-container-id, root.preview-data.name, text);
+        self.possible_error = Api.set-json-preview-data(root.property-container-id, root.preview-data.name, text, check-new-value(root.property-container-id + root.preview-data.name));
 
         StatusLineApi.help-text = self.possible-error;
 
         return (self.possible-error == "");
+    }
+
+    property <string> container-property-name;
+    function check-new-value(value: string) -> bool {
+        if container-property-name == value {
+            return false;
+        } else {
+            container-property-name = value;
+            return true;
+        }
     }
 
     padding-bottom: EditorSpaceSettings.default-padding;

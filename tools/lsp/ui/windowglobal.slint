@@ -341,7 +341,7 @@ export global WindowManager {
         if WindowManager.showing-table-editor {
             TableData.set-color-preview("\"\{text}\"");
         } else {
-            self.possible_error = Api.set-json-preview-data(current-property-container-id, current-preview-data.name, "\"\{text}\"");
+            self.possible_error = Api.set-json-preview-data(current-property-container-id, current-preview-data.name, "\"\{text}\"", check-new-value(current-property-container-id + current-preview-data.name));
         }
     }
 
@@ -352,7 +352,7 @@ export global WindowManager {
             if WindowManager.showing-table-editor {
                 TableData.set-color-preview("\"\{brush-string}\"");
             } else {
-                self.possible_error = Api.set-json-preview-data(current-property-container-id, current-preview-data.name, "\"\{brush-string}\"");
+                self.possible_error = Api.set-json-preview-data(current-property-container-id, current-preview-data.name, "\"\{brush-string}\"", check-new-value(current-property-container-id + current-preview-data.name));
             }
         }
     }
@@ -365,4 +365,15 @@ export global WindowManager {
             hide-floating-widget();
         }
     }
+
+    property <string> container-property-name;
+    function check-new-value(value: string) -> bool {
+        if container-property-name == value {
+            return false;
+        } else {
+            container-property-name = value;
+            return true;
+        }
+    }
+
 }
