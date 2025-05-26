@@ -482,6 +482,8 @@ use std::cell::Cell;
 use std::collections::{BTreeMap, BTreeSet};
 use std::num::NonZeroUsize;
 
+const SHARED_GLOBAL_CLASS: &str = "SharedGlobals";
+
 #[derive(Default)]
 struct ConditionalIncludes {
     iostream: Cell<bool>,
@@ -720,6 +722,20 @@ pub fn generate(
             .map(|c| Declaration::Struct(Struct { name: ident(&c.name), ..Default::default() })),
     );
 
+    // forward-declare the global struct
+    file.declarations.push(Declaration::Struct(Struct {
+        name: SmolStr::new_static(SHARED_GLOBAL_CLASS),
+        ..Default::default()
+    }));
+
+    // Forward-declare sub components.
+    file.declarations.extend(llr.used_sub_components.iter().map(|sub_compo| {
+        Declaration::Struct(Struct {
+            name: ident(&llr.sub_components[*sub_compo].name),
+            ..Default::default()
+        })
+    }));
+
     let conditional_includes = ConditionalIncludes::default();
 
     for sub_compo in &llr.used_sub_components {
@@ -738,7 +754,8 @@ pub fn generate(
         file.declarations.push(Declaration::Struct(sub_compo_struct));
     }
 
-    let mut globals_struct = Struct { name: "SharedGlobals".into(), ..Default::default() };
+    let mut globals_struct =
+        Struct { name: SmolStr::new_static(SHARED_GLOBAL_CLASS), ..Default::default() };
 
     // The window need to be the first member so it is destroyed last
     globals_struct.members.push((
@@ -761,7 +778,7 @@ pub fn generate(
     ));
 
     let mut window_creation_code = vec![
-        format!("auto self = const_cast<SharedGlobals *>(this);"),
+        format!("auto self = const_cast<{SHARED_GLOBAL_CLASS} *>(this);"),
         "if (!self->m_window.has_value()) {".into(),
         "   auto &window = self->m_window.emplace(slint::private_api::WindowAdapterRc());".into(),
     ];
@@ -1176,7 +1193,7 @@ fn generate_public_component(
     component_struct.members.push((
         Access::Private,
         Declaration::Var(Var {
-            ty: "SharedGlobals".into(),
+            ty: SmolStr::new_static(SHARED_GLOBAL_CLASS),
             name: "m_globals".into(),
             ..Default::default()
         }),
@@ -2663,7 +2680,7 @@ fn generate_global(
             ..Default::default()
         }),
     ));
-    global_struct.friends.push(SmolStr::new_static("SharedGlobals"));
+    global_struct.friends.push(SmolStr::new_static(SHARED_GLOBAL_CLASS));
 
     generate_public_api_for_properties(
         &mut global_struct.members,
