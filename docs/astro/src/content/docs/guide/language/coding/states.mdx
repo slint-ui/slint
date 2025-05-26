@@ -75,3 +75,13 @@ export component Example inherits Window {
     ]
 }
 ```
+
+### Transition Types
+
+There are three types of transitions you can define:
+
+- **`in`**: Animates properties when entering a state
+- **`out`**: Animates properties when leaving a state
+- **`in-out`**: Animates properties both when entering and leaving a state
+
+The `in-out` transition is useful when you want the same animation to play for both entering and exiting a state, avoiding the need to duplicate the animation definition.
