@@ -125,18 +125,7 @@ pub fn parse_element_content(p: &mut impl Parser) {
                     }
                 }
             },
-            SyntaxKind::At => {
-                let checkpoint = p.checkpoint();
-                p.consume();
-                if p.peek().as_str() == "children" {
-                    let mut p =
-                        p.start_node_at(checkpoint.clone(), SyntaxKind::ChildrenPlaceholder);
-                    p.consume()
-                } else {
-                    p.test(SyntaxKind::Identifier);
-                    p.error("Parse error: Expected @children")
-                }
-            }
+            SyntaxKind::At => parse_at_children(&mut *p),
             _ => {
                 if !had_parse_error {
                     p.error("Parse error");
@@ -145,6 +134,36 @@ pub fn parse_element_content(p: &mut impl Parser) {
                 p.consume();
             }
         }
+    }
+}
+
+#[cfg_attr(test, parser_test)]
+/// ```test,ChildrenPlaceholder
+/// @children
+/// @children[0]
+/// @children  [1]
+/// @children [  1024   ]
+/// ```
+/// Must consume at least one token
+fn parse_at_children(p: &mut impl Parser) {
+    debug_assert_eq!(p.peek().as_str(), "@");
+    let checkpoint = p.checkpoint();
+
+    p.consume();
+
+    if p.peek().as_str() == "children" {
+        let mut p = p.start_node_at(checkpoint, SyntaxKind::ChildrenPlaceholder);
+        p.consume();
+
+        if p.peek().kind() == SyntaxKind::LBracket {
+            p.consume();
+
+            p.expect(SyntaxKind::NumberLiteral);
+            p.until(SyntaxKind::RBracket);
+        }
+    } else {
+        p.test(SyntaxKind::Identifier);
+        p.error("Parse error: Expected @children");
     }
 }
 
