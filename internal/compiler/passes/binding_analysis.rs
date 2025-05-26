@@ -174,6 +174,18 @@ fn analyze_element(
                     process_property(prop, r, context, reverse_aliases, diag);
                 });
             }
+            component.root_constraints.borrow_mut().visit_named_references(&mut |nr| {
+                process_property(&nr.clone().into(), P, context, reverse_aliases, diag);
+            });
+            component.popup_windows.borrow().iter().for_each(|p| {
+                process_property(&p.x.clone().into(), P, context, reverse_aliases, diag);
+                process_property(&p.y.clone().into(), P, context, reverse_aliases, diag);
+            });
+            component.timers.borrow().iter().for_each(|t| {
+                process_property(&t.interval.clone().into(), P, context, reverse_aliases, diag);
+                process_property(&t.running.clone().into(), P, context, reverse_aliases, diag);
+                process_property(&t.triggered.clone().into(), P, context, reverse_aliases, diag);
+            });
         }
     }
 
