@@ -277,8 +277,8 @@ impl Item for NativeSpinBox {
         _self_rc: &ItemRc,
     ) -> FocusEventResult {
         match event {
-            FocusEvent::FocusIn(reason) => {
-                if self.enabled() || *reason == FocusEventReason::ActiveWindow {
+            FocusEvent::FocusIn(_) => {
+                if self.enabled() {
                     self.has_focus.set(true);
                 }
             }
