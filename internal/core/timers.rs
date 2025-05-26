@@ -454,7 +454,7 @@ pub(crate) mod ffi {
     /// A value of -1 for the timer id means a new timer is to be allocated.
     /// The (new) timer id is returned.
     /// The timer MUST be destroyed with slint_timer_destroy.
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub extern "C" fn slint_timer_start(
         id: usize,
         mode: TimerMode,
@@ -478,7 +478,7 @@ pub(crate) mod ffi {
     }
 
     /// Execute a callback with a delay in millisecond
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub extern "C" fn slint_timer_singleshot(
         delay: u64,
         callback: extern "C" fn(*mut c_void),
@@ -490,7 +490,7 @@ pub(crate) mod ffi {
     }
 
     /// Stop a timer and free its raw data
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub extern "C" fn slint_timer_destroy(id: usize) {
         if id == 0 {
             return;
@@ -500,7 +500,7 @@ pub(crate) mod ffi {
     }
 
     /// Stop a timer
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub extern "C" fn slint_timer_stop(id: usize) {
         if id == 0 {
             return;
@@ -511,7 +511,7 @@ pub(crate) mod ffi {
     }
 
     /// Restart a repeated timer
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub extern "C" fn slint_timer_restart(id: usize) {
         if id == 0 {
             return;
@@ -522,7 +522,7 @@ pub(crate) mod ffi {
     }
 
     /// Returns true if the timer is running; false otherwise.
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub extern "C" fn slint_timer_running(id: usize) -> bool {
         if id == 0 {
             return false;
@@ -534,7 +534,7 @@ pub(crate) mod ffi {
     }
 
     /// Returns the interval in milliseconds. 0 when the timer was never started.
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub extern "C" fn slint_timer_interval(id: usize) -> u64 {
         if id == 0 {
             return 0;

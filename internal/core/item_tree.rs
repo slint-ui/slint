@@ -1184,7 +1184,7 @@ pub(crate) mod ffi {
     use core::ffi::c_void;
 
     /// Call init() on the ItemVTable of each item in the item array.
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_register_item_tree(
         item_tree_rc: &ItemTreeRc,
         window_handle: *const crate::window::ffi::WindowAdapterRcOpaque,
@@ -1194,7 +1194,7 @@ pub(crate) mod ffi {
     }
 
     /// Free the backend graphics resources allocated in the item array.
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_unregister_item_tree(
         component: ItemTreeRefPin,
         item_array: Slice<vtable::VOffset<u8, ItemVTable, vtable::AllowPin>>,
@@ -1212,7 +1212,7 @@ pub(crate) mod ffi {
     /// Expose `crate::item_tree::visit_item_tree` to C++
     ///
     /// Safety: Assume a correct implementation of the item_tree array
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_visit_item_tree(
         item_tree: &ItemTreeRc,
         item_tree_array: Slice<ItemTreeNode>,

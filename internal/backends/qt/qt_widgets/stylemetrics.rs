@@ -195,13 +195,13 @@ impl i_slint_core::rtti::BuiltinGlobal for NativeStyleMetrics {
     }
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn slint_native_style_metrics_init(self_: Pin<&NativeStyleMetrics>) {
     self_.style_change_listener.set(core::ptr::null()); // because the C++ code don't initialize it
     self_.init_impl();
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn slint_native_style_metrics_deinit(self_: Pin<&mut NativeStyleMetrics>) {
     let scl = self_.style_change_listener.get();
     cpp!(unsafe [scl as "StyleChangeListener*"] { delete scl; });

@@ -17,12 +17,12 @@ impl ElementRoot for RootWrapper<'_> {
 
 impl super::Sealed for RootWrapper<'_> {}
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn slint_testing_init_backend() {
     crate::init_integration_test_with_mock_time();
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_testing_element_visit_elements(
     root: &ItemTreeRc,
     user_data: *mut c_void,
@@ -36,7 +36,7 @@ pub unsafe extern "C" fn slint_testing_element_visit_elements(
         .is_some()
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn slint_testing_element_find_by_accessible_label(
     root: &ItemTreeRc,
     label: &Slice<u8>,
@@ -46,7 +46,7 @@ pub extern "C" fn slint_testing_element_find_by_accessible_label(
     out.extend(ElementHandle::find_by_accessible_label(&RootWrapper(root), label))
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn slint_testing_element_find_by_element_id(
     root: &ItemTreeRc,
     element_id: &Slice<u8>,
@@ -56,7 +56,7 @@ pub extern "C" fn slint_testing_element_find_by_element_id(
     out.extend(ElementHandle::find_by_element_id(&RootWrapper(root), element_id));
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn slint_testing_element_find_by_element_type_name(
     root: &ItemTreeRc,
     type_name: &Slice<u8>,
@@ -66,7 +66,7 @@ pub extern "C" fn slint_testing_element_find_by_element_type_name(
     out.extend(ElementHandle::find_by_element_type_name(&RootWrapper(root), type_name));
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn slint_testing_element_id(
     element: &ElementHandle,
     out: &mut SharedString,
@@ -79,7 +79,7 @@ pub extern "C" fn slint_testing_element_id(
     }
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn slint_testing_element_type_name(
     element: &ElementHandle,
     out: &mut SharedString,
@@ -92,7 +92,7 @@ pub extern "C" fn slint_testing_element_type_name(
     }
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn slint_testing_element_bases(
     element: &ElementHandle,
     out: &mut SharedVector<SharedString>,

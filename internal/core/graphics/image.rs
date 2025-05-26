@@ -1359,7 +1359,7 @@ pub(crate) mod ffi {
     }
 
     #[cfg(feature = "image-decoders")]
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_image_load_from_path(path: &SharedString, image: *mut Image) {
         core::ptr::write(
             image,
@@ -1368,7 +1368,7 @@ pub(crate) mod ffi {
     }
 
     #[cfg(feature = "std")]
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_image_load_from_embedded_data(
         data: Slice<'static, u8>,
         format: Slice<'static, u8>,
@@ -1377,12 +1377,12 @@ pub(crate) mod ffi {
         core::ptr::write(image, super::load_image_from_embedded_data(data, format));
     }
 
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_image_size(image: &Image) -> IntSize {
         image.size()
     }
 
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub extern "C" fn slint_image_path(image: &Image) -> Option<&SharedString> {
         match &image.0 {
             ImageInner::EmbeddedImage { cache_key, .. } => match cache_key {
@@ -1400,7 +1400,7 @@ pub(crate) mod ffi {
         }
     }
 
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_image_from_embedded_textures(
         textures: &'static StaticTextures,
         image: *mut Image,
@@ -1408,13 +1408,13 @@ pub(crate) mod ffi {
         core::ptr::write(image, Image::from(ImageInner::StaticTextures(textures)));
     }
 
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_image_compare_equal(image1: &Image, image2: &Image) -> bool {
         image1.eq(image2)
     }
 
     /// Call [`Image::set_nine_slice_edges`]
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub extern "C" fn slint_image_set_nine_slice_edges(
         image: &mut Image,
         top: u16,
@@ -1425,7 +1425,7 @@ pub(crate) mod ffi {
         image.set_nine_slice_edges(top, right, bottom, left);
     }
 
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub extern "C" fn slint_image_to_rgb8(
         image: &Image,
         data: &mut SharedVector<Rgb8Pixel>,
@@ -1440,7 +1440,7 @@ pub(crate) mod ffi {
         })
     }
 
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub extern "C" fn slint_image_to_rgba8(
         image: &Image,
         data: &mut SharedVector<Rgba8Pixel>,
@@ -1455,7 +1455,7 @@ pub(crate) mod ffi {
         })
     }
 
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub extern "C" fn slint_image_to_rgba8_premultiplied(
         image: &Image,
         data: &mut SharedVector<Rgba8Pixel>,

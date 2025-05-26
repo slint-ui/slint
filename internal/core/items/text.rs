@@ -1984,7 +1984,7 @@ fn next_word_boundary(text: &str, last_cursor_pos: usize) -> usize {
 }
 
 #[cfg(feature = "ffi")]
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_textinput_set_selection_offsets(
     text_input: Pin<&TextInput>,
     window_adapter: *const crate::window::ffi::WindowAdapterRcOpaque,
@@ -1999,7 +1999,7 @@ pub unsafe extern "C" fn slint_textinput_set_selection_offsets(
 }
 
 #[cfg(feature = "ffi")]
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_textinput_select_all(
     text_input: Pin<&TextInput>,
     window_adapter: *const crate::window::ffi::WindowAdapterRcOpaque,
@@ -2012,7 +2012,7 @@ pub unsafe extern "C" fn slint_textinput_select_all(
 }
 
 #[cfg(feature = "ffi")]
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_textinput_clear_selection(
     text_input: Pin<&TextInput>,
     window_adapter: *const crate::window::ffi::WindowAdapterRcOpaque,
@@ -2025,7 +2025,7 @@ pub unsafe extern "C" fn slint_textinput_clear_selection(
 }
 
 #[cfg(feature = "ffi")]
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_textinput_cut(
     text_input: Pin<&TextInput>,
     window_adapter: *const crate::window::ffi::WindowAdapterRcOpaque,
@@ -2038,7 +2038,7 @@ pub unsafe extern "C" fn slint_textinput_cut(
 }
 
 #[cfg(feature = "ffi")]
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_textinput_copy(
     text_input: Pin<&TextInput>,
     window_adapter: *const crate::window::ffi::WindowAdapterRcOpaque,
@@ -2051,7 +2051,7 @@ pub unsafe extern "C" fn slint_textinput_copy(
 }
 
 #[cfg(feature = "ffi")]
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_textinput_paste(
     text_input: Pin<&TextInput>,
     window_adapter: *const crate::window::ffi::WindowAdapterRcOpaque,
@@ -2080,7 +2080,7 @@ pub fn slint_text_item_fontmetrics(
 }
 
 #[cfg(feature = "ffi")]
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_cpp_text_item_fontmetrics(
     window_adapter: *const crate::window::ffi::WindowAdapterRcOpaque,
     self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,

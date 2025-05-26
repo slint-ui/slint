@@ -734,7 +734,7 @@ pub(crate) mod ffi {
 
     use super::*;
 
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub extern "C" fn slint_solve_grid_layout(
         data: &GridLayoutData,
         result: &mut SharedVector<Coord>,
@@ -742,7 +742,7 @@ pub(crate) mod ffi {
         *result = super::solve_grid_layout(data)
     }
 
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub extern "C" fn slint_grid_layout_info(
         cells: Slice<GridLayoutCellData>,
         spacing: Coord,
@@ -751,7 +751,7 @@ pub(crate) mod ffi {
         super::grid_layout_info(cells, spacing, padding)
     }
 
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub extern "C" fn slint_solve_box_layout(
         data: &BoxLayoutData,
         repeater_indexes: Slice<u32>,
@@ -760,7 +760,7 @@ pub(crate) mod ffi {
         *result = super::solve_box_layout(data, repeater_indexes)
     }
 
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     /// Return the LayoutInfo for a BoxLayout with the given cells.
     pub extern "C" fn slint_box_layout_info(
         cells: Slice<BoxLayoutCellData>,
@@ -771,7 +771,7 @@ pub(crate) mod ffi {
         super::box_layout_info(cells, spacing, padding, alignment)
     }
 
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     /// Return the LayoutInfo for a BoxLayout with the given cells.
     pub extern "C" fn slint_box_layout_info_ortho(
         cells: Slice<BoxLayoutCellData>,
@@ -784,7 +784,7 @@ pub(crate) mod ffi {
     ///
     /// Safety: `cells` must be a pointer to a mutable array of cell data, the array must have at
     /// least `roles.len()` elements.
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_reorder_dialog_button_layout(
         cells: *mut GridLayoutCellData,
         roles: Slice<DialogButtonRole>,

@@ -646,19 +646,19 @@ fn pop_test() {
 pub(crate) mod ffi {
     use super::*;
 
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     /// This function is used for the low-level C++ interface to allocate the backing vector of a SharedVector.
     pub unsafe extern "C" fn slint_shared_vector_allocate(size: usize, align: usize) -> *mut u8 {
         alloc::alloc::alloc(alloc::alloc::Layout::from_size_align(size, align).unwrap())
     }
 
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     /// This function is used for the low-level C++ interface to deallocate the backing vector of a SharedVector
     pub unsafe extern "C" fn slint_shared_vector_free(ptr: *mut u8, size: usize, align: usize) {
         alloc::alloc::dealloc(ptr, alloc::alloc::Layout::from_size_align(size, align).unwrap())
     }
 
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     /// This function is used for the low-level C++ interface to initialize the empty SharedVector.
     pub unsafe extern "C" fn slint_shared_vector_empty() -> *const u8 {
         &SHARED_NULL as *const _ as *const u8

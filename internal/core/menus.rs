@@ -232,7 +232,7 @@ pub mod ffi {
     /// Create a `VBox::<MenuVTable>`` that wraps the [`ItemTreeRc`]
     ///
     /// Put the created VBox into the result pointer with std::ptr::write
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_menus_create_wrapper(
         menu_tree: &ItemTreeRc,
         result: *mut vtable::VBox<MenuVTable>,

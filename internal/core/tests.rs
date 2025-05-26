@@ -13,7 +13,7 @@ use crate::platform::WindowEvent;
 /// Normally, the event loop update the time of the animation using
 /// real time, but in tests, it is more convenient to use the fake time.
 /// This function will add some milliseconds to the fake time
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn slint_mock_elapsed_time(time_in_ms: u64) {
     let tick = crate::animations::CURRENT_ANIMATION_DRIVER.with(|driver| {
         let mut tick = driver.current_tick();
@@ -26,13 +26,13 @@ pub extern "C" fn slint_mock_elapsed_time(time_in_ms: u64) {
 }
 
 /// Return the current mocked time.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn slint_get_mocked_time() -> u64 {
     crate::animations::CURRENT_ANIMATION_DRIVER.with(|driver| driver.current_tick()).as_millis()
 }
 
 /// Simulate a click on a position within the component.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn slint_send_mouse_click(
     x: f32,
     y: f32,
@@ -48,7 +48,7 @@ pub extern "C" fn slint_send_mouse_click(
 }
 
 /// Simulate a character input event (pressed or released).
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn slint_send_keyboard_char(
     string: &crate::SharedString,
     pressed: bool,
@@ -64,7 +64,7 @@ pub extern "C" fn slint_send_keyboard_char(
 }
 
 /// Simulate a character input event.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn send_keyboard_string_sequence(
     sequence: &crate::SharedString,
     window_adapter: &crate::window::WindowAdapterRc,

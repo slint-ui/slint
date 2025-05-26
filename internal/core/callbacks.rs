@@ -91,14 +91,14 @@ pub(crate) mod ffi {
 
     /// Initialize the callback.
     /// slint_callback_drop must be called.
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_callback_init(out: *mut CallbackOpaque) {
         assert_eq!(core::mem::size_of::<CallbackOpaque>(), core::mem::size_of::<Callback<()>>());
         core::ptr::write(out as *mut Callback<()>, Default::default());
     }
 
     /// Emit the callback
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_callback_call(
         sig: *const CallbackOpaque,
         arg: *const c_void,
@@ -115,7 +115,7 @@ pub(crate) mod ffi {
     /// Set callback handler.
     ///
     /// The binding has signature fn(user_data)
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_callback_set_handler(
         sig: *const CallbackOpaque,
         binding: extern "C" fn(user_data: *mut c_void, arg: *const c_void, ret: *mut c_void),
@@ -152,7 +152,7 @@ pub(crate) mod ffi {
     }
 
     /// Destroy callback
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_callback_drop(handle: *mut CallbackOpaque) {
         core::ptr::drop_in_place(handle as *mut Callback<()>);
     }

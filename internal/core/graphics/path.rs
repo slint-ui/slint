@@ -397,7 +397,7 @@ pub(crate) mod ffi {
     #[allow(non_camel_case_types)]
     type c_void = ();
 
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     /// This function is used for the low-level C++ interface to allocate the backing vector for a shared path element array.
     pub unsafe extern "C" fn slint_new_path_elements(
         out: *mut c_void,
@@ -408,7 +408,7 @@ pub(crate) mod ffi {
         core::ptr::write(out as *mut crate::SharedVector<PathElement>, arr);
     }
 
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     /// This function is used for the low-level C++ interface to allocate the backing vector for a shared path event array.
     pub unsafe extern "C" fn slint_new_path_events(
         out_events: *mut c_void,

@@ -2674,7 +2674,7 @@ pub(crate) mod ffi {
 
     use super::QtWindow;
 
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub extern "C" fn slint_qt_get_widget(
         window_adapter: &i_slint_core::window::WindowAdapterRc,
     ) -> *mut c_void {

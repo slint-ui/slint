@@ -24,7 +24,7 @@ mod key_generated;
 
 #[cfg(no_qt)]
 mod ffi {
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub extern "C" fn slint_qt_get_widget(
         _: &i_slint_core::window::WindowAdapterRc,
     ) -> *mut std::ffi::c_void {
