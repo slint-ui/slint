@@ -5,7 +5,7 @@ import { Button, ComboBox, Palette } from "std-widgets.slint";
 import { CustomLineEdit } from "../widget-helpers.slint";
 import { ColorIndicator, FakeShadowText, PickerTextInput } from "../brush-helpers.slint";
 import { SimpleColumn } from "../../../components/layout-helpers.slint";
-import { WidgetMode, WindowManager, PickerData } from "../../../windowglobal.slint";
+import { GradientType, WidgetMode, WindowManager, PickerData } from "../../../windowglobal.slint";
 import { Api, BrushKind, GradientStop } from "../../../api.slint";
 import { Icons, EditorPalette, EditorSizeSettings, PickerStyles } from "../../../components/styling.slint";
 
@@ -338,8 +338,8 @@ export component GradientPicker inherits SimpleColumn {
             width: 160px;
             model: ["Linear", "Radial"];
             current-index: PickerData.current-brush-kind == BrushKind.linear ? 0 : 1;
-            selected(current-value) => {
-                PickerData.current-brush-kind = current-value == "Linear" ? BrushKind.linear : BrushKind.radial;
+            selected(value) => {
+                PickerData.set-gradient-type(value == "Linear" ? GradientType.linear : GradientType.radial);
             }
         }
 
