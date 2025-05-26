@@ -2511,10 +2511,7 @@ impl Transition {
                 "in-out" => TransitionDirection::InOut,
                 "in_out" => TransitionDirection::InOut,
                 _ => {
-                    unreachable!(
-                        "Unknown transition direction: '{}'",
-                        direction_text
-                    );
+                    unreachable!("Unknown transition direction: '{}'", direction_text);
                 }
             },
             state_id: trs
