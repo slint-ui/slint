@@ -24,7 +24,7 @@
     "@figma/plugin-typings": "1.112.0",
     "@types/jszip": "3.4.0",
     "@types/node": "20.16.10",
-    "@types/react": "19.1.4",
+    "@types/react": "19.1.5",
     "@types/react-dom": "19.1.5",
     "@vitejs/plugin-react": "4.4.1",
     "cross-env": "7.0.3",
