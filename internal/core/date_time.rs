@@ -79,22 +79,22 @@ mod ffi {
 
     use super::*;
 
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub extern "C" fn slint_date_time_use_24_hour_format() -> bool {
         use_24_hour_format()
     }
 
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub extern "C" fn slint_date_time_month_day_count(month: u32, year: i32) -> i32 {
         month_day_count(month, year).unwrap_or(0)
     }
 
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub extern "C" fn slint_date_time_month_offset(month: u32, year: i32) -> i32 {
         month_offset(month, year)
     }
 
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub extern "C" fn slint_date_time_format_date(
         format: &SharedString,
         day: u32,
@@ -105,12 +105,12 @@ mod ffi {
         *out = format_date(format, day, month, year)
     }
 
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub extern "C" fn slint_date_time_date_now(d: &mut i32, m: &mut i32, y: &mut i32) {
         [*d, *m, *y] = date_now();
     }
 
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub extern "C" fn slint_date_time_parse_date(
         date: &SharedString,
         format: &SharedString,

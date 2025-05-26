@@ -13,13 +13,13 @@ pub struct PropertyHandleOpaque(PropertyHandle);
 
 /// Initialize the first pointer of the Property. Does not initialize the content.
 /// `out` is assumed to be uninitialized
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_property_init(out: *mut PropertyHandleOpaque) {
     core::ptr::write(out, PropertyHandleOpaque(PropertyHandle::default()));
 }
 
 /// To be called before accessing the value
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_property_update(handle: &PropertyHandleOpaque, val: *mut c_void) {
     let handle = Pin::new_unchecked(&handle.0);
     handle.update(val);
@@ -29,7 +29,7 @@ pub unsafe extern "C" fn slint_property_update(handle: &PropertyHandleOpaque, va
 /// Mark the fact that the property was changed and that its binding need to be removed, and
 /// the dependencies marked dirty.
 /// To be called after the `value` has been changed
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_property_set_changed(
     handle: &PropertyHandleOpaque,
     value: *const c_void,
@@ -107,7 +107,7 @@ fn make_c_function_binding(
 ///  2. the box allocation within this binding
 /// It might be possible to reduce that by passing something with a
 /// vtable, so there is the need for less memory allocation.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_property_set_binding(
     handle: &PropertyHandleOpaque,
     binding: extern "C" fn(user_data: *mut c_void, pointer_to_value: *mut c_void),
@@ -133,7 +133,7 @@ pub unsafe extern "C" fn slint_property_set_binding(
 /// Set a binding using an already allocated building holder
 ///
 //// (take ownership of the binding)
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_property_set_binding_internal(
     handle: &PropertyHandleOpaque,
     binding: *mut c_void,
@@ -142,25 +142,25 @@ pub unsafe extern "C" fn slint_property_set_binding_internal(
 }
 
 /// Returns whether the property behind this handle is marked as dirty
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn slint_property_is_dirty(handle: &PropertyHandleOpaque) -> bool {
     handle.0.access(|binding| binding.is_some_and(|b| b.dirty.get()))
 }
 
 /// Marks the property as dirty and notifies dependencies.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn slint_property_mark_dirty(handle: &PropertyHandleOpaque) {
     handle.0.mark_dirty()
 }
 
 /// Marks the property as dirty and notifies dependencies.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn slint_property_set_constant(handle: &PropertyHandleOpaque) {
     handle.0.set_constant()
 }
 
 /// Destroy handle
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_property_drop(handle: *mut PropertyHandleOpaque) {
     core::ptr::drop_in_place(handle);
 }
@@ -194,7 +194,7 @@ fn c_set_animated_value<T: InterpolatedPropertyValue + Clone>(
 }
 
 /// Internal function to set up a property animation to the specified target value for an integer property.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_property_set_animated_value_int(
     handle: &PropertyHandleOpaque,
     from: i32,
@@ -205,7 +205,7 @@ pub unsafe extern "C" fn slint_property_set_animated_value_int(
 }
 
 /// Internal function to set up a property animation to the specified target value for a float property.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_property_set_animated_value_float(
     handle: &PropertyHandleOpaque,
     from: f32,
@@ -216,7 +216,7 @@ pub unsafe extern "C" fn slint_property_set_animated_value_float(
 }
 
 /// Internal function to set up a property animation to the specified target value for a color property.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_property_set_animated_value_color(
     handle: &PropertyHandleOpaque,
     from: Color,
@@ -227,7 +227,7 @@ pub unsafe extern "C" fn slint_property_set_animated_value_color(
 }
 
 /// Internal function to set up a property animation to the specified target value for a brush property.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_property_set_animated_value_brush(
     handle: &PropertyHandleOpaque,
     from: &Brush,
@@ -291,7 +291,7 @@ unsafe fn c_set_animated_binding<T: InterpolatedPropertyValue + Clone>(
 }
 
 /// Internal function to set up a property animation between values produced by the specified binding for an integer property.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_property_set_animated_binding_int(
     handle: &PropertyHandleOpaque,
     binding: extern "C" fn(*mut c_void, *mut core::ffi::c_int),
@@ -313,7 +313,7 @@ pub unsafe extern "C" fn slint_property_set_animated_binding_int(
 }
 
 /// Internal function to set up a property animation between values produced by the specified binding for a float property.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_property_set_animated_binding_float(
     handle: &PropertyHandleOpaque,
     binding: extern "C" fn(*mut c_void, *mut f32),
@@ -335,7 +335,7 @@ pub unsafe extern "C" fn slint_property_set_animated_binding_float(
 }
 
 /// Internal function to set up a property animation between values produced by the specified binding for a color property.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_property_set_animated_binding_color(
     handle: &PropertyHandleOpaque,
     binding: extern "C" fn(*mut c_void, *mut Color),
@@ -357,7 +357,7 @@ pub unsafe extern "C" fn slint_property_set_animated_binding_color(
 }
 
 /// Internal function to set up a property animation between values produced by the specified binding for a brush property.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_property_set_animated_binding_brush(
     handle: &PropertyHandleOpaque,
     binding: extern "C" fn(*mut c_void, *mut Brush),
@@ -379,7 +379,7 @@ pub unsafe extern "C" fn slint_property_set_animated_binding_brush(
 }
 
 /// Internal function to set up a state binding on a Property<StateInfo>.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_property_set_state_binding(
     handle: &PropertyHandleOpaque,
     binding: extern "C" fn(*mut c_void) -> i32,
@@ -427,14 +427,14 @@ static_assertions::assert_eq_size!(PropertyTrackerOpaque, PropertyTracker);
 /// Initialize the first pointer of the PropertyTracker.
 /// `out` is assumed to be uninitialized
 /// slint_property_tracker_drop need to be called after that
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_property_tracker_init(out: *mut PropertyTrackerOpaque) {
     core::ptr::write(out as *mut PropertyTracker, PropertyTracker::default());
 }
 
 /// Call the callback with the user data. Any properties access within the callback will be registered.
 /// Any currently evaluated bindings or property trackers will be notified if accessed properties are changed.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_property_tracker_evaluate(
     handle: *const PropertyTrackerOpaque,
     callback: extern "C" fn(user_data: *mut c_void),
@@ -445,7 +445,7 @@ pub unsafe extern "C" fn slint_property_tracker_evaluate(
 
 /// Call the callback with the user data. Any properties access within the callback will be registered.
 /// Any currently evaluated bindings or property trackers will be not notified if accessed properties are changed.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_property_tracker_evaluate_as_dependency_root(
     handle: *const PropertyTrackerOpaque,
     callback: extern "C" fn(user_data: *mut c_void),
@@ -455,7 +455,7 @@ pub unsafe extern "C" fn slint_property_tracker_evaluate_as_dependency_root(
         .evaluate_as_dependency_root(|| callback(user_data))
 }
 /// Query if the property tracker is dirty
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_property_tracker_is_dirty(
     handle: *const PropertyTrackerOpaque,
 ) -> bool {
@@ -463,25 +463,25 @@ pub unsafe extern "C" fn slint_property_tracker_is_dirty(
 }
 
 /// Destroy handle
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_property_tracker_drop(handle: *mut PropertyTrackerOpaque) {
     core::ptr::drop_in_place(handle as *mut PropertyTracker);
 }
 
 /// Construct a ChangeTracker
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_change_tracker_construct(ct: *mut ChangeTracker) {
     core::ptr::write(ct, ChangeTracker::default());
 }
 
 /// Drop a ChangeTracker
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_change_tracker_drop(ct: *mut ChangeTracker) {
     core::ptr::drop_in_place(ct);
 }
 
 /// initialize the change tracker
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_change_tracker_init(
     ct: &ChangeTracker,
     user_data: *mut c_void,
@@ -551,7 +551,7 @@ pub unsafe extern "C" fn slint_change_tracker_init(
 }
 
 /// return the current animation tick for the `animation-tick` function
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn slint_animation_tick() -> u64 {
     crate::animations::animation_tick()
 }

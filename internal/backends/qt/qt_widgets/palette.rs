@@ -182,13 +182,13 @@ impl i_slint_core::rtti::BuiltinGlobal for NativePalette {
     }
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn slint_native_palette_init(self_: Pin<&NativePalette>) {
     self_.style_change_listener.set(core::ptr::null()); // because the C++ code don't initialize it
     self_.init_impl();
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn slint_native_palette_deinit(self_: Pin<&mut NativePalette>) {
     let scl = self_.style_change_listener.get();
     cpp!(unsafe [scl as "PaletteStyleChangeListener*"] { delete scl; });

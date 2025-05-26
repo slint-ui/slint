@@ -410,7 +410,7 @@ pub(crate) mod ffi {
     #[allow(non_camel_case_types)]
     type c_char = u8;
 
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     /// Returns a nul-terminated pointer for this string.
     /// The returned value is owned by the string, and should not be used after any
     /// mutable function have been called on the string, and must not be freed.
@@ -422,20 +422,20 @@ pub(crate) mod ffi {
         }
     }
 
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     /// Destroy the shared string
     pub unsafe extern "C" fn slint_shared_string_drop(ss: *const SharedString) {
         core::ptr::read(ss);
     }
 
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     /// Increment the reference count of the string.
     /// The resulting structure must be passed to slint_shared_string_drop
     pub unsafe extern "C" fn slint_shared_string_clone(out: *mut SharedString, ss: &SharedString) {
         core::ptr::write(out, ss.clone())
     }
 
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     /// Safety: bytes must be a valid utf-8 string of size len without null inside.
     /// The resulting structure must be passed to slint_shared_string_drop
     pub unsafe extern "C" fn slint_shared_string_from_bytes(
@@ -449,7 +449,7 @@ pub(crate) mod ffi {
 
     /// Create a string from a number.
     /// The resulting structure must be passed to slint_shared_string_drop
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_shared_string_from_number(out: *mut SharedString, n: f64) {
         let str = shared_string_from_number(n);
         core::ptr::write(out, str);
@@ -483,7 +483,7 @@ pub(crate) mod ffi {
         }
     }
 
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub extern "C" fn slint_shared_string_from_number_fixed(
         out: &mut SharedString,
         n: f64,
@@ -534,7 +534,7 @@ pub(crate) mod ffi {
         assert_eq!(s.as_str(), "2.5");
     }
 
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub extern "C" fn slint_shared_string_from_number_precision(
         out: &mut SharedString,
         n: f64,
@@ -609,7 +609,7 @@ pub(crate) mod ffi {
     /// Append some bytes to an existing shared string
     ///
     /// bytes must be a valid utf8 array of size `len`, without null bytes inside
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_shared_string_append(
         self_: &mut SharedString,
         bytes: *const c_char,
@@ -632,7 +632,7 @@ pub(crate) mod ffi {
         assert_eq!(s.as_str(), "Hello, world!");
     }
 
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_shared_string_to_lowercase(
         out: &mut SharedString,
         ss: &SharedString,
@@ -650,7 +650,7 @@ pub(crate) mod ffi {
         assert_eq!(out.as_str(), "hello");
     }
 
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_shared_string_to_uppercase(
         out: &mut SharedString,
         ss: &SharedString,

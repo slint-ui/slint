@@ -473,7 +473,7 @@ fn ensure_in_bound(flick: Pin<&Flickable>, p: LogicalPoint, flick_rc: &ItemRc) -
 /// This must be called using a non-null pointer pointing to a chunk of memory big enough to
 /// hold a FlickableDataBox
 #[cfg(feature = "ffi")]
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_flickable_data_init(data: *mut FlickableDataBox) {
     core::ptr::write(data, FlickableDataBox::default());
 }
@@ -481,7 +481,7 @@ pub unsafe extern "C" fn slint_flickable_data_init(data: *mut FlickableDataBox) 
 /// # Safety
 /// This must be called using a non-null pointer pointing to an initialized FlickableDataBox
 #[cfg(feature = "ffi")]
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_flickable_data_free(data: *mut FlickableDataBox) {
     core::ptr::drop_in_place(data);
 }

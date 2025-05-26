@@ -1468,7 +1468,7 @@ pub mod ffi {
     pub struct WindowAdapterRcOpaque(*const c_void, *const c_void);
 
     /// Releases the reference to the windowrc held by handle.
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_windowrc_drop(handle: *mut WindowAdapterRcOpaque) {
         assert_eq!(
             core::mem::size_of::<Rc<dyn WindowAdapter>>(),
@@ -1482,7 +1482,7 @@ pub mod ffi {
     }
 
     /// Releases the reference to the component window held by handle.
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_windowrc_clone(
         source: *const WindowAdapterRcOpaque,
         target: *mut WindowAdapterRcOpaque,
@@ -1496,7 +1496,7 @@ pub mod ffi {
     }
 
     /// Spins an event loop and renders the items of the provided component in this window.
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_windowrc_show(handle: *const WindowAdapterRcOpaque) {
         let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
 
@@ -1504,7 +1504,7 @@ pub mod ffi {
     }
 
     /// Spins an event loop and renders the items of the provided component in this window.
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_windowrc_hide(handle: *const WindowAdapterRcOpaque) {
         let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
         window_adapter.window().hide().unwrap();
@@ -1512,7 +1512,7 @@ pub mod ffi {
 
     /// Returns the visibility state of the window. This function can return false even if you previously called show()
     /// on it, for example if the user minimized the window.
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_windowrc_is_visible(
         handle: *const WindowAdapterRcOpaque,
     ) -> bool {
@@ -1521,7 +1521,7 @@ pub mod ffi {
     }
 
     /// Returns the window scale factor.
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_windowrc_get_scale_factor(
         handle: *const WindowAdapterRcOpaque,
     ) -> f32 {
@@ -1534,7 +1534,7 @@ pub mod ffi {
     }
 
     /// Sets the window scale factor, merely for testing purposes.
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_windowrc_set_scale_factor(
         handle: *const WindowAdapterRcOpaque,
         value: f32,
@@ -1544,7 +1544,7 @@ pub mod ffi {
     }
 
     /// Returns the text-input-focused property value.
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_windowrc_get_text_input_focused(
         handle: *const WindowAdapterRcOpaque,
     ) -> bool {
@@ -1557,7 +1557,7 @@ pub mod ffi {
     }
 
     /// Set the text-input-focused property.
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_windowrc_set_text_input_focused(
         handle: *const WindowAdapterRcOpaque,
         value: bool,
@@ -1567,7 +1567,7 @@ pub mod ffi {
     }
 
     /// Sets the focus item.
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_windowrc_set_focus_item(
         handle: *const WindowAdapterRcOpaque,
         focus_item: &ItemRc,
@@ -1578,7 +1578,7 @@ pub mod ffi {
     }
 
     /// Associates the window with the given component.
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_windowrc_set_component(
         handle: *const WindowAdapterRcOpaque,
         component: &ItemTreeRc,
@@ -1588,7 +1588,7 @@ pub mod ffi {
     }
 
     /// Show a popup and return its ID. The returned ID will always be non-zero.
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_windowrc_show_popup(
         handle: *const WindowAdapterRcOpaque,
         popup: &ItemTreeRc,
@@ -1608,7 +1608,7 @@ pub mod ffi {
     }
 
     /// Close the popup by the given ID.
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_windowrc_close_popup(
         handle: *const WindowAdapterRcOpaque,
         popup_id: NonZeroU32,
@@ -1618,7 +1618,7 @@ pub mod ffi {
     }
 
     /// C binding to the set_rendering_notifier() API of Window
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_windowrc_set_rendering_notifier(
         handle: *const WindowAdapterRcOpaque,
         callback: extern "C" fn(
@@ -1673,7 +1673,7 @@ pub mod ffi {
     }
 
     /// C binding to the on_close_requested() API of Window
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_windowrc_on_close_requested(
         handle: *const WindowAdapterRcOpaque,
         callback: extern "C" fn(user_data: *mut c_void) -> CloseRequestResponse,
@@ -1705,7 +1705,7 @@ pub mod ffi {
     }
 
     /// This function issues a request to the windowing system to redraw the contents of the window.
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_windowrc_request_redraw(handle: *const WindowAdapterRcOpaque) {
         let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
         window_adapter.request_redraw();
@@ -1713,7 +1713,7 @@ pub mod ffi {
 
     /// Returns the position of the window on the screen, in physical screen coordinates and including
     /// a window frame (if present).
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_windowrc_position(
         handle: *const WindowAdapterRcOpaque,
         pos: &mut euclid::default::Point2D<i32>,
@@ -1725,7 +1725,7 @@ pub mod ffi {
     /// Sets the position of the window on the screen, in physical screen coordinates and including
     /// a window frame (if present).
     /// Note that on some windowing systems, such as Wayland, this functionality is not available.
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_windowrc_set_physical_position(
         handle: *const WindowAdapterRcOpaque,
         pos: &euclid::default::Point2D<i32>,
@@ -1737,7 +1737,7 @@ pub mod ffi {
     /// Sets the position of the window on the screen, in physical screen coordinates and including
     /// a window frame (if present).
     /// Note that on some windowing systems, such as Wayland, this functionality is not available.
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_windowrc_set_logical_position(
         handle: *const WindowAdapterRcOpaque,
         pos: &euclid::default::Point2D<f32>,
@@ -1748,7 +1748,7 @@ pub mod ffi {
 
     /// Returns the size of the window on the screen, in physical screen coordinates and excluding
     /// a window frame (if present).
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_windowrc_size(handle: *const WindowAdapterRcOpaque) -> IntSize {
         let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
         window_adapter.size().to_euclid().cast()
@@ -1756,7 +1756,7 @@ pub mod ffi {
 
     /// Resizes the window to the specified size on the screen, in physical pixels and excluding
     /// a window frame (if present).
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_windowrc_set_physical_size(
         handle: *const WindowAdapterRcOpaque,
         size: &IntSize,
@@ -1767,7 +1767,7 @@ pub mod ffi {
 
     /// Resizes the window to the specified size on the screen, in physical pixels and excluding
     /// a window frame (if present).
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_windowrc_set_logical_size(
         handle: *const WindowAdapterRcOpaque,
         size: &Size,
@@ -1777,7 +1777,7 @@ pub mod ffi {
     }
 
     /// Return whether the style is using a dark theme
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_windowrc_color_scheme(
         handle: *const WindowAdapterRcOpaque,
     ) -> ColorScheme {
@@ -1788,7 +1788,7 @@ pub mod ffi {
     }
 
     /// Return whether the platform supports native menu bars
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_windowrc_supports_native_menu_bar(
         handle: *const WindowAdapterRcOpaque,
     ) -> bool {
@@ -1797,7 +1797,7 @@ pub mod ffi {
     }
 
     /// Setup the native menu bar
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_windowrc_setup_native_menu_bar(
         handle: *const WindowAdapterRcOpaque,
         vtable: NonNull<MenuVTable>,
@@ -1810,7 +1810,7 @@ pub mod ffi {
     }
 
     /// Return the default-font-size property of the WindowItem
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_windowrc_default_font_size(
         handle: *const WindowAdapterRcOpaque,
     ) -> f32 {
@@ -1819,7 +1819,7 @@ pub mod ffi {
     }
 
     /// Dispatch a key pressed or release event
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_windowrc_dispatch_key_event(
         handle: *const WindowAdapterRcOpaque,
         event_type: crate::input::KeyEventType,
@@ -1836,7 +1836,7 @@ pub mod ffi {
     }
 
     /// Dispatch a mouse event
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_windowrc_dispatch_pointer_event(
         handle: *const WindowAdapterRcOpaque,
         event: crate::input::MouseEvent,
@@ -1846,7 +1846,7 @@ pub mod ffi {
     }
 
     /// Dispatch a window event
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_windowrc_dispatch_event(
         handle: *const WindowAdapterRcOpaque,
         event: &crate::platform::WindowEvent,
@@ -1855,7 +1855,7 @@ pub mod ffi {
         window_adapter.window().dispatch_event(event.clone());
     }
 
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_windowrc_is_fullscreen(
         handle: *const WindowAdapterRcOpaque,
     ) -> bool {
@@ -1863,7 +1863,7 @@ pub mod ffi {
         window_adapter.window().is_fullscreen()
     }
 
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_windowrc_is_minimized(
         handle: *const WindowAdapterRcOpaque,
     ) -> bool {
@@ -1871,7 +1871,7 @@ pub mod ffi {
         window_adapter.window().is_minimized()
     }
 
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_windowrc_is_maximized(
         handle: *const WindowAdapterRcOpaque,
     ) -> bool {
@@ -1879,7 +1879,7 @@ pub mod ffi {
         window_adapter.window().is_maximized()
     }
 
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_windowrc_set_fullscreen(
         handle: *const WindowAdapterRcOpaque,
         value: bool,
@@ -1888,7 +1888,7 @@ pub mod ffi {
         window_adapter.window().set_fullscreen(value)
     }
 
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_windowrc_set_minimized(
         handle: *const WindowAdapterRcOpaque,
         value: bool,
@@ -1897,7 +1897,7 @@ pub mod ffi {
         window_adapter.window().set_minimized(value)
     }
 
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_windowrc_set_maximized(
         handle: *const WindowAdapterRcOpaque,
         value: bool,
@@ -1907,7 +1907,7 @@ pub mod ffi {
     }
 
     /// Takes a snapshot of the window contents and returns it as RGBA8 encoded pixel buffer.
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_windowrc_take_snapshot(
         handle: *const WindowAdapterRcOpaque,
         data: &mut SharedVector<Rgba8Pixel>,

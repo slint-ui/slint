@@ -97,27 +97,27 @@ impl WindowAdapter for CppWindowAdapter {
     }
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn slint_window_properties_get_title(wp: &WindowProperties, out: &mut SharedString) {
     *out = wp.title();
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn slint_window_properties_get_background(wp: &WindowProperties, out: &mut Brush) {
     *out = wp.background();
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn slint_window_properties_get_fullscreen(wp: &WindowProperties) -> bool {
     wp.is_fullscreen()
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn slint_window_properties_get_minimized(wp: &WindowProperties) -> bool {
     wp.is_minimized()
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn slint_window_properties_get_maximized(wp: &WindowProperties) -> bool {
     wp.is_maximized()
 }
@@ -133,7 +133,7 @@ pub struct LayoutConstraintsReprC {
     pub has_max: bool,
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn slint_window_properties_get_layout_constraints(
     wp: &WindowProperties,
 ) -> LayoutConstraintsReprC {
@@ -150,7 +150,7 @@ pub extern "C" fn slint_window_properties_get_layout_constraints(
     }
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_window_adapter_new(
     user_data: WindowAdapterUserData,
     drop: unsafe extern "C" fn(WindowAdapterUserData),
@@ -286,7 +286,7 @@ unsafe impl Sync for CppEventLoopProxy {}
 
 // silent the warning depite `Clipboard` is a `#[non_exhaustive]` enum from another crate.
 #[allow(improper_ctypes_definitions)]
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_platform_register(
     user_data: PlatformUserData,
     drop: unsafe extern "C" fn(PlatformUserData),
@@ -313,7 +313,7 @@ pub unsafe extern "C" fn slint_platform_register(
     i_slint_core::platform::set_platform(Box::new(p)).unwrap();
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_windowrc_has_active_animations(
     handle: *const WindowAdapterRcOpaque,
 ) -> bool {
@@ -321,13 +321,13 @@ pub unsafe extern "C" fn slint_windowrc_has_active_animations(
     window_adapter.window().has_active_animations()
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn slint_platform_update_timers_and_animations() {
     i_slint_core::platform::update_timers_and_animations()
 }
 
 /// Returns the duration in millisecond until the next timer or `u64::MAX` if there is no pending timers
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn slint_platform_duration_until_next_timer_update() -> u64 {
     i_slint_core::platform::duration_until_next_timer_update()
         .map_or(u64::MAX, |d| d.as_millis() as u64)
@@ -336,12 +336,12 @@ pub extern "C" fn slint_platform_duration_until_next_timer_update() -> u64 {
 #[repr(C)]
 pub struct PlatformTaskOpaque(*const c_void, *const c_void);
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_platform_task_drop(event: PlatformTaskOpaque) {
     drop(Box::from_raw(core::mem::transmute::<PlatformTaskOpaque, *mut dyn FnOnce()>(event)));
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_platform_task_run(event: PlatformTaskOpaque) {
     let f = Box::from_raw(core::mem::transmute::<PlatformTaskOpaque, *mut dyn FnOnce()>(event));
     f();
@@ -535,7 +535,7 @@ mod software_renderer {
         }
     }
 
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_software_renderer_new(
         buffer_age: u32,
     ) -> SoftwareRendererOpaque {
@@ -549,12 +549,12 @@ mod software_renderer {
             as SoftwareRendererOpaque
     }
 
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_software_renderer_drop(r: SoftwareRendererOpaque) {
         drop(Box::from_raw(r as *mut SoftwareRenderer));
     }
 
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_software_renderer_render_rgb8(
         r: SoftwareRendererOpaque,
         buffer: *mut Rgb8Pixel,
@@ -567,7 +567,7 @@ mod software_renderer {
     }
 
     #[cfg(feature = "experimental")]
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_software_renderer_render_accel_rgb8(
         r: SoftwareRendererOpaque,
         buffer: *mut CppTargetPixelBuffer<Rgb8Pixel>,
@@ -577,7 +577,7 @@ mod software_renderer {
     }
 
     #[cfg(feature = "experimental")]
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_software_renderer_render_accel_rgb565(
         r: SoftwareRendererOpaque,
         buffer: *mut CppTargetPixelBuffer<Rgb565Pixel>,
@@ -586,7 +586,7 @@ mod software_renderer {
         unsafe { renderer.render_into_buffer(&mut *buffer) }
     }
 
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_software_renderer_render_rgb565(
         r: SoftwareRendererOpaque,
         buffer: *mut u16,
@@ -659,7 +659,7 @@ mod software_renderer {
         }
     }
 
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_software_renderer_render_by_line_rgb565(
         r: SoftwareRendererOpaque,
         process_line_fn: extern "C" fn(
@@ -677,7 +677,7 @@ mod software_renderer {
         renderer.render_by_line(processor)
     }
 
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_software_renderer_render_by_line_rgb8(
         r: SoftwareRendererOpaque,
         process_line_fn: extern "C" fn(
@@ -695,7 +695,7 @@ mod software_renderer {
         renderer.render_by_line(processor)
     }
 
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_software_renderer_set_rendering_rotation(
         r: SoftwareRendererOpaque,
         rotation: i32,
@@ -710,7 +710,7 @@ mod software_renderer {
         });
     }
 
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_software_renderer_handle(
         r: SoftwareRendererOpaque,
     ) -> RendererPtr {
@@ -718,7 +718,7 @@ mod software_renderer {
         core::mem::transmute(r)
     }
 
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub extern "C" fn slint_software_renderer_region_to_rects(
         region: &PhysicalRegion,
         out: &mut SharedVector<IntRect>,
@@ -766,7 +766,7 @@ pub mod skia {
 
     type CppRawHandleOpaque = *const c_void;
 
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_new_raw_window_handle_win32(
         hwnd: *mut c_void,
         _hinstance: *mut c_void,
@@ -780,7 +780,7 @@ pub mod skia {
         Box::into_raw(Box::new(handle)) as CppRawHandleOpaque
     }
 
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_new_raw_window_handle_x11_xcb(
         window: u32,
         visual_id: u32,
@@ -806,7 +806,7 @@ pub mod skia {
         Box::into_raw(Box::new(handle)) as CppRawHandleOpaque
     }
 
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_new_raw_window_handle_x11_xlib(
         window: core::ffi::c_ulong,
         visual_id: core::ffi::c_ulong,
@@ -828,7 +828,7 @@ pub mod skia {
         Box::into_raw(Box::new(handle)) as CppRawHandleOpaque
     }
 
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_new_raw_window_handle_wayland(
         surface: *mut c_void,
         display: *mut c_void,
@@ -845,7 +845,7 @@ pub mod skia {
         Box::into_raw(Box::new(handle)) as CppRawHandleOpaque
     }
 
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_new_raw_window_handle_appkit(
         ns_view: *mut c_void,
         _ns_window: *mut c_void,
@@ -860,7 +860,7 @@ pub mod skia {
         Box::into_raw(Box::new(handle)) as CppRawHandleOpaque
     }
 
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_raw_window_handle_drop(handle: CppRawHandleOpaque) {
         drop(Box::from_raw(handle as *mut CppRawHandle))
     }
@@ -868,7 +868,7 @@ pub mod skia {
     type SkiaRendererOpaque = *const c_void;
     type SkiaRenderer = i_slint_renderer_skia::SkiaRenderer;
 
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_skia_renderer_new(
         handle_opaque: CppRawHandleOpaque,
         size: IntSize,
@@ -887,18 +887,18 @@ pub mod skia {
         Box::into_raw(boxed_renderer) as SkiaRendererOpaque
     }
 
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_skia_renderer_drop(r: SkiaRendererOpaque) {
         drop(Box::from_raw(r as *mut SkiaRenderer))
     }
 
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_skia_renderer_render(r: SkiaRendererOpaque) {
         let r = &*(r as *const SkiaRenderer);
         r.render().unwrap();
     }
 
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_skia_renderer_handle(r: SkiaRendererOpaque) -> RendererPtr {
         let r = (r as *const SkiaRenderer) as *const dyn Renderer;
         core::mem::transmute(r)

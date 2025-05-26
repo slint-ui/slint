@@ -500,22 +500,22 @@ pub(crate) mod ffi {
     #![allow(unsafe_code)]
     use super::*;
 
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_color_brighter(col: &Color, factor: f32, out: *mut Color) {
         core::ptr::write(out, col.brighter(factor))
     }
 
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_color_darker(col: &Color, factor: f32, out: *mut Color) {
         core::ptr::write(out, col.darker(factor))
     }
 
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_color_transparentize(col: &Color, factor: f32, out: *mut Color) {
         core::ptr::write(out, col.transparentize(factor))
     }
 
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_color_mix(
         col1: &Color,
         col2: &Color,
@@ -525,12 +525,12 @@ pub(crate) mod ffi {
         core::ptr::write(out, col1.mix(col2, factor))
     }
 
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_color_with_alpha(col: &Color, alpha: f32, out: *mut Color) {
         core::ptr::write(out, col.with_alpha(alpha))
     }
 
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub extern "C" fn slint_color_to_hsva(
         col: &Color,
         h: &mut f32,
@@ -545,7 +545,7 @@ pub(crate) mod ffi {
         *a = hsv.alpha;
     }
 
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub extern "C" fn slint_color_from_hsva(h: f32, s: f32, v: f32, a: f32) -> Color {
         Color::from_hsva(h, s, v, a)
     }

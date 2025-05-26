@@ -597,7 +597,7 @@ impl SwipeGestureHandler {
 }
 
 #[cfg(feature = "ffi")]
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_swipegesturehandler_cancel(
     s: Pin<&SwipeGestureHandler>,
     window_adapter: *const crate::window::ffi::WindowAdapterRcOpaque,
