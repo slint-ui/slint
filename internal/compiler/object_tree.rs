@@ -323,10 +323,51 @@ pub struct Timer {
 }
 
 #[derive(Clone, Debug)]
+pub enum ChildrenInsertionKind {
+    Simple,
+    Indexed(usize),
+}
+
+impl ChildrenInsertionKind {
+    pub fn from_with_diag(
+        node: &syntax_nodes::ChildrenPlaceholder,
+        diag: &mut BuildDiagnostics,
+    ) -> Self {
+        let Some(number) = node.child_token(SyntaxKind::NumberLiteral) else {
+            return Self::Simple;
+        };
+
+        let Expression::NumberLiteral(v, u) =
+            crate::literals::parse_number_literal(SmolStr::from(number.text())).unwrap_or_default()
+        else {
+            diag.push_error("Could not parse number in @children[...]".into(), &number);
+            return Self::Simple;
+        };
+
+        if !matches!(u, Unit::None) {
+            diag.push_error("The index in @children[...] can not have a unit".into(), &number);
+            return Self::Simple;
+        }
+        if v.floor() != v {
+            diag.push_error("The index in @children[...] must be a integer".into(), &number);
+            return Self::Simple;
+        }
+        let index = v as i32;
+        if index < 0 {
+            diag.push_error("@children[x] has a negative index".into(), &number);
+            return Self::Simple;
+        }
+
+        Self::Indexed(index as usize)
+    }
+}
+
+#[derive(Clone, Debug)]
 pub struct ChildrenInsertionPoint {
     pub parent: ElementRc,
     pub insertion_index: usize,
     pub node: syntax_nodes::ChildrenPlaceholder,
+    pub insertion_kind: ChildrenInsertionKind,
 }
 
 /// Used sub types for a root component
@@ -1579,12 +1620,15 @@ impl Element {
                     &children_placeholder,
                 )
             } else {
+                let insertion_kind =
+                    ChildrenInsertionKind::from_with_diag(&children_placeholder, diag);
                 *component_child_insertion_point = Some(ChildrenInsertionPoint {
                     parent: r.clone(),
                     insertion_index: index,
                     node: children_placeholder,
+                    insertion_kind,
                 });
-            }
+            };
         }
 
         for state in node.States().flat_map(|s| s.State()) {

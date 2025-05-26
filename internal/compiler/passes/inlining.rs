@@ -148,6 +148,7 @@ fn inline_element(
                         );
                     }
                 }
+
                 let mut cip = root_component.child_insertion_point.borrow_mut();
                 if let Some(cip) = cip.as_mut() {
                     if Rc::ptr_eq(&cip.parent, elem) {
@@ -155,6 +156,7 @@ fn inline_element(
                             parent: insertion_element.clone(),
                             insertion_index: inlined_cip.insertion_index + cip.insertion_index,
                             node: inlined_cip.node.clone(),
+                            insertion_kind: inlined_cip.insertion_kind.clone(),
                         };
                     }
                 } else if Rc::ptr_eq(elem, &root_component.root_element) {
@@ -162,6 +164,7 @@ fn inline_element(
                         parent: insertion_element.clone(),
                         insertion_index: inlined_cip.insertion_index + old_count,
                         node: inlined_cip.node.clone(),
+                        insertion_kind: inlined_cip.insertion_kind.clone(),
                     });
                 };
             } else if old_count > 0 {
@@ -240,6 +243,7 @@ fn inline_element(
             .borrow_mut()
             .children
             .splice(inlined_cip.insertion_index..inlined_cip.insertion_index, children);
+
         let mut cip = root_component.child_insertion_point.borrow_mut();
         if let Some(cip) = cip.as_mut() {
             if Rc::ptr_eq(&cip.parent, elem) {
@@ -247,6 +251,7 @@ fn inline_element(
                     parent: insertion_element.clone(),
                     insertion_index: inlined_cip.insertion_index + cip.insertion_index,
                     node: inlined_cip.node.clone(),
+                    insertion_kind: inlined_cip.insertion_kind.clone(),
                 };
             }
         } else {
@@ -254,8 +259,9 @@ fn inline_element(
                 parent: insertion_element.clone(),
                 insertion_index: inlined_cip.insertion_index,
                 node: inlined_cip.node.clone(),
+                insertion_kind: inlined_cip.insertion_kind.clone(),
             });
-        };
+        }
     }
 
     for (k, val) in inlined_component.root_element.borrow().bindings.iter() {

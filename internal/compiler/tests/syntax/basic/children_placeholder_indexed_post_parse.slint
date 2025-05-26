@@ -3,11 +3,13 @@
 
 export component TextBox1 {
     @children[   12px   ]
+//               ^error{The index in @children[...] can not have a unit}
 }
 
 export component TextBox2 {
     @children  [
         1.5
+//      ^error{The index in @children[...] must be a integer}
 
             ]
 }
@@ -15,22 +17,3 @@ export component TextBox2 {
 export component TextBox3 {
     @children[0]
 }
-
-export component TextBox5 {
-    @children[   0.5 ]
-}
-
-export component TextBox5 {
-    @children[   12px ]
-}
-
-export component TextBox4 {
-    @children[-1]
-//            ^error{Syntax error: expected NumberLiteral}
-}
-
-export component TextBox5 {
-    @children[   foo ]
-//               ^error{Syntax error: expected NumberLiteral}
-}
-
