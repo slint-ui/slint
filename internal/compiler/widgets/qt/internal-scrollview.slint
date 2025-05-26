@@ -17,6 +17,7 @@ export component InternalScrollView {
     in property <bool> enabled <=> native.enabled;
     in property <ScrollBarPolicy> vertical-scrollbar-policy <=> native.vertical-scrollbar-policy;
     in property <ScrollBarPolicy> horizontal-scrollbar-policy <=> native.horizontal-scrollbar-policy;
+    in property <bool> mouse-drag <=> fli.interactive;
 
     // Used by the StandardTableView
     out property <length> native-padding-left: native.native-padding-left;
