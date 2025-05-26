@@ -327,13 +327,8 @@ impl Snapshotter {
                     .collect(),
             );
 
-            let child_insertion_point = RefCell::new(
-                component
-                    .child_insertion_point
-                    .borrow()
-                    .as_ref()
-                    .map(|(e, s, n)| (self.use_element(e), *s, n.clone())),
-            );
+            let child_insertion_point =
+                RefCell::new(component.child_insertion_point.borrow().clone());
 
             let popup_windows = RefCell::new(
                 component

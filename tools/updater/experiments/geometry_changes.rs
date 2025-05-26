@@ -88,7 +88,7 @@ fn is_layout_base(elem: &ElementRc) -> bool {
                 return true;
             }
             if let Some(ins) = &*c.child_insertion_point.borrow() {
-                is_layout_base(&ins.0)
+                is_layout_base(&ins.parent)
             } else {
                 is_layout_base(&c.root_element)
             }
