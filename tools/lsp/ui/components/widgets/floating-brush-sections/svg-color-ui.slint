@@ -67,8 +67,19 @@ component SearchBar {
         border-color: EditorPalette.text-color.with-alpha(0.1);
         border-radius: self.height / 2;
 
+        si := Rectangle {
+            x: 5px;
+            width: 18px;
+            opacity: 0.4;
+            Image {
+                width: 14px;
+                source: Icons.search;
+                colorize: EditorPalette.text-color;
+            }
+        }
+
         ti := TextInput {
-            x: EditorSizeSettings.standard-margin;
+            x: si.x + si.width + 5px;
             vertical-alignment: center;
             horizontal-alignment: left;
             font-family: "Inter";
@@ -81,7 +92,7 @@ component SearchBar {
         }
 
         Text {
-            x: EditorSizeSettings.standard-margin;
+            x: ti.x;
             text: "Search";
             horizontal-alignment: left;
             font-family: "Inter";
