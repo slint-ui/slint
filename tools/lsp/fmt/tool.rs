@@ -22,15 +22,15 @@ use std::path::Path;
 
 use super::{fmt, writer};
 
-pub fn run(files: Vec<std::path::PathBuf>, inplace: bool) -> std::io::Result<()> {
+pub fn run(files: &[std::path::PathBuf], inplace: bool) -> std::io::Result<()> {
     for path in files {
         let source = std::fs::read_to_string(&path)?;
 
         if inplace {
             let file = BufWriter::new(std::fs::File::create(&path)?);
-            process_file(source, path, file)?
+            process_file(source, path.to_path_buf(), file)?
         } else {
-            process_file(source, path, std::io::stdout())?
+            process_file(source, path.to_path_buf(), std::io::stdout())?
         }
     }
     Ok(())

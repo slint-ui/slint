@@ -5,6 +5,8 @@
 #![allow(clippy::await_holding_refcell_ref)]
 
 pub mod common;
+#[cfg(feature = "preview-engine")]
+mod connector;
 mod fmt;
 mod language;
 #[cfg(feature = "preview-engine")]

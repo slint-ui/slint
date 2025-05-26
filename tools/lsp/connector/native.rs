@@ -3,14 +3,127 @@
 
 // cSpell: ignore condvar
 
+use std::cell::RefCell;
 use std::collections::HashMap;
+use std::io::{BufRead, Write};
 
-use super::PreviewState;
 use crate::common::{self, PreviewToLspMessage, SourceFileVersion};
+use crate::preview;
 use crate::ServerNotifier;
 use slint_interpreter::ComponentHandle;
 use std::future::Future;
 use std::sync::{Condvar, LazyLock, Mutex};
+
+struct ToPreviewInner {
+    join_handle: std::thread::JoinHandle<std::result::Result<(), String>>,
+    to_preview: std::process::ChildStdin,
+}
+
+pub struct ToPreview {
+    inner: RefCell<Option<ToPreviewInner>>,
+    preview_to_lsp_channel: crossbeam_channel::Sender<common::PreviewToLspMessage>,
+}
+
+impl ToPreview {
+    pub fn new(
+        preview_to_lsp_channel: crossbeam_channel::Sender<common::PreviewToLspMessage>,
+    ) -> Self {
+        Self { inner: RefCell::new(None), preview_to_lsp_channel }
+    }
+
+    pub fn send(&self, message: &common::LspToPreviewMessage) {
+        if self.preview_is_running() {
+            let inner = self.inner.borrow();
+            let inner = inner.as_ref().unwrap();
+
+            let Ok(message) = serde_json::to_string(message).map_err(|e| e.to_string()) else {
+                return;
+            };
+
+            let _ = write!(&inner.to_preview, "{message}",).map_err(|e| e.to_string());
+        } else if let common::LspToPreviewMessage::ShowPreview(_) = message {
+            self.start_preview().unwrap();
+        }
+    }
+
+    fn preview_is_running(&self) -> bool {
+        !(self.inner.borrow().as_ref().map(|i| i.join_handle.is_finished()).unwrap_or(true))
+    }
+
+    fn start_preview(&self) -> common::Result<()> {
+        let mut child = std::process::Command::new(
+            std::env::args_os().next().expect("I was started, so I should have this!"),
+        )
+        .args(["live-preview", "--remote-controlled"].iter())
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .spawn()?;
+
+        let from_child = child.stdout.take().expect("Child has no stdout");
+        let to_child = child.stdin.take().expect("Child has no stdin");
+
+        let channel = self.preview_to_lsp_channel.clone();
+
+        let join_handle = std::thread::spawn(move || -> Result<(), String> {
+            let reader = std::io::BufReader::new(from_child);
+            for line in reader.lines() {
+                let line = line.map_err(|e| e.to_string())?;
+                let message = serde_json::from_str(&line).map_err(|e| e.to_string())?;
+
+                channel.send(message).map_err(|e| e.to_string())?;
+            }
+            Ok(())
+        });
+
+        *self.inner.borrow_mut() = Some(ToPreviewInner { join_handle, to_preview: to_child });
+
+        Ok(())
+    }
+}
+
+pub struct ToLsp {
+    join_handle: Option<std::thread::JoinHandle<std::result::Result<(), String>>>,
+}
+
+impl Drop for ToLsp {
+    fn drop(&mut self) {
+        if let Some(jh) = self.join_handle.take() {
+            jh.join().unwrap().unwrap();
+        }
+    }
+}
+
+impl ToLsp {
+    pub fn new(channel: crossbeam_channel::Sender<common::LspToPreviewMessage>) -> Self {
+        let join_handle = Self::process_input(channel);
+
+        Self { join_handle: Some(join_handle) }
+    }
+
+    pub fn send(&self, message: &common::PreviewToLspMessage) {
+        let Ok(message) = serde_json::to_string(message).map_err(|e| e.to_string()) else {
+            return;
+        };
+        println!("{message}");
+    }
+
+    fn process_input(
+        channel: crossbeam_channel::Sender<common::LspToPreviewMessage>,
+    ) -> std::thread::JoinHandle<std::result::Result<(), String>> {
+        std::thread::spawn(move || -> Result<(), String> {
+            let reader = std::io::BufReader::new(std::io::stdin().lock());
+            for line in reader.lines() {
+                let line = line.map_err(|e| e.to_string())?;
+                let message = serde_json::from_str(&line).map_err(|e| e.to_string())?;
+
+                // eprintln!("    RECV: {message:?}");
+
+                channel.send(message).map_err(|e| e.to_string())?;
+            }
+            Ok(())
+        })
+    }
+}
 
 #[derive(PartialEq, Debug)]
 enum RequestedGuiEventLoopState {
@@ -82,109 +195,17 @@ pub fn lsp_to_preview_message(message: common::LspToPreviewMessage) {
     }
 }
 
-/// This is the main entry for the Slint event loop. It runs on the main thread,
-/// but only runs the event loop if a preview is requested to avoid potential
-/// crash so that the LSP works without preview in that case.
-pub fn start_ui_event_loop(cli_args: crate::Cli) {
-    CLI_ARGS.with(|f| f.set(cli_args).ok());
-
-    // NOTE: the result here must be kept alive for Apple platforms, as in the Ok case it holds a MenuItem
-    // that must be kept alive.
-    let loop_init_result;
-
-    {
-        let mut state_requested = GUI_EVENT_LOOP_STATE_REQUEST.lock().unwrap();
-
-        // Wait until we either quit, or the LSP thread request to start the loop
-        while *state_requested == RequestedGuiEventLoopState::Uninitialized {
-            state_requested = GUI_EVENT_LOOP_NOTIFIER.wait(state_requested).unwrap();
-        }
-
-        if *state_requested == RequestedGuiEventLoopState::QuitLoop {
-            return;
-        }
-
-        if *state_requested == RequestedGuiEventLoopState::StartLoop {
-            #[cfg(target_vendor = "apple")]
-            {
-                // This can only be run once, as the event loop can't be restarted on macOS
-                loop_init_result = init_apple_platform();
-            }
-            #[cfg(not(target_vendor = "apple"))]
-            {
-                // make sure the backend is initialized
-                loop_init_result = i_slint_backend_selector::with_platform(|_| Ok(()));
-            }
-            match loop_init_result {
-                Ok(_) => {}
-                Err(err) => {
-                    *state_requested =
-                        RequestedGuiEventLoopState::InitializationError(err.to_string());
-                    GUI_EVENT_LOOP_NOTIFIER.notify_one();
-                    while *state_requested != RequestedGuiEventLoopState::QuitLoop {
-                        state_requested = GUI_EVENT_LOOP_NOTIFIER.wait(state_requested).unwrap();
-                    }
-                    return;
-                }
-            };
-
-            // Send an event so that once the loop is started, we notify the LSP thread that it can send more events
-            i_slint_core::api::invoke_from_event_loop(|| {
-                let mut state_request = GUI_EVENT_LOOP_STATE_REQUEST.lock().unwrap();
-                if *state_request == RequestedGuiEventLoopState::StartLoop {
-                    *state_request = RequestedGuiEventLoopState::LoopStarted;
-                    GUI_EVENT_LOOP_NOTIFIER.notify_one();
-                }
-            })
-            .unwrap();
-        }
-    }
-
-    let loop_result = slint::run_event_loop_until_quit();
-    if let Err(err) = loop_result {
-        let mut state_requested = GUI_EVENT_LOOP_STATE_REQUEST.lock().unwrap();
-        match *state_requested {
-            RequestedGuiEventLoopState::InitializationError(_)
-            | RequestedGuiEventLoopState::Uninitialized => unreachable!(),
-            RequestedGuiEventLoopState::QuitLoop => return,
-            RequestedGuiEventLoopState::StartLoop | RequestedGuiEventLoopState::LoopStarted => {
-                *state_requested = RequestedGuiEventLoopState::InitializationError(err.to_string());
-            }
-        }
-        GUI_EVENT_LOOP_NOTIFIER.notify_one();
-        while *state_requested != RequestedGuiEventLoopState::QuitLoop {
-            state_requested = GUI_EVENT_LOOP_NOTIFIER.wait(state_requested).unwrap();
-        }
-    }
-}
-
-pub fn quit_ui_event_loop() {
-    // Wake up the main thread, in case it wasn't woken up earlier. If it wasn't, then don't request
-    // a start of the event loop.
-    {
-        let mut state_request = GUI_EVENT_LOOP_STATE_REQUEST.lock().unwrap();
-        *state_request = RequestedGuiEventLoopState::QuitLoop;
-        GUI_EVENT_LOOP_NOTIFIER.notify_one();
-    }
-
-    close_ui();
-
-    let _ = i_slint_core::api::quit_event_loop();
-
-    // Make sure then sender channel gets dropped, otherwise the lsp thread will never quit
-    *SERVER_NOTIFIER.lock().unwrap() = None
-}
-
-pub(super) fn open_ui_impl(preview_state: &mut PreviewState) -> Result<(), slint::PlatformError> {
+pub(super) fn open_ui_impl(
+    preview_state: &mut preview::PreviewState,
+) -> Result<(), slint::PlatformError> {
     let (default_style, show_preview_ui, fullscreen) = {
-        let cache = super::CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
-        let style = cache.config.style.clone();
+        let style = preview_state.config.style.clone();
         let style = if style.is_empty() {
             CLI_ARGS.with(|args| args.get().map(|a| a.style.clone()).unwrap_or_default())
         } else {
             style
         };
-        let hide_ui = cache
+        let hide_ui = preview_state
             .config
             .hide_ui
             .or_else(|| CLI_ARGS.with(|args| args.get().map(|a| a.no_toolbar)))
@@ -198,8 +219,8 @@ pub(super) fn open_ui_impl(preview_state: &mut PreviewState) -> Result<(), slint
     let ui = match preview_state.ui.as_ref() {
         Some(ui) => ui,
         None => {
-            let ui = super::ui::create_ui(default_style, experimental)?;
-            crate::preview::send_telemetry(&mut [(
+            let ui = crate::preview::ui::create_ui(default_style, experimental)?;
+            super::send_telemetry(&mut [(
                 "type".to_string(),
                 serde_json::to_value("preview_opened").unwrap(),
             )]);
@@ -207,48 +228,27 @@ pub(super) fn open_ui_impl(preview_state: &mut PreviewState) -> Result<(), slint
         }
     };
 
-    super::CONTENT_CACHE.get_or_init(Default::default).lock().unwrap().ui_is_visible = true;
+    preview_state.ui_is_visible = true;
 
     let api = ui.global::<crate::preview::ui::Api>();
     api.set_show_preview_ui(show_preview_ui);
     ui.window().set_fullscreen(fullscreen);
     ui.window().on_close_requested(|| {
-        let mut cache = super::CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
-        cache.ui_is_visible = false;
+        preview::PREVIEW_STATE.with(|preview_state| {
+            let mut preview_state = preview_state.borrow_mut();
+            preview_state.ui_is_visible = false;
+        });
         slint::CloseRequestResponse::HideWindow
     });
     Ok(())
 }
 
-pub fn close_ui() {
-    {
-        let mut cache = super::CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
-        if !cache.ui_is_visible {
-            return; // UI is already down!
-        }
-        cache.ui_is_visible = false;
-    }
-
-    i_slint_core::api::invoke_from_event_loop(move || {
-        super::PREVIEW_STATE.with(move |preview_state| {
-            let mut preview_state = preview_state.borrow_mut();
-            close_ui_impl(&mut preview_state)
-        });
-    })
-    .unwrap(); // TODO: Handle Error
-}
-
-fn close_ui_impl(preview_state: &mut PreviewState) {
-    let ui = preview_state.ui.take();
-    if let Some(ui) = ui {
-        ui.hide().unwrap();
-    }
-}
+/// Potentially called from other thread!
 
 #[cfg(target_vendor = "apple")]
 fn toggle_always_on_top() {
     i_slint_core::api::invoke_from_event_loop(move || {
-        super::PREVIEW_STATE.with(move |preview_state| {
+        preview::PREVIEW_STATE.with(move |preview_state| {
             let preview_state = preview_state.borrow_mut();
             let Some(ui) = preview_state.ui.as_ref() else { return };
             let api = ui.global::<crate::preview::ui::Api>();
@@ -289,10 +289,11 @@ pub fn ask_editor_to_show_document(file: &str, selection: lsp_types::Range, take
 }
 
 pub fn send_message_to_lsp(message: PreviewToLspMessage) {
+    // TODO: Replace this
     let Some(sender) = SERVER_NOTIFIER.lock().unwrap().clone() else {
         return;
     };
-    sender.send_message_to_lsp(message);
+    // sender.send_message_to_lsp(message);
 }
 
 // This function overrides the default app menu and makes the "Quit" item merely hide the UI,
@@ -360,7 +361,7 @@ fn init_apple_platform(
         if menu_event.id == close_id {
             close_ui();
         } else if menu_event.id == reload_id {
-            super::reload_preview();
+            preview::reload_preview();
         } else if menu_event.id == keep_on_top_id {
             toggle_always_on_top();
         }
