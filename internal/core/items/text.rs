@@ -910,7 +910,7 @@ impl Item for TextInput {
         self_rc: &ItemRc,
     ) -> FocusEventResult {
         match event {
-            FocusEvent::FocusIn(_reason) | FocusEvent::WindowReceivedFocus(_reason) => {
+            FocusEvent::FocusIn(_reason) => {
                 self.has_focus.set(true);
                 self.show_cursor(window_adapter);
                 WindowInner::from_pub(window_adapter.window()).set_text_input_focused(true);
@@ -931,10 +931,10 @@ impl Item for TextInput {
                     }
                 }
             }
-            FocusEvent::FocusOut(_) | FocusEvent::WindowLostFocus(_) => {
+            FocusEvent::FocusOut(reason) => {
                 self.has_focus.set(false);
                 self.hide_cursor();
-                if matches!(event, FocusEvent::FocusOut(_)) {
+                if !matches!(reason, FocusEventReason::ActiveWindow | FocusEventReason::Popup) {
                     self.as_ref()
                         .anchor_position_byte_offset
                         .set(self.as_ref().cursor_position_byte_offset());

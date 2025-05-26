@@ -320,7 +320,7 @@ impl Item for NativeSlider {
             Self::FIELD_OFFSETS
                 .has_focus
                 .apply_pin(self)
-                .set(matches!(event, FocusEvent::FocusIn(_) | FocusEvent::WindowReceivedFocus(_)));
+                .set(matches!(event, FocusEvent::FocusIn(_)));
             FocusEventResult::FocusAccepted
         } else {
             FocusEventResult::FocusIgnored

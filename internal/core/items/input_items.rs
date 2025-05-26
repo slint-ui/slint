@@ -339,11 +339,11 @@ impl Item for FocusScope {
         }
 
         match event {
-            FocusEvent::FocusIn(_) | FocusEvent::WindowReceivedFocus(_) => {
+            FocusEvent::FocusIn(_) => {
                 self.has_focus.set(true);
                 Self::FIELD_OFFSETS.focus_changed_event.apply_pin(self).call(&());
             }
-            FocusEvent::FocusOut(_) | FocusEvent::WindowLostFocus(_) => {
+            FocusEvent::FocusOut(_) => {
                 self.has_focus.set(false);
                 Self::FIELD_OFFSETS.focus_changed_event.apply_pin(self).call(&());
             }

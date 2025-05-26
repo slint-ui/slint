@@ -885,7 +885,7 @@ impl WindowInner {
     /// This sends the event whiwh must be either FocusOut or WindowLostFocus for popups
     fn take_focus_item(&self, event: &FocusEvent) -> Option<ItemRc> {
         let focus_item = self.focus_item.take();
-        assert!(matches!(event, FocusEvent::FocusOut(_) | FocusEvent::WindowLostFocus(_)));
+        assert!(matches!(event, FocusEvent::FocusOut(_)));
 
         if let Some(focus_item_rc) = focus_item.upgrade() {
             focus_item_rc.borrow().as_ref().focus_event(
@@ -1002,9 +1002,9 @@ impl WindowInner {
         self.pinned_fields.as_ref().project_ref().active.set(have_focus);
 
         let event = if have_focus {
-            FocusEvent::WindowReceivedFocus(FocusEventReason::ActiveWindow)
+            FocusEvent::FocusIn(FocusEventReason::ActiveWindow)
         } else {
-            FocusEvent::WindowLostFocus(FocusEventReason::ActiveWindow)
+            FocusEvent::FocusOut(FocusEventReason::ActiveWindow)
         };
 
         if let Some(focus_item) = self.focus_item.borrow().upgrade() {
@@ -1234,7 +1234,7 @@ impl WindowInner {
         };
 
         let focus_item = self
-            .take_focus_item(&FocusEvent::WindowLostFocus(FocusEventReason::Popup))
+            .take_focus_item(&FocusEvent::FocusOut(FocusEventReason::Popup))
             .map(|item| item.downgrade())
             .unwrap_or_default();
 
