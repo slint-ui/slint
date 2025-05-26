@@ -27,7 +27,7 @@ component SubCompo {
         }
         for l in ["c", "d"] : Rectangle {
             Timer {
-                interval: 3.0003s;
+                interval: 3s;
                 triggered => { r += l; }
             }
         }
@@ -69,7 +69,7 @@ export component TestCase inherits Window {
     Rectangle {
         oops := Timer {
             interval: -5ms;
-            triggered => { result += "oops"; }
+            triggered => { result += "oops"; debug(s.absolute-position.x) }
         }
         s := SubCompo {  }
     }

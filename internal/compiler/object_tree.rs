@@ -2456,6 +2456,11 @@ pub fn visit_all_named_references(
                     vis(&mut t.triggered);
                     vis(&mut t.running);
                 });
+                for o in compo.optimized_elements.borrow().iter() {
+                    visit_element_expressions(o, |expr, _, _| {
+                        visit_named_references_in_expression(expr, vis)
+                    });
+                }
             }
             compo
         },
@@ -2469,8 +2474,16 @@ pub fn visit_all_expressions(
     component: &Component,
     mut vis: impl FnMut(&mut Expression, &dyn Fn() -> Type),
 ) {
-    recurse_elem_including_sub_components(component, &(), &mut |elem, _| {
+    recurse_elem_including_sub_components(component, &Weak::new(), &mut |elem, parent_compo| {
         visit_element_expressions(elem, |expr, _, ty| vis(expr, ty));
+        let compo = elem.borrow().enclosing_component.clone();
+        if !Weak::ptr_eq(parent_compo, &compo) {
+            let compo = compo.upgrade().unwrap();
+            for o in compo.optimized_elements.borrow().iter() {
+                visit_element_expressions(o, |expr, _, ty| vis(expr, ty));
+            }
+        }
+        compo
     })
 }
 
