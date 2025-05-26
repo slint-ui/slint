@@ -483,7 +483,9 @@ component ColorPicker inherits DraggablePanel {
     }
 
     if active-tab == PickerTab.globals: SvgColorPicker {
-        filter-text: "!^Colors.";
+        property <string> filter-brush-and-color: "!^Colors. ";
+        property <string> filter-color-only: "!^Colors. '%kind:Color ";
+        filter-text: picker-mode == BrushPropertyType.brush ? filter-brush-and-color : filter-color-only;
     }
 
     footer := Rectangle {
