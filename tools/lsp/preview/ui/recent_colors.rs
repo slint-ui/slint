@@ -24,8 +24,6 @@ pub fn setup(ui: &ui::PreviewUi) {
 }
 
 fn add_recent_color(ui: ui::PreviewUi, value: slint::Color) {
-    eprintln!("RUST SIDE: add_recent_color: {value:?}");
-
     let api = ui.global::<ui::Api>();
 
     let model = api.get_recent_colors();

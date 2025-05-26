@@ -224,10 +224,8 @@ pub(super) fn open_ui_impl(
     Ok(())
 }
 
-/// Potentially called from other thread!
 pub fn close_ui() {
-    let _ = super::PREVIEW_STATE.with(|preview_state| {
-        let mut preview_state = preview_state.borrow_mut();
+    super::PREVIEW_STATE.with_borrow_mut(|preview_state| {
         if !preview_state.ui_is_visible {
             return; // UI is already down!
         }
@@ -242,15 +240,12 @@ pub fn close_ui() {
 
 #[cfg(target_vendor = "apple")]
 fn toggle_always_on_top() {
-    i_slint_core::api::invoke_from_event_loop(move || {
-        super::PREVIEW_STATE.with(move |preview_state| {
-            let preview_state = preview_state.borrow_mut();
-            let Some(ui) = preview_state.ui.as_ref() else { return };
-            let api = ui.global::<crate::preview::ui::Api>();
-            api.set_always_on_top(!api.get_always_on_top());
-        });
-    })
-    .unwrap(); // TODO: Handle Error
+    super::PREVIEW_STATE.with(move |preview_state| {
+        let preview_state = preview_state.borrow_mut();
+        let Some(ui) = preview_state.ui.as_ref() else { return };
+        let api = ui.global::<crate::preview::ui::Api>();
+        api.set_always_on_top(!api.get_always_on_top());
+    });
 }
 
 static SERVER_NOTIFIER: Mutex<Option<ServerNotifier>> = Mutex::new(None);
@@ -352,13 +347,19 @@ fn init_apple_platform(
     let keep_on_top_id = keep_on_top_menu_item.id().clone();
 
     muda::MenuEvent::set_event_handler(Some(move |menu_event: muda::MenuEvent| {
-        if menu_event.id == close_id {
-            close_ui();
-        } else if menu_event.id == reload_id {
-            super::reload_preview();
-        } else if menu_event.id == keep_on_top_id {
-            toggle_always_on_top();
-        }
+        let close_id = close_id.clone();
+        let reload_id = reload_id.clone();
+        let keep_on_top_id = keep_on_top_id.clone();
+
+        let _ = slint::invoke_from_event_loop(move || {
+            if menu_event.id == close_id {
+                close_ui();
+            } else if menu_event.id == reload_id {
+                super::reload_preview();
+            } else if menu_event.id == keep_on_top_id {
+                toggle_always_on_top();
+            }
+        });
     }));
 
     Ok((close_app_menu_item, reload_menu_item, keep_on_top_menu_item))
