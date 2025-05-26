@@ -66,11 +66,6 @@ export component Demo inherits Window {
                     Text { text: secure-boot ? "enabled" : "disabled"; }
                 }
 
-                Row {
-                    Text { text: "Resolution:"; horizontal-alignment: right; }
-                    Text { text: "\{floor(root.width / 1px)}x\{floor(root.height / 1px)}"; }
-                }
-
                 Row { Rectangle {} }
             }
         }
