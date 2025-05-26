@@ -487,8 +487,13 @@ pub struct TextInput {
     pub letter_spacing: Property<LogicalLength>,
     pub width: Property<LogicalLength>,
     pub height: Property<LogicalLength>,
+    /// The following two properties are the actual cursor and anchor positions and they're kept in
+    /// bounds with the text by means of a binding installed. Never set them directly, but use the
+    /// helper functions instead.
     pub cursor_position_byte_offset: Property<i32>,
     pub anchor_position_byte_offset: Property<i32>,
+    pub unchecked_cursor_position_byte_offset: Property<i32>,
+    pub unchecked_anchor_position_byte_offset: Property<i32>,
     pub text_cursor_width: Property<LogicalLength>,
     pub page_height: Property<LogicalLength>,
     pub cursor_visible: Property<bool>,
@@ -515,7 +520,33 @@ pub struct TextInput {
 }
 
 impl Item for TextInput {
-    fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
+    fn init(self: Pin<&Self>, self_rc: &ItemRc) {
+        let self_typed = self_rc.downcast::<Self>().unwrap();
+        let self_weak = vtable::VRcMapped::downgrade(&self_typed);
+
+        self.cursor_position_byte_offset.set_binding({
+            let self_weak = self_weak.clone();
+            move || {
+                let Some(self_rc) = self_weak.upgrade() else {
+                    return 0;
+                };
+                let text = self_rc.as_pin_ref().text();
+                let cursor_pos = self_rc.as_pin_ref().unchecked_cursor_position_byte_offset();
+                safe_byte_offset(cursor_pos, &text) as i32
+            }
+        });
+        self.anchor_position_byte_offset.set_binding({
+            let self_weak = self_weak.clone();
+            move || {
+                let Some(self_rc) = self_weak.upgrade() else {
+                    return 0;
+                };
+                let text = self_rc.as_pin_ref().text();
+                let anchor_pos = self_rc.as_pin_ref().unchecked_anchor_position_byte_offset();
+                safe_byte_offset(anchor_pos, &text) as i32
+            }
+        });
+    }
 
     fn layout_info(
         self: Pin<&Self>,
@@ -597,7 +628,7 @@ impl Item for TextInput {
                 self.as_ref().pressed.set((click_count % 3) + 1);
 
                 if !window_adapter.window().0.modifiers.get().shift() {
-                    self.as_ref().anchor_position_byte_offset.set(clicked_offset);
+                    self.as_ref().unchecked_anchor_position_byte_offset.set(clicked_offset);
                 }
 
                 #[cfg(not(target_os = "android"))]
@@ -631,7 +662,7 @@ impl Item for TextInput {
             MouseEvent::Released { position, button: PointerEventButton::Middle, .. } => {
                 let clicked_offset =
                     self.byte_offset_for_position(position, window_adapter, self_rc) as i32;
-                self.as_ref().anchor_position_byte_offset.set(clicked_offset);
+                self.as_ref().unchecked_anchor_position_byte_offset.set(clicked_offset);
                 self.set_cursor_position(
                     clicked_offset,
                     true,
@@ -838,7 +869,7 @@ impl Item for TextInput {
 
                 self.as_ref().text.set(text.into());
                 let new_cursor_pos = (insert_pos + event.text.len()) as i32;
-                self.as_ref().anchor_position_byte_offset.set(new_cursor_pos);
+                self.as_ref().unchecked_anchor_position_byte_offset.set(new_cursor_pos);
                 self.set_cursor_position(
                     new_cursor_pos,
                     true,
@@ -872,8 +903,8 @@ impl Item for TextInput {
 
                 if let Some(r) = &event.replacement_range {
                     // Set the selection so the call to insert erases it
-                    self.anchor_position_byte_offset.set(cursor.saturating_add(r.start));
-                    self.cursor_position_byte_offset.set(cursor.saturating_add(r.end));
+                    self.unchecked_anchor_position_byte_offset.set(cursor.saturating_add(r.start));
+                    self.unchecked_cursor_position_byte_offset.set(cursor.saturating_add(r.end));
                     if event.text.is_empty() {
                         self.delete_selection(
                             window_adapter,
@@ -889,7 +920,8 @@ impl Item for TextInput {
                 }
                 self.insert(&event.text, window_adapter, self_rc);
                 if let Some(cursor) = event.cursor_position {
-                    self.anchor_position_byte_offset.set(event.anchor_position.unwrap_or(cursor));
+                    self.unchecked_anchor_position_byte_offset
+                        .set(event.anchor_position.unwrap_or(cursor));
                     self.set_cursor_position(
                         cursor,
                         true,
@@ -927,9 +959,7 @@ impl Item for TextInput {
                 self.has_focus.set(false);
                 self.hide_cursor();
                 if matches!(event, FocusEvent::FocusOut) {
-                    self.as_ref()
-                        .anchor_position_byte_offset
-                        .set(self.as_ref().cursor_position_byte_offset());
+                    self.clear_selection(window_adapter, self_rc);
                 }
                 WindowInner::from_pub(window_adapter.window()).set_text_input_focused(false);
                 if !self.read_only() {
@@ -1307,7 +1337,7 @@ impl TextInput {
         match anchor_mode {
             AnchorMode::KeepAnchor => {}
             AnchorMode::MoveAnchor => {
-                self.as_ref().anchor_position_byte_offset.set(new_cursor_pos as i32);
+                self.as_ref().unchecked_anchor_position_byte_offset.set(new_cursor_pos as i32);
             }
         }
         self.set_cursor_position(
@@ -1333,7 +1363,7 @@ impl TextInput {
         window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &ItemRc,
     ) {
-        self.cursor_position_byte_offset.set(new_position);
+        self.unchecked_cursor_position_byte_offset.set(new_position);
         if new_position >= 0 {
             let pos = self
                 .cursor_rect_for_byte_offset(new_position as usize, window_adapter, self_rc)
@@ -1405,7 +1435,7 @@ impl TextInput {
 
         let text = [text.split_at(anchor).0, text.split_at(cursor).1].concat();
         self.text.set(text.into());
-        self.anchor_position_byte_offset.set(anchor as i32);
+        self.unchecked_anchor_position_byte_offset.set(anchor as i32);
 
         self.add_undo_item(UndoItem {
             pos: anchor,
@@ -1425,16 +1455,16 @@ impl TextInput {
             );
             Self::FIELD_OFFSETS.edited.apply_pin(self).call(&());
         } else {
-            self.cursor_position_byte_offset.set(anchor as i32);
+            self.unchecked_cursor_position_byte_offset.set(anchor as i32);
         }
     }
 
     pub fn anchor_position(self: Pin<&Self>, text: &str) -> usize {
-        safe_byte_offset(self.anchor_position_byte_offset(), text)
+        safe_byte_offset(self.unchecked_anchor_position_byte_offset(), text)
     }
 
     pub fn cursor_position(self: Pin<&Self>, text: &str) -> usize {
-        safe_byte_offset(self.cursor_position_byte_offset(), text)
+        safe_byte_offset(self.unchecked_cursor_position_byte_offset(), text)
     }
 
     fn ime_properties(
@@ -1527,7 +1557,7 @@ impl TextInput {
 
         let cursor_pos = cursor_pos + text_to_insert.len();
         self.text.set(text.into());
-        self.anchor_position_byte_offset.set(cursor_pos as i32);
+        self.unchecked_anchor_position_byte_offset.set(cursor_pos as i32);
         self.set_cursor_position(
             cursor_pos as i32,
             true,
@@ -1554,7 +1584,7 @@ impl TextInput {
         let safe_start = safe_byte_offset(start, &text);
         let safe_end = safe_byte_offset(end, &text);
 
-        self.as_ref().anchor_position_byte_offset.set(safe_start as i32);
+        self.as_ref().unchecked_anchor_position_byte_offset.set(safe_start as i32);
         self.set_cursor_position(
             safe_end as i32,
             true,
@@ -1582,7 +1612,9 @@ impl TextInput {
     }
 
     pub fn clear_selection(self: Pin<&Self>, _: &Rc<dyn WindowAdapter>, _: &ItemRc) {
-        self.as_ref().anchor_position_byte_offset.set(self.as_ref().cursor_position_byte_offset());
+        self.as_ref()
+            .unchecked_anchor_position_byte_offset
+            .set(self.as_ref().unchecked_cursor_position_byte_offset());
     }
 
     pub fn select_word(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>, self_rc: &ItemRc) {
@@ -1594,7 +1626,7 @@ impl TextInput {
         } else {
             (next_word_boundary(&text, anchor), prev_word_boundary(&text, cursor))
         };
-        self.as_ref().anchor_position_byte_offset.set(new_a as i32);
+        self.as_ref().unchecked_anchor_position_byte_offset.set(new_a as i32);
         self.set_cursor_position(
             new_c as i32,
             true,
@@ -1617,7 +1649,7 @@ impl TextInput {
         } else {
             (next_paragraph_boundary(&text, anchor), prev_paragraph_boundary(&text, cursor))
         };
-        self.as_ref().anchor_position_byte_offset.set(new_a as i32);
+        self.as_ref().unchecked_anchor_position_byte_offset.set(new_a as i32);
         self.set_cursor_position(
             new_c as i32,
             true,
@@ -1838,7 +1870,7 @@ impl TextInput {
                     .concat();
                 self.text.set(text.into());
 
-                self.anchor_position_byte_offset.set(last.anchor as i32);
+                self.unchecked_anchor_position_byte_offset.set(last.anchor as i32);
                 self.set_cursor_position(
                     last.cursor as i32,
                     true,
@@ -1852,7 +1884,7 @@ impl TextInput {
                 text.insert_str(last.pos, &last.text);
                 self.text.set(text.into());
 
-                self.anchor_position_byte_offset.set(last.anchor as i32);
+                self.unchecked_anchor_position_byte_offset.set(last.anchor as i32);
                 self.set_cursor_position(
                     last.cursor as i32,
                     true,
@@ -1881,7 +1913,7 @@ impl TextInput {
                 text.insert_str(last.pos, &last.text);
                 self.text.set(text.into());
 
-                self.anchor_position_byte_offset.set(last.anchor as i32);
+                self.unchecked_anchor_position_byte_offset.set(last.anchor as i32);
                 self.set_cursor_position(
                     last.cursor as i32,
                     true,
@@ -1896,7 +1928,7 @@ impl TextInput {
                     .concat();
                 self.text.set(text.into());
 
-                self.anchor_position_byte_offset.set(last.anchor as i32);
+                self.unchecked_anchor_position_byte_offset.set(last.anchor as i32);
                 self.set_cursor_position(
                     last.cursor as i32,
                     true,

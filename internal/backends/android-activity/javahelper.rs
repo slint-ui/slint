@@ -440,7 +440,7 @@ extern "system" fn Java_SlintAndroidJavaHelper_moveCursorHandle(
                     );
 
                     let cur_pos = if id == 0 {
-                        text_input.anchor_position_byte_offset.set(text_pos as i32);
+                        text_input.unchecked_anchor_position_byte_offset.set(text_pos as i32);
                         text_pos as i32
                     } else {
                         let current_cursor = text_input.as_pin_ref().cursor_position_byte_offset();
@@ -451,7 +451,7 @@ extern "system" fn Java_SlintAndroidJavaHelper_moveCursorHandle(
                             if current_cursor == text_pos as i32 {
                                 return;
                             }
-                            text_input.anchor_position_byte_offset.set(text_pos as i32);
+                            text_input.unchecked_anchor_position_byte_offset.set(text_pos as i32);
                             current_cursor
                         } else {
                             if current_anchor == text_pos as i32 {
