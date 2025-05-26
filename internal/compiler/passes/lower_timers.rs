@@ -61,9 +61,9 @@ fn lower_timer(
     let removed = parent_element_borrowed.children.remove(index);
     parent_component.optimized_elements.borrow_mut().push(removed);
     drop(parent_element_borrowed);
-    if let Some((p, idx, _)) = &mut *parent_component.child_insertion_point.borrow_mut() {
-        if Rc::ptr_eq(p, parent_element) && *idx > index {
-            *idx -= 1;
+    if let Some(parent_cip) = &mut *parent_component.child_insertion_point.borrow_mut() {
+        if Rc::ptr_eq(&parent_cip.parent, parent_element) && parent_cip.insertion_index > index {
+            parent_cip.insertion_index -= 1;
         }
     }
 

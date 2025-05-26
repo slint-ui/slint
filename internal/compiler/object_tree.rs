@@ -317,7 +317,12 @@ pub struct Timer {
     pub running: NamedReference,
 }
 
-type ChildrenInsertionPoint = (ElementRc, usize, syntax_nodes::ChildrenPlaceholder);
+#[derive(Clone, Debug)]
+pub struct ChildrenInsertionPoint {
+    pub parent: ElementRc,
+    pub insertion_index: usize,
+    pub node: syntax_nodes::ChildrenPlaceholder,
+}
 
 /// Used sub types for a root component
 #[derive(Debug, Default)]
@@ -1517,7 +1522,7 @@ impl Element {
                     diag,
                     tr,
                 );
-                if let Some((_, _, se)) = sub_child_insertion_point {
+                if let Some(ChildrenInsertionPoint { node: se, .. }) = sub_child_insertion_point {
                     diag.push_error(
                         "The @children placeholder cannot appear in a repeated element".into(),
                         &se,
@@ -1534,7 +1539,7 @@ impl Element {
                     diag,
                     tr,
                 );
-                if let Some((_, _, se)) = sub_child_insertion_point {
+                if let Some(ChildrenInsertionPoint { node: se, .. }) = sub_child_insertion_point {
                     diag.push_error(
                         "The @children placeholder cannot appear in a conditional element".into(),
                         &se,
@@ -1560,7 +1565,11 @@ impl Element {
                     &children_placeholder,
                 )
             } else {
-                *component_child_insertion_point = Some((r.clone(), index, children_placeholder));
+                *component_child_insertion_point = Some(ChildrenInsertionPoint {
+                    parent: r.clone(),
+                    insertion_index: index,
+                    node: children_placeholder,
+                });
             }
         }
 

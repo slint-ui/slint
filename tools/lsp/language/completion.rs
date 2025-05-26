@@ -552,7 +552,7 @@ fn resolve_element_scope(
             match element_type {
                 ElementType::Component(component) => {
                     let base_type = match &*component.child_insertion_point.borrow() {
-                        Some(insert_in) => insert_in.0.borrow().base_type.clone(),
+                        Some(insert_in) => insert_in.parent.borrow().base_type.clone(),
                         None => {
                             let base_type = component.root_element.borrow().base_type.clone();
                             if base_type == tr.empty_type() {

@@ -127,34 +127,48 @@ fn inline_element(
     let mut move_children_into_popup = None;
 
     match inlined_component.child_insertion_point.borrow().as_ref() {
-        Some((insertion_element, index, cip_node)) => {
+        Some(inlined_cip) => {
             let children = std::mem::take(&mut elem_mut.children);
             let old_count = children.len();
-            if let Some(insertion_element) = mapping.get(&element_key(insertion_element.clone())) {
+            if let Some(insertion_element) = mapping.get(&element_key(inlined_cip.parent.clone())) {
                 if old_count > 0 {
                     if !Rc::ptr_eq(elem, insertion_element) {
                         debug_assert!(std::rc::Weak::ptr_eq(
                             &insertion_element.borrow().enclosing_component,
                             &elem_mut.enclosing_component,
                         ));
-                        insertion_element.borrow_mut().children.splice(index..index, children);
+                        insertion_element.borrow_mut().children.splice(
+                            inlined_cip.insertion_index..inlined_cip.insertion_index,
+                            children,
+                        );
                     } else {
-                        new_children.splice(index..index, children);
+                        new_children.splice(
+                            inlined_cip.insertion_index..inlined_cip.insertion_index,
+                            children,
+                        );
                     }
                 }
                 let mut cip = root_component.child_insertion_point.borrow_mut();
                 if let Some(cip) = cip.as_mut() {
-                    if Rc::ptr_eq(&cip.0, elem) {
-                        *cip = (insertion_element.clone(), index + cip.1, cip_node.clone());
+                    if Rc::ptr_eq(&cip.parent, elem) {
+                        *cip = ChildrenInsertionPoint {
+                            parent: insertion_element.clone(),
+                            insertion_index: inlined_cip.insertion_index + cip.insertion_index,
+                            node: inlined_cip.node.clone(),
+                        };
                     }
                 } else if Rc::ptr_eq(elem, &root_component.root_element) {
-                    *cip = Some((insertion_element.clone(), *index + old_count, cip_node.clone()));
+                    *cip = Some(ChildrenInsertionPoint {
+                        parent: insertion_element.clone(),
+                        insertion_index: inlined_cip.insertion_index + old_count,
+                        node: inlined_cip.node.clone(),
+                    });
                 };
             } else if old_count > 0 {
                 // @children was into a PopupWindow
                 debug_assert!(inlined_component.popup_windows.borrow().iter().any(|p| Rc::ptr_eq(
                     &p.component,
-                    &insertion_element.borrow().enclosing_component.upgrade().unwrap()
+                    &inlined_cip.parent.borrow().enclosing_component.upgrade().unwrap()
                 )));
                 move_children_into_popup = Some(children);
             };
@@ -192,9 +206,9 @@ fn inline_element(
     let mut moved_into_popup = HashSet::new();
     if let Some(children) = move_children_into_popup {
         let child_insertion_point = inlined_component.child_insertion_point.borrow();
-        let (insertion_element, index, cip_node) = child_insertion_point.as_ref().unwrap();
+        let inlined_cip = child_insertion_point.as_ref().unwrap();
 
-        let insertion_element = mapping.get(&element_key(insertion_element.clone())).unwrap();
+        let insertion_element = mapping.get(&element_key(inlined_cip.parent.clone())).unwrap();
         debug_assert!(!std::rc::Weak::ptr_eq(
             &insertion_element.borrow().enclosing_component,
             &elem_mut.enclosing_component,
@@ -210,14 +224,25 @@ fn inline_element(
                 moved_into_popup.insert(element_key(e.clone()));
             });
         }
-        insertion_element.borrow_mut().children.splice(index..index, children);
+        insertion_element
+            .borrow_mut()
+            .children
+            .splice(inlined_cip.insertion_index..inlined_cip.insertion_index, children);
         let mut cip = root_component.child_insertion_point.borrow_mut();
         if let Some(cip) = cip.as_mut() {
-            if Rc::ptr_eq(&cip.0, elem) {
-                *cip = (insertion_element.clone(), index + cip.1, cip_node.clone());
+            if Rc::ptr_eq(&cip.parent, elem) {
+                *cip = ChildrenInsertionPoint {
+                    parent: insertion_element.clone(),
+                    insertion_index: inlined_cip.insertion_index + cip.insertion_index,
+                    node: inlined_cip.node.clone(),
+                };
             }
         } else {
-            *cip = Some((insertion_element.clone(), *index, cip_node.clone()));
+            *cip = Some(ChildrenInsertionPoint {
+                parent: insertion_element.clone(),
+                insertion_index: inlined_cip.insertion_index,
+                node: inlined_cip.node.clone(),
+            });
         };
     }
 
