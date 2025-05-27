@@ -6,14 +6,20 @@
 
 set -e
 
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    SED_INPLACE="sed -i ''"
+else
+    SED_INPLACE="sed -i"
+fi
+
 if test -f .git/HEAD ; then
-    git grep -I -l -O'sed -i "s/[[:space:]]*$//"' -e '' -- ':!*.patch'
+    git grep -I -l -O"$SED_INPLACE \"s/[[:space:]]*$//\"" -e '' -- ':!*.patch'
 else
     while IFS= read -r -d '' -u 9
     do
         if [[ "$(file -bs --mime-type -- "$REPLY")" = text/* ]]
         then
-            sed -i "s/[[:space:]]*$//" -- "$REPLY"
+            $SED_INPLACE "s/[[:space:]]*$//" -- "$REPLY"
         fi
     done 9< <(fd -0)
 fi
