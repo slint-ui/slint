@@ -180,7 +180,6 @@ fn filter_palettes(
 }
 
 fn is_svg_color(code: slint::SharedString) -> bool {
-    eprintln!("Rust side {code}");
     let code = code.to_string();
     let code = code.strip_prefix("Colors.").unwrap_or(&code);
     i_slint_compiler::lookup::named_colors().contains_key(code)
