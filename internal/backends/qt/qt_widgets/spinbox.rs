@@ -3,7 +3,7 @@
 
 use crate::key_generated;
 use i_slint_core::{
-    input::{FocusEventResult, KeyEventType},
+    input::{FocusEventReason, FocusEventResult, KeyEventType},
     items::TextHorizontalAlignment,
     platform::PointerEventButton,
 };
@@ -232,7 +232,11 @@ impl Item for NativeSpinBox {
 
         if let MouseEvent::Pressed { .. } = event {
             if !self.has_focus() {
-                WindowInner::from_pub(window_adapter.window()).set_focus_item(self_rc, true);
+                WindowInner::from_pub(window_adapter.window()).set_focus_item(
+                    self_rc,
+                    true,
+                    FocusEventReason::Mouse,
+                );
             }
         }
         InputEventResult::EventAccepted
@@ -273,15 +277,14 @@ impl Item for NativeSpinBox {
         _self_rc: &ItemRc,
     ) -> FocusEventResult {
         match event {
-            FocusEvent::FocusIn => {
+            FocusEvent::FocusIn(_) => {
                 if self.enabled() {
                     self.has_focus.set(true);
                 }
             }
-            FocusEvent::FocusOut | FocusEvent::WindowLostFocus => {
+            FocusEvent::FocusOut(_) => {
                 self.has_focus.set(false);
             }
-            FocusEvent::WindowReceivedFocus => self.has_focus.set(true),
         }
         FocusEventResult::FocusAccepted
     }

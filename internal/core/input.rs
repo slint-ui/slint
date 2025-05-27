@@ -455,19 +455,33 @@ pub enum FocusEventResult {
     FocusIgnored,
 }
 
+/// This enum describes the different reasons for a FocusEvent
+#[derive(Debug, Clone, Copy, PartialEq)]
+#[repr(u8)]
+pub enum FocusEventReason {
+    /// The keyboard caused the event (tabbing)
+    Keyboard,
+    /// The mouse caused the event
+    Mouse,
+    /// A popup caused the event
+    Popup,
+    /// A built-in function caused the event (set-focus-item, clear-focus-item)
+    BuiltinFunction,
+    /// AccessKit caused the event
+    AccessKit,
+    /// The window manager changed the active window and caused the event
+    ActiveWindow,
+}
+
 /// This event is sent to a component and items when they receive or loose
 /// the keyboard focus.
 #[derive(Debug, Clone, Copy, PartialEq)]
 #[repr(u8)]
 pub enum FocusEvent {
     /// This event is sent when an item receives the focus.
-    FocusIn,
+    FocusIn(FocusEventReason),
     /// This event is sent when an item looses the focus.
-    FocusOut,
-    /// This event is sent when the window receives the keyboard focus.
-    WindowReceivedFocus,
-    /// This event is sent when the window looses the keyboard focus. (including if this is because of a popup)
-    WindowLostFocus,
+    FocusOut(FocusEventReason),
 }
 
 /// This state is used to count the clicks separated by [`crate::platform::Platform::click_interval`]

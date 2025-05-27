@@ -318,7 +318,7 @@ impl Item for NativeButton {
             Self::FIELD_OFFSETS
                 .has_focus
                 .apply_pin(self)
-                .set(event == &FocusEvent::FocusIn || event == &FocusEvent::WindowReceivedFocus);
+                .set(matches!(event, FocusEvent::FocusIn(_)));
             FocusEventResult::FocusAccepted
         } else {
             FocusEventResult::FocusIgnored

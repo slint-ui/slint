@@ -8,8 +8,8 @@ use super::{
 };
 use crate::api::LogicalPosition;
 use crate::input::{
-    FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, KeyEvent,
-    KeyEventResult, KeyEventType, MouseEvent,
+    FocusEvent, FocusEventReason, FocusEventResult, InputEventFilterResult, InputEventResult,
+    KeyEvent, KeyEventResult, KeyEventType, MouseEvent,
 };
 use crate::item_rendering::CachedRenderingData;
 use crate::layout::{LayoutInfo, Orientation};
@@ -294,7 +294,11 @@ impl Item for FocusScope {
         self_rc: &ItemRc,
     ) -> InputEventResult {
         if self.enabled() && matches!(event, MouseEvent::Pressed { .. }) && !self.has_focus() {
-            WindowInner::from_pub(window_adapter.window()).set_focus_item(self_rc, true);
+            WindowInner::from_pub(window_adapter.window()).set_focus_item(
+                self_rc,
+                true,
+                FocusEventReason::Mouse,
+            );
             InputEventResult::EventAccepted
         } else {
             InputEventResult::EventIgnored
@@ -335,11 +339,11 @@ impl Item for FocusScope {
         }
 
         match event {
-            FocusEvent::FocusIn | FocusEvent::WindowReceivedFocus => {
+            FocusEvent::FocusIn(_) => {
                 self.has_focus.set(true);
                 Self::FIELD_OFFSETS.focus_changed_event.apply_pin(self).call(&());
             }
-            FocusEvent::FocusOut | FocusEvent::WindowLostFocus => {
+            FocusEvent::FocusOut(_) => {
                 self.has_focus.set(false);
                 Self::FIELD_OFFSETS.focus_changed_event.apply_pin(self).call(&());
             }

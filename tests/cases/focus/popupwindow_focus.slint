@@ -66,6 +66,8 @@ export component TestCase inherits Window {
 
 /*
 ```rust
+// some of these tests vary per platform because tabbing for
+// focus on platforms other than macOS causes a select all
 let instance = TestCase::new().unwrap();
 slint_testing::send_keyboard_string_sequence(&instance, "X");
 assert_eq!(instance.get_le1_text(), "X");
@@ -79,39 +81,96 @@ assert_eq!(instance.get_inner_text(), "");
 assert_eq!(instance.get_inner2_text(), "");
 slint_testing::send_keyboard_string_sequence(&instance, "\t\tZ");
 assert_eq!(instance.get_le1_text(), "X");
-assert_eq!(instance.get_le2_text(), "YZ");
+#[cfg(not(target_vendor = "apple"))]
+{
+    assert_eq!(instance.get_le2_text(), "Z");
+}
+#[cfg(target_vendor = "apple")]
+{
+    assert_eq!(instance.get_le2_text(), "YZ");
+}
 assert_eq!(instance.get_inner_text(), "");
 assert_eq!(instance.get_inner2_text(), "");
 slint_testing::send_keyboard_string_sequence(&instance, "\nA");
 assert_eq!(instance.get_le1_text(), "X");
-assert_eq!(instance.get_le2_text(), "YZ");
+#[cfg(not(target_vendor = "apple"))]
+{
+    assert_eq!(instance.get_le2_text(), "Z");
+}
+#[cfg(target_vendor = "apple")]
+{
+    assert_eq!(instance.get_le2_text(), "YZ");
+}
 assert_eq!(instance.get_inner_text(), "A");
 assert_eq!(instance.get_inner2_text(), "");
 slint_testing::send_keyboard_string_sequence(&instance, "\tB");
 assert_eq!(instance.get_le1_text(), "X");
-assert_eq!(instance.get_le2_text(), "YZ");
+#[cfg(not(target_vendor = "apple"))]
+{
+    assert_eq!(instance.get_le2_text(), "Z");
+}
+#[cfg(target_vendor = "apple")]
+{
+    assert_eq!(instance.get_le2_text(), "YZ");
+}
 assert_eq!(instance.get_inner_text(), "A");
 assert_eq!(instance.get_inner2_text(), "B");
 slint_testing::send_keyboard_string_sequence(&instance, "\tC");
 assert_eq!(instance.get_le1_text(), "X");
-assert_eq!(instance.get_le2_text(), "YZ");
-assert_eq!(instance.get_inner_text(), "AC");
+#[cfg(not(target_vendor = "apple"))]
+{
+    assert_eq!(instance.get_le2_text(), "Z");
+    assert_eq!(instance.get_inner_text(), "C");
+}
+#[cfg(target_vendor = "apple")]
+{
+    assert_eq!(instance.get_le2_text(), "YZ");
+    assert_eq!(instance.get_inner_text(), "AC");
+}
 assert_eq!(instance.get_inner2_text(), "B");
 // backwards tab
 slint_testing::send_keyboard_string_sequence(&instance, "\u{0019}D\u{0019}E");
 assert_eq!(instance.get_le1_text(), "X");
-assert_eq!(instance.get_le2_text(), "YZ");
-assert_eq!(instance.get_inner_text(), "ACE");
-assert_eq!(instance.get_inner2_text(), "BD");
+#[cfg(not(target_vendor = "apple"))]
+{
+    assert_eq!(instance.get_le2_text(), "Z");
+    assert_eq!(instance.get_inner_text(), "E");
+    assert_eq!(instance.get_inner2_text(), "D");
+}
+#[cfg(target_vendor = "apple")]
+{
+    assert_eq!(instance.get_le2_text(), "YZ");
+    assert_eq!(instance.get_inner_text(), "ACE");
+    assert_eq!(instance.get_inner2_text(), "BD");
+}
 slint_testing::send_keyboard_string_sequence(&instance, "\nQ");
 assert_eq!(instance.get_le1_text(), "X");
-assert_eq!(instance.get_le2_text(), "YZQ");
-assert_eq!(instance.get_inner_text(), "ACE");
-assert_eq!(instance.get_inner2_text(), "BD");
+#[cfg(not(target_vendor = "apple"))]
+{
+    assert_eq!(instance.get_le2_text(), "ZQ");
+    assert_eq!(instance.get_inner_text(), "E");
+    assert_eq!(instance.get_inner2_text(), "D");
+}
+#[cfg(target_vendor = "apple")]
+{
+    assert_eq!(instance.get_le2_text(), "YZQ");
+    assert_eq!(instance.get_inner_text(), "ACE");
+    assert_eq!(instance.get_inner2_text(), "BD");
+}
 slint_testing::send_keyboard_string_sequence(&instance, "\tR");
-assert_eq!(instance.get_le1_text(), "XR");
-assert_eq!(instance.get_le2_text(), "YZQ");
-assert_eq!(instance.get_inner_text(), "ACE");
-assert_eq!(instance.get_inner2_text(), "BD");
+#[cfg(not(target_vendor = "apple"))]
+{
+    assert_eq!(instance.get_le1_text(), "R");
+    assert_eq!(instance.get_le2_text(), "ZQ");
+    assert_eq!(instance.get_inner_text(), "E");
+    assert_eq!(instance.get_inner2_text(), "D");
+}
+#[cfg(target_vendor = "apple")]
+{
+    assert_eq!(instance.get_le1_text(), "XR");
+    assert_eq!(instance.get_le2_text(), "YZQ");
+    assert_eq!(instance.get_inner_text(), "ACE");
+    assert_eq!(instance.get_inner2_text(), "BD");
+}
 ```
 */
