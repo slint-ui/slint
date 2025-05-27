@@ -13,7 +13,7 @@
 # doxygen = "1.13.2" ## This is not available anywhere
 # graphviz = "12.2.1" ## This is not available anywhere
 
-"aqua:sharkdp/fd" = "10.2.0"
+"ubi:sharkdp/fd" = "10.2.0"
 "rust" = { version = "stable", profile = "default" }
 node = "20"
 pnpm = "10.11.0"
