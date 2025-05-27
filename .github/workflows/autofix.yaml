@@ -23,7 +23,7 @@ env:
 
 jobs:
     format_fix:
-        runs-on: macos-15
+        runs-on: ubuntu-24.04
         timeout-minutes: 15
         steps:
             - uses: actions/checkout@v4
@@ -36,7 +36,7 @@ jobs:
               uses: autofix-ci/action@551dded8c6cc8a1054039c8bc0b8b48c51dfc6ef
 
     lint_typecheck:
-        runs-on: macos-15
+        runs-on: ubuntu-24.04
         timeout-minutes: 15
         steps:
             - uses: actions/checkout@v4
