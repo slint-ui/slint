@@ -591,4 +591,22 @@ function double_click(x, y) {
 // assert.equal(instance.touch_double2, 1);
 // assert.equal(instance.touch_double3, 2);
 ```
+
+
+```rust
+// Issue #8552 : "spam" the touch area shouldn't cause overflow
+let instance = TestCase::new().unwrap();
+for _ in 0..600 {
+    slint_testing::send_mouse_click(&instance, 103.0, 103.0);
+    slint_testing::mock_elapsed_time(50);
+}
+
+assert_eq!(instance.get_touch1(), 0);
+assert_eq!(instance.get_touch2(), 600);
+assert_eq!(instance.get_touch3(), 0);
+assert_eq!(instance.get_touch_double1(), 0);
+assert_eq!(instance.get_touch_double2(), 300);
+assert_eq!(instance.get_touch_double3(), 0);
+```
+
 */
