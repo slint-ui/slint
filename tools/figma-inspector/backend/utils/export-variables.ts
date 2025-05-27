@@ -1342,6 +1342,22 @@ export async function exportFigmaVariablesToSeparateFiles(
                 for (const [colName, data] of columns.entries()) {
                     // Check if this specific mode value is a reference
                     if (data.refId) {
+                        const targetInfoForDependency = variablePathsById.get(
+                            data.refId,
+                        );
+                        if (targetInfoForDependency) {
+                            const targetCollectionForDependency =
+                                targetInfoForDependency.collection;
+                            if (
+                                targetCollectionForDependency !== collectionName
+                            ) {
+                                // collectionDependencies was already initialized for all collections,
+                                // so collectionDependencies.get(collectionName) will return a Set.
+                                collectionDependencies
+                                    .get(collectionName)!
+                                    .add(targetCollectionForDependency);
+                            }
+                        }
                         // Prepare arguments for the initial call
                         const currentPathArray = rowName.split("/");
                         const currentIdentifier = `${collectionName}.${currentPathArray.join(".")}`;
