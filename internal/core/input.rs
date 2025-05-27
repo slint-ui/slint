@@ -519,7 +519,7 @@ impl ClickState {
                         && button == self.click_button.get()
                         && (position - self.click_position.get()).square_length() < 100 as _
                     {
-                        self.click_count.set(self.click_count.get() + 1);
+                        self.click_count.set(self.click_count.get().wrapping_add(1));
                         self.click_count_time_stamp.set(Some(instant_now));
                     } else {
                         self.restart(position, button);
