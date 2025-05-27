@@ -2282,7 +2282,7 @@ impl i_slint_core::renderer::RendererSealed for QtWindow {
                 return string.toUtf8().size();
             QTextLine textLine = layout.lineAt(line);
             int cur;
-            if (pos.x() > textLine.naturalTextWidth()) {
+            if (pos.x() >= textLine.naturalTextWidth()) {
                 cur = textLine.textStart() + textLine.textLength();
                 // cur is one past the last character of the line (eg, the \n or space).
                 // Go one back to get back on this line.
