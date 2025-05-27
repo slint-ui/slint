@@ -867,9 +867,12 @@ fn format_children_placeholder(
     writer: &mut impl TokenWriter,
     state: &mut FormatState,
 ) -> Result<(), std::io::Error> {
+    let skip = state.skip_all_whitespace;
     for n in node.children_with_tokens() {
+        state.skip_all_whitespace = true;
         fold(n, writer, state)?;
     }
+    state.skip_all_whitespace = skip;
     state.new_line();
     Ok(())
 }
