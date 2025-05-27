@@ -5,16 +5,9 @@ import { Palette } from "std-widgets.slint";
 import { Api, BrushKind, ColorData, GradientStop, PropertyValue, PropertyValueKind, PreviewData } from "../../api.slint";
 import { NameLabel } from "./basics.slint";
 import { EditorSpaceSettings, EditorSizeSettings, EditorPalette } from "../../components/styling.slint";
-import { WindowManager } from "../../windowglobal.slint";
+import { WindowManager, ColorCodeType, BrushPropertyType, PickerData } from "../../windowglobal.slint";
 import { ColorIndicator, GradientIndicator, FakeShadowText, PickerTextInput } from "brush-helpers.slint";
-import { BrushPropertyType } from "../../windowglobal.slint";
 import { CustomLineEdit } from "./widget-helpers.slint";
-
-enum ColorCodeType {
-    other,
-    svg-color,
-    global
-}
 
 component InlineColor {
     width: 100%;
@@ -287,7 +280,7 @@ export component InlineBrushWidget inherits VerticalLayout {
     in-out property <BrushPropertyType> brush-property-type;
     in property <string> property-container-id;
     in property <PreviewData> preview-data;
-    property <ColorCodeType> color-code-type: get-color-code-type();
+    property <ColorCodeType> color-code-type: PickerData.get-color-code-type(property-value);
 
     private property <color> current-color: Colors.transparent;
 
@@ -337,17 +330,6 @@ export component InlineBrushWidget inherits VerticalLayout {
             // Always use the angle we expect in the preview!
             root.current-brush = Api.create-brush(root.current-brush-kind, root.current-angle, root.current-brush, root.current-gradient-stops);
             root.test-brush-binding(root.current-brush-kind, root.current-angle, root.current-brush, root.current-gradient-stops);
-        }
-    }
-
-    pure function get-color-code-type() -> ColorCodeType {
-        if root.property-value.value-string == "" {
-            return ColorCodeType.other;
-        }
-        if Api.is-svg-color(root.property-value.code) {
-            return ColorCodeType.svg-color;
-        } else {
-            return ColorCodeType.global;
         }
     }
 
@@ -415,5 +397,8 @@ export component InlineBrushWidget inherits VerticalLayout {
         text: root.property-value.code;
         brush-kind <=> root.current-brush-kind;
         brush <=> root.current-brush;
+        clicked => {
+            root.update-floating-editor();
+        }
     }
 }
