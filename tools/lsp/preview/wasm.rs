@@ -129,7 +129,10 @@ impl PreviewConnector {
     pub fn process_lsp_to_preview_message(&self, value: JsValue) -> Result<(), JsValue> {
         let message = serde_wasm_bindgen::from_value(value)
             .map_err(|e| -> JsValue { format!("{e:?}").into() })?;
-        super::lsp_to_preview_message(message);
+        i_slint_core::api::invoke_from_event_loop(move || {
+            lsp_to_preview_message(message);
+        })
+        .map_err(|e| -> JsValue { format!("{e:?}").into() })?;
         Ok(())
     }
 }
@@ -230,6 +233,6 @@ pub fn ask_editor_to_show_document(file: &str, selection: lsp_types::Range, take
     send_message_to_lsp(common::PreviewToLspMessage::ShowDocument { file, selection, take_focus });
 }
 
-pub fn lsp_to_preview_message(message: common::LspToPreviewMessage) {
+fn lsp_to_preview_message(message: common::LspToPreviewMessage) {
     super::lsp_to_preview_message_impl(message);
 }
