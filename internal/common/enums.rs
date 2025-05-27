@@ -131,6 +131,22 @@ macro_rules! for_each_enums {
                 Action,
             }
 
+            /// This enum describes the different reasons for a FocusEvent
+            enum FocusEventReason {
+                /// The keyboard caused the event (tabbing)
+                Keyboard,
+                /// The mouse caused the event
+                Mouse,
+                /// A popup caused the event
+                Popup,
+                /// A built-in function caused the event (set-focus-item, clear-focus-item)
+                BuiltinFunction,
+                /// AccessKit caused the event
+                AccessKit,
+                /// The window manager changed the active window and caused the event
+                ActiveWindow,
+            }
+
             /// The enum reports what happened to the `PointerEventButton` in the event
             enum PointerEventKind {
                 /// The action was cancelled.
