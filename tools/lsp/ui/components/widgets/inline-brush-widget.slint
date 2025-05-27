@@ -10,13 +10,18 @@ import { ColorIndicator, GradientIndicator, FakeShadowText, PickerTextInput } fr
 import { BrushPropertyType } from "../../windowglobal.slint";
 import { CustomLineEdit } from "./widget-helpers.slint";
 
+enum ColorCodeType {
+    other,
+    svg-color,
+    global
+}
+
 component InlineColor {
     width: 100%;
     height: main.height;
 
     in-out property <color> current-color;
     out property <bool> has-focus: main.has-focus || percent.has-focus;
-
 
     callback indicator-clicked();
     callback set-color-binding(text: string);
@@ -228,7 +233,51 @@ component UnsetColor {
             }
         }
     }
+}
 
+component ColorCode {
+    width: 100%;
+    height: main.height;
+
+    in property <ColorCodeType> color-code-type;
+    in property <BrushKind> brush-kind;
+    in property <brush> brush;
+    in property text <=> t.text;
+
+    callback clicked <=> ta.clicked;
+
+    main := CustomLineEdit {
+        x: 0;
+        width: parent.width;
+
+        if root.brush-kind == BrushKind.solid: ColorIndicator {
+            x: (main.height - 15px) / 2;
+            y: (parent.height - self.height) / 2;
+            color: root.brush;
+        }
+        if root.brush-kind != BrushKind.solid: GradientIndicator {
+            x: (main.height - 15px) / 2;
+            y: (parent.height - self.height) / 2;
+            brush: root.brush;
+        }
+
+        ta := TouchArea { }
+
+        Rectangle {
+            x: 16px;
+            width: parent.width - self.x;
+            height: 25px;
+
+            t := Text {
+                x: 10px;
+                width: parent.width - self.x - EditorSizeSettings.standard-margin;
+                overflow: elide;
+                font-family: "Source Code Pro";
+                font-size: 12px;
+                color: EditorPalette.text-color;
+            }
+        }
+    }
 }
 
 export component InlineBrushWidget inherits VerticalLayout {
@@ -238,6 +287,7 @@ export component InlineBrushWidget inherits VerticalLayout {
     in-out property <BrushPropertyType> brush-property-type;
     in property <string> property-container-id;
     in property <PreviewData> preview-data;
+    property <ColorCodeType> color-code-type: get-color-code-type();
 
     private property <color> current-color: Colors.transparent;
 
@@ -262,7 +312,6 @@ export component InlineBrushWidget inherits VerticalLayout {
     private property <BrushKind> current-brush-kind;
     private property <float> current-angle;
     private property <bool> has-focus;
-
 
     padding-left: 16px;
     spacing: EditorSpaceSettings.default-spacing;
@@ -291,6 +340,16 @@ export component InlineBrushWidget inherits VerticalLayout {
         }
     }
 
+    pure function get-color-code-type() -> ColorCodeType {
+        if root.property-value.value-string == "" {
+            return ColorCodeType.other;
+        }
+        if Api.is-svg-color(root.property-value.code) {
+            return ColorCodeType.svg-color;
+        } else {
+            return ColorCodeType.global;
+        }
+    }
 
     init => {
         apply-value();
@@ -314,7 +373,6 @@ export component InlineBrushWidget inherits VerticalLayout {
         }
     }
 
-
     NameLabel {
         property-name: root.property-name;
         property-value: root.property-value;
@@ -328,7 +386,7 @@ export component InlineBrushWidget inherits VerticalLayout {
         }
     }
 
-    if property-value.brush-kind == BrushKind.solid && property-value.code != "": InlineColor {
+    if property-value.brush-kind == BrushKind.solid && property-value.code != "" && root.color-code-type == ColorCodeType.other: InlineColor {
         current-color <=> root.current-color;
 
         changed has-focus => {
@@ -342,14 +400,20 @@ export component InlineBrushWidget inherits VerticalLayout {
         set-color-binding(text) => {
             root.set-color-binding(text);
         }
-     }
+    }
 
-     if (property-value.brush-kind == BrushKind.linear || property-value.brush-kind == BrushKind.radial) && property-value.code != "": InlineGradient {
+    if (property-value.brush-kind == BrushKind.linear || property-value.brush-kind == BrushKind.radial) && property-value.code != "" && root.color-code-type == ColorCodeType.other: InlineGradient {
         current-brush <=> root.current-brush;
         current-brush-kind <=> root.current-brush-kind;
 
         indicator-clicked() => {
             root.update-floating-editor();
         }
-     }
+    }
+
+    if root.color-code-type != ColorCodeType.other: ColorCode {
+        text: root.property-value.code;
+        brush-kind <=> root.current-brush-kind;
+        brush <=> root.current-brush;
+    }
 }

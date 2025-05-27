@@ -552,5 +552,5 @@ export global Api {
     // Palettes:
     pure callback filter-palettes(palettes: [PaletteEntry], pattern: string) -> [PaletteEntry];
     callback add-recent-color(color);
-    callback is-svg-color(code: string) -> bool;
+    pure callback is-svg-color(code: string) -> bool;
 }
