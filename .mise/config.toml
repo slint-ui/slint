@@ -17,7 +17,7 @@
 "rust" = { version = "stable", profile = "default" }
 node = "20"
 pnpm = "10.11.0"
-taplo = "0.9.3"
+taplo = "0.10.0"
 "ubi:rustwasm/wasm-pack" = "0.13.1"
 
 [task_config]
