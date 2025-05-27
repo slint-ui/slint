@@ -12,6 +12,7 @@ mod fmt;
 mod language;
 #[cfg(feature = "preview-engine")]
 mod preview;
+mod standalone;
 pub mod util;
 
 use common::Result;
@@ -89,17 +90,66 @@ pub struct Cli {
 #[derive(Subcommand, Clone)]
 enum Commands {
     /// Format slint files
-    Format(Format),
+    Format(FormatCmd),
+    Open(OpenCmd),
 }
 
 #[derive(Args, Clone)]
-struct Format {
+struct FormatCmd {
     #[arg(name = "path to .slint file(s)", action)]
     paths: Vec<std::path::PathBuf>,
 
     /// modify the file inline instead of printing to stdout
     #[arg(short, long, action)]
     inline: bool,
+}
+
+#[derive(Args, Clone)]
+struct OpenCmd {
+    #[arg(name = "path to .slint file", action)]
+    path: std::path::PathBuf,
+
+    /// The name of the component to view. If unset, the last exported component of the file is used.
+    /// If the component name is not in the .slint file , nothing will be shown
+    #[arg(long, value_name = "component name", action)]
+    component: Option<String>,
+}
+
+impl Cli {
+    fn into_compiler_config(
+        self,
+        send_message_to_preview: impl Fn(common::LspToPreviewMessage) + Clone + 'static,
+    ) -> CompilerConfiguration {
+        CompilerConfiguration {
+            style: Some(if self.style.is_empty() { "native".into() } else { self.style }),
+            include_paths: self.include_paths,
+            library_paths: self
+                .library_paths
+                .iter()
+                .filter_map(|entry| {
+                    entry.split('=').collect_tuple().map(|(k, v)| (k.into(), v.into()))
+                })
+                .collect(),
+            open_import_fallback: Some(Rc::new(move |path| {
+                let send_message_to_preview = send_message_to_preview.clone();
+                Box::pin(async move {
+                    let contents = std::fs::read_to_string(&path);
+                    if let Ok(url) = Url::from_file_path(&path) {
+                        if let Ok(contents) = &contents {
+                            send_message_to_preview(common::LspToPreviewMessage::SetContents {
+                                url: common::VersionedUrl::new(url, None),
+                                contents: contents.clone(),
+                            })
+                        } else {
+                            send_message_to_preview(common::LspToPreviewMessage::ForgetFile { url })
+                        }
+                    }
+                    Some(contents.map(|c| (None, c)))
+                })
+            })),
+            ..Default::default()
+        }
+    }
 }
 
 enum OutgoingRequest {
@@ -228,17 +278,27 @@ impl RequestHandler {
 }
 
 fn main() {
-    let args: Cli = Cli::parse();
+    let mut args: Cli = Cli::parse();
     if !args.backend.is_empty() {
         std::env::set_var("SLINT_BACKEND", &args.backend);
     }
 
-    if let Some(Commands::Format(args)) = args.command {
-        let _ = fmt::tool::run(args.paths, args.inline).map_err(|e| {
-            eprintln!("{e}");
-            std::process::exit(1);
-        });
-        std::process::exit(0);
+    match args.command.take() {
+        Some(Commands::Format(args)) => {
+            let _ = fmt::tool::run(args.paths, args.inline).map_err(|e| {
+                eprintln!("{e}");
+                std::process::exit(1);
+            });
+            std::process::exit(0);
+        }
+        Some(Commands::Open(cmd)) => {
+            let _ = standalone::open(args, cmd.path, cmd.component).map_err(|e| {
+                eprintln!("{e}");
+                std::process::exit(1);
+            });
+            std::process::exit(0);
+        }
+        None => {}
     }
 
     if let Ok(panic_log_file) = std::env::var("SLINT_LSP_PANIC_LOG") {
@@ -341,37 +401,8 @@ fn main_loop(connection: Connection, init_param: InitializeParams, cli_args: Cli
     preview::set_server_notifier(server_notifier.clone());
 
     let server_notifier_ = server_notifier.clone();
-    let compiler_config = CompilerConfiguration {
-        style: Some(if cli_args.style.is_empty() { "native".into() } else { cli_args.style }),
-        include_paths: cli_args.include_paths,
-        library_paths: cli_args
-            .library_paths
-            .iter()
-            .filter_map(|entry| entry.split('=').collect_tuple().map(|(k, v)| (k.into(), v.into())))
-            .collect(),
-        open_import_fallback: Some(Rc::new(move |path| {
-            let server_notifier = server_notifier_.clone();
-            Box::pin(async move {
-                let contents = std::fs::read_to_string(&path);
-                if let Ok(url) = Url::from_file_path(&path) {
-                    if let Ok(contents) = &contents {
-                        server_notifier.send_message_to_preview(
-                            common::LspToPreviewMessage::SetContents {
-                                url: common::VersionedUrl::new(url, None),
-                                contents: contents.clone(),
-                            },
-                        )
-                    } else {
-                        server_notifier.send_message_to_preview(
-                            common::LspToPreviewMessage::ForgetFile { url },
-                        )
-                    }
-                }
-                Some(contents.map(|c| (None, c)))
-            })
-        })),
-        ..Default::default()
-    };
+    let compiler_config =
+        cli_args.into_compiler_config(move |m| server_notifier_.send_message_to_preview(m));
 
     let ctx = Rc::new(Context {
         document_cache: RefCell::new(crate::common::DocumentCache::new(compiler_config)),
