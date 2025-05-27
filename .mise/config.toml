@@ -3,6 +3,9 @@
 
 # cspell:ignore pipx
 
+[settings]
+disable_backends = ["aqua"]
+
 [tools]
 
 ## C++:
