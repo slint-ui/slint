@@ -402,7 +402,7 @@ pub struct ItemTreeDescription<'id> {
     pub(crate) popup_menu_description: PopupMenuDescription,
 
     /// The collection of compiled globals
-    compiled_globals: Option<Rc<CompiledGlobalCollection>>,
+    pub(crate) compiled_globals: Option<Rc<CompiledGlobalCollection>>,
 
     /// The type loader, which will be available only on the top-most `ItemTreeDescription`.
     /// All other `ItemTreeDescription`s have `None` here.
