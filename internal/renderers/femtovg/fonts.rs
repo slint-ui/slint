@@ -640,13 +640,8 @@ pub(crate) fn layout_text_lines(
             layout_line(text_span, line_pos, start, line_metrics);
 
             if let Some(cursor_byte_offset) = cursor_byte_offset {
-                let text_span_range = start..(start + text_span.len());
-
-                if text_span_range.contains(&cursor_byte_offset)
-                    || (cursor_byte_offset == text_span_range.end
-                        && cursor_byte_offset == string.len()
-                        && !string.ends_with('\n'))
-                {
+                let text_span_range = start..=(start + text_span.len());
+                if text_span_range.contains(&cursor_byte_offset) {
                     let cursor_x = PhysicalLength::new(
                         line_metrics
                             .glyphs
