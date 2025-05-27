@@ -1753,6 +1753,26 @@ A := B {
     }
 
     #[test]
+    fn children_indexed() {
+        // Regression test - children was causing additional newlines
+        assert_formatting(
+            r#"
+A := B {
+    C {
+        @children [ 0 ]
+    }
+}"#,
+            r#"
+A := B {
+    C {
+        @children[0]
+    }
+}
+"#,
+        );
+    }
+
+    #[test]
     fn for_in() {
         assert_formatting(
             r#"
