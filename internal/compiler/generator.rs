@@ -25,6 +25,9 @@ pub mod cpp;
 #[cfg(feature = "rust")]
 pub mod rust;
 
+#[cfg(feature = "rust")]
+pub mod rust_interpreted;
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum OutputFormat {
     #[cfg(feature = "cpp")]
@@ -80,7 +83,8 @@ pub fn generate(
         }
         #[cfg(feature = "rust")]
         OutputFormat::Rust => {
-            let output = rust::generate(doc, compiler_config)?;
+            //let output = rust::generate(doc, compiler_config)?;
+            let output = rust_interpreted::generate(doc, compiler_config)?;
             write!(destination, "{output}")?;
         }
         OutputFormat::Interpreter => {
