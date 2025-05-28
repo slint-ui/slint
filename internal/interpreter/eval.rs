@@ -533,7 +533,7 @@ fn call_builtin_function(
                             item_info.item_index(),
                         ),
                         true,
-                        FocusReason::BuiltinFunction,
+                        FocusReason::Programmatic,
                     )
                 });
                 Value::Void
@@ -566,7 +566,7 @@ fn call_builtin_function(
                             item_info.item_index(),
                         ),
                         false,
-                        FocusReason::BuiltinFunction,
+                        FocusReason::Programmatic,
                     )
                 });
                 Value::Void

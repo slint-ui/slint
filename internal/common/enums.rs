@@ -139,8 +139,8 @@ macro_rules! for_each_enums {
                 Clicked,
                 /// A popup caused the event
                 Popup,
-                /// A built-in function caused the event (set-focus-item, clear-focus-item)
-                BuiltinFunction,
+                /// A built-in function invocation caused the event (set-focus-item, clear-focus-item)
+                Programmatic,
                 /// The window manager changed the active window and caused the event
                 ActiveWindow,
             }

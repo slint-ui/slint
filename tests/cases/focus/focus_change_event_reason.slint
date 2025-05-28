@@ -76,12 +76,12 @@ assert_eq!(instance.get_scope_focus_reason(), FocusReason::Popup);
 // lose focus from built-in function
 instance.invoke_focus_fs2();
 assert!(!instance.get_scope_has_focus());
-assert_eq!(instance.get_scope_focus_reason(), FocusReason::BuiltinFunction);
+assert_eq!(instance.get_scope_focus_reason(), FocusReason::Programmatic);
 
 // gain focus from built-in function
 instance.invoke_focus_fs1();
 assert!(instance.get_scope_has_focus());
-assert_eq!(instance.get_scope_focus_reason(), FocusReason::BuiltinFunction);
+assert_eq!(instance.get_scope_focus_reason(), FocusReason::Programmatic);
 
 // lose focus from alt-tabbing
 instance.window().dispatch_event(WindowEvent::WindowActiveChanged(false));
@@ -136,12 +136,12 @@ assert(instance.get_scope_focus_reason() == FocusReason::Popup);
 // lose focus from built-in function
 instance.invoke_focus_fs2();
 assert(!instance.get_scope_has_focus());
-assert(instance.get_scope_focus_reason() == FocusReason::BuiltinFunction);
+assert(instance.get_scope_focus_reason() == FocusReason::Programmatic);
 
 // gain focus from built-in function
 instance.invoke_focus_fs1();
 assert(instance.get_scope_has_focus());
-assert(instance.get_scope_focus_reason() == FocusReason::BuiltinFunction);
+assert(instance.get_scope_focus_reason() == FocusReason::Programmatic);
 
 // lose focus from alt-tabbing
 instance.window().dispatch_window_active_changed_event(false);
