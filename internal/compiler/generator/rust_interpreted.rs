@@ -102,10 +102,11 @@ fn generate_public_component(
             let on_ident = format_ident!("on_{}", prop_ident);
             property_and_callback_accessors.push(quote!(
                 #[allow(dead_code)]
-                pub fn #on_ident(&self, f: impl Fn(#(#callback_args),*) -> #return_type + 'static) {
+                pub fn #on_ident(&self, f: impl FnMut(#(#callback_args),*) -> #return_type + 'static) {
+                    let f = ::core::cell::RefCell::new(f);
                     self.0.set_callback(#prop_name, move |values| {
                         let [#(#args_name,)*] = values else { panic!("invalid number of argument for callback {}::{}", #component_name, #prop_name) };
-                        f(#(#args_name.clone().try_into().unwrap_or_else(|_| panic!("invalid argument for callback {}::{}", #component_name, #prop_name)),)*).into()
+                        (*f.borrow_mut())(#(#args_name.clone().try_into().unwrap_or_else(|_| panic!("invalid argument for callback {}::{}", #component_name, #prop_name)),)*).into()
                     }).unwrap_or_else(|e| panic!("Cannot set callback {}::{}: {e}", #component_name, #prop_name))
                 }
             ));
@@ -126,15 +127,18 @@ fn generate_public_component(
             ));
         } else {
             let rust_property_type = rust_primitive_type(&p.ty).unwrap();
+            let convert_to_value = convert_to_value_fn(&p.ty);
+            let convert_from_value = convert_from_value_fn(&p.ty);
 
             let getter_ident = format_ident!("get_{}", prop_ident);
             property_and_callback_accessors.push(quote!(
                 #[allow(dead_code)]
                 pub fn #getter_ident(&self) -> #rust_property_type {
                     #[allow(unused_imports)]
-                    self.0.get_property(#prop_name)
-                        .unwrap_or_else(|e| panic!("Cannot get property {}::{} - {e}", #component_name, #prop_name))
-                        .try_into().expect("Invalid property type")
+                    #convert_from_value(
+                        self.0.get_property(#prop_name)
+                            .unwrap_or_else(|e| panic!("Cannot get property {}::{} - {e}", #component_name, #prop_name))
+                    ).expect("Invalid property type")
                 }
             ));
 
@@ -143,7 +147,7 @@ fn generate_public_component(
                 property_and_callback_accessors.push(quote!(
                     #[allow(dead_code)]
                     pub fn #setter_ident(&self, value: #rust_property_type) {
-                        self.0.set_property(#prop_name, value.into())
+                        self.0.set_property(#prop_name, #convert_to_value(value))
                             .unwrap_or_else(|e| panic!("Cannot set property {}::{} - {e}", #component_name, #prop_name));
                     }
                 ));
@@ -158,7 +162,7 @@ fn generate_public_component(
     let include_paths = compiler_config.include_paths.iter().map(|p| p.to_string_lossy());
     let library_paths = compiler_config.library_paths.iter().map(|(n, p)| {
         let p = p.to_string_lossy();
-        quote!((#n, #p))
+        quote!((#n.to_string(), #p.into()))
     });
     let style = compiler_config.style.iter();
 
@@ -166,11 +170,11 @@ fn generate_public_component(
         pub struct #public_component_id(slint_interpreter::ComponentInstance);
 
         impl #public_component_id {
-            pub fn new() -> core::result::Result<Self, slint::PlatformError> {
+            pub fn new() -> sp::Result<Self, slint::PlatformError> {
                 let mut compiler = slint_interpreter::Compiler::default();
-                compiler.set_include_paths([#(#include_paths),*].into_iter().collect());
-                compiler.set_library_paths([#(#library_paths),*].into_iter().collect());
-                #(compiler.set_style(#style);)*
+                compiler.set_include_paths([#(#include_paths.into()),*].into_iter().collect());
+                compiler.set_library_paths([#(#library_paths.into()),*].into_iter().collect());
+                #(compiler.set_style(#style.to_string());)*
 
                 let mut future = ::core::pin::pin!(compiler.build_from_path(#main_file));
                 let mut cx = ::std::task::Context::from_waker(::std::task::Waker::noop());
@@ -179,10 +183,16 @@ fn generate_public_component(
                 assert!(!result.has_errors(), "Was not able to compile the file");
                 let definition = result.component(#component_name).expect("Cannot open component");
                 let instance = definition.create()?;
-                Ok(Self(instance))
+                sp::Ok(Self(instance))
             }
 
             #(#property_and_callback_accessors)*
+        }
+
+        impl From<#public_component_id> for sp::VRc<sp::ItemTreeVTable, <slint_interpreter::ComponentInstance as slint::ComponentHandle>::Inner> {
+            fn from(value: #public_component_id) -> Self {
+                value.0.into()
+            }
         }
 
         impl slint::ComponentHandle for #public_component_id {
@@ -250,10 +260,11 @@ fn generate_global(global: &llr::GlobalComponent, root: &llr::CompilationUnit) -
             let on_ident = format_ident!("on_{}", prop_ident);
             property_and_callback_accessors.push(quote!(
                 #[allow(dead_code)]
-                pub fn #on_ident(&self, f: impl Fn(#(#callback_args),*) -> #return_type + 'static) {
+                pub fn #on_ident(&self, f: impl FnMut(#(#callback_args),*) -> #return_type + 'static) {
+                    let f = ::core::cell::RefCell::new(f);
                     self.0.set_global_callback(#global_name, #prop_name, move |values| {
-                        let [#(#args_name,)*] = values else { panic!("invalid number of argument for callback {}::{}", (#global_name, #prop_name)) };
-                        f(#(#args_name.clone().try_into().unwrap_or_else(|_| panic!("invalid argument for callback {}::{}", (#global_name, #prop_name))),)*).into()
+                        let [#(#args_name,)*] = values else { panic!("invalid number of argument for callback {}::{}", #global_name, #prop_name) };
+                        (*f.borrow_mut())(#(#args_name.clone().try_into().unwrap_or_else(|_| panic!("invalid argument for callback {}::{}", #global_name, #prop_name)),)*).into()
                     }).unwrap_or_else(|e| panic!("Cannot set callback {}::{}: {e}", #global_name, #prop_name))
                 }
             ));
@@ -274,15 +285,17 @@ fn generate_global(global: &llr::GlobalComponent, root: &llr::CompilationUnit) -
             ));
         } else {
             let rust_property_type = rust_primitive_type(&p.ty).unwrap();
+            let convert_to_value = convert_to_value_fn(&p.ty);
+            let convert_from_value = convert_from_value_fn(&p.ty);
 
             let getter_ident = format_ident!("get_{}", prop_ident);
             property_and_callback_accessors.push(quote!(
                 #[allow(dead_code)]
                 pub fn #getter_ident(&self) -> #rust_property_type {
-                    #[allow(unused_imports)]
-                    self.0.get_global_property(#global_name, #prop_name)
-                        .unwrap_or_else(|e| panic("Cannot get property {}::{} - {e}", #global_name, #prop_name))
-                        .try_into().expect("Invalid property type")
+                    #convert_from_value(
+                        self.0.get_global_property(#global_name, #prop_name)
+                            .unwrap_or_else(|e| panic!("Cannot get property {}::{} - {e}", #global_name, #prop_name))
+                    ).expect("Invalid property type")
                 }
             ));
 
@@ -291,8 +304,8 @@ fn generate_global(global: &llr::GlobalComponent, root: &llr::CompilationUnit) -
                 property_and_callback_accessors.push(quote!(
                     #[allow(dead_code)]
                     pub fn #setter_ident(&self, value: #rust_property_type) {
-                        self.0.set__global_property(#global_name, #prop_name, value.into())
-                            .unwrap_or_else(|e| panic("Cannot set property {}::{} - {e}", #global_name, #prop_name));
+                        self.0.set_global_property(#global_name, #prop_name, #convert_to_value(value))
+                            .unwrap_or_else(|e| panic!("Cannot set property {}::{} - {e}", #global_name, #prop_name));
                     }
                 ));
             } else {
@@ -328,6 +341,51 @@ fn generate_global(global: &llr::GlobalComponent, root: &llr::CompilationUnit) -
     )
 }
 
+/// returns a function that converts the type to a Value.
+/// Normally, that would simply be `xxx.into()`, but for anonymous struct, we need an explicit conversion
+fn convert_to_value_fn(ty: &Type) -> TokenStream {
+    match ty {
+        Type::Struct(s) if s.name.is_none() => {
+            // anonymous struct is mapped to a tuple
+            let names = s.fields.keys().map(|k| k.as_str()).collect::<Vec<_>>();
+            let fields = names.iter().map(|k| ident(k)).collect::<Vec<_>>();
+            quote!((|(#(#fields,)*)| {
+                slint_interpreter::Value::Struct([#((#names.to_string(), slint_interpreter::Value::from(#fields)),)*].into_iter().collect())
+            }))
+        }
+        Type::Array(a) if matches!(a.as_ref(), Type::Struct(s) if s.name.is_none()) => {
+            let conf_fn = convert_to_value_fn(a.as_ref());
+            quote!((|model: sp::ModelRc<_>| -> slint_interpreter::Value {
+                slint_interpreter::Value::Model(sp::ModelRc::new(model.map(#conf_fn)))
+            }))
+        }
+        _ => quote!(::core::convert::From::from),
+    }
+}
+
+/// Returns a function that converts a Value to the type.
+/// Normally, that would simply be `xxx.try_into()`, but for anonymous struct, we need an explicit conversion
+fn convert_from_value_fn(ty: &Type) -> TokenStream {
+    match ty {
+        Type::Struct(s) if s.name.is_none() => {
+            let names = s.fields.keys().map(|k| k.as_str()).collect::<Vec<_>>();
+            // anonymous struct is mapped to a tuple
+            quote!((|v: slint_interpreter::Value| -> sp::Result<_, ()> {
+                let slint_interpreter::Value::Struct(s) = v else { return sp::Err(()) };
+                sp::Ok((#(s.get_field(#names).ok_or(())?.clone().try_into().map_err(|_|())?,)*))
+            }))
+        }
+        Type::Array(a) if matches!(a.as_ref(), Type::Struct(s) if s.name.is_none()) => {
+            let conf_fn = convert_from_value_fn(a.as_ref());
+            quote!((|v: slint_interpreter::Value| -> sp::Result<_, ()> {
+                let slint_interpreter::Value::Model(model) = v else { return sp::Err(()) };
+                sp::Ok(sp::ModelRc::new(model.map(|x| #conf_fn(x).unwrap_or_default())))
+            }))
+        }
+        _ => quote!(::core::convert::TryFrom::try_from),
+    }
+}
+
 fn generate_value_conversions(used_types: &[Type]) -> TokenStream {
     let r = used_types
         .iter()
@@ -335,26 +393,26 @@ fn generate_value_conversions(used_types: &[Type]) -> TokenStream {
             Type::Struct(s) => match s.as_ref() {
                 Struct { fields, name: Some(name), node: Some(_), .. } => {
                     let ty = ident(name);
+                    let convert_to_value = fields.values().map(convert_to_value_fn);
+                    let convert_from_value = fields.values().map(convert_from_value_fn);
                     let field_names = fields.keys().map(|k| k.as_str()).collect::<Vec<_>>();
                     let fields = field_names.iter().map(|k| ident(k)).collect::<Vec<_>>();
                     Some(quote!{
                         impl From<#ty> for slint_interpreter::Value {
-                            fn from(value: #ty) -> Self {
-                                let mut struct_ = slint_interpreter::Struct::default();
-                                #(struct_.set_field(#field_names.into(), value.#fields.into());)*
-                                slint_interpreter::Value::Struct(struct_)
+                            fn from(_value: #ty) -> Self {
+                                Self::Struct([#((#field_names.to_string(), #convert_to_value(_value.#fields)),)*].into_iter().collect())
                             }
                         }
                         impl TryFrom<slint_interpreter::Value> for #ty {
                             type Error = ();
-                            fn try_from(v: slint_interpreter::Value) -> ::core::result::Result<Self, ()> {
+                            fn try_from(v: slint_interpreter::Value) -> sp::Result<Self, ()> {
                                 match v {
-                                    slint_interpreter::Value::Struct(x) => {
-                                        ::core::result::Result::Ok(Self {
-                                            #(#fields: x.get_field(#field_names).ok_or(())?.clone().try_into().map_err(|_|())?,)*
+                                    slint_interpreter::Value::Struct(_x) => {
+                                        sp::Ok(Self {
+                                            #(#fields: #convert_from_value(_x.get_field(#field_names).ok_or(())?.clone()).map_err(|_|())?,)*
                                         })
                                     }
-                                    _ => Err(()),
+                                    _ => sp::Err(()),
                                 }
                             }
                         }
@@ -365,24 +423,37 @@ fn generate_value_conversions(used_types: &[Type]) -> TokenStream {
             Type::Enumeration(en) => {
                 let name = en.name.as_str();
                 let ty = ident(&en.name);
+                let vals = en.values.iter().map(|v| ident(&crate::generator::to_pascal_case(v))).collect::<Vec<_>>();
+                let val_names = en.values.iter().map(|v| v.as_str()).collect::<Vec<_>>();
+
                 Some(quote!{
                     impl From<#ty> for slint_interpreter::Value {
                         fn from(v: #ty) -> Self {
-                            Self::EnumerationValue(#name.to_owned(), v.to_string())
+                            fn to_string(v: #ty) -> String {
+                                match v {
+                                    #(#ty::#vals => #val_names.to_string(),)*
+                                }
+                            }
+                            Self::EnumerationValue(#name.to_owned(), to_string(v))
                         }
                     }
                     impl TryFrom<slint_interpreter::Value> for #ty {
                         type Error = ();
-                        fn try_from(v: slint_interpreter::Value) -> Result<Self, ()> {
-                            use ::std::str::FromStr;
+                        fn try_from(v: slint_interpreter::Value) -> sp::Result<Self, ()> {
                             match v {
                                 slint_interpreter::Value::EnumerationValue(enumeration, value) => {
                                     if enumeration != #name {
-                                        return Err(());
+                                        return sp::Err(());
                                     }
-                                    #ty::from_str(value.as_str()).map_err(|_| ())
+                                    fn from_str(value: &str) -> sp::Result<#ty, ()> {
+                                        match value {
+                                            #(#val_names => Ok(#ty::#vals),)*
+                                            _ => sp::Err(()),
+                                        }
+                                    }
+                                    from_str(value.as_str()).map_err(|_| ())
                                 }
-                                _ => Err(()),
+                                _ => sp::Err(()),
                             }
                         }
                     }
@@ -390,5 +461,5 @@ fn generate_value_conversions(used_types: &[Type]) -> TokenStream {
             },
             _ => None,
         });
-        quote!(#(#r)*)
+    quote!(#(#r)*)
 }
