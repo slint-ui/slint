@@ -195,6 +195,43 @@ assert_eq(instance.get_clicked_internal_state(), 2);
 assert_eq(instance.get_clicked_index(), 1);
 ```
 
+```cpp
+// Test a broken model
+// The behavior is not really defined, but at least it shouldn't panic
+
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+using ModelData = std::tuple<slint::SharedString, slint::SharedString, float>;
+struct BrokenModel : slint::Model<ModelData> {
+    std::size_t row_count() const override { return 3; }
+    std::optional<ModelData> row_data(std::size_t row) const override {
+        // The model is "broken" because it doesn't return anything for when row == 1
+        if (row == 0 || row == 2) {
+            return ModelData{"Hello", "World", row + 42.};
+        } else {
+            return std::nullopt;
+        }
+    }
+};
+
+slint_testing::send_mouse_click(&instance, 15., 5.);
+assert_eq(instance.get_clicked_score(), 789000);
+assert_eq(instance.get_clicked_internal_state(), 1);
+
+auto model = std::make_shared<BrokenModel>();
+instance.set_model(model);
+
+slint_testing::send_mouse_click(&instance, 25., 5.);
+assert_eq(instance.get_clicked_index(), 2);
+assert_eq(instance.get_clicked_score(), 44000);
+
+// At position 0 there is the invalid item
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert_eq(instance.get_clicked_score(), 0);
+assert_eq(instance.get_clicked_index(), 0);
+```
+
 ```js
 var instance = new slint.TestCase({});
 
