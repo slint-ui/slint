@@ -282,6 +282,9 @@ pub fn duration_until_next_timer_update() -> Option<core::time::Duration> {
 pub use crate::input::key_codes::Key;
 pub use crate::input::PointerEventButton;
 
+// reexport focus reason enum to the public api
+pub use crate::input::FocusEventReason;
+
 /// A event that describes user input or windowing system events.
 ///
 /// Slint backends typically receive events from the windowing system, translate them to this

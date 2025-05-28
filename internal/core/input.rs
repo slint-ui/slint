@@ -8,8 +8,8 @@
 use crate::item_tree::ItemTreeRc;
 use crate::item_tree::{ItemRc, ItemWeak, VisitChildrenResult};
 pub use crate::items::PointerEventButton;
-use crate::items::{ItemRef, TextCursorDirection};
 pub use crate::items::{FocusEventReason, KeyEvent, KeyboardModifiers};
+use crate::items::{ItemRef, TextCursorDirection};
 use crate::lengths::{LogicalPoint, LogicalVector};
 use crate::timers::Timer;
 use crate::window::{WindowAdapter, WindowInner};
