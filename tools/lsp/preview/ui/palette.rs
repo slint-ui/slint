@@ -83,30 +83,30 @@ fn handle_type_impl(
     ty: &langtype::Type,
     values: &mut Vec<ui::PaletteEntry>,
 ) {
+    use langtype::Type;
+
     match ty {
-        langtype::Type::Float32
-        | langtype::Type::Int32
-        | langtype::Type::String
-        | langtype::Type::Color
-        | langtype::Type::Duration
-        | langtype::Type::PhysicalLength
-        | langtype::Type::LogicalLength
-        | langtype::Type::Rem
-        | langtype::Type::Angle
-        | langtype::Type::Percent
-        | langtype::Type::Bool
-        | langtype::Type::Brush => {
-            if let Some(mut value) =
-                ui::map_value_and_type_to_property_value(ty, &value, full_accessor)
-            {
-                if !full_accessor.is_empty() {
-                    value.display_string = SharedString::from(full_accessor);
-                    value.code = SharedString::from(full_accessor);
-                }
-                values.push(ui::PaletteEntry { name: SharedString::from(full_accessor), value });
+        Type::Float32
+        | Type::Int32
+        | Type::String
+        | Type::Color
+        | Type::Duration
+        | Type::PhysicalLength
+        | Type::LogicalLength
+        | Type::Rem
+        | Type::Angle
+        | Type::Percent
+        | Type::Bool
+        | Type::Enumeration(_)
+        | Type::Brush => {
+            let mut value = ui::map_value_and_type_to_property_value(ty, &value, full_accessor);
+            if !full_accessor.is_empty() {
+                value.display_string = SharedString::from(full_accessor);
+                value.code = SharedString::from(full_accessor);
             }
+            values.push(ui::PaletteEntry { name: SharedString::from(full_accessor), value });
         }
-        langtype::Type::Struct(st) => {
+        Type::Struct(st) => {
             for (name, ty) in st.fields.iter() {
                 let sub_value = match &value {
                     Some(slint_interpreter::Value::Struct(s)) => s.get_field(name).cloned(),
@@ -118,6 +118,21 @@ fn handle_type_impl(
         }
         _ => {}
     }
+}
+
+pub fn evaluate_property(
+    element: &object_tree::ElementRc,
+    property_name: &str,
+    default_value: &Option<expression_tree::Expression>,
+    ty: &langtype::Type,
+) -> ui::PropertyValue {
+    let value = find_binding_expression(element, property_name)
+        .map(|be| be.expression)
+        .or(default_value.clone())
+        .as_ref()
+        .and_then(crate::preview::eval::fully_eval_expression_tree_expression);
+
+    ui::map_value_and_type_to_property_value(ty, &value, "")
 }
 
 fn handle_type(
@@ -282,10 +297,9 @@ mod tests {
     fn compare(entry: &PaletteEntry, name: &str, r: u8, g: u8, b: u8) {
         let color = i_slint_core::Color::from_rgb_u8(r, g, b);
         assert_eq!(entry.name, name);
-        assert_eq!(entry.value.value_string, crate::preview::ui::brushes::color_to_string(color));
+        assert!(entry.value.value_string.is_empty());
         assert_eq!(entry.value.display_string, name);
         assert_eq!(entry.value.gradient_stops.row_count(), 1);
-        assert_eq!(entry.value.value_string, crate::preview::ui::brushes::color_to_string(color));
         assert_eq!(entry.value.value_float, 0.0);
         assert_eq!(entry.value.kind, super::ui::PropertyValueKind::Color);
         assert_eq!(entry.value.value_brush, slint::Brush::SolidColor(color));
@@ -299,10 +313,7 @@ mod tests {
         assert_eq!(entry.value.code, name);
         match &brush {
             slint::Brush::SolidColor(_) => {
-                assert_eq!(
-                    entry.value.value_string,
-                    crate::preview::ui::brushes::color_to_string(brush.color())
-                );
+                assert!(entry.value.value_string.is_empty());
                 assert_eq!(entry.value.gradient_stops.row_count(), 1);
             }
             slint::Brush::LinearGradient(lb) => {
