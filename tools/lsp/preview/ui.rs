@@ -440,10 +440,11 @@ fn map_value_and_type(
         mapping.current_values.push(PropertyValue {
             kind,
             display_string: if kind == PropertyValueKind::Color {
-                color_string
+                color_string.clone()
             } else {
                 SharedString::from("Solid Color")
             },
+            value_string: color_string,
             brush_kind: BrushKind::Solid,
             value_brush: slint::Brush::SolidColor(color),
             gradient_stops: Rc::new(VecModel::from(vec![GradientStop { color, position: 0.5 }]))
@@ -1618,6 +1619,7 @@ export component Tester {{
             },
             super::PropertyValue {
                 display_string: "#aabbccff".into(),
+                value_string: "#aabbccff".into(),
                 code: "\"#aabbccff\"".into(),
                 kind: super::PropertyValueKind::Color,
                 value_brush: slint::Brush::SolidColor(slint::Color::from_argb_u8(
