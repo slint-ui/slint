@@ -5,22 +5,9 @@ use std::collections::HashMap;
 
 use smol_str::SmolStr;
 
-use i_slint_compiler::{expression_tree, langtype, parser::syntax_nodes};
+use i_slint_compiler::{expression_tree, langtype};
 use slint::Model;
 use slint_interpreter::{Value, ValueType};
-
-use crate::{common, util};
-
-/// Turns a `syntax_nodes::BindingExpression` into an `expression_tree::Expression`
-pub fn eval_binding_expression(
-    document_cache: &common::DocumentCache,
-    expression: syntax_nodes::BindingExpression,
-) -> Option<expression_tree::Expression> {
-    let e = expression.clone();
-    util::with_lookup_ctx(document_cache, e.clone().into(), |ctx| {
-        expression_tree::Expression::from_binding_expression_node(e.into(), ctx)
-    })
-}
 
 #[derive(Default)]
 struct EvalLocalContext {
@@ -621,7 +608,7 @@ fn handle_builtin_function(
             impl i_slint_core::translations::FormatArgs for StringModelWrapper {
                 type Output<'a> = slint::SharedString;
                 fn from_index(&self, index: usize) -> Option<slint::SharedString> {
-                    self.0.row_data(index).map(|x| x.try_into().unwrap())
+                    self.0.row_data(index).map(|x| x.try_into().unwrap_or_default())
                 }
             }
             Value::String(i_slint_core::translations::translate(
