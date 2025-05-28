@@ -8,34 +8,12 @@ export component TestCase inherits Rectangle {
 
     VerticalLayout {
         fs1 := FocusScope {
-            Rectangle {
-                height: 100%;
-                width: 100%;
-                background: blue;
-            }
-
             focus-changed-event(reason) => {
                 root.scope-focus-reason = reason;
             }
-
-            focus-gained(reason) => {
-                debug("gained");
-                debug(reason);
-            }
-
-            focus-lost(reason) => {
-                debug("lost");
-                debug(reason);
-            }
         }
 
-        fs2 := FocusScope {
-            Rectangle {
-                height: 100%;
-                width: 100%;
-                background: red;
-            }
-        }
+        fs2 := FocusScope { }
     }
 
     popup := PopupWindow { }
@@ -51,15 +29,6 @@ export component TestCase inherits Rectangle {
     public function focus-fs2() {
         fs2.focus();
     }
-
-    /*
-    Button {
-        text:"button";
-
-        clicked => {
-            popup.show();
-        }
-    }&*/
 
     out property <bool> scope-has-focus: fs1.has-focus;
     out property <FocusEventReason> scope-focus-reason;

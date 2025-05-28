@@ -1,0 +1,89 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase inherits Rectangle {
+    width: 400phx;
+    height: 400phx;
+    forward-focus: focus-scope;
+
+    focus-scope := FocusScope { }
+
+    fs := FocusScope {
+        focus-gained => {
+            root.focus-gained-counter += 1;
+        }
+
+        focus-lost => {
+            root.focus-lost-counter += 1;
+        }
+    }
+
+    public function set-focus() {
+        fs.focus();
+    }
+
+    out property <bool> scope-focused: fs.has-focus;
+    out property <int> focus-gained-counter: 0;
+    out property <int> focus-lost-counter: 0;
+}
+
+/*
+```rust
+use slint::platform::Key;
+
+let instance = TestCase::new().unwrap();
+assert!(!instance.get_scope_focused());
+assert_eq!(instance.get_focus_gained_counter(), 0);
+assert_eq!(instance.get_focus_lost_counter(), 0);
+slint_testing::send_keyboard_string_sequence(&instance, "\t");
+assert!(instance.get_scope_focused());
+assert_eq!(instance.get_focus_gained_counter(), 1);
+assert_eq!(instance.get_focus_lost_counter(), 0);
+slint_testing::send_keyboard_string_sequence(&instance, "\t");
+assert!(!instance.get_scope_focused());
+assert_eq!(instance.get_focus_gained_counter(), 1);
+assert_eq!(instance.get_focus_lost_counter(), 1);
+slint_testing::send_keyboard_string_sequence(&instance, "\t");
+assert!(instance.get_scope_focused());
+assert_eq!(instance.get_focus_gained_counter(), 2);
+assert_eq!(instance.get_focus_lost_counter(), 1);
+
+// alt-tab don't change focus
+slint_testing::send_keyboard_char(&instance, Key::Alt.into(), true);
+slint_testing::send_keyboard_string_sequence(&instance, "\t");
+slint_testing::send_keyboard_char(&instance, Key::Alt.into(), false);
+assert!(instance.get_scope_focused());
+assert_eq!(instance.get_focus_gained_counter(), 2);
+assert_eq!(instance.get_focus_lost_counter(), 1);
+
+// calling `focus()` on focused item doesn't trigger change
+instance.invoke_set_focus();
+assert_eq!(instance.get_focus_gained_counter(), 2);
+assert_eq!(instance.get_focus_lost_counter(), 1);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(!instance.get_scope_focused());
+assert_eq(instance.get_focus_gained_counter(), 0);
+assert_eq(instance.get_focus_lost_counter(), 0);
+slint_testing::send_keyboard_string_sequence(&instance, "\t");
+assert(instance.get_scope_focused());
+assert_eq(instance.get_focus_gained_counter(), 1);
+assert_eq(instance.get_focus_lost_counter(), 0);
+slint_testing::send_keyboard_string_sequence(&instance, "\t");
+assert(!instance.get_scope_focused());
+assert_eq(instance.get_focus_gained_counter(), 1);
+assert_eq(instance.get_focus_lost_counter(), 1);
+slint_testing::send_keyboard_string_sequence(&instance, "\t");
+assert(instance.get_scope_focused());
+assert_eq(instance.get_focus_gained_counter(), 2);
+assert_eq(instance.get_focus_lost_counter(), 1);
+
+// calling `focus()` on focused item doesn't trigger change
+instance.invoke_set_focus();
+assert_eq(instance.get_focus_gained_counter(), 2);
+assert_eq(instance.get_focus_lost_counter(), 1);
+```
+*/
