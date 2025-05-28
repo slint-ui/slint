@@ -39,7 +39,7 @@ struct RustGeneratorContext {
 type EvaluationContext<'a> = llr_EvaluationContext<'a, RustGeneratorContext>;
 type ParentCtx<'a> = llr_ParentCtx<'a, RustGeneratorContext>;
 
-fn ident(ident: &str) -> proc_macro2::Ident {
+pub fn ident(ident: &str) -> proc_macro2::Ident {
     if ident.contains('-') {
         format_ident!("r#{}", ident.replace('-', "_"))
     } else {
@@ -76,7 +76,7 @@ impl quote::ToTokens for crate::embedded_resources::PixelFormat {
     }
 }
 
-fn rust_primitive_type(ty: &Type) -> Option<proc_macro2::TokenStream> {
+pub fn rust_primitive_type(ty: &Type) -> Option<proc_macro2::TokenStream> {
     match ty {
         Type::Void => Some(quote!(())),
         Type::Int32 => Some(quote!(i32)),
@@ -155,22 +155,12 @@ pub fn generate(
     doc: &Document,
     compiler_config: &CompilerConfiguration,
 ) -> std::io::Result<TokenStream> {
-    let (structs_and_enums_ids, structs_and_enum_def): (Vec<_>, Vec<_>) = doc
-        .used_types
-        .borrow()
-        .structs_and_enums
-        .iter()
-        .filter_map(|ty| match ty {
-            Type::Struct(s) => match s.as_ref() {
-                Struct { fields, name: Some(name), node: Some(_), rust_attributes } => {
-                    Some((ident(name), generate_struct(name, fields, rust_attributes)))
-                }
-                _ => None,
-            },
-            Type::Enumeration(en) => Some((ident(&en.name), generate_enum(en))),
-            _ => None,
-        })
-        .unzip();
+    if std::env::var("SLINT_LIVE_RELOAD").is_ok() {
+        return super::rust_live_reload::generate(doc, compiler_config);
+    }
+
+    let (structs_and_enums_ids, inner_module) =
+        generate_types(&doc.used_types.borrow().structs_and_enums);
 
     let llr = crate::llr::lower_to_item_tree::lower_to_item_tree(doc, compiler_config)?;
 
@@ -189,13 +179,6 @@ pub fn generate(
     let popup_menu =
         llr.popup_menu.as_ref().map(|p| generate_item_tree(&p.item_tree, &llr, None, None, true));
 
-    let version_check = format_ident!(
-        "VersionCheck_{}_{}_{}",
-        env!("CARGO_PKG_VERSION_MAJOR"),
-        env!("CARGO_PKG_VERSION_MINOR"),
-        env!("CARGO_PKG_VERSION_PATCH"),
-    );
-
     let globals = llr
         .globals
         .iter_enumerated()
@@ -208,7 +191,7 @@ pub fn generate(
     let compo_ids = llr.public_components.iter().map(|c| ident(&c.name));
 
     let resource_symbols = generate_resources(doc);
-    let named_exports = generate_named_exports(doc);
+    let named_exports = generate_named_exports(&doc.exports);
     // The inner module was meant to be internal private, but projects have been reaching into it
     // so we can't change the name of this module
     let generated_mod = doc
@@ -222,15 +205,8 @@ pub fn generate(
     let translations = llr.translations.as_ref().map(|t| (generate_translations(t, &llr)));
 
     Ok(quote! {
-        #[allow(non_snake_case, non_camel_case_types)]
-        #[allow(unused_braces, unused_parens)]
-        #[allow(clippy::all, clippy::pedantic, clippy::nursery)]
-        #[allow(unknown_lints, if_let_rescope, tail_expr_drop_order)] // We don't have fancy Drop
         mod #generated_mod {
-            use slint::private_unstable_api::re_exports as sp;
-            #[allow(unused_imports)]
-            use sp::{RepeatedItemTree as _, ModelExt as _, Model as _, Float as _};
-            #(#structs_and_enum_def)*
+            #inner_module
             #(#globals)*
             #(#sub_compos)*
             #popup_menu
@@ -238,13 +214,51 @@ pub fn generate(
             #shared_globals
             #(#resource_symbols)*
             #translations
-            const _THE_SAME_VERSION_MUST_BE_USED_FOR_THE_COMPILER_AND_THE_RUNTIME : slint::#version_check = slint::#version_check;
         }
         #[allow(unused_imports)]
         pub use #generated_mod::{#(#compo_ids,)* #(#structs_and_enums_ids,)* #(#globals_ids,)* #(#named_exports,)*};
         #[allow(unused_imports)]
         pub use slint::{ComponentHandle as _, Global as _, ModelExt as _};
     })
+}
+
+/// Generate the struct and enums. Return a vector of names to import and a token stream with the inner module
+pub fn generate_types(used_types: &[Type]) -> (Vec<Ident>, TokenStream) {
+    let (structs_and_enums_ids, structs_and_enum_def): (Vec<_>, Vec<_>) = used_types
+        .iter()
+        .filter_map(|ty| match ty {
+            Type::Struct(s) => match s.as_ref() {
+                Struct { fields, name: Some(name), node: Some(_), rust_attributes } => {
+                    Some((ident(name), generate_struct(name, fields, rust_attributes)))
+                }
+                _ => None,
+            },
+            Type::Enumeration(en) => Some((ident(&en.name), generate_enum(en))),
+            _ => None,
+        })
+        .unzip();
+
+    let version_check = format_ident!(
+        "VersionCheck_{}_{}_{}",
+        env!("CARGO_PKG_VERSION_MAJOR"),
+        env!("CARGO_PKG_VERSION_MINOR"),
+        env!("CARGO_PKG_VERSION_PATCH"),
+    );
+
+    let inner_module = quote! {
+        #![allow(non_snake_case, non_camel_case_types)]
+        #![allow(unused_braces, unused_parens)]
+        #![allow(clippy::all, clippy::pedantic, clippy::nursery)]
+        #![allow(unknown_lints, if_let_rescope, tail_expr_drop_order)] // We don't have fancy Drop
+
+        use slint::private_unstable_api::re_exports as sp;
+        #[allow(unused_imports)]
+        use sp::{RepeatedItemTree as _, ModelExt as _, Model as _, Float as _};
+        #(#structs_and_enum_def)*
+        const _THE_SAME_VERSION_MUST_BE_USED_FOR_THE_COMPILER_AND_THE_RUNTIME : slint::#version_check = slint::#version_check;
+    };
+
+    (structs_and_enums_ids, inner_module)
 }
 
 fn generate_public_component(
@@ -3442,8 +3456,8 @@ fn generate_resources(doc: &Document) -> Vec<TokenStream> {
         .collect()
 }
 
-fn generate_named_exports(doc: &Document) -> Vec<TokenStream> {
-    doc.exports
+pub fn generate_named_exports(exports: &crate::object_tree::Exports) -> Vec<TokenStream> {
+    exports
         .iter()
         .filter_map(|export| match &export.1 {
             Either::Left(component) if !component.is_global() => {
