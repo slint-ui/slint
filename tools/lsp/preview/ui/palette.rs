@@ -96,8 +96,13 @@ fn handle_type_impl(
         | langtype::Type::Percent
         | langtype::Type::Bool
         | langtype::Type::Brush => {
-            if let Some(value) = ui::map_value_and_type_to_property_value(ty, &value, full_accessor)
+            if let Some(mut value) =
+                ui::map_value_and_type_to_property_value(ty, &value, full_accessor)
             {
+                if !full_accessor.is_empty() {
+                    value.display_string = SharedString::from(full_accessor);
+                    value.code = SharedString::from(full_accessor);
+                }
                 values.push(ui::PaletteEntry { name: SharedString::from(full_accessor), value });
             }
         }
@@ -275,15 +280,49 @@ mod tests {
 
     #[track_caller]
     fn compare(entry: &PaletteEntry, name: &str, r: u8, g: u8, b: u8) {
+        let color = i_slint_core::Color::from_rgb_u8(r, g, b);
         assert_eq!(entry.name, name);
-        assert_eq!(
-            entry.value.value_brush,
-            slint::Brush::SolidColor(i_slint_core::Color::from_rgb_u8(r, g, b))
-        );
+        assert_eq!(entry.value.value_string, crate::preview::ui::brushes::color_to_string(color));
+        assert_eq!(entry.value.display_string, name);
+        assert_eq!(entry.value.gradient_stops.row_count(), 1);
+        assert_eq!(entry.value.value_string, crate::preview::ui::brushes::color_to_string(color));
+        assert_eq!(entry.value.value_float, 0.0);
+        assert_eq!(entry.value.kind, super::ui::PropertyValueKind::Color);
+        assert_eq!(entry.value.value_brush, slint::Brush::SolidColor(color));
+    }
+
+    #[track_caller]
+    fn compare_brush(entry: &PaletteEntry, name: &str, brush: &slint::Brush) {
+        eprintln!("\n\n\n{name}:\n{entry:#?}");
+        assert_eq!(entry.name, name);
+        assert_eq!(entry.value.display_string, name);
+        assert_eq!(entry.value.code, name);
+        match &brush {
+            slint::Brush::SolidColor(_) => {
+                assert_eq!(
+                    entry.value.value_string,
+                    crate::preview::ui::brushes::color_to_string(brush.color())
+                );
+                assert_eq!(entry.value.gradient_stops.row_count(), 1);
+            }
+            slint::Brush::LinearGradient(lb) => {
+                assert!(entry.value.value_string.is_empty());
+                assert_eq!(entry.value.value_float, lb.angle());
+                assert_eq!(entry.value.gradient_stops.row_count(), 3);
+            }
+            slint::Brush::RadialGradient(_) => {
+                assert!(entry.value.value_string.is_empty());
+                assert_eq!(entry.value.value_float, 0.0);
+                assert_eq!(entry.value.gradient_stops.row_count(), 3);
+            }
+            _ => unreachable!(),
+        }
+        assert_eq!(entry.value.kind, super::ui::PropertyValueKind::Brush);
+        assert_eq!(entry.value.value_brush, brush.clone());
     }
 
     #[test]
-    fn test_globals_palettes() {
+    fn test_globals_color_palettes() {
         let (dc, url) = compile(
             r#"
 global Other {
@@ -315,6 +354,86 @@ export component Main { }
         compare(&result[4], "Test.color2", 0x22, 0xff, 0xff);
         compare(&result[5], "Test.color3", 0x33, 0xff, 0xff);
         compare(&result[6], "Test.color5", 0x11, 0xff, 0xff);
+    }
+
+    #[test]
+    fn test_globals_brush_palettes() {
+        let (dc, url) = compile(
+            r#"
+global Other {
+    out property <brush> brush1: #1ff;
+    out property <brush> brush2: @linear-gradient(90deg, #f00, #0f0, #00f);
+    out property <brush> brush3: @radial-gradient(circle, #0ff, #f0f, #ff0);
+}
+
+global Test {
+    in property <int> index;
+    out property <brush> brush1: #e0e;
+    out property <brush> brush2: Other.brush2;
+    out property <brush> brush3 <=> Other.brush3;
+    in property <brush> brush4;
+    out property <brush> brush5: index == 0 ? Other.brush1 : Other.brush2;
+    out property <brush> brush6: Other.brush1;
+}
+
+export component Main { }
+            "#,
+        );
+        let result = collect_palette_from_globals(&dc, &url, Vec::new());
+        assert_eq!(result.len(), 8);
+
+        let solid_color = slint::Brush::SolidColor(slint::Color::from_rgb_u8(0x11, 0xff, 0xff));
+        let linear_gradient =
+            slint::Brush::LinearGradient(i_slint_core::graphics::LinearGradientBrush::new(
+                90.0,
+                vec![
+                    i_slint_core::graphics::GradientStop {
+                        color: slint::Color::from_rgb_u8(0xff, 0x00, 0x00),
+                        position: 0.0,
+                    },
+                    i_slint_core::graphics::GradientStop {
+                        color: slint::Color::from_rgb_u8(0x00, 0xff, 0x00),
+                        position: 0.5,
+                    },
+                    i_slint_core::graphics::GradientStop {
+                        color: slint::Color::from_rgb_u8(0x00, 0x00, 0xff),
+                        position: 1.0,
+                    },
+                ]
+                .drain(..),
+            ));
+        let radial_gradient =
+            slint::Brush::RadialGradient(i_slint_core::graphics::RadialGradientBrush::new_circle(
+                vec![
+                    i_slint_core::graphics::GradientStop {
+                        color: slint::Color::from_rgb_u8(0x00, 0xff, 0xff),
+                        position: 0.0,
+                    },
+                    i_slint_core::graphics::GradientStop {
+                        color: slint::Color::from_rgb_u8(0xff, 0x00, 0xff),
+                        position: 0.5,
+                    },
+                    i_slint_core::graphics::GradientStop {
+                        color: slint::Color::from_rgb_u8(0xff, 0xff, 0x00),
+                        position: 1.0,
+                    },
+                ]
+                .drain(..),
+            ));
+
+        compare_brush(&result[0], "Other.brush1", &solid_color);
+        compare_brush(&result[1], "Other.brush2", &linear_gradient);
+        compare_brush(&result[2], "Other.brush3", &radial_gradient);
+
+        compare_brush(
+            &result[3],
+            "Test.brush1",
+            &slint::Brush::SolidColor(slint::Color::from_rgb_u8(0xee, 0x00, 0xee)),
+        );
+        compare_brush(&result[4], "Test.brush2", &linear_gradient);
+        compare_brush(&result[5], "Test.brush3", &radial_gradient);
+        compare_brush(&result[6], "Test.brush5", &solid_color);
+        compare_brush(&result[7], "Test.brush6", &solid_color);
     }
 
     #[test]
