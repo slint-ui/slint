@@ -52,12 +52,12 @@ assert!(!instance.get_scope_has_focus());
 // gain focus from clicking
 slint_testing::send_mouse_click(&instance, 5., 5.);
 assert!(instance.get_scope_has_focus());
-assert_eq!(instance.get_scope_focus_reason(), FocusReason::Mouse);
+assert_eq!(instance.get_scope_focus_reason(), FocusReason::Clicked);
 
 // lose focus from clicking
 slint_testing::send_mouse_click(&instance, 5., 300.);
 assert!(!instance.get_scope_has_focus());
-assert_eq!(instance.get_scope_focus_reason(), FocusReason::Mouse);
+assert_eq!(instance.get_scope_focus_reason(), FocusReason::Clicked);
 
 // tab to refocus for further testing
 slint_testing::send_keyboard_string_sequence(&instance, "\t");
@@ -112,12 +112,12 @@ assert(!instance.get_scope_has_focus());
 // gain focus from clicking
 slint_testing::send_mouse_click(&instance, 5., 5.);
 assert(instance.get_scope_has_focus());
-assert(instance.get_scope_focus_reason() == FocusReason::Mouse);
+assert(instance.get_scope_focus_reason() == FocusReason::Clicked);
 
 // lose focus from clicking
 slint_testing::send_mouse_click(&instance, 5., 300.);
 assert(!instance.get_scope_has_focus());
-assert(instance.get_scope_focus_reason() == FocusReason::Mouse);
+assert(instance.get_scope_focus_reason() == FocusReason::Clicked);
 
 // tab to refocus for further testing
 slint_testing::send_keyboard_string_sequence(&instance, "\t");

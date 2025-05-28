@@ -745,7 +745,7 @@ impl DeferredAccessKitAction {
                 WindowInner::from_pub(window).set_focus_item(
                     item,
                     true,
-                    FocusReason::Mouse,
+                    FocusReason::Clicked,
                 );
             }
             DeferredAccessKitAction::InvokeAccessibleAction(item, accessibility_action) => {

@@ -135,8 +135,8 @@ macro_rules! for_each_enums {
             enum FocusReason {
                 /// Keyboard navigation caused the event (tabbing)
                 KeyboardNavigation,
-                /// The mouse caused the event
-                Mouse,
+                /// A mouse click caused the event
+                Clicked,
                 /// A popup caused the event
                 Popup,
                 /// A built-in function caused the event (set-focus-item, clear-focus-item)

@@ -1788,7 +1788,7 @@ impl TextInput {
             WindowInner::from_pub(window_adapter.window()).set_focus_item(
                 self_rc,
                 true,
-                FocusReason::Mouse,
+                FocusReason::Clicked,
             );
         } else if !self.read_only() {
             if let Some(w) = window_adapter.internal(crate::InternalToken) {
