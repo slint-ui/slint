@@ -86,12 +86,12 @@ assert_eq!(instance.get_scope_focus_reason(), FocusReason::Programmatic);
 // lose focus from alt-tabbing
 instance.window().dispatch_event(WindowEvent::WindowActiveChanged(false));
 assert!(!instance.get_scope_has_focus());
-assert_eq!(instance.get_scope_focus_reason(), FocusReason::ActiveWindow);
+assert_eq!(instance.get_scope_focus_reason(), FocusReason::WindowActivation);
 
 // gain focus from alt-tabbing
 instance.window().dispatch_event(WindowEvent::WindowActiveChanged(true));
 assert!(instance.get_scope_has_focus());
-assert_eq!(instance.get_scope_focus_reason(), FocusReason::ActiveWindow);
+assert_eq!(instance.get_scope_focus_reason(), FocusReason::WindowActivation);
 ```
 
 ```cpp
@@ -146,11 +146,11 @@ assert(instance.get_scope_focus_reason() == FocusReason::Programmatic);
 // lose focus from alt-tabbing
 instance.window().dispatch_window_active_changed_event(false);
 assert(!instance.get_scope_has_focus());
-assert(instance.get_scope_focus_reason() == FocusReason::ActiveWindow);
+assert(instance.get_scope_focus_reason() == FocusReason::WindowActivation);
 
 // gain focus from alt-tabbing
 instance.window().dispatch_window_active_changed_event(true);
 assert(instance.get_scope_has_focus());
-assert(instance.get_scope_focus_reason() == FocusReason::ActiveWindow);
+assert(instance.get_scope_focus_reason() == FocusReason::WindowActivation);
 ```
 */

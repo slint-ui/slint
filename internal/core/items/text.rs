@@ -934,7 +934,7 @@ impl Item for TextInput {
             FocusEvent::FocusOut(reason) => {
                 self.has_focus.set(false);
                 self.hide_cursor();
-                if !matches!(reason, FocusReason::ActiveWindow | FocusReason::Popup) {
+                if !matches!(reason, FocusReason::WindowActivation | FocusReason::Popup) {
                     self.as_ref()
                         .anchor_position_byte_offset
                         .set(self.as_ref().cursor_position_byte_offset());

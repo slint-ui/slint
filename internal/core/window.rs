@@ -1002,9 +1002,9 @@ impl WindowInner {
         self.pinned_fields.as_ref().project_ref().active.set(have_focus);
 
         let event = if have_focus {
-            FocusEvent::FocusIn(FocusReason::ActiveWindow)
+            FocusEvent::FocusIn(FocusReason::WindowActivation)
         } else {
-            FocusEvent::FocusOut(FocusReason::ActiveWindow)
+            FocusEvent::FocusOut(FocusReason::WindowActivation)
         };
 
         if let Some(focus_item) = self.focus_item.borrow().upgrade() {

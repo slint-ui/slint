@@ -142,7 +142,7 @@ macro_rules! for_each_enums {
                 /// A built-in function invocation caused the event (set-focus-item, clear-focus-item)
                 Programmatic,
                 /// The window manager changed the active window and caused the event
-                ActiveWindow,
+                WindowActivation,
             }
 
             /// The enum reports what happened to the `PointerEventButton` in the event
