@@ -1234,7 +1234,7 @@ impl WindowInner {
         };
 
         let focus_item = self
-            .take_focus_item(&FocusEvent::FocusOut(FocusReason::Popup))
+            .take_focus_item(&FocusEvent::FocusOut(FocusReason::PopupActivation))
             .map(|item| item.downgrade())
             .unwrap_or_default();
 
@@ -1287,7 +1287,7 @@ impl WindowInner {
             }
         }
         if let Some(focus) = current_popup.focus_item_in_parent.upgrade() {
-            self.set_focus_item(&focus, true, FocusReason::Popup);
+            self.set_focus_item(&focus, true, FocusReason::PopupActivation);
         }
     }
 

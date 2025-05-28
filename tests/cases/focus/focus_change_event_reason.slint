@@ -66,12 +66,12 @@ assert!(instance.get_scope_has_focus());
 // lose focus from popup
 instance.invoke_show_popup();
 assert!(!instance.get_scope_has_focus());
-assert_eq!(instance.get_scope_focus_reason(), FocusReason::Popup);
+assert_eq!(instance.get_scope_focus_reason(), FocusReason::PopupActivation);
 
 // gain focus from closing popup
 slint_testing::send_mouse_click(&instance, 5., 5.);
 assert!(instance.get_scope_has_focus());
-assert_eq!(instance.get_scope_focus_reason(), FocusReason::Popup);
+assert_eq!(instance.get_scope_focus_reason(), FocusReason::PopupActivation);
 
 // lose focus from built-in function
 instance.invoke_focus_fs2();
@@ -126,12 +126,12 @@ assert(instance.get_scope_has_focus());
 // lose focus from popup
 instance.invoke_show_popup();
 assert(!instance.get_scope_has_focus());
-assert(instance.get_scope_focus_reason() == FocusReason::Popup);
+assert(instance.get_scope_focus_reason() == FocusReason::PopupActivation);
 
 // gain focus from closing popup
 slint_testing::send_mouse_click(&instance, 5., 5.);
 assert(instance.get_scope_has_focus());
-assert(instance.get_scope_focus_reason() == FocusReason::Popup);
+assert(instance.get_scope_focus_reason() == FocusReason::PopupActivation);
 
 // lose focus from built-in function
 instance.invoke_focus_fs2();

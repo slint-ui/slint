@@ -138,7 +138,7 @@ macro_rules! for_each_enums {
                 /// A mouse click caused the event
                 Clicked,
                 /// A popup caused the event
-                Popup,
+                PopupActivation,
                 /// A built-in function invocation caused the event (set-focus-item, clear-focus-item)
                 Programmatic,
                 /// The window manager changed the active window and caused the event
