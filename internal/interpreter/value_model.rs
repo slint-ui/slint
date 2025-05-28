@@ -3,7 +3,7 @@
 
 use crate::api::Value;
 use core::cell::Cell;
-use i_slint_core::model::{Model, ModelNotify, ModelTracker};
+use i_slint_core::model::{Model, ModelNotify, ModelRc, ModelTracker};
 
 pub struct ValueModel {
     value: Value,
@@ -112,6 +112,35 @@ impl BoolModel {
         let old = self.value.replace(val);
         if old != val {
             self.notify.reset();
+        }
+    }
+}
+
+// A map model that wraps a Model
+pub struct ValueMapModel<T>(pub ModelRc<T>);
+
+impl<T: TryFrom<Value> + Into<Value> + 'static> Model for ValueMapModel<T> {
+    type Data = Value;
+
+    fn row_count(&self) -> usize {
+        self.0.row_count()
+    }
+
+    fn row_data(&self, row: usize) -> Option<Self::Data> {
+        self.0.row_data(row).map(|x| x.into())
+    }
+
+    fn model_tracker(&self) -> &dyn ModelTracker {
+        self.0.model_tracker()
+    }
+
+    fn as_any(&self) -> &dyn core::any::Any {
+        self
+    }
+
+    fn set_row_data(&self, row: usize, data: Self::Data) {
+        if let Ok(data) = data.try_into() {
+            self.0.set_row_data(row, data)
         }
     }
 }

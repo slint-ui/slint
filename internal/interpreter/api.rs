@@ -434,12 +434,12 @@ impl TryFrom<Value> for i_slint_core::lengths::LogicalLength {
     }
 }
 
-impl<T: Into<Value> + 'static> From<ModelRc<T>> for Value {
+impl<T: Into<Value> + TryFrom<Value> + 'static> From<ModelRc<T>> for Value {
     fn from(m: ModelRc<T>) -> Self {
         if let Some(v) = <dyn core::any::Any>::downcast_ref::<ModelRc<Value>>(&m) {
             Value::Model(v.clone())
         } else {
-            Value::Model(ModelRc::new(m.map(|v| v.into())))
+            Value::Model(ModelRc::new(crate::value_model::ValueMapModel(m)))
         }
     }
 }
@@ -451,6 +451,8 @@ impl<T: TryFrom<Value> + Default + 'static> TryFrom<Value> for ModelRc<T> {
             Value::Model(m) => {
                 if let Some(v) = <dyn core::any::Any>::downcast_ref::<ModelRc<T>>(&m) {
                     Ok(v.clone())
+                } else if let Some(v) = m.as_any().downcast_ref::<crate::value_model::ValueMapModel<T>>() {
+                    Ok(v.0.clone())
                 } else {
                     Ok(ModelRc::new(m.map(|v| T::try_from(v).unwrap_or_default())))
                 }
