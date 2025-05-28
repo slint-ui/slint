@@ -215,6 +215,7 @@ fn default_config() -> cbindgen::Config {
         rename: [
             ("Callback".into(), "private_api::CallbackHelper".into()),
             ("VoidArg".into(), "void".into()),
+            ("FocusEventReasonArg".into(), "FocusEventReason".into()),
             ("KeyEventArg".into(), "KeyEvent".into()),
             ("PointerEventArg".into(), "PointerEvent".into()),
             ("PointerScrollEventArg".into(), "PointerScrollEvent".into()),
@@ -323,6 +324,7 @@ fn gen_corelib(
         "InputType",
         "StandardButtonKind",
         "DialogButtonRole",
+        "FocusEventReason",
         "PointerEventKind",
         "PointerEventButton",
         "PointerEvent",
@@ -375,6 +377,7 @@ fn gen_corelib(
         "CallbackOpaque",
         "WindowAdapterRc",
         "VoidArg",
+        "FocusEventReasonArg",
         "KeyEventArg",
         "PointerEventArg",
         "PointerScrollEventArg",
