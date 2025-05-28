@@ -276,7 +276,7 @@ impl Expression {
         )
     }
 
-    fn from_expression_node(node: syntax_nodes::Expression, ctx: &mut LookupCtx) -> Self {
+    pub fn from_expression_node(node: syntax_nodes::Expression, ctx: &mut LookupCtx) -> Self {
         node.children_with_tokens()
             .find_map(|child| match child {
                 NodeOrToken::Node(node) => match node.kind() {

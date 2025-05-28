@@ -86,6 +86,7 @@ pub struct ElementInformation {
 
 #[derive(Clone, Debug)]
 pub struct QueryPropertyResponse {
+    pub element_rc_node: common::ElementRcNode,
     pub properties: Vec<PropertyInformation>,
     pub element: Option<ElementInformation>,
     pub source_uri: String,
@@ -146,9 +147,16 @@ fn add_element_properties(
             return None;
         }
 
-        let declared_at = value.type_node().as_ref().map(|n| DeclarationInformation {
-            path: n.source_file.path().to_path_buf(),
-            start_position: n.text_range().start(),
+        let declared_at = value.node.as_ref().map(|n| {
+            let decl = syntax_nodes::PropertyDeclaration::new(n.clone());
+
+            let ty_node: SyntaxNode =
+                decl.as_ref().and_then(|d| d.Type()).map(|t| t.into()).unwrap_or(n.clone());
+
+            DeclarationInformation {
+                path: n.source_file.path().to_path_buf(),
+                start_position: ty_node.text_range().start(),
+            }
         });
         Some(PropertyInformation {
             name: name.clone(),
@@ -583,6 +591,7 @@ pub(crate) fn query_properties(
     in_layout: LayoutKind,
 ) -> Result<QueryPropertyResponse> {
     Ok(QueryPropertyResponse {
+        element_rc_node: element.clone(),
         properties: get_properties(element, in_layout),
         element: Some(get_element_information(element)),
         source_uri: uri.to_string(),
