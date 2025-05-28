@@ -5,6 +5,8 @@ use std::io::{BufWriter, Write};
 use std::path::Path;
 
 fn main() -> std::io::Result<()> {
+    let live_reload = std::env::var("SLINT_LIVE_RELOAD").is_ok();
+
     let mut generated_file = BufWriter::new(std::fs::File::create(
         Path::new(&std::env::var_os("OUT_DIR").unwrap()).join("generated.rs"),
     )?);
@@ -19,8 +21,18 @@ fn main() -> std::io::Result<()> {
         let source = std::fs::read_to_string(&testcase.absolute_path)?;
         let ignored = if testcase.is_ignored("rust") {
             "#[ignore = \"testcase ignored for rust\"]"
-        } else if cfg!(not(feature = "build-time")) && source.contains("//bundle-translations") {
+        } else if (cfg!(not(feature = "build-time")) || live_reload)
+            && source.contains("//bundle-translations")
+        {
             "#[ignore = \"translation bundle not working with the macro\"]"
+        } else if live_reload && source.contains("ComponentContainer") {
+            "#[ignore = \"ComponentContainer doesn't work with the interpreter\"]"
+        } else if live_reload && source.contains("#3464") {
+            "#[ignore = \"issue #3464 not fixed with the interpreter\"]"
+        } else if live_reload && module_name.contains("widgets_menubar") {
+            "#[ignore = \"issue #8454 causes crashes\"]"
+        } else if live_reload && module_name.contains("write_to_model") {
+            "#[ignore = \"Interpreted model don't forward to underlying models for anonymous structs\"]"
         } else {
             ""
         };
@@ -58,7 +70,9 @@ fn main() -> std::io::Result<()> {
 
     // By default resources are embedded. The WASM example builds provide test coverage for that. This switch
     // provides test coverage for the non-embedding case, compiling tests without embedding the images.
-    println!("cargo:rustc-env=SLINT_EMBED_RESOURCES=false");
+    if !live_reload {
+        println!("cargo:rustc-env=SLINT_EMBED_RESOURCES=false");
+    }
 
     //Make sure to use a consistent style
     println!("cargo:rustc-env=SLINT_STYLE=fluent");
