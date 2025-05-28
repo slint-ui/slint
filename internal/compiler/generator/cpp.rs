@@ -2740,6 +2740,7 @@ fn generate_public_api_for_properties(
             let param_types =
                 callback.args.iter().map(|t| t.cpp_type().unwrap()).collect::<Vec<_>>();
             let callback_emitter = vec![
+                "slint::private_api::assert_main_thread();".into(),
                 "[[maybe_unused]] auto self = this;".into(),
                 format!(
                     "return {}.call({});",
@@ -2774,6 +2775,7 @@ fn generate_public_api_for_properties(
                     )),
                     signature: "(Functor && callback_handler) const".into(),
                     statements: Some(vec![
+                        "slint::private_api::assert_main_thread();".into(),
                         "[[maybe_unused]] auto self = this;".into(),
                         format!("{}.set_handler(std::forward<Functor>(callback_handler));", access),
                     ]),
@@ -2811,6 +2813,7 @@ fn generate_public_api_for_properties(
         } else {
             let cpp_property_type = p.ty.cpp_type().expect("Invalid type in public properties");
             let prop_getter: Vec<String> = vec![
+                "slint::private_api::assert_main_thread();".into(),
                 "[[maybe_unused]] auto self = this;".into(),
                 format!("return {}.get();", access),
             ];
@@ -2826,6 +2829,7 @@ fn generate_public_api_for_properties(
 
             if !p.read_only {
                 let prop_setter: Vec<String> = vec![
+                    "slint::private_api::assert_main_thread();".into(),
                     "[[maybe_unused]] auto self = this;".into(),
                     property_set_value_code(&p.prop, "value", ctx) + ";",
                 ];
