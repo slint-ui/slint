@@ -141,8 +141,6 @@ macro_rules! for_each_enums {
                 Popup,
                 /// A built-in function caused the event (set-focus-item, clear-focus-item)
                 BuiltinFunction,
-                /// AccessKit caused the event
-                AccessKit,
                 /// The window manager changed the active window and caused the event
                 ActiveWindow,
             }
