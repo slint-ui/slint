@@ -5,11 +5,6 @@
 
 #include "slint_internal.h"
 
-#ifndef SLINT_FEATURE_FREESTANDING
-#    include <thread>
-#    include <iostream>
-#endif
-
 namespace slint {
 #if !defined(DOXYGEN)
 namespace platform {
@@ -19,29 +14,6 @@ class SoftwareRenderer;
 #endif
 
 namespace private_api {
-/// Internal function that checks that the API that must be called from the main
-/// thread is indeed called from the main thread, or abort the program otherwise
-///
-/// Most API should be called from the main thread. When using thread one must
-/// use slint::invoke_from_event_loop
-inline void assert_main_thread()
-{
-#ifndef SLINT_FEATURE_FREESTANDING
-#    ifndef NDEBUG
-    static auto main_thread_id = std::this_thread::get_id();
-    if (main_thread_id != std::this_thread::get_id()) {
-        std::cerr << "A function that should be only called from the main thread was called from a "
-                     "thread."
-                  << std::endl;
-        std::cerr << "Most API should be called from the main thread. When using thread one must "
-                     "use slint::invoke_from_event_loop."
-                  << std::endl;
-        std::abort();
-    }
-#    endif
-#endif
-}
-
 using ItemTreeRc = vtable::VRc<cbindgen_private::ItemTreeVTable>;
 using slint::LogicalPosition;
 
