@@ -451,7 +451,9 @@ impl<T: TryFrom<Value> + Default + 'static> TryFrom<Value> for ModelRc<T> {
             Value::Model(m) => {
                 if let Some(v) = <dyn core::any::Any>::downcast_ref::<ModelRc<T>>(&m) {
                     Ok(v.clone())
-                } else if let Some(v) = m.as_any().downcast_ref::<crate::value_model::ValueMapModel<T>>() {
+                } else if let Some(v) =
+                    m.as_any().downcast_ref::<crate::value_model::ValueMapModel<T>>()
+                {
                     Ok(v.0.clone())
                 } else {
                     Ok(ModelRc::new(m.map(|v| T::try_from(v).unwrap_or_default())))
