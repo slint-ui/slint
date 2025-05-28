@@ -43,7 +43,7 @@ let instance = TestCase::new().unwrap();
 // gain focus from tabbing
 slint_testing::send_keyboard_string_sequence(&instance, "\t");
 assert!(instance.get_scope_has_focus());
-assert_eq!(instance.get_scope_focus_reason(), FocusReason::Keyboard);
+assert_eq!(instance.get_scope_focus_reason(), FocusReason::KeyboardNavigation);
 
 // lose focus from tabbing
 slint_testing::send_keyboard_string_sequence(&instance, "\t");
@@ -103,7 +103,7 @@ const TestCase &instance = *handle;
 // gain focus from tabbing
 slint_testing::send_keyboard_string_sequence(&instance, "\t");
 assert(instance.get_scope_has_focus());
-assert(instance.get_scope_focus_reason() == FocusReason::Keyboard);
+assert(instance.get_scope_focus_reason() == FocusReason::KeyboardNavigation);
 
 // lose focus from tabbing
 slint_testing::send_keyboard_string_sequence(&instance, "\t");

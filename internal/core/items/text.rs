@@ -925,7 +925,7 @@ impl Item for TextInput {
                     #[cfg(not(target_vendor = "apple"))]
                     {
                         // check self.enabled() to make sure it doesn't select disabled (greyed-out) inputs
-                        if *_reason == FocusReason::Keyboard && self.enabled() {
+                        if *_reason == FocusReason::KeyboardNavigation && self.enabled() {
                             self.select_all(window_adapter, self_rc);
                         }
                     }

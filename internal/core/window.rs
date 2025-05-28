@@ -762,7 +762,7 @@ impl WindowInner {
 
         if item.as_ref().is_some_and(|i| !i.is_visible()) {
             // Reset the focus... not great, but better than keeping it.
-            self.take_focus_item(&FocusEvent::FocusOut(FocusReason::Keyboard));
+            self.take_focus_item(&FocusEvent::FocusOut(FocusReason::KeyboardNavigation));
             item = None;
         }
 
@@ -951,7 +951,7 @@ impl WindowInner {
     /// Move keyboard focus to the next item
     pub fn focus_next_item(&self) {
         let start_item = self
-            .take_focus_item(&FocusEvent::FocusOut(FocusReason::Keyboard))
+            .take_focus_item(&FocusEvent::FocusOut(FocusReason::KeyboardNavigation))
             .map(next_focus_item)
             .unwrap_or_else(|| {
                 ItemRc::new(
@@ -963,7 +963,7 @@ impl WindowInner {
                 )
             });
         let end_item =
-            self.move_focus(start_item.clone(), next_focus_item, FocusReason::Keyboard);
+            self.move_focus(start_item.clone(), next_focus_item, FocusReason::KeyboardNavigation);
         let window_adapter = self.window_adapter();
         if let Some(window_adapter) = window_adapter.internal(crate::InternalToken) {
             window_adapter.handle_focus_change(Some(start_item), end_item);
@@ -973,7 +973,7 @@ impl WindowInner {
     /// Move keyboard focus to the previous item.
     pub fn focus_previous_item(&self) {
         let start_item = previous_focus_item(
-            self.take_focus_item(&FocusEvent::FocusOut(FocusReason::Keyboard)).unwrap_or_else(
+            self.take_focus_item(&FocusEvent::FocusOut(FocusReason::KeyboardNavigation)).unwrap_or_else(
                 || {
                     ItemRc::new(
                         self.active_popups
@@ -986,7 +986,7 @@ impl WindowInner {
             ),
         );
         let end_item =
-            self.move_focus(start_item.clone(), previous_focus_item, FocusReason::Keyboard);
+            self.move_focus(start_item.clone(), previous_focus_item, FocusReason::KeyboardNavigation);
         let window_adapter = self.window_adapter();
         if let Some(window_adapter) = window_adapter.internal(crate::InternalToken) {
             window_adapter.handle_focus_change(Some(start_item), end_item);
