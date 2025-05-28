@@ -13,11 +13,6 @@ import {
 } from "./api.slint";
 import { StatusLineApi } from "components/status-line.slint";
 
-export global WindowGlobal {
-    in-out property <length> window-width;
-    in-out property <length> window-height;
-}
-
 export enum WidgetMode { edit, preview, color-stop }
 
 export enum PickerTab {
@@ -46,6 +41,17 @@ export enum BrushMode {
 export enum GradientType {
     linear,
     radial,
+}
+
+export enum ColorCodeType {
+    other,
+    svg-color,
+    global
+}
+
+export global WindowGlobal {
+    in-out property <length> window-width;
+    in-out property <length> window-height;
 }
 
 export global TableData {
@@ -207,6 +213,14 @@ export global PickerData {
         self.current-brush = Api.create-brush(current-brush-kind, current-angle, current-color, current-gradient-stops);
     }
 
+    function set-svg-or-global-tab(property-value: PropertyValue) {
+        if PickerData.get-color-code-type(property-value) == ColorCodeType.svg-color {
+            set-active-tab(PickerTab.svg-color);
+        } else {
+            set-active-tab(PickerTab.globals);
+        }
+    }
+
     public function init-with-property-value(property-value: PropertyValue) {
         PickerData.current-brush-kind = property-value.brush-kind;
         current-gradient-stops = Api.clone-gradient-stops(property-value.gradient-stops);
@@ -215,15 +229,23 @@ export global PickerData {
 
         if property-value.kind == PropertyValueKind.color {
             picker-mode = BrushPropertyType.color;
-            set-active-tab(PickerTab.color);
+            if PickerData.get-color-code-type(property-value) == ColorCodeType.other {
+                set-active-tab(PickerTab.color);
+            } else {
+                set-svg-or-global-tab(property-value);
+            }
         }
 
         if property-value.kind == PropertyValueKind.brush {
             picker-mode = BrushPropertyType.brush;
-            if property-value.brush-kind == BrushKind.solid {
-                set-active-tab(PickerTab.color);
+            if PickerData.get-color-code-type(property-value) == ColorCodeType.other {
+                if property-value.brush-kind == BrushKind.solid {
+                    set-active-tab(PickerTab.color);
+                } else {
+                    set-active-tab(PickerTab.gradient);
+                }
             } else {
-                set-active-tab(PickerTab.gradient);
+                set-svg-or-global-tab(property-value);
             }
         }
 
@@ -258,6 +280,17 @@ export global PickerData {
             set-color(Api.recent-colors[0]);
         } else {
             set-color(#2479f4);
+        }
+    }
+
+    pure public function get-color-code-type(property-value: PropertyValue) -> ColorCodeType {
+        if property-value.value-string == "" {
+            return ColorCodeType.other;
+        }
+        if Api.is-svg-color(property-value.code) {
+            return ColorCodeType.svg-color;
+        } else {
+            return ColorCodeType.global;
         }
     }
 }

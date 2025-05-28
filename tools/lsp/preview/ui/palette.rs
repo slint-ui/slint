@@ -17,6 +17,7 @@ pub fn setup(ui: &ui::PreviewUi) {
     let api = ui.global::<ui::Api>();
 
     api.on_filter_palettes(filter_palettes);
+    api.on_is_svg_color(is_svg_color);
 }
 
 pub fn collect_palette(
@@ -176,6 +177,12 @@ fn filter_palettes(
     let pattern = pattern.to_string();
     std::rc::Rc::new(slint::VecModel::from(filter_palettes_iter(&mut input.iter(), &pattern)))
         .into()
+}
+
+fn is_svg_color(code: slint::SharedString) -> bool {
+    let code = code.to_string();
+    let code = code.strip_prefix("Colors.").unwrap_or(&code);
+    i_slint_compiler::lookup::named_colors().contains_key(code)
 }
 
 fn filter_palettes_iter(
@@ -478,5 +485,14 @@ export component Main { }
         assert_eq!(reds.get(3).unwrap().name, "Colors.mediumvioletred");
         assert_eq!(reds.get(4).unwrap().name, "Colors.orangered");
         assert_eq!(reds.get(5).unwrap().name, "Colors.palevioletred");
+    }
+
+    #[test]
+    fn test_is_svg_color() {
+        assert!(!super::is_svg_color(slint::SharedString::from("Colors.foobar")));
+        assert!(super::is_svg_color(slint::SharedString::from("Colors.blue")));
+        assert!(super::is_svg_color(slint::SharedString::from("blue")));
+        assert!(!super::is_svg_color(slint::SharedString::from("Styles.foo")));
+        assert!(!super::is_svg_color(slint::SharedString::from("my_var")));
     }
 }
