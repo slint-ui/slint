@@ -15,7 +15,7 @@ use super::{
 };
 use crate::graphics::{Brush, Color, FontRequest};
 use crate::input::{
-    key_codes, FocusEvent, FocusEventReason, FocusEventResult, InputEventFilterResult,
+    key_codes, FocusEvent, FocusReason, FocusEventResult, InputEventFilterResult,
     InputEventResult, KeyEvent, KeyboardModifiers, MouseEvent, StandardShortcut, TextShortcut,
 };
 use crate::item_rendering::{CachedRenderingData, ItemRenderer, RenderText};
@@ -925,7 +925,7 @@ impl Item for TextInput {
                     #[cfg(not(target_vendor = "apple"))]
                     {
                         // check self.enabled() to make sure it doesn't select disabled (greyed-out) inputs
-                        if *_reason == FocusEventReason::Keyboard && self.enabled() {
+                        if *_reason == FocusReason::Keyboard && self.enabled() {
                             self.select_all(window_adapter, self_rc);
                         }
                     }
@@ -934,7 +934,7 @@ impl Item for TextInput {
             FocusEvent::FocusOut(reason) => {
                 self.has_focus.set(false);
                 self.hide_cursor();
-                if !matches!(reason, FocusEventReason::ActiveWindow | FocusEventReason::Popup) {
+                if !matches!(reason, FocusReason::ActiveWindow | FocusReason::Popup) {
                     self.as_ref()
                         .anchor_position_byte_offset
                         .set(self.as_ref().cursor_position_byte_offset());
@@ -1788,7 +1788,7 @@ impl TextInput {
             WindowInner::from_pub(window_adapter.window()).set_focus_item(
                 self_rc,
                 true,
-                FocusEventReason::Mouse,
+                FocusReason::Mouse,
             );
         } else if !self.read_only() {
             if let Some(w) = window_adapter.internal(crate::InternalToken) {

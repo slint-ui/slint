@@ -2672,7 +2672,7 @@ fn compile_builtin_function_call(
                 let window_tokens = access_window_adapter_field(ctx);
                 let focus_item = access_item_rc(pr, ctx);
                 quote!(
-                    sp::WindowInner::from_pub(#window_tokens.window()).set_focus_item(#focus_item, true, sp::FocusEventReason::BuiltinFunction)
+                    sp::WindowInner::from_pub(#window_tokens.window()).set_focus_item(#focus_item, true, sp::FocusReason::BuiltinFunction)
                 )
             } else {
                 panic!("internal error: invalid args to SetFocusItem {arguments:?}")
@@ -2683,7 +2683,7 @@ fn compile_builtin_function_call(
                 let window_tokens = access_window_adapter_field(ctx);
                 let focus_item = access_item_rc(pr, ctx);
                 quote!(
-                    sp::WindowInner::from_pub(#window_tokens.window()).set_focus_item(#focus_item, false, sp::FocusEventReason::BuiltinFunction)
+                    sp::WindowInner::from_pub(#window_tokens.window()).set_focus_item(#focus_item, false, sp::FocusReason::BuiltinFunction)
                 )
             } else {
                 panic!("internal error: invalid args to ClearFocusItem {arguments:?}")

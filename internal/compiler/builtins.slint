@@ -137,9 +137,9 @@ export component FocusScope {
     out property <bool> has-focus;
     callback key_pressed(event: KeyEvent) -> EventResult;
     callback key_released(event: KeyEvent) -> EventResult;
-    callback focus_changed_event(reason: FocusEventReason);
-    callback focus_gained(reason: FocusEventReason);
-    callback focus_lost(reason: FocusEventReason);
+    callback focus_changed_event(reason: FocusReason);
+    callback focus_gained(reason: FocusReason);
+    callback focus_lost(reason: FocusReason);
     //-default_size_binding:expands_to_parent_geometry
     //-accepts_focus
 }

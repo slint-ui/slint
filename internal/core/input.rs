@@ -8,7 +8,7 @@
 use crate::item_tree::ItemTreeRc;
 use crate::item_tree::{ItemRc, ItemWeak, VisitChildrenResult};
 pub use crate::items::PointerEventButton;
-pub use crate::items::{FocusEventReason, KeyEvent, KeyboardModifiers};
+pub use crate::items::{FocusReason, KeyEvent, KeyboardModifiers};
 use crate::items::{ItemRef, TextCursorDirection};
 use crate::lengths::{LogicalPoint, LogicalVector};
 use crate::timers::Timer;
@@ -461,9 +461,9 @@ pub enum FocusEventResult {
 #[repr(u8)]
 pub enum FocusEvent {
     /// This event is sent when an item receives the focus.
-    FocusIn(FocusEventReason),
+    FocusIn(FocusReason),
     /// This event is sent when an item looses the focus.
-    FocusOut(FocusEventReason),
+    FocusOut(FocusReason),
 }
 
 /// This state is used to count the clicks separated by [`crate::platform::Platform::click_interval`]

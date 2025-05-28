@@ -132,7 +132,7 @@ macro_rules! for_each_enums {
             }
 
             /// This enum describes the different reasons for a FocusEvent
-            enum FocusEventReason {
+            enum FocusReason {
                 /// The keyboard caused the event (tabbing)
                 Keyboard,
                 /// The mouse caused the event

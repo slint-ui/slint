@@ -2,11 +2,11 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use super::{
-    EventResult, FocusEventReasonArg, Item, ItemConsts, ItemRc, ItemRendererRef, KeyEventArg, MouseCursor, PointerEvent, PointerEventArg, PointerEventButton, PointerEventKind, PointerScrollEvent, PointerScrollEventArg, RenderingResult, VoidArg
+    EventResult, FocusReasonArg, Item, ItemConsts, ItemRc, ItemRendererRef, KeyEventArg, MouseCursor, PointerEvent, PointerEventArg, PointerEventButton, PointerEventKind, PointerScrollEvent, PointerScrollEventArg, RenderingResult, VoidArg
 };
 use crate::api::LogicalPosition;
 use crate::input::{
-    FocusEvent, FocusEventReason, FocusEventResult, InputEventFilterResult, InputEventResult,
+    FocusEvent, FocusReason, FocusEventResult, InputEventFilterResult, InputEventResult,
     KeyEvent, KeyEventResult, KeyEventType, MouseEvent,
 };
 use crate::item_rendering::CachedRenderingData;
@@ -259,9 +259,9 @@ pub struct FocusScope {
     pub has_focus: Property<bool>,
     pub key_pressed: Callback<KeyEventArg, EventResult>,
     pub key_released: Callback<KeyEventArg, EventResult>,
-    pub focus_changed_event: Callback<FocusEventReasonArg>,
-    pub focus_gained: Callback<FocusEventReasonArg>,
-    pub focus_lost: Callback<FocusEventReasonArg>,
+    pub focus_changed_event: Callback<FocusReasonArg>,
+    pub focus_gained: Callback<FocusReasonArg>,
+    pub focus_lost: Callback<FocusReasonArg>,
     /// FIXME: remove this
     pub cached_rendering_data: CachedRenderingData,
 }
@@ -297,7 +297,7 @@ impl Item for FocusScope {
             WindowInner::from_pub(window_adapter.window()).set_focus_item(
                 self_rc,
                 true,
-                FocusEventReason::Mouse,
+                FocusReason::Mouse,
             );
             InputEventResult::EventAccepted
         } else {
