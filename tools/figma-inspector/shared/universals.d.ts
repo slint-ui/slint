@@ -28,5 +28,4 @@ export interface EventTS {
 
     // Resize-related messages
     resizeWindow: { width: number; height: number };
-    windowResized: { width: number; height: number };
 }

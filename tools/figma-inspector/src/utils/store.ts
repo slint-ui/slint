@@ -15,8 +15,6 @@ interface StoreState {
     useVariables: boolean;
     exportsAreCurrent: boolean;
     exportedFiles: Array<{ name: string; content: string }>;
-    windowWidth: number;
-    windowHeight: number;
     setTitle: (title: string) => void;
     initializeEventListeners: () => void;
     copyToClipboard: () => void;
@@ -28,7 +26,6 @@ interface StoreState {
     exportFiles: (singleOrMultiple: ExportType) => void;
     startVariableCheckInterval: () => void;
     resizeWindow: (width: number, height: number) => void;
-    setWindowDimensions: (width: number, height: number) => void;
 }
 
 export const useInspectorStore = create<StoreState>()((set, get) => ({
@@ -39,8 +36,6 @@ export const useInspectorStore = create<StoreState>()((set, get) => ({
     exportsAreCurrent: false,
     exportedFiles: [],
     exportAsSingleFile: false,
-    windowWidth: 520,
-    windowHeight: 320,
 
     setTitle: (title) => set({ title }),
 
@@ -63,10 +58,6 @@ export const useInspectorStore = create<StoreState>()((set, get) => ({
 
         listenTS("exportedFiles", (res) => {
             get().exportFilesHandler(res.files);
-        });
-
-        listenTS("windowResized", (res) => {
-            set({ windowWidth: res.width, windowHeight: res.height });
         });
 
         // On first run check to see if anything is currently selected and show a snippet.
@@ -126,9 +117,5 @@ export const useInspectorStore = create<StoreState>()((set, get) => ({
 
     resizeWindow: (width: number, height: number) => {
         dispatchTS("resizeWindow", { width, height });
-    },
-
-    setWindowDimensions: (width: number, height: number) => {
-        set({ windowWidth: width, windowHeight: height });
     },
 }));

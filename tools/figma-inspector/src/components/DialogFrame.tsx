@@ -13,6 +13,9 @@ interface DialogSubComponentProps {
     children: ReactNode;
 }
 
+const minHeight = 320;
+const minWidth = 500;
+
 function DialogFrame({ children }: DialogFrameProps) {
     const { resizeWindow } = useInspectorStore();
     const childArray = React.Children.toArray(children);
@@ -31,9 +34,9 @@ function DialogFrame({ children }: DialogFrameProps) {
 
     return (
         <Rnd
-            default={{ x: 0, y: 0, width: 500, height: 320 }}
-            minHeight={320}
-            minWidth={500}
+            default={{ x: 0, y: 0, width: minWidth, height: minHeight }}
+            minWidth={minWidth}
+            minHeight={minHeight}
             style={{ overflow: 'hidden' }}
             disableDragging={true}
             enableResizing={{ top: false, right: true, bottom: true, left: false, topRight: false, bottomRight: true, bottomLeft: false, topLeft: false }}
