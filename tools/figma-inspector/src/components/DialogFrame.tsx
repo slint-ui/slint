@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import React, { type ReactNode } from "react";
+import { Rnd } from "react-rnd";
+import { useInspectorStore } from "../utils/store.js";
 
 interface DialogFrameProps {
     children: ReactNode;
@@ -12,6 +14,7 @@ interface DialogSubComponentProps {
 }
 
 function DialogFrame({ children }: DialogFrameProps) {
+    const { resizeWindow } = useInspectorStore();
     const childArray = React.Children.toArray(children);
     const title = childArray.find(
         (child) =>
@@ -27,13 +30,22 @@ function DialogFrame({ children }: DialogFrameProps) {
     );
 
     return (
-        <div className="dialog-frame">
-            <div className="main-content">
-                {title}
-                {content}
+        <Rnd
+            default={{ x: 0, y: 0, width: 500, height: 320 }}
+            style={{ minWidth: 500, minHeight: 320 }}
+            disableDragging={true}
+            onResize={(_e, _dir, refToElement) => {
+                resizeWindow(parseInt(refToElement.style.width), parseInt(refToElement.style.height));
+            }}
+        >
+            <div className="dialog-frame">
+                <div className="main-content">
+                    {title}
+                    {content}
+                </div>
+                {footer}
             </div>
-            {footer}
-        </div>
+        </Rnd>
     );
 }
 

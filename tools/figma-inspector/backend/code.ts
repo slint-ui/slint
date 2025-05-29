@@ -107,6 +107,14 @@ listenTS("exportToFiles", async (message) => {
     }
 });
 
+  // Resize window handler
+listenTS("resizeWindow", ({ width, height }) => {
+    figma.ui.resize(width, height);
+
+    // Notify UI that resize was completed
+    dispatchTS("windowResized", { width, height });
+});
+
 // Define state variables outside any function (at module level)
 const variableMonitoring: {
     initialized: boolean;
