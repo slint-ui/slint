@@ -32,8 +32,11 @@ function DialogFrame({ children }: DialogFrameProps) {
     return (
         <Rnd
             default={{ x: 0, y: 0, width: 500, height: 320 }}
-            style={{ minWidth: 500, minHeight: 320 }}
+            minHeight={320}
+            minWidth={500}
+            style={{ overflow: 'hidden' }}
             disableDragging={true}
+            enableResizing={{ top: false, right: true, bottom: true, left: false, topRight: false, bottomRight: true, bottomLeft: false, topLeft: false }}
             onResize={(_e, _dir, refToElement) => {
                 resizeWindow(parseInt(refToElement.style.width), parseInt(refToElement.style.height));
             }}
