@@ -742,11 +742,7 @@ impl DeferredAccessKitAction {
         match self {
             DeferredAccessKitAction::SetFocus(item) => {
                 // pretend this event was caused by a mouse for compatability purposes
-                WindowInner::from_pub(window).set_focus_item(
-                    item,
-                    true,
-                    FocusReason::Clicked,
-                );
+                WindowInner::from_pub(window).set_focus_item(item, true, FocusReason::Clicked);
             }
             DeferredAccessKitAction::InvokeAccessibleAction(item, accessibility_action) => {
                 item.accessible_action(accessibility_action);

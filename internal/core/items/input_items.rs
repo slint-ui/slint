@@ -2,12 +2,14 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use super::{
-    EventResult, FocusReasonArg, Item, ItemConsts, ItemRc, ItemRendererRef, KeyEventArg, MouseCursor, PointerEvent, PointerEventArg, PointerEventButton, PointerEventKind, PointerScrollEvent, PointerScrollEventArg, RenderingResult, VoidArg
+    EventResult, FocusReasonArg, Item, ItemConsts, ItemRc, ItemRendererRef, KeyEventArg,
+    MouseCursor, PointerEvent, PointerEventArg, PointerEventButton, PointerEventKind,
+    PointerScrollEvent, PointerScrollEventArg, RenderingResult, VoidArg,
 };
 use crate::api::LogicalPosition;
 use crate::input::{
-    FocusEvent, FocusReason, FocusEventResult, InputEventFilterResult, InputEventResult,
-    KeyEvent, KeyEventResult, KeyEventType, MouseEvent,
+    FocusEvent, FocusEventResult, FocusReason, InputEventFilterResult, InputEventResult, KeyEvent,
+    KeyEventResult, KeyEventType, MouseEvent,
 };
 use crate::item_rendering::CachedRenderingData;
 use crate::layout::{LayoutInfo, Orientation};

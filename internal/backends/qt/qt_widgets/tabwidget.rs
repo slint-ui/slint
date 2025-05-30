@@ -4,7 +4,7 @@
 // cSpell: ignore hframe qreal tabbar vframe
 
 use i_slint_core::{
-    input::{FocusReason, FocusEventResult},
+    input::{FocusEventResult, FocusReason},
     platform::PointerEventButton,
 };
 

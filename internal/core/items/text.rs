@@ -15,8 +15,8 @@ use super::{
 };
 use crate::graphics::{Brush, Color, FontRequest};
 use crate::input::{
-    key_codes, FocusEvent, FocusReason, FocusEventResult, InputEventFilterResult,
-    InputEventResult, KeyEvent, KeyboardModifiers, MouseEvent, StandardShortcut, TextShortcut,
+    key_codes, FocusEvent, FocusEventResult, FocusReason, InputEventFilterResult, InputEventResult,
+    KeyEvent, KeyboardModifiers, MouseEvent, StandardShortcut, TextShortcut,
 };
 use crate::item_rendering::{CachedRenderingData, ItemRenderer, RenderText};
 use crate::layout::{LayoutInfo, Orientation};
