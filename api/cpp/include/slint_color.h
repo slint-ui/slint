@@ -4,9 +4,6 @@
 #pragma once
 
 #include "slint_color_internal.h"
-#include "slint_properties.h"
-
-#include <stdint.h>
 
 namespace slint {
 
@@ -284,18 +281,5 @@ RgbaColor<float> Color::to_argb_float() const
 {
     return RgbaColor<float>(*this);
 }
-
-namespace private_api {
-
-template<>
-inline void
-Property<Color>::set_animated_value(const Color &new_value,
-                                    const cbindgen_private::PropertyAnimation &animation_data) const
-{
-    cbindgen_private::slint_property_set_animated_value_color(&inner, value, new_value,
-                                                              &animation_data);
-}
-
-} // namespace private_api
 
 } // namespace slint
