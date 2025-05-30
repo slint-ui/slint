@@ -338,10 +338,7 @@ macro_rules! declare_value_enum_conversion {
     ($( $(#[$enum_doc:meta])* enum $Name:ident { $($body:tt)* })*) => { $(
         impl From<i_slint_core::items::$Name> for Value {
             fn from(v: i_slint_core::items::$Name) -> Self {
-                Value::EnumerationValue(
-                    stringify!($Name).to_owned(),
-                    i_slint_compiler::parser::normalize_identifier(v.to_string().trim_start_matches("r#")).to_string(),
-                )
+                Value::EnumerationValue(stringify!($Name).to_owned(), v.to_string())
             }
         }
         impl TryFrom<Value> for i_slint_core::items::$Name {
@@ -353,14 +350,7 @@ macro_rules! declare_value_enum_conversion {
                         if enumeration != stringify!($Name) {
                             return Err(());
                         }
-
-                        <i_slint_core::items::$Name>::from_str(value.as_str())
-                            .or_else(|_| {
-                                let norm = i_slint_compiler::parser::normalize_identifier(value.as_str());
-                                <i_slint_core::items::$Name>::from_str(&norm)
-                                    .or_else(|_| <i_slint_core::items::$Name>::from_str(&format!("r#{}", norm)))
-                            })
-                            .map_err(|_| ())
+                        i_slint_core::items::$Name::from_str(value.as_str()).map_err(|_| ())
                     }
                     _ => Err(()),
                 }
