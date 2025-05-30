@@ -11,7 +11,7 @@ use crate::api::{
     WindowPosition, WindowSize,
 };
 use crate::input::{
-    key_codes, ClickState, FocusEvent, FocusEventReason, InternalKeyboardModifierState, KeyEvent,
+    key_codes, ClickState, FocusEvent, FocusReason, InternalKeyboardModifierState, KeyEvent,
     KeyEventType, MouseEvent, MouseInputState, TextCursorBlinker,
 };
 use crate::item_tree::{
@@ -762,7 +762,7 @@ impl WindowInner {
 
         if item.as_ref().is_some_and(|i| !i.is_visible()) {
             // Reset the focus... not great, but better than keeping it.
-            self.take_focus_item(&FocusEvent::FocusOut(FocusEventReason::Keyboard));
+            self.take_focus_item(&FocusEvent::FocusOut(FocusReason::KeyboardNavigation));
             item = None;
         }
 
@@ -835,12 +835,7 @@ impl WindowInner {
 
     /// Sets the focus to the item pointed to by item_ptr. This will remove the focus from any
     /// currently focused item. If set_focus is false, the focus is cleared.
-    pub fn set_focus_item(
-        &self,
-        new_focus_item: &ItemRc,
-        set_focus: bool,
-        reason: FocusEventReason,
-    ) {
+    pub fn set_focus_item(&self, new_focus_item: &ItemRc, set_focus: bool, reason: FocusReason) {
         if self.prevent_focus_change.get() {
             return;
         }
@@ -905,7 +900,7 @@ impl WindowInner {
     fn publish_focus_item(
         &self,
         item: &Option<ItemRc>,
-        reason: FocusEventReason,
+        reason: FocusReason,
     ) -> crate::input::FocusEventResult {
         match item {
             Some(item) => {
@@ -927,7 +922,7 @@ impl WindowInner {
         &self,
         start_item: ItemRc,
         forward: impl Fn(ItemRc) -> ItemRc,
-        reason: FocusEventReason,
+        reason: FocusReason,
     ) -> Option<ItemRc> {
         let mut current_item = start_item;
         let mut visited = Vec::new();
@@ -951,7 +946,7 @@ impl WindowInner {
     /// Move keyboard focus to the next item
     pub fn focus_next_item(&self) {
         let start_item = self
-            .take_focus_item(&FocusEvent::FocusOut(FocusEventReason::Keyboard))
+            .take_focus_item(&FocusEvent::FocusOut(FocusReason::KeyboardNavigation))
             .map(next_focus_item)
             .unwrap_or_else(|| {
                 ItemRc::new(
@@ -963,7 +958,7 @@ impl WindowInner {
                 )
             });
         let end_item =
-            self.move_focus(start_item.clone(), next_focus_item, FocusEventReason::Keyboard);
+            self.move_focus(start_item.clone(), next_focus_item, FocusReason::KeyboardNavigation);
         let window_adapter = self.window_adapter();
         if let Some(window_adapter) = window_adapter.internal(crate::InternalToken) {
             window_adapter.handle_focus_change(Some(start_item), end_item);
@@ -973,8 +968,8 @@ impl WindowInner {
     /// Move keyboard focus to the previous item.
     pub fn focus_previous_item(&self) {
         let start_item = previous_focus_item(
-            self.take_focus_item(&FocusEvent::FocusOut(FocusEventReason::Keyboard)).unwrap_or_else(
-                || {
+            self.take_focus_item(&FocusEvent::FocusOut(FocusReason::KeyboardNavigation))
+                .unwrap_or_else(|| {
                     ItemRc::new(
                         self.active_popups
                             .borrow()
@@ -982,11 +977,13 @@ impl WindowInner {
                             .map_or_else(|| self.component(), |p| p.component.clone()),
                         0,
                     )
-                },
-            ),
+                }),
         );
-        let end_item =
-            self.move_focus(start_item.clone(), previous_focus_item, FocusEventReason::Keyboard);
+        let end_item = self.move_focus(
+            start_item.clone(),
+            previous_focus_item,
+            FocusReason::KeyboardNavigation,
+        );
         let window_adapter = self.window_adapter();
         if let Some(window_adapter) = window_adapter.internal(crate::InternalToken) {
             window_adapter.handle_focus_change(Some(start_item), end_item);
@@ -1002,9 +999,9 @@ impl WindowInner {
         self.pinned_fields.as_ref().project_ref().active.set(have_focus);
 
         let event = if have_focus {
-            FocusEvent::FocusIn(FocusEventReason::ActiveWindow)
+            FocusEvent::FocusIn(FocusReason::WindowActivation)
         } else {
-            FocusEvent::FocusOut(FocusEventReason::ActiveWindow)
+            FocusEvent::FocusOut(FocusReason::WindowActivation)
         };
 
         if let Some(focus_item) = self.focus_item.borrow().upgrade() {
@@ -1234,7 +1231,7 @@ impl WindowInner {
         };
 
         let focus_item = self
-            .take_focus_item(&FocusEvent::FocusOut(FocusEventReason::Popup))
+            .take_focus_item(&FocusEvent::FocusOut(FocusReason::PopupActivation))
             .map(|item| item.downgrade())
             .unwrap_or_default();
 
@@ -1287,7 +1284,7 @@ impl WindowInner {
             }
         }
         if let Some(focus) = current_popup.focus_item_in_parent.upgrade() {
-            self.set_focus_item(&focus, true, FocusEventReason::Popup);
+            self.set_focus_item(&focus, true, FocusReason::PopupActivation);
         }
     }
 
@@ -1599,7 +1596,7 @@ pub mod ffi {
         handle: *const WindowAdapterRcOpaque,
         focus_item: &ItemRc,
         set_focus: bool,
-        reason: FocusEventReason,
+        reason: FocusReason,
     ) {
         let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
         WindowInner::from_pub(window_adapter.window()).set_focus_item(focus_item, set_focus, reason)

@@ -11,7 +11,7 @@ use i_slint_core::accessibility::{
     AccessibilityAction, AccessibleStringProperty, SupportedAccessibilityAction,
 };
 use i_slint_core::api::Window;
-use i_slint_core::input::FocusEventReason;
+use i_slint_core::input::FocusReason;
 use i_slint_core::item_tree::{ItemTreeRc, ItemTreeRef, ItemTreeWeak, ParentItemTraversalMode};
 use i_slint_core::items::{ItemRc, WindowItem};
 use i_slint_core::lengths::{LogicalPoint, ScaleFactor};
@@ -741,11 +741,8 @@ impl DeferredAccessKitAction {
     pub fn invoke(&self, window: &Window) {
         match self {
             DeferredAccessKitAction::SetFocus(item) => {
-                WindowInner::from_pub(window).set_focus_item(
-                    item,
-                    true,
-                    FocusEventReason::AccessKit,
-                );
+                // pretend this event was caused by a mouse for compatability purposes
+                WindowInner::from_pub(window).set_focus_item(item, true, FocusReason::Clicked);
             }
             DeferredAccessKitAction::InvokeAccessibleAction(item, accessibility_action) => {
                 item.accessible_action(accessibility_action);

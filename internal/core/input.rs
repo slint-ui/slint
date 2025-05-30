@@ -8,8 +8,8 @@
 use crate::item_tree::ItemTreeRc;
 use crate::item_tree::{ItemRc, ItemWeak, VisitChildrenResult};
 pub use crate::items::PointerEventButton;
+pub use crate::items::{FocusReason, KeyEvent, KeyboardModifiers};
 use crate::items::{ItemRef, TextCursorDirection};
-pub use crate::items::{KeyEvent, KeyboardModifiers};
 use crate::lengths::{LogicalPoint, LogicalVector};
 use crate::timers::Timer;
 use crate::window::{WindowAdapter, WindowInner};
@@ -455,33 +455,15 @@ pub enum FocusEventResult {
     FocusIgnored,
 }
 
-/// This enum describes the different reasons for a FocusEvent
-#[derive(Debug, Clone, Copy, PartialEq)]
-#[repr(u8)]
-pub enum FocusEventReason {
-    /// The keyboard caused the event (tabbing)
-    Keyboard,
-    /// The mouse caused the event
-    Mouse,
-    /// A popup caused the event
-    Popup,
-    /// A built-in function caused the event (set-focus-item, clear-focus-item)
-    BuiltinFunction,
-    /// AccessKit caused the event
-    AccessKit,
-    /// The window manager changed the active window and caused the event
-    ActiveWindow,
-}
-
 /// This event is sent to a component and items when they receive or loose
 /// the keyboard focus.
 #[derive(Debug, Clone, Copy, PartialEq)]
 #[repr(u8)]
 pub enum FocusEvent {
     /// This event is sent when an item receives the focus.
-    FocusIn(FocusEventReason),
+    FocusIn(FocusReason),
     /// This event is sent when an item looses the focus.
-    FocusOut(FocusEventReason),
+    FocusOut(FocusReason),
 }
 
 /// This state is used to count the clicks separated by [`crate::platform::Platform::click_interval`]
