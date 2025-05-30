@@ -95,9 +95,7 @@ export const App = () => {
             </DialogFrame.Title>
             <DialogFrame.Content>
                 <CodeSnippet
-                    code={
-                        slintSnippet || "// Select a component to inspect"
-                    }
+                    code={slintSnippet || "// Select a component to inspect"}
                 />
             </DialogFrame.Content>
             <DialogFrame.Footer>
@@ -115,9 +113,7 @@ export const App = () => {
                                 exportsAreCurrent ? "secondary" : "primary"
                             }
                             style={{
-                                visibility: useVariables
-                                    ? "visible"
-                                    : "hidden",
+                                visibility: useVariables ? "visible" : "hidden",
                             }}
                         >
                             Export
@@ -132,9 +128,7 @@ export const App = () => {
                             Separate Files Per Collection…
                         </DropdownMenu.Item>
                         <DropdownMenu.Item
-                            onClick={() =>
-                                exportFiles(ExportType.SingleFile)
-                            }
+                            onClick={() => exportFiles(ExportType.SingleFile)}
                         >
                             Single Design-Tokens File…
                         </DropdownMenu.Item>
