@@ -33,11 +33,10 @@ function DialogFrame({ children }: DialogFrameProps) {
     );
 
     return (
-        <Rnd
+        <Rnd className="dialog-frame"
             default={{ x: 0, y: 0, width: minWidth, height: minHeight }}
             minWidth={minWidth}
             minHeight={minHeight}
-            style={{ overflow: "hidden" }}
             disableDragging={true}
             enableResizing={{
                 top: false,
