@@ -20,9 +20,93 @@ export const App = () => {
         setUseVariables,
         setExportsAreCurrent,
         exportFiles,
+        resizeWindow,
+        windowWidth,
+        windowHeight,
+        setWindowDimensions,
     } = useInspectorStore();
 
     const [_lightOrDarkMode, setLightOrDarkMode] = useState(getColorTheme());
+    const [isResizing, setIsResizing] = useState(false);
+    const [resizeDirection, setResizeDirection] = useState<string>("");
+    const [startPos, setStartPos] = useState({ x: 0, y: 0 });
+    const [startDimensions, setStartDimensions] = useState({
+        width: 0,
+        height: 0,
+    });
+
+    // Handle resize start
+    const handleResizeStart = (direction: string) => (e: React.MouseEvent) => {
+        e.preventDefault();
+        setIsResizing(true);
+        setResizeDirection(direction);
+        setStartPos({ x: e.clientX, y: e.clientY });
+        setStartDimensions({ width: windowWidth, height: windowHeight });
+    };
+
+    // Handle mouse events during resize
+    useEffect(() => {
+        const handleMouseMove = (e: MouseEvent) => {
+            if (!isResizing) {
+                return;
+            }
+
+            const deltaX = e.clientX - startPos.x;
+            const deltaY = e.clientY - startPos.y;
+
+            let newWidth = startDimensions.width;
+            let newHeight = startDimensions.height;
+
+            // Calculate new dimensions based on resize direction
+            if (resizeDirection.includes("e")) {
+                newWidth = startDimensions.width + deltaX;
+            }
+            if (resizeDirection.includes("s")) {
+                newHeight = startDimensions.height + deltaY;
+            }
+
+            // Apply minimum constraints
+            newWidth = Math.max(400, newWidth);
+            newHeight = Math.max(300, newHeight);
+
+            setWindowDimensions(newWidth, newHeight);
+            resizeWindow(newWidth, newHeight);
+        };
+
+        const handleMouseUp = () => {
+            setIsResizing(false);
+            setResizeDirection("");
+        };
+
+        if (isResizing) {
+            document.addEventListener("mousemove", handleMouseMove);
+            document.addEventListener("mouseup", handleMouseUp);
+        }
+
+        return () => {
+            document.removeEventListener("mousemove", handleMouseMove);
+            document.removeEventListener("mouseup", handleMouseUp);
+        };
+    }, [
+        isResizing,
+        startPos,
+        startDimensions,
+        resizeDirection,
+        resizeWindow,
+        setWindowDimensions,
+    ]);
+
+    // Listen for window resize events
+    useEffect(() => {
+        const handleResize = () => {
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+            setWindowDimensions(width, height);
+        };
+
+        window.addEventListener("resize", handleResize);
+        return () => window.removeEventListener("resize", handleResize);
+    }, [setWindowDimensions]);
 
     // Init
     useEffect(() => {
@@ -55,7 +139,15 @@ export const App = () => {
     }, []);
 
     return (
-        <>
+        <div
+            style={{
+                width: "100%",
+                height: "100vh",
+                position: "relative",
+                display: "flex",
+                flexDirection: "column",
+            }}
+        >
             <DialogFrame>
                 <DialogFrame.Title>
                     <svg
@@ -143,6 +235,7 @@ export const App = () => {
                     </DropdownMenu.Root>{" "}
                     <Text
                         style={{
+                            paddingRight: "20px",
                             color: exportsAreCurrent
                                 ? "var(--figma-color-text-disabled)"
                                 : "var(--figma-color-text)",
@@ -160,6 +253,88 @@ export const App = () => {
                     </Text>
                 </DialogFrame.Footer>
             </DialogFrame>
-        </>
+
+            {/* Resize handles - edges */}
+            {/* Bottom edge */}
+            <div
+                onMouseDown={handleResizeStart("s")}
+                style={{
+                    position: "absolute",
+                    bottom: 0,
+                    left: "4px",
+                    right: "4px",
+                    height: "4px",
+                    cursor: "s-resize",
+                    zIndex: 1000,
+                }}
+            />
+            {/* Right edge */}
+            <div
+                onMouseDown={handleResizeStart("e")}
+                style={{
+                    position: "absolute",
+                    right: 0,
+                    top: "4px",
+                    bottom: "4px",
+                    width: "4px",
+                    cursor: "e-resize",
+                    zIndex: 1000,
+                }}
+            />
+
+            {/* Resize handles - corners */}
+            {/* Top-left corner */}
+            <div
+                onMouseDown={handleResizeStart("nw")}
+                style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    width: "8px",
+                    height: "8px",
+                    cursor: "nw-resize",
+                    zIndex: 1001,
+                }}
+            />
+            {/* Top-right corner */}
+            <div
+                onMouseDown={handleResizeStart("ne")}
+                style={{
+                    position: "absolute",
+                    top: 0,
+                    right: 0,
+                    width: "8px",
+                    height: "8px",
+                    cursor: "ne-resize",
+                    zIndex: 1001,
+                }}
+            />
+            {/* Bottom-left corner */}
+            <div
+                onMouseDown={handleResizeStart("sw")}
+                style={{
+                    position: "absolute",
+                    bottom: 0,
+                    left: 0,
+                    width: "8px",
+                    height: "8px",
+                    cursor: "sw-resize",
+                    zIndex: 1001,
+                }}
+            />
+            {/* Bottom-right corner */}
+            <div
+                onMouseDown={handleResizeStart("se")}
+                style={{
+                    position: "absolute",
+                    bottom: 0,
+                    right: 0,
+                    width: "8px",
+                    height: "8px",
+                    cursor: "se-resize",
+                    zIndex: 1001,
+                }}
+            />
+        </div>
     );
 };

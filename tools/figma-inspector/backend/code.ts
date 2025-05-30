@@ -6,6 +6,10 @@ import { listenTS, dispatchTS } from "./utils/code-utils.js";
 import { generateSlintSnippet } from "./utils/property-parsing.js";
 import { exportFigmaVariablesToSeparateFiles } from "./utils/export-variables.js";
 
+// Window dimension constants
+const INITIAL_WIDTH = 500;
+const INITIAL_HEIGHT = 320;
+
 if (figma.editorType === "dev" && figma.mode === "codegen") {
     figma.codegen.on("generate", async ({ node }: { node: SceneNode }) => {
         const useVariablesForCodegen =
@@ -33,8 +37,8 @@ if (figma.editorType === "dev" && figma.mode === "codegen") {
 if (figma.editorType === "figma" && figma.mode === "default") {
     figma.showUI(__html__, {
         themeColors: true,
-        width: 500,
-        height: 320,
+        width: INITIAL_WIDTH,
+        height: INITIAL_HEIGHT,
     });
 }
 
@@ -105,6 +109,14 @@ listenTS("exportToFiles", async (message) => {
         console.error("Error exporting to files:", error);
         figma.notify("Failed to export to files", { error: true });
     }
+});
+
+// Resize window handler
+listenTS("resizeWindow", ({ width, height }) => {
+    figma.ui.resize(width, height);
+
+    // Notify UI that resize was completed
+    dispatchTS("windowResized", { width, height });
 });
 
 // Define state variables outside any function (at module level)
