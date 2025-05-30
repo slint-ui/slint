@@ -34,7 +34,7 @@ function DialogFrame({ children }: DialogFrameProps) {
 
     return (
         <Rnd
-            className="dialog-frame"
+            className="resize-frame"
             default={{ x: 0, y: 0, width: minWidth, height: minHeight }}
             minWidth={minWidth}
             minHeight={minHeight}
