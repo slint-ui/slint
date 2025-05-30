@@ -7,11 +7,13 @@ import { MainWindowAdapter } from "./main_window_adapter.slint";
 export { NavigationViewAdapter } from "./views/navigation_view.slint";
 export { MaterialWindowAdapter, ListItem }
 export { OutlinedIcons } from "./icons.slint";
+import "./fonts/Roboto-VariableFont.ttf";
 
 export component MainWindow inherits MaterialWindow {
     preferred-width: 600px;
     preferred-height: 400px;
     background: MainWindowAdapter.background;
+    default-font-family: "Roboto";
 
     MainView {
         width: 100%;
