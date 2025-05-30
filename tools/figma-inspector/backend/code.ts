@@ -107,7 +107,7 @@ listenTS("exportToFiles", async (message) => {
     }
 });
 
-  // Resize window handler
+// Resize window handler
 listenTS("resizeWindow", ({ width, height }) => {
     figma.ui.resize(width, height);
 });

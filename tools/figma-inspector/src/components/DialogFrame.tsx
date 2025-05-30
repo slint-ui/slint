@@ -37,11 +37,23 @@ function DialogFrame({ children }: DialogFrameProps) {
             default={{ x: 0, y: 0, width: minWidth, height: minHeight }}
             minWidth={minWidth}
             minHeight={minHeight}
-            style={{ overflow: 'hidden' }}
+            style={{ overflow: "hidden" }}
             disableDragging={true}
-            enableResizing={{ top: false, right: true, bottom: true, left: false, topRight: false, bottomRight: true, bottomLeft: false, topLeft: false }}
+            enableResizing={{
+                top: false,
+                right: true,
+                bottom: true,
+                left: false,
+                topRight: false,
+                bottomRight: true,
+                bottomLeft: false,
+                topLeft: false,
+            }}
             onResize={(_e, _dir, refToElement) => {
-                resizeWindow(parseInt(refToElement.style.width), parseInt(refToElement.style.height));
+                resizeWindow(
+                    parseInt(refToElement.style.width),
+                    parseInt(refToElement.style.height),
+                );
             }}
         >
             <div className="dialog-frame">
