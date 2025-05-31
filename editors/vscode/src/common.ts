@@ -306,35 +306,32 @@ async function maybeSendStartupTelemetryEvent(
 const HELP_URL = "https://docs.slint.dev/latest/docs/slint/reference/";
 
 function getHelpUrlForElement(elementName: string): string | null {
-    const helpMapping: { [key: string]: string } = {
+    const elementPaths: Record<string, string> = {
         // elements
-        Image: `${HELP_URL}elements/image/`,
-        Path: `${HELP_URL}elements/path/`,
-        Text: `${HELP_URL}elements/text/`,
-        Rectangle: `${HELP_URL}elements/rectangle/`,
-
+        Image: "elements/image",
+        Path: "elements/path",
+        Text: "elements/text",
+        Rectangle: "elements/rectangle",
         // gestures
-        Flickable: `${HELP_URL}gestures/flickable/`,
-        SwipeGestureHandler: `${HELP_URL}gestures/swipegesturehandler/`,
-        TouchArea: `${HELP_URL}gestures/toucharea/`,
-
+        Flickable: "gestures/flickable",
+        SwipeGestureHandler: "gestures/swipegesturehandler",
+        TouchArea: "gestures/toucharea",
         // keyboard-input
-        FocusScope: `${HELP_URL}keyboard-input/focusscope/`,
-        TextInput: `${HELP_URL}keyboard-input/textinput/`,
-        TextInputInterface: `${HELP_URL}keyboard-input/textinputinterface/`,
-
+        FocusScope: "keyboard-input/focusscope",
+        TextInput: "keyboard-input/textinput",
+        TextInputInterface: "keyboard-input/textinputinterface",
         // layouts
-        GridLayout: `${HELP_URL}layouts/gridlayout/`,
-        HorizontalLayout: `${HELP_URL}layouts/horizontallayout/`,
-        VerticalLayout: `${HELP_URL}layouts/verticallayout/`,
-
+        GridLayout: "layouts/gridlayout",
+        HorizontalLayout: "layouts/horizontallayout",
+        VerticalLayout: "layouts/verticallayout",
         // window
-        ContextMenuArea: `${HELP_URL}window/contextmenuarea/`,
-        Dialog: `${HELP_URL}window/dialog/`,
-        MenuBar: `${HELP_URL}window/menubar/`,
-        PopupWindow: `${HELP_URL}window/popupwindow/`,
-        Window: `${HELP_URL}window/window/`,
+        ContextMenuArea: "window/contextmenuarea",
+        Dialog: "window/dialog",
+        MenuBar: "window/menubar",
+        PopupWindow: "window/popupwindow",
+        Window: "window/window",
     };
 
-    return helpMapping[elementName] || null;
+    const path = elementPaths[elementName];
+    return path ? `${HELP_URL}${path}/` : null;
 }
