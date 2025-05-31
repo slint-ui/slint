@@ -174,6 +174,49 @@ export function activate(
         }),
     );
 
+    const command = vscode.commands.registerCommand("slint.openHelp", () => {
+        const editor = vscode.window.activeTextEditor;
+        if (!editor) {
+            return;
+        }
+
+        const position = editor.selection.active;
+        const range = editor.document.getWordRangeAtPosition(position);
+        if (!range) {
+            return;
+        }
+
+        const word = editor.document.getText(range);
+        const helpUrl = getHelpUrlForElement(word);
+
+        if (helpUrl) {
+            vscode.env.openExternal(vscode.Uri.parse(helpUrl));
+        }
+    });
+
+    const definitionProvider = vscode.languages.registerDefinitionProvider(
+        { language: "slint" },
+        {
+            provideDefinition(document, position) {
+                const range = document.getWordRangeAtPosition(position);
+                const word = document.getText(range);
+
+                if (getHelpUrlForElement(word)) {
+                    vscode.commands.executeCommand("slint.openHelp");
+                    // This code ensures an underline appears when CTRL is held down.
+                    return new vscode.Location(
+                        document.uri,
+                        new vscode.Position(0, 0),
+                    );
+                }
+
+                return null;
+            },
+        },
+    );
+
+    context.subscriptions.push(command, definitionProvider);
+
     context.subscriptions.push(
         vscode.commands.registerCommand("slint.reload", async function () {
             statusBar.hide();
@@ -258,4 +301,41 @@ async function maybeSendStartupTelemetryEvent(
     }
 
     telemetryLogger.logUsage("extension-activated", usageData);
+}
+
+const HELP_URL = "https://docs.slint.dev/latest/docs/slint/reference/";
+
+function getHelpUrlForElement(elementName: string): string | null {
+
+    const helpMapping: { [key: string]: string } = {
+        // elements
+        Image: `${HELP_URL}elements/image/`,
+        Path: `${HELP_URL}elements/path/`,
+        Text: `${HELP_URL}elements/text/`,
+        Rectangle: `${HELP_URL}elements/rectangle/`,
+
+        // gestures
+        Flickable: `${HELP_URL}gestures/flickable/`,
+        SwipeGestureHandler: `${HELP_URL}gestures/swipegesturehandler/`,
+        TouchArea: `${HELP_URL}gestures/toucharea/`,
+
+        // keyboard-input
+        FocusScope: `${HELP_URL}keyboard-input/focusscope/`,
+        TextInput: `${HELP_URL}keyboard-input/textinput/`,
+        TextInputInterface: `${HELP_URL}keyboard-input/textinputinterface/`,
+
+        // layouts
+        GridLayout: `${HELP_URL}layouts/gridlayout/`,
+        HorizontalLayout: `${HELP_URL}layouts/horizontallayout/`,
+        VerticalLayout: `${HELP_URL}layouts/verticallayout/`,
+
+        // window
+        ContextMenuArea: `${HELP_URL}window/contextmenuarea/`,
+        Dialog: `${HELP_URL}window/dialog/`,
+        MenuBar: `${HELP_URL}window/menubar/`,
+        PopupWindow: `${HELP_URL}window/popupwindow/`,
+        Window: `${HELP_URL}window/window/`,
+    };
+
+    return helpMapping[elementName] || null;
 }
