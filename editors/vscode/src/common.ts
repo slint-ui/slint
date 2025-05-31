@@ -174,6 +174,49 @@ export function activate(
         }),
     );
 
+    const command = vscode.commands.registerCommand("slint.openHelp", () => {
+        const editor = vscode.window.activeTextEditor;
+        if (!editor) {
+            return;
+        }
+
+        const position = editor.selection.active;
+        const range = editor.document.getWordRangeAtPosition(position);
+        if (!range) {
+            return;
+        }
+
+        const word = editor.document.getText(range);
+        const helpUrl = getHelpUrlForElement(word);
+
+        if (helpUrl) {
+            vscode.env.openExternal(vscode.Uri.parse(helpUrl));
+        }
+    });
+
+    const definitionProvider = vscode.languages.registerDefinitionProvider(
+        { language: "slint" },
+        {
+            provideDefinition(document, position) {
+                const range = document.getWordRangeAtPosition(position);
+                const word = document.getText(range);
+
+                if (getHelpUrlForElement(word)) {
+                    vscode.commands.executeCommand("slint.openHelp");
+                    // This code ensures an underline appears when CTRL is held down.
+                    return new vscode.Location(
+                        document.uri,
+                        new vscode.Position(0, 0),
+                    );
+                }
+
+                return null;
+            },
+        },
+    );
+
+    context.subscriptions.push(command, definitionProvider);
+
     context.subscriptions.push(
         vscode.commands.registerCommand("slint.reload", async function () {
             statusBar.hide();
@@ -258,4 +301,37 @@ async function maybeSendStartupTelemetryEvent(
     }
 
     telemetryLogger.logUsage("extension-activated", usageData);
+}
+
+const HELP_URL = "https://docs.slint.dev/latest/docs/slint/reference/";
+
+function getHelpUrlForElement(elementName: string): string | null {
+    const elementPaths: Record<string, string> = {
+        // elements
+        Image: "elements/image",
+        Path: "elements/path",
+        Text: "elements/text",
+        Rectangle: "elements/rectangle",
+        // gestures
+        Flickable: "gestures/flickable",
+        SwipeGestureHandler: "gestures/swipegesturehandler",
+        TouchArea: "gestures/toucharea",
+        // keyboard-input
+        FocusScope: "keyboard-input/focusscope",
+        TextInput: "keyboard-input/textinput",
+        TextInputInterface: "keyboard-input/textinputinterface",
+        // layouts
+        GridLayout: "layouts/gridlayout",
+        HorizontalLayout: "layouts/horizontallayout",
+        VerticalLayout: "layouts/verticallayout",
+        // window
+        ContextMenuArea: "window/contextmenuarea",
+        Dialog: "window/dialog",
+        MenuBar: "window/menubar",
+        PopupWindow: "window/popupwindow",
+        Window: "window/window",
+    };
+
+    const path = elementPaths[elementName];
+    return path ? `${HELP_URL}${path}/` : null;
 }
