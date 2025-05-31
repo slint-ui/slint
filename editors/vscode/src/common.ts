@@ -306,7 +306,6 @@ async function maybeSendStartupTelemetryEvent(
 const HELP_URL = "https://docs.slint.dev/latest/docs/slint/reference/";
 
 function getHelpUrlForElement(elementName: string): string | null {
-
     const helpMapping: { [key: string]: string } = {
         // elements
         Image: `${HELP_URL}elements/image/`,
