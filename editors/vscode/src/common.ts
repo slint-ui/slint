@@ -204,10 +204,7 @@ export function activate(
                 if (getHelpUrlForElement(word)) {
                     vscode.commands.executeCommand("slint.openHelp");
                     // This code ensures an underline appears when CTRL is held down.
-                    return new vscode.Location(
-                        document.uri,
-                        new vscode.Position(0, 0),
-                    );
+                    return new vscode.Location(document.uri, position);
                 }
 
                 return null;
