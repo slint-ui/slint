@@ -174,45 +174,38 @@ export function activate(
         }),
     );
 
-    const command = vscode.commands.registerCommand("slint.openHelp", () => {
-        const editor = vscode.window.activeTextEditor;
-        if (!editor) {
-            return;
-        }
+    const command = vscode.commands.registerCommand(
+        "slint.openHelp",
+        (word) => {
+            const helpUrl = getHelpUrlForElement(word);
+            if (helpUrl) {
+                vscode.env.openExternal(vscode.Uri.parse(helpUrl));
+            }
+        },
+    );
 
-        const position = editor.selection.active;
-        const range = editor.document.getWordRangeAtPosition(position);
-        if (!range) {
-            return;
-        }
-
-        const word = editor.document.getText(range);
-        const helpUrl = getHelpUrlForElement(word);
-
-        if (helpUrl) {
-            vscode.env.openExternal(vscode.Uri.parse(helpUrl));
-        }
-    });
-
-    const definitionProvider = vscode.languages.registerDefinitionProvider(
+    const hoverProvider = vscode.languages.registerHoverProvider(
         { language: "slint" },
         {
-            provideDefinition(document, position) {
+            provideHover(document, position) {
                 const range = document.getWordRangeAtPosition(position);
                 const word = document.getText(range);
 
                 if (getHelpUrlForElement(word)) {
-                    vscode.commands.executeCommand("slint.openHelp");
-                    // This code ensures an underline appears when CTRL is held down.
-                    return new vscode.Location(document.uri, position);
-                }
+                    const commandUri = vscode.Uri.parse(
+                        `command:slint.openHelp?${encodeURIComponent(JSON.stringify([word]))}`,
+                    );
+                    const markdown = new vscode.MarkdownString(
+                        `[${word} docs](${commandUri})`,
+                    );
+                    markdown.isTrusted = true;
 
-                return null;
+                    return new vscode.Hover(markdown, range);
+                }
             },
         },
     );
-
-    context.subscriptions.push(command, definitionProvider);
+    context.subscriptions.push(hoverProvider, command);
 
     context.subscriptions.push(
         vscode.commands.registerCommand("slint.reload", async function () {
