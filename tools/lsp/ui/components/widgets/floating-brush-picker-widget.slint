@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Palette } from "std-widgets.slint";
+import { Palette, Button } from "std-widgets.slint";
 import { WindowGlobal, WindowManager, PickerData, PickerTab, BrushMode, BrushPropertyType, WidgetMode } from "../../windowglobal.slint";
 import { Api } from "../../api.slint";
 import { Icons, EditorPalette, EditorSizeSettings, PickerStyles } from "../../components/styling.slint";
@@ -478,11 +478,30 @@ component ColorPicker inherits DraggablePanel {
         recent-colors <=> Api.recent-colors;
     }
 
-    if active-tab == PickerTab.svg-color: SvgColorPicker {
+    if active-tab == PickerTab.css-color: CssColorPicker {
         filter-text: "^Colors.";
     }
 
-    if active-tab == PickerTab.globals: SvgColorPicker {
+    if active-tab == PickerTab.color && widget-mode == WidgetMode.edit: Button {
+        x: EditorSizeSettings.standard-margin;
+        width: 100px;
+        text: "Apply";
+        changed pressed => {
+            if self.pressed {
+                root.clear-focus-panel();
+            }
+        }
+        clicked => {
+            Api.add-recent-color(PickerData.current-color);
+            if PickerData.current-color.to-hsv().alpha == 1 {
+                WindowManager.apply-current-value("#\{Api.color-to-data(PickerData.current-color).short-text}")
+            } else {
+                WindowManager.apply-current-value(Api.color-to-data(PickerData.current-color).text);
+            }
+        }
+    }
+
+    if active-tab == PickerTab.globals: CssColorPicker {
         property <string> filter-brush-and-color: "!^Colors. ";
         property <string> filter-color-only: "!^Colors. '%kind:Color ";
         filter-text: picker-mode == BrushPropertyType.brush ? filter-brush-and-color : filter-color-only;
