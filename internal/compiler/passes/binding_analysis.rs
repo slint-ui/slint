@@ -18,6 +18,7 @@ use crate::object_tree::{find_parent_element, Document, ElementRc, PropertyAnima
 use derive_more as dm;
 
 use crate::expression_tree::Callable;
+use crate::CompilerConfiguration;
 use smol_str::{SmolStr, ToSmolStr};
 
 /// Maps the alias in the other direction than what the BindingExpression::two_way_binding does.
@@ -25,11 +26,20 @@ use smol_str::{SmolStr, ToSmolStr};
 /// ReverseAliases maps B to A.
 type ReverseAliases = HashMap<NamedReference, Vec<NamedReference>>;
 
-pub fn binding_analysis(doc: &Document, diag: &mut BuildDiagnostics) {
+pub fn binding_analysis(
+    doc: &Document,
+    compiler_config: &CompilerConfiguration,
+    diag: &mut BuildDiagnostics,
+) {
     let mut reverse_aliases = Default::default();
     mark_used_base_properties(doc);
     propagate_is_set_on_aliases(doc, &mut reverse_aliases);
-    perform_binding_analysis(doc, &reverse_aliases, diag);
+    perform_binding_analysis(
+        doc,
+        &reverse_aliases,
+        compiler_config.error_on_binding_loop_with_window_layout,
+        diag,
+    );
 }
 
 /// A reference to a property which might be deep in a component path.
@@ -114,15 +124,22 @@ impl From<NamedReference> for PropertyPath {
 #[derive(Default)]
 struct AnalysisContext {
     visited: HashSet<PropertyPath>,
+    /// The stack of properties that depends on each other
     currently_analyzing: linked_hash_set::LinkedHashSet<PropertyPath>,
+    /// When set, one of the property in the `currently_analyzing` stack is the window layout property
+    /// And we should issue a warning if that's part of a loop instead of an error
+    window_layout_property: Option<PropertyPath>,
+    error_on_binding_loop_with_window_layout: bool,
 }
 
 fn perform_binding_analysis(
     doc: &Document,
     reverse_aliases: &ReverseAliases,
+    error_on_binding_loop_with_window_layout: bool,
     diag: &mut BuildDiagnostics,
 ) {
-    let mut context = AnalysisContext::default();
+    let mut context =
+        AnalysisContext { error_on_binding_loop_with_window_layout, ..Default::default() };
     doc.visit_all_used_components(|component| {
         crate::object_tree::recurse_elem_including_sub_components_no_borrow(
             component,
@@ -232,6 +249,28 @@ fn analyze_binding(
     }
 
     if context.currently_analyzing.contains(current) {
+        let mut loop_description = String::new();
+        let mut has_window_layout = false;
+        for it in context.currently_analyzing.iter().rev() {
+            if context.window_layout_property.as_ref().is_some_and(|p| p == it) {
+                has_window_layout = true;
+            }
+            if !loop_description.is_empty() {
+                loop_description.push_str(" -> ");
+            }
+            match it.prop.element().borrow().id.as_str() {
+                "" => loop_description.push_str(it.prop.name()),
+                id => {
+                    loop_description.push_str(id);
+                    loop_description.push_str(".");
+                    loop_description.push_str(it.prop.name());
+                }
+            }
+            if it == current {
+                break;
+            }
+        }
+
         for it in context.currently_analyzing.iter().rev() {
             let p = &it.prop;
             let elem = p.element();
@@ -241,11 +280,12 @@ fn analyze_binding(
                 break;
             }
 
-            diag.push_error(
-                format!("The binding for the property '{}' is part of a binding loop", p.name()),
-                &binding.span.clone().unwrap_or_else(|| elem.to_source_location()),
-            );
-
+            let span = binding.span.clone().unwrap_or_else(|| elem.to_source_location());
+            if !context.error_on_binding_loop_with_window_layout && has_window_layout {
+                diag.push_warning(format!("The binding for the property '{}' is part of a binding loop ({loop_description}).\nThis was allowed in previous version of Slint, but is deprecated and may cause panic at runtime", p.name()), &span);
+            } else {
+                diag.push_error(format!("The binding for the property '{}' is part of a binding loop ({loop_description})", p.name()), &span);
+            }
             if it == current {
                 break;
             }
@@ -592,13 +632,10 @@ fn visit_builtin_property(
                     root = e.0.clone();
                 }
                 if let Some(p) = root.borrow().layout_info_prop(orientation) {
-                    process_property(
-                        &p.clone().into(),
-                        ReadType::NativeRead,
-                        context,
-                        reverse_aliases,
-                        diag,
-                    );
+                    let path = PropertyPath::from(p.clone());
+                    let old_layout = context.window_layout_property.replace(path.clone());
+                    process_property(&path, ReadType::NativeRead, context, reverse_aliases, diag);
+                    context.window_layout_property = old_layout;
                 };
             }
         }
