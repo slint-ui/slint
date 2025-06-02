@@ -6,19 +6,19 @@ Wrap := Rectangle {
     property woo <=> text.wrap;
 
     VerticalLayout {
-//  ^error{The binding for the property 'layout-cache' is part of a binding loop}
-//  ^^error{The binding for the property 'height' is part of a binding loop}
+//  ^error{The binding for the property 'layout-cache' is part of a binding loop (layout-cache -> text.width -> layoutinfo-v -> layout-cache -> height -> square.height -> square.width)}
+//  ^^error{The binding for the property 'height' is part of a binding loop (layout-cache -> text.width -> layoutinfo-v -> layout-cache -> height -> square.height -> square.width)}
         HorizontalLayout {
-//      ^error{The binding for the property 'layout-cache' is part of a binding loop}
-//      ^^error{The binding for the property 'width' is part of a binding loop}
-//      ^^^error{The binding for the property 'layoutinfo-v' is part of a binding loop}
+//      ^error{The binding for the property 'layout-cache' is part of a binding loop (layout-cache -> text.width -> layoutinfo-v -> layout-cache -> height -> square.height -> square.width)}
+//      ^^error{The binding for the property 'width' is part of a binding loop (layout-cache -> text.width -> layoutinfo-v -> layout-cache -> height -> square.height -> square.width)}
+//      ^^^error{The binding for the property 'layoutinfo-v' is part of a binding loop (layout-cache -> text.width -> layoutinfo-v -> layout-cache -> height -> square.height -> square.width)}
             text := Text {
                 text: "Hello World";
             }
             square := Rectangle {
-//                    ^error{The binding for the property 'height' is part of a binding loop}
+//                    ^error{The binding for the property 'height' is part of a binding loop (layout-cache -> text.width -> layoutinfo-v -> layout-cache -> height -> square.height -> square.width)}
                 width: height;
-//                     ^error{The binding for the property 'width' is part of a binding loop}
+//                     ^error{The binding for the property 'width' is part of a binding loop (layout-cache -> text.width -> layoutinfo-v -> layout-cache -> height -> square.height -> square.width)}
                 background: violet;
             }
         }
@@ -29,19 +29,19 @@ Wrap := Rectangle {
 
 export Test := Window {
 //          ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
-//             ^^error{The binding for the property 'layoutinfo-v' is part of a binding loop}
-//             ^^^error{The binding for the property 'layoutinfo-h' is part of a binding loop}
+//             ^^warning{The binding for the property 'layoutinfo-v' is part of a binding loop (width -> layout-cache-h -> width -> layoutinfo-v -> root.layoutinfo-v -> height -> layout-cache-v -> height -> width -> layoutinfo-h -> root.layoutinfo-h).↵This was allowed in previous version of Slint, but is deprecated and may cause panic at runtime}
+//             ^^^warning{The binding for the property 'layoutinfo-h' is part of a binding loop (width -> layout-cache-h -> width -> layoutinfo-v -> root.layoutinfo-v -> height -> layout-cache-v -> height -> width -> layoutinfo-h -> root.layoutinfo-h).↵This was allowed in previous version of Slint, but is deprecated and may cause panic at runtime}
 
     property <image> source;
     GridLayout {
-//  ^error{The binding for the property 'width' is part of a binding loop}
-//  ^^error{The binding for the property 'layout-cache-h' is part of a binding loop}
-//  ^^^error{The binding for the property 'width' is part of a binding loop}
-//  ^^^^error{The binding for the property 'layoutinfo-v' is part of a binding loop}
-//  ^^^^^error{The binding for the property 'height' is part of a binding loop}
-//  ^^^^^^error{The binding for the property 'layout-cache-v' is part of a binding loop}
-//  ^^^^^^^error{The binding for the property 'height' is part of a binding loop}
-//  ^^^^^^^^error{The binding for the property 'layoutinfo-h' is part of a binding loop}
+//  ^warning{The binding for the property 'width' is part of a binding loop (width -> layout-cache-h -> width -> layoutinfo-v -> root.layoutinfo-v -> height -> layout-cache-v -> height -> width -> layoutinfo-h -> root.layoutinfo-h).↵This was allowed in previous version of Slint, but is deprecated and may cause panic at runtime}
+//  ^^warning{The binding for the property 'layout-cache-h' is part of a binding loop (width -> layout-cache-h -> width -> layoutinfo-v -> root.layoutinfo-v -> height -> layout-cache-v -> height -> width -> layoutinfo-h -> root.layoutinfo-h).↵This was allowed in previous version of Slint, but is deprecated and may cause panic at runtime}
+//  ^^^warning{The binding for the property 'width' is part of a binding loop (width -> layout-cache-h -> width -> layoutinfo-v -> root.layoutinfo-v -> height -> layout-cache-v -> height -> width -> layoutinfo-h -> root.layoutinfo-h).↵This was allowed in previous version of Slint, but is deprecated and may cause panic at runtime}
+//  ^^^^warning{The binding for the property 'layoutinfo-v' is part of a binding loop (width -> layout-cache-h -> width -> layoutinfo-v -> root.layoutinfo-v -> height -> layout-cache-v -> height -> width -> layoutinfo-h -> root.layoutinfo-h).↵This was allowed in previous version of Slint, but is deprecated and may cause panic at runtime}
+//  ^^^^^warning{The binding for the property 'height' is part of a binding loop (width -> layout-cache-h -> width -> layoutinfo-v -> root.layoutinfo-v -> height -> layout-cache-v -> height -> width -> layoutinfo-h -> root.layoutinfo-h).↵This was allowed in previous version of Slint, but is deprecated and may cause panic at runtime}
+//  ^^^^^^warning{The binding for the property 'layout-cache-v' is part of a binding loop (width -> layout-cache-h -> width -> layoutinfo-v -> root.layoutinfo-v -> height -> layout-cache-v -> height -> width -> layoutinfo-h -> root.layoutinfo-h).↵This was allowed in previous version of Slint, but is deprecated and may cause panic at runtime}
+//  ^^^^^^^warning{The binding for the property 'height' is part of a binding loop (width -> layout-cache-h -> width -> layoutinfo-v -> root.layoutinfo-v -> height -> layout-cache-v -> height -> width -> layoutinfo-h -> root.layoutinfo-h).↵This was allowed in previous version of Slint, but is deprecated and may cause panic at runtime}
+//  ^^^^^^^^warning{The binding for the property 'layoutinfo-h' is part of a binding loop (width -> layout-cache-h -> width -> layoutinfo-v -> root.layoutinfo-v -> height -> layout-cache-v -> height -> width -> layoutinfo-h -> root.layoutinfo-h).↵This was allowed in previous version of Slint, but is deprecated and may cause panic at runtime}
 
 
         Image {
@@ -49,7 +49,7 @@ export Test := Window {
         }
         Rectangle {
             width: height;
-//                 ^error{The binding for the property 'width' is part of a binding loop}
+//                 ^warning{The binding for the property 'width' is part of a binding loop (width -> layout-cache-h -> width -> layoutinfo-v -> root.layoutinfo-v -> height -> layout-cache-v -> height -> width -> layoutinfo-h -> root.layoutinfo-h).↵This was allowed in previous version of Slint, but is deprecated and may cause panic at runtime}
         }
     }
 

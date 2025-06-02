@@ -148,6 +148,10 @@ pub struct CompilerConfiguration {
     /// C++ namespace
     pub cpp_namespace: Option<String>,
 
+    /// When true, fail the build when a binding loop is detected with a window layout property
+    /// (otherwise this is a compatibility warning)
+    pub error_on_binding_loop_with_window_layout: bool,
+
     /// Generate debug information for elements (ids, type names)
     pub debug_info: bool,
 
@@ -232,6 +236,7 @@ impl CompilerConfiguration {
             translation_domain: None,
             no_native_menu: false,
             cpp_namespace,
+            error_on_binding_loop_with_window_layout: false,
             debug_info,
             debug_hooks: None,
             components_to_generate: ComponentSelection::ExportedWindows,

@@ -208,7 +208,7 @@ pub async fn run_passes(
         doc.used_types.borrow_mut().sub_components.clear();
     }
 
-    binding_analysis::binding_analysis(doc, diag);
+    binding_analysis::binding_analysis(doc, &type_loader.compiler_config, diag);
     unique_id::assign_unique_id(doc);
 
     doc.visit_all_used_components(|component| {
