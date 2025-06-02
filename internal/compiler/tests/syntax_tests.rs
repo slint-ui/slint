@@ -13,7 +13,8 @@
 //! Meaning that there must an error with that error message in the position on the line above at the column pointed by the caret.
 //! If there are two carets: ` ^^error{expected_message}`  then it means two line above, and so on with more carets.
 //! `^warning{expected_message}` is also supported.
-//! The newlines are replaced by `↵`
+//!
+//! The newlines are replaced by `↵` in the error message. Also the manifest dir (CARGO_MANIFEST_DIR) is replaced by `📂`.
 //!
 //! When the env variable `SLINT_SYNTAX_TEST_UPDATE` is set to `1`, the source code will be modified to add the comments
 
@@ -128,7 +129,8 @@ fn process_diagnostics(
         let column = m.get(1).unwrap().start() - line_begin_offset;
         let lines_to_source = m.get(1).unwrap().as_str().len();
         let warning_or_error = m.get(2).unwrap().as_str();
-        let expected_message = m.get(3).unwrap().as_str().replace('↵', "\n");
+        let expected_message =
+            m.get(3).unwrap().as_str().replace('↵', "\n").replace('📂', env!("CARGO_MANIFEST_DIR"));
         if update {
             captures.push(m.get(0).unwrap().range());
         }
@@ -237,7 +239,7 @@ fn update(
             adjust = "^".repeat(last_line_adjust),
             error_or_warning =
                 if d.level() == DiagnosticLevel::Error { "error" } else { "warning" },
-            message = d.message().replace('\n', "↵")
+            message = d.message().replace('\n', "↵").replace(env!("CARGO_MANIFEST_DIR"), "📂")
         );
         if byte_offset > source.len() {
             source.push('\n');
