@@ -395,14 +395,6 @@ component HsvPicker inherits SimpleColumn {
                 }
             }
         }
-
-        Rectangle {
-            width: 100%;
-            height: 1px;
-            x: 0;
-            y: parent.height - self.height;
-            background: EditorPalette.divider-color;
-        }
     }
 }
 
@@ -455,7 +447,7 @@ component ColorPicker inherits DraggablePanel {
 
     if active-tab == PickerTab.color: HsvPicker { }
 
-    if active-tab == PickerTab.color: VerticalSpacer { }
+    // if active-tab == PickerTab.color: VerticalSpacer { }
 
     if active-tab == PickerTab.color: color-apply := ColorModeAndApply {
         widget-mode: root.widget-mode;

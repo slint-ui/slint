@@ -22,7 +22,7 @@ export component ColorModeAndApply {
         spacing: 10px;
         Rectangle {
             x: EditorSizeSettings.standard-margin;
-            width: 170px;
+            width: parent.width - 2 * EditorSizeSettings.standard-margin;
             height: 25px;
             background: EditorPalette.section-color;
             border-radius: EditorSizeSettings.property-border-radius;
