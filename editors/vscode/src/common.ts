@@ -293,7 +293,7 @@ async function maybeSendStartupTelemetryEvent(
     telemetryLogger.logUsage("extension-activated", usageData);
 }
 
-const HELP_URL = "https://docs.slint.dev/latest/docs/slint/reference/";
+const HELP_URL = "https://snapshots.slint.dev/master/docs/slint/reference/";
 
 function getHelpUrlForElement(elementName: string): string | null {
     const elementPaths: Record<string, string> = {
