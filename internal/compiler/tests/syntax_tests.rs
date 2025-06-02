@@ -155,10 +155,24 @@ fn process_diagnostics(
             _ => panic!("Unsupported diagnostic level {warning_or_error}"),
         };
 
+        fn compare_message(message: &str, expected_message: &str) -> bool {
+            if message == expected_message {
+                return true;
+            }
+            // The error message might contain path that might have other character, so replace them on windows
+            #[cfg(target_os = "windows")]
+            if message.replace('\\', "/") == expected_message.replace('\\', "/") {
+                return true;
+            }
+            false
+        }
+
         match diags.iter().position(|e| {
             let (l, c) = e.line_column();
             let o = lines.get(l.wrapping_sub(2)).unwrap_or(&0) + c;
-            o == offset && e.message() == expected_message && e.level() == expected_diag_level
+            o == offset
+                && compare_message(e.message(), &expected_message)
+                && e.level() == expected_diag_level
         }) {
             Some(idx) => {
                 diags.remove(idx);
