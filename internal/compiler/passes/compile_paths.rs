@@ -70,7 +70,7 @@ pub fn compile_paths(
                         Ok(binding) => binding,
                         Err(e) => {
                             diag.push_error(
-                                format!("Error parsing SVG commands ({e:?})"),
+                                format!("Error parsing SVG commands ({e})"),
                                 &commands_expr,
                             );
                             return;
