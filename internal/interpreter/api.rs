@@ -424,12 +424,12 @@ impl TryFrom<Value> for i_slint_core::lengths::LogicalLength {
     }
 }
 
-impl<T: Into<Value> + 'static> From<ModelRc<T>> for Value {
+impl<T: Into<Value> + TryFrom<Value> + 'static> From<ModelRc<T>> for Value {
     fn from(m: ModelRc<T>) -> Self {
         if let Some(v) = <dyn core::any::Any>::downcast_ref::<ModelRc<Value>>(&m) {
             Value::Model(v.clone())
         } else {
-            Value::Model(ModelRc::new(m.map(|v| v.into())))
+            Value::Model(ModelRc::new(crate::value_model::ValueMapModel(m)))
         }
     }
 }
@@ -441,6 +441,10 @@ impl<T: TryFrom<Value> + Default + 'static> TryFrom<Value> for ModelRc<T> {
             Value::Model(m) => {
                 if let Some(v) = <dyn core::any::Any>::downcast_ref::<ModelRc<T>>(&m) {
                     Ok(v.clone())
+                } else if let Some(v) =
+                    m.as_any().downcast_ref::<crate::value_model::ValueMapModel<T>>()
+                {
+                    Ok(v.0.clone())
                 } else {
                     Ok(ModelRc::new(m.map(|v| T::try_from(v).unwrap_or_default())))
                 }
@@ -474,6 +478,30 @@ fn value_model_conversion() {
 
     let err: Result<ModelRc<Value>, _> = Value::Bool(true).try_into();
     assert!(err.is_err());
+
+    let model =
+        Rc::new(VecModel::<SharedString>::from_iter(["foo".into(), "bar".into(), "baz".into()]));
+
+    let value: Value = ModelRc::from(model.clone()).into();
+    let value_model: ModelRc<Value> = value.clone().try_into().unwrap();
+    assert_eq!(value_model.row_data(2).unwrap(), Value::String("baz".into()));
+    value_model.set_row_data(1, Value::String("qux".into()));
+    value_model.set_row_data(0, Value::Bool(true));
+    assert_eq!(value_model.row_data(1).unwrap(), Value::String("qux".into()));
+    // This is backed by a string model, so changing to bool has no effect
+    assert_eq!(value_model.row_data(0).unwrap(), Value::String("foo".into()));
+
+    // The original values are changed
+    assert_eq!(model.row_data(1).unwrap(), SharedString::from("qux"));
+    assert_eq!(model.row_data(0).unwrap(), SharedString::from("foo"));
+
+    let the_model: ModelRc<SharedString> = value.try_into().unwrap();
+    assert_eq!(the_model.row_data(1).unwrap(), SharedString::from("qux"));
+    assert_eq!(
+        model.as_ref() as *const VecModel<SharedString>,
+        the_model.as_any().downcast_ref::<VecModel<SharedString>>().unwrap()
+            as *const VecModel<SharedString>
+    );
 }
 
 pub(crate) fn normalize_identifier(ident: &str) -> SmolStr {
