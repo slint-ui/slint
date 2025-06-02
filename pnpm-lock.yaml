@@ -495,11 +495,6 @@ packages:
     resolution: {integrity: sha512-FCvFTm0sWV8Fxhpp2McP5/W53GPllQ9QeQ7SiqGWjMf/LVG07lFa5+pgK05IRhVwtvafT22KF+ZSnM9I545CvQ==}
     engines: {node: '>=6.9.0'}
 
-  '@babel/parser@7.27.2':
-    resolution: {integrity: sha512-QYLs8299NA7WM/bZAdp+CviYYkVoYXlDW2rzliy3chxd1PQjej7JORuMJDJXJUb9g0TT+B99EwaVLKmX+sPXWw==}
-    engines: {node: '>=6.0.0'}
-    hasBin: true
-
   '@babel/parser@7.27.4':
     resolution: {integrity: sha512-BRmLHGwpUqLFR2jzx9orBuX/ABDkj2jLKOXrHDTN2aOKL+jFDDKaRNo9nyYsIl9h/UE/7lMKdDjKQQyxKKDZ7g==}
     engines: {node: '>=6.0.0'}
@@ -527,10 +522,6 @@ packages:
 
   '@babel/traverse@7.27.1':
     resolution: {integrity: sha512-ZCYtZciz1IWJB4U61UPu4KEaqyfj+r5T1Q5mqPo+IBpcG9kHv30Z0aD8LXPgC1trYa6rK0orRyAhqUgk4MjmEg==}
-    engines: {node: '>=6.9.0'}
-
-  '@babel/types@7.27.1':
-    resolution: {integrity: sha512-+EzkxvLNfiUeKMgy/3luqfsCWFRXLb7U6wNQTk60tovuckwB15B191tJWvpp4HjiQWdJkCxO3Wbvc6jlk3Xb2Q==}
     engines: {node: '>=6.9.0'}
 
   '@babel/types@7.27.3':
@@ -3307,14 +3298,6 @@ packages:
   fastq@1.19.1:
     resolution: {integrity: sha512-GwLTyxkCXjXbxqIhTsMI2Nui8huMPtnxg7krajPJAjnEG/iiOS7i+zCtWGZR9G0NBKbXKh6X9m9UIsYX/N6vvQ==}
 
-  fdir@6.4.4:
-    resolution: {integrity: sha512-1NZP+GK4GfuAv3PqKvxQRDMjdSRZjnkq7KfhlNrCNNlZ0ygQFpebfrnfnq/W7fpUnAv9aGWmY1zKx7FYL3gwhg==}
-    peerDependencies:
-      picomatch: ^3 || ^4
-    peerDependenciesMeta:
-      picomatch:
-        optional: true
-
   fdir@6.4.5:
     resolution: {integrity: sha512-4BG7puHpVsIYxZUbiUE3RqGloLaSSwzYie5jvasC4LWuBWzZawynvYouhjbQKw2JuIGYdm0DzIxl8iVidKlUEw==}
     peerDependencies:
@@ -5694,9 +5677,6 @@ packages:
       typescript: ^4.9.4 || ^5.0.2
       zod: ^3
 
-  zod@3.25.28:
-    resolution: {integrity: sha512-/nt/67WYKnr5by3YS7LroZJbtcCBurDKKPBPWWzaxvVCGuG/NOsiKkrjoOhI8mJ+SQUXEbUzeB3S+6XDUEEj7Q==}
-
   zod@3.25.46:
     resolution: {integrity: sha512-IqRxcHEIjqLd4LNS/zKffB3Jzg3NwqJxQQ0Ns7pdrvgGkwQsEBdEQcOHaBVqvvZArShRzI39+aMST3FBGmTrLQ==}
 
@@ -6004,10 +5984,10 @@ snapshots:
       '@babel/helper-compilation-targets': 7.27.2
       '@babel/helper-module-transforms': 7.27.1(@babel/core@7.27.1)
       '@babel/helpers': 7.27.1
-      '@babel/parser': 7.27.2
+      '@babel/parser': 7.27.4
       '@babel/template': 7.27.2
       '@babel/traverse': 7.27.1
-      '@babel/types': 7.27.1
+      '@babel/types': 7.27.3
       convert-source-map: 2.0.0
       debug: 4.4.1
       gensync: 1.0.0-beta.2
@@ -6061,10 +6041,6 @@ snapshots:
       '@babel/template': 7.27.2
       '@babel/types': 7.27.3
 
-  '@babel/parser@7.27.2':
-    dependencies:
-      '@babel/types': 7.27.3
-
   '@babel/parser@7.27.4':
     dependencies:
       '@babel/types': 7.27.3
@@ -6098,11 +6074,6 @@ snapshots:
       globals: 11.12.0
     transitivePeerDependencies:
       - supports-color
-
-  '@babel/types@7.27.1':
-    dependencies:
-      '@babel/helper-string-parser': 7.27.1
-      '@babel/helper-validator-identifier': 7.27.1
 
   '@babel/types@7.27.3':
     dependencies:
@@ -6919,7 +6890,7 @@ snapshots:
     dependencies:
       '@jimp/types': 1.6.0
       '@jimp/utils': 1.6.0
-      zod: 3.25.28
+      zod: 3.25.46
 
   '@jimp/plugin-blur@1.6.0':
     dependencies:
@@ -6929,7 +6900,7 @@ snapshots:
   '@jimp/plugin-circle@1.6.0':
     dependencies:
       '@jimp/types': 1.6.0
-      zod: 3.25.28
+      zod: 3.25.46
 
   '@jimp/plugin-color@1.6.0':
     dependencies:
@@ -6937,7 +6908,7 @@ snapshots:
       '@jimp/types': 1.6.0
       '@jimp/utils': 1.6.0
       tinycolor2: 1.6.0
-      zod: 3.25.28
+      zod: 3.25.46
 
   '@jimp/plugin-contain@1.6.0':
     dependencies:
@@ -6946,7 +6917,7 @@ snapshots:
       '@jimp/plugin-resize': 1.6.0
       '@jimp/types': 1.6.0
       '@jimp/utils': 1.6.0
-      zod: 3.25.28
+      zod: 3.25.46
 
   '@jimp/plugin-cover@1.6.0':
     dependencies:
@@ -6954,20 +6925,20 @@ snapshots:
       '@jimp/plugin-crop': 1.6.0
       '@jimp/plugin-resize': 1.6.0
       '@jimp/types': 1.6.0
-      zod: 3.25.28
+      zod: 3.25.46
 
   '@jimp/plugin-crop@1.6.0':
     dependencies:
       '@jimp/core': 1.6.0
       '@jimp/types': 1.6.0
       '@jimp/utils': 1.6.0
-      zod: 3.25.28
+      zod: 3.25.46
 
   '@jimp/plugin-displace@1.6.0':
     dependencies:
       '@jimp/types': 1.6.0
       '@jimp/utils': 1.6.0
-      zod: 3.25.28
+      zod: 3.25.46
 
   '@jimp/plugin-dither@1.6.0':
     dependencies:
@@ -6977,12 +6948,12 @@ snapshots:
     dependencies:
       '@jimp/types': 1.6.0
       '@jimp/utils': 1.6.0
-      zod: 3.25.28
+      zod: 3.25.46
 
   '@jimp/plugin-flip@1.6.0':
     dependencies:
       '@jimp/types': 1.6.0
-      zod: 3.25.28
+      zod: 3.25.46
 
   '@jimp/plugin-hash@1.6.0':
     dependencies:
@@ -7000,7 +6971,7 @@ snapshots:
   '@jimp/plugin-mask@1.6.0':
     dependencies:
       '@jimp/types': 1.6.0
-      zod: 3.25.28
+      zod: 3.25.46
 
   '@jimp/plugin-print@1.6.0':
     dependencies:
@@ -7013,18 +6984,18 @@ snapshots:
       parse-bmfont-binary: 1.0.6
       parse-bmfont-xml: 1.1.6
       simple-xml-to-json: 1.2.3
-      zod: 3.25.28
+      zod: 3.25.46
 
   '@jimp/plugin-quantize@1.6.0':
     dependencies:
       image-q: 4.0.0
-      zod: 3.25.28
+      zod: 3.25.46
 
   '@jimp/plugin-resize@1.6.0':
     dependencies:
       '@jimp/core': 1.6.0
       '@jimp/types': 1.6.0
-      zod: 3.25.28
+      zod: 3.25.46
 
   '@jimp/plugin-rotate@1.6.0':
     dependencies:
@@ -7033,7 +7004,7 @@ snapshots:
       '@jimp/plugin-resize': 1.6.0
       '@jimp/types': 1.6.0
       '@jimp/utils': 1.6.0
-      zod: 3.25.28
+      zod: 3.25.46
 
   '@jimp/plugin-threshold@1.6.0':
     dependencies:
@@ -7042,11 +7013,11 @@ snapshots:
       '@jimp/plugin-hash': 1.6.0
       '@jimp/types': 1.6.0
       '@jimp/utils': 1.6.0
-      zod: 3.25.28
+      zod: 3.25.46
 
   '@jimp/types@1.6.0':
     dependencies:
-      zod: 3.25.28
+      zod: 3.25.46
 
   '@jimp/utils@1.6.0':
     dependencies:
@@ -7935,8 +7906,8 @@ snapshots:
 
   '@types/babel__core@7.20.5':
     dependencies:
-      '@babel/parser': 7.27.2
-      '@babel/types': 7.27.1
+      '@babel/parser': 7.27.4
+      '@babel/types': 7.27.3
       '@types/babel__generator': 7.27.0
       '@types/babel__template': 7.4.4
       '@types/babel__traverse': 7.20.7
@@ -9121,10 +9092,6 @@ snapshots:
   fastq@1.19.1:
     dependencies:
       reusify: 1.1.0
-
-  fdir@6.4.4(picomatch@4.0.2):
-    optionalDependencies:
-      picomatch: 4.0.2
 
   fdir@6.4.5(picomatch@4.0.2):
     optionalDependencies:
@@ -11681,7 +11648,7 @@ snapshots:
   vite@6.3.5(@types/node@20.16.10)(jiti@2.4.2)(lightningcss@1.29.2)(yaml@2.8.0):
     dependencies:
       esbuild: 0.25.4
-      fdir: 6.4.4(picomatch@4.0.2)
+      fdir: 6.4.5(picomatch@4.0.2)
       picomatch: 4.0.2
       postcss: 8.5.3
       rollup: 4.40.2
@@ -12004,8 +11971,6 @@ snapshots:
     dependencies:
       typescript: 5.8.3
       zod: 3.25.46
-
-  zod@3.25.28: {}
 
   zod@3.25.46: {}
 
