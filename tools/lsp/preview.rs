@@ -654,15 +654,16 @@ fn can_drop_component(component_index: i32, x: f32, y: f32, on_drop_area: bool) 
 
     let position = LogicalPoint::new(x, y);
 
-    PREVIEW_STATE.with(|preview_state| {
+    let component = PREVIEW_STATE.with(|preview_state| {
         let preview_state = preview_state.borrow();
+        preview_state.known_components.get(component_index as usize).cloned()
+    });
 
-        if let Some(component) = preview_state.known_components.get(component_index as usize) {
-            drop_location::can_drop_at(&document_cache, position, component)
-        } else {
-            false
-        }
-    })
+    let Some(component) = component else {
+        return false;
+    };
+
+    drop_location::can_drop_at(&document_cache, position, &component)
 }
 
 fn drop_component(component_index: i32, x: f32, y: f32) {
@@ -674,14 +675,16 @@ fn drop_component(component_index: i32, x: f32, y: f32) {
 
     let position = LogicalPoint::new(x, y);
 
-    let drop_result = PREVIEW_STATE.with(|preview_state| {
+    let Some(component) = PREVIEW_STATE.with(|preview_state| {
         let preview_state = preview_state.borrow();
 
-        let component = preview_state.known_components.get(component_index as usize)?;
+        preview_state.known_components.get(component_index as usize).cloned()
+    }) else {
+        return;
+    };
 
-        drop_location::drop_at(&document_cache, position, component)
-            .map(|(e, d)| (e, d, component.name.clone()))
-    });
+    let drop_result = drop_location::drop_at(&document_cache, position, &component)
+        .map(|(e, d)| (e, d, component.name.clone()));
 
     if let Some((edit, drop_data, component_name)) = drop_result {
         element_selection::select_element_at_source_code_position(
