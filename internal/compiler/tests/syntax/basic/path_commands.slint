@@ -6,7 +6,7 @@ Test2 := Path {
     width: 640px;
     height: 480px;
     commands: "M 0 0 M -100 0 A 100 100 0 1 0 100 0 Å 100 100 0 1 0 100 0 Z";
-//            ^error{Error parsing SVG commands (Number { src: "", line: 0, column: 37 })}
+//            ^error{Error parsing SVG commands (Line 0 Column 37: Expected number, got "".)}
 }
 
 export TestCase := Rectangle {
@@ -15,7 +15,7 @@ export TestCase := Rectangle {
         width: 100px;
         height: 100px;
         commands: "hello world";
-//                ^error{Error parsing SVG commands (Number { src: "e", line: 0, column: 1 })}
+//                ^error{Error parsing SVG commands (Line 0 Column 1: Expected number, got "e".)}
         stroke: red;
         stroke-width: 1px;
     }
@@ -30,7 +30,7 @@ export TestCase := Rectangle {
         width: 640px;
         height: 480px;
         commands: "M 0 0 M -100 0 A 100 100 0 1 0 0 A 100 100 0 1 0 100 0 Z";
-//                ^error{Error parsing SVG commands (Number { src: "", line: 0, column: 33 })}
+//                ^error{Error parsing SVG commands (Line 0 Column 33: Expected number, got "".)}
     }
 
     TouchArea {
