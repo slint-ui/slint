@@ -48,9 +48,9 @@ export X := Rectangle {
     property <{a: string, b: int}> object1: { a: "123", typo: 42};
 //                                          ^error{Cannot convert { a: string,typo: float,} to { a: string,b: int,}}
 
-    property <[{a: [int]}]> ccc: [{a: []}, {}, {a: ["123"]}, {a: [123]}]; //                               ^error{Cannot convert string to int}
+    property <[{a: [int]}]> ccc: [{a: []}, {}, {a: ["123"]}, {a: [123]}]; //  (FIXME: error location)  (FIXME: duplicated)
+//                               ^error{Cannot convert string to int}
 //                               ^^error{Cannot convert string to int}
- (FIXME: error location)  (FIXME: duplicated)
 
     property <int> arr1: [];
 //                       ^error{Cannot convert [void] to int}

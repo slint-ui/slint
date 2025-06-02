@@ -6,8 +6,8 @@ WithStates := Rectangle {
 //         ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     property <brush> extra_background;
     property <bool> condition;
-    background: yellow; //              ^error{The binding for the property 'background' is part of a binding loop}
-//FIXME: ideally we'd keep the span within the state
+    background: yellow; //FIXME: ideally we'd keep the span within the state
+//              ^error{The binding for the property 'background' is part of a binding loop}
     states [
         xxx when condition : {
             background: extra_background;
