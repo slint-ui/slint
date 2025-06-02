@@ -36,8 +36,8 @@ importers:
         specifier: 1.6.0
         version: 1.6.0
       typedoc:
-        specifier: 0.28.4
-        version: 0.28.4(typescript@5.8.3)
+        specifier: 0.28.5
+        version: 0.28.5(typescript@5.8.3)
       typescript:
         specifier: 5.8.3
         version: 5.8.3
@@ -1131,8 +1131,8 @@ packages:
   '@floating-ui/utils@0.2.9':
     resolution: {integrity: sha512-MDWhGtE+eHw5JW7lq4qhc5yRLS11ERl1c7Z6Xd0a58DozHES6EnNNwUWbMiG4J9Cgj053Bhk8zvlhFYKVhULwg==}
 
-  '@gerrit0/mini-shiki@3.3.0':
-    resolution: {integrity: sha512-frvArO0+s5Viq68uSod5SieLPVM2cLpXoQ1e07lURwgADXpL/MOypM7jPz9otks0g2DIe2YedDAeVrDyYJZRxA==}
+  '@gerrit0/mini-shiki@3.4.2':
+    resolution: {integrity: sha512-3jXo5bNjvvimvdbIhKGfFxSnKCX+MA8wzHv55ptzk/cx8wOzT+BRcYgj8aFN3yTiTs+zvQQiaZFr7Jce1ZG3fw==}
 
   '@img/sharp-darwin-arm64@0.33.5':
     resolution: {integrity: sha512-UT4p+iz/2H4twwAoLCqfA9UH5pI6DggwKEGuaPy7nCVQ8ZsiY5PIcrRvD1DzuY3qYL07NtIQcWnBSY/heikIFQ==}
@@ -5093,8 +5093,8 @@ packages:
     resolution: {integrity: sha512-TeTSQ6H5YHvpqVwBRcnLDCBnDOHWYu7IvGbHT6N8AOymcr9PJGjc1GTtiWZTYg0NCgYwvnYWEkVChQAr9bjfwA==}
     engines: {node: '>=16'}
 
-  typedoc@0.28.4:
-    resolution: {integrity: sha512-xKvKpIywE1rnqqLgjkoq0F3wOqYaKO9nV6YkkSat6IxOWacUCc/7Es0hR3OPmkIqkPoEn7U3x+sYdG72rstZQA==}
+  typedoc@0.28.5:
+    resolution: {integrity: sha512-5PzUddaA9FbaarUzIsEc4wNXCiO4Ot3bJNeMF2qKpYlTmM9TTaSHQ7162w756ERCkXER/+o2purRG6YOAv6EMA==}
     engines: {node: '>= 18', pnpm: '>= 10'}
     hasBin: true
     peerDependencies:
@@ -6658,7 +6658,7 @@ snapshots:
 
   '@floating-ui/utils@0.2.9': {}
 
-  '@gerrit0/mini-shiki@3.3.0':
+  '@gerrit0/mini-shiki@3.4.2':
     dependencies:
       '@shikijs/engine-oniguruma': 3.4.2
       '@shikijs/langs': 3.4.2
@@ -11418,9 +11418,9 @@ snapshots:
 
   type-fest@4.41.0: {}
 
-  typedoc@0.28.4(typescript@5.8.3):
+  typedoc@0.28.5(typescript@5.8.3):
     dependencies:
-      '@gerrit0/mini-shiki': 3.3.0
+      '@gerrit0/mini-shiki': 3.4.2
       lunr: 2.3.9
       markdown-it: 14.1.0
       minimatch: 9.0.5
