@@ -1630,6 +1630,7 @@ fn set_selected_element(
     let element_node = selection.as_ref().and_then(|s| s.as_element_node());
     let notify_editor_about_selection_after_update =
         editor_notification == SelectionNotification::AfterUpdate;
+
     PREVIEW_STATE.with(move |preview_state| {
         let mut preview_state = preview_state.borrow_mut();
 
@@ -1689,6 +1690,9 @@ fn set_selected_element(
                         ))
                     })
                 {
+                    let palettes = ui::palette::collect_palette(&document_cache, &uri);
+                    ui::palette::set_palette(ui, palettes);
+
                     let in_layout = match parent_layout_kind {
                         ui::LayoutKind::None => properties::LayoutKind::None,
                         ui::LayoutKind::Horizontal => properties::LayoutKind::HorizontalBox,
