@@ -22,7 +22,7 @@ export component ColorModeAndApply {
         spacing: 10px;
         Rectangle {
             x: EditorSizeSettings.standard-margin;
-            width: 170px;
+            width: parent.width - 2 * EditorSizeSettings.standard-margin;
             height: 25px;
             background: EditorPalette.section-color;
             border-radius: EditorSizeSettings.property-border-radius;
@@ -125,25 +125,6 @@ export component ColorModeAndApply {
                             PickerData.alpha = (initial-alpha + ((self.mouse-x - self.pressed-x) / 1px)).clamp(0, 100).round();
                         }
                     }
-                }
-            }
-        }
-
-        if widget-mode == WidgetMode.edit: Button {
-            x: EditorSizeSettings.standard-margin;
-            width: 100px;
-            text: "Apply";
-            changed pressed => {
-                if self.pressed {
-                    root.clear-focus-panel();
-                }
-            }
-            clicked => {
-                Api.add-recent-color(PickerData.current-color);
-                if PickerData.current-color.to-hsv().alpha == 1 {
-                    WindowManager.apply-current-value("#\{Api.color-to-data(PickerData.current-color).short-text}")
-                } else {
-                    WindowManager.apply-current-value(Api.color-to-data(PickerData.current-color).text);
                 }
             }
         }

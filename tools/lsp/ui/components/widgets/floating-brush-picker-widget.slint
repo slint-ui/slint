@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Palette } from "std-widgets.slint";
+import { Palette, Button } from "std-widgets.slint";
 import { WindowGlobal, WindowManager, PickerData, PickerTab, BrushMode, BrushPropertyType, WidgetMode } from "../../windowglobal.slint";
 import { Api } from "../../api.slint";
 import { Icons, EditorPalette, EditorSizeSettings, PickerStyles } from "../../components/styling.slint";
@@ -10,7 +10,7 @@ import { DraggablePanel } from "../../components/draggable-panel.slint";
 import { ColorModeAndApply } from "./floating-brush-sections/color-mode-and-apply.slint";
 import { GradientPicker } from "./floating-brush-sections/gradient-ui.slint";
 import { RecentColorPicker } from "floating-brush-sections/palettes.slint";
-import { SvgColorPicker } from "floating-brush-sections/svg-color-ui.slint";
+import { CssColorPicker } from "floating-brush-sections/css-color-ui.slint";
 
 
 component TabIcon inherits Rectangle {
@@ -87,14 +87,14 @@ component BrushTypeSelector {
 
         TabIcon {
             y: (parent.height - self.height) / 2;
-            picker-tab: PickerTab.svg-color;
+            picker-tab: PickerTab.css-color;
 
             Rectangle {
                 Text {
                     font-family: "Inter";
                     font-size: 6px;
                     color: EditorPalette.text-color;
-                    text: "svg";
+                    text: "CSS";
                     font-weight: 600;
                 }
             }
@@ -395,14 +395,6 @@ component HsvPicker inherits SimpleColumn {
                 }
             }
         }
-
-        Rectangle {
-            width: 100%;
-            height: 1px;
-            x: 0;
-            y: parent.height - self.height;
-            background: EditorPalette.divider-color;
-        }
     }
 }
 
@@ -455,8 +447,6 @@ component ColorPicker inherits DraggablePanel {
 
     if active-tab == PickerTab.color: HsvPicker { }
 
-    if active-tab == PickerTab.color: VerticalSpacer { }
-
     if active-tab == PickerTab.color: color-apply := ColorModeAndApply {
         widget-mode: root.widget-mode;
 
@@ -478,11 +468,30 @@ component ColorPicker inherits DraggablePanel {
         recent-colors <=> Api.recent-colors;
     }
 
-    if active-tab == PickerTab.svg-color: SvgColorPicker {
+    if active-tab == PickerTab.css-color: CssColorPicker {
         filter-text: "^Colors.";
     }
 
-    if active-tab == PickerTab.globals: SvgColorPicker {
+    if active-tab == PickerTab.color && widget-mode == WidgetMode.edit: Button {
+        x: EditorSizeSettings.standard-margin;
+        width: 100px;
+        text: "Apply";
+        changed pressed => {
+            if self.pressed {
+                root.clear-focus-panel();
+            }
+        }
+        clicked => {
+            Api.add-recent-color(PickerData.current-color);
+            if PickerData.current-color.to-hsv().alpha == 1 {
+                WindowManager.apply-current-value("#\{Api.color-to-data(PickerData.current-color).short-text}")
+            } else {
+                WindowManager.apply-current-value(Api.color-to-data(PickerData.current-color).text);
+            }
+        }
+    }
+
+    if active-tab == PickerTab.globals: CssColorPicker {
         property <string> filter-brush-and-color: "!^Colors. ";
         property <string> filter-color-only: "!^Colors. '%kind:Color ";
         filter-text: picker-mode == BrushPropertyType.brush ? filter-brush-and-color : filter-color-only;

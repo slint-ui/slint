@@ -17,7 +17,7 @@ pub fn setup(ui: &ui::PreviewUi) {
     let api = ui.global::<ui::Api>();
 
     api.on_filter_palettes(filter_palettes);
-    api.on_is_svg_color(is_svg_color);
+    api.on_is_css_color(is_css_color);
 }
 
 pub fn collect_palette(
@@ -199,7 +199,7 @@ fn filter_palettes(
         .into()
 }
 
-fn is_svg_color(code: slint::SharedString) -> bool {
+fn is_css_color(code: slint::SharedString) -> bool {
     let code = code.to_string();
     let code = code.strip_prefix("Colors.").unwrap_or(&code);
     i_slint_compiler::lookup::named_colors().contains_key(code)
@@ -618,11 +618,11 @@ export component Main { }
     }
 
     #[test]
-    fn test_is_svg_color() {
-        assert!(!super::is_svg_color(slint::SharedString::from("Colors.foobar")));
-        assert!(super::is_svg_color(slint::SharedString::from("Colors.blue")));
-        assert!(super::is_svg_color(slint::SharedString::from("blue")));
-        assert!(!super::is_svg_color(slint::SharedString::from("Styles.foo")));
-        assert!(!super::is_svg_color(slint::SharedString::from("my_var")));
+    fn test_is_css_color() {
+        assert!(!super::is_css_color(slint::SharedString::from("Colors.foobar")));
+        assert!(super::is_css_color(slint::SharedString::from("Colors.blue")));
+        assert!(super::is_css_color(slint::SharedString::from("blue")));
+        assert!(!super::is_css_color(slint::SharedString::from("Styles.foo")));
+        assert!(!super::is_css_color(slint::SharedString::from("my_var")));
     }
 }

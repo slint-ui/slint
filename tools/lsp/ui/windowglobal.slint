@@ -18,7 +18,7 @@ export enum WidgetMode { edit, preview, color-stop }
 export enum PickerTab {
     color,
     gradient,
-    svg-color,
+    css-color,
     globals
 }
 
@@ -34,7 +34,7 @@ export enum BrushMode {
     color,
     linear,
     radial,
-    svg-color,
+    css-color,
     code,
 }
 
@@ -45,7 +45,7 @@ export enum GradientType {
 
 export enum ColorCodeType {
     other,
-    svg-color,
+    css-color,
     global
 }
 
@@ -214,8 +214,8 @@ export global PickerData {
     }
 
     function set-svg-or-global-tab(property-value: PropertyValue) {
-        if PickerData.get-color-code-type(property-value) == ColorCodeType.svg-color {
-            set-active-tab(PickerTab.svg-color);
+        if PickerData.get-color-code-type(property-value) == ColorCodeType.css-color {
+            set-active-tab(PickerTab.css-color);
         } else {
             set-active-tab(PickerTab.globals);
         }
@@ -287,8 +287,8 @@ export global PickerData {
         if property-value.value-string == "" {
             return ColorCodeType.other;
         }
-        if Api.is-svg-color(property-value.code) {
-            return ColorCodeType.svg-color;
+        if Api.is-css-color(property-value.code) {
+            return ColorCodeType.css-color;
         } else {
             return ColorCodeType.global;
         }
