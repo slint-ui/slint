@@ -90,6 +90,7 @@ export component Bar {
 
 
 export Foo_Legacy := Rectangle {
+//                ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     property <int> prop;
     callback c1;
     pure callback c2;
@@ -149,6 +150,7 @@ export Foo_Legacy := Rectangle {
 
 
 export Bar_Legacy := Rectangle {
+//                ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     pure callback xc1 <=> f.c1;
 //  ^error{Purity of callbacks 'xc1' and 'f.c1' doesn't match}
     callback xc2 <=> f.c2;

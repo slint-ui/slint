@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 Compo1 := Rectangle {
+//     ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
 
     property <int> a : aa();
 //                     ^error{The binding for the property 'a' is part of a binding loop}
@@ -19,6 +20,7 @@ Compo1 := Rectangle {
 }
 
 export App := Rectangle {
+//         ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     cc := Compo1 {
         aa() => { return self.a; }
 //      ^error{The binding for the property 'aa' is part of a binding loop}

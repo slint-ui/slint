@@ -2,16 +2,19 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 global MyGlobal := {
+//              ^warning{':=' to declare a global is deprecated. Remove the ':='}
     property<length> custom_prop;
     property<color> color_prop;
     color_prop: red;
 }
 
 export SomeComp := Rectangle {
+//              ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     property<length> foo;
 }
 
 global my_lowercase := {
+//                  ^warning{':=' to declare a global is deprecated. Remove the ':='}
     property <int> glob;
 }
 
@@ -21,6 +24,7 @@ global StyleMetrics {
 }
 
 export X := Rectangle {
+//       ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     x: MyGlobal.custom_prop;
     background: MyGlobal.blue;
 //                       ^error{'MyGlobal' does not have a property 'blue'}
@@ -29,9 +33,9 @@ export X := Rectangle {
 
     my_lowercase := Rectangle {
         clip: NativeStyleMetrics.color-scheme == ColorScheme.dark;
-        //    ^error{Cannot access id 'NativeStyleMetrics'}
+//            ^error{Cannot access id 'NativeStyleMetrics'}
         visible: SlintInternal.color-scheme;
-        //       ^error{Cannot access id 'SlintInternal'}
+//               ^error{Cannot access id 'SlintInternal'}
 
         height: StyleMetrics.padding;
     }
@@ -40,7 +44,7 @@ export X := Rectangle {
 
     property<brush> xxx: my_lowercase.background;
     property<int> yyy: my_lowercase.glob; // error because this is not the global, but the local element
-    //                              ^error{Element 'Rectangle' does not have a property 'glob'}
+//                                  ^error{Element 'Rectangle' does not have a property 'glob'}
 
     property<int> zzz: self.my_lowercase;
 

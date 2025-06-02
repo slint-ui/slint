@@ -2,20 +2,21 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 export X := Rectangle {
+//       ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     property<brush> g1: @radial-gradient();
-//                      ^error{Expected 'circle': currently, only @radial-gradient\(circle, ...\) are supported}
+//                      ^error{Expected 'circle': currently, only @radial-gradient(circle, ...) are supported}
     property<brush> g2: @radial-gradient(circle at 100%, #333, #333 50%, #eee 75%, #333 75%);
 //                                              ^error{'at' in @radial-gradient is not yet supported}
     property<brush> g3: @radial_gradient(circle, blue, red);
     property<brush> g4: @radial_gradient(circle, blue 45%, red red);
 //                                                             ^error{Cannot convert color to float}
     property<brush> g5: @radial-gradient(ellipse at top, #e66465, transparent);
-//                      ^error{Expected 'circle': currently, only @radial-gradient\(circle, ...\) are supported}
+//                      ^error{Expected 'circle': currently, only @radial-gradient(circle, ...) are supported}
     property<brush> g6: @radial-gradient(circle, blue 45%, red 88%);
     property<brush> g7: @radial-gradient(circle, 42 45%, red 0.3);
 //                                               ^error{Cannot convert float to color}
     property<brush> g8: @radial-gradient(90px, blue, red ,green);
-//                      ^error{Expected 'circle': currently, only @radial-gradient\(circle, ...\) are supported}
+//                      ^error{Expected 'circle': currently, only @radial-gradient(circle, ...) are supported}
 
     property<brush> g9: @radial-gradient(circle blue, blue, red);
 //                                              ^error{'circle' must be followed by a comma}

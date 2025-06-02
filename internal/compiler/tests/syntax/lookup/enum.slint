@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 export TestCase := Text {
+//              ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     // allow unqualified enum when we can infer the type from the property assigned to
     horizontal-alignment: right;
 
@@ -13,16 +14,16 @@ export TestCase := Text {
         //typo
         self.horizontal_alignment =
             TextHorizontalAlignment.lefti;
-        //                          ^error{'lefti' is not a member of the enum TextHorizontalAlignment}
+//                                  ^error{'lefti' is not a member of the enum TextHorizontalAlignment}
     }
 
     vertical_alignment: TextVerticalAlignment.top.right;
-    //                                            ^error{Cannot access the field 'right' of enum TextVerticalAlignment}
+//                                                ^error{Cannot access the field 'right' of enum TextVerticalAlignment}
     Text {
         horizontal-alignment: right.foo;
-        //                          ^error{Cannot access the field 'foo' of enum TextHorizontalAlignment}
+//                                  ^error{Cannot access the field 'foo' of enum TextHorizontalAlignment}
         vertical_alignment: TextVerticalAlignment;
-        //                  ^error{Cannot take reference to an enum}
+//                          ^error{Cannot take reference to an enum}
     }
 
 }

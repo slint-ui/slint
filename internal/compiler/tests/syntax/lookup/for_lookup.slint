@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 export Hello := Rectangle {
+//           ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
 
     aaa := Text{ text: "aaa";
         bbb := Text{ text: "bbb"; }
@@ -19,10 +20,10 @@ export Hello := Rectangle {
     }
 
     for gre[mem] in err: Rectangle {
-                  //^error{Unknown unqualified identifier 'err'}
+//                  ^error{Unknown unqualified identifier 'err'}
         x: mem * 1phx;
         ddd := Text { text: ccc.text; }
-        //                  ^error{Cannot access id 'ccc'}
+//                          ^error{Cannot access id 'ccc'}
     }
 
     for plop in 0 : named_for := Rectangle {
@@ -31,9 +32,9 @@ export Hello := Rectangle {
 
     Text {
         text: ccc.text;
-    //        ^error{Cannot access id 'ccc'}
+//            ^error{Cannot access id 'ccc'}
         color: named_for.background;
-    //         ^error{Cannot access id 'named_for'}
+//             ^error{Cannot access id 'named_for'}
     }
 
     for aaa in aaa.text: Rectangle {
@@ -59,7 +60,7 @@ export Hello := Rectangle {
         y: pp.b;
 //         ^error{Cannot convert string to length}
         property<int> ggg: pp;
-//                         ^error{Cannot convert \{ a: physical-length,b: string,\} to int}
+//                         ^error{Cannot convert { a: physical-length,b: string,} to int}
     }
 
 
@@ -69,13 +70,13 @@ export Hello := Rectangle {
 
     // issue 4683
     if issue_4683.shown : issue_4683 := TouchArea {
-    // ^error{Cannot access id 'issue_4683'}
+//     ^error{Cannot access id 'issue_4683'}
         property <bool> shown: true;
         clicked => { shown = !shown; }
     }
 
     for xx in inner_for.model: inner_for := Rectangle {
-    //        ^error{Cannot access id 'inner_for'}
+//            ^error{Cannot access id 'inner_for'}
         property <[int]> model: [1,2,3,4];
     }
 
@@ -85,14 +86,14 @@ export Hello := Rectangle {
     }
 
     if element_inside_if.pressed : Rectangle {
-    // ^error{Cannot access id 'element_inside_if'}
+//     ^error{Cannot access id 'element_inside_if'}
         element_inside_if := TouchArea {}
     }
 
     if self.pressed : TouchArea { }
-    //      ^error{Element 'Rectangle' does not have a property 'pressed'}
+//          ^error{Element 'Rectangle' does not have a property 'pressed'}
 
 
     for i[idx] in [] : Text { text: idx; }
-    //            ^error{Cannot convert \[void] to model}
+//                ^error{Cannot convert [void] to model}
 }

@@ -4,6 +4,7 @@
 import { Z } from "../../typeloader/incpath/should_fail4.slint";
 
 export Foo := Rectangle {
+//         ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     Z {
         property <int> b: b1;
     }

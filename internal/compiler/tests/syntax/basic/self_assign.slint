@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 export SuperSimple := Rectangle {
+//                 ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     TouchArea {
         clicked => { root.x += 1phx; }
     }
@@ -25,7 +26,7 @@ export SuperSimple := Rectangle {
     TouchArea {
         property <string> text;
         clicked => { text *= 2; }
-//                   ^error{the \*= operation cannot be done on a string}
+//                   ^error{the *= operation cannot be done on a string}
     }
 
     TouchArea {
@@ -39,7 +40,7 @@ export SuperSimple := Rectangle {
             text /= "hello";
 //          ^error{the /= operation cannot be done on a string}
             text *= 2;
-//          ^error{the \*= operation cannot be done on a string}
+//          ^error{the *= operation cannot be done on a string}
             text -= text;
 //          ^error{the -= operation cannot be done on a string}
         }
@@ -48,18 +49,18 @@ export SuperSimple := Rectangle {
     TouchArea {
         property <brush> color;
         clicked => { color += color; }
-//                   ^error{the \+= operation cannot be done on a brush}
+//                   ^error{the += operation cannot be done on a brush}
     }
 
     TouchArea {
         property <brush> color;
         clicked => { color *= 3; }
-//                   ^error{the \*= operation cannot be done on a brush}
+//                   ^error{the *= operation cannot be done on a brush}
     }
 
     TouchArea {
         clicked => { height /= height; }
-//                             ^error{Cannot convert length to float}
+//                             ^error{Cannot convert length to float. Divide by 1px to convert to a plain number}
     }
 
 }

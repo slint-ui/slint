@@ -2,17 +2,18 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 export SuperSimple := Rectangle {
+//                 ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     property<duration> p1: 3s + 1ms;
     property<int> p2: 3s + 1;
-//                         ^error{Cannot convert float to duration}
+//                         ^error{Cannot convert float to duration. Use an unit, or multiply by 1ms to convert explicitly}
     property<int> p3: 3s - 1;
-//                         ^error{Cannot convert float to duration}
+//                         ^error{Cannot convert float to duration. Use an unit, or multiply by 1ms to convert explicitly}
     property<int> p4: 3 / 1ms;
-//                    ^error{Cannot convert \(ms⁻¹\) to int}
+//                    ^error{Cannot convert (ms⁻¹) to int}
 
     property<duration> p5: 3ms * 1;
     property<duration> p6: 3ms * 1s;
-//                         ^error{Cannot convert \(ms²\) to duration}
+//                         ^error{Cannot convert (ms²) to duration}
 
     property<int> p7: "hello" * 1;
 //                    ^error{Cannot convert string to float}
@@ -22,11 +23,11 @@ export SuperSimple := Rectangle {
 
     property<string> p9: 1 + "hello" + 1;
     property<int> p10: "hello" + 1ms;
-//                               ^error{Cannot convert duration to string}
+//                               ^error{Cannot convert duration to string. Divide by 1ms to convert to a plain number}
 
     property<length> p11: 1ms * 1px *3px / 1deg * 3 / (30px * 1s - 3px * 1ms) * 2deg;
     property<int> p12: 1ms * 3s / 3px / (2deg * 5turn) * 2s / 3phx;
-//                     ^error{Cannot convert \(ms³×phx⁻¹×px⁻¹×deg⁻²\) to int}
+//                     ^error{Cannot convert (ms³×phx⁻¹×px⁻¹×deg⁻²) to int}
 
     property <brush> bru: background + background;
 //                        ^error{Cannot convert brush to float}

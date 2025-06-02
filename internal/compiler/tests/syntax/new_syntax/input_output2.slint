@@ -40,6 +40,7 @@ component Compo inherits Rectangle {
 }
 
 OldCompo := Rectangle {
+//       ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     property <int> inout2: 42;
     private property <int> priv2: inout2;
     out property <int> output1: priv2;
@@ -79,7 +80,7 @@ export component Foo inherits Rectangle {
 
     c2 := Compo {
         inout1: self.priv1;
-//                   ^error{'priv1' is private}
+//                   ^error{The property 'priv1' is private. Annotate it with 'in', 'out' or 'in-out' to make it accessible from other components}
     }
 
 
@@ -87,16 +88,16 @@ export component Foo inherits Rectangle {
         clicked => {
             c1.inout2 = 32;
             c1.priv2 = 78;
-//             ^error{'priv2' is private}
+//             ^error{The property 'priv2' is private. Annotate it with 'in', 'out' or 'in-out' to make it accessible from other components}
             c1.output1 = c1.input1;
 //          ^error{Assignment on a output property}
             c1.input1 = 75;
             c1.inout1 = 75;
 
             c2.priv1 = 32;
-//             ^error{'priv1' is private}
+//             ^error{The property 'priv1' is private. Annotate it with 'in', 'out' or 'in-out' to make it accessible from other components}
             c2.priv2 = 78;
-//             ^error{'priv2' is private}
+//             ^error{The property 'priv2' is private. Annotate it with 'in', 'out' or 'in-out' to make it accessible from other components}
             c2.output1 = c1.inout2;
 //          ^error{Assignment on a output property}
             c2.input1 = 75;
@@ -108,9 +109,9 @@ export component Foo inherits Rectangle {
             Glo.out1 = Glo.in1;
 //          ^error{Assignment on a output property}
             Glo.inout1 = Glo.priv1;
-//                           ^error{'priv1' is private}
+//                           ^error{The property 'priv1' is private. Annotate it with 'in', 'out' or 'in-out' to make it accessible from other components}
             Glo.priv2 = Glo.out1;
-//              ^error{'priv2' is private}
+//              ^error{The property 'priv2' is private. Annotate it with 'in', 'out' or 'in-out' to make it accessible from other components}
             Glo.in1 = 32;
         }
     }

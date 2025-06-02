@@ -2,9 +2,10 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 Button1 := Rectangle {
+//      ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     property <bool> cond;
     accessible-role: cond ? button : AccessibleRole.text;
-    //               ^error{The `accessible-role` property must be a constant expression}
+//                   ^error{The `accessible-role` property must be a constant expression}
 
     rr := Rectangle {
         init => {
@@ -15,11 +16,13 @@ Button1 := Rectangle {
 }
 
 Button2 := Rectangle {
+//      ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     accessible-label: "the button";
-    //                ^error{The `accessible-label` property can only be set in combination to `accessible-role`}
+//                    ^error{The `accessible-label` property can only be set in combination to `accessible-role`}
 }
 
 Button3 := Rectangle {
+//      ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     Rectangle {
         accessible-role: text;
         accessible-label: "the button";
@@ -27,6 +30,7 @@ Button3 := Rectangle {
 }
 
 export Test := Window {
+//          ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
 
     Button1 { }
     Button1 { accessible-description: "ok"; } // ok because Button1 has a role
@@ -34,5 +38,5 @@ export Test := Window {
     Button2 { }
     Button3 {}
     Button3 { accessible-description: "error";}
-    //                                ^error{The `accessible-description` property can only be set in combination to `accessible-role`}
+//                                    ^error{The `accessible-description` property can only be set in combination to `accessible-role`}
 }

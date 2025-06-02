@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 export Xxx := Rectangle {
+//         ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     callback plop(string, color, int);
     callback plop2(string, some-name: color, int);
     property <color> glop_col;
@@ -23,11 +24,11 @@ export Xxx := Rectangle {
 //      ^error{The expression is not a function}
 //                ^^error{Unknown unqualified identifier 'fff'}
         (plop)("45", #fff, 42);
-//       ^error{Callback must be called. Did you forgot the '\(\)'\?}
+//       ^error{Callback must be called. Did you forgot the '()'?}
         (root.plop)("45", #fff, 42);
-//       ^error{Callback must be called. Did you forgot the '\(\)'\?}
+//       ^error{Callback must be called. Did you forgot the '()'?}
         (root.plop)("45", #fff, "45");
-//       ^error{Callback must be called. Did you forgot the '\(\)'\?}
+//       ^error{Callback must be called. Did you forgot the '()'?}
     }
 
     x: 12phx;

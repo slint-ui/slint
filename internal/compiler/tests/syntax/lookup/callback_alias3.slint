@@ -2,11 +2,13 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 Sub := Rectangle {
+//  ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     callback compute(int) -> int;
     callback compute_alias <=> compute;
 }
 
 export Xxx := Rectangle {
+//         ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
 
     foo := Rectangle {
         callback hello(int) -> int;
@@ -19,8 +21,8 @@ export Xxx := Rectangle {
 
     callback loop1 <=> loop2;
     callback loop3 <=> loop1;
-//                     ^error{Unknown unqualified identifier 'loop1'}
-//  ^^error{Binding to callback 'loop3' must bind to another callback}
+//  ^error{Binding to callback 'loop3' must bind to another callback}
+//                     ^^error{Unknown unqualified identifier 'loop1'}
     callback loop2 <=> loop3;
 
     Sub {

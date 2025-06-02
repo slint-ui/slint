@@ -2,7 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 Compo := Rectangle {
-//       ^error{The binding for the property 'layoutinfo-h' is part of a binding loop}
+//    ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
+//       ^^error{The binding for the property 'layoutinfo-h' is part of a binding loop}
 
     property <string> the_text;
 
@@ -23,6 +24,7 @@ Compo := Rectangle {
 }
 
 export Foo := Rectangle {
+//         ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     Compo {
 //  ^error{The binding for the property 'preferred-width' is part of a binding loop}
         the_text: self.preferred-width / 1px;

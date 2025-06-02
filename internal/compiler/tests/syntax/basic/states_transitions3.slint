@@ -3,6 +3,7 @@
 
 
 export Demo := Window {
+//          ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     width:  300px;
     height: 300px;
     property <bool> toggle;
@@ -20,11 +21,11 @@ export Demo := Window {
     transitions [
         in moving: {
             animate y { duration: 5s; }
-            //      ^error{The property is not changed as part of this transition}
+//                  ^error{The property is not changed as part of this transition}
         }
         out moving: {
             animate t.x { duration: 100ms; }
-            //      ^error{The property is not changed as part of this transition}
+//                  ^error{The property is not changed as part of this transition}
         }
     ]
 }

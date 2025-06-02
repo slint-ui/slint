@@ -2,8 +2,10 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 struct Struct := { def: int, }
+//            ^warning{':=' to declare a struct is deprecated. Remove the ':='}
 
 export SuperSimple := Rectangle {
+//                 ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     DoesNotExist {
 //  ^error{Unknown element 'DoesNotExist'}
     }
@@ -48,9 +50,9 @@ export SuperSimple := Rectangle {
     }
 
     NativeLineEdit { }
-//  ^error{Unknown element 'NativeLineEdit'. \(The type exists as an internal type, but cannot be accessed in this scope\)}
+//  ^error{Unknown element 'NativeLineEdit'. (The type exists as an internal type, but cannot be accessed in this scope)}
 
     Opacity { }
-//  ^error{Unknown element 'Opacity'. \(The type exists as an internal type, but cannot be accessed in this scope\)}
+//  ^error{Unknown element 'Opacity'. (The type exists as an internal type, but cannot be accessed in this scope)}
 
 }

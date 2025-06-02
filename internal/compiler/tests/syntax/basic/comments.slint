@@ -5,6 +5,7 @@
 
 // line comment
 export SuperSimple := Rectangle {
+//                 ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     /* block comment */
     background: green;
 
@@ -15,7 +16,7 @@ export SuperSimple := Rectangle {
        lines
     */
     background: /* . */ blue;
-//  ^error{Duplicated property}
+//  ^error{Duplicated property binding}
 }
 
 /* another comment

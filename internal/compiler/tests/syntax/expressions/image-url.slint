@@ -5,44 +5,44 @@ export component SuperSimple {
     property <image> i1: @image-url("hello.png");
     property <string> path;
     property <image> i2: @image-url(path);
-    //                              ^error{@image-url must contain a plain path as a string literal}
+//                                  ^error{@image-url must contain a plain path as a string literal}
     property <image> i3: @image-url("/home/\{path}.png");
-    //                              ^error{@image-url must contain a plain path as a string literal, without any '\\\{}' expressions}
+//                                  ^error{@image-url must contain a plain path as a string literal, without any '\{}' expressions}
     property <image> i4: @image-url("/home/" + path + ".png");
-    //                                       ^error{Expected '\)' or ','}
+//                                           ^error{Expected ')' or ','}
     property <image> i5: @image-url(path + ".png");
-    //                              ^error{@image-url must contain a plain path as a string literal}
+//                                  ^error{@image-url must contain a plain path as a string literal}
     property <image> i6: @image-url;
-    //                             ^error{Syntax error: expected '\('}
+//                                 ^error{Syntax error: expected '('}
     property <image> i7: @image-url("foo", "bar");
-    //                                     ^error{Expected 'nine-slice\(...\)' argument}
+//                                         ^error{Expected 'nine-slice(...)' argument}
     property <image> i8: @image-url("foo", xyz(abc));
-    //                                     ^error{Expected 'nine-slice\(...\)' argument}
+//                                         ^error{Expected 'nine-slice(...)' argument}
     property <image> i9: @image-url("foo", nine-slice(abc));
-    //                                                ^error{Expected number literal or '\)'}
+//                                                    ^error{Expected number literal or ')'}
     property <image> i10: @image-url("foo", nine-slice(1 2 3));
-    //                                                      ^error{Expected 1 or 2 or 4 numbers}
+//                                                          ^error{Expected 1 or 2 or 4 numbers}
     property <image> i11: @image-url("foo", nine-slice());
-    //                                                 ^error{Expected 1 or 2 or 4 numbers}
+//                                                     ^error{Expected 1 or 2 or 4 numbers}
     property <image> i12: @image-url("foo", nine-slice(1 2 3 4 5));
-    //                                                          ^error{Expected 1 or 2 or 4 numbers}
+//                                                              ^error{Expected 1 or 2 or 4 numbers}
     property <image> i13: @image-url("foo", nine-slice(1 2 foobar 4 5));
-    //                                                     ^error{Expected number literal or '\)'}
+//                                                         ^error{Expected number literal or ')'}
     property <image> i14: @image-url("foo", nine-slice);
-    //                                                ^error{Syntax error: expected '\('}
+//                                                    ^error{Syntax error: expected '('}
     property <image> i15: @image-url("foo", nine-slice,);
-    //                                                ^error{Syntax error: expected '\('}
+//                                                    ^error{Syntax error: expected '('}
     property <image> i16: @image-url("foo", nine-slice 42 42);
-    //                                                 ^error{Syntax error: expected '\('}
+//                                                     ^error{Syntax error: expected '('}
     property <image> i17: @image-url("foo", nine-slice(1px)); // error reported later
     property <image> i18: @image-url("foo", nine-slice(1%)); // error reported later
     property <image> i19: @image-url("foo", nine-slice(1, 2));
-    //                                                  ^error{Arguments of nine-slice need to be separated by spaces}
+//                                                      ^error{Arguments of nine-slice need to be separated by spaces}
     property <image> i20: @image-url("foo", nine-slice(2 + 3 ));
-    //                                                   ^error{Expected number literal or '\)'}
+//                                                       ^error{Expected number literal or ')'}
     property <image> i21: @image-url("foo", nine-slice(2 -3 ));
-    //                                                   ^error{Expected number literal or '\)'}
+//                                                       ^error{Expected number literal or ')'}
     property <image> i22: @image-url("foo", nine-slice(-2));
-    //                                                 ^error{Expected number literal or '\)'}
+//                                                     ^error{Expected number literal or ')'}
     property <image> i22: @image-url("foo", nine-slice(123456789));
 }

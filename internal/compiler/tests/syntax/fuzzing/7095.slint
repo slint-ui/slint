@@ -2,12 +2,14 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 OtherComp:=Rectangle{
+//       ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     out property<string> t <=>t;
     text :=Text {  }
 }
 
 export ae:=Rectangle{
+//       ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     OtherComp { t<=>t;}
-//              ^error{Property cannot alias to itself}
-//              ^^warning{Assigning to output property 't' is deprecated}
+//              ^warning{Assigning to output property 't' is deprecated}
+//              ^^error{Property cannot alias to itself}
 }

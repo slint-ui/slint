@@ -2,13 +2,15 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 global Plop :=  {
+//          ^warning{':=' to declare a global is deprecated. Remove the ':='}
     property <int> x: max;
-//                    ^error{Builtin function must be called}
+//                    ^error{Builtin function must be called. Did you forgot the '()'?}
 }
 
 export SuperSimple := Rectangle {
+//                 ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     property <int> a: max + max() + max(45, "hello");
-//                    ^error{Builtin function must be called}
+//                    ^error{Builtin function must be called. Did you forgot the '()'?}
 //                          ^^error{Needs at least one argument}
 //                                  ^^^error{Invalid argument type}
     property <length> b: max(41px, 41phx);
@@ -16,7 +18,7 @@ export SuperSimple := Rectangle {
 //                       ^error{Invalid argument type}
 
     property <int> d: min + min() + min(45, "hello");
-//                    ^error{Builtin function must be called}
+//                    ^error{Builtin function must be called. Did you forgot the '()'?}
 //                          ^^error{Needs at least one argument}
 //                                  ^^^error{Invalid argument type}
     property <length> e: min(41px, 41phx);
@@ -24,10 +26,10 @@ export SuperSimple := Rectangle {
 //                       ^error{Invalid argument type}
 
     property <int> g: min(42, 42, 42cm);
-//                        ^error{Cannot convert float to length}
-//                            ^^error{Cannot convert float to length}
+//                        ^error{Cannot convert float to length. Use an unit, or multiply by 1px to convert explicitly}
+//                            ^^error{Cannot convert float to length. Use an unit, or multiply by 1px to convert explicitly}
     property <int> h: min(42, 42 + 1) + max(1px , 2phx);
-//                    ^error{Cannot convert float to length}
+//                    ^error{Cannot convert float to length. Use an unit, or multiply by 1px to convert explicitly}
 
 
 }

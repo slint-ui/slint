@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 export X := Rectangle {
+//       ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
 
     property infer_loop <=> infer_loop2;
 //  ^error{Could not infer type of property 'infer-loop'}
@@ -15,8 +16,8 @@ export X := Rectangle {
 //  ^error{Could not infer type of property 'infer-error'}
     r := Rectangle {
         property infer_error <=> 0;
-//                               ^error{The expression in a two way binding must be a property reference}
-//      ^^error{Could not infer type of property 'infer-error'}
+//      ^error{Could not infer type of property 'infer-error'}
+//                               ^^error{The expression in a two way binding must be a property reference}
     }
 
     property auto_background <=> background;

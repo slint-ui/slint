@@ -3,13 +3,14 @@
 
 
 export X := Rectangle {
+//       ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     forward-focus: someRect;
 //                 ^error{Cannot forward focus to unfocusable element}
 
     callback trigger_focus_change();
     trigger_focus_change => {
         someRect.focus();
-//               ^error{focus\(\) can only be called on focusable elements}
+//               ^error{focus() can only be called on focusable elements}
     }
 
     indirect_focus_chain_rect := Rectangle {
@@ -34,13 +35,14 @@ export X := Rectangle {
 
 
 export Y := FocusScope {
+//       ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     forward-focus: self;
 //                 ^error{forward-focus can't refer to itself}
     x:= X { }
     key-pressed => {
         r0.focus();
         x.focus();
-//        ^error{focus\(\) can only be called on focusable elements}
+//        ^error{focus() can only be called on focusable elements}
         accept
     }
 

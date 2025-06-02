@@ -4,6 +4,7 @@
 import { StandardButton } from "std-widgets.slint";
 
 MyDiag1 := Dialog {
+//      ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     Rectangle {}
     StandardButton { kind: cancel; }
     Rectangle {}
@@ -11,7 +12,8 @@ MyDiag1 := Dialog {
 }
 
 MyDiag2 := Dialog {
-//         ^error{A Dialog must have a single child element that is not StandardButton}
+//      ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
+//         ^^error{A Dialog must have a single child element that is not StandardButton}
     StandardButton { kind: reset; }
     StandardButton {
         kind: cancel;
@@ -23,6 +25,7 @@ MyDiag2 := Dialog {
 }
 
 MyDiag3 := Dialog {
+//      ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     Rectangle { }
     StandardButton { kind: ok; }
     StandardButton { }
@@ -35,6 +38,7 @@ MyDiag3 := Dialog {
 }
 
 MyDialog4 := Dialog {
+//        ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     StandardButton { kind: ok; }
     r := Rectangle { dialog-button-role: accept; }
     Rectangle { dialog-button-role: none; }
@@ -53,6 +57,7 @@ MyDialog4 := Dialog {
 }
 
 export Test := Rectangle {
+//          ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     MyDiag1 {}
     MyDiag2 {}
     MyDiag3 {}

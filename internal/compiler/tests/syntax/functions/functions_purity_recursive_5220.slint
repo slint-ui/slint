@@ -3,10 +3,10 @@
 
 export component App inherits Window{
     background: blue;
-    //          ^error{Function must be called}
+//              ^error{Function must be called. Did you forgot the '()'?}
     function blue()->color {
        blue
-//     ^error{Function must be called}
+//     ^error{Function must be called. Did you forgot the '()'?}
     }
 
 

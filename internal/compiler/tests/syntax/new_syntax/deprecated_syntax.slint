@@ -6,10 +6,10 @@ struct XX := {}
 //        ^warning{':=' to declare a struct is deprecated. Remove the ':='}
 
 OldP := Rectangle { property <XX> foo; }
-//   ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent \{'. Read the documentation for more info}
+//   ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
 
 export Old := Rectangle {  OldP{} }
-//         ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent \{'. Read the documentation for more info}
+//         ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
 
 
 export global OldGlobal := {}

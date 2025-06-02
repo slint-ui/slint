@@ -7,7 +7,7 @@ export global Abc {
 
 component Wrapper {
     callback foo <=> Abc.foobar;
-//  ^warning{Aliases to global callback are deprecated}
+//  ^warning{Aliases to global callback are deprecated. Export the global to access the global callback directly from native code}
 }
 
 export component E inherits Window {
