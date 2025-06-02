@@ -232,13 +232,13 @@ impl FontCache {
         // replacing files. Unlinking OTOH is safe and doesn't destroy the file mapping,
         // the backing file becomes an orphan in a special area of the file system. That works
         // on Unixy platforms and on Windows the default file flags prevent the deletion.
-        #[cfg(not(target_arch = "wasm32"))]
+        #[cfg(all(not(target_arch = "wasm32"), not(target_os = "nto")))]
         let (shared_data, face_index) = unsafe {
             sharedfontdb::FONT_DB.with_borrow_mut(|db| {
                 db.make_mut().make_shared_face_data(fontdb_face_id).expect("unable to mmap font")
             })
         };
-        #[cfg(target_arch = "wasm32")]
+        #[cfg(any(target_arch = "wasm32", target_os = "nto"))]
         let (shared_data, face_index) = crate::sharedfontdb::FONT_DB.with_borrow(|db| {
             db.face_source(fontdb_face_id)
                 .map(|(source, face_index)| {
@@ -456,6 +456,7 @@ impl FontCache {
         target_vendor = "apple",
         target_arch = "wasm32",
         target_os = "android",
+        target_os = "nto",
     )))]
     fn font_fallbacks_for_request(
         &self,
@@ -483,6 +484,21 @@ impl FontCache {
         _reference_text: &str,
     ) -> Vec<SharedString> {
         [SharedString::from("DejaVu Sans")]
+            .iter()
+            .filter(|family_name| self.is_known_family(&family_name))
+            .cloned()
+            .collect()
+    }
+
+    #[cfg(target_os = "nto")]
+    fn font_fallbacks_for_request(
+        &self,
+        _family: Option<&SharedString>,
+        _pixel_size: PhysicalLength,
+        _primary_font: &LoadedFont,
+        _reference_text: &str,
+    ) -> Vec<SharedString> {
+        [SharedString::from("Noto Sans")]
             .iter()
             .filter(|family_name| self.is_known_family(&family_name))
             .cloned()
