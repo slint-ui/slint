@@ -469,7 +469,7 @@ component ColorPicker inherits DraggablePanel {
     }
 
     if active-tab == PickerTab.css-color: CssColorPicker {
-        filter-text: "^Colors.";
+        filter-text: "^Colors. '%is_brush:yes ";
     }
 
     if active-tab == PickerTab.color && widget-mode == WidgetMode.edit: Button {
@@ -492,7 +492,7 @@ component ColorPicker inherits DraggablePanel {
     }
 
     if active-tab == PickerTab.globals: CssColorPicker {
-        property <string> filter-brush-and-color: "!^Colors. ";
+        property <string> filter-brush-and-color: "!^Colors. '%is_brush:yes ";
         property <string> filter-color-only: "!^Colors. '%kind:Color ";
         filter-text: picker-mode == BrushPropertyType.brush ? filter-brush-and-color : filter-color-only;
     }
