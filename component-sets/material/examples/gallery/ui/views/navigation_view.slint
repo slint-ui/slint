@@ -27,7 +27,8 @@ import {
     FilterChip,
     InputChip,
     TimePicker,
-    Switch
+    Switch,
+    Slider
 } from "../../../../material.slint";
 
 import { Group } from "../components/group.slint";
@@ -186,7 +187,7 @@ export component NavigationView {
                             text: "Show modal navigation drawer";
 
                             clicked => {
-                                // modal_navigation_drawer.show();
+                                modal_navigation_drawer.show();
                             }
                         }
                     }
@@ -419,6 +420,22 @@ export component NavigationView {
                             enabled: false;
                             on_icon: FilledIcons.check;
                             off_icon: FilledIcons.close;
+                        }
+                    }
+                }
+            }
+
+            ComponentCard {
+                title: "Sliders";
+
+                Vertical {
+                    Horizontal {
+                        Slider {}
+                    }
+
+                    Horizontal {
+                        Slider {
+                            divisions: 5;
                         }
                     }
                 }
