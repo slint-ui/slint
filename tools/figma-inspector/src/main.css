@@ -1,19 +1,11 @@
 @import "figma-kit/styles.css";
 
+html,
 body {
     margin: 0;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
         sans-serif;
-}
-
-.resize-frame {
-    display: flex;
-    width: 100%;
-    height: 100%;
-    margin: 0;
-    padding: 0;
-    position: absolute !important;
-    overflow: hidden !important;
+    overflow: hidden;
 }
 
 .dialog-frame {
