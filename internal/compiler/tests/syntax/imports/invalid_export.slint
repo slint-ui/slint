@@ -11,5 +11,6 @@ export { string as Boob }
 //       ^error{Cannot export 'string' because it is not a component}
 
 export Hello := Plop {
-//              ^error{Unknown element 'Plop'}
+//           ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
+//              ^^error{Unknown element 'Plop'}
 }

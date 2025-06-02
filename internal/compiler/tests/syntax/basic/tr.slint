@@ -3,35 +3,35 @@
 
 export component X {
     property <string> t1: @tr(boo);
-    //                        ^error{Expected plain string literal}
-    //                        ^^error{Syntax error: expected ';'}
-    //                           ^^^error{Parse error}
+//                            ^error{Expected plain string literal}
+//                            ^^error{Syntax error: expected ';'}
+//                               ^^^error{Parse error}
     property <string> t2: @tr("boo\{t1}oo");
-    //                        ^error{Expected plain string literal}
-    //                        ^^error{Syntax error: expected ';'}
+//                            ^error{Expected plain string literal}
+//                            ^^error{Syntax error: expected ';'}
 
     property <string> t3: @tr("boo" + "foo");
-    //                              ^error{Syntax error: expected '\)'}
-    //                                     ^^error{Syntax error: expected ';'}
+//                                  ^error{Syntax error: expected ')'}
+//                                         ^^error{Syntax error: expected ';'}
 
     property <string> t4: @tr("foo{}", t1);
 
     property <string> t4: @tr("foo{}", t1 t2);
-    //                                    ^error{Syntax error: expected '\)'}
-    //                                    ^^error{Syntax error: expected ';'}
+//                                        ^error{Syntax error: expected ')'}
+//                                        ^^error{Syntax error: expected ';'}
 
 
     property <string> c1: @tr("boo" => );
-    //                                 ^error{Expected plain string literal}
-    //                                 ^^error{Syntax error: expected ';'}
+//                                     ^error{Expected plain string literal}
+//                                     ^^error{Syntax error: expected ';'}
 
     property <string> c2: @tr("boo" => "foo\{ff}");
-    //                                 ^error{Expected plain string literal}
-    //                                 ^^error{Syntax error: expected ';'}
+//                                     ^error{Expected plain string literal}
+//                                     ^^error{Syntax error: expected ';'}
 
     property <string> e: @tr();
-    //                       ^error{Expected plain string literal}
-    //                       ^^error{Syntax error: expected ';'}
+//                           ^error{Expected plain string literal}
+//                           ^^error{Syntax error: expected ';'}
 
 
 

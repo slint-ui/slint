@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 global MyType := {
+//            ^warning{':=' to declare a global is deprecated. Remove the ':='}
     property <int> aaa;
     property <int> aaa;
 //                 ^error{Cannot override property 'aaa'}
@@ -21,17 +22,18 @@ global MyType := {
 //  ^error{A global component cannot have sub elements}
     for x in mod : Text { }
 //  ^error{A global component cannot have sub elements}
-//           ^^error{Builtin function must be called}
+//           ^^error{Builtin function must be called. Did you forgot the '()'?}
     aaa <=> bbb;
 
     property <int> eee <=> aaa;
 
     qqq: 42;
-//  ^error{Unknown property qqq}
+//  ^error{Unknown property qqq in }
 
 }
 
 export SuperSimple := Rectangle {
+//                 ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     MyType {
 //  ^error{Cannot create an instance of a global component}
         ccc: "hello";

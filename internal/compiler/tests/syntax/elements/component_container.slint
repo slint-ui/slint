@@ -9,6 +9,7 @@ export component Foo inherits Rectangle {
 }
 
 export Bar := Rectangle {
+//         ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     Foo { Text {} }
     ComponentContainer {
 //  ^error{ComponentContainers may not have children}

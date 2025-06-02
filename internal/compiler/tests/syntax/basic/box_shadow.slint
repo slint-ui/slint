@@ -2,10 +2,12 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 Foo := Rectangle {
+//  ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     drop-shadow-color: red;
 }
 
 export SuperSimple := Window {
+//                 ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     drop-shadow-color: #00000080;
 //                     ^warning{The drop-shadow-color property cannot be used on the root element, the shadow will not be visible}
 

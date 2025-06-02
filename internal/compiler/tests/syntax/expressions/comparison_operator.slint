@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 export SuperSimple := Rectangle {
+//                 ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     property<bool> zz: aa > bb == cc
 //                             ^error{Use parentheses to disambiguate equality expression on the same level}
                 < dd;
@@ -13,7 +14,7 @@ export SuperSimple := Rectangle {
 //                          ^error{Use parentheses to disambiguate equality expression on the same level}
 
     property<bool> ww: aa && dd && ee || cc ==
-//                                    ^error{Use parentheses to disambiguate between && and \|\|}
+//                                    ^error{Use parentheses to disambiguate between && and ||}
         dd == ee;
 //         ^error{Use parentheses to disambiguate equality expression on the same level}
 

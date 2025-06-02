@@ -2,24 +2,25 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 export Xxx := Rectangle {
+//         ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     property <string> err_str1: + "foobar";
-    //                          ^error{Unary '\+' not supported on string}
+//                              ^error{Unary '+' not supported on string}
     property <string> err_str2: - "foobar";
-    //                          ^error{Unary '-' not supported on string}
+//                              ^error{Unary '-' not supported on string}
     property <string> err_str3: "foo" + + "bar";
-    //                                  ^error{Unary '\+' not supported on string}
+//                                      ^error{Unary '+' not supported on string}
     property <string> err_str4: ! "foobar";
-    //                          ^error{Cannot convert string to bool}
+//                              ^error{Cannot convert string to bool}
     property <int> ok1: +1;
     property <length> ok2: -1cm;
     property <string> hey: "foo" + - 45;
     property <{x: int}> p1: - { x: 42 };
-    //                      ^error{Unary '\-' not supported on \{ x: float,\}}
+//                          ^error{Unary '-' not supported on { x: float,}}
     property <{x: int}> p2: + { x: 42 };
-    //                      ^error{Unary '\+' not supported on \{ x: float,\}}
+//                          ^error{Unary '+' not supported on { x: float,}}
     property <{x: int}> p3: ! { x: 42 };
-    //                      ^error{Cannot convert \{ x: float,\} to bool}
+//                          ^error{Cannot convert { x: float,} to bool}
     property <[int]> p4: [!42];
-    //                    ^error{Cannot convert float to bool}
+//                        ^error{Cannot convert float to bool}
 
 }

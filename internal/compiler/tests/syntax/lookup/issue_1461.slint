@@ -11,6 +11,7 @@ component Button inherits Rectangle {
 
 
  export AppWindow := Window {
+//                ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
      property<int> counter: 42;
      callback request-increase-value();
      VerticalLayout {
@@ -22,7 +23,7 @@ component Button inherits Rectangle {
              states [
                  highlight when counter > 45 : {
                      background: red;
-//                   ^error{Internal error: The expression for the default state currently cannot be represented: https://github.com/slint-ui/slint/issues/1461}
+//                   ^error{Internal error: The expression for the default state currently cannot be represented: https://github.com/slint-ui/slint/issues/1461↵As a workaround, add a binding for property background}
                  }
              ]
          }

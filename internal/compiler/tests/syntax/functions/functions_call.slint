@@ -12,6 +12,7 @@ global Glob {
 }
 
 Comp := Rectangle {
+//   ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     function f1() {}
     public function f2() {}
     protected function f3() {}
@@ -22,6 +23,7 @@ Comp := Rectangle {
 }
 
 export Xxx := Rectangle {
+//         ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     function foo(a: int) -> string { return a; }
 
     comp := Comp {}
@@ -37,7 +39,7 @@ export Xxx := Rectangle {
 //      ^error{The callback or function expects 1 arguments, but 0 are provided}
 
         root.foo.hello(45);
-        //       ^error{Cannot access fields of a function}
+//               ^error{Cannot access fields of a function}
 
         comp.f1();
 //           ^error{The function 'f1' is private. Annotate it with 'public' to make it accessible from other components}
@@ -54,7 +56,7 @@ export Xxx := Rectangle {
         45()()();
 //      ^error{The expression is not a function}
         (foo)(1);
-//       ^error{Function must be called. Did you forgot the '\(\)'}
+//       ^error{Function must be called. Did you forgot the '()'?}
 
     }
 

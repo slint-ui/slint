@@ -4,6 +4,7 @@
 import { ListView  } from "std-widgets.slint";
 
 Foo := Rectangle {
+//  ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     ListView {
         @children
 //      ^error{A ListView can just have a single 'for' as children. Anything else is not supported}
@@ -11,6 +12,7 @@ Foo := Rectangle {
 }
 
 export Bar := Rectangle {
+//         ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     Foo { Text {} }
     ListView {
         Text {}

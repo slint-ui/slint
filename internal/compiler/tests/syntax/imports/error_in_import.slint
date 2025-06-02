@@ -4,11 +4,12 @@
 import { X } from "../../typeloader/incpath/should_fail2.slint";
 
 export Foo := Rectangle {
+//         ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     x:= X {
         hello: 42;
         meh: 12;
 //      ^error{Unknown property meh in X}
     }
     background: x.blah;
-    //            ^error{Element 'X' does not have a property 'blah'}
+//                ^error{Element 'X' does not have a property 'blah'}
 }

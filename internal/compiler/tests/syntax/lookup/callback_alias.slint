@@ -2,15 +2,16 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 export Xxx := Rectangle {
+//         ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
 
     foo := Rectangle {
         callback hello(int) -> int;
     }
 
     callback plop(int) -> int <=> foo.hello;
-    //                        ^error{When declaring a callback alias, one must omit parentheses. e.g. 'callback foo <=> other.bar;'}
+//                            ^error{When declaring a callback alias, one must omit parentheses. e.g. 'callback foo <=> other.bar;'}
 
     callback plopsi() <=> foo.hello;
-    //                ^error{When declaring a callback alias, one must omit parentheses. e.g. 'callback foo <=> other.bar;'}
+//                    ^error{When declaring a callback alias, one must omit parentheses. e.g. 'callback foo <=> other.bar;'}
 
 }

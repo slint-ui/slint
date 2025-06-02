@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 export { SomeRect, Invalid } from "../../typeloader/incpath/local_helper_type.slint";
-//                 ^error{No exported type called 'Invalid' found in ".*local_helper_type.slint"}
-//       ^^warning{'SomeRect' is already exported in this file; it will not be re-exported}
+//       ^warning{'SomeRect' is already exported in this file; it will not be re-exported}
+//                 ^^error{No exported type called 'Invalid' found in "📂/tests/typeloader/incpath/local_helper_type.slint"}
 
   export {} from "../../typeloader/incpath/dependency_from_incpath.slint";
 //^error{Import names are missing. Please specify which types you would like to re-export}

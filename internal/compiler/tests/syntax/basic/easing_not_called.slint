@@ -4,6 +4,7 @@
 // Cannot be put in the easing.slint test because it is in a different pass
 
 export X := Rectangle {
+//       ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     property <int> g; animate g { easing: cubic-bezier; }
-    //                                    ^error{must be called}
+//                                        ^error{Builtin function must be called. Did you forgot the '()'?}
 }

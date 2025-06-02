@@ -22,13 +22,15 @@ component Issue5852 {
 
 
 export X := PopupWindow {
-//          ^error{PopupWindow cannot be the top level}
+//       ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
+//          ^^error{PopupWindow cannot be the top level}
 
-    Rectangle {
-//  ^error{Access to property 'inner.opacity' which is inlined into a PopupWindow via @children is forbidden} // FIXME, the error should be located on property access (#4438)
+    Rectangle { // FIXME, the error should be located on property access (#4438)
+//  ^error{Access to property 'inner.opacity' which is inlined into a PopupWindow via @children is forbidden}
 
-        popup := PopupWindow {
-//               ^error{Cannot access the inside of a PopupWindow from enclosing component} // FIXME, the error should be located on property access (#4438)
+        popup := PopupWindow {  // FIXME, the error should be located on property access (#4438)
+//               ^error{Cannot access the inside of a PopupWindow from enclosing component}
+
             r := Rectangle {
             }
         }
@@ -43,9 +45,9 @@ export X := PopupWindow {
 
 
     if true : PopupWindow {}
-    //        ^error{PopupWindow cannot be directly repeated or conditional}
+//            ^error{PopupWindow cannot be directly repeated or conditional}
     for abc in [1] : PopupWindow {}
-    //               ^error{PopupWindow cannot be directly repeated or conditional}
+//                   ^error{PopupWindow cannot be directly repeated or conditional}
 
     Issue5852 {}
 }

@@ -11,28 +11,28 @@ export component SuperSimple {
     property <percent> ok7: clamp(42%, 42%, 42%);
 
     property <float> a: clamp + clamp() + clamp(42.0, 41, "hello");
-//                      ^error{Builtin function must be called}
-//                              ^^error{`clamp` needs three values}
+//                      ^error{Builtin function must be called. Did you forgot the '()'?}
+//                              ^^error{`clamp` needs three values: the `value` to clamp, the `minimum` and the `maximum`}
 //                                                        ^^^error{Cannot convert string to float}
     property <length> b: clamp(41px, 41phx, 42phx);
     property <string> c: clamp("a", "b", "c");
 //                             ^error{Invalid argument type}
     property <float> d: clamp(42, 42 - 1, 42 + 1) + max(1px , 2phx);
-//                      ^error{Cannot convert float to length}
+//                      ^error{Cannot convert float to length. Use an unit, or multiply by 1px to convert explicitly}
     property <float> e: clamp(42.0, 23.0, 84.0, 32.0);
-//                      ^error{`clamp` needs three values}
+//                      ^error{`clamp` needs three values: the `value` to clamp, the `minimum` and the `maximum`}
 
     property <float> f: ok1.clamp();
-//                          ^error{`clamp` needs three values}
+//                          ^error{`clamp` needs three values: the `value` to clamp, the `minimum` and the `maximum`}
 
     property <float> g: ok1.clamp(1,2,3);
-//                          ^error{`clamp` needs three values}
+//                          ^error{`clamp` needs three values: the `value` to clamp, the `minimum` and the `maximum`}
 
     property <float> h: ok1.clamp;
-//                      ^error{Member function must be called}
+//                      ^error{Member function must be called. Did you forgot the '()'?}
 
     property <float> i: 42.0.clamp;
-//                           ^error{Member function must be called}
+//                           ^error{Member function must be called. Did you forgot the '()'?}
 
 
 }

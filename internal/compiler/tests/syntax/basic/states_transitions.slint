@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 export TestCase := Rectangle {
+//              ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     property<bool> checked;
     property <int> border;
     states [
@@ -14,15 +15,15 @@ export TestCase := Rectangle {
             color: green;
             border: 88;
             text.foo.bar: 0;
-///         ^error{'text.foo.bar' is not a valid property}
+//          ^error{'text.foo.bar' is not a valid property}
             colour: yellow;
-///         ^error{'colour' is not a valid property}
-///                 ^^error{Unknown unqualified identifier 'yellow'}
+//          ^error{'colour' is not a valid property}
+//                  ^^error{Unknown unqualified identifier 'yellow'}
             fox.color: yellow;
-///         ^error{'fox' is not a valid element id}
+//          ^error{'fox' is not a valid element id}
             text.fox: yellow;
-///         ^error{'fox' not found in 'text'}
-///                   ^^error{Unknown unqualified identifier 'yellow'}
+//          ^error{'fox' not found in 'text'}
+//                    ^^error{Unknown unqualified identifier 'yellow'}
         }
     ]
 
@@ -33,11 +34,11 @@ export TestCase := Rectangle {
         }
         out pressed: {
             animate color, foo.x { duration: 300ms; }
-///                        ^error{'foo' is not a valid element id}
+//                         ^error{'foo' is not a valid element id}
             //pause: 20ms;
             animate border { duration: 120ms; }
             animate color, text.text { duration: 300ms; }
-///                        ^error{'text.text' is not a property that can be animated}
+//                         ^error{'text.text' is not a property that can be animated}
         }
 
         in-out checked: {
@@ -69,15 +70,15 @@ export component NewSyntax {
             color: green;
             border: 88;
             text.foo.bar: 0;
-///         ^error{'text.foo.bar' is not a valid property}
+//          ^error{'text.foo.bar' is not a valid property}
             colour: yellow;
-///         ^error{'colour' is not a valid property}
-///                 ^^error{Unknown unqualified identifier 'yellow'}
+//          ^error{'colour' is not a valid property}
+//                  ^^error{Unknown unqualified identifier 'yellow'}
             fox.color: yellow;
-///         ^error{'fox' is not a valid element id}
+//          ^error{'fox' is not a valid element id}
             text.fox: yellow;
-///         ^error{'fox' not found in 'text'}
-///                   ^^error{Unknown unqualified identifier 'yellow'}
+//          ^error{'fox' not found in 'text'}
+//                    ^^error{Unknown unqualified identifier 'yellow'}
 
             in  {
                 animate * { duration: 88ms; }
@@ -85,10 +86,10 @@ export component NewSyntax {
             }
             out {
                 animate color, foo.x { duration: 300ms; }
-///                            ^error{'foo' is not a valid element id}
+//                             ^error{'foo' is not a valid element id}
                 animate border { duration: 120ms; }
                 animate color, text.text { duration: 300ms; }
-///                            ^error{'text.text' is not a property that can be animated}
+//                             ^error{'text.text' is not a property that can be animated}
             }
         }
     ]
@@ -112,30 +113,30 @@ export component OldInNewSyntax {
             color: green;
             border: 88;
             text.foo.bar: 0;
-///         ^error{'text.foo.bar' is not a valid property}
+//          ^error{'text.foo.bar' is not a valid property}
             colour: yellow;
-///         ^error{'colour' is not a valid property}
-///                 ^^error{Unknown unqualified identifier 'yellow'}
+//          ^error{'colour' is not a valid property}
+//                  ^^error{Unknown unqualified identifier 'yellow'}
             fox.color: yellow;
-///         ^error{'fox' is not a valid element id}
+//          ^error{'fox' is not a valid element id}
             text.fox: yellow;
-///         ^error{'fox' not found in 'text'}
-///                   ^^error{Unknown unqualified identifier 'yellow'}
+//          ^error{'fox' not found in 'text'}
+//                    ^^error{Unknown unqualified identifier 'yellow'}
         }
     ]
 
     transitions [
-/// ^error{'transitions' block are no longer supported. Use 'in \{...\}' and 'out \{...\}' directly in the state definition}
+//  ^error{'transitions' block are no longer supported. Use 'in {...}' and 'out {...}' directly in the state definition}
         in pressed: {
             animate * { duration: 88ms; }
             animate color { duration: 88ms; }
         }
         out pressed: {
             animate color, foo.x { duration: 300ms; }
-///                        ^error{'foo' is not a valid element id}
+//                         ^error{'foo' is not a valid element id}
             animate border { duration: 120ms; }
             animate color, text.text { duration: 300ms; }
-///                        ^error{'text.text' is not a property that can be animated}
+//                         ^error{'text.text' is not a property that can be animated}
 
         }
     ]

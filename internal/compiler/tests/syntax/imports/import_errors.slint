@@ -5,7 +5,7 @@ import { NotThere } from "file_not_there.slint";
 //                       ^error{Cannot find requested import "file_not_there.slint" in the include search path}
 
 import { NotExported } from "../../typeloader/incpath/local_helper_type.slint";
-//                          ^error{No exported type called 'NotExported' found in ".*\.\./\.\./typeloader/incpath/local_helper_type.slint}
+//                          ^error{No exported type called 'NotExported' found in "../../typeloader/incpath/local_helper_type.slint"}
 
 import { Nothing } from "";
 //                      ^error{Unexpected empty import url}
@@ -17,8 +17,9 @@ import "myimage.png";
 //     ^error{Unsupported foreign import "myimage.png"}
 
 import ".";
-//     ^error{Unsupported foreign import ".*"}
+//     ^error{Unsupported foreign import "📂/tests/syntax/imports/"}
 
 export X := Rectangle {
+//       ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
 
 }

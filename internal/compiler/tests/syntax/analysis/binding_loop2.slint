@@ -3,6 +3,7 @@
 
 
 T1 := Rectangle {
+// ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     property <int> foo;
     property <int> bar: foo;
 //                      ^error{The binding for the property 'bar' is part of a binding loop}
@@ -10,6 +11,7 @@ T1 := Rectangle {
 }
 
 T2 := Rectangle {
+// ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     property <string> t2_text;
     t:= Text { text: t2_text; }
 //                   ^error{The binding for the property 'text' is part of a binding loop}
@@ -20,6 +22,7 @@ T2 := Rectangle {
 }
 
 T3 := Rectangle {
+// ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     property <string> hello;
     property <string> al <=> a.t_alias;
 //                       ^error{The binding for the property 'al' is part of a binding loop}
@@ -32,10 +35,12 @@ T3 := Rectangle {
 }
 
 T4 := Rectangle {
+// ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     property <length> my_property <=> x;
 }
 
 export App := Rectangle {
+//         ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
 
 
     VerticalLayout {

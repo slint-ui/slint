@@ -3,13 +3,14 @@
 
 
 export TestCase := Rectangle {
+//              ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     Path {
         MoveTo {
         x: 0;
         y: 0;
         }
         for sample[i] in [ 0, 1, 2, 3 ] : LineTo {
-//                                        ^error{Path elements are not supported with `for`-`in` syntax, yet \(https://github.com/slint-ui/slint/issues/754\)}
+//                                        ^error{Path elements are not supported with `for`-`in` syntax, yet (https://github.com/slint-ui/slint/issues/754)}
             x: i;
             y: sample;
         }
