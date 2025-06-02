@@ -8,7 +8,7 @@ import { ListView } from "std-widgets.slint";
 import { Api, PaletteEntry, BrushKind } from "../../../api.slint";
 import { WindowManager } from "../../../windowglobal.slint";
 
-component SvgColorIndicator {
+component CssColorIndicator {
     in property <string> name;
     in property <brush> brush;
     in property <BrushKind> brush-kind;
@@ -139,7 +139,7 @@ component SearchBar {
     }
 }
 
-export component SvgColorPicker inherits SimpleColumn {
+export component CssColorPicker inherits SimpleColumn {
     in property <string> filter-text;
     property <[PaletteEntry]> palettes: Api.filter-palettes(Api.palettes, "\{filter-text} \{sb.text}");
     Rectangle {
@@ -151,7 +151,7 @@ export component SvgColorPicker inherits SimpleColumn {
     ListView {
         width: 100%;
         height: 200px;
-        for i[index] in palettes: SvgColorIndicator {
+        for i[index] in palettes: CssColorIndicator {
             name: i.name;
             brush: i.value.value-brush;
             brush-kind: i.value.brush-kind;

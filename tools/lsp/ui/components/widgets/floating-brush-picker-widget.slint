@@ -10,7 +10,7 @@ import { DraggablePanel } from "../../components/draggable-panel.slint";
 import { ColorModeAndApply } from "./floating-brush-sections/color-mode-and-apply.slint";
 import { GradientPicker } from "./floating-brush-sections/gradient-ui.slint";
 import { RecentColorPicker } from "floating-brush-sections/palettes.slint";
-import { SvgColorPicker } from "floating-brush-sections/svg-color-ui.slint";
+import { CssColorPicker } from "floating-brush-sections/css-color-ui.slint";
 
 
 component TabIcon inherits Rectangle {
@@ -87,14 +87,14 @@ component BrushTypeSelector {
 
         TabIcon {
             y: (parent.height - self.height) / 2;
-            picker-tab: PickerTab.svg-color;
+            picker-tab: PickerTab.css-color;
 
             Rectangle {
                 Text {
                     font-family: "Inter";
                     font-size: 6px;
                     color: EditorPalette.text-color;
-                    text: "svg";
+                    text: "CSS";
                     font-weight: 600;
                 }
             }
