@@ -1598,7 +1598,7 @@ export async function exportFigmaVariablesToSeparateFiles(
             content += `export global ${collectionData.formattedName} {\n`;
             content += instances; // Add the generated instance code lines
             content += schemeInstance; // Add scheme instance code (if generated)
-            content += currentSchemeInstance; // Add current-scheme instance code (if generated)
+            content += currentSchemeInstance; // Add current instance code (if generated)
             content += `}\n`; // Close global block (removed extra \n\n)
 
             // Store the fully assembled content for this collection
@@ -1856,7 +1856,7 @@ function generateSchemeStructs(
     // Generate the current scheme property with current-mode toggle
     let currentSchemeInstance = `    in-out property <${collectionData.formattedName}Mode> current-mode: ${[...collectionData.modes][0]};\n`;
 
-    // Add the current-scheme property that dynamically selects based on the enum
+    // Add the current property that dynamically selects based on the enum
     currentSchemeInstance += `    out property <${schemeName}> current: `;
 
     // for mode specific disentanglement
