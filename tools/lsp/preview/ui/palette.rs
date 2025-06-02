@@ -190,6 +190,12 @@ fn collect_palette_from_globals(
     values
 }
 
+fn is_css_color(code: slint::SharedString) -> bool {
+    let code = code.to_string();
+    let code = code.strip_prefix("Colors.").unwrap_or(&code);
+    i_slint_compiler::lookup::named_colors().contains_key(code)
+}
+
 fn filter_palettes(
     input: slint::ModelRc<ui::PaletteEntry>,
     pattern: slint::SharedString,
@@ -197,12 +203,6 @@ fn filter_palettes(
     let pattern = pattern.to_string();
     std::rc::Rc::new(slint::VecModel::from(filter_palettes_iter(&mut input.iter(), &pattern)))
         .into()
-}
-
-fn is_css_color(code: slint::SharedString) -> bool {
-    let code = code.to_string();
-    let code = code.strip_prefix("Colors.").unwrap_or(&code);
-    i_slint_compiler::lookup::named_colors().contains_key(code)
 }
 
 fn filter_palettes_iter(
