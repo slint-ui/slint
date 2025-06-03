@@ -2078,7 +2078,7 @@ function generateReadmeContent(exportInfo: {
     collections: Set<string>;
 }): string {
     let content = "# Figma Design Tokens Export\n\n";
-    content += `Generated on ${new Date().toLocaleDateString()}\n\n`;
+    content += `Generated on ${new Date().toISOString().split("T")[0]}\n\n`;
     content += "Instructions for use: \n";
     content +=
         "This library attempts to export a working set of slint design tokens.  They are constructed so that the variables can be called using dot notation. \n";
