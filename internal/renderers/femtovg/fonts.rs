@@ -238,7 +238,7 @@ impl FontCache {
                 db.make_mut().make_shared_face_data(fontdb_face_id).expect("unable to mmap font")
             })
         };
-        #[cfg(any(target_arch = "wasm32", target_os = "nto"))]
+        #[cfg(target_arch = "wasm32")]
         let (shared_data, face_index) = crate::sharedfontdb::FONT_DB.with_borrow(|db| {
             db.face_source(fontdb_face_id)
                 .map(|(source, face_index)| {
@@ -246,6 +246,25 @@ impl FontCache {
                         match source {
                             fontdb::Source::Binary(data) => data.clone(),
                             // We feed only Source::Binary into fontdb on wasm
+                            #[allow(unreachable_patterns)]
+                            _ => unreachable!(),
+                        },
+                        face_index,
+                    )
+                })
+                .expect("invalid fontdb face id")
+        });
+        #[cfg(target_os = "nto")]
+        let (shared_data, face_index) = crate::sharedfontdb::FONT_DB.with_borrow(|db| {
+            db.face_source(fontdb_face_id)
+                .map(|(source, face_index)| {
+                    (
+                        match source {
+                            fontdb::Source::Binary(data) => data.clone(),
+                            fontdb::Source::File(ref path) => std::sync::Arc::new(
+                                std::fs::read(path).ok().expect("unable to read font file"),
+                            )
+                                as std::sync::Arc<dyn AsRef<[u8]> + Send + Sync>,
                             #[allow(unreachable_patterns)]
                             _ => unreachable!(),
                         },
