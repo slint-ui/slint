@@ -1598,7 +1598,7 @@ export async function exportFigmaVariablesToSeparateFiles(
             content += `export global ${collectionData.formattedName} {\n`;
             content += instances; // Add the generated instance code lines
             content += schemeInstance; // Add scheme instance code (if generated)
-            content += currentSchemeInstance; // Add current-scheme instance code (if generated)
+            content += currentSchemeInstance; // Add current instance code (if generated)
             content += `}\n`; // Close global block (removed extra \n\n)
 
             // Store the fully assembled content for this collection
@@ -1856,8 +1856,8 @@ function generateSchemeStructs(
     // Generate the current scheme property with current-mode toggle
     let currentSchemeInstance = `    in-out property <${collectionData.formattedName}Mode> current-mode: ${[...collectionData.modes][0]};\n`;
 
-    // Add the current-scheme property that dynamically selects based on the enum
-    currentSchemeInstance += `    out property <${schemeName}> current-scheme: `;
+    // Add the current property that dynamically selects based on the enum
+    currentSchemeInstance += `    out property <${schemeName}> current: `;
 
     // for mode specific disentanglement
     const modePropertyName = hasRootModeVariable ? "mode-var" : "mode";
@@ -1887,42 +1887,6 @@ function generateSchemeStructs(
         // Add the expression with proper indentation
         currentSchemeInstance += `\n        ${expression};\n\n`;
     }
-
-    // Now add the current property that references current-scheme
-    currentSchemeInstance += `    out property <${schemeName}> current: {\n`;
-
-    // Add properties in the same structure as the scheme
-    function addCurrentValues(
-        node: VariableNode = variableTree,
-        path: string[] = [],
-        currentIndent: string = "        ",
-    ) {
-        for (const [childName, childNode] of node.children.entries()) {
-            const currentPath = [...path, childName];
-
-            if (childNode.children.size > 0) {
-                // This is a nested struct
-                currentSchemeInstance += `${currentIndent}${childName}: {\n`;
-                addCurrentValues(
-                    childNode,
-                    currentPath,
-                    currentIndent + "    ",
-                );
-                currentSchemeInstance += `${currentIndent}},\n`;
-            } else if (childNode.valuesByMode) {
-                // Use dot notation for property access in Slint code
-                const dotPath = currentPath.join(".");
-
-                // This is a leaf value
-                currentSchemeInstance += `${currentIndent}${childName}: current-scheme.${dotPath},\n`;
-            }
-        }
-    }
-
-    // Build the current structure
-    addCurrentValues();
-
-    currentSchemeInstance += `    };\n`;
 
     return {
         // Combine both scheme structs in the return value
