@@ -75,7 +75,7 @@ jobs:
             - name: "Upload demo artifacts"
               uses: actions/upload-artifact@v4
               with:
-                  name: printerdemo-${{ matrix.target }}
+                  name: slint-embedded-demos-${{ matrix.target }}
                   path: |
                       target/${{ matrix.target }}/release/printerdemo
                       target/${{ matrix.target }}/release/todo
