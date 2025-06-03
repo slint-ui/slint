@@ -453,12 +453,8 @@ pub fn filter_sort_selection_stack(
             SelectionStackFilter::Interactive => frame.is_interactive,
             SelectionStackFilter::Others => !frame.is_interactive && !frame.is_layout,
             SelectionStackFilter::LayoutsAndInteractive => frame.is_layout || frame.is_interactive,
-            SelectionStackFilter::LayoutsAndOthers => {
-                frame.is_layout || (!frame.is_layout && !frame.is_interactive)
-            }
-            SelectionStackFilter::InteractiveAndOthers => {
-                frame.is_interactive || (!frame.is_layout && !frame.is_interactive)
-            }
+            SelectionStackFilter::LayoutsAndOthers => frame.is_layout || !frame.is_interactive,
+            SelectionStackFilter::InteractiveAndOthers => frame.is_interactive || !frame.is_layout,
             SelectionStackFilter::Everything => true,
         }
     }
