@@ -1,0 +1,27 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { TextEdit, ScrollView } from "std-widgets.slint";
+import { Api, LogMessageLevel } from "../api.slint";
+
+export component ConsolePanel {
+    ScrollView {
+        height: Api.log-output.length == 0 ? 0px : 100px;
+
+        VerticalLayout {
+            for lm in Api.log-output: Rectangle {
+                height: 30px;
+
+                Text {
+                    text: lm.message;
+                    color: lm.level == LogMessageLevel.Debug ? Colors.black : Colors.red;
+                }
+                if !lm.file_url.is-empty: TouchArea {
+                    clicked => {
+                        Api.show-document(lm.file-url, lm.line, lm.column);
+                    }
+                }
+            }
+        }
+    }
+}
