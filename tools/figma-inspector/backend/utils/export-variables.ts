@@ -215,8 +215,11 @@ function createReferenceExpression(
     const isCrossCollection = targetCollection !== currentCollection;
 
     // Loop Detection
-    const targetIdentifier = `${targetCollection}.${targetPath.join(".")}`;
+    const targetCollectionData = collectionStructure.get(targetCollection);
+    const formattedTargetCollection =
+        targetCollectionData?.formattedName || targetCollection;
 
+    const targetIdentifier = `${formattedTargetCollection}.${targetPath.map((part) => sanitizePropertyName(part)).join(".")}`;
     if (resolutionStack.includes(targetIdentifier)) {
         const loopPath = `${resolutionStack.join(" -> ")} -> ${targetIdentifier}`;
         exportInfo.circularReferences.add(
@@ -294,7 +297,8 @@ function createReferenceExpression(
     }
 
     // Resolve Target Value or Nested Reference
-    const targetCollectionData = collectionStructure.get(targetCollection);
+    const targetCollectionDataForLoop =
+        collectionStructure.get(targetCollection);
     if (!targetCollectionData) {
         exportInfo.warnings.add(
             `Target collection data not found: ${targetCollection}`,
@@ -310,7 +314,7 @@ function createReferenceExpression(
         .map((part) => sanitizePropertyName(part))
         .join("/");
     const targetVariableModesMap =
-        targetCollectionData.variables.get(propertyPath);
+        targetCollectionDataForLoop?.variables.get(propertyPath);
 
     if (!targetVariableModesMap) {
         exportInfo.warnings.add(
@@ -465,7 +469,7 @@ function createReferenceExpression(
                         `Could not find formatted name for target collection key: ${targetCollection} when generating import.`,
                     );
                     finalValue = modeDataToUse.value;
-                    finalComment = `Resolved same-collection reference to concrete value from ${targetIdentifier}`;
+                    finalComment = `Could not find formatted name. Resolved same-collection reference to concrete value from ${targetIdentifier}`;
                     importStatement = undefined;
                 } else {
                     const slintPath = [
@@ -484,7 +488,7 @@ function createReferenceExpression(
                 }
             } else {
                 finalValue = modeDataToUse.value;
-                finalComment = `Resolved same-collection reference to concrete value from ${targetIdentifier}`;
+                finalComment = `Resolved same-collection reference to concrete value ${targetIdentifier}`;
                 importStatement = undefined;
             }
 
@@ -1342,6 +1346,123 @@ export async function exportFigmaVariablesToSeparateFiles(
                 for (const [colName, data] of columns.entries()) {
                     // Check if this specific mode value is a reference
                     if (data.refId) {
+                        const resolveToConcreteIfSameStruct = (
+                            refId: string,
+                            currentCollectionName: string,
+                            currentRowName: string,
+                            visited: Set<string> = new Set(),
+                        ): { value: string; comment: string } | null => {
+                            if (visited.has(refId)) {
+                                return null; // Circular reference
+                            }
+                            visited.add(refId);
+
+                            const targetInfo = variablePathsById.get(refId);
+                            if (!targetInfo) return null;
+
+                            // Recursively follow the reference chain to find the final target
+                            const findFinalTarget = (
+                                currentRefId: string,
+                                chainVisited: Set<string> = new Set(),
+                            ): {
+                                collection: string;
+                                path: string[];
+                                value?: string;
+                            } | null => {
+                                if (chainVisited.has(currentRefId)) return null;
+                                chainVisited.add(currentRefId);
+
+                                const currentTargetInfo =
+                                    variablePathsById.get(currentRefId);
+                                if (!currentTargetInfo) return null;
+
+                                const targetRowName = currentTargetInfo.path
+                                    .map((p) => sanitizePropertyName(p))
+                                    .join("/");
+                                const targetVarData = collectionStructure
+                                    .get(currentTargetInfo.collection)
+                                    ?.variables.get(targetRowName);
+                                const targetModeData =
+                                    targetVarData?.get(colName) ||
+                                    targetVarData?.values().next().value; // Fallback to first available mode
+                                if (!targetModeData) return null;
+
+                                if (!targetModeData.refId) {
+                                    // Found concrete value - this is the final target
+                                    return {
+                                        collection:
+                                            currentTargetInfo.collection,
+                                        path: currentTargetInfo.path,
+                                        value: targetModeData.value,
+                                    };
+                                } else {
+                                    // Still a reference - continue following the chain
+                                    return findFinalTarget(
+                                        targetModeData.refId,
+                                        chainVisited,
+                                    );
+                                }
+                            };
+
+                            const finalTarget = findFinalTarget(refId);
+                            if (!finalTarget) return null;
+
+                            // Check if the FINAL target is in the same struct as the current variable
+                            const currentFullPath = [
+                                currentCollectionName,
+                                ...currentRowName.split("/"),
+                            ];
+                            const finalTargetFullPath = [
+                                finalTarget.collection,
+                                ...finalTarget.path,
+                            ];
+
+                            // Get parent paths (everything except the last element - the property name)
+                            const currentParent = currentFullPath.slice(0, -1);
+                            const finalTargetParent = finalTargetFullPath.slice(
+                                0,
+                                -1,
+                            );
+
+                            // Only resolve if they're in the EXACT same struct definition
+                            const isSameStruct =
+                                finalTarget.collection ===
+                                    currentCollectionName &&
+                                currentParent.length ===
+                                    finalTargetParent.length &&
+                                currentParent.every(
+                                    (part, i) => part === finalTargetParent[i],
+                                );
+                            if (isSameStruct && finalTarget.value) {
+                                return {
+                                    value: finalTarget.value,
+                                    comment: `Resolved reference chain to concrete value: ${finalTarget.collection}.${finalTarget.path.join(".")}`,
+                                };
+                            }
+
+                            return null;
+                        };
+
+                        const concreteResult = resolveToConcreteIfSameStruct(
+                            data.refId,
+                            collectionName,
+                            rowName,
+                        );
+
+                        if (concreteResult) {
+                            // Replace with concrete value to prevent binding loop
+                            const updatedValue = {
+                                value: concreteResult.value,
+                                type: data.type,
+                                refId: undefined,
+                                comment: concreteResult.comment,
+                            };
+                            collectionStructure
+                                .get(collectionName)!
+                                .variables.get(rowName)!
+                                .set(colName, updatedValue);
+                            continue; // Skip normal reference processing
+                        }
                         const targetInfoForDependency = variablePathsById.get(
                             data.refId,
                         );
