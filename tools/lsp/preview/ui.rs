@@ -28,6 +28,37 @@ slint::include_modules!();
 
 pub type PropertyDeclarations = HashMap<SmolStr, PropertyDeclaration>;
 
+pub fn append_debug_log_message(
+    ui: &PreviewUi,
+    location: Option<(lsp_types::Url, usize, usize)>,
+    message: &str,
+) {
+    let api = ui.global::<Api>();
+
+    let log_model = api.get_log_output();
+    let Some(log_model) = log_model.as_any().downcast_ref::<VecModel<LogMessage>>() else {
+        return;
+    };
+
+    let location = location
+        .map(|(url, line, column)| (url.to_shared_string(), line, column))
+        .unwrap_or_default();
+
+    log_model.push(LogMessage {
+        file_url: location.0,
+        line: location.1 as i32,
+        column: location.2 as i32,
+        message: message.into(),
+        level: LogMessageLevel::Debug,
+    });
+}
+
+pub fn clear_debug_log(ui: &PreviewUi) {
+    let api = ui.global::<Api>();
+
+    api.set_log_output(Rc::new(VecModel::default()).into());
+}
+
 pub fn create_ui(style: String, experimental: bool) -> Result<PreviewUi, PlatformError> {
     let ui = PreviewUi::new()?;
 

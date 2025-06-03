@@ -1437,6 +1437,43 @@ fn set_preview_factory(
     // Ensure that any popups are closed as they are related to the old factory
     i_slint_core::window::WindowInner::from_pub(ui.window()).close_all_popups();
 
+    compiled.set_debug_handler(
+        Rc::new(|location, text| {
+            let location = location.as_ref().and_then(|l| {
+                l.source_file.as_ref().map(|f| {
+                    let (line, column) = f.line_column(l.span.offset);
+
+                    (f.clone(), line, column)
+                })
+            });
+            if let Some((file, line, column)) = &location {
+                i_slint_core::debug_log!(
+                    "DEBUG {}:{}:{}> {text}",
+                    file.path().to_string_lossy(),
+                    *line,
+                    *column
+                );
+            } else {
+                i_slint_core::debug_log!("DEBUG> {text}");
+            }
+
+            let location = location.as_ref().and_then(|(file, line, column)| {
+                common::file_to_uri(file.path()).map(|u| (u, *line, *column))
+            });
+            let text = text.to_string();
+            let _ = slint::invoke_from_event_loop(move || {
+                PREVIEW_STATE.with_borrow(|preview_state| {
+                    if let Some(ui) = &preview_state.ui {
+                        ui::append_debug_log_message(ui, location, &text);
+                    }
+                });
+            });
+        }),
+        i_slint_core::InternalToken,
+    );
+
+    ui::clear_debug_log(ui);
+
     let factory = slint::ComponentFactory::new(move |ctx: FactoryContext| {
         let instance = compiled.create_embedded(ctx).unwrap();
 

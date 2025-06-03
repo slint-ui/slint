@@ -223,6 +223,20 @@ export struct PaletteEntry {
     value: PropertyValue,
 }
 
+export enum LogMessageLevel {
+    Debug,
+    Warning,
+    Error,
+}
+
+export struct LogMessage {
+    file_url: string,
+    line: int,
+    column: int,
+    message: string,
+    level: LogMessageLevel,
+}
+
 export global Api {
     // # Properties
     // ## General preview state:
@@ -253,6 +267,9 @@ export global Api {
     in-out property <string> current-style;
     // control, but command on macOS
     in-out property <string> control-key-name: "control";
+
+    // ## Log Output
+    in-out property <[LogMessage]> log-output;
 
     // ## Drawing Area
     // Borders around things
