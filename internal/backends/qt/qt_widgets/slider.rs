@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use i_slint_core::{
-    input::{key_codes, FocusReason, FocusEventResult, KeyEventType},
+    input::{key_codes, FocusEventResult, FocusReason, KeyEventType},
     items::PointerEventButton,
 };
 

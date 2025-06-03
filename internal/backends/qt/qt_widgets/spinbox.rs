@@ -3,7 +3,7 @@
 
 use crate::key_generated;
 use i_slint_core::{
-    input::{FocusReason, FocusEventResult, KeyEventType},
+    input::{FocusEventResult, FocusReason, KeyEventType},
     items::TextHorizontalAlignment,
     platform::PointerEventButton,
 };
