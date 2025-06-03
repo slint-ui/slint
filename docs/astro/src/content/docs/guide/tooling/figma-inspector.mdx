@@ -36,7 +36,6 @@ The inspector currently has 2 functions.  One is to inspect individual Figma obj
         -   `mode`: An instance of `Scheme-Mode` holding the resolved values for each mode.
         -   `current-mode`: An `in-out` property using the mode `enum` to control the active mode.
         -   `current`: An `out` property dynamically selecting the correct scheme instance based on `current-mode`.
-        -   `current`: An `out` property providing direct access to the values of the `current` scheme.
 -   **Alias Resolution:** Follows variable aliases (references) to find the underlying concrete value or target variable path.
 -   **Hierarchy Generation:** Interprets `/` in Figma like
     `colors/background/primary`
