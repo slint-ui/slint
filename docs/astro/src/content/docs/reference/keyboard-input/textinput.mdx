@@ -6,20 +6,40 @@ description: TextInput element api.
 import SlintProperty  from '/src/components/SlintProperty.astro';
 import Link from '/src/components/Link.astro';
 
+The `TextInput` is a lower-level item that shows text and allows entering text.
+You should probably not use this directly, but instead use the <Link type="LineEdit" /> or <Link type="TextEdit" /> component.
+
+When not part of a layout, its width and height defaults to 100% of the parent element.
+
+The `TextInput` does not scroll automatically when the cursor is outside of the visible area.
+This is the responsibility of the enclosing widget to ensure using the `cursor-position-changed` callback.
+
+## Example
+
 ```slint playground
 export component Example inherits Window {
     width: 270px;
-    height: 100px;
+    height: 40px;
+    Rectangle {
+        clip: true;
 
-    TextInput {
-        text: "Replace me with a name";
+        TextInput {
+            text: "Edit me";
+            width: max(parent.width, self.preferred-width);
+            vertical-alignment: center;
+
+            private property <length> margin: 1rem;
+            cursor-position-changed(cursor-position) => {
+                if cursor-position.x + self.x < margin {
+                    self.x = - cursor-position.x + margin;
+                } else if cursor-position.x + self.x > parent.width - margin - self.text-cursor-width {
+                    self.x = parent.width - cursor-position.x - margin - self.text-cursor-width;
+                }
+            }
+        }
     }
 }
 ```
-
-The `TextInput` is a lower-level item that shows text and allows entering text.
-
-When not part of a layout, its width or height defaults to 100% of the parent element when not specified.
 
 ## Properties
 
