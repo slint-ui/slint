@@ -50,7 +50,7 @@ export class PreviewWidget extends Widget {
             // Give the UI some time to wire up the canvas so it can be found
             // when searching the document.
             this.#previewer.show_ui().then(() => {
-                console.info("UI should be up!");
+                console.info("SlintPad: started");
                 const canvas = document.getElementById(
                     canvas_id,
                 ) as HTMLElement;
