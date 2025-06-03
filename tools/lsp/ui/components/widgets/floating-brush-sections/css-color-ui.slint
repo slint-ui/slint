@@ -18,7 +18,7 @@ component CssColorIndicator {
     height: 24px;
     Rectangle {
         x: EditorSizeSettings.standard-margin - 6px;
-        width: parent.width - EditorSizeSettings.standard-margin * 2;
+        width: parent.width - EditorSizeSettings.small-margin * 2;
         height: 100%;
         background: EditorPalette.text-color.with-alpha(0.1);
         border-radius: 6px;
@@ -31,6 +31,7 @@ component CssColorIndicator {
         y: (parent.height - self.height) / 2;
         height: 16px;
         alignment: start;
+
         Rectangle {
             width: EditorSizeSettings.standard-margin;
         }
@@ -51,13 +52,14 @@ component CssColorIndicator {
         }
 
         Rectangle {
-            width: EditorSizeSettings.standard-margin;
+            width: EditorSizeSettings.small-margin;
         }
 
         t := Text {
             width: 180px;
             overflow: elide;
             color: EditorPalette.text-color;
+            horizontal-alignment: left;
             font-family: "Inter";
             font-size: 11px;
             text <=> root.name;

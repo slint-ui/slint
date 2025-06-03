@@ -158,8 +158,8 @@ component InlineGradient {
         }
 
         Rectangle {
-            x: ci.x + ci.width + 4px;
-            width: 170px;
+            x: 16px;
+            width: parent.width - self.x;
             height: 25px;
 
             Text {
@@ -213,8 +213,8 @@ component UnsetColor {
         }
 
         Rectangle {
-            x: ci.x + ci.width + 4px;
-            width: 170px;
+            x: 16px;
+            width: parent.width - self.x;
             height: 25px;
 
             Text {
