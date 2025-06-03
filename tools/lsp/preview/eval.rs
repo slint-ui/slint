@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+#![deny(clippy::missing_panics_doc)]
+
 use std::collections::HashMap;
 
 use smol_str::SmolStr;
@@ -202,16 +204,10 @@ fn eval_expression(
         }
         Expression::MinMax { ty: _, op, lhs, rhs } => {
             let Value::Number(lhs) = eval_expression(lhs, local_context) else {
-                return local_context
-                    .return_value
-                    .clone()
-                    .expect("minmax lhs expression did not evaluate to number");
+                return local_context.return_value.clone().unwrap_or_default();
             };
             let Value::Number(rhs) = eval_expression(rhs, local_context) else {
-                return local_context
-                    .return_value
-                    .clone()
-                    .expect("minmax rhs expression did not evaluate to number");
+                return local_context.return_value.clone().unwrap_or_default();
             };
             match op {
                 expression_tree::MinMaxOp::Min => Value::Number(lhs.min(rhs)),
@@ -222,7 +218,7 @@ fn eval_expression(
     }
 }
 
-/// Tries to evaluate a `syntax_nodes::BindingExpression` into an `slint_interpreter::Value`
+/// Tries to evaluate a `syntax_nodes::Expression` into an `slint_interpreter::Value`
 ///
 /// This has no access to any runtime information, so the evaluation is an approximation to the
 /// real value only.
