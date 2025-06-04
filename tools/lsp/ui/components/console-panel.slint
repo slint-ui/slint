@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { Palette, ScrollView, ListView } from "std-widgets.slint";
-import { Api, LogMessageLevel } from "../api.slint";
+import { Api, LogMessage, LogMessageLevel } from "../api.slint";
 import { RecentColorPicker } from "widgets/floating-brush-sections/palettes.slint";
 import { SimpleColumn } from "layout-helpers.slint";
 import { EditorSizeSettings, Icons } from "styling.slint";
@@ -42,6 +42,24 @@ export component ConsolePanel {
                 text: "Console";
             }
 
+            last-message := Text {
+                x: label.width + label.x * 2;
+                width: parent.width - self.x - (parent.width - info-layout.x) - 10px;
+                overflow: elide;
+                horizontal-alignment: left;
+                color: ConsoleStyles.slint-blue;
+                font-family: "Source Code Pro";
+                font-size: 11px;
+                text: Api.log-output[Api.log-output.length - 1].message;
+                visible: !panel-expanded;
+                TouchArea {
+                    mouse-cursor: MouseCursor.pointer;
+                    clicked => {
+                        panel-expanded = true;
+                    }
+                }
+            }
+
             Rectangle {
                 x: 0;
                 y: parent.height - self.height;
@@ -53,14 +71,22 @@ export component ConsolePanel {
 
             HorizontalLayout {
                 alignment: end;
-                HorizontalLayout {
+                info-layout := HorizontalLayout {
                     spacing: 4px;
                     visible: Api.log-output.length > 0;
+
                     Image {
                         width: 14px;
                         source: Icons.info;
                         colorize: ConsoleStyles.slint-blue;
                         opacity: 0.9;
+
+                        TouchArea {
+                            mouse-cursor: MouseCursor.pointer;
+                            clicked => {
+                                panel-expanded = !panel-expanded;
+                            }
+                        }
                     }
 
                     Text {
@@ -69,7 +95,13 @@ export component ConsolePanel {
                         color: ConsoleStyles.text-color;
                         font-family: "Inter";
                         font-size: 12px;
-                        // font-weight: 200;
+                        TouchArea {
+                            mouse-cursor: MouseCursor.pointer;
+                            clicked => {
+                                debug(parent.x);
+                                panel-expanded = !panel-expanded;
+                            }
+                        }
                     }
 
                     Rectangle {
@@ -110,7 +142,17 @@ export component ConsolePanel {
         if panel-expanded: Rectangle {
             height: ConsoleStyles.full-height - ConsoleStyles.header-height;
             background: ConsoleStyles.log-background;
-            ListView {
+
+            Timer {
+                running: true;
+                interval: 1ms;
+                triggered => {
+                    self.running = false;
+                    lv.viewport-y = -lv.viewport-height;
+                }
+            }
+
+            lv := ListView {
                 for lm[index] in Api.log-output: Rectangle {
                     height: message.height + 6px;
                     message := Text {
