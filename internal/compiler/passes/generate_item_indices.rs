@@ -69,19 +69,6 @@ impl crate::generator::ItemTreeBuilder for Helper {
         self.current_item_index += 1;
     }
 
-    fn push_component_placeholder_item(
-        &mut self,
-        item: &crate::object_tree::ElementRc,
-        _container_count: u32,
-        _parent_index: u32,
-        component_state: &Self::SubComponentState,
-    ) {
-        if !component_state {
-            item.borrow().item_index.set(self.current_item_index).unwrap();
-        }
-        self.current_item_index += 1;
-    }
-
     fn push_native_item(
         &mut self,
         item: &ElementRc,

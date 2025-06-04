@@ -7,9 +7,9 @@
 
 Some convention used in the generated code:
  - `_self` is of type `Pin<&ComponentType>`  where ComponentType is the type of the generated sub component,
-    this is existing for any evaluation of a binding
+   this is existing for any evaluation of a binding
  - `self_rc` is of type `VRc<ItemTreeVTable, ComponentType>` or `Rc<ComponentType>` for globals
-    this is usually a local variable to the init code that shouldn't rbe relied upon by the binding code.
+   this is usually a local variable to the init code that shouldn't rbe relied upon by the binding code.
 */
 
 use crate::expression_tree::{BuiltinFunction, EasingCurve, MinMaxOp, OperatorClass};
@@ -774,110 +774,108 @@ fn generate_sub_component(
             root,
             ParentCtx::new(&ctx, Some(idx)),
         ));
+
         let idx = usize::from(idx) as u32;
-        let repeater_id = format_ident!("repeater{}", idx);
-        let rep_inner_component_id =
-            self::inner_component_id(&root.sub_components[repeated.sub_tree.root]);
 
-        let model = compile_expression(&repeated.model.borrow(), &ctx);
-        init.push(quote! {
-            _self.#repeater_id.set_model_binding({
-                let self_weak = sp::VRcMapped::downgrade(&self_rc);
-                move || {
-                    let self_rc = self_weak.upgrade().unwrap();
-                    let _self = self_rc.as_pin_ref();
-                    (#model) as _
+        if let Some(item_index) = repeated.container_item_index {
+            let embed_item = access_member(
+                &llr::PropertyReference::InNativeItem {
+                    sub_component_path: vec![],
+                    item_index,
+                    prop_name: String::new(),
+                },
+                &ctx,
+            )
+            .unwrap();
+
+            let ensure_updated = {
+                quote! {
+                    #embed_item.ensure_updated();
                 }
+            };
+
+            repeated_visit_branch.push(quote!(
+                #idx => {
+                    #ensure_updated
+                    #embed_item.visit_children_item(-1, order, visitor)
+                }
+            ));
+            repeated_subtree_ranges.push(quote!(
+                #idx => {
+                    #ensure_updated
+                    #embed_item.subtree_range()
+                }
+            ));
+            repeated_subtree_components.push(quote!(
+                #idx => {
+                    #ensure_updated
+                    if subtree_index == 0 {
+                        *result = #embed_item.subtree_component()
+                    }
+                }
+            ));
+        } else {
+            let repeater_id = format_ident!("repeater{}", idx);
+            let rep_inner_component_id =
+                self::inner_component_id(&root.sub_components[repeated.sub_tree.root]);
+
+            let model = compile_expression(&repeated.model.borrow(), &ctx);
+            init.push(quote! {
+                _self.#repeater_id.set_model_binding({
+                    let self_weak = sp::VRcMapped::downgrade(&self_rc);
+                    move || {
+                        let self_rc = self_weak.upgrade().unwrap();
+                        let _self = self_rc.as_pin_ref();
+                        (#model) as _
+                    }
+                });
             });
-        });
-        let ensure_updated = if let Some(listview) = &repeated.listview {
-            let vp_y = access_member(&listview.viewport_y, &ctx).unwrap();
-            let vp_h = access_member(&listview.viewport_height, &ctx).unwrap();
-            let lv_h = access_member(&listview.listview_height, &ctx).unwrap();
-            let vp_w = access_member(&listview.viewport_width, &ctx).unwrap();
-            let lv_w = access_member(&listview.listview_width, &ctx).unwrap();
+            let ensure_updated = if let Some(listview) = &repeated.listview {
+                let vp_y = access_member(&listview.viewport_y, &ctx).unwrap();
+                let vp_h = access_member(&listview.viewport_height, &ctx).unwrap();
+                let lv_h = access_member(&listview.listview_height, &ctx).unwrap();
+                let vp_w = access_member(&listview.viewport_width, &ctx).unwrap();
+                let lv_w = access_member(&listview.listview_width, &ctx).unwrap();
 
-            quote! {
-                #inner_component_id::FIELD_OFFSETS.#repeater_id.apply_pin(_self).ensure_updated_listview(
-                    || { #rep_inner_component_id::new(_self.self_weak.get().unwrap().clone()).unwrap().into() },
-                    #vp_w, #vp_h, #vp_y, #lv_w.get(), #lv_h
-                );
-            }
-        } else {
-            quote! {
-                #inner_component_id::FIELD_OFFSETS.#repeater_id.apply_pin(_self).ensure_updated(
-                    || #rep_inner_component_id::new(_self.self_weak.get().unwrap().clone()).unwrap().into()
-                );
-            }
-        };
-        repeated_visit_branch.push(quote!(
-            #idx => {
-                #ensure_updated
-                _self.#repeater_id.visit(order, visitor)
-            }
-        ));
-        repeated_subtree_ranges.push(quote!(
-            #idx => {
-                #ensure_updated
-                sp::IndexRange::from(_self.#repeater_id.range())
-            }
-        ));
-        repeated_subtree_components.push(quote!(
-            #idx => {
-                #ensure_updated
-                if let Some(instance) = _self.#repeater_id.instance_at(subtree_index) {
-                    *result = sp::VRc::downgrade(&sp::VRc::into_dyn(instance));
+                quote! {
+                    #inner_component_id::FIELD_OFFSETS.#repeater_id.apply_pin(_self).ensure_updated_listview(
+                        || { #rep_inner_component_id::new(_self.self_weak.get().unwrap().clone()).unwrap().into() },
+                        #vp_w, #vp_h, #vp_y, #lv_w.get(), #lv_h
+                    );
                 }
-            }
-        ));
-        repeated_element_components.push(if repeated.index_prop.is_some() {
-            quote!(#repeater_id: sp::Repeater<#rep_inner_component_id>)
-        } else {
-            quote!(#repeater_id: sp::Conditional<#rep_inner_component_id>)
-        });
-    }
-
-    // Use ids following the real repeaters to piggyback on their forwarding through sub-components!
-    for (idx, container) in component.component_containers.iter().enumerate() {
-        let idx = (component.repeated.len() + idx) as u32;
-        let items_index = container.component_container_items_index;
-
-        let embed_item = access_member(
-            &llr::PropertyReference::InNativeItem {
-                sub_component_path: vec![],
-                item_index: items_index,
-                prop_name: String::new(),
-            },
-            &ctx,
-        )
-        .unwrap();
-
-        let ensure_updated = {
-            quote! {
-                #embed_item.ensure_updated();
-            }
-        };
-
-        repeated_visit_branch.push(quote!(
-            #idx => {
-                #ensure_updated
-                #embed_item.visit_children_item(-1, order, visitor)
-            }
-        ));
-        repeated_subtree_ranges.push(quote!(
-            #idx => {
-                #ensure_updated
-                #embed_item.subtree_range()
-            }
-        ));
-        repeated_subtree_components.push(quote!(
-            #idx => {
-                #ensure_updated
-                if subtree_index == 0 {
-                    *result = #embed_item.subtree_component()
+            } else {
+                quote! {
+                    #inner_component_id::FIELD_OFFSETS.#repeater_id.apply_pin(_self).ensure_updated(
+                        || #rep_inner_component_id::new(_self.self_weak.get().unwrap().clone()).unwrap().into()
+                    );
                 }
-            }
-        ));
+            };
+            repeated_visit_branch.push(quote!(
+                #idx => {
+                    #ensure_updated
+                    _self.#repeater_id.visit(order, visitor)
+                }
+            ));
+            repeated_subtree_ranges.push(quote!(
+                #idx => {
+                    #ensure_updated
+                    sp::IndexRange::from(_self.#repeater_id.range())
+                }
+            ));
+            repeated_subtree_components.push(quote!(
+                #idx => {
+                    #ensure_updated
+                    if let Some(instance) = _self.#repeater_id.instance_at(subtree_index) {
+                        *result = sp::VRc::downgrade(&sp::VRc::into_dyn(instance));
+                    }
+                }
+            ));
+            repeated_element_components.push(if repeated.index_prop.is_some() {
+                quote!(#repeater_id: sp::Repeater<#rep_inner_component_id>)
+            } else {
+                quote!(#repeater_id: sp::Conditional<#rep_inner_component_id>)
+            });
+        }
     }
 
     let mut accessible_role_branch = vec![];
@@ -1404,8 +1402,8 @@ fn generate_global(
 
     let change_tracker_names = global
         .change_callbacks
-        .iter()
-        .map(|(idx, _)| format_ident!("change_tracker{}", usize::from(*idx)));
+        .keys()
+        .map(|idx| format_ident!("change_tracker{}", usize::from(*idx)));
     init.extend(global.change_callbacks.iter().map(|(p, e)| {
         let code = compile_expression(&e.borrow(), &ctx);
         let prop = access_member(

@@ -151,13 +151,16 @@ impl Item for ComponentContainer {
         // Find my embedding item_tree_index:
         let pin_rc = vtable::VRc::borrow_pin(rc);
         let item_tree = pin_rc.as_ref().get_item_tree();
-        let ItemTreeNode::Item { children_index: child_item_tree_index, .. } =
+        let ItemTreeNode::Item { children_index, children_count, .. } =
             item_tree[self_rc.index() as usize]
         else {
-            panic!("Internal compiler error: ComponentContainer had no child.");
+            panic!("ComponentContainer not found in item tree");
         };
 
-        self.embedding_item_tree_index.set(child_item_tree_index).ok().unwrap();
+        assert_eq!(children_count, 1);
+        assert!(matches!(item_tree[children_index as usize], ItemTreeNode::DynamicTree { .. }));
+
+        self.embedding_item_tree_index.set(children_index).ok().unwrap();
 
         self.component_tracker.set(Box::pin(PropertyTracker::default())).ok().unwrap();
         self.self_weak.set(self_rc.downgrade()).ok().unwrap();
