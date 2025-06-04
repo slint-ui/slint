@@ -15,6 +15,7 @@ global ConsoleStyles {
     out property <color> text-color: light ? #525252 : #cccccc;
     out property <length> header-height: 27px;
     out property <length> full-height: 100px;
+    out property <color> slint-blue: #0088ff;
 }
 
 export component ConsolePanel {
@@ -32,13 +33,22 @@ export component ConsolePanel {
                 background: ConsoleStyles.divider-line;
             }
 
-            Text {
+            label := Text {
                 x: 10px;
                 horizontal-alignment: left;
                 color: ConsoleStyles.text-color;
                 font-family: "Inter";
                 font-size: 12px;
                 text: "Console";
+            }
+
+            Rectangle {
+                x: 0;
+                y: parent.height - self.height;
+                width: label.width + label.x * 2;
+                height: 2px;
+                background: ConsoleStyles.slint-blue;
+                visible: panel-expanded;
             }
 
             Image {
