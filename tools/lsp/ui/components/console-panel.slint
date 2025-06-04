@@ -54,9 +54,24 @@ export component ConsolePanel {
                         font-size: 11px;
                     }
 
-                    if !lm.file_url.is-empty: TouchArea {
-                        clicked => {
-                            Api.show-document(lm.file-url, lm.line, lm.column);
+                    if !lm.file_url.is-empty: Rectangle {
+                        width: 40px;
+                        x: parent.width - self.width - EditorSizeSettings.standard-margin;
+                        file-link := Text {
+                            text: "\{lm.line}:\{lm.column}";
+                        }
+                        Rectangle {
+                            y: parent.height - self.height;
+                            width: file-link.width;
+                            height: 1px;
+                            background: ConsoleStyles.text-color;
+                            opacity: ta.has-hover ? 1.0 : 0.5;
+                        }
+                        ta := TouchArea {
+                            mouse-cursor: MouseCursor.pointer;
+                            clicked => {
+                                Api.show-document(lm.file-url, lm.line, lm.column);
+                            }
                         }
                     }
                 }
