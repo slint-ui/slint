@@ -88,6 +88,8 @@ export component PreviewUi inherits Window {
                     }
                 }
 
+                ConsolePanel { }
+
                 HorizontalLayout {
                     if  root.show-left-sidebar: LibraryView {
                         known-components: Api.known-components;
@@ -146,8 +148,6 @@ export component PreviewUi inherits Window {
                     }
 
                 }
-
-                ConsolePanel { }
 
                 StatusLine { }
             }
