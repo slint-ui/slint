@@ -166,6 +166,9 @@ pub struct RepeatedElement {
     pub index_in_tree: u32,
 
     pub listview: Option<ListViewInfo>,
+
+    /// Access through this in case of the element being a `is_component_placeholder`
+    pub container_item_index: Option<ItemInstanceIdx>,
 }
 
 #[derive(Debug)]
