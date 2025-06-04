@@ -1,24 +1,78 @@
-// Copyright © SixtyFPS GmbH <info@slint.dev>
+// Copyright © SixtyFPS GmbH info@slint.dev
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { TextEdit, ScrollView } from "std-widgets.slint";
+import { Palette, ScrollView, ListView } from "std-widgets.slint";
 import { Api, LogMessageLevel } from "../api.slint";
+import { RecentColorPicker } from "widgets/floating-brush-sections/palettes.slint";
+import { SimpleColumn } from "layout-helpers.slint";
+import { EditorSizeSettings } from "styling.slint";
+
+global ConsoleStyles {
+    property <bool> light: Palette.color-scheme == ColorScheme.light;
+    out property <color> header-background: light ? #eaeaea : #2f3138;
+    out property <color> divider-line: light ? #e0e0e0 : #454a54;
+    out property <color> log-background: light ? #ffffff : #14181f;
+    out property <color> text-color: light ? #535251 : #cccccc;
+    out property <length> header-height: 27px;
+    out property <length> full-height: 100px;
+}
 
 export component ConsolePanel {
-    ScrollView {
-        height: Api.log-output.length == 0 ? 0px : 100px;
+    height: Api.log-output.length == 0 ? ConsoleStyles.header-height : ConsoleStyles.full-height;
+    SimpleColumn {
+        Rectangle {
+            height: 27px;
+            background: ConsoleStyles.header-background;
+            Rectangle {
+                y: parent.height - self.height;
+                width: 100%;
+                height: 1px;
+                background: ConsoleStyles.divider-line;
+            }
 
-        VerticalLayout {
-            for lm in Api.log-output: Rectangle {
-                height: 30px;
+            Text {
+                x: 10px;
+                horizontal-alignment: left;
+                color: ConsoleStyles.text-color;
+                font-family: "Inter";
+                font-size: 12px;
+                text: "Console";
+            }
+        }
 
-                Text {
-                    text: lm.message;
-                    color: lm.level == LogMessageLevel.Debug ? Colors.black : Colors.red;
-                }
-                if !lm.file_url.is-empty: TouchArea {
-                    clicked => {
-                        Api.show-document(lm.file-url, lm.line, lm.column);
+        Rectangle {
+            height: ConsoleStyles.full-height - ConsoleStyles.header-height;
+            background: ConsoleStyles.log-background;
+            ListView {
+                for lm[index] in Api.log-output: Rectangle {
+                    height: 15px;
+                    Text {
+                        x: EditorSizeSettings.standard-margin;
+                        text: lm.message;
+                        color: ConsoleStyles.text-color;
+                        font-family: "Source Code Pro";
+                        font-size: 11px;
+                    }
+
+                    if !lm.file_url.is-empty: Rectangle {
+                        width: 40px;
+                        x: parent.width - self.width - EditorSizeSettings.standard-margin;
+                        file-link := Text {
+                            text: "\{lm.line}:\{lm.column}";
+                        }
+                        Rectangle {
+                            y: parent.height - self.height;
+                            width: file-link.width;
+                            height: 1px;
+                            background: ConsoleStyles.text-color;
+                            opacity: ta.has-hover ? 1.0 : 0.5;
+                        }
+                        ta := TouchArea {
+                            mouse-cursor: MouseCursor.pointer;
+                            clicked => {
+                                Api.show-document(lm.file-url, lm.line, lm.column);
+                            }
+                        }
                     }
                 }
             }
