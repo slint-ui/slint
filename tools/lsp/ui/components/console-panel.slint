@@ -5,20 +5,22 @@ import { Palette, ScrollView, ListView } from "std-widgets.slint";
 import { Api, LogMessageLevel } from "../api.slint";
 import { RecentColorPicker } from "widgets/floating-brush-sections/palettes.slint";
 import { SimpleColumn } from "layout-helpers.slint";
-import { EditorSizeSettings } from "styling.slint";
+import { EditorSizeSettings, Icons } from "styling.slint";
 
 global ConsoleStyles {
     property <bool> light: Palette.color-scheme == ColorScheme.light;
     out property <color> header-background: light ? #eaeaea : #2f3138;
     out property <color> divider-line: light ? #e0e0e0 : #454a54;
     out property <color> log-background: light ? #ffffff : #14181f;
-    out property <color> text-color: light ? #535251 : #cccccc;
+    out property <color> text-color: light ? #525252 : #cccccc;
     out property <length> header-height: 27px;
     out property <length> full-height: 100px;
 }
 
 export component ConsolePanel {
-    height: Api.log-output.length == 0 ? ConsoleStyles.header-height : ConsoleStyles.full-height;
+    property <bool> panel-expanded: false;
+    height: panel-expanded ? ConsoleStyles.full-height : ConsoleStyles.header-height;
+
     SimpleColumn {
         Rectangle {
             height: 27px;
@@ -38,24 +40,57 @@ export component ConsolePanel {
                 font-size: 12px;
                 text: "Console";
             }
+
+            Image {
+                x: parent.width - self.width - 10px;
+                y: 5px;
+                width: 16px;
+                height: 16px;
+                source: Icons.chevron-down;
+                colorize: ConsoleStyles.text-color;
+                opacity: chevron-ta.has-hover ? 1.0 : 0.5;
+                rotation-angle: panel-expanded ? 0deg : 180deg;
+            }
+            Rectangle {
+                x: parent.width - self.width;
+                width: 36px;
+                Rectangle {
+                    x: 0;
+                    width: 1px;
+                    height: 13px;
+                    background: ConsoleStyles.text-color;
+                    opacity: 0.3;
+                }
+                chevron-ta := TouchArea {
+                    mouse-cursor: MouseCursor.pointer;
+                    clicked => {
+                        panel-expanded = !panel-expanded;
+                    }
+                }
+            }
         }
 
-        Rectangle {
+        if panel-expanded: Rectangle {
             height: ConsoleStyles.full-height - ConsoleStyles.header-height;
             background: ConsoleStyles.log-background;
             ListView {
                 for lm[index] in Api.log-output: Rectangle {
-                    height: 15px;
-                    Text {
-                        x: EditorSizeSettings.standard-margin;
+                    height: message.height + 6px;
+                    message := Text {
+                        x: 10px;
+                        width: parent.width - 60px;
                         text: lm.message;
                         color: ConsoleStyles.text-color;
                         font-family: "Source Code Pro";
                         font-size: 11px;
+                        horizontal-alignment: left;
+                        font-weight: 200;
+                        wrap: TextWrap.word-wrap;
                     }
 
                     if !lm.file_url.is-empty: Rectangle {
                         width: 40px;
+                        height: 14px;
                         x: parent.width - self.width - EditorSizeSettings.standard-margin;
                         file-link := Text {
                             text: "\{lm.line}:\{lm.column}";
@@ -73,6 +108,12 @@ export component ConsolePanel {
                                 Api.show-document(lm.file-url, lm.line, lm.column);
                             }
                         }
+                    }
+                    Rectangle {
+                        y: parent.height - self.height;
+                        height: 1px;
+                        background: ConsoleStyles.text-color;
+                        opacity: 0.2;
                     }
                 }
             }
