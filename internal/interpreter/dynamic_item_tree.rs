@@ -1068,18 +1068,6 @@ pub(crate) fn generate_item_tree<'id>(
             );
         }
 
-        fn push_component_placeholder_item(
-            &mut self,
-            item: &i_slint_compiler::object_tree::ElementRc,
-            container_count: u32,
-            parent_index: u32,
-            _component_state: &Self::SubComponentState,
-        ) {
-            self.tree_array
-                .push(ItemTreeNode::DynamicTree { index: container_count, parent_index });
-            self.original_elements.push(item.clone());
-        }
-
         fn push_native_item(
             &mut self,
             rc_item: &ElementRc,

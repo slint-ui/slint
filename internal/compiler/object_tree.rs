@@ -1915,7 +1915,7 @@ impl Element {
     }
 
     pub fn sub_component(&self) -> Option<&Rc<Component>> {
-        if self.repeated.is_some() || self.is_component_placeholder {
+        if self.repeated.is_some() {
             None
         } else if let ElementType::Component(sub_component) = &self.base_type {
             Some(sub_component)

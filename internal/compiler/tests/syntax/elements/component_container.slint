@@ -3,7 +3,7 @@
 
 export component Foo inherits Rectangle {
     ComponentContainer {
-//  ^error{ComponentContainers may not have children}
+//  ^error{The @children placeholder cannot appear in a ComponentContainer}
         @children
     }
 }

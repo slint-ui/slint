@@ -267,7 +267,6 @@ fn lower_sub_component(
     };
     let mut mapping = LoweredSubComponentMapping::default();
     let mut repeated = TiVec::new();
-    let mut component_container_data = vec![];
     let mut accessible_prop = Vec::new();
     let mut change_callbacks = Vec::new();
 
@@ -324,22 +323,13 @@ fn lower_sub_component(
                 PropertyReference::Local { sub_component_path: vec![], property_index },
             );
         }
-        if elem.is_component_placeholder {
-            mapping.element_mapping.insert(
-                element.clone().into(),
-                LoweredElement::ComponentPlaceholder {
-                    repeated_index: component_container_data.len() as u32,
-                },
-            );
-            mapping.container_count += 1;
-            component_container_data.push(parent.as_ref().unwrap().clone());
-            return None;
-        }
         if elem.repeated.is_some() {
+            let parent = if elem.is_component_placeholder { parent.clone() } else { None };
+
             mapping.element_mapping.insert(
                 element.clone().into(),
                 LoweredElement::Repeated {
-                    repeated_index: repeated.push_and_get_key(element.clone()),
+                    repeated_index: repeated.push_and_get_key((element.clone(), parent)),
                 },
             );
             mapping.repeater_count += 1;
@@ -350,7 +340,7 @@ fn lower_sub_component(
                 let ty = state.sub_component_idx(comp);
                 let sub_component_index =
                     sub_component.sub_components.push_and_get_key(SubComponentInstance {
-                        ty: ty.clone(),
+                        ty,
                         name: elem.id.clone(),
                         index_in_tree: *elem.item_index.get().unwrap(),
                         index_of_first_child_in_tree: *elem
@@ -461,7 +451,7 @@ fn lower_sub_component(
             .property_analysis
             .borrow()
             .get(p)
-            .map_or(true, |a| a.is_set || a.is_set_externally)
+            .is_none_or(|a| a.is_set || a.is_set_externally)
         {
             if let Some(anim) = binding.animation.as_ref() {
                 match super::lower_expression::lower_animation(anim, &mut ctx) {
@@ -475,15 +465,11 @@ fn lower_sub_component(
             }
         }
     });
-    sub_component.component_containers = component_container_data
-        .into_iter()
-        .map(|component_container| {
-            lower_component_container(&component_container, &sub_component, &mut ctx)
-        })
-        .collect();
     sub_component.repeated = repeated
         .into_iter()
-        .map(|elem| lower_repeated_component(&elem, &mut ctx, compiler_config))
+        .map(|(elem, parent)| {
+            lower_repeated_component(&elem, parent, &sub_component, &mut ctx, compiler_config)
+        })
         .collect();
     for s in &mut sub_component.sub_components {
         s.repeater_offset +=
@@ -511,8 +497,7 @@ fn lower_sub_component(
         })
         .collect();
 
-    sub_component.timers =
-        component.timers.borrow().iter().map(|t| lower_timer(t, &mut ctx)).collect();
+    sub_component.timers = component.timers.borrow().iter().map(|t| lower_timer(t, &ctx)).collect();
 
     crate::generator::for_each_const_properties(component, |elem, n| {
         let x = ctx.map_property_reference(&NamedReference::new(elem, n.clone()));
@@ -655,6 +640,8 @@ fn get_property_analysis(elem: &ElementRc, p: &str) -> crate::object_tree::Prope
 
 fn lower_repeated_component(
     elem: &ElementRc,
+    parent_component_container: Option<ElementRc>,
+    sub_component: &SubComponent,
     ctx: &mut ExpressionLoweringCtx,
     compiler_config: &CompilerConfiguration,
 ) -> RepeatedElement {
@@ -677,6 +664,10 @@ fn lower_repeated_component(
         }
     });
 
+    let parent_index = parent_component_container.map(|p| (*p.borrow().item_index.get().unwrap()));
+    let container_item_index =
+        parent_index.and_then(|pii| sub_component.items.position(|i| i.index_in_tree == pii));
+
     RepeatedElement {
         model: super::lower_expression::lower_expression(&repeated.model, ctx).into(),
         sub_tree: ItemTree {
@@ -688,24 +679,7 @@ fn lower_repeated_component(
         data_prop: (!repeated.is_conditional_element).then_some(0usize.into()),
         index_in_tree: *e.item_index.get().unwrap(),
         listview,
-    }
-}
-
-fn lower_component_container(
-    container: &ElementRc,
-    sub_component: &SubComponent,
-    _ctx: &ExpressionLoweringCtx,
-) -> ComponentContainerElement {
-    let c = container.borrow();
-
-    let component_container_index = *c.item_index.get().unwrap();
-    let component_container_items_index =
-        sub_component.items.position(|i| i.index_in_tree == component_container_index).unwrap();
-
-    ComponentContainerElement {
-        component_container_item_tree_index: component_container_index,
-        component_container_items_index,
-        component_placeholder_item_tree_index: *c.item_index_of_first_children.get().unwrap(),
+        container_item_index,
     }
 }
 
