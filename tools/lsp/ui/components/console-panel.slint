@@ -24,7 +24,7 @@ export component ConsolePanel {
 
     SimpleColumn {
         Rectangle {
-            height: 27px;
+            height: 28px;
             background: ConsoleStyles.header-background;
             Rectangle {
                 y: parent.height - self.height;
@@ -51,30 +51,57 @@ export component ConsolePanel {
                 visible: panel-expanded;
             }
 
-            Image {
-                x: parent.width - self.width - 10px;
-                y: 5px;
-                width: 16px;
-                height: 16px;
-                source: Icons.chevron-down;
-                colorize: ConsoleStyles.text-color;
-                opacity: chevron-ta.has-hover ? 1.0 : 0.5;
-                rotation-angle: panel-expanded ? 0deg : 180deg;
-            }
-            Rectangle {
-                x: parent.width - self.width;
-                width: 36px;
-                Rectangle {
-                    x: 0;
-                    width: 1px;
-                    height: 13px;
-                    background: ConsoleStyles.text-color;
-                    opacity: 0.3;
+            HorizontalLayout {
+                alignment: end;
+                HorizontalLayout {
+                    spacing: 4px;
+                    visible: Api.log-output.length > 0;
+                    Image {
+                        width: 14px;
+                        source: Icons.info;
+                        colorize: ConsoleStyles.slint-blue;
+                        opacity: 0.9;
+                    }
+
+                    Text {
+                        text: Api.log-output.length;
+                        vertical-alignment: center;
+                        color: ConsoleStyles.text-color;
+                        font-family: "Inter";
+                        font-size: 12px;
+                        // font-weight: 200;
+                    }
+
+                    Rectangle {
+                        width: 10px;
+                    }
                 }
-                chevron-ta := TouchArea {
-                    mouse-cursor: MouseCursor.pointer;
-                    clicked => {
-                        panel-expanded = !panel-expanded;
+
+                Rectangle {
+                    width: 36px;
+                    Rectangle {
+                        x: 0;
+                        width: 1px;
+                        height: 13px;
+                        background: ConsoleStyles.text-color;
+                        opacity: 0.3;
+                    }
+
+                    chevron-ta := TouchArea {
+                        mouse-cursor: MouseCursor.pointer;
+                        clicked => {
+                            panel-expanded = !panel-expanded;
+                        }
+                    }
+
+                    Image {
+                        x: parent.width - self.width - 10px;
+                        width: 16px;
+                        height: 16px;
+                        source: Icons.chevron-down;
+                        colorize: ConsoleStyles.text-color;
+                        opacity: chevron-ta.has-hover ? 1.0 : 0.5;
+                        rotation-angle: panel-expanded ? 0deg : 180deg;
                     }
                 }
             }
@@ -105,6 +132,7 @@ export component ConsolePanel {
                         file-link := Text {
                             text: "\{lm.line}:\{lm.column}";
                         }
+
                         Rectangle {
                             y: parent.height - self.height;
                             width: file-link.width;
@@ -112,6 +140,7 @@ export component ConsolePanel {
                             background: ConsoleStyles.text-color;
                             opacity: ta.has-hover ? 1.0 : 0.5;
                         }
+
                         ta := TouchArea {
                             mouse-cursor: MouseCursor.pointer;
                             clicked => {
