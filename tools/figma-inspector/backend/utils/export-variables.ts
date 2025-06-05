@@ -403,7 +403,7 @@ function createReferenceExpression(
         // It's a reference to a different top-level group within the same collection
         // Construct the Slint path to the target variable
         const slintPath = [
-            targetCollection, // Should be same as currentCollection here
+            formattedTargetCollection, // Use formatted name instead of sanitized
             ...targetPath.map((part) => sanitizePropertyName(part)),
         ].join(".");
         const needsModeSuffix = targetModes.size > 1;
@@ -1358,7 +1358,9 @@ export async function exportFigmaVariablesToSeparateFiles(
                             visited.add(refId);
 
                             const targetInfo = variablePathsById.get(refId);
-                            if (!targetInfo) return null;
+                            if (!targetInfo) {
+                                return null;
+                            }
 
                             // Recursively follow the reference chain to find the final target
                             const findFinalTarget = (
@@ -1369,12 +1371,16 @@ export async function exportFigmaVariablesToSeparateFiles(
                                 path: string[];
                                 value?: string;
                             } | null => {
-                                if (chainVisited.has(currentRefId)) return null;
+                                if (chainVisited.has(currentRefId)) {
+                                    return null;
+                                }
                                 chainVisited.add(currentRefId);
 
                                 const currentTargetInfo =
                                     variablePathsById.get(currentRefId);
-                                if (!currentTargetInfo) return null;
+                                if (!currentTargetInfo) {
+                                    return null;
+                                }
 
                                 const targetRowName = currentTargetInfo.path
                                     .map((p) => sanitizePropertyName(p))
@@ -1385,7 +1391,9 @@ export async function exportFigmaVariablesToSeparateFiles(
                                 const targetModeData =
                                     targetVarData?.get(colName) ||
                                     targetVarData?.values().next().value; // Fallback to first available mode
-                                if (!targetModeData) return null;
+                                if (!targetModeData) {
+                                    return null;
+                                }
 
                                 if (!targetModeData.refId) {
                                     // Found concrete value - this is the final target
@@ -1405,7 +1413,9 @@ export async function exportFigmaVariablesToSeparateFiles(
                             };
 
                             const finalTarget = findFinalTarget(refId);
-                            if (!finalTarget) return null;
+                            if (!finalTarget) {
+                                return null;
+                            }
 
                             // Check if the FINAL target is in the same struct as the current variable
                             const currentFullPath = [
@@ -1434,9 +1444,14 @@ export async function exportFigmaVariablesToSeparateFiles(
                                     (part, i) => part === finalTargetParent[i],
                                 );
                             if (isSameStruct && finalTarget.value) {
+                                // Get the formatted collection name (with hyphens) for display in comment
+                                const formattedCollectionName =
+                                    collectionStructure.get(
+                                        finalTarget.collection,
+                                    )?.formattedName || finalTarget.collection;
                                 return {
                                     value: finalTarget.value,
-                                    comment: `Resolved reference chain to concrete value: ${finalTarget.collection}.${finalTarget.path.join(".")}`,
+                                    comment: `Resolved reference chain to concrete value: ${formattedCollectionName}.${finalTarget.path.join(".")}`,
                                 };
                             }
 
@@ -1667,7 +1682,7 @@ export async function exportFigmaVariablesToSeparateFiles(
                 currentSchemeInstance = schemeResult.currentSchemeInstance;
             }
 
-            let content = `// Generated Slint file for ${collectionData.name}\n\n`;
+            let content = `// Generated Slint file for ${collectionData.formattedName}\n\n`;
 
             // Add imports ONLY if final mode is multi-file
             if (!finalExportAsSingleFile) {
