@@ -241,7 +241,7 @@ export component ConsolePanel inherits SimpleColumn {
                 }
                 message := TextInput {
                     x: 10px;
-                    width: parent.width - 60px;
+                    width: parent.width - 80px;
                     read-only: true;
                     text: lm.message;
                     color: lm.level == LogMessageLevel.Error ? ConsoleStyles.slint-blue : ConsoleStyles.text-color;
