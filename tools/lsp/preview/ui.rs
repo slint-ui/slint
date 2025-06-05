@@ -20,6 +20,7 @@ use crate::preview::{self, preview_data, properties, SelectionNotification};
 use crate::wasm_prelude::*;
 
 mod brushes;
+pub mod log_messages;
 pub mod palette;
 mod property_view;
 mod recent_colors;
@@ -27,37 +28,6 @@ mod recent_colors;
 slint::include_modules!();
 
 pub type PropertyDeclarations = HashMap<SmolStr, PropertyDeclaration>;
-
-pub fn append_debug_log_message(
-    ui: &PreviewUi,
-    location: Option<(SharedString, usize, usize)>,
-    message: &str,
-) {
-    let api = ui.global::<Api>();
-
-    let log_model = api.get_log_output();
-    let Some(log_model) = log_model.as_any().downcast_ref::<VecModel<LogMessage>>() else {
-        return;
-    };
-
-    let location = location
-        .map(|(url, line, column)| (url.to_shared_string(), line, column))
-        .unwrap_or_default();
-
-    log_model.push(LogMessage {
-        file_url: location.0,
-        line: location.1 as i32,
-        column: location.2 as i32,
-        message: message.into(),
-        level: LogMessageLevel::Debug,
-    });
-}
-
-pub fn clear_debug_log(ui: &PreviewUi) {
-    let api = ui.global::<Api>();
-
-    api.set_log_output(Rc::new(VecModel::default()).into());
-}
 
 pub fn create_ui(style: String, experimental: bool) -> Result<PreviewUi, PlatformError> {
     let ui = PreviewUi::new()?;
@@ -145,6 +115,7 @@ pub fn create_ui(style: String, experimental: bool) -> Result<PreviewUi, Platfor
     api.on_string_to_code(string_to_code);
 
     brushes::setup(&ui);
+    log_messages::setup(&ui);
     palette::setup(&ui);
     recent_colors::setup(&ui);
 
@@ -179,15 +150,31 @@ pub fn ui_set_uses_widgets(ui: &PreviewUi, uses_widgets: bool) {
 }
 
 pub fn set_diagnostics(ui: &PreviewUi, diagnostics: &[slint_interpreter::Diagnostic]) {
-    let summary = diagnostics.iter().fold(DiagnosticSummary::NothingDetected, |acc, d| {
-        match (acc, d.level()) {
-            (_, DiagnosticLevel::Error) => DiagnosticSummary::Errors,
-            (DiagnosticSummary::Errors, DiagnosticLevel::Warning) => DiagnosticSummary::Errors,
-            (_, DiagnosticLevel::Warning) => DiagnosticSummary::Warnings,
-            // DiagnosticLevel is non-exhaustive:
-            (acc, _) => acc,
-        }
-    });
+    let summary = diagnostics
+        .iter()
+        .inspect(|d| {
+            let location = d.source_file().map(|p| {
+                let (line, column) = d.line_column();
+                (p.to_string_lossy().to_string().into(), line, column)
+            });
+
+            let level = match d.level() {
+                DiagnosticLevel::Error => LogMessageLevel::Error,
+                DiagnosticLevel::Warning => LogMessageLevel::Warning,
+                _ => LogMessageLevel::Debug,
+            };
+
+            log_messages::append_log_message(ui, level, location, d.message());
+        })
+        .fold(DiagnosticSummary::NothingDetected, |acc, d| {
+            match (acc, d.level()) {
+                (_, DiagnosticLevel::Error) => DiagnosticSummary::Errors,
+                (DiagnosticSummary::Errors, DiagnosticLevel::Warning) => DiagnosticSummary::Errors,
+                (_, DiagnosticLevel::Warning) => DiagnosticSummary::Warnings,
+                // DiagnosticLevel is non-exhaustive:
+                (acc, _) => acc,
+            }
+        });
 
     let api = ui.global::<Api>();
     api.set_diagnostic_summary(summary);

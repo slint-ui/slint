@@ -230,7 +230,7 @@ export enum LogMessageLevel {
 }
 
 export struct LogMessage {
-    file_url: string,
+    file: string,
     line: int,
     column: int,
     message: string,
@@ -571,4 +571,8 @@ export global Api {
     pure callback filter-palettes(palettes: [PaletteEntry], pattern: string) -> [PaletteEntry];
     callback add-recent-color(color);
     pure callback is-css-color(code: string) -> bool;
+
+    // Console / LogMessages
+    pure callback filter-log-messages(messages: [LogMessage], pattern: string) -> [LogMessage];
+    callback clear-log-messages();
 }

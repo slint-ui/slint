@@ -175,7 +175,7 @@ export component ConsolePanel {
                         wrap: TextWrap.word-wrap;
                     }
 
-                    if !lm.file_url.is-empty: Rectangle {
+                    if !lm.file.is-empty: Rectangle {
                         width: 40px;
                         height: 14px;
                         x: parent.width - self.width - EditorSizeSettings.standard-margin;
@@ -194,7 +194,7 @@ export component ConsolePanel {
                         ta := TouchArea {
                             mouse-cursor: MouseCursor.pointer;
                             clicked => {
-                                Api.show-document(lm.file-url, lm.line, lm.column);
+                                Api.show-document(lm.file, lm.line, lm.column);
                             }
                         }
                     }

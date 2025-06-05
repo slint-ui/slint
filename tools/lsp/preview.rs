@@ -1464,15 +1464,18 @@ fn set_preview_factory(
             let _ = slint::invoke_from_event_loop(move || {
                 PREVIEW_STATE.with_borrow(|preview_state| {
                     if let Some(ui) = &preview_state.ui {
-                        ui::append_debug_log_message(ui, location, &text);
+                        ui::log_messages::append_log_message(
+                            ui,
+                            ui::LogMessageLevel::Debug,
+                            location,
+                            &text,
+                        );
                     }
                 });
             });
         }),
         i_slint_core::InternalToken,
     );
-
-    ui::clear_debug_log(ui);
 
     let factory = slint::ComponentFactory::new(move |ctx: FactoryContext| {
         let instance = compiled.create_embedded(ctx).unwrap();
