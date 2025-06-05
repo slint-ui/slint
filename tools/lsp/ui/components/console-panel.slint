@@ -1,11 +1,12 @@
 // Copyright © SixtyFPS GmbH info@slint.dev
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Palette, ScrollView, ListView } from "std-widgets.slint";
+import { Palette, ScrollView, ListView, Switch } from "std-widgets.slint";
 import { Api, LogMessage, LogMessageLevel } from "../api.slint";
 import { RecentColorPicker } from "widgets/floating-brush-sections/palettes.slint";
 import { SimpleColumn } from "layout-helpers.slint";
 import { ConsoleStyles, EditorSizeSettings, Icons,  } from "styling.slint";
+import { WindowManager } from "../windowglobal.slint";
 
 
 export component ConsolePanel inherits SimpleColumn {
@@ -162,6 +163,27 @@ export component ConsolePanel inherits SimpleColumn {
                 opacity: 0.3;
             }
         }
+
+        HorizontalLayout {
+            alignment: end;
+            Text {
+                text: "Auto clear logs";
+                font-family: "Inter";
+                font-size: 12px;
+                color: ConsoleStyles.text-color;
+                vertical-alignment: center;
+            }
+            Rectangle {
+                width: 6px;
+            }
+            Switch {
+                checked <=> WindowManager.auto-clear-console;
+            }
+            Rectangle {
+                width: 10px;
+            }
+        }
+
         Rectangle {
             y: parent.height - self.height;
             width: 100%;

@@ -305,7 +305,7 @@ export global WindowManager {
     out property <PropertyInformation> current-property-information;
     in-out property <string> current-property-container-id;
     in-out property <PreviewData> current-preview-data;
-    in-out property <bool> preserve-log-messages: false;
+    in-out property <bool> auto-clear-console: true;
     property component-factory <=> Api.preview-data;
 
     property <string> possible_error;
@@ -323,7 +323,7 @@ export global WindowManager {
     callback hide-color-stop-picker();
 
     changed component-factory => {
-        if !preserve-log-messages {
+        if auto-clear-console {
             Api.clear-log-messages();
         }
     }
