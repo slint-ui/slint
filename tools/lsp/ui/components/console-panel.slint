@@ -202,6 +202,7 @@ export component ConsolePanel inherits SimpleColumn {
             lv.viewport-y = -100000px;
             timer-clicked = 0;
             scroll-timer.running = true;
+            debug(Api.log-output[Api.log-output.length - 1]);
         }
 
         scroll-timer := Timer {
@@ -224,12 +225,26 @@ export component ConsolePanel inherits SimpleColumn {
 
         lv := ListView {
             for lm[index] in Api.log-output: Rectangle {
-                height: message.height + 6px;
-                message := Text {
+                height: helper-message.height + 6px;
+                // helper-message is used to calculate the height of the message
+                // as TextInput gets into a binding loop if used alone.
+                helper-message := Text {
+                    x: 10px;
+                    width: message.width;
+                    text: lm.message;
+                    font-family: message.font-family;
+                    font-size: message.font-size;
+                    horizontal-alignment: message.horizontal-alignment;
+                    font-weight: message.font-weight;
+                    wrap: message.wrap;
+                    visible: false;
+                }
+                message := TextInput {
                     x: 10px;
                     width: parent.width - 60px;
+                    read-only: true;
                     text: lm.message;
-                    color: ConsoleStyles.text-color;
+                    color: lm.level == LogMessageLevel.Error ? ConsoleStyles.slint-blue : ConsoleStyles.text-color;
                     font-family: "Source Code Pro";
                     font-size: 11px;
                     horizontal-alignment: left;
