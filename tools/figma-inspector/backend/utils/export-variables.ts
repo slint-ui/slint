@@ -64,10 +64,11 @@ export function sanitizePropertyName(name: string): string {
     // Replace problematic characters BEFORE checking for leading digit
     sanitizedName = sanitizedName
         .replace(/&/g, "and") // Replace &
-        .replace(/\(/g, "_") // Replace ( with _
-        .replace(/\)/g, "_") // Replace ) with _
-        .replace(/—/g, "_") // Replace em dash with underscore
-        .replace(/[^a-zA-Z0-9_]/g, "_") // Replace other invalid chars (including -, +, :, etc.) with _
+        .replace(/\(/g, "-") // Replace ( with -
+        .replace(/\)/g, "-") // Replace ) with -
+        .replace(/—/g, "-") // Replace em dash with -
+        .replace(/[^a-zA-Z0-9_]/g, "-") // Replace other invalid chars (including -, +, :, etc.) with -
+        .replace(/-+/g, "-") // Collapse multiple hyphens
         .replace(/__+/g, "_"); // Collapse multiple underscores
 
     // Remove trailing underscores
