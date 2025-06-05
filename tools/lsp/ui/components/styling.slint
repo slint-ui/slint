@@ -22,6 +22,7 @@ export global Icons {
     out property <image> plus: @image-url("../assets/plus.svg");
     out property <image> minus: @image-url("../assets/minus.svg");
     out property <image> info: @image-url("../assets/info.svg");
+    out property <image> clear: @image-url("../assets/clear.svg");
 }
 
 export struct TextStyle {
@@ -80,10 +81,11 @@ export global ConsoleStyles {
     property <bool> dark-scheme: Palette.color-scheme == ColorScheme.dark;
     out property <color> header-background: dark-scheme ?  #2f3138 : #eaeaea;
     out property <color> divider-line: dark-scheme ? #454a54 : #e0e0e0;
-    out property <color> log-background: dark-scheme ?  #14181f : #ffffff;
+    out property <color> log-background: dark-scheme ?  #262626 : #ffffff;
     out property <color> text-color: dark-scheme ? #cccccc : #525252;
+    out property <color> toolbar-background: dark-scheme ? #2c2c2c : #f3f3f3;
     out property <length> header-height: 28px;
-    out property <length> full-height: 150px;
+    out property <length> log-height: 120px;
     out property <color> slint-blue: #0088ff;
 }
 
