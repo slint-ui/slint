@@ -8,195 +8,238 @@ import { SimpleColumn } from "layout-helpers.slint";
 import { ConsoleStyles, EditorSizeSettings, Icons,  } from "styling.slint";
 
 
-export component ConsolePanel {
+export component ConsolePanel inherits SimpleColumn {
     property <bool> panel-expanded: false;
-    height: panel-expanded ? ConsoleStyles.full-height : ConsoleStyles.header-height;
 
-    SimpleColumn {
+    Rectangle {
+        height: ConsoleStyles.header-height;
+        background: ConsoleStyles.header-background;
         Rectangle {
-            height: ConsoleStyles.header-height;
-            background: ConsoleStyles.header-background;
-            Rectangle {
-                y: parent.height - self.height;
-                width: 100%;
-                height: 1px;
-                background: ConsoleStyles.divider-line;
-            }
+            y: parent.height - self.height;
+            width: 100%;
+            height: 1px;
+            background: ConsoleStyles.divider-line;
+        }
 
-            label := Text {
-                x: 10px;
-                horizontal-alignment: left;
-                color: ConsoleStyles.text-color;
-                font-family: "Inter";
-                font-size: 12px;
-                text: "Console";
-            }
+        label := Text {
+            x: 10px;
+            horizontal-alignment: left;
+            color: ConsoleStyles.text-color;
+            font-family: "Inter";
+            font-size: 12px;
+            text: "Console";
+        }
 
-            last-message := Text {
-                x: label.width + label.x * 2;
-                width: parent.width - self.x - (parent.width - info-layout.x) - 20px;
-                overflow: elide;
-                horizontal-alignment: left;
-                color: ConsoleStyles.slint-blue;
-                font-family: "Source Code Pro";
-                font-size: 11px;
-                text: Api.log-output[Api.log-output.length - 1].message;
-                visible: !panel-expanded;
-                lm-ta := TouchArea {
-                    mouse-cursor: MouseCursor.pointer;
-                    clicked => {
-                        panel-expanded = true;
-                    }
-                }
-                Rectangle {
-                    x: 0;
-                    y: parent.height - self.height;
-                    width: min(last-message.preferred-width, last-message.width) - 4px;
-                    height: 1px;
-                    background: ConsoleStyles.slint-blue;
-                    opacity: lm-ta.has-hover ? 0.8 : 0;
+        last-message := Text {
+            x: label.width + label.x * 2;
+            width: parent.width - self.x - (parent.width - info-layout.x) - 20px;
+            overflow: elide;
+            horizontal-alignment: left;
+            color: ConsoleStyles.slint-blue;
+            font-family: "Source Code Pro";
+            font-size: 11px;
+            text: Api.log-output[Api.log-output.length - 1].message;
+            visible: !panel-expanded;
+            lm-ta := TouchArea {
+                mouse-cursor: MouseCursor.pointer;
+                clicked => {
+                    panel-expanded = true;
                 }
             }
-
             Rectangle {
                 x: 0;
                 y: parent.height - self.height;
-                width: label.width + label.x * 2;
-                height: 2px;
+                width: min(last-message.preferred-width, last-message.width) - 4px;
+                height: 1px;
                 background: ConsoleStyles.slint-blue;
-                visible: panel-expanded;
+                opacity: lm-ta.has-hover ? 0.8 : 0;
             }
+        }
 
-            HorizontalLayout {
-                alignment: end;
-                info-layout := HorizontalLayout {
-                    spacing: 4px;
-                    visible: Api.log-output.length > 0;
+        Rectangle {
+            x: 0;
+            y: parent.height - self.height;
+            width: label.width + label.x * 2;
+            height: 2px;
+            background: ConsoleStyles.slint-blue;
+            visible: panel-expanded;
+        }
 
-                    Image {
-                        width: 14px;
-                        source: Icons.info;
-                        colorize: ConsoleStyles.slint-blue;
-                        opacity: 0.9;
+        HorizontalLayout {
+            alignment: end;
+            info-layout := HorizontalLayout {
+                spacing: 4px;
+                visible: Api.log-output.length > 0;
 
-                        TouchArea {
-                            mouse-cursor: MouseCursor.pointer;
-                            clicked => {
-                                panel-expanded = !panel-expanded;
-                            }
-                        }
-                    }
+                Image {
+                    width: 14px;
+                    source: Icons.info;
+                    colorize: ConsoleStyles.slint-blue;
+                    opacity: 0.9;
 
-                    Text {
-                        text: Api.log-output.length;
-                        vertical-alignment: center;
-                        color: ConsoleStyles.text-color;
-                        font-family: "Inter";
-                        font-size: 12px;
-                        TouchArea {
-                            mouse-cursor: MouseCursor.pointer;
-                            clicked => {
-                                debug(parent.x);
-                                panel-expanded = !panel-expanded;
-                            }
-                        }
-                    }
-
-                    Rectangle {
-                        width: 10px;
-                    }
-                }
-
-                Rectangle {
-                    width: 36px;
-                    Rectangle {
-                        x: 0;
-                        width: 1px;
-                        height: 13px;
-                        background: ConsoleStyles.text-color;
-                        opacity: 0.3;
-                    }
-
-                    chevron-ta := TouchArea {
+                    TouchArea {
                         mouse-cursor: MouseCursor.pointer;
                         clicked => {
                             panel-expanded = !panel-expanded;
                         }
                     }
+                }
 
-                    Image {
-                        x: parent.width - self.width - 10px;
-                        width: 16px;
-                        height: 16px;
-                        source: Icons.chevron-down;
-                        colorize: ConsoleStyles.text-color;
-                        opacity: chevron-ta.has-hover ? 1.0 : 0.5;
-                        rotation-angle: panel-expanded ? 0deg : 180deg;
+                Text {
+                    text: Api.log-output.length;
+                    vertical-alignment: center;
+                    color: ConsoleStyles.text-color;
+                    font-family: "Inter";
+                    font-size: 12px;
+                    TouchArea {
+                        mouse-cursor: MouseCursor.pointer;
+                        clicked => {
+                            debug(parent.x);
+                            panel-expanded = !panel-expanded;
+                        }
                     }
+                }
+
+                Rectangle {
+                    width: 10px;
+                }
+            }
+
+            Rectangle {
+                width: 36px;
+                Rectangle {
+                    x: 0;
+                    width: 1px;
+                    height: 13px;
+                    background: ConsoleStyles.text-color;
+                    opacity: 0.3;
+                }
+
+                chevron-ta := TouchArea {
+                    mouse-cursor: MouseCursor.pointer;
+                    clicked => {
+                        panel-expanded = !panel-expanded;
+                    }
+                }
+
+                Image {
+                    x: parent.width - self.width - 10px;
+                    width: 16px;
+                    height: 16px;
+                    source: Icons.chevron-down;
+                    colorize: ConsoleStyles.text-color;
+                    opacity: chevron-ta.has-hover ? 1.0 : 0.5;
+                    rotation-angle: panel-expanded ? 0deg : 180deg;
+                }
+            }
+        }
+    }
+    if panel-expanded: Rectangle {
+        width: 100%;
+        height: ConsoleStyles.header-height;
+        background: ConsoleStyles.toolbar-background;
+        Rectangle {
+            x: 0;
+            width: 36px;
+            Image {
+                width: 14px;
+                source: Icons.clear;
+                colorize: ConsoleStyles.text-color;
+                opacity: cl-ta.has-hover ? 1.0 : 0.8;
+                cl-ta := TouchArea {
+                    mouse-cursor: MouseCursor.pointer;
+                    clicked => {
+                        Api.clear-log-messages();
+                    }
+                }
+            }
+            Rectangle {
+                x: parent.width - self.width;
+                width: 1px;
+                height: 13px;
+                background: ConsoleStyles.text-color;
+                opacity: 0.3;
+            }
+        }
+        Rectangle {
+            y: parent.height - self.height;
+            width: 100%;
+            height: 1px;
+            background: ConsoleStyles.divider-line;
+        }
+    }
+
+    if panel-expanded: Rectangle {
+        height: ConsoleStyles.log-height;
+        background: ConsoleStyles.log-background;
+
+        // Scroll to end workaround while this feature is missing from ScrollView
+        property <int> timer-clicked: 0;
+        scroll-timer := Timer {
+            running: true;
+            interval: 1ms;
+            triggered => {
+                lv.viewport-y = -100000px;
+                if timer-clicked < 1 {
+                    timer-clicked += 1;
+                } else {
+                    self.running = false;
                 }
             }
         }
 
-        if panel-expanded: Rectangle {
-            height: ConsoleStyles.full-height - ConsoleStyles.header-height;
-            background: ConsoleStyles.log-background;
+        property <int> scroll-to-end-trigger: Api.log-output.length;
+        changed scroll-to-end-trigger => {
+            timer-clicked = 0;
+            scroll-timer.running = true;
+        }
 
-            Timer {
-                running: true;
-                interval: 1ms;
-                triggered => {
-                    self.running = false;
-                    lv.viewport-y = -lv.viewport-height;
+        lv := ListView {
+            for lm[index] in Api.log-output: Rectangle {
+                height: message.height + 6px;
+                message := Text {
+                    x: 10px;
+                    width: parent.width - 60px;
+                    text: lm.message;
+                    color: ConsoleStyles.text-color;
+                    font-family: "Source Code Pro";
+                    font-size: 11px;
+                    horizontal-alignment: left;
+                    font-weight: 200;
+                    wrap: TextWrap.word-wrap;
                 }
-            }
 
-            lv := ListView {
-                for lm[index] in Api.log-output: Rectangle {
-                    height: message.height + 6px;
-                    message := Text {
-                        x: 10px;
-                        width: parent.width - 60px;
-                        text: lm.message;
+                if !lm.file.is-empty: Rectangle {
+                    width: 40px;
+                    height: 14px;
+                    x: parent.width - self.width - EditorSizeSettings.standard-margin;
+                    file-link := Text {
+                        text: "\{lm.line}:\{lm.column}";
                         color: ConsoleStyles.text-color;
                         font-family: "Source Code Pro";
                         font-size: 11px;
-                        horizontal-alignment: left;
-                        font-weight: 200;
-                        wrap: TextWrap.word-wrap;
                     }
 
-                    if !lm.file.is-empty: Rectangle {
-                        width: 40px;
-                        height: 14px;
-                        x: parent.width - self.width - EditorSizeSettings.standard-margin;
-                        file-link := Text {
-                            text: "\{lm.line}:\{lm.column}";
-                            color: ConsoleStyles.text-color;
-                            font-family: "Source Code Pro";
-                            font-size: 11px;
-                        }
-
-                        Rectangle {
-                            y: parent.height - self.height;
-                            width: file-link.width;
-                            height: 1px;
-                            background: ConsoleStyles.text-color;
-                            opacity: ta.has-hover ? 1.0 : 0.5;
-                        }
-
-                        ta := TouchArea {
-                            mouse-cursor: MouseCursor.pointer;
-                            clicked => {
-                                Api.show-document(lm.file, lm.line, lm.column);
-                            }
-                        }
-                    }
                     Rectangle {
                         y: parent.height - self.height;
+                        width: file-link.width;
                         height: 1px;
                         background: ConsoleStyles.text-color;
-                        opacity: 0.2;
+                        opacity: ta.has-hover ? 1.0 : 0.5;
                     }
+
+                    ta := TouchArea {
+                        mouse-cursor: MouseCursor.pointer;
+                        clicked => {
+                            Api.show-document(lm.file, lm.line, lm.column);
+                        }
+                    }
+                }
+                Rectangle {
+                    y: parent.height - self.height;
+                    height: 1px;
+                    background: ConsoleStyles.text-color;
+                    opacity: 0.2;
                 }
             }
         }
