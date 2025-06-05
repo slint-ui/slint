@@ -176,6 +176,12 @@ export component ConsolePanel inherits SimpleColumn {
 
         // Scroll to end workaround while this feature is missing from ScrollView
         property <int> timer-clicked: 0;
+        function scroll-to-bottom(){
+            lv.viewport-y = -100000px;
+            timer-clicked = 0;
+            scroll-timer.running = true;
+        }
+
         scroll-timer := Timer {
             running: true;
             interval: 1ms;
@@ -191,8 +197,7 @@ export component ConsolePanel inherits SimpleColumn {
 
         property <int> scroll-to-end-trigger: Api.log-output.length;
         changed scroll-to-end-trigger => {
-            timer-clicked = 0;
-            scroll-timer.running = true;
+            scroll-to-bottom();
         }
 
         lv := ListView {
