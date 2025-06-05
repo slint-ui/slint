@@ -705,6 +705,7 @@ impl ItemTreeDescription<'_> {
     }
 }
 
+#[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
 extern "C-unwind" fn visit_children_item(
     component: ItemTreeRefPin,
     index: isize,
@@ -1845,6 +1846,7 @@ pub fn get_repeater_by_name<'a, 'id>(
     (rep_in_comp.offset.apply_pin(instance_ref.instance), rep_in_comp.item_tree_to_repeat.clone())
 }
 
+#[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
 extern "C-unwind" fn layout_info(
     component: ItemTreeRefPin,
     orientation: Orientation,
@@ -1878,6 +1880,7 @@ extern "C-unwind" fn layout_info(
     result
 }
 
+#[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
 unsafe extern "C-unwind" fn get_item_ref(component: ItemTreeRefPin, index: u32) -> Pin<ItemRef> {
     let tree = get_item_tree(component);
     match &tree[index as usize] {
@@ -1893,6 +1896,7 @@ unsafe extern "C-unwind" fn get_item_ref(component: ItemTreeRefPin, index: u32) 
     }
 }
 
+#[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
 extern "C-unwind" fn get_subtree_range(component: ItemTreeRefPin, index: u32) -> IndexRange {
     generativity::make_guard!(guard);
     let instance_ref = unsafe { InstanceRef::from_pin_ref(component, guard) };
@@ -1922,6 +1926,7 @@ extern "C-unwind" fn get_subtree_range(component: ItemTreeRefPin, index: u32) ->
     }
 }
 
+#[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
 extern "C-unwind" fn get_subtree(
     component: ItemTreeRefPin,
     index: u32,
@@ -1960,6 +1965,7 @@ extern "C-unwind" fn get_subtree(
     }
 }
 
+#[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
 extern "C-unwind" fn get_item_tree(component: ItemTreeRefPin) -> Slice<ItemTreeNode> {
     generativity::make_guard!(guard);
     let instance_ref = unsafe { InstanceRef::from_pin_ref(component, guard) };
@@ -1967,6 +1973,7 @@ extern "C-unwind" fn get_item_tree(component: ItemTreeRefPin) -> Slice<ItemTreeN
     unsafe { core::mem::transmute::<&[ItemTreeNode], &[ItemTreeNode]>(tree) }.into()
 }
 
+#[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
 extern "C-unwind" fn subtree_index(component: ItemTreeRefPin) -> usize {
     generativity::make_guard!(guard);
     let instance_ref = unsafe { InstanceRef::from_pin_ref(component, guard) };
@@ -1977,6 +1984,7 @@ extern "C-unwind" fn subtree_index(component: ItemTreeRefPin) -> usize {
     }
 }
 
+#[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
 unsafe extern "C-unwind" fn parent_node(component: ItemTreeRefPin, result: &mut ItemWeak) {
     generativity::make_guard!(guard);
     let instance_ref = InstanceRef::from_pin_ref(component, guard);
@@ -2016,6 +2024,7 @@ unsafe extern "C-unwind" fn parent_node(component: ItemTreeRefPin, result: &mut 
     }
 }
 
+#[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
 unsafe extern "C-unwind" fn embed_component(
     component: ItemTreeRefPin,
     parent_component: &ItemTreeWeak,
@@ -2046,6 +2055,7 @@ unsafe extern "C-unwind" fn embed_component(
     extra_data.embedding_position.set((parent_component.clone(), parent_item_tree_index)).is_ok()
 }
 
+#[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
 extern "C-unwind" fn item_geometry(component: ItemTreeRefPin, item_index: u32) -> LogicalRect {
     generativity::make_guard!(guard);
     let instance_ref = unsafe { InstanceRef::from_pin_ref(component, guard) };
@@ -2068,6 +2078,7 @@ extern "C-unwind" fn item_geometry(component: ItemTreeRefPin, item_index: u32) -
 
 // silence the warning despite `AccessibleRole` is a `#[non_exhaustive]` enum from another crate.
 #[allow(improper_ctypes_definitions)]
+#[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
 extern "C-unwind" fn accessible_role(component: ItemTreeRefPin, item_index: u32) -> AccessibleRole {
     generativity::make_guard!(guard);
     let instance_ref = unsafe { InstanceRef::from_pin_ref(component, guard) };
@@ -2086,6 +2097,7 @@ extern "C-unwind" fn accessible_role(component: ItemTreeRefPin, item_index: u32)
     }
 }
 
+#[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
 extern "C-unwind" fn accessible_string_property(
     component: ItemTreeRefPin,
     item_index: u32,
@@ -2115,6 +2127,7 @@ extern "C-unwind" fn accessible_string_property(
     }
 }
 
+#[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
 extern "C-unwind" fn accessibility_action(
     component: ItemTreeRefPin,
     item_index: u32,
@@ -2150,6 +2163,7 @@ extern "C-unwind" fn accessibility_action(
     };
 }
 
+#[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
 extern "C-unwind" fn supported_accessibility_actions(
     component: ItemTreeRefPin,
     item_index: u32,
@@ -2172,6 +2186,7 @@ extern "C-unwind" fn supported_accessibility_actions(
     val
 }
 
+#[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
 extern "C-unwind" fn item_element_infos(
     component: ItemTreeRefPin,
     item_index: u32,
@@ -2186,6 +2201,7 @@ extern "C-unwind" fn item_element_infos(
     true
 }
 
+#[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
 extern "C-unwind" fn window_adapter(
     component: ItemTreeRefPin,
     do_create: bool,
@@ -2200,14 +2216,22 @@ extern "C-unwind" fn window_adapter(
     }
 }
 
-unsafe extern "C" fn drop_in_place(component: vtable::VRefMut<ItemTreeVTable>) -> vtable::Layout {
+#[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
+unsafe extern "C-unwind" fn drop_in_place(
+    component: vtable::VRefMut<ItemTreeVTable>,
+) -> vtable::Layout {
     let instance_ptr = component.as_ptr() as *mut Instance<'static>;
     let layout = (*instance_ptr).type_info().layout();
     dynamic_type::TypeInfo::drop_in_place(instance_ptr);
     layout.into()
 }
 
-unsafe extern "C" fn dealloc(_vtable: &ItemTreeVTable, ptr: *mut u8, layout: vtable::Layout) {
+#[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
+unsafe extern "C-unwind" fn dealloc(
+    _vtable: &ItemTreeVTable,
+    ptr: *mut u8,
+    layout: vtable::Layout,
+) {
     std::alloc::dealloc(ptr, layout.try_into().unwrap());
 }
 

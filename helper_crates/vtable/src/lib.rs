@@ -26,6 +26,7 @@ struct AnimalVTable {
     /// the self object.
     ///
     /// Note: the #[vtable] macro will automatically add `extern "C"` if that is missing.
+    /// (unless `no_extern` is specified)
     make_noise: fn(VRef<AnimalVTable>, i32) -> i32,
 
     /// if there is a 'drop' member, it is considered as the destructor.
