@@ -30,7 +30,7 @@ pub type PropertyDeclarations = HashMap<SmolStr, PropertyDeclaration>;
 
 pub fn append_debug_log_message(
     ui: &PreviewUi,
-    location: Option<(lsp_types::Url, usize, usize)>,
+    location: Option<(SharedString, usize, usize)>,
     message: &str,
 ) {
     let api = ui.global::<Api>();

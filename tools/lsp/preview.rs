@@ -1457,8 +1457,8 @@ fn set_preview_factory(
                 i_slint_core::debug_log!("DEBUG> {text}");
             }
 
-            let location = location.as_ref().and_then(|(file, line, column)| {
-                common::file_to_uri(file.path()).map(|u| (u, *line, *column))
+            let location = location.as_ref().map(|(file, line, column)| {
+                (file.path().to_string_lossy().to_string().into(), *line, *column)
             });
             let text = text.to_string();
             let _ = slint::invoke_from_event_loop(move || {
