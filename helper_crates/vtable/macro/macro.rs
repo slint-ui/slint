@@ -68,7 +68,7 @@ allowing to access methods from the trait directly from VRef.
 This macro does the following transformation:
 
 For function type fields:
- - The ABI of each functions is changed to `extern "C"`
+ - If the function has no ABI, it is changed to `extern "C"` (unless `no_extern` is passed as `#[vtable(no_extern)]`)
  - `unsafe` is added to the signature, since it is unsafe to call these functions directly from
    the vtable without having a valid pointer to the actual object. But if the original function was
    marked unsafe, the unsafety is forwarded to the trait.
@@ -165,7 +165,9 @@ assert_eq!(dog.is_hungry, true);
 
 */
 #[proc_macro_attribute]
-pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
+pub fn vtable(attr: TokenStream, item: TokenStream) -> TokenStream {
+    let no_extern = attr.to_string().trim() == "no_extern";
+
     let mut input = parse_macro_input!(item as ItemStruct);
 
     let fields = if let Fields::Named(fields) = &mut input.fields {
@@ -394,7 +396,7 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
                 {
                     return Error::new(a.span(), "invalid ABI").to_compile_error().into();
                 }
-            } else {
+            } else if !no_extern {
                 f.abi = Some(parse_str("extern \"C\"").unwrap());
             }
             sig_extern.abi.clone_from(&f.abi);
@@ -478,9 +480,10 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
                 continue;
             }
             if ident == "dealloc" {
+                let abi = &sig_extern.abi;
                 vtable_ctor.push(quote!(#ident: {
                     #[allow(unsafe_code)]
-                    unsafe extern "C" fn #ident(_: &#vtable_name, ptr: *mut u8, layout: vtable::Layout) {
+                    unsafe #abi fn #ident(_: &#vtable_name, ptr: *mut u8, layout: vtable::Layout) {
                         use ::core::convert::TryInto;
                         vtable::internal::dealloc(ptr, layout.try_into().unwrap())
                     }

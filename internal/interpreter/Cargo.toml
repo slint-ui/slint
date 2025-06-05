@@ -135,6 +135,7 @@ internal-json = ["dep:serde_json"]
 i-slint-compiler = { workspace = true }
 i-slint-common = { workspace = true }
 i-slint-core = { workspace = true, features = ["default", "rtti"] }
+i-slint-core-macros = { workspace = true }
 i-slint-backend-selector = { workspace = true, features = ["rtti"] }
 
 vtable = { workspace = true }

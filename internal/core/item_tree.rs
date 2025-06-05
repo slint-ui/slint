@@ -41,7 +41,8 @@ impl From<IndexRange> for core::ops::Range<usize> {
 }
 
 /// A ItemTree is representing an unit that is allocated together
-#[vtable]
+#[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
+#[vtable(no_extern)]
 #[repr(C)]
 pub struct ItemTreeVTable {
     /// Visit the children of the item at index `index`.
@@ -150,10 +151,10 @@ pub struct ItemTreeVTable {
     ),
 
     /// in-place destructor (for VRc)
-    pub drop_in_place: unsafe fn(VRefMut<ItemTreeVTable>) -> vtable::Layout,
+    pub drop_in_place: unsafe extern "C-unwind" fn(VRefMut<ItemTreeVTable>) -> vtable::Layout,
 
     /// dealloc function (for VRc)
-    pub dealloc: unsafe fn(&ItemTreeVTable, ptr: *mut u8, layout: vtable::Layout),
+    pub dealloc: unsafe extern "C-unwind" fn(&ItemTreeVTable, ptr: *mut u8, layout: vtable::Layout),
 }
 
 #[cfg(test)]
@@ -1047,8 +1048,9 @@ impl<'a> From<&'a [ItemTreeNode]> for ItemTreeNodeArray<'a> {
     }
 }
 
+#[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
+#[vtable(no_extern)]
 #[repr(C)]
-#[vtable]
 /// Object to be passed in visit_item_children method of the ItemTree.
 pub struct ItemVisitorVTable {
     /// Called for each child of the visited item
@@ -1057,14 +1059,14 @@ pub struct ItemVisitorVTable {
     /// as the parent's ItemTree.
     /// `index` is to be used again in the visit_item_children function of the ItemTree (the one passed as parameter)
     /// and `item` is a reference to the item itself
-    visit_item: fn(
+    visit_item: extern "C-unwind" fn(
         VRefMut<ItemVisitorVTable>,
         item_tree: &VRc<ItemTreeVTable, vtable::Dyn>,
         index: u32,
         item: Pin<VRef<ItemVTable>>,
     ) -> VisitChildrenResult,
     /// Destructor
-    drop: fn(VRefMut<ItemVisitorVTable>),
+    drop: extern "C-unwind" fn(VRefMut<ItemVisitorVTable>),
 }
 
 /// Type alias to `vtable::VRefMut<ItemVisitorVTable>`
