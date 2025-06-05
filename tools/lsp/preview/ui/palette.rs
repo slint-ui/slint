@@ -201,26 +201,10 @@ fn filter_palettes(
     pattern: slint::SharedString,
 ) -> slint::ModelRc<ui::PaletteEntry> {
     let pattern = pattern.to_string();
-    std::rc::Rc::new(slint::VecModel::from(filter_palettes_iter(&mut input.iter(), &pattern)))
-        .into()
-}
-
-fn filter_palettes_iter(
-    input: &mut impl Iterator<Item = ui::PaletteEntry>,
-    needle: &str,
-) -> Vec<ui::PaletteEntry> {
-    use nucleo_matcher::{pattern, Config, Matcher};
-
-    let mut matcher = Matcher::new(Config::DEFAULT.match_paths());
-    let pattern = pattern::Pattern::parse(
-        needle,
-        pattern::CaseMatching::Ignore,
-        pattern::Normalization::Smart,
-    );
-
-    let mut all_matches = input
-        .filter_map(|p| {
-            let terms = [format!(
+    std::rc::Rc::new(slint::VecModel::from(common::fuzzy_filter_iter(
+        &mut input.iter(),
+        |p| {
+            format!(
                 "{} %kind:{:?} %is_brush:{}",
                 p.name,
                 p.value.kind,
@@ -231,30 +215,11 @@ fn filter_palettes_iter(
                 } else {
                     "no"
                 }
-            )];
-            pattern.match_list(terms.iter(), &mut matcher).pop().map(|(_, v)| (v, p))
-        })
-        .collect::<Vec<_>>();
-
-    // sort by value, highest first. Sort names with the same value alphabetically
-    all_matches.sort_by(|r, l| match l.0.cmp(&r.0) {
-        std::cmp::Ordering::Less => std::cmp::Ordering::Less,
-        std::cmp::Ordering::Equal => r.1.name.cmp(&l.1.name),
-        std::cmp::Ordering::Greater => std::cmp::Ordering::Greater,
-    });
-
-    let cut_off = {
-        let lowest_value = all_matches.last().map(|(v, _)| *v).unwrap_or_default();
-        let highest_value = all_matches.first().map(|(v, _)| *v).unwrap_or_default();
-
-        if all_matches.len() < 10 {
-            lowest_value
-        } else {
-            highest_value - (highest_value - lowest_value) / 2
-        }
-    };
-
-    all_matches.drain(..).take_while(|(v, _)| *v >= cut_off).map(|(_, p)| p).collect::<Vec<_>>()
+            )
+        },
+        &pattern,
+    )))
+    .into()
 }
 
 #[cfg(test)]
@@ -570,51 +535,41 @@ export component Main { }
             v
         };
 
-        assert_eq!(filter_palettes_iter(&mut palette.iter().cloned(), "'FOO").len(), 0);
+        let model: slint::ModelRc<ui::PaletteEntry> =
+            Rc::new(slint::VecModel::from(palette.clone())).into();
+
+        assert_eq!(filter_palettes(model.clone(), "'FOO".into()).row_count(), 0);
         assert_eq!(
-            filter_palettes_iter(&mut palette.iter().cloned(), "'%kind:Color").len(),
+            filter_palettes(model.clone(), "'%kind:Color".into()).row_count(),
             palette.len()
         );
         assert_eq!(
-            filter_palettes_iter(&mut palette.iter().cloned(), "'%is_brush:yes").len(),
+            filter_palettes(model.clone(), "'%is_brush:yes".into()).row_count(),
             palette.len()
         );
-        assert_eq!(filter_palettes_iter(&mut palette.iter().cloned(), "'%kind:UNKNOWN").len(), 0);
+        assert_eq!(filter_palettes(model.clone(), "'%kind:UNKNOWN".into()).row_count(), 0);
+        assert_eq!(filter_palettes(model.clone(), "'Colors.aquamarine".into()).row_count(), 1);
+        assert_eq!(filter_palettes(model.clone(), "Colors.aquamarine".into()).row_count(), 2);
         assert_eq!(
-            filter_palettes_iter(&mut palette.iter().cloned(), "'Colors.aquamarine").len(),
-            1
-        );
-        assert_eq!(
-            filter_palettes_iter(&mut palette.iter().cloned(), "Colors.aquamarine").len(),
+            filter_palettes(model.clone(), "Colors.aquamarine '%kind:Color".into()).row_count(),
             2
         );
-        assert_eq!(
-            filter_palettes_iter(&mut palette.iter().cloned(), "Colors.aquamarine '%kind:Color")
-                .len(),
-            2
-        );
-        assert_eq!(filter_palettes_iter(&mut palette.iter().cloned(), "aquamarine").len(), 2);
-        assert_eq!(
-            filter_palettes_iter(&mut palette.iter().cloned(), "^Colors.").len(),
-            palette.len()
-        );
-        assert_eq!(filter_palettes_iter(&mut palette.iter().cloned(), "!^Colors.").len(), 0);
-        assert_eq!(
-            filter_palettes_iter(&mut palette.iter().cloned(), "^Colors.").len(),
-            palette.len()
-        );
+        assert_eq!(filter_palettes(model.clone(), "aquamarine".into()).row_count(), 2);
+        assert_eq!(filter_palettes(model.clone(), "^Colors.".into()).row_count(), palette.len());
+        assert_eq!(filter_palettes(model.clone(), "!^Colors.".into()).row_count(), 0);
+        assert_eq!(filter_palettes(model.clone(), "^Colors.".into()).row_count(), palette.len());
 
-        let reds = filter_palettes_iter(&mut palette.iter().cloned(), "^Colors. red");
+        let reds = filter_palettes(model, "^Colors. red".into());
 
-        assert!(reds.len() >= 6);
-        assert!(reds.len() <= 12);
+        assert!(reds.row_count() >= 6);
+        assert!(reds.row_count() <= 12);
 
-        assert_eq!(reds.first().unwrap().name, "Colors.red");
-        assert_eq!(reds.get(1).unwrap().name, "Colors.darkred");
-        assert_eq!(reds.get(2).unwrap().name, "Colors.indianred");
-        assert_eq!(reds.get(3).unwrap().name, "Colors.mediumvioletred");
-        assert_eq!(reds.get(4).unwrap().name, "Colors.orangered");
-        assert_eq!(reds.get(5).unwrap().name, "Colors.palevioletred");
+        assert_eq!(reds.row_data(0).unwrap().name, "Colors.red");
+        assert_eq!(reds.row_data(1).unwrap().name, "Colors.darkred");
+        assert_eq!(reds.row_data(2).unwrap().name, "Colors.indianred");
+        assert_eq!(reds.row_data(3).unwrap().name, "Colors.mediumvioletred");
+        assert_eq!(reds.row_data(4).unwrap().name, "Colors.orangered");
+        assert_eq!(reds.row_data(5).unwrap().name, "Colors.palevioletred");
     }
 
     #[test]
