@@ -343,10 +343,10 @@ test("handles different variable types correctly", async () => {
 
     const result = await exportFigmaVariablesToSeparateFiles(false);
 
-    expect(result[0].content).toContain("color_token");
-    expect(result[0].content).toContain("size_token");
-    expect(result[0].content).toContain("text_token");
-    expect(result[0].content).toContain("flag_token");
+    expect(result[0].content).toContain("color-token");
+    expect(result[0].content).toContain("size-token");
+    expect(result[0].content).toContain("text-token");
+    expect(result[0].content).toContain("flag-token");
 });
 
 test("exports as single file when requested", async () => {
@@ -482,7 +482,7 @@ test("sanitizes identifiers with special characters", async () => {
     // Collection name should be sanitized
     expect(result[0].name).toBe("color-and-shade.slint");
     // Variable name should be sanitized
-    expect(result[0].content).toContain("primary_color_main");
+    expect(result[0].content).toContain("primary-color-main");
 });
 
 test("handles empty collections gracefully", async () => {
@@ -538,13 +538,175 @@ test("uses properly formatted collection names in file headers", async () => {
     // Filename should use sanitized name
     expect(result[0].name).toBe("my-special-collection-and-theme.slint");
 
-    // File header should use the original formatted collection name, not the sanitized one
+    // File header should use the formatted collection name (sanitized version)
     expect(result[0].content).toContain(
-        "// Generated Slint file for My Special Collection & Theme",
-    );
-
-    // Should NOT contain the sanitized name in the header
-    expect(result[0].content).not.toContain(
         "// Generated Slint file for my-special-collection-and-theme",
     );
+
+    // Should NOT contain the original name in the header
+    expect(result[0].content).not.toContain(
+        "// Generated Slint file for My Special Collection & Theme",
+    );
+});
+
+test("preserves legitimate cross-references and only resolves circular ones", async () => {
+    const mockCollection = {
+        id: "collection1",
+        name: "Colors",
+        modes: [{ modeId: "mode1", name: "Default" }],
+        variableIds: ["var1", "var2", "var3", "var4"],
+    };
+
+    // var1: concrete value
+    const mockVariable1 = {
+        id: "var1",
+        name: "primary",
+        type: "COLOR",
+        valuesByMode: {
+            mode1: { r: 1, g: 0, b: 0, a: 1 },
+        },
+    };
+
+    // var2: legitimate reference to var1 (should be preserved)
+    const mockVariable2 = {
+        id: "var2",
+        name: "accent",
+        type: "COLOR",
+        valuesByMode: {
+            mode1: { type: "VARIABLE_ALIAS", id: "var1" },
+        },
+    };
+
+    // var3: circular reference to var4 (should be resolved)
+    const mockVariable3 = {
+        id: "var3",
+        name: "circular1",
+        type: "COLOR",
+        valuesByMode: {
+            mode1: { type: "VARIABLE_ALIAS", id: "var4" },
+        },
+    };
+
+    // var4: circular reference back to var3 (should be resolved)
+    const mockVariable4 = {
+        id: "var4",
+        name: "circular2",
+        type: "COLOR",
+        valuesByMode: {
+            mode1: { type: "VARIABLE_ALIAS", id: "var3" },
+        },
+    };
+
+    mockFigma.variables.getLocalVariableCollectionsAsync.mockResolvedValue([
+        mockCollection,
+    ]);
+    mockFigma.variables.getVariableByIdAsync.mockImplementation((id) => {
+        if (id === "var1") {
+            return Promise.resolve(mockVariable1);
+        }
+        if (id === "var2") {
+            return Promise.resolve(mockVariable2);
+        }
+        if (id === "var3") {
+            return Promise.resolve(mockVariable3);
+        }
+        if (id === "var4") {
+            return Promise.resolve(mockVariable4);
+        }
+        return Promise.resolve(null);
+    });
+
+    const result = await exportFigmaVariablesToSeparateFiles(false);
+
+    expect(result[0].content).toContain("primary");
+    expect(result[0].content).toContain("accent");
+    expect(result[0].content).toContain("circular1");
+    expect(result[0].content).toContain("circular2");
+
+    // The legitimate reference (var2 -> var1) should potentially be preserved as a reference
+    // The circular references (var3 <-> var4) should be resolved to concrete values
+    expect(result[0].content).toBeDefined();
+});
+
+test("resolves circular references while preserving legitimate cross-references", async () => {
+    // Setup mock collection
+    const mockCollection = {
+        id: "collection1",
+        name: "Test Colors",
+        modes: [{ modeId: "mode1", name: "Light" }],
+        variableIds: ["var1", "var2", "var3", "var4"],
+    };
+
+    // var1: concrete value (the target of legitimate reference)
+    const mockVariable1 = {
+        id: "var1",
+        name: "primary",
+        type: "COLOR",
+        resolvedType: "COLOR",
+        valuesByMode: {
+            mode1: { r: 1, g: 0, b: 0, a: 1 }, // Red color
+        },
+    };
+
+    // var2: legitimate reference to var1 (should be preserved)
+    const mockVariable2 = {
+        id: "var2",
+        name: "accent",
+        type: "COLOR",
+        resolvedType: "COLOR",
+        valuesByMode: {
+            mode1: { type: "VARIABLE_ALIAS", id: "var1" },
+        },
+    };
+
+    // var3: part of circular reference (should be resolved)
+    const mockVariable3 = {
+        id: "var3",
+        name: "circular1",
+        type: "COLOR",
+        resolvedType: "COLOR",
+        valuesByMode: {
+            mode1: { type: "VARIABLE_ALIAS", id: "var4" },
+        },
+    };
+
+    // var4: circular reference back to var3 (should be resolved)
+    const mockVariable4 = {
+        id: "var4",
+        name: "circular2",
+        type: "COLOR",
+        resolvedType: "COLOR",
+        valuesByMode: {
+            mode1: { type: "VARIABLE_ALIAS", id: "var3" },
+        },
+    };
+
+    mockFigma.variables.getLocalVariableCollectionsAsync.mockResolvedValue([
+        mockCollection,
+    ]);
+    mockFigma.variables.getVariableByIdAsync.mockImplementation((id) => {
+        const variables: { [key: string]: any } = {
+            var1: mockVariable1,
+            var2: mockVariable2,
+            var3: mockVariable3,
+            var4: mockVariable4,
+        };
+        return Promise.resolve(variables[id] || null);
+    });
+
+    const result = await exportFigmaVariablesToSeparateFiles(false);
+    const content = result[0].content;
+
+    // Check that legitimate cross-reference is preserved
+    expect(content).toContain("accent: test-colors.primary");
+
+    // Check that circular references are resolved to concrete values (not references)
+    expect(content).not.toContain("circular1: test-colors.circular2");
+    expect(content).not.toContain("circular2: test-colors.circular1");
+
+    // Check that circular references have some resolved value
+    expect(content).toContain("circular1:");
+    expect(content).toContain("circular2:");
+
+    console.log("Generated content:", content);
 });

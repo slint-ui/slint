@@ -62,24 +62,21 @@ export function sanitizePropertyName(name: string): string {
     }
 
     // Replace problematic characters BEFORE checking for leading digit
+    // Within individual hierarchy parts: spaces and special chars become hyphens, preserve existing hyphens
     sanitizedName = sanitizedName
-        .replace(/&/g, "and") // Replace &
-        .replace(/\(/g, "-") // Replace ( with -
-        .replace(/\)/g, "-") // Replace ) with -
-        .replace(/—/g, "-") // Replace em dash with -
-        .replace(/[^a-zA-Z0-9_]/g, "-") // Replace other invalid chars (including -, +, :, etc.) with -
-        .replace(/-+/g, "-") // Collapse multiple hyphens
-        .replace(/__+/g, "_"); // Collapse multiple underscores
+        .replace(/&/g, "and") // Replace & with 'and'
+        .replace(/[^a-zA-Z0-9\-]/g, "-") // Replace non-alphanumeric chars (except hyphens) with hyphens
+        .replace(/-+/g, "-"); // Collapse multiple hyphens to single hyphen
 
-    // Remove trailing underscores
-    sanitizedName = sanitizedName.replace(/_+$/, "");
+    // Remove trailing hyphens
+    sanitizedName = sanitizedName.replace(/-+$/, "");
 
     // Check if starts with a digit AFTER other sanitization
     if (/^\d/.test(sanitizedName)) {
         return `_${sanitizedName}`;
     }
 
-    // Ensure it's not empty again after trailing underscore removal
+    // Ensure it's not empty again after trailing cleanup
     if (!sanitizedName || sanitizedName.trim() === "") {
         return "property";
     }
@@ -169,7 +166,206 @@ export function extractHierarchy(name: string): string[] {
     return [sanitizePropertyName(name)];
 }
 
-function createReferenceExpression(
+// Helper function to get original Figma variable data
+async function getOriginalVariableData(variableId: string) {
+    try {
+        return await figma.variables.getVariableByIdAsync(variableId);
+    } catch (error) {
+        console.warn(`Could not fetch variable ${variableId}:`, error);
+        return null;
+    }
+}
+
+// Helper function to follow a reference chain to find a concrete value
+async function followChainToConcreteValue(
+    refId: string,
+    modeName: string,
+    visited: Set<string> = new Set(),
+): Promise<string | null> {
+    if (visited.has(refId)) {
+        return null; // Circular reference in the chain
+    }
+    visited.add(refId);
+
+    // Get the original Figma variable data
+    const originalVariable = await getOriginalVariableData(refId);
+    if (!originalVariable) {
+        return null;
+    }
+
+    // Look for a concrete value in any mode
+    for (const [, value] of Object.entries(originalVariable.valuesByMode)) {
+        // Check if this value is concrete (not a reference)
+        if (
+            typeof value === "object" &&
+            "type" in value &&
+            value.type === "VARIABLE_ALIAS"
+        ) {
+            // This is still a reference, continue following the chain
+            const aliasValue = value as any;
+            if (aliasValue.id) {
+                const result = await followChainToConcreteValue(
+                    aliasValue.id,
+                    modeName,
+                    visited,
+                );
+                if (result !== null) {
+                    return result;
+                }
+            }
+        } else {
+            // Found a concrete value - format it properly based on the variable type
+            const concreteValue: any = value;
+
+            if (
+                originalVariable.resolvedType === "COLOR" &&
+                typeof concreteValue === "object" &&
+                "r" in concreteValue
+            ) {
+                // Format color value
+                return rgbToHex({
+                    r: concreteValue.r,
+                    g: concreteValue.g,
+                    b: concreteValue.b,
+                    a: "a" in concreteValue ? concreteValue.a : 1,
+                });
+            } else if (
+                originalVariable.resolvedType === "FLOAT" &&
+                typeof concreteValue === "number"
+            ) {
+                return `${concreteValue}px`;
+            } else if (
+                originalVariable.resolvedType === "STRING" &&
+                typeof concreteValue === "string"
+            ) {
+                return `"${concreteValue}"`;
+            } else if (
+                originalVariable.resolvedType === "BOOLEAN" &&
+                typeof concreteValue === "boolean"
+            ) {
+                return concreteValue ? "true" : "false";
+            } else if (typeof concreteValue === "string") {
+                return concreteValue;
+            }
+        }
+    }
+
+    return null;
+}
+
+// Function to resolve all reference chains upfront and update the collectionStructure in place
+async function resolveCircularReferencesOnly(
+    collectionStructure: Map<string, CollectionData>,
+): Promise<void> {
+    // Detect circular references by following chains
+    const processedRefs = new Set<string>();
+
+    for (const [collectionName, collectionData] of collectionStructure) {
+        for (const [varName, modesMap] of collectionData.variables) {
+            for (const [modeName, modeData] of modesMap) {
+                if (
+                    modeData.refId &&
+                    !processedRefs.has(
+                        `${collectionName}.${varName}.${modeName}`,
+                    )
+                ) {
+                    const isCircular = await detectCircularReference(
+                        modeData.refId,
+                        modeName,
+                        new Set([`${collectionName}.${varName}.${modeName}`]),
+                    );
+
+                    if (isCircular) {
+                        console.warn(
+                            `Resolving circular reference for ${collectionName}.${varName}.${modeName}`,
+                        );
+
+                        // Try to resolve to concrete value, but use a fresh visited set to avoid the circular path
+                        const concreteValue = await followChainToConcreteValue(
+                            modeData.refId,
+                            modeName,
+                            new Set(), // Fresh visited set to avoid the circular reference
+                        );
+
+                        if (concreteValue) {
+                            modeData.value = concreteValue;
+                            modeData.refId = undefined;
+                            modeData.comment = `Resolved circular reference to concrete value`;
+                        } else {
+                            // Fallback to default value
+                            modeData.value = getDefaultValueForType(
+                                modeData.type,
+                            );
+                            modeData.refId = undefined;
+                            modeData.comment = `Circular reference resolved to default value`;
+                        }
+                    }
+
+                    processedRefs.add(
+                        `${collectionName}.${varName}.${modeName}`,
+                    );
+                }
+            }
+        }
+    }
+}
+
+async function detectCircularReference(
+    refId: string,
+    modeName: string,
+    visitedPath: Set<string>,
+): Promise<boolean> {
+    try {
+        const targetVariable =
+            await figma.variables.getVariableByIdAsync(refId);
+        if (!targetVariable || !targetVariable.valuesByMode) {
+            return false;
+        }
+
+        const targetValue =
+            targetVariable.valuesByMode[modeName] ||
+            Object.values(targetVariable.valuesByMode)[0];
+
+        if (
+            !targetValue ||
+            typeof targetValue !== "object" ||
+            !("type" in targetValue) ||
+            targetValue.type !== "VARIABLE_ALIAS"
+        ) {
+            return false; // This is a concrete value, no cycle
+        }
+
+        const nextRefId = targetValue.id;
+        const nextPath = `${targetVariable.name}.${modeName}`;
+
+        if (visitedPath.has(nextPath)) {
+            return true; // Found a cycle
+        }
+
+        visitedPath.add(nextPath);
+        return await detectCircularReference(nextRefId, modeName, visitedPath);
+    } catch (error) {
+        console.warn(`Error detecting circular reference for ${refId}:`, error);
+        return false;
+    }
+}
+
+function getDefaultValueForType(type: string): string {
+    switch (type) {
+        case "COLOR":
+            return "#808080";
+        case "FLOAT":
+            return "0px";
+        case "STRING":
+            return '""';
+        case "BOOLEAN":
+            return "false";
+        default:
+            return "#808080";
+    }
+}
+
+async function createReferenceExpression(
     referenceId: string,
     sourceModeName: string, // The mode of the variable *requesting* the reference
     variablePathsById: Map<
@@ -188,12 +384,12 @@ function createReferenceExpression(
         features: Set<string>;
         collections: Set<string>;
     },
-): {
+): Promise<{
     value: string | null;
     importStatement?: string; // Keep for structure, but will be undefined
     isCircular?: boolean;
     comment?: string;
-} {
+}> {
     // Target Info
     const targetInfo = variablePathsById.get(referenceId);
     if (!targetInfo) {
@@ -427,7 +623,7 @@ function createReferenceExpression(
             const nextStack = [...resolutionStack, targetIdentifier];
             const nextSourceMode = usedModeName || sourceModeName;
 
-            const recursiveResult = createReferenceExpression(
+            const recursiveResult = await createReferenceExpression(
                 modeDataToUse.refId,
                 nextSourceMode,
                 variablePathsById,
@@ -1329,6 +1525,9 @@ export async function exportFigmaVariablesToSeparateFiles(
             }
         }
 
+        // Resolve only circular references to avoid binding loops
+        await resolveCircularReferencesOnly(collectionStructure);
+
         // Create a Set to track required imports across all collections
         const requiredImports = new Set<string>();
         const collectionDependencies = new Map<string, Set<string>>();
@@ -1347,138 +1546,7 @@ export async function exportFigmaVariablesToSeparateFiles(
                 for (const [colName, data] of columns.entries()) {
                     // Check if this specific mode value is a reference
                     if (data.refId) {
-                        const resolveToConcreteIfSameStruct = (
-                            refId: string,
-                            currentCollectionName: string,
-                            currentRowName: string,
-                            visited: Set<string> = new Set(),
-                        ): { value: string; comment: string } | null => {
-                            if (visited.has(refId)) {
-                                return null; // Circular reference
-                            }
-                            visited.add(refId);
-
-                            const targetInfo = variablePathsById.get(refId);
-                            if (!targetInfo) {
-                                return null;
-                            }
-
-                            // Recursively follow the reference chain to find the final target
-                            const findFinalTarget = (
-                                currentRefId: string,
-                                chainVisited: Set<string> = new Set(),
-                            ): {
-                                collection: string;
-                                path: string[];
-                                value?: string;
-                            } | null => {
-                                if (chainVisited.has(currentRefId)) {
-                                    return null;
-                                }
-                                chainVisited.add(currentRefId);
-
-                                const currentTargetInfo =
-                                    variablePathsById.get(currentRefId);
-                                if (!currentTargetInfo) {
-                                    return null;
-                                }
-
-                                const targetRowName = currentTargetInfo.path
-                                    .map((p) => sanitizePropertyName(p))
-                                    .join("/");
-                                const targetVarData = collectionStructure
-                                    .get(currentTargetInfo.collection)
-                                    ?.variables.get(targetRowName);
-                                const targetModeData =
-                                    targetVarData?.get(colName) ||
-                                    targetVarData?.values().next().value; // Fallback to first available mode
-                                if (!targetModeData) {
-                                    return null;
-                                }
-
-                                if (!targetModeData.refId) {
-                                    // Found concrete value - this is the final target
-                                    return {
-                                        collection:
-                                            currentTargetInfo.collection,
-                                        path: currentTargetInfo.path,
-                                        value: targetModeData.value,
-                                    };
-                                } else {
-                                    // Still a reference - continue following the chain
-                                    return findFinalTarget(
-                                        targetModeData.refId,
-                                        chainVisited,
-                                    );
-                                }
-                            };
-
-                            const finalTarget = findFinalTarget(refId);
-                            if (!finalTarget) {
-                                return null;
-                            }
-
-                            // Check if the FINAL target is in the same struct as the current variable
-                            const currentFullPath = [
-                                currentCollectionName,
-                                ...currentRowName.split("/"),
-                            ];
-                            const finalTargetFullPath = [
-                                finalTarget.collection,
-                                ...finalTarget.path,
-                            ];
-
-                            // Get parent paths (everything except the last element - the property name)
-                            const currentParent = currentFullPath.slice(0, -1);
-                            const finalTargetParent = finalTargetFullPath.slice(
-                                0,
-                                -1,
-                            );
-
-                            // Only resolve if they're in the EXACT same struct definition
-                            const isSameStruct =
-                                finalTarget.collection ===
-                                    currentCollectionName &&
-                                currentParent.length ===
-                                    finalTargetParent.length &&
-                                currentParent.every(
-                                    (part, i) => part === finalTargetParent[i],
-                                );
-                            if (isSameStruct && finalTarget.value) {
-                                // Get the formatted collection name (with hyphens) for display in comment
-                                const formattedCollectionName =
-                                    collectionStructure.get(
-                                        finalTarget.collection,
-                                    )?.formattedName || finalTarget.collection;
-                                return {
-                                    value: finalTarget.value,
-                                    comment: `Resolved reference chain to concrete value: ${formattedCollectionName}.${finalTarget.path.join(".")}`,
-                                };
-                            }
-
-                            return null;
-                        };
-
-                        const concreteResult = resolveToConcreteIfSameStruct(
-                            data.refId,
-                            collectionName,
-                            rowName,
-                        );
-
-                        if (concreteResult) {
-                            // Replace with concrete value to prevent binding loop
-                            const updatedValue = {
-                                value: concreteResult.value,
-                                type: data.type,
-                                refId: undefined,
-                                comment: concreteResult.comment,
-                            };
-                            collectionStructure
-                                .get(collectionName)!
-                                .variables.get(rowName)!
-                                .set(colName, updatedValue);
-                            continue; // Skip normal reference processing
-                        }
+                        // Track dependencies for any remaining references (cross-collection references that couldn't be resolved)
                         const targetInfoForDependency = variablePathsById.get(
                             data.refId,
                         );
@@ -1495,13 +1563,15 @@ export async function exportFigmaVariablesToSeparateFiles(
                                     .add(targetCollectionForDependency);
                             }
                         }
-                        // Prepare arguments for the initial call
+
+                        // For any remaining references, resolve them using the original logic
+                        // (these would be cross-collection references that need struct references)
                         const currentPathArray = rowName.split("/");
                         const currentIdentifier = `${collectionName}.${currentPathArray.join(".")}`;
                         const initialStack = [currentIdentifier];
 
                         // Call the reference resolution function
-                        const refResult = createReferenceExpression(
+                        const refResult = await createReferenceExpression(
                             data.refId,
                             colName,
                             variablePathsById,
@@ -1511,7 +1581,6 @@ export async function exportFigmaVariablesToSeparateFiles(
                             initialStack,
                             exportAsSingleFile,
                             exportInfo,
-                            // Pass the parameter here
                         );
 
                         // Process the result
