@@ -5,18 +5,8 @@ import { Palette, ScrollView, ListView } from "std-widgets.slint";
 import { Api, LogMessage, LogMessageLevel } from "../api.slint";
 import { RecentColorPicker } from "widgets/floating-brush-sections/palettes.slint";
 import { SimpleColumn } from "layout-helpers.slint";
-import { EditorSizeSettings, Icons } from "styling.slint";
+import { ConsoleStyles, EditorSizeSettings, Icons,  } from "styling.slint";
 
-global ConsoleStyles {
-    property <bool> light: Palette.color-scheme == ColorScheme.light;
-    out property <color> header-background: light ? #eaeaea : #2f3138;
-    out property <color> divider-line: light ? #e0e0e0 : #454a54;
-    out property <color> log-background: light ? #ffffff : #14181f;
-    out property <color> text-color: light ? #525252 : #cccccc;
-    out property <length> header-height: 28px;
-    out property <length> full-height: 150px;
-    out property <color> slint-blue: #0088ff;
-}
 
 export component ConsolePanel {
     property <bool> panel-expanded: false;
@@ -181,6 +171,9 @@ export component ConsolePanel {
                         x: parent.width - self.width - EditorSizeSettings.standard-margin;
                         file-link := Text {
                             text: "\{lm.line}:\{lm.column}";
+                            color: ConsoleStyles.text-color;
+                            font-family: "Source Code Pro";
+                            font-size: 11px;
                         }
 
                         Rectangle {
