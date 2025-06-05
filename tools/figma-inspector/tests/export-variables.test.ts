@@ -512,3 +512,39 @@ test("handles API errors gracefully", async () => {
     expect(result[0].name).toBe("error.slint");
     expect(result[0].content).toContain("Error generating variables");
 });
+
+test("uses properly formatted collection names in file headers", async () => {
+    const mockCollection = {
+        id: "collection1",
+        name: "My Special Collection & Theme",
+        modes: [{ modeId: "mode1", name: "Default" }],
+        variableIds: ["var1"],
+    };
+
+    const mockVariable = {
+        id: "var1",
+        name: "primary",
+        type: "COLOR",
+        valuesByMode: { mode1: { r: 1, g: 0, b: 0, a: 1 } },
+    };
+
+    mockFigma.variables.getLocalVariableCollectionsAsync.mockResolvedValue([
+        mockCollection,
+    ]);
+    mockFigma.variables.getVariableByIdAsync.mockResolvedValue(mockVariable);
+
+    const result = await exportFigmaVariablesToSeparateFiles(false);
+
+    // Filename should use sanitized name
+    expect(result[0].name).toBe("my-special-collection-and-theme.slint");
+
+    // File header should use the original formatted collection name, not the sanitized one
+    expect(result[0].content).toContain(
+        "// Generated Slint file for My Special Collection & Theme",
+    );
+
+    // Should NOT contain the sanitized name in the header
+    expect(result[0].content).not.toContain(
+        "// Generated Slint file for my-special-collection-and-theme",
+    );
+});
