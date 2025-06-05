@@ -13,8 +13,8 @@ global ConsoleStyles {
     out property <color> divider-line: light ? #e0e0e0 : #454a54;
     out property <color> log-background: light ? #ffffff : #14181f;
     out property <color> text-color: light ? #525252 : #cccccc;
-    out property <length> header-height: 27px;
-    out property <length> full-height: 100px;
+    out property <length> header-height: 28px;
+    out property <length> full-height: 150px;
     out property <color> slint-blue: #0088ff;
 }
 
@@ -24,7 +24,7 @@ export component ConsolePanel {
 
     SimpleColumn {
         Rectangle {
-            height: 28px;
+            height: ConsoleStyles.header-height;
             background: ConsoleStyles.header-background;
             Rectangle {
                 y: parent.height - self.height;
@@ -44,7 +44,7 @@ export component ConsolePanel {
 
             last-message := Text {
                 x: label.width + label.x * 2;
-                width: parent.width - self.x - (parent.width - info-layout.x) - 10px;
+                width: parent.width - self.x - (parent.width - info-layout.x) - 20px;
                 overflow: elide;
                 horizontal-alignment: left;
                 color: ConsoleStyles.slint-blue;
@@ -52,11 +52,19 @@ export component ConsolePanel {
                 font-size: 11px;
                 text: Api.log-output[Api.log-output.length - 1].message;
                 visible: !panel-expanded;
-                TouchArea {
+                lm-ta := TouchArea {
                     mouse-cursor: MouseCursor.pointer;
                     clicked => {
                         panel-expanded = true;
                     }
+                }
+                Rectangle {
+                    x: 0;
+                    y: parent.height - self.height;
+                    width: min(last-message.preferred-width, last-message.width) - 4px;
+                    height: 1px;
+                    background: ConsoleStyles.slint-blue;
+                    opacity: lm-ta.has-hover ? 0.8 : 0;
                 }
             }
 
