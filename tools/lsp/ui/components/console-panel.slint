@@ -190,7 +190,8 @@ export component ConsolePanel inherits SimpleColumn {
 
         property <int> scroll-to-end-trigger: Api.log-output.length;
         changed scroll-to-end-trigger => {
-            lv.viewport-y = -100000px;
+            timer-clicked = 0;
+            scroll-timer.running = true;
         }
 
         lv := ListView {
