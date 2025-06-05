@@ -466,6 +466,9 @@ component ColorPicker inherits DraggablePanel {
 
     if show-recent: RecentColorPicker {
         recent-colors <=> Api.recent-colors;
+        changed recent-colors => {
+            debug("Recent colors changed");
+        }
     }
 
     if active-tab == PickerTab.css-color: CssColorPicker {
