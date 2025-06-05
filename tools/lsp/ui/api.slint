@@ -276,7 +276,7 @@ export global Api {
     in property <[Selection]> selections;
     in-out property <DropMark> drop-mark;
     // The actual preview
-    in property <component-factory> preview-area;
+    in-out property <component-factory> preview-area;
 
     // set to true to resize
     in property <bool> resize-to-preferred-size: false;
