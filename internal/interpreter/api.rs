@@ -960,10 +960,11 @@ impl ComponentDefinition {
     /// Set a `debug(...)` handler
     pub fn set_debug_handler(
         &self,
-        handler: Rc<dyn Fn(&Option<i_slint_compiler::diagnostics::SourceLocation>, &str)>,
+        handler: impl Fn(&Option<i_slint_compiler::diagnostics::SourceLocation>, &str) + 'static,
         _: i_slint_core::InternalToken,
     ) {
         generativity::make_guard!(guard);
+        let handler = Box::new(handler);
         *self.inner.unerase(guard).debug_handler.borrow_mut() = handler;
     }
     /// Creates a new instance of the component and returns a shared handle to it.

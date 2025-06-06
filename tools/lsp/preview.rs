@@ -1438,7 +1438,7 @@ fn set_preview_factory(
     i_slint_core::window::WindowInner::from_pub(ui.window()).close_all_popups();
 
     compiled.set_debug_handler(
-        Rc::new(|location, text| {
+        |location, text| {
             let location = location.as_ref().and_then(|l| {
                 l.source_file.as_ref().map(|f| {
                     let (line, column) = f.line_column(l.span.offset);
@@ -1473,7 +1473,7 @@ fn set_preview_factory(
                     }
                 });
             });
-        }),
+        },
         i_slint_core::InternalToken,
     );
 
