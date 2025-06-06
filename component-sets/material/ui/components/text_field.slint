@@ -48,6 +48,12 @@ export component TextField {
             background: MaterialPalette.surface_container_highest;
             min_height: max(MaterialStyleMetrics.size_56, inner_layout.min_height);
 
+            
+            touch_area := TouchArea {
+                width: 100%;
+                height: 100%;
+            }
+
             inner_layout := HorizontalLayout {
                 padding_left: root.has_leading ? MaterialStyleMetrics.padding_4 : MaterialStyleMetrics.padding_16;
                 padding_right: root.has_trailing ? MaterialStyleMetrics.padding_4 : MaterialStyleMetrics.padding_16;
@@ -72,6 +78,7 @@ export component TextField {
                         horizontal_stretch: 1;
                         clip: true;
                         min_height: input.min_height;
+
 
                         input := TextInput {
                             x: min(0px, max(parent.width - self.width - self.text_cursor_width, root.computed_x));
@@ -148,7 +155,7 @@ export component TextField {
             active_indicator := Rectangle {
                 y: parent.height - self.height;
                 height: MaterialStyleMetrics.size_1;
-                background: root.highlight;
+                background: touch_area.has-hover ? green : root.highlight;
                 
                 animate height {
                      duration: Animations.standard_fast_duration;
