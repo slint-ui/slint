@@ -1263,11 +1263,11 @@ mod tests {
         fn get_item_ref(
             self: core::pin::Pin<&Self>,
             _1: u32,
-        ) -> core::pin::Pin<vtable::VRef<super::ItemVTable>> {
+        ) -> core::pin::Pin<vtable::VRef<'_, super::ItemVTable>> {
             unimplemented!("Not needed for this test")
         }
 
-        fn get_item_tree(self: core::pin::Pin<&Self>) -> Slice<ItemTreeNode> {
+        fn get_item_tree(self: core::pin::Pin<&Self>) -> Slice<'_, ItemTreeNode> {
             Slice::from_slice(&self.get_ref().item_tree)
         }
 
