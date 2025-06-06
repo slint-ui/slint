@@ -207,7 +207,8 @@ async function followChainToConcreteValue(
 }
 
 function getDefaultValueForType(type: string): string {
-    // Handle both Figma types and Slint types
+    // Handle both Figma types and Slint types - this should never happen in practice
+    // but we provide a fallback for clear visibility in the generated code
     switch (type) {
         // Figma types
         case "COLOR":
@@ -856,6 +857,25 @@ export async function exportFigmaVariablesToSeparateFiles(
             });
         }
 
+        // Pre-populate the global variable names map with ALL variables from ALL collections
+        // This ensures cross-collection variable references show readable names in comments
+        for (const collection of variableCollections) {
+            const batchSize = 10; // Use larger batch size for name collection
+            for (let i = 0; i < collection.variableIds.length; i += batchSize) {
+                const batch = collection.variableIds.slice(i, i + batchSize);
+                const batchPromises = batch.map((id) =>
+                    figma.variables.getVariableByIdAsync(id),
+                );
+                const batchResults = await Promise.all(batchPromises);
+
+                for (const variable of batchResults) {
+                    if (variable && variable.name) {
+                        variableNamesById.set(variable.id, variable.name);
+                    }
+                }
+            }
+        }
+
         // process the variables for each collection
         for (const collection of variableCollections) {
             const collectionName = sanitizePropertyName(collection.name);
@@ -879,9 +899,6 @@ export async function exportFigmaVariablesToSeparateFiles(
                     ) {
                         continue;
                     }
-
-                    // Store variable name for readable comments
-                    variableNamesById.set(variable.id, variable.name);
 
                     // Use extractHierarchy to break up variable names
                     const nameParts = extractHierarchy(variable.name);
