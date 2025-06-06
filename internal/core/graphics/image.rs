@@ -21,7 +21,7 @@ mod svg;
 
 #[allow(missing_docs)]
 #[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
-#[vtable::vtable(no_extern)]
+#[vtable::vtable]
 #[repr(C)]
 pub struct OpaqueImageVTable {
     drop_in_place: extern "C-unwind" fn(VRefMut<OpaqueImageVTable>) -> Layout,

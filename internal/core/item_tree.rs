@@ -42,7 +42,7 @@ impl From<IndexRange> for core::ops::Range<usize> {
 
 /// A ItemTree is representing an unit that is allocated together
 #[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
-#[vtable(no_extern)]
+#[vtable]
 #[repr(C)]
 pub struct ItemTreeVTable {
     /// Visit the children of the item at index `index`.
@@ -1049,7 +1049,7 @@ impl<'a> From<&'a [ItemTreeNode]> for ItemTreeNodeArray<'a> {
 }
 
 #[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
-#[vtable(no_extern)]
+#[vtable]
 #[repr(C)]
 /// Object to be passed in visit_item_children method of the ItemTree.
 pub struct ItemVisitorVTable {

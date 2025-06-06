@@ -68,7 +68,6 @@ allowing to access methods from the trait directly from VRef.
 This macro does the following transformation:
 
 For function type fields:
- - If the function has no ABI, it is changed to `extern "C"` (unless `no_extern` is passed as `#[vtable(no_extern)]`)
  - `unsafe` is added to the signature, since it is unsafe to call these functions directly from
    the vtable without having a valid pointer to the actual object. But if the original function was
    marked unsafe, the unsafety is forwarded to the trait.
@@ -112,7 +111,7 @@ use vtable::*;
 #[repr(C)]
 struct AnimalVTable {
     /// Pointer to a function that make noise.
-    /// `unsafe` and `extern "C"` will automatically be added
+    /// `unsafe` will automatically be added
     make_noise: fn(VRef<AnimalVTable>, i32) -> i32,
 
     /// if there is a 'drop' member, it is considered as the destructor
@@ -165,9 +164,7 @@ assert_eq!(dog.is_hungry, true);
 
 */
 #[proc_macro_attribute]
-pub fn vtable(attr: TokenStream, item: TokenStream) -> TokenStream {
-    let no_extern = attr.to_string().trim() == "no_extern";
-
+pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let mut input = parse_macro_input!(item as ItemStruct);
 
     let fields = if let Fields::Named(fields) = &mut input.fields {
@@ -386,19 +383,6 @@ pub fn vtable(attr: TokenStream, item: TokenStream) -> TokenStream {
             // Add unsafe: The function are not safe to call unless the self parameter is of the correct type
             f.unsafety = Some(Default::default());
 
-            // Add extern "C" if it isn't there
-            if let Some(a) = &f.abi {
-                if !a
-                    .name
-                    .as_ref()
-                    .map(|s| matches!(s.value().as_str(), "C" | "C-unwind"))
-                    .unwrap_or(false)
-                {
-                    return Error::new(a.span(), "invalid ABI").to_compile_error().into();
-                }
-            } else if !no_extern {
-                f.abi = Some(parse_str("extern \"C\"").unwrap());
-            }
             sig_extern.abi.clone_from(&f.abi);
 
             let mut wrap_trait_call = None;
