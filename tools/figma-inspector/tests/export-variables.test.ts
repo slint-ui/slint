@@ -906,7 +906,7 @@ test("fixes 'Missing data for mode' bug - modeId mismatch between collection and
     expect(result).toHaveLength(2); // theme.slint + README
     const content = result[0].content;
 
-    // Should NOT contain "Missing data for mode" anymore - the bug is fixed!
+    // Should NOT contain "Missing data for mode"
     expect(content).not.toContain("Missing data for mode");
 
     // Should not contain magenta placeholder values
@@ -932,7 +932,7 @@ test("comprehensive mode matching - handles various mismatch scenarios", async (
         variableIds: ["var1", "var2", "var3"],
     };
 
-    // Variable 1: Exact modeId match (should work perfectly)
+    // Variable 1: Exact modeId match
     const mockVariable1 = {
         id: "var1",
         name: "perfect-match",
