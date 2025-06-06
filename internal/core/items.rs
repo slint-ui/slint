@@ -113,7 +113,7 @@ pub enum RenderingResult {
 
 /// Items are the nodes in the render tree.
 #[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
-#[vtable(no_extern)]
+#[vtable]
 #[repr(C)]
 pub struct ItemVTable {
     /// This function is called by the run-time after the memory for the item
