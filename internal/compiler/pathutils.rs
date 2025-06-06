@@ -300,7 +300,7 @@ struct Components<'a> {
     separator: Option<char>,
 }
 
-fn component_iter(path: &str) -> Components {
+fn component_iter(path: &str) -> Components<'_> {
     Components { path, offset: 0, separator: None }
 }
 

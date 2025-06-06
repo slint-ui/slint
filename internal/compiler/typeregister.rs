@@ -262,7 +262,7 @@ pub fn reserved_properties() -> impl Iterator<Item = (&'static str, Type, Proper
 }
 
 /// lookup reserved property injected in every item
-pub fn reserved_property(name: &str) -> PropertyLookupResult {
+pub fn reserved_property(name: &str) -> PropertyLookupResult<'_> {
     thread_local! {
         static RESERVED_PROPERTIES: HashMap<&'static str, (Type, PropertyVisibility, Option<BuiltinFunction>)>
             = reserved_properties().map(|(name, ty, visibility)| (name, (ty, visibility, reserved_member_function(name)))).collect();
