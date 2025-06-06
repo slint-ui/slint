@@ -41,14 +41,14 @@ export component TextField {
 
     layout := VerticalLayout {
         spacing: MaterialStyleMetrics.spacing_4;
-        
+
         background_layer := Rectangle {
             border_top_left_radius: MaterialStyleMetrics.border_radius_4;
             border_top_right_radius: MaterialStyleMetrics.border_radius_4;
             background: MaterialPalette.surface_container_highest;
             min_height: max(MaterialStyleMetrics.size_56, inner_layout.min_height);
 
-            
+
             touch_area := TouchArea {
                 width: 100%;
                 height: 100%;
@@ -64,7 +64,7 @@ export component TextField {
                 if root.has_leading : IconButton {
                     icon: root.leading_icon;
                     enabled: root.enabled;
-                    
+
                     clicked => {
                         root.leading_clicked();
                     }
@@ -73,7 +73,7 @@ export component TextField {
                 HorizontalLayout {
                     padding_top: MaterialStyleMetrics.padding_4;
                     padding_bottom: self.padding_top;
-                  
+
                     Rectangle {
                         horizontal_stretch: 1;
                         clip: true;
@@ -116,9 +116,9 @@ export component TextField {
 
                             key_released(event) => {
                                 root.key_released(event)
-                            }      
+                            }
                         }
-    
+
                         text_label := MaterialText {
                             y: (parent.height - self.height) / 2;
                             width: 100%;
@@ -140,7 +140,7 @@ export component TextField {
                         }
                     }
                 }
-                
+
                 if root.trailing_icon.width > 0 && root.trailing_icon.height > 0 : IconButton {
                     icon: root.trailing_icon;
                     enabled: root.enabled;
@@ -151,12 +151,12 @@ export component TextField {
                     }
                 }
             }
-         
+
             active_indicator := Rectangle {
                 y: parent.height - self.height;
                 height: MaterialStyleMetrics.size_1;
                 background: touch_area.has-hover ? green : root.highlight;
-                
+
                 animate height {
                      duration: Animations.standard_fast_duration;
                      easing: Animations.standard_easing;
