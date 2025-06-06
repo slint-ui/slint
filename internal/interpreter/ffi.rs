@@ -258,7 +258,9 @@ pub unsafe extern "C" fn slint_interpreter_struct_iterator_next<'a>(
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn slint_interpreter_struct_make_iter(stru: &StructOpaque) -> StructIteratorOpaque {
+pub extern "C" fn slint_interpreter_struct_make_iter(
+    stru: &StructOpaque,
+) -> StructIteratorOpaque<'_> {
     let ret_it: StructIterator = stru.as_struct().0.iter();
     unsafe {
         let mut r = std::mem::MaybeUninit::<StructIteratorOpaque>::uninit();
@@ -536,7 +538,7 @@ pub struct ModelAdaptorVTable {
     pub row_count: extern "C" fn(VRef<ModelAdaptorVTable>) -> usize,
     pub row_data: unsafe extern "C" fn(VRef<ModelAdaptorVTable>, row: usize) -> *mut Value,
     pub set_row_data: extern "C" fn(VRef<ModelAdaptorVTable>, row: usize, value: Box<Value>),
-    pub get_notify: extern "C" fn(VRef<ModelAdaptorVTable>) -> &ModelNotifyOpaque,
+    pub get_notify: extern "C" fn(VRef<'_, ModelAdaptorVTable>) -> &ModelNotifyOpaque,
     pub drop: extern "C" fn(VRefMut<ModelAdaptorVTable>),
 }
 

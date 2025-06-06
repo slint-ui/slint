@@ -57,7 +57,7 @@ pub struct ItemTreeBox<'id> {
 
 impl<'id> ItemTreeBox<'id> {
     /// Borrow this instance as a `Pin<ItemTreeRef>`
-    pub fn borrow(&self) -> ItemTreeRefPin {
+    pub fn borrow(&self) -> ItemTreeRefPin<'_> {
         self.borrow_instance().borrow()
     }
 
@@ -94,7 +94,7 @@ impl ItemWithinItemTree {
     pub(crate) unsafe fn item_from_item_tree(
         &self,
         mem: *const u8,
-    ) -> Pin<vtable::VRef<ItemVTable>> {
+    ) -> Pin<vtable::VRef<'_, ItemVTable>> {
         Pin::new_unchecked(vtable::VRef::from_raw(
             NonNull::from(self.rtti.vtable),
             NonNull::new(mem.add(self.offset) as _).unwrap(),
@@ -187,11 +187,11 @@ impl ItemTree for ErasedItemTreeBox {
         self.borrow().as_ref().layout_info(orientation)
     }
 
-    fn get_item_tree(self: Pin<&Self>) -> Slice<ItemTreeNode> {
+    fn get_item_tree(self: Pin<&Self>) -> Slice<'_, ItemTreeNode> {
         get_item_tree(self.get_ref().borrow())
     }
 
-    fn get_item_ref(self: Pin<&Self>, index: u32) -> Pin<ItemRef> {
+    fn get_item_ref(self: Pin<&Self>, index: u32) -> Pin<ItemRef<'_>> {
         // We're having difficulties transferring the lifetime to a pinned reference
         // to the other ItemTreeVTable with the same life time. So skip the vtable
         // indirection and call our implementation directly.
@@ -1758,7 +1758,7 @@ impl ErasedItemTreeBox {
         )
     }
 
-    pub fn borrow(&self) -> ItemTreeRefPin {
+    pub fn borrow(&self) -> ItemTreeRefPin<'_> {
         // Safety: it is safe to access self.0 here because the 'id lifetime does not leak
         self.0.borrow()
     }

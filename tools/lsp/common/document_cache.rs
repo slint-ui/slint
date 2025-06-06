@@ -262,7 +262,7 @@ impl DocumentCache {
         self.type_loader.all_files().filter_map(|p| file_to_uri(p))
     }
 
-    pub fn global_type_registry(&self) -> std::cell::Ref<TypeRegister> {
+    pub fn global_type_registry(&self) -> std::cell::Ref<'_, TypeRegister> {
         self.type_loader.global_type_registry.borrow()
     }
 
