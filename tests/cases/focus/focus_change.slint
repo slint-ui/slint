@@ -1,11 +1,12 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-TestCase := Rectangle {
+export component TestCase inherits Window {
     width: 400phx;
     height: 600phx;
 
     input1 := TextInput {
+        y: 0px;
         width: parent.width;
         height: 200phx;
     }
@@ -23,11 +24,12 @@ TestCase := Rectangle {
         read-only: true;
     }
 
-    property<bool> input1_focused: input1.has_focus;
-    property<string> input1_text: input1.text;
-    property<bool> input2_focused: input2.has_focus;
-    property<string> input2_text: input2.text;
-    property<bool> input3_focused: input3.has_focus;
+    out property<bool> input1_focused: input1.has_focus;
+    out property<string> input1_text: input1.text;
+    out property<bool> input2_focused: input2.has_focus;
+    out property<string> input2_text: input2.text;
+    out property<bool> input3_focused: input3.has_focus;
+    in-out property input2_enabled <=> input2.enabled;
 }
 
 /*
@@ -76,7 +78,6 @@ let mut ime_requests = slint_testing::access_testing_window(instance.window(), |
 assert!(matches!(ime_requests.next(), Some(InputMethodRequest::Disable)));
 assert!(ime_requests.next().is_none());
 assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.get()), MouseCursor::Text);
-
 ```
 
 ```cpp
@@ -122,5 +123,24 @@ assert(instance.input2_focused);
 slintlib.private_api.send_keyboard_string_sequence(instance, "Only for field 2");
 assert.equal(instance.input1_text, "Only for field 1");
 assert.equal(instance.input2_text, "Only for field 2");
+```
+
+
+```rust
+// Test for issue #8626:  disabled TextInputs should not be focusable
+let instance = TestCase::new().unwrap();
+assert!(instance.get_input2_enabled());
+instance.set_input2_enabled(false);
+assert!(!instance.get_input1_focused());
+assert!(!instance.get_input2_focused());
+assert!(!instance.get_input3_focused());
+slint_testing::send_keyboard_string_sequence(&instance, "\t");
+assert!(instance.get_input1_focused());
+assert!(!instance.get_input2_focused());
+assert!(!instance.get_input3_focused());
+slint_testing::send_keyboard_string_sequence(&instance, "\t");
+assert!(!instance.get_input1_focused());
+assert!(!instance.get_input2_focused());
+assert!(instance.get_input3_focused());
 ```
 */
