@@ -917,19 +917,93 @@ export async function exportFigmaVariablesToSeparateFiles(
                     }
 
                     // Process values for each mode
-                    for (const [modeId, value] of Object.entries(
-                        variable.valuesByMode,
-                    )) {
-                        const modeInfo = collection.modes.find(
-                            (m) => m.modeId === modeId,
+                    // First, create a reverse lookup map for collection modes by both modeId and name
+                    const modeIdToInfo = new Map<
+                        string,
+                        { modeId: string; name: string }
+                    >();
+                    const modeNameToInfo = new Map<
+                        string,
+                        { modeId: string; name: string }
+                    >();
+
+                    for (const mode of collection.modes) {
+                        modeIdToInfo.set(mode.modeId, mode);
+                        // Also index by sanitized name for fallback matching
+                        const sanitizedName = sanitizeModeForEnum(
+                            sanitizePropertyName(mode.name),
                         );
-                        if (!modeInfo) {
-                            continue;
+                        modeNameToInfo.set(sanitizedName, mode);
+                    }
+
+                    // Process all modes that the collection expects, not just what's in valuesByMode
+                    for (const collectionMode of collection.modes) {
+                        const modeName = sanitizeModeForEnum(
+                            sanitizePropertyName(collectionMode.name),
+                        );
+
+                        let value: any = null;
+                        let foundModeId: string | null = null;
+
+                        // Strategy 1: Try exact modeId match
+                        if (variable.valuesByMode[collectionMode.modeId]) {
+                            value =
+                                variable.valuesByMode[collectionMode.modeId];
+                            foundModeId = collectionMode.modeId;
+                        } else {
+                            // Strategy 2: Try to find by mode name matching
+                            // Look for a variable mode that when sanitized matches the collection mode name
+                            for (const [varModeId, varValue] of Object.entries(
+                                variable.valuesByMode,
+                            )) {
+                                // Extract the potential mode name from the variable's modeId
+                                // Common patterns: "mode_light" -> "light", "light_mode" -> "light", etc.
+                                const varModeName = varModeId
+                                    .replace(/^(mode_|_mode$)/, "") // Remove mode_ prefix or _mode suffix
+                                    .replace(/_/g, " ") // Replace underscores with spaces
+                                    .toLowerCase();
+
+                                const sanitizedVarModeName =
+                                    sanitizeModeForEnum(
+                                        sanitizePropertyName(varModeName),
+                                    );
+
+                                if (
+                                    sanitizedVarModeName ===
+                                        modeName.toLowerCase() ||
+                                    varModeName ===
+                                        collectionMode.name.toLowerCase()
+                                ) {
+                                    value = varValue;
+                                    foundModeId = varModeId;
+                                    console.log(
+                                        `Found mode name match: ${varModeId} -> ${modeName}`,
+                                    );
+                                    break;
+                                }
+                            }
+
+                            // Strategy 3: If still no match, try any available value as fallback
+                            if (value === null) {
+                                const availableValues = Object.entries(
+                                    variable.valuesByMode,
+                                );
+                                if (availableValues.length > 0) {
+                                    [foundModeId, value] = availableValues[0];
+                                    console.warn(
+                                        `Mode mismatch for variable ${variable.name}: using fallback value from mode ${foundModeId} for expected mode ${modeName}`,
+                                    );
+                                }
+                            }
                         }
 
-                        const modeName = sanitizeModeForEnum(
-                            sanitizePropertyName(modeInfo.name),
-                        );
+                        // Skip if no value found at all
+                        if (value === null) {
+                            console.warn(
+                                `No value found for variable ${variable.name} in mode ${modeName}`,
+                            );
+                            continue;
+                        }
 
                         // Format value and resolve all references immediately
                         let formattedValue = "";

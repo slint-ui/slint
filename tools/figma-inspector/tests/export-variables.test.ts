@@ -764,3 +764,243 @@ test("shows readable variable names in comments for resolved references", async 
     );
     expect(result[0].content).not.toContain("Resolved from reference var1");
 });
+
+test("handles variables with same values across multiple modes without showing 'Missing data for mode'", async () => {
+    const mockCollection = {
+        id: "collection1",
+        name: "Theme",
+        modes: [
+            { modeId: "mode1", name: "light" },
+            { modeId: "mode2", name: "dark" },
+        ],
+        variableIds: ["var1"],
+    };
+
+    // Variable that has the same value in both modes
+    // In Figma, this often happens when a variable inherits its value from the base mode
+    const mockVariable = {
+        id: "var1",
+        name: "border-radius",
+        type: "FLOAT",
+        resolvedType: "FLOAT",
+        valuesByMode: {
+            mode1: 8, // Same value
+            mode2: 8, // Same value
+        },
+    };
+
+    mockFigma.variables.getLocalVariableCollectionsAsync.mockResolvedValue([
+        mockCollection,
+    ]);
+    mockFigma.variables.getVariableByIdAsync.mockResolvedValue(mockVariable);
+
+    const result = await exportFigmaVariablesToSeparateFiles(false);
+
+    expect(result).toHaveLength(2); // theme.slint + README
+    const content = result[0].content;
+
+    // Should NOT contain any "Missing data for mode" comments
+    expect(content).not.toContain("Missing data for mode");
+
+    // Should contain the actual value for both modes
+    expect(content).toContain("light: 8px");
+    expect(content).toContain("dark: 8px");
+
+    // Should contain the variable name
+    expect(content).toContain("border-radius");
+
+    console.log("Generated content:", content);
+});
+
+test("reproduces 'Missing data for mode' issue with hierarchical variables", async () => {
+    const mockCollection = {
+        id: "collection1",
+        name: "Theme",
+        modes: [
+            { modeId: "mode1", name: "light" },
+            { modeId: "mode2", name: "dark" },
+        ],
+        variableIds: ["var1", "var2"],
+    };
+
+    // Hierarchical variable that might trigger the issue
+    const mockVariable1 = {
+        id: "var1",
+        name: "colors/background",
+        type: "COLOR",
+        resolvedType: "COLOR",
+        valuesByMode: {
+            mode1: { r: 1, g: 1, b: 1, a: 1 }, // white
+            mode2: { r: 0, g: 0, b: 0, a: 1 }, // black
+        },
+    };
+
+    // Another variable that has same values
+    const mockVariable2 = {
+        id: "var2",
+        name: "colors/border",
+        type: "COLOR",
+        resolvedType: "COLOR",
+        valuesByMode: {
+            mode1: { r: 0.5, g: 0.5, b: 0.5, a: 1 }, // Same gray in both modes
+            mode2: { r: 0.5, g: 0.5, b: 0.5, a: 1 }, // Same gray in both modes
+        },
+    };
+
+    mockFigma.variables.getLocalVariableCollectionsAsync.mockResolvedValue([
+        mockCollection,
+    ]);
+    mockFigma.variables.getVariableByIdAsync.mockImplementation((id) => {
+        if (id === "var1") return Promise.resolve(mockVariable1);
+        if (id === "var2") return Promise.resolve(mockVariable2);
+        return Promise.resolve(null);
+    });
+
+    const result = await exportFigmaVariablesToSeparateFiles(false);
+
+    expect(result).toHaveLength(2);
+    const content = result[0].content;
+
+    // Should NOT contain any "Missing data for mode" comments
+    expect(content).not.toContain("Missing data for mode");
+
+    // Should contain both modes for hierarchical variables
+    expect(content).toContain("light:");
+    expect(content).toContain("dark:");
+
+    console.log("Generated content with hierarchical variables:", content);
+});
+
+test("fixes 'Missing data for mode' bug - modeId mismatch between collection and variable", async () => {
+    const mockCollection = {
+        id: "collection1",
+        name: "Theme",
+        modes: [
+            { modeId: "mode_light", name: "light" },
+            { modeId: "mode_dark", name: "dark" },
+        ],
+        variableIds: ["var1"],
+    };
+
+    // This variable has values for modes with different modeIds than the collection
+    // This simulates the real-world scenario where there's a mismatch
+    const mockVariable = {
+        id: "var1",
+        name: "background-color",
+        type: "COLOR",
+        resolvedType: "COLOR",
+        valuesByMode: {
+            // These modeIds DON'T match the collection.modes modeIds
+            mode_original: { r: 1, g: 1, b: 1, a: 1 }, // white
+            mode_newer: { r: 0, g: 0, b: 0, a: 1 }, // black
+        },
+    };
+
+    mockFigma.variables.getLocalVariableCollectionsAsync.mockResolvedValue([
+        mockCollection,
+    ]);
+    mockFigma.variables.getVariableByIdAsync.mockResolvedValue(mockVariable);
+
+    const result = await exportFigmaVariablesToSeparateFiles(false);
+
+    expect(result).toHaveLength(2); // theme.slint + README
+    const content = result[0].content;
+
+    // Should NOT contain "Missing data for mode" anymore - the bug is fixed!
+    expect(content).not.toContain("Missing data for mode");
+
+    // Should not contain magenta placeholder values
+    expect(content).not.toContain("#FF00FF");
+
+    // Should contain actual color values (white from the fallback)
+    expect(content).toContain("#ffffff");
+
+    // Should contain both mode values (using fallback strategy)
+    expect(content).toContain("light: #ffffff");
+    expect(content).toContain("dark: #ffffff");
+});
+
+test("comprehensive mode matching - handles various mismatch scenarios", async () => {
+    const mockCollection = {
+        id: "collection1",
+        name: "Design",
+        modes: [
+            { modeId: "light_mode", name: "Light" },
+            { modeId: "dark_mode", name: "Dark" },
+            { modeId: "high_contrast", name: "High Contrast" },
+        ],
+        variableIds: ["var1", "var2", "var3"],
+    };
+
+    // Variable 1: Exact modeId match (should work perfectly)
+    const mockVariable1 = {
+        id: "var1",
+        name: "perfect-match",
+        type: "COLOR",
+        resolvedType: "COLOR",
+        valuesByMode: {
+            light_mode: { r: 1, g: 1, b: 1, a: 1 }, // white
+            dark_mode: { r: 0, g: 0, b: 0, a: 1 }, // black
+            high_contrast: { r: 1, g: 1, b: 0, a: 1 }, // yellow
+        },
+    };
+
+    // Variable 2: Mode name matching (modeIds don't match but names do)
+    const mockVariable2 = {
+        id: "var2",
+        name: "name-match",
+        type: "COLOR",
+        resolvedType: "COLOR",
+        valuesByMode: {
+            mode_light: { r: 0.9, g: 0.9, b: 0.9, a: 1 }, // light gray
+            mode_dark: { r: 0.1, g: 0.1, b: 0.1, a: 1 }, // dark gray
+            mode_high_contrast: { r: 1, g: 0, b: 1, a: 1 }, // magenta
+        },
+    };
+
+    // Variable 3: No matching modes at all (should use fallback)
+    const mockVariable3 = {
+        id: "var3",
+        name: "fallback-needed",
+        type: "COLOR",
+        resolvedType: "COLOR",
+        valuesByMode: {
+            completely_different: { r: 0.5, g: 0.5, b: 0.5, a: 1 }, // gray
+        },
+    };
+
+    mockFigma.variables.getLocalVariableCollectionsAsync.mockResolvedValue([
+        mockCollection,
+    ]);
+    mockFigma.variables.getVariableByIdAsync.mockImplementation((id) => {
+        if (id === "var1") {
+            return Promise.resolve(mockVariable1);
+        }
+        if (id === "var2") {
+            return Promise.resolve(mockVariable2);
+        }
+        if (id === "var3") {
+            return Promise.resolve(mockVariable3);
+        }
+        return Promise.resolve(null);
+    });
+
+    const result = await exportFigmaVariablesToSeparateFiles(false);
+
+    expect(result).toHaveLength(2); // design.slint + README
+    const content = result[0].content;
+
+    // Should NOT contain any "Missing data for mode" - all should be resolved
+    expect(content).not.toContain("Missing data for mode");
+    expect(content).not.toContain("#FF00FF");
+
+    // Variable 1: Perfect match - should have distinct values
+    expect(content).toContain("perfect-match");
+
+    // Variable 2: Name-based matching - should work with some warnings
+    expect(content).toContain("name-match");
+
+    // Variable 3: Fallback strategy - should use the available value for all modes
+    expect(content).toContain("fallback-needed");
+    expect(content).toContain("#808080"); // The gray fallback value should appear multiple times
+});
