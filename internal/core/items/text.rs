@@ -925,7 +925,7 @@ impl Item for TextInput {
                     #[cfg(not(target_vendor = "apple"))]
                     {
                         // check self.enabled() to make sure it doesn't select disabled (greyed-out) inputs
-                        if *_reason == FocusReason::KeyboardNavigation && self.enabled() {
+                        if *_reason == FocusReason::TabNavigation && self.enabled() {
                             self.select_all(window_adapter, self_rc);
                         }
                     }
@@ -1788,7 +1788,7 @@ impl TextInput {
             WindowInner::from_pub(window_adapter.window()).set_focus_item(
                 self_rc,
                 true,
-                FocusReason::Clicked,
+                FocusReason::PointerClick,
             );
         } else if !self.read_only() {
             if let Some(w) = window_adapter.internal(crate::InternalToken) {
