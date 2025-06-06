@@ -958,6 +958,8 @@ pub struct ComponentDefinition {
 
 impl ComponentDefinition {
     /// Set a `debug(...)` handler
+    #[doc(hidden)]
+    #[cfg(feature = "internal")]
     pub fn set_debug_handler(
         &self,
         handler: impl Fn(&Option<i_slint_compiler::diagnostics::SourceLocation>, &str) + 'static,

@@ -1448,10 +1448,8 @@ fn set_preview_factory(
             });
             if let Some((file, line, column)) = &location {
                 i_slint_core::debug_log!(
-                    "DEBUG {}:{}:{}> {text}",
-                    file.path().to_string_lossy(),
-                    *line,
-                    *column
+                    "DEBUG {}:{line}:{column}> {text}",
+                    file.path().display(),
                 );
             } else {
                 i_slint_core::debug_log!("DEBUG> {text}");
