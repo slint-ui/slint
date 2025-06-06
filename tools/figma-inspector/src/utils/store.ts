@@ -24,6 +24,7 @@ interface StoreState {
         files: Array<{ name: string; content: string }>,
     ) => Promise<void>;
     exportFiles: (singleOrMultiple: ExportType) => void;
+    getTestData: () => void;
     startVariableCheckInterval: () => void;
     resizeWindow: (width: number, height: number) => void;
 }
@@ -109,6 +110,12 @@ export const useInspectorStore = create<StoreState>()((set, get) => ({
             set({ exportedFiles: [], exportsAreCurrent: false }); // Mark as not current if export failed to produce files
         }
     },
+
+    getTestData: () => {
+        set({ exportedFiles: [], exportsAreCurrent: false });
+        dispatchTS("getTestData", {});
+    },
+
     startVariableCheckInterval: () => {
         setInterval(() => {
             dispatchTS("checkVariableChanges", {});

@@ -1758,3 +1758,104 @@ function generateReadmeContent(exportInfo: {
 
     return content;
 }
+
+export async function getRawVariableCollectionsData(): Promise<Array<{ name: string; content: string }>> {
+    try {
+        const collections = await figma.variables.getLocalVariableCollectionsAsync();
+        const detailedCollections: Array<{
+            id: string;
+            name: string;
+            defaultModeId: string;
+            hiddenFromPublishing: boolean;
+            key: string;
+            modes: Array<{
+                modeId: string;
+                name: string;
+            }>;
+            variables: Array<{
+                id: string;
+                name: string;
+                key: string;
+                variableCollectionId: string;
+                resolvedType: string;
+                valuesByMode: { [modeId: string]: any };
+                remote: boolean;
+                description: string;
+                hiddenFromPublishing: boolean;
+                scopes: string[];
+            }>;
+        }> = [];
+
+        for (const collection of collections) {
+            const collectionData: {
+                id: string;
+                name: string;
+                defaultModeId: string;
+                hiddenFromPublishing: boolean;
+                key: string;
+                modes: Array<{
+                    modeId: string;
+                    name: string;
+                }>;
+                variables: Array<{
+                    id: string;
+                    name: string;
+                    key: string;
+                    variableCollectionId: string;
+                    resolvedType: string;
+                    valuesByMode: { [modeId: string]: any };
+                    remote: boolean;
+                    description: string;
+                    hiddenFromPublishing: boolean;
+                    scopes: string[];
+                }>;
+            } = {
+                id: collection.id,
+                name: collection.name,
+                defaultModeId: collection.defaultModeId,
+                hiddenFromPublishing: collection.hiddenFromPublishing,
+                key: collection.key,
+                modes: collection.modes.map(mode => ({
+                    modeId: mode.modeId,
+                    name: mode.name
+                })),
+                variables: []
+            };
+
+            // Get detailed data for each variable in the collection
+            for (const variableId of collection.variableIds) {
+                const variable = await figma.variables.getVariableByIdAsync(variableId);
+                if (variable) {
+                    const variableData = {
+                        id: variable.id,
+                        name: variable.name,
+                        key: variable.key,
+                        variableCollectionId: variable.variableCollectionId,
+                        resolvedType: variable.resolvedType,
+                        valuesByMode: variable.valuesByMode,
+                        remote: variable.remote,
+                        description: variable.description,
+                        hiddenFromPublishing: variable.hiddenFromPublishing,
+                        scopes: variable.scopes
+                    };
+                    collectionData.variables.push(variableData);
+                }
+            }
+
+            detailedCollections.push(collectionData);
+        }
+
+        const jsonData = JSON.stringify(detailedCollections, null, 2);
+        
+        return [{
+            name: "figma-variables.json",
+            content: jsonData
+        }];
+    } catch (error) {
+        console.error("Error getting raw variable collections:", error);
+        return [{
+            name: "error.json",
+            content: JSON.stringify({ error: String(error) })
+        }];
+    }
+}
