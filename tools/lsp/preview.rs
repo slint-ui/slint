@@ -105,7 +105,6 @@ struct PreviewState {
     current_previewed_component: Option<PreviewComponent>,
     current_load_behavior: Option<LoadBehavior>,
     loading_state: PreviewFutureState,
-    ui_is_visible: bool,
 }
 
 impl PreviewState {
@@ -134,6 +133,10 @@ impl PreviewState {
             }
         }
     }
+
+    pub fn ui_is_visible(&self) -> bool {
+        self.ui.as_ref().map(|ui| ui.window().is_visible()).unwrap_or_default()
+    }
 }
 thread_local! {static PREVIEW_STATE: std::cell::RefCell<PreviewState> = Default::default();}
 
@@ -156,7 +159,7 @@ fn delete_document(url: &lsp_types::Url) {
         (
             preview_state.current_previewed_component.clone(),
             preview_state.dependencies.contains(url),
-            preview_state.ui_is_visible,
+            preview_state.ui_is_visible(),
         )
     });
 
@@ -225,7 +228,7 @@ fn set_contents(url: &common::VersionedUrl, content: String) {
         }
 
         if preview_state.dependencies.contains(url.url()) {
-            let ui_is_visible = preview_state.ui_is_visible;
+            let ui_is_visible = preview_state.ui_is_visible();
             if let Some(current) = preview_state.current_component() {
                 return Some((ui_is_visible, current));
             };
@@ -926,7 +929,7 @@ fn send_workspace_edit(label: String, edit: lsp_types::WorkspaceEdit, test_edit:
 fn change_style() {
     let Some((ui_is_visible, current)) = PREVIEW_STATE.with(|preview_state| {
         let preview_state = preview_state.borrow();
-        let ui_is_visible = preview_state.ui_is_visible;
+        let ui_is_visible = preview_state.ui_is_visible();
         preview_state.current_component().map(|c| (ui_is_visible, c))
     }) else {
         return;
@@ -1079,7 +1082,7 @@ fn config_changed(config: PreviewConfig) {
 
             (
                 preview_state.current_component(),
-                preview_state.ui_is_visible,
+                preview_state.ui_is_visible(),
                 preview_state.config.hide_ui,
             )
         })
@@ -1167,7 +1170,7 @@ async fn reload_timer_function() {
 
             assert_eq!(preview_state.loading_state, PreviewFutureState::PreLoading);
 
-            if !preview_state.ui_is_visible && behavior == LoadBehavior::Reload {
+            if !preview_state.ui_is_visible() && behavior == LoadBehavior::Reload {
                 preview_state.loading_state = PreviewFutureState::Pending;
                 None
             } else {
@@ -1253,7 +1256,7 @@ pub fn load_preview(preview_component: PreviewComponent, behavior: LoadBehavior)
 
         match behavior {
             LoadBehavior::Reload => {
-                if !preview_state.ui_is_visible {
+                if !preview_state.ui_is_visible() {
                     return;
                 }
             }

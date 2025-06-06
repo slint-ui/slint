@@ -118,10 +118,6 @@ impl PreviewConnector {
 
     #[wasm_bindgen]
     pub fn show_ui(&self) -> Result<js_sys::Promise, JsValue> {
-        super::PREVIEW_STATE.with(|preview_state| {
-            let mut preview_state = preview_state.borrow_mut();
-            preview_state.ui_is_visible = true;
-        });
         invoke_from_event_loop_wrapped_in_promise(|instance| instance.show())
     }
 
