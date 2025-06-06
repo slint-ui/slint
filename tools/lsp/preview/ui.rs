@@ -20,6 +20,7 @@ use crate::preview::{self, preview_data, properties, SelectionNotification};
 use crate::wasm_prelude::*;
 
 mod brushes;
+pub mod log_messages;
 pub mod palette;
 mod property_view;
 mod recent_colors;
@@ -114,6 +115,7 @@ pub fn create_ui(style: String, experimental: bool) -> Result<PreviewUi, Platfor
     api.on_string_to_code(string_to_code);
 
     brushes::setup(&ui);
+    log_messages::setup(&ui);
     palette::setup(&ui);
     recent_colors::setup(&ui);
 
@@ -148,15 +150,31 @@ pub fn ui_set_uses_widgets(ui: &PreviewUi, uses_widgets: bool) {
 }
 
 pub fn set_diagnostics(ui: &PreviewUi, diagnostics: &[slint_interpreter::Diagnostic]) {
-    let summary = diagnostics.iter().fold(DiagnosticSummary::NothingDetected, |acc, d| {
-        match (acc, d.level()) {
-            (_, DiagnosticLevel::Error) => DiagnosticSummary::Errors,
-            (DiagnosticSummary::Errors, DiagnosticLevel::Warning) => DiagnosticSummary::Errors,
-            (_, DiagnosticLevel::Warning) => DiagnosticSummary::Warnings,
-            // DiagnosticLevel is non-exhaustive:
-            (acc, _) => acc,
-        }
-    });
+    let summary = diagnostics
+        .iter()
+        .inspect(|d| {
+            let location = d.source_file().map(|p| {
+                let (line, column) = d.line_column();
+                (p.to_string_lossy().to_string().into(), line, column)
+            });
+
+            let level = match d.level() {
+                DiagnosticLevel::Error => LogMessageLevel::Error,
+                DiagnosticLevel::Warning => LogMessageLevel::Warning,
+                _ => LogMessageLevel::Debug,
+            };
+
+            log_messages::append_log_message(ui, level, location, d.message());
+        })
+        .fold(DiagnosticSummary::NothingDetected, |acc, d| {
+            match (acc, d.level()) {
+                (_, DiagnosticLevel::Error) => DiagnosticSummary::Errors,
+                (DiagnosticSummary::Errors, DiagnosticLevel::Warning) => DiagnosticSummary::Errors,
+                (_, DiagnosticLevel::Warning) => DiagnosticSummary::Warnings,
+                // DiagnosticLevel is non-exhaustive:
+                (acc, _) => acc,
+            }
+        });
 
     let api = ui.global::<Api>();
     api.set_diagnostic_summary(summary);

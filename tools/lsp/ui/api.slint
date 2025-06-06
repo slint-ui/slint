@@ -223,6 +223,20 @@ export struct PaletteEntry {
     value: PropertyValue,
 }
 
+export enum LogMessageLevel {
+    Debug,
+    Warning,
+    Error,
+}
+
+export struct LogMessage {
+    file: string,
+    line: int,
+    column: int,
+    message: string,
+    level: LogMessageLevel,
+}
+
 export global Api {
     // # Properties
     // ## General preview state:
@@ -254,12 +268,15 @@ export global Api {
     // control, but command on macOS
     in-out property <string> control-key-name: "control";
 
+    // ## Log Output
+    in-out property <[LogMessage]> log-output;
+
     // ## Drawing Area
     // Borders around things
     in property <[Selection]> selections;
     in-out property <DropMark> drop-mark;
     // The actual preview
-    in property <component-factory> preview-area;
+    in-out property <component-factory> preview-area;
 
     // set to true to resize
     in property <bool> resize-to-preferred-size: false;
@@ -554,4 +571,8 @@ export global Api {
     pure callback filter-palettes(palettes: [PaletteEntry], pattern: string) -> [PaletteEntry];
     callback add-recent-color(color);
     pure callback is-css-color(code: string) -> bool;
+
+    // Console / LogMessages
+    pure callback filter-log-messages(messages: [LogMessage], pattern: string) -> [LogMessage];
+    callback clear-log-messages();
 }

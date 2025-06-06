@@ -21,6 +21,8 @@ export global Icons {
     out property <image> close: @image-url("../assets/close.svg");
     out property <image> plus: @image-url("../assets/plus.svg");
     out property <image> minus: @image-url("../assets/minus.svg");
+    out property <image> info: @image-url("../assets/info.svg");
+    out property <image> clear: @image-url("../assets/clear.svg");
 }
 
 export struct TextStyle {
@@ -68,15 +70,28 @@ export global EditorSizeSettings {
 }
 
 export global PickerStyles {
+    property <bool> dark-scheme: Palette.color-scheme == ColorScheme.dark;
     out property <length> picker-width: 240px;
     out property <color> focused-color: #0c8ce9;
-    out property <color> focused-stop-color: Palette.color-scheme == ColorScheme.dark ? #4a5878 : #b5ccdd;
-    out property <color> slider-color: Palette.color-scheme == ColorScheme.dark ? EditorPalette.section-color : #b5ccdd;
+    out property <color> focused-stop-color: dark-scheme ? #4a5878 : #b5ccdd;
+    out property <color> slider-color: dark-scheme ? EditorPalette.section-color : #b5ccdd;
+}
+
+export global ConsoleStyles {
+    property <bool> dark-scheme: Palette.color-scheme == ColorScheme.dark;
+    out property <color> header-background: dark-scheme ?  #2c2c2c : #eaeaea;
+    out property <color> divider-line: dark-scheme ? #454a54 : #e0e0e0;
+    out property <color> log-background: dark-scheme ?  #262626 : #ffffff;
+    out property <color> text-color: dark-scheme ? #cccccc : #525252;
+    out property <color> toolbar-background: dark-scheme ? #2c2c2c : #f3f3f3;
+    out property <length> header-height: 28px;
+    out property <length> log-height: 120px;
+    out property <color> slint-blue: #0088ff;
 }
 
 export global EditorPalette {
 
-    property <bool> dark-color-scheme: Palette.color-scheme == ColorScheme.dark;
+    out property <bool> dark-scheme: Palette.color-scheme == ColorScheme.dark;
 
     out property <brush> drop-mark-background: #00ff0080;
     out property <brush> drop-mark-foreground: #00ff00ff;
@@ -90,11 +105,11 @@ export global EditorPalette {
     out property <brush> layout-element-selection-secondary: #ff8af9;
     out property <brush> shadow-gradient: @linear-gradient(0deg, Palette.foreground.transparentize(1), Palette.foreground.transparentize(0.75));
 
-    out property <brush> state-hovered: root.dark-color-scheme ? #ffffff.with-alpha(0.1) : #000000.with-alpha(0.1);
-    out property <brush> state-pressed: root.dark-color-scheme ? #ffffff.with-alpha(0.2) : #000000.with-alpha(0.2);
-    out property <color> text-color: Palette.color-scheme == ColorScheme.dark ? white : #383838;
-    out property <color> section-color: Palette.color-scheme == ColorScheme.dark ? #3f3f3f : #e6e6e6;
-    out property <color> divider-color: Palette.color-scheme == ColorScheme.dark ? #444444 : #e6e6e6;
+    out property <brush> state-hovered: dark-scheme ? #ffffff.with-alpha(0.1) : #000000.with-alpha(0.1);
+    out property <brush> state-pressed: dark-scheme ? #ffffff.with-alpha(0.2) : #000000.with-alpha(0.2);
+    out property <color> text-color: dark-scheme ? white : #383838;
+    out property <color> section-color: dark-scheme ? #3f3f3f : #e6e6e6;
+    out property <color> divider-color: dark-scheme ? #444444 : #e6e6e6;
 }
 
 export global EditorAnimationSettings {
