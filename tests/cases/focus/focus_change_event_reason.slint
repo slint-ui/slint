@@ -44,7 +44,7 @@ let instance = TestCase::new().unwrap();
 // gain focus from tabbing
 slint_testing::send_keyboard_string_sequence(&instance, "\t");
 assert!(instance.get_scope_has_focus());
-assert_eq!(instance.get_scope_focus_reason(), FocusReason::KeyboardNavigation);
+assert_eq!(instance.get_scope_focus_reason(), FocusReason::TabNavigation);
 
 // lose focus from tabbing
 slint_testing::send_keyboard_string_sequence(&instance, "\t");
@@ -53,12 +53,12 @@ assert!(!instance.get_scope_has_focus());
 // gain focus from clicking
 slint_testing::send_mouse_click(&instance, 5., 5.);
 assert!(instance.get_scope_has_focus());
-assert_eq!(instance.get_scope_focus_reason(), FocusReason::Clicked);
+assert_eq!(instance.get_scope_focus_reason(), FocusReason::PointerClick);
 
 // lose focus from clicking
 slint_testing::send_mouse_click(&instance, 5., 300.);
 assert!(!instance.get_scope_has_focus());
-assert_eq!(instance.get_scope_focus_reason(), FocusReason::Clicked);
+assert_eq!(instance.get_scope_focus_reason(), FocusReason::PointerClick);
 
 // tab to refocus for further testing
 slint_testing::send_keyboard_string_sequence(&instance, "\t");
@@ -104,7 +104,7 @@ const TestCase &instance = *handle;
 // gain focus from tabbing
 slint_testing::send_keyboard_string_sequence(&instance, "\t");
 assert(instance.get_scope_has_focus());
-assert(instance.get_scope_focus_reason() == FocusReason::KeyboardNavigation);
+assert(instance.get_scope_focus_reason() == FocusReason::TabNavigation);
 
 // lose focus from tabbing
 slint_testing::send_keyboard_string_sequence(&instance, "\t");
@@ -113,12 +113,12 @@ assert(!instance.get_scope_has_focus());
 // gain focus from clicking
 slint_testing::send_mouse_click(&instance, 5., 5.);
 assert(instance.get_scope_has_focus());
-assert(instance.get_scope_focus_reason() == FocusReason::Clicked);
+assert(instance.get_scope_focus_reason() == FocusReason::PointerClick);
 
 // lose focus from clicking
 slint_testing::send_mouse_click(&instance, 5., 300.);
 assert(!instance.get_scope_has_focus());
-assert(instance.get_scope_focus_reason() == FocusReason::Clicked);
+assert(instance.get_scope_focus_reason() == FocusReason::PointerClick);
 
 // tab to refocus for further testing
 slint_testing::send_keyboard_string_sequence(&instance, "\t");

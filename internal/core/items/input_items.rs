@@ -299,7 +299,7 @@ impl Item for FocusScope {
             WindowInner::from_pub(window_adapter.window()).set_focus_item(
                 self_rc,
                 true,
-                FocusReason::Clicked,
+                FocusReason::PointerClick,
             );
             InputEventResult::EventAccepted
         } else {

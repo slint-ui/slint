@@ -36,7 +36,7 @@ All notable changes to this project are documented in this file.
  - Fixed `ScrollView` scrollbar actions not triggering `scrolled` callback (#8170)
  - Added content-padding to GroupBox (#8314)
  - TextEdit/LineEdit: disable context menu action when the widget is disabled or read-only
- - Added `mouse-drag` property to `ScrollView` (#8512)
+ - Added `mouse-drag-pan-enabled` property to `ScrollView` (#8512)
 
 ### Rust
 
