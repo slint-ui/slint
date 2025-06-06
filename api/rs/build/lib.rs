@@ -179,6 +179,8 @@ impl CompilerConfiguration {
     ///
     /// It expects the path to be the root directory of the translation files.
     ///
+    /// If given a relative path, it will be resolved relative to `$CARGO_MANIFEST_DIR`.
+    ///
     /// The translation files should be in the gettext `.po` format and follow this pattern:
     /// `<path>/<lang>/LC_MESSAGES/<crate>.po`
     #[must_use]
