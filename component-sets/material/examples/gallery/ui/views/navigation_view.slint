@@ -458,11 +458,11 @@ export component NavigationView {
                             placeholder: "hint text";
                             supporting_text: "supporting text";
 
-                            leading_clicked => {
+                            leading_icon_clicked => {
                                 self.focus();
                             }
 
-                            trailing_clicked => {
+                            trailing_icon_clicked => {
                                 self.text = "";
                             }
                         }
@@ -478,11 +478,11 @@ export component NavigationView {
                             supporting_text: "error text";
                             has_error: true;
 
-                            leading_clicked => {
+                            leading_icon_clicked => {
                                 self.focus();
                             }
 
-                            trailing_clicked => {
+                            trailing_icon_clicked => {
                                 self.text = "";
                             }
                         }
