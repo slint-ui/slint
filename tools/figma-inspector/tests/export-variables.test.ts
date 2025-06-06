@@ -549,7 +549,7 @@ test("uses properly formatted collection names in file headers", async () => {
     );
 });
 
-test("preserves legitimate cross-references and only resolves circular ones", async () => {
+test("resolves all references including legitimate cross-references to concrete values", async () => {
     const mockCollection = {
         id: "collection1",
         name: "Colors",
@@ -623,12 +623,13 @@ test("preserves legitimate cross-references and only resolves circular ones", as
     expect(result[0].content).toContain("circular1");
     expect(result[0].content).toContain("circular2");
 
-    // The legitimate reference (var2 -> var1) should potentially be preserved as a reference
-    // The circular references (var3 <-> var4) should be resolved to concrete values
+    // With resolution-based approach, ALL references are resolved to concrete values
+    // Both legitimate references (var2 -> var1) and circular references (var3 <-> var4)
+    // are resolved to concrete values to eliminate "Missing data for mode" errors
     expect(result[0].content).toBeDefined();
 });
 
-test("resolves circular references while preserving legitimate cross-references", async () => {
+test("resolves all references to concrete values (resolution-based approach)", async () => {
     // Setup mock collection
     const mockCollection = {
         id: "collection1",
@@ -697,16 +698,69 @@ test("resolves circular references while preserving legitimate cross-references"
     const result = await exportFigmaVariablesToSeparateFiles(false);
     const content = result[0].content;
 
-    // Check that legitimate cross-reference is preserved
-    expect(content).toContain("accent: test-colors.primary");
+    // With resolution-based approach, ALL references are resolved to concrete values
+    // The legitimate cross-reference (var2 -> var1) should be resolved to the concrete value
+    expect(content).toContain("accent: #ff0000"); // Resolved to concrete red value from var1
 
     // Check that circular references are resolved to concrete values (not references)
     expect(content).not.toContain("circular1: test-colors.circular2");
     expect(content).not.toContain("circular2: test-colors.circular1");
 
-    // Check that circular references have some resolved value
+    // Check that circular references have some resolved value (likely default fallback)
     expect(content).toContain("circular1:");
     expect(content).toContain("circular2:");
 
     console.log("Generated content:", content);
+});
+
+test("shows readable variable names in comments for resolved references", async () => {
+    const mockCollection = {
+        id: "collection1",
+        name: "Colors",
+        modes: [{ modeId: "mode1", name: "Default" }],
+        variableIds: ["var1", "var2"],
+    };
+
+    const mockVariable1 = {
+        id: "var1",
+        name: "primary-color",
+        type: "COLOR",
+        resolvedType: "COLOR",
+        valuesByMode: {
+            mode1: { r: 1, g: 0, b: 0, a: 1 },
+        },
+    };
+
+    const mockVariable2 = {
+        id: "var2",
+        name: "accent-color",
+        type: "COLOR",
+        resolvedType: "COLOR",
+        valuesByMode: {
+            mode1: { type: "VARIABLE_ALIAS", id: "var1" },
+        },
+    };
+
+    mockFigma.variables.getLocalVariableCollectionsAsync.mockResolvedValue([
+        mockCollection,
+    ]);
+    mockFigma.variables.getVariableByIdAsync.mockImplementation((id) => {
+        if (id === "var1") {
+            return Promise.resolve(mockVariable1);
+        }
+        if (id === "var2") {
+            return Promise.resolve(mockVariable2);
+        }
+        return Promise.resolve(null);
+    });
+
+    const result = await exportFigmaVariablesToSeparateFiles(false);
+
+    console.log("Test result content:", result[0].content);
+
+    // Verify that comments show variable names instead of IDs
+    expect(result[0].content).toContain(
+        "Resolved from reference primary-color",
+    );
+    expect(result[0].content).not.toContain("Resolved from reference var1");
 });

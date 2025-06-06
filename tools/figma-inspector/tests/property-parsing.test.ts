@@ -184,7 +184,7 @@ test("Vector node", async () => {
     expect(jsonNode).not.toBeNull();
     const convertToApiJson = processVectorNode(jsonNode);
     const snippet = await generatePathNodeSnippet(convertToApiJson, false);
-    const expectedSnippet = `vector_test := Path {
+    const expectedSnippet = `vector-test := Path {
 ${indentation}commands: "M10 10L90 90";
 ${indentation}fill: #2e5adf;
 ${indentation}stroke: #000000;
