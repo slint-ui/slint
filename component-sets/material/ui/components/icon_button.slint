@@ -16,6 +16,7 @@ export component IconButton {
     in property <bool> enabled <=> base.enabled;
     in property <bool> inverse;
     in property <bool> inline: false;
+    in property <bool> has_error;
 
     callback clicked();
 
@@ -29,7 +30,7 @@ export component IconButton {
     base := BaseButton {
         icon: root.checked ? root.icon_checked : root.icon;
         border_radius: self.height / 2;
-        color: root.inverse ? MaterialPalette.inverse_on_surface : MaterialPalette.on_surface_variant;
+        color: root.has_error ? MaterialPalette.error : root.inverse ? MaterialPalette.inverse_on_surface : MaterialPalette.on_surface_variant;
         horizontal_padding: 0;
         vertical_padding: 0;
         width: self.height;

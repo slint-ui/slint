@@ -28,7 +28,8 @@ import {
     InputChip,
     TimePicker,
     Switch,
-    Slider
+    Slider,
+    TextField
 } from "../../../../material.slint";
 
 import { Group } from "../components/group.slint";
@@ -436,6 +437,64 @@ export component NavigationView {
                     Horizontal {
                         Slider {
                             divisions: 5;
+                        }
+                    }
+                }
+            }
+        }
+
+        Group {
+            title: "Text inputs";
+
+            ComponentCard {
+                title: "Text fields";
+
+                Vertical {
+                    Horizontal {
+                        top_tf := TextField {
+                            leading_icon: FilledIcons.search;
+                            trailing_icon: FilledIcons.close;
+                            label: "Filled";
+                            placeholder: "hint text";
+                            supporting_text: "supporting text";
+
+                            leading_clicked => {
+                                self.focus();
+                            }
+
+                            trailing_clicked => {
+                                self.text = "";
+                            }
+                        }
+                    }
+
+                    Horizontal {
+                        TextField {
+                            text <=> top_tf.text;
+                            leading_icon: FilledIcons.search;
+                            trailing_icon: FilledIcons.close;
+                            label: "Filled";
+                            placeholder: "hint text";
+                            supporting_text: "error text";
+                            has_error: true;
+
+                            leading_clicked => {
+                                self.focus();
+                            }
+
+                            trailing_clicked => {
+                                self.text = "";
+                            }
+                        }
+
+                        TextField {
+                            text <=> top_tf.text;
+                            leading_icon: FilledIcons.search;
+                            trailing_icon: FilledIcons.close;
+                            label: "Filled";
+                            placeholder: "hint text";
+                            supporting_text: "supporting text";
+                            enabled: false;
                         }
                     }
                 }

@@ -1,0 +1,215 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { Typography } from "../styling/typography.slint";
+import { MaterialPalette } from "../styling/material_palette.slint";
+import { MaterialStyleMetrics } from "../styling/material_style_metrics.slint";
+import { Animations } from "../styling/animations.slint";
+import { MaterialText } from "./material_text.slint";
+import { IconButton } from "./icon_button.slint";
+import { Icon } from "./icon.slint";
+
+export component TextField {
+    in property <string> label;
+    in property <string> placeholder;
+    in property <string> supporting_text;
+    in property <bool> has_error;
+    in property <image> leading_icon;
+    in property <image> trailing_icon;
+    in property <bool> enabled: true;
+    out property <bool> has_focus: input.has_focus;
+    in_out property <string> text <=> input.text;
+
+    callback leading_icon_clicked();
+    callback trailing_icon_clicked();
+    callback accepted(text: string);
+    callback edited(text: string);
+    callback key_pressed(event: KeyEvent) -> EventResult;
+    callback key_released(event: KeyEvent) -> EventResult;
+
+    property <bool> has_leading: root.leading_icon.width > 0 && root.leading_icon.height > 0;
+    property <bool> has_trailing: root.trailing_icon.width > 0 && root.trailing_icon.height > 0;
+    property <length> computed_x;
+    property <color> highlight: root.enabled && root.has_error ? MaterialPalette.error : root.has_focus ? MaterialPalette.primary : MaterialPalette.on_surface_variant;
+
+    forward_focus: input;
+    accessible-role: text-input;
+    accessible-enabled: root.enabled;
+    accessible-value <=> text;
+    accessible-placeholder-text: root.text == "" ? placeholder : "";
+    accessible-action-set-value(v) => { text = v; edited(v); }
+
+    layout := VerticalLayout {
+        spacing: MaterialStyleMetrics.spacing_4;
+
+        background_layer := Rectangle {
+            border_top_left_radius: MaterialStyleMetrics.border_radius_4;
+            border_top_right_radius: MaterialStyleMetrics.border_radius_4;
+            background: MaterialPalette.surface_container_highest;
+            min_height: max(MaterialStyleMetrics.size_56, inner_layout.min_height);
+
+
+            touch_area := TouchArea {
+                width: 100%;
+                height: 100%;
+            }
+
+            inner_layout := HorizontalLayout {
+                padding_left: root.has_leading ? MaterialStyleMetrics.padding_4 : MaterialStyleMetrics.padding_16;
+                padding_right: root.has_trailing ? MaterialStyleMetrics.padding_4 : MaterialStyleMetrics.padding_16;
+                padding_top: MaterialStyleMetrics.padding_4;
+                padding_bottom: self.padding_top;
+                spacing: MaterialStyleMetrics.spacing_2;
+
+                if root.has_leading : IconButton {
+                    icon: root.leading_icon;
+                    enabled: root.enabled;
+
+                    clicked => {
+                        root.leading_icon_clicked();
+                    }
+                }
+
+                HorizontalLayout {
+                    padding_top: MaterialStyleMetrics.padding_4;
+                    padding_bottom: self.padding_top;
+
+                    Rectangle {
+                        horizontal_stretch: 1;
+                        clip: true;
+                        min_height: input.min_height;
+
+
+                        input := TextInput {
+                            x: min(0px, max(parent.width - self.width - self.text_cursor_width, root.computed_x));
+                            width: max(parent.width - self.text-cursor-width, self.preferred-width);
+                            font_size: Typography.body_large.font_size;
+                            font_weight: Typography.body_large.font_weight;
+                            text_cursor_width: MaterialStyleMetrics.size_3;
+                            vertical_alignment: bottom;
+                            single_line: true;
+                            color: MaterialPalette.on_surface;
+                            selection_background_color: MaterialPalette.primary.with_alpha(0.5);
+                            selection_foreground_color: self.color;
+                            enabled: root.enabled;
+                             // Disable TextInput's built-in accessibility support as the component takes care of that.
+                            accessible-role: none;
+
+                            cursor_position_changed(cursor_position) => {
+                                if cursor_position.x + root.computed_x < 0 {
+                                    root.computed_x = - cursor_position.x;
+                                } else if cursor-position.x + root.computed_x > parent.width - self.text-cursor-width {
+                                    root.computed_x = parent.width - cursor_position.x - self.text-cursor-width;
+                                }
+                            }
+
+                            accepted => {
+                                root.accepted(self.text);
+                            }
+
+                            edited => {
+                                root.edited(self.text);
+                            }
+
+                            key_pressed(event) => {
+                                root.key_pressed(event)
+                            }
+
+                            key_released(event) => {
+                                root.key_released(event)
+                            }
+                        }
+
+                        text_label := MaterialText {
+                            y: (parent.height - self.height) / 2;
+                            width: 100%;
+                            text: root.label;
+                            color: root.highlight;
+                            style: Typography.body_large;
+
+                            states [
+                                on_top when root.text != "" || input.has_focus : {
+                                    y: 0;
+                                    style: Typography.body_small;
+                                }
+                            ]
+
+                            animate font_size, y {
+                                 duration: Animations.standard_fast_duration;
+                                 easing: Animations.standard_easing;
+                            }
+                        }
+                    }
+                }
+
+                if root.trailing_icon.width > 0 && root.trailing_icon.height > 0 : IconButton {
+                    icon: root.trailing_icon;
+                    enabled: root.enabled;
+                    has_error: root.has_error;
+
+                    clicked => {
+                        root.trailing_icon_clicked();
+                    }
+                }
+            }
+
+            active_indicator := Rectangle {
+                y: parent.height - self.height;
+                height: MaterialStyleMetrics.size_1;
+                background: touch_area.has-hover ? green : root.highlight;
+
+                animate height {
+                     duration: Animations.standard_fast_duration;
+                     easing: Animations.standard_easing;
+                }
+            }
+        }
+
+        if root.supporting_text != "" : HorizontalLayout {
+            padding_left: MaterialStyleMetrics.padding_16;
+            padding_right: self.padding_left;
+
+            supporting_text := MaterialText {
+                text: root.supporting_text;
+                style: Typography.body_small;
+                color: root.highlight;
+                opacity: root.enabled ? 1 : MaterialPalette.disable_opacity;
+            }
+        }
+    }
+
+    public function set_selection_offsets(start: int, end: int) {
+        input.set_selection_offsets(start, end);
+    }
+
+    public function select_all() {
+        input.select_all();
+    }
+
+    public function clear_selection() {
+        input.clear_selection();
+    }
+
+    public function cut() {
+        input.cut();
+    }
+
+    public function copy() {
+        input.copy();
+    }
+
+    public function paste() {
+        input.paste();
+    }
+
+    states [
+        disabled when !root.enabled : {
+            background_layer.background: MaterialPalette.surface_container_highest.with_alpha(MaterialPalette.disable_opacity);
+            text_label.opacity: MaterialPalette.disable_opacity;
+            input.opacity: MaterialPalette.disable_opacity;
+        }
+        focused when input.has_focus : {
+            active_indicator.height: MaterialStyleMetrics.size_3;
+        }
+    ]
+}
