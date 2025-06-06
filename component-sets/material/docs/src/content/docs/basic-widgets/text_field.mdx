@@ -97,23 +97,23 @@ Pastes the text content of the clipboard at the cursor position.
 
 ## Callbacks
 
-### leading_clicked()
+### leading_icon_clicked()
 Invoked when the leading icon is clicked.
 
 ```slint {2-4}
 TextField {
-    leading_clicked() => {
+    leading_icon_clicked() => {
         debug("Leading icon clicked");
     }
 }
 ```
 
-### trailing_clicked()
+### trailing_icon_clicked()
 Invoked when the trailing icon is clicked.
 
 ```slint {2-4}
 TextField {
-    trailing_clicked() => {
+    trailing_icon_clicked() => {
         debug("Trailing icon clicked");
     }
 }

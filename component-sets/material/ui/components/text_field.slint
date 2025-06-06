@@ -20,8 +20,8 @@ export component TextField {
     out property <bool> has_focus: input.has_focus;
     in_out property <string> text <=> input.text;
 
-    callback leading_clicked();
-    callback trailing_clicked();
+    callback leading_icon_clicked();
+    callback trailing_icon_clicked();
     callback accepted(text: string);
     callback edited(text: string);
     callback key_pressed(event: KeyEvent) -> EventResult;
@@ -66,7 +66,7 @@ export component TextField {
                     enabled: root.enabled;
 
                     clicked => {
-                        root.leading_clicked();
+                        root.leading_icon_clicked();
                     }
                 }
 
@@ -85,6 +85,7 @@ export component TextField {
                             width: max(parent.width - self.text-cursor-width, self.preferred-width);
                             font_size: Typography.body_large.font_size;
                             font_weight: Typography.body_large.font_weight;
+                            text_cursor_width: MaterialStyleMetrics.size_3;
                             vertical_alignment: bottom;
                             single_line: true;
                             color: MaterialPalette.on_surface;
@@ -147,7 +148,7 @@ export component TextField {
                     has_error: root.has_error;
 
                     clicked => {
-                        root.trailing_clicked();
+                        root.trailing_icon_clicked();
                     }
                 }
             }
