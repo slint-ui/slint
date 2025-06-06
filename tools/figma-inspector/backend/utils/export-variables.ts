@@ -62,23 +62,21 @@ export function sanitizePropertyName(name: string): string {
     }
 
     // Replace problematic characters BEFORE checking for leading digit
+    // Within individual hierarchy parts: spaces and special chars become hyphens, preserve existing hyphens
     sanitizedName = sanitizedName
-        .replace(/&/g, "and") // Replace &
-        .replace(/\(/g, "_") // Replace ( with _
-        .replace(/\)/g, "_") // Replace ) with _
-        .replace(/—/g, "_") // Replace em dash with underscore
-        .replace(/[^a-zA-Z0-9_]/g, "_") // Replace other invalid chars (including -, +, :, etc.) with _
-        .replace(/__+/g, "_"); // Collapse multiple underscores
+        .replace(/&/g, "and") // Replace & with 'and'
+        .replace(/[^a-zA-Z0-9\-]/g, "-") // Replace non-alphanumeric chars (except hyphens) with hyphens
+        .replace(/-+/g, "-"); // Collapse multiple hyphens to single hyphen
 
-    // Remove trailing underscores
-    sanitizedName = sanitizedName.replace(/_+$/, "");
+    // Remove trailing hyphens
+    sanitizedName = sanitizedName.replace(/-+$/, "");
 
     // Check if starts with a digit AFTER other sanitization
     if (/^\d/.test(sanitizedName)) {
         return `_${sanitizedName}`;
     }
 
-    // Ensure it's not empty again after trailing underscore removal
+    // Ensure it's not empty again after trailing cleanup
     if (!sanitizedName || sanitizedName.trim() === "") {
         return "property";
     }
@@ -109,54 +107,7 @@ function sanitizeModeForEnum(name: string): string {
     // Replace any characters that are invalid in identifiers
     return name.replace(/[^a-zA-Z0-9_]/g, "_");
 }
-// helper to detect cycles in dependency graph
-function detectCycle(
-    dependencies: Map<string, Set<string>>,
-    exportInfo: {
-        renamedVariables: Set<string>;
-        circularReferences: Set<string>;
-        warnings: Set<string>;
-        features: Set<string>;
-        collections: Set<string>;
-    },
-): boolean {
-    const visiting = new Set<string>(); // Nodes currently in the recursion stack
-    const visited = new Set<string>(); // Nodes already fully explored
 
-    function dfs(node: string): boolean {
-        visiting.add(node);
-        visited.add(node);
-
-        const neighbors = dependencies.get(node) || new Set();
-        for (const neighbor of neighbors) {
-            if (!visited.has(neighbor)) {
-                if (dfs(neighbor)) {
-                    return true; // Cycle found downstream
-                }
-            } else if (visiting.has(neighbor)) {
-                exportInfo.warnings.add(
-                    `Dependency cycle detected involving: ${node} -> ${neighbor}`,
-                );
-
-                return true;
-            }
-        }
-
-        visiting.delete(node); // Remove node from current path stack
-        return false;
-    }
-
-    // Check for cycles starting from each node
-    for (const node of dependencies.keys()) {
-        if (!visited.has(node)) {
-            if (dfs(node)) {
-                return true; // Cycle found
-            }
-        }
-    }
-
-    return false; // No cycles found in the entire graph
-}
 // Extract hierarchy from variable name (e.g. "colors/primary/base" → ["colors", "primary", "base"])
 export function extractHierarchy(name: string): string[] {
     // First try splitting by slashes (the expected format)
@@ -168,362 +119,117 @@ export function extractHierarchy(name: string): string[] {
     return [sanitizePropertyName(name)];
 }
 
-function createReferenceExpression(
-    referenceId: string,
-    sourceModeName: string, // The mode of the variable *requesting* the reference
-    variablePathsById: Map<
-        string,
-        { collection: string; node: VariableNode; path: string[] }
-    >,
-    collectionStructure: Map<string, any>, // Replace 'any' with a specific type if available
-    currentCollection: string, // The collection name (e.g., "system_colors") of the variable *requesting* the reference
-    currentPath: string[], // The path of the variable *requesting* the reference
-    resolutionStack: string[] = [], // Stack to detect loops
-    finalExportAsSingleFile: boolean, // Keep for potential future use
-    exportInfo: {
-        renamedVariables: Set<string>;
-        circularReferences: Set<string>;
-        warnings: Set<string>;
-        features: Set<string>;
-        collections: Set<string>;
-    },
-): {
-    value: string | null;
-    importStatement?: string; // Keep for structure, but will be undefined
-    isCircular?: boolean;
-    comment?: string;
-} {
-    // Target Info
-    const targetInfo = variablePathsById.get(referenceId);
-    if (!targetInfo) {
-        exportInfo.warnings.add(
-            `Reference path not found for ID: ${referenceId}`,
-        );
-        return {
-            value: null,
-            isCircular: true,
-            comment: `Unresolved reference ID: ${referenceId}`,
-        };
+// Helper function to get original Figma variable data
+async function getOriginalVariableData(variableId: string) {
+    try {
+        return await figma.variables.getVariableByIdAsync(variableId);
+    } catch (error) {
+        console.warn(`Could not fetch variable ${variableId}:`, error);
+        return null;
+    }
+}
+
+// Helper function to follow a reference chain to find a concrete value
+async function followChainToConcreteValue(
+    refId: string,
+    modeName: string,
+    visited: Set<string> = new Set(),
+): Promise<string | null> {
+    if (visited.has(refId)) {
+        return null; // Circular reference in the chain
+    }
+    visited.add(refId);
+
+    // Get the original Figma variable data
+    const originalVariable = await getOriginalVariableData(refId);
+    if (!originalVariable) {
+        return null;
     }
 
-    const {
-        collection: targetCollection,
-        node: targetNode,
-        path: targetPath,
-    } = targetInfo;
-
-    const isCrossCollection = targetCollection !== currentCollection;
-
-    // Loop Detection
-    const targetCollectionData = collectionStructure.get(targetCollection);
-    const formattedTargetCollection =
-        targetCollectionData?.formattedName || targetCollection;
-
-    const targetIdentifier = `${formattedTargetCollection}.${targetPath.map((part) => sanitizePropertyName(part)).join(".")}`;
-    if (resolutionStack.includes(targetIdentifier)) {
-        const loopPath = `${resolutionStack.join(" -> ")} -> ${targetIdentifier}`;
-        exportInfo.circularReferences.add(
-            `${loopPath} (resolved with value/default)`,
-        );
-
-        //  Handle Same-Collection Loop by Resolving Target's Value
-        if (!isCrossCollection) {
-            const targetCollectionDataLoop =
-                collectionStructure.get(targetCollection);
-            const propertyPathLoop = targetPath
-                .map((part) => sanitizePropertyName(part))
-                .join("/");
-            const targetVariableModesMapLoop =
-                targetCollectionDataLoop?.variables.get(propertyPathLoop);
-
-            if (targetVariableModesMapLoop) {
-                const sanitizedSourceModeLoop =
-                    sanitizeModeForEnum(sourceModeName);
-                // Try to get the target's value for the specific mode involved in the loop start
-                let modeDataToUseLoop = targetVariableModesMapLoop.get(
-                    sanitizedSourceModeLoop,
+    // Look for a concrete value in any mode
+    for (const [, value] of Object.entries(originalVariable.valuesByMode)) {
+        // Check if this value is concrete (not a reference)
+        if (
+            typeof value === "object" &&
+            "type" in value &&
+            value.type === "VARIABLE_ALIAS"
+        ) {
+            // This is still a reference, continue following the chain
+            const aliasValue = value as any;
+            if (aliasValue.id) {
+                const result = await followChainToConcreteValue(
+                    aliasValue.id,
+                    modeName,
+                    visited,
                 );
-                let usedModeNameLoop = sanitizedSourceModeLoop;
-
-                // If target doesn't have the exact source mode, try its first mode as fallback
-                if (!modeDataToUseLoop) {
-                    const firstEntry = targetVariableModesMapLoop
-                        .entries()
-                        .next();
-                    if (!firstEntry.done) {
-                        usedModeNameLoop = firstEntry.value[0];
-                        modeDataToUseLoop = firstEntry.value[1];
-                    }
+                if (result !== null) {
+                    return result;
                 }
-
-                // If we found data for a mode AND it has a concrete value (not another alias)
-                if (modeDataToUseLoop && !modeDataToUseLoop.refId) {
-                    return {
-                        value: modeDataToUseLoop.value,
-                        isCircular: true, // Still mark as circular for info, but provide value
-                        comment: `Loop broken by using value from ${targetIdentifier}`,
-                    };
-                } else {
-                    console.warn(
-                        `  Loop break failed: Target ${targetIdentifier} (mode: ${usedModeNameLoop}) is also an alias or has no value. Falling back to default.`,
-                    );
-                }
-            } else {
-                console.warn(
-                    `  Loop break failed: Could not find target variable data for ${targetIdentifier} during loop break. Falling back to default.`,
-                );
             }
-        }
-
-        // Fallback for Cross-Collection Loops or Failed Same-Collection Break
-        const targetType = targetNode?.type || "COLOR";
-        const slintType = getSlintType(targetType);
-        const defaultValue =
-            slintType === "brush"
-                ? "#808080"
-                : slintType === "length"
-                  ? "0px"
-                  : slintType === "string"
-                    ? '""'
-                    : slintType === "bool"
-                      ? "false"
-                      : "#808080"; // Fallback default
-
-        return {
-            value: defaultValue,
-            isCircular: true,
-            comment: `Loop detected, resolved with default: ${targetIdentifier}`,
-        };
-    }
-
-    // Resolve Target Value or Nested Reference
-    const targetCollectionDataForLoop =
-        collectionStructure.get(targetCollection);
-    if (!targetCollectionData) {
-        exportInfo.warnings.add(
-            `Target collection data not found: ${targetCollection}`,
-        );
-        return {
-            value: null,
-            isCircular: true,
-            comment: `Missing target collection data: ${targetCollection}`,
-        };
-    }
-
-    const propertyPath = targetPath
-        .map((part) => sanitizePropertyName(part))
-        .join("/");
-    const targetVariableModesMap =
-        targetCollectionDataForLoop?.variables.get(propertyPath);
-
-    if (!targetVariableModesMap) {
-        exportInfo.warnings.add(
-            `Target variable data not found: ${targetCollection}.${propertyPath}`,
-        );
-        const targetType = targetNode?.type || "COLOR";
-        const slintType = getSlintType(targetType);
-        const defaultValue =
-            slintType === "brush"
-                ? "#FF00FF"
-                : slintType === "length"
-                  ? "0px"
-                  : slintType === "string"
-                    ? '""'
-                    : slintType === "bool"
-                      ? "false"
-                      : "#FF00FF";
-
-        return {
-            value: defaultValue,
-            isCircular: true,
-            comment: `Missing target variable data: ${targetIdentifier}`,
-        };
-    }
-
-    // Determine the correct mode's data to use from the target
-    const sanitizedSourceMode = sanitizeModeForEnum(sourceModeName);
-    const targetModes = targetCollectionData.modes as Set<string>;
-    let modeDataToUse:
-        | { value: string; refId?: string; comment?: string }
-        | undefined = undefined;
-    let usedModeName: string | undefined = undefined;
-
-    if (targetModes.size > 1) {
-        if (targetVariableModesMap.has(sanitizedSourceMode)) {
-            modeDataToUse = targetVariableModesMap.get(sanitizedSourceMode);
-            usedModeName = sanitizedSourceMode;
         } else {
-            const firstTargetModeEntry = targetVariableModesMap
-                .entries()
-                .next();
-            if (!firstTargetModeEntry.done) {
-                usedModeName = firstTargetModeEntry.value[0];
-                modeDataToUse = firstTargetModeEntry.value[1];
-                const warningMsg = `Mode mismatch: Source mode '${sourceModeName}' not found in target '${targetIdentifier}'. Using target's mode '${usedModeName}' for reference.`;
-                exportInfo.warnings.add(warningMsg);
-            } else {
-                console.error(
-                    `Target ${targetIdentifier} has >1 modes but couldn't get first mode data.`,
-                );
-                exportInfo.warnings.add(
-                    `Could not determine fallback mode for multi-mode target ${targetIdentifier}.`,
-                );
+            // Found a concrete value - format it properly based on the variable type
+            const concreteValue: any = value;
+
+            if (
+                originalVariable.resolvedType === "COLOR" &&
+                typeof concreteValue === "object" &&
+                "r" in concreteValue
+            ) {
+                // Format color value
+                return rgbToHex({
+                    r: concreteValue.r,
+                    g: concreteValue.g,
+                    b: concreteValue.b,
+                    a: "a" in concreteValue ? concreteValue.a : 1,
+                });
+            } else if (
+                originalVariable.resolvedType === "FLOAT" &&
+                typeof concreteValue === "number"
+            ) {
+                return `${concreteValue}px`;
+            } else if (
+                originalVariable.resolvedType === "STRING" &&
+                typeof concreteValue === "string"
+            ) {
+                return `"${concreteValue}"`;
+            } else if (
+                originalVariable.resolvedType === "BOOLEAN" &&
+                typeof concreteValue === "boolean"
+            ) {
+                return concreteValue ? "true" : "false";
+            } else if (typeof concreteValue === "string") {
+                return concreteValue;
             }
         }
-    } else if (targetModes.size === 1) {
-        const firstTargetModeEntry = targetVariableModesMap.entries().next();
-        if (!firstTargetModeEntry.done) {
-            usedModeName = firstTargetModeEntry.value[0];
-            modeDataToUse = firstTargetModeEntry.value[1];
-        } else {
-            console.error(
-                `Target ${targetIdentifier} is single-mode but couldn't get mode data.`,
-            );
-            exportInfo.warnings.add(
-                `Could not get data for single-mode target ${targetIdentifier}.`,
-            );
-        }
-        const sourceCollectionData = collectionStructure.get(currentCollection);
-        if (sourceCollectionData && sourceCollectionData.modes.size > 1) {
-            const currentIdentifier = `${currentCollection}.${currentPath.join(".")}`;
-            const warningMsg = `Mode mismatch: Source '${currentIdentifier}' is multi-mode but target '${targetIdentifier}' is single-mode. Reference uses target's single mode value.`;
-            exportInfo.warnings.add(warningMsg);
-        }
-    } else {
-        exportInfo.warnings.add(
-            `Target collection ${targetCollection} has no modes defined.`,
-        );
-    }
-    const isCrossHierarchy =
-        currentPath.length > 0 &&
-        targetPath.length > 0 &&
-        currentPath[0] !== targetPath[0];
-
-    if (!isCrossCollection && isCrossHierarchy) {
-        // It's a reference to a different top-level group within the same collection
-        // Construct the Slint path to the target variable
-        const slintPath = [
-            targetCollection, // Should be same as currentCollection here
-            ...targetPath.map((part) => sanitizePropertyName(part)),
-        ].join(".");
-        const needsModeSuffix = targetModes.size > 1;
-        const finalValue =
-            needsModeSuffix && usedModeName
-                ? `${slintPath}.${usedModeName}`
-                : slintPath;
-
-        return {
-            value: finalValue,
-            isCircular: false,
-            comment: `Reference to variable: ${targetIdentifier}`, // Comment indicating it's a direct reference
-        };
     }
 
-    if (modeDataToUse) {
-        // Target is another reference (alias)
-        if (modeDataToUse.refId) {
-            // Add current step to stack before recursing
-            const nextStack = [...resolutionStack, targetIdentifier];
-            const nextSourceMode = usedModeName || sourceModeName;
+    return null;
+}
 
-            const recursiveResult = createReferenceExpression(
-                modeDataToUse.refId,
-                nextSourceMode,
-                variablePathsById,
-                collectionStructure,
-                targetCollection,
-                targetPath,
-                nextStack,
-                finalExportAsSingleFile,
-                exportInfo,
-            );
-            if (recursiveResult.isCircular) {
-                return recursiveResult;
-            } else {
-                const finalComment =
-                    recursiveResult.comment ||
-                    `Resolving binding loop at: ${targetIdentifier}`;
-
-                return {
-                    value: recursiveResult.value,
-                    isCircular: false,
-                    comment: finalComment,
-                    importStatement: recursiveResult.importStatement,
-                };
-            }
-        }
-        // Target holds a concrete value
-        else {
-            let finalValue: string;
-            let finalComment: string | undefined = modeDataToUse.comment;
-            let importStatement: string | undefined = undefined;
-
-            if (isCrossCollection) {
-                const targetCollectionDataForImport =
-                    collectionStructure.get(targetCollection);
-                const targetFormattedName =
-                    targetCollectionDataForImport?.formattedName;
-
-                if (!targetFormattedName) {
-                    exportInfo.warnings.add(
-                        `Could not find formatted name for target collection key: ${targetCollection} when generating import.`,
-                    );
-                    finalValue = modeDataToUse.value;
-                    finalComment = `Could not find formatted name. Resolved same-collection reference to concrete value from ${targetIdentifier}`;
-                    importStatement = undefined;
-                } else {
-                    const slintPath = [
-                        targetFormattedName,
-                        ...targetPath.map((part) => sanitizePropertyName(part)),
-                    ].join(".");
-                    const baseExpr = slintPath;
-                    const needsModeSuffix = targetModes.size > 1;
-
-                    // Assign the full path string to finalValue
-                    finalValue =
-                        needsModeSuffix && usedModeName
-                            ? `${baseExpr}.${usedModeName}`
-                            : baseExpr;
-                    importStatement = `import { ${targetFormattedName} } from "./${targetFormattedName}.slint";\n`;
-                }
-            } else {
-                finalValue = modeDataToUse.value;
-                finalComment = `Resolved same-collection reference to concrete value ${targetIdentifier}`;
-                importStatement = undefined;
-            }
-
-            return {
-                value: finalValue,
-                importStatement: importStatement,
-                isCircular: false,
-                comment: finalComment,
-            };
-        }
-    }
-    // No value data found for the target variable in any relevant mode
-    else {
-        exportInfo.warnings.add(
-            `Missing value data for ${targetIdentifier} in mode ${sourceModeName} or fallback.`,
-        );
-
-        const targetType = targetNode?.type || "COLOR";
-        const slintType = getSlintType(targetType);
-        const defaultValue =
-            slintType === "brush"
-                ? "#FF00FF"
-                : slintType === "length"
-                  ? "0px"
-                  : slintType === "string"
-                    ? '""'
-                    : slintType === "bool"
-                      ? "false"
-                      : "#FF00FF";
-
-        return {
-            value: defaultValue,
-            isCircular: true,
-            comment: `Missing value data resolved with default: ${targetIdentifier}`,
-        };
+function getDefaultValueForType(type: string): string {
+    // Handle both Figma types and Slint types - this should never happen in practice
+    // but we provide a fallback for clear visibility in the generated code
+    switch (type) {
+        // Figma types
+        case "COLOR":
+            return "#FF00FF"; // Magenta for visibility
+        case "FLOAT":
+            return "0px";
+        case "STRING":
+            return '""';
+        case "BOOLEAN":
+            return "false";
+        // Slint types
+        case "brush":
+            return "#FF00FF"; // Magenta for visibility
+        case "length":
+            return "0px";
+        case "string":
+            return '""';
+        case "bool":
+            return "false";
+        default:
+            return "#FF00FF"; // Magenta fallback for visibility
     }
 }
 
@@ -1124,6 +830,9 @@ export async function exportFigmaVariablesToSeparateFiles(
             { collection: string; node: VariableNode; path: string[] }
         >();
 
+        // Build a global map of variable names for readable comments
+        const variableNamesById = new Map<string, string>();
+
         // Initialize structure for all collections first
         for (const collection of variableCollections) {
             const collectionName = sanitizePropertyName(collection.name);
@@ -1146,6 +855,25 @@ export async function exportFigmaVariablesToSeparateFiles(
                     .get(collectionName)!
                     .modes.add(sanitizedMode);
             });
+        }
+
+        // Pre-populate the global variable names map with ALL variables from ALL collections
+        // This ensures cross-collection variable references show readable names in comments
+        for (const collection of variableCollections) {
+            const batchSize = 10; // Use larger batch size for name collection
+            for (let i = 0; i < collection.variableIds.length; i += batchSize) {
+                const batch = collection.variableIds.slice(i, i + batchSize);
+                const batchPromises = batch.map((id) =>
+                    figma.variables.getVariableByIdAsync(id),
+                );
+                const batchResults = await Promise.all(batchPromises);
+
+                for (const variable of batchResults) {
+                    if (variable && variable.name) {
+                        variableNamesById.set(variable.id, variable.name);
+                    }
+                }
+            }
         }
 
         // process the variables for each collection
@@ -1206,23 +934,97 @@ export async function exportFigmaVariablesToSeparateFiles(
                     }
 
                     // Process values for each mode
-                    for (const [modeId, value] of Object.entries(
-                        variable.valuesByMode,
-                    )) {
-                        const modeInfo = collection.modes.find(
-                            (m) => m.modeId === modeId,
+                    // First, create a reverse lookup map for collection modes by both modeId and name
+                    const modeIdToInfo = new Map<
+                        string,
+                        { modeId: string; name: string }
+                    >();
+                    const modeNameToInfo = new Map<
+                        string,
+                        { modeId: string; name: string }
+                    >();
+
+                    for (const mode of collection.modes) {
+                        modeIdToInfo.set(mode.modeId, mode);
+                        // Also index by sanitized name for fallback matching
+                        const sanitizedName = sanitizeModeForEnum(
+                            sanitizePropertyName(mode.name),
                         );
-                        if (!modeInfo) {
+                        modeNameToInfo.set(sanitizedName, mode);
+                    }
+
+                    // Process all modes that the collection expects, not just what's in valuesByMode
+                    for (const collectionMode of collection.modes) {
+                        const modeName = sanitizeModeForEnum(
+                            sanitizePropertyName(collectionMode.name),
+                        );
+
+                        let value: any = null;
+                        let foundModeId: string | null = null;
+
+                        // Strategy 1: Try exact modeId match
+                        if (variable.valuesByMode[collectionMode.modeId]) {
+                            value =
+                                variable.valuesByMode[collectionMode.modeId];
+                            foundModeId = collectionMode.modeId;
+                        } else {
+                            // Strategy 2: Try to find by mode name matching
+                            // Look for a variable mode that when sanitized matches the collection mode name
+                            for (const [varModeId, varValue] of Object.entries(
+                                variable.valuesByMode,
+                            )) {
+                                // Extract the potential mode name from the variable's modeId
+                                // Common patterns: "mode_light" -> "light", "light_mode" -> "light", etc.
+                                const varModeName = varModeId
+                                    .replace(/^(mode_|_mode$)/, "") // Remove mode_ prefix or _mode suffix
+                                    .replace(/_/g, " ") // Replace underscores with spaces
+                                    .toLowerCase();
+
+                                const sanitizedVarModeName =
+                                    sanitizeModeForEnum(
+                                        sanitizePropertyName(varModeName),
+                                    );
+
+                                if (
+                                    sanitizedVarModeName ===
+                                        modeName.toLowerCase() ||
+                                    varModeName ===
+                                        collectionMode.name.toLowerCase()
+                                ) {
+                                    value = varValue;
+                                    foundModeId = varModeId;
+                                    console.log(
+                                        `Found mode name match: ${varModeId} -> ${modeName}`,
+                                    );
+                                    break;
+                                }
+                            }
+
+                            // Strategy 3: If still no match, try any available value as fallback
+                            if (value === null) {
+                                const availableValues = Object.entries(
+                                    variable.valuesByMode,
+                                );
+                                if (availableValues.length > 0) {
+                                    [foundModeId, value] = availableValues[0];
+                                    console.warn(
+                                        `Mode mismatch for variable ${variable.name}: using fallback value from mode ${foundModeId} for expected mode ${modeName}`,
+                                    );
+                                }
+                            }
+                        }
+
+                        // Skip if no value found at all
+                        if (value === null) {
+                            console.warn(
+                                `No value found for variable ${variable.name} in mode ${modeName}`,
+                            );
                             continue;
                         }
 
-                        const modeName = sanitizeModeForEnum(
-                            sanitizePropertyName(modeInfo.name),
-                        );
-
-                        // Format value and track references
+                        // Format value and resolve all references immediately
                         let formattedValue = "";
-                        let refId: string | undefined;
+                        let comment: string | undefined;
 
                         // Process different variable types (COLOR, FLOAT, STRING, BOOLEAN)
                         if (variable.resolvedType === "COLOR") {
@@ -1243,8 +1045,29 @@ export async function exportFigmaVariablesToSeparateFiles(
                                 "type" in value &&
                                 value.type === "VARIABLE_ALIAS"
                             ) {
-                                refId = value.id;
-                                formattedValue = `@ref:${value.id}`;
+                                // Resolve reference to concrete value immediately
+                                const resolvedValue =
+                                    await followChainToConcreteValue(
+                                        value.id,
+                                        modeName,
+                                    );
+                                if (resolvedValue) {
+                                    formattedValue = resolvedValue;
+                                    const referenceName =
+                                        variableNamesById.get(value.id) ||
+                                        value.id;
+                                    comment = `Resolved from reference ${referenceName}`;
+                                } else {
+                                    formattedValue =
+                                        getDefaultValueForType("brush");
+                                    const referenceName =
+                                        variableNamesById.get(value.id) ||
+                                        value.id;
+                                    comment = `Failed to resolve reference ${referenceName}, using default`;
+                                    exportInfo.warnings.add(
+                                        `Failed to resolve COLOR reference ${value.id} for ${variable.name}.${modeName}`,
+                                    );
+                                }
                             }
                         } else if (variable.resolvedType === "FLOAT") {
                             if (typeof value === "number") {
@@ -1255,13 +1078,35 @@ export async function exportFigmaVariablesToSeparateFiles(
                                 "type" in value &&
                                 value.type === "VARIABLE_ALIAS"
                             ) {
-                                refId = value.id;
-                                formattedValue = `@ref:${value.id}`;
+                                // Resolve reference to concrete value immediately
+                                const resolvedValue =
+                                    await followChainToConcreteValue(
+                                        value.id,
+                                        modeName,
+                                    );
+                                if (resolvedValue) {
+                                    formattedValue = resolvedValue;
+                                    const referenceName =
+                                        variableNamesById.get(value.id) ||
+                                        value.id;
+                                    comment = `Resolved from reference ${referenceName}`;
+                                } else {
+                                    formattedValue =
+                                        getDefaultValueForType("length");
+                                    const referenceName =
+                                        variableNamesById.get(value.id) ||
+                                        value.id;
+                                    comment = `Failed to resolve reference ${referenceName}, using default`;
+                                    exportInfo.warnings.add(
+                                        `Failed to resolve FLOAT reference ${value.id} for ${variable.name}.${modeName}`,
+                                    );
+                                }
                             } else {
                                 console.warn(
                                     `Unexpected FLOAT value type: ${typeof value} for ${variable.name}`,
                                 );
-                                formattedValue = "0px";
+                                formattedValue =
+                                    getDefaultValueForType("length");
                             }
                         } else if (variable.resolvedType === "STRING") {
                             if (typeof value === "string") {
@@ -1272,13 +1117,35 @@ export async function exportFigmaVariablesToSeparateFiles(
                                 "type" in value &&
                                 value.type === "VARIABLE_ALIAS"
                             ) {
-                                refId = value.id;
-                                formattedValue = `@ref:${value.id}`;
+                                // Resolve reference to concrete value immediately
+                                const resolvedValue =
+                                    await followChainToConcreteValue(
+                                        value.id,
+                                        modeName,
+                                    );
+                                if (resolvedValue) {
+                                    formattedValue = resolvedValue;
+                                    const referenceName =
+                                        variableNamesById.get(value.id) ||
+                                        value.id;
+                                    comment = `Resolved from reference ${referenceName}`;
+                                } else {
+                                    formattedValue =
+                                        getDefaultValueForType("string");
+                                    const referenceName =
+                                        variableNamesById.get(value.id) ||
+                                        value.id;
+                                    comment = `Failed to resolve reference ${referenceName}, using default`;
+                                    exportInfo.warnings.add(
+                                        `Failed to resolve STRING reference ${value.id} for ${variable.name}.${modeName}`,
+                                    );
+                                }
                             } else {
                                 console.warn(
                                     `Unexpected STRING value type: ${typeof value} for ${variable.name}`,
                                 );
-                                formattedValue = `""`;
+                                formattedValue =
+                                    getDefaultValueForType("string");
                             }
                         } else if (variable.resolvedType === "BOOLEAN") {
                             if (typeof value === "boolean") {
@@ -1289,13 +1156,34 @@ export async function exportFigmaVariablesToSeparateFiles(
                                 "type" in value &&
                                 value.type === "VARIABLE_ALIAS"
                             ) {
-                                refId = value.id;
-                                formattedValue = `@ref:${value.id}`;
+                                // Resolve reference to concrete value immediately
+                                const resolvedValue =
+                                    await followChainToConcreteValue(
+                                        value.id,
+                                        modeName,
+                                    );
+                                if (resolvedValue) {
+                                    formattedValue = resolvedValue;
+                                    const referenceName =
+                                        variableNamesById.get(value.id) ||
+                                        value.id;
+                                    comment = `Resolved from reference ${referenceName}`;
+                                } else {
+                                    formattedValue =
+                                        getDefaultValueForType("bool");
+                                    const referenceName =
+                                        variableNamesById.get(value.id) ||
+                                        value.id;
+                                    comment = `Failed to resolve reference ${referenceName}, using default`;
+                                    exportInfo.warnings.add(
+                                        `Failed to resolve BOOLEAN reference ${value.id} for ${variable.name}.${modeName}`,
+                                    );
+                                }
                             } else {
                                 console.warn(
                                     `Unexpected BOOLEAN value type: ${typeof value} for ${variable.name}`,
                                 );
-                                formattedValue = "false";
+                                formattedValue = getDefaultValueForType("bool");
                             }
                         }
 
@@ -1305,8 +1193,8 @@ export async function exportFigmaVariablesToSeparateFiles(
                             .set(modeName, {
                                 value: formattedValue,
                                 type: variable.resolvedType,
-                                refId: refId,
-                                comment: undefined,
+                                // No refId - all references are resolved to concrete values
+                                comment: comment,
                             });
                     }
 
@@ -1328,252 +1216,18 @@ export async function exportFigmaVariablesToSeparateFiles(
             }
         }
 
-        // Create a Set to track required imports across all collections
-        const requiredImports = new Set<string>();
+        // All references have been resolved to concrete values during variable storage
+        // No need for post-processing since there are no more refId references
+
+        // Since all references are now resolved to concrete values, there are no cross-collection dependencies
         const collectionDependencies = new Map<string, Set<string>>();
-        // Initialize for all collections to handle collections that import nothing
         for (const collection of variableCollections) {
             const collectionName = sanitizePropertyName(collection.name);
             collectionDependencies.set(collectionName, new Set<string>());
         }
-        // process references after all collections are initialized
-        for (const collection of variableCollections) {
-            const collectionName = sanitizePropertyName(collection.name);
 
-            for (const [rowName, columns] of collectionStructure
-                .get(collectionName)!
-                .variables.entries()) {
-                for (const [colName, data] of columns.entries()) {
-                    // Check if this specific mode value is a reference
-                    if (data.refId) {
-                        const resolveToConcreteIfSameStruct = (
-                            refId: string,
-                            currentCollectionName: string,
-                            currentRowName: string,
-                            visited: Set<string> = new Set(),
-                        ): { value: string; comment: string } | null => {
-                            if (visited.has(refId)) {
-                                return null; // Circular reference
-                            }
-                            visited.add(refId);
-
-                            const targetInfo = variablePathsById.get(refId);
-                            if (!targetInfo) return null;
-
-                            // Recursively follow the reference chain to find the final target
-                            const findFinalTarget = (
-                                currentRefId: string,
-                                chainVisited: Set<string> = new Set(),
-                            ): {
-                                collection: string;
-                                path: string[];
-                                value?: string;
-                            } | null => {
-                                if (chainVisited.has(currentRefId)) return null;
-                                chainVisited.add(currentRefId);
-
-                                const currentTargetInfo =
-                                    variablePathsById.get(currentRefId);
-                                if (!currentTargetInfo) return null;
-
-                                const targetRowName = currentTargetInfo.path
-                                    .map((p) => sanitizePropertyName(p))
-                                    .join("/");
-                                const targetVarData = collectionStructure
-                                    .get(currentTargetInfo.collection)
-                                    ?.variables.get(targetRowName);
-                                const targetModeData =
-                                    targetVarData?.get(colName) ||
-                                    targetVarData?.values().next().value; // Fallback to first available mode
-                                if (!targetModeData) return null;
-
-                                if (!targetModeData.refId) {
-                                    // Found concrete value - this is the final target
-                                    return {
-                                        collection:
-                                            currentTargetInfo.collection,
-                                        path: currentTargetInfo.path,
-                                        value: targetModeData.value,
-                                    };
-                                } else {
-                                    // Still a reference - continue following the chain
-                                    return findFinalTarget(
-                                        targetModeData.refId,
-                                        chainVisited,
-                                    );
-                                }
-                            };
-
-                            const finalTarget = findFinalTarget(refId);
-                            if (!finalTarget) return null;
-
-                            // Check if the FINAL target is in the same struct as the current variable
-                            const currentFullPath = [
-                                currentCollectionName,
-                                ...currentRowName.split("/"),
-                            ];
-                            const finalTargetFullPath = [
-                                finalTarget.collection,
-                                ...finalTarget.path,
-                            ];
-
-                            // Get parent paths (everything except the last element - the property name)
-                            const currentParent = currentFullPath.slice(0, -1);
-                            const finalTargetParent = finalTargetFullPath.slice(
-                                0,
-                                -1,
-                            );
-
-                            // Only resolve if they're in the EXACT same struct definition
-                            const isSameStruct =
-                                finalTarget.collection ===
-                                    currentCollectionName &&
-                                currentParent.length ===
-                                    finalTargetParent.length &&
-                                currentParent.every(
-                                    (part, i) => part === finalTargetParent[i],
-                                );
-                            if (isSameStruct && finalTarget.value) {
-                                return {
-                                    value: finalTarget.value,
-                                    comment: `Resolved reference chain to concrete value: ${finalTarget.collection}.${finalTarget.path.join(".")}`,
-                                };
-                            }
-
-                            return null;
-                        };
-
-                        const concreteResult = resolveToConcreteIfSameStruct(
-                            data.refId,
-                            collectionName,
-                            rowName,
-                        );
-
-                        if (concreteResult) {
-                            // Replace with concrete value to prevent binding loop
-                            const updatedValue = {
-                                value: concreteResult.value,
-                                type: data.type,
-                                refId: undefined,
-                                comment: concreteResult.comment,
-                            };
-                            collectionStructure
-                                .get(collectionName)!
-                                .variables.get(rowName)!
-                                .set(colName, updatedValue);
-                            continue; // Skip normal reference processing
-                        }
-                        const targetInfoForDependency = variablePathsById.get(
-                            data.refId,
-                        );
-                        if (targetInfoForDependency) {
-                            const targetCollectionForDependency =
-                                targetInfoForDependency.collection;
-                            if (
-                                targetCollectionForDependency !== collectionName
-                            ) {
-                                // collectionDependencies was already initialized for all collections,
-                                // so collectionDependencies.get(collectionName) will return a Set.
-                                collectionDependencies
-                                    .get(collectionName)!
-                                    .add(targetCollectionForDependency);
-                            }
-                        }
-                        // Prepare arguments for the initial call
-                        const currentPathArray = rowName.split("/");
-                        const currentIdentifier = `${collectionName}.${currentPathArray.join(".")}`;
-                        const initialStack = [currentIdentifier];
-
-                        // Call the reference resolution function
-                        const refResult = createReferenceExpression(
-                            data.refId,
-                            colName,
-                            variablePathsById,
-                            collectionStructure,
-                            collectionName,
-                            currentPathArray,
-                            initialStack,
-                            exportAsSingleFile,
-                            exportInfo,
-                            // Pass the parameter here
-                        );
-
-                        // Process the result
-                        if (refResult.value !== null) {
-                            const updatedValue = {
-                                value: refResult.value,
-                                type: data.type,
-                                refId: refResult.isCircular
-                                    ? undefined
-                                    : data.refId,
-                                comment: refResult.comment,
-                            };
-
-                            collectionStructure
-                                .get(collectionName)!
-                                .variables.get(rowName)!
-                                .set(colName, updatedValue);
-                            if (
-                                refResult.importStatement &&
-                                !refResult.isCircular
-                            ) {
-                                // Parse target collection from import statement
-                                const importMatch =
-                                    refResult.importStatement.match(
-                                        /import { ([^,}]+)/,
-                                    );
-                                if (importMatch) {
-                                    const targetCollectionName =
-                                        importMatch[1].trim();
-                                    // Record the dependency: currentCollection -> targetCollectionName
-                                    collectionDependencies
-                                        .get(collectionName)
-                                        ?.add(targetCollectionName);
-                                }
-
-                                // Add import statement ONLY if multi-file mode is intended *initially*
-                                if (!exportAsSingleFile) {
-                                    // Check initial user intent
-                                    requiredImports.add(
-                                        refResult.importStatement,
-                                    );
-                                }
-                            }
-                            if (
-                                refResult.importStatement &&
-                                !refResult.isCircular &&
-                                !exportAsSingleFile
-                            ) {
-                                requiredImports.add(refResult.importStatement);
-                            }
-                        } else {
-                            exportInfo.warnings.add(
-                                `Failed to resolve reference ${data.refId} for ${currentIdentifier}`,
-                            );
-                            const fallbackValue = {
-                                value: "#FF00FF", // Magenta indicates error
-                                type: data.type,
-                                refId: undefined,
-                                comment: `Failed to resolve reference ${data.refId}`,
-                            };
-                            collectionStructure
-                                .get(collectionName)!
-                                .variables.get(rowName)!
-                                .set(colName, fallbackValue);
-                        }
-                    }
-                }
-            }
-        }
-
-        // Check for cycles in the dependency graph BEFORE generating file content
-        const hasCycle = detectCycle(collectionDependencies, exportInfo);
-        const finalExportAsSingleFile = exportAsSingleFile || hasCycle;
-        if (hasCycle && !exportAsSingleFile) {
-            exportInfo.warnings.add(
-                "Detected collection dependency cycle. Forcing export as single file.",
-            );
-        }
+        // No dependency cycles possible since all variables now have concrete values
+        const finalExportAsSingleFile = exportAsSingleFile;
 
         // Generate content for each collection
         for (const [
@@ -1667,43 +1321,9 @@ export async function exportFigmaVariablesToSeparateFiles(
                 currentSchemeInstance = schemeResult.currentSchemeInstance;
             }
 
-            let content = `// Generated Slint file for ${collectionData.name}\n\n`;
+            let content = `// Generated Slint file for ${collectionData.formattedName}\n\n`;
 
-            // Add imports ONLY if final mode is multi-file
-            if (!finalExportAsSingleFile) {
-                // Iterate through all potentially required imports collected earlier
-                for (const importStmt of requiredImports) {
-                    const requiredTargetMatch =
-                        importStmt.match(/import { ([^,}]+)/);
-                    const requiredTarget = requiredTargetMatch
-                        ? requiredTargetMatch[1].trim()
-                        : null;
-                    const importSourceFileMatch = importStmt.match(
-                        /from "([^"]+)\.slint";/,
-                    );
-                    const importSourceFile = importSourceFileMatch
-                        ? importSourceFileMatch[1]
-                        : null;
-
-                    // Check if this import is relevant for the current file
-                    if (
-                        requiredTarget &&
-                        importSourceFile &&
-                        importSourceFile !== collectionData.formattedName
-                    ) {
-                        // Check if the instances string actually uses the target
-                        if (
-                            instances.includes(`${requiredTarget}.`) ||
-                            instances.includes(`${requiredTarget}(`)
-                        ) {
-                            content += importStmt;
-                        }
-                    }
-                }
-                if (content.includes("import ")) {
-                    content += "\n";
-                }
-            }
+            // No imports needed since all references are resolved to concrete values
 
             // Add Enum (if generated)
             content += modeEnum;
@@ -1783,10 +1403,6 @@ export async function exportFigmaVariablesToSeparateFiles(
                 "// Combined Slint Design Tokens\n// Generated on " +
                 new Date().toISOString().split("T")[0] +
                 "\n\n";
-            if (hasCycle) {
-                combinedContent +=
-                    "// NOTE: Export forced to single file due to cross-collection import cycle.\n\n";
-            }
             for (const file of generatedFiles) {
                 combinedContent += `// --- Content from ${file.name} ---\n\n`;
                 combinedContent += file.content;
