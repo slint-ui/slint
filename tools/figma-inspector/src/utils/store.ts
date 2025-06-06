@@ -15,6 +15,7 @@ interface StoreState {
     useVariables: boolean;
     exportsAreCurrent: boolean;
     exportedFiles: Array<{ name: string; content: string }>;
+    devMode: boolean;
     setTitle: (title: string) => void;
     initializeEventListeners: () => void;
     copyToClipboard: () => void;
@@ -27,6 +28,7 @@ interface StoreState {
     getTestData: () => void;
     startVariableCheckInterval: () => void;
     resizeWindow: (width: number, height: number) => void;
+    setDevMode: (devMode: boolean) => void;
 }
 
 export const useInspectorStore = create<StoreState>()((set, get) => ({
@@ -37,6 +39,7 @@ export const useInspectorStore = create<StoreState>()((set, get) => ({
     exportsAreCurrent: false,
     exportedFiles: [],
     exportAsSingleFile: false,
+    devMode: false,
 
     setTitle: (title) => set({ title }),
 
@@ -124,5 +127,9 @@ export const useInspectorStore = create<StoreState>()((set, get) => ({
 
     resizeWindow: (width: number, height: number) => {
         dispatchTS("resizeWindow", { width, height });
+    },
+
+    setDevMode: (devMode) => {
+        set({ devMode });
     },
 }));

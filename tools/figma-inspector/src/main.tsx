@@ -15,12 +15,14 @@ export const App = () => {
         title,
         slintSnippet,
         useVariables,
+        devMode,
         copyToClipboard,
         initializeEventListeners,
         setUseVariables,
         setExportsAreCurrent,
         exportFiles,
         getTestData,
+        setDevMode,
     } = useInspectorStore();
 
     const [_lightOrDarkMode, setLightOrDarkMode] = useState(getColorTheme());
@@ -28,6 +30,7 @@ export const App = () => {
     // Init
     useEffect(() => {
         initializeEventListeners();
+        setDevMode(process.env.NODE_ENV === "development");
         subscribeColorTheme((mode) => {
             setLightOrDarkMode(mode);
         });
@@ -100,6 +103,14 @@ export const App = () => {
                 />
             </DialogFrame.Content>
             <DialogFrame.Footer>
+                {devMode && (
+                    <Button
+                        variant="secondary"
+                        onClick={getTestData}
+                    >
+                        Get Test Data
+                    </Button>
+                )}
                 <Checkbox.Root>
                     <Checkbox.Input
                         checked={useVariables}
@@ -107,15 +118,6 @@ export const App = () => {
                     />
                     <Checkbox.Label>Use Figma Variables</Checkbox.Label>
                 </Checkbox.Root>
-                <Button
-                    variant="secondary"
-                    onClick={getTestData}
-                    style={{
-                        visibility: useVariables ? "visible" : "hidden",
-                    }}
-                >
-                    Get Test Data
-                </Button>
                 <DropdownMenu.Root>
                     <DropdownMenu.Trigger asChild>
                         <Button
