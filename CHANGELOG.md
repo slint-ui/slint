@@ -28,6 +28,8 @@ All notable changes to this project are documented in this file.
  - Slint compilation error for comparison of types that can't be compared with less or greater operator.
  - `Flickable` now has a change event to keep in bounds when geometry changes (#2227, #7487)
  - Added `in-out` transition in states.
+ - Added `focus-gained` and `focus-lost` callback to FocusScope.
+ - Pass a `FocusReason` enum to the FocusScope callbacks
 
 ### Widgets
 
@@ -43,6 +45,7 @@ All notable changes to this project are documented in this file.
  - Added `unstable-wgpu-24` feature along with `slint::wgpu_24` module to enable Slint <> WPU interoperatiblity.
  - Make `Debug` impl of `PlatformError` show the display string
  - slint-build: Implement `Clone` for `CompilerConfiguration`
+ - sint-interpreter: The `From<ModelRc> for slint_interpreter::Value` now gives a model that supports `set_row_data`.
 
 ### C++
 
