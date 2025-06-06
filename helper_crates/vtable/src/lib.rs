@@ -526,7 +526,7 @@ impl<Base, T: ?Sized + VTableMeta> VOffset<Base, T, AllowPin> {
     /// Apply this offset to a reference to the base to obtain a `Pin<VRef<'a, T>>` with the same
     /// lifetime as the base lifetime
     #[inline]
-    pub fn apply_pin(self, base: Pin<&Base>) -> Pin<VRef<T>> {
+    pub fn apply_pin(self, base: Pin<&Base>) -> Pin<VRef<'_, T>> {
         let ptr = base.get_ref() as *const Base as *mut u8;
         unsafe {
             Pin::new_unchecked(VRef::from_raw(
