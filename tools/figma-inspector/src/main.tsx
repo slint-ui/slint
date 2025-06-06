@@ -20,6 +20,7 @@ export const App = () => {
         setUseVariables,
         setExportsAreCurrent,
         exportFiles,
+        getTestData,
     } = useInspectorStore();
 
     const [_lightOrDarkMode, setLightOrDarkMode] = useState(getColorTheme());
@@ -106,6 +107,15 @@ export const App = () => {
                     />
                     <Checkbox.Label>Use Figma Variables</Checkbox.Label>
                 </Checkbox.Root>
+                <Button
+                    variant="secondary"
+                    onClick={getTestData}
+                    style={{
+                        visibility: useVariables ? "visible" : "hidden",
+                    }}
+                >
+                    Get Test Data
+                </Button>
                 <DropdownMenu.Root>
                     <DropdownMenu.Trigger asChild>
                         <Button

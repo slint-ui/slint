@@ -4,7 +4,7 @@
 
 import { listenTS, dispatchTS } from "./utils/code-utils.js";
 import { generateSlintSnippet } from "./utils/property-parsing.js";
-import { exportFigmaVariablesToSeparateFiles } from "./utils/export-variables.js";
+import { exportFigmaVariablesToSeparateFiles, getRawVariableCollectionsData } from "./utils/export-variables.js";
 
 if (figma.editorType === "dev" && figma.mode === "codegen") {
     figma.codegen.on("generate", async ({ node }: { node: SceneNode }) => {
@@ -230,3 +230,19 @@ async function checkVariableChanges(isInitialRun = false) {
         });
     }
 }
+
+listenTS("getTestData", async () => {
+    try {
+        const files = await getRawVariableCollectionsData();
+
+        figma.ui.postMessage({
+            type: "exportedFiles",
+            files: files,
+        });
+
+        figma.notify("Test data ready for download!");
+    } catch (error) {
+        console.error("Error getting test data:", error);
+        figma.notify("Failed to get test data", { error: true });
+    }
+});
