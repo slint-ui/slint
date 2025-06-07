@@ -5,7 +5,7 @@
 import { listenTS, dispatchTS } from "./utils/code-utils.js";
 import { generateSlintSnippet } from "./utils/property-parsing.js";
 import { exportFigmaVariablesToSeparateFiles } from "./utils/export-variables.js";
-import { getRawVariableCollectionsData } from "./utils/test-data.js";
+import { saveVariableCollectionsToFile } from "./utils/test-data.js";
 
 if (figma.editorType === "dev" && figma.mode === "codegen") {
     figma.codegen.on("generate", async ({ node }: { node: SceneNode }) => {
@@ -96,8 +96,8 @@ listenTS("exportToFiles", async (message) => {
         );
 
         // Send to UI for downloading
-        figma.ui.postMessage({
-            type: "exportedFiles",
+        dispatchTS("exportedFiles", {
+            zipFilename: "figma-variables",
             files: files,
         });
 
@@ -235,12 +235,12 @@ async function checkVariableChanges(isInitialRun = false) {
 listenTS("getTestData", async () => {
     try {
         const timeStart = Date.now();
-        const files = await getRawVariableCollectionsData();
+        const files = await saveVariableCollectionsToFile('figma-test-data');
         const timeEnd = Date.now();
         console.log(`Time taken: ${timeEnd - timeStart}ms`);
 
-        figma.ui.postMessage({
-            type: "exportedFiles",
+        dispatchTS("exportedFiles", {
+            zipFilename: "test-data",
             files: files,
         });
 

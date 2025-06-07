@@ -39,6 +39,7 @@ export function writeTextToClipboard(str: string): boolean {
 }
 
 export async function downloadZipFile(
+    zipFilename: string,
     files: Array<{ name: string; content: string }>,
 ) {
     try {
@@ -61,7 +62,7 @@ export async function downloadZipFile(
         // Create download link
         const element = document.createElement("a");
         element.href = URL.createObjectURL(content);
-        element.download = "figma-collections.zip";
+        element.download = zipFilename;
         document.body.appendChild(element);
         element.click();
         document.body.removeChild(element);
