@@ -27,6 +27,7 @@ export interface EventTS {
     nodeChanged;
     exportToFiles: { exportAsSingleFile: boolean };
     getTestData: Record<string, never>;
+    createSlintExport: Record<string, never>;
 
     // Resize-related messages
     resizeWindow: { width: number; height: number };
