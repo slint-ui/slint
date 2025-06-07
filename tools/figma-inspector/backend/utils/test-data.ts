@@ -158,7 +158,14 @@ export function sanitizeSlintPropertyName(name: string): string {
     // - Numbers (0-9), Underscores (_) and Hyphens (-)
     name = name.replace(/[^a-zA-Z0-9_-]/g, "");
 
-    // Ensure name starts with a letter or underscore
+    // Remove consecutive duplicate words
+    let previousName: string;
+    do {
+        previousName = name;
+        name = name.replace(/(\w+)-(\1)(?=-|$)/g, "$1");
+    } while (previousName !== name);
+
+    // names start with a letter or underscore
     if (!/^[a-zA-Z_]/.test(name)) {
         name = "_" + name;
     }
