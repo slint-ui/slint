@@ -5,7 +5,7 @@
 import { listenTS, dispatchTS } from "./utils/code-utils.js";
 import { generateSlintSnippet } from "./utils/property-parsing.js";
 import { exportFigmaVariablesToSeparateFiles } from "./utils/export-variables.js";
-import { saveVariableCollectionsToFile } from "./utils/test-data.js";
+import { saveVariableCollectionsToFile, createSlintExport } from "./utils/test-data.js";
 
 if (figma.editorType === "dev" && figma.mode === "codegen") {
     figma.codegen.on("generate", async ({ node }: { node: SceneNode }) => {
@@ -248,5 +248,15 @@ listenTS("getTestData", async () => {
     } catch (error) {
         console.error("Error getting test data:", error);
         figma.notify("Failed to get test data", { error: true });
+    }
+});
+
+listenTS("createSlintExport", async () => {
+    try {
+        await createSlintExport();
+        figma.notify("Slint export ready!");
+    } catch (error) {
+        console.error("Error creating Slint export:", error);
+        figma.notify("Failed to create Slint export", { error: true });
     }
 });

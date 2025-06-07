@@ -23,6 +23,7 @@ export const App = () => {
         exportFiles,
         getTestData,
         setDevMode,
+        simpleExport,
     } = useInspectorStore();
 
     const [_lightOrDarkMode, setLightOrDarkMode] = useState(getColorTheme());
@@ -104,12 +105,20 @@ export const App = () => {
             </DialogFrame.Content>
             <DialogFrame.Footer>
                 {devMode && (
-                    <Button
-                        variant="secondary"
-                        onClick={getTestData}
-                    >
-                        Get Test Data
-                    </Button>
+                    <>
+                        <Button
+                            variant="secondary"
+                            onClick={getTestData}
+                        >
+                            Get Test Data
+                        </Button>
+                        <Button
+                            variant="secondary"
+                            onClick={simpleExport}
+                        >
+                            Export Slint
+                        </Button>
+                    </>
                 )}
                 <Checkbox.Root>
                     <Checkbox.Input

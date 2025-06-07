@@ -93,3 +93,13 @@ export async function saveVariableCollectionsToFile(filename: string = 'figma-te
         }];
     }
 }
+
+export async function createSlintExport(): Promise<void> {
+    try {
+        const collections = await processVariableCollections();
+        console.log("Ready");
+    } catch (error) {
+        console.error("Error creating Slint export:", error);
+        throw error;
+    }
+}
