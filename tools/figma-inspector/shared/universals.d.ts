@@ -28,6 +28,10 @@ export interface EventTS {
     exportToFiles: { exportAsSingleFile: boolean };
     getTestData: Record<string, never>;
     createSlintExport: Record<string, never>;
+    saveTextFile: {
+        filename: string;
+        content: string;
+    };
 
     // Resize-related messages
     resizeWindow: { width: number; height: number };
