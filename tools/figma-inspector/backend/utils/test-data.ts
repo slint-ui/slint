@@ -7,11 +7,6 @@
 // - variable.remote
 // - variable.description
 
-interface VariableMode {
-    modeId: string;
-    name: string;
-}
-
 interface VariableData {
     id: string;
     name: string;
@@ -20,15 +15,6 @@ interface VariableData {
     valuesByMode: { [modeId: string]: any };
     hiddenFromPublishing: boolean;
     scopes: string[];
-}
-
-interface CollectionData {
-    id: string;
-    name: string;
-    defaultModeId: string;
-    hiddenFromPublishing: boolean;
-    modes: VariableMode[];
-    variables: VariableData[];
 }
 
 export async function getRawVariableCollectionsData(): Promise<Array<{ name: string; content: string }>> {
@@ -57,7 +43,7 @@ export async function getRawVariableCollectionsData(): Promise<Array<{ name: str
         }
 
         // Build the final collections data
-        const detailedCollections: CollectionData[] = collections.map(collection => ({
+        const detailedCollections = collections.map(collection => ({
             id: collection.id,
             name: collection.name,
             defaultModeId: collection.defaultModeId,
