@@ -30,6 +30,7 @@ interface StoreState {
     startVariableCheckInterval: () => void;
     resizeWindow: (width: number, height: number) => void;
     setDevMode: (devMode: boolean) => void;
+    simpleExport: () => void;
 }
 
 export const useInspectorStore = create<StoreState>()((set, get) => ({
@@ -131,5 +132,9 @@ export const useInspectorStore = create<StoreState>()((set, get) => ({
 
     setDevMode: (devMode) => {
         set({ devMode });
+    },
+
+    simpleExport: () => {
+        dispatchTS("createSlintExport", {});
     },
 }));
