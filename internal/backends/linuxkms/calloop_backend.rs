@@ -160,7 +160,7 @@ impl i_slint_core::platform::Platform for Backend {
                 .map_err(|e| format!("Error opening device {}: {e}", device.display()))?;
 
             // For polling for drm::control::Event::PageFlip we need a blocking FD. Would be better to do this non-blocking
-            let fd = device.as_fd().as_raw_fd();
+            let fd = device.as_fd();
             let flags = nix::fcntl::fcntl(fd, nix::fcntl::FcntlArg::F_GETFL)
                 .map_err(|e| format!("Error getting file descriptor flags: {e}"))?;
             let mut flags = nix::fcntl::OFlag::from_bits_retain(flags);
@@ -169,7 +169,7 @@ impl i_slint_core::platform::Platform for Backend {
                 .map_err(|e| format!("Error making device fd non-blocking: {e}"))?;
 
             // Safety: We take ownership of the now shared FD, ... although we should be using libseat's close_device....
-            Ok(Rc::new(unsafe { std::os::fd::OwnedFd::from_raw_fd(fd) }))
+            Ok(Rc::new(unsafe { std::os::fd::OwnedFd::from_raw_fd(fd.as_raw_fd()) }))
         };
 
         #[cfg(not(feature = "libseat"))]
