@@ -16,6 +16,7 @@ export const App = () => {
         slintSnippet,
         useVariables,
         devMode,
+        isExporting,
         copyToClipboard,
         initializeEventListeners,
         setUseVariables,
@@ -109,12 +110,14 @@ export const App = () => {
                         <Button
                             variant="secondary"
                             onClick={getTestData}
+                            disabled={isExporting}
                         >
                             Get Test Data
                         </Button>
                         <Button
                             variant="secondary"
                             onClick={simpleExport}
+                            disabled={isExporting}
                         >
                             Export Slint
                         </Button>

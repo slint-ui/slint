@@ -16,6 +16,7 @@ interface StoreState {
     exportsAreCurrent: boolean;
     exportedFiles: Array<{ name: string; content: string }>;
     devMode: boolean;
+    isExporting: boolean;
     setTitle: (title: string) => void;
     initializeEventListeners: () => void;
     copyToClipboard: () => void;
@@ -42,6 +43,7 @@ export const useInspectorStore = create<StoreState>()((set, get) => ({
     exportedFiles: [],
     exportAsSingleFile: false,
     devMode: false,
+    isExporting: false,
 
     setTitle: (title) => set({ title }),
 
@@ -63,10 +65,12 @@ export const useInspectorStore = create<StoreState>()((set, get) => ({
         });
 
         listenTS("exportedFiles", (res) => {
+            
             get().exportFilesHandler(res.zipFilename, res.files);
         });
 
         listenTS("saveTextFile", (res) => {
+            set({ isExporting: false });
             saveTextFile(res.filename, res.content);
         });
 
@@ -114,13 +118,15 @@ export const useInspectorStore = create<StoreState>()((set, get) => ({
             set({ exportedFiles: files, exportsAreCurrent: true });
 
             await downloadZipFile(fileName, files);
+            set({ isExporting: false });
         } else {
             console.error("Invalid or empty files data received:", files);
-            set({ exportedFiles: [], exportsAreCurrent: false }); // Mark as not current if export failed to produce files
+            set({ exportedFiles: [], exportsAreCurrent: false, isExporting: false }); // Mark as not current if export failed to produce files
         }
     },
 
     getTestData: () => {
+        set({ isExporting: true });
         dispatchTS("getTestData", {});
     },
 
@@ -139,6 +145,7 @@ export const useInspectorStore = create<StoreState>()((set, get) => ({
     },
 
     simpleExport: () => {
+        set({ isExporting: true });
         dispatchTS("createSlintExport", {});
     },
 }));
