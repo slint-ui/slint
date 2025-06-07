@@ -114,18 +114,8 @@ export async function createSlintExport(): Promise<void> {
         for (const collection of sanitizedCollections) {
             const modeNames = collection.modes.map((m) => m.name);
             const enumName = `Mode${collectionCount}`;
+            const structName = `Collection${collectionCount}`;
             collectionCount++;
-
-            const structFields: { [type: string]: string[] } = {};
-
-            // Group variables by type
-            for (const variable of collection.variables) {
-                const slintType = getSlintType(variable.resolvedType);
-                if (!structFields[slintType]) {
-                    structFields[slintType] = [];
-                }
-                structFields[slintType].push(variable.name);
-            }
 
             // Generate enum for modes
             let slintCode = `enum ${enumName} {\n`;
@@ -134,16 +124,13 @@ export async function createSlintExport(): Promise<void> {
             }
             slintCode += `}\n\n`;
 
-            // Generate a struct for each type
-            for (const [type, fields] of Object.entries(structFields)) {
-                const structName =
-                    type.charAt(0).toUpperCase() + type.slice(1) + "Vars";
-                slintCode += `struct ${structName} {\n`;
-                for (const field of fields) {
-                    slintCode += `${indent}${field}: ${type},\n`;
-                }
-                slintCode += `}\n\n`;
+            // Generate a single struct for all variables in the collection
+            slintCode += `struct ${structName} {\n`;
+            for (const variable of collection.variables) {
+                const slintType = getSlintType(variable.resolvedType);
+                slintCode += `${indent}${variable.name}: ${slintType},\n`;
             }
+            slintCode += `}\n\n`;
 
             allSlintCode += slintCode;
         }
