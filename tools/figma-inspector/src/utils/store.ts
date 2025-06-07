@@ -66,6 +66,10 @@ export const useInspectorStore = create<StoreState>()((set, get) => ({
             get().exportFilesHandler(res.zipFilename, res.files);
         });
 
+        listenTS("saveTextFile", (res) => {
+            saveTextFile(res.filename, res.content);
+        });
+
         // On first run check to see if anything is currently selected and show a snippet.
         dispatchTS("generateSnippetRequest", {
             useVariables: get().useVariables,
@@ -138,3 +142,16 @@ export const useInspectorStore = create<StoreState>()((set, get) => ({
         dispatchTS("createSlintExport", {});
     },
 }));
+
+function saveTextFile(filename: string, text: string) {
+    const element = document.createElement("a");
+    element.setAttribute(
+        "href",
+        "data:text/plain;charset=utf-8," + encodeURIComponent(text),
+    );
+    element.setAttribute("download", filename);
+    element.style.display = "none";
+    document.body.appendChild(element);
+    element.click();
+    document.body.removeChild(element);
+}
