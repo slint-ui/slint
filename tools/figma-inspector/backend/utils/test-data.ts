@@ -1,6 +1,12 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
+
+// Not all api data is collected. The following properties are not included:
+// - variable.key
+// - variable.remote
+// - variable.description
+
 interface VariableMode {
     modeId: string;
     name: string;
@@ -12,7 +18,6 @@ interface VariableData {
     variableCollectionId: string;
     resolvedType: string;
     valuesByMode: { [modeId: string]: any };
-    description: string;
     hiddenFromPublishing: boolean;
     scopes: string[];
 }
@@ -28,48 +33,45 @@ interface CollectionData {
 
 export async function getRawVariableCollectionsData(): Promise<Array<{ name: string; content: string }>> {
     try {
-        let variableCount = 0;
-        const collections = await figma.variables.getLocalVariableCollectionsAsync();
-        const detailedCollections: CollectionData[] = [];
 
-        for (const collection of collections) {
-            const collectionData: CollectionData = {
-                id: collection.id,
-                name: collection.name,
-                defaultModeId: collection.defaultModeId,
-                hiddenFromPublishing: collection.hiddenFromPublishing,
-                modes: collection.modes.map(mode => ({
-                    modeId: mode.modeId,
-                    name: mode.name
-                })),
-                variables: []
-            };
+        const [collections, allVariables] = await Promise.all([
+            figma.variables.getLocalVariableCollectionsAsync(),
+            figma.variables.getLocalVariablesAsync()
+        ]);
 
-            // Get detailed data for each variable in the collection
-            for (const variableId of collection.variableIds) {
-                const variable = await figma.variables.getVariableByIdAsync(variableId);
-                
-                if (variable) {
-                    variableCount++;
-                    const variableData: VariableData = {
-                        id: variable.id,
-                        name: variable.name,
-                        variableCollectionId: variable.variableCollectionId,
-                        resolvedType: variable.resolvedType,
-                        valuesByMode: variable.valuesByMode,
-                        description: variable.description,
-                        hiddenFromPublishing: variable.hiddenFromPublishing,
-                        scopes: variable.scopes
-                    };
-                    collectionData.variables.push(variableData);
-                }
+        const variablesByCollection = new Map<string, VariableData[]>();
+        for (const variable of allVariables) {
+            const collectionId = variable.variableCollectionId;
+            if (!variablesByCollection.has(collectionId)) {
+                variablesByCollection.set(collectionId, []);
             }
-
-            detailedCollections.push(collectionData);
+            variablesByCollection.get(collectionId)!.push({
+                id: variable.id,
+                name: variable.name,
+                variableCollectionId: variable.variableCollectionId,
+                resolvedType: variable.resolvedType,
+                valuesByMode: variable.valuesByMode,
+                hiddenFromPublishing: variable.hiddenFromPublishing,
+                scopes: variable.scopes
+            });
         }
 
+        // Build the final collections data
+        const detailedCollections: CollectionData[] = collections.map(collection => ({
+            id: collection.id,
+            name: collection.name,
+            defaultModeId: collection.defaultModeId,
+            hiddenFromPublishing: collection.hiddenFromPublishing,
+            modes: collection.modes.map(mode => ({
+                modeId: mode.modeId,
+                name: mode.name
+            })),
+            variables: variablesByCollection.get(collection.id) || []
+        }));
+
+        console.log("Total variables:", allVariables.length);
+
         const jsonData = JSON.stringify(detailedCollections, null, 2);
-        console.log("variableCount", variableCount);
         
         return [{
             name: "figma-variables.json",
