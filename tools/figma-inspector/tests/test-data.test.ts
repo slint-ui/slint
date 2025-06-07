@@ -85,3 +85,8 @@ test("trims spaces from start and end", () => {
     const result = sanitizeSlintPropertyName("  my property name  ");
     expect(result).toBe("mypropertyname");
 });
+
+test("converts forward slashes to hyphens", () => {
+    const result = sanitizeSlintPropertyName("my/property/name");
+    expect(result).toBe("my-property-name");
+});
