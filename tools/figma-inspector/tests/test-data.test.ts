@@ -90,3 +90,20 @@ test("converts forward slashes to hyphens", () => {
     const result = sanitizeSlintPropertyName("my/property/name");
     expect(result).toBe("my-property-name");
 });
+
+test("removes consecutive duplicate words", () => {
+    expect(sanitizeSlintPropertyName("text-text-foo")).toBe("text-foo");
+    expect(sanitizeSlintPropertyName("surface-surface-primary")).toBe("surface-primary");
+    expect(sanitizeSlintPropertyName("color-color-background")).toBe("color-background");
+});
+
+test("keeps non-consecutive duplicate words", () => {
+    expect(sanitizeSlintPropertyName("text-foo-text")).toBe("text-foo-text");
+    expect(sanitizeSlintPropertyName("surface-primary-surface")).toBe("surface-primary-surface");
+    expect(sanitizeSlintPropertyName("color-background-color")).toBe("color-background-color");
+});
+
+test("handles multiple consecutive duplicates", () => {
+    expect(sanitizeSlintPropertyName("text-text-text-foo")).toBe("text-foo");
+    expect(sanitizeSlintPropertyName("surface-surface-surface-primary")).toBe("surface-primary");
+});
