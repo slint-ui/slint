@@ -11,6 +11,7 @@ export interface EventTS {
         result: boolean;
     };
     exportedFiles: {
+        zipFilename: string;
         files: Array<{
             name: string;
             content: string;

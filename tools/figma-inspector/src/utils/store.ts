@@ -22,6 +22,7 @@ interface StoreState {
     setUseVariables: (useVariables: boolean) => void;
     setExportsAreCurrent: (exportsAreCurrent: boolean) => void;
     exportFilesHandler: (
+        fileName: string,
         files: Array<{ name: string; content: string }>,
     ) => Promise<void>;
     exportFiles: (singleOrMultiple: ExportType) => void;
@@ -61,7 +62,7 @@ export const useInspectorStore = create<StoreState>()((set, get) => ({
         });
 
         listenTS("exportedFiles", (res) => {
-            get().exportFilesHandler(res.files);
+            get().exportFilesHandler(res.zipFilename, res.files);
         });
 
         // On first run check to see if anything is currently selected and show a snippet.
@@ -103,11 +104,11 @@ export const useInspectorStore = create<StoreState>()((set, get) => ({
         });
     },
 
-    exportFilesHandler: async (files) => {
+    exportFilesHandler: async (fileName, files) => {
         if (files && Array.isArray(files) && files.length > 0) {
             set({ exportedFiles: files, exportsAreCurrent: true });
 
-            await downloadZipFile(files);
+            await downloadZipFile(fileName, files);
         } else {
             console.error("Invalid or empty files data received:", files);
             set({ exportedFiles: [], exportsAreCurrent: false }); // Mark as not current if export failed to produce files
@@ -115,7 +116,6 @@ export const useInspectorStore = create<StoreState>()((set, get) => ({
     },
 
     getTestData: () => {
-        set({ exportedFiles: [], exportsAreCurrent: false });
         dispatchTS("getTestData", {});
     },
 
