@@ -112,27 +112,31 @@ export async function createSlintExport(): Promise<void> {
         let collectionCount = 1;
 
         for (const collection of sanitizedCollections) {
+            if (collection.variables.length === 0) {
+                continue;
+            }
+
             const modeNames = collection.modes.map((m) => m.name);
-            const enumName = `Mode${collectionCount}`;
             const structName = `Collection${collectionCount}`;
             collectionCount++;
 
-            // Generate enum for modes
-            let slintCode = `enum ${enumName} {\n`;
-            for (const mode of modeNames) {
-                slintCode += `${indent}${mode},\n`;
+            // Enums are only needed when > 1 modes
+            if (modeNames.length > 1) {
+                const enumName = `Mode${collectionCount - 1}`;
+                allSlintCode += `enum ${enumName} {\n`;
+                for (const mode of modeNames) {
+                    allSlintCode += `${indent}${mode},\n`;
+                }
+                allSlintCode += `}\n\n`;
             }
-            slintCode += `}\n\n`;
 
-            // Generate a single struct for all variables in the collection
-            slintCode += `struct ${structName} {\n`;
+            // Generate a struct for the collection
+            allSlintCode += `struct ${structName} {\n`;
             for (const variable of collection.variables) {
                 const slintType = getSlintType(variable.resolvedType);
-                slintCode += `${indent}${variable.name}: ${slintType},\n`;
+                allSlintCode += `${indent}${variable.name}: ${slintType},\n`;
             }
-            slintCode += `}\n\n`;
-
-            allSlintCode += slintCode;
+            allSlintCode += `}\n\n`;
         }
 
         dispatchTS("saveTextFile", {
@@ -147,27 +151,42 @@ export async function createSlintExport(): Promise<void> {
     }
 }
 
+const validChars = new Set(
+    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-",
+);
+const numberChars = new Set("0123456789");
+
 export function sanitizeSlintPropertyName(name: string): string {
     name = name.trim();
 
     // Replace forward slashes with hyphen
-    name = name.replace(/\//g, "-");
+    name = name.replaceAll("/", "-");
 
     // Remove all invalid characters, keeping only:
     // - ASCII letters (a-z, A-Z)
     // - Numbers (0-9), Underscores (_) and Hyphens (-)
-    name = name.replace(/[^a-zA-Z0-9_-]/g, "");
+    name = name
+        .split("")
+        .filter((char) => validChars.has(char))
+        .join("");
 
     // Remove consecutive duplicate words
-    let previousName: string;
-    do {
-        previousName = name;
-        name = name.replace(/(\w+)-(\1)(?=-|$)/g, "$1");
-    } while (previousName !== name);
+    const parts = name.split("-");
+    name = parts
+        .filter((part, i) => i === 0 || part !== parts[i - 1])
+        .join("-");
 
     // names start with a letter or underscore
-    if (!/^[a-zA-Z_]/.test(name)) {
-        name = "_" + name;
+    const firstChar = name.charAt(0);
+    if (numberChars.has(firstChar)) {
+        name = `_${name}`;
+    } else if (firstChar === "-") {
+        name = `_${name.substring(1)}`;
+    }
+
+    // handle empty name
+    if (name === "") {
+        return "_";
     }
 
     return name;
@@ -177,19 +196,18 @@ function sanitizeCollections(
     collections: ProcessedCollection[],
 ): VariableCollection[] {
     return collections.map((collection) => {
-
         const sanitizedName = sanitizeSlintPropertyName(collection.name);
 
         const sanitizedModes = collection.modes.map((mode) => ({
             modeId: mode.modeId,
             name: sanitizeSlintPropertyName(mode.name),
         }));
-        
+
         const sanitizedVariables = collection.variables.map((variable) => ({
             ...variable,
             name: sanitizeSlintPropertyName(variable.name),
         }));
-        
+
         return {
             id: collection.id,
             name: sanitizedName,
