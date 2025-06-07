@@ -8,7 +8,7 @@ import { rgbToHex } from "./property-parsing";
  * @param figmaType The Figma variable type ('COLOR', 'FLOAT', 'STRING', 'BOOLEAN')
  * @returns The corresponding Slint type
  */
-function getSlintType(figmaType: string): string {
+export function getSlintType(figmaType: string): string {
     switch (figmaType) {
         case "COLOR":
             return "brush";
