@@ -195,7 +195,7 @@ export async function createSlintExport(): Promise<void> {
                 }
             } else {
                 // For collections with only one mode, just create a simple property
-                allSlintCode += `${indent}property <${structName}> collection: {\n`;
+                allSlintCode += `${indent}out property <${structName}> collection: {\n`;
                 allSlintCode += generateVariablesForMode(collection.variables, collection.modes[0].modeId, variableRefMap);
             }
 
