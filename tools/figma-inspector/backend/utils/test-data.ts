@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 import { dispatchTS } from "./code-utils.js";
+import { rgbToHex } from "./property-parsing";
 
 interface VariableData {
     id: string;
@@ -45,8 +46,8 @@ interface VariableCollection {
     }>;
 }
 
-const indent = "    ";
-const indent2 = indent + indent;
+export const indent = "    ";
+export const indent2 = indent + indent;
 
 // Not all api data is collected. The following properties are not included:
 // - variable.key
@@ -383,7 +384,16 @@ export function generateVariableValue(
             case "bool":
                 return `${indent2}${variable.name}: ${value},\n`;
             case "brush":
-                return `${indent2}${variable.name}: ${value},\n`;
+                if (
+                    value &&
+                    typeof value === "object" &&
+                    "r" in value &&
+                    "g" in value &&
+                    "b" in value
+                ) {
+                    return `${indent2}${variable.name}: ${rgbToHex(value)},\n`;
+                }
+                return `// unable to convert ${variable.name} to brush,\n`;
             case "length":
                 return `${indent2}${variable.name}: ${value}px,\n`;
             case "float":

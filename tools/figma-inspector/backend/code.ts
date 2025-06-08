@@ -5,7 +5,10 @@
 import { listenTS, dispatchTS } from "./utils/code-utils.js";
 import { generateSlintSnippet } from "./utils/property-parsing.js";
 import { exportFigmaVariablesToSeparateFiles } from "./utils/export-variables.js";
-import { saveVariableCollectionsToFile, createSlintExport } from "./utils/test-data.js";
+import {
+    saveVariableCollectionsToFile,
+    createSlintExport,
+} from "./utils/test-data.js";
 
 if (figma.editorType === "dev" && figma.mode === "codegen") {
     figma.codegen.on("generate", async ({ node }: { node: SceneNode }) => {
