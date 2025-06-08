@@ -136,7 +136,7 @@ describe("generateVariableValue", () => {
             resolvedType: "FLOAT",
             scopes: ["OPACITY"],
         } as any;
-        const variableRefMap = new Map<string, string>();
+        const variableRefMap = new Map<string, { path: string; variable: any }>();
         const collectionName = "test-collection";
         const sanitizedCollection = { variables: [] } as any;
         const modeId = "default";
@@ -156,7 +156,7 @@ describe("generateVariableValue", () => {
     });
 
     it("should handle other types correctly", () => {
-        const variableRefMap = new Map<string, string>();
+        const variableRefMap = new Map<string, { path: string; variable: any }>();
         const collectionName = "test-collection";
         const sanitizedCollection = { variables: [] } as any;
         const modeId = "default";
@@ -246,14 +246,15 @@ describe("generateVariableValue", () => {
             name: "test-var",
             resolvedType: "COLOR",
         } as any;
-        const variableRefMap = new Map<string, string>([
-            ["var-id-1", "Colors.collection.primary"],
+        const variableRefMap = new Map<string, { path: string; variable: any }>([
+            ["var-id-1", { path: "Colors.collection.primary", variable: { name: "primary", resolvedType: "COLOR" } }],
+            ["var-id-2", { path: "Colors.collection.secondary", variable: { name: "secondary", resolvedType: "COLOR" } }],
         ]);
         const collectionName = "test-collection";
         const sanitizedCollection = { variables: [] } as any;
         const modeId = "default";
 
-        // Test with valid reference
+        // Test direct reference
         expect(
             generateVariableValue(
                 variable,
@@ -265,7 +266,7 @@ describe("generateVariableValue", () => {
             ),
         ).toBe(`${indent2}test-var: Colors.collection.primary,\n`);
 
-        // Test with invalid reference
+        // Test reference to non-existent variable
         expect(
             generateVariableValue(
                 variable,
