@@ -46,6 +46,7 @@ interface VariableCollection {
 }
 
 const indent = "    ";
+const indent2 = indent + indent;
 
 // Not all api data is collected. The following properties are not included:
 // - variable.key
@@ -100,6 +101,8 @@ export async function processVariableCollections(): Promise<
         throw error;
     }
 }
+
+
 
 export async function createSlintExport(): Promise<void> {
     try {
@@ -182,21 +185,7 @@ export async function createSlintExport(): Promise<void> {
                     allSlintCode += `${indent}property <${structName}> ${mode.name}: {\n`;
                     for (const variable of collection.variables) {
                         const value = variable.valuesByMode[mode.modeId];
-                        const slintType = getSlintType(variable);
-                        
-                        if (isVariableAlias(value)) {
-                            const reference = getVariableReference(value, variableRefMap);
-                            if (reference) {
-                                allSlintCode += `${indent}${indent}${variable.name}: ${reference},\n`;
-                            } else {
-                                // Fallback to a default value if reference not found
-                                allSlintCode += `// Unable to find reference to ${variable.name} \n`;
-                            }
-                        } else if (slintType === 'length') {
-                            allSlintCode += `${indent}${indent}${variable.name}: ${value}px,\n`;
-                        } else {
-                            allSlintCode += `${indent}${indent}${variable.name}: ${value},\n`;
-                        }
+                        allSlintCode += generateVariableValue(variable, value, variableRefMap);
                     }
                     allSlintCode += `${indent}};\n\n`;
                 }
@@ -205,34 +194,20 @@ export async function createSlintExport(): Promise<void> {
                 allSlintCode += `${indent}property <${structName}> collection: {\n`;
                 for (const variable of collection.variables) {
                     const value = variable.valuesByMode[collection.modes[0].modeId];
-                    const slintType = getSlintType(variable);
-                    
-                    if (isVariableAlias(value)) {
-                        const reference = getVariableReference(value, variableRefMap);
-                        if (reference) {
-                            allSlintCode += `${indent}${indent}${variable.name}: ${reference},\n`;
-                        } else {
-                            // Add a comment to indicate that the reference was not found
-                            allSlintCode += `// Unable to find reference to ${variable.name} \n`;
-                        }
-                    } else if (slintType === 'length') {
-                        allSlintCode += `${indent}${indent}${variable.name}: ${value}px,\n`;
-                    } else {
-                        allSlintCode += `${indent}${indent}${variable.name}: ${value},\n`;
-                    }
+                    allSlintCode += generateVariableValue(variable, value, variableRefMap);
                 }
                 allSlintCode += `${indent}};\n\n`;
             }
             
             allSlintCode += `}\n\n`;
         }
+
         console.log("Code gen took", Date.now() - start, "ms");
 
         dispatchTS("saveTextFile", {
             filename: "example.slint",
             content: allSlintCode,
         });
-
         
     } catch (error) {
         console.error("Error creating Slint export:", error);
@@ -354,3 +329,23 @@ function isVariableAlias(value: any): boolean {
 function getVariableReference(value: any, variableRefMap: Map<string, string>): string {
     return variableRefMap.get(value.id) || '';
 }
+
+function generateVariableValue(variable: VariableData, value: any, variableRefMap: Map<string, string>): string {
+
+    if (isVariableAlias(value)) {
+        const reference = getVariableReference(value, variableRefMap);
+        if (reference) {
+            return `${indent2}${variable.name}: ${reference},\n`;
+        } else {
+            return `// Unable to find reference to ${variable.name} \n`;
+        }
+    } else {
+        const slintType = getSlintType(variable);
+        if (slintType === 'length') {
+            return `${indent2}${variable.name}: ${value}px,\n`;
+        } else {
+            return `${indent2}${variable.name}: ${value},\n`;
+        }
+    }
+}
+
