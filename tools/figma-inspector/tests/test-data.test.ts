@@ -137,30 +137,36 @@ describe("generateVariableValue", () => {
             scopes: ["OPACITY"],
         } as any;
         const variableRefMap = new Map<string, string>();
+        const collectionName = "test-collection";
+        const sanitizedCollection = { variables: [] } as any;
+        const modeId = "default";
 
-        expect(generateVariableValue(variable, 0.89099, variableRefMap)).toBe(
+        expect(generateVariableValue(variable, 0.89099, variableRefMap, collectionName, sanitizedCollection, modeId)).toBe(
             `${indent2}test-float: 0.9,\n`,
         );
-        expect(generateVariableValue(variable, 1.003, variableRefMap)).toBe(
+        expect(generateVariableValue(variable, 1.003, variableRefMap, collectionName, sanitizedCollection, modeId)).toBe(
             `${indent2}test-float: 1.0,\n`,
         );
-        expect(generateVariableValue(variable, 2.567, variableRefMap)).toBe(
+        expect(generateVariableValue(variable, 2.567, variableRefMap, collectionName, sanitizedCollection, modeId)).toBe(
             `${indent2}test-float: 2.6,\n`,
         );
-        expect(generateVariableValue(variable, 3.0, variableRefMap)).toBe(
+        expect(generateVariableValue(variable, 3.0, variableRefMap, collectionName, sanitizedCollection, modeId)).toBe(
             `${indent2}test-float: 3.0,\n`,
         );
     });
 
     it("should handle other types correctly", () => {
         const variableRefMap = new Map<string, string>();
+        const collectionName = "test-collection";
+        const sanitizedCollection = { variables: [] } as any;
+        const modeId = "default";
 
         // Test string
         const stringVar = {
             name: "test-string",
             resolvedType: "STRING",
         } as any;
-        expect(generateVariableValue(stringVar, "hello", variableRefMap)).toBe(
+        expect(generateVariableValue(stringVar, "hello", variableRefMap, collectionName, sanitizedCollection, modeId)).toBe(
             `${indent2}test-string: "hello",\n`,
         );
 
@@ -169,7 +175,7 @@ describe("generateVariableValue", () => {
             name: "test-bool",
             resolvedType: "BOOLEAN",
         } as any;
-        expect(generateVariableValue(boolVar, true, variableRefMap)).toBe(
+        expect(generateVariableValue(boolVar, true, variableRefMap, collectionName, sanitizedCollection, modeId)).toBe(
             `${indent2}test-bool: true,\n`,
         );
 
@@ -179,7 +185,7 @@ describe("generateVariableValue", () => {
             resolvedType: "FLOAT",
             scopes: ["ALL_SCOPES"],
         } as any;
-        expect(generateVariableValue(lengthVar, 42, variableRefMap)).toBe(
+        expect(generateVariableValue(lengthVar, 42, variableRefMap, collectionName, sanitizedCollection, modeId)).toBe(
             `${indent2}test-length: 42px,\n`,
         );
 
@@ -189,7 +195,7 @@ describe("generateVariableValue", () => {
             resolvedType: "COLOR",
         } as any;
         expect(
-            generateVariableValue(brushVar, "invalid-data", variableRefMap),
+            generateVariableValue(brushVar, "invalid-data", variableRefMap, collectionName, sanitizedCollection, modeId),
         ).toBe("// unable to convert test-brush to brush,\n");
 
         // Test RGB object conversion
@@ -198,6 +204,9 @@ describe("generateVariableValue", () => {
                 brushVar,
                 { r: 1, g: 0, b: 0, a: 1 },
                 variableRefMap,
+                collectionName,
+                sanitizedCollection,
+                modeId,
             ),
         ).toBe(`${indent2}test-brush: #ff0000,\n`);
         expect(
@@ -205,6 +214,9 @@ describe("generateVariableValue", () => {
                 brushVar,
                 { r: 0, g: 1, b: 0, a: 1 },
                 variableRefMap,
+                collectionName,
+                sanitizedCollection,
+                modeId,
             ),
         ).toBe(`${indent2}test-brush: #00ff00,\n`);
         expect(
@@ -212,6 +224,9 @@ describe("generateVariableValue", () => {
                 brushVar,
                 { r: 0, g: 0, b: 1, a: 1 },
                 variableRefMap,
+                collectionName,
+                sanitizedCollection,
+                modeId,
             ),
         ).toBe(`${indent2}test-brush: #0000ff,\n`);
         expect(
@@ -219,6 +234,9 @@ describe("generateVariableValue", () => {
                 brushVar,
                 { r: 0.5, g: 0.5, b: 0.5, a: 1 },
                 variableRefMap,
+                collectionName,
+                sanitizedCollection,
+                modeId,
             ),
         ).toBe(`${indent2}test-brush: #808080,\n`);
     });
@@ -231,6 +249,9 @@ describe("generateVariableValue", () => {
         const variableRefMap = new Map<string, string>([
             ["var-id-1", "Colors.collection.primary"],
         ]);
+        const collectionName = "test-collection";
+        const sanitizedCollection = { variables: [] } as any;
+        const modeId = "default";
 
         // Test with valid reference
         expect(
@@ -238,6 +259,9 @@ describe("generateVariableValue", () => {
                 variable,
                 { type: "VARIABLE_ALIAS", id: "var-id-1" },
                 variableRefMap,
+                collectionName,
+                sanitizedCollection,
+                modeId,
             ),
         ).toBe(`${indent2}test-var: Colors.collection.primary,\n`);
 
@@ -247,6 +271,9 @@ describe("generateVariableValue", () => {
                 variable,
                 { type: "VARIABLE_ALIAS", id: "non-existent" },
                 variableRefMap,
+                collectionName,
+                sanitizedCollection,
+                modeId,
             ),
         ).toBe(
             `// Figma file is pointing at a deleted Variable "test-var"\n${indent2}test-var: #000000,\n`,
