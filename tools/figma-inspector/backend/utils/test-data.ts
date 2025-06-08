@@ -191,29 +191,12 @@ export async function createSlintExport(): Promise<void> {
                 // Add properties for each mode
                 for (const mode of collection.modes) {
                     allSlintCode += `${indent}property <${structName}> ${mode.name}: {\n`;
-                    for (const variable of collection.variables) {
-                        const value = variable.valuesByMode[mode.modeId];
-                        allSlintCode += generateVariableValue(
-                            variable,
-                            value,
-                            variableRefMap,
-                        );
-                    }
-                    allSlintCode += `${indent}};\n\n`;
+                    allSlintCode += generateVariablesForMode(collection.variables, mode.modeId, variableRefMap);
                 }
             } else {
                 // For collections with only one mode, just create a simple property
                 allSlintCode += `${indent}property <${structName}> collection: {\n`;
-                for (const variable of collection.variables) {
-                    const value =
-                        variable.valuesByMode[collection.modes[0].modeId];
-                    allSlintCode += generateVariableValue(
-                        variable,
-                        value,
-                        variableRefMap,
-                    );
-                }
-                allSlintCode += `${indent}};\n\n`;
+                allSlintCode += generateVariablesForMode(collection.variables, collection.modes[0].modeId, variableRefMap);
             }
 
             allSlintCode += `}\n\n`;
@@ -404,4 +387,23 @@ export function generateVariableValue(
                 return `${indent2}${variable.name}: ${value},\n`;
         }
     }
+}
+
+function generateVariablesForMode(
+    variables: VariableData[],
+    modeId: string,
+    variableRefMap: Map<string, string>,
+): string {
+    let result = "";
+    for (const variable of variables) {
+        let value = variable.valuesByMode[modeId];
+        // If value is undefined this might be a variable that shares a single value with all modes
+        if (value === undefined && Object.keys(variable.valuesByMode).length > 0) {
+            const firstModeId = Object.keys(variable.valuesByMode)[0];
+            value = variable.valuesByMode[firstModeId];
+        }
+        result += generateVariableValue(variable, value, variableRefMap);
+    }
+    result += `${indent}};\n\n`;
+    return result;
 }
