@@ -3,6 +3,8 @@
 
 import { expect, test } from "vitest";
 import { sanitizeSlintPropertyName } from "../backend/utils/test-data";
+import { describe, it } from "vitest";
+import { generateVariableValue } from "../backend/utils/test-data";
 
 test("keeps valid property name starting with letter", () => {
     const name = "validName";
@@ -121,4 +123,85 @@ test("handles multiple consecutive duplicates", () => {
     expect(sanitizeSlintPropertyName("surface-surface-surface-primary")).toBe(
         "surface-primary",
     );
+});
+
+describe("generateVariableValue", () => {
+    it("should round float values to one decimal place", () => {
+        const variable = {
+            name: "test-float",
+            resolvedType: "FLOAT",
+            scopes: ["OPACITY"],
+        } as any;
+        const variableRefMap = new Map<string, string>();
+
+        expect(generateVariableValue(variable, 0.890990, variableRefMap))
+            .toBe("        test-float: 0.9,\n");
+        expect(generateVariableValue(variable, 1.003, variableRefMap))
+            .toBe("        test-float: 1.0,\n");
+        expect(generateVariableValue(variable, 2.567, variableRefMap))
+            .toBe("        test-float: 2.6,\n");
+        expect(generateVariableValue(variable, 3.0, variableRefMap))
+            .toBe("        test-float: 3.0,\n");
+    });
+
+    it("should handle other types correctly", () => {
+        const variableRefMap = new Map<string, string>();
+
+        // Test string
+        const stringVar = {
+            name: "test-string",
+            resolvedType: "STRING",
+        } as any;
+        expect(generateVariableValue(stringVar, "hello", variableRefMap))
+            .toBe('        test-string: "hello",\n');
+
+        // Test boolean
+        const boolVar = {
+            name: "test-bool",
+            resolvedType: "BOOLEAN",
+        } as any;
+        expect(generateVariableValue(boolVar, true, variableRefMap))
+            .toBe("        test-bool: true,\n");
+
+        // Test length
+        const lengthVar = {
+            name: "test-length",
+            resolvedType: "FLOAT",
+            scopes: ["ALL_SCOPES"],
+        } as any;
+        expect(generateVariableValue(lengthVar, 42, variableRefMap))
+            .toBe("        test-length: 42px,\n");
+
+        // Test brush
+        const brushVar = {
+            name: "test-brush",
+            resolvedType: "COLOR",
+        } as any;
+        expect(generateVariableValue(brushVar, "#FF0000", variableRefMap))
+            .toBe("        test-brush: #FF0000,\n");
+    });
+
+    it("should handle variable aliases", () => {
+        const variable = {
+            name: "test-alias",
+            resolvedType: "COLOR",
+        } as any;
+        const variableRefMap = new Map<string, string>([
+            ["var-id-1", "Colors.collection.primary"],
+        ]);
+
+        // Test with valid reference
+        expect(generateVariableValue(
+            variable,
+            { type: "VARIABLE_ALIAS", id: "var-id-1" },
+            variableRefMap
+        )).toBe("        test-alias: Colors.collection.primary,\n");
+
+        // Test with invalid reference
+        expect(generateVariableValue(
+            variable,
+            { type: "VARIABLE_ALIAS", id: "non-existent" },
+            variableRefMap
+        )).toBe("// Unable to find reference to test-alias \n");
+    });
 });
