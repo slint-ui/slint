@@ -327,6 +327,19 @@ export function getSlintType(variable: VariableData): string {
         case "COLOR":
             return "brush";
         case "FLOAT":
+            // Filter out FONT_VARIATIONS as it can be ignored
+            const relevantScopes = variable.scopes.filter(
+                (scope) => scope !== "FONT_VARIATIONS",
+            );
+
+            if (relevantScopes.length === 1) {
+                if (relevantScopes[0] === "OPACITY") {
+                    return "float";
+                } else if (relevantScopes[0] === "FONT_SIZE") {
+                    return "int";
+                }
+            }
+            // If it's ALL_SCOPES or no specific scope matches, return length
             return "length";
         case "STRING":
             return "string";
@@ -350,7 +363,7 @@ function getVariableReference(
     return variableRefMap.get(value.id) || "";
 }
 
-function generateVariableValue(
+export function generateVariableValue(
     variable: VariableData,
     value: any,
     variableRefMap: Map<string, string>,
@@ -364,10 +377,21 @@ function generateVariableValue(
         }
     } else {
         const slintType = getSlintType(variable);
-        if (slintType === "length") {
-            return `${indent2}${variable.name}: ${value}px,\n`;
-        } else {
-            return `${indent2}${variable.name}: ${value},\n`;
+        switch (slintType) {
+            case "string":
+                return `${indent2}${variable.name}: "${value}",\n`;
+            case "bool":
+                return `${indent2}${variable.name}: ${value},\n`;
+            case "brush":
+                return `${indent2}${variable.name}: ${value},\n`;
+            case "length":
+                return `${indent2}${variable.name}: ${value}px,\n`;
+            case "float":
+                return `${indent2}${variable.name}: ${Number(value).toFixed(1)},\n`;
+            case "int":
+                return `${indent2}${variable.name}: ${value},\n`;
+            default:
+                return `${indent2}${variable.name}: ${value},\n`;
         }
     }
 }
