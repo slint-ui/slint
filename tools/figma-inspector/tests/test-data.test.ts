@@ -248,6 +248,8 @@ describe("generateVariableValue", () => {
                 { type: "VARIABLE_ALIAS", id: "non-existent" },
                 variableRefMap,
             ),
-        ).toBe("// Unable to find reference to test-var \n");
+        ).toBe(
+            `// Figma file is pointing at a deleted Variable "test-var"\n${indent2}test-var: #000000,\n`,
+        );
     });
 });
