@@ -46,6 +46,11 @@ interface VariableCollection {
     }>;
 }
 
+interface VariableReference {
+    path: string;
+    variable: VariableData;
+}
+
 export const indent = "    ";
 export const indent2 = indent + indent;
 
@@ -109,13 +114,16 @@ export async function createSlintExport(): Promise<void> {
         const collections = await processVariableCollections();
         const sanitizedCollections = sanitizeCollections(collections);
 
-        // Build a map of variable IDs to their references
-        const variableRefMap = new Map<string, string>();
+        // Build a map of variable IDs to their references and data
+        const variableRefMap = new Map<string, VariableReference>();
         for (const collection of sanitizedCollections) {
             for (const variable of collection.variables) {
                 variableRefMap.set(
                     variable.id,
-                    `${collection.name}.collection.${variable.name}`,
+                    {
+                        path: `${collection.name}.collection.${variable.name}`,
+                        variable: variable
+                    }
                 );
             }
         }
@@ -354,9 +362,9 @@ function isVariableAlias(value: any): boolean {
 
 function getVariableReference(
     value: any,
-    variableRefMap: Map<string, string>,
+    variableRefMap: Map<string, VariableReference>,
 ): string {
-    return variableRefMap.get(value.id) || "";
+    return variableRefMap.get(value.id)?.path || "";
 }
 
 function formatValueForSlint(variable: VariableData, value: any): string {
@@ -391,7 +399,7 @@ function formatValueForSlint(variable: VariableData, value: any): string {
 export function generateVariableValue(
     variable: VariableData,
     value: any,
-    variableRefMap: Map<string, string>,
+    variableRefMap: Map<string, VariableReference>,
     collectionName: string,
     sanitizedCollection: VariableCollection,
     modeId: string
@@ -452,7 +460,7 @@ export function generateVariableValue(
 function generateVariablesForMode(
     variables: VariableData[],
     modeId: string,
-    variableRefMap: Map<string, string>,
+    variableRefMap: Map<string, VariableReference>,
     collectionName: string,
     collection: VariableCollection
 ): string {
