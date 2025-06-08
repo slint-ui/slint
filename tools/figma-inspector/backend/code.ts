@@ -238,7 +238,7 @@ async function checkVariableChanges(isInitialRun = false) {
 listenTS("getTestData", async () => {
     try {
         const timeStart = Date.now();
-        const files = await saveVariableCollectionsToFile('figma-test-data');
+        const files = await saveVariableCollectionsToFile("figma-test-data");
         const timeEnd = Date.now();
         console.log(`Time taken: ${timeEnd - timeStart}ms`);
 
