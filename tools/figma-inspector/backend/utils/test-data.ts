@@ -102,8 +102,6 @@ export async function processVariableCollections(): Promise<
     }
 }
 
-
-
 export async function createSlintExport(): Promise<void> {
     try {
         const start = Date.now();
@@ -114,7 +112,10 @@ export async function createSlintExport(): Promise<void> {
         const variableRefMap = new Map<string, string>();
         for (const collection of sanitizedCollections) {
             for (const variable of collection.variables) {
-                variableRefMap.set(variable.id, `${collection.name}.collection.${variable.name}`);
+                variableRefMap.set(
+                    variable.id,
+                    `${collection.name}.collection.${variable.name}`,
+                );
             }
         }
 
@@ -155,37 +156,47 @@ export async function createSlintExport(): Promise<void> {
                 continue;
             }
 
-            const collectionIndex = sanitizedCollections.indexOf(collection) + 1;
+            const collectionIndex =
+                sanitizedCollections.indexOf(collection) + 1;
             const enumName = `Mode${collectionIndex}`;
             const structName = `Collection${collectionIndex}`;
-            
+
             allSlintCode += `export global ${collection.name} {\n`;
-            
+
             if (collection.modes.length > 1) {
                 // Find the default mode name using defaultModeId
-                const defaultMode = collection.modes.find(mode => mode.modeId === collection.defaultModeId)?.name || collection.modes[0].name;
-                
+                const defaultMode =
+                    collection.modes.find(
+                        (mode) => mode.modeId === collection.defaultModeId,
+                    )?.name || collection.modes[0].name;
+
                 // Add input property for mode selection
                 allSlintCode += `${indent}in property <${enumName}> current-mode: ${enumName}.${defaultMode};\n`;
-                
+
                 // Add output property that selects the appropriate mode
                 allSlintCode += `${indent}out property <${structName}> collection: `;
                 if (collection.modes.length > 1) {
-                    const conditions = collection.modes.map((mode, index) => {
-                        if (index === collection.modes.length - 1) {
-                            return `${mode.name}`;
-                        }
-                        return `current-mode == ${enumName}.${mode.name} ? ${mode.name} : `;
-                    }).join('');
-                    allSlintCode += conditions + ';\n\n';
+                    const conditions = collection.modes
+                        .map((mode, index) => {
+                            if (index === collection.modes.length - 1) {
+                                return `${mode.name}`;
+                            }
+                            return `current-mode == ${enumName}.${mode.name} ? ${mode.name} : `;
+                        })
+                        .join("");
+                    allSlintCode += conditions + ";\n\n";
                 }
-                
+
                 // Add properties for each mode
                 for (const mode of collection.modes) {
                     allSlintCode += `${indent}property <${structName}> ${mode.name}: {\n`;
                     for (const variable of collection.variables) {
                         const value = variable.valuesByMode[mode.modeId];
-                        allSlintCode += generateVariableValue(variable, value, variableRefMap);
+                        allSlintCode += generateVariableValue(
+                            variable,
+                            value,
+                            variableRefMap,
+                        );
                     }
                     allSlintCode += `${indent}};\n\n`;
                 }
@@ -193,12 +204,17 @@ export async function createSlintExport(): Promise<void> {
                 // For collections with only one mode, just create a simple property
                 allSlintCode += `${indent}property <${structName}> collection: {\n`;
                 for (const variable of collection.variables) {
-                    const value = variable.valuesByMode[collection.modes[0].modeId];
-                    allSlintCode += generateVariableValue(variable, value, variableRefMap);
+                    const value =
+                        variable.valuesByMode[collection.modes[0].modeId];
+                    allSlintCode += generateVariableValue(
+                        variable,
+                        value,
+                        variableRefMap,
+                    );
                 }
                 allSlintCode += `${indent}};\n\n`;
             }
-            
+
             allSlintCode += `}\n\n`;
         }
 
@@ -208,7 +224,6 @@ export async function createSlintExport(): Promise<void> {
             filename: "example.slint",
             content: allSlintCode,
         });
-        
     } catch (error) {
         console.error("Error creating Slint export:", error);
         throw error;
@@ -323,15 +338,23 @@ export function getSlintType(variable: VariableData): string {
 }
 
 function isVariableAlias(value: any): boolean {
-    return value && typeof value === 'object' && value.type === 'VARIABLE_ALIAS';
+    return (
+        value && typeof value === "object" && value.type === "VARIABLE_ALIAS"
+    );
 }
 
-function getVariableReference(value: any, variableRefMap: Map<string, string>): string {
-    return variableRefMap.get(value.id) || '';
+function getVariableReference(
+    value: any,
+    variableRefMap: Map<string, string>,
+): string {
+    return variableRefMap.get(value.id) || "";
 }
 
-function generateVariableValue(variable: VariableData, value: any, variableRefMap: Map<string, string>): string {
-
+function generateVariableValue(
+    variable: VariableData,
+    value: any,
+    variableRefMap: Map<string, string>,
+): string {
     if (isVariableAlias(value)) {
         const reference = getVariableReference(value, variableRefMap);
         if (reference) {
@@ -341,11 +364,10 @@ function generateVariableValue(variable: VariableData, value: any, variableRefMa
         }
     } else {
         const slintType = getSlintType(variable);
-        if (slintType === 'length') {
+        if (slintType === "length") {
             return `${indent2}${variable.name}: ${value}px,\n`;
         } else {
             return `${indent2}${variable.name}: ${value},\n`;
         }
     }
 }
-
