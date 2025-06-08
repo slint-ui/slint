@@ -51,7 +51,7 @@ indexmap = { version = "2.1.0" }
 chrono = "0.4"
 spin_on = { workspace = true }
 css-color-parser2 = { workspace = true }
-pyo3-stub-gen = { version = "0.7.0", default-features = false }
+pyo3-stub-gen = { version = "0.9.0", default-features = false }
 
 [package.metadata.maturin]
 python-source = "slint"
