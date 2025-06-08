@@ -195,6 +195,8 @@ export async function createSlintExport(): Promise<void> {
                         collection.variables,
                         mode.modeId,
                         variableRefMap,
+                        collection.name,
+                        collection
                     );
                 }
             } else {
@@ -204,6 +206,8 @@ export async function createSlintExport(): Promise<void> {
                     collection.variables,
                     collection.modes[0].modeId,
                     variableRefMap,
+                    collection.name,
+                    collection
                 );
             }
 
@@ -355,14 +359,63 @@ function getVariableReference(
     return variableRefMap.get(value.id) || "";
 }
 
+function formatValueForSlint(variable: VariableData, value: any): string {
+    const slintType = getSlintType(variable);
+    switch (slintType) {
+        case "string":
+            return `${indent2}${variable.name}: "${value}",\n`;
+        case "bool":
+            return `${indent2}${variable.name}: ${value},\n`;
+        case "brush":
+            if (
+                value &&
+                typeof value === "object" &&
+                "r" in value &&
+                "g" in value &&
+                "b" in value
+            ) {
+                return `${indent2}${variable.name}: ${rgbToHex(value)},\n`;
+            }
+            return `// unable to convert ${variable.name} to brush,\n`;
+        case "length":
+            return `${indent2}${variable.name}: ${value}px,\n`;
+        case "float":
+            return `${indent2}${variable.name}: ${Number(value).toFixed(1)},\n`;
+        case "int":
+            return `${indent2}${variable.name}: ${value},\n`;
+        default:
+            return `${indent2}${variable.name}: ${value},\n`;
+    }
+}
+
 export function generateVariableValue(
     variable: VariableData,
     value: any,
     variableRefMap: Map<string, string>,
+    collectionName: string,
+    sanitizedCollection: VariableCollection,
+    modeId: string
 ): string {
     if (isVariableAlias(value)) {
         const reference = getVariableReference(value, variableRefMap);
         if (reference) {
+            const referenceParts = reference.split('.');
+            if (referenceParts[0] === collectionName) {
+                // Find the referenced variable in the collection
+                const referencedVar = sanitizedCollection.variables.find(v => v.id === value.id);
+                if (referencedVar) {
+                    value = referencedVar.valuesByMode[modeId];
+                    // If value is undefined this might be a variable that shares a single value with all modes
+                    if (
+                        value === undefined &&
+                        Object.keys(referencedVar.valuesByMode).length > 0
+                    ) {
+                        const firstModeId = Object.keys(variable.valuesByMode)[0];
+                        value = variable.valuesByMode[firstModeId];
+                    }
+                    return formatValueForSlint(variable, value);
+                }
+            }
             return `${indent2}${variable.name}: ${reference},\n`;
         } else {
             const slintType = getSlintType(variable);
@@ -392,32 +445,7 @@ export function generateVariableValue(
             return `// Figma file is pointing at a deleted Variable "${variable.name}"\n${indent2}${variable.name}: ${defaultValue},\n`;
         }
     } else {
-        const slintType = getSlintType(variable);
-        switch (slintType) {
-            case "string":
-                return `${indent2}${variable.name}: "${value}",\n`;
-            case "bool":
-                return `${indent2}${variable.name}: ${value},\n`;
-            case "brush":
-                if (
-                    value &&
-                    typeof value === "object" &&
-                    "r" in value &&
-                    "g" in value &&
-                    "b" in value
-                ) {
-                    return `${indent2}${variable.name}: ${rgbToHex(value)},\n`;
-                }
-                return `// unable to convert ${variable.name} to brush,\n`;
-            case "length":
-                return `${indent2}${variable.name}: ${value}px,\n`;
-            case "float":
-                return `${indent2}${variable.name}: ${Number(value).toFixed(1)},\n`;
-            case "int":
-                return `${indent2}${variable.name}: ${value},\n`;
-            default:
-                return `${indent2}${variable.name}: ${value},\n`;
-        }
+        return formatValueForSlint(variable, value);
     }
 }
 
@@ -425,6 +453,8 @@ function generateVariablesForMode(
     variables: VariableData[],
     modeId: string,
     variableRefMap: Map<string, string>,
+    collectionName: string,
+    collection: VariableCollection
 ): string {
     let result = "";
     for (const variable of variables) {
@@ -437,7 +467,7 @@ function generateVariablesForMode(
             const firstModeId = Object.keys(variable.valuesByMode)[0];
             value = variable.valuesByMode[firstModeId];
         }
-        result += generateVariableValue(variable, value, variableRefMap);
+        result += generateVariableValue(variable, value, variableRefMap, collectionName, collection, modeId);
     }
     result += `${indent}};\n\n`;
     return result;
