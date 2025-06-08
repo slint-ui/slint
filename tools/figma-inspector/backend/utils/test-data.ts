@@ -191,12 +191,20 @@ export async function createSlintExport(): Promise<void> {
                 // Add properties for each mode
                 for (const mode of collection.modes) {
                     allSlintCode += `${indent}property <${structName}> ${mode.name}: {\n`;
-                    allSlintCode += generateVariablesForMode(collection.variables, mode.modeId, variableRefMap);
+                    allSlintCode += generateVariablesForMode(
+                        collection.variables,
+                        mode.modeId,
+                        variableRefMap,
+                    );
                 }
             } else {
                 // For collections with only one mode, just create a simple property
                 allSlintCode += `${indent}out property <${structName}> collection: {\n`;
-                allSlintCode += generateVariablesForMode(collection.variables, collection.modes[0].modeId, variableRefMap);
+                allSlintCode += generateVariablesForMode(
+                    collection.variables,
+                    collection.modes[0].modeId,
+                    variableRefMap,
+                );
             }
 
             allSlintCode += `}\n\n`;
@@ -357,7 +365,31 @@ export function generateVariableValue(
         if (reference) {
             return `${indent2}${variable.name}: ${reference},\n`;
         } else {
-            return `// Unable to find reference to ${variable.name} \n`;
+            const slintType = getSlintType(variable);
+            let defaultValue = "";
+            switch (slintType) {
+                case "string":
+                    defaultValue = '""';
+                    break;
+                case "bool":
+                    defaultValue = "false";
+                    break;
+                case "brush":
+                    defaultValue = "#000000";
+                    break;
+                case "length":
+                    defaultValue = "0px";
+                    break;
+                case "float":
+                    defaultValue = "0.0";
+                    break;
+                case "int":
+                    defaultValue = "0";
+                    break;
+                default:
+                    defaultValue = "0";
+            }
+            return `// Figma file is pointing at a deleted Variable "${variable.name}"\n${indent2}${variable.name}: ${defaultValue},\n`;
         }
     } else {
         const slintType = getSlintType(variable);
@@ -398,7 +430,10 @@ function generateVariablesForMode(
     for (const variable of variables) {
         let value = variable.valuesByMode[modeId];
         // If value is undefined this might be a variable that shares a single value with all modes
-        if (value === undefined && Object.keys(variable.valuesByMode).length > 0) {
+        if (
+            value === undefined &&
+            Object.keys(variable.valuesByMode).length > 0
+        ) {
             const firstModeId = Object.keys(variable.valuesByMode)[0];
             value = variable.valuesByMode[firstModeId];
         }
