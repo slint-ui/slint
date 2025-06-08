@@ -5,6 +5,7 @@ import { expect, test, describe, it } from "vitest";
 import {
     sanitizeSlintPropertyName,
     generateVariableValue,
+    indent2,
 } from "../backend/utils/test-data";
 
 // sanitizeSlintPropertyName tests
@@ -138,16 +139,16 @@ describe("generateVariableValue", () => {
         const variableRefMap = new Map<string, string>();
 
         expect(generateVariableValue(variable, 0.89099, variableRefMap)).toBe(
-            "        test-float: 0.9,\n",
+            `${indent2}test-float: 0.9,\n`,
         );
         expect(generateVariableValue(variable, 1.003, variableRefMap)).toBe(
-            "        test-float: 1.0,\n",
+            `${indent2}test-float: 1.0,\n`,
         );
         expect(generateVariableValue(variable, 2.567, variableRefMap)).toBe(
-            "        test-float: 2.6,\n",
+            `${indent2}test-float: 2.6,\n`,
         );
         expect(generateVariableValue(variable, 3.0, variableRefMap)).toBe(
-            "        test-float: 3.0,\n",
+            `${indent2}test-float: 3.0,\n`,
         );
     });
 
@@ -160,7 +161,7 @@ describe("generateVariableValue", () => {
             resolvedType: "STRING",
         } as any;
         expect(generateVariableValue(stringVar, "hello", variableRefMap)).toBe(
-            '        test-string: "hello",\n',
+            `${indent2}test-string: "hello",\n`,
         );
 
         // Test boolean
@@ -169,7 +170,7 @@ describe("generateVariableValue", () => {
             resolvedType: "BOOLEAN",
         } as any;
         expect(generateVariableValue(boolVar, true, variableRefMap)).toBe(
-            "        test-bool: true,\n",
+            `${indent2}test-bool: true,\n`,
         );
 
         // Test length
@@ -179,7 +180,7 @@ describe("generateVariableValue", () => {
             scopes: ["ALL_SCOPES"],
         } as any;
         expect(generateVariableValue(lengthVar, 42, variableRefMap)).toBe(
-            "        test-length: 42px,\n",
+            `${indent2}test-length: 42px,\n`,
         );
 
         // Test brush
@@ -187,9 +188,39 @@ describe("generateVariableValue", () => {
             name: "test-brush",
             resolvedType: "COLOR",
         } as any;
-        expect(generateVariableValue(brushVar, "#FF0000", variableRefMap)).toBe(
-            "        test-brush: #FF0000,\n",
-        );
+        expect(
+            generateVariableValue(brushVar, "invalid-data", variableRefMap),
+        ).toBe("// unable to convert test-brush to brush,\n");
+
+        // Test RGB object conversion
+        expect(
+            generateVariableValue(
+                brushVar,
+                { r: 1, g: 0, b: 0, a: 1 },
+                variableRefMap,
+            ),
+        ).toBe(`${indent2}test-brush: #ff0000,\n`);
+        expect(
+            generateVariableValue(
+                brushVar,
+                { r: 0, g: 1, b: 0, a: 1 },
+                variableRefMap,
+            ),
+        ).toBe(`${indent2}test-brush: #00ff00,\n`);
+        expect(
+            generateVariableValue(
+                brushVar,
+                { r: 0, g: 0, b: 1, a: 1 },
+                variableRefMap,
+            ),
+        ).toBe(`${indent2}test-brush: #0000ff,\n`);
+        expect(
+            generateVariableValue(
+                brushVar,
+                { r: 0.5, g: 0.5, b: 0.5, a: 1 },
+                variableRefMap,
+            ),
+        ).toBe(`${indent2}test-brush: #808080,\n`);
     });
 
     it("should handle variable aliases", () => {
@@ -208,7 +239,7 @@ describe("generateVariableValue", () => {
                 { type: "VARIABLE_ALIAS", id: "var-id-1" },
                 variableRefMap,
             ),
-        ).toBe("        test-var: Colors.collection.primary,\n");
+        ).toBe(`${indent2}test-var: Colors.collection.primary,\n`);
 
         // Test with invalid reference
         expect(
