@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: MIT
 
 import { dispatchTS } from "./code-utils.js";
-import { getSlintType } from "./export-variables";
 
 interface VariableData {
     id: string;
@@ -108,6 +107,14 @@ export async function createSlintExport(): Promise<void> {
         const collections = await processVariableCollections();
         const sanitizedCollections = sanitizeCollections(collections);
 
+        // Build a map of variable IDs to their references
+        const variableRefMap = new Map<string, string>();
+        for (const collection of sanitizedCollections) {
+            for (const variable of collection.variables) {
+                variableRefMap.set(variable.id, `${collection.name}.collection.${variable.name}`);
+            }
+        }
+
         let allSlintCode = "";
         let collectionCount = 1;
 
@@ -133,18 +140,100 @@ export async function createSlintExport(): Promise<void> {
             // Generate a struct for the collection
             allSlintCode += `struct ${structName} {\n`;
             for (const variable of collection.variables) {
-                const slintType = getSlintType(variable.resolvedType);
+                const slintType = getSlintType(variable);
                 allSlintCode += `${indent}${variable.name}: ${slintType},\n`;
             }
             allSlintCode += `}\n\n`;
         }
+
+        // Create a global for each collection
+        for (const collection of sanitizedCollections) {
+            if (collection.variables.length === 0) {
+                continue;
+            }
+
+            const collectionIndex = sanitizedCollections.indexOf(collection) + 1;
+            const enumName = `Mode${collectionIndex}`;
+            const structName = `Collection${collectionIndex}`;
+            
+            allSlintCode += `export global ${collection.name} {\n`;
+            
+            if (collection.modes.length > 1) {
+                // Find the default mode name using defaultModeId
+                const defaultMode = collection.modes.find(mode => mode.modeId === collection.defaultModeId)?.name || collection.modes[0].name;
+                
+                // Add input property for mode selection
+                allSlintCode += `${indent}in property <${enumName}> current-mode: ${enumName}.${defaultMode};\n`;
+                
+                // Add output property that selects the appropriate mode
+                allSlintCode += `${indent}out property <${structName}> collection: `;
+                if (collection.modes.length > 1) {
+                    const conditions = collection.modes.map((mode, index) => {
+                        if (index === collection.modes.length - 1) {
+                            return `${mode.name}`;
+                        }
+                        return `current-mode == ${enumName}.${mode.name} ? ${mode.name} : `;
+                    }).join('');
+                    allSlintCode += conditions + ';\n\n';
+                }
+                
+                // Add properties for each mode
+                for (const mode of collection.modes) {
+                    allSlintCode += `${indent}property <${structName}> ${mode.name}: {\n`;
+                    for (const variable of collection.variables) {
+                        const value = variable.valuesByMode[mode.modeId];
+                        const slintType = getSlintType(variable);
+                        
+                        if (isVariableAlias(value)) {
+                            const reference = getVariableReference(value, variableRefMap);
+                            if (reference) {
+                                allSlintCode += `${indent}${indent}${variable.name}: ${reference},\n`;
+                            } else {
+                                // Fallback to a default value if reference not found
+                                allSlintCode += `// Unable to find reference to ${variable.name} \n`;
+                            }
+                        } else if (slintType === 'length') {
+                            allSlintCode += `${indent}${indent}${variable.name}: ${value}px,\n`;
+                        } else {
+                            allSlintCode += `${indent}${indent}${variable.name}: ${value},\n`;
+                        }
+                    }
+                    allSlintCode += `${indent}};\n\n`;
+                }
+            } else {
+                // For collections with only one mode, just create a simple property
+                allSlintCode += `${indent}property <${structName}> collection: {\n`;
+                for (const variable of collection.variables) {
+                    const value = variable.valuesByMode[collection.modes[0].modeId];
+                    const slintType = getSlintType(variable);
+                    
+                    if (isVariableAlias(value)) {
+                        const reference = getVariableReference(value, variableRefMap);
+                        if (reference) {
+                            allSlintCode += `${indent}${indent}${variable.name}: ${reference},\n`;
+                        } else {
+                            // Add a comment to indicate that the reference was not found
+                            allSlintCode += `// Unable to find reference to ${variable.name} \n`;
+                        }
+                    } else if (slintType === 'length') {
+                        allSlintCode += `${indent}${indent}${variable.name}: ${value}px,\n`;
+                    } else {
+                        allSlintCode += `${indent}${indent}${variable.name}: ${value},\n`;
+                    }
+                }
+                allSlintCode += `${indent}};\n\n`;
+            }
+            
+            allSlintCode += `}\n\n`;
+        }
+        console.log("Code gen took", Date.now() - start, "ms");
 
         dispatchTS("saveTextFile", {
             filename: "example.slint",
             content: allSlintCode,
         });
 
-        console.log("Code gen took", Date.now() - start, "ms");
+        
     } catch (error) {
         console.error("Error creating Slint export:", error);
         throw error;
@@ -241,4 +330,27 @@ export async function saveVariableCollectionsToFile(
             },
         ];
     }
+}
+
+export function getSlintType(variable: VariableData): string {
+    switch (variable.resolvedType) {
+        case "COLOR":
+            return "brush";
+        case "FLOAT":
+            return "length";
+        case "STRING":
+            return "string";
+        case "BOOLEAN":
+            return "bool";
+        default:
+            return "brush"; // Default to brush
+    }
+}
+
+function isVariableAlias(value: any): boolean {
+    return value && typeof value === 'object' && value.type === 'VARIABLE_ALIAS';
+}
+
+function getVariableReference(value: any, variableRefMap: Map<string, string>): string {
+    return variableRefMap.get(value.id) || '';
 }
