@@ -65,7 +65,6 @@ export const useInspectorStore = create<StoreState>()((set, get) => ({
         });
 
         listenTS("exportedFiles", (res) => {
-            
             get().exportFilesHandler(res.zipFilename, res.files);
         });
 
@@ -121,7 +120,11 @@ export const useInspectorStore = create<StoreState>()((set, get) => ({
             set({ isExporting: false });
         } else {
             console.error("Invalid or empty files data received:", files);
-            set({ exportedFiles: [], exportsAreCurrent: false, isExporting: false }); // Mark as not current if export failed to produce files
+            set({
+                exportedFiles: [],
+                exportsAreCurrent: false,
+                isExporting: false,
+            }); // Mark as not current if export failed to produce files
         }
     },
 
