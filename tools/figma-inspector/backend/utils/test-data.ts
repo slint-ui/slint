@@ -338,8 +338,6 @@ export function getSlintType(variable: VariableData): string {
             if (relevantScopes.length === 1) {
                 if (relevantScopes[0] === "OPACITY") {
                     return "float";
-                } else if (relevantScopes[0] === "FONT_SIZE") {
-                    return "int";
                 }
             }
             // If it's ALL_SCOPES or no specific scope matches, return length
