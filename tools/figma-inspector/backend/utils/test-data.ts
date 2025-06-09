@@ -116,7 +116,9 @@ export async function createSlintExport(): Promise<void> {
 
         // Build a map of variable IDs to their references and data
         const variableRefMap = new Map<string, VariableReference>();
+        const collectionDefaultModes = new Map<string, string>();
         for (const collection of sanitizedCollections) {
+            collectionDefaultModes.set(collection.id, collection.defaultModeId);
             for (const variable of collection.variables) {
                 variableRefMap.set(
                     variable.id,
@@ -202,9 +204,9 @@ export async function createSlintExport(): Promise<void> {
                     allSlintCode += generateVariablesForMode(
                         collection.variables,
                         mode.modeId,
-                        variableRefMap,
                         collection.name,
-                        collection
+                        collectionDefaultModes,
+                        variableRefMap,
                     );
                 }
             } else {
@@ -213,9 +215,9 @@ export async function createSlintExport(): Promise<void> {
                 allSlintCode += generateVariablesForMode(
                     collection.variables,
                     collection.modes[0].modeId,
-                    variableRefMap,
                     collection.name,
-                    collection
+                    collectionDefaultModes,
+                    variableRefMap,
                 );
             }
 
@@ -399,58 +401,16 @@ function formatValueForSlint(variable: VariableData, value: any): string {
 export function generateVariableValue(
     variable: VariableData,
     value: any,
-    variableRefMap: Map<string, VariableReference>,
     collectionName: string,
-    sanitizedCollection: VariableCollection,
-    modeId: string
+    collectionDefaultModes: Map<string, string>,
+    variableRefMap: Map<string, VariableReference>,
 ): string {
     if (isVariableAlias(value)) {
-        const reference = getVariableReference(value, variableRefMap);
-        if (reference) {
-            const referenceParts = reference.split('.');
-            if (referenceParts[0] === collectionName) {
-                // Find the referenced variable in the collection
-                const referencedVar = sanitizedCollection.variables.find(v => v.id === value.id);
-                if (referencedVar) {
-                    value = referencedVar.valuesByMode[modeId];
-                    // If value is undefined this might be a variable that shares a single value with all modes
-                    if (
-                        value === undefined &&
-                        Object.keys(referencedVar.valuesByMode).length > 0
-                    ) {
-                        const firstModeId = Object.keys(variable.valuesByMode)[0];
-                        value = variable.valuesByMode[firstModeId];
-                    }
-                    return formatValueForSlint(variable, value);
-                }
-            }
-            return `${indent2}${variable.name}: ${reference},\n`;
+        const variableAlias = getVariableReference(value, variableRefMap);
+        if (variableAlias) {
+            return handlePossibleSelfReference(variable, value, collectionName, variableAlias, collectionDefaultModes, variableRefMap);
         } else {
-            const slintType = getSlintType(variable);
-            let defaultValue = "";
-            switch (slintType) {
-                case "string":
-                    defaultValue = '""';
-                    break;
-                case "bool":
-                    defaultValue = "false";
-                    break;
-                case "brush":
-                    defaultValue = "#000000";
-                    break;
-                case "length":
-                    defaultValue = "0px";
-                    break;
-                case "float":
-                    defaultValue = "0.0";
-                    break;
-                case "int":
-                    defaultValue = "0";
-                    break;
-                default:
-                    defaultValue = "0";
-            }
-            return `// Figma file is pointing at a deleted Variable "${variable.name}"\n${indent2}${variable.name}: ${defaultValue},\n`;
+            return handleDeletedVariable(variable);
         }
     } else {
         return formatValueForSlint(variable, value);
@@ -460,9 +420,9 @@ export function generateVariableValue(
 function generateVariablesForMode(
     variables: VariableData[],
     modeId: string,
-    variableRefMap: Map<string, VariableReference>,
     collectionName: string,
-    collection: VariableCollection
+    collectionDefaultModes: Map<string, string>,
+    variableRefMap: Map<string, VariableReference>,
 ): string {
     let result = "";
     for (const variable of variables) {
@@ -475,8 +435,74 @@ function generateVariablesForMode(
             const firstModeId = Object.keys(variable.valuesByMode)[0];
             value = variable.valuesByMode[firstModeId];
         }
-        result += generateVariableValue(variable, value, variableRefMap, collectionName, collection, modeId);
+        result += generateVariableValue(variable, value, collectionName, collectionDefaultModes, variableRefMap);
     }
     result += `${indent}};\n\n`;
     return result;
+}
+
+function handleDeletedVariable(variable: VariableData): string {
+    const slintType = getSlintType(variable);
+    let defaultValue = "";
+    switch (slintType) {
+        case "string":
+            defaultValue = '""';
+            break;
+        case "bool":
+            defaultValue = "false";
+            break;
+        case "brush":
+            defaultValue = "#000000";
+            break;
+        case "length":
+            defaultValue = "0px";
+            break;
+        case "float":
+            defaultValue = "0.0";
+            break;
+        case "int":
+            defaultValue = "0";
+            break;
+        default:
+            defaultValue = "0";
+    }
+    return `// Figma file is pointing at a deleted Variable "${variable.name}"\n${indent2}${variable.name}: ${defaultValue},\n`;
+}
+
+function handlePossibleSelfReference(
+    variable: VariableData,
+    value: any,
+    collectionName: string,
+    variableAlias: string,
+    collectionDefaultModes: Map<string, string>,
+    variableRefMap: Map<string, VariableReference>,
+): string {
+    // Figma variables can point to other variables in the same collection. This converter puts all the variables 
+    // in one collection into a single struct. However Slint does not support structs where one property references another
+    // Ths detects self referencing variables and replaces them with the final resolved value. This is done by following the variable-
+    // alias chain until we find a variable that is not a variable alias. For each collection the defaultModeId is used.
+    const referenceParts = variableAlias.split(".");
+    if (referenceParts[0] === collectionName) {
+        return followAliasChain(variable, value, variableRefMap, collectionDefaultModes);
+    }
+    return `${indent2}${variable.name}: ${variableAlias},\n`;
+}
+
+
+function followAliasChain(variable: VariableData, value: any, variableRefMap: Map<string, VariableReference>, collectionDefaultModes: Map<string, string>): string {
+    if (isVariableAlias(value)) {
+        // get the next variable in the chain
+        const nextVariable = variableRefMap.get(value.id)?.variable;
+        if (nextVariable) {
+            const nextValue = nextVariable.valuesByMode[collectionDefaultModes.get(nextVariable.variableCollectionId)!];
+            if (isVariableAlias(nextValue)) {
+                const newV = followAliasChain(variable, nextValue, variableRefMap, collectionDefaultModes);
+                console.log("newV", newV);
+                return newV;
+            } else {
+                return formatValueForSlint(variable, nextValue);
+            }
+        }
+    }
+    return formatValueForSlint(variable, value);
 }
