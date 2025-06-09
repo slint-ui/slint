@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 import { dispatchTS } from "./code-utils.js";
-import { rgbToHex } from "./property-parsing";
+import { rgbToHex } from "./property-parsing.js";
 
 interface VariableData {
     id: string;
@@ -65,27 +65,33 @@ export async function processVariableCollections(): Promise<
     ProcessedCollection[]
 > {
     try {
-        const [collections, allVariables] = await Promise.all([
-            figma.variables.getLocalVariableCollectionsAsync(),
-            figma.variables.getLocalVariablesAsync(),
-        ]);
+        const start = Date.now();
+        const collections = await figma.variables.getLocalVariableCollectionsAsync();
+        const allVariables = await figma.variables.getLocalVariablesAsync();
 
         const variablesByCollection = new Map<string, VariableData[]>();
         for (const variable of allVariables) {
             const collectionId = variable.variableCollectionId;
+            if (!collectionId) { continue }
+            
             if (!variablesByCollection.has(collectionId)) {
                 variablesByCollection.set(collectionId, []);
             }
-            variablesByCollection.get(collectionId)!.push({
-                id: variable.id,
-                name: variable.name,
-                variableCollectionId: variable.variableCollectionId,
-                resolvedType: variable.resolvedType,
-                valuesByMode: variable.valuesByMode,
-                hiddenFromPublishing: variable.hiddenFromPublishing,
-                scopes: variable.scopes,
-            });
+            
+            // Ensure all required properties exist with defaults
+            const safeVariable: VariableData = {
+                id: variable.id || '',
+                name: variable.name || '',
+                variableCollectionId: collectionId,
+                resolvedType: variable.resolvedType || 'STRING',
+                valuesByMode: variable.valuesByMode || {},
+                hiddenFromPublishing: variable.hiddenFromPublishing ?? false,
+                scopes: variable.scopes || [],
+            };
+            variablesByCollection.get(collectionId)!.push(safeVariable);
         }
+
+        
 
         // Build the final collections data
         const detailedCollections = collections.map((collection) => ({
@@ -100,6 +106,8 @@ export async function processVariableCollections(): Promise<
             variables: variablesByCollection.get(collection.id) || [],
         }));
 
+        console.log("get data took", Date.now() - start, "ms");
+
         console.log("Total variables:", allVariables.length);
         return detailedCollections;
     } catch (error) {
@@ -112,7 +120,10 @@ export async function createSlintExport(): Promise<void> {
     try {
         const start = Date.now();
         const collections = await processVariableCollections();
+        console.log("Part1 took", Date.now() - start, "ms");
         const sanitizedCollections = sanitizeCollections(collections);
+
+        
 
         // Build a map of variable IDs to their references and data
         const variableRefMap = new Map<string, VariableReference>();
@@ -126,6 +137,7 @@ export async function createSlintExport(): Promise<void> {
                 });
             }
         }
+        
 
         let allSlintCode = "";
         let collectionCount = 1;
