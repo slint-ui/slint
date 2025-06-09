@@ -22,6 +22,7 @@ use num_traits::Float;
 /// assert_eq!(s, slint::SharedString::from("Hello world"));
 /// ```
 #[macro_export]
+#[clippy::format_args]
 macro_rules! format {
     ($($arg:tt)*) => {{
         $crate::string::format(core::format_args!($($arg)*))
