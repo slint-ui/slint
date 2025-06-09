@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 global Glob := {
+//          ^warning{':=' to declare a global is deprecated. Remove the ':='}
     property <physical_length> len: 45px * 5;
 //                                  ^error{Cannot convert between logical and physical length in a global component, because the scale factor is not known}
     property <length> logic_len: 45phx * 5;
@@ -16,16 +17,17 @@ global Glob := {
 }
 
 export X := Rectangle {
+//       ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
 
     t := Text {
         x: "hello";
-//         ^error{Cannot convert string to length$}
+//         ^error{Cannot convert string to length}
         text: 45;
     }
 
     Text {
         x: t.text;
-//         ^error{Cannot convert string to length$}
+//         ^error{Cannot convert string to length}
         y: 42;
 //         ^error{Cannot convert float to length. Use an unit, or multiply by 1px to convert explicitly}
         text: x;
@@ -38,28 +40,28 @@ export X := Rectangle {
 
     Rectangle {
         background: "blue";
-//                  ^error{Cannot convert string to brush$}
+//                  ^error{Cannot convert string to brush}
         property<length> no_matching_parent: 50%;
 //                                           ^error{Automatic conversion from percentage to length is only possible for the following properties: width, height, preferred-width, preferred-height}
     }
 
     property <{a: string, b: int}> object1: { a: "123", typo: 42};
-//                                          ^error{Cannot convert \{ a: string,typo: float,\} to \{ a: string,b: int,\}}
+//                                          ^error{Cannot convert { a: string,typo: float,} to { a: string,b: int,}}
 
-    property <[{a: [int]}]> ccc: [{a: []}, {}, {a: ["123"]}, {a: [123]}];
-//                               ^error{Cannot convert string to int}  (FIXME: error location)
-//                               ^^error{Cannot convert string to int}  (FIXME: duplicated)
+    property <[{a: [int]}]> ccc: [{a: []}, {}, {a: ["123"]}, {a: [123]}]; //  (FIXME: error location)  (FIXME: duplicated)
+//                               ^error{Cannot convert string to int}
+//                               ^^error{Cannot convert string to int}
 
     property <int> arr1: [];
-//                       ^error{Cannot convert \[void\] to int}
+//                       ^error{Cannot convert [void] to int}
 
     property <{a: int}> arr2: {a: []};
-    //                        ^error{Cannot convert \[void\] to int}
+//                            ^error{Cannot convert [void] to int}
 
     property <int> arr3: false ? [] : 45;  //(FIXME: error not ideal)
-//                                    ^error{Cannot convert float to \[void\]}
-//                       ^^error{Cannot convert void to int}
+//                       ^error{Cannot convert void to int}
+//                                    ^^error{Cannot convert float to [void]}
 
     property <int> to-float: "foobar".to-float;
-//                                    ^error{Member function must be called}
+//                                    ^error{Member function must be called. Did you forgot the '()'?}
 }

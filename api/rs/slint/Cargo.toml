@@ -259,3 +259,4 @@ features = [
   "raw-window-handle-06",
   "unstable-wgpu-24",
 ]
+rustdoc-args = ["--generate-link-to-definition"]

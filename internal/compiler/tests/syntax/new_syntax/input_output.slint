@@ -39,6 +39,7 @@ component Compo inherits Rectangle {
 }
 
 OldCompo := Rectangle {
+//       ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     property <int> inout2: 42;
     private property <int> priv2: inout2;
     out property <int> output1: priv2;

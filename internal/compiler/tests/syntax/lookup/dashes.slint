@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 export Xxx := Rectangle {
+//         ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
 
     my-rect := Rectangle {
         border-width: 44px;
@@ -9,31 +10,31 @@ export Xxx := Rectangle {
 
     property <length> x1: my-rect.width;
     property <length> x2: my-rect.width-1px;
-    //                            ^error{Element 'Rectangle' does not have a property 'width-1px'. Use space before the '-' if you meant a subtraction}
+//                                ^error{Element 'Rectangle' does not have a property 'width-1px'. Use space before the '-' if you meant a subtraction}
     property <length> x3: my_rect.border-width;
     property <length> x4: my_rect.border_width-1px;
-    //                            ^error{Element 'Rectangle' does not have a property 'border_width-1px'. Use space before the '-' if you meant a subtraction}
+//                                ^error{Element 'Rectangle' does not have a property 'border_width-1px'. Use space before the '-' if you meant a subtraction}
 
 
     property <{a-b: string, d-c: string, e_f: string, xx: { hello: int, world: int }}> obj: {a_b: "hello", d-c: "world", e-f: "!"};
 
     property<int> t1: -obj.xx-42;
-    //                     ^error{Cannot access the field 'xx-42'. Use space before the '-' if you meant a subtraction}
+//                         ^error{Cannot access the field 'xx-42'. Use space before the '-' if you meant a subtraction}
 
     property<int> t2: -obj.xx.hello-world;
-    //                        ^error{Cannot access the field 'hello-world'. Use space before the '-' if you meant a subtraction}
+//                            ^error{Cannot access the field 'hello-world'. Use space before the '-' if you meant a subtraction}
     property<int> t3: x-4;
-    //                ^error{Unknown unqualified identifier 'x-4'. Use space before the '-' if you meant a subtraction}
+//                    ^error{Unknown unqualified identifier 'x-4'. Use space before the '-' if you meant a subtraction}
 
     // the following did not mean subtraction:
     property<int> t4: foo-bar;
-    //                ^error{Unknown unqualified identifier 'foo-bar'$}
+//                    ^error{Unknown unqualified identifier 'foo-bar'}
     property<int> t5: x_y;
-    //                ^error{Unknown unqualified identifier 'x_y'$}
+//                    ^error{Unknown unqualified identifier 'x_y'}
     property<int> t6: obj.a-bc;
-    //                    ^error{Cannot access the field 'a-bc'$}
+//                        ^error{Cannot access the field 'a-bc'}
     property<int> t7: obj.xx.obj-4;
-    //                       ^error{Cannot access the field 'obj-4'$}
+//                           ^error{Cannot access the field 'obj-4'}
 
 
 

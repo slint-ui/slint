@@ -197,42 +197,26 @@ pub(super) fn open_ui_impl(
 
     let experimental = std::env::var_os("SLINT_ENABLE_EXPERIMENTAL_FEATURES").is_some();
 
-    let ui = match preview_state.ui.as_ref() {
-        Some(ui) => ui,
-        None => {
-            let ui = super::ui::create_ui(default_style, experimental)?;
-            crate::preview::send_telemetry(&mut [(
-                "type".to_string(),
-                serde_json::to_value("preview_opened").unwrap(),
-            )]);
-            preview_state.ui.insert(ui)
-        }
-    };
+    if preview_state.ui.is_none() {
+        let ui = super::ui::create_ui(default_style, experimental)?;
+        crate::preview::send_telemetry(&mut [(
+            "type".to_string(),
+            serde_json::to_value("preview_opened").unwrap(),
+        )]);
+        let ui = preview_state.ui.insert(ui);
+        ui.window().set_fullscreen(fullscreen);
+        ui.window().on_close_requested(|| slint::CloseRequestResponse::HideWindow);
 
-    preview_state.ui_is_visible = true;
+        let api = ui.global::<crate::preview::ui::Api>();
+        api.set_show_preview_ui(show_preview_ui);
+    }
 
-    let api = ui.global::<crate::preview::ui::Api>();
-    api.set_show_preview_ui(show_preview_ui);
-    ui.window().set_fullscreen(fullscreen);
-    ui.window().on_close_requested(|| {
-        super::PREVIEW_STATE.with(|preview_state| {
-            let mut preview_state = preview_state.borrow_mut();
-            preview_state.ui_is_visible = false;
-        });
-        slint::CloseRequestResponse::HideWindow
-    });
     Ok(())
 }
 
 pub fn close_ui() {
     super::PREVIEW_STATE.with_borrow_mut(|preview_state| {
-        if !preview_state.ui_is_visible {
-            return; // UI is already down!
-        }
-        preview_state.ui_is_visible = false;
-
-        let ui = preview_state.ui.take();
-        if let Some(ui) = ui {
+        if let Some(ui) = &preview_state.ui {
             ui.hide().unwrap();
         }
     });

@@ -106,7 +106,7 @@ copypasta = { version = "0.10", default-features = false }
 
 [target.'cfg(not(any(target_family = "windows", target_vendor = "apple", target_arch = "wasm32")))'.dependencies]
 # Use same version and executor as accesskit
-zbus = { version = "4.4.0", default-features = false, features = ["async-io"] }
+zbus = { version = "5.7.0", default-features = false, features = ["async-io"] }
 futures = { version = "0.3.31" }
 
 [target.'cfg(target_os = "macos")'.dependencies]
@@ -125,3 +125,4 @@ slint = { path = "../../../api/rs/slint", default-features = false, features = [
 
 [package.metadata.docs.rs]
 features = ["wayland", "renderer-software", "raw-window-handle-06"]
+rustdoc-args = ["--generate-link-to-definition"]

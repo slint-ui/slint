@@ -2,8 +2,9 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { Rec12 } from "../../typeloader/recursive_import1.slint";
-//                    ^error{No exported type called 'Rec12' found in ".*recursive_import1.slint"}
+//                    ^error{No exported type called 'Rec12' found in "../../typeloader/recursive_import1.slint"}
 export Blah := Rec12 {
-//             ^error{Unknown element 'Rec12'}
+//          ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
+//             ^^error{Unknown element 'Rec12'}
     width: 100px;
 }

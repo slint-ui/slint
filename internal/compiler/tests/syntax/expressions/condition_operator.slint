@@ -2,23 +2,24 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 export SuperSimple := Rectangle {
+//                 ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     background: area.pressed ? green : blue;
     property<color> c2: area.pressed ? 123 : 456;
 //                      ^error{Cannot convert float to color}
 
     property<int> c3: area.pressed ? 123 : #456;
-//                                         ^error{Cannot convert color to float}
-//                    ^^error{Cannot convert void to int}
+//                    ^error{Cannot convert void to int}
+//                                         ^^error{Cannot convert color to float}
 
     property<int> c4: area.pressed ? 123ms : 123;
-//                                           ^error{Cannot convert float to duration}
-//                    ^^error{Cannot convert void to int}
+//                    ^error{Cannot convert void to int}
+//                                           ^^error{Cannot convert float to duration. Use an unit, or multiply by 1ms to convert explicitly}
 
     property <length> c5: true ? 123px : 0;
 
     property<duration> c6: area.pressed ? 123ms : 123;
-//                                                ^error{Cannot convert float to duration}
-//                         ^^error{Cannot convert void to duration}
+//                         ^error{Cannot convert void to duration}
+//                                                ^^error{Cannot convert float to duration. Use an unit, or multiply by 1ms to convert explicitly}
 
 
     area := TouchArea {
@@ -27,6 +28,7 @@ export SuperSimple := Rectangle {
 
 
 export Test2 := Rectangle {
+//           ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     background: {
 //              ^error{Cannot convert void to brush}
         if (true) {
@@ -39,5 +41,5 @@ export Test2 := Rectangle {
 //     ^error{Cannot convert void to length}
     y: { if (false) {0px} else { return 5px; }; }
     property<length> something: { if (true) {"hello"} else { return 5px; }; }
-    //                          ^error{Cannot convert string to length}
+//                              ^error{Cannot convert string to length}
 }

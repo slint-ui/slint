@@ -25,4 +25,7 @@ export interface EventTS {
     generateSnippetRequest: { useVariables: boolean };
     nodeChanged;
     exportToFiles: { exportAsSingleFile: boolean };
+
+    // Resize-related messages
+    resizeWindow: { width: number; height: number };
 }

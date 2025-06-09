@@ -3,47 +3,52 @@
 
 
 T1 := Rectangle {
+// ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     property <int> foo;
     property <int> bar: foo;
-//                      ^error{The binding for the property 'bar' is part of a binding loop}
+//                      ^error{The binding for the property 'bar' is part of a binding loop (foo -> bar)}
     Text { text: bar; }
 }
 
 T2 := Rectangle {
+// ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     property <string> t2_text;
     t:= Text { text: t2_text; }
-//                   ^error{The binding for the property 'text' is part of a binding loop}
-//                   ^^error{The binding for the property 'text' is part of a binding loop}
+//                   ^error{The binding for the property 'text' is part of a binding loop (hello -> b.t2-text -> t.text -> b.t-alias -> a.t2-text -> t.text -> a.t-alias -> al)}
+//                   ^^error{The binding for the property 'text' is part of a binding loop (hello -> b.t2-text -> t.text -> b.t-alias -> a.t2-text -> t.text -> a.t-alias -> al)}
     property t_alias <=> t.text;
-//                   ^error{The binding for the property 't-alias' is part of a binding loop}
-//                   ^^error{The binding for the property 't-alias' is part of a binding loop}
+//                   ^error{The binding for the property 't-alias' is part of a binding loop (hello -> b.t2-text -> t.text -> b.t-alias -> a.t2-text -> t.text -> a.t-alias -> al)}
+//                   ^^error{The binding for the property 't-alias' is part of a binding loop (hello -> b.t2-text -> t.text -> b.t-alias -> a.t2-text -> t.text -> a.t-alias -> al)}
 }
 
 T3 := Rectangle {
+// ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     property <string> hello;
     property <string> al <=> a.t_alias;
-//                       ^error{The binding for the property 'al' is part of a binding loop}
+//                       ^error{The binding for the property 'al' is part of a binding loop (hello -> b.t2-text -> t.text -> b.t-alias -> a.t2-text -> t.text -> a.t-alias -> al)}
     HorizontalLayout {
         a := T2 { t2_text: b.t_alias; }
-//                         ^error{The binding for the property 't2-text' is part of a binding loop}
+//                         ^error{The binding for the property 't2-text' is part of a binding loop (hello -> b.t2-text -> t.text -> b.t-alias -> a.t2-text -> t.text -> a.t-alias -> al)}
         b := T2 { t2_text: root.hello;  }
-//                         ^error{The binding for the property 't2-text' is part of a binding loop}
+//                         ^error{The binding for the property 't2-text' is part of a binding loop (hello -> b.t2-text -> t.text -> b.t-alias -> a.t2-text -> t.text -> a.t-alias -> al)}
     }
 }
 
 T4 := Rectangle {
+// ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     property <length> my_property <=> x;
 }
 
 export App := Rectangle {
+//         ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
 
 
     VerticalLayout {
         T1 { foo: 44; }
         T1 { foo: bar; }
-//                ^error{The binding for the property 'foo' is part of a binding loop}
+//                ^error{The binding for the property 'foo' is part of a binding loop (foo -> bar)}
         T3 { hello: al; }
-//                  ^error{The binding for the property 'hello' is part of a binding loop}
+//                  ^error{The binding for the property 'hello' is part of a binding loop (hello -> b.t2-text -> t.text -> b.t-alias -> a.t2-text -> t.text -> a.t-alias -> al)}
 
         T4 { my_property: my_property; }
 //                        ^error{Property 'my-property' cannot refer to itself}

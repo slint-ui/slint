@@ -71,11 +71,11 @@ jobs:
               with:
                   crate: cross
             - name: Build
-              run: cross build --release --target=${{ matrix.target }} ${{ env.EXTRA_ARGS }} --features slint/backend-linuxkms-noseat -p energy-monitor -p printerdemo -p todo -p slint-viewer -p gallery -p home-automation
+              run: cross build --release --target=${{ matrix.target }} ${{ env.EXTRA_ARGS }} --features slint/backend-linuxkms-noseat,slint/renderer-skia -p energy-monitor -p printerdemo -p todo -p slint-viewer -p gallery -p home-automation
             - name: "Upload demo artifacts"
               uses: actions/upload-artifact@v4
               with:
-                  name: printerdemo-${{ matrix.target }}
+                  name: slint-embedded-demos-${{ matrix.target }}
                   path: |
                       target/${{ matrix.target }}/release/printerdemo
                       target/${{ matrix.target }}/release/todo

@@ -27,3 +27,6 @@ i-slint-compiler = { workspace = true, features = ["default", "proc_macro_span",
 proc-macro2 = "1.0.17"
 quote = "1.0"
 spin_on = { workspace = true }
+
+[package.metadata.docs.rs]
+rustdoc-args = ["--generate-link-to-definition"]

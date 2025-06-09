@@ -4,58 +4,58 @@
 
 export component Foo {
     property <float> m1: mod(4);
-    //                   ^error{Needs 2 arguments}
+//                       ^error{Needs 2 arguments}
 
     property <float> m2: mod(4, 5, 5);
-    //                   ^error{Needs 2 arguments}
+//                       ^error{Needs 2 arguments}
 
     property <float> m3: mod("455", "465");
-    //                       ^error{Cannot convert string to float}
-    //                              ^^error{Cannot convert string to float}
+//                           ^error{Cannot convert string to float}
+//                                  ^^error{Cannot convert string to float}
 
     property <float> m4: mod(455, "465");
-    //                            ^error{Cannot convert string to float}
+//                                ^error{Cannot convert string to float}
 
     property <length> m5: mod(45px, 4);
-    //                              ^error{Cannot convert float to length}
+//                                  ^error{Cannot convert float to length. Use an unit, or multiply by 1px to convert explicitly}
 
     property <length> m6: mod(45px, 4ms);
-    //                              ^error{Cannot convert duration to length}
+//                                  ^error{Cannot convert duration to length}
 
     property <duration> m7: mod(5, 4ms);
-    //                          ^error{Cannot convert float to duration}
+//                              ^error{Cannot convert float to duration. Use an unit, or multiply by 1ms to convert explicitly}
 
     property <duration> m8: (5).mod(4ms);
-    //                          ^error{Cannot convert float to duration}
+//                              ^error{Cannot convert float to duration. Use an unit, or multiply by 1ms to convert explicitly}
 
     property <duration> m9: 5ms.mod(4);
-    //                              ^error{Cannot convert float to duration}
+//                                  ^error{Cannot convert float to duration. Use an unit, or multiply by 1ms to convert explicitly}
 
     property <float> a1: abs();
-    //                   ^error{Needs 1 argument}
+//                       ^error{Needs 1 argument}
 
     property <float> a2: abs(4, 5, 5);
-    //                   ^error{Needs 1 argument}
+//                       ^error{Needs 1 argument}
 
     property <float> a3: abs(1, 2);
-    //                   ^error{Needs 1 argument}
+//                       ^error{Needs 1 argument}
 
     property <float> a4: abs("465");
-    //                       ^error{Cannot convert string to float}
+//                           ^error{Cannot convert string to float}
 
     property <string> a5: abs(45px);
-    //                    ^error{Cannot convert length to string}
+//                        ^error{Cannot convert length to string. Divide by 1px to convert to a plain number}
 
     property <string> a6: abs;
-    //                    ^error{Builtin function must be called}
+//                        ^error{Builtin function must be called. Did you forgot the '()'?}
 
     property <string> a7: (-21).abs;
-    //                          ^error{Member function must be called}
+//                              ^error{Member function must be called. Did you forgot the '()'?}
 
 
     property <float> sq1: 1.0.sqrt(1);
-    //                    ^error{The callback or function expects 0 arguments, but 1 are provided}
+//                        ^error{The callback or function expects 0 arguments, but 1 are provided}
 
     property <float> sq2: 1.0.sqrt;
-    //                        ^error{Member function must be called}
+//                            ^error{Member function must be called. Did you forgot the '()'?}
 }

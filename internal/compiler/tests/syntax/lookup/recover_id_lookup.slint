@@ -9,27 +9,27 @@ export component Test {
             property <float> abc;
             cde := Rectangle {
                 y: cde * 1px
-            //     ^error{Cannot take reference of an element. Use 'abc.cde' to access the property with the same name}
+//                 ^error{Cannot take reference of an element. Use 'abc.cde' to access the property with the same name}
                     + abc * 1px;
-            //        ^error{Cannot take reference of an element. Use 'parent.abc' to access the property with the same name}
+//                    ^error{Cannot take reference of an element. Use 'parent.abc' to access the property with the same name}
                 Rectangle {
                     width: abc * 1px; // this would try to access the abc property of the un-named element, so no hint
-            //             ^error{Cannot take reference of an element$}
+//                         ^error{Cannot take reference of an element}
                 }
             }
 
             x: cde * 1px
-            // ^error{Cannot take reference of an element. Use 'abc.cde' to access the property with the same name}
+//             ^error{Cannot take reference of an element. Use 'abc.cde' to access the property with the same name}
                 + abc * 1px;
-            //    ^error{Cannot take reference of an element. Use 'self.abc' to access the property with the same name}
+//                ^error{Cannot take reference of an element. Use 'self.abc' to access the property with the same name}
         }
         password := TextInput {
             x: cde * 1px
-            // ^error{Cannot take reference of an element. Use 'abc.cde' to access the property with the same name}
+//             ^error{Cannot take reference of an element. Use 'abc.cde' to access the property with the same name}
                 + abc * 1px;
-            //    ^error{Cannot take reference of an element. Use 'root.abc' to access the property with the same name}
+//                ^error{Cannot take reference of an element. Use 'root.abc' to access the property with the same name}
             input-type: password;
-            //          ^error{Cannot take reference of an element. Use 'InputType.password' to access the enumeration value}
+//                      ^error{Cannot take reference of an element. Use 'InputType.password' to access the enumeration value}
         }
     }
 }

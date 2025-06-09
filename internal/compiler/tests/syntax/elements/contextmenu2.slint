@@ -4,9 +4,9 @@
 export component A  {
     cb := ContextMenuArea {
         entries: [];
-//      ^error{Unknown property entries in ContextMenu}
+//      ^error{Unknown property entries in ContextMenuArea}
         sub-menu => {
-//      ^error{'sub-menu' is not a callback in ContextMenu}
+//      ^error{'sub-menu' is not a callback in ContextMenuArea}
             debug("hello");
         }
 
@@ -17,7 +17,7 @@ export component A  {
 //          ^error{Unknown property entries in Menu}
             MenuItem {
                 entries: [];
-    //          ^error{Unknown property entries in MenuItem}
+//              ^error{Unknown property entries in MenuItem}
 
                 title: "ok";
                 sub-menu => {}
@@ -59,7 +59,7 @@ export component A  {
 
 
     ContextMenuInternal {
-//  ^error{Unknown element 'ContextMenuInternal'}
+//  ^error{Unknown element 'ContextMenuInternal'. (The type exists as an internal type, but cannot be accessed in this scope)}
     }
     ContextMenu {}
 //  ^error{Unknown element 'ContextMenu'}

@@ -68,7 +68,7 @@ assert_eq!(instance.get_value(), "hophop");
 assert_eq!(instance.get_condition(), false);
 slint_testing::send_keyboard_string_sequence(&instance, "a\n\tdd\t\t");
 assert_eq!(instance.get_condition(), true);
-slint_testing::send_keyboard_string_sequence(&instance, "\tblop\n\t");
+slint_testing::send_keyboard_string_sequence(&instance, "blop\n\t");
 assert_eq!(instance.get_value(), "blop");
 ```
 

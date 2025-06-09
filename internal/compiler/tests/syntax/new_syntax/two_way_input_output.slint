@@ -306,7 +306,7 @@ export component C12 {
 //                         ^error{Cannot link input property}
 
     in property <bool> boggus1 <=> btn.internal;
-//                                     ^error{The property 'internal' is private. Annotate it with}
+//                                     ^error{The property 'internal' is private. Annotate it with 'in', 'out' or 'in-out' to make it accessible from other components}
 
     in-out property <bool> inout1;
 
@@ -347,7 +347,7 @@ export component C13 {
 //           ^error{Cannot assign to output property 'pressed'}
     Button { pressed <=> self.internal; }
 //           ^error{Cannot assign to output property 'pressed'}
-//                            ^^error{The property 'internal' is private. Annotate it with}
+//                            ^^error{The property 'internal' is private. Annotate it with 'in', 'out' or 'in-out' to make it accessible from other components}
     Button { pressed <=> out; }
 //           ^error{Cannot assign to output property 'pressed'}
     Button { pressed <=> in; }
@@ -360,7 +360,7 @@ export component C13 {
 }
 
 export Legacy1 := Rectangle {
-//             ^warning{':=' to declare a component is deprecated}
+//             ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     b1:= Button {}
     in property in1 <=> b1.pressed;
 //                  ^warning{Link to a output property is deprecated}
@@ -391,7 +391,7 @@ export Legacy1 := Rectangle {
 }
 
 export Legacy2 := Rectangle {
-//             ^warning{':=' to declare a component is deprecated}
+//             ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     out property <bool> out;
     in property <bool> in;
     in-out property <bool> inout;
@@ -418,7 +418,7 @@ export Legacy2 := Rectangle {
 //           ^warning{Assigning to output property 'pressed' is deprecated}
     Button { pressed <=> self.internal; }
 //           ^warning{Assigning to output property 'pressed' is deprecated}
-//                            ^^error{The property 'internal' is private. Annotate it with}
+//                            ^^error{The property 'internal' is private. Annotate it with 'in', 'out' or 'in-out' to make it accessible from other components}
     Button { pressed <=> out; }
 //           ^warning{Assigning to output property 'pressed' is deprecated}
     Button { pressed <=> in; }

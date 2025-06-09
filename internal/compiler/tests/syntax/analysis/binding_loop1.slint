@@ -3,10 +3,11 @@
 
 
 WithStates := Rectangle {
+//         ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     property <brush> extra_background;
     property <bool> condition;
-    background: yellow;
-//              ^error{The binding for the property 'background' is part of a binding loop} //FIXME: ideally we'd keep the span within the state
+    background: yellow; //FIXME: ideally we'd keep the span within the state
+//              ^error{The binding for the property 'background' is part of a binding loop (extra-background -> background)}
     states [
         xxx when condition : {
             background: extra_background;
@@ -15,31 +16,32 @@ WithStates := Rectangle {
 }
 
 export Test := Rectangle {
+//          ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
 
     property <int> a: 45 + root.b;
-    //                ^error{The binding for the property 'a' is part of a binding loop}
+//                    ^error{The binding for the property 'a' is part of a binding loop (root_window.d -> root_window.c -> root_window.b -> root_window.a)}
     property <float> b: root.c;
-    //                  ^error{The binding for the property 'b' is part of a binding loop}
+//                      ^error{The binding for the property 'b' is part of a binding loop (root_window.d -> root_window.c -> root_window.b -> root_window.a)}
     property <int> c <=> d;
-    //               ^error{The binding for the property 'c' is part of a binding loop}
+//                   ^error{The binding for the property 'c' is part of a binding loop (root_window.d -> root_window.c -> root_window.b -> root_window.a)}
     property <int> d: root.a + root.e;
-    //                ^error{The binding for the property 'd' is part of a binding loop}
+//                    ^error{The binding for the property 'd' is part of a binding loop (root_window.d -> root_window.c -> root_window.b -> root_window.a)}
     property <int> e: root.b;
-    //                ^error{The binding for the property 'e' is part of a binding loop}
+//                    ^error{The binding for the property 'e' is part of a binding loop (root_window.e -> root_window.d -> root_window.c -> root_window.b)}
     property <int> w: root.a + root.b; // This id not part of a loop
 
     property<bool> cond: xx.x == 0;
-    //                   ^error{The binding for the property 'cond' is part of a binding loop}
+//                       ^error{The binding for the property 'cond' is part of a binding loop (xx.y -> xx.x -> root_window.cond)}
 
     xx := Rectangle {
         x: y;
-//         ^error{The binding for the property 'x' is part of a binding loop}
+//         ^error{The binding for the property 'x' is part of a binding loop (xx.y -> xx.x -> root_window.cond)}
         y: root.cond ? 42px : 55px;
-//         ^error{The binding for the property 'y' is part of a binding loop}
+//         ^error{The binding for the property 'y' is part of a binding loop (xx.y -> xx.x -> root_window.cond)}
     }
 
     WithStates {
         extra_background: background;
-//                        ^error{The binding for the property 'extra-background' is part of a binding loop}
+//                        ^error{The binding for the property 'extra-background' is part of a binding loop (extra-background -> background)}
     }
 }

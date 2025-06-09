@@ -17,7 +17,7 @@ pub fn setup(ui: &ui::PreviewUi) {
     let api = ui.global::<ui::Api>();
 
     api.on_filter_palettes(filter_palettes);
-    api.on_is_svg_color(is_svg_color);
+    api.on_is_css_color(is_css_color);
 }
 
 pub fn collect_palette(
@@ -83,30 +83,30 @@ fn handle_type_impl(
     ty: &langtype::Type,
     values: &mut Vec<ui::PaletteEntry>,
 ) {
+    use langtype::Type;
+
     match ty {
-        langtype::Type::Float32
-        | langtype::Type::Int32
-        | langtype::Type::String
-        | langtype::Type::Color
-        | langtype::Type::Duration
-        | langtype::Type::PhysicalLength
-        | langtype::Type::LogicalLength
-        | langtype::Type::Rem
-        | langtype::Type::Angle
-        | langtype::Type::Percent
-        | langtype::Type::Bool
-        | langtype::Type::Brush => {
-            if let Some(mut value) =
-                ui::map_value_and_type_to_property_value(ty, &value, full_accessor)
-            {
-                if !full_accessor.is_empty() {
-                    value.display_string = SharedString::from(full_accessor);
-                    value.code = SharedString::from(full_accessor);
-                }
-                values.push(ui::PaletteEntry { name: SharedString::from(full_accessor), value });
+        Type::Float32
+        | Type::Int32
+        | Type::String
+        | Type::Color
+        | Type::Duration
+        | Type::PhysicalLength
+        | Type::LogicalLength
+        | Type::Rem
+        | Type::Angle
+        | Type::Percent
+        | Type::Bool
+        | Type::Enumeration(_)
+        | Type::Brush => {
+            let mut value = ui::map_value_and_type_to_property_value(ty, &value, full_accessor);
+            if !full_accessor.is_empty() {
+                value.display_string = SharedString::from(full_accessor);
+                value.code = SharedString::from(full_accessor);
             }
+            values.push(ui::PaletteEntry { name: SharedString::from(full_accessor), value });
         }
-        langtype::Type::Struct(st) => {
+        Type::Struct(st) => {
             for (name, ty) in st.fields.iter() {
                 let sub_value = match &value {
                     Some(slint_interpreter::Value::Struct(s)) => s.get_field(name).cloned(),
@@ -118,6 +118,21 @@ fn handle_type_impl(
         }
         _ => {}
     }
+}
+
+pub fn evaluate_property(
+    element: &object_tree::ElementRc,
+    property_name: &str,
+    default_value: &Option<expression_tree::Expression>,
+    ty: &langtype::Type,
+) -> ui::PropertyValue {
+    let value = find_binding_expression(element, property_name)
+        .map(|be| be.expression)
+        .or(default_value.clone())
+        .as_ref()
+        .and_then(crate::preview::eval::fully_eval_expression_tree_expression);
+
+    ui::map_value_and_type_to_property_value(ty, &value, "")
 }
 
 fn handle_type(
@@ -175,37 +190,21 @@ fn collect_palette_from_globals(
     values
 }
 
-fn filter_palettes(
-    input: slint::ModelRc<ui::PaletteEntry>,
-    pattern: slint::SharedString,
-) -> slint::ModelRc<ui::PaletteEntry> {
-    let pattern = pattern.to_string();
-    std::rc::Rc::new(slint::VecModel::from(filter_palettes_iter(&mut input.iter(), &pattern)))
-        .into()
-}
-
-fn is_svg_color(code: slint::SharedString) -> bool {
+fn is_css_color(code: slint::SharedString) -> bool {
     let code = code.to_string();
     let code = code.strip_prefix("Colors.").unwrap_or(&code);
     i_slint_compiler::lookup::named_colors().contains_key(code)
 }
 
-fn filter_palettes_iter(
-    input: &mut impl Iterator<Item = ui::PaletteEntry>,
-    needle: &str,
-) -> Vec<ui::PaletteEntry> {
-    use nucleo_matcher::{pattern, Config, Matcher};
-
-    let mut matcher = Matcher::new(Config::DEFAULT.match_paths());
-    let pattern = pattern::Pattern::parse(
-        needle,
-        pattern::CaseMatching::Ignore,
-        pattern::Normalization::Smart,
-    );
-
-    let mut all_matches = input
-        .filter_map(|p| {
-            let terms = [format!(
+fn filter_palettes(
+    input: slint::ModelRc<ui::PaletteEntry>,
+    pattern: slint::SharedString,
+) -> slint::ModelRc<ui::PaletteEntry> {
+    let pattern = pattern.to_string();
+    std::rc::Rc::new(slint::VecModel::from(common::fuzzy_filter_iter(
+        &mut input.iter(),
+        |p| {
+            format!(
                 "{} %kind:{:?} %is_brush:{}",
                 p.name,
                 p.value.kind,
@@ -216,30 +215,11 @@ fn filter_palettes_iter(
                 } else {
                     "no"
                 }
-            )];
-            pattern.match_list(terms.iter(), &mut matcher).pop().map(|(_, v)| (v, p))
-        })
-        .collect::<Vec<_>>();
-
-    // sort by value, highest first. Sort names with the same value alphabetically
-    all_matches.sort_by(|r, l| match l.0.cmp(&r.0) {
-        std::cmp::Ordering::Less => std::cmp::Ordering::Less,
-        std::cmp::Ordering::Equal => r.1.name.cmp(&l.1.name),
-        std::cmp::Ordering::Greater => std::cmp::Ordering::Greater,
-    });
-
-    let cut_off = {
-        let lowest_value = all_matches.last().map(|(v, _)| *v).unwrap_or_default();
-        let highest_value = all_matches.first().map(|(v, _)| *v).unwrap_or_default();
-
-        if all_matches.len() < 10 {
-            lowest_value
-        } else {
-            highest_value - (highest_value - lowest_value) / 2
-        }
-    };
-
-    all_matches.drain(..).take_while(|(v, _)| *v >= cut_off).map(|(_, p)| p).collect::<Vec<_>>()
+            )
+        },
+        &pattern,
+    )))
+    .into()
 }
 
 #[cfg(test)]
@@ -282,10 +262,9 @@ mod tests {
     fn compare(entry: &PaletteEntry, name: &str, r: u8, g: u8, b: u8) {
         let color = i_slint_core::Color::from_rgb_u8(r, g, b);
         assert_eq!(entry.name, name);
-        assert_eq!(entry.value.value_string, crate::preview::ui::brushes::color_to_string(color));
+        assert!(entry.value.value_string.is_empty());
         assert_eq!(entry.value.display_string, name);
         assert_eq!(entry.value.gradient_stops.row_count(), 1);
-        assert_eq!(entry.value.value_string, crate::preview::ui::brushes::color_to_string(color));
         assert_eq!(entry.value.value_float, 0.0);
         assert_eq!(entry.value.kind, super::ui::PropertyValueKind::Color);
         assert_eq!(entry.value.value_brush, slint::Brush::SolidColor(color));
@@ -299,10 +278,7 @@ mod tests {
         assert_eq!(entry.value.code, name);
         match &brush {
             slint::Brush::SolidColor(_) => {
-                assert_eq!(
-                    entry.value.value_string,
-                    crate::preview::ui::brushes::color_to_string(brush.color())
-                );
+                assert!(entry.value.value_string.is_empty());
                 assert_eq!(entry.value.gradient_stops.row_count(), 1);
             }
             slint::Brush::LinearGradient(lb) => {
@@ -559,59 +535,49 @@ export component Main { }
             v
         };
 
-        assert_eq!(filter_palettes_iter(&mut palette.iter().cloned(), "'FOO").len(), 0);
+        let model: slint::ModelRc<ui::PaletteEntry> =
+            Rc::new(slint::VecModel::from(palette.clone())).into();
+
+        assert_eq!(filter_palettes(model.clone(), "'FOO".into()).row_count(), 0);
         assert_eq!(
-            filter_palettes_iter(&mut palette.iter().cloned(), "'%kind:Color").len(),
+            filter_palettes(model.clone(), "'%kind:Color".into()).row_count(),
             palette.len()
         );
         assert_eq!(
-            filter_palettes_iter(&mut palette.iter().cloned(), "'%is_brush:yes").len(),
+            filter_palettes(model.clone(), "'%is_brush:yes".into()).row_count(),
             palette.len()
         );
-        assert_eq!(filter_palettes_iter(&mut palette.iter().cloned(), "'%kind:UNKNOWN").len(), 0);
+        assert_eq!(filter_palettes(model.clone(), "'%kind:UNKNOWN".into()).row_count(), 0);
+        assert_eq!(filter_palettes(model.clone(), "'Colors.aquamarine".into()).row_count(), 1);
+        assert_eq!(filter_palettes(model.clone(), "Colors.aquamarine".into()).row_count(), 2);
         assert_eq!(
-            filter_palettes_iter(&mut palette.iter().cloned(), "'Colors.aquamarine").len(),
-            1
-        );
-        assert_eq!(
-            filter_palettes_iter(&mut palette.iter().cloned(), "Colors.aquamarine").len(),
+            filter_palettes(model.clone(), "Colors.aquamarine '%kind:Color".into()).row_count(),
             2
         );
-        assert_eq!(
-            filter_palettes_iter(&mut palette.iter().cloned(), "Colors.aquamarine '%kind:Color")
-                .len(),
-            2
-        );
-        assert_eq!(filter_palettes_iter(&mut palette.iter().cloned(), "aquamarine").len(), 2);
-        assert_eq!(
-            filter_palettes_iter(&mut palette.iter().cloned(), "^Colors.").len(),
-            palette.len()
-        );
-        assert_eq!(filter_palettes_iter(&mut palette.iter().cloned(), "!^Colors.").len(), 0);
-        assert_eq!(
-            filter_palettes_iter(&mut palette.iter().cloned(), "^Colors.").len(),
-            palette.len()
-        );
+        assert_eq!(filter_palettes(model.clone(), "aquamarine".into()).row_count(), 2);
+        assert_eq!(filter_palettes(model.clone(), "^Colors.".into()).row_count(), palette.len());
+        assert_eq!(filter_palettes(model.clone(), "!^Colors.".into()).row_count(), 0);
+        assert_eq!(filter_palettes(model.clone(), "^Colors.".into()).row_count(), palette.len());
 
-        let reds = filter_palettes_iter(&mut palette.iter().cloned(), "^Colors. red");
+        let reds = filter_palettes(model, "^Colors. red".into());
 
-        assert!(reds.len() >= 6);
-        assert!(reds.len() <= 12);
+        assert!(reds.row_count() >= 6);
+        assert!(reds.row_count() <= 12);
 
-        assert_eq!(reds.first().unwrap().name, "Colors.red");
-        assert_eq!(reds.get(1).unwrap().name, "Colors.darkred");
-        assert_eq!(reds.get(2).unwrap().name, "Colors.indianred");
-        assert_eq!(reds.get(3).unwrap().name, "Colors.mediumvioletred");
-        assert_eq!(reds.get(4).unwrap().name, "Colors.orangered");
-        assert_eq!(reds.get(5).unwrap().name, "Colors.palevioletred");
+        assert_eq!(reds.row_data(0).unwrap().name, "Colors.red");
+        assert_eq!(reds.row_data(1).unwrap().name, "Colors.darkred");
+        assert_eq!(reds.row_data(2).unwrap().name, "Colors.indianred");
+        assert_eq!(reds.row_data(3).unwrap().name, "Colors.mediumvioletred");
+        assert_eq!(reds.row_data(4).unwrap().name, "Colors.orangered");
+        assert_eq!(reds.row_data(5).unwrap().name, "Colors.palevioletred");
     }
 
     #[test]
-    fn test_is_svg_color() {
-        assert!(!super::is_svg_color(slint::SharedString::from("Colors.foobar")));
-        assert!(super::is_svg_color(slint::SharedString::from("Colors.blue")));
-        assert!(super::is_svg_color(slint::SharedString::from("blue")));
-        assert!(!super::is_svg_color(slint::SharedString::from("Styles.foo")));
-        assert!(!super::is_svg_color(slint::SharedString::from("my_var")));
+    fn test_is_css_color() {
+        assert!(!super::is_css_color(slint::SharedString::from("Colors.foobar")));
+        assert!(super::is_css_color(slint::SharedString::from("Colors.blue")));
+        assert!(super::is_css_color(slint::SharedString::from("blue")));
+        assert!(!super::is_css_color(slint::SharedString::from("Styles.foo")));
+        assert!(!super::is_css_color(slint::SharedString::from("my_var")));
     }
 }

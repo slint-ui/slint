@@ -105,7 +105,6 @@ struct PreviewState {
     current_previewed_component: Option<PreviewComponent>,
     current_load_behavior: Option<LoadBehavior>,
     loading_state: PreviewFutureState,
-    ui_is_visible: bool,
 }
 
 impl PreviewState {
@@ -134,6 +133,10 @@ impl PreviewState {
             }
         }
     }
+
+    pub fn ui_is_visible(&self) -> bool {
+        self.ui.as_ref().map(|ui| ui.window().is_visible()).unwrap_or_default()
+    }
 }
 thread_local! {static PREVIEW_STATE: std::cell::RefCell<PreviewState> = Default::default();}
 
@@ -156,7 +159,7 @@ fn delete_document(url: &lsp_types::Url) {
         (
             preview_state.current_previewed_component.clone(),
             preview_state.dependencies.contains(url),
-            preview_state.ui_is_visible,
+            preview_state.ui_is_visible(),
         )
     });
 
@@ -225,7 +228,7 @@ fn set_contents(url: &common::VersionedUrl, content: String) {
         }
 
         if preview_state.dependencies.contains(url.url()) {
-            let ui_is_visible = preview_state.ui_is_visible;
+            let ui_is_visible = preview_state.ui_is_visible();
             if let Some(current) = preview_state.current_component() {
                 return Some((ui_is_visible, current));
             };
@@ -654,15 +657,16 @@ fn can_drop_component(component_index: i32, x: f32, y: f32, on_drop_area: bool) 
 
     let position = LogicalPoint::new(x, y);
 
-    PREVIEW_STATE.with(|preview_state| {
+    let component = PREVIEW_STATE.with(|preview_state| {
         let preview_state = preview_state.borrow();
+        preview_state.known_components.get(component_index as usize).cloned()
+    });
 
-        if let Some(component) = preview_state.known_components.get(component_index as usize) {
-            drop_location::can_drop_at(&document_cache, position, component)
-        } else {
-            false
-        }
-    })
+    let Some(component) = component else {
+        return false;
+    };
+
+    drop_location::can_drop_at(&document_cache, position, &component)
 }
 
 fn drop_component(component_index: i32, x: f32, y: f32) {
@@ -674,14 +678,16 @@ fn drop_component(component_index: i32, x: f32, y: f32) {
 
     let position = LogicalPoint::new(x, y);
 
-    let drop_result = PREVIEW_STATE.with(|preview_state| {
+    let Some(component) = PREVIEW_STATE.with(|preview_state| {
         let preview_state = preview_state.borrow();
 
-        let component = preview_state.known_components.get(component_index as usize)?;
+        preview_state.known_components.get(component_index as usize).cloned()
+    }) else {
+        return;
+    };
 
-        drop_location::drop_at(&document_cache, position, component)
-            .map(|(e, d)| (e, d, component.name.clone()))
-    });
+    let drop_result = drop_location::drop_at(&document_cache, position, &component)
+        .map(|(e, d)| (e, d, component.name.clone()));
 
     if let Some((edit, drop_data, component_name)) = drop_result {
         element_selection::select_element_at_source_code_position(
@@ -923,7 +929,7 @@ fn send_workspace_edit(label: String, edit: lsp_types::WorkspaceEdit, test_edit:
 fn change_style() {
     let Some((ui_is_visible, current)) = PREVIEW_STATE.with(|preview_state| {
         let preview_state = preview_state.borrow();
-        let ui_is_visible = preview_state.ui_is_visible;
+        let ui_is_visible = preview_state.ui_is_visible();
         preview_state.current_component().map(|c| (ui_is_visible, c))
     }) else {
         return;
@@ -1076,7 +1082,7 @@ fn config_changed(config: PreviewConfig) {
 
             (
                 preview_state.current_component(),
-                preview_state.ui_is_visible,
+                preview_state.ui_is_visible(),
                 preview_state.config.hide_ui,
             )
         })
@@ -1164,7 +1170,7 @@ async fn reload_timer_function() {
 
             assert_eq!(preview_state.loading_state, PreviewFutureState::PreLoading);
 
-            if !preview_state.ui_is_visible && behavior == LoadBehavior::Reload {
+            if !preview_state.ui_is_visible() && behavior == LoadBehavior::Reload {
                 preview_state.loading_state = PreviewFutureState::Pending;
                 None
             } else {
@@ -1250,7 +1256,7 @@ pub fn load_preview(preview_component: PreviewComponent, behavior: LoadBehavior)
 
         match behavior {
             LoadBehavior::Reload => {
-                if !preview_state.ui_is_visible {
+                if !preview_state.ui_is_visible() {
                     return;
                 }
             }
@@ -1329,6 +1335,8 @@ async fn parse_source(
     }
     cc.embed_resources = EmbedResourcesKind::ListAllResources;
     cc.no_native_menu = true;
+    // Otherwise this may cause a runtime panic because of the recursion
+    cc.error_on_binding_loop_with_window_layout = true;
 
     if !style.is_empty() {
         cc.style = Some(style);
@@ -1431,6 +1439,44 @@ fn set_preview_factory(
 ) {
     // Ensure that any popups are closed as they are related to the old factory
     i_slint_core::window::WindowInner::from_pub(ui.window()).close_all_popups();
+
+    compiled.set_debug_handler(
+        |location, text| {
+            let location = location.as_ref().and_then(|l| {
+                l.source_file.as_ref().map(|f| {
+                    let (line, column) = f.line_column(l.span.offset);
+
+                    (f.clone(), line, column)
+                })
+            });
+            if let Some((file, line, column)) = &location {
+                i_slint_core::debug_log!(
+                    "DEBUG {}:{line}:{column}> {text}",
+                    file.path().display(),
+                );
+            } else {
+                i_slint_core::debug_log!("DEBUG> {text}");
+            }
+
+            let location = location.as_ref().map(|(file, line, column)| {
+                (file.path().to_string_lossy().to_string().into(), *line, *column)
+            });
+            let text = text.to_string();
+            let _ = slint::invoke_from_event_loop(move || {
+                PREVIEW_STATE.with_borrow(|preview_state| {
+                    if let Some(ui) = &preview_state.ui {
+                        ui::log_messages::append_log_message(
+                            ui,
+                            ui::LogMessageLevel::Debug,
+                            location,
+                            &text,
+                        );
+                    }
+                });
+            });
+        },
+        i_slint_core::InternalToken,
+    );
 
     let factory = slint::ComponentFactory::new(move |ctx: FactoryContext| {
         let instance = compiled.create_embedded(ctx).unwrap();
@@ -1625,6 +1671,7 @@ fn set_selected_element(
     let element_node = selection.as_ref().and_then(|s| s.as_element_node());
     let notify_editor_about_selection_after_update =
         editor_notification == SelectionNotification::AfterUpdate;
+
     PREVIEW_STATE.with(move |preview_state| {
         let mut preview_state = preview_state.borrow_mut();
 
@@ -1684,6 +1731,9 @@ fn set_selected_element(
                         ))
                     })
                 {
+                    let palettes = ui::palette::collect_palette(&document_cache, &uri);
+                    ui::palette::set_palette(ui, palettes);
+
                     let in_layout = match parent_layout_kind {
                         ui::LayoutKind::None => properties::LayoutKind::None,
                         ui::LayoutKind::Horizontal => properties::LayoutKind::HorizontalBox,

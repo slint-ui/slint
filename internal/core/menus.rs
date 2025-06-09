@@ -22,15 +22,17 @@ use i_slint_core_macros::SlintElement;
 use vtable::{VRef, VRefMut};
 
 /// Interface for native menu and menubar
+#[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
 #[vtable::vtable]
 #[repr(C)]
 pub struct MenuVTable {
     /// destructor
-    drop: fn(VRefMut<MenuVTable>),
+    drop: extern "C-unwind" fn(VRefMut<MenuVTable>),
     /// Return the list of items for the sub menu (or the main menu of parent is None)
-    sub_menu: fn(VRef<MenuVTable>, Option<&MenuEntry>, &mut SharedVector<MenuEntry>),
+    sub_menu:
+        extern "C-unwind" fn(VRef<MenuVTable>, Option<&MenuEntry>, &mut SharedVector<MenuEntry>),
     /// Handler when the menu entry is activated
-    activate: fn(VRef<MenuVTable>, &MenuEntry),
+    activate: extern "C-unwind" fn(VRef<MenuVTable>, &MenuEntry),
 }
 
 struct ShadowTreeNode {

@@ -68,7 +68,6 @@ allowing to access methods from the trait directly from VRef.
 This macro does the following transformation:
 
 For function type fields:
- - The ABI of each functions is changed to `extern "C"`
  - `unsafe` is added to the signature, since it is unsafe to call these functions directly from
    the vtable without having a valid pointer to the actual object. But if the original function was
    marked unsafe, the unsafety is forwarded to the trait.
@@ -112,7 +111,7 @@ use vtable::*;
 #[repr(C)]
 struct AnimalVTable {
     /// Pointer to a function that make noise.
-    /// `unsafe` and `extern "C"` will automatically be added
+    /// `unsafe` will automatically be added
     make_noise: fn(VRef<AnimalVTable>, i32) -> i32,
 
     /// if there is a 'drop' member, it is considered as the destructor
@@ -274,7 +273,6 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
             };
 
             let mut sig_extern = sig.clone();
-            sig_extern.abi = Some(parse_str("extern \"C\"").unwrap());
             sig_extern.generics = parse_str(&format!("<T : {trait_name}>")).unwrap();
 
             // check parameters
@@ -385,14 +383,7 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
             // Add unsafe: The function are not safe to call unless the self parameter is of the correct type
             f.unsafety = Some(Default::default());
 
-            // Add extern "C" if it isn't there
-            if let Some(a) = &f.abi {
-                if !a.name.as_ref().map(|s| s.value() == "C").unwrap_or(false) {
-                    return Error::new(a.span(), "invalid ABI").to_compile_error().into();
-                }
-            } else {
-                f.abi.clone_from(&sig_extern.abi);
-            }
+            sig_extern.abi.clone_from(&f.abi);
 
             let mut wrap_trait_call = None;
             if !has_self {
@@ -473,9 +464,10 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
                 continue;
             }
             if ident == "dealloc" {
+                let abi = &sig_extern.abi;
                 vtable_ctor.push(quote!(#ident: {
                     #[allow(unsafe_code)]
-                    unsafe extern "C" fn #ident(_: &#vtable_name, ptr: *mut u8, layout: vtable::Layout) {
+                    unsafe #abi fn #ident(_: &#vtable_name, ptr: *mut u8, layout: vtable::Layout) {
                         use ::core::convert::TryInto;
                         vtable::internal::dealloc(ptr, layout.try_into().unwrap())
                     }

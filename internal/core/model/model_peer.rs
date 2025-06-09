@@ -159,7 +159,7 @@ impl<T: ModelChangeListener + 'static> ModelChangeListenerContainer<T> {
         Self { peer: Default::default(), data }
     }
 
-    pub fn model_peer(self: Pin<&Self>) -> ModelPeer {
+    pub fn model_peer(self: Pin<&Self>) -> ModelPeer<'_> {
         let peer = self.get_ref().peer.get_or_init(|| {
             //Safety: self.data and self.peer have the same lifetime, so the pointer stays valid
             DependencyNode::new(

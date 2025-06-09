@@ -4,6 +4,7 @@
 import { TabWidget  } from "std-widgets.slint";
 
 export Test2 := Rectangle {
+//           ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     TabWidget {
         Tab {
             visible: false;
@@ -21,7 +22,7 @@ export Test2 := Rectangle {
         }
 
         if (true) : Tab {
-//                  ^error{dynamic tabs \('if' or 'for'\) are currently not supported}
+//                  ^error{dynamic tabs ('if' or 'for') are currently not supported}
             title: "hello";
         }
 

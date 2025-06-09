@@ -5,18 +5,18 @@ export component Foo {
     property <[int]> name;
     TouchArea{
         clicked=>{debug[9]()}
-//                ^error{Builtin function must be called}
+//                ^error{Builtin function must be called. Did you forgot the '()'?}
     }
 
     TouchArea{
         function abc(x:int){}
         clicked=>{abc[9]()}
-//                ^error{Function must be called. Did you forgot the '\(\)'?}
+//                ^error{Function must be called. Did you forgot the '()'?}
     }
 
     TouchArea{
         clicked=>{self.moved[9]()}
-//                ^error{Callback must be called. Did you forgot the '\(\)'?}
+//                ^error{Callback must be called. Did you forgot the '()'?}
     }
 }
 

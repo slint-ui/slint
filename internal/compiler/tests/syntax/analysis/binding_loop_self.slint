@@ -4,17 +4,19 @@
 // From issue #737
 
 Key := Rectangle { property <int> pos; property <int> num_elements; }
+//  ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
 
 export Test := Rectangle {
+//          ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     Rectangle {
         property <int> num_elements;
         num-elements: 4;
         Key { pos: 1; num_elements: num_elements; }
-        //                          ^error{The binding for the property 'num-elements' is part of a binding loop}
+//                                  ^error{The binding for the property 'num-elements' is part of a binding loop (num-elements)}
         Key { pos: 2; num_elements: self.num_elements; }
-        //                          ^error{The binding for the property 'num-elements' is part of a binding loop}
+//                                  ^error{The binding for the property 'num-elements' is part of a binding loop (num-elements)}
         Key { pos: 3; num_elements: parent.num_elements; }
         Key { pos: 4; num_elements: num_elements; }
-        //                          ^error{The binding for the property 'num-elements' is part of a binding loop}
+//                                  ^error{The binding for the property 'num-elements' is part of a binding loop (num-elements)}
     }
 }

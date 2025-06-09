@@ -30,3 +30,4 @@ derive_more = { workspace = true, features = ["std", "error"] }
 
 [package.metadata.docs.rs]
 all-features = true
+rustdoc-args = ["--generate-link-to-definition"]

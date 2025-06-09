@@ -4,7 +4,8 @@
 import { StandardButton } from "std-widgets.slint";
 
 export Test := Dialog {
-//             ^error{A Dialog must have a single child element that is not StandardButton}
+//          ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
+//             ^^error{A Dialog must have a single child element that is not StandardButton}
     StandardButton { kind: ok; }
     StandardButton { }
 //  ^error{The `kind` property of the StandardButton in a Dialog must be set}

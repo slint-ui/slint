@@ -3,14 +3,14 @@
 
 export component Test {
     Text { font-size: self.font-metrics.ascent; }
-//                    ^error{The binding for the property 'font-size' is part of a binding loop}
-//  ^^error{The binding for the property 'font-metrics' is part of a binding loop}
+//  ^error{The binding for the property 'font-metrics' is part of a binding loop (font-metrics -> font-size)}
+//                    ^^error{The binding for the property 'font-size' is part of a binding loop (font-metrics -> font-size)}
 
     t1 := Text { font-italic: t2.font-metrics.cap-height > 10px; }
-//                            ^error{The binding for the property 'font-italic' is part of a binding loop}
-//        ^^error{The binding for the property 'font-metrics' is part of a binding loop}
+//        ^error{The binding for the property 'font-metrics' is part of a binding loop (t2.font-metrics -> t1.font-italic -> t1.font-metrics -> t2.font-weight)}
+//                            ^^error{The binding for the property 'font-italic' is part of a binding loop (t2.font-metrics -> t1.font-italic -> t1.font-metrics -> t2.font-weight)}
     t2 := Text { font-weight: t1.font-metrics.descent / 0.5px; }
-//                            ^error{The binding for the property 'font-weight' is part of a binding loop}
-//        ^^error{The binding for the property 'font-metrics' is part of a binding loop}
+//        ^error{The binding for the property 'font-metrics' is part of a binding loop (t2.font-metrics -> t1.font-italic -> t1.font-metrics -> t2.font-weight)}
+//                            ^^error{The binding for the property 'font-weight' is part of a binding loop (t2.font-metrics -> t1.font-italic -> t1.font-metrics -> t2.font-weight)}
 
 }

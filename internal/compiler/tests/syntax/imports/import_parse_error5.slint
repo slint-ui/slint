@@ -2,10 +2,11 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { NotExported } from "../../typeloader/incpath/local_helper_type.slint";
-//                          ^error{No exported type called 'NotExported' found}
+//                          ^error{No exported type called 'NotExported' found in "../../typeloader/incpath/local_helper_type.slint"}
   import { } from "../../typeloader/incpath/local_helper_type.slint";
 //^error{Import names are missing. Please specify which types you would like to import}
 
 export X := Rectangle {
+//       ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
 
 }

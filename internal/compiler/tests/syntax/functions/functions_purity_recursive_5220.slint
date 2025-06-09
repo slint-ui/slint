@@ -3,19 +3,19 @@
 
 export component App inherits Window{
     background: blue;
-    //          ^error{Function must be called}
+//              ^error{Function must be called. Did you forgot the '()'?}
     function blue()->color {
        blue
-//     ^error{Function must be called}
+//     ^error{Function must be called. Did you forgot the '()'?}
     }
 
 
 
     in property <int> abc: get_abc1();
     function get_abc1() -> int { return get_abc2(); }
-//  ^error{The binding for the property 'get-abc1' is part of a binding loop}
+//  ^error{The binding for the property 'get-abc1' is part of a binding loop (root.get-abc2 -> root.get-abc1)}
     function get_abc2() -> int { return get_abc1(); }
-//  ^error{The binding for the property 'get-abc2' is part of a binding loop}
+//  ^error{The binding for the property 'get-abc2' is part of a binding loop (root.get-abc2 -> root.get-abc1)}
 
 }
 

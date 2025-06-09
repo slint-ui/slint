@@ -135,6 +135,7 @@ internal-json = ["dep:serde_json"]
 i-slint-compiler = { workspace = true }
 i-slint-common = { workspace = true }
 i-slint-core = { workspace = true, features = ["default", "rtti"] }
+i-slint-core-macros = { workspace = true }
 i-slint-backend-selector = { workspace = true, features = ["rtti"] }
 
 vtable = { workspace = true }
@@ -165,3 +166,4 @@ spin_on = { workspace = true }
 
 [package.metadata.docs.rs]
 features = ["display-diagnostics", "document-features", "raw-window-handle-06"]
+rustdoc-args = ["--generate-link-to-definition"]

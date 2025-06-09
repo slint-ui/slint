@@ -150,3 +150,6 @@ unexpected_cfgs = { level = "warn", check-cfg = ["cfg(slint_debug_property)", "c
 # Coord is an alias for f32 in most architectures, but not always, so the cast
 # to f32 *is* necessary.
 unnecessary_cast = { level = "allow" }
+
+[package.metadata.docs.rs]
+rustdoc-args = ["--generate-link-to-definition"]

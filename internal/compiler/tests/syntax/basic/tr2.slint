@@ -3,39 +3,39 @@
 
 export component X {
     property <string> t1: @tr("fo{}oo", 42px);
-    //                                  ^error{Cannot convert length to string. Divide by 1px to convert to a plain number}
+//                                      ^error{Cannot convert length to string. Divide by 1px to convert to a plain number}
     property <string> t2: @tr("foo{0️⃣}bar", 45);
-    //                    ^error{Invalid '\{...\}' placeholder in format string. The placeholder must be a number, or braces must be escaped with '\{\{' and '\}\}'}
+//                        ^error{Invalid '{...}' placeholder in format string. The placeholder must be a number, or braces must be escaped with '{{' and '}}'}
     property <string> t6: @tr("foo{", 45);
-    //                    ^error{Unterminated placeholder in format string. '\{' must be escaped with '\{\{'}
+//                        ^error{Unterminated placeholder in format string. '{' must be escaped with '{{'}
     property <string> t7: @tr("foo{bar", 45);
-    //                    ^error{Unterminated placeholder in format string. '\{' must be escaped with '\{\{'}
+//                        ^error{Unterminated placeholder in format string. '{' must be escaped with '{{'}
     property <string> t8: @tr("foo{bar}bar", 45);
-    //                    ^error{Invalid '\{...\}' placeholder in format string. The placeholder must be a number, or braces must be escaped with '\{\{' and '\}\}'}
+//                        ^error{Invalid '{...}' placeholder in format string. The placeholder must be a number, or braces must be escaped with '{{' and '}}'}
     property <string> t9: @tr("foo{}bar");
-    //                    ^error{Format string contains 1 placeholders, but only 0 extra arguments were given}
+//                        ^error{Format string contains 1 placeholders, but only 0 extra arguments were given}
     property <string> t10: @tr("foo{}ba{}r", 42);
-    //                     ^error{Format string contains 2 placeholders, but only 1 extra arguments were given}
+//                         ^error{Format string contains 2 placeholders, but only 1 extra arguments were given}
     property <string> t11: @tr("foo{65535}ba{2147483647}r");
-    //                     ^error{Invalid '\{...\}' placeholder in format string. The placeholder must be a number, or braces must be escaped with '\{\{' and '\}\}'}
-    //                     ^^error{Format string contains 65536 placeholders, but only 0 extra arguments were given}
+//                         ^error{Invalid '{...}' placeholder in format string. The placeholder must be a number, or braces must be escaped with '{{' and '}}'}
+//                         ^^error{Format string contains 65536 placeholders, but only 0 extra arguments were given}
     property <string> t12: @tr("foo{45}bar", 44);
-    //                     ^error{Format string contains 46 placeholders, but only 1 extra arguments were given}
+//                         ^error{Format string contains 46 placeholders, but only 1 extra arguments were given}
     property <string> t13: @tr("foo{0}ba{}r", 44, 42);
-    //                     ^error{Cannot mix positional and non-positional placeholder in format string}
+//                         ^error{Cannot mix positional and non-positional placeholder in format string}
     property <string> t14: @tr("foo{}ba{1}r", 44, 42);
-    //                     ^error{Cannot mix positional and non-positional placeholder in format string}
+//                         ^error{Cannot mix positional and non-positional placeholder in format string}
     property <string> t15: @tr("fooba🥸{3}🥸r", 44, 42, 45);
-    //                     ^error{Format string contains 4 placeholders, but only 3 extra arguments were given}
+//                         ^error{Format string contains 4 placeholders, but only 3 extra arguments were given}
     property <string> t16: @tr("foo{} {}ba{}r", 44, 42);
-    //                     ^error{Format string contains 3 placeholders, but only 2 extra arguments were given}
+//                         ^error{Format string contains 3 placeholders, but only 2 extra arguments were given}
     property <string> t17: @tr("fo{}o}r", 44, 42);
-    //                     ^error{Unescaped '\}' in format string. Escape '\}' with '\}\}'}
+//                         ^error{Unescaped '}' in format string. Escape '}' with '}}'}
 
 
     property <string> ctx: @tr("foo" => "fo{}or{}", 42px);
-    //                                              ^error{Cannot convert length to string. Divide by 1px to convert to a plain number}
-    //                     ^^error{Format string contains 2 placeholders, but only 1 extra arguments were given}
+//                         ^error{Format string contains 2 placeholders, but only 1 extra arguments were given}
+//                                                  ^^error{Cannot convert length to string. Divide by 1px to convert to a plain number}
 
 
 }

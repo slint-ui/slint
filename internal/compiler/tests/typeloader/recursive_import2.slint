@@ -2,12 +2,14 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { Rec1 } from "./recursive_import1.slint";
-//                   ^error{Recursive import of .*recursive_import1.slint}
+//                   ^error{Recursive import of "📂/tests/typeloader/recursive_import1.slint"}
 
 export Rec2 := Rectangle {
+//          ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     property <int> Foo: 44;
 }
 
 export Rect21 := Rec1 {
+//            ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     property <int> Bar: 45;
 }

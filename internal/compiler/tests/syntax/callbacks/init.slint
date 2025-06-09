@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 global Singleton := {
+//               ^warning{':=' to declare a global is deprecated. Remove the ':='}
     callback init;
 //  ^error{A global component cannot have an 'init' callback}
     init => { debug("nope"); }
@@ -9,6 +10,7 @@ global Singleton := {
 }
 
 export Test := Rectangle {
+//          ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     callback init;
 //           ^error{Cannot override callback 'init'}
 }

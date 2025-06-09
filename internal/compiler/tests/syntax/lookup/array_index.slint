@@ -2,19 +2,20 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 export Hello := Rectangle {
+//           ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
 
     property <int> aa: 45;
     property <{o:[int], c:string}> bb;
     property <int> xx: aa[2];
-    //                 ^error{int is not an indexable type}
+//                     ^error{int is not an indexable type}
     property <int> yy: dontexist[2];
-    //                 ^error{Unknown unqualified identifier 'dontexist'}
+//                     ^error{Unknown unqualified identifier 'dontexist'}
     //property <int> zz: bb.o[2].aa;
     property <int> ww: bb.c[2];
-    //                 ^error{string is not an indexable type}
+//                     ^error{string is not an indexable type}
 
     property <int> uu: bb.o[bb.c];
-    //                      ^error{Cannot convert string to int}
+//                          ^error{Cannot convert string to int}
 
 
 

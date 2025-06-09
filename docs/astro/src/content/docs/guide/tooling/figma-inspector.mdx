@@ -11,7 +11,7 @@ import LangRefLink from '/src/components/LangRefLink.astro';
 The "Figma to Slint" plugin bridges the gap between Figma designs and Slint user interfaces. It provides two primary functionalities:
 
 1.  **Object Inspection:** Allows developers to select any object on the Figma canvas and view its properties (like dimensions, colors, fonts, etc.)formatted as a Slint code snippet. This is useful for quickly translating visual design elements into Slint code.  When paired with the variable export, this inserts variables into the code, if they are used in the figma file.
-2.  **Variable Export:** Enables the export of design tokens (variables for colors, numbers, strings, and booleans) defined in Figma directly into `.slint` files. This feature supports Figma's modes, allowing for themeable designs (e.g., light and dark modes) and generates the necessary Slint structs, enums, and global instances to use these tokens seamlessly in your Slint application.
+2.  **Variable Export:** Enables the reliable export of design tokens (variables for colors, numbers, strings, and booleans) defined in Figma directly into `.slint` files. This feature fully supports Figma's modes, allowing for themeable designs (e.g., light and dark modes) and generates the necessary Slint structs, enums, and global instances to use these tokens seamlessly in your Slint application.
 
 ## Setting up the Figma Inspector
 First of all, find and enable the "Figma to Slint" plugin in the Figma Plugin Manager.
@@ -35,18 +35,17 @@ The inspector currently has 2 functions.  One is to inspect individual Figma obj
   The file also contains a `Scheme` struct (`MyCollection-Scheme`) representing the structure of variables. A `Scheme-Mode` struct (`MyCollection-Scheme-Mode`) holds instances of the `Scheme` for each mode. And finally a global instance (`my_collection`) which contains:
         -   `mode`: An instance of `Scheme-Mode` holding the resolved values for each mode.
         -   `current-mode`: An `in-out` property using the mode `enum` to control the active mode.
-        -   `current-scheme`: An `out` property dynamically selecting the correct scheme instance based on `current-mode`.
-        -   `current`: An `out` property mirroring the `Scheme` structure, providing direct access to the values of the `current-scheme`.
--   **Alias Resolution:** Follows variable aliases (references) to find the underlying concrete value or target variable path.
+        -   `current`: An `out` property dynamically selecting the correct scheme instance based on `current-mode`.
+-   **Reliable Variable Resolution:** Automatically resolves all variable aliases (references) to their concrete values, ensuring consistent and predictable output regardless of how variables reference each other.
 -   **Hierarchy Generation:** Interprets `/` in Figma like
     `colors/background/primary`
   to generate nested Slint structs so the corresponding variables are nested for dot notation in Slint, thus the above example turns into `colors.background.primary`
--   **Circular Reference Handling:** Detects dependency cycles between variables. If a cycle is detected within the same collection, it attempts to break the loop using the target's concrete value. Otherwise, or if the loop break fails, it resolves with a default value and logs a warning. Collections involved in cycles force a single-file export.
+-   **Robust Mode Handling:** Intelligently matches Figma modes to ensure all variables export with their correct values, even when mode IDs don't match perfectly between collections and variables.
 -   **Name Sanitization:** Cleans up collection, variable, and mode names to be valid Slint identifiers (e.g., converting spaces and special characters to underscores, handling leading digits).
 -   **Export Options:**
-    -   **Separate Files:** Exports each Figma collection into its own `.slint` file. Automatically generates necessary `import` statements between files if cross-collection references exist (unless a cycle forces single-file mode).
-    -   **Single File:** Combines all collections into a single `design-tokens.slint` file. This is also the fallback if dependency cycles are detected.
--   **README Generation:** Creates a `README.md` file alongside the export, summarizing exported collections, renamed variables, detected circular references, and warnings.
+    -   **Separate Files:** Exports each Figma collection into its own `.slint` file. Creates `<collection_name>.slint` files with automatic cross-collection imports when needed.
+    -   **Single File:** Combines all collections into a single `design-tokens.slint` file for simpler project integration.
+-   **README Generation:** Creates a `README.md` file alongside the export, summarizing exported collections, renamed variables, and any warnings.
 
 ## Usage
 
@@ -61,8 +60,8 @@ The inspector currently has 2 functions.  One is to inspect individual Figma obj
     ![alt text](../../../../assets/guide/tooling/inspect-variables.webp)
 3.  **Export:** Click the "Export" button and choose:
     ![alt text](../../../../assets/guide/tooling/export-variables.webp)
-    -   `Separate Files Per Collection…`: Recommended for organization if no recursive references exist. Creates `<collection_name>.slint` files.
-    -   `Single Design-Tokens File…`: Creates `design-tokens.slint`. Necessary if any self references exist.
+    -   `Separate Files Per Collection…`: Recommended for organization. Creates `<collection_name>.slint` files.
+    -   `Single Design-Tokens File…`: Creates `design-tokens.slint` for simpler project integration.
 4.  **Integrate:**
     -   Place the generated `.slint` file(s) in your Slint project.
 

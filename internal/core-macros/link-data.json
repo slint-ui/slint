@@ -50,6 +50,9 @@
     "float": {
         "href": "reference/primitive-types/#float"
     },
+    "FocusReason": {
+        "href": "reference/global-structs-enums/#focusreason"
+    },
     "FocusHandling": {
         "href": "guide/development/focus/"
     },

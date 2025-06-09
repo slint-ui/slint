@@ -2,11 +2,13 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 export X := Rectangle {
+//       ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     forward-focus: nothingness;
-    //             ^error{Unknown unqualified identifier}
+//                 ^error{Unknown unqualified identifier 'nothingness'}
 }
 
 export Y := Rectangle {
+//       ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     forward-focus: true;
 //                 ^error{Cannot convert bool to element ref}
 }

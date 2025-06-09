@@ -4,7 +4,7 @@
 // cSpell: ignore hframe qreal tabbar vframe
 
 use i_slint_core::{
-    input::{FocusEventReason, FocusEventResult},
+    input::{FocusEventResult, FocusReason},
     platform::PointerEventButton,
 };
 
@@ -461,7 +461,7 @@ impl Item for NativeTab {
             WindowInner::from_pub(window_adapter.window()).set_focus_item(
                 self_rc,
                 true,
-                FocusEventReason::Mouse,
+                FocusReason::PointerClick,
             );
             self.current.set(self.tab_index());
             InputEventResult::EventAccepted

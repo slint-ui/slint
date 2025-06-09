@@ -56,14 +56,15 @@ impl<'a> LibinputInterface for SeatWrap {
             .open_device(&path)
             .map(|device| {
                 let flags = nix::fcntl::OFlag::from_bits_retain(flags);
-                let fd = device.as_fd().as_raw_fd();
+                let fd = device.as_fd();
                 nix::fcntl::fcntl(fd, nix::fcntl::FcntlArg::F_SETFL(flags))
                     .map_err(|e| format!("Error applying libinput provided open fd flags: {e}"))
                     .unwrap();
 
-                self.device_for_fd.insert(fd, device);
+                let raw_fd = fd.as_raw_fd();
+                self.device_for_fd.insert(raw_fd, device);
                 // Safety: API requires us to own it, but in close_restricted() we'll take it back.
-                unsafe { OwnedFd::from_raw_fd(fd) }
+                unsafe { OwnedFd::from_raw_fd(raw_fd) }
             })
             .map_err(|e| e.0.into())
     }

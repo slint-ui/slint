@@ -2,14 +2,16 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 export Unused := Rectangle {
+//            ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
    // FIXME: looks like binding loop is not diagnosed in exports if the properties are not used
     property <int> a1: a2;
     property <int> a2: a1;
 }
 
 export Z := Rectangle {
+//       ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     property <int> b1: b2;
-                     //^error{loop}
+//                     ^error{The binding for the property 'b1' is part of a binding loop (b2 -> b1)}
     property <int> b2: b1;
-                     //^error{loop}
+//                     ^error{The binding for the property 'b2' is part of a binding loop (b2 -> b1)}
 }

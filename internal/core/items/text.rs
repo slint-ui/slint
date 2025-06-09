@@ -15,8 +15,8 @@ use super::{
 };
 use crate::graphics::{Brush, Color, FontRequest};
 use crate::input::{
-    key_codes, FocusEvent, FocusEventReason, FocusEventResult, InputEventFilterResult,
-    InputEventResult, KeyEvent, KeyboardModifiers, MouseEvent, StandardShortcut, TextShortcut,
+    key_codes, FocusEvent, FocusEventResult, FocusReason, InputEventFilterResult, InputEventResult,
+    KeyEvent, KeyboardModifiers, MouseEvent, StandardShortcut, TextShortcut,
 };
 use crate::item_rendering::{CachedRenderingData, ItemRenderer, RenderText};
 use crate::layout::{LayoutInfo, Orientation};
@@ -911,6 +911,9 @@ impl Item for TextInput {
     ) -> FocusEventResult {
         match event {
             FocusEvent::FocusIn(_reason) => {
+                if !self.enabled() {
+                    return FocusEventResult::FocusIgnored;
+                }
                 self.has_focus.set(true);
                 self.show_cursor(window_adapter);
                 WindowInner::from_pub(window_adapter.window()).set_text_input_focused(true);
@@ -923,18 +926,15 @@ impl Item for TextInput {
                     }
 
                     #[cfg(not(target_vendor = "apple"))]
-                    {
-                        // check self.enabled() to make sure it doesn't select disabled (greyed-out) inputs
-                        if *_reason == FocusEventReason::Keyboard && self.enabled() {
-                            self.select_all(window_adapter, self_rc);
-                        }
+                    if *_reason == FocusReason::TabNavigation {
+                        self.select_all(window_adapter, self_rc);
                     }
                 }
             }
             FocusEvent::FocusOut(reason) => {
                 self.has_focus.set(false);
                 self.hide_cursor();
-                if !matches!(reason, FocusEventReason::ActiveWindow | FocusEventReason::Popup) {
+                if !matches!(reason, FocusReason::WindowActivation | FocusReason::PopupActivation) {
                     self.as_ref()
                         .anchor_position_byte_offset
                         .set(self.as_ref().cursor_position_byte_offset());
@@ -1788,7 +1788,7 @@ impl TextInput {
             WindowInner::from_pub(window_adapter.window()).set_focus_item(
                 self_rc,
                 true,
-                FocusEventReason::Mouse,
+                FocusReason::PointerClick,
             );
         } else if !self.read_only() {
             if let Some(w) = window_adapter.internal(crate::InternalToken) {

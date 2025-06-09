@@ -6,6 +6,7 @@ import { SomeRect } from "../../typeloader/incpath/local_helper_type.slint";
 import { X } from "../../typeloader/incpath/should_fail.slint";
 
 export Blah := X {
+//          ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     width: 100px;
 //  ^error{Unknown property width in X}
 }

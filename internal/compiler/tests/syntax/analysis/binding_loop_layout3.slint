@@ -2,19 +2,20 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 Compo := Rectangle {
-//       ^error{The binding for the property 'layoutinfo-h' is part of a binding loop}
+//    ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
+//       ^^error{The binding for the property 'layoutinfo-h' is part of a binding loop (preferred-width -> the-text -> text -> layoutinfo-h -> layoutinfo-h -> lay.layoutinfo-h -> layoutinfo-h)}
 
     property <string> the_text;
 
     lay := HorizontalLayout {
-//         ^error{The binding for the property 'layoutinfo-h' is part of a binding loop}
+//         ^error{The binding for the property 'layoutinfo-h' is part of a binding loop (preferred-width -> the-text -> text -> layoutinfo-h -> layoutinfo-h -> lay.layoutinfo-h -> layoutinfo-h)}
         if true : Rectangle {
-//                ^error{The binding for the property 'layoutinfo-h' is part of a binding loop}
+//                ^error{The binding for the property 'layoutinfo-h' is part of a binding loop (preferred-width -> the-text -> text -> layoutinfo-h -> layoutinfo-h -> lay.layoutinfo-h -> layoutinfo-h)}
             VerticalLayout {
-//          ^error{The binding for the property 'layoutinfo-h' is part of a binding loop}
+//          ^error{The binding for the property 'layoutinfo-h' is part of a binding loop (preferred-width -> the-text -> text -> layoutinfo-h -> layoutinfo-h -> lay.layoutinfo-h -> layoutinfo-h)}
                 Text {
                     text: root.the_text;
-//                        ^error{The binding for the property 'text' is part of a binding loop}
+//                        ^error{The binding for the property 'text' is part of a binding loop (preferred-width -> the-text -> text -> layoutinfo-h -> layoutinfo-h -> lay.layoutinfo-h -> layoutinfo-h)}
                 }
             }
         }
@@ -23,9 +24,10 @@ Compo := Rectangle {
 }
 
 export Foo := Rectangle {
+//         ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     Compo {
-//  ^error{The binding for the property 'preferred-width' is part of a binding loop}
+//  ^error{The binding for the property 'preferred-width' is part of a binding loop (preferred-width -> the-text -> text -> layoutinfo-h -> layoutinfo-h -> lay.layoutinfo-h -> layoutinfo-h)}
         the_text: self.preferred-width / 1px;
-//                ^error{The binding for the property 'the-text' is part of a binding loop}
+//                ^error{The binding for the property 'the-text' is part of a binding loop (preferred-width -> the-text -> text -> layoutinfo-h -> layoutinfo-h -> lay.layoutinfo-h -> layoutinfo-h)}
     }
 }

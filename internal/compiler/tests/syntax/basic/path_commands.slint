@@ -2,18 +2,20 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 Test2 := Path {
+//    ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     width: 640px;
     height: 480px;
     commands: "M 0 0 M -100 0 A 100 100 0 1 0 100 0 Å 100 100 0 1 0 100 0 Z";
-    //        ^error{Error parsing SVG commands}
+//            ^error{Error parsing SVG commands (Line 0 Column 37: Expected number, got "".)}
 }
 
 export TestCase := Rectangle {
+//              ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     Path {
         width: 100px;
         height: 100px;
         commands: "hello world";
-        //        ^error{Error parsing SVG commands}
+//                ^error{Error parsing SVG commands (Line 0 Column 1: Expected number, got "e".)}
         stroke: red;
         stroke-width: 1px;
     }
@@ -28,17 +30,17 @@ export TestCase := Rectangle {
         width: 640px;
         height: 480px;
         commands: "M 0 0 M -100 0 A 100 100 0 1 0 0 A 100 100 0 1 0 100 0 Z";
-        //        ^error{Error parsing SVG commands}
+//                ^error{Error parsing SVG commands (Line 0 Column 33: Expected number, got "".)}
     }
 
     TouchArea {
         clicked => {
             p.commands = "M 0 0 M -100 0 A 100 100 0 1 0 100 0 A 100 100 0 1 0 100 0 Z";
-        //    ^error{This special property can only be used to make a binding and cannot be accessed}
+//            ^error{This special property can only be used to make a binding and cannot be accessed}
         }
     }
     Text { text: p.commands; }
-    //             ^error{This special property can only be used to make a binding and cannot be accessed}
+//                 ^error{This special property can only be used to make a binding and cannot be accessed}
 
     Test2 {}
 

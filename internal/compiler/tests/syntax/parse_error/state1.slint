@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 export TestCase := Rectangle {
+//              ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     property<bool> checked;
     property <int> border;
     states [
@@ -9,7 +10,7 @@ export TestCase := Rectangle {
             text.color: red;
             <<<<<    // FIXME: we should only report one error
 //          ^error{Syntax error: expected Identifier}
-//          ^^error{Syntax error: expected '\]'}
+//          ^^error{Syntax error: expected ']'}
 //          ^^^error{Parse error}
             border: 42;
         }

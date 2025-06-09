@@ -501,7 +501,7 @@ mod parser_trait {
         /// (do not re-implement this function, re-implement
         /// start_node_impl and finish_node_impl)
         #[must_use = "The node will be finished when it is dropped"]
-        fn start_node(&mut self, kind: SyntaxKind) -> Node<Self> {
+        fn start_node(&mut self, kind: SyntaxKind) -> Node<'_, Self> {
             self.start_node_impl(kind, None, NodeToken(()));
             Node(self)
         }
@@ -512,7 +512,7 @@ mod parser_trait {
             &mut self,
             checkpoint: impl Into<Option<Self::Checkpoint>>,
             kind: SyntaxKind,
-        ) -> Node<Self> {
+        ) -> Node<'_, Self> {
             self.start_node_impl(kind, checkpoint.into(), NodeToken(()));
             Node(self)
         }

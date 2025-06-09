@@ -10,30 +10,56 @@ All notable changes to this project are documented in this file.
  - Added `renderer-femtovg-wgpu` (Rust) / `SLINT_FEATURE_RENDERER_FEMTOVG_WGPU` (CMake) as new rendering option,
    based on [WGPU](https://wgpu.rs/).
  - Fix the way Window::default-font is applied, making it work in the live preview.
+ - Updated AccessKit
+ - Initial iOS support
+ - Fixed blinking window icon on Windows (#7994)
+ - FemtoVG: Fixed extra space of the `\n` char in text rendering (#7970)
+ - Winit: Added support for SVG icons in the window title
+ - `TextInput` selects its content when focused with the keyboard on Windows and Linux
+
 
 ### Slint Language
 
+ - Detect binding loops that applies to the Window itself
  - Added `Math.exp` and `Math.ln`
  - Added `Platform.style-name` and `Platform.os` properties to permit style and OS dependent code.
  - Fixed changed callback on private global properties (#8269)
  - Added `ContextMenuArea::enabled`
  - Slint compilation error for comparison of types that can't be compared with less or greater operator.
+ - `Flickable` now has a change event to keep in bounds when geometry changes (#2227, #7487)
+ - Added `in-out` transition in states.
+ - Added `focus-gained` and `focus-lost` callback to FocusScope.
+ - Pass a `FocusReason` enum to the FocusScope callbacks
 
 ### Widgets
 
  - Fixed `ScrollView` scrollbar actions not triggering `scrolled` callback (#8170)
  - Added content-padding to GroupBox (#8314)
  - TextEdit/LineEdit: disable context menu action when the widget is disabled or read-only
+ - Added `mouse-drag-pan-enabled` property to `ScrollView` (#8512)
 
 ### Rust
 
  - Added `unstable-winit-030` feature along with `slint::winit_030` module in the API to provide access
    to winit APIs.
  - Added `unstable-wgpu-24` feature along with `slint::wgpu_24` module to enable Slint <> WPU interoperatiblity.
+ - Make `Debug` impl of `PlatformError` show the display string
+ - slint-build: Implement `Clone` for `CompilerConfiguration`
+ - sint-interpreter: The `From<ModelRc> for slint_interpreter::Value` now gives a model that supports `set_row_data`.
+
+### C++
+
+ - Made generated code more robust when in namespaces regarding forward declaration
+ - Added a few asserts to ensure the code is run in the right thread
+ - Don't crash when `Model::row_data` returns `nullopt`
+
+### Python
 
 ### LSP and Tooling
 
- - live_preview: Do not apply live data changes after "Reload"
+ - live preview: Do not apply live data changes after "Reload"
+ - live preview: Added telemetry events
+ - live preview: support Palette names in color picker
  - figma-inspector: ... TODO ...
 
 ## [1.11.0] - 2025-04-23

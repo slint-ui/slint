@@ -13,7 +13,7 @@ component Derives inherits PopupWindow {
 
 component D1 inherits PopupWindow {
     close-on-click: false;
-//                  ^error{close-policy and close-on-click cannot be set at the same }
+//                  ^error{close-policy and close-on-click cannot be set at the same time}
     close-policy: close-on-click-outside;
 }
 
@@ -38,10 +38,10 @@ export component Bar {
 //                      ^warning{The property 'close-on-click' has been deprecated. Please use 'close-policy' instead}
         init => {
             xx.close-on-click = true;
-    //      ^error{The property must be known at compile time and cannot be changed at runtime}
+//          ^error{The property must be known at compile time and cannot be changed at runtime}
 
             xx.close-policy = PopupClosePolicy.close-on-click;
-    //      ^error{The property must be known at compile time and cannot be changed at runtime}
+//          ^error{The property must be known at compile time and cannot be changed at runtime}
         }
     }
     PopupWindow {
@@ -82,7 +82,7 @@ export component Bar {
         D1{}
         D2{}
         D3{ close-on-click: true;  }
-        //                  ^warning{The property 'close-on-click' has been deprecated. Please use 'close-policy' instead}
+//                          ^warning{The property 'close-on-click' has been deprecated. Please use 'close-policy' instead}
     }
 
 

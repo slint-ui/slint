@@ -635,13 +635,14 @@ struct SortModelInner : private_api::ModelChangeListener
         }
 
         for (size_t row = first_inserted_row; row < first_inserted_row + count; ++row) {
-
-            ModelData inserted_value = *source_model->row_data(row);
+            auto inserted_value = source_model->row_data(row);
+            if (!inserted_value)
+                continue;
             auto insertion_point =
-                    std::lower_bound(sorted_rows.begin(), sorted_rows.end(), inserted_value,
+                    std::lower_bound(sorted_rows.begin(), sorted_rows.end(), *inserted_value,
                                      [this](size_t sorted_row, const ModelData &inserted_value) {
                                          auto sorted_elem = source_model->row_data(sorted_row);
-                                         return comp(*sorted_elem, inserted_value);
+                                         return sorted_elem && comp(*sorted_elem, inserted_value);
                                      });
 
             insertion_point = sorted_rows.insert(insertion_point, row);
@@ -659,12 +660,14 @@ struct SortModelInner : private_api::ModelChangeListener
                 sorted_rows.erase(std::find(sorted_rows.begin(), sorted_rows.end(), changed_row));
         auto removed_row = std::distance(sorted_rows.begin(), removed_row_it);
 
-        ModelData changed_value = *source_model->row_data(changed_row);
+        auto changed_value = source_model->row_data(changed_row);
+        if (!changed_value)
+            return;
         auto insertion_point =
-                std::lower_bound(sorted_rows.begin(), sorted_rows.end(), changed_value,
+                std::lower_bound(sorted_rows.begin(), sorted_rows.end(), *changed_value,
                                  [this](size_t sorted_row, const ModelData &changed_value) {
                                      auto sorted_elem = source_model->row_data(sorted_row);
-                                     return comp(*sorted_elem, changed_value);
+                                     return sorted_elem && comp(*sorted_elem, changed_value);
                                  });
 
         insertion_point = sorted_rows.insert(insertion_point, changed_row);
@@ -724,7 +727,7 @@ struct SortModelInner : private_api::ModelChangeListener
         std::sort(sorted_rows.begin(), sorted_rows.end(), [this](auto lhs_index, auto rhs_index) {
             auto lhs_elem = source_model->row_data(lhs_index);
             auto rhs_elem = source_model->row_data(rhs_index);
-            return comp(*lhs_elem, *rhs_elem);
+            return rhs_elem && lhs_elem && comp(*lhs_elem, *rhs_elem);
         });
 
         sorted_rows_dirty = false;
@@ -918,7 +921,9 @@ class Repeater
             }
             auto &c = data[index];
             if (model && c.ptr) {
-                (*c.ptr)->update_data(index, *model->row_data(index));
+                if (auto data = model->row_data(index)) {
+                    (*c.ptr)->update_data(index, *data);
+                }
                 c.state = State::Clean;
             } else {
                 c.state = State::Dirty;
@@ -988,7 +993,9 @@ public:
                         created = true;
                     }
                     if (c.state == RepeaterInner::State::Dirty) {
-                        (*c.ptr)->update_data(i, *m->row_data(i));
+                        if (auto data = m->row_data(i)) {
+                            (*c.ptr)->update_data(i, *data);
+                        }
                     }
                     if (created) {
                         (*c.ptr)->init();
