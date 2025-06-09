@@ -65,33 +65,33 @@ export async function processVariableCollections(): Promise<
     ProcessedCollection[]
 > {
     try {
-        const start = Date.now();
-        const collections = await figma.variables.getLocalVariableCollectionsAsync();
+        const collections =
+            await figma.variables.getLocalVariableCollectionsAsync();
         const allVariables = await figma.variables.getLocalVariablesAsync();
 
         const variablesByCollection = new Map<string, VariableData[]>();
         for (const variable of allVariables) {
             const collectionId = variable.variableCollectionId;
-            if (!collectionId) { continue }
-            
+            if (!collectionId) {
+                continue;
+            }
+
             if (!variablesByCollection.has(collectionId)) {
                 variablesByCollection.set(collectionId, []);
             }
-            
+
             // Ensure all required properties exist with defaults
             const safeVariable: VariableData = {
-                id: variable.id || '',
-                name: variable.name || '',
+                id: variable.id || "",
+                name: variable.name || "",
                 variableCollectionId: collectionId,
-                resolvedType: variable.resolvedType || 'STRING',
+                resolvedType: variable.resolvedType || "STRING",
                 valuesByMode: variable.valuesByMode || {},
                 hiddenFromPublishing: variable.hiddenFromPublishing ?? false,
                 scopes: variable.scopes || [],
             };
             variablesByCollection.get(collectionId)!.push(safeVariable);
         }
-
-        
 
         // Build the final collections data
         const detailedCollections = collections.map((collection) => ({
@@ -106,8 +106,6 @@ export async function processVariableCollections(): Promise<
             variables: variablesByCollection.get(collection.id) || [],
         }));
 
-        console.log("get data took", Date.now() - start, "ms");
-
         console.log("Total variables:", allVariables.length);
         return detailedCollections;
     } catch (error) {
@@ -120,10 +118,7 @@ export async function createSlintExport(): Promise<void> {
     try {
         const start = Date.now();
         const collections = await processVariableCollections();
-        console.log("Part1 took", Date.now() - start, "ms");
         const sanitizedCollections = sanitizeCollections(collections);
-
-        
 
         // Build a map of variable IDs to their references and data
         const variableRefMap = new Map<string, VariableReference>();
@@ -132,12 +127,11 @@ export async function createSlintExport(): Promise<void> {
             collectionDefaultModes.set(collection.id, collection.defaultModeId);
             for (const variable of collection.variables) {
                 variableRefMap.set(variable.id, {
-                    path: `${collection.name}.collection.${variable.name}`,
+                    path: `${collection.name}.vars.${variable.name}`,
                     variable: variable,
                 });
             }
         }
-        
 
         let allSlintCode = "";
         let collectionCount = 1;
@@ -148,7 +142,7 @@ export async function createSlintExport(): Promise<void> {
             }
 
             const modeNames = collection.modes.map((m) => m.name);
-            const structName = `Collection${collectionCount}`;
+            const structName = `Vars${collectionCount}`;
             collectionCount++;
 
             // Enums are only needed when > 1 modes
@@ -164,7 +158,7 @@ export async function createSlintExport(): Promise<void> {
             // Generate a struct for the collection
             allSlintCode += `struct ${structName} {\n`;
             for (const variable of collection.variables) {
-                const slintType = getSlintType(variable);
+                const slintType = getSlintTypeInfo(variable).type;
                 allSlintCode += `${indent}${variable.name}: ${slintType},\n`;
             }
             allSlintCode += `}\n\n`;
@@ -179,7 +173,7 @@ export async function createSlintExport(): Promise<void> {
             const collectionIndex =
                 sanitizedCollections.indexOf(collection) + 1;
             const enumName = `Mode${collectionIndex}`;
-            const structName = `Collection${collectionIndex}`;
+            const structName = `Vars${collectionIndex}`;
 
             allSlintCode += `export global ${collection.name} {\n`;
 
@@ -194,7 +188,7 @@ export async function createSlintExport(): Promise<void> {
                 allSlintCode += `${indent}in property <${enumName}> current-mode: ${enumName}.${defaultMode};\n`;
 
                 // Add output property that selects the appropriate mode
-                allSlintCode += `${indent}out property <${structName}> collection: `;
+                allSlintCode += `${indent}out property <${structName}> vars: `;
                 if (collection.modes.length > 1) {
                     const conditions = collection.modes
                         .map((mode, index) => {
@@ -220,7 +214,7 @@ export async function createSlintExport(): Promise<void> {
                 }
             } else {
                 // For collections with only one mode, just create a simple property
-                allSlintCode += `${indent}out property <${structName}> collection: {\n`;
+                allSlintCode += `${indent}out property <${structName}> vars: {\n`;
                 allSlintCode += generateVariablesForMode(
                     collection.variables,
                     collection.modes[0].modeId,
@@ -337,29 +331,31 @@ export async function saveVariableCollectionsToFile(
     }
 }
 
-export function getSlintType(variable: VariableData): string {
+function getSlintTypeInfo(variable: VariableData): {
+    type: string;
+    defaultValue: string;
+} {
     switch (variable.resolvedType) {
         case "COLOR":
-            return "brush";
+            return { type: "brush", defaultValue: "#000000" };
         case "FLOAT":
             // Filter out FONT_VARIATIONS as it can be ignored
             const relevantScopes = variable.scopes.filter(
                 (scope) => scope !== "FONT_VARIATIONS",
             );
-
             if (relevantScopes.length === 1) {
                 if (relevantScopes[0] === "OPACITY") {
-                    return "float";
+                    return { type: "float", defaultValue: "0.0" };
                 }
             }
             // If it's ALL_SCOPES or no specific scope matches, return length
-            return "length";
+            return { type: "length", defaultValue: "0px" };
         case "STRING":
-            return "string";
+            return { type: "string", defaultValue: '""' };
         case "BOOLEAN":
-            return "bool";
+            return { type: "bool", defaultValue: "false" };
         default:
-            return "brush"; // Default to brush
+            return { type: "brush", defaultValue: "#000000" }; // Default to brush
     }
 }
 
@@ -369,15 +365,8 @@ function isVariableAlias(value: any): boolean {
     );
 }
 
-function getVariableReference(
-    value: any,
-    variableRefMap: Map<string, VariableReference>,
-): string {
-    return variableRefMap.get(value.id)?.path || "";
-}
-
 function formatValueForSlint(variable: VariableData, value: any): string {
-    const slintType = getSlintType(variable);
+    const slintType = getSlintTypeInfo(variable).type;
     switch (slintType) {
         case "string":
             return `${indent2}${variable.name}: "${value}",\n`;
@@ -417,7 +406,7 @@ export function generateVariableValue(
         // references. This quickly leads to binding loops in this current export. This function simplifies the
         // problem by allowing a single variable in another struct. If the variable references the current struct
         // or another reference the alias chain is simply resolved to a final value based on defaultModeId's
-        const variableAlias = getVariableReference(value, variableRefMap);
+        const variableAlias = variableRefMap.get(value.id)?.path ?? "";
         const aliasCollection = variableAlias.split(".")[0];
         if (variableAlias) {
             if (aliasCollection === collectionName) {
@@ -488,30 +477,7 @@ function generateVariablesForMode(
 }
 
 function handleDeletedVariable(variable: VariableData): string {
-    const slintType = getSlintType(variable);
-    let defaultValue = "";
-    switch (slintType) {
-        case "string":
-            defaultValue = '""';
-            break;
-        case "bool":
-            defaultValue = "false";
-            break;
-        case "brush":
-            defaultValue = "#000000";
-            break;
-        case "length":
-            defaultValue = "0px";
-            break;
-        case "float":
-            defaultValue = "0.0";
-            break;
-        case "int":
-            defaultValue = "0";
-            break;
-        default:
-            defaultValue = "0";
-    }
+    const { defaultValue } = getSlintTypeInfo(variable);
     return `// Figma file is pointing at a deleted Variable "${variable.name}"\n${indent2}${variable.name}: ${defaultValue},\n`;
 }
 
