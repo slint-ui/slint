@@ -8,7 +8,7 @@ import { exportFigmaVariablesToSeparateFiles } from "./utils/export-variables.js
 import {
     saveVariableCollectionsToFile,
     createSlintExport,
-} from "./utils/test-data.js";
+} from "./utils/experimental-export.js";
 
 if (figma.editorType === "dev" && figma.mode === "codegen") {
     figma.codegen.on("generate", async ({ node }: { node: SceneNode }) => {

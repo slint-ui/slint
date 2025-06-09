@@ -6,7 +6,7 @@ import {
     sanitizeSlintPropertyName,
     generateVariableValue,
     indent2,
-} from "../backend/utils/test-data";
+} from "../backend/utils/experimental-export";
 
 // sanitizeSlintPropertyName tests
 test("keeps valid property name starting with letter", () => {
