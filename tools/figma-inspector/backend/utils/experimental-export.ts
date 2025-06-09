@@ -4,15 +4,7 @@
 import { dispatchTS } from "./code-utils.js";
 import { rgbToHex } from "./property-parsing.js";
 
-interface VariableData {
-    id: string;
-    name: string;
-    variableCollectionId: string;
-    resolvedType: string;
-    valuesByMode: { [modeId: string]: any };
-    hiddenFromPublishing: boolean;
-    scopes: string[];
-}
+
 
 interface ProcessedCollection {
     id: string;
@@ -23,7 +15,7 @@ interface ProcessedCollection {
         modeId: string;
         name: string;
     }>;
-    variables: VariableData[];
+    variables: Variable[];
 }
 
 interface VariableCollection {
@@ -35,20 +27,12 @@ interface VariableCollection {
         modeId: string;
         name: string;
     }>;
-    variables: Array<{
-        id: string;
-        name: string;
-        variableCollectionId: string;
-        resolvedType: string;
-        valuesByMode: { [modeId: string]: any };
-        hiddenFromPublishing: boolean;
-        scopes: string[];
-    }>;
+    variables: Variable[];
 }
 
 interface VariableReference {
     path: string;
-    variable: VariableData;
+    variable: Variable;
 }
 
 export const indent = "    ";
@@ -69,7 +53,7 @@ export async function processVariableCollections(): Promise<
             await figma.variables.getLocalVariableCollectionsAsync();
         const allVariables = await figma.variables.getLocalVariablesAsync();
 
-        const variablesByCollection = new Map<string, VariableData[]>();
+        const variablesByCollection = new Map<string, Variable[]>();
         for (const variable of allVariables) {
             const collectionId = variable.variableCollectionId;
             if (!collectionId) {
@@ -79,9 +63,8 @@ export async function processVariableCollections(): Promise<
             if (!variablesByCollection.has(collectionId)) {
                 variablesByCollection.set(collectionId, []);
             }
-
             // Ensure all required properties exist with defaults
-            const safeVariable: VariableData = {
+            const safeVariable = {
                 id: variable.id || "",
                 name: variable.name || "",
                 variableCollectionId: collectionId,
@@ -90,7 +73,7 @@ export async function processVariableCollections(): Promise<
                 hiddenFromPublishing: variable.hiddenFromPublishing ?? false,
                 scopes: variable.scopes || [],
             };
-            variablesByCollection.get(collectionId)!.push(safeVariable);
+            variablesByCollection.get(collectionId)!.push(safeVariable as Variable);
         }
 
         // Build the final collections data
@@ -331,7 +314,7 @@ export async function saveVariableCollectionsToFile(
     }
 }
 
-function getSlintTypeInfo(variable: VariableData): {
+function getSlintTypeInfo(variable: Variable): {
     type: string;
     defaultValue: string;
 } {
@@ -341,7 +324,7 @@ function getSlintTypeInfo(variable: VariableData): {
         case "FLOAT":
             // Filter out FONT_VARIATIONS as it can be ignored
             const relevantScopes = variable.scopes.filter(
-                (scope) => scope !== "FONT_VARIATIONS",
+                (scope) => scope !== "FONT_VARIATIONS" as VariableScope,
             );
             if (relevantScopes.length === 1) {
                 if (relevantScopes[0] === "OPACITY") {
@@ -365,7 +348,7 @@ function isVariableAlias(value: any): boolean {
     );
 }
 
-function formatValueForSlint(variable: VariableData, value: any): string {
+function formatValueForSlint(variable: Variable, value: any): string {
     const slintType = getSlintTypeInfo(variable).type;
     switch (slintType) {
         case "string":
@@ -395,7 +378,7 @@ function formatValueForSlint(variable: VariableData, value: any): string {
 }
 
 export function generateVariableValue(
-    variable: VariableData,
+    variable: Variable,
     value: any,
     collectionName: string,
     collectionDefaultModes: Map<string, string>,
@@ -447,7 +430,7 @@ export function generateVariableValue(
 }
 
 function generateVariablesForMode(
-    variables: VariableData[],
+    variables: Variable[],
     modeId: string,
     collectionName: string,
     collectionDefaultModes: Map<string, string>,
@@ -476,13 +459,13 @@ function generateVariablesForMode(
     return result;
 }
 
-function handleDeletedVariable(variable: VariableData): string {
+function handleDeletedVariable(variable: Variable): string {
     const { defaultValue } = getSlintTypeInfo(variable);
     return `// Figma file is pointing at a deleted Variable "${variable.name}"\n${indent2}${variable.name}: ${defaultValue},\n`;
 }
 
 function followAliasChain(
-    variable: VariableData,
+    variable: Variable,
     value: any,
     variableRefMap: Map<string, VariableReference>,
     collectionDefaultModes: Map<string, string>,
