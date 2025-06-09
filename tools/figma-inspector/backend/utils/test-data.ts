@@ -120,13 +120,10 @@ export async function createSlintExport(): Promise<void> {
         for (const collection of sanitizedCollections) {
             collectionDefaultModes.set(collection.id, collection.defaultModeId);
             for (const variable of collection.variables) {
-                variableRefMap.set(
-                    variable.id,
-                    {
-                        path: `${collection.name}.collection.${variable.name}`,
-                        variable: variable
-                    }
-                );
+                variableRefMap.set(variable.id, {
+                    path: `${collection.name}.collection.${variable.name}`,
+                    variable: variable,
+                });
             }
         }
 
@@ -406,9 +403,42 @@ export function generateVariableValue(
     variableRefMap: Map<string, VariableReference>,
 ): string {
     if (isVariableAlias(value)) {
+        // Figma allows designers to go wild with variables the reference other variables or even other
+        // references. This quickly leads to binding loops in this current export. This function simplifies the
+        // problem by allowing a single variable in another struct. If the variable references the current struct
+        // or another reference the alias chain is simply resolved to a final value based on defaultModeId's
         const variableAlias = getVariableReference(value, variableRefMap);
+        const aliasCollection = variableAlias.split(".")[0];
         if (variableAlias) {
-            return handlePossibleSelfReference(variable, value, collectionName, variableAlias, collectionDefaultModes, variableRefMap);
+            if (aliasCollection === collectionName) {
+                return followAliasChain(
+                    variable,
+                    value,
+                    variableRefMap,
+                    collectionDefaultModes,
+                );
+            }
+            // check if next item is value or alias
+            const nextVariable = variableRefMap.get(value.id)?.variable;
+            if (nextVariable) {
+                // Check all values in valuesByMode for variable aliases
+                if (nextVariable.valuesByMode) {
+                    for (const [_modeId, modeValue] of Object.entries(
+                        nextVariable.valuesByMode,
+                    )) {
+                        if (isVariableAlias(modeValue)) {
+                            return followAliasChain(
+                                variable,
+                                value,
+                                variableRefMap,
+                                collectionDefaultModes,
+                            );
+                        }
+                    }
+                }
+            }
+
+            return `${indent2}${variable.name}: ${variableAlias},\n`;
         } else {
             return handleDeletedVariable(variable);
         }
@@ -435,7 +465,13 @@ function generateVariablesForMode(
             const firstModeId = Object.keys(variable.valuesByMode)[0];
             value = variable.valuesByMode[firstModeId];
         }
-        result += generateVariableValue(variable, value, collectionName, collectionDefaultModes, variableRefMap);
+        result += generateVariableValue(
+            variable,
+            value,
+            collectionName,
+            collectionDefaultModes,
+            variableRefMap,
+        );
     }
     result += `${indent}};\n\n`;
     return result;
@@ -469,39 +505,34 @@ function handleDeletedVariable(variable: VariableData): string {
     return `// Figma file is pointing at a deleted Variable "${variable.name}"\n${indent2}${variable.name}: ${defaultValue},\n`;
 }
 
-function handlePossibleSelfReference(
+function followAliasChain(
     variable: VariableData,
     value: any,
-    collectionName: string,
-    variableAlias: string,
-    collectionDefaultModes: Map<string, string>,
     variableRefMap: Map<string, VariableReference>,
+    collectionDefaultModes: Map<string, string>,
 ): string {
-    // Figma variables can point to other variables in the same collection. This converter puts all the variables 
-    // in one collection into a single struct. However Slint does not support structs where one property references another
-    // Ths detects self referencing variables and replaces them with the final resolved value. This is done by following the variable-
-    // alias chain until we find a variable that is not a variable alias. For each collection the defaultModeId is used.
-    const referenceParts = variableAlias.split(".");
-    if (referenceParts[0] === collectionName) {
-        return followAliasChain(variable, value, variableRefMap, collectionDefaultModes);
-    }
-    return `${indent2}${variable.name}: ${variableAlias},\n`;
-}
-
-
-function followAliasChain(variable: VariableData, value: any, variableRefMap: Map<string, VariableReference>, collectionDefaultModes: Map<string, string>): string {
     if (isVariableAlias(value)) {
         // get the next variable in the chain
         const nextVariable = variableRefMap.get(value.id)?.variable;
         if (nextVariable) {
-            const nextValue = nextVariable.valuesByMode[collectionDefaultModes.get(nextVariable.variableCollectionId)!];
+            const nextValue =
+                nextVariable.valuesByMode[
+                    collectionDefaultModes.get(
+                        nextVariable.variableCollectionId,
+                    )!
+                ];
             if (isVariableAlias(nextValue)) {
-                const newV = followAliasChain(variable, nextValue, variableRefMap, collectionDefaultModes);
-                console.log("newV", newV);
-                return newV;
+                return followAliasChain(
+                    variable,
+                    nextValue,
+                    variableRefMap,
+                    collectionDefaultModes,
+                );
             } else {
                 return formatValueForSlint(variable, nextValue);
             }
+        } else {
+            return handleDeletedVariable(variable);
         }
     }
     return formatValueForSlint(variable, value);
