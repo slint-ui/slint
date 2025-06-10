@@ -16,7 +16,14 @@ SPDX-FileCopyrightText = "Material Icons <https://github.com/material-icons/mate
 SPDX-License-Identifier = "Apache-2.0"
 
 [[annotations]]
-path = ["docs/**.json", "docs/src/styles/**.css", "docs/src/assets/**.svg", "docs/src/assets/**.webp"]
+path = [
+  "docs/**.json",
+  "docs/src/styles/**.css",
+  "docs/src/assets/**.svg",
+  "docs/src/assets/**.webp",
+  ".gitignore",
+  "docs/pnpm-lock.yaml",
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"
 SPDX-License-Identifier = "MIT"
