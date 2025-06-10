@@ -2,12 +2,12 @@
 # SPDX-License-Identifier: MIT
 
 [package]
-name = "slint-material"
-authors.workspace = true
-edition.workspace = true
-repository.workspace = true
-license = "GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0"
+name = "slint-material-components"
+authors = ["Slint Developers <info@slint.dev>"]
+edition = "2021"
+repository = "https://github.com/slint-ui/slint"
+license = "MIT"
 description = "Material Design 3 component set for Slint"
-version.workspace = true
+version = "0.1.0"
 homepage = "https://slint.rs"
-rust-version.workspace = true
+rust-version = "1.82"

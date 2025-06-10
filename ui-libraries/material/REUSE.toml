@@ -1,0 +1,22 @@
+version = 1
+SPDX-PackageName = "material-components"
+SPDX-PackageSupplier = "Slint Developers <info@slint.dev>"
+SPDX-PackageDownloadLocation = "https://slint.dev/"
+
+[[annotations]]
+path = ["docs/public/favicon.svg"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"
+SPDX-License-Identifier = "CC-BY-ND-4.0"
+
+[[annotations]]
+path = ["ui/icons/**.svg", "examples/gallery/ui/icons/**.svg"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Material Icons <https://github.com/material-icons/material-icons/blob/master/LICENSE>"
+SPDX-License-Identifier = "Apache-2.0"
+
+[[annotations]]
+path = ["docs/**.json", "docs/src/styles/**.css", "docs/src/assets/**.svg", "docs/src/assets/**.webp"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"
+SPDX-License-Identifier = "MIT"

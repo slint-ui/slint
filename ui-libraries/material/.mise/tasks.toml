@@ -1,0 +1,29 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: MIT
+
+# Use https://mise.jdx.dev/schema/mise-task.json for validation.
+
+### fixes
+
+["fix:rust:format"]
+description = "Run cargo fmt --all"
+run = "cargo fmt --all"
+
+["fix:toml:format"]
+description = "Run taplo format"
+run = "taplo format"
+
+### lint
+#
+["lint:legal:reuse"]
+run = "pipx run reuse lint"
+
+### CI
+
+["ci:autofix:fix"]
+description = "CI autofix job -- fix steps"
+depends = ["fix:rust:format", "fix:text:trailing_spaces", "fix:toml:format"]
+
+["ci:autofix:lint"]
+description = "CI autofix job -- lint steps"
+depends = ["lint:legal:reuse"]

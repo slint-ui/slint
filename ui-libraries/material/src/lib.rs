@@ -25,6 +25,9 @@ use std::collections::HashMap;
 /// ````
 pub fn import_path() -> HashMap<String, PathBuf> {
     let mut import_paths = HashMap::new();
-    import_paths.insert("slint".to_string(), PathBuf::from(env!("CARGO_MANIFEST_DIR")));
+    import_paths.insert(
+        "slint".to_string(),
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")),
+    );
     import_paths
 }

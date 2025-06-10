@@ -1,0 +1,14 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: MIT
+
+# cspell:ignore pipx
+
+[settings]
+disable_backends = ["aqua"]
+
+[tools]
+"rust" = { version = "stable", profile = "default" }
+taplo = "0.9.3"
+
+[task_config]
+includes = [".mise/tasks.toml", ".mise/tasks"]
