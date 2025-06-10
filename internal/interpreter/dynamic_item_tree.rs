@@ -703,6 +703,18 @@ impl ItemTreeDescription<'_> {
         let g = extra_data.globals.get().unwrap().get(global_name).clone();
         g.ok_or(())
     }
+
+    pub fn recursively_set_debug_handler(
+        &self,
+        handler: Rc<dyn Fn(&Option<i_slint_compiler::diagnostics::SourceLocation>, &str)>,
+    ) {
+        *self.debug_handler.borrow_mut() = handler.clone();
+
+        for r in &self.repeater {
+            generativity::make_guard!(guard);
+            r.unerase(guard).item_tree_to_repeat.recursively_set_debug_handler(handler.clone());
+        }
+    }
 }
 
 #[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
