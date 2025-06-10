@@ -165,17 +165,21 @@ pub const HAS_NATIVE_STYLE: bool = false;
 #[doc(hidden)]
 pub mod native_widgets {}
 
-/// Use this trait to intercept events from winit. It imitates [`winit::application::ApplicationHandler`]
-/// with two changes:
+/// Use this trait to intercept events from winit.
+///
+/// It imitates [`winit::application::ApplicationHandler`] with two changes:
 ///   - All functions are invoked before Slint sees them. Use the [`WinitWindowEventResult`] return value to
 ///     optionally prevent Slint from seeing the event.
 ///   - The [`Self::window_event()`] function has additional parameters to provide access to the Slint Window and
 ///     Winit window, if applicable.
+#[allow(unused_variables)]
 pub trait CustomApplicationHandler {
-    fn resumed(&mut self, event_loop: &ActiveEventLoop) -> WinitWindowEventResult {
+    /// Re-implement to intercept the [`ApplicationHandler::resumed()`](winit::application::ApplicationHandler::resumed()) event.
+    fn resumed(&mut self, _event_loop: &ActiveEventLoop) -> WinitWindowEventResult {
         WinitWindowEventResult::Propagate
     }
 
+    /// Re-implement to intercept the [`ApplicationHandler::window_event()`](winit::application::ApplicationHandler::window_event()) event.
     fn window_event(
         &mut self,
         event_loop: &ActiveEventLoop,
@@ -187,6 +191,7 @@ pub trait CustomApplicationHandler {
         WinitWindowEventResult::Propagate
     }
 
+    /// Re-implement to intercept the [`ApplicationHandler::new_events()`](winit::application::ApplicationHandler::new_events()) event.
     fn new_events(
         &mut self,
         event_loop: &ActiveEventLoop,
@@ -195,6 +200,7 @@ pub trait CustomApplicationHandler {
         WinitWindowEventResult::Propagate
     }
 
+    /// Re-implement to intercept the [`ApplicationHandler::device_event()`](winit::application::ApplicationHandler::device_event()) event.
     fn device_event(
         &mut self,
         event_loop: &ActiveEventLoop,
@@ -204,18 +210,22 @@ pub trait CustomApplicationHandler {
         WinitWindowEventResult::Propagate
     }
 
+    /// Re-implement to intercept the [`ApplicationHandler::about_to_wait()`](winit::application::ApplicationHandler::about_to_wait()) event.
     fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) -> WinitWindowEventResult {
         WinitWindowEventResult::Propagate
     }
 
+    /// Re-implement to intercept the [`ApplicationHandler::suspended()`](winit::application::ApplicationHandler::suspended()) event.
     fn suspended(&mut self, event_loop: &ActiveEventLoop) -> WinitWindowEventResult {
         WinitWindowEventResult::Propagate
     }
 
+    /// Re-implement to intercept the [`ApplicationHandler::exiting()`](winit::application::ApplicationHandler::exiting()) event.
     fn exiting(&mut self, event_loop: &ActiveEventLoop) -> WinitWindowEventResult {
         WinitWindowEventResult::Propagate
     }
 
+    /// Re-implement to intercept the [`ApplicationHandler::memory_warning()`](winit::application::ApplicationHandler::memory_warning()) event.
     fn memory_warning(&mut self, event_loop: &ActiveEventLoop) -> WinitWindowEventResult {
         WinitWindowEventResult::Propagate
     }
@@ -304,6 +314,10 @@ impl BackendBuilder {
         self
     }
 
+    /// Configures this builder to use the specified [`CustomApplicationHandler`].
+    ///
+    /// This allow application developer to intercept events from winit.
+    /// Similar to [`winit::application::ApplicationHandler`].
     #[must_use]
     pub fn with_custom_application_handler(
         mut self,

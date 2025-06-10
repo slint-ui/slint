@@ -532,7 +532,6 @@ impl EventLoopState {
     /// Runs the event loop and renders the items in the provided `component` in its
     /// own window.
     #[allow(unused_mut)] // mut need changes for wasm
-
     pub fn run(mut self) -> Result<Self, corelib::platform::PlatformError> {
         let not_running_loop_instance = self
             .shared_backend_data
@@ -547,7 +546,7 @@ impl EventLoopState {
                     .run_app(&mut self)
                     .map_err(|e| format!("Error running winit event loop: {e}"))?;
                 // This can't really happen, as run() doesn't return
-                Ok(Self::new(self.shared_backend_data.clone()))
+                Ok(Self::new(self.shared_backend_data.clone(), None))
             } else {
                 use winit::platform::run_on_demand::EventLoopExtRunOnDemand as _;
                 winit_loop
