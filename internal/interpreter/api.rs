@@ -966,7 +966,7 @@ impl ComponentDefinition {
         _: i_slint_core::InternalToken,
     ) {
         generativity::make_guard!(guard);
-        let handler = Box::new(handler);
+        let handler = Rc::new(handler);
         *self.inner.unerase(guard).debug_handler.borrow_mut() = handler;
     }
     /// Creates a new instance of the component and returns a shared handle to it.
