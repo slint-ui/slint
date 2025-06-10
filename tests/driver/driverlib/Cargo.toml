@@ -18,5 +18,4 @@ path = "lib.rs"
 
 [dependencies]
 regex = "1.4"
-lazy_static = "1"
 walkdir = "2"

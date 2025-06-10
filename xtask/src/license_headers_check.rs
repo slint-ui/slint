@@ -6,9 +6,9 @@
 use anyhow::anyhow;
 use anyhow::Context;
 use anyhow::Result;
-use lazy_static::lazy_static;
 use std::cell::RefCell;
 use std::str::FromStr;
+use std::sync::LazyLock;
 use std::{path::Path, path::PathBuf};
 
 #[derive(Copy, Clone, Debug)]
@@ -430,130 +430,136 @@ enum LicenseLocation {
     NoLicense,
 }
 
-lazy_static! {
-    // cspell:disable
-    static ref LICENSE_LOCATION_FOR_FILE: Vec<(regex::Regex, LicenseLocation)> = [
-        // full matches
-        ("^\\.cargo/config$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
-        ("^\\.clang-format$", LicenseLocation::NoLicense),
-        ("^\\.github/.*\\.md$", LicenseLocation::NoLicense),
-        ("^\\.mailmap$", LicenseLocation::NoLicense),
-        ("^\\.mise/tasks/", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
-        ("^api/cpp/docs/conf\\.py$", LicenseLocation::NoLicense),
-        ("^docs/reference/Pipfile$", LicenseLocation::NoLicense),
-        ("^docs/reference/conf\\.py$", LicenseLocation::NoLicense),
-        ("^editors/vscode/src/snippets\\.ts$", LicenseLocation::NoLicense), // liberal license
-        ("^editors/vscode/tests/grammar/.*\\.slint$", LicenseLocation::NoLicense), // License header breaks these tests
-        ("^editors/tree-sitter-slint/binding\\.gyp$", LicenseLocation::NoLicense), // liberal license
-        ("^editors/tree-sitter-slint/test-to-corpus\\.py$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
-        ("^Cargo\\.lock$", LicenseLocation::NoLicense),
-        ("^demos/printerdemo/zephyr/VERSION$", LicenseLocation::NoLicense),
-        ("^examples/mcu-board-support/pico2_st7789/rp_pico2.rs$", LicenseLocation::NoLicense), // third-party file
+// cspell:disable
+static LICENSE_LOCATION_FOR_FILE: LazyLock<Vec<(regex::Regex, LicenseLocation)>> =
+    LazyLock::new(|| {
+        [
+            // full matches
+            ("^\\.cargo/config$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
+            ("^\\.clang-format$", LicenseLocation::NoLicense),
+            ("^\\.github/.*\\.md$", LicenseLocation::NoLicense),
+            ("^\\.mailmap$", LicenseLocation::NoLicense),
+            ("^\\.mise/tasks/", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
+            ("^api/cpp/docs/conf\\.py$", LicenseLocation::NoLicense),
+            ("^docs/reference/Pipfile$", LicenseLocation::NoLicense),
+            ("^docs/reference/conf\\.py$", LicenseLocation::NoLicense),
+            ("^editors/vscode/src/snippets\\.ts$", LicenseLocation::NoLicense), // liberal license
+            ("^editors/vscode/tests/grammar/.*\\.slint$", LicenseLocation::NoLicense), // License header breaks these tests
+            ("^editors/tree-sitter-slint/binding\\.gyp$", LicenseLocation::NoLicense), // liberal license
+            (
+                "^editors/tree-sitter-slint/test-to-corpus\\.py$",
+                LicenseLocation::Tag(LicenseTagStyle::shell_comment_style()),
+            ),
+            ("^Cargo\\.lock$", LicenseLocation::NoLicense),
+            ("^demos/printerdemo/zephyr/VERSION$", LicenseLocation::NoLicense),
+            ("^examples/mcu-board-support/pico2_st7789/rp_pico2.rs$", LicenseLocation::NoLicense), // third-party file
+            // filename based matches:
+            (
+                "(^|/)CMakeLists\\.txt$",
+                LicenseLocation::Tag(LicenseTagStyle::shell_comment_style()),
+            ),
+            ("(^|/)Cargo\\.toml$", LicenseLocation::Crate),
+            ("(^|/)Dockerfile", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
+            ("(^|/)LICENSE$", LicenseLocation::NoLicense),
+            ("(^|/)LICENSE\\.QT$", LicenseLocation::NoLicense),
+            ("(^|/)README$", LicenseLocation::NoLicense),
+            ("(^|/)\\.eslintrc\\.yml$", LicenseLocation::NoLicense),
+            ("(^|/)memory\\.x$", LicenseLocation::NoLicense), // third-party file
+            ("(^|/)webpack\\..+\\.js$", LicenseLocation::NoLicense),
+            ("(^|/)partitions\\.csv$", LicenseLocation::NoLicense),
+            ("(^|/)sdkconfig", LicenseLocation::NoLicense), // auto-generated
+            ("(^|/)Pipfile$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
+            ("(^|/)\\.npmrc$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
+            ("(^|/)pnpm-lock\\.yaml$", LicenseLocation::NoLicense),
+            ("(^|/)biome\\.json$", LicenseLocation::NoLicense),
+            ("(^|/)package-lock\\.json$", LicenseLocation::NoLicense),
+            ("(^|/)py.typed$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
+            // Path prefix matches:
+            ("^editors/tree-sitter-slint/corpus/", LicenseLocation::NoLicense), // liberal license
+            ("^api/cpp/docs/_static/", LicenseLocation::NoLicense),
+            ("^api/cpp/docs/_templates/", LicenseLocation::NoLicense),
+            ("^docs/quickstart/theme/", LicenseLocation::NoLicense),
+            ("^editors/tree-sitter-slint/queries/", LicenseLocation::NoLicense), // liberal license
+            // directory based matches
+            ("(^|/)LICENSES/", LicenseLocation::NoLicense),
+            // Extension matches:
+            ("\\.60$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
+            ("\\.60\\.disabled$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
+            ("\\.astro$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
+            ("\\.cmake$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
+            ("\\.cmake.in$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
+            ("\\.conf$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
+            ("\\.cpp$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
+            ("\\.css$", LicenseLocation::NoLicense),
+            ("\\.gitattributes$", LicenseLocation::NoLicense),
+            ("\\.gitignore$", LicenseLocation::NoLicense),
+            ("\\.vscodeignore$", LicenseLocation::NoLicense),
+            ("\\.dockerignore$", LicenseLocation::NoLicense),
+            ("\\.dockerignore$", LicenseLocation::NoLicense),
+            ("\\.prettierignore$", LicenseLocation::NoLicense),
+            ("\\.bazelignore$", LicenseLocation::NoLicense),
+            ("\\.npmignore$", LicenseLocation::NoLicense),
+            ("\\.h$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
+            ("\\.html$", LicenseLocation::NoLicense),
+            ("\\.java$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
+            ("\\.jpg$", LicenseLocation::NoLicense),
+            ("\\.js$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
+            ("\\.json$", LicenseLocation::NoLicense),
+            ("\\.jsonc$", LicenseLocation::NoLicense),
+            ("\\.license$", LicenseLocation::NoLicense),
+            ("\\.md$", LicenseLocation::Tag(LicenseTagStyle::html_comment_style())),
+            ("\\.mdx$", LicenseLocation::Tag(LicenseTagStyle::html_comment_style())),
+            ("\\.mjs$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
+            ("\\.mts$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
+            ("\\.hbs$", LicenseLocation::Tag(LicenseTagStyle::html_comment_style())),
+            ("\\.overlay$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
+            ("\\.pdf$", LicenseLocation::NoLicense),
+            ("\\.png$", LicenseLocation::NoLicense),
+            ("\\.mo$", LicenseLocation::NoLicense),
+            ("\\.po$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
+            ("\\.pot$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
+            ("\\.rs$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
+            ("\\.rst$", LicenseLocation::Tag(LicenseTagStyle::rst_comment_style())),
+            ("\\.sh$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
+            ("\\.bash$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
+            ("\\.slint$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
+            (
+                "\\.slint\\.disabled$",
+                LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style()),
+            ),
+            ("\\.sublime-commands$", LicenseLocation::NoLicense),
+            ("\\.sublime-settings$", LicenseLocation::NoLicense),
+            ("\\.sublime-syntax$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
+            ("\\.svg$", LicenseLocation::NoLicense),
+            ("\\.tmPreferences$", LicenseLocation::NoLicense),
+            ("\\.toml$", LicenseLocation::NoLicense),
+            ("\\.ts$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
+            ("\\.tsx$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
+            ("\\.ttf$", LicenseLocation::NoLicense),
+            ("\\.txt$", LicenseLocation::NoLicense),
+            ("\\.ui$", LicenseLocation::NoLicense),
+            ("\\.webp$", LicenseLocation::NoLicense),
+            ("\\.wgsl$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
+            ("\\.xml$", LicenseLocation::NoLicense),
+            ("\\.yaml$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
+            ("\\.yml$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
+            ("\\.py$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
+            ("\\.pyi$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
+            ("\\.proto$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
+            ("\\.bazelrc$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
+            ("MODULE.bazel$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
+            ("BUILD.bazel$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
+            ("MODULE.bazel.lock$", LicenseLocation::NoLicense),
+            ("\\.patch$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())), // Doesn't really need a # prefix, but better than nothing
+            ("\\.bazelversion$", LicenseLocation::NoLicense),
+        ]
+        .iter()
+        .map(|(re, ty)| (regex::Regex::new(re).unwrap(), *ty))
+        .collect()
+    });
 
-        // filename based matches:
-        ("(^|/)CMakeLists\\.txt$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
-        ("(^|/)Cargo\\.toml$", LicenseLocation::Crate),
-        ("(^|/)Dockerfile", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
-        ("(^|/)LICENSE$", LicenseLocation::NoLicense),
-        ("(^|/)LICENSE\\.QT$", LicenseLocation::NoLicense),
-        ("(^|/)README$", LicenseLocation::NoLicense),
-        ("(^|/)\\.eslintrc\\.yml$", LicenseLocation::NoLicense),
-        ("(^|/)memory\\.x$", LicenseLocation::NoLicense), // third-party file
-        ("(^|/)webpack\\..+\\.js$", LicenseLocation::NoLicense),
-        ("(^|/)partitions\\.csv$", LicenseLocation::NoLicense),
-        ("(^|/)sdkconfig", LicenseLocation::NoLicense), // auto-generated
-        ("(^|/)Pipfile$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
-        ("(^|/)\\.npmrc$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
-        ("(^|/)pnpm-lock\\.yaml$", LicenseLocation::NoLicense),
-        ("(^|/)biome\\.json$", LicenseLocation::NoLicense),
-        ("(^|/)package-lock\\.json$", LicenseLocation::NoLicense),
-        ("(^|/)py.typed$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
-
-        // Path prefix matches:
-        ("^editors/tree-sitter-slint/corpus/", LicenseLocation::NoLicense), // liberal license
-        ("^api/cpp/docs/_static/", LicenseLocation::NoLicense),
-        ("^api/cpp/docs/_templates/", LicenseLocation::NoLicense),
-        ("^docs/quickstart/theme/", LicenseLocation::NoLicense),
-        ("^editors/tree-sitter-slint/queries/", LicenseLocation::NoLicense), // liberal license
-
-        // directory based matches
-        ("(^|/)LICENSES/", LicenseLocation::NoLicense),
-
-        // Extension matches:
-        ("\\.60$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
-        ("\\.60\\.disabled$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
-        ("\\.astro$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
-        ("\\.cmake$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
-        ("\\.cmake.in$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
-        ("\\.conf$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
-        ("\\.cpp$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
-        ("\\.css$", LicenseLocation::NoLicense),
-        ("\\.gitattributes$", LicenseLocation::NoLicense),
-        ("\\.gitignore$", LicenseLocation::NoLicense),
-        ("\\.vscodeignore$", LicenseLocation::NoLicense),
-        ("\\.dockerignore$", LicenseLocation::NoLicense),
-        ("\\.dockerignore$", LicenseLocation::NoLicense),
-        ("\\.prettierignore$", LicenseLocation::NoLicense),
-        ("\\.bazelignore$", LicenseLocation::NoLicense),
-        ("\\.npmignore$", LicenseLocation::NoLicense),
-        ("\\.h$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
-        ("\\.html$", LicenseLocation::NoLicense),
-        ("\\.java$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
-        ("\\.jpg$", LicenseLocation::NoLicense),
-        ("\\.js$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
-        ("\\.json$", LicenseLocation::NoLicense),
-        ("\\.jsonc$", LicenseLocation::NoLicense),
-        ("\\.license$", LicenseLocation::NoLicense),
-        ("\\.md$", LicenseLocation::Tag(LicenseTagStyle::html_comment_style())),
-        ("\\.mdx$", LicenseLocation::Tag(LicenseTagStyle::html_comment_style())),
-        ("\\.mjs$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
-        ("\\.mts$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
-        ("\\.hbs$", LicenseLocation::Tag(LicenseTagStyle::html_comment_style())),
-        ("\\.overlay$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
-        ("\\.pdf$", LicenseLocation::NoLicense),
-        ("\\.png$", LicenseLocation::NoLicense),
-        ("\\.mo$", LicenseLocation::NoLicense),
-        ("\\.po$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
-        ("\\.pot$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
-        ("\\.rs$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
-        ("\\.rst$", LicenseLocation::Tag(LicenseTagStyle::rst_comment_style())),
-        ("\\.sh$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
-        ("\\.bash$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
-        ("\\.slint$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
-        ("\\.slint\\.disabled$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
-        ("\\.sublime-commands$", LicenseLocation::NoLicense),
-        ("\\.sublime-settings$", LicenseLocation::NoLicense),
-        ("\\.sublime-syntax$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
-        ("\\.svg$", LicenseLocation::NoLicense),
-        ("\\.tmPreferences$", LicenseLocation::NoLicense),
-        ("\\.toml$", LicenseLocation::NoLicense),
-        ("\\.ts$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
-        ("\\.tsx$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
-        ("\\.ttf$", LicenseLocation::NoLicense),
-        ("\\.txt$", LicenseLocation::NoLicense),
-        ("\\.ui$", LicenseLocation::NoLicense),
-        ("\\.webp$", LicenseLocation::NoLicense),
-        ("\\.wgsl$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
-        ("\\.xml$", LicenseLocation::NoLicense),
-        ("\\.yaml$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
-        ("\\.yml$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
-        ("\\.py$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
-        ("\\.pyi$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
-        ("\\.proto$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
-        ("\\.bazelrc$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
-        ("MODULE.bazel$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
-        ("BUILD.bazel$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
-        ("MODULE.bazel.lock$", LicenseLocation::NoLicense),
-        ("\\.patch$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())), // Doesn't really need a # prefix, but better than nothing
-        ("\\.bazelversion$", LicenseLocation::NoLicense),
-    ]
-    .iter()
-    .map(|(re, ty)| (regex::Regex::new(re).unwrap(), *ty))
-    .collect();
-}
-
-lazy_static! {
-    static ref LICENSE_FOR_FILE: Vec<(regex::Regex, &'static str)> = [
+static LICENSE_FOR_FILE: LazyLock<Vec<(regex::Regex, &'static str)>> = LazyLock::new(|| {
+    [
         ("^editors/tree-sitter-slint/grammar.js$", MIT_LICENSE),
         ("^helper_crates/const-field-offset/", MIT_OR_APACHE2_LICENSE),
         ("^helper_crates/vtable/", MIT_OR_APACHE2_LICENSE),
@@ -568,9 +574,9 @@ lazy_static! {
     ]
     .iter()
     .map(|(re, ty)| (regex::Regex::new(re).unwrap(), *ty))
-    .collect();
+    .collect()
     // cspell:enable
-}
+});
 
 const TRIPLE_LICENSE: &str =
     "GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0";
