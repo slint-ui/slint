@@ -1,10 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
-
 import { dispatchTS } from "./code-utils.js";
 import { rgbToHex } from "./property-parsing.js";
-
-
 
 interface ProcessedCollection {
     id: string;
@@ -44,7 +41,6 @@ export const indent2 = indent + indent;
 // - variable.description // Useful for comments in the code.
 // - variable.codeSyntax // This might be useful in the future as it allows figma to give
 // an actual name for the variable to be used in code. However its for CSS and Swift only right now.
-
 export async function processVariableCollections(): Promise<
     ProcessedCollection[]
 > {
@@ -73,8 +69,10 @@ export async function processVariableCollections(): Promise<
                 hiddenFromPublishing: variable.hiddenFromPublishing ?? false,
                 scopes: variable.scopes || [],
             };
+
             variablesByCollection.get(collectionId)!.push(safeVariable as Variable);
         }
+       
 
         // Build the final collections data
         const detailedCollections = collections.map((collection) => ({
