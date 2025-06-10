@@ -37,7 +37,11 @@ jobs:
                     - os: macos-14
                       package_suffix: macos-aarch64
                     - os: windows-2022
-                      package_suffix: windows
+                      package_suffix: windows-x86_64
+                      msvc_arch: x64
+                    - os: windows-11-arm
+                      package_suffix: windows-aarch64
+                      msvc_arch: arm64
 
         runs-on: ${{ matrix.os }}
         steps:
@@ -60,11 +64,14 @@ jobs:
               run: bash -x ../../scripts/prepare_binary_package.sh ${{ runner.workspace }}/cppbuild
               working-directory: api/cpp/
             - uses: ilammy/msvc-dev-cmd@v1
+              with:
+                arch: ${{ matrix.msvc_arch }}
+              if: runner.os == 'Windows'
             - name: Select MSVC (windows)
               run: |
                   echo "CC=cl.exe" >> $GITHUB_ENV
                   echo "CXX=cl.exe" >> $GITHUB_ENV
-              if: matrix.os == 'windows-2022'
+              if: runner.os == 'Windows'
             - name: C++ Build
               uses: lukka/run-cmake@v3.4
               with:
@@ -234,12 +241,21 @@ jobs:
                 include:
                     - os: ubuntu-22.04
                       package_suffix: Linux-x86_64
+                      cargo_target: x86_64-unknown-linux-gnu
                     - os: macOS-13
                       package_suffix: Darwin-x86_64
+                      cargo_target: x86_64-apple-darwin
                     - os: macos-14
                       package_suffix: Darwin-arm64
+                      cargo_target: aarch64-apple-darwin
                     - os: windows-2022
-                      package_suffix: Windows
+                      package_suffix: Windows-x86_64
+                      msvc_arch: x64
+                      cargo_target: x86_64-pc-windows-gnu
+                    - os: windows-11-arm
+                      package_suffix: Windows-arm64
+                      msvc_arch: arm64
+                      cargo_target: aarch64-pc-windows-gnu
 
         runs-on: ${{ matrix.os }}
         steps:
@@ -248,13 +264,22 @@ jobs:
               with:
                   old-ubuntu: true
             - uses: ./.github/actions/setup-rust
+            - uses: ilammy/msvc-dev-cmd@v1
+              with:
+                arch: ${{ matrix.msvc_arch }}
+              if: runner.os == 'Windows'
+            - name: Select MSVC (windows)
+              run: |
+                  echo "CC=cl.exe" >> $GITHUB_ENV
+                  echo "CXX=cl.exe" >> $GITHUB_ENV
+              if: runner.os == 'Windows'
             # Build Slint-compiler with CMake so that CMakeLists.txt can configure C++ specific features
             - name: Slint Compiler Build
               uses: lukka/run-cmake@v3.4
               with:
                 cmakeListsOrSettingsJson: CMakeListsTxtAdvanced
                 cmakeListsTxtPath: CMakeLists.txt
-                cmakeAppendedArgs: "-GNinja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DSLINT_BUILD_RUNTIME=OFF ${{ inputs.extra_cmake_flags }} -DSLINT_FEATURE_SDF_FONTS=ON"
+                cmakeAppendedArgs: "-GNinja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DSLINT_BUILD_RUNTIME=OFF ${{ inputs.extra_cmake_flags }} -DSLINT_FEATURE_SDF_FONTS=ON -DRust_CARGO_TARGET=${{ matrix.cargo_target }}"
                 buildDirectory: ${{ runner.workspace }}/cppbuild
                 buildWithCMakeArgs: "--config Release"
             - name: cpack

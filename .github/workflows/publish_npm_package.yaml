@@ -70,6 +70,10 @@ jobs:
                       rust-target: x86_64-pc-windows-msvc
                       napi-rs-target: win32-x64-msvc
                       msvc-arch: x64
+                    - os: windows-11-arm
+                      rust-target: aarch64-pc-windows-msvc
+                      napi-rs-target: win32-arm64-msvc
+                      msvc-arch: arm64
         needs: determine_version
         runs-on: ${{ matrix.os }}
         steps:
@@ -194,10 +198,15 @@ jobs:
               with:
                   name: binaries-x86_64-pc-windows-msvc
                   path: api/node/
+            - name: Download artifacts
+              uses: actions/download-artifact@v4
+              with:
+                  name: binaries-aarch64-pc-windows-msvc
+                  path: api/node/
             - name: Add binary dependencies
               working-directory: api/node
               run: |
-                  for package in @slint-ui/slint-ui-binary-linux-x64-gnu @slint-ui/slint-ui-binary-linux-arm64-gnu @slint-ui/slint-ui-binary-darwin-x64 @slint-ui/slint-ui-binary-darwin-arm64 @slint-ui/slint-ui-binary-win32-x64-msvc; do
+                  for package in @slint-ui/slint-ui-binary-linux-x64-gnu @slint-ui/slint-ui-binary-linux-arm64-gnu @slint-ui/slint-ui-binary-darwin-x64 @slint-ui/slint-ui-binary-darwin-arm64 @slint-ui/slint-ui-binary-win32-x64-msvc @slint-ui/slint-ui-binary-win32-arm64-msvc; do
                       jq --arg pkg "$package" --arg version "$PKG_VERSION" '.optionalDependencies[$pkg]=$version' package.json > new.json
                       mv new.json package.json
                   done
@@ -224,6 +233,7 @@ jobs:
                   npm publish --access public $PUBLISH_TAG api/node/slint-ui-slint-ui-binary-darwin-x64-$PKG_VERSION.tgz
                   npm publish --access public $PUBLISH_TAG api/node/slint-ui-slint-ui-binary-darwin-arm64-$PKG_VERSION.tgz
                   npm publish --access public $PUBLISH_TAG api/node/slint-ui-slint-ui-binary-win32-x64-msvc-$PKG_VERSION.tgz
+                  npm publish --access public $PUBLISH_TAG api/node/slint-ui-slint-ui-binary-win32-arm64-msvc-$PKG_VERSION.tgz
                   npm publish $PUBLISH_TAG api/node/slint-ui-$PKG_VERSION.tgz
               env:
                   NODE_AUTH_TOKEN: ${{ secrets.NPM_PUBLISH_TOKEN }}

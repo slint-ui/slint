@@ -91,6 +91,10 @@ jobs:
                       toolchain: x86_64-pc-windows-msvc
                       binary_built: slint-lsp.exe
                       artifact_name: slint-lsp-x86_64-pc-windows-msvc.exe
+                    - os: windows-11-arm
+                      toolchain: aarch64-pc-windows-msvc
+                      binary_built: slint-lsp.exe
+                      artifact_name: slint-lsp-aarch64-pc-windows-msvc.exe
         runs-on: ${{ matrix.os }}
         steps:
             - uses: actions/checkout@v4
@@ -251,6 +255,10 @@ jobs:
             - uses: actions/download-artifact@v4
               with:
                   name: vscode-lsp-binary-x86_64-pc-windows-msvc
+                  path: editors/vscode/bin
+            - uses: actions/download-artifact@v4
+              with:
+                  name: vscode-lsp-binary-aarch64-pc-windows-msvc
                   path: editors/vscode/bin
             - uses: actions/download-artifact@v4
               with:
@@ -591,10 +599,10 @@ jobs:
                   mv figma-plugin.zip artifacts/
             - uses: montudor/action-zip@v1
               with:
-                  args: zip -r artifacts/slint-viewer-windows.zip slint-viewer
+                  args: zip -r artifacts/slint-viewer-windows-x86_64-pc-windows-msvc.zip slint-viewer
             - uses: montudor/action-zip@v1
               with:
-                  args: zip -r artifacts/slint-lsp-windows.zip slint-lsp
+                  args: zip -r artifacts/slint-lsp-windowsx86_64-pc-windows-msvc.zip slint-lsp
             - uses: actions/checkout@v4
               with:
                 path: "slint-src"
@@ -610,7 +618,7 @@ jobs:
                     download_version=$version
                   else
                     notes_file=slint-src/docs/release-notes.md
-                    version=$(echo artifacts/Slint-cpp-*-win64-MSVC.exe | sed -nre 's/^.*-([0-9]+\.[0-9]+\.[0-9]+).*$/\1/p')
+                    version=$(echo artifacts/Slint-cpp-*-win64-MSVC-x86_64.exe | sed -nre 's/^.*-([0-9]+\.[0-9]+\.[0-9]+).*$/\1/p')
                     if [[ -z "$version" ]]; then
                       echo "Version not found"
                       exit 1
