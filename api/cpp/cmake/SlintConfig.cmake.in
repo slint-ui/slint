@@ -19,7 +19,7 @@ function(_slint_download_compiler_and_cache)
 
     if (CMAKE_HOST_WIN32)
         set(compiler_exe_suffix ".exe")
-        set(platform_suffix "windows")
+        set(platform_suffix "windows-${CMAKE_HOST_SYSTEM_PROCESSOR}")
     else()
         set(platform_suffix "${CMAKE_HOST_SYSTEM_NAME}-${CMAKE_HOST_SYSTEM_PROCESSOR}")
     endif()

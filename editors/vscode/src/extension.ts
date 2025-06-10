@@ -70,9 +70,15 @@ function lspPlatform(): Platform | null {
             };
         }
     } else if (process.platform === "win32") {
-        return {
-            program_name: "slint-lsp-x86_64-pc-windows-msvc.exe",
-        };
+        if (process.arch === "arm64") {
+            return {
+                program_name: "slint-lsp-aarch64-pc-windows-msvc.exe",
+            };
+        } else {
+            return {
+                program_name: "slint-lsp-x86_64-pc-windows-msvc.exe",
+            };
+        }
     }
     return null;
 }

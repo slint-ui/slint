@@ -55,12 +55,21 @@ env:
 
 jobs:
     build_windows:
-        runs-on: windows-2022
+        strategy:
+            matrix:
+                arch: [x86_64-pc-windows-msvc, aarch64-pc-windows-msvc]
+                include:
+                  - arch: x86_64-pc-windows-msvc
+                    runner: windows-2022
+                  - arch: aarch64-pc-windows-msvc
+                    runner: windows-11-arm
+
+        runs-on: ${{ matrix.runner}}
         steps:
             - uses: actions/checkout@v4
             - uses: ./.github/actions/setup-rust
               with:
-                  target: x86_64-pc-windows-msvc
+                  target: ${{ matrix.arch }}
             - uses: baptiste0928/cargo-install@v3
               with:
                   crate: cargo-about
@@ -82,7 +91,7 @@ jobs:
             - name: Upload artifact
               uses: actions/upload-artifact@v4
               with:
-                  name: slint-${{ github.event.inputs.program || inputs.program }}-windows
+                  name: slint-${{ github.event.inputs.program || inputs.program }}-windows-${{ matrix.arch }}
                   path: |
                       pkg
 
