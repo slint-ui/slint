@@ -601,8 +601,8 @@ pub mod winit_030 {
     //!     Ok(())
     //! }
     //! ```
-    //! See also [`BackendSelector::with_winit_030_event_loop_builder()`](crate::BackendSelector::with_winit_030_event_loop_builder())
-    //! and [`BackendSelector::with_winit_030_window_attributes_hook()`](crate::BackendSelector::with_winit_030_window_attributes_hook()).
+    //! See also [`BackendSelector::with_winit_event_loop_builder()`](crate::BackendSelector::with_winit_event_loop_builder())
+    //! and [`BackendSelector::with_winit_window_attributes_hook()`](crate::BackendSelector::with_winit_window_attributes_hook()).
 
     pub use i_slint_backend_winit::{
         winit, EventLoopBuilder, SlintEvent, WinitWindowAccessor, WinitWindowEventResult,
