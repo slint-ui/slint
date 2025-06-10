@@ -416,7 +416,7 @@ pub struct ItemTreeDescription<'id> {
         std::cell::OnceCell<Option<std::rc::Rc<i_slint_compiler::typeloader::TypeLoader>>>,
 
     pub(crate) debug_handler: std::cell::RefCell<
-        Rc<dyn Fn(&Option<i_slint_compiler::diagnostics::SourceLocation>, &str)>,
+        Rc<dyn Fn(Option<&i_slint_compiler::diagnostics::SourceLocation>, &str)>,
     >,
 }
 
@@ -706,7 +706,7 @@ impl ItemTreeDescription<'_> {
 
     pub fn recursively_set_debug_handler(
         &self,
-        handler: Rc<dyn Fn(&Option<i_slint_compiler::diagnostics::SourceLocation>, &str)>,
+        handler: Rc<dyn Fn(Option<&i_slint_compiler::diagnostics::SourceLocation>, &str)>,
     ) {
         *self.debug_handler.borrow_mut() = handler.clone();
 

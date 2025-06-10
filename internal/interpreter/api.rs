@@ -962,7 +962,7 @@ impl ComponentDefinition {
     #[cfg(feature = "internal")]
     pub fn set_debug_handler(
         &self,
-        handler: impl Fn(&Option<i_slint_compiler::diagnostics::SourceLocation>, &str) + 'static,
+        handler: impl Fn(Option<&i_slint_compiler::diagnostics::SourceLocation>, &str) + 'static,
         _: i_slint_core::InternalToken,
     ) {
         let handler = Rc::new(handler);
