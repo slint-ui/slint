@@ -320,6 +320,35 @@ function getHelpUrlForElement(elementName: string): string | null {
         MenuBar: "window/menubar",
         PopupWindow: "window/popupwindow",
         Window: "window/window",
+        // reference
+        Timer: "timer",
+        // std-widgets/basic-widgets/
+        Button: "std-widgets/basic-widgets/button",
+        CheckBox: "std-widgets/basic-widgets/checkbox",
+        ComboBox: "std-widgets/basic-widgets/combobox",
+        ProgressIndicator: "std-widgets/basic-widgets/progressindicator",
+        Slider: "std-widgets/basic-widgets/slider",
+        SpinBox: "std-widgets/basic-widgets/spinbox",
+        Spinner: "std-widgets/basic-widgets/spinner",
+        StandardButton: "std-widgets/basic-widgets/standardbutton",
+        Switch: "std-widgets/basic-widgets/switch",
+        //std-widgets/views
+        LineEdit: "std-widgets/views/lineedit",
+        ListView: "std-widgets/views/listview",
+        ScrollView: "std-widgets/views/scrollview",
+        StandardListView: "std-widgets/views/standardlistview",
+        StandardTableView: "std-widgets/views/standardtableview",
+        TabWidget: "std-widgets/views/tabwidget",
+        TextEdit: "std-widgets/views/textedit",
+        //std-widgets/layouts
+        GridBox: "std-widgets/layouts/gridbox",
+        GroupBox: "std-widgets/layouts/groupbox",
+        HorizontalBox: "std-widgets/layouts/horizontalbox",
+        VerticalBox: "std-widgets/layouts/verticalbox",
+        //std-widgets/misc
+        AboutSlint: "std-widgets/misc/aboutslint",
+        DatePickerPopup: "std-widgets/misc/datepickerpopup",
+        TimerPickerPopup: "std-widgets/misc/timerpickerpopup",
     };
 
     const path = elementPaths[elementName];
