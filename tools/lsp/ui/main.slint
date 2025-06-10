@@ -39,7 +39,7 @@ export component PreviewUi inherits Window {
     property <bool> show-color-stop-picker <=> WindowManager.showing-color-stop-picker;
     property <length> initial-floating-x;
 
-    title: "Slint Live-Preview";
+    title: @tr("Slint Live-Preview");
     icon: @image-url("assets/slint-logo-small-light.png");
     always-on-top <=> Api.always-on-top;
 
@@ -127,7 +127,7 @@ export component PreviewUi inherits Window {
                                 width: EditorSizeSettings.property-bar-width - (EditorSpaceSettings.default-padding*2);
                                 current-index: 0;
                                 Tab {
-                                    title: "Properties";
+                                    title: @tr("Properties");
                                     if tw.current-index == 0: PropertyView {
                                         opacity: preview.preview-is-current ? 1.0 : 0.3;
                                         enabled: preview.preview-is-current;
@@ -135,7 +135,7 @@ export component PreviewUi inherits Window {
                                 }
 
                                 preview_data_tab := Tab {
-                                    title: "Data";
+                                    title: @tr("Data");
                                     if tw.current-index == 1: PreviewDataView {
                                         opacity: preview.preview-is-current ? 1.0 : 0.3;
                                         enabled: preview.preview-is-current;
