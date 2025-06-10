@@ -122,12 +122,12 @@ export component StringWidget inherits GridLayout {
                 spacing: EditorSpaceSettings.default-spacing;
                 tr-cb := CheckBox {
                     checked: root.is-translated;
+                    text: @tr("Translatable");
                     toggled => {
                         root.is-translated = self.checked;
                         root.ssb();
                     }
                     enabled: root.enabled;
-                    text: "Translatable";
                 }
 
                 HorizontalLayout {
@@ -136,7 +136,7 @@ export component StringWidget inherits GridLayout {
                     Text {
                         vertical-alignment: center;
                         horizontal-alignment: right;
-                        text: "Context";
+                        text: @tr("Context");
                     }
 
                     tr-context := ResettingLineEdit {
