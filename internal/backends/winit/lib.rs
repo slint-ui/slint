@@ -29,11 +29,17 @@ pub(crate) mod event_loop;
 pub use winit;
 
 /// Internal type used by the winit backend for thread communication and window system updates.
+///
+/// See also [`EventLoopBuilder`]
 #[non_exhaustive]
 #[derive(Debug)]
 pub struct SlintEvent(CustomEvent);
 
+#[i_slint_core_macros::slint_doc]
 /// Convenience alias for the event loop builder used by Slint.
+///
+/// It can be used to configure the event loop with
+/// [`slint::BackendSelector::with_winit_event_loop_builder()`](slint:rust:slint/struct.BackendSelector.html#method.with_winit_event_loop_builder)
 pub type EventLoopBuilder = winit::event_loop::EventLoopBuilder<SlintEvent>;
 
 /// Returned by callbacks passed to [`Window::on_winit_window_event`](WinitWindowAccessor::on_winit_window_event)
