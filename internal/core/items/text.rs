@@ -943,8 +943,29 @@ impl Item for TextInput {
                 if !self.read_only() {
                     if let Some(window_adapter) = window_adapter.internal(crate::InternalToken) {
                         window_adapter.input_method_request(InputMethodRequest::Disable);
-                        self.preedit_text.set(Default::default());
                     }
+                    // commit the preedit text on android
+                    #[cfg(target_os = "android")]
+                    {
+                        let preedit_text = self.preedit_text();
+                        if !preedit_text.is_empty() {
+                            let mut text = String::from(self.text());
+                            let cursor_position = self.cursor_position(&text);
+                            text.insert_str(cursor_position, &preedit_text);
+                            self.text.set(text.into());
+                            let new_pos = (cursor_position + preedit_text.len()) as i32;
+                            self.anchor_position_byte_offset.set(new_pos);
+                            self.set_cursor_position(
+                                new_pos,
+                                false,
+                                TextChangeNotify::TriggerCallbacks,
+                                window_adapter,
+                                self_rc,
+                            );
+                            Self::FIELD_OFFSETS.edited.apply_pin(self).call(&());
+                        }
+                    }
+                    self.preedit_text.set(Default::default());
                 }
             }
         }
