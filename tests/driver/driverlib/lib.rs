@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use std::path::PathBuf;
+use std::sync::LazyLock;
 
 use regex::Regex;
 
@@ -122,9 +123,8 @@ pub struct TestFunction<'a> {
 
 /// Extract the test functions from
 pub fn extract_test_functions(source: &str) -> impl Iterator<Item = TestFunction<'_>> {
-    lazy_static::lazy_static! {
-        static ref RX: Regex = Regex::new(r"(?sU)\r?\n```([a-z]+)\r?\n(.+)\r?\n```\r?\n").unwrap();
-    }
+    static RX: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"(?sU)\r?\n```([a-z]+)\r?\n(.+)\r?\n```\r?\n").unwrap());
     RX.captures_iter(source).map(|mat| TestFunction {
         language_id: mat.get(1).unwrap().as_str(),
         source: mat.get(2).unwrap().as_str(),
@@ -168,9 +168,8 @@ fn test_extract_test_functions_win() {
 
 /// Extract extra include paths from a comment in the source if present.
 pub fn extract_include_paths(source: &str) -> impl Iterator<Item = &'_ str> {
-    lazy_static::lazy_static! {
-        static ref RX: Regex = Regex::new(r"//include_path:\s*(.+)\s*\n").unwrap();
-    }
+    static RX: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"//include_path:\s*(.+)\s*\n").unwrap());
     RX.captures_iter(source).map(|mat| mat.get(1).unwrap().as_str().trim())
 }
 
@@ -195,9 +194,8 @@ fn test_extract_include_paths() {
 
 /// Extract extra library paths from a comment in the source if present.
 pub fn extract_library_paths(source: &str) -> impl Iterator<Item = (&'_ str, &'_ str)> {
-    lazy_static::lazy_static! {
-        static ref RX: Regex = Regex::new(r"//library_path\((.+)\):\s*(.+)\s*\n").unwrap();
-    }
+    static RX: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"//library_path\((.+)\):\s*(.+)\s*\n").unwrap());
     RX.captures_iter(source)
         .map(|mat| (mat.get(1).unwrap().as_str().trim(), mat.get(2).unwrap().as_str().trim()))
 }
@@ -223,9 +221,7 @@ fn test_extract_library_paths() {
 
 /// Extract `//ignore` comments from the source.
 fn extract_ignores(source: &str) -> impl Iterator<Item = &'_ str> {
-    lazy_static::lazy_static! {
-        static ref RX: Regex = Regex::new(r"//ignore:\s*(.+)\s*\n").unwrap();
-    }
+    static RX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"//ignore:\s*(.+)\s*\n").unwrap());
     RX.captures_iter(source).flat_map(|mat| {
         mat.get(1).unwrap().as_str().split(&[' ', ',']).map(str::trim).filter(|s| !s.is_empty())
     })
@@ -246,9 +242,8 @@ fn test_extract_ignores() {
 }
 
 pub fn extract_cpp_namespace(source: &str) -> Option<String> {
-    lazy_static::lazy_static! {
-        static ref RX: Regex = Regex::new(r"//cpp-namespace:\s*(.+)\s*\n").unwrap();
-    }
+    static RX: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"//cpp-namespace:\s*(.+)\s*\n").unwrap());
     RX.captures(source).map(|mat| mat.get(1).unwrap().as_str().trim().to_string())
 }
 

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use std::error::Error;
+use std::sync::LazyLock;
 use std::{fs::File, io::Write, path::PathBuf};
 
 #[track_caller]
@@ -16,42 +17,42 @@ fn check_output(o: std::process::Output) {
     }
 }
 
-lazy_static::lazy_static! {
-    static ref NODE_API_JS_PATH: PathBuf = {
-        let node_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../api/node");
+static NODE_API_JS_PATH: LazyLock<PathBuf> = LazyLock::new(|| {
+    let node_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../api/node");
 
-        // On Windows npm is 'npm.cmd', which Rust's process::Command doesn't look for as extension, because
-        // it tries to emulate CreateProcess.
-        let npm = which::which("npm").unwrap();
+    // On Windows npm is 'npm.cmd', which Rust's process::Command doesn't look for as extension, because
+    // it tries to emulate CreateProcess.
+    let npm = which::which("npm").unwrap();
 
-        // installs the slint node package dependencies
-        let o = std::process::Command::new(npm.clone())
-                .arg("install")
-                .arg("--no-audit")
-                .arg("--ignore-scripts")
-                .current_dir(node_dir.clone())
-                .stdout(std::process::Stdio::piped())
-                .stderr(std::process::Stdio::piped())
-                .output()
-                .map_err(|err| format!("Could not launch npm install: {err}")).unwrap();
+    // installs the slint node package dependencies
+    let o = std::process::Command::new(npm.clone())
+        .arg("install")
+        .arg("--no-audit")
+        .arg("--ignore-scripts")
+        .current_dir(node_dir.clone())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .output()
+        .map_err(|err| format!("Could not launch npm install: {err}"))
+        .unwrap();
 
-        check_output(o);
+    check_output(o);
 
-        // builds the slint node package in debug
-        let o = std::process::Command::new(npm.clone())
-                .arg("run")
-                .arg("build:testing")
-                .current_dir(node_dir.clone())
-                .stdout(std::process::Stdio::piped())
-                .stderr(std::process::Stdio::piped())
-                .output()
-                .map_err(|err| format!("Could not launch npm install: {err}")).unwrap();
+    // builds the slint node package in debug
+    let o = std::process::Command::new(npm.clone())
+        .arg("run")
+        .arg("build:testing")
+        .current_dir(node_dir.clone())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .output()
+        .map_err(|err| format!("Could not launch npm install: {err}"))
+        .unwrap();
 
-        check_output(o);
+    check_output(o);
 
-        node_dir.join("dist/index.js")
-    };
-}
+    node_dir.join("dist/index.js")
+});
 
 pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> {
     let slintpath = NODE_API_JS_PATH.clone();

@@ -22,7 +22,6 @@ slint-interpreter = { workspace = true, features = ["display-diagnostics", "comp
 i-slint-backend-testing = { workspace = true }
 
 itertools = { workspace = true }
-lazy_static = "1.4.0"
 spin_on = { version = "0.1" }
 test_driver_lib = { path = "../driverlib" }
 
