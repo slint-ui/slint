@@ -27,18 +27,11 @@ export component MyCustomWidget {
 ```
 
 
-Slint provides a series of built-in widgets that can be imported from `"std-widgets.slint"`.
+An introduction to the Material components.
 
-The widget appearance depends on the selected style.
-See <Link type="StyleWidgets" label="Selecting a Widget Style"/> for details how to select the style. If no style is selected, `native` is the default. If `native` isn't available, `fluent` is the default.
+## Some Properties
 
-
-All widgets support all <Link type="CommonProperties" label="properties common to builtin elements"/>.
-
-## Palette Properties
-
-Use `Palette` to create custom widgets that match the colors of
-the selected style e.g. fluent, cupertino, material, or qt.
+Testing testing, 1, 2, 3.
 
 ### background
 <SlintProperty propName="background" typeName="brush" propertyVisibility="out">
@@ -50,70 +43,4 @@ Defines the default background brush. Use this if none of the more specialized b
 Defines the foreground brush that is used for content that is displayed on `background` brush.
 </SlintProperty>
 
-### alternate-background
-<SlintProperty propName="alternate-background" typeName="brush" propertyVisibility="out">
-Defines an alternate background brush that is used for example for text input controls or panels like a side bar.
-</SlintProperty>
 
-### alternate-foreground
-<SlintProperty propName="alternate-foreground" typeName="brush" propertyVisibility="out">
-Defines the foreground brush that is used for content that is displayed on `alternate-background` brush.
-</SlintProperty>
-
-### control-background
-<SlintProperty propName="control-background" typeName="brush" propertyVisibility="out">
-Defines the default background brush for controls, such as push buttons, combo boxes, etc.
-</SlintProperty>
-
-### control-foreground
-<SlintProperty propName="control-foreground" typeName="brush" propertyVisibility="out">
-Defines the foreground brush that is used for content that is displayed on `control-background` brush.
-</SlintProperty>
-
-### accent-background
-<SlintProperty propName="accent-background" typeName="brush" propertyVisibility="out">
-Defines the background brush for highlighted controls such as primary buttons.
-</SlintProperty>
-
-### accent-foreground
-<SlintProperty propName="accent-foreground" typeName="brush" propertyVisibility="out">
-Defines the foreground brush that is used for content that is displayed on `accent-background` brush.
-</SlintProperty>
-
-### selection-background
-<SlintProperty propName="selection-background" typeName="brush" propertyVisibility="out">
-Defines the background brush that is used to highlight a selection such as a text selection.
-</SlintProperty>
-
-### selection-foreground
-<SlintProperty propName="selection-foreground" typeName="brush" propertyVisibility="out">
-Defines the foreground brush that is used for content that is displayed on `selection-background` brush.
-</SlintProperty>
-
-### border
-<SlintProperty propName="border" typeName="brush" propertyVisibility="out">
-Defines the brush that is used for borders such as separators and widget borders.
-</SlintProperty>
-
-### color-scheme
-<SlintProperty propName="color-scheme" typeName="enum" enumName="ColorScheme" propertyVisibility="in-out">
-Read this property to determine the color scheme used by the palette.
-Set this property to force a dark or light color scheme. All styles
-except for the Qt style support setting a dark or light color scheme.
-</SlintProperty>
-
-
-## StyleMetrics Properties
-
-Use `StyleMetrics` to create custom widgets that match the layout settings of
-the selected style e.g. fluent, cupertino, material, or qt.
-
-### layout-spacing
-<SlintProperty propName="layout-spacing" typeName="length" propertyVisibility="out">
-Defines the default layout spacing. This spacing is also used by `VerticalBox`, `HorizontalBox` and `GridBox`.
-</SlintProperty>
-
-### layout-padding
-<SlintProperty propName="layout-padding" typeName="length" propertyVisibility="out">
-Defines the default layout padding. This padding is also used by `VerticalBox`, `HorizontalBox` and `GridBox`.
-</SlintProperty>

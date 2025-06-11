@@ -7,7 +7,7 @@ description: Slider API.
 import CodeSnippetMD from '/src/components/CodeSnippetMD.astro';
 import SlintProperty from '/src/components/SlintProperty.astro';
 
-<CodeSnippetMD>
+<CodeSnippetMD imagePath="" imageWidth="0" imageHeight="0" imageAlt="">
 ```slint
 import { Slider } from "material.slint";
 export component Example inherits Window {
@@ -35,6 +35,7 @@ Whether the slider is enabled. When false, the slider cannot be interacted with.
 ### value
 <SlintProperty propName="value" typeName="float" propertyVisibility="in-out">
 The current value of the slider.
+
 ```slint "value: 50;"
 Slider {
     value: 50;
