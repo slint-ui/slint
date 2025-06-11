@@ -495,6 +495,7 @@ if(EXISTS "${CMAKE_BINARY_DIR}/licenses")
 endif()
 
 if(WIN32)
+    set(CPACK_GENERATOR "NSIS;ZIP")
     if(MSVC)
         set(compiler_suffix "-MSVC")
     elseif(MINGW)
