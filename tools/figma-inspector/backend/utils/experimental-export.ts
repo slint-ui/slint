@@ -70,9 +70,10 @@ export async function processVariableCollections(): Promise<
                 scopes: variable.scopes || [],
             };
 
-            variablesByCollection.get(collectionId)!.push(safeVariable as Variable);
+            variablesByCollection
+                .get(collectionId)!
+                .push(safeVariable as Variable);
         }
-       
 
         // Build the final collections data
         const detailedCollections = collections.map((collection) => ({
@@ -322,7 +323,7 @@ function getSlintTypeInfo(variable: Variable): {
         case "FLOAT":
             // Filter out FONT_VARIATIONS as it can be ignored
             const relevantScopes = variable.scopes.filter(
-                (scope) => scope !== "FONT_VARIATIONS" as VariableScope,
+                (scope) => scope !== ("FONT_VARIATIONS" as VariableScope),
             );
             if (relevantScopes.length === 1) {
                 if (relevantScopes[0] === "OPACITY") {

@@ -136,26 +136,56 @@ describe("generateVariableValue", () => {
             resolvedType: "FLOAT",
             scopes: ["OPACITY"],
         } as any;
-        const variableRefMap = new Map<string, { path: string; variable: any }>();
+        const variableRefMap = new Map<
+            string,
+            { path: string; variable: any }
+        >();
         const collectionName = "test-collection";
         const sanitizedCollection = { variables: [] } as any;
 
-        expect(generateVariableValue(variable, 0.89099, collectionName, sanitizedCollection, variableRefMap)).toBe(
-            `${indent2}test-float: 0.9,\n`,
-        );
-        expect(generateVariableValue(variable, 1.003, collectionName, sanitizedCollection, variableRefMap)).toBe(
-            `${indent2}test-float: 1.0,\n`,
-        );
-        expect(generateVariableValue(variable, 2.567, collectionName, sanitizedCollection, variableRefMap)).toBe(
-            `${indent2}test-float: 2.6,\n`,
-        );
-        expect(generateVariableValue(variable, 3.0, collectionName, sanitizedCollection, variableRefMap)).toBe(
-            `${indent2}test-float: 3.0,\n`,
-        );
+        expect(
+            generateVariableValue(
+                variable,
+                0.89099,
+                collectionName,
+                sanitizedCollection,
+                variableRefMap,
+            ),
+        ).toBe(`${indent2}test-float: 0.9,\n`);
+        expect(
+            generateVariableValue(
+                variable,
+                1.003,
+                collectionName,
+                sanitizedCollection,
+                variableRefMap,
+            ),
+        ).toBe(`${indent2}test-float: 1.0,\n`);
+        expect(
+            generateVariableValue(
+                variable,
+                2.567,
+                collectionName,
+                sanitizedCollection,
+                variableRefMap,
+            ),
+        ).toBe(`${indent2}test-float: 2.6,\n`);
+        expect(
+            generateVariableValue(
+                variable,
+                3.0,
+                collectionName,
+                sanitizedCollection,
+                variableRefMap,
+            ),
+        ).toBe(`${indent2}test-float: 3.0,\n`);
     });
 
     it("should handle other types correctly", () => {
-        const variableRefMap = new Map<string, { path: string; variable: any }>();
+        const variableRefMap = new Map<
+            string,
+            { path: string; variable: any }
+        >();
         const collectionName = "test-collection";
         const sanitizedCollection = { variables: [] } as any;
 
@@ -164,18 +194,30 @@ describe("generateVariableValue", () => {
             name: "test-string",
             resolvedType: "STRING",
         } as any;
-        expect(generateVariableValue(stringVar, "hello", collectionName, sanitizedCollection, variableRefMap)).toBe(
-            `${indent2}test-string: "hello",\n`,
-        );
+        expect(
+            generateVariableValue(
+                stringVar,
+                "hello",
+                collectionName,
+                sanitizedCollection,
+                variableRefMap,
+            ),
+        ).toBe(`${indent2}test-string: "hello",\n`);
 
         // Test boolean
         const boolVar = {
             name: "test-bool",
             resolvedType: "BOOLEAN",
         } as any;
-        expect(generateVariableValue(boolVar, true, collectionName, sanitizedCollection, variableRefMap)).toBe(
-            `${indent2}test-bool: true,\n`,
-        );
+        expect(
+            generateVariableValue(
+                boolVar,
+                true,
+                collectionName,
+                sanitizedCollection,
+                variableRefMap,
+            ),
+        ).toBe(`${indent2}test-bool: true,\n`);
 
         // Test length
         const lengthVar = {
@@ -183,9 +225,15 @@ describe("generateVariableValue", () => {
             resolvedType: "FLOAT",
             scopes: ["ALL_SCOPES"],
         } as any;
-        expect(generateVariableValue(lengthVar, 42, collectionName, sanitizedCollection, variableRefMap)).toBe(
-            `${indent2}test-length: 42px,\n`,
-        );
+        expect(
+            generateVariableValue(
+                lengthVar,
+                42,
+                collectionName,
+                sanitizedCollection,
+                variableRefMap,
+            ),
+        ).toBe(`${indent2}test-length: 42px,\n`);
 
         // Test brush
         const brushVar = {
@@ -193,7 +241,13 @@ describe("generateVariableValue", () => {
             resolvedType: "COLOR",
         } as any;
         expect(
-            generateVariableValue(brushVar, "invalid-data", collectionName, sanitizedCollection, variableRefMap),
+            generateVariableValue(
+                brushVar,
+                "invalid-data",
+                collectionName,
+                sanitizedCollection,
+                variableRefMap,
+            ),
         ).toBe("// unable to convert test-brush to brush,\n");
 
         // Test RGB object conversion
@@ -240,10 +294,24 @@ describe("generateVariableValue", () => {
             name: "test-var",
             resolvedType: "COLOR",
         } as any;
-        const variableRefMap = new Map<string, { path: string; variable: any }>([
-            ["var-id-1", { path: "Colors.collection.primary", variable: { name: "primary", resolvedType: "COLOR" } }],
-            ["var-id-2", { path: "Colors.collection.secondary", variable: { name: "secondary", resolvedType: "COLOR" } }],
-        ]);
+        const variableRefMap = new Map<string, { path: string; variable: any }>(
+            [
+                [
+                    "var-id-1",
+                    {
+                        path: "Colors.collection.primary",
+                        variable: { name: "primary", resolvedType: "COLOR" },
+                    },
+                ],
+                [
+                    "var-id-2",
+                    {
+                        path: "Colors.collection.secondary",
+                        variable: { name: "secondary", resolvedType: "COLOR" },
+                    },
+                ],
+            ],
+        );
         const collectionName = "test-collection";
         const sanitizedCollection = { variables: [] } as any;
 
