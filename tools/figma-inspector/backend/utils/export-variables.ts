@@ -395,7 +395,10 @@ function generateStructsAndInstances(
                         >(),
                     };
 
-                    const rowNameKey = sanitizedChildName;
+                    const rowNameKey =
+                        childName === "mode" && hasRootModeVariable
+                            ? sanitizePropertyName("mode") // Use original "mode" for lookup
+                            : sanitizedChildName; // Use normal sanitized name for others
                     const resolvedVariableModesMap =
                         collectionData.variables.get(rowNameKey);
 
