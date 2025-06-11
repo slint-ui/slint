@@ -1402,17 +1402,17 @@ async fn reload_preview_impl(
 
     let loaded_component_name = compiled.as_ref().map(|c| c.name().to_string());
 
-    {
-        PREVIEW_STATE.with(|preview_state| {
-            let preview_state = preview_state.borrow_mut();
-
-            if let Some(ui) = &preview_state.ui {
-                ui::set_diagnostics(ui, &diagnostics);
+    PREVIEW_STATE.with_borrow_mut(|preview_state| {
+        if let Some(ui) = &preview_state.ui {
+            let api = ui.global::<ui::Api>();
+            if api.get_auto_clear_console() {
+                ui::log_messages::clear_log_messages_impl(ui);
             }
-        });
-        let diags = convert_diagnostics(&diagnostics, &source_file_versions.borrow());
-        notify_diagnostics(diags);
-    }
+            ui::set_diagnostics(ui, &diagnostics);
+        }
+    });
+    let diags = convert_diagnostics(&diagnostics, &source_file_versions.borrow());
+    notify_diagnostics(diags);
 
     update_preview_area(compiled, behavior, open_import_fallback, source_file_versions)?;
 

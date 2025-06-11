@@ -575,4 +575,5 @@ export global Api {
     // Console / LogMessages
     pure callback filter-log-messages(messages: [LogMessage], pattern: string) -> [LogMessage];
     callback clear-log-messages();
+    in-out property <bool> auto-clear-console: true;
 }
