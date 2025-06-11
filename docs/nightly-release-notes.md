@@ -41,6 +41,15 @@ Remember to remove your build directory and re-run cmake.
 
 Run `npm install slint-ui@nightly` to install or upgrade. This works for new and existing projects.
 
+### Python
+
+Add the following section to your `pyproject.toml` to configure [uv](https://docs.astral.sh/uv/) to build Slint from sources:
+
+```toml
+[tool.uv.sources]
+slint = { git = "https://github.com/slint-ui/slint", subdirectory = "api/python" }
+```
+
 ### Editors / IDEs
 
 For VSCode, you download the ["Slint (Nightly)" extension from the Visual Studio Code Marketplace](https://marketplace.visualstudio.com/items?itemName=Slint.slint-nightly).
