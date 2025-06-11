@@ -17,6 +17,7 @@
 //! The newlines are replaced by `↵` in the error message. Also the manifest dir (CARGO_MANIFEST_DIR) is replaced by `📂`.
 //!
 //! When the env variable `SLINT_SYNTAX_TEST_UPDATE` is set to `1`, the source code will be modified to add the comments
+//! The env variable `SLINT_TEST_FILTER` accepts a regexp and will filter out tests not maching that pattern
 
 use i_slint_compiler::diagnostics::{BuildDiagnostics, Diagnostic, DiagnosticLevel};
 use i_slint_compiler::ComponentSelection;
@@ -29,10 +30,8 @@ fn syntax_tests() -> std::io::Result<()> {
     let update = std::env::args().any(|arg| arg == "--update")
         || std::env::var("SLINT_SYNTAX_TEST_UPDATE").is_ok_and(|v| v == "1");
 
-    if let Some(specific_test) = std::env::args()
-        .skip(1)
-        .skip_while(|arg| arg.starts_with("--") || arg == "syntax_tests")
-        .next()
+    if let Some(specific_test) =
+        std::env::args().skip(1).find(|arg| !(arg.starts_with("--") || arg == "syntax_tests"))
     {
         let mut path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         path.push("tests");
@@ -40,6 +39,8 @@ fn syntax_tests() -> std::io::Result<()> {
         assert!(process_file(&path, update)?);
         return Ok(());
     }
+
+    let pattern = std::env::var("SLINT_TEST_FILTER").ok().map(|p| regex::Regex::new(&p).unwrap());
 
     let mut test_entries = Vec::new();
     for entry in std::fs::read_dir(format!("{}/tests/syntax", env!("CARGO_MANIFEST_DIR")))? {
@@ -50,7 +51,12 @@ fn syntax_tests() -> std::io::Result<()> {
                 let test_entry = test_entry?;
                 let path = test_entry.path();
                 if let Some(ext) = path.extension() {
-                    if ext == "60" || ext == "slint" {
+                    if (ext == "60" || ext == "slint")
+                        && pattern
+                            .as_ref()
+                            .map(|p| p.is_match(&path.to_string_lossy()))
+                            .unwrap_or(true)
+                    {
                         test_entries.push(path);
                     }
                 }
