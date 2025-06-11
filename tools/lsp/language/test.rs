@@ -111,8 +111,7 @@ component MainWindow inherits Window {
             "#.to_string())
 }
 
-#[track_caller]
-fn load(
+pub fn load(
     ctx: Option<&Rc<Context>>,
     document_cache: &mut common::DocumentCache,
     path: &Path,

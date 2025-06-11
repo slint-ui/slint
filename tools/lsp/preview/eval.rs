@@ -84,6 +84,8 @@ fn eval_expression(
             let rhs = eval_expression(rhs, local_context);
 
             match (op, lhs, rhs) {
+                (_, Value::Void, _) => Value::Void,
+                (_, _, Value::Void) => Value::Void,
                 ('+', Value::String(mut a), Value::String(b)) => {
                     a.push_str(b.as_str());
                     Value::String(a)
@@ -125,7 +127,14 @@ fn eval_expression(
                 (_, _) => Value::Void,
             }
         }
-        Expression::Condition { true_expr, .. } => eval_expression(true_expr, local_context),
+        Expression::Condition { true_expr, false_expr, condition } => {
+            let condition_ = eval_expression(condition, local_context);
+            if condition_.try_into().unwrap_or(true) {
+                eval_expression(true_expr, local_context)
+            } else {
+                eval_expression(false_expr, local_context)
+            }
+        }
         Expression::Array { values, .. } => {
             Value::Model(slint::ModelRc::new(i_slint_core::model::SharedVectorModel::from(
                 values
