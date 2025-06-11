@@ -1,0 +1,43 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: MIT
+
+# Please see the documentation for all configuration options:
+# https://docs.github.com/github/administering-a-repository/configuration-options-for-dependency-updates
+
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    open-pull-requests-limit: 20
+    directory: /
+    schedule:
+      interval: weekly
+      time: "04:00"
+    groups:
+      github-actions:
+        patterns:
+          - "*"  # Group all Actions updates into a single larger pull request
+
+  - package-ecosystem: "npm" # See documentation for possible values
+    open-pull-requests-limit: 20
+    directory: "/" # Location of package manifests
+    schedule:
+      interval: "weekly"
+      time: "04:00"
+
+    groups:
+      starlight_astro:
+        patterns:
+          - "astro"
+          - "@astro*"
+          - "starlight*"
+          - "@expressive-code/plugin-line-numbers"
+      playwright:
+        patterns:
+          - "playwright*"
+          - "@playwright*"
+      react:
+        patterns:
+          - "react"
+          - "react-dom"
+          - "@types/react"
+          - "@types/react-dom"
