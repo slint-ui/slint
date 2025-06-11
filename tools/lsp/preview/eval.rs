@@ -15,6 +15,7 @@ use slint_interpreter::{Value, ValueType};
 struct EvalLocalContext {
     local_variables: HashMap<SmolStr, Value>,
     return_value: Option<Value>,
+    recursion_count: usize,
 }
 
 fn eval_expression(
@@ -39,7 +40,12 @@ fn eval_expression(
             let elem = elem.borrow();
             if let Some(binding) = elem.bindings.get(source.name()) {
                 let binding = binding.borrow();
-                eval_expression(&binding.expression, local_context)
+                let mut ctx = EvalLocalContext::default();
+                ctx.recursion_count = local_context.recursion_count + 1;
+                if ctx.recursion_count > 20 {
+                    return Value::Void;
+                }
+                eval_expression(&binding.expression, &mut ctx)
             } else {
                 Value::Void
             }
