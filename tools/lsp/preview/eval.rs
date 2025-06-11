@@ -4,6 +4,7 @@
 #![deny(clippy::missing_panics_doc)]
 
 use std::collections::HashMap;
+use std::rc::Rc;
 
 use smol_str::SmolStr;
 
@@ -16,6 +17,7 @@ struct EvalLocalContext {
     local_variables: HashMap<SmolStr, Value>,
     return_value: Option<Value>,
     recursion_count: usize,
+    window_adapter: Option<Rc<dyn slint::platform::WindowAdapter>>,
 }
 
 fn eval_expression(
@@ -42,6 +44,7 @@ fn eval_expression(
                 let binding = binding.borrow();
                 let mut ctx = EvalLocalContext::default();
                 ctx.recursion_count = local_context.recursion_count + 1;
+                ctx.window_adapter = local_context.window_adapter.clone();
                 if ctx.recursion_count > 20 {
                     return Value::Void;
                 }
@@ -245,8 +248,10 @@ fn eval_expression(
 /// property values in the UI.
 pub fn fully_eval_expression_tree_expression(
     expression: &expression_tree::Expression,
+    window_adapter: Option<&Rc<dyn slint::platform::WindowAdapter>>,
 ) -> Option<slint_interpreter::Value> {
     let mut ctx = EvalLocalContext::default();
+    ctx.window_adapter = window_adapter.cloned();
     let value = eval_expression(expression, &mut ctx);
 
     (value.value_type() != ValueType::Void).then_some(value)
@@ -590,6 +595,12 @@ fn handle_builtin_function(
                 eval_expression(&arguments[3], local_context).try_into().unwrap_or_default();
             let a = (1. * a).clamp(0., 1.);
             Value::Brush(slint::Brush::SolidColor(slint::Color::from_hsva(h, s, v, a)))
+        }
+        BuiltinFunction::ColorScheme => {
+            local_context.window_adapter.as_ref().map_or(Value::Void, |win| {
+                win.internal(i_slint_core::InternalToken)
+                    .map_or(Value::Void, |x| x.color_scheme().into())
+            })
         }
         BuiltinFunction::MonthDayCount => {
             let m: u32 =

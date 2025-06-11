@@ -51,12 +51,14 @@ fn map_property_to_ui(
     document_cache: &common::DocumentCache,
     element: &object_tree::ElementRc,
     property_info: &properties::PropertyInformation,
+    window_adapter: Option<&Rc<dyn slint::platform::WindowAdapter>>,
 ) -> (ui::PropertyValue, ui::PropertyDeclaration) {
     let mut value = ui::palette::evaluate_property(
         element,
         property_info.name.as_str(),
         &property_info.default_value,
         &property_info.ty,
+        window_adapter,
     );
 
     let code_block_or_expression =
@@ -201,6 +203,7 @@ fn map_property_to_ui(
 pub fn map_properties_to_ui(
     document_cache: &common::DocumentCache,
     properties: Option<properties::QueryPropertyResponse>,
+    window_adapter: &Rc<dyn slint::platform::WindowAdapter>,
 ) -> Option<(
     ui::ElementInformation,
     HashMap<SmolStr, ui::PropertyDeclaration>,
@@ -230,8 +233,12 @@ pub fn map_properties_to_ui(
     }
 
     for pi in &properties.properties {
-        let (value, declared_at) =
-            map_property_to_ui(document_cache, &properties.element_rc_node.element, pi);
+        let (value, declared_at) = map_property_to_ui(
+            document_cache,
+            &properties.element_rc_node.element,
+            pi,
+            Some(&window_adapter),
+        );
 
         declarations.insert(pi.name.clone(), declared_at);
 
@@ -384,7 +391,7 @@ mod tests {
         eprintln!("\n\n\n{contents}:");
         let (e, pi, dc, _) = properties_at_position(contents, property_line, 30).unwrap();
         let test1 = pi.iter().find(|pi| pi.name == "test1").unwrap();
-        super::map_property_to_ui(&dc, &e.element, test1).0
+        super::map_property_to_ui(&dc, &e.element, test1, None).0
     }
 
     #[test]
@@ -1123,28 +1130,28 @@ export component X {
         let pi = super::properties::get_properties(&element, super::properties::LayoutKind::None);
 
         let prop = pi.iter().find(|pi| pi.name == "visible").unwrap();
-        let result = super::map_property_to_ui(&dc, &element.element, prop).0;
+        let result = super::map_property_to_ui(&dc, &element.element, prop, None).0;
         assert_eq!(result.kind, ui::PropertyValueKind::Boolean);
         assert!(result.value_bool);
 
         let prop = pi.iter().find(|pi| pi.name == "enabled").unwrap();
-        let result = super::map_property_to_ui(&dc, &element.element, prop).0;
+        let result = super::map_property_to_ui(&dc, &element.element, prop, None).0;
         assert_eq!(result.kind, ui::PropertyValueKind::Boolean);
         assert!(result.value_bool);
 
         let prop = pi.iter().find(|pi| pi.name == "text").unwrap();
-        let result = super::map_property_to_ui(&dc, &element.element, prop).0;
+        let result = super::map_property_to_ui(&dc, &element.element, prop, None).0;
         assert_eq!(result.kind, ui::PropertyValueKind::String);
         assert_eq!(result.value_string, "Ok");
 
         let prop = pi.iter().find(|pi| pi.name == "alias").unwrap();
-        let result = super::map_property_to_ui(&dc, &element.element, prop).0;
+        let result = super::map_property_to_ui(&dc, &element.element, prop, None).0;
         assert_eq!(result.kind, ui::PropertyValueKind::Float);
         assert!(result.value_float >= 45.);
         assert_eq!(result.visual_items.row_data(result.value_int as usize).unwrap(), "px");
 
         let prop = pi.iter().find(|pi| pi.name == "color").unwrap();
-        let result = super::map_property_to_ui(&dc, &element.element, prop).0;
+        let result = super::map_property_to_ui(&dc, &element.element, prop, None).0;
         assert_eq!(result.kind, ui::PropertyValueKind::Color);
         assert_eq!(
             result.value_brush,
@@ -1178,7 +1185,7 @@ export component X {
         let pi = super::properties::get_properties(&element, super::properties::LayoutKind::None);
 
         let prop = pi.iter().find(|pi| pi.name == "visible").unwrap();
-        let result = super::map_property_to_ui(&dc, &element.element, prop).0;
+        let result = super::map_property_to_ui(&dc, &element.element, prop, None).0;
 
         assert_eq!(result.kind, ui::PropertyValueKind::Boolean);
         assert!(result.value_bool);
@@ -1207,25 +1214,25 @@ component Abc {
         let pi = super::properties::get_properties(&element, super::properties::LayoutKind::None);
 
         let prop = pi.iter().find(|pi| pi.name == "local-test-brush").unwrap();
-        let result = super::map_property_to_ui(&dc, &element.element, prop).0;
+        let result = super::map_property_to_ui(&dc, &element.element, prop, None).0;
         assert_eq!(result.kind, ui::PropertyValueKind::Brush);
         assert_eq!(result.value_kind, ui::PropertyValueKind::Brush);
         assert_eq!(result.brush_kind, ui::BrushKind::Linear);
 
         let prop = pi.iter().find(|pi| pi.name == "test-brush1").unwrap();
-        let result = super::map_property_to_ui(&dc, &element.element, prop).0;
+        let result = super::map_property_to_ui(&dc, &element.element, prop, None).0;
         assert_eq!(result.kind, ui::PropertyValueKind::Brush);
         assert_eq!(result.value_kind, ui::PropertyValueKind::Brush);
         assert_eq!(result.brush_kind, ui::BrushKind::Linear);
 
         let prop = pi.iter().find(|pi| pi.name == "test-brush2").unwrap();
-        let result = super::map_property_to_ui(&dc, &element.element, prop).0;
+        let result = super::map_property_to_ui(&dc, &element.element, prop, None).0;
         assert_eq!(result.kind, ui::PropertyValueKind::Brush);
         assert_eq!(result.value_kind, ui::PropertyValueKind::Brush);
         assert_eq!(result.brush_kind, ui::BrushKind::Linear);
 
         let prop = pi.iter().find(|pi| pi.name == "test-brush3").unwrap();
-        let result = super::map_property_to_ui(&dc, &element.element, prop).0;
+        let result = super::map_property_to_ui(&dc, &element.element, prop, None).0;
         assert_eq!(result.kind, ui::PropertyValueKind::Code);
         assert_eq!(result.value_kind, ui::PropertyValueKind::Brush);
         assert_eq!(result.brush_kind, ui::BrushKind::Linear);

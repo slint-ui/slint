@@ -23,8 +23,14 @@ pub fn setup(ui: &ui::PreviewUi) {
 pub fn collect_palette(
     document_cache: &common::DocumentCache,
     document_uri: &Url,
+    window_adapter: &Rc<dyn slint::platform::WindowAdapter>,
 ) -> Vec<ui::PaletteEntry> {
-    collect_palette_from_globals(document_cache, document_uri, collect_colors_palette())
+    collect_palette_from_globals(
+        document_cache,
+        document_uri,
+        collect_colors_palette(),
+        Some(window_adapter),
+    )
 }
 
 pub fn set_palette(ui: &ui::PreviewUi, values: Vec<ui::PaletteEntry>) {
@@ -125,12 +131,15 @@ pub fn evaluate_property(
     property_name: &str,
     default_value: &Option<expression_tree::Expression>,
     ty: &langtype::Type,
+    window_adapter: Option<&Rc<dyn slint::platform::WindowAdapter>>,
 ) -> ui::PropertyValue {
     let value = find_binding_expression(element, property_name)
         .map(|be| be.expression)
         .or(default_value.clone())
         .as_ref()
-        .and_then(crate::preview::eval::fully_eval_expression_tree_expression);
+        .and_then(|element| {
+            crate::preview::eval::fully_eval_expression_tree_expression(element, window_adapter)
+        });
 
     ui::map_value_and_type_to_property_value(ty, &value, "")
 }
@@ -141,13 +150,16 @@ fn handle_type(
     property_name: &str,
     ty: &langtype::Type,
     values: &mut Vec<ui::PaletteEntry>,
+    window_adapter: Option<&Rc<dyn slint::platform::WindowAdapter>>,
 ) {
     let full_accessor = format!("{global_name}.{property_name}");
 
     let value = find_binding_expression(element, property_name)
         .map(|be| be.expression)
         .as_ref()
-        .and_then(crate::preview::eval::fully_eval_expression_tree_expression);
+        .and_then(|element| {
+            crate::preview::eval::fully_eval_expression_tree_expression(element, window_adapter)
+        });
 
     handle_type_impl(&full_accessor, value, ty, values);
 }
@@ -156,6 +168,7 @@ fn collect_palette_from_globals(
     document_cache: &common::DocumentCache,
     document_uri: &Url,
     mut values: Vec<ui::PaletteEntry>,
+    window_adapter: Option<&Rc<dyn slint::platform::WindowAdapter>>,
 ) -> Vec<ui::PaletteEntry> {
     let tr = document_cache.global_type_registry();
     let tr = document_cache.get_document(document_uri).map(|d| &d.local_registry).unwrap_or(&tr);
@@ -181,7 +194,7 @@ fn collect_palette_from_globals(
                     | object_tree::PropertyVisibility::Public
             )
         }) {
-            handle_type(name, &global, &property.name, &property.ty, &mut values);
+            handle_type(name, &global, &property.name, &property.ty, &mut values, window_adapter);
         }
     }
 
@@ -319,7 +332,7 @@ global Test {
 export component Main { }
             "#,
         );
-        let result = collect_palette_from_globals(&dc, &url, Vec::new());
+        let result = collect_palette_from_globals(&dc, &url, Vec::new(), None);
         assert_eq!(result.len(), 7);
 
         compare(&result[0], "Other.color1", 0x11, 0xff, 0xff);
@@ -355,7 +368,7 @@ global Test {
 export component Main { }
             "#,
         );
-        let result = collect_palette_from_globals(&dc, &url, Vec::new());
+        let result = collect_palette_from_globals(&dc, &url, Vec::new(), None);
         assert_eq!(result.len(), 8);
 
         let solid_color = slint::Brush::SolidColor(slint::Color::from_rgb_u8(0x11, 0xff, 0xff));
@@ -435,7 +448,7 @@ global Test {
 export component Main { }
             "#,
         );
-        let result = collect_palette_from_globals(&dc, &url, Vec::new());
+        let result = collect_palette_from_globals(&dc, &url, Vec::new(), None);
         assert_eq!(result.len(), 3);
 
         compare(&result[0], "Test.palette.color1", 0x11, 0xff, 0xff);
@@ -474,7 +487,7 @@ global Test {
 export component Main { }
             "#,
         );
-        let result = collect_palette_from_globals(&dc, &url, Vec::new());
+        let result = collect_palette_from_globals(&dc, &url, Vec::new(), None);
         assert_eq!(result.len(), 9);
 
         compare(&result[0], "Test._0.color1", 0x11, 0xff, 0xff);
@@ -515,7 +528,7 @@ global Test {
 export component Main { }
             "#,
         );
-        let result = collect_palette_from_globals(&dc, &url, Vec::new());
+        let result = collect_palette_from_globals(&dc, &url, Vec::new(), None);
         assert_eq!(result.len(), 6);
 
         compare(&result[0], "Test.palette.dark.color1", 0xee, 0x00, 0x00);
@@ -550,7 +563,7 @@ export component Main { }
                 "#,
             );
 
-            let result = collect_palette_from_globals(&dc, &url, Vec::new());
+            let result = collect_palette_from_globals(&dc, &url, Vec::new(), None);
             let r =
                 result.iter().find(|entry| entry.name == "Palette.border").expect("Palette.border");
             let color = i_slint_core::Color::from_argb_u8(
