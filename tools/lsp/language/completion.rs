@@ -13,7 +13,7 @@ use i_slint_compiler::diagnostics::Spanned;
 use i_slint_compiler::expression_tree::{Callable, Expression};
 use i_slint_compiler::langtype::{ElementType, Type};
 use i_slint_compiler::lookup::{LookupCtx, LookupObject, LookupResult, LookupResultCallable};
-use i_slint_compiler::object_tree::ElementRc;
+use i_slint_compiler::object_tree::{ChildrenInsertionPoint, ElementRc};
 use i_slint_compiler::parser::{syntax_nodes, SyntaxKind, SyntaxNode, SyntaxToken, TextSize};
 use i_slint_compiler::typeregister::TypeRegister;
 use lsp_types::{
@@ -552,8 +552,10 @@ fn resolve_element_scope(
             match element_type {
                 ElementType::Component(component) => {
                     let base_type = match &*component.child_insertion_points.borrow() {
-                        Some(insert_in) => insert_in.parent.borrow().base_type.clone(),
-                        None => {
+                        ChildrenInsertionPoint::Simple(insert_in) => {
+                            insert_in.parent.borrow().base_type.clone()
+                        }
+                        ChildrenInsertionPoint::None => {
                             let base_type = component.root_element.borrow().base_type.clone();
                             if base_type == tr.empty_type() {
                                 return (false, true, vec![]);

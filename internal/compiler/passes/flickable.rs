@@ -13,7 +13,7 @@
 use crate::expression_tree::{BindingExpression, Expression, MinMaxOp, NamedReference};
 use crate::langtype::{ElementType, NativeClass, Type};
 use crate::layout::is_layout;
-use crate::object_tree::{Component, Element, ElementRc};
+use crate::object_tree::{ChildrenInsertionPoint, Component, Element, ElementRc};
 use crate::typeregister::TypeRegister;
 use core::cell::RefCell;
 use smol_str::{SmolStr, format_smolstr};
@@ -124,7 +124,9 @@ fn create_viewport_element(flickable: &ElementRc, native_empty: &Rc<NativeClass>
         .is_set_externally = true;
 
     let enclosing_component = flickable.borrow().enclosing_component.upgrade().unwrap();
-    if let Some(insertion_point) = &mut *enclosing_component.child_insertion_points.borrow_mut() {
+    if let ChildrenInsertionPoint::Simple(insertion_point) =
+        &mut *enclosing_component.child_insertion_points.borrow_mut()
+    {
         if std::rc::Rc::ptr_eq(&insertion_point.parent, flickable) {
             insertion_point.parent = viewport.clone()
         }

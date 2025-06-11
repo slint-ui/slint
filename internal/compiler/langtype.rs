@@ -11,7 +11,7 @@ use itertools::Itertools;
 use smol_str::SmolStr;
 
 use crate::expression_tree::{BuiltinFunction, Expression, Unit};
-use crate::object_tree::{Component, PropertyVisibility};
+use crate::object_tree::{ChildrenInsertionPoint, Component, PropertyVisibility};
 use crate::parser::syntax_nodes;
 use crate::typeregister::TypeRegister;
 
@@ -509,8 +509,8 @@ impl ElementType {
         match self {
             Self::Component(component) => {
                 let base_type = match &*component.child_insertion_points.borrow() {
-                    Some(insert_in) => insert_in.parent.borrow().base_type.clone(),
-                    None => {
+                    ChildrenInsertionPoint::Simple(insert_in) => insert_in.parent.borrow().base_type.clone(),
+                    ChildrenInsertionPoint::None => {
                         let base_type = component.root_element.borrow().base_type.clone();
                         if base_type == tr.empty_type() {
                             return Err(format!("'{}' cannot have children. Only components with @children can have children", component.id));

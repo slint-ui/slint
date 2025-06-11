@@ -126,8 +126,8 @@ fn inline_element(
 
     let mut move_children_into_popup = None;
 
-    match inlined_component.child_insertion_points.borrow().as_ref() {
-        Some(inlined_cip) => {
+    match &*inlined_component.child_insertion_points.borrow() {
+        ChildrenInsertionPoint::Simple(inlined_cip) => {
             let children = std::mem::take(&mut elem_mut.children);
             let old_count = children.len();
             if let Some(insertion_element) = mapping.get(&element_key(inlined_cip.parent.clone())) {
@@ -150,9 +150,9 @@ fn inline_element(
                 }
 
                 let mut cip = root_component.child_insertion_points.borrow_mut();
-                if let Some(cip) = cip.as_mut() {
+                if let ChildrenInsertionPoint::Simple(cip) = &mut *cip {
                     if Rc::ptr_eq(&cip.parent, elem) {
-                        *cip = ChildrenInsertionPoint {
+                        *cip = AtChildrenData {
                             parent: insertion_element.clone(),
                             insertion_index: inlined_cip.insertion_index + cip.insertion_index,
                             node: inlined_cip.node.clone(),
@@ -160,7 +160,7 @@ fn inline_element(
                         };
                     }
                 } else if Rc::ptr_eq(elem, &root_component.root_element) {
-                    *cip = Some(ChildrenInsertionPoint {
+                    *cip = ChildrenInsertionPoint::Simple(AtChildrenData {
                         parent: insertion_element.clone(),
                         insertion_index: inlined_cip.insertion_index + old_count,
                         node: inlined_cip.node.clone(),
@@ -220,8 +220,11 @@ fn inline_element(
 
     let mut moved_into_popup = HashSet::new();
     if let Some(children) = move_children_into_popup {
-        let child_insertion_points = inlined_component.child_insertion_points.borrow();
-        let inlined_cip = child_insertion_points.as_ref().unwrap();
+        let ChildrenInsertionPoint::Simple(inlined_cip) =
+            &*inlined_component.child_insertion_points.borrow()
+        else {
+            panic!("@children is required here");
+        };
 
         let insertion_element = mapping.get(&element_key(inlined_cip.parent.clone())).unwrap();
         debug_assert!(!std::rc::Weak::ptr_eq(
@@ -245,9 +248,9 @@ fn inline_element(
             .splice(inlined_cip.insertion_index..inlined_cip.insertion_index, children);
 
         let mut cip = root_component.child_insertion_points.borrow_mut();
-        if let Some(cip) = cip.as_mut() {
+        if let ChildrenInsertionPoint::Simple(cip) = &mut *cip {
             if Rc::ptr_eq(&cip.parent, elem) {
-                *cip = ChildrenInsertionPoint {
+                *cip = AtChildrenData {
                     parent: insertion_element.clone(),
                     insertion_index: inlined_cip.insertion_index + cip.insertion_index,
                     node: inlined_cip.node.clone(),
@@ -255,7 +258,7 @@ fn inline_element(
                 };
             }
         } else {
-            *cip = Some(ChildrenInsertionPoint {
+            *cip = ChildrenInsertionPoint::Simple(AtChildrenData {
                 parent: insertion_element.clone(),
                 insertion_index: inlined_cip.insertion_index,
                 node: inlined_cip.node.clone(),
