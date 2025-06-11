@@ -51,7 +51,7 @@ fn diagnose_component_container(element: &ElementRc, diag: &mut BuildDiagnostics
         diag.push_error("ComponentContainers may not have children".into(), &*element.borrow());
     }
     if let Some(cip) =
-        elem.enclosing_component.upgrade().unwrap().child_insertion_point.borrow().clone()
+        elem.enclosing_component.upgrade().unwrap().child_insertion_points.borrow().clone()
     {
         if Rc::ptr_eq(&cip.parent, element) {
             diag.push_error(

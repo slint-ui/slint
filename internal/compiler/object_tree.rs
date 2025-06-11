@@ -439,7 +439,7 @@ pub struct Component {
 
     /// When creating this component and inserting "children", append them to the children of
     /// the element pointer to by this field.
-    pub child_insertion_point: RefCell<Option<ChildrenInsertionPoint>>,
+    pub child_insertion_points: RefCell<Option<ChildrenInsertionPoint>>,
 
     pub init_code: RefCell<InitCode>,
 
@@ -471,7 +471,7 @@ impl Component {
         diag: &mut BuildDiagnostics,
         tr: &TypeRegister,
     ) -> Rc<Self> {
-        let mut child_insertion_point = None;
+        let mut child_insertion_points = None;
         let is_legacy_syntax = node.child_token(SyntaxKind::ColonEqual).is_some();
         let c = Component {
             node: Some(node.clone()),
@@ -484,12 +484,12 @@ impl Component {
                 } else {
                     ElementType::Error
                 },
-                &mut child_insertion_point,
+                &mut child_insertion_points,
                 is_legacy_syntax,
                 diag,
                 tr,
             ),
-            child_insertion_point: RefCell::new(child_insertion_point),
+            child_insertion_points: RefCell::new(child_insertion_points),
             ..Default::default()
         };
         let c = Rc::new(c);
@@ -1029,7 +1029,7 @@ impl Element {
         node: syntax_nodes::Element,
         id: SmolStr,
         parent_type: ElementType,
-        component_child_insertion_point: &mut Option<ChildrenInsertionPoint>,
+        component_child_insertion_points: &mut Option<ChildrenInsertionPoint>,
         is_legacy_syntax: bool,
         diag: &mut BuildDiagnostics,
         tr: &TypeRegister,
@@ -1562,22 +1562,22 @@ impl Element {
                 r.borrow_mut().children.push(Element::from_sub_element_node(
                     se.into(),
                     parent_type,
-                    component_child_insertion_point,
+                    component_child_insertion_points,
                     is_legacy_syntax,
                     diag,
                     tr,
                 ));
             } else if se.kind() == SyntaxKind::RepeatedElement {
-                let mut sub_child_insertion_point = None;
+                let mut sub_child_insertion_points = None;
                 let rep = Element::from_repeated_node(
                     se.into(),
                     &r,
-                    &mut sub_child_insertion_point,
+                    &mut sub_child_insertion_points,
                     is_legacy_syntax,
                     diag,
                     tr,
                 );
-                if let Some(ChildrenInsertionPoint { node: se, .. }) = sub_child_insertion_point {
+                if let Some(ChildrenInsertionPoint { node: se, .. }) = sub_child_insertion_points {
                     diag.push_error(
                         "The @children placeholder cannot appear in a repeated element".into(),
                         &se,
@@ -1585,16 +1585,16 @@ impl Element {
                 }
                 r.borrow_mut().children.push(rep);
             } else if se.kind() == SyntaxKind::ConditionalElement {
-                let mut sub_child_insertion_point = None;
+                let mut sub_child_insertion_points = None;
                 let rep = Element::from_conditional_node(
                     se.into(),
                     r.borrow().base_type.clone(),
-                    &mut sub_child_insertion_point,
+                    &mut sub_child_insertion_points,
                     is_legacy_syntax,
                     diag,
                     tr,
                 );
-                if let Some(ChildrenInsertionPoint { node: se, .. }) = sub_child_insertion_point {
+                if let Some(ChildrenInsertionPoint { node: se, .. }) = sub_child_insertion_points {
                     diag.push_error(
                         "The @children placeholder cannot appear in a conditional element".into(),
                         &se,
@@ -1614,7 +1614,7 @@ impl Element {
         }
 
         if let Some((children_placeholder, index)) = children_placeholder {
-            if component_child_insertion_point.is_some() {
+            if component_child_insertion_points.is_some() {
                 diag.push_error(
                     "The @children placeholder can only appear once in an element hierarchy".into(),
                     &children_placeholder,
@@ -1622,7 +1622,7 @@ impl Element {
             } else {
                 let insertion_kind =
                     ChildrenInsertionKind::from_with_diag(&children_placeholder, diag);
-                *component_child_insertion_point = Some(ChildrenInsertionPoint {
+                *component_child_insertion_points = Some(ChildrenInsertionPoint {
                     parent: r.clone(),
                     insertion_index: index,
                     node: children_placeholder,
@@ -1692,7 +1692,7 @@ impl Element {
     fn from_sub_element_node(
         node: syntax_nodes::SubElement,
         parent_type: ElementType,
-        component_child_insertion_point: &mut Option<ChildrenInsertionPoint>,
+        component_child_insertion_points: &mut Option<ChildrenInsertionPoint>,
         is_in_legacy_component: bool,
         diag: &mut BuildDiagnostics,
         tr: &TypeRegister,
@@ -1709,7 +1709,7 @@ impl Element {
             node.Element(),
             id,
             parent_type,
-            component_child_insertion_point,
+            component_child_insertion_points,
             is_in_legacy_component,
             diag,
             tr,
@@ -1719,7 +1719,7 @@ impl Element {
     fn from_repeated_node(
         node: syntax_nodes::RepeatedElement,
         parent: &ElementRc,
-        component_child_insertion_point: &mut Option<ChildrenInsertionPoint>,
+        component_child_insertion_points: &mut Option<ChildrenInsertionPoint>,
         is_in_legacy_component: bool,
         diag: &mut BuildDiagnostics,
         tr: &TypeRegister,
@@ -1754,7 +1754,7 @@ impl Element {
         let e = Element::from_sub_element_node(
             node.SubElement(),
             parent.borrow().base_type.clone(),
-            component_child_insertion_point,
+            component_child_insertion_points,
             is_in_legacy_component,
             diag,
             tr,
@@ -1766,7 +1766,7 @@ impl Element {
     fn from_conditional_node(
         node: syntax_nodes::ConditionalElement,
         parent_type: ElementType,
-        component_child_insertion_point: &mut Option<ChildrenInsertionPoint>,
+        component_child_insertion_points: &mut Option<ChildrenInsertionPoint>,
         is_in_legacy_component: bool,
         diag: &mut BuildDiagnostics,
         tr: &TypeRegister,
@@ -1781,7 +1781,7 @@ impl Element {
         let e = Element::from_sub_element_node(
             node.SubElement(),
             parent_type,
-            component_child_insertion_point,
+            component_child_insertion_points,
             is_in_legacy_component,
             diag,
             tr,

@@ -124,7 +124,7 @@ fn create_viewport_element(flickable: &ElementRc, native_empty: &Rc<NativeClass>
         .is_set_externally = true;
 
     let enclosing_component = flickable.borrow().enclosing_component.upgrade().unwrap();
-    if let Some(insertion_point) = &mut *enclosing_component.child_insertion_point.borrow_mut() {
+    if let Some(insertion_point) = &mut *enclosing_component.child_insertion_points.borrow_mut() {
         if std::rc::Rc::ptr_eq(&insertion_point.parent, flickable) {
             insertion_point.parent = viewport.clone()
         }

@@ -551,7 +551,7 @@ fn resolve_element_scope(
         ) -> (bool, bool, Vec<SmolStr>) {
             match element_type {
                 ElementType::Component(component) => {
-                    let base_type = match &*component.child_insertion_point.borrow() {
+                    let base_type = match &*component.child_insertion_points.borrow() {
                         Some(insert_in) => insert_in.parent.borrow().base_type.clone(),
                         None => {
                             let base_type = component.root_element.borrow().base_type.clone();

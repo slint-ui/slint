@@ -126,7 +126,7 @@ fn inline_element(
 
     let mut move_children_into_popup = None;
 
-    match inlined_component.child_insertion_point.borrow().as_ref() {
+    match inlined_component.child_insertion_points.borrow().as_ref() {
         Some(inlined_cip) => {
             let children = std::mem::take(&mut elem_mut.children);
             let old_count = children.len();
@@ -149,7 +149,7 @@ fn inline_element(
                     }
                 }
 
-                let mut cip = root_component.child_insertion_point.borrow_mut();
+                let mut cip = root_component.child_insertion_points.borrow_mut();
                 if let Some(cip) = cip.as_mut() {
                     if Rc::ptr_eq(&cip.parent, elem) {
                         *cip = ChildrenInsertionPoint {
@@ -220,8 +220,8 @@ fn inline_element(
 
     let mut moved_into_popup = HashSet::new();
     if let Some(children) = move_children_into_popup {
-        let child_insertion_point = inlined_component.child_insertion_point.borrow();
-        let inlined_cip = child_insertion_point.as_ref().unwrap();
+        let child_insertion_points = inlined_component.child_insertion_points.borrow();
+        let inlined_cip = child_insertion_points.as_ref().unwrap();
 
         let insertion_element = mapping.get(&element_key(inlined_cip.parent.clone())).unwrap();
         debug_assert!(!std::rc::Weak::ptr_eq(
@@ -244,7 +244,7 @@ fn inline_element(
             .children
             .splice(inlined_cip.insertion_index..inlined_cip.insertion_index, children);
 
-        let mut cip = root_component.child_insertion_point.borrow_mut();
+        let mut cip = root_component.child_insertion_points.borrow_mut();
         if let Some(cip) = cip.as_mut() {
             if Rc::ptr_eq(&cip.parent, elem) {
                 *cip = ChildrenInsertionPoint {
@@ -444,7 +444,7 @@ fn duplicate_sub_component(
                 .collect(),
         ),
         root_constraints: component_to_duplicate.root_constraints.clone(),
-        child_insertion_point: component_to_duplicate.child_insertion_point.clone(),
+        child_insertion_points: component_to_duplicate.child_insertion_points.clone(),
         init_code: component_to_duplicate.init_code.clone(),
         popup_windows: Default::default(),
         timers: component_to_duplicate.timers.clone(),

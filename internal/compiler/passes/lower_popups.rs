@@ -105,7 +105,7 @@ fn lower_popup_window(
     parent_element_borrowed.children.remove(index);
     parent_element_borrowed.has_popup_child = true;
     drop(parent_element_borrowed);
-    if let Some(parent_cip) = &mut *parent_component.child_insertion_point.borrow_mut() {
+    if let Some(parent_cip) = &mut *parent_component.child_insertion_points.borrow_mut() {
         if Rc::ptr_eq(&parent_cip.parent, parent_element) && parent_cip.insertion_index > index {
             parent_cip.insertion_index -= 1;
         }
