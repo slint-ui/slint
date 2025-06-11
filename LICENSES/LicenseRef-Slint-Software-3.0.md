@@ -1,6 +1,6 @@
 # Slint Software License
 
-Version 3.0.3
+Version 3.0.4
 
 ## Preamble
 
@@ -26,7 +26,7 @@ The grant of rights in section 1 are conditional, provided that You do all of th
 
 (a) You have purchased an appropriate **Paid License Plan** ([see Annex 1](#annex-1-paid-license-plans)) and the required amount of seats to cover all individual users of the Software associated with the designing, developing, or testing your Application or Embedded System. For clarity, each individual user is counted as one seat.
 
-(b) In the case that You are distributing the Software as as part of an Embedded System, You have purchased an appropriate quantity of **Royalties**, one Royalty for each Embedded System. Royalties are not necessary for non-commercial projects, personal projects, and open source projects.
+(b) In the case that You are distributing the Software as part of an Embedded System, You have purchased an appropriate quantity of **Royalties**, one Royalty for each Embedded System. Royalties become due and payable upon manufacture of the Embedded System, regardless of whether such is subsequently sold, shipped, returned, replaced under warranty, or recalled. Payment of royalties is non-refundable under any circumstances. Royalties are not necessary for non-commercial projects, personal projects, and open source projects.
 
 ## 3. Limitations
 
