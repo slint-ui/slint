@@ -1104,7 +1104,9 @@ test("hierarchical variables with multiple values per mode", async () => {
         mockCollection,
     ]);
     mockFigma.variables.getVariableByIdAsync.mockImplementation((id) => {
-        return Promise.resolve(mockVariables[id as keyof typeof mockVariables] || null);
+        return Promise.resolve(
+            mockVariables[id as keyof typeof mockVariables] || null,
+        );
     });
 
     const result = await exportFigmaVariablesToSeparateFiles(false);
@@ -1178,4 +1180,85 @@ test("mode mismatch fallback distributes different values correctly", async () =
 
     // Ensure they're not the same (which would be the old bug)
     expect(modernThemeMatch![1]).not.toBe(brutalThemeMatch![1]);
+});
+
+test("handles variable names with emojis and special characters", async () => {
+    const mockCollection = {
+        id: "collection1",
+        name: "Test Collection",
+        modes: [{ modeId: "mode1", name: "Default" }],
+        variableIds: ["var1", "var2", "var3"],
+    };
+
+    // Test variables with problematic names
+    const mockVariable1 = {
+        id: "var1",
+        name: "🛑🛑🛑🛑Font Size", // Emojis + normal text
+        type: "FLOAT",
+        resolvedType: "FLOAT",
+        valuesByMode: {
+            mode1: 16,
+        },
+    };
+
+    const mockVariable2 = {
+        id: "var2",
+        name: "🎨Color/Primary", // Emoji + hierarchy
+        type: "COLOR",
+        resolvedType: "COLOR",
+        valuesByMode: {
+            mode1: { r: 1, g: 0, b: 0, a: 1 },
+        },
+    };
+
+    const mockVariable3 = {
+        id: "var3",
+        name: "✅ Success State", // Different emoji + spaces
+        type: "BOOLEAN",
+        resolvedType: "BOOLEAN",
+        valuesByMode: {
+            mode1: true,
+        },
+    };
+
+    mockFigma.variables.getLocalVariableCollectionsAsync.mockResolvedValue([
+        mockCollection,
+    ]);
+    mockFigma.variables.getVariableByIdAsync.mockImplementation((id) => {
+        switch (id) {
+            case "var1":
+                return Promise.resolve(mockVariable1);
+            case "var2":
+                return Promise.resolve(mockVariable2);
+            case "var3":
+                return Promise.resolve(mockVariable3);
+            default:
+                return Promise.resolve(null);
+        }
+    });
+
+    const result = await exportFigmaVariablesToSeparateFiles(false);
+
+    expect(result).toHaveLength(2); // collection + README
+    const content = result[0].content;
+
+    console.log("=== Generated content with emoji variables ===");
+    console.log(content);
+
+    // Check that variables with emojis are handled and have values
+    // The sanitized names should appear in the output
+    expect(content).toContain("font-size"); // From 🛑🛑🛑🛑Font Size
+    expect(content).toContain("16px"); // The actual value should be present
+
+    // Check hierarchical emoji variable
+    expect(content).toContain("primary"); // From 🎨Color/Primary
+    expect(content).toContain("#ff0000"); // The red color value
+
+    // Check simple emoji variable
+    expect(content).toContain("success-state"); // From ✅ Success State
+    expect(content).toContain("true"); // The boolean value
+
+    // Make sure these don't have missing values
+    expect(content).not.toContain("Missing data for mode");
+    expect(content).not.toContain("#FF00FF"); // No magenta placeholder values
 });

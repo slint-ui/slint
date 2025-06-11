@@ -68,8 +68,8 @@ export function sanitizePropertyName(name: string): string {
         .replace(/[^a-zA-Z0-9\-]/g, "-") // Replace non-alphanumeric chars (except hyphens) with hyphens
         .replace(/-+/g, "-"); // Collapse multiple hyphens to single hyphen
 
-    // Remove trailing hyphens
-    sanitizedName = sanitizedName.replace(/-+$/, "");
+    // Remove leading and trailing hyphens
+    sanitizedName = sanitizedName.replace(/^-+/, "").replace(/-+$/, "");
 
     // Check if starts with a digit AFTER other sanitization
     if (/^\d/.test(sanitizedName)) {
