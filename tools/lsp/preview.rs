@@ -1039,13 +1039,11 @@ fn finish_parsing(preview_url: &Url, previewed_component: Option<String>, succes
 
         apply_live_preview_data();
 
-        let palettes = ui::palette::collect_palette(&document_cache, preview_url);
-
-        PREVIEW_STATE.with(|preview_state| {
-            let mut preview_state = preview_state.borrow_mut();
+        PREVIEW_STATE.with_borrow_mut(|preview_state| {
             preview_state.known_components = components;
 
-            preview_state.document_cache.borrow_mut().replace(Some(Rc::new(document_cache)));
+            let document_cache = Rc::new(document_cache);
+            preview_state.document_cache.borrow_mut().replace(Some(document_cache.clone()));
 
             let preview_data = preview_state
                 .component_instance()
@@ -1055,6 +1053,8 @@ fn finish_parsing(preview_url: &Url, previewed_component: Option<String>, succes
                 .unwrap_or_default();
 
             if let Some(ui) = &preview_state.ui {
+                let win = i_slint_core::window::WindowInner::from_pub(ui.window()).window_adapter();
+                let palettes = ui::palette::collect_palette(&document_cache, preview_url, &win);
                 ui::palette::set_palette(ui, palettes);
                 ui::ui_set_uses_widgets(ui, uses_widgets);
                 ui::ui_set_known_components(ui, &preview_state.known_components, index);
@@ -1731,7 +1731,9 @@ fn set_selected_element(
                         ))
                     })
                 {
-                    let palettes = ui::palette::collect_palette(&document_cache, &uri);
+                    let win =
+                        i_slint_core::window::WindowInner::from_pub(ui.window()).window_adapter();
+                    let palettes = ui::palette::collect_palette(&document_cache, &uri, &win);
                     ui::palette::set_palette(ui, palettes);
 
                     let in_layout = match parent_layout_kind {

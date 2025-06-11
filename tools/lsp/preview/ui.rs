@@ -1289,8 +1289,9 @@ pub fn ui_set_properties(
     document_cache: &common::DocumentCache,
     properties: Option<properties::QueryPropertyResponse>,
 ) -> PropertyDeclarations {
+    let win = i_slint_core::window::WindowInner::from_pub(ui.window()).window_adapter();
     let (next_element, declarations, next_model) =
-        property_view::map_properties_to_ui(document_cache, properties).unwrap_or((
+        property_view::map_properties_to_ui(document_cache, properties, &win).unwrap_or((
             ElementInformation {
                 id: "".into(),
                 type_name: "".into(),
