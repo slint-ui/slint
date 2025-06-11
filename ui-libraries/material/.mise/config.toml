@@ -9,6 +9,8 @@ disable_backends = ["aqua"]
 [tools]
 "rust" = { version = "stable", profile = "default" }
 taplo = "0.9.3"
+node = "20"
+pnpm = "10.12.1"
 
 [task_config]
 includes = [".mise/tasks.toml", ".mise/tasks"]

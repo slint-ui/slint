@@ -3,6 +3,13 @@
 
 # Use https://mise.jdx.dev/schema/mise-task.json for validation.
 
+
+### prepare
+["prepare:pnpm-install"]
+hide = true
+run = "cd docs && pnpm install --frozen-lockfile"
+depends = ["fix:pnpm:lock"]
+
 ### fixes
 
 ["fix:rust:format"]
@@ -13,17 +20,46 @@ run = "cargo fmt --all"
 description = "Run taplo format"
 run = "taplo format"
 
+["fix:pnpm:lock"]
+description = "Update pnpm lock file"
+run = "cd docs && pnpm i --lockfile-only"
+
+["fix:pnpm:dedupe"]
+description = "Run pnpm dedupe"
+run = "cd docs && pnpm dedupe"
+depends = ["prepare:pnpm-install"]
+
+["fix:ts:format"]
+description = "Run pnpm format:fix"
+run = "cd docs && pnpm run format:fix"
+depends = ["prepare:pnpm-install"]
+
+["fix:ts:biome"]
+description = "Run pnpm lint:fix"
+run = "cd docs && pnpm run lint:fix"
+depends = ["prepare:pnpm-install"]
+
 ### lint
 #
 ["lint:legal:reuse"]
 run = "pipx run reuse lint"
 
+["lint:ts:typecheck"]
+description = "Run pnpm format:fix"
+run = "pnpm type-check"
+depends = ["prepare:pnpm-install"]
+
 ### CI
 
-["ci:autofix:fix"]
+["ci:autofix:all"]
 description = "CI autofix job -- fix steps"
-depends = ["fix:rust:format", "fix:text:trailing_spaces", "fix:toml:format"]
+depends = [
+    "fix:rust:format",
+    "fix:text:trailing_spaces",
+    "fix:pnpm:lock",
+    "fix:pnpm:dedupe",
+    "fix:ts:biome",
+    "fix:ts:format",
+    "lint:legal:reuse"
+    ]
 
-["ci:autofix:lint"]
-description = "CI autofix job -- lint steps"
-depends = ["lint:legal:reuse"]
