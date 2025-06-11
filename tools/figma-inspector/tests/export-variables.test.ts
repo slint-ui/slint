@@ -915,12 +915,13 @@ test("fixes 'Missing data for mode' bug - modeId mismatch between collection and
     // Should not contain magenta placeholder values
     expect(content).not.toContain("#FF00FF");
 
-    // Should contain actual color values (white from the fallback)
-    expect(content).toContain("#ffffff");
+    // Should contain actual color values from different variable modes
+    expect(content).toContain("#ffffff"); // white from mode_original
+    expect(content).toContain("#000000"); // black from mode_newer
 
-    // Should contain both mode values (using fallback strategy)
-    expect(content).toContain("light: #ffffff");
-    expect(content).toContain("dark: #ffffff");
+    // Should contain different values for each mode (using enhanced fallback strategy)
+    expect(content).toContain("light: #ffffff"); // Gets first available value (mode_original)
+    expect(content).toContain("dark: #000000"); // Gets second available value (mode_newer)
 });
 
 test("comprehensive mode matching - handles various mismatch scenarios", async () => {
@@ -1006,4 +1007,175 @@ test("comprehensive mode matching - handles various mismatch scenarios", async (
     // Variable 3: Fallback strategy - should use the available value for all modes
     expect(content).toContain("fallback-needed");
     expect(content).toContain("#808080"); // The gray fallback value should appear multiple times
+});
+
+test("mode value mismatch - different modes should have different values", async () => {
+    // Mock collection with two modes: modern_theme and brutal_theme
+    const mockCollection = {
+        id: "collection1",
+        name: "Primitives Completed",
+        modes: [
+            { modeId: "mode1", name: "modern_theme" },
+            { modeId: "mode2", name: "brutal_theme" },
+        ],
+        variableIds: ["var1"],
+    };
+
+    // Mock variable with hierarchical name and different values per mode
+    const mockVariable = {
+        id: "var1",
+        name: "radius/sm",
+        type: "FLOAT",
+        resolvedType: "FLOAT",
+        valuesByMode: {
+            mode1: 4, // modern_theme should be 4px
+            mode2: 0, // brutal_theme should be 0px
+        },
+    };
+
+    mockFigma.variables.getLocalVariableCollectionsAsync.mockResolvedValue([
+        mockCollection,
+    ]);
+    mockFigma.variables.getVariableByIdAsync.mockImplementation((id) => {
+        if (id === "var1") {
+            return Promise.resolve(mockVariable);
+        }
+        return Promise.resolve(null);
+    });
+
+    const result = await exportFigmaVariablesToSeparateFiles(false);
+
+    expect(result).toHaveLength(2); // One collection file + README
+    const collectionFile = result.find((f) =>
+        f.name.includes("primitives-completed"),
+    );
+    expect(collectionFile).toBeDefined();
+
+    // Check that both modes exist and have DIFFERENT values
+    expect(collectionFile!.content).toContain("modern_theme: 4px");
+    expect(collectionFile!.content).toContain("brutal_theme: 0px");
+
+    // Make sure they're not both the same value
+    expect(collectionFile!.content).not.toMatch(
+        /modern_theme: 4px,\s*brutal_theme: 4px/,
+    );
+    expect(collectionFile!.content).not.toMatch(
+        /modern_theme: 0px,\s*brutal_theme: 0px/,
+    );
+});
+
+test("hierarchical variables with multiple values per mode", async () => {
+    // Mock collection with two modes
+    const mockCollection = {
+        id: "collection1",
+        name: "Design System",
+        modes: [
+            { modeId: "light-mode", name: "light" },
+            { modeId: "dark-mode", name: "dark" },
+        ],
+        variableIds: ["radius-sm", "radius-md"],
+    };
+
+    // Mock multiple variables with different values
+    const mockVariables = {
+        "radius-sm": {
+            id: "radius-sm",
+            name: "radius/sm",
+            type: "FLOAT",
+            resolvedType: "FLOAT",
+            valuesByMode: {
+                "light-mode": 8, // light theme: 8px
+                "dark-mode": 12, // dark theme: 12px
+            },
+        },
+        "radius-md": {
+            id: "radius-md",
+            name: "radius/md",
+            type: "FLOAT",
+            resolvedType: "FLOAT",
+            valuesByMode: {
+                "light-mode": 16, // light theme: 16px
+                "dark-mode": 20, // dark theme: 20px
+            },
+        },
+    };
+
+    mockFigma.variables.getLocalVariableCollectionsAsync.mockResolvedValue([
+        mockCollection,
+    ]);
+    mockFigma.variables.getVariableByIdAsync.mockImplementation((id) => {
+        return Promise.resolve(mockVariables[id as keyof typeof mockVariables] || null);
+    });
+
+    const result = await exportFigmaVariablesToSeparateFiles(false);
+
+    const collectionFile = result.find((f) => f.name.includes("design-system"));
+    expect(collectionFile).toBeDefined();
+
+    // Verify each variable has different values per mode
+    const content = collectionFile!.content;
+
+    // Check sm values are different
+    expect(content).toContain("light: 8px");
+    expect(content).toContain("dark: 12px");
+
+    // Check md values are different
+    expect(content).toContain("light: 16px");
+    expect(content).toContain("dark: 20px");
+
+    // Ensure no duplicate values where they shouldn't be
+    expect(content).not.toMatch(/light: 8px,\s*dark: 8px/);
+    expect(content).not.toMatch(/light: 16px,\s*dark: 16px/);
+});
+
+test("mode mismatch fallback distributes different values correctly", async () => {
+    // This test specifically reproduces the case where:
+    // 1. Collection has modes with certain IDs
+    // 2. Variable has valuesByMode with DIFFERENT IDs
+    // 3. The enhanced fallback logic distributes different values to different modes
+
+    const mockCollection = {
+        id: "collection1",
+        name: "Primitives",
+        modes: [
+            { modeId: "collection-mode-1", name: "modern_theme" },
+            { modeId: "collection-mode-2", name: "brutal_theme" },
+        ],
+        variableIds: ["radius_sm"],
+    };
+
+    // Variable has valuesByMode with DIFFERENT keys than collection modeIds
+    // This should trigger the enhanced fallback logic
+    const mockVariable = {
+        id: "radius_sm",
+        name: "radius/sm",
+        type: "FLOAT",
+        resolvedType: "FLOAT",
+        valuesByMode: {
+            "variable-mode-a": 4, // This doesn't match "collection-mode-1"
+            "variable-mode-b": 0, // This doesn't match "collection-mode-2"
+        },
+    };
+
+    mockFigma.variables.getLocalVariableCollectionsAsync.mockResolvedValue([
+        mockCollection,
+    ]);
+    mockFigma.variables.getVariableByIdAsync.mockResolvedValue(mockVariable);
+
+    const result = await exportFigmaVariablesToSeparateFiles(false);
+    const content = result[0].content;
+
+    // With the enhanced fallback logic, modes should get different values
+    const modernThemeMatch = content.match(/modern_theme:\s*(\d+px)/);
+    const brutalThemeMatch = content.match(/brutal_theme:\s*(\d+px)/);
+
+    expect(modernThemeMatch).toBeTruthy();
+    expect(brutalThemeMatch).toBeTruthy();
+
+    // The enhanced fallback should distribute different values to different modes
+    expect(modernThemeMatch![1]).toBe("4px"); // Gets first available value (index 0)
+    expect(brutalThemeMatch![1]).toBe("0px"); // Gets second available value (index 1)
+
+    // Ensure they're not the same (which would be the old bug)
+    expect(modernThemeMatch![1]).not.toBe(brutalThemeMatch![1]);
 });

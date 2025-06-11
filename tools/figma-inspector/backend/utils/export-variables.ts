@@ -1000,15 +1000,31 @@ export async function exportFigmaVariablesToSeparateFiles(
                                 }
                             }
 
-                            // Strategy 3: If still no match, try any available value as fallback
+                            // Strategy 3: Enhanced fallback - try to distribute different values to different collection modes
                             if (value === null) {
                                 const availableValues = Object.entries(
                                     variable.valuesByMode,
                                 );
                                 if (availableValues.length > 0) {
-                                    [foundModeId, value] = availableValues[0];
+                                    // Try to map collection modes to different variable modes when possible
+                                    // Get the index of this collection mode
+                                    const collectionModeIndex =
+                                        collection.modes.findIndex(
+                                            (mode) =>
+                                                mode.modeId ===
+                                                collectionMode.modeId,
+                                        );
+
+                                    // Use different available values for different collection modes
+                                    const valueIndex = Math.min(
+                                        collectionModeIndex,
+                                        availableValues.length - 1,
+                                    );
+                                    [foundModeId, value] =
+                                        availableValues[valueIndex];
+
                                     console.warn(
-                                        `Mode mismatch for variable ${variable.name}: using fallback value from mode ${foundModeId} for expected mode ${modeName}`,
+                                        `Mode mismatch for variable ${variable.name}: using fallback value from mode ${foundModeId} (index ${valueIndex}) for expected mode ${modeName}`,
                                     );
                                 }
                             }
