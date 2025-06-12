@@ -260,7 +260,9 @@ declare_builtin_function_types!(
     Translate: (Type::String, Type::String, Type::String, Type::Array(Type::String.into())) -> Type::String,
     Use24HourFormat: () -> Type::Bool,
     UpdateTimers: () -> Type::Void,
-    DetectOperatingSystem: () -> Type::String,
+    DetectOperatingSystem: () -> Type::Enumeration(
+        typeregister::BUILTIN.with(|e| e.enums.OperatingSystemType.clone()),
+    ),
 );
 
 impl BuiltinFunction {
