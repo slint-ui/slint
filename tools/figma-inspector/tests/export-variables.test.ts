@@ -1262,3 +1262,92 @@ test("handles variable names with emojis and special characters", async () => {
     expect(content).not.toContain("Missing data for mode");
     expect(content).not.toContain("#FF00FF"); // No magenta placeholder values
 });
+
+test("handles slashes in collection and mode names (shadcn/ui example)", async () => {
+    // Mock collection with slashes in both collection name and mode names
+    const mockCollection = {
+        id: "VariableCollectionId:137:1573",
+        name: "shadcn/ui",
+        modes: [
+            { modeId: "137:4", name: "light/slate" },
+            { modeId: "137:5", name: "dark/slate" },
+            { modeId: "314:0", name: "light/zinc" },
+            { modeId: "314:1", name: "dark/zinc" },
+        ],
+        variableIds: ["VariableID:137:1574", "VariableID:137:1575"],
+    };
+
+    // Mock variables with simple color values (not aliases for test simplicity)
+    const mockVariable1 = {
+        id: "VariableID:137:1574",
+        name: "background",
+        type: "COLOR",
+        resolvedType: "COLOR",
+        valuesByMode: {
+            "137:4": { r: 1, g: 1, b: 1, a: 1 }, // white
+            "137:5": { r: 0.1, g: 0.1, b: 0.1, a: 1 }, // dark
+            "314:0": { r: 0.9, g: 0.9, b: 0.9, a: 1 }, // light gray
+            "314:1": { r: 0.2, g: 0.2, b: 0.2, a: 1 }, // darker gray
+        },
+    };
+
+    const mockVariable2 = {
+        id: "VariableID:137:1575",
+        name: "foreground",
+        type: "COLOR",
+        resolvedType: "COLOR",
+        valuesByMode: {
+            "137:4": { r: 0, g: 0, b: 0, a: 1 }, // black
+            "137:5": { r: 1, g: 1, b: 1, a: 1 }, // white
+            "314:0": { r: 0.1, g: 0.1, b: 0.1, a: 1 }, // dark
+            "314:1": { r: 0.9, g: 0.9, b: 0.9, a: 1 }, // light
+        },
+    };
+
+    mockFigma.variables.getLocalVariableCollectionsAsync.mockResolvedValue([
+        mockCollection,
+    ]);
+    mockFigma.variables.getVariableByIdAsync.mockImplementation((id) => {
+        if (id === "VariableID:137:1574") {
+            return Promise.resolve(mockVariable1);
+        }
+        if (id === "VariableID:137:1575") {
+            return Promise.resolve(mockVariable2);
+        }
+        return Promise.resolve(null);
+    });
+
+    const result = await exportFigmaVariablesToSeparateFiles(false);
+
+    expect(result).toHaveLength(2); // One collection file + README
+    const collectionFile = result.find((f) => f.name.includes("shadcn-ui"));
+    expect(collectionFile).toBeDefined();
+
+    const content = collectionFile!.content;
+
+    // Verify that slashes in collection name are properly sanitized
+    expect(content).toContain("export enum shadcn-uiMode"); // Collection name sanitized
+    expect(content).not.toContain("shadcn/uiMode"); // Original slashes should be gone
+
+    // Verify that slashes in mode names are properly sanitized
+    expect(content).toContain("light_slate,"); // Mode names sanitized
+    expect(content).toContain("dark_slate,");
+    expect(content).toContain("light_zinc,");
+    expect(content).toContain("dark_zinc,");
+    expect(content).not.toContain("light/slate"); // Original slashes should be gone
+    expect(content).not.toContain("dark/slate");
+
+    // Verify struct names are properly sanitized
+    expect(content).toContain("struct shadcn-ui_mode4_brush"); // Struct name sanitized
+    expect(content).not.toContain("shadcn/ui_mode4_brush"); // Original slashes should be gone
+
+    // Verify that the global export uses sanitized name
+    expect(content).toContain("export global shadcn-ui");
+    expect(content).not.toContain("export global shadcn/ui");
+
+    // Verify variables are present
+    expect(content).toContain("background");
+    expect(content).toContain("foreground");
+
+    console.log("Generated content for slash test:", content);
+});
