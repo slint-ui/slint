@@ -82,3 +82,27 @@ impl Default for WGPUConfiguration {
         Self::Automatic(WGPUSettings::default())
     }
 }
+
+#[derive(Debug)]
+#[non_exhaustive]
+/// This enum describes the possible errors that can occur when importing a WGPU texture,
+/// via [`Image::try_from()`](super::Image::try_from()).
+pub enum TextureImportError {
+    /// The texture format is not supported. The only supported format is Rgba8Unorm and Rgba8UnormSrgb.
+    InvalidFormat,
+    /// The texture usage must include TEXTURE_BINDING as well as RENDER_ATTACHMENT.
+    InvalidUsage,
+}
+
+impl core::fmt::Display for TextureImportError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            TextureImportError::InvalidFormat => f.write_str(
+                "The texture format is not supported. The only supported format is Rgba8Unorm and Rgba8UnormSrgb",
+            ),
+            TextureImportError::InvalidUsage => f.write_str(
+                "The texture usage must include TEXTURE_BINDING as well as RENDER_ATTACHMENT",
+            ),
+        }
+    }
+}

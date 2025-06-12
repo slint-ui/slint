@@ -992,46 +992,20 @@ impl BorrowedOpenGLTextureBuilder {
 }
 
 #[cfg(feature = "unstable-wgpu-24")]
-#[derive(Debug)]
-#[non_exhaustive]
-/// This enum describes the possible errors that can occur when importing a WGPU texture,
-/// via [`Image::try_from()`].
-pub enum WGPUTextureImportError {
-    /// The texture format is not supported. The only supported format is Rgba8Unorm and Rgba8UnormSrgb.
-    InvalidFormat,
-    /// The texture usage must include TEXTURE_BINDING as well as RENDER_ATTACHMENT.
-    InvalidUsage,
-}
-
-#[cfg(feature = "unstable-wgpu-24")]
-impl core::fmt::Display for WGPUTextureImportError {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        match self {
-            WGPUTextureImportError::InvalidFormat => f.write_str(
-                "The texture format is not supported. The only supported format is Rgba8Unorm and Rgba8UnormSrgb",
-            ),
-            WGPUTextureImportError::InvalidUsage => f.write_str(
-                "The texture usage must include TEXTURE_BINDING as well as RENDER_ATTACHMENT",
-            ),
-        }
-    }
-}
-
-#[cfg(feature = "unstable-wgpu-24")]
 impl TryFrom<wgpu_24::Texture> for Image {
-    type Error = WGPUTextureImportError;
+    type Error = crate::graphics::wgpu_24::TextureImportError;
 
     fn try_from(texture: wgpu_24::Texture) -> Result<Self, Self::Error> {
         if texture.format() != wgpu_24::TextureFormat::Rgba8Unorm
             && texture.format() != wgpu_24::TextureFormat::Rgba8UnormSrgb
         {
-            return Err(WGPUTextureImportError::InvalidFormat);
+            return Err(Self::Error::InvalidFormat);
         }
         let usages = texture.usage();
         if !usages.contains(wgpu_24::TextureUsages::TEXTURE_BINDING)
             || !usages.contains(wgpu_24::TextureUsages::RENDER_ATTACHMENT)
         {
-            return Err(WGPUTextureImportError::InvalidUsage);
+            return Err(Self::Error::InvalidUsage);
         }
         Ok(Self(ImageInner::WGPUTexture(WGPUTexture::WGPU24Texture(texture))))
     }
