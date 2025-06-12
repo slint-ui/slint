@@ -28,7 +28,7 @@ interface VariableCollection {
 }
 
 interface VariableReference {
-    path: string;
+    path?: string;
     variable: Variable;
 }
 
@@ -47,8 +47,8 @@ export async function processVariableCollections(): Promise<
     try {
         const collections =
             await figma.variables.getLocalVariableCollectionsAsync();
-        const allVariables = await figma.variables.getLocalVariablesAsync();
 
+        const allVariables = await figma.variables.getLocalVariablesAsync();
         const variablesByCollection = new Map<string, Variable[]>();
         for (const variable of allVariables) {
             const collectionId = variable.variableCollectionId;
@@ -70,9 +70,12 @@ export async function processVariableCollections(): Promise<
                 scopes: variable.scopes || [],
             };
 
-            variablesByCollection
-                .get(collectionId)!
-                .push(safeVariable as Variable);
+            const vars = variablesByCollection.get(collectionId);
+            if (vars && collectionId) {
+                vars.push(safeVariable as Variable);
+            } else {
+                console.log("Collection ID not found", collectionId);
+            }
         }
 
         // Build the final collections data
@@ -186,7 +189,7 @@ export async function createSlintExport(): Promise<void> {
                 // Add properties for each mode
                 for (const mode of collection.modes) {
                     allSlintCode += `${indent}property <${structName}> ${mode.name}: {\n`;
-                    allSlintCode += generateVariablesForMode(
+                    allSlintCode += await generateVariablesForMode(
                         collection.variables,
                         mode.modeId,
                         collection.name,
@@ -197,7 +200,7 @@ export async function createSlintExport(): Promise<void> {
             } else {
                 // For collections with only one mode, just create a simple property
                 allSlintCode += `${indent}out property <${structName}> vars: {\n`;
-                allSlintCode += generateVariablesForMode(
+                allSlintCode += await generateVariablesForMode(
                     collection.variables,
                     collection.modes[0].modeId,
                     collection.name,
@@ -376,23 +379,32 @@ function formatValueForSlint(variable: Variable, value: any): string {
     }
 }
 
-export function generateVariableValue(
+export async function generateVariableValue(
     variable: Variable,
     value: any,
     collectionName: string,
     collectionDefaultModes: Map<string, string>,
     variableRefMap: Map<string, VariableReference>,
-): string {
+): Promise<string> {
     if (isVariableAlias(value)) {
         // Figma allows designers to go wild with variables the reference other variables or even other
         // references. This quickly leads to binding loops in this current export. This function simplifies the
         // problem by allowing a single variable in another struct. If the variable references the current struct
         // or another reference the alias chain is simply resolved to a final value based on defaultModeId's
-        const variableAlias = variableRefMap.get(value.id)?.path ?? "";
-        const aliasCollection = variableAlias.split(".")[0];
+        // if it has no path it probably a variable from a deleted collection that handleDeadEndValue has recreated.
+        const variableFromAlias = variableRefMap.get(value.id);
+        if (variableFromAlias && variableFromAlias.path === undefined) {
+            const key0 = Object.keys(variableFromAlias.variable.valuesByMode)[0];
+            const value = variableFromAlias.variable.valuesByMode[key0];
+            return formatValueForSlint(variable, value);
+        }
+
+
+        const variableAlias = variableFromAlias?.path;
+        const aliasCollection = variableFromAlias?.path?.split(".")[0];
         if (variableAlias) {
             if (aliasCollection === collectionName) {
-                return followAliasChain(
+                return await followAliasChain(
                     variable,
                     value,
                     variableRefMap,
@@ -408,7 +420,7 @@ export function generateVariableValue(
                         nextVariable.valuesByMode,
                     )) {
                         if (isVariableAlias(modeValue)) {
-                            return followAliasChain(
+                            return await followAliasChain(
                                 variable,
                                 value,
                                 variableRefMap,
@@ -421,20 +433,25 @@ export function generateVariableValue(
 
             return `${indent2}${variable.name}: ${variableAlias},\n`;
         } else {
-            return handleDeletedVariable(variable);
+            return await handleDeadEndValue(
+                variable,
+                value,
+                collectionDefaultModes,
+                variableRefMap
+            );
         }
     } else {
         return formatValueForSlint(variable, value);
     }
 }
 
-function generateVariablesForMode(
+async function generateVariablesForMode(
     variables: Variable[],
     modeId: string,
     collectionName: string,
     collectionDefaultModes: Map<string, string>,
     variableRefMap: Map<string, VariableReference>,
-): string {
+): Promise<string> {
     let result = "";
     for (const variable of variables) {
         let value = variable.valuesByMode[modeId];
@@ -446,7 +463,7 @@ function generateVariablesForMode(
             const firstModeId = Object.keys(variable.valuesByMode)[0];
             value = variable.valuesByMode[firstModeId];
         }
-        result += generateVariableValue(
+        result += await generateVariableValue(
             variable,
             value,
             collectionName,
@@ -458,17 +475,46 @@ function generateVariablesForMode(
     return result;
 }
 
-function handleDeletedVariable(variable: Variable): string {
+// Figma allows you to delete variables and even collections that other variables reference. When this happens
+// figma.variables.getLocalVariableCollectionsAsync() will be missing those items. This function then uses
+// figma.variables.getVariableByIdAsync() to get the variable and then uses the valuesByMode to get the value.
+// It then puts a reference in the variableRefMap to save constant potential calls to figma.variables.getVariableByIdAsync()
+async function handleDeadEndValue(
+    variable: Variable,
+    value: any,
+    collectionDefaultModes: Map<string, string>,
+    variableRefMap: Map<string, VariableReference>,
+): Promise<string> {
+    const v = await figma.variables.getVariableByIdAsync(value.id);
+    if (v) {
+        if (!variableRefMap.has(v.id)) {
+            variableRefMap.set(v.id, {
+                variable: v,
+            });
+        }
+        const collectionId = v.variableCollectionId;
+        const defaultModeId = collectionDefaultModes.get(collectionId);
+        if (defaultModeId !== undefined) {
+            const newValue = v.valuesByMode[defaultModeId];
+            if (newValue !== undefined) {
+                return formatValueForSlint(variable, newValue);
+            }
+        }
+        const anyValue = v.valuesByMode[Object.keys(v.valuesByMode)[0]];
+        if (anyValue !== undefined) {
+            return formatValueForSlint(variable, anyValue);
+        }
+    }
     const { defaultValue } = getSlintTypeInfo(variable);
     return `// Figma file is pointing at a deleted Variable "${variable.name}"\n${indent2}${variable.name}: ${defaultValue},\n`;
 }
 
-function followAliasChain(
+async function followAliasChain(
     variable: Variable,
     value: any,
     variableRefMap: Map<string, VariableReference>,
     collectionDefaultModes: Map<string, string>,
-): string {
+): Promise<string> {
     if (isVariableAlias(value)) {
         // get the next variable in the chain
         const nextVariable = variableRefMap.get(value.id)?.variable;
@@ -480,7 +526,7 @@ function followAliasChain(
                     )!
                 ];
             if (isVariableAlias(nextValue)) {
-                return followAliasChain(
+                return await followAliasChain(
                     variable,
                     nextValue,
                     variableRefMap,
@@ -490,7 +536,12 @@ function followAliasChain(
                 return formatValueForSlint(variable, nextValue);
             }
         } else {
-            return handleDeletedVariable(variable);
+            return await handleDeadEndValue(
+                variable,
+                value,
+                collectionDefaultModes,
+                variableRefMap
+            );
         }
     }
     return formatValueForSlint(variable, value);
