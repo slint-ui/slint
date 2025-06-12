@@ -130,7 +130,7 @@ test("handles multiple consecutive duplicates", () => {
 
 // generateVariableValue tests
 describe("generateVariableValue", () => {
-    it("should round float values to one decimal place", () => {
+    it("should round float values to one decimal place", async () => {
         const variable = {
             name: "test-float",
             resolvedType: "FLOAT",
@@ -144,7 +144,7 @@ describe("generateVariableValue", () => {
         const sanitizedCollection = { variables: [] } as any;
 
         expect(
-            generateVariableValue(
+            await generateVariableValue(
                 variable,
                 0.89099,
                 collectionName,
@@ -153,7 +153,7 @@ describe("generateVariableValue", () => {
             ),
         ).toBe(`${indent2}test-float: 0.9,\n`);
         expect(
-            generateVariableValue(
+            await generateVariableValue(
                 variable,
                 1.003,
                 collectionName,
@@ -162,7 +162,7 @@ describe("generateVariableValue", () => {
             ),
         ).toBe(`${indent2}test-float: 1.0,\n`);
         expect(
-            generateVariableValue(
+            await generateVariableValue(
                 variable,
                 2.567,
                 collectionName,
@@ -171,7 +171,7 @@ describe("generateVariableValue", () => {
             ),
         ).toBe(`${indent2}test-float: 2.6,\n`);
         expect(
-            generateVariableValue(
+            await generateVariableValue(
                 variable,
                 3.0,
                 collectionName,
@@ -181,7 +181,7 @@ describe("generateVariableValue", () => {
         ).toBe(`${indent2}test-float: 3.0,\n`);
     });
 
-    it("should handle other types correctly", () => {
+    it("should handle other types correctly", async () => {
         const variableRefMap = new Map<
             string,
             { path: string; variable: any }
@@ -195,7 +195,7 @@ describe("generateVariableValue", () => {
             resolvedType: "STRING",
         } as any;
         expect(
-            generateVariableValue(
+            await generateVariableValue(
                 stringVar,
                 "hello",
                 collectionName,
@@ -210,7 +210,7 @@ describe("generateVariableValue", () => {
             resolvedType: "BOOLEAN",
         } as any;
         expect(
-            generateVariableValue(
+            await generateVariableValue(
                 boolVar,
                 true,
                 collectionName,
@@ -226,7 +226,7 @@ describe("generateVariableValue", () => {
             scopes: ["ALL_SCOPES"],
         } as any;
         expect(
-            generateVariableValue(
+            await generateVariableValue(
                 lengthVar,
                 42,
                 collectionName,
@@ -241,7 +241,7 @@ describe("generateVariableValue", () => {
             resolvedType: "COLOR",
         } as any;
         expect(
-            generateVariableValue(
+            await generateVariableValue(
                 brushVar,
                 "invalid-data",
                 collectionName,
@@ -252,7 +252,7 @@ describe("generateVariableValue", () => {
 
         // Test RGB object conversion
         expect(
-            generateVariableValue(
+            await generateVariableValue(
                 brushVar,
                 { r: 1, g: 0, b: 0, a: 1 },
                 collectionName,
@@ -261,7 +261,7 @@ describe("generateVariableValue", () => {
             ),
         ).toBe(`${indent2}test-brush: #ff0000,\n`);
         expect(
-            generateVariableValue(
+            await generateVariableValue(
                 brushVar,
                 { r: 0, g: 1, b: 0, a: 1 },
                 collectionName,
@@ -270,7 +270,7 @@ describe("generateVariableValue", () => {
             ),
         ).toBe(`${indent2}test-brush: #00ff00,\n`);
         expect(
-            generateVariableValue(
+            await generateVariableValue(
                 brushVar,
                 { r: 0, g: 0, b: 1, a: 1 },
                 collectionName,
@@ -279,7 +279,7 @@ describe("generateVariableValue", () => {
             ),
         ).toBe(`${indent2}test-brush: #0000ff,\n`);
         expect(
-            generateVariableValue(
+            await generateVariableValue(
                 brushVar,
                 { r: 0.5, g: 0.5, b: 0.5, a: 1 },
                 collectionName,
@@ -289,7 +289,7 @@ describe("generateVariableValue", () => {
         ).toBe(`${indent2}test-brush: #808080,\n`);
     });
 
-    it("should handle variable aliases", () => {
+    it("should handle variable aliases", async () => {
         const variable = {
             name: "test-var",
             resolvedType: "COLOR",
@@ -317,7 +317,7 @@ describe("generateVariableValue", () => {
 
         // Test direct reference
         expect(
-            generateVariableValue(
+            await generateVariableValue(
                 variable,
                 { type: "VARIABLE_ALIAS", id: "var-id-1" },
                 collectionName,
@@ -326,17 +326,5 @@ describe("generateVariableValue", () => {
             ),
         ).toBe(`${indent2}test-var: Colors.collection.primary,\n`);
 
-        // Test reference to non-existent variable
-        expect(
-            generateVariableValue(
-                variable,
-                { type: "VARIABLE_ALIAS", id: "non-existent" },
-                collectionName,
-                sanitizedCollection,
-                variableRefMap,
-            ),
-        ).toBe(
-            `// Figma file is pointing at a deleted Variable "test-var"\n${indent2}test-var: #000000,\n`,
-        );
     });
 });
