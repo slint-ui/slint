@@ -83,7 +83,7 @@ impl Default for WGPUConfiguration {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, derive_more::Error)]
 #[non_exhaustive]
 /// This enum describes the possible errors that can occur when importing a WGPU texture,
 /// via [`Image::try_from()`](super::Image::try_from()).
