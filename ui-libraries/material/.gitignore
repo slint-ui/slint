@@ -7,3 +7,5 @@ package-lock.json
 .vscode/settings.json
 licenses/output
 *.bak
+target/
+Cargo.lock
