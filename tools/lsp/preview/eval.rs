@@ -280,8 +280,6 @@ pub fn fully_eval_expression_tree_expression(
     expression: &expression_tree::Expression,
     window_adapter: Option<&Rc<dyn slint::platform::WindowAdapter>>,
 ) -> Option<slint_interpreter::Value> {
-
-
     let mut ctx = EvalLocalContext::default();
     ctx.window_adapter = window_adapter.cloned();
     let value = eval_expression(expression, &mut ctx, None);
