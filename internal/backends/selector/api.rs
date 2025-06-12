@@ -113,7 +113,7 @@ impl BackendSelector {
     /// *Note*: This function is behind the [`unstable-wgpu-24` feature flag](slint:rust:slint/docs/cargo_features/#backends)
     ///         and may be removed or changed in future minor releases, as new major WGPU releases become available.
     ///
-    /// See also the [`slint::wgpu_24`](slint:rust:slint/wgpu_24) module
+    /// See also the [`slint::wgpu_24`](slint:rust:slint/wgpu_24) module.
     #[cfg(feature = "unstable-wgpu-24")]
     #[must_use]
     pub fn require_wgpu_24(
