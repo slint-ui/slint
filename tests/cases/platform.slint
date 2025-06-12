@@ -5,7 +5,23 @@
 // to fluent.
 
 export component TestCase inherits Window {
-    out property <string> os: Platform.os;
+    out property <string> os: {
+        if Platform.os == OperatingSystemType.android {
+            "android"
+        } else if Platform.os == OperatingSystemType.ios {
+            "ios"
+        } else if Platform.os == OperatingSystemType.macos {
+            "macos"
+        } else if Platform.os == OperatingSystemType.linux {
+            "linux"
+        } else if Platform.os == OperatingSystemType.windows {
+            "windows"
+        } else if Platform.os == OperatingSystemType.other {
+            "other"
+        } else {
+            "error"
+        }
+    }
     out property <string> style-name: Platform.style-name;
 }
 
