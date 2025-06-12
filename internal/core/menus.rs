@@ -27,12 +27,11 @@ use vtable::{VRef, VRefMut};
 #[repr(C)]
 pub struct MenuVTable {
     /// destructor
-    drop: extern "C-unwind" fn(VRefMut<MenuVTable>),
+    drop: extern "C" fn(VRefMut<MenuVTable>),
     /// Return the list of items for the sub menu (or the main menu of parent is None)
-    sub_menu:
-        extern "C-unwind" fn(VRef<MenuVTable>, Option<&MenuEntry>, &mut SharedVector<MenuEntry>),
+    sub_menu: extern "C" fn(VRef<MenuVTable>, Option<&MenuEntry>, &mut SharedVector<MenuEntry>),
     /// Handler when the menu entry is activated
-    activate: extern "C-unwind" fn(VRef<MenuVTable>, &MenuEntry),
+    activate: extern "C" fn(VRef<MenuVTable>, &MenuEntry),
 }
 
 struct ShadowTreeNode {

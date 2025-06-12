@@ -24,12 +24,12 @@ mod svg;
 #[vtable::vtable]
 #[repr(C)]
 pub struct OpaqueImageVTable {
-    drop_in_place: extern "C-unwind" fn(VRefMut<OpaqueImageVTable>) -> Layout,
-    dealloc: extern "C-unwind" fn(&OpaqueImageVTable, ptr: *mut u8, layout: Layout),
+    drop_in_place: extern "C" fn(VRefMut<OpaqueImageVTable>) -> Layout,
+    dealloc: extern "C" fn(&OpaqueImageVTable, ptr: *mut u8, layout: Layout),
     /// Returns the image size
-    size: extern "C-unwind" fn(VRef<OpaqueImageVTable>) -> IntSize,
+    size: extern "C" fn(VRef<OpaqueImageVTable>) -> IntSize,
     /// Returns a cache key
-    cache_key: extern "C-unwind" fn(VRef<OpaqueImageVTable>) -> ImageCacheKey,
+    cache_key: extern "C" fn(VRef<OpaqueImageVTable>) -> ImageCacheKey,
 }
 
 #[cfg(feature = "svg")]
