@@ -21,7 +21,7 @@ use crate::graphics::rendering_metrics_collector::{RefreshMode, RenderingMetrics
 use crate::graphics::{BorderRadius, Rgba8Pixel, SharedImageBuffer, SharedPixelBuffer};
 use crate::item_rendering::{
     CachedRenderingData, DirtyRegion, PartialRenderingState, RenderBorderRectangle, RenderImage,
-    RenderRectangle,
+    RenderRectangle, RenderText,
 };
 use crate::items::{ItemRc, TextOverflow, TextWrap};
 use crate::lengths::{
@@ -1928,10 +1928,10 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                             fonts::GlyphAlphaMap::Shared(data) => {
                                 let source_rect = euclid::rect(0, 0, glyph.width.0, glyph.height.0);
                                 target_pixel_buffer::TextureDataContainer::Shared {
-                                    buffer: SharedBufferData::AlphaMap {
+                                    buffer: SharedBufferData::AlphaMap(AlphaMapBuffer {
                                         data: data.clone(),
                                         width: glyph.pixel_stride,
-                                    },
+                                    }),
                                     source_rect,
                                 }
                             }
@@ -1974,6 +1974,160 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
         } else {
             color
         }
+    }
+
+    #[cfg(feature = "std")]
+    fn draw_text_bitmap(
+        &mut self,
+        text: &Pin<&dyn RenderText>,
+        geom: LogicalRect,
+        bitmap: AlphaMapBuffer,
+    ) {
+        let full_geom = (geom.translate(self.current_state.offset.to_vector()).cast()
+            * self.scale_factor)
+            .round()
+            .cast()
+            .transformed(self.rotation);
+
+        let Some(logical_clip) = self.current_state.clip.intersection(&geom) else {
+            return; // completely outside the clip
+        };
+        let clip_phys = (logical_clip.translate(self.current_state.offset.to_vector()).cast()
+            * self.scale_factor)
+            .round()
+            .cast()
+            .transformed(self.rotation);
+
+        let Some(clipped_geom) = full_geom.intersection(&clip_phys) else {
+            return; // nothing visible
+        };
+
+        // Corresponding area inside the cached bitmap
+        let dx = (clipped_geom.min_x() - full_geom.min_x()) as i16;
+        let dy = (clipped_geom.min_y() - full_geom.min_y()) as i16;
+        let source_rect = euclid::rect(dx, dy, clipped_geom.width(), clipped_geom.height());
+
+        let full_color = self.alpha_color(text.color().color());
+
+        let t = target_pixel_buffer::DrawTextureArgs {
+            data: target_pixel_buffer::TextureDataContainer::Shared {
+                buffer: SharedBufferData::AlphaMap(bitmap),
+                source_rect,
+            },
+            colorize: Some(full_color),
+            // color already is mixed with global alpha
+            alpha: full_color.alpha(),
+            dst_x: clipped_geom.min_x() as _,
+            dst_y: clipped_geom.min_y() as _,
+            dst_width: clipped_geom.width() as _,
+            dst_height: clipped_geom.height() as _,
+            rotation: self.rotation.orientation,
+            tiling: None,
+        };
+
+        self.processor.process_target_texture(&t, clipped_geom);
+        return;
+    }
+
+    #[cfg(feature = "std")]
+    fn draw_text_bitmap_to_cache(
+        &mut self,
+        text: &Pin<&dyn RenderText>,
+        self_rc: &ItemRc,
+        geom: LogicalRect,
+        string: crate::SharedString,
+        cache_key: paragraph_cache::ParagraphCacheKey,
+    ) {
+        use crate::graphics::AlphaOnly;
+
+        // ceil to ensure we don't have off by 1 errors when rendering the bitmap
+        let max_size: euclid::Size2D<f32, PhysicalPx> =
+            (geom.size.cast() * self.scale_factor).ceil();
+
+        let font_request = text.font_request(self_rc);
+        let font = fonts::match_font(&font_request, self.scale_factor);
+
+        let alpha_map = match &font {
+            fonts::Font::PixelFont(pixel_font) => {
+                let font_layout =
+                    fonts::text_layout_for_font(pixel_font, &font_request, self.scale_factor);
+                self.render_text_to_alpha_map(&text, &string, max_size, font_layout)
+            }
+            fonts::Font::VectorFont(vector_font) => {
+                let font_layout =
+                    fonts::text_layout_for_font(vector_font, &font_request, self.scale_factor);
+                self.render_text_to_alpha_map(&text, &string, max_size, font_layout)
+            }
+        };
+
+        // AlphaMap fast-path (1 byte per pixel instead of 4).
+        let alpha_bytes = bytemuck::cast_slice::<AlphaOnly, u8>(alpha_map.as_slice());
+        let alpha_map =
+            AlphaMapBuffer { data: Rc::from(alpha_bytes), width: alpha_map.width() as u16 };
+
+        paragraph_cache::add_to_cache(cache_key, alpha_map.clone());
+        self.draw_text_bitmap(&text, geom, alpha_map);
+    }
+
+    #[cfg(feature = "std")]
+    #[inline]
+    fn render_text_to_alpha_map<Font>(
+        &self,
+        text: &Pin<&dyn RenderText>,
+        string: &crate::SharedString,
+        max_size: euclid::Size2D<f32, PhysicalPx>,
+
+        layout: crate::textlayout::TextLayout<'_, Font>,
+    ) -> SharedPixelBuffer<crate::graphics::AlphaOnly>
+    where
+        Font: AbstractFont + crate::textlayout::TextShaper<Length = PhysicalLength> + GlyphRenderer,
+    {
+        use crate::graphics::AlphaOnly;
+
+        let (w, h) = (max_size.width as u32, max_size.height as u32);
+
+        let mut alpha_map = SharedPixelBuffer::<AlphaOnly>::new(w, h);
+        let mut buffer = TargetPixelSlice { data: alpha_map.make_mut_slice(), pixel_stride: w as _ };
+
+        let mut off_renderer = SceneBuilder::new(
+            euclid::size2(w as i16, h as i16),
+            self.scale_factor,
+            self.window,
+            RenderToBuffer {
+                buffer: &mut buffer,
+                dirty_range_cache: vec![],
+                dirty_region: {
+                    let mut pr = PhysicalRegion::default();
+                    pr.rectangles[0] = euclid::rect(0, 0, w as i16, h as i16).to_box2d();
+                    pr.count = 1;
+                    pr
+                },
+            },
+            RenderingRotation::NoRotation,
+        );
+
+        let physical_clip = euclid::rect(0f32, 0f32, max_size.width, max_size.height);
+        let (horizontal_alignment, vertical_alignment) = text.alignment();
+        let text_color = crate::graphics::Color::from_argb_u8(255, 0, 0, 0);
+        off_renderer.draw_text_paragraph(
+            &TextParagraphLayout {
+                string: &string,
+                layout,
+                max_width: max_size.width_length().cast(),
+                max_height: max_size.height_length().cast(),
+                horizontal_alignment,
+                vertical_alignment,
+                wrap: text.wrap(),
+                overflow: text.overflow(),
+                single_line: false,
+            },
+            physical_clip,
+            Default::default(),
+            text_color,
+            None,
+        );
+
+        alpha_map
     }
 }
 
@@ -2161,6 +2315,18 @@ impl<T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'_, T
 
         let color = self.alpha_color(text.color().color());
         let max_size = (geom.size.cast() * self.scale_factor).cast();
+        #[cfg(feature = "std")]
+        if let Some(cache_key) =
+            paragraph_cache::ParagraphCacheKey::new(&text, &font_request, size, self.scale_factor)
+        {
+            if let Some(cached) = paragraph_cache::get_from_cache(&cache_key) {
+                self.draw_text_bitmap(&text, geom, cached);
+                return;
+            }
+
+            self.draw_text_bitmap_to_cache(&text, self_rc, geom, string, cache_key);
+            return;
+        }
 
         // Clip glyphs not only against the global clip but also against the Text's geometry to avoid drawing outside
         // of its boundaries (that breaks partial rendering and the cast to usize for the item relative coordinate below).
@@ -2495,4 +2661,115 @@ impl<T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'_, T
 
 impl<T: ProcessScene> crate::item_rendering::ItemRendererFeatures for SceneBuilder<'_, T> {
     const SUPPORTS_TRANSFORMATIONS: bool = false;
+}
+#[cfg(feature = "std")]
+mod paragraph_cache {
+    use core::pin::Pin;
+    use std::hash::RandomState;
+    use std::num::NonZeroUsize;
+
+    use clru::{CLruCache, CLruCacheConfig, WeightScale};
+
+    use crate::{
+        graphics::FontRequest,
+        item_rendering::RenderText,
+        items::{TextHorizontalAlignment, TextOverflow, TextVerticalAlignment, TextWrap},
+        lengths::{LogicalPx, LogicalSize, PhysicalPx, ScaleFactor},
+        software_renderer::scene::AlphaMapBuffer,
+        SharedString,
+    };
+
+    pub fn add_to_cache(key: ParagraphCacheKey, data: AlphaMapBuffer) {
+        with_cache(|c| c.put_with_weight(key, data).ok());
+    }
+
+    pub fn get_from_cache(key: &ParagraphCacheKey) -> Option<AlphaMapBuffer> {
+        with_cache(|c| c.get(&key).cloned())
+    }
+
+    #[derive(Debug, Clone, Eq, PartialEq, Hash)]
+    pub struct ParagraphCacheKey {
+        text: SharedString,
+        max_size: euclid::Size2D<u32, PhysicalPx>,
+
+        weight: Option<i32>,
+        pixel_size: Option<euclid::Length<u32, LogicalPx>>,
+
+        horizontal_alignment: TextHorizontalAlignment,
+        vertical_alignment: TextVerticalAlignment,
+        wrap: TextWrap,
+        overflow: TextOverflow,
+    }
+
+    impl ParagraphCacheKey {
+        // returns none if the text cannot be cached
+        pub fn new(
+            text: &Pin<&dyn RenderText>,
+            font_request: &FontRequest,
+            size: LogicalSize,
+            scale_factor: ScaleFactor,
+        ) -> Option<Self> {
+            let max_size = (size * scale_factor).cast::<u32>();
+            let item_size = image_size(max_size.width, max_size.height);
+            if item_size > max_item_size() {
+                return None;
+            }
+
+            let (horizontal_alignment, vertical_alignment) = text.alignment();
+
+            Some(Self {
+                text: text.text(),
+                max_size,
+                weight: font_request.weight,
+                pixel_size: font_request.pixel_size.map(|p| p.cast()),
+
+                horizontal_alignment,
+                vertical_alignment,
+                wrap: text.wrap(),
+                overflow: text.overflow(),
+            })
+        }
+    }
+
+    struct ParagraphWeightScale;
+    impl WeightScale<ParagraphCacheKey, AlphaMapBuffer> for ParagraphWeightScale {
+        fn weight(&self, _k: &ParagraphCacheKey, v: &AlphaMapBuffer) -> usize {
+            v.data.len() * std::mem::size_of::<u8>()
+        }
+    }
+
+    fn image_size(height: u32, width: u32) -> usize {
+        height as usize * width as usize * std::mem::size_of::<u8>()
+    }
+
+    type ParagraphCache =
+        CLruCache<ParagraphCacheKey, AlphaMapBuffer, RandomState, ParagraphWeightScale>;
+
+    // 1 MiB
+    const DEFAULT_CACHE_SIZE: usize = 1 * 1024 * 1024;
+
+    fn max_item_size() -> usize {
+        with_cache(|c| c.capacity())
+    }
+
+    fn with_cache<T>(f: impl FnOnce(&mut ParagraphCache) -> T) -> T {
+        PARAGRAPH_CACHE.with(|c| {
+            let mut cache = c.borrow_mut();
+            if cache.is_none() {
+                let cache_size = option_env!("MAX_TEXT_BITMAP_CACHE_SIZE")
+                    .and_then(|s| s.parse::<usize>().ok())
+                    .unwrap_or(DEFAULT_CACHE_SIZE);
+
+                *cache = Some(CLruCache::with_config(
+                    CLruCacheConfig::new(NonZeroUsize::new(cache_size).unwrap())
+                        .with_scale(ParagraphWeightScale),
+                ));
+            }
+            f(cache.as_mut().unwrap())
+        })
+    }
+
+    crate::thread_local! {
+        static PARAGRAPH_CACHE : core::cell::RefCell<Option<ParagraphCache>> = core::cell::RefCell::new(None);
+    }
 }

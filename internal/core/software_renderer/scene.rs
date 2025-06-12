@@ -407,21 +407,29 @@ impl SceneTextureExtra {
 #[derive(Clone)]
 pub enum SharedBufferData {
     SharedImage(SharedImageBuffer),
-    AlphaMap { data: Rc<[u8]>, width: u16 },
+    AlphaMap(AlphaMapBuffer),
+}
+
+#[derive(Clone)]
+pub struct AlphaMapBuffer {
+    pub width: u16,
+    pub data: Rc<[u8]>,
 }
 
 impl SharedBufferData {
     pub fn width(&self) -> usize {
         match self {
             SharedBufferData::SharedImage(image) => image.width() as usize,
-            SharedBufferData::AlphaMap { width, .. } => *width as usize,
+            SharedBufferData::AlphaMap(buffer) => buffer.width as usize,
         }
     }
     #[allow(unused)]
     pub fn height(&self) -> usize {
         match self {
             SharedBufferData::SharedImage(image) => image.height() as usize,
-            SharedBufferData::AlphaMap { data, width, .. } => data.len() / *width as usize,
+            SharedBufferData::AlphaMap(AlphaMapBuffer { width, data }) => {
+                data.len() / *width as usize
+            }
         }
     }
 }
@@ -459,10 +467,10 @@ impl SharedBufferCommand {
                     extra: self.extra,
                 }
             }
-            SharedBufferData::AlphaMap { data, width } => SceneTexture {
-                data: &data[start..end],
-                pixel_stride: *width,
-                format: TexturePixelFormat::AlphaMap,
+            SharedBufferData::AlphaMap(buffer) => SceneTexture {
+                data: &buffer.data[start..end],
+                pixel_stride: buffer.width as u16,
+                format: PixelFormat::AlphaMap,
                 extra: self.extra,
             },
         }

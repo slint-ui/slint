@@ -119,7 +119,7 @@ impl DrawTextureArgs {
                             size,
                         )
                     }
-                    SharedBufferData::AlphaMap { data, .. } => TextureData::new(
+                    SharedBufferData::AlphaMap(AlphaMapBuffer { data, .. }) => TextureData::new(
                         &data[start..end],
                         TexturePixelFormat::AlphaMap,
                         stride,

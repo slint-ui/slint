@@ -786,6 +786,22 @@ impl TargetPixel for crate::graphics::image::Rgb8Pixel {
     }
 }
 
+impl TargetPixel for crate::graphics::AlphaOnly {
+    fn blend(&mut self, color: PremultipliedRgbaColor) {
+        // Integer-based alpha blending for text anti-aliasing
+        let src_alpha = color.alpha as u16;
+        let dst_alpha = self.0 as u16;
+        let blended_alpha = (src_alpha + (dst_alpha * (255 - src_alpha)) / 255) as u8;
+        self.0 = blended_alpha;
+    }
+
+    fn from_rgb(_r: u8, _g: u8, _b: u8) -> Self {
+        // For text rendering, we don't care about RGB values
+        // Just return fully transparent
+        Self(0)
+    }
+}
+
 impl TargetPixel for PremultipliedRgbaColor {
     fn blend(&mut self, color: PremultipliedRgbaColor) {
         let a = (u8::MAX - color.alpha) as u16;
