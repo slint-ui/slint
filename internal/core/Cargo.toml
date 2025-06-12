@@ -77,7 +77,7 @@ vtable = { workspace = true }
 portable-atomic = { version = "1", features = ["critical-section"] }
 auto_enums = "0.8.0"
 cfg-if = "1"
-derive_more = { workspace = true }
+derive_more = { workspace = true, features = ["error"] }
 euclid = { workspace = true }
 lyon_algorithms = { version = "1.0", optional = true }
 lyon_geom = { version = "1.0", optional = true }
