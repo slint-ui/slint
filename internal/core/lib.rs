@@ -18,7 +18,6 @@ pub(crate) mod unsafe_single_threaded;
 compile_error!(
     "At least one of the following feature need to be enabled: `std` or `unsafe-single-threaded`"
 );
-#[cfg(not(target_family = "wasm"))]
 use crate::items::OperatingSystemType;
 #[cfg(all(not(feature = "std"), feature = "unsafe-single-threaded"))]
 use crate::unsafe_single_threaded::thread_local;
