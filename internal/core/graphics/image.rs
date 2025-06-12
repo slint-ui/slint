@@ -689,7 +689,7 @@ impl std::error::Error for LoadImageError {}
 /// ```
 #[repr(transparent)]
 #[derive(Default, Clone, Debug, PartialEq, derive_more::From)]
-pub struct Image(ImageInner);
+pub struct Image(pub(crate) ImageInner);
 
 impl Image {
     #[cfg(feature = "image-decoders")]
@@ -988,26 +988,6 @@ impl BorrowedOpenGLTextureBuilder {
     /// Completes the process of building a slint::Image that holds a borrowed OpenGL texture.
     pub fn build(self) -> Image {
         Image(ImageInner::BorrowedOpenGLTexture(self.0))
-    }
-}
-
-#[cfg(feature = "unstable-wgpu-24")]
-impl TryFrom<wgpu_24::Texture> for Image {
-    type Error = crate::graphics::wgpu_24::TextureImportError;
-
-    fn try_from(texture: wgpu_24::Texture) -> Result<Self, Self::Error> {
-        if texture.format() != wgpu_24::TextureFormat::Rgba8Unorm
-            && texture.format() != wgpu_24::TextureFormat::Rgba8UnormSrgb
-        {
-            return Err(Self::Error::InvalidFormat);
-        }
-        let usages = texture.usage();
-        if !usages.contains(wgpu_24::TextureUsages::TEXTURE_BINDING)
-            || !usages.contains(wgpu_24::TextureUsages::RENDER_ATTACHMENT)
-        {
-            return Err(Self::Error::InvalidUsage);
-        }
-        Ok(Self(ImageInner::WGPUTexture(WGPUTexture::WGPU24Texture(texture))))
     }
 }
 

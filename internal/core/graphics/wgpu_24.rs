@@ -83,6 +83,25 @@ impl Default for WGPUConfiguration {
     }
 }
 
+impl TryFrom<wgpu_24::Texture> for super::Image {
+    type Error = crate::graphics::wgpu_24::TextureImportError;
+
+    fn try_from(texture: wgpu_24::Texture) -> Result<Self, Self::Error> {
+        if texture.format() != wgpu_24::TextureFormat::Rgba8Unorm
+            && texture.format() != wgpu_24::TextureFormat::Rgba8UnormSrgb
+        {
+            return Err(Self::Error::InvalidFormat);
+        }
+        let usages = texture.usage();
+        if !usages.contains(wgpu_24::TextureUsages::TEXTURE_BINDING)
+            || !usages.contains(wgpu_24::TextureUsages::RENDER_ATTACHMENT)
+        {
+            return Err(Self::Error::InvalidUsage);
+        }
+        Ok(Self(super::ImageInner::WGPUTexture(super::WGPUTexture::WGPU24Texture(texture))))
+    }
+}
+
 #[derive(Debug, derive_more::Error)]
 #[non_exhaustive]
 /// This enum describes the possible errors that can occur when importing a WGPU texture,
