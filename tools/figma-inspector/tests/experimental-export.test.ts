@@ -325,6 +325,5 @@ describe("generateVariableValue", () => {
                 variableRefMap,
             ),
         ).toBe(`${indent2}test-var: Colors.collection.primary,\n`);
-
     });
 });

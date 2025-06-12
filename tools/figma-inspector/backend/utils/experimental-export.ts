@@ -394,11 +394,12 @@ export async function generateVariableValue(
         // if it has no path it probably a variable from a deleted collection that handleDeadEndValue has recreated.
         const variableFromAlias = variableRefMap.get(value.id);
         if (variableFromAlias && variableFromAlias.path === undefined) {
-            const key0 = Object.keys(variableFromAlias.variable.valuesByMode)[0];
+            const key0 = Object.keys(
+                variableFromAlias.variable.valuesByMode,
+            )[0];
             const value = variableFromAlias.variable.valuesByMode[key0];
             return formatValueForSlint(variable, value);
         }
-
 
         const variableAlias = variableFromAlias?.path;
         const aliasCollection = variableFromAlias?.path?.split(".")[0];
@@ -437,7 +438,7 @@ export async function generateVariableValue(
                 variable,
                 value,
                 collectionDefaultModes,
-                variableRefMap
+                variableRefMap,
             );
         }
     } else {
@@ -540,7 +541,7 @@ async function followAliasChain(
                 variable,
                 value,
                 collectionDefaultModes,
-                variableRefMap
+                variableRefMap,
             );
         }
     }
