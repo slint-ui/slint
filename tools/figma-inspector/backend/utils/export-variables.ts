@@ -40,6 +40,7 @@ export function formatStructName(name: string): string {
         .replace(/,\s*/g, "-") // Replace commas (and following spaces) with hyphens
         .replace(/\+/g, "-") // Replace + with hyphens (add this line)
         .replace(/\:/g, "-") // Replace : with ""
+        .replace(/\//g, "-") // Replace / with hyphens (fixes enum names)
         .replace(/—/g, "-") // Replace em dash hyphens
         .replace(/([a-z])([A-Z])/g, "$1-$2") // Add hyphens between camelCase
         .replace(/\s+/g, "-") // Convert spaces to hyphens
