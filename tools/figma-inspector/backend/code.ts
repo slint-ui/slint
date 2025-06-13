@@ -5,6 +5,10 @@
 import { listenTS, dispatchTS } from "./utils/code-utils.js";
 import { generateSlintSnippet } from "./utils/property-parsing.js";
 import { exportFigmaVariablesToSeparateFiles } from "./utils/export-variables.js";
+import {
+    exportFigmaVariablesToJson,
+    exportFigmaVariablesToJsonString,
+} from "./utils/export-json.js";
 
 if (figma.editorType === "dev" && figma.mode === "codegen") {
     figma.codegen.on("generate", async ({ node }: { node: SceneNode }) => {
@@ -104,6 +108,31 @@ listenTS("exportToFiles", async (message) => {
     } catch (error) {
         console.error("Error exporting to files:", error);
         figma.notify("Failed to export to files", { error: true });
+    }
+});
+
+// JSON export handler for testing and debugging
+listenTS("exportToJson", async () => {
+    try {
+        const result = await exportFigmaVariablesToJson();
+        const jsonString = await exportFigmaVariablesToJsonString(2);
+
+        // Send JSON data to UI for testing/debugging
+        figma.ui.postMessage({
+            type: "exportedJson",
+            data: result.collections,
+            jsonString: jsonString,
+        });
+
+        figma.notify(
+            `Exported ${result.collections.length} collection(s) to JSON format`,
+        );
+    } catch (error) {
+        figma.ui.postMessage({
+            type: "exportJsonError",
+            error: String(error),
+        });
+        figma.notify("JSON export failed: " + String(error));
     }
 });
 
