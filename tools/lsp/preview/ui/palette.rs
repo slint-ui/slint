@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use std::rc::Rc;
+use std::rc::{Rc, Weak};
 
 use crate::{
     common,
@@ -11,7 +11,7 @@ use crate::{
 use lsp_types::Url;
 
 use i_slint_compiler::{expression_tree, langtype, object_tree};
-use slint::{ComponentHandle, Model, SharedString};
+use slint::{ComponentHandle, Model, ModelRc, SharedString};
 
 pub fn setup(ui: &ui::PreviewUi) {
     let api = ui.global::<ui::Api>();
@@ -20,24 +20,63 @@ pub fn setup(ui: &ui::PreviewUi) {
     api.on_is_css_color(is_css_color);
 }
 
-pub fn collect_palette(
-    document_cache: &common::DocumentCache,
-    document_uri: &Url,
-    window_adapter: &Rc<dyn slint::platform::WindowAdapter>,
-) -> Vec<ui::PaletteEntry> {
-    collect_palette_from_globals(
-        document_cache,
-        document_uri,
-        collect_colors_palette(),
-        Some(window_adapter),
-    )
+/// Model for the palette.
+///
+/// Computing the palette can be quite expensive so the palette will be lazily computed on demand
+/// and the result will be cached
+struct PaletteModel {
+    palette: std::cell::OnceCell<Vec<ui::PaletteEntry>>,
+    document_cache: Rc<common::DocumentCache>,
+    document_uri: Url,
+    window_adapter: Weak<dyn slint::platform::WindowAdapter>,
 }
 
-pub fn set_palette(ui: &ui::PreviewUi, values: Vec<ui::PaletteEntry>) {
-    let palettes = Rc::new(slint::VecModel::from(values)).into();
+impl PaletteModel {
+    fn palette(&self) -> &[ui::PaletteEntry] {
+        self.palette.get_or_init(|| {
+            collect_palette_from_globals(
+                &self.document_cache,
+                &self.document_uri,
+                collect_colors_palette(),
+                self.window_adapter.upgrade().as_ref(),
+            )
+        })
+    }
+}
 
+impl Model for PaletteModel {
+    type Data = ui::PaletteEntry;
+    fn row_count(&self) -> usize {
+        self.palette().len()
+    }
+
+    fn row_data(&self, index: usize) -> Option<ui::PaletteEntry> {
+        self.palette().get(index).cloned()
+    }
+
+    fn model_tracker(&self) -> &dyn slint::ModelTracker {
+        // The content of the model won't change. A new model is set when the palette is changed.
+        &()
+    }
+}
+
+pub fn collect_palette(
+    document_cache: &Rc<common::DocumentCache>,
+    document_uri: &Url,
+    window_adapter: &Rc<dyn slint::platform::WindowAdapter>,
+) -> ModelRc<ui::PaletteEntry> {
+    let model = PaletteModel {
+        palette: Default::default(),
+        document_cache: document_cache.clone(),
+        document_uri: document_uri.clone(),
+        window_adapter: Rc::downgrade(window_adapter),
+    };
+    ModelRc::new(model)
+}
+
+pub fn set_palette(ui: &ui::PreviewUi, values: ModelRc<ui::PaletteEntry>) {
     let api = ui.global::<ui::Api>();
-    api.set_palettes(palettes);
+    api.set_palettes(values);
 }
 
 fn collect_colors_palette() -> Vec<ui::PaletteEntry> {
