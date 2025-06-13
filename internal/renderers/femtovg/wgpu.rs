@@ -82,7 +82,9 @@ impl GraphicsBackend for WGPUBackend {
         let device = self.device.borrow().clone();
         let queue = self.queue.borrow().clone();
         if let (Some(instance), Some(device), Some(queue)) = (instance, device, queue) {
-            Ok(callback(Some(i_slint_core::api::GraphicsAPI::WGPU24 { instance, device, queue })))
+            Ok(callback(Some(i_slint_core::graphics::create_graphics_api_wgpu_24(
+                instance, device, queue,
+            ))))
         } else {
             Ok(callback(None))
         }
