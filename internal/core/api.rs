@@ -277,6 +277,7 @@ pub enum GraphicsAPI<'a> {
     ///
     /// See also the [`slint::wgpu_24`](slint:rust:slint/wgpu_24) module.
     #[cfg(feature = "unstable-wgpu-24")]
+    #[non_exhaustive]
     WGPU24 {
         /// The WGPU instance used for rendering.
         instance: wgpu_24::Instance,

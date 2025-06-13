@@ -541,7 +541,6 @@ pub mod wgpu_24 {
     //!```
     //!
     pub use i_slint_core::graphics::wgpu_24::*;
-    pub use wgpu_24 as wgpu;
 }
 
 #[cfg(feature = "unstable-winit-030")]

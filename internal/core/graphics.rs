@@ -224,6 +224,17 @@ impl From<RequestedOpenGLVersion> for RequestedGraphicsAPI {
     }
 }
 
+/// Private API exposed to just the renderers to create GraphicsAPI instance with
+/// non-exhaustive enum variant.
+#[cfg(feature = "unstable-wgpu-24")]
+pub fn create_graphics_api_wgpu_24(
+    instance: wgpu_24::wgpu::Instance,
+    device: wgpu_24::wgpu::Device,
+    queue: wgpu_24::wgpu::Queue,
+) -> crate::api::GraphicsAPI<'static> {
+    crate::api::GraphicsAPI::WGPU24 { instance, device, queue }
+}
+
 /// Internal module for use by cbindgen and the C++ platform API layer.
 #[cfg(feature = "ffi")]
 pub mod ffi {

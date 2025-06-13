@@ -8,6 +8,8 @@ This module contains types that are public and re-exported in the slint-rs as we
 in particular the `BackendSelector` type, to configure the WGPU-based renderer(s).
 */
 
+pub use wgpu_24 as wgpu;
+
 /// This data structure provides settings for initializing WGPU renderers.
 #[derive(Clone, Debug)]
 #[non_exhaustive]
