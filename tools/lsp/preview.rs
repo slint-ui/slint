@@ -38,6 +38,7 @@ pub mod eval;
 mod ext;
 mod preview_data;
 use ext::ElementRcNodeExt;
+mod outline;
 mod properties;
 pub mod ui;
 #[cfg(all(target_arch = "wasm32", feature = "preview-external"))]
@@ -1035,6 +1036,13 @@ fn finish_parsing(preview_url: &Url, previewed_component: Option<String>, succes
                 ui::palette::set_palette(ui, palettes);
                 ui::ui_set_uses_widgets(ui, uses_widgets);
                 ui::ui_set_known_components(ui, &preview_state.known_components, index);
+                let component = document_cache.get_document(preview_url).and_then(|doc| {
+                    match previewed_component.as_ref() {
+                        Some(c_id) => doc.inner_components.iter().find(|c| c.id == c_id).cloned(),
+                        None => doc.last_exported_component(),
+                    }
+                });
+                outline::reset_outline(ui, component);
                 ui::ui_set_preview_data(ui, preview_data, previewed_component);
             }
         });

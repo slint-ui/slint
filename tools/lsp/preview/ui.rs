@@ -91,6 +91,14 @@ pub fn create_ui(style: String, experimental: bool) -> Result<PreviewUi, Platfor
             SelectionNotification::Now,
         );
     });
+    api.on_outline_select_element(|path, offset| {
+        super::element_selection::select_element_at_source_code_position(
+            PathBuf::from(path.to_string()),
+            preview::TextSize::from(offset as u32),
+            None,
+            SelectionNotification::Now,
+        );
+    });
     api.on_select_behind(super::element_selection::select_element_behind);
     api.on_can_drop(super::can_drop_component);
     api.on_drop(super::drop_component);
