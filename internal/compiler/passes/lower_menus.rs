@@ -568,7 +568,6 @@ fn lower_menu_items(
                 false
             });
             Component {
-                node: parent.borrow().debug.first().map(|n| n.node.clone().into()),
                 id: SmolStr::default(),
                 root_element,
                 parent_element: Rc::downgrade(parent),

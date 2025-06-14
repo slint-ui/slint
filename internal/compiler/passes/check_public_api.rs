@@ -69,7 +69,7 @@ pub fn check_public_api(
             if doc.last_exported_component().is_none() {
                 // We maybe requested to preview a non-exported component.
                 if let Ok(ElementType::Component(c)) = doc.local_registry.lookup_element(name) {
-                    if let Some(name_ident) = c.node.clone() {
+                    if let Some(name_ident) = c.node.as_ref().map(|n| n.DeclaredIdentifier().into()) {
                         doc.exports.add_reexports(
                             [(ExportedName{ name: name.into(), name_ident }, Either::Left(c))],
                             diag,
