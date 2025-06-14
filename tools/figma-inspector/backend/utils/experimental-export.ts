@@ -2,6 +2,13 @@
 // SPDX-License-Identifier: MIT
 import { dispatchTS } from "./code-utils.js";
 import { rgbToHex } from "./property-parsing.js";
+import type {
+    CollectionId,
+    VariableId,
+    VariableCollectionSU,
+    VariableSU,
+    VariableCollectionForJSON,
+} from "../../shared/custom-figma-types.d.ts";
 
 interface ProcessedCollection {
     id: string;
@@ -15,7 +22,7 @@ interface ProcessedCollection {
     variables: Variable[];
 }
 
-interface VariableCollection {
+interface VariableCollectionOld {
     id: string;
     name: string;
     defaultModeId: string;
@@ -93,6 +100,154 @@ export async function processVariableCollections(): Promise<
 
         console.log("Total variables:", allVariables.length);
         return detailedCollections;
+    } catch (error) {
+        console.error("Error processing variable collections:", error);
+        throw error;
+    }
+}
+
+function createVariableCollectionSU(
+    collection: VariableCollection,
+): VariableCollectionSU {
+    return {
+        id: collection.id,
+        defaultModeId: collection.defaultModeId,
+        name: collection.name,
+        hiddenFromPublishing: collection.hiddenFromPublishing,
+        modes: collection.modes,
+        variableIds: collection.variableIds,
+        variables: new Map<VariableId, VariableSU>(),
+    } as VariableCollectionSU;
+}
+
+function createVariableSU(variable: Variable): VariableSU {
+    return {
+        id: variable.id,
+        name: variable.name,
+        variableCollectionId: variable.variableCollectionId,
+        resolvedType: variable.resolvedType,
+        valuesByMode: variable.valuesByMode,
+        scopes: variable.scopes || [],
+    } as VariableSU;
+}
+
+export async function createVariableCollections(): Promise<
+    Map<CollectionId, VariableCollectionSU>
+> {
+    try {
+        const [collections, allVariables] = await Promise.all([
+            figma.variables.getLocalVariableCollectionsAsync(),
+            figma.variables.getLocalVariablesAsync(),
+        ]);
+
+        const collectionsMap = new Map<CollectionId, VariableCollectionSU>();
+        const variableMap = new Map<VariableId, VariableSU>();
+
+        for (const collection of collections) {
+            const newCollection = createVariableCollectionSU(collection);
+
+            collectionsMap.set(newCollection.id, newCollection);
+        }
+
+        for (const variable of allVariables) {
+            const collectionId = variable.variableCollectionId as CollectionId;
+            if (!collectionId) {
+                continue;
+            }
+
+            const safeVariable = {
+                id: variable.id,
+                name: variable.name,
+                variableCollectionId: collectionId,
+                resolvedType: variable.resolvedType,
+                valuesByMode: variable.valuesByMode,
+                scopes: variable.scopes || [],
+            } as VariableSU;
+
+            variableMap.set(safeVariable.id, safeVariable);
+
+            const collection = collectionsMap.get(collectionId);
+            if (collection) {
+                collection.variables.set(safeVariable.id, safeVariable);
+            }
+        }
+
+        // scan the collections for variable-alias's that point to deleted variables and even
+        // deleted variable collections. Then bring them back to life.
+        for (const collection of collectionsMap.values()) {
+            for (const variable of collection.variables.values()) {
+                for (const value of Object.values(variable.valuesByMode)) {
+                    if (isVariableAlias(value)) {
+                        const id = (value as VariableAlias).id as VariableId;
+                        if (!variableMap.has(id)) {
+                            const v =
+                                await figma.variables.getVariableByIdAsync(id);
+                            if (v) {
+                                const collectionId =
+                                    v.variableCollectionId as CollectionId;
+                                if (!collectionsMap.has(collectionId)) {
+                                    const c =
+                                        await figma.variables.getVariableCollectionByIdAsync(
+                                            collectionId,
+                                        );
+                                    if (c) {
+                                        const newCollection =
+                                            createVariableCollectionSU(c);
+
+                                        for (const variableId of c.variableIds) {
+                                            const v =
+                                                (await figma.variables.getVariableByIdAsync(
+                                                    variableId,
+                                                )) as VariableSU;
+                                            if (v) {
+                                                const newVariable =
+                                                    createVariableSU(v);
+                                                variableMap.set(
+                                                    newVariable.id,
+                                                    newVariable,
+                                                );
+                                                newCollection.variables.set(
+                                                    newVariable.id,
+                                                    newVariable,
+                                                );
+                                            }
+                                        }
+                                        collectionsMap.set(
+                                            newCollection.id,
+                                            newCollection,
+                                        );
+                                    }
+                                }
+                                if (!variableMap.has(id)) {
+                                    const newVariable = createVariableSU(v);
+                                    const collection = collectionsMap.get(
+                                        newVariable.variableCollectionId,
+                                    );
+                                    if (collection && newVariable) {
+                                        variableMap.set(
+                                            newVariable.id,
+                                            newVariable,
+                                        );
+                                        collection.variables.set(
+                                            newVariable.id,
+                                            newVariable,
+                                        );
+                                    } else {
+                                        console.error(
+                                            "Unexpected error!",
+                                            newVariable,
+                                            collection,
+                                        );
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        return collectionsMap;
     } catch (error) {
         console.error("Error processing variable collections:", error);
         throw error;
@@ -267,7 +422,7 @@ export function sanitizeSlintPropertyName(name: string): string {
 
 function sanitizeCollections(
     collections: ProcessedCollection[],
-): VariableCollection[] {
+): VariableCollectionOld[] {
     return collections.map((collection) => {
         const sanitizedName = sanitizeSlintPropertyName(collection.name);
 
@@ -292,27 +447,36 @@ function sanitizeCollections(
     });
 }
 
-export async function saveVariableCollectionsToFile(
-    filename: string = "figma-test-data",
-): Promise<Array<{ name: string; content: string }>> {
+export async function saveVariableCollectionsToFile(): Promise<string> {
     try {
-        const collections = await processVariableCollections();
-        const jsonData = JSON.stringify(collections, null, 2);
+        const start = Date.now();
+        const variableCollection = await createVariableCollections();
+        console.log("createVariableCollections took", Date.now() - start, "ms");
+        // The map cannot be serialized directly, so we need to convert it to an array
+        const serializedCollections: VariableCollectionForJSON[] = [];
 
-        return [
-            {
-                name: `${filename}.json`,
-                content: jsonData,
-            },
-        ];
+        // variableCollection is also a map, so we need to convert it to an array
+        for (const collection of variableCollection.values()) {
+            const variables: VariableSU[] = [];
+            for (const variable of collection.variables.values()) {
+                variables.push(variable);
+            }
+            const newCollection = {
+                id: collection.id,
+                name: collection.name,
+                defaultModeId: collection.defaultModeId,
+                hiddenFromPublishing: collection.hiddenFromPublishing,
+                modes: collection.modes,
+                variableIds: collection.variableIds,
+                variables,
+            } as VariableCollectionForJSON;
+            serializedCollections.push(newCollection);
+        }
+
+        return JSON.stringify(serializedCollections, null, 2);
     } catch (error) {
         console.error("Error saving variable collections:", error);
-        return [
-            {
-                name: "error.json",
-                content: JSON.stringify({ error: String(error) }),
-            },
-        ];
+        return JSON.stringify({ error: String(error) });
     }
 }
 
@@ -487,6 +651,7 @@ async function handleDeadEndValue(
     variableRefMap: Map<string, VariableReference>,
 ): Promise<string> {
     const v = await figma.variables.getVariableByIdAsync(value.id);
+
     if (v) {
         if (!variableRefMap.has(v.id)) {
             variableRefMap.set(v.id, {
