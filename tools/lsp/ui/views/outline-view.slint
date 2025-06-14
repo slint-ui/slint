@@ -1,0 +1,149 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Palette, VerticalBox, ListView }  from "std-widgets.slint";
+import { Api, OutlineTreeNode } from "../api.slint";
+
+export component OutlineView inherits VerticalLayout {
+    property <[OutlineTreeNode]> outline-data <=> Api.outline;
+    in property <bool> enabled <=> lv.enabled;
+
+    lv := ListView {
+        for item in outline-data: DragArea {
+
+            mime-type: "application/x-slint-component-move";
+            data: item.uri + ":" + item.offset;
+
+            property <bool> selected: item.uri == Api.current-element.source-uri && item.offset == Api.current-element.offset;
+
+            drop-as-child := DropArea {
+                enabled: (!item.has-children || !item.is-expended) && item.indent-level > 0;
+
+                can-drop(event) => {
+                    if event.mime-type != "application/x-slint-component" && event.mime-type != "application/x-slint-component-move" {
+                        return false;
+                    }
+                    if !item.is-expended && item.has-children {
+                        if !open-timer.running {
+                            open-timer.running = true;
+                        }
+                        return false;
+                    }
+                    //return Api.outline-can-drop(event.data, item.uri, item.offset, 0);
+                    true;
+                }
+
+                dropped(event) => {
+                    Api.outline-drop(event.data, item.uri, item.offset, 0);
+                }
+            }
+
+            drop-before := DropArea {
+                enabled: item.indent-level > 0;
+                height: parent.height / 3;
+
+                y: -self.height / 2;
+                x: indentation.width;
+                width: parent.width - self.x;
+
+                can-drop(event) => {
+                    if event.mime-type != "application/x-slint-component" && event.mime-type != "application/x-slint-component-move" {
+                        return false;
+                    }
+                    //return Api.outline-can-drop(event.data, item.uri, item.offset, -1);
+                    true;
+                }
+
+                dropped(event) => {
+                    Api.outline-drop(event.data, item.uri, item.offset, -1);
+                }
+
+                Rectangle {
+                    height: 1px;
+                    background: Palette.foreground;
+                    visible: parent.contains-drag;
+                }
+            }
+
+            drop-after := DropArea {
+                y: parent.height - self.height / 2;
+                x: indentation.width;
+                height: parent.height / 3;
+                width: parent.width - self.x;
+
+                enabled: item.indent-level > 0;
+
+                can-drop(event) => {
+                    if event.mime-type != "application/x-slint-component" && event.mime-type != "application/x-slint-component-move" {
+                        return false;
+                    }
+                    //return Api.outline-can-drop(event.data, item.uri, item.offset, 1);
+                    true;
+                }
+
+                dropped(event) => {
+                    Api.outline-drop(event.data, item.uri, item.offset, 1);
+                }
+
+                Rectangle {
+                    height: 1px;
+                    background: Palette.foreground;
+                    visible: parent.contains-drag;
+                }
+            }
+
+            open-timer := Timer {
+                running: false;
+                interval: 0.5s;
+                triggered => {
+                    item.is-expended = true;
+                    open-timer.running = false;
+                }
+            }
+
+            Rectangle {
+                background: drop-as-child.contains-drag ? Palette.alternate-background :
+                            selected ? Palette.selection-background : transparent;
+            }
+
+            HorizontalLayout {
+                indentation := Rectangle {
+                    width: item.indent-level * 20px;
+                }
+
+                t := Text {
+                    text: !item.has-children ? "" : item.is-expended ? "⊟" : "⊞";
+                    color: selected ? Palette.selection-foreground : Palette.foreground;
+                    horizontal-alignment: right;
+                    vertical-alignment: center;
+                    width: 20px;
+                    TouchArea {
+                        clicked => {
+                            item.is-expended = !item.is-expended;
+                        }
+                    }
+                }
+
+                Text {
+                    text: item.name;
+                    color: t.color;
+                    vertical-alignment: center;
+                    TouchArea {
+                        clicked => {
+                            Api.outline-select-element(item.uri, item.offset);
+                        }
+                        double-clicked => {
+                            item.is-expended = !item.is-expended;
+                        }
+
+                        pointer-event(event) => {
+                            if event.kind == PointerEventKind.cancel {
+                                open-timer.running = false;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
