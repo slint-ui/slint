@@ -7,7 +7,6 @@ import type {
     VariableId,
     VariableCollectionSU,
     VariableSU,
-    VariableCollectionForJSON,
 } from "../../shared/custom-figma-types.d.ts";
 
 interface ProcessedCollection {
@@ -131,6 +130,71 @@ function createVariableSU(variable: Variable): VariableSU {
     } as VariableSU;
 }
 
+async function handleDeletedVariable(
+    id: VariableId,
+    variableMap: Map<VariableId, VariableSU>,
+    collectionsMap: Map<CollectionId, VariableCollectionSU>
+): Promise<void> {
+    //TODO: Support reporting the deleted variables and collections via the included readme.txt
+    const variable = await figma.variables.getVariableByIdAsync(id);
+    if (!variable) { return; }
+
+    const collectionId = variable.variableCollectionId as CollectionId;
+    const collection = collectionsMap.get(collectionId);
+
+    // If collection exists, just add the variable
+    if (collection) {
+        const newVariable = createVariableSU(variable);
+        newVariable.name = variable.name + "_DELETED";
+        variableMap.set(newVariable.id, newVariable);
+        collection.variables.set(newVariable.id, newVariable);
+        return;
+    }
+
+    // Collection doesn't exist, need to recreate it
+    const deletedCollection = await figma.variables.getVariableCollectionByIdAsync(collectionId);
+    if (!deletedCollection) { return }
+
+    const newCollection = createVariableCollectionSU(deletedCollection);
+    newCollection.name = deletedCollection.name + "_DELETED";
+    collectionsMap.set(newCollection.id, newCollection);
+
+    // Add all variables from the deleted collection
+    for (const variableId of deletedCollection.variableIds) {
+        const v = await figma.variables.getVariableByIdAsync(variableId);
+        if (v) {
+            const newVariable = createVariableSU(v);
+            newVariable.name = v.name + "_DELETED";
+            variableMap.set(newVariable.id, newVariable);
+            newCollection.variables.set(newVariable.id, newVariable);
+        }
+    }
+
+    // Just in-case this variable is missing from the collection, add it
+    if (!newCollection.variables.has(id)) {
+        const newVariable = createVariableSU(variable);
+        variableMap.set(newVariable.id, newVariable);
+        newCollection.variables.set(newVariable.id, newVariable);
+    }
+}
+
+async function processVariableAliases(
+    collectionsMap: Map<CollectionId, VariableCollectionSU>,
+    variableMap: Map<VariableId, VariableSU>
+): Promise<void> {
+    for (const collection of collectionsMap.values()) {
+        for (const variable of collection.variables.values()) {
+            for (const value of Object.values(variable.valuesByMode)) {
+                if (!isVariableAlias(value)) { continue; }
+                const id = (value as VariableAlias).id as VariableId;
+                if (!variableMap.has(id)) {
+                    await handleDeletedVariable(id, variableMap, collectionsMap);
+                }
+            }
+        }
+    }
+}
+
 export async function createVariableCollections(): Promise<
     Map<CollectionId, VariableCollectionSU>
 > {
@@ -143,27 +207,17 @@ export async function createVariableCollections(): Promise<
         const collectionsMap = new Map<CollectionId, VariableCollectionSU>();
         const variableMap = new Map<VariableId, VariableSU>();
 
+        // Create collections and add variables
         for (const collection of collections) {
             const newCollection = createVariableCollectionSU(collection);
-
             collectionsMap.set(newCollection.id, newCollection);
         }
 
         for (const variable of allVariables) {
             const collectionId = variable.variableCollectionId as CollectionId;
-            if (!collectionId) {
-                continue;
-            }
+            if (!collectionId) { continue; }
 
-            const safeVariable = {
-                id: variable.id,
-                name: variable.name,
-                variableCollectionId: collectionId,
-                resolvedType: variable.resolvedType,
-                valuesByMode: variable.valuesByMode,
-                scopes: variable.scopes || [],
-            } as VariableSU;
-
+            const safeVariable = createVariableSU(variable);
             variableMap.set(safeVariable.id, safeVariable);
 
             const collection = collectionsMap.get(collectionId);
@@ -172,80 +226,8 @@ export async function createVariableCollections(): Promise<
             }
         }
 
-        // scan the collections for variable-alias's that point to deleted variables and even
-        // deleted variable collections. Then bring them back to life.
-        for (const collection of collectionsMap.values()) {
-            for (const variable of collection.variables.values()) {
-                for (const value of Object.values(variable.valuesByMode)) {
-                    if (isVariableAlias(value)) {
-                        const id = (value as VariableAlias).id as VariableId;
-                        if (!variableMap.has(id)) {
-                            const v =
-                                await figma.variables.getVariableByIdAsync(id);
-                            if (v) {
-                                const collectionId =
-                                    v.variableCollectionId as CollectionId;
-                                if (!collectionsMap.has(collectionId)) {
-                                    const c =
-                                        await figma.variables.getVariableCollectionByIdAsync(
-                                            collectionId,
-                                        );
-                                    if (c) {
-                                        const newCollection =
-                                            createVariableCollectionSU(c);
-
-                                        for (const variableId of c.variableIds) {
-                                            const v =
-                                                (await figma.variables.getVariableByIdAsync(
-                                                    variableId,
-                                                )) as VariableSU;
-                                            if (v) {
-                                                const newVariable =
-                                                    createVariableSU(v);
-                                                variableMap.set(
-                                                    newVariable.id,
-                                                    newVariable,
-                                                );
-                                                newCollection.variables.set(
-                                                    newVariable.id,
-                                                    newVariable,
-                                                );
-                                            }
-                                        }
-                                        collectionsMap.set(
-                                            newCollection.id,
-                                            newCollection,
-                                        );
-                                    }
-                                }
-                                if (!variableMap.has(id)) {
-                                    const newVariable = createVariableSU(v);
-                                    const collection = collectionsMap.get(
-                                        newVariable.variableCollectionId,
-                                    );
-                                    if (collection && newVariable) {
-                                        variableMap.set(
-                                            newVariable.id,
-                                            newVariable,
-                                        );
-                                        collection.variables.set(
-                                            newVariable.id,
-                                            newVariable,
-                                        );
-                                    } else {
-                                        console.error(
-                                            "Unexpected error!",
-                                            newVariable,
-                                            collection,
-                                        );
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
+        // Handle any deleted variables referenced by aliases
+        await processVariableAliases(collectionsMap, variableMap);
 
         return collectionsMap;
     } catch (error) {
@@ -452,26 +434,12 @@ export async function saveVariableCollectionsToFile(): Promise<string> {
         const start = Date.now();
         const variableCollection = await createVariableCollections();
         console.log("createVariableCollections took", Date.now() - start, "ms");
-        // The map cannot be serialized directly, so we need to convert it to an array
-        const serializedCollections: VariableCollectionForJSON[] = [];
 
-        // variableCollection is also a map, so we need to convert it to an array
-        for (const collection of variableCollection.values()) {
-            const variables: VariableSU[] = [];
-            for (const variable of collection.variables.values()) {
-                variables.push(variable);
-            }
-            const newCollection = {
-                id: collection.id,
-                name: collection.name,
-                defaultModeId: collection.defaultModeId,
-                hiddenFromPublishing: collection.hiddenFromPublishing,
-                modes: collection.modes,
-                variableIds: collection.variableIds,
-                variables,
-            } as VariableCollectionForJSON;
-            serializedCollections.push(newCollection);
-        }
+        // Convert the Map to an array of collections, with variables as arrays
+        const serializedCollections = Array.from(variableCollection.values()).map(collection => ({
+            ...collection,
+            variables: Array.from(collection.variables.values())
+        }));
 
         return JSON.stringify(serializedCollections, null, 2);
     } catch (error) {
