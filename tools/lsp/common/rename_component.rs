@@ -611,8 +611,7 @@ impl TokenInformation {
                     i_slint_compiler::langtype::ElementType::Component(c),
                 ),
             ) => {
-                if let Some(ce) = c.node.as_ref().and_then(|cn| cn.child_node(SyntaxKind::Element))
-                {
+                if let Some(ce) = c.node.as_ref().map(|cn| cn.Element()) {
                     e.borrow().debug.iter().any(|di| {
                         Some(di.node.source_file.path()) == ce.source_file().map(|sf| sf.path())
                             && di.node.text_range() == ce.text_range()
@@ -862,10 +861,7 @@ impl DeclarationNodeQuery {
                                 i_slint_compiler::langtype::ElementType::Component(component) => {
                                     find_declared_identifier_in_element(
                                         &self,
-                                        &syntax_nodes::Component::from(
-                                            component.node.as_ref()?.clone(),
-                                        )
-                                        .Element(),
+                                        &component.node.as_ref()?.Element(),
                                     )
                                 }
                                 _ => None,
