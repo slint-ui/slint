@@ -109,6 +109,8 @@ impl GraphicsBackend for WGPUBackend {
             return Ok(());
         };
 
+        // Prefer FIFO modes over possible Mailbox setting for frame pacing and better energy efficiency.
+        surface_config.present_mode = wgpu::PresentMode::AutoVsync;
         surface_config.width = width.get();
         surface_config.height = height.get();
 
