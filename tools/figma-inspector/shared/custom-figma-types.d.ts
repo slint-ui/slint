@@ -18,9 +18,3 @@ export interface VariableSU
     id: VariableId;
     variableCollectionId: CollectionId;
 }
-
-export interface VariableCollectionForJSON
-    extends Omit<VariableCollection, "id"> {
-    id: CollectionId;
-    variables: VariableSU[];
-}
