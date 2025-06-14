@@ -44,6 +44,11 @@ In our written communication we aim to be:
    - Use: "We revamped the foo widget."
    - Rationale: We're not joining the audience on the observer's bench, we're announcing the result of our work.
 
+ 7. User-Centric Messaging: Write from the user's perspective. Emphasize the value or outcome a user gains rather than focusing on product changes.
+   - Avoid: "Slint adds feature X."
+   - Use: "Achieve Y using the new X feature in Slint."
+   - Rationale: Users care about how a feature helps them solve a problem or reach a goal—not just that it exists.
+
 ## Docs
 
   - Ensure links don't go to blank pages e.g. [1.7 concepts](https://releases.slint.dev/1.7.0/docs/slint/src/language/concepts/)

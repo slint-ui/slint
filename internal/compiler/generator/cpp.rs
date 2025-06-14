@@ -3992,7 +3992,7 @@ fn compile_builtin_function_call(
             "self->update_timers()".into()
         }
         BuiltinFunction::DetectOperatingSystem => {
-            format!("slint::private_api::detect_operating_system()")
+            format!("slint::cbindgen_private::slint_detect_operating_system()")
         }
 
     }

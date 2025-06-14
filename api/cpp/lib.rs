@@ -10,6 +10,7 @@ extern crate std;
 
 use alloc::rc::Rc;
 use core::ffi::c_void;
+use i_slint_core::items::OperatingSystemType;
 use i_slint_core::window::{ffi::WindowAdapterRcOpaque, WindowAdapter};
 use i_slint_core::SharedString;
 
@@ -226,6 +227,6 @@ pub unsafe extern "C" fn slint_set_xdg_app_id(_app_id: &SharedString) {
 }
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn slint_detect_operating_system(out: &mut SharedString) {
-    *out = i_slint_core::detect_operating_system();
+pub unsafe extern "C" fn slint_detect_operating_system() -> OperatingSystemType {
+    i_slint_core::detect_operating_system()
 }

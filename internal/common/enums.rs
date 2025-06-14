@@ -474,6 +474,23 @@ macro_rules! for_each_enums {
                 /// The stroke ends with a square projection beyond the path.
                 Square,
             }
+
+            /// This enum describes the detected operating system types.
+            #[non_exhaustive]
+            enum OperatingSystemType {
+                /// This variant includes any version of Android running mobile phones, tablets, as well as embedded Android devices.
+                Android,
+                /// This variant covers iOS running on iPhones and iPads.
+                Ios,
+                /// This variant covers macOS running on Apple's Mac computers.
+                Macos,
+                /// This variant covers any version of Linux, except Android.
+                Linux,
+                /// This variant covers Microsoft Windows.
+                Windows,
+                /// This variant is reported when the operating system is none of the above.
+                Other,
+            }
         ];
     };
 }

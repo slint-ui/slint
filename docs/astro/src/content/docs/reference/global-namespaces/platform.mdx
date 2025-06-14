@@ -12,18 +12,9 @@ The **Platform** namespace contains properties that help deal with platform spec
 ## Properties
 
 ### os
-<SlintProperty propName="os" typeName="string">
-The name of the operating system. Possible values are:
+<SlintProperty propName="os" typeName="enum" enumName="OperatingSystemType">
 
-| Operating System | Value     |
-|------------------|-----------|
-| Windows          | `windows` |
-| macOS            | `macos`   |
-| Linux            | `linux`   |
-| Android          | `android` |
-| iOS              | `ios`     |
-
-If the operating system is none of the above, the value of this property is the empty string.
+This property holds the type of the operating system detected at run-time.
 
 :::note{Note}
 When running in a web browser, the value of this property is computed at run-time by querying the web browser's navigator properties.

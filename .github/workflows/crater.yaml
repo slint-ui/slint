@@ -61,7 +61,6 @@ jobs:
                     - "https://github.com/Heng30/chatbox"
 
                     - "https://github.com/zzq0097/mmm_rs"
-                    - "https://github.com/aka-deVOID/blog"
                     - "https://github.com/CMahaff/lasim" # many stars
                     #- "https://github.com/spades9/image-tools"  # compile error
                     - "https://github.com/studylessshape/calculator-by-rs"
@@ -119,8 +118,8 @@ jobs:
                     - "https://github.com/mrandal/PDFer"
                     - "https://github.com/dhasoft-rs/7Seg-Slint-Widget"
                     - "https://github.com/DraKraft/ozon-rs"
-                    - "https://github.com/SUP2Ak/Lur-Slint"
-                    - "https://github.com/foxboxpdx/melonstt"
+                    # - "https://github.com/SUP2Ak/Lur-Slint" # repo gone?
+                    # - "https://github.com/foxboxpdx/melonstt" # repo gone?
                     - "https://github.com/sanyexieai/me_chat"
                     - "https://github.com/oreo3494/rockpaper.git"
                     - "https://github.com/laycookie/record"
@@ -215,7 +214,7 @@ jobs:
                       sub_path: "."
                       extra_args: "--no-default-features --features=slint_frontend"
                     - git_url: "https://github.com/niqt/matrust/"
-                      sub_path: "matrust"
+                      sub_path: "."
                     - git_url: "https://github.com/obhq/obliteration"
                       sub_path: "gui"
                     - git_url: "https://github.com/jaymedavis/romboy"
@@ -230,7 +229,7 @@ jobs:
             - uses: ./.github/actions/install-linux-dependencies
               if: runner.os == 'Linux'
               with:
-                  extra-packages: libpango1.0-dev libatk1.0-dev libgtk-3-dev alsa-utils libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libjack-jackd2-dev autoconf libxcb-xrm0 libxcb-xrm-dev automake  libxcb-keysyms1-dev libxcb-util0-dev libxcb-icccm4-dev libyajl-dev libstartup-notification0-dev libxcb-randr0-dev libev-dev libxcb-cursor-dev libxcb-xinerama0-dev libxcb-xkb-dev libxkbcommon-dev libxkbcommon-x11-dev libudev-dev clang libavcodec-dev libavformat-dev libavutil-dev libavfilter-dev libavdevice-dev libasound2-dev pkg-config nasm libsoup2.4-dev libfuse3-dev libx11-xcb-dev libarchive-dev
+                  extra-packages: libpango1.0-dev libatk1.0-dev libgtk-3-dev alsa-utils libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libjack-jackd2-dev autoconf libxcb-xrm0 libxcb-xrm-dev automake  libxcb-keysyms1-dev libxcb-util0-dev libxcb-icccm4-dev libyajl-dev libstartup-notification0-dev libxcb-randr0-dev libev-dev libxcb-cursor-dev libxcb-xinerama0-dev libxcb-xkb-dev libxkbcommon-dev libxkbcommon-x11-dev libudev-dev clang libavcodec-dev libavformat-dev libavutil-dev libavfilter-dev libavdevice-dev libasound2-dev pkg-config nasm libsoup2.4-dev libfuse3-dev libx11-xcb-dev libarchive-dev libsoup-3.0-dev libjavascriptcoregtk-4.1-dev
             # Don't use the cache because we don't run this job often, and it would cache the .cargo/config.toml with extra keys
             - uses: dtolnay/rust-toolchain@master
               with:

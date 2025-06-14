@@ -18,6 +18,7 @@ pub(crate) mod unsafe_single_threaded;
 compile_error!(
     "At least one of the following feature need to be enabled: `std` or `unsafe-single-threaded`"
 );
+use crate::items::OperatingSystemType;
 #[cfg(all(not(feature = "std"), feature = "unsafe-single-threaded"))]
 use crate::unsafe_single_threaded::thread_local;
 #[cfg(feature = "std")]
@@ -100,25 +101,24 @@ pub type Coord = i32;
 pub struct InternalToken;
 
 #[cfg(not(target_family = "wasm"))]
-pub fn detect_operating_system() -> SharedString {
-    let os = if cfg!(target_os = "android") {
-        "android"
+pub fn detect_operating_system() -> OperatingSystemType {
+    if cfg!(target_os = "android") {
+        OperatingSystemType::Android
     } else if cfg!(target_os = "ios") {
-        "ios"
+        OperatingSystemType::Ios
     } else if cfg!(target_os = "macos") {
-        "macos"
+        OperatingSystemType::Macos
     } else if cfg!(target_os = "windows") {
-        "windows"
+        OperatingSystemType::Windows
     } else if cfg!(target_os = "linux") {
-        "linux"
+        OperatingSystemType::Linux
     } else {
-        ""
-    };
-    os.into()
+        OperatingSystemType::Other
+    }
 }
 
 #[cfg(target_family = "wasm")]
-pub fn detect_operating_system() -> SharedString {
+pub fn detect_operating_system() -> OperatingSystemType {
     let mut user_agent =
         web_sys::window().and_then(|w| w.navigator().user_agent().ok()).unwrap_or_default();
     user_agent.make_ascii_lowercase();
@@ -127,17 +127,16 @@ pub fn detect_operating_system() -> SharedString {
     platform.make_ascii_lowercase();
 
     if user_agent.contains("ipad") || user_agent.contains("iphone") {
-        "ios"
+        OperatingSystemType::Ios
     } else if user_agent.contains("android") {
-        "android"
+        OperatingSystemType::Android
     } else if platform.starts_with("mac") {
-        "macos"
+        OperatingSystemType::Macos
     } else if platform.starts_with("win") {
-        "windows"
+        OperatingSystemType::Windows
     } else if platform.starts_with("linux") {
-        "linux"
+        OperatingSystemType::Linux
     } else {
-        ""
+        OperatingSystemType::Other
     }
-    .into()
 }

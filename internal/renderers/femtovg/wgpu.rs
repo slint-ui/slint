@@ -82,7 +82,9 @@ impl GraphicsBackend for WGPUBackend {
         let device = self.device.borrow().clone();
         let queue = self.queue.borrow().clone();
         if let (Some(instance), Some(device), Some(queue)) = (instance, device, queue) {
-            Ok(callback(Some(i_slint_core::api::GraphicsAPI::WGPU24 { instance, device, queue })))
+            Ok(callback(Some(i_slint_core::graphics::create_graphics_api_wgpu_24(
+                instance, device, queue,
+            ))))
         } else {
             Ok(callback(None))
         }
@@ -143,7 +145,7 @@ impl FemtoVGRenderer<WGPUBackend> {
                 i_slint_core::graphics::wgpu_24::WGPUConfiguration::Automatic(wgpu24_settings),
             )) => {
                 // wgpu uses async here, but the returned future is ready on first poll on all platforms except WASM,
-                // which we don't supoprt right now.
+                // which we don't support right now.
                 let instance = poll_once(async {
                     wgpu::util::new_instance_with_webgpu_detection(&wgpu::InstanceDescriptor {
                         backends: wgpu24_settings.backends,
@@ -157,7 +159,7 @@ impl FemtoVGRenderer<WGPUBackend> {
                 let surface = instance.create_surface(window_handle).unwrap();
 
                 // wgpu uses async here, but the returned future is ready on first poll on all platforms except WASM,
-                // which we don't supoprt right now.
+                // which we don't support right now.
                 let adapter = poll_once(async {
                     match wgpu::util::initialize_adapter_from_env(&instance, Some(&surface)) {
                         Some(adapter) => Some(adapter),
@@ -202,7 +204,7 @@ impl FemtoVGRenderer<WGPUBackend> {
                 let gles_minor_version = wgpu::Gles3MinorVersion::from_env().unwrap_or_default();
 
                 // wgpu uses async here, but the returned future is ready on first poll on all platforms except WASM,
-                // which we don't supoprt right now.
+                // which we don't support right now.
                 let instance = poll_once(async {
                     wgpu::util::new_instance_with_webgpu_detection(&wgpu::InstanceDescriptor {
                         backends,
@@ -221,7 +223,7 @@ impl FemtoVGRenderer<WGPUBackend> {
                 let surface = instance.create_surface(window_handle).unwrap();
 
                 // wgpu uses async here, but the returned future is ready on first poll on all platforms except WASM,
-                // which we don't supoprt right now.
+                // which we don't support right now.
                 let adapter = poll_once(async {
                     wgpu::util::initialize_adapter_from_env_or_default(&instance, Some(&surface))
                         .await

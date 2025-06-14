@@ -106,11 +106,14 @@ impl BackendSelector {
         self
     }
 
+    #[i_slint_core_macros::slint_doc]
     /// Adds the requirement to the selector that the backend must render using [WGPU](http://wgpu.rs).
     /// Use this when you integrate other WGPU-based renderers with a Slint UI.
     ///
-    /// *Note*: This function is behind a feature flag and may be removed or changed in future minor releases,
-    ///         as new major WGPU releases become available.
+    /// *Note*: This function is behind the [`unstable-wgpu-24` feature flag](slint:rust:slint/docs/cargo_features/#backends)
+    ///         and may be removed or changed in future minor releases, as new major WGPU releases become available.
+    ///
+    /// See also the [`slint::wgpu_24`](slint:rust:slint/wgpu_24) module.
     #[cfg(feature = "unstable-wgpu-24")]
     #[must_use]
     pub fn require_wgpu_24(
@@ -121,6 +124,7 @@ impl BackendSelector {
         self
     }
 
+    #[i_slint_core_macros::slint_doc]
     /// Configures this builder to use the specified winit hook that will be called before a Window is created.
     ///
     /// It can be used to adjust settings of window that will be created.
@@ -129,16 +133,18 @@ impl BackendSelector {
     ///
     /// ```rust,no_run
     /// let mut backend = slint::BackendSelector::new()
-    ///     .with_winit_030_window_attributes_hook(|attributes| attributes.with_content_protected(true))
+    ///     .with_winit_window_attributes_hook(|attributes| attributes.with_content_protected(true))
     ///     .select()
     ///     .unwrap();
     /// ```
     ///
-    /// *Note*: This function is behind a feature flag and may be removed or changed in future minor releases,
-    ///         as new major Winit releases become available.
+    /// *Note*: This function is behind the [`unstable-winit-030` feature flag](slint:rust:slint/docs/cargo_features/#backends)
+    ///         and may be removed or changed in future minor releases, as new major Winit releases become available.
+    ///
+    /// See also the [`slint::winit_030`](slint:rust:slint/winit_030) module
     #[must_use]
     #[cfg(feature = "unstable-winit-030")]
-    pub fn with_winit_030_window_attributes_hook(
+    pub fn with_winit_window_attributes_hook(
         mut self,
         hook: impl Fn(
                 i_slint_backend_winit::winit::window::WindowAttributes,
@@ -149,14 +155,17 @@ impl BackendSelector {
         self
     }
 
+    #[i_slint_core_macros::slint_doc]
     /// Configures this builder to use the specified winit event loop builder when creating the event
     /// loop.
     ///
-    /// *Note*: This function is behind a feature flag and may be removed or changed in future minor releases,
-    ///         as new major Winit releases become available.
+    /// *Note*: This function is behind the [`unstable-winit-030` feature flag](slint:rust:slint/docs/cargo_features/#backends)
+    ///         and may be removed or changed in future minor releases, as new major Winit releases become available.
+    ///
+    /// See also the [`slint::winit_030`](slint:rust:slint/winit_030) module
     #[must_use]
     #[cfg(feature = "unstable-winit-030")]
-    pub fn with_winit_030_event_loop_builder(
+    pub fn with_winit_event_loop_builder(
         mut self,
         event_loop_builder: i_slint_backend_winit::EventLoopBuilder,
     ) -> Self {

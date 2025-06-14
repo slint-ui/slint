@@ -915,12 +915,13 @@ test("fixes 'Missing data for mode' bug - modeId mismatch between collection and
     // Should not contain magenta placeholder values
     expect(content).not.toContain("#FF00FF");
 
-    // Should contain actual color values (white from the fallback)
-    expect(content).toContain("#ffffff");
+    // Should contain actual color values from different variable modes
+    expect(content).toContain("#ffffff"); // white from mode_original
+    expect(content).toContain("#000000"); // black from mode_newer
 
-    // Should contain both mode values (using fallback strategy)
-    expect(content).toContain("light: #ffffff");
-    expect(content).toContain("dark: #ffffff");
+    // Should contain different values for each mode (using enhanced fallback strategy)
+    expect(content).toContain("light: #ffffff"); // Gets first available value (mode_original)
+    expect(content).toContain("dark: #000000"); // Gets second available value (mode_newer)
 });
 
 test("comprehensive mode matching - handles various mismatch scenarios", async () => {
@@ -1006,4 +1007,347 @@ test("comprehensive mode matching - handles various mismatch scenarios", async (
     // Variable 3: Fallback strategy - should use the available value for all modes
     expect(content).toContain("fallback-needed");
     expect(content).toContain("#808080"); // The gray fallback value should appear multiple times
+});
+
+test("mode value mismatch - different modes should have different values", async () => {
+    // Mock collection with two modes: modern_theme and brutal_theme
+    const mockCollection = {
+        id: "collection1",
+        name: "Primitives Completed",
+        modes: [
+            { modeId: "mode1", name: "modern_theme" },
+            { modeId: "mode2", name: "brutal_theme" },
+        ],
+        variableIds: ["var1"],
+    };
+
+    // Mock variable with hierarchical name and different values per mode
+    const mockVariable = {
+        id: "var1",
+        name: "radius/sm",
+        type: "FLOAT",
+        resolvedType: "FLOAT",
+        valuesByMode: {
+            mode1: 4, // modern_theme should be 4px
+            mode2: 0, // brutal_theme should be 0px
+        },
+    };
+
+    mockFigma.variables.getLocalVariableCollectionsAsync.mockResolvedValue([
+        mockCollection,
+    ]);
+    mockFigma.variables.getVariableByIdAsync.mockImplementation((id) => {
+        if (id === "var1") {
+            return Promise.resolve(mockVariable);
+        }
+        return Promise.resolve(null);
+    });
+
+    const result = await exportFigmaVariablesToSeparateFiles(false);
+
+    expect(result).toHaveLength(2); // One collection file + README
+    const collectionFile = result.find((f) =>
+        f.name.includes("primitives-completed"),
+    );
+    expect(collectionFile).toBeDefined();
+
+    // Check that both modes exist and have DIFFERENT values
+    expect(collectionFile!.content).toContain("modern_theme: 4px");
+    expect(collectionFile!.content).toContain("brutal_theme: 0px");
+
+    // Make sure they're not both the same value
+    expect(collectionFile!.content).not.toMatch(
+        /modern_theme: 4px,\s*brutal_theme: 4px/,
+    );
+    expect(collectionFile!.content).not.toMatch(
+        /modern_theme: 0px,\s*brutal_theme: 0px/,
+    );
+});
+
+test("hierarchical variables with multiple values per mode", async () => {
+    // Mock collection with two modes
+    const mockCollection = {
+        id: "collection1",
+        name: "Design System",
+        modes: [
+            { modeId: "light-mode", name: "light" },
+            { modeId: "dark-mode", name: "dark" },
+        ],
+        variableIds: ["radius-sm", "radius-md"],
+    };
+
+    // Mock multiple variables with different values
+    const mockVariables = {
+        "radius-sm": {
+            id: "radius-sm",
+            name: "radius/sm",
+            type: "FLOAT",
+            resolvedType: "FLOAT",
+            valuesByMode: {
+                "light-mode": 8, // light theme: 8px
+                "dark-mode": 12, // dark theme: 12px
+            },
+        },
+        "radius-md": {
+            id: "radius-md",
+            name: "radius/md",
+            type: "FLOAT",
+            resolvedType: "FLOAT",
+            valuesByMode: {
+                "light-mode": 16, // light theme: 16px
+                "dark-mode": 20, // dark theme: 20px
+            },
+        },
+    };
+
+    mockFigma.variables.getLocalVariableCollectionsAsync.mockResolvedValue([
+        mockCollection,
+    ]);
+    mockFigma.variables.getVariableByIdAsync.mockImplementation((id) => {
+        return Promise.resolve(
+            mockVariables[id as keyof typeof mockVariables] || null,
+        );
+    });
+
+    const result = await exportFigmaVariablesToSeparateFiles(false);
+
+    const collectionFile = result.find((f) => f.name.includes("design-system"));
+    expect(collectionFile).toBeDefined();
+
+    // Verify each variable has different values per mode
+    const content = collectionFile!.content;
+
+    // Check sm values are different
+    expect(content).toContain("light: 8px");
+    expect(content).toContain("dark: 12px");
+
+    // Check md values are different
+    expect(content).toContain("light: 16px");
+    expect(content).toContain("dark: 20px");
+
+    // Ensure no duplicate values where they shouldn't be
+    expect(content).not.toMatch(/light: 8px,\s*dark: 8px/);
+    expect(content).not.toMatch(/light: 16px,\s*dark: 16px/);
+});
+
+test("mode mismatch fallback distributes different values correctly", async () => {
+    // This test specifically reproduces the case where:
+    // 1. Collection has modes with certain IDs
+    // 2. Variable has valuesByMode with DIFFERENT IDs
+    // 3. The enhanced fallback logic distributes different values to different modes
+
+    const mockCollection = {
+        id: "collection1",
+        name: "Primitives",
+        modes: [
+            { modeId: "collection-mode-1", name: "modern_theme" },
+            { modeId: "collection-mode-2", name: "brutal_theme" },
+        ],
+        variableIds: ["radius_sm"],
+    };
+
+    // Variable has valuesByMode with DIFFERENT keys than collection modeIds
+    // This should trigger the enhanced fallback logic
+    const mockVariable = {
+        id: "radius_sm",
+        name: "radius/sm",
+        type: "FLOAT",
+        resolvedType: "FLOAT",
+        valuesByMode: {
+            "variable-mode-a": 4, // This doesn't match "collection-mode-1"
+            "variable-mode-b": 0, // This doesn't match "collection-mode-2"
+        },
+    };
+
+    mockFigma.variables.getLocalVariableCollectionsAsync.mockResolvedValue([
+        mockCollection,
+    ]);
+    mockFigma.variables.getVariableByIdAsync.mockResolvedValue(mockVariable);
+
+    const result = await exportFigmaVariablesToSeparateFiles(false);
+    const content = result[0].content;
+
+    // With the enhanced fallback logic, modes should get different values
+    const modernThemeMatch = content.match(/modern_theme:\s*(\d+px)/);
+    const brutalThemeMatch = content.match(/brutal_theme:\s*(\d+px)/);
+
+    expect(modernThemeMatch).toBeTruthy();
+    expect(brutalThemeMatch).toBeTruthy();
+
+    // The enhanced fallback should distribute different values to different modes
+    expect(modernThemeMatch![1]).toBe("4px"); // Gets first available value (index 0)
+    expect(brutalThemeMatch![1]).toBe("0px"); // Gets second available value (index 1)
+
+    // Ensure they're not the same (which would be the old bug)
+    expect(modernThemeMatch![1]).not.toBe(brutalThemeMatch![1]);
+});
+
+test("handles variable names with emojis and special characters", async () => {
+    const mockCollection = {
+        id: "collection1",
+        name: "Test Collection",
+        modes: [{ modeId: "mode1", name: "Default" }],
+        variableIds: ["var1", "var2", "var3"],
+    };
+
+    // Test variables with problematic names
+    const mockVariable1 = {
+        id: "var1",
+        name: "🛑🛑🛑🛑Font Size", // Emojis + normal text
+        type: "FLOAT",
+        resolvedType: "FLOAT",
+        valuesByMode: {
+            mode1: 16,
+        },
+    };
+
+    const mockVariable2 = {
+        id: "var2",
+        name: "🎨Color/Primary", // Emoji + hierarchy
+        type: "COLOR",
+        resolvedType: "COLOR",
+        valuesByMode: {
+            mode1: { r: 1, g: 0, b: 0, a: 1 },
+        },
+    };
+
+    const mockVariable3 = {
+        id: "var3",
+        name: "✅ Success State", // Different emoji + spaces
+        type: "BOOLEAN",
+        resolvedType: "BOOLEAN",
+        valuesByMode: {
+            mode1: true,
+        },
+    };
+
+    mockFigma.variables.getLocalVariableCollectionsAsync.mockResolvedValue([
+        mockCollection,
+    ]);
+    mockFigma.variables.getVariableByIdAsync.mockImplementation((id) => {
+        switch (id) {
+            case "var1":
+                return Promise.resolve(mockVariable1);
+            case "var2":
+                return Promise.resolve(mockVariable2);
+            case "var3":
+                return Promise.resolve(mockVariable3);
+            default:
+                return Promise.resolve(null);
+        }
+    });
+
+    const result = await exportFigmaVariablesToSeparateFiles(false);
+
+    expect(result).toHaveLength(2); // collection + README
+    const content = result[0].content;
+
+    console.log("=== Generated content with emoji variables ===");
+    console.log(content);
+
+    // Check that variables with emojis are handled and have values
+    // The sanitized names should appear in the output
+    expect(content).toContain("font-size"); // From 🛑🛑🛑🛑Font Size
+    expect(content).toContain("16px"); // The actual value should be present
+
+    // Check hierarchical emoji variable
+    expect(content).toContain("primary"); // From 🎨Color/Primary
+    expect(content).toContain("#ff0000"); // The red color value
+
+    // Check simple emoji variable
+    expect(content).toContain("success-state"); // From ✅ Success State
+    expect(content).toContain("true"); // The boolean value
+
+    // Make sure these don't have missing values
+    expect(content).not.toContain("Missing data for mode");
+    expect(content).not.toContain("#FF00FF"); // No magenta placeholder values
+});
+
+test("handles slashes in collection and mode names (shadcn/ui example)", async () => {
+    // Mock collection with slashes in both collection name and mode names
+    const mockCollection = {
+        id: "VariableCollectionId:137:1573",
+        name: "shadcn/ui",
+        modes: [
+            { modeId: "137:4", name: "light/slate" },
+            { modeId: "137:5", name: "dark/slate" },
+            { modeId: "314:0", name: "light/zinc" },
+            { modeId: "314:1", name: "dark/zinc" },
+        ],
+        variableIds: ["VariableID:137:1574", "VariableID:137:1575"],
+    };
+
+    // Mock variables with simple color values (not aliases for test simplicity)
+    const mockVariable1 = {
+        id: "VariableID:137:1574",
+        name: "background",
+        type: "COLOR",
+        resolvedType: "COLOR",
+        valuesByMode: {
+            "137:4": { r: 1, g: 1, b: 1, a: 1 }, // white
+            "137:5": { r: 0.1, g: 0.1, b: 0.1, a: 1 }, // dark
+            "314:0": { r: 0.9, g: 0.9, b: 0.9, a: 1 }, // light gray
+            "314:1": { r: 0.2, g: 0.2, b: 0.2, a: 1 }, // darker gray
+        },
+    };
+
+    const mockVariable2 = {
+        id: "VariableID:137:1575",
+        name: "foreground",
+        type: "COLOR",
+        resolvedType: "COLOR",
+        valuesByMode: {
+            "137:4": { r: 0, g: 0, b: 0, a: 1 }, // black
+            "137:5": { r: 1, g: 1, b: 1, a: 1 }, // white
+            "314:0": { r: 0.1, g: 0.1, b: 0.1, a: 1 }, // dark
+            "314:1": { r: 0.9, g: 0.9, b: 0.9, a: 1 }, // light
+        },
+    };
+
+    mockFigma.variables.getLocalVariableCollectionsAsync.mockResolvedValue([
+        mockCollection,
+    ]);
+    mockFigma.variables.getVariableByIdAsync.mockImplementation((id) => {
+        if (id === "VariableID:137:1574") {
+            return Promise.resolve(mockVariable1);
+        }
+        if (id === "VariableID:137:1575") {
+            return Promise.resolve(mockVariable2);
+        }
+        return Promise.resolve(null);
+    });
+
+    const result = await exportFigmaVariablesToSeparateFiles(false);
+
+    expect(result).toHaveLength(2); // One collection file + README
+    const collectionFile = result.find((f) => f.name.includes("shadcn-ui"));
+    expect(collectionFile).toBeDefined();
+
+    const content = collectionFile!.content;
+
+    // Verify that slashes in collection name are properly sanitized
+    expect(content).toContain("export enum shadcn-uiMode"); // Collection name sanitized
+    expect(content).not.toContain("shadcn/uiMode"); // Original slashes should be gone
+
+    // Verify that slashes in mode names are properly sanitized
+    expect(content).toContain("light_slate,"); // Mode names sanitized
+    expect(content).toContain("dark_slate,");
+    expect(content).toContain("light_zinc,");
+    expect(content).toContain("dark_zinc,");
+    expect(content).not.toContain("light/slate"); // Original slashes should be gone
+    expect(content).not.toContain("dark/slate");
+
+    // Verify struct names are properly sanitized
+    expect(content).toContain("struct shadcn-ui_mode4_brush"); // Struct name sanitized
+    expect(content).not.toContain("shadcn/ui_mode4_brush"); // Original slashes should be gone
+
+    // Verify that the global export uses sanitized name
+    expect(content).toContain("export global shadcn-ui");
+    expect(content).not.toContain("export global shadcn/ui");
+
+    // Verify variables are present
+    expect(content).toContain("background");
+    expect(content).toContain("foreground");
+
+    console.log("Generated content for slash test:", content);
 });

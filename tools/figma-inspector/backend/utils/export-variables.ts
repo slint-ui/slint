@@ -40,6 +40,7 @@ export function formatStructName(name: string): string {
         .replace(/,\s*/g, "-") // Replace commas (and following spaces) with hyphens
         .replace(/\+/g, "-") // Replace + with hyphens (add this line)
         .replace(/\:/g, "-") // Replace : with ""
+        .replace(/\//g, "-") // Replace / with hyphens (fixes enum names)
         .replace(/—/g, "-") // Replace em dash hyphens
         .replace(/([a-z])([A-Z])/g, "$1-$2") // Add hyphens between camelCase
         .replace(/\s+/g, "-") // Convert spaces to hyphens
@@ -68,8 +69,8 @@ export function sanitizePropertyName(name: string): string {
         .replace(/[^a-zA-Z0-9\-]/g, "-") // Replace non-alphanumeric chars (except hyphens) with hyphens
         .replace(/-+/g, "-"); // Collapse multiple hyphens to single hyphen
 
-    // Remove trailing hyphens
-    sanitizedName = sanitizedName.replace(/-+$/, "");
+    // Remove leading and trailing hyphens
+    sanitizedName = sanitizedName.replace(/^-+/, "").replace(/-+$/, "");
 
     // Check if starts with a digit AFTER other sanitization
     if (/^\d/.test(sanitizedName)) {
@@ -395,7 +396,10 @@ function generateStructsAndInstances(
                         >(),
                     };
 
-                    const rowNameKey = sanitizedChildName;
+                    const rowNameKey =
+                        childName === "mode" && hasRootModeVariable
+                            ? sanitizePropertyName("mode") // Use original "mode" for lookup
+                            : sanitizedChildName; // Use normal sanitized name for others
                     const resolvedVariableModesMap =
                         collectionData.variables.get(rowNameKey);
 
@@ -1000,15 +1004,31 @@ export async function exportFigmaVariablesToSeparateFiles(
                                 }
                             }
 
-                            // Strategy 3: If still no match, try any available value as fallback
+                            // Strategy 3: Enhanced fallback - try to distribute different values to different collection modes
                             if (value === null) {
                                 const availableValues = Object.entries(
                                     variable.valuesByMode,
                                 );
                                 if (availableValues.length > 0) {
-                                    [foundModeId, value] = availableValues[0];
+                                    // Try to map collection modes to different variable modes when possible
+                                    // Get the index of this collection mode
+                                    const collectionModeIndex =
+                                        collection.modes.findIndex(
+                                            (mode) =>
+                                                mode.modeId ===
+                                                collectionMode.modeId,
+                                        );
+
+                                    // Use different available values for different collection modes
+                                    const valueIndex = Math.min(
+                                        collectionModeIndex,
+                                        availableValues.length - 1,
+                                    );
+                                    [foundModeId, value] =
+                                        availableValues[valueIndex];
+
                                     console.warn(
-                                        `Mode mismatch for variable ${variable.name}: using fallback value from mode ${foundModeId} for expected mode ${modeName}`,
+                                        `Mode mismatch for variable ${variable.name}: using fallback value from mode ${foundModeId} (index ${valueIndex}) for expected mode ${modeName}`,
                                     );
                                 }
                             }

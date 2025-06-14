@@ -36,7 +36,7 @@ export component ConsolePanel inherits SimpleColumn {
             color: ConsoleStyles.text-color;
             font-family: "Inter";
             font-size: 12px;
-            text: "Console";
+            text: @tr("Console");
         }
 
         last-message := Text {
@@ -175,7 +175,7 @@ export component ConsolePanel inherits SimpleColumn {
         HorizontalLayout {
             alignment: end;
             Text {
-                text: "Auto clear logs";
+                text: @tr("Auto clear logs");
                 font-family: "Inter";
                 font-size: 12px;
                 color: ConsoleStyles.text-color;
@@ -185,7 +185,7 @@ export component ConsolePanel inherits SimpleColumn {
                 width: 6px;
             }
             Switch {
-                checked <=> WindowManager.auto-clear-console;
+                checked <=> Api.auto-clear-console;
             }
             Rectangle {
                 width: 10px;

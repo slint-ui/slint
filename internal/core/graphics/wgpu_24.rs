@@ -8,6 +8,8 @@ This module contains types that are public and re-exported in the slint-rs as we
 in particular the `BackendSelector` type, to configure the WGPU-based renderer(s).
 */
 
+pub use wgpu_24 as wgpu;
+
 /// This data structure provides settings for initializing WGPU renderers.
 #[derive(Clone, Debug)]
 #[non_exhaustive]
@@ -80,5 +82,48 @@ pub enum WGPUConfiguration {
 impl Default for WGPUConfiguration {
     fn default() -> Self {
         Self::Automatic(WGPUSettings::default())
+    }
+}
+
+impl TryFrom<wgpu_24::Texture> for super::Image {
+    type Error = crate::graphics::wgpu_24::TextureImportError;
+
+    fn try_from(texture: wgpu_24::Texture) -> Result<Self, Self::Error> {
+        if texture.format() != wgpu_24::TextureFormat::Rgba8Unorm
+            && texture.format() != wgpu_24::TextureFormat::Rgba8UnormSrgb
+        {
+            return Err(Self::Error::InvalidFormat);
+        }
+        let usages = texture.usage();
+        if !usages.contains(wgpu_24::TextureUsages::TEXTURE_BINDING)
+            || !usages.contains(wgpu_24::TextureUsages::RENDER_ATTACHMENT)
+        {
+            return Err(Self::Error::InvalidUsage);
+        }
+        Ok(Self(super::ImageInner::WGPUTexture(super::WGPUTexture::WGPU24Texture(texture))))
+    }
+}
+
+#[derive(Debug, derive_more::Error)]
+#[non_exhaustive]
+/// This enum describes the possible errors that can occur when importing a WGPU texture,
+/// via [`Image::try_from()`](super::Image::try_from()).
+pub enum TextureImportError {
+    /// The texture format is not supported. The only supported format is Rgba8Unorm and Rgba8UnormSrgb.
+    InvalidFormat,
+    /// The texture usage must include TEXTURE_BINDING as well as RENDER_ATTACHMENT.
+    InvalidUsage,
+}
+
+impl core::fmt::Display for TextureImportError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            TextureImportError::InvalidFormat => f.write_str(
+                "The texture format is not supported. The only supported format is Rgba8Unorm and Rgba8UnormSrgb",
+            ),
+            TextureImportError::InvalidUsage => f.write_str(
+                "The texture usage must include TEXTURE_BINDING as well as RENDER_ATTACHMENT",
+            ),
+        }
     }
 }

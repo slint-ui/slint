@@ -416,7 +416,7 @@ pub struct ItemTreeDescription<'id> {
         std::cell::OnceCell<Option<std::rc::Rc<i_slint_compiler::typeloader::TypeLoader>>>,
 
     pub(crate) debug_handler: std::cell::RefCell<
-        Box<dyn Fn(&Option<i_slint_compiler::diagnostics::SourceLocation>, &str)>,
+        Rc<dyn Fn(Option<&i_slint_compiler::diagnostics::SourceLocation>, &str)>,
     >,
 }
 
@@ -703,10 +703,22 @@ impl ItemTreeDescription<'_> {
         let g = extra_data.globals.get().unwrap().get(global_name).clone();
         g.ok_or(())
     }
+
+    pub fn recursively_set_debug_handler(
+        &self,
+        handler: Rc<dyn Fn(Option<&i_slint_compiler::diagnostics::SourceLocation>, &str)>,
+    ) {
+        *self.debug_handler.borrow_mut() = handler.clone();
+
+        for r in &self.repeater {
+            generativity::make_guard!(guard);
+            r.unerase(guard).item_tree_to_repeat.recursively_set_debug_handler(handler.clone());
+        }
+    }
 }
 
 #[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
-extern "C-unwind" fn visit_children_item(
+extern "C" fn visit_children_item(
     component: ItemTreeRefPin,
     index: isize,
     order: TraversalOrder,
@@ -1372,7 +1384,7 @@ pub(crate) fn generate_item_tree<'id>(
         type_loader: std::cell::OnceCell::new(),
         #[cfg(feature = "internal-highlight")]
         raw_type_loader: std::cell::OnceCell::new(),
-        debug_handler: std::cell::RefCell::new(Box::new(|_, text| {
+        debug_handler: std::cell::RefCell::new(Rc::new(|_, text| {
             i_slint_core::debug_log!("{text}")
         })),
     };
@@ -1847,10 +1859,7 @@ pub fn get_repeater_by_name<'a, 'id>(
 }
 
 #[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
-extern "C-unwind" fn layout_info(
-    component: ItemTreeRefPin,
-    orientation: Orientation,
-) -> LayoutInfo {
+extern "C" fn layout_info(component: ItemTreeRefPin, orientation: Orientation) -> LayoutInfo {
     generativity::make_guard!(guard);
     // This is fine since we can only be called with a component that with our vtable which is a ItemTreeDescription
     let instance_ref = unsafe { InstanceRef::from_pin_ref(component, guard) };
@@ -1881,7 +1890,7 @@ extern "C-unwind" fn layout_info(
 }
 
 #[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
-unsafe extern "C-unwind" fn get_item_ref(component: ItemTreeRefPin, index: u32) -> Pin<ItemRef> {
+unsafe extern "C" fn get_item_ref(component: ItemTreeRefPin, index: u32) -> Pin<ItemRef> {
     let tree = get_item_tree(component);
     match &tree[index as usize] {
         ItemTreeNode::Item { item_array_index, .. } => {
@@ -1897,7 +1906,7 @@ unsafe extern "C-unwind" fn get_item_ref(component: ItemTreeRefPin, index: u32) 
 }
 
 #[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
-extern "C-unwind" fn get_subtree_range(component: ItemTreeRefPin, index: u32) -> IndexRange {
+extern "C" fn get_subtree_range(component: ItemTreeRefPin, index: u32) -> IndexRange {
     generativity::make_guard!(guard);
     let instance_ref = unsafe { InstanceRef::from_pin_ref(component, guard) };
     if index as usize >= instance_ref.description.repeater.len() {
@@ -1927,7 +1936,7 @@ extern "C-unwind" fn get_subtree_range(component: ItemTreeRefPin, index: u32) ->
 }
 
 #[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
-extern "C-unwind" fn get_subtree(
+extern "C" fn get_subtree(
     component: ItemTreeRefPin,
     index: u32,
     subtree_index: usize,
@@ -1966,7 +1975,7 @@ extern "C-unwind" fn get_subtree(
 }
 
 #[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
-extern "C-unwind" fn get_item_tree(component: ItemTreeRefPin) -> Slice<ItemTreeNode> {
+extern "C" fn get_item_tree(component: ItemTreeRefPin) -> Slice<ItemTreeNode> {
     generativity::make_guard!(guard);
     let instance_ref = unsafe { InstanceRef::from_pin_ref(component, guard) };
     let tree = instance_ref.description.item_tree.as_slice();
@@ -1974,7 +1983,7 @@ extern "C-unwind" fn get_item_tree(component: ItemTreeRefPin) -> Slice<ItemTreeN
 }
 
 #[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
-extern "C-unwind" fn subtree_index(component: ItemTreeRefPin) -> usize {
+extern "C" fn subtree_index(component: ItemTreeRefPin) -> usize {
     generativity::make_guard!(guard);
     let instance_ref = unsafe { InstanceRef::from_pin_ref(component, guard) };
     if let Ok(value) = instance_ref.description.get_property(component, SPECIAL_PROPERTY_INDEX) {
@@ -1985,7 +1994,7 @@ extern "C-unwind" fn subtree_index(component: ItemTreeRefPin) -> usize {
 }
 
 #[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
-unsafe extern "C-unwind" fn parent_node(component: ItemTreeRefPin, result: &mut ItemWeak) {
+unsafe extern "C" fn parent_node(component: ItemTreeRefPin, result: &mut ItemWeak) {
     generativity::make_guard!(guard);
     let instance_ref = InstanceRef::from_pin_ref(component, guard);
 
@@ -2025,7 +2034,7 @@ unsafe extern "C-unwind" fn parent_node(component: ItemTreeRefPin, result: &mut 
 }
 
 #[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
-unsafe extern "C-unwind" fn embed_component(
+unsafe extern "C" fn embed_component(
     component: ItemTreeRefPin,
     parent_component: &ItemTreeWeak,
     parent_item_tree_index: u32,
@@ -2056,7 +2065,7 @@ unsafe extern "C-unwind" fn embed_component(
 }
 
 #[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
-extern "C-unwind" fn item_geometry(component: ItemTreeRefPin, item_index: u32) -> LogicalRect {
+extern "C" fn item_geometry(component: ItemTreeRefPin, item_index: u32) -> LogicalRect {
     generativity::make_guard!(guard);
     let instance_ref = unsafe { InstanceRef::from_pin_ref(component, guard) };
 
@@ -2079,7 +2088,7 @@ extern "C-unwind" fn item_geometry(component: ItemTreeRefPin, item_index: u32) -
 // silence the warning despite `AccessibleRole` is a `#[non_exhaustive]` enum from another crate.
 #[allow(improper_ctypes_definitions)]
 #[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
-extern "C-unwind" fn accessible_role(component: ItemTreeRefPin, item_index: u32) -> AccessibleRole {
+extern "C" fn accessible_role(component: ItemTreeRefPin, item_index: u32) -> AccessibleRole {
     generativity::make_guard!(guard);
     let instance_ref = unsafe { InstanceRef::from_pin_ref(component, guard) };
     let nr = instance_ref.description.original_elements[item_index as usize]
@@ -2098,7 +2107,7 @@ extern "C-unwind" fn accessible_role(component: ItemTreeRefPin, item_index: u32)
 }
 
 #[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
-extern "C-unwind" fn accessible_string_property(
+extern "C" fn accessible_string_property(
     component: ItemTreeRefPin,
     item_index: u32,
     what: AccessibleStringProperty,
@@ -2128,7 +2137,7 @@ extern "C-unwind" fn accessible_string_property(
 }
 
 #[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
-extern "C-unwind" fn accessibility_action(
+extern "C" fn accessibility_action(
     component: ItemTreeRefPin,
     item_index: u32,
     action: &AccessibilityAction,
@@ -2164,7 +2173,7 @@ extern "C-unwind" fn accessibility_action(
 }
 
 #[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
-extern "C-unwind" fn supported_accessibility_actions(
+extern "C" fn supported_accessibility_actions(
     component: ItemTreeRefPin,
     item_index: u32,
 ) -> SupportedAccessibilityAction {
@@ -2187,7 +2196,7 @@ extern "C-unwind" fn supported_accessibility_actions(
 }
 
 #[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
-extern "C-unwind" fn item_element_infos(
+extern "C" fn item_element_infos(
     component: ItemTreeRefPin,
     item_index: u32,
     result: &mut SharedString,
@@ -2202,7 +2211,7 @@ extern "C-unwind" fn item_element_infos(
 }
 
 #[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
-extern "C-unwind" fn window_adapter(
+extern "C" fn window_adapter(
     component: ItemTreeRefPin,
     do_create: bool,
     result: &mut Option<WindowAdapterRc>,
@@ -2217,9 +2226,7 @@ extern "C-unwind" fn window_adapter(
 }
 
 #[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
-unsafe extern "C-unwind" fn drop_in_place(
-    component: vtable::VRefMut<ItemTreeVTable>,
-) -> vtable::Layout {
+unsafe extern "C" fn drop_in_place(component: vtable::VRefMut<ItemTreeVTable>) -> vtable::Layout {
     let instance_ptr = component.as_ptr() as *mut Instance<'static>;
     let layout = (*instance_ptr).type_info().layout();
     dynamic_type::TypeInfo::drop_in_place(instance_ptr);
@@ -2227,11 +2234,7 @@ unsafe extern "C-unwind" fn drop_in_place(
 }
 
 #[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
-unsafe extern "C-unwind" fn dealloc(
-    _vtable: &ItemTreeVTable,
-    ptr: *mut u8,
-    layout: vtable::Layout,
-) {
+unsafe extern "C" fn dealloc(_vtable: &ItemTreeVTable, ptr: *mut u8, layout: vtable::Layout) {
     std::alloc::dealloc(ptr, layout.try_into().unwrap());
 }
 

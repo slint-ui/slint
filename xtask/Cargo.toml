@@ -19,7 +19,6 @@ cbindgen = { workspace = true }
 clap = { workspace = true }
 const_format = "0.2"
 i-slint-common = { workspace = true, features = ["default"] }
-lazy_static = "1.4.0"
 proc-macro2 = "1.0.11"
 regex = "1.4"
 serde_json = { workspace = true }

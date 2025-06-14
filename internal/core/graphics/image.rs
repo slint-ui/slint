@@ -24,12 +24,12 @@ mod svg;
 #[vtable::vtable]
 #[repr(C)]
 pub struct OpaqueImageVTable {
-    drop_in_place: extern "C-unwind" fn(VRefMut<OpaqueImageVTable>) -> Layout,
-    dealloc: extern "C-unwind" fn(&OpaqueImageVTable, ptr: *mut u8, layout: Layout),
+    drop_in_place: extern "C" fn(VRefMut<OpaqueImageVTable>) -> Layout,
+    dealloc: extern "C" fn(&OpaqueImageVTable, ptr: *mut u8, layout: Layout),
     /// Returns the image size
-    size: extern "C-unwind" fn(VRef<OpaqueImageVTable>) -> IntSize,
+    size: extern "C" fn(VRef<OpaqueImageVTable>) -> IntSize,
     /// Returns a cache key
-    cache_key: extern "C-unwind" fn(VRef<OpaqueImageVTable>) -> ImageCacheKey,
+    cache_key: extern "C" fn(VRef<OpaqueImageVTable>) -> ImageCacheKey,
 }
 
 #[cfg(feature = "svg")]
@@ -689,7 +689,7 @@ impl std::error::Error for LoadImageError {}
 /// ```
 #[repr(transparent)]
 #[derive(Default, Clone, Debug, PartialEq, derive_more::From)]
-pub struct Image(ImageInner);
+pub struct Image(pub(crate) ImageInner);
 
 impl Image {
     #[cfg(feature = "image-decoders")]
@@ -988,52 +988,6 @@ impl BorrowedOpenGLTextureBuilder {
     /// Completes the process of building a slint::Image that holds a borrowed OpenGL texture.
     pub fn build(self) -> Image {
         Image(ImageInner::BorrowedOpenGLTexture(self.0))
-    }
-}
-
-#[cfg(feature = "unstable-wgpu-24")]
-#[derive(Debug)]
-#[non_exhaustive]
-/// This enum describes the possible errors that can occur when importing a WGPU texture,
-/// via [`Image::try_from()`].
-pub enum WGPUTextureImportError {
-    /// The texture format is not supported. The only supported format is Rgba8Unorm and Rgba8UnormSrgb.
-    InvalidFormat,
-    /// The texture usage must include TEXTURE_BINDING as well as RENDER_ATTACHMENT.
-    InvalidUsage,
-}
-
-#[cfg(feature = "unstable-wgpu-24")]
-impl core::fmt::Display for WGPUTextureImportError {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        match self {
-            WGPUTextureImportError::InvalidFormat => f.write_str(
-                "The texture format is not supported. The only supported format is Rgba8Unorm and Rgba8UnormSrgb",
-            ),
-            WGPUTextureImportError::InvalidUsage => f.write_str(
-                "The texture usage must include TEXTURE_BINDING as well as RENDER_ATTACHMENT",
-            ),
-        }
-    }
-}
-
-#[cfg(feature = "unstable-wgpu-24")]
-impl TryFrom<wgpu_24::Texture> for Image {
-    type Error = WGPUTextureImportError;
-
-    fn try_from(texture: wgpu_24::Texture) -> Result<Self, Self::Error> {
-        if texture.format() != wgpu_24::TextureFormat::Rgba8Unorm
-            && texture.format() != wgpu_24::TextureFormat::Rgba8UnormSrgb
-        {
-            return Err(WGPUTextureImportError::InvalidFormat);
-        }
-        let usages = texture.usage();
-        if !usages.contains(wgpu_24::TextureUsages::TEXTURE_BINDING)
-            || !usages.contains(wgpu_24::TextureUsages::RENDER_ATTACHMENT)
-        {
-            return Err(WGPUTextureImportError::InvalidUsage);
-        }
-        Ok(Self(ImageInner::WGPUTexture(WGPUTexture::WGPU24Texture(texture))))
     }
 }
 
