@@ -60,7 +60,7 @@ All notable changes to this project are documented in this file.
  - live preview: Do not apply live data changes after "Reload"
  - live preview: Added telemetry events
  - live preview: support Palette names in color picker
- - figma-inspector: ... TODO ...
+ - figma-inspector: Enables the export of design tokens (variables for colors, numbers, strings, and booleans) direct from your Figma files. Inspected components now can include design token variable reference for convenient pasting into slint files.
 
 ## [1.11.0] - 2025-04-23
 
