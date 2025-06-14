@@ -13,6 +13,7 @@ import { LibraryView } from "./views/library-view.slint";
 import { DrawAreaMode, PreviewView } from "./views/preview-view.slint";
 import { OutOfDateBox } from "./components/out-of-date-box.slint";
 import { PropertyView } from "./views/property-view.slint";
+import { OutlineView } from "./views/outline-view.slint";
 import { PreviewDataView } from "./views/preview-data-view.slint";
 import { WindowGlobal, WindowManager } from "windowglobal.slint";
 import { ColorPickerView } from "components/widgets/floating-brush-picker-widget.slint";
@@ -124,6 +125,14 @@ export component PreviewUi inherits Window {
                                 preview_data_tab := Tab {
                                     title: @tr("Data");
                                     if tw.current-index == 1: PreviewDataView {
+                                        opacity: preview.preview-is-current ? 1.0 : 0.3;
+                                        enabled: preview.preview-is-current;
+                                    }
+                                }
+
+                                Tab {
+                                    title: @tr("Outline");
+                                    if tw.current-index == 2: OutlineView {
                                         opacity: preview.preview-is-current ? 1.0 : 0.3;
                                         enabled: preview.preview-is-current;
                                     }
