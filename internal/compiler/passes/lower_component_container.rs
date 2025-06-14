@@ -74,7 +74,6 @@ fn process_component_container(element: &ElementRc, empty_type: &ElementType) {
         }));
 
         Component {
-            node: element.borrow().debug.first().map(|n| n.node.clone().into()),
             id: smol_str::format_smolstr!("ComponentContainerInternal_{}", suffix),
             root_element,
             ..Default::default()
