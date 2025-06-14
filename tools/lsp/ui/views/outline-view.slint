@@ -1,0 +1,33 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Palette, VerticalBox, ListView }  from "std-widgets.slint";
+import { Api, OutlineTreeNode } from "../api.slint";
+
+export component OutlineView inherits ListView {
+
+    property <[OutlineTreeNode]> outline-data <=> Api.outline;
+
+    for item in outline-data: HorizontalLayout {
+        Rectangle { width: item.indent-level * 20px; }
+        Text {
+            text: !item.has-children ? "" : item.is-expended ? "⊟" : "⊞";
+            horizontal-alignment: right;
+            vertical-alignment: center;
+            width: 20px;
+            TouchArea {
+                clicked => { item.is-expended = !item.is-expended; }
+            }
+        }
+        Text {
+            text: item.name;
+            vertical-alignment: center;
+            TouchArea {
+                clicked => { Api.outline-select-element(item.file-name, item.offset); }
+                double-clicked => { item.is-expended = !item.is-expended; }
+            }
+        }
+    }
+
+}
+

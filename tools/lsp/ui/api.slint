@@ -237,6 +237,17 @@ export struct LogMessage {
     level: LogMessageLevel,
 }
 
+/// A node in the outline tree
+export struct OutlineTreeNode {
+    has-children: bool,
+    is-expended: bool,
+    indent-level: int,
+    name: string,
+    file-name: string,
+    offset: int,
+}
+
+
 export global Api {
     // # Properties
     // ## General preview state:
@@ -270,6 +281,7 @@ export global Api {
 
     // ## Log Output
     in-out property <[LogMessage]> log-output;
+    in-out property <bool> auto-clear-console: true;
 
     // ## Drawing Area
     // Borders around things
@@ -475,6 +487,10 @@ export global Api {
 
     ];
 
+    // ## Outline
+    in-out property <[OutlineTreeNode]> outline;
+    callback outline-select-element(file: string, offset: int);
+
     // ## preview data
 
     in-out property <[PropertyContainer]> preview-data;
@@ -575,5 +591,4 @@ export global Api {
     // Console / LogMessages
     pure callback filter-log-messages(messages: [LogMessage], pattern: string) -> [LogMessage];
     callback clear-log-messages();
-    in-out property <bool> auto-clear-console: true;
 }
