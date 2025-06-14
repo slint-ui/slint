@@ -237,14 +237,11 @@ async function checkVariableChanges(isInitialRun = false) {
 
 listenTS("getTestData", async () => {
     try {
-        const timeStart = Date.now();
-        const files = await saveVariableCollectionsToFile("figma-test-data");
-        const timeEnd = Date.now();
-        console.log(`Time taken: ${timeEnd - timeStart}ms`);
+        const testData = await saveVariableCollectionsToFile();
 
-        dispatchTS("exportedFiles", {
-            zipFilename: "test-data",
-            files: files,
+        dispatchTS("saveTextFile", {
+            filename: "figma-test-data.json",
+            content: testData,
         });
 
         figma.notify("Test data ready for download!");
