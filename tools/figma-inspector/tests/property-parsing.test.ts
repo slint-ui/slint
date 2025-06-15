@@ -59,7 +59,7 @@ function findNodeByName(obj: any, targetName: string): any {
     return null;
 }
 
-// The JSON in the file for border radius is different to the API ojbect
+// The JSON in the file for border radius is different to the API object
 // the runtime plugin uses. This converts the test JSON to match the API object.
 // This isn't a great soloution, but test options are limited for Figma right now.
 function processCornerRadii(json: any): any {
