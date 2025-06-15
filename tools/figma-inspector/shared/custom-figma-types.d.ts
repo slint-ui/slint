@@ -10,7 +10,7 @@ export type VariableId = string & { readonly brand: unique symbol };
 // Create our own types that extend the Figma ones
 export interface VariableCollectionSU extends Omit<VariableCollection, "id"> {
     id: CollectionId;
-    variables: Map<VariableId, VariableSU>;
+    variables: VariablesMap;
 }
 
 export interface VariableSU
@@ -19,8 +19,9 @@ export interface VariableSU
     variableCollectionId: CollectionId;
 }
 
-export interface VariableAliasSU
-    extends Omit<VariableAlias, "id"> {
+export interface VariableAliasSU extends Omit<VariableAlias, "id"> {
     id: VariableId;
 }
 
+export type CollectionsMap = Map<CollectionId, VariableCollectionSU>;
+export type VariablesMap = Map<VariableId, VariableSU>;

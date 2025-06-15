@@ -8,36 +8,9 @@ import type {
     VariableCollectionSU,
     VariableSU,
     VariableAliasSU,
+    CollectionsMap,
+    VariablesMap,
 } from "../../shared/custom-figma-types.d.ts";
-
-interface ProcessedCollection {
-    id: string;
-    name: string;
-    defaultModeId: string;
-    hiddenFromPublishing: boolean;
-    modes: Array<{
-        modeId: string;
-        name: string;
-    }>;
-    variables: Variable[];
-}
-
-interface VariableCollectionOld {
-    id: string;
-    name: string;
-    defaultModeId: string;
-    hiddenFromPublishing: boolean;
-    modes: Array<{
-        modeId: string;
-        name: string;
-    }>;
-    variables: Variable[];
-}
-
-interface VariableReference {
-    path?: string;
-    variable: Variable;
-}
 
 export const indent = "    ";
 export const indent2 = indent + indent;
@@ -48,64 +21,6 @@ export const indent2 = indent + indent;
 // - variable.description // Useful for comments in the code.
 // - variable.codeSyntax // This might be useful in the future as it allows figma to give
 // an actual name for the variable to be used in code. However its for CSS and Swift only right now.
-export async function processVariableCollections(): Promise<
-    ProcessedCollection[]
-> {
-    try {
-        const collections =
-            await figma.variables.getLocalVariableCollectionsAsync();
-
-        const allVariables = await figma.variables.getLocalVariablesAsync();
-        const variablesByCollection = new Map<string, Variable[]>();
-        for (const variable of allVariables) {
-            const collectionId = variable.variableCollectionId;
-            if (!collectionId) {
-                continue;
-            }
-
-            if (!variablesByCollection.has(collectionId)) {
-                variablesByCollection.set(collectionId, []);
-            }
-            // Ensure all required properties exist with defaults
-            const safeVariable = {
-                id: variable.id || "",
-                name: variable.name || "",
-                variableCollectionId: collectionId,
-                resolvedType: variable.resolvedType || "STRING",
-                valuesByMode: variable.valuesByMode || {},
-                hiddenFromPublishing: variable.hiddenFromPublishing ?? false,
-                scopes: variable.scopes || [],
-            };
-
-            const vars = variablesByCollection.get(collectionId);
-            if (vars && collectionId) {
-                vars.push(safeVariable as Variable);
-            } else {
-                console.log("Collection ID not found", collectionId);
-            }
-        }
-
-        // Build the final collections data
-        const detailedCollections = collections.map((collection) => ({
-            id: collection.id,
-            name: collection.name,
-            defaultModeId: collection.defaultModeId,
-            hiddenFromPublishing: collection.hiddenFromPublishing,
-            modes: collection.modes.map((mode) => ({
-                modeId: mode.modeId,
-                name: mode.name,
-            })),
-            variables: variablesByCollection.get(collection.id) || [],
-        }));
-
-        console.log("Total variables:", allVariables.length);
-        return detailedCollections;
-    } catch (error) {
-        console.error("Error processing variable collections:", error);
-        throw error;
-    }
-}
-
 function createVariableCollectionSU(
     collection: VariableCollection,
 ): VariableCollectionSU {
@@ -133,12 +48,14 @@ function createVariableSU(variable: Variable): VariableSU {
 
 async function handleDeletedVariable(
     id: VariableId,
-    variableMap: Map<VariableId, VariableSU>,
-    collectionsMap: Map<CollectionId, VariableCollectionSU>
+    variableMap: VariablesMap,
+    collectionsMap: CollectionsMap,
 ): Promise<void> {
     //TODO: Support reporting the deleted variables and collections via the included readme.txt
     const variable = await figma.variables.getVariableByIdAsync(id);
-    if (!variable) { return; }
+    if (!variable) {
+        return;
+    }
 
     const collectionId = variable.variableCollectionId as CollectionId;
     const collection = collectionsMap.get(collectionId);
@@ -153,8 +70,11 @@ async function handleDeletedVariable(
     }
 
     // Collection doesn't exist, need to recreate it
-    const deletedCollection = await figma.variables.getVariableCollectionByIdAsync(collectionId);
-    if (!deletedCollection) { return }
+    const deletedCollection =
+        await figma.variables.getVariableCollectionByIdAsync(collectionId);
+    if (!deletedCollection) {
+        return;
+    }
 
     const newCollection = createVariableCollectionSU(deletedCollection);
     newCollection.name = deletedCollection.name + "_DELETED";
@@ -180,36 +100,50 @@ async function handleDeletedVariable(
 }
 
 async function processVariableAliases(
-    collectionsMap: Map<CollectionId, VariableCollectionSU>,
-    variableMap: Map<VariableId, VariableSU>
+    collectionsMap: CollectionsMap,
+    variableMap: VariablesMap,
 ): Promise<void> {
     for (const collection of collectionsMap.values()) {
         for (const variable of collection.variables.values()) {
             if (Object.values(variable.valuesByMode).length === 0) {
-                console.log("Unexpected error! Variable has no values", variable.name, variable.id);
+                console.log(
+                    "Unexpected error! Variable has no values",
+                    variable.name,
+                    variable.id,
+                );
             }
             for (const value of Object.values(variable.valuesByMode)) {
-                if (!isVariableAlias(value)) { continue; }
+                if (!isVariableAlias(value)) {
+                    continue;
+                }
                 const id = (value as VariableAliasSU).id;
                 if (!variableMap.has(id)) {
-                    await handleDeletedVariable(id, variableMap, collectionsMap);
+                    await handleDeletedVariable(
+                        id,
+                        variableMap,
+                        collectionsMap,
+                    );
                 }
             }
         }
     }
 }
 
-export async function createVariableCollections(): Promise<
-    Map<CollectionId, VariableCollectionSU>
-> {
+export async function createVariableCollections(): Promise<{
+    collectionsMap: CollectionsMap;
+    variablesMap: VariablesMap;
+}> {
     try {
         const [collections, allVariables] = await Promise.all([
             figma.variables.getLocalVariableCollectionsAsync(),
             figma.variables.getLocalVariablesAsync(),
         ]);
 
-        const collectionsMap = new Map<CollectionId, VariableCollectionSU>();
-        const variableMap = new Map<VariableId, VariableSU>();
+        const collectionsMap: CollectionsMap = new Map<
+            CollectionId,
+            VariableCollectionSU
+        >();
+        const variablesMap: VariablesMap = new Map<VariableId, VariableSU>();
 
         // Create collections and add variables
         for (const collection of collections) {
@@ -219,10 +153,12 @@ export async function createVariableCollections(): Promise<
 
         for (const variable of allVariables) {
             const collectionId = variable.variableCollectionId as CollectionId;
-            if (!collectionId) { continue; }
+            if (!collectionId) {
+                continue;
+            }
 
             const safeVariable = createVariableSU(variable);
-            variableMap.set(safeVariable.id, safeVariable);
+            variablesMap.set(safeVariable.id, safeVariable);
 
             const collection = collectionsMap.get(collectionId);
             if (collection) {
@@ -231,9 +167,9 @@ export async function createVariableCollections(): Promise<
         }
 
         // Handle any deleted variables referenced by aliases
-        await processVariableAliases(collectionsMap, variableMap);
+        await processVariableAliases(collectionsMap, variablesMap);
 
-        return collectionsMap;
+        return { collectionsMap, variablesMap };
     } catch (error) {
         console.error("Error processing variable collections:", error);
         throw error;
@@ -243,27 +179,16 @@ export async function createVariableCollections(): Promise<
 export async function createSlintExport(): Promise<void> {
     try {
         const start = Date.now();
-        const collections = await processVariableCollections();
-        const sanitizedCollections = sanitizeCollections(collections);
+        const { collectionsMap, variablesMap } =
+            await createVariableCollections();
 
-        // Build a map of variable IDs to their references and data
-        const variableRefMap = new Map<string, VariableReference>();
-        const collectionDefaultModes = new Map<string, string>();
-        for (const collection of sanitizedCollections) {
-            collectionDefaultModes.set(collection.id, collection.defaultModeId);
-            for (const variable of collection.variables) {
-                variableRefMap.set(variable.id, {
-                    path: `${collection.name}.vars.${variable.name}`,
-                    variable: variable,
-                });
-            }
-        }
+        sanitizeCollections(collectionsMap);
 
         let allSlintCode = "";
         let collectionCount = 1;
 
-        for (const collection of sanitizedCollections) {
-            if (collection.variables.length === 0) {
+        for (const collection of collectionsMap.values()) {
+            if (collection.variables.size === 0) {
                 continue;
             }
 
@@ -283,7 +208,7 @@ export async function createSlintExport(): Promise<void> {
 
             // Generate a struct for the collection
             allSlintCode += `struct ${structName} {\n`;
-            for (const variable of collection.variables) {
+            for (const variable of collection.variables.values()) {
                 const slintType = getSlintTypeInfo(variable).type;
                 allSlintCode += `${indent}${variable.name}: ${slintType},\n`;
             }
@@ -291,16 +216,16 @@ export async function createSlintExport(): Promise<void> {
         }
 
         // Create a global for each collection
-        for (const collection of sanitizedCollections) {
-            if (collection.variables.length === 0) {
+        let collectionIndex = 1;
+        for (const collection of collectionsMap.values()) {
+            if (collection.variables.size === 0) {
                 continue;
             }
 
-            const collectionIndex =
-                sanitizedCollections.indexOf(collection) + 1;
             const enumName = `Mode${collectionIndex}`;
             const structName = `Vars${collectionIndex}`;
 
+            collectionIndex++;
             allSlintCode += `export global ${collection.name} {\n`;
 
             if (collection.modes.length > 1) {
@@ -330,29 +255,28 @@ export async function createSlintExport(): Promise<void> {
                 // Add properties for each mode
                 for (const mode of collection.modes) {
                     allSlintCode += `${indent}property <${structName}> ${mode.name}: {\n`;
-                    allSlintCode += await generateVariablesForMode(
-                        collection.variables,
+                    allSlintCode += generateVariablesForMode(
+                        Array.from(collection.variables.values()),
                         mode.modeId,
                         collection.name,
-                        collectionDefaultModes,
-                        variableRefMap,
+                        variablesMap,
+                        collectionsMap,
                     );
                 }
             } else {
                 // For collections with only one mode, just create a simple property
                 allSlintCode += `${indent}out property <${structName}> vars: {\n`;
-                allSlintCode += await generateVariablesForMode(
-                    collection.variables,
+                allSlintCode += generateVariablesForMode(
+                    Array.from(collection.variables.values()),
                     collection.modes[0].modeId,
                     collection.name,
-                    collectionDefaultModes,
-                    variableRefMap,
+                    variablesMap,
+                    collectionsMap,
                 );
             }
 
             allSlintCode += `}\n\n`;
         }
-
         console.log("Code gen took", Date.now() - start, "ms");
 
         dispatchTS("saveTextFile", {
@@ -406,44 +330,34 @@ export function sanitizeSlintPropertyName(name: string): string {
     return name;
 }
 
-function sanitizeCollections(
-    collections: ProcessedCollection[],
-): VariableCollectionOld[] {
-    return collections.map((collection) => {
-        const sanitizedName = sanitizeSlintPropertyName(collection.name);
+function sanitizeCollections(collectionsMap: CollectionsMap): CollectionsMap {
+    for (const collection of collectionsMap.values()) {
+        collection.name = sanitizeSlintPropertyName(collection.name);
 
-        const sanitizedModes = collection.modes.map((mode) => ({
-            modeId: mode.modeId,
-            name: sanitizeSlintPropertyName(mode.name),
-        }));
+        for (const mode of collection.modes) {
+            mode.name = sanitizeSlintPropertyName(mode.name);
+        }
 
-        const sanitizedVariables = collection.variables.map((variable) => ({
-            ...variable,
-            name: sanitizeSlintPropertyName(variable.name),
-        }));
-
-        return {
-            id: collection.id,
-            name: sanitizedName,
-            defaultModeId: collection.defaultModeId,
-            hiddenFromPublishing: collection.hiddenFromPublishing,
-            modes: sanitizedModes,
-            variables: sanitizedVariables,
-        };
-    });
+        for (const variable of collection.variables.values()) {
+            variable.name = sanitizeSlintPropertyName(variable.name);
+        }
+    }
+    return collectionsMap;
 }
 
 export async function saveVariableCollectionsToFile(): Promise<string> {
     try {
         const start = Date.now();
-        const variableCollection = await createVariableCollections();
+        const { collectionsMap } = await createVariableCollections();
         console.log("createVariableCollections took", Date.now() - start, "ms");
 
         // Convert the Map to an array of collections, with variables as arrays
-        const serializedCollections = Array.from(variableCollection.values()).map(collection => ({
-            ...collection,
-            variables: Array.from(collection.variables.values())
-        }));
+        const serializedCollections = Array.from(collectionsMap.values()).map(
+            (collection) => ({
+                ...collection,
+                variables: Array.from(collection.variables.values()),
+            }),
+        );
 
         return JSON.stringify(serializedCollections, null, 2);
     } catch (error) {
@@ -452,7 +366,7 @@ export async function saveVariableCollectionsToFile(): Promise<string> {
     }
 }
 
-function getSlintTypeInfo(variable: Variable): {
+function getSlintTypeInfo(variable: VariableSU): {
     type: string;
     defaultValue: string;
 } {
@@ -486,7 +400,7 @@ function isVariableAlias(value: any): boolean {
     );
 }
 
-function formatValueForSlint(variable: Variable, value: any): string {
+function formatValueForSlint(variable: VariableSU, value: any): string {
     const slintType = getSlintTypeInfo(variable).type;
     switch (slintType) {
         case "string":
@@ -515,41 +429,45 @@ function formatValueForSlint(variable: Variable, value: any): string {
     }
 }
 
-export async function generateVariableValue(
-    variable: Variable,
+export function createPath(
+    variable: VariableSU,
+    collectionsMap: CollectionsMap,
+): string {
+    const collectionName = collectionsMap.get(
+        variable.variableCollectionId,
+    )?.name;
+    return `${collectionName}.collection.${variable.name}`;
+}
+
+export function generateVariableValue(
+    variable: VariableSU,
     value: any,
     collectionName: string,
-    collectionDefaultModes: Map<string, string>,
-    variableRefMap: Map<string, VariableReference>,
-): Promise<string> {
+    variablesMap: VariablesMap,
+    collectionsMap: CollectionsMap,
+): string {
     if (isVariableAlias(value)) {
         // Figma allows designers to go wild with variables the reference other variables or even other
         // references. This quickly leads to binding loops in this current export. This function simplifies the
         // problem by allowing a single variable in another struct. If the variable references the current struct
         // or another reference the alias chain is simply resolved to a final value based on defaultModeId's
         // if it has no path it probably a variable from a deleted collection that handleDeadEndValue has recreated.
-        const variableFromAlias = variableRefMap.get(value.id);
-        if (variableFromAlias && variableFromAlias.path === undefined) {
-            const key0 = Object.keys(
-                variableFromAlias.variable.valuesByMode,
-            )[0];
-            const value = variableFromAlias.variable.valuesByMode[key0];
-            return formatValueForSlint(variable, value);
-        }
+        const variableFromAlias = variablesMap.get(value.id);
 
-        const variableAlias = variableFromAlias?.path;
-        const aliasCollection = variableFromAlias?.path?.split(".")[0];
-        if (variableAlias) {
-            if (aliasCollection === collectionName) {
-                return await followAliasChain(
+        if (variableFromAlias) {
+            const variablesCollectionName = collectionsMap.get(
+                variableFromAlias.variableCollectionId,
+            )?.name;
+            if (variablesCollectionName === collectionName) {
+                return followAliasChain(
                     variable,
                     value,
-                    variableRefMap,
-                    collectionDefaultModes,
+                    variablesMap,
+                    collectionsMap,
                 );
             }
             // check if next item is value or alias
-            const nextVariable = variableRefMap.get(value.id)?.variable;
+            const nextVariable = variablesMap.get(value.id);
             if (nextVariable) {
                 // Check all values in valuesByMode for variable aliases
                 if (nextVariable.valuesByMode) {
@@ -557,128 +475,85 @@ export async function generateVariableValue(
                         nextVariable.valuesByMode,
                     )) {
                         if (isVariableAlias(modeValue)) {
-                            return await followAliasChain(
+                            return followAliasChain(
                                 variable,
                                 value,
-                                variableRefMap,
-                                collectionDefaultModes,
+                                variablesMap,
+                                collectionsMap,
                             );
                         }
                     }
                 }
             }
-
-            return `${indent2}${variable.name}: ${variableAlias},\n`;
+            const variableName = createPath(variableFromAlias, collectionsMap);
+            return `${indent2}${variable.name}: ${variableName},\n`;
         } else {
-            return await handleDeadEndValue(
-                variable,
-                value,
-                collectionDefaultModes,
-                variableRefMap,
+            console.log(
+                "The createCollections should not create data that allows this situation to happen",
             );
         }
-    } else {
-        return formatValueForSlint(variable, value);
     }
+    return formatValueForSlint(variable, value);
 }
 
-async function generateVariablesForMode(
-    variables: Variable[],
+function generateVariablesForMode(
+    variables: VariableSU[],
     modeId: string,
     collectionName: string,
-    collectionDefaultModes: Map<string, string>,
-    variableRefMap: Map<string, VariableReference>,
-): Promise<string> {
+    variablesMap: VariablesMap,
+    collectionsMap: CollectionsMap,
+): string {
     let result = "";
     for (const variable of variables) {
         let value = variable.valuesByMode[modeId];
         // If value is undefined this might be a variable that shares a single value with all modes
-        if (
-            value === undefined &&
-            Object.keys(variable.valuesByMode).length > 0
-        ) {
-            const firstModeId = Object.keys(variable.valuesByMode)[0];
-            value = variable.valuesByMode[firstModeId];
+        if (!value) {
+            const defaultModeId = collectionsMap.get(
+                variable.variableCollectionId,
+            )?.defaultModeId;
+            value = variable.valuesByMode[defaultModeId!];
         }
-        result += await generateVariableValue(
+
+        result += generateVariableValue(
             variable,
             value,
             collectionName,
-            collectionDefaultModes,
-            variableRefMap,
+            variablesMap,
+            collectionsMap,
         );
     }
     result += `${indent}};\n\n`;
     return result;
 }
 
-// Figma allows you to delete variables and even collections that other variables reference. When this happens
-// figma.variables.getLocalVariableCollectionsAsync() will be missing those items. This function then uses
-// figma.variables.getVariableByIdAsync() to get the variable and then uses the valuesByMode to get the value.
-// It then puts a reference in the variableRefMap to save constant potential calls to figma.variables.getVariableByIdAsync()
-async function handleDeadEndValue(
-    variable: Variable,
+function followAliasChain(
+    variable: VariableSU,
     value: any,
-    collectionDefaultModes: Map<string, string>,
-    variableRefMap: Map<string, VariableReference>,
-): Promise<string> {
-    const v = await figma.variables.getVariableByIdAsync(value.id);
-
-    if (v) {
-        if (!variableRefMap.has(v.id)) {
-            variableRefMap.set(v.id, {
-                variable: v,
-            });
-        }
-        const collectionId = v.variableCollectionId;
-        const defaultModeId = collectionDefaultModes.get(collectionId);
-        if (defaultModeId !== undefined) {
-            const newValue = v.valuesByMode[defaultModeId];
-            if (newValue !== undefined) {
-                return formatValueForSlint(variable, newValue);
-            }
-        }
-        const anyValue = v.valuesByMode[Object.keys(v.valuesByMode)[0]];
-        if (anyValue !== undefined) {
-            return formatValueForSlint(variable, anyValue);
-        }
-    }
-    const { defaultValue } = getSlintTypeInfo(variable);
-    return `// Figma file is pointing at a deleted Variable "${variable.name}"\n${indent2}${variable.name}: ${defaultValue},\n`;
-}
-
-async function followAliasChain(
-    variable: Variable,
-    value: any,
-    variableRefMap: Map<string, VariableReference>,
-    collectionDefaultModes: Map<string, string>,
-): Promise<string> {
+    variablesMap: VariablesMap,
+    collectionsMap: CollectionsMap,
+): string {
     if (isVariableAlias(value)) {
         // get the next variable in the chain
-        const nextVariable = variableRefMap.get(value.id)?.variable;
+        const nextVariable = variablesMap.get(value.id);
+
         if (nextVariable) {
-            const nextValue =
-                nextVariable.valuesByMode[
-                    collectionDefaultModes.get(
-                        nextVariable.variableCollectionId,
-                    )!
-                ];
+            const defaultModeId = collectionsMap.get(
+                nextVariable.variableCollectionId,
+            )?.defaultModeId;
+            const nextValue = nextVariable.valuesByMode[defaultModeId!];
             if (isVariableAlias(nextValue)) {
-                return await followAliasChain(
+                return followAliasChain(
                     variable,
                     nextValue,
-                    variableRefMap,
-                    collectionDefaultModes,
+                    variablesMap,
+                    collectionsMap,
                 );
             } else {
                 return formatValueForSlint(variable, nextValue);
             }
         } else {
-            return await handleDeadEndValue(
-                variable,
-                value,
-                collectionDefaultModes,
-                variableRefMap,
+            console.log(
+                "followAliasChain: The createCollections should not create data that allows this situation to happen",
             );
         }
     }
