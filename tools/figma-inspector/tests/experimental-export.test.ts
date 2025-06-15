@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import { expect, test, describe, it } from "vitest";
+import { expect, test } from "vitest";
 import {
     sanitizeSlintPropertyName,
     generateVariableValue,
@@ -129,201 +129,192 @@ test("handles multiple consecutive duplicates", () => {
 });
 
 // generateVariableValue tests
-describe("generateVariableValue", () => {
-    it("should round float values to one decimal place", async () => {
-        const variable = {
-            name: "test-float",
-            resolvedType: "FLOAT",
-            scopes: ["OPACITY"],
-        } as any;
-        const variableRefMap = new Map<
-            string,
-            { path: string; variable: any }
-        >();
-        const collectionName = "test-collection";
-        const sanitizedCollection = { variables: [] } as any;
 
-        expect(
-            await generateVariableValue(
-                variable,
-                0.89099,
-                collectionName,
-                sanitizedCollection,
-                variableRefMap,
-            ),
-        ).toBe(`${indent2}test-float: 0.9,\n`);
-        expect(
-            await generateVariableValue(
-                variable,
-                1.003,
-                collectionName,
-                sanitizedCollection,
-                variableRefMap,
-            ),
-        ).toBe(`${indent2}test-float: 1.0,\n`);
-        expect(
-            await generateVariableValue(
-                variable,
-                2.567,
-                collectionName,
-                sanitizedCollection,
-                variableRefMap,
-            ),
-        ).toBe(`${indent2}test-float: 2.6,\n`);
-        expect(
-            await generateVariableValue(
-                variable,
-                3.0,
-                collectionName,
-                sanitizedCollection,
-                variableRefMap,
-            ),
-        ).toBe(`${indent2}test-float: 3.0,\n`);
-    });
+test("should round float values to one decimal place", async () => {
+    const variable = {
+        name: "test-float",
+        resolvedType: "FLOAT",
+        scopes: ["OPACITY"],
+    } as any;
+    const variableRefMap = new Map<string, { path: string; variable: any }>();
+    const collectionName = "test-collection";
+    const sanitizedCollection = { variables: [] } as any;
 
-    it("should handle other types correctly", async () => {
-        const variableRefMap = new Map<
-            string,
-            { path: string; variable: any }
-        >();
-        const collectionName = "test-collection";
-        const sanitizedCollection = { variables: [] } as any;
+    expect(
+        await generateVariableValue(
+            variable,
+            0.89099,
+            collectionName,
+            sanitizedCollection,
+            variableRefMap,
+        ),
+    ).toBe(`${indent2}test-float: 0.9,\n`);
+    expect(
+        await generateVariableValue(
+            variable,
+            1.003,
+            collectionName,
+            sanitizedCollection,
+            variableRefMap,
+        ),
+    ).toBe(`${indent2}test-float: 1.0,\n`);
+    expect(
+        await generateVariableValue(
+            variable,
+            2.567,
+            collectionName,
+            sanitizedCollection,
+            variableRefMap,
+        ),
+    ).toBe(`${indent2}test-float: 2.6,\n`);
+    expect(
+        await generateVariableValue(
+            variable,
+            3.0,
+            collectionName,
+            sanitizedCollection,
+            variableRefMap,
+        ),
+    ).toBe(`${indent2}test-float: 3.0,\n`);
+});
 
-        // Test string
-        const stringVar = {
-            name: "test-string",
-            resolvedType: "STRING",
-        } as any;
-        expect(
-            await generateVariableValue(
-                stringVar,
-                "hello",
-                collectionName,
-                sanitizedCollection,
-                variableRefMap,
-            ),
-        ).toBe(`${indent2}test-string: "hello",\n`);
+test("should handle other types correctly", async () => {
+    const variableRefMap = new Map<string, { path: string; variable: any }>();
+    const collectionName = "test-collection";
+    const sanitizedCollection = { variables: [] } as any;
 
-        // Test boolean
-        const boolVar = {
-            name: "test-bool",
-            resolvedType: "BOOLEAN",
-        } as any;
-        expect(
-            await generateVariableValue(
-                boolVar,
-                true,
-                collectionName,
-                sanitizedCollection,
-                variableRefMap,
-            ),
-        ).toBe(`${indent2}test-bool: true,\n`);
+    // Test string
+    const stringVar = {
+        name: "test-string",
+        resolvedType: "STRING",
+    } as any;
+    expect(
+        await generateVariableValue(
+            stringVar,
+            "hello",
+            collectionName,
+            sanitizedCollection,
+            variableRefMap,
+        ),
+    ).toBe(`${indent2}test-string: "hello",\n`);
 
-        // Test length
-        const lengthVar = {
-            name: "test-length",
-            resolvedType: "FLOAT",
-            scopes: ["ALL_SCOPES"],
-        } as any;
-        expect(
-            await generateVariableValue(
-                lengthVar,
-                42,
-                collectionName,
-                sanitizedCollection,
-                variableRefMap,
-            ),
-        ).toBe(`${indent2}test-length: 42px,\n`);
+    // Test boolean
+    const boolVar = {
+        name: "test-bool",
+        resolvedType: "BOOLEAN",
+    } as any;
+    expect(
+        await generateVariableValue(
+            boolVar,
+            true,
+            collectionName,
+            sanitizedCollection,
+            variableRefMap,
+        ),
+    ).toBe(`${indent2}test-bool: true,\n`);
 
-        // Test brush
-        const brushVar = {
-            name: "test-brush",
-            resolvedType: "COLOR",
-        } as any;
-        expect(
-            await generateVariableValue(
-                brushVar,
-                "invalid-data",
-                collectionName,
-                sanitizedCollection,
-                variableRefMap,
-            ),
-        ).toBe("// unable to convert test-brush to brush,\n");
+    // Test length
+    const lengthVar = {
+        name: "test-length",
+        resolvedType: "FLOAT",
+        scopes: ["ALL_SCOPES"],
+    } as any;
+    expect(
+        await generateVariableValue(
+            lengthVar,
+            42,
+            collectionName,
+            sanitizedCollection,
+            variableRefMap,
+        ),
+    ).toBe(`${indent2}test-length: 42px,\n`);
 
-        // Test RGB object conversion
-        expect(
-            await generateVariableValue(
-                brushVar,
-                { r: 1, g: 0, b: 0, a: 1 },
-                collectionName,
-                sanitizedCollection,
-                variableRefMap,
-            ),
-        ).toBe(`${indent2}test-brush: #ff0000,\n`);
-        expect(
-            await generateVariableValue(
-                brushVar,
-                { r: 0, g: 1, b: 0, a: 1 },
-                collectionName,
-                sanitizedCollection,
-                variableRefMap,
-            ),
-        ).toBe(`${indent2}test-brush: #00ff00,\n`);
-        expect(
-            await generateVariableValue(
-                brushVar,
-                { r: 0, g: 0, b: 1, a: 1 },
-                collectionName,
-                sanitizedCollection,
-                variableRefMap,
-            ),
-        ).toBe(`${indent2}test-brush: #0000ff,\n`);
-        expect(
-            await generateVariableValue(
-                brushVar,
-                { r: 0.5, g: 0.5, b: 0.5, a: 1 },
-                collectionName,
-                sanitizedCollection,
-                variableRefMap,
-            ),
-        ).toBe(`${indent2}test-brush: #808080,\n`);
-    });
+    // Test brush
+    const brushVar = {
+        name: "test-brush",
+        resolvedType: "COLOR",
+    } as any;
+    expect(
+        await generateVariableValue(
+            brushVar,
+            "invalid-data",
+            collectionName,
+            sanitizedCollection,
+            variableRefMap,
+        ),
+    ).toBe("// unable to convert test-brush to brush,\n");
 
-    it("should handle variable aliases", async () => {
-        const variable = {
-            name: "test-var",
-            resolvedType: "COLOR",
-        } as any;
-        const variableRefMap = new Map<string, { path: string; variable: any }>(
-            [
-                [
-                    "var-id-1",
-                    {
-                        path: "Colors.collection.primary",
-                        variable: { name: "primary", resolvedType: "COLOR" },
-                    },
-                ],
-                [
-                    "var-id-2",
-                    {
-                        path: "Colors.collection.secondary",
-                        variable: { name: "secondary", resolvedType: "COLOR" },
-                    },
-                ],
-            ],
-        );
-        const collectionName = "test-collection";
-        const sanitizedCollection = { variables: [] } as any;
+    // Test RGB object conversion
+    expect(
+        await generateVariableValue(
+            brushVar,
+            { r: 1, g: 0, b: 0, a: 1 },
+            collectionName,
+            sanitizedCollection,
+            variableRefMap,
+        ),
+    ).toBe(`${indent2}test-brush: #ff0000,\n`);
+    expect(
+        await generateVariableValue(
+            brushVar,
+            { r: 0, g: 1, b: 0, a: 1 },
+            collectionName,
+            sanitizedCollection,
+            variableRefMap,
+        ),
+    ).toBe(`${indent2}test-brush: #00ff00,\n`);
+    expect(
+        await generateVariableValue(
+            brushVar,
+            { r: 0, g: 0, b: 1, a: 1 },
+            collectionName,
+            sanitizedCollection,
+            variableRefMap,
+        ),
+    ).toBe(`${indent2}test-brush: #0000ff,\n`);
+    expect(
+        await generateVariableValue(
+            brushVar,
+            { r: 0.5, g: 0.5, b: 0.5, a: 1 },
+            collectionName,
+            sanitizedCollection,
+            variableRefMap,
+        ),
+    ).toBe(`${indent2}test-brush: #808080,\n`);
+});
 
-        // Test direct reference
-        expect(
-            await generateVariableValue(
-                variable,
-                { type: "VARIABLE_ALIAS", id: "var-id-1" },
-                collectionName,
-                sanitizedCollection,
-                variableRefMap,
-            ),
-        ).toBe(`${indent2}test-var: Colors.collection.primary,\n`);
-    });
+test("should handle variable aliases", async () => {
+    const variable = {
+        name: "test-var",
+        resolvedType: "COLOR",
+    } as any;
+    const variableRefMap = new Map<string, { path: string; variable: any }>([
+        [
+            "var-id-1",
+            {
+                path: "Colors.collection.primary",
+                variable: { name: "primary", resolvedType: "COLOR" },
+            },
+        ],
+        [
+            "var-id-2",
+            {
+                path: "Colors.collection.secondary",
+                variable: { name: "secondary", resolvedType: "COLOR" },
+            },
+        ],
+    ]);
+    const collectionName = "test-collection";
+    const sanitizedCollection = { variables: [] } as any;
+
+    // Test direct reference
+    expect(
+        await generateVariableValue(
+            variable,
+            { type: "VARIABLE_ALIAS", id: "var-id-1" },
+            collectionName,
+            sanitizedCollection,
+            variableRefMap,
+        ),
+    ).toBe(`${indent2}test-var: Colors.collection.primary,\n`);
 });
