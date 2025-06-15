@@ -7,6 +7,7 @@ import type {
     VariableId,
     VariableCollectionSU,
     VariableSU,
+    VariableAliasSU,
 } from "../../shared/custom-figma-types.d.ts";
 
 interface ProcessedCollection {
@@ -184,9 +185,12 @@ async function processVariableAliases(
 ): Promise<void> {
     for (const collection of collectionsMap.values()) {
         for (const variable of collection.variables.values()) {
+            if (Object.values(variable.valuesByMode).length === 0) {
+                console.log("Unexpected error! Variable has no values", variable.name, variable.id);
+            }
             for (const value of Object.values(variable.valuesByMode)) {
                 if (!isVariableAlias(value)) { continue; }
-                const id = (value as VariableAlias).id as VariableId;
+                const id = (value as VariableAliasSU).id;
                 if (!variableMap.has(id)) {
                     await handleDeletedVariable(id, variableMap, collectionsMap);
                 }

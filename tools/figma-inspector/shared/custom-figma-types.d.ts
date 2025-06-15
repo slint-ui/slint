@@ -18,3 +18,9 @@ export interface VariableSU
     id: VariableId;
     variableCollectionId: CollectionId;
 }
+
+export interface VariableAliasSU
+    extends Omit<VariableAlias, "id"> {
+    id: VariableId;
+}
+
