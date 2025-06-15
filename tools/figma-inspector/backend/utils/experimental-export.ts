@@ -209,7 +209,7 @@ export async function createSlintExport(): Promise<void> {
             // Generate a struct for the collection
             allSlintCode += `struct ${structName} {\n`;
             for (const variable of collection.variables.values()) {
-                const slintType = getSlintTypeInfo(variable).type;
+                const slintType = getSlintTypeInfo(variable);
                 allSlintCode += `${indent}${variable.name}: ${slintType},\n`;
             }
             allSlintCode += `}\n\n`;
@@ -366,13 +366,10 @@ export async function saveVariableCollectionsToFile(): Promise<string> {
     }
 }
 
-function getSlintTypeInfo(variable: VariableSU): {
-    type: string;
-    defaultValue: string;
-} {
+function getSlintTypeInfo(variable: VariableSU): string {
     switch (variable.resolvedType) {
         case "COLOR":
-            return { type: "brush", defaultValue: "#000000" };
+            return "brush";
         case "FLOAT":
             // Filter out FONT_VARIATIONS as it can be ignored
             const relevantScopes = variable.scopes.filter(
@@ -380,28 +377,32 @@ function getSlintTypeInfo(variable: VariableSU): {
             );
             if (relevantScopes.length === 1) {
                 if (relevantScopes[0] === "OPACITY") {
-                    return { type: "float", defaultValue: "0.0" };
+                    return "float";
                 }
             }
             // If it's ALL_SCOPES or no specific scope matches, return length
-            return { type: "length", defaultValue: "0px" };
+            return "length";
         case "STRING":
-            return { type: "string", defaultValue: '""' };
+            return "string";
         case "BOOLEAN":
-            return { type: "bool", defaultValue: "false" };
+            return "bool";
         default:
-            return { type: "brush", defaultValue: "#000000" }; // Default to brush
+            return "brush"; // Default to brush
     }
 }
 
-function isVariableAlias(value: any): boolean {
+function isVariableAlias(value: VariableValue): value is VariableAliasSU {
     return (
-        value && typeof value === "object" && value.type === "VARIABLE_ALIAS"
+        value !== null &&
+        typeof value === "object" &&
+        "type" in value &&
+        value.type === "VARIABLE_ALIAS" &&
+        "id" in value
     );
 }
 
-function formatValueForSlint(variable: VariableSU, value: any): string {
-    const slintType = getSlintTypeInfo(variable).type;
+function formatValueForSlint(variable: VariableSU, value: VariableValue): string {
+    const slintType = getSlintTypeInfo(variable);
     switch (slintType) {
         case "string":
             return `${indent2}${variable.name}: "${value}",\n`;
@@ -441,7 +442,7 @@ export function createPath(
 
 export function generateVariableValue(
     variable: VariableSU,
-    value: any,
+    value: VariableValue,
     collectionName: string,
     variablesMap: VariablesMap,
     collectionsMap: CollectionsMap,
@@ -528,7 +529,7 @@ function generateVariablesForMode(
 
 function followAliasChain(
     variable: VariableSU,
-    value: any,
+    value: VariableValue,
     variablesMap: VariablesMap,
     collectionsMap: CollectionsMap,
 ): string {
