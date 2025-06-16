@@ -9,64 +9,66 @@ All notable changes to this project are documented in this file.
 
  - Added `renderer-femtovg-wgpu` (Rust) / `SLINT_FEATURE_RENDERER_FEMTOVG_WGPU` (CMake) as new rendering option,
    based on [WGPU](https://wgpu.rs/).
- - Fix the way Window::default-font is applied, making it work in the live preview.
- - Updated AccessKit
- - Initial iOS support
- - Fixed blinking window icon on Windows (#7994)
- - FemtoVG: Fixed extra space of the `\n` char in text rendering (#7970)
- - Winit: Added support for SVG icons in the window title
- - `TextInput` selects its content when focused with the keyboard on Windows and Linux
- - `TextInput` no longer get the focus if disabled
- - Android: commit the preedit text when focus change (#8668)
-
+ - Fixed `Window::default-font` not working in the live preview.
+ - Initial iOS support.
+ - FemtoVG: Fixed extra space of the `\n` char in text rendering (#7970).
+ - Android: Commit the preedit text when focus change (#8668).
+ - Winit: Added support for SVG icons in the window title.
+ - Winit: Fixed blinking window icon on Windows (#7994).
+ - Updated AccessKit.
 
 ### Slint Language
 
- - Detect binding loops that applies to the Window itself
- - Added `Math.exp` and `Math.ln`
+ - Fixed detection of binding loops that apply to the `Window` itself.
+ - Added `Math.exp` and `Math.ln`.
  - Added `Platform.style-name` and `Platform.os` properties to permit style and OS dependent code.
- - Fixed changed callback on private global properties (#8269)
- - Added `ContextMenuArea::enabled`
- - Slint compilation error for comparison of types that can't be compared with less or greater operator.
- - `Flickable` now has a change event to keep in bounds when geometry changes (#2227, #7487)
+ - Fixed changed callback on private global properties (#8269).
+ - Added `ContextMenuArea::enabled`.
+ - Fixed Slint compilation error for comparison of types that can't be compared with less or greater operator.
+ - `Flickable` now keeps in bounds when geometry changes (#2227, #7487).
  - Added `in-out` transition in states.
- - Added `focus-gained` and `focus-lost` callback to FocusScope.
- - Pass a `FocusReason` enum to the FocusScope callbacks
+ - Added `focus-gained` and `focus-lost` callback to `FocusScope`.
+ - Added a `FocusReason` argument to the `FocusScope` callbacks.
+ - Fixed `TextInput` to selects its content when focused with the keyboard on Windows and Linux.
+ - Fixed `TextInput` to no longer be focusable if disabled.
 
 ### Widgets
 
- - Fixed `ScrollView` scrollbar actions not triggering `scrolled` callback (#8170)
- - Added content-padding to GroupBox (#8314)
- - TextEdit/LineEdit: disable context menu action when the widget is disabled or read-only
- - Added `mouse-drag-pan-enabled` property to `ScrollView` (#8512)
+ - Fixed `ScrollView` scrollbar actions not triggering `scrolled` callback (#8170).
+ - `GroupBox`: Added `content-padding` property (#8314).
+ - `TextEdit`/`LineEdit`: Disable context menu action when the widget is disabled or read-only.
+ - `ScrollView`: Added `mouse-drag-pan-enabled` property (#8512).
 
 ### Rust
 
  - Added `unstable-winit-030` feature along with `slint::winit_030` module in the API to provide access
    to winit APIs.
  - Added `unstable-wgpu-24` feature along with `slint::wgpu_24` module to enable Slint <> WPU interoperatiblity.
- - Make `Debug` impl of `PlatformError` show the display string
- - slint-build: Implement `Clone` for `CompilerConfiguration`
- - sint-interpreter: The `From<ModelRc> for slint_interpreter::Value` now gives a model that supports `set_row_data`.
+ - Made `Debug` impl of `PlatformError` show the display string.
+ - slint-build: Implement `Clone` for `CompilerConfiguration`.
+ - sint-interpreter: Fixed `From<ModelRc> for slint_interpreter::Value` to return a model that supports `set_row_data`.
 
 ### C++
 
- - Made generated code more robust when in namespaces regarding forward declaration
- - Added a few asserts to ensure the code is run in the right thread
- - Don't crash when `Model::row_data` returns `nullopt`
- - Rust 1.85 is now required to compile from source
+ - Made generated code more robust when in namespaces regarding forward declaration.
+ - Added a few asserts to ensure the code is run in the right thread.
+ - Don't crash when `Model::row_data` returns `nullopt`.
+ - Rust 1.85 is now required to compile from source.
 
 ### Python
 
+ - Upgraded to Pyo3 0.25.
+ - Added iOS Simulator and Device wheels.
+
 ### LSP and Tooling
 
- - live preview: Do not apply live data changes after "Reload"
- - live preview: Added telemetry events
- - live preview: support Palette names in color picker
- - live-preview: Added a console panel with complation error and `debug(...)` messages
- - figma-inspector: Enables the export of design tokens (variables for colors, numbers, strings, and booleans)
+ - live preview: Do not apply live data changes after "Reload".
+ - live preview: Added telemetry events.
+ - live preview: support Palette names in color picker.
+ - live-preview: Added a console panel with complation error and `debug(...)` messages.
+ - figma-inspector: Enables the export of design tokens (variables for colors, numbers, strings, and booleans).
    direct from your Figma files.
- - figma-inspector: Inspected components now can include design token variable reference for convenient pasting into slint files.
+ - figma-inspector: Inspected components now can include design token variable reference for convenient pasting into slint files..
 
 ## [1.11.0] - 2025-04-23
 
