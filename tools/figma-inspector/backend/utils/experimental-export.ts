@@ -401,7 +401,10 @@ function isVariableAlias(value: VariableValue): value is VariableAliasSU {
     );
 }
 
-function formatValueForSlint(variable: VariableSU, value: VariableValue): string {
+function formatValueForSlint(
+    variable: VariableSU,
+    value: VariableValue,
+): string {
     const slintType = getSlintTypeInfo(variable);
     switch (slintType) {
         case "string":
