@@ -142,7 +142,6 @@ test("should round float values to one decimal place", () => {
         resolvedType: "FLOAT",
         scopes: ["OPACITY"],
     } as any;
-    const variablesMap = new Map<VariableId, VariableSU>();
     const collectionName = "test-collection";
     const collectionsMap = new Map<CollectionId, VariableCollectionSU>([
         [
@@ -150,9 +149,11 @@ test("should round float values to one decimal place", () => {
             {
                 id: "collection-1" as CollectionId,
                 name: "Colors",
-                modes: [],
+                modes: [{ modeId: "mode1", name: "Default" }],
                 defaultModeId: "mode1",
-                variables: new Map(),
+                hiddenFromPublishing: false,
+                variableIds: [],
+                variables: new Map<VariableId, VariableSU>(),
             } as unknown as VariableCollectionSU,
         ],
     ]);
@@ -162,41 +163,21 @@ test("should round float values to one decimal place", () => {
             variable,
             0.89099,
             collectionName,
-            variablesMap,
             collectionsMap,
         ),
     ).toBe(`${indent2}test-float: 0.9,\n`);
     expect(
-        generateVariableValue(
-            variable,
-            1.003,
-            collectionName,
-            variablesMap,
-            collectionsMap,
-        ),
+        generateVariableValue(variable, 1.003, collectionName, collectionsMap),
     ).toBe(`${indent2}test-float: 1.0,\n`);
     expect(
-        generateVariableValue(
-            variable,
-            2.567,
-            collectionName,
-            variablesMap,
-            collectionsMap,
-        ),
+        generateVariableValue(variable, 2.567, collectionName, collectionsMap),
     ).toBe(`${indent2}test-float: 2.6,\n`);
     expect(
-        generateVariableValue(
-            variable,
-            3.0,
-            collectionName,
-            variablesMap,
-            collectionsMap,
-        ),
+        generateVariableValue(variable, 3.0, collectionName, collectionsMap),
     ).toBe(`${indent2}test-float: 3.0,\n`);
 });
 
 test("should handle other types correctly", () => {
-    const variablesMap = new Map<VariableId, VariableSU>();
     const collectionName = "test-collection";
     const collectionsMap = new Map<CollectionId, VariableCollectionSU>([
         [
@@ -204,9 +185,11 @@ test("should handle other types correctly", () => {
             {
                 id: "collection-1" as CollectionId,
                 name: "Colors",
-                modes: [],
+                modes: [{ modeId: "mode1", name: "Default" }],
                 defaultModeId: "mode1",
-                variables: new Map(),
+                hiddenFromPublishing: false,
+                variableIds: [],
+                variables: new Map<VariableId, VariableSU>(),
             } as unknown as VariableCollectionSU,
         ],
     ]);
@@ -221,7 +204,6 @@ test("should handle other types correctly", () => {
             stringVar,
             "hello",
             collectionName,
-            variablesMap,
             collectionsMap,
         ),
     ).toBe(`${indent2}test-string: "hello",\n`);
@@ -232,13 +214,7 @@ test("should handle other types correctly", () => {
         resolvedType: "BOOLEAN",
     } as any;
     expect(
-        generateVariableValue(
-            boolVar,
-            true,
-            collectionName,
-            variablesMap,
-            collectionsMap,
-        ),
+        generateVariableValue(boolVar, true, collectionName, collectionsMap),
     ).toBe(`${indent2}test-bool: true,\n`);
 
     // Test length
@@ -248,13 +224,7 @@ test("should handle other types correctly", () => {
         scopes: ["ALL_SCOPES"],
     } as any;
     expect(
-        generateVariableValue(
-            lengthVar,
-            42,
-            collectionName,
-            variablesMap,
-            collectionsMap,
-        ),
+        generateVariableValue(lengthVar, 42, collectionName, collectionsMap),
     ).toBe(`${indent2}test-length: 42px,\n`);
 
     // Test brush
@@ -267,7 +237,6 @@ test("should handle other types correctly", () => {
             brushVar,
             "invalid-data",
             collectionName,
-            variablesMap,
             collectionsMap,
         ),
     ).toBe("// unable to convert test-brush to brush,\n");
@@ -278,7 +247,6 @@ test("should handle other types correctly", () => {
             brushVar,
             { r: 1, g: 0, b: 0, a: 1 },
             collectionName,
-            variablesMap,
             collectionsMap,
         ),
     ).toBe(`${indent2}test-brush: #ff0000,\n`);
@@ -287,7 +255,6 @@ test("should handle other types correctly", () => {
             brushVar,
             { r: 0, g: 1, b: 0, a: 1 },
             collectionName,
-            variablesMap,
             collectionsMap,
         ),
     ).toBe(`${indent2}test-brush: #00ff00,\n`);
@@ -296,7 +263,6 @@ test("should handle other types correctly", () => {
             brushVar,
             { r: 0, g: 0, b: 1, a: 1 },
             collectionName,
-            variablesMap,
             collectionsMap,
         ),
     ).toBe(`${indent2}test-brush: #0000ff,\n`);
@@ -305,7 +271,6 @@ test("should handle other types correctly", () => {
             brushVar,
             { r: 0.5, g: 0.5, b: 0.5, a: 1 },
             collectionName,
-            variablesMap,
             collectionsMap,
         ),
     ).toBe(`${indent2}test-brush: #808080,\n`);
@@ -316,30 +281,6 @@ test("should handle variable aliases", () => {
         name: "test-var",
         resolvedType: "COLOR",
     } as any;
-    const variablesMap = new Map<VariableId, VariableSU>([
-        [
-            "var-id-1" as VariableId,
-            {
-                id: "var-id-1" as VariableId,
-                name: "primary",
-                resolvedType: "COLOR",
-                variableCollectionId: "collection-1" as CollectionId,
-                valuesByMode: {},
-                scopes: [],
-            } as unknown as VariableSU,
-        ],
-        [
-            "var-id-2" as VariableId,
-            {
-                id: "var-id-2" as VariableId,
-                name: "secondary",
-                resolvedType: "COLOR",
-                variableCollectionId: "collection-1" as CollectionId,
-                valuesByMode: {},
-                scopes: [],
-            } as unknown as VariableSU,
-        ],
-    ]);
     const collectionName = "test-collection";
     const collectionsMap = new Map<CollectionId, VariableCollectionSU>([
         [
@@ -347,9 +288,36 @@ test("should handle variable aliases", () => {
             {
                 id: "collection-1" as CollectionId,
                 name: "Colors",
-                modes: [],
+                modes: [{ modeId: "mode1", name: "Default" }],
                 defaultModeId: "mode1",
-                variables: new Map(),
+                hiddenFromPublishing: false,
+                variableIds: ["var-id-1", "var-id-2"],
+                variables: new Map<VariableId, VariableSU>([
+                    [
+                        "var-id-1" as VariableId,
+                        {
+                            id: "var-id-1" as VariableId,
+                            name: "primary",
+                            resolvedType: "COLOR",
+                            variableCollectionId:
+                                "collection-1" as CollectionId,
+                            valuesByMode: {},
+                            scopes: [],
+                        } as unknown as VariableSU,
+                    ],
+                    [
+                        "var-id-2" as VariableId,
+                        {
+                            id: "var-id-2" as VariableId,
+                            name: "secondary",
+                            resolvedType: "COLOR",
+                            variableCollectionId:
+                                "collection-1" as CollectionId,
+                            valuesByMode: {},
+                            scopes: [],
+                        } as unknown as VariableSU,
+                    ],
+                ]),
             } as unknown as VariableCollectionSU,
         ],
     ]);
@@ -360,8 +328,7 @@ test("should handle variable aliases", () => {
             variable,
             { type: "VARIABLE_ALIAS", id: "var-id-1" },
             collectionName,
-            variablesMap,
             collectionsMap,
         ),
-    ).toBe(`${indent2}test-var: Colors.collection.primary,\n`);
+    ).toBe(`${indent2}test-var: Colors.vars.primary,\n`);
 });
