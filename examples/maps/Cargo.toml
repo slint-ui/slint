@@ -3,7 +3,7 @@
 
 [package]
 name = "maps"
-version = "1.12.0"
+version = "1.12.1"
 authors = ["Slint Developers <info@slint.dev>"]
 edition = "2021"
 license = "MIT"
