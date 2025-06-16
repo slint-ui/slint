@@ -17,11 +17,11 @@ In your Cargo.toml:
 build = "build.rs"
 
 [dependencies]
-slint = "1.10.0"
+slint = "1.12"
 ...
 
 [build-dependencies]
-slint-build = "1.10.0"
+slint-build = "1.12"
 ```
 
 In the `build.rs` file:
