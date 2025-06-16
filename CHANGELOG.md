@@ -16,6 +16,8 @@ All notable changes to this project are documented in this file.
  - FemtoVG: Fixed extra space of the `\n` char in text rendering (#7970)
  - Winit: Added support for SVG icons in the window title
  - `TextInput` selects its content when focused with the keyboard on Windows and Linux
+ - `TextInput` no longer get the focus if disabled
+ - Android: commit the preedit text when focus change (#8668)
 
 
 ### Slint Language
@@ -52,6 +54,7 @@ All notable changes to this project are documented in this file.
  - Made generated code more robust when in namespaces regarding forward declaration
  - Added a few asserts to ensure the code is run in the right thread
  - Don't crash when `Model::row_data` returns `nullopt`
+ - Rust 1.85 is now required to compile from source
 
 ### Python
 
@@ -60,7 +63,10 @@ All notable changes to this project are documented in this file.
  - live preview: Do not apply live data changes after "Reload"
  - live preview: Added telemetry events
  - live preview: support Palette names in color picker
- - figma-inspector: Enables the export of design tokens (variables for colors, numbers, strings, and booleans) direct from your Figma files. Inspected components now can include design token variable reference for convenient pasting into slint files.
+ - live-preview: Added a console panel with complation error and `debug(...)` messages
+ - figma-inspector: Enables the export of design tokens (variables for colors, numbers, strings, and booleans)
+   direct from your Figma files.
+ - figma-inspector: Inspected components now can include design token variable reference for convenient pasting into slint files.
 
 ## [1.11.0] - 2025-04-23
 
