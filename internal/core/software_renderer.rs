@@ -953,7 +953,17 @@ fn render_window_frame_by_line(
                 |line_buffer| {
                     let offset = r.start;
 
-                    line_buffer.fill(background_color);
+                    let opaque_item_present =
+                        scene.items[0..scene.current_items_index].iter().rev().take(8).any(
+                            |span| {
+                                span.pos.x <= r.start
+                                    && span.pos.x + span.size.width >= r.end
+                                    && scene.is_guaranteed_opaque(&span.command)
+                            },
+                        );
+                    if !opaque_item_present {
+                        line_buffer.fill(background_color);
+                    };
                     for span in scene.items[0..scene.current_items_index].iter().rev() {
                         debug_assert!(scene.current_line >= span.pos.y_length());
                         debug_assert!(
