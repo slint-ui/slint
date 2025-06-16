@@ -442,6 +442,9 @@ async fn message_loop(
             return;
         }
     };
+    // Attempt to disable the Nagle algorithm to favor faster packet exchange (latency)
+    // over throughput.
+    stream.set_nodelay(true).ok();
     debug_log!("Connected to test server");
 
     loop {
@@ -469,12 +472,10 @@ async fn message_loop(
             proto::mod_AUTResponse::OneOfmsg::error(proto::ErrorResponse { message })
         });
         let response = proto::AUTResponse { msg: response };
-        let mut size_header = Vec::new();
-        size_header.write_u32::<BigEndian>(response.get_size() as u32).unwrap();
-        stream.write_all(&size_header).await.expect("Unable to write AUT response header");
-        let mut message_body = Vec::new();
-        response.write_message(&mut quick_protobuf::Writer::new(&mut message_body)).unwrap();
-        stream.write_all(&message_body).await.expect("Unable to write AUT response body");
+        let mut binary_message = Vec::new();
+        binary_message.write_u32::<BigEndian>(response.get_size() as u32).unwrap();
+        response.write_message(&mut quick_protobuf::Writer::new(&mut binary_message)).unwrap();
+        stream.write_all(&binary_message).await.expect("Unable to write AUT response body");
     }
 }
 
