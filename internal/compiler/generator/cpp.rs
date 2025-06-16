@@ -3814,7 +3814,7 @@ fn compile_builtin_function_call(
                 let position = compile_expression(&popup.position.borrow(), &popup_ctx);
                 let close_policy = compile_expression(close_policy, ctx);
                 format!(
-                    "{window}.close_popup({component_access}->popup_id_{popup_index}); {component_access}->popup_id_{popup_index} = {window}.show_popup<{popup_window_id}>(&*({component_access}), [=](auto self) {{ return {position}; }}, {close_policy}, {{ {parent_component} }})"
+                    "{window}.close_popup({component_access}->popup_id_{popup_index}); {component_access}->popup_id_{popup_index} = {window}.template show_popup<{popup_window_id}>(&*({component_access}), [=](auto self) {{ return {position}; }}, {close_policy}, {{ {parent_component} }})"
                 )
             } else {
                 panic!("internal error: invalid args to ShowPopupWindow {arguments:?}")
@@ -3901,7 +3901,7 @@ fn compile_builtin_function_call(
             };
             format!(r"
                 {window}.close_popup({context_menu}.popup_id);
-                {context_menu}.popup_id = {window}.show_popup_menu<{popup_id}>({globals}, {position}, {{ {context_menu_rc} }}, [self](auto popup_menu) {{
+                {context_menu}.popup_id = {window}.template show_popup_menu<{popup_id}>({globals}, {position}, {{ {context_menu_rc} }}, [self](auto popup_menu) {{
                     auto parent_weak = self->self_weak;
                     auto self_ = self;
                     {init}
