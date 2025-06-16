@@ -19,3 +19,10 @@ rustflags = [
   "-C",
   "target-feature=+s32c1i",
 ]
+
+[target.x86_64-pc-windows-msvc]
+# Increase default stack size to match Linux
+rustflags = ["-C", "link-arg=/STACK:10000000"]
+[target.aarch64-pc-windows-msvc]
+# Increase default stack size to match Linux
+rustflags = ["-C", "link-arg=/STACK:10000000"]
