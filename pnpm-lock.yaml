@@ -5724,9 +5724,6 @@ packages:
       typescript: ^4.9.4 || ^5.0.2
       zod: ^3
 
-  zod@3.25.63:
-    resolution: {integrity: sha512-3ttCkqhtpncYXfP0f6dsyabbYV/nEUW+Xlu89jiXbTBifUfjaSqXOG6JnQPLtqt87n7KAmnMqcjay6c0Wq0Vbw==}
-
   zod@3.25.64:
     resolution: {integrity: sha512-hbP9FpSZf7pkS7hRVUrOjhwKJNyampPgtXKc3AN6DsWtoHsg2Sb4SQaS4Tcay380zSwd2VPo9G9180emBACp5g==}
 
@@ -6910,7 +6907,7 @@ snapshots:
     dependencies:
       '@jimp/types': 1.6.0
       '@jimp/utils': 1.6.0
-      zod: 3.25.63
+      zod: 3.25.64
 
   '@jimp/plugin-blur@1.6.0':
     dependencies:
@@ -6920,7 +6917,7 @@ snapshots:
   '@jimp/plugin-circle@1.6.0':
     dependencies:
       '@jimp/types': 1.6.0
-      zod: 3.25.63
+      zod: 3.25.64
 
   '@jimp/plugin-color@1.6.0':
     dependencies:
@@ -6928,7 +6925,7 @@ snapshots:
       '@jimp/types': 1.6.0
       '@jimp/utils': 1.6.0
       tinycolor2: 1.6.0
-      zod: 3.25.63
+      zod: 3.25.64
 
   '@jimp/plugin-contain@1.6.0':
     dependencies:
@@ -6937,7 +6934,7 @@ snapshots:
       '@jimp/plugin-resize': 1.6.0
       '@jimp/types': 1.6.0
       '@jimp/utils': 1.6.0
-      zod: 3.25.63
+      zod: 3.25.64
 
   '@jimp/plugin-cover@1.6.0':
     dependencies:
@@ -6945,20 +6942,20 @@ snapshots:
       '@jimp/plugin-crop': 1.6.0
       '@jimp/plugin-resize': 1.6.0
       '@jimp/types': 1.6.0
-      zod: 3.25.63
+      zod: 3.25.64
 
   '@jimp/plugin-crop@1.6.0':
     dependencies:
       '@jimp/core': 1.6.0
       '@jimp/types': 1.6.0
       '@jimp/utils': 1.6.0
-      zod: 3.25.63
+      zod: 3.25.64
 
   '@jimp/plugin-displace@1.6.0':
     dependencies:
       '@jimp/types': 1.6.0
       '@jimp/utils': 1.6.0
-      zod: 3.25.63
+      zod: 3.25.64
 
   '@jimp/plugin-dither@1.6.0':
     dependencies:
@@ -6968,12 +6965,12 @@ snapshots:
     dependencies:
       '@jimp/types': 1.6.0
       '@jimp/utils': 1.6.0
-      zod: 3.25.63
+      zod: 3.25.64
 
   '@jimp/plugin-flip@1.6.0':
     dependencies:
       '@jimp/types': 1.6.0
-      zod: 3.25.63
+      zod: 3.25.64
 
   '@jimp/plugin-hash@1.6.0':
     dependencies:
@@ -6991,7 +6988,7 @@ snapshots:
   '@jimp/plugin-mask@1.6.0':
     dependencies:
       '@jimp/types': 1.6.0
-      zod: 3.25.63
+      zod: 3.25.64
 
   '@jimp/plugin-print@1.6.0':
     dependencies:
@@ -7004,18 +7001,18 @@ snapshots:
       parse-bmfont-binary: 1.0.6
       parse-bmfont-xml: 1.1.6
       simple-xml-to-json: 1.2.3
-      zod: 3.25.63
+      zod: 3.25.64
 
   '@jimp/plugin-quantize@1.6.0':
     dependencies:
       image-q: 4.0.0
-      zod: 3.25.63
+      zod: 3.25.64
 
   '@jimp/plugin-resize@1.6.0':
     dependencies:
       '@jimp/core': 1.6.0
       '@jimp/types': 1.6.0
-      zod: 3.25.63
+      zod: 3.25.64
 
   '@jimp/plugin-rotate@1.6.0':
     dependencies:
@@ -7024,7 +7021,7 @@ snapshots:
       '@jimp/plugin-resize': 1.6.0
       '@jimp/types': 1.6.0
       '@jimp/utils': 1.6.0
-      zod: 3.25.63
+      zod: 3.25.64
 
   '@jimp/plugin-threshold@1.6.0':
     dependencies:
@@ -7033,11 +7030,11 @@ snapshots:
       '@jimp/plugin-hash': 1.6.0
       '@jimp/types': 1.6.0
       '@jimp/utils': 1.6.0
-      zod: 3.25.63
+      zod: 3.25.64
 
   '@jimp/types@1.6.0':
     dependencies:
-      zod: 3.25.63
+      zod: 3.25.64
 
   '@jimp/utils@1.6.0':
     dependencies:
@@ -12037,8 +12034,6 @@ snapshots:
     dependencies:
       typescript: 5.8.3
       zod: 3.25.64
-
-  zod@3.25.63: {}
 
   zod@3.25.64: {}
 
