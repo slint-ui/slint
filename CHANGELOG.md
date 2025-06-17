@@ -43,10 +43,10 @@ All notable changes to this project are documented in this file.
 
  - Added `unstable-winit-030` feature along with `slint::winit_030` module in the API to provide access
    to winit APIs.
- - Added `unstable-wgpu-24` feature along with `slint::wgpu_24` module to enable Slint <> WPU interoperatiblity.
+ - Added `unstable-wgpu-24` feature along with `slint::wgpu_24` module to enable Slint <> WGPU interoperatiblity.
  - Made `Debug` impl of `PlatformError` show the display string.
  - slint-build: Implement `Clone` for `CompilerConfiguration`.
- - sint-interpreter: Fixed `From<ModelRc> for slint_interpreter::Value` to return a model that supports `set_row_data`.
+ - slint-interpreter: Fixed `From<ModelRc> for slint_interpreter::Value` to return a model that supports `set_row_data`.
 
 ### C++
 
