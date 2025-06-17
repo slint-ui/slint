@@ -159,6 +159,7 @@ impl GraphicsBackend for OpenGLBackend {
     type Renderer = femtovg::renderer::OpenGl;
     type WindowSurface = GLWindowSurface;
     const NAME: &'static str = "OpenGL";
+    const FILL_BACKGROUND_BEFORE_RENDERING: bool = true;
 
     fn new_suspended() -> Self {
         Self { opengl_context: RefCell::new(Box::new(SuspendedRenderer {})) }
@@ -190,6 +191,7 @@ impl GraphicsBackend for OpenGLBackend {
 
     fn with_graphics_api<R>(
         &self,
+        _surface: Option<&Self::WindowSurface>,
         callback: impl FnOnce(Option<i_slint_core::api::GraphicsAPI<'_>>) -> R,
     ) -> Result<R, i_slint_core::platform::PlatformError> {
         use i_slint_core::api::GraphicsAPI;

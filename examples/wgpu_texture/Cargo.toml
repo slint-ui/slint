@@ -16,6 +16,7 @@ name = "wgpu_texture"
 
 [dependencies]
 slint = { path = "../../api/rs/slint", features = ["unstable-wgpu-24"] }
+web-time = { version = "1.0" }
 bytemuck = { workspace = true }
 
 [build-dependencies]

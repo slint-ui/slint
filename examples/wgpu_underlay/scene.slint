@@ -1,0 +1,38 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { ScrollView, Button, CheckBox, SpinBox, Slider, GroupBox, LineEdit, StandardListView,
+    ComboBox, HorizontalBox, VerticalBox, GridBox, TabWidget, TextEdit } from "std-widgets.slint";
+
+export component App inherits Window {
+    in-out property <bool> rotation-enabled <=> apply-rotation.checked;
+
+    preferred-width: 500px;
+    preferred-height: 600px;
+    title: "Slint WGPU Underlay Example";
+    icon: @image-url("../../logo/slint-logo-small-light.png");
+    background: transparent;
+
+    VerticalBox {
+        Rectangle {
+            background: #ffffff92;
+
+            HorizontalBox {
+                Text {
+                    text: "This text is rendered using Slint. The animation below is rendered using WGPU code.";
+                    wrap: word-wrap;
+                }
+
+                VerticalLayout {
+                    alignment: start;
+                    apply-rotation := CheckBox {
+                        checked: true;
+                        text: "Rotate the WGPU underlay";
+                    }
+                }
+            }
+        }
+
+        Rectangle { }
+    }
+}

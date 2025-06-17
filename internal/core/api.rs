@@ -285,6 +285,12 @@ pub enum GraphicsAPI<'a> {
         device: wgpu_24::Device,
         /// The WGPU queue for used for command submission.
         queue: wgpu_24::Queue,
+        /// The surface texture rendered into. This is only set in the BeforeRendering and
+        /// AfterRendering phase.
+        surface_texture: Option<wgpu_24::Texture>,
+        /// The surface's configuration. This is only set in the BeforeRendering and
+        /// AfterRendering phase.
+        surface_configuration: Option<wgpu_24::SurfaceConfiguration>,
     },
 }
 

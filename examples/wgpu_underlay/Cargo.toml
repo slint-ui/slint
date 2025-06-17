@@ -1,0 +1,36 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: MIT
+
+[package]
+name = "wgpu_underlay"
+version = "1.12.1"
+authors = ["Slint Developers <info@slint.dev>"]
+edition = "2021"
+build = "build.rs"
+license = "MIT"
+publish = false
+
+[[bin]]
+path = "main.rs"
+name = "wgpu_underlay"
+
+[dependencies]
+slint = { path = "../../api/rs/slint", features = ["unstable-wgpu-24"] }
+web-time = { version = "1.0" }
+bytemuck = { workspace = true }
+
+[build-dependencies]
+slint-build = { path = "../../api/rs/build" }
+
+# Remove the `#wasm#` to uncomment the wasm build.
+# This is commented out by default because we don't want to build it as a library by default
+# The CI has a script that does sed "s/#wasm# //" to generate the wasm build.
+
+#wasm# [lib]
+#wasm# crate-type = ["cdylib"]
+#wasm# path = "main.rs"
+#wasm#
+#wasm# [target.'cfg(target_arch = "wasm32")'.dependencies]
+#wasm# wasm-bindgen = { version = "0.2" }
+#wasm# web-sys = { version = "0.3", features=["console"] }
+#wasm# console_error_panic_hook = "0.1.5"

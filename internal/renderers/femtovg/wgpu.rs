@@ -19,6 +19,7 @@ pub struct WGPUBackend {
 
 pub struct WGPUWindowSurface {
     surface_texture: wgpu::SurfaceTexture,
+    surface_config: wgpu::SurfaceConfiguration,
 }
 
 impl WindowSurface<femtovg::renderer::WGPURenderer> for WGPUWindowSurface {
@@ -58,7 +59,8 @@ impl GraphicsBackend for WGPUBackend {
             .unwrap()
             .get_current_texture()
             .expect("unable to get next texture from swapchain");
-        Ok(WGPUWindowSurface { surface_texture: frame })
+        let surface_config = self.surface_config.borrow().clone().unwrap();
+        Ok(WGPUWindowSurface { surface_texture: frame, surface_config })
     }
 
     fn submit_commands(&self, commands: <Self::Renderer as femtovg::Renderer>::CommandBuffer) {
@@ -76,14 +78,24 @@ impl GraphicsBackend for WGPUBackend {
     #[cfg(feature = "unstable-wgpu-24")]
     fn with_graphics_api<R>(
         &self,
+        surface: Option<&Self::WindowSurface>,
         callback: impl FnOnce(Option<i_slint_core::api::GraphicsAPI<'_>>) -> R,
     ) -> Result<R, i_slint_core::platform::PlatformError> {
         let instance = self.instance.borrow().clone();
         let device = self.device.borrow().clone();
         let queue = self.queue.borrow().clone();
         if let (Some(instance), Some(device), Some(queue)) = (instance, device, queue) {
+            let (surface_texture, surface_config) = surface
+                .map(|surface| {
+                    (surface.surface_texture.texture.clone(), surface.surface_config.clone())
+                })
+                .unzip();
             Ok(callback(Some(i_slint_core::graphics::create_graphics_api_wgpu_24(
-                instance, device, queue,
+                instance,
+                device,
+                queue,
+                surface_texture,
+                surface_config,
             ))))
         } else {
             Ok(callback(None))
