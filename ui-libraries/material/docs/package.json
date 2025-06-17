@@ -19,15 +19,15 @@
     },
     "dependencies": {
         "@astrojs/check": "0.9.4",
-        "@astrojs/starlight": "0.34.3",
+        "@astrojs/starlight": "0.34.4",
         "@expressive-code/plugin-line-numbers": "0.41.2",
         "@types/node": "20.16.10",
-        "astro": "5.9.2",
+        "astro": "5.9.4",
         "astro-embed": "0.9.0",
         "playwright-ctrf-json-reporter": "0.0.20",
         "rehype-external-links": "3.0.0",
         "sharp": "0.34.2",
-        "starlight-links-validator": "0.16.0",
+        "starlight-links-validator": "0.17.0",
         "typescript": "5.8.3"
     },
     "devDependencies": {
