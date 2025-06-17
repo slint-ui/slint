@@ -35,7 +35,7 @@ jobs:
             - name: Format, lint and REUSE check
               uses: autofix-ci/action@635ffb0c9798bd160680f18fd73371e355b85f27
 
-    filter_docs_changes:
+    changes:
       runs-on: ubuntu-latest
       needs: [format_fix]
       steps:
@@ -56,8 +56,8 @@ jobs:
         contents: read
         deployments: write
       name: Deploy to Cloudflare Pages
-      needs: [filter_docs_changes]
-      if: needs.filter_docs_changes.outputs.docs == 'true'
+      needs: [changes]
+      if: ${{ needs.changes.outputs.docs == 'true' }}
       defaults:
         run:
           working-directory: docs
