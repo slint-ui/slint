@@ -647,7 +647,7 @@ impl WindowInner {
         });
 
         mouse_input_state = if let Some(mut event) =
-            crate::input::handle_mouse_grab(event, &window_adapter, &mut mouse_input_state)
+            crate::input::handle_mouse_grab(&event, &window_adapter, &mut mouse_input_state)
         {
             let mut item_tree = self.component.borrow().upgrade();
             let mut offset = LogicalPoint::default();
@@ -697,7 +697,7 @@ impl WindowInner {
                 event.translate(-offset.to_vector());
                 let mut new_input_state = crate::input::process_mouse_input(
                     root,
-                    event,
+                    &event,
                     &window_adapter,
                     mouse_input_state,
                 );
@@ -1862,10 +1862,10 @@ pub mod ffi {
     #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_windowrc_dispatch_pointer_event(
         handle: *const WindowAdapterRcOpaque,
-        event: crate::input::MouseEvent,
+        event: &crate::input::MouseEvent,
     ) {
         let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
-        window_adapter.window().0.process_mouse_input(event);
+        window_adapter.window().0.process_mouse_input(event.clone());
     }
 
     /// Dispatch a window event
