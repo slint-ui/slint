@@ -9,9 +9,15 @@ All notable changes to this project are documented in this file.
 
  - Added packages for Windows on ARM.
 
+### C++
+
+ - Fixed compilation of PopupWindow::show in changed callback (#8710)
+
 ### LSP and Tooling
 
  - Added binaries for Windows on ARM (VS Code extension, slint-lsp binaries)
+ - Binaries have bigger stack size on Windows
+ - live-preview: Lazily compute palette to speedup the UI
 
 ## [1.12.0] - 2026-06-16
 
