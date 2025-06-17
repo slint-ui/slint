@@ -19,7 +19,7 @@ updates:
 
   - package-ecosystem: "npm" # See documentation for possible values
     open-pull-requests-limit: 20
-    directory: "/" # Location of package manifests
+    directory: "/docs" # Location of package manifests
     schedule:
       interval: "weekly"
       time: "04:00"
