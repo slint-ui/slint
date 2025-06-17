@@ -35,13 +35,29 @@ jobs:
             - name: Format, lint and REUSE check
               uses: autofix-ci/action@635ffb0c9798bd160680f18fd73371e355b85f27
 
+    filter_docs_changes:
+      runs-on: ubuntu-latest
+      needs: [format_fix]
+      steps:
+        - uses: actions/checkout@v4
+          with:
+            fetch-depth: 0
+        - name: Filter changes
+          id: changes
+          uses: dorny/paths-filter@v3
+          with:
+            filters: |
+              docs:
+                - 'docs/**'
+
     deploy:
       runs-on: ubuntu-latest
       permissions:
         contents: read
         deployments: write
       name: Deploy to Cloudflare Pages
-      needs: format_fix
+      needs: [filter_docs_changes]
+      if: needs.filter_docs_changes.outputs.docs == 'true'
       defaults:
         run:
           working-directory: docs
