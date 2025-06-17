@@ -162,7 +162,7 @@ impl crate::items::Item for MenuItem {
 
     fn input_event_filter_before_children(
         self: Pin<&Self>,
-        _: crate::input::MouseEvent,
+        _: &crate::input::MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> crate::input::InputEventFilterResult {
@@ -171,7 +171,7 @@ impl crate::items::Item for MenuItem {
 
     fn input_event(
         self: Pin<&Self>,
-        _: crate::input::MouseEvent,
+        _: &crate::input::MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> crate::input::InputEventResult {

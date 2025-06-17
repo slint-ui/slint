@@ -224,7 +224,7 @@ public:
     void dispatch_pointer_event(const cbindgen_private::MouseEvent &event)
     {
         private_api::assert_main_thread();
-        cbindgen_private::slint_windowrc_dispatch_pointer_event(&inner, event);
+        cbindgen_private::slint_windowrc_dispatch_pointer_event(&inner, &event);
     }
 
     /// Registers a font by the specified path. The path must refer to an existing

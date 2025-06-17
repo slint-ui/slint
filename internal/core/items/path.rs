@@ -18,8 +18,7 @@ use crate::item_rendering::CachedRenderingData;
 
 use crate::layout::{LayoutInfo, Orientation};
 use crate::lengths::{
-    LogicalBorderRadius, LogicalLength, LogicalRect, LogicalSize, LogicalVector, PointLengths,
-    RectLengths,
+    LogicalBorderRadius, LogicalLength, LogicalRect, LogicalSize, LogicalVector, RectLengths,
 };
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
@@ -65,27 +64,16 @@ impl Item for Path {
 
     fn input_event_filter_before_children(
         self: Pin<&Self>,
-        event: MouseEvent,
+        _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
-        self_rc: &ItemRc,
+        _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
-        if let Some(pos) = event.position() {
-            let geometry = self_rc.geometry();
-            if self.clip()
-                && (pos.x < 0 as _
-                    || pos.y < 0 as _
-                    || pos.x_length() > geometry.width_length()
-                    || pos.y_length() > geometry.height_length())
-            {
-                return InputEventFilterResult::Intercept;
-            }
-        }
         InputEventFilterResult::ForwardAndIgnore
     }
 
     fn input_event(
         self: Pin<&Self>,
-        _: MouseEvent,
+        _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> InputEventResult {
