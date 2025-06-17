@@ -186,6 +186,22 @@ export component SwipeGestureHandler {
     //-default_size_binding:expands_to_parent_geometry
 }
 
+export component DragArea {
+    in property <bool> enabled: true;
+    //out property <bool> dragging;
+    in property <string> mime-type;
+    in property <string> data;
+    //-default_size_binding:expands_to_parent_geometry
+
+}
+export component DropArea {
+    in property <bool> enabled: true;
+    callback can-drop(event: DropEvent) -> bool;
+    callback dropped(event: DropEvent);
+    out property <bool> contains-drag;
+    //-default_size_binding:expands_to_parent_geometry
+}
+
 component MenuItem {
     in property <string> title;
     callback activated();

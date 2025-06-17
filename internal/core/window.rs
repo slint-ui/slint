@@ -12,7 +12,7 @@ use crate::api::{
 };
 use crate::input::{
     key_codes, ClickState, FocusEvent, FocusReason, InternalKeyboardModifierState, KeyEvent,
-    KeyEventType, MouseEvent, MouseInputState, TextCursorBlinker,
+    KeyEventType, MouseEvent, MouseInputState, PointerEventButton, TextCursorBlinker,
 };
 use crate::item_tree::{
     ItemRc, ItemTreeRc, ItemTreeRef, ItemTreeVTable, ItemTreeWeak, ItemWeak,
@@ -585,11 +585,35 @@ impl WindowInner {
         // handle multiple press release
         event = self.click_state.check_repeat(event, self.ctx.platform().click_interval());
 
+        let window_adapter = self.window_adapter();
+        let mut mouse_input_state = self.mouse_input_state.take();
+        if let Some(mut drop_event) = mouse_input_state.drag_data.clone() {
+            match &event {
+                MouseEvent::Released { position, button: PointerEventButton::Left, .. } => {
+                    if let Some(window_adapter) = window_adapter.internal(crate::InternalToken) {
+                        window_adapter.set_mouse_cursor(MouseCursor::Default);
+                    }
+                    drop_event.position = crate::lengths::logical_position_to_api(*position);
+                    event = MouseEvent::Drop(drop_event);
+                    mouse_input_state.drag_data = None;
+                }
+                MouseEvent::Moved { position } => {
+                    if let Some(window_adapter) = window_adapter.internal(crate::InternalToken) {
+                        window_adapter.set_mouse_cursor(MouseCursor::NoDrop);
+                    }
+                    drop_event.position = crate::lengths::logical_position_to_api(*position);
+                    event = MouseEvent::DragMove(drop_event);
+                }
+                MouseEvent::Exit => {
+                    mouse_input_state.drag_data = None;
+                }
+                _ => {}
+            }
+        }
+
         let pressed_event = matches!(event, MouseEvent::Pressed { .. });
         let released_event = matches!(event, MouseEvent::Released { .. });
 
-        let window_adapter = self.window_adapter();
-        let mut mouse_input_state = self.mouse_input_state.take();
         let last_top_item = mouse_input_state.top_item_including_delayed();
         if released_event {
             mouse_input_state =

@@ -20,6 +20,7 @@ When adding an item or a property, it needs to be kept in sync with different pl
 #![allow(non_upper_case_globals)]
 #![allow(missing_docs)] // because documenting each property of items is redundant
 
+use crate::api::LogicalPosition;
 use crate::graphics::{Brush, Color, FontRequest};
 use crate::input::{
     FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, KeyEventResult,
@@ -32,6 +33,7 @@ use crate::lengths::{
     LogicalBorderRadius, LogicalLength, LogicalRect, LogicalSize, LogicalVector, PointLengths,
     RectLengths,
 };
+pub use crate::menus::MenuItem;
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
 use crate::window::{WindowAdapter, WindowAdapterRc, WindowInner};
@@ -54,9 +56,10 @@ mod input_items;
 pub use input_items::*;
 mod image;
 pub use self::image::*;
+mod drag_n_drop;
+pub use drag_n_drop::*;
 #[cfg(feature = "std")]
 mod path;
-pub use crate::menus::MenuItem;
 #[cfg(feature = "std")]
 pub use path::*;
 
@@ -70,7 +73,7 @@ pub type KeyEventArg = (KeyEvent,);
 type FocusReasonArg = (FocusReason,);
 type PointerEventArg = (PointerEvent,);
 type PointerScrollEventArg = (PointerScrollEvent,);
-type PointArg = (crate::api::LogicalPosition,);
+type PointArg = (LogicalPosition,);
 type MenuEntryArg = (MenuEntry,);
 type MenuEntryModel = crate::model::ModelRc<MenuEntry>;
 
@@ -1047,6 +1050,14 @@ declare_item_vtable! {
     fn slint_get_FlickableVTable() -> FlickableVTable for Flickable
 }
 
+declare_item_vtable! {
+    fn slint_get_DragAreaVTable() -> DragAreaVTable for DragArea
+}
+
+declare_item_vtable! {
+    fn slint_get_DropAreaVTable() -> DropAreaVTable for DropArea
+}
+
 /// The implementation of the `PropertyAnimation` element
 #[repr(C)]
 #[derive(FieldOffsets, SlintElement, Clone, Debug)]
@@ -1349,7 +1360,7 @@ impl Item for ContextMenu {
         }
         match event {
             MouseEvent::Pressed { position, button: PointerEventButton::Right, .. } => {
-                self.show.call(&(crate::api::LogicalPosition::from_euclid(position),));
+                self.show.call(&(LogicalPosition::from_euclid(*position),));
                 InputEventResult::EventAccepted
             }
             #[cfg(target_os = "android")]

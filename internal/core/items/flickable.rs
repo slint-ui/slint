@@ -313,6 +313,9 @@ impl FlickableData {
             MouseEvent::Pressed { .. } | MouseEvent::Released { .. } => {
                 InputEventFilterResult::ForwardAndIgnore
             }
+            MouseEvent::DragMove(..) | MouseEvent::Drop(..) => {
+                InputEventFilterResult::ForwardAndIgnore
+            }
         }
     }
 
@@ -406,6 +409,7 @@ impl FlickableData {
                 }
                 InputEventResult::EventAccepted
             }
+            MouseEvent::DragMove(..) | MouseEvent::Drop(..) => InputEventResult::EventIgnored,
         }
     }
 

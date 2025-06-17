@@ -225,6 +225,7 @@ impl Item for NativeScrollView {
                     }
                     InputEventResult::EventAccepted
                 }
+                MouseEvent::DragMove(..) | MouseEvent::Drop(..) => InputEventResult::EventIgnored,
             };
             self.data.set(data);
             result
