@@ -43,6 +43,7 @@ jobs:
       outputs:
         deploy: ${{ steps.filter.outputs.deploy }}
       steps:
+      - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
         id: filter
         with:
