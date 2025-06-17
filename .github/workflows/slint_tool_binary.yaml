@@ -61,8 +61,10 @@ jobs:
                 include:
                   - arch: x86_64-pc-windows-msvc
                     runner: windows-2022
+                    package_suffix: x86_64
                   - arch: aarch64-pc-windows-msvc
                     runner: windows-11-arm
+                    package_suffix: arm64
 
         runs-on: ${{ matrix.runner}}
         steps:
@@ -91,7 +93,7 @@ jobs:
             - name: Upload artifact
               uses: actions/upload-artifact@v4
               with:
-                  name: slint-${{ github.event.inputs.program || inputs.program }}-windows-${{ matrix.arch }}
+                  name: slint-${{ github.event.inputs.program || inputs.program }}-windows-${{ matrix.package_suffix }}
                   path: |
                       pkg
 
