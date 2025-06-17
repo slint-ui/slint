@@ -177,7 +177,7 @@ export function activate(
     const command = vscode.commands.registerCommand(
         "slint.openHelp",
         (word) => {
-            const helpUrl = getHelpUrlForElement(word);
+            const helpUrl = getHelpUrlForElement(context, word);
             if (helpUrl) {
                 vscode.env.openExternal(vscode.Uri.parse(helpUrl));
             }
@@ -191,7 +191,7 @@ export function activate(
                 const range = document.getWordRangeAtPosition(position);
                 const word = document.getText(range);
 
-                if (getHelpUrlForElement(word)) {
+                if (getHelpUrlForElement(context, word)) {
                     const commandUri = vscode.Uri.parse(
                         `command:slint.openHelp?${encodeURIComponent(JSON.stringify([word]))}`,
                     );
@@ -293,9 +293,21 @@ async function maybeSendStartupTelemetryEvent(
     telemetryLogger.logUsage("extension-activated", usageData);
 }
 
-const HELP_URL = "https://snapshots.slint.dev/master/docs/slint/reference/";
+function helpBaseUrl(context: vscode.ExtensionContext): string {
+    if (
+        context.extensionMode === vscode.ExtensionMode.Development ||
+        context.extension.packageJSON.name.endsWith("-nightly")
+    ) {
+        return "https://snapshots.slint.dev/master/docs/slint/reference/";
+    } else {
+        return `https://releases.slint.dev/${context.extension.packageJSON.version}/docs/slint/reference/`;
+    }
+}
 
-function getHelpUrlForElement(elementName: string): string | null {
+function getHelpUrlForElement(
+    context: vscode.ExtensionContext,
+    elementName: string,
+): string | null {
     const elementPaths: Record<string, string> = {
         // elements
         Image: "elements/image",
@@ -352,5 +364,5 @@ function getHelpUrlForElement(elementName: string): string | null {
     };
 
     const path = elementPaths[elementName];
-    return path ? `${HELP_URL}${path}/` : null;
+    return path ? `${helpBaseUrl(context)}${path}/` : null;
 }

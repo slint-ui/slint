@@ -75,11 +75,11 @@ build = "build.rs"
 edition = "2021"
 
 [dependencies]
-slint = "1.10.0"
+slint = "1.12"
 ...
 
 [build-dependencies]
-slint-build = "1.10.0"
+slint-build = "1.12"
 ```
 
 Use the API of the slint-build crate in the `build.rs` file:
@@ -438,7 +438,7 @@ pub use i_slint_backend_selector::api::*;
 /// Helper type that helps checking that the generated code is generated for the right version
 #[doc(hidden)]
 #[allow(non_camel_case_types)]
-pub struct VersionCheck_1_12_0;
+pub struct VersionCheck_1_12_1;
 
 #[cfg(doctest)]
 mod compile_fail_tests;

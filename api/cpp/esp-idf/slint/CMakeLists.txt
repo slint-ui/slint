@@ -48,7 +48,7 @@ else()
         FetchContent_Declare(
             Slint
             GIT_REPOSITORY https://github.com/slint-ui/slint
-            GIT_TAG v1.12.0
+            GIT_TAG v1.12.1
             SOURCE_SUBDIR api/cpp
         )
         FetchContent_MakeAvailable(Slint)

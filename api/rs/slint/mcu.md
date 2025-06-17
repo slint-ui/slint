@@ -29,7 +29,7 @@ Start by adding a dependency to the `slint` and the `slint-build` crates to your
 Start with the `slint` crate like this:
 
 ```sh
-cargo add slint@1.10.0 --no-default-features --features "compat-1-2 unsafe-single-threaded libm renderer-software"
+cargo add slint@1.12 --no-default-features --features "compat-1-2 unsafe-single-threaded libm renderer-software"
 ```
 
 The default features of the `slint` crate are tailored towards hosted environments and includes the "std" feature. In bare metal environments,
@@ -52,7 +52,7 @@ This is the default when using the Rust 2021 Edition, but not if you use a works
 Then add the `slint-build` crate as a build dependency:
 
 ```sh
-cargo add --build slint-build@1.10.0
+cargo add --build slint-build@1.12
 ```
 
 For reference: These are the relevant parts of your `Cargo.toml` file,
@@ -68,11 +68,11 @@ edition = "2021"
 ## ... your other dependencies
 
 [dependencies.slint]
-version = "1.10.0"
+version = "1.12"
 default-features = false
 features = ["compat-1-2", "unsafe-single-threaded", "libm", "renderer-software"]
 [build-dependencies]
-slint-build = "1.10.0"
+slint-build = "1.12"
 ```
 
 ## Changes to `build.rs`
