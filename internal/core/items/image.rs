@@ -66,7 +66,7 @@ impl Item for ImageItem {
 
     fn input_event_filter_before_children(
         self: Pin<&Self>,
-        _: MouseEvent,
+        _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
@@ -75,7 +75,7 @@ impl Item for ImageItem {
 
     fn input_event(
         self: Pin<&Self>,
-        _: MouseEvent,
+        _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> InputEventResult {
@@ -217,7 +217,7 @@ impl Item for ClippedImage {
 
     fn input_event_filter_before_children(
         self: Pin<&Self>,
-        _: MouseEvent,
+        _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
@@ -226,7 +226,7 @@ impl Item for ClippedImage {
 
     fn input_event(
         self: Pin<&Self>,
-        _: MouseEvent,
+        _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> InputEventResult {
