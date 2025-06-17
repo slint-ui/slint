@@ -258,5 +258,6 @@ features = [
   "renderer-femtovg",
   "raw-window-handle-06",
   "unstable-wgpu-24",
+  "unstable-winit-030",
 ]
 rustdoc-args = ["--generate-link-to-definition"]
