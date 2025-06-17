@@ -373,6 +373,7 @@ if (SLINT_BUILD_RUNTIME)
         ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_sharedvector_internal.h
         ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_string_internal.h
         ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_timer_internal.h
+        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_events_internal.h
     )
 
     if(SLINT_FEATURE_INTERPRETER)

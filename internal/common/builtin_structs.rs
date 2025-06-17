@@ -115,6 +115,21 @@ macro_rules! for_each_builtin_structs {
                 }
             }
 
+            /// This structure is passed to the callbacks of the `DropArea` element
+            struct DropEvent {
+                @name = "slint::private_api::DropEvent"
+                export {
+                    /// The mime type of the data being dragged
+                    mime_type: SharedString,
+                    /// The data being dragged
+                    data: SharedString,
+                    /// The current mouse position in coordinates of the `DropArea` element
+                    position: LogicalPosition,
+                }
+                private {
+                }
+            }
+
             /// Represents an item in a StandardListView and a StandardTableView.
             #[non_exhaustive]
             struct StandardListViewItem {

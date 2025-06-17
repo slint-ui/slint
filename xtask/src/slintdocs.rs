@@ -213,8 +213,10 @@ pub fn extract_builtin_structs() -> std::collections::BTreeMap<String, StructDoc
 
     // `StateInfo` should not be in the documentation, so remove it again
     structs.remove("StateInfo");
-    // Experimental type
+    // Internal type
     structs.remove("MenuEntry");
+    // Experimental type
+    structs.remove("DropEvent");
 
     structs
 }

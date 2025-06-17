@@ -119,6 +119,7 @@ fn builtin_structs(path: &Path) -> anyhow::Result<()> {
     writeln!(structs_priv, "// This file is auto-generated from {}", file!())?;
     writeln!(structs_priv, "#include \"slint_builtin_structs.h\"")?;
     writeln!(structs_priv, "#include \"slint_enums_internal.h\"")?;
+    writeln!(structs_priv, "#include \"slint_point.h\"")?;
     writeln!(structs_priv, "namespace slint::cbindgen_private {{")?;
     writeln!(structs_priv, "enum class KeyEventType : uint8_t;")?;
     macro_rules! struct_file {
@@ -218,6 +219,7 @@ fn default_config() -> cbindgen::Config {
             ("FocusReasonArg".into(), "FocusReason".into()),
             ("KeyEventArg".into(), "KeyEvent".into()),
             ("PointerEventArg".into(), "PointerEvent".into()),
+            ("DropEventArg".into(), "DropEvent".into()),
             ("PointerScrollEventArg".into(), "PointerScrollEvent".into()),
             ("PointArg".into(), "slint::LogicalPosition".into()),
             ("FloatArg".into(), "float".into()),
@@ -286,6 +288,8 @@ fn gen_corelib(
         "Rectangle",
         "BasicBorderRectangle",
         "BorderRectangle",
+        "DragArea",
+        "DropArea",
         "ImageItem",
         "ClippedImage",
         "TouchArea",
@@ -368,7 +372,6 @@ fn gen_corelib(
         "Property",
         "Slice",
         "Timer",
-        "TimerMode",
         "PropertyHandleOpaque",
         "Callback",
         "slint_property_listener_scope_evaluate",
@@ -377,6 +380,7 @@ fn gen_corelib(
         "CallbackOpaque",
         "WindowAdapterRc",
         "VoidArg",
+        "DropEventArg",
         "FocusReasonArg",
         "KeyEventArg",
         "PointerEventArg",
@@ -385,29 +389,6 @@ fn gen_corelib(
         "Point",
         "MenuEntryModel",
         "MenuEntryArg",
-        "slint_color_brighter",
-        "slint_color_darker",
-        "slint_color_transparentize",
-        "slint_color_mix",
-        "slint_color_with_alpha",
-        "slint_color_to_hsva",
-        "slint_color_from_hsva",
-        "slint_image_size",
-        "slint_image_path",
-        "slint_image_load_from_path",
-        "slint_image_load_from_embedded_data",
-        "slint_image_from_embedded_textures",
-        "slint_image_compare_equal",
-        "slint_image_set_nine_slice_edges",
-        "slint_image_to_rgb8",
-        "slint_image_to_rgba8",
-        "slint_image_to_rgba8_premultiplied",
-        "slint_timer_start",
-        "slint_timer_singleshot",
-        "slint_timer_destroy",
-        "slint_timer_stop",
-        "slint_timer_restart",
-        "slint_timer_running",
         "Coord",
         "LogicalRect",
         "LogicalPoint",
@@ -483,15 +464,9 @@ fn gen_corelib(
         .iter()
         .map(|s| s.to_string())
         .collect();
-        tmp.export.exclude = config
-            .export
-            .exclude
-            .iter()
-            .filter(|exclusion| !tmp.export.include.iter().any(|inclusion| inclusion == *exclusion))
-            .cloned()
-            .collect();
         tmp
     };
+    config.export.exclude.extend(timer_config.export.include.iter().cloned());
     cbindgen::Builder::new()
         .with_config(timer_config)
         .with_src(crate_dir.join("timers.rs"))
@@ -499,7 +474,7 @@ fn gen_corelib(
         .context("Unable to generate bindings for slint_timer_internal.h")?
         .write_to_file(include_dir.join("slint_timer_internal.h"));
 
-    for (rust_types, extra_excluded_types, internal_header, prelude) in [
+    for (rust_types, internal_header, prelude) in [
         (
             vec![
                 "ImageInner",
@@ -521,7 +496,6 @@ fn gen_corelib(
                 "StaticTextures",
                 "BorrowedOpenGLTextureOrigin"
             ],
-            vec!["Color"],
             "slint_image_internal.h",
             "namespace slint::cbindgen_private { struct ParsedSVG{}; struct HTMLImage{}; using namespace vtable; namespace types{ struct NineSliceImage{}; } }",
         ),
@@ -532,22 +506,31 @@ fn gen_corelib(
             "slint_color_with_alpha",
             "slint_color_to_hsva",
             "slint_color_from_hsva",],
-            vec![],
             "slint_color_internal.h",
             "",
         ),
         (
-            vec!["PathData", "PathElement", "slint_new_path_elements", "slint_new_path_events"],
-            vec![],
+            vec!["PathData", "PathElement", "slint_new_path_elements", "slint_new_path_events", "Point"],
             "slint_pathdata_internal.h",
-            "",
+            "#include \"slint_sharedvector.h\"\n#include \"slint_point.h\"",
         ),
         (
             vec!["Brush", "LinearGradient", "GradientStop", "RadialGradient"],
-            vec!["Color"],
             "slint_brush_internal.h",
             "",
         ),
+        (
+            vec!["MouseEvent"],
+            "slint_events_internal.h",
+            "#include \"slint_point.h\"
+            namespace slint::cbindgen_private {
+                struct KeyEvent; struct PointerEvent;
+                struct Rect;
+                using LogicalRect = Rect;
+                using LogicalPoint = Point2D<float>;
+                using LogicalLength = float;
+            }",
+        )
     ]
     .iter()
     {
@@ -591,32 +574,14 @@ fn gen_corelib(
             "slint_windowrc_is_minimized",
             "slint_windowrc_is_maximized",
             "slint_windowrc_take_snapshot",
-            "slint_new_path_elements",
-            "slint_new_path_events",
-            "slint_color_brighter",
-            "slint_color_darker",
-            "slint_color_transparentize",
-            "slint_color_mix",
-            "slint_color_with_alpha",
-            "slint_color_to_hsva",
-            "slint_color_from_hsva",
-            "slint_image_size",
-            "slint_image_path",
-            "slint_image_load_from_path",
-            "slint_image_load_from_embedded_data",
-            "slint_image_set_nine_slice_edges",
-            "slint_image_to_rgb8",
-            "slint_image_to_rgba8",
-            "slint_image_to_rgba8_premultiplied",
-            "slint_image_from_embedded_textures",
-            "slint_image_compare_equal",
         ]
-        .iter()
-        .filter(|exclusion| !rust_types.iter().any(|inclusion| inclusion == *exclusion))
-        .chain(extra_excluded_types.iter())
-        .chain(public_exported_types.iter())
+        .into_iter()
+        .chain(config.export.exclude.iter().map(|s| s.as_str()))
+        .filter(|exclusion| !rust_types.iter().any(|inclusion| inclusion == exclusion))
         .map(|s| s.to_string())
         .collect();
+
+        config.export.exclude.extend(rust_types.iter().map(|s| s.to_string()));
 
         special_config.enumeration = cbindgen::EnumConfig {
             derive_tagged_enum_copy_assignment: true,
@@ -646,7 +611,7 @@ fn gen_corelib(
             .with_src(crate_dir.join("graphics/image.rs"))
             .with_src(crate_dir.join("graphics/image/cache.rs"))
             .with_src(crate_dir.join("animations.rs"))
-            //            .with_src(crate_dir.join("input.rs"))
+            .with_src(crate_dir.join("input.rs"))
             .with_src(crate_dir.join("item_rendering.rs"))
             .with_src(crate_dir.join("window.rs"))
             .with_include("slint_enums_internal.h")
@@ -759,6 +724,7 @@ fn gen_corelib(
         .with_include("slint_point.h")
         .with_include("slint_timer.h")
         .with_include("slint_builtin_structs_internal.h")
+        .with_include("slint_events_internal.h")
         .with_after_include(
             r"
 namespace slint {
@@ -766,17 +732,14 @@ namespace slint {
     namespace cbindgen_private {
         using slint::private_api::WindowAdapterRc;
         using namespace vtable;
-        struct KeyEvent; struct PointerEvent;
         using private_api::Property;
         using private_api::PathData;
         using private_api::Point;
-        struct Rect;
-        using LogicalRect = Rect;
-        using LogicalPoint = Point2D<float>;
-        using LogicalLength = float;
         struct ItemTreeVTable;
         struct ItemVTable;
         using types::IntRect;
+        using types::Size;
+        using types::MouseEvent;
     }
     template<typename ModelData> class Model;
 }",

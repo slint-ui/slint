@@ -451,6 +451,9 @@ impl Item for NativeTab {
                 }
             }
             MouseEvent::Wheel { .. } => return InputEventResult::EventIgnored,
+            MouseEvent::DragMove(..) | MouseEvent::Drop(..) => {
+                return InputEventResult::EventIgnored
+            }
         });
         let click_on_press = cpp!(unsafe [] -> bool as "bool" {
             return qApp->style()->styleHint(QStyle::SH_TabBar_SelectMouseType, nullptr, nullptr) == QEvent::MouseButtonPress;

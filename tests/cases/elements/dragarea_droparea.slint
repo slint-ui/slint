@@ -1,0 +1,100 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase inherits Window {
+    width: 100px;
+    height: 200px;
+    in-out property <string> result;
+    out property <bool> contains-drag <=> da.contains-drag;
+    VerticalLayout {
+        Rectangle {
+            background: inner_touch_area.has-hover ? yellow : red;
+            DragArea {
+                mime-type: "text/plain";
+                data: "Hello World";
+
+                inner_touch_area := TouchArea {
+                    x: 50px;
+                    width: 50px;
+                    clicked => { result += "InnerClicked;"; }
+                }
+            }
+        }
+        Rectangle {
+            background: da.contains-drag ? green : blue;
+            da := DropArea {
+                can-drop(event) => {
+                    debug("can-drop", event);
+                    true
+                }
+                dropped(event) => {
+                    result += "D[" + event.data + "];";
+                    debug("dropped", event);
+                }
+            }
+        }
+    }
+}
+
+
+/*
+```rust
+use slint::{platform::WindowEvent, LogicalPosition, platform::PointerEventButton};
+
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_contains_drag(), false);
+assert_eq!(instance.get_result(), "");
+
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(20.0, 25.0), button: PointerEventButton::Left });
+slint_testing::mock_elapsed_time(20);
+assert_eq!(instance.get_contains_drag(), false);
+assert_eq!(instance.get_result(), "");
+
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(21.0, 40.0) });
+slint_testing::mock_elapsed_time(20);
+assert_eq!(instance.get_contains_drag(), false);
+assert_eq!(instance.get_result(), "");
+
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(22.0, 120.0) });
+slint_testing::mock_elapsed_time(20);
+assert_eq!(instance.get_contains_drag(), true);
+assert_eq!(instance.get_result(), "");
+
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(22.0, 120.0), button: PointerEventButton::Left });
+slint_testing::mock_elapsed_time(20);
+assert_eq!(instance.get_result(), "D[Hello World];");
+assert_eq!(instance.get_contains_drag(), false);
+
+instance.set_result("".into());
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(51.0, 50.0), button: PointerEventButton::Left });
+slint_testing::mock_elapsed_time(20);
+assert_eq!(instance.get_contains_drag(), false);
+assert_eq!(instance.get_result(), "");
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(52.0, 50.0) });
+slint_testing::mock_elapsed_time(20);
+assert_eq!(instance.get_contains_drag(), false);
+assert_eq!(instance.get_result(), "");
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(52.0, 50.0), button: PointerEventButton::Left });
+slint_testing::mock_elapsed_time(20);
+assert_eq!(instance.get_result(), "InnerClicked;");
+assert_eq!(instance.get_contains_drag(), false);
+
+instance.set_result("".into());
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(51.0, 15.0), button: PointerEventButton::Left });
+slint_testing::mock_elapsed_time(20);
+assert_eq!(instance.get_contains_drag(), false);
+assert_eq!(instance.get_result(), "");
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(58.0, 40.0) });
+slint_testing::mock_elapsed_time(20);
+assert_eq!(instance.get_contains_drag(), false);
+assert_eq!(instance.get_result(), "");
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(58.0, 120.0) });
+assert_eq!(instance.get_contains_drag(), true);
+assert_eq!(instance.get_result(), "");
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(58.0, 20.0), button: PointerEventButton::Left });
+slint_testing::mock_elapsed_time(20);
+assert_eq!(instance.get_contains_drag(), false);
+assert_eq!(instance.get_result(), "");
+```
+
+*/

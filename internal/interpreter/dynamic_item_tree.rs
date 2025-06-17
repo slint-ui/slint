@@ -997,6 +997,8 @@ fn generate_rtti() -> HashMap<&'static str, Rc<ItemRTTI>> {
             rtti_for::<Rotate>(),
             rtti_for::<Opacity>(),
             rtti_for::<Layer>(),
+            rtti_for::<DragArea>(),
+            rtti_for::<DropArea>(),
             rtti_for::<ContextMenu>(),
             rtti_for::<MenuItem>(),
         ]

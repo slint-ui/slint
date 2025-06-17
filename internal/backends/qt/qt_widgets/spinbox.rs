@@ -224,6 +224,7 @@ impl Item for NativeSpinBox {
 
                     true
                 }
+                MouseEvent::DragMove(..) | MouseEvent::Drop(..) => false,
             };
         data.active_controls = new_control;
         if changed {

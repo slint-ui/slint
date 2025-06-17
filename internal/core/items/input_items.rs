@@ -202,6 +202,7 @@ impl Item for TouchArea {
                     }
                 }
             }
+            MouseEvent::DragMove(..) | MouseEvent::Drop(..) => InputEventResult::EventIgnored,
         }
     }
 
@@ -487,6 +488,9 @@ impl Item for SwipeGestureHandler {
             MouseEvent::Pressed { .. } | MouseEvent::Released { .. } => {
                 InputEventFilterResult::ForwardAndIgnore
             }
+            MouseEvent::DragMove(..) | MouseEvent::Drop(..) => {
+                InputEventFilterResult::ForwardAndIgnore
+            }
         }
     }
 
@@ -539,6 +543,7 @@ impl Item for SwipeGestureHandler {
                 InputEventResult::GrabMouse
             }
             MouseEvent::Wheel { .. } => InputEventResult::EventIgnored,
+            MouseEvent::DragMove(..) | MouseEvent::Drop(..) => InputEventResult::EventIgnored,
         }
     }
 
