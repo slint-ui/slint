@@ -5,8 +5,8 @@ import { Slider, GroupBox, HorizontalBox, VerticalBox, GridBox } from "std-widge
 
 export component App inherits Window {
     in property <image> texture <=> image.source;
-    out property <int> requested-texture-width: image.width/1phx;
-    out property <int> requested-texture-height: image.height/1phx;
+    out property <int> requested-texture-width: image.width / 1phx;
+    out property <int> requested-texture-height: image.height / 1phx;
     out property <float> selected-red <=> red.value;
     out property <float> selected-green <=> green.value;
     out property <float> selected-blue <=> blue.value;
@@ -18,7 +18,7 @@ export component App inherits Window {
 
     VerticalBox {
         Text {
-            text: "This text is rendered using Slint. The rotating cube below is rendered into an OpenGL texture.";
+            text: "This text is rendered using Slint. The rotating cube below is rendered into an WGPU texture.";
             wrap: word-wrap;
         }
 
