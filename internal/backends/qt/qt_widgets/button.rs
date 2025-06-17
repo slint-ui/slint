@@ -272,6 +272,9 @@ impl Item for NativeButton {
                 }
             }
             MouseEvent::Wheel { .. } => return InputEventResult::EventIgnored,
+            MouseEvent::DragMove(..) | MouseEvent::Drop(..) => {
+                return InputEventResult::EventIgnored
+            }
         });
         if let MouseEvent::Released { position, .. } = event {
             let geo = self_rc.geometry();

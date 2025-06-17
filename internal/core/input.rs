@@ -8,8 +8,8 @@
 use crate::item_tree::ItemTreeRc;
 use crate::item_tree::{ItemRc, ItemWeak, VisitChildrenResult};
 pub use crate::items::PointerEventButton;
+use crate::items::{DropEvent, ItemRef, TextCursorDirection};
 pub use crate::items::{FocusReason, KeyEvent, KeyboardModifiers};
-use crate::items::{ItemRef, TextCursorDirection};
 use crate::lengths::{LogicalPoint, LogicalVector};
 use crate::timers::Timer;
 use crate::window::{WindowAdapter, WindowInner};
@@ -26,7 +26,7 @@ use core::time::Duration;
 /// The only difference with [`crate::platform::WindowEvent`] us that it uses untyped `Point`
 /// TODO: merge with platform::WindowEvent
 #[repr(C)]
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 #[allow(missing_docs)]
 pub enum MouseEvent {
     /// The mouse or finger was pressed
@@ -46,6 +46,12 @@ pub enum MouseEvent {
     /// `delta_x` is the amount of pixels to scroll in horizontal direction,
     /// `delta_y` is the amount of pixels to scroll in vertical direction.
     Wheel { position: LogicalPoint, delta_x: Coord, delta_y: Coord },
+    /// The mouse is being dragged over this item.
+    /// [`InputEventResult::EventIgnored`] means that the item does not handle the drag operation
+    /// and [`InputEventResult::EventAccepted`] means that the item can accept it.
+    DragMove(DropEvent),
+    /// The mouse is released while dregging over this item.
+    Drop(DropEvent),
     /// The mouse exited the item or component
     Exit,
 }
@@ -58,6 +64,9 @@ impl MouseEvent {
             MouseEvent::Released { position, .. } => Some(*position),
             MouseEvent::Moved { position } => Some(*position),
             MouseEvent::Wheel { position, .. } => Some(*position),
+            MouseEvent::DragMove(e) | MouseEvent::Drop(e) => {
+                Some(crate::lengths::logical_point_from_api(e.position))
+            }
             MouseEvent::Exit => None,
         }
     }
@@ -69,6 +78,12 @@ impl MouseEvent {
             MouseEvent::Released { position, .. } => Some(position),
             MouseEvent::Moved { position } => Some(position),
             MouseEvent::Wheel { position, .. } => Some(position),
+            MouseEvent::DragMove(e) | MouseEvent::Drop(e) => {
+                e.position = crate::api::LogicalPosition::from_euclid(
+                    crate::lengths::logical_point_from_api(e.position) + vec,
+                );
+                None
+            }
             MouseEvent::Exit => None,
         };
         if let Some(pos) = pos {
@@ -102,6 +117,8 @@ pub enum InputEventResult {
     EventIgnored,
     /// All further mouse event need to be sent to this item or component
     GrabMouse,
+    /// Will start a drag operation. Can only be returned from a [`crate::items::DragArea`] item.
+    StartDrag,
 }
 
 /// This value is returned by the `input_event_filter_before_children` function, which
@@ -540,6 +557,9 @@ pub struct MouseInputState {
     pub(crate) offset: LogicalPoint,
     /// true if the top item of the stack has the mouse grab
     grabbed: bool,
+    /// When this is Some, it means we are in the middle of a drag-drop operation and it contains the dragged data.
+    /// The `position` field has no signification
+    pub(crate) drag_data: Option<DropEvent>,
     delayed: Option<(crate::timers::Timer, MouseEvent)>,
     delayed_exit_items: Vec<ItemWeak>,
 }
@@ -613,16 +633,27 @@ pub(crate) fn handle_mouse_grab(
 
     let grabber = mouse_input_state.top_item().unwrap();
     let input_result = grabber.borrow().as_ref().input_event(&event, window_adapter, &grabber);
-    if input_result != InputEventResult::GrabMouse {
-        mouse_input_state.grabbed = false;
-        // Return a move event so that the new position can be registered properly
-        Some(
-            mouse_event
-                .position()
-                .map_or(MouseEvent::Exit, |position| MouseEvent::Moved { position }),
-        )
-    } else {
-        None
+    match input_result {
+        InputEventResult::GrabMouse => None,
+        InputEventResult::StartDrag => {
+            mouse_input_state.grabbed = false;
+            let drag_area_item = grabber.downcast::<crate::items::DragArea>().unwrap();
+            mouse_input_state.drag_data = Some(DropEvent {
+                mime_type: drag_area_item.as_pin_ref().mime_type(),
+                data: drag_area_item.as_pin_ref().data(),
+                position: Default::default(),
+            });
+            None
+        }
+        _ => {
+            mouse_input_state.grabbed = false;
+            // Return a move event so that the new position can be registered properly
+            Some(
+                mouse_event
+                    .position()
+                    .map_or(MouseEvent::Exit, |position| MouseEvent::Moved { position }),
+            )
+        }
     }
 }
 
@@ -671,6 +702,7 @@ pub fn process_mouse_input(
     mouse_input_state: MouseInputState,
 ) -> MouseInputState {
     let mut result = MouseInputState::default();
+    result.drag_data = mouse_input_state.drag_data.clone();
     let r = send_mouse_event_to_item(
         mouse_event,
         root.clone(),
@@ -839,6 +871,18 @@ fn send_mouse_event_to_item(
             result.item_stack.last_mut().unwrap().1 =
                 InputEventFilterResult::ForwardAndInterceptGrab;
             result.grabbed = true;
+            VisitChildrenResult::abort(item_rc.index(), 0)
+        }
+        InputEventResult::StartDrag => {
+            result.item_stack.last_mut().unwrap().1 =
+                InputEventFilterResult::ForwardAndInterceptGrab;
+            result.grabbed = false;
+            let drag_area_item = item_rc.downcast::<crate::items::DragArea>().unwrap();
+            result.drag_data = Some(DropEvent {
+                mime_type: drag_area_item.as_pin_ref().mime_type(),
+                data: drag_area_item.as_pin_ref().data(),
+                position: Default::default(),
+            });
             VisitChildrenResult::abort(item_rc.index(), 0)
         }
     }

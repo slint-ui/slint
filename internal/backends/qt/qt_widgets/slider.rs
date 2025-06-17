@@ -251,6 +251,7 @@ impl Item for NativeSlider {
                 debug_assert_ne!(*button, PointerEventButton::Left);
                 InputEventResult::EventIgnored
             }
+            MouseEvent::DragMove(..) | MouseEvent::Drop(..) => InputEventResult::EventIgnored,
         };
         data.active_controls = new_control;
 

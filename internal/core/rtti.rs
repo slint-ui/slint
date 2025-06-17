@@ -50,6 +50,7 @@ macro_rules! declare_ValueType_2 {
             crate::api::LogicalPosition,
             crate::items::FontMetrics,
             crate::items::MenuEntry,
+            crate::items::DropEvent,
             crate::model::ModelRc<crate::items::MenuEntry>,
             $(crate::items::$Name,)*
         ];
