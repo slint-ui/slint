@@ -3,6 +3,12 @@
 # Changelog
 All notable changes to this project are documented in this file.
 
+## [1.12.1] - TBD
+
+### Node.js API
+
+ - Added packages for Windows on ARM.
+
 ## [1.12.0] - 2026-06-16
 
 ### General
