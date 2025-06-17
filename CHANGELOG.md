@@ -9,6 +9,10 @@ All notable changes to this project are documented in this file.
 
  - Added packages for Windows on ARM.
 
+### LSP and Tooling
+
+ - Added binaries for Windows on ARM (VS Code extension, slint-lsp binaries)
+
 ## [1.12.0] - 2026-06-16
 
 ### General
