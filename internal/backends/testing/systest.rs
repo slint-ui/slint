@@ -360,6 +360,10 @@ impl TestingClient {
             accessible_role: convert_to_proto_accessible_role(element.accessible_role().unwrap())
                 .unwrap_or_default(),
             computed_opacity: element.computed_opacity(),
+            accessible_placeholder_text: element
+                .accessible_placeholder_text()
+                .unwrap_or_default()
+                .to_string(),
         })
     }
 

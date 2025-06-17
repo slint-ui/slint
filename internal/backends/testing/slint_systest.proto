@@ -239,6 +239,7 @@ message ElementPropertiesResponse {
     LogicalPosition absolute_position = 11;
     AccessibleRole accessible_role = 12;
     float computed_opacity = 13;
+    string accessible_placeholder_text = 14;
 }
 
 message InvokeElementAccessibilityActionResponse {
