@@ -786,6 +786,16 @@ mod private {
 #[i_slint_core_macros::slint_doc]
 /// This helper trait can be used to obtain access to the [`winit::window::Window`] for a given
 /// [`slint::Window`](slint:rust:slint/struct.window).
+///
+/// Note that the association of a Slint window with a winit window relies on two factors:
+///
+/// - The winit backend must be in use. You can ensure this programmatically by calling [`slint::BackendSelector::backend_name()`](slint:rust:slint/struct.BackendSelector#method.backend_name)
+///   with "winit" as argument.
+/// - The winit window must've been created. Windowing systems, and by extension winit, require that windows can only be properly
+///   created when certain conditions of the event loop are met. For example, on Android the application can't be suspended. Therefore,
+///   functions like [`Self::has_winit_window()`] or [`Self::with_winit_window()`] will only succeed when the event loop is active.
+///   This is typically the case when callbacks are invoked from the event loop, such as through timers, user input events, or when window
+///   receives events (see also [`Self::on_winit_window_event()`]).
 pub trait WinitWindowAccessor: private::WinitWindowAccessorSealed {
     /// Returns true if a [`winit::window::Window`] exists for this window. This is the case if the window is
     /// backed by this winit backend.
