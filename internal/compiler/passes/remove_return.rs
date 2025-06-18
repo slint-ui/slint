@@ -151,8 +151,7 @@ fn process_codeblock(
                         actual_value,
                     };
                 } else if toplevel {
-                    let rest =
-                        process_codeblock(iter, true, &Type::Void, ctx).to_expression(&ctx.ret_ty);
+                    let rest = process_codeblock(iter, true, ty, ctx).to_expression(&ctx.ret_ty);
                     let mut rest_ex = Expression::CodeBlock(
                         actual_value.into_iter().chain(core::iter::once(rest)).collect(),
                     );
@@ -169,7 +168,7 @@ fn process_codeblock(
                 } else {
                     return continue_codeblock(
                         iter,
-                        &Type::Void,
+                        ty,
                         ctx,
                         ExpressionResult::MaybeReturn {
                             pre_statements: vec![],
