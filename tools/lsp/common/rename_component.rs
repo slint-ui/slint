@@ -1387,7 +1387,7 @@ export component Bar inherits Foo /* <- TEST_ME_3 */ {
         assert_eq!(text_edit::EditIterator::new(&edit).count(), 1);
 
         // This does not compile as the type was not changed in the _SLINT_LivePreview part.
-        // This is inteneded as that code does not really exist in the first place!
+        // This is intended as that code does not really exist in the first place!
     }
 
     #[test]
