@@ -10,6 +10,11 @@ Contributions and feedback from the community are welcome.
 [![REUSE status](https://api.reuse.software/badge/github.com/slint-ui/material-components)](https://api.reuse.software/info/github.com/slint-ui/slint)
 [![Discussions](https://img.shields.io/github/discussions/slint-ui/material-components)](https://github.com/slint-ui/material-components/discussions)
 
+## Disclaimer
+
+The material components are currently available as a technical preview. Some components are still missing and changes to the api
+are possible. We will inform as soon as the component set is read for release.
+
 ## Examples
 
 | Gallery                                                                                                   |
