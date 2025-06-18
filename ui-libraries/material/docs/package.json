@@ -21,7 +21,7 @@
         "@astrojs/check": "0.9.4",
         "@astrojs/starlight": "0.34.4",
         "@expressive-code/plugin-line-numbers": "0.41.2",
-        "@types/node": "20.16.10",
+        "@types/node": "24.0.3",
         "astro": "5.9.4",
         "astro-embed": "0.9.0",
         "playwright-ctrf-json-reporter": "0.0.20",
