@@ -61,36 +61,27 @@ component HeaderItemTemplate {
 }
 
 component ItemTemplate {
+    in property <ComponentItem> data;
     in property <bool> enabled: true;
     in property <string> text;
     in property <bool> can-drop-here;
     in property <length> offset;
-    out property <length> absolute-mouse-x: touch-area.mouse-x - touch-area.x + touch-area.absolute-position.x;
-    out property <length> absolute-mouse-y: touch-area.mouse-y - touch-area.y + touch-area.absolute-position.y;
     out property <bool> pressed <=> touch-area.pressed;
 
     callback clicked <=> touch-area.clicked;
-    callback pointer-event <=> touch-area.pointer-event;
 
     min-width: content-layer.min-width;
     min-height: max(EditorSizeSettings.item-height, content-layer.min-height);
 
-    touch-area := TouchArea {
-        states [
-            dragging-no-drop when self.pressed && !root.can-drop-here: {
-                mouse-cursor: MouseCursor.no-drop;
-            }
-            dragging-can-drop when self.pressed && root.can-drop-here: {
-                mouse-cursor: MouseCursor.copy;
-            }
-            normal when !self.pressed: {
-                mouse-cursor: MouseCursor.default;
-            }
-        ]
+    DragArea {
+        mime-type: "application/x-slint-component";
+        data: data.index;
 
-        changed has-hover => {
-            if self.has-hover {
-                StatusLineApi.help-text = @tr("Drag onto canvas to add {}", text);
+        touch-area := TouchArea {
+            changed has-hover => {
+                if self.has-hover {
+                    StatusLineApi.help-text = @tr("Drag onto canvas to add {}", text);
+                }
             }
         }
     }
@@ -120,10 +111,6 @@ export component ExpandableListView inherits ScrollView {
     in property <[ComponentListItem]> known-components;
 
     in property <bool> preview-is-current;
-    in property <length> preview-area-position-x;
-    in property <length> preview-area-position-y;
-    in property <length> preview-area-width;
-    in property <length> preview-area-height;
     in-out property <ComponentItem> visible-component: {
         name: "",
         defined-at: "",
@@ -132,11 +119,8 @@ export component ExpandableListView inherits ScrollView {
         is-currently-shown: false,
     };
 
-    pure callback can-drop(index: int, x: length, y: length, on-drop-area: bool) -> bool;
-    callback drop(index: int, x: length, y: length);
     callback show-preview-for(name: string, defined-at: string);
 
-    property <bool> preview-visible: preview-area-width > 0px && preview-area-height > 0px;
     property <length> list-spacing: 10px;
 
     VerticalLayout {
@@ -149,23 +133,11 @@ export component ExpandableListView inherits ScrollView {
 
             if header-item.open: VerticalLayout {
                 for ci[index] in cli.components: ItemTemplate {
-                    property <length> drop-x: self.absolute-mouse-x - root.preview-area-position-x;
-                    property <length> drop-y: self.absolute-mouse-y - root.preview-area-position-y;
-                    property <bool> on-drop-area:
-                            drop-x >= 0 && drop-x <= root.preview-area-width && drop-y >= 0 && drop-y <= root.preview-area-height;
-                    property <ComponentItem> data: ci;
-
-                    can-drop-here: root.preview-is-current && !self.data.is-currently-shown && root.can-drop(self.data.index, drop-x, drop-y, on-drop-area);
-                    enabled: root.preview-visible;
+                    data: ci;
                     text: ci.name;
                     offset: header-item.offset;
                     height: self.min-height;
 
-                    pointer-event(event) => {
-                        if self.can-drop-here && event.kind == PointerEventKind.up && event.button == PointerEventButton.left {
-                            root.drop(self.data.index, drop-x, drop-y);
-                        }
-                    }
 
                     init() => {
                         root.visible-component = ci;

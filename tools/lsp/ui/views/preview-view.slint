@@ -200,11 +200,6 @@ export component PreviewView {
     out property <bool> preview-visible: preview-area-container.has-component;
     out property <DrawAreaMode> mode: uninitialized;
 
-    out property <length> preview-area-position-x: preview-area-container.absolute-position.x;
-    out property <length> preview-area-position-y: preview-area-container.absolute-position.y;
-    out property <length> preview-area-width: preview-visible ? preview-area-container.width : 0px;
-    out property <length> preview-area-height: preview-visible ? preview-area-container.height : 0px;
-
     preferred-height: max(max(preview-area-container.preferred-height, preview-area-container.min-height) + 2 * scroll-view.border, 10 * scroll-view.border);
     preferred-width: max(max(preview-area-container.preferred-width, preview-area-container.min-width) + 2 * scroll-view.border, 10 * scroll-view.border);
 
@@ -407,9 +402,21 @@ export component PreviewView {
                     }
                 }
 
+                DropArea {
+                    can-drop(event) => {
+                        if event.mime-type != "application/x-slint-component" {
+                            return false;
+                        }
+                        return Api.can-drop(event.data.to-float(), event.position.x, event.position.y, true);
+                    }
+                    dropped(event) => {
+                        Api.drop(event.data.to-float(), event.position.x, event.position.y);
+                    }
+                }
+
                 selection-popup := SelectionPopup {
-                    preview-width: root.preview-area-width;
-                    preview-height: root.preview-area-height;
+                    preview-width: preview-area-container.width;
+                    preview-height: preview-area-container.height;
                     x: 0px;
                     y: 0px;
                     max-popup-height: root.height * 0.9;
