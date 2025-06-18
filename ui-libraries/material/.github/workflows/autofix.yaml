@@ -35,3 +35,12 @@ jobs:
             - name: Format, lint and REUSE check
               uses: autofix-ci/action@635ffb0c9798bd160680f18fd73371e355b85f27
 
+    ci:
+        needs: [format_fix]
+        permissions:
+            contents: read
+            deployments: write
+        uses: ./.github/workflows/ci.yaml
+        secrets:
+            CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+            CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

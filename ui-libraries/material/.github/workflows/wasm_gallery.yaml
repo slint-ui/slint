@@ -1,0 +1,37 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: MIT
+
+name: Build a WASM version of the gallery example
+
+on:
+    workflow_dispatch:
+    workflow_call:
+
+jobs:
+    build:
+        env:
+            CARGO_PROFILE_RELEASE_OPT_LEVEL: s
+            CARGO_INCREMENTAL: false
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+            - name: Install Rust
+              uses: dtolnay/rust-toolchain@stable
+              with:
+                  target: wasm32-unknown-unknown
+            - name: Install wasm-pack
+              run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+            - uses: Swatinem/rust-cache@v2
+              with:
+                  workspaces: |
+                      examples/gallery
+            - name: Build
+              working-directory: examples/gallery
+              run: wasm-pack build --target web
+            - name: "Upload Artifacts"
+              uses: actions/upload-artifact@v4
+              with:
+                  name: wasm_gallery
+                  path: |
+                      examples/gallery/index.html
+                      examples/gallery/pkg

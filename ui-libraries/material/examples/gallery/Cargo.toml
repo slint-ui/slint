@@ -19,14 +19,14 @@ path = "src/main.rs"
 name = "material_gallery"
 
 [dependencies]
-slint = { path = "../../../../api/rs/slint", features = ["backend-android-activity-06"] }
+slint = { version = "1.12", features = ["backend-android-activity-06"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = { version = "0.2" }
 console_error_panic_hook = "0.1.5"
 
 [build-dependencies]
-slint-build = { path = "../../../../api/rs/build" }
+slint-build = { version = "1.12" }
 
 [package.metadata.android]
 package = "com.slint.material"
