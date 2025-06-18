@@ -11,6 +11,10 @@ on:
         required: true
       CLOUDFLARE_ACCOUNT_ID:
         required: true
+      ANDROID_KEYSTORE_PASSWORD:
+        required: true
+      ANDROID_KEYSTORE_BASE64:
+        required: true
 
 permissions:
   contents: read
@@ -18,10 +22,15 @@ permissions:
 jobs:
   wasm_demo:
       uses: ./.github/workflows/wasm_gallery.yaml
+  apk_demo:
+      uses: ./.github/workflows/apk_gallery.yaml
+      secrets:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
 
   deploy:
     runs-on: ubuntu-latest
-    needs: [wasm_demo]
+    needs: [wasm_demo, apk_demo]
     permissions:
       contents: read
       deployments: write
@@ -43,6 +52,10 @@ jobs:
         with:
           name: wasm_gallery
           path: docs/dist/wasm
+      - uses: actions/download-artifact@v4
+        with:
+          name: apk_gallery
+          path: docs/dist/apk
       - name: Deploy
         uses: cloudflare/wrangler-action@v3
         with:

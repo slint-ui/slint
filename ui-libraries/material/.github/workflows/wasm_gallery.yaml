@@ -8,7 +8,7 @@ on:
     workflow_call:
 
 jobs:
-    build:
+    wasm_build:
         env:
             CARGO_PROFILE_RELEASE_OPT_LEVEL: s
             CARGO_INCREMENTAL: false
@@ -23,6 +23,7 @@ jobs:
               run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
             - uses: Swatinem/rust-cache@v2
               with:
+                  key: wasm-build
                   workspaces: |
                       examples/gallery
             - name: Build

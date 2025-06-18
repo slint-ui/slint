@@ -1,0 +1,60 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: MIT
+
+name: Build an APK for the gallery example
+
+on:
+    workflow_dispatch:
+    workflow_call:
+        secrets:
+            ANDROID_KEYSTORE_PASSWORD:
+                  required: true
+            ANDROID_KEYSTORE_BASE64:
+                  required: true
+
+jobs:
+    apk_build:
+        env:
+            CARGO_PROFILE_RELEASE_OPT_LEVEL: s
+            CARGO_INCREMENTAL: false
+            CARGO_APK_RELEASE_KEYSTORE: /home/runner/.android/release.keystore
+            CARGO_APK_RELEASE_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+            - name: Install Android API level 30
+              run: ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-30"
+            - name: Install Rust
+              uses: dtolnay/rust-toolchain@stable
+              with:
+                  target: aarch64-linux-android
+            - name: Cache cargo-apk
+              id: cargo-apk-cache
+              uses: actions/cache@v4
+              with:
+                  path: ~/.cargo/bin/cargo-apk
+                  key: cargo-apk-cache
+            # Only build cargo-apk if not cached
+            - uses: dtolnay/rust-toolchain@stable
+              if: steps.cargo-apk-cache.outputs.cache-hit != 'true'
+            - name: Install cargo-apk
+              if: steps.cargo-apk-cache.outputs.cache-hit != 'true'
+              run: cargo install cargo-apk
+            - uses: Swatinem/rust-cache@v2
+              with:
+                  key: apk-build
+                  workspaces: |
+                      examples/gallery
+            - name: dump keystore
+              run: |
+                  mkdir -p /home/runner/.android
+                  echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > $CARGO_APK_RELEASE_KEYSTORE
+            - name: Build
+              working-directory: examples/gallery
+              run: cargo apk build --target aarch64-linux-android --lib --release
+            - name: "Upload Artifacts"
+              uses: actions/upload-artifact@v4
+              with:
+                  name: apk_gallery
+                  path: |
+                      examples/gallery/target/release/apk/slint_material.apk
