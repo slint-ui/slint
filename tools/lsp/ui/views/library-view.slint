@@ -11,15 +11,9 @@ export component LibraryView {
     in property <[ComponentListItem]> known-components <=> component-list-view.known-components;
 
     in property <bool> preview-area-is-current <=> component-list-view.preview-is-current;
-    in property <length> preview-area-position-x <=> component-list-view.preview-area-position-x;
-    in property <length> preview-area-position-y <=> component-list-view.preview-area-position-y;
-    in property <length> preview-area-width <=> component-list-view.preview-area-width;
-    in property <length> preview-area-height <=> component-list-view.preview-area-height;
 
     in-out property <ComponentItem> visible-component <=> component-list-view.visible-component;
 
-    pure callback can-drop <=> component-list-view.can-drop;
-    callback drop <=> component-list-view.drop;
     callback show-preview-for <=> component-list-view.show-preview-for;
 
     width: EditorSizeSettings.side-bar-width;

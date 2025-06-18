@@ -93,20 +93,7 @@ export component PreviewUi inherits Window {
                         known-components: Api.known-components;
 
                         preview-area-is-current: preview.preview-is-current;
-                        preview-area-position-x: preview.preview-area-position-x;
-                        preview-area-position-y: preview.preview-area-position-y;
-                        preview-area-width: preview.preview-area-width;
-                        preview-area-height: preview.preview-area-height;
-
                         visible-component: root.visible-component;
-
-                        can-drop(index, x, y, on-drop-area) => {
-                            Api.can-drop(index, x, y, on-drop-area);
-                        }
-
-                        drop(index, x, y) => {
-                            Api.drop(index, x, y);
-                        }
 
                         show-preview-for(name, defined-at) => {
                             Api.show-preview-for(name, defined-at);
