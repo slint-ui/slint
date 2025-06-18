@@ -4,7 +4,7 @@ SPDX-PackageSupplier = "Slint Developers <info@slint.dev>"
 SPDX-PackageDownloadLocation = "https://slint.dev/"
 
 [[annotations]]
-path = ["docs/public/favicon.svg"]
+path = ["docs/public/favicon.svg", "docs/public/slint-logo-small-light.svg"]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"
 SPDX-License-Identifier = "CC-BY-ND-4.0"

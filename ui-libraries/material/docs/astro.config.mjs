@@ -40,7 +40,7 @@ export default defineConfig({
                 Banner: "./src/components/Banner.astro",
             },
             sidebar: [
-                { label: "Overview", link: "/" },
+                { label: "Overview", link: "overview" },
                 { label: "Style", link: "style" },
 
                 {
