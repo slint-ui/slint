@@ -392,6 +392,7 @@ export class EditorWidget extends Widget {
 
         this.clear_editors();
 
+        // biome-ignore lint/nursery/noFloatingPromises: <explanation>
         this.open_default_content();
     }
 

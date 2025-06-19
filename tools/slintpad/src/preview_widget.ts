@@ -44,6 +44,7 @@ export class PreviewWidget extends Widget {
         this.title.caption = "Slint Viewer";
         this.title.closable = true;
 
+        // biome-ignore lint/nursery/noFloatingPromises: <explanation>
         lsp.previewer(resource_url_mapper, style).then((p) => {
             this.#previewer = p;
 

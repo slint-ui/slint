@@ -1,25 +1,18 @@
 {
     "root": false,
     "extends": "//",
-    "formatter": {
+    "files": {
         "includes": [
             "**",
-            "!**/dist/**",
-            "!**/playwright-report/**",
-            "!**/test-results/**"
-        ]
-    },
-    "linter": {
-        "includes": [
-            "**",
-            "!**/dist/**",
             "!**/webviews/**",
             "!**/.vscode/**",
             "!**/build/**",
             "!**/out/**",
             "!**/playwright-report/**",
             "!**/test-results/**"
-        ],
+        ]
+    },
+    "linter": {
         "rules": {
             "style": {
                 "noParameterAssign": "error",

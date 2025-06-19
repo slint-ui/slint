@@ -16,7 +16,7 @@ export function has_github_access_token(): boolean {
     return token != null && token !== "";
 }
 
-export async function manage_github_access(): Promise<boolean | null> {
+export function manage_github_access(): Promise<boolean | null> {
     return new Promise((resolve, _) => {
         let result: boolean | null = null;
 
