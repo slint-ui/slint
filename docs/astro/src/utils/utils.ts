@@ -1,7 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import linkMapData from "../../../../internal/core-macros/link-data.json" with { type: "json" };
+import linkMapData from "../../../../internal/core-macros/link-data.json" with {
+    type: "json",
+};
 
 type LinkMapType = {
     [K: string]: {

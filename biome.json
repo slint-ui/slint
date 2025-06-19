@@ -9,6 +9,7 @@
         "attributePosition": "auto",
         "includes": [
             "**",
+            "!**/.astro/**",
             "!node_modules",
             "!**/.vscode/**",
             "!**/*.json",

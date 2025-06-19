@@ -1,11 +1,8 @@
 {
     "root": false,
     "extends": "//",
-    "formatter": {
-        "includes": ["!**/archive/**", "!**/.astro", "!**/.astro/**/*"]
-    },
+    "formatter": {},
     "linter": {
-        "includes": ["**", "!**/archive/**", "!**/.astro"],
         "rules": {
             "style": {
                 "noParameterAssign": "error",
