@@ -9,16 +9,12 @@
         "attributePosition": "auto",
         "includes": [
             "**",
-            "!**/.astro/**",
-            "!node_modules",
             "!**/.vscode/**",
             "!**/*.json",
             "!**/dist/**",
             "!**/build/**",
             "!**/!biome.json",
-            "!**/editors/vscode/out/**",
-            "!**/rust-module.d.cts",
-            "!**/rust-module.cjs"
+            "!**/editors/vscode/out/**"
         ]
     },
     "assist": {
@@ -32,12 +28,7 @@
         "enabled": true,
         "includes": [
             "**",
-            "!**/.astro/**",
-            "!**/api/node/docs/assets/**",
-            "!**/dist/**",
-            "!**/build/**",
-            "!**/rust-module.d.cts",
-            "!**/rust-module.cjs"
+            "!**/dist/**"
         ],
         "rules": {
             "recommended": false,

@@ -1,17 +1,17 @@
 {
     "root": false,
     "extends": "//",
-    "formatter": {
-        "includes": ["**", "!**/.vscode/**"]
-    },
-    "linter": {
+    "files": {
         "includes": [
             "**",
+            "!**/.vscode/**",
             "!**/webviews/**",
             "!**/.vscode/**",
             "!**/build/**",
             "!**/out/**"
-        ],
+        ]
+    },
+    "linter": {
         "rules": {
             "style": {
                 "noParameterAssign": "error",

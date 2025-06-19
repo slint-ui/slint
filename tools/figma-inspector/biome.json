@@ -1,11 +1,10 @@
 {
     "root": false,
     "extends": "//",
-    "formatter": {
-        "includes": ["**", "!**/figma_output.json", "!**/.tmp"]
+    "files": {
+        "includes": ["**", "!**/tests/figma_output.json", "!**/.tmp"]
     },
     "linter": {
-        "includes": ["**", "!**/figma_output.json", "!**/.tmp"],
         "rules": {
             "style": {
                 "noParameterAssign": "error",

@@ -1,11 +1,15 @@
 {
     "root": false,
     "extends": "//",
-    "formatter": {
-        "includes": ["**", "!**/docs/"]
+    "files": {
+        "includes": [
+            "**",
+            "!**/docs/",
+            "!rust-module.d.cts",
+            "!rust-module.cjs"
+        ]
     },
     "linter": {
-        "includes": ["**", "!**/docs/"],
         "rules": {
             "complexity": {
                 "useArrowFunction": "off",

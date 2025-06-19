@@ -1,6 +1,9 @@
 {
     "root": false,
     "extends": "//",
+    "files": {
+        "includes": ["**", "!**/.astro/**"]
+    },
     "formatter": {},
     "linter": {
         "rules": {
