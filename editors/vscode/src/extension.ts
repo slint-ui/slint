@@ -40,7 +40,8 @@ function lspPlatform(): Platform | null {
         return {
             program_name: "Slint Live Preview.app/Contents/MacOS/slint-lsp",
         };
-    }if (process.platform === "linux") {
+    }
+    if (process.platform === "linux") {
         let remote_env_options = null;
         if (typeof vscode.env.remoteName !== "undefined") {
             remote_env_options = {
@@ -54,14 +55,16 @@ function lspPlatform(): Platform | null {
                     env: remote_env_options,
                 },
             };
-        }if (process.arch === "arm") {
+        }
+        if (process.arch === "arm") {
             return {
                 program_name: "slint-lsp-armv7-unknown-linux-gnueabihf",
                 options: {
                     env: remote_env_options,
                 },
             };
-        }if (process.arch === "arm64") {
+        }
+        if (process.arch === "arm64") {
             return {
                 program_name: "slint-lsp-aarch64-unknown-linux-gnu",
                 options: {
@@ -75,9 +78,9 @@ function lspPlatform(): Platform | null {
                 program_name: "slint-lsp-aarch64-pc-windows-msvc.exe",
             };
         }
-            return {
-                program_name: "slint-lsp-x86_64-pc-windows-msvc.exe",
-            };
+        return {
+            program_name: "slint-lsp-x86_64-pc-windows-msvc.exe",
+        };
     }
     return null;
 }

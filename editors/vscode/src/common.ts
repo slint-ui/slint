@@ -300,7 +300,7 @@ function helpBaseUrl(context: vscode.ExtensionContext): string {
     ) {
         return "https://snapshots.slint.dev/master/docs/slint/reference/";
     }
-        return `https://releases.slint.dev/${context.extension.packageJSON.version}/docs/slint/reference/`;
+    return `https://releases.slint.dev/${context.extension.packageJSON.version}/docs/slint/reference/`;
 }
 
 function getHelpUrlForElement(

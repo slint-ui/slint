@@ -26,10 +26,7 @@
     },
     "linter": {
         "enabled": true,
-        "includes": [
-            "**",
-            "!**/dist/**"
-        ],
+        "includes": ["**", "!**/dist/**"],
         "rules": {
             "recommended": false,
             "complexity": {
