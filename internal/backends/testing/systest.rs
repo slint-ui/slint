@@ -364,6 +364,8 @@ impl TestingClient {
                 .accessible_placeholder_text()
                 .unwrap_or_default()
                 .to_string(),
+            accessible_enabled: element.accessible_enabled().unwrap_or_default(),
+            accessible_read_only: element.accessible_read_only().unwrap_or_default(),
         })
     }
 

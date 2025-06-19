@@ -240,6 +240,8 @@ message ElementPropertiesResponse {
     AccessibleRole accessible_role = 12;
     float computed_opacity = 13;
     string accessible_placeholder_text = 14;
+    bool accessible_enabled = 15;
+    bool accessible_read_only = 16;
 }
 
 message InvokeElementAccessibilityActionResponse {
