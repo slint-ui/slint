@@ -1,14 +1,29 @@
 {
-    "extends": ["../../biome.json"],
-    "formatter": {
-        "ignore": ["archive/**", ".astro"]
+    "root": false,
+    "extends": "//",
+    "files": {
+        "includes": ["**", "!**/.astro/**", "**/*.astro"]
     },
+    "formatter": {},
     "linter": {
-        "ignore": ["archive/**", ".astro"]
+        "rules": {
+            "style": {
+                "noParameterAssign": "error",
+                "useAsConstAssertion": "error",
+                "useDefaultParameterLast": "error",
+                "useEnumInitializers": "error",
+                "useSelfClosingElements": "error",
+                "useSingleVarDeclarator": "error",
+                "noUnusedTemplateLiteral": "error",
+                "useNumberNamespace": "error",
+                "noInferrableTypes": "error",
+                "noUselessElse": "error"
+            }
+        }
     },
     "overrides": [
         {
-            "include": ["*.astro"],
+            "includes": ["**/*.astro"],
             "linter": {
                 "rules": {
                     "style": {

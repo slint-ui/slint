@@ -183,22 +183,26 @@ async function followChainToConcreteValue(
                     b: concreteValue.b,
                     a: "a" in concreteValue ? concreteValue.a : 1,
                 });
-            } else if (
+            }
+            if (
                 originalVariable.resolvedType === "FLOAT" &&
                 typeof concreteValue === "number"
             ) {
                 return `${concreteValue}px`;
-            } else if (
+            }
+            if (
                 originalVariable.resolvedType === "STRING" &&
                 typeof concreteValue === "string"
             ) {
                 return `"${concreteValue}"`;
-            } else if (
+            }
+            if (
                 originalVariable.resolvedType === "BOOLEAN" &&
                 typeof concreteValue === "boolean"
             ) {
                 return concreteValue ? "true" : "false";
-            } else if (typeof concreteValue === "string") {
+            }
+            if (typeof concreteValue === "string") {
                 return concreteValue;
             }
         }
@@ -617,7 +621,7 @@ function generateStructsAndInstances(
     function generateInstanceCode(
         instance: PropertyInstance,
         path: string[] = [],
-        indent: string = "    ",
+        indent = "    ",
     ) {
         let result = "";
         const isRoot = indent === "    ";
@@ -774,7 +778,7 @@ function generateStructsAndInstances(
         for (const field of struct.fields) {
             structsCode += `    ${field.name}: ${field.type},\n`;
         }
-        structsCode += `}\n\n`;
+        structsCode += "}\n\n";
     }
 
     // Generate property instances
@@ -809,7 +813,7 @@ interface CollectionData {
 // For Figma Plugin - Export function with hierarchical structure
 // Export each collection to a separate virtual file
 export async function exportFigmaVariablesToSeparateFiles(
-    exportAsSingleFile: boolean = false,
+    exportAsSingleFile = false,
 ): Promise<Array<{ name: string; content: string }>> {
     const exportInfo = {
         renamedVariables: new Set<string>(),
@@ -1326,7 +1330,7 @@ export async function exportFigmaVariablesToSeparateFiles(
                 for (const mode of collectionData.modes) {
                     modeEnum += `    ${mode},\n`;
                 }
-                modeEnum += `}\n\n`;
+                modeEnum += "}\n\n";
 
                 // Generate Scheme Structs/Instances
                 const hasRootModeVariable = variableTree.children.has("mode");
@@ -1360,7 +1364,7 @@ export async function exportFigmaVariablesToSeparateFiles(
             content += instances; // Add the generated instance code lines
             content += schemeInstance; // Add scheme instance code (if generated)
             content += currentSchemeInstance; // Add current instance code (if generated)
-            content += `}\n`; // Close global block (removed extra \n\n)
+            content += "}\n"; // Close global block (removed extra \n\n)
 
             // Store the fully assembled content for this collection
             generatedFiles.push({
@@ -1387,28 +1391,30 @@ export async function exportFigmaVariablesToSeparateFiles(
 
                         // Look at surrounding context to determine appropriate replacement
                         if (
-                            file.content.includes(`brush,\n`) &&
+                            file.content.includes("brush,\n") &&
                             file.content.includes(reference)
                         ) {
                             return "#808080"; // Default color
-                        } else if (
-                            file.content.includes(`length,\n`) &&
+                        }
+                        if (
+                            file.content.includes("length,\n") &&
                             file.content.includes(reference)
                         ) {
                             return "0px"; // Default length
-                        } else if (
-                            file.content.includes(`string,\n`) &&
+                        }
+                        if (
+                            file.content.includes("string,\n") &&
                             file.content.includes(reference)
                         ) {
                             return '""'; // Default string
-                        } else if (
-                            file.content.includes(`bool,\n`) &&
+                        }
+                        if (
+                            file.content.includes("bool,\n") &&
                             file.content.includes(reference)
                         ) {
                             return "false"; // Default boolean
-                        } else {
-                            return "#808080"; // Default fallback
                         }
+                        return "#808080"; // Default fallback
                     },
                 );
             }
@@ -1533,7 +1539,7 @@ function generateSchemeStructs(
         for (const field of struct.fields) {
             schemeStruct += `    ${field.name}: ${field.type},\n`;
         }
-        schemeStruct += `}\n\n`;
+        schemeStruct += "}\n\n";
     }
 
     // Main scheme struct is special - it gets top-level fields
@@ -1552,7 +1558,7 @@ function generateSchemeStructs(
         }
     }
 
-    mainSchemeStruct += `}\n\n`;
+    mainSchemeStruct += "}\n\n";
 
     // Generate the mode struct
     const schemeModeName = `${collectionData.formattedName}-Scheme-Mode`;
@@ -1562,7 +1568,7 @@ function generateSchemeStructs(
         schemeModeStruct += `    ${mode}: ${schemeName},\n`;
     }
 
-    schemeModeStruct += `}\n\n`;
+    schemeModeStruct += "}\n\n";
 
     // Generate the instance initialization
     let schemeInstance = `    out property <${schemeModeName}> mode: {\n`;
@@ -1574,7 +1580,7 @@ function generateSchemeStructs(
         function addHierarchicalValues(
             node: VariableNode = variableTree,
             path: string[] = [],
-            currentIndent: string = "            ",
+            currentIndent = "            ",
         ) {
             for (const [childName, childNode] of node.children.entries()) {
                 const currentPath = [...path, childName];
@@ -1604,11 +1610,11 @@ function generateSchemeStructs(
         }
         // Build the mode instance
         addHierarchicalValues();
-        schemeInstance += `        },\n`;
+        schemeInstance += "        },\n";
     }
 
     // Close the mode instance
-    schemeInstance += `    };\n`;
+    schemeInstance += "    };\n";
 
     // Generate the current scheme property with current-mode toggle
     let currentSchemeInstance = `    in-out property <${collectionData.formattedName}Mode> current-mode: ${[...collectionData.modes][0]};\n`;
@@ -1622,7 +1628,7 @@ function generateSchemeStructs(
     const modeArray = [...collectionData.modes];
     if (modeArray.length === 0) {
         // No modes - empty object
-        currentSchemeInstance += `{};\n\n`;
+        currentSchemeInstance += "{};\n\n";
     } else if (modeArray.length === 1) {
         // One mode - direct reference
         currentSchemeInstance += `root.${modePropertyName}.${modeArray[0]};\n\n`;
@@ -1674,7 +1680,7 @@ function collectMultiModeStructs(
         for (const mode of collectionData.modes) {
             structDef += `    ${mode}: ${slintType},\n`;
         }
-        structDef += `}\n\n`;
+        structDef += "}\n\n";
 
         structDefinitions.push(structDef);
     }
@@ -1693,7 +1699,7 @@ function collectMultiModeStructs(
                     for (const mode of collectionData.modes) {
                         structDef += `    ${mode}: ${slintType},\n`;
                     }
-                    structDef += `}\n\n`;
+                    structDef += "}\n\n";
 
                     structDefinitions.push(structDef);
                 }

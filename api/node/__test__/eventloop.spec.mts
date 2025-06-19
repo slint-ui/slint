@@ -30,7 +30,7 @@ test.serial("merged event loops with networking", async (t) => {
 
     await runEventLoop(() => {
         const server = http.createServer(listener);
-        server.listen(async () => {
+        server.listen(() => {
             const host = "localhost";
             const port = (server.address() as any).port;
             console.log(`server ready at ${host}:${port}`);

@@ -119,7 +119,7 @@ export function languageClientOptions(
             async provideCodeLenses(document, token, next) {
                 const lenses = await next(document, token);
                 if (lenses && lenses.length > 0) {
-                    maybeSendStartupTelemetryEvent(telemetryLogger);
+                    await maybeSendStartupTelemetryEvent(telemetryLogger);
                 }
                 return lenses;
             },
@@ -299,9 +299,8 @@ function helpBaseUrl(context: vscode.ExtensionContext): string {
         context.extension.packageJSON.name.endsWith("-nightly")
     ) {
         return "https://snapshots.slint.dev/master/docs/slint/reference/";
-    } else {
-        return `https://releases.slint.dev/${context.extension.packageJSON.version}/docs/slint/reference/`;
     }
+    return `https://releases.slint.dev/${context.extension.packageJSON.version}/docs/slint/reference/`;
 }
 
 function getHelpUrlForElement(

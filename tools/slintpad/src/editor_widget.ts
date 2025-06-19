@@ -242,9 +242,8 @@ export class KnownUrlMapper implements UrlMapper {
                 monaco.Uri.parse(mapped_url) ??
                 monaco.Uri.parse("file:///broken_url")
             );
-        } else {
-            return uri;
         }
+        return uri;
     }
 }
 
@@ -325,7 +324,7 @@ class EditorPaneWidget extends Widget {
             model_ref.object.textEditorModel?.uri,
         );
         this.title.closable = false;
-        this.title.caption = `Slint Code Editor`;
+        this.title.caption = "Slint Code Editor";
     }
 
     get editor(): monaco.editor.IStandaloneCodeEditor {
@@ -378,7 +377,7 @@ export class EditorWidget extends Widget {
 
         this.title.label = "Editor";
         this.title.closable = false;
-        this.title.caption = `Slint code editor`;
+        this.title.caption = "Slint code editor";
 
         this.#layout = new BoxLayout({ spacing: 0 });
         super.layout = this.#layout;
@@ -393,6 +392,7 @@ export class EditorWidget extends Widget {
 
         this.clear_editors();
 
+        // biome-ignore lint/nursery/noFloatingPromises: <explanation>
         this.open_default_content();
     }
 
@@ -414,11 +414,11 @@ export class EditorWidget extends Widget {
                     code,
                 ),
             );
-        } else if (load_url) {
-            return await this.project_from_url(load_url);
-        } else {
-            return await this.set_demo(load_demo ?? "");
         }
+        if (load_url) {
+            return await this.project_from_url(load_url);
+        }
+        return await this.set_demo(load_demo ?? "");
     }
 
     private clear_editors() {
@@ -609,9 +609,8 @@ export class EditorWidget extends Widget {
             return this.project_from_url(
                 `https://raw.githubusercontent.com/slint-ui/slint/${tag}/${location}`,
             );
-        } else {
-            return Promise.resolve(this.open_hello_world());
         }
+        return Promise.resolve(this.open_hello_world());
     }
 
     public get open_document_urls(): string[] {

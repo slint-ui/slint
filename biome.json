@@ -1,5 +1,5 @@
 {
-    "$schema": "https://biomejs.dev/schemas/1.9.4/schema.json",
+    "$schema": "https://biomejs.dev/schemas/2.0.0/schema.json",
     "formatter": {
         "enabled": true,
         "formatWithErrors": false,
@@ -7,21 +7,26 @@
         "indentWidth": 4,
         "lineEnding": "lf",
         "attributePosition": "auto",
-        "ignore": [
-            "./node_modules",
-            "**/.vscode/**",
-            "*.json",
-            "**/dist/**",
-            "!biome.json",
-            "editors/vscode/out/**"
+        "includes": [
+            "**",
+            "!**/.vscode/**",
+            "!**/*.json",
+            "!**/dist/**",
+            "!**/build/**",
+            "!**/!biome.json",
+            "!**/editors/vscode/out/**"
         ]
     },
-    "organizeImports": {
-        "enabled": false
+    "assist": {
+        "actions": {
+            "source": {
+                "organizeImports": "off"
+            }
+        }
     },
     "linter": {
         "enabled": true,
-        "ignore": ["api/node/docs/assets/**", "**/dist/**"],
+        "includes": ["**", "!**/dist/**"],
         "rules": {
             "recommended": false,
             "complexity": {
@@ -34,6 +39,9 @@
                 "useConst": "error",
                 "useImportType": "error",
                 "useNodejsImportProtocol": "error"
+            },
+            "nursery": {
+                "noFloatingPromises": "error"
             },
             "suspicious": {
                 "noDoubleEquals": "error",

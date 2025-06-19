@@ -1,6 +1,18 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
+import linkMapData from "../../../../internal/core-macros/link-data.json" with {
+    type: "json",
+};
+
+type LinkMapType = {
+    [K: string]: {
+        href: string;
+    };
+};
+
+export const linkMap: Readonly<LinkMapType> = linkMapData;
+
 export async function getEnumContent(enumName: string | undefined) {
     if (enumName) {
         try {
@@ -188,7 +200,7 @@ export function extractLines(
         .join("\n");
 }
 
-export function removeLeadingSpaces(input: string, spaces: number = 4): string {
+export function removeLeadingSpaces(input: string, spaces = 4): string {
     const lines = input.split("\n");
     const modifiedLines = lines.map((line) => {
         const leadingSpaces = line.match(/^ */)?.[0].length ?? 0;
@@ -199,14 +211,3 @@ export function removeLeadingSpaces(input: string, spaces: number = 4): string {
     });
     return modifiedLines.join("\n");
 }
-
-type LinkMapType = {
-    [K: string]: {
-        href: string;
-    };
-};
-
-import linkMapData from "../../../../internal/core-macros/link-data.json" assert {
-    type: "json",
-};
-export const linkMap: Readonly<LinkMapType> = linkMapData;

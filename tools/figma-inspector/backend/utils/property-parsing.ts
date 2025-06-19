@@ -362,11 +362,10 @@ async function getVariablePathString(
             }
 
             return resultPath;
-        } else {
-            console.warn(
-                `[getVariablePathString] Collection not found for variable ID: ${variableId}`,
-            );
         }
+        console.warn(
+            `[getVariablePathString] Collection not found for variable ID: ${variableId}`,
+        );
     }
     return null;
 }
@@ -1102,7 +1101,7 @@ export async function generateTextSnippet(
                         typeof sceneNode.textAlignHorizontal === "string"
                     ) {
                         let slintValue: string | null = null;
-                        let comment: string = "";
+                        let comment = "";
                         switch (sceneNode.textAlignHorizontal) {
                             case "LEFT":
                                 slintValue = "left";

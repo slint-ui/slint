@@ -41,9 +41,10 @@ export class PreviewWidget extends Widget {
         this.addClass("content");
         this.addClass("preview");
         this.title.label = "Preview";
-        this.title.caption = `Slint Viewer`;
+        this.title.caption = "Slint Viewer";
         this.title.closable = true;
 
+        // biome-ignore lint/nursery/noFloatingPromises: <explanation>
         lsp.previewer(resource_url_mapper, style).then((p) => {
             this.#previewer = p;
 
@@ -63,9 +64,8 @@ export class PreviewWidget extends Widget {
     public current_style(): string {
         if (this.#previewer) {
             return this.#previewer.current_style();
-        } else {
-            return "";
         }
+        return "";
     }
 
     protected onResize(msg: Widget.ResizeMessage): void {

@@ -50,8 +50,8 @@ function DialogFrame({ children }: DialogFrameProps) {
             }}
             onResize={(_e, _dir, refToElement) => {
                 resizeWindow(
-                    parseInt(refToElement.style.width),
-                    parseInt(refToElement.style.height),
+                    Number.parseInt(refToElement.style.width),
+                    Number.parseInt(refToElement.style.height),
                 );
             }}
         >

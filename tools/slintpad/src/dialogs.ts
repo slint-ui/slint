@@ -108,6 +108,7 @@ export function report_export_url_dialog(...urls: string[]) {
     modal_dialog("report_export_url", elements);
 }
 
+// biome-ignore lint/suspicious/useAwait: <This old style of async/await is used in the codebase>
 export async function export_gist_dialog(
     exporter: (_description: string, _is_public: boolean) => void,
 ) {

@@ -16,7 +16,7 @@ export function has_github_access_token(): boolean {
     return token != null && token !== "";
 }
 
-export async function manage_github_access(): Promise<boolean | null> {
+export function manage_github_access(): Promise<boolean | null> {
     return new Promise((resolve, _) => {
         let result: boolean | null = null;
 
@@ -218,30 +218,29 @@ export async function export_to_gist(
             return Promise.reject(
                 "Failed to publish to Github:\n" + body.message,
             );
-        } else if (body.html_url == null) {
+        }
+        if (body.html_url == null) {
             return Promise.reject(
                 "Failed to retrieve URL after publishing to Github",
             );
-        } else {
-            return Promise.resolve(body.html_url);
         }
-    } else {
-        let extra = "";
-        if (response.status === 422) {
-            if (data.length > 50000) {
-                extra = "\n\nYour project too big to create a Gist from.";
-            } else {
-                extra = "\n\nIs your project too big for a Gist?";
-            }
-        }
-        return Promise.reject(
-            "Failed to publish a Gist to Github with status code:" +
-                response.status +
-                "\n" +
-                response.statusText +
-                extra,
-        );
+        return Promise.resolve(body.html_url);
     }
+    let extra = "";
+    if (response.status === 422) {
+        if (data.length > 50000) {
+            extra = "\n\nYour project too big to create a Gist from.";
+        } else {
+            extra = "\n\nIs your project too big for a Gist?";
+        }
+    }
+    return Promise.reject(
+        "Failed to publish a Gist to Github with status code:" +
+            response.status +
+            "\n" +
+            response.statusText +
+            extra,
+    );
 }
 
 async function _process_gist_url(
@@ -344,9 +343,8 @@ function _process_github_url(url: URL): Promise<[string, null, null]> {
             null,
             null,
         ]);
-    } else {
-        return Promise.resolve([url.toString(), null, null]);
     }
+    return Promise.resolve([url.toString(), null, null]);
 }
 
 export function open_url(
