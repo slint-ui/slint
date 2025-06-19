@@ -113,7 +113,7 @@ instance.window().dispatch_event(WindowEvent::PointerPressed { position: Logical
 slint_testing::mock_elapsed_time(160);
 assert_eq!(instance.get_inner_x(), 80.);
 assert_eq!(instance.get_outer_y(), old_outer_y);
-// 103 is  bellow the threshold, 120 is not
+// 103 is  below the threshold, 120 is not
 instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(120.0, 103.0) });
 slint_testing::mock_elapsed_time(16);
 assert_eq!(instance.get_inner_x(), 60.);
