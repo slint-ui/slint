@@ -119,7 +119,7 @@ export function languageClientOptions(
             async provideCodeLenses(document, token, next) {
                 const lenses = await next(document, token);
                 if (lenses && lenses.length > 0) {
-                    maybeSendStartupTelemetryEvent(telemetryLogger);
+                    await maybeSendStartupTelemetryEvent(telemetryLogger);
                 }
                 return lenses;
             },
