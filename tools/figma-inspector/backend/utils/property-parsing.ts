@@ -363,9 +363,9 @@ async function getVariablePathString(
 
             return resultPath;
         }
-            console.warn(
-                `[getVariablePathString] Collection not found for variable ID: ${variableId}`,
-            );
+        console.warn(
+            `[getVariablePathString] Collection not found for variable ID: ${variableId}`,
+        );
     }
     return null;
 }

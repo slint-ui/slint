@@ -286,9 +286,15 @@ test("handles self-referential structs (struct members referencing each other)",
         mockCollection,
     ]);
     mockFigma.variables.getVariableByIdAsync.mockImplementation((id) => {
-        if (id === "var1") return Promise.resolve(mockVariable1);
-        if (id === "var2") return Promise.resolve(mockVariable2);
-        if (id === "var3") return Promise.resolve(mockVariable3);
+        if (id === "var1") {
+            return Promise.resolve(mockVariable1);
+        }
+        if (id === "var2") {
+            return Promise.resolve(mockVariable2);
+        }
+        if (id === "var3") {
+            return Promise.resolve(mockVariable3);
+        }
         return Promise.resolve(null);
     });
 
@@ -854,8 +860,12 @@ test("reproduces 'Missing data for mode' issue with hierarchical variables", asy
         mockCollection,
     ]);
     mockFigma.variables.getVariableByIdAsync.mockImplementation((id) => {
-        if (id === "var1") return Promise.resolve(mockVariable1);
-        if (id === "var2") return Promise.resolve(mockVariable2);
+        if (id === "var1") {
+            return Promise.resolve(mockVariable1);
+        }
+        if (id === "var2") {
+            return Promise.resolve(mockVariable2);
+        }
         return Promise.resolve(null);
     });
 

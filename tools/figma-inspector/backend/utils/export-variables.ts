@@ -183,22 +183,26 @@ async function followChainToConcreteValue(
                     b: concreteValue.b,
                     a: "a" in concreteValue ? concreteValue.a : 1,
                 });
-            }if (
+            }
+            if (
                 originalVariable.resolvedType === "FLOAT" &&
                 typeof concreteValue === "number"
             ) {
                 return `${concreteValue}px`;
-            }if (
+            }
+            if (
                 originalVariable.resolvedType === "STRING" &&
                 typeof concreteValue === "string"
             ) {
                 return `"${concreteValue}"`;
-            }if (
+            }
+            if (
                 originalVariable.resolvedType === "BOOLEAN" &&
                 typeof concreteValue === "boolean"
             ) {
                 return concreteValue ? "true" : "false";
-            }if (typeof concreteValue === "string") {
+            }
+            if (typeof concreteValue === "string") {
                 return concreteValue;
             }
         }
@@ -1391,23 +1395,26 @@ export async function exportFigmaVariablesToSeparateFiles(
                             file.content.includes(reference)
                         ) {
                             return "#808080"; // Default color
-                        }if (
+                        }
+                        if (
                             file.content.includes("length,\n") &&
                             file.content.includes(reference)
                         ) {
                             return "0px"; // Default length
-                        }if (
+                        }
+                        if (
                             file.content.includes("string,\n") &&
                             file.content.includes(reference)
                         ) {
                             return '""'; // Default string
-                        }if (
+                        }
+                        if (
                             file.content.includes("bool,\n") &&
                             file.content.includes(reference)
                         ) {
                             return "false"; // Default boolean
                         }
-                            return "#808080"; // Default fallback
+                        return "#808080"; // Default fallback
                     },
                 );
             }
