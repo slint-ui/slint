@@ -12,6 +12,10 @@ It scans `.slint` files for strings marked with the `@tr()` macro and extracts t
 
 See also the [Slint Translations Guide](https://docs.slint.dev/latest/docs/slint/guide/development/translations/) for more information.
 
+## Prerequisites
+
+* Install Rust by following the [Rust Getting Started Guide](https://www.rust-lang.org/learn/get-started).
+
 ## Installation
 
 Install the tool using Cargo:
