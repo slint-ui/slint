@@ -11,7 +11,7 @@ import LangRefLink from '/src/components/LangRefLink.astro';
 Slint's translation infrastructure makes your application available in different languages.
 
 :::tip[Prerequisite]
-Install the `slint-tr-extractor` tool to extract translatable strings from `.slint` files:
+Install the [`slint-tr-extractor`](https://crates.io/crates/slint-tr-extractor) tool to extract translatable strings from `.slint` files:
 ```sh
 cargo install slint-tr-extractor
 ```
@@ -94,7 +94,7 @@ export component MenuItem {
 
 ## Extracting Translatable Strings
 
-Use `slint-tr-extractor` to generate a `.pot` file with all strings marked for translation:
+Use [`slint-tr-extractor`](https://crates.io/crates/slint-tr-extractor) to generate a `.pot` file with all strings marked for translation:
 ```sh
 find -name \*.slint | xargs slint-tr-extractor -o MY_PROJECT.pot
 ```
