@@ -5,8 +5,8 @@ import { dispatchTS, listenTS } from "./bolt-utils";
 import { downloadZipFile, writeTextToClipboard } from "./utils.js";
 
 export enum ExportType {
-    SeparateFiles,
-    SingleFile,
+    SeparateFiles = 0,
+    SingleFile = 1,
 }
 
 interface StoreState {
