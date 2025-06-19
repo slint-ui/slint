@@ -61,7 +61,7 @@ function findNodeByName(obj: any, targetName: string): any {
 
 // The JSON in the file for border radius is different to the API object
 // the runtime plugin uses. This converts the test JSON to match the API object.
-// This isn't a great soloution, but test options are limited for Figma right now.
+// This isn't a great solution, but test options are limited for Figma right now.
 function processCornerRadii(json: any): any {
     if (json.rectangleCornerRadii && Array.isArray(json.rectangleCornerRadii)) {
         const [
