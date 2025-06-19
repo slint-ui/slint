@@ -1,27 +1,41 @@
 {
-    "extends": ["../../biome.json"],
+    "root": false,
+    "extends": "//",
     "formatter": {
-        "ignore": ["rust-module.d.cts", "rust-module.cjs", "dist/", "docs/"]
+        "includes": [
+            "**",
+            "!**/rust-module.d.cts",
+            "!**/rust-module.cjs",
+            "!**/dist/",
+            "!**/docs/"
+        ]
     },
     "linter": {
-        "ignore": ["dist/", "docs/"],
+        "includes": ["**", "!**/dist/", "!**/docs/"],
         "rules": {
             "complexity": {
                 "useArrowFunction": "off",
-                "noForEach": "off"
+                "noForEach": "off",
+                "noArguments": "off"
             },
             "style": {
                 "noNonNullAssertion": "off",
                 "noUnusedTemplateLiteral": "off",
                 "useTemplate": "off",
-                "noArguments": "off",
-                "noVar": "off",
                 "noInferrableTypes": "off",
-                "noParameterAssign": "off"
+                "noParameterAssign": "off",
+                "useAsConstAssertion": "error",
+                "useDefaultParameterLast": "error",
+                "useEnumInitializers": "error",
+                "useSelfClosingElements": "error",
+                "useSingleVarDeclarator": "error",
+                "useNumberNamespace": "error",
+                "noUselessElse": "error"
             },
             "suspicious": {
                 "noExplicitAny": "off",
-                "noAssignInExpressions": "off"
+                "noAssignInExpressions": "off",
+                "noVar": "off"
             }
         }
     }

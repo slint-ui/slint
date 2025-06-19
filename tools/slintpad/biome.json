@@ -1,17 +1,38 @@
 {
-    "extends": ["../../biome.json"],
+    "root": false,
+    "extends": "//",
     "formatter": {
-        "ignore": ["dist/**", "**/playwright-report/**", "**/test-results/**"]
+        "includes": [
+            "**",
+            "!**/dist/**",
+            "!**/playwright-report/**",
+            "!**/test-results/**"
+        ]
     },
     "linter": {
-        "ignore": [
-            "dist/**",
-            "webviews/**",
-            "**/.vscode/**",
-            "**/build/**",
-            "**/out/**",
-            "**/playwright-report/**",
-            "**/test-results/**"
-        ]
+        "includes": [
+            "**",
+            "!**/dist/**",
+            "!**/webviews/**",
+            "!**/.vscode/**",
+            "!**/build/**",
+            "!**/out/**",
+            "!**/playwright-report/**",
+            "!**/test-results/**"
+        ],
+        "rules": {
+            "style": {
+                "noParameterAssign": "error",
+                "useAsConstAssertion": "error",
+                "useDefaultParameterLast": "error",
+                "useEnumInitializers": "error",
+                "useSelfClosingElements": "error",
+                "useSingleVarDeclarator": "error",
+                "noUnusedTemplateLiteral": "error",
+                "useNumberNamespace": "error",
+                "noInferrableTypes": "error",
+                "noUselessElse": "error"
+            }
+        }
     }
 }

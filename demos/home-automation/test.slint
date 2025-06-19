@@ -1,0 +1,12 @@
+import { AboutSlint, VerticalBox } from "std-widgets.slint";
+
+export component MainWindow inherits Window {
+    VerticalBox {
+        Text {
+            text: "Hello World!";
+        }
+        AboutSlint {
+            preferred-height: 150px;
+        }
+    }
+}
