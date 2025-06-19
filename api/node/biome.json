@@ -2,16 +2,10 @@
     "root": false,
     "extends": "//",
     "formatter": {
-        "includes": [
-            "**",
-            "!**/rust-module.d.cts",
-            "!**/rust-module.cjs",
-            "!**/dist/",
-            "!**/docs/"
-        ]
+        "includes": ["**", "!**/docs/"]
     },
     "linter": {
-        "includes": ["**", "!**/dist/", "!**/docs/"],
+        "includes": ["**", "!**/docs/"],
         "rules": {
             "complexity": {
                 "useArrowFunction": "off",

@@ -14,14 +14,31 @@
             "!**/.vscode/**",
             "!**/*.json",
             "!**/dist/**",
+            "!**/build/**",
             "!**/!biome.json",
-            "!**/editors/vscode/out/**"
+            "!**/editors/vscode/out/**",
+            "!**/rust-module.d.cts",
+            "!**/rust-module.cjs"
         ]
     },
-    "assist": { "actions": { "source": { "organizeImports": "off" } } },
+    "assist": {
+        "actions": {
+            "source": {
+                "organizeImports": "off"
+            }
+        }
+    },
     "linter": {
         "enabled": true,
-        "includes": ["**", "!**/api/node/docs/assets/**", "!**/dist/**"],
+        "includes": [
+            "**",
+            "!**/.astro/**",
+            "!**/api/node/docs/assets/**",
+            "!**/dist/**",
+            "!**/build/**",
+            "!**/rust-module.d.cts",
+            "!**/rust-module.cjs"
+        ],
         "rules": {
             "recommended": false,
             "complexity": {
