@@ -5,6 +5,11 @@ All notable changes to this project are documented in this file.
 
 ## [1.12.1] - TBD
 
+### General
+
+ - Fixed invalid code gen with return statements. (#8723)
+ - Updated `muda` dependency to avoid outaded and insecure `gtk` dependency to appear in the `Cargo.lock` file even if it was not used. (#7800)
+
 ### Node.js API
 
  - Added packages for Windows on ARM.
