@@ -238,7 +238,15 @@ impl Expression {
 
     fn from_let_statement(node: syntax_nodes::LetStatement, ctx: &mut LookupCtx) -> Expression {
         let name = identifier_text(&node.DeclaredIdentifier()).unwrap_or_default();
-        let value = Box::new(Self::from_expression_node(node.Expression(), ctx));
+        let value = Self::from_expression_node(node.Expression(), ctx);
+        let ty = match node.Type() {
+            Some(ty) => {
+                type_from_node(ty, ctx.diag, ctx.type_register)
+            }
+            None => value.ty(),
+        };
+
+        let value = Box::new(value.maybe_convert_to(ty, &node, ctx.diag));
         
         let discriminator = ctx.next_local_variable_discriminator;
         ctx.local_variables.push((name.clone(), discriminator, value.ty()));
