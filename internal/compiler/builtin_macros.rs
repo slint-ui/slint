@@ -365,6 +365,7 @@ fn to_debug_string(
                     Expression::StructFieldAccess {
                         base: Box::new(Expression::ReadLocalVariable {
                             name: local_object.clone(),
+                            discriminator: None,
                             ty: ty.clone(),
                         }),
                         name: k.clone(),
@@ -389,7 +390,11 @@ fn to_debug_string(
             match string {
                 None => Expression::StringLiteral("{}".into()),
                 Some(string) => Expression::CodeBlock(vec![
-                    Expression::StoreLocalVariable { name: local_object, value: Box::new(expr) },
+                    Expression::StoreLocalVariable {
+                        name: local_object,
+                        discriminator: None,
+                        value: Box::new(expr),
+                    },
                     Expression::BinaryExpression {
                         lhs: Box::new(string),
                         op: '+',
@@ -402,6 +407,7 @@ fn to_debug_string(
             let local_object = "debug_enum";
             let mut v = vec![Expression::StoreLocalVariable {
                 name: local_object.into(),
+                discriminator: None,
                 value: Box::new(expr),
             }];
             let mut cond =
@@ -411,6 +417,7 @@ fn to_debug_string(
                     condition: Box::new(Expression::BinaryExpression {
                         lhs: Box::new(Expression::ReadLocalVariable {
                             name: local_object.into(),
+                            discriminator: None,
                             ty: ty.clone(),
                         }),
                         rhs: Box::new(Expression::EnumerationValue(EnumerationValue {

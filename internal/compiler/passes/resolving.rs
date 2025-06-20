@@ -46,6 +46,7 @@ fn resolve_expression(
             type_loader: Some(type_loader),
             current_token: None,
             local_variables: vec![],
+            next_local_variable_discriminator: 0,
         };
 
         let new_expr = match node.kind() {
@@ -239,9 +240,11 @@ impl Expression {
         let name = identifier_text(&node.DeclaredIdentifier()).unwrap_or_default();
         let value = Box::new(Self::from_expression_node(node.Expression(), ctx));
         
-        ctx.local_variables.push((name.clone(), value.ty()));
+        let discriminator = ctx.next_local_variable_discriminator;
+        ctx.local_variables.push((name.clone(), discriminator, value.ty()));
+        ctx.next_local_variable_discriminator += 1;
 
-        Expression::StoreLocalVariable { name, value }
+        Expression::StoreLocalVariable { name, discriminator: Some(discriminator), value }
     }
 
     fn from_return_statement(
@@ -1651,6 +1654,7 @@ fn resolve_two_way_bindings(
                                 type_loader: None,
                                 current_token: Some(node.clone().into()),
                                 local_variables: vec![],
+                                next_local_variable_discriminator: 0,
                             };
 
                             binding.expression = Expression::Invalid;

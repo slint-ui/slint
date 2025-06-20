@@ -325,7 +325,7 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
         Expression::PathData(data)  => {
             Value::PathData(convert_path(data, local_context))
         }
-        Expression::StoreLocalVariable { name, value } => {
+        Expression::StoreLocalVariable { name, value, .. } => {
             let value = eval_expression(value, local_context);
             local_context.local_variables.insert(name.clone(), value);
             Value::Void
