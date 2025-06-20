@@ -100,14 +100,6 @@ pub fn create_ui(
             SelectionNotification::Now,
         );
     });
-    api.on_outline_select_element(|path, offset| {
-        super::element_selection::select_element_at_source_code_position(
-            PathBuf::from(path.to_string()),
-            preview::TextSize::from(offset as u32),
-            None,
-            SelectionNotification::Now,
-        );
-    });
     api.on_select_behind(super::element_selection::select_element_behind);
     let lsp = to_lsp.clone();
     api.on_can_drop(super::can_drop_component);
@@ -153,6 +145,7 @@ pub fn create_ui(
     log_messages::setup(&ui);
     palette::setup(&ui);
     recent_colors::setup(&ui);
+    super::outline::setup(&ui);
 
     #[cfg(target_vendor = "apple")]
     api.set_control_key_name("command".into());
