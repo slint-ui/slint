@@ -367,7 +367,8 @@ declare_syntax! {
         /// the right-hand-side of a binding
         // Fixme: the test should be a or
         BindingExpression-> [ ?CodeBlock, ?Expression ],
-        CodeBlock-> [ *Expression, *ReturnStatement ],
+        CodeBlock-> [ *Expression, *LetStatement, *ReturnStatement ],
+        LetStatement -> [ DeclaredIdentifier, Expression ],
         ReturnStatement -> [ ?Expression ],
         // FIXME: the test should test that as alternative rather than several of them (but it can also be a literal)
         Expression-> [ ?Expression, ?FunctionCallExpression, ?IndexExpression, ?SelfAssignment,

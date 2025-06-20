@@ -45,6 +45,7 @@ fn resolve_expression(
             type_register,
             type_loader: Some(type_loader),
             current_token: None,
+            local_variables: vec![],
         };
 
         let new_expr = match node.kind() {
@@ -202,6 +203,7 @@ impl Expression {
             .filter_map(|n| match n.kind() {
                 SyntaxKind::Expression => Some(Self::from_expression_node(n.into(), ctx)),
                 SyntaxKind::ReturnStatement => Some(Self::from_return_statement(n.into(), ctx)),
+                SyntaxKind::LetStatement => Some(Self::from_let_statement(n.into(), ctx)),
                 _ => None,
             })
             .collect::<Vec<_>>();
@@ -231,6 +233,15 @@ impl Expression {
         });
 
         Expression::CodeBlock(statements_or_exprs)
+    }
+
+    fn from_let_statement(node: syntax_nodes::LetStatement, ctx: &mut LookupCtx) -> Expression {
+        let name = identifier_text(&node.DeclaredIdentifier()).unwrap_or_default();
+        let value = Box::new(Self::from_expression_node(node.Expression(), ctx));
+        
+        ctx.local_variables.push((name.clone(), value.ty()));
+
+        Expression::StoreLocalVariable { name, value }
     }
 
     fn from_return_statement(
@@ -1639,6 +1650,7 @@ fn resolve_two_way_bindings(
                                 type_register,
                                 type_loader: None,
                                 current_token: Some(node.clone().into()),
+                                local_variables: vec![],
                             };
 
                             binding.expression = Expression::Invalid;

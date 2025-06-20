@@ -1,0 +1,52 @@
+export component TestCase  {
+    public function test_simple() -> int {
+        let a = 1;
+
+        return a;
+    }
+
+    public function test_shadowing() -> int {
+        let a = 1;
+        let a = a + 1;
+
+        return a;
+    }
+
+    public function test_shadowing_scope() -> int {
+        let a = 1;
+
+        if (true) {
+            let a = a + 1;
+            
+            return a;
+        }
+
+        return a;
+    }
+
+    public function test_shadowing_different_type() -> string {
+        let a = 1;
+        let a = @tr("{}", a);
+
+        return a;
+    }
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.invoke_test_simple(), 1);
+assert_eq!(instance.invoke_test_shadowing(), 2);
+assert_eq!(instance.invoke_test_shadowing_scope(), 2);
+assert_eq!(instance.invoke_test_shadowing_different_type(), "1");
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.invoke_test_simple(), 1);
+assert_eq(instance.invoke_test_shadowing(), 2);
+assert_eq(instance.invoke_test_shadowing_scope(), 2);
+assert_eq(instance.invoke_test_shadowing_different_type(), "1");
+```
+*/

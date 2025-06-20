@@ -50,6 +50,11 @@ pub fn parse_statement(p: &mut impl Parser) -> bool {
         return true;
     }
 
+    if p.peek().as_str() == "let" {
+        parse_let_statement(p);
+        return true;
+    }
+
     parse_expression(p);
     if matches!(
         p.nth(0).kind(),
@@ -65,6 +70,24 @@ pub fn parse_statement(p: &mut impl Parser) -> bool {
         parse_expression(&mut *p);
     }
     p.test(SyntaxKind::Semicolon)
+}
+
+#[cfg_attr(test, parser_test)]
+/// ```test,LetStatement
+/// let foo = 1;
+/// let bar = foo;
+/// ```
+fn parse_let_statement(p: &mut impl Parser) {
+    let mut p = p.start_node(SyntaxKind::LetStatement);
+    debug_assert_eq!(p.peek().as_str(), "let");
+    p.expect(SyntaxKind::Identifier); // "let"
+    {
+        let mut p = p.start_node(SyntaxKind::DeclaredIdentifier);
+        p.expect(SyntaxKind::Identifier);
+    }
+    p.expect(SyntaxKind::Equal);
+    parse_expression(&mut *p);
+    p.expect(SyntaxKind::Semicolon);
 }
 
 #[cfg_attr(test, parser_test)]
