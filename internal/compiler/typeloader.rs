@@ -706,11 +706,13 @@ impl Snapshotter {
                     Weak::default()
                 },
             },
-            Expression::StoreLocalVariable { name, discriminator, value } => Expression::StoreLocalVariable {
-                name: name.clone(),
-                discriminator: discriminator.clone(),
-                value: Box::new(self.snapshot_expression(value)),
-            },
+            Expression::StoreLocalVariable { name, discriminator, value } => {
+                Expression::StoreLocalVariable {
+                    name: name.clone(),
+                    discriminator: discriminator.clone(),
+                    value: Box::new(self.snapshot_expression(value)),
+                }
+            }
             Expression::StructFieldAccess { base, name } => Expression::StructFieldAccess {
                 base: Box::new(self.snapshot_expression(base)),
                 name: name.clone(),

@@ -298,8 +298,11 @@ fn lower_assignment(
                 discriminator: None,
                 value: base.clone(),
             };
-            let lower_base =
-                tree_Expression::ReadLocalVariable { name: unique_name, discriminator: None, ty: ty.clone() };
+            let lower_base = tree_Expression::ReadLocalVariable {
+                name: unique_name,
+                discriminator: None,
+                ty: ty.clone(),
+            };
             let mut values = HashMap::new();
             let Type::Struct(ty) = ty else { unreachable!() };
 
