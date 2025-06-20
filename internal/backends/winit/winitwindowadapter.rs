@@ -941,7 +941,7 @@ impl WindowAdapter for WinitWindowAdapter {
 
     fn set_size(&self, size: corelib::api::WindowSize) {
         self.has_explicit_size.set(true);
-        // TODO: don't ignore error, propgate to caller
+        // TODO: don't ignore error, propagate to caller
         self.resize_window(window_size_to_winit(&size)).ok();
     }
 
