@@ -314,7 +314,7 @@ pub struct DropMark {
     pub end: i_slint_core::lengths::LogicalPoint,
 }
 
-fn insert_position_at_end(
+pub fn insert_position_at_end(
     target_element_node: &common::ElementRcNode,
 ) -> Option<InsertInformation> {
     target_element_node.with_element_node(|node| {
@@ -368,7 +368,7 @@ fn insert_position_at_end(
     })
 }
 
-fn insert_position_before_child(
+pub fn insert_position_before_child(
     target_element_node: &common::ElementRcNode,
     child_index: usize,
 ) -> Option<InsertInformation> {
@@ -1119,7 +1119,6 @@ pub fn create_move_element_workspace_edit(
     instance_index: usize,
     position: LogicalPoint,
 ) -> Option<(lsp_types::WorkspaceEdit, DropData)> {
-    let component_type = element.component_type();
     let parent_of_element = element.parent();
 
     let placeholder_text = if Some(&drop_info.target_element_node) == parent_of_element.as_ref() {
@@ -1156,6 +1155,15 @@ pub fn create_move_element_workspace_edit(
         String::new()
     };
 
+    create_swap_element_workspace_edit(drop_info, element, placeholder_text)
+}
+
+pub fn create_swap_element_workspace_edit(
+    drop_info: &DropInformation,
+    element: &common::ElementRcNode,
+    placeholder_text: String,
+) -> Option<(lsp_types::WorkspaceEdit, DropData)> {
+    let component_type = element.component_type();
     let new_text = {
         let element_text_lines = extract_text_of_element(element, &["x", "y"]);
 
@@ -1200,7 +1208,7 @@ pub fn create_move_element_workspace_edit(
     let mut edits = Vec::with_capacity(3);
 
     let remove_me = element.with_decorated_node(|node| {
-        node_removal_text_edit(&document_cache, &node, placeholder_text.clone())
+        node_removal_text_edit(&document_cache, &node, placeholder_text)
     })?;
     if remove_me.url.to_file_path().as_ref().map(|p| p.as_path()) == Ok(source_file.path()) {
         selection_offset = text_edit::TextOffsetAdjustment::new(&remove_me.edit, &source_file)
