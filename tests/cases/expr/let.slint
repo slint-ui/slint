@@ -24,8 +24,9 @@ export component TestCase {
         return a;
     }
 
-    public function test_shadowing_different_type() -> string {
+    public function test_shadowing_different_types() -> string {
         let a = 1;
+        let a: float = a + 1.0;
         let a = @tr("{}", a);
 
         return a;
@@ -50,7 +51,7 @@ let instance = TestCase::new().unwrap();
 assert_eq!(instance.invoke_test_simple(), 1);
 assert_eq!(instance.invoke_test_shadowing(), 2);
 assert_eq!(instance.invoke_test_shadowing_scope(), 2);
-assert_eq!(instance.invoke_test_shadowing_different_type(), "1");
+assert_eq!(instance.invoke_test_shadowing_different_types(), "2");
 assert_eq!(instance.invoke_test_type_annotation(), 1);
 assert_eq!(instance.invoke_test_type_annotation_conversion(), 1);
 ```
@@ -61,7 +62,7 @@ const TestCase &instance = *handle;
 assert_eq(instance.invoke_test_simple(), 1);
 assert_eq(instance.invoke_test_shadowing(), 2);
 assert_eq(instance.invoke_test_shadowing_scope(), 2);
-assert_eq(instance.invoke_test_shadowing_different_type(), "1");
+assert_eq(instance.invoke_test_shadowing_different_types(), "2");
 assert_eq(instance.invoke_test_type_annotation(), 1);
 assert_eq(instance.invoke_test_type_annotation_conversion(), 1);
 ```
