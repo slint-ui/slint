@@ -89,7 +89,7 @@ rgb = { version = "0.8.27", optional = true }
 bytemuck = { workspace = true, optional = true, features = ["derive"] }
 
 [target.'cfg(any(target_os = "macos", target_family = "windows"))'.dependencies]
-muda = { version = "0.16.0", optional = true }
+muda = { version = "0.17.0", optional = true, default-features = false }
 vtable = { workspace = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
