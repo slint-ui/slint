@@ -52,8 +52,7 @@ function create_settings_menu(): Menu {
         label: "Manage Github login",
         iconClass: "fa-brands fa-github",
         execute: () => {
-            // biome-ignore lint/nursery/noFloatingPromises: <explanation>
-            manage_github_access();
+            void manage_github_access();
         },
     });
 
@@ -75,8 +74,7 @@ function create_project_menu(
         mnemonic: 1,
         execute: () => {
             const url = prompt("Please enter the URL to open");
-            // biome-ignore lint/nursery/noFloatingPromises: <explanation>
-            editor.project_from_url(url);
+            void editor.project_from_url(url);
         },
     });
 
