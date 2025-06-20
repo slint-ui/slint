@@ -3222,6 +3222,15 @@ fn compile_builtin_function_call(
         BuiltinFunction::DetectOperatingSystem => {
             quote!(sp::detect_operating_system())
         }
+        BuiltinFunction::StartTimer => {
+            quote!(todo!())
+        }
+        BuiltinFunction::StopTimer => {
+            quote!(todo!())
+        }
+        BuiltinFunction::RestartTimer => {
+            quote!(todo!())
+        }
     }
 }
 

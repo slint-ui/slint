@@ -1344,6 +1344,15 @@ fn call_builtin_function(
             Value::Void
         }
         BuiltinFunction::DetectOperatingSystem => i_slint_core::detect_operating_system().into(),
+        BuiltinFunction::StartTimer => {
+            todo!()
+        }
+        BuiltinFunction::StopTimer => {
+            todo!()
+        }
+        BuiltinFunction::RestartTimer => {
+            todo!()
+        }
     }
 }
 

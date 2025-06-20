@@ -640,11 +640,13 @@ impl Snapshotter {
         }
     }
 
-    fn snapshot_timer(&mut self, popup_window: &object_tree::Timer) -> object_tree::Timer {
+    fn snapshot_timer(&mut self, timer: &object_tree::Timer) -> object_tree::Timer {
         object_tree::Timer {
-            interval: popup_window.interval.snapshot(self),
-            running: popup_window.running.snapshot(self),
-            triggered: popup_window.triggered.snapshot(self),
+            component: Weak::upgrade(&self.use_component(&timer.component))
+                .expect("Looking at a known component"),
+            interval: timer.interval.snapshot(self),
+            running: timer.running.snapshot(self),
+            triggered: timer.triggered.snapshot(self),
         }
     }
 
