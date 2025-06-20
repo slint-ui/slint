@@ -39,6 +39,37 @@ Functions can be annotated with the `pure` keyword.
 This indicates that the function does not cause any side effects.
 More details can be found in the <Link type="Purity" /> chapter.
 
+## Local Variables
+Functions can also have local variables, declared with the `let` keyword, similar to Rust, with an optional type annotation.
+For example:
+
+```slint
+export component Example {
+    function example() {
+        let foo: int = 1; // with type annotation
+        let bar = 2; // without type annotation
+    }
+}
+```
+
+Local variables are immutable and cannot be reassigned. But, shadowing (multiple variables with the same name) is permitted.
+For example:
+
+```slint
+export component Example {
+    function example() {
+        let foo = 1;
+        let foo = foo + 1;
+
+        debug(foo); // prints "1"
+
+        let foo = "hello world";
+
+        debug(foo); // prints "hello world"
+    }
+}
+```
+
 ## Calling Functions
 
 A function can be called without an element name (like a function call in other languages) or with
