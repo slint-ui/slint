@@ -488,9 +488,10 @@ fn generate_sdf_for_glyph(
     use nalgebra::{Affine2, Similarity2, Vector2};
 
     let face =
-        ttf_parser_fdsm::Face::parse(font.face_data.as_ref().as_ref(), font.face_index).unwrap();
+        fdsm_ttf_parser::ttf_parser::Face::parse(font.face_data.as_ref().as_ref(), font.face_index)
+            .unwrap();
     let glyph_id = face.glyph_index(code_point).unwrap_or_default();
-    let mut shape = fdsm::shape::Shape::load_from_face(&face, glyph_id);
+    let mut shape = fdsm_ttf_parser::load_shape_from_face(&face, glyph_id);
 
     let metrics = font.metrics();
     let target_pixel_size = target_pixel_size as f64;
