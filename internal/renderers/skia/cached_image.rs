@@ -100,7 +100,7 @@ pub(crate) fn as_skia_image(
             canvas,
             surface,
         ),
-        #[cfg(feature = "unstable-wgpu-24")]
+        #[cfg(feature = "unstable-wgpu-25")]
         ImageInner::WGPUTexture(..) => None,
     }
 }

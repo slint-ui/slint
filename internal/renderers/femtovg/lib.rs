@@ -37,7 +37,7 @@ mod fonts;
 mod images;
 mod itemrenderer;
 pub mod opengl;
-#[cfg(feature = "wgpu-24")]
+#[cfg(feature = "wgpu-25")]
 pub mod wgpu;
 
 pub trait WindowSurface<R: femtovg::Renderer> {

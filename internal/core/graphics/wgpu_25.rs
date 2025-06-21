@@ -8,52 +8,56 @@ This module contains types that are public and re-exported in the slint-rs as we
 in particular the `BackendSelector` type, to configure the WGPU-based renderer(s).
 */
 
-pub use wgpu_24 as wgpu;
+pub use wgpu_25 as wgpu;
 
 /// This data structure provides settings for initializing WGPU renderers.
 #[derive(Clone, Debug)]
 #[non_exhaustive]
 pub struct WGPUSettings {
     /// The backends to use for the WGPU instance.
-    pub backends: wgpu_24::Backends,
+    pub backends: wgpu_25::Backends,
     /// The different options that are given to the selected backends.
-    pub backend_options: wgpu_24::BackendOptions,
+    pub backend_options: wgpu_25::BackendOptions,
     /// The flags to fine-tune behaviour of the WGPU instance.
-    pub instance_flags: wgpu_24::InstanceFlags,
+    pub instance_flags: wgpu_25::InstanceFlags,
 
     /// The power preference is used to influence the WGPU adapter selection.
-    pub power_preference: wgpu_24::PowerPreference,
+    pub power_preference: wgpu_25::PowerPreference,
 
     /// The label for the device. This is used to identify the device in debugging tools.
     pub device_label: Option<std::borrow::Cow<'static, str>>,
     /// The required features for the device.
-    pub device_required_features: wgpu_24::Features,
+    pub device_required_features: wgpu_25::Features,
     /// The required limits for the device.
-    pub device_required_limits: wgpu_24::Limits,
+    pub device_required_limits: wgpu_25::Limits,
     /// The memory hints for the device.
-    pub device_memory_hints: wgpu_24::MemoryHints,
+    pub device_memory_hints: wgpu_25::MemoryHints,
 }
 
 impl Default for WGPUSettings {
     fn default() -> Self {
-        let backends = wgpu_24::Backends::from_env().unwrap_or_default();
-        let dx12_shader_compiler = wgpu_24::Dx12Compiler::from_env().unwrap_or_default();
-        let gles_minor_version = wgpu_24::Gles3MinorVersion::from_env().unwrap_or_default();
+        let backends = wgpu_25::Backends::from_env().unwrap_or_default();
+        let dx12_shader_compiler = wgpu_25::Dx12Compiler::from_env().unwrap_or_default();
+        let gles_minor_version = wgpu_25::Gles3MinorVersion::from_env().unwrap_or_default();
 
         Self {
             backends,
-            backend_options: wgpu_24::BackendOptions {
-                dx12: wgpu_24::Dx12BackendOptions { shader_compiler: dx12_shader_compiler },
-                gl: wgpu_24::GlBackendOptions { gles_minor_version },
+            backend_options: wgpu_25::BackendOptions {
+                dx12: wgpu_25::Dx12BackendOptions { shader_compiler: dx12_shader_compiler },
+                gl: wgpu_25::GlBackendOptions {
+                    gles_minor_version,
+                    fence_behavior: wgpu_25::GlFenceBehavior::default(),
+                },
+                noop: wgpu::NoopBackendOptions::default(),
             },
-            instance_flags: wgpu_24::InstanceFlags::from_build_config().with_env(),
+            instance_flags: wgpu_25::InstanceFlags::from_build_config().with_env(),
 
-            power_preference: wgpu_24::PowerPreference::from_env().unwrap_or_default(),
+            power_preference: wgpu_25::PowerPreference::from_env().unwrap_or_default(),
 
             device_label: None,
-            device_required_features: wgpu_24::Features::empty(),
-            device_required_limits: wgpu_24::Limits::downlevel_webgl2_defaults(),
-            device_memory_hints: wgpu_24::MemoryHints::MemoryUsage,
+            device_required_features: wgpu_25::Features::empty(),
+            device_required_limits: wgpu_25::Limits::downlevel_webgl2_defaults(),
+            device_memory_hints: wgpu_25::MemoryHints::MemoryUsage,
         }
     }
 }
@@ -66,13 +70,13 @@ pub enum WGPUConfiguration {
     /// device, and queue for use.
     Manual {
         /// The WGPU instance to use.
-        instance: wgpu_24::Instance,
+        instance: wgpu_25::Instance,
         /// The WGPU adapter to use.
-        adapter: wgpu_24::Adapter,
+        adapter: wgpu_25::Adapter,
         /// The WGPU device to use.
-        device: wgpu_24::Device,
+        device: wgpu_25::Device,
         /// The WGPU queue to use.
-        queue: wgpu_24::Queue,
+        queue: wgpu_25::Queue,
     },
     /// Use `Automatic` if you want to let Slint select the WGPU instance, adapter, and
     /// device, but fine-tune aspects such as memory limits or features.
@@ -85,22 +89,22 @@ impl Default for WGPUConfiguration {
     }
 }
 
-impl TryFrom<wgpu_24::Texture> for super::Image {
-    type Error = crate::graphics::wgpu_24::TextureImportError;
+impl TryFrom<wgpu_25::Texture> for super::Image {
+    type Error = crate::graphics::wgpu_25::TextureImportError;
 
-    fn try_from(texture: wgpu_24::Texture) -> Result<Self, Self::Error> {
-        if texture.format() != wgpu_24::TextureFormat::Rgba8Unorm
-            && texture.format() != wgpu_24::TextureFormat::Rgba8UnormSrgb
+    fn try_from(texture: wgpu_25::Texture) -> Result<Self, Self::Error> {
+        if texture.format() != wgpu_25::TextureFormat::Rgba8Unorm
+            && texture.format() != wgpu_25::TextureFormat::Rgba8UnormSrgb
         {
             return Err(Self::Error::InvalidFormat);
         }
         let usages = texture.usage();
-        if !usages.contains(wgpu_24::TextureUsages::TEXTURE_BINDING)
-            || !usages.contains(wgpu_24::TextureUsages::RENDER_ATTACHMENT)
+        if !usages.contains(wgpu_25::TextureUsages::TEXTURE_BINDING)
+            || !usages.contains(wgpu_25::TextureUsages::RENDER_ATTACHMENT)
         {
             return Err(Self::Error::InvalidUsage);
         }
-        Ok(Self(super::ImageInner::WGPUTexture(super::WGPUTexture::WGPU24Texture(texture))))
+        Ok(Self(super::ImageInner::WGPUTexture(super::WGPUTexture::WGPU25Texture(texture))))
     }
 }
 

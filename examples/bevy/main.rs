@@ -125,7 +125,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let Some(app) = app2.upgrade() else { return };
         app.window().request_redraw();
         let Ok(new_texture) = new_texture_receiver.try_recv() else { return };
-        if let Some(old_texture) = app.get_texture().to_wgpu_24_texture() {
+        if let Some(old_texture) = app.get_texture().to_wgpu_25_texture() {
             let control_message_sender = control_message_sender.clone();
             slint::spawn_local(async move {
                 control_message_sender
