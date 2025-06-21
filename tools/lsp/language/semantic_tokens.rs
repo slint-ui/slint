@@ -93,6 +93,7 @@ pub fn get_semantic_tokens(
                 SyntaxKind::ChildrenPlaceholder => Some((self::MACRO, 0)),
                 SyntaxKind::Binding | SyntaxKind::TwoWayBinding => Some((self::PROPERTY, 0)),
                 SyntaxKind::ReturnStatement => Some((self::KEYWORD, 0)),
+                SyntaxKind::LetStatement => Some((self::KEYWORD, 0)),
                 SyntaxKind::AtImageUrl => Some((self::MACRO, 0)),
                 SyntaxKind::AtGradient => Some((self::MACRO, 0)),
                 SyntaxKind::AtTr => Some((self::MACRO, 0)),

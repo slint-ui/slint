@@ -2516,7 +2516,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             }
         }
 
-        Expression::StoreLocalVariable { name, value } => {
+        Expression::StoreLocalVariable { name, value, .. } => {
             let value = compile_expression(value, ctx);
             let name = ident(name);
             quote!(let #name = #value;)

@@ -214,9 +214,14 @@ fn continue_codeblock(
     );
     let load = Box::new(Expression::ReadLocalVariable {
         name: unique_name.clone(),
+        discriminator: None,
         ty: return_object.ty(),
     });
-    stmts.push(Expression::StoreLocalVariable { name: unique_name, value: return_object.into() });
+    stmts.push(Expression::StoreLocalVariable {
+        name: unique_name,
+        discriminator: None,
+        value: return_object.into(),
+    });
     stmts.push(Expression::Condition {
         condition: Expression::StructFieldAccess {
             base: load.clone(),
@@ -298,10 +303,17 @@ impl ExpressionResult {
                     "returned_expression{}",
                     COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
                 );
-                let load =
-                    Box::new(Expression::ReadLocalVariable { name: name.clone(), ty: value.ty() });
+                let load = Box::new(Expression::ReadLocalVariable {
+                    name: name.clone(),
+                    discriminator: None,
+                    ty: value.ty(),
+                });
                 Expression::CodeBlock(vec![
-                    Expression::StoreLocalVariable { name, value: value.into() },
+                    Expression::StoreLocalVariable {
+                        name,
+                        discriminator: None,
+                        value: value.into(),
+                    },
                     Expression::Condition {
                         condition: Expression::StructFieldAccess {
                             base: load.clone(),
@@ -436,6 +448,7 @@ impl ExpressionResult {
                 let load = |field: &str| Expression::StructFieldAccess {
                     base: Box::new(Expression::ReadLocalVariable {
                         name: name.clone(),
+                        discriminator: None,
                         ty: value_ty.clone(),
                     }),
                     name: field.into(),
@@ -449,7 +462,11 @@ impl ExpressionResult {
                 });
                 ExpressionResult::ReturnObject {
                     value: Expression::CodeBlock(vec![
-                        Expression::StoreLocalVariable { name, value: value.into() },
+                        Expression::StoreLocalVariable {
+                            name,
+                            discriminator: None,
+                            value: value.into(),
+                        },
                         make_struct([condition, actual].into_iter().chain(ret.into_iter())),
                     ]),
                     has_value,
@@ -536,6 +553,7 @@ fn convert_struct(from: Expression, to: Type) -> Expression {
             Expression::StructFieldAccess {
                 base: Box::new(Expression::ReadLocalVariable {
                     name: var_name.clone(),
+                    discriminator: None,
                     ty: from_ty.clone(),
                 }),
                 name: key.clone(),
@@ -546,7 +564,11 @@ fn convert_struct(from: Expression, to: Type) -> Expression {
         new_values.insert(key.clone(), expression);
     }
     Expression::CodeBlock(vec![
-        Expression::StoreLocalVariable { name: var_name, value: Box::new(from) },
+        Expression::StoreLocalVariable {
+            name: var_name,
+            discriminator: None,
+            value: Box::new(from),
+        },
         Expression::Struct { values: new_values, ty: to },
     ])
 }

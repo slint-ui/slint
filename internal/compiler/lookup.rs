@@ -48,6 +48,14 @@ pub struct LookupCtx<'a> {
 
     /// The token currently processed
     pub current_token: Option<NodeOrToken>,
+
+    /// Local variables declared in the current scope
+    /// Contains variable name, discriminator, and type
+    pub local_variables: Vec<(SmolStr, usize, Type)>,
+
+    /// A discriminator to ensure that local variable names are unique
+    /// (this is used to ensure that shadowed local variables will compile in the C++)
+    pub next_local_variable_discriminator: usize,
 }
 
 impl<'a> LookupCtx<'a> {
@@ -62,6 +70,8 @@ impl<'a> LookupCtx<'a> {
             type_register,
             type_loader: None,
             current_token: None,
+            local_variables: Default::default(),
+            next_local_variable_discriminator: 0,
         }
     }
 
@@ -215,6 +225,31 @@ impl LookupObject for LookupResult {
             }
             LookupResult::Callable(..) => None,
         }
+    }
+}
+
+struct LocalVariableLookup;
+impl LookupObject for LocalVariableLookup {
+    fn for_each_entry<R>(
+        &self,
+        ctx: &LookupCtx,
+        f: &mut impl FnMut(&SmolStr, LookupResult) -> Option<R>,
+    ) -> Option<R> {
+        // Reverse the local variables so that the last shadow is found first during lookup
+        for (name, discriminator, ty) in ctx.local_variables.iter().rev() {
+            if let Some(r) = f(
+                &name,
+                Expression::ReadLocalVariable {
+                    name: name.clone(),
+                    discriminator: Some(*discriminator),
+                    ty: ty.clone(),
+                }
+                .into(),
+            ) {
+                return Some(r);
+            }
+        }
+        None
     }
 }
 
@@ -830,16 +865,22 @@ impl LookupObject for BuiltinNamespaceLookup {
 
 pub fn global_lookup() -> impl LookupObject {
     (
-        ArgumentsLookup,
+        LocalVariableLookup,
         (
-            SpecialIdLookup,
+            ArgumentsLookup,
             (
-                IdLookup,
+                SpecialIdLookup,
                 (
-                    InScopeLookup,
+                    IdLookup,
                     (
-                        LookupType,
-                        (BuiltinNamespaceLookup, (ReturnTypeSpecificLookup, BuiltinFunctionLookup)),
+                        InScopeLookup,
+                        (
+                            LookupType,
+                            (
+                                BuiltinNamespaceLookup,
+                                (ReturnTypeSpecificLookup, BuiltinFunctionLookup),
+                            ),
+                        ),
                     ),
                 ),
             ),

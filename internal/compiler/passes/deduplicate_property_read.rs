@@ -116,6 +116,7 @@ fn process_expression(expr: &mut Expression, old_state: &DedupPropState) {
             .into_iter()
             .map(|(name, nr)| Expression::StoreLocalVariable {
                 name,
+                discriminator: None,
                 value: Box::new(Expression::PropertyReference(nr)),
             })
             .collect::<Vec<_>>();
@@ -174,7 +175,7 @@ fn do_replacements(expr: &mut Expression, state: &DedupPropState) {
         Expression::PropertyReference(nr) => {
             if let Some(name) = state.get_mapping(nr) {
                 let ty = expr.ty();
-                *expr = Expression::ReadLocalVariable { name, ty };
+                *expr = Expression::ReadLocalVariable { name, discriminator: None, ty };
             }
         }
         Expression::BinaryExpression { lhs, rhs: _, op: '|' | '&' } => {

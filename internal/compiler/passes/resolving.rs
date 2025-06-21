@@ -45,6 +45,8 @@ fn resolve_expression(
             type_register,
             type_loader: Some(type_loader),
             current_token: None,
+            local_variables: vec![],
+            next_local_variable_discriminator: 0,
         };
 
         let new_expr = match node.kind() {
@@ -202,6 +204,7 @@ impl Expression {
             .filter_map(|n| match n.kind() {
                 SyntaxKind::Expression => Some(Self::from_expression_node(n.into(), ctx)),
                 SyntaxKind::ReturnStatement => Some(Self::from_return_statement(n.into(), ctx)),
+                SyntaxKind::LetStatement => Some(Self::from_let_statement(n.into(), ctx)),
                 _ => None,
             })
             .collect::<Vec<_>>();
@@ -231,6 +234,23 @@ impl Expression {
         });
 
         Expression::CodeBlock(statements_or_exprs)
+    }
+
+    fn from_let_statement(node: syntax_nodes::LetStatement, ctx: &mut LookupCtx) -> Expression {
+        let name = identifier_text(&node.DeclaredIdentifier()).unwrap_or_default();
+        let value = Self::from_expression_node(node.Expression(), ctx);
+        let ty = match node.Type() {
+            Some(ty) => type_from_node(ty, ctx.diag, ctx.type_register),
+            None => value.ty(),
+        };
+
+        let value = Box::new(value.maybe_convert_to(ty, &node, ctx.diag));
+
+        let discriminator = ctx.next_local_variable_discriminator;
+        ctx.local_variables.push((name.clone(), discriminator, value.ty()));
+        ctx.next_local_variable_discriminator += 1;
+
+        Expression::StoreLocalVariable { name, discriminator: Some(discriminator), value }
     }
 
     fn from_return_statement(
@@ -1639,6 +1659,8 @@ fn resolve_two_way_bindings(
                                 type_register,
                                 type_loader: None,
                                 current_token: Some(node.clone().into()),
+                                local_variables: vec![],
+                                next_local_variable_discriminator: 0,
                             };
 
                             binding.expression = Expression::Invalid;

@@ -611,6 +611,7 @@ pub enum Expression {
     /// Should be directly within a CodeBlock expression, and store the value of the expression in a local variable
     StoreLocalVariable {
         name: SmolStr,
+        discriminator: Option<usize>,
         value: Box<Expression>,
     },
 
@@ -618,6 +619,7 @@ pub enum Expression {
     /// with this name and this type before in one of the statement of an enclosing codeblock
     ReadLocalVariable {
         name: SmolStr,
+        discriminator: Option<usize>,
         ty: Type,
     },
 
@@ -1192,6 +1194,7 @@ impl Expression {
                             Expression::StructFieldAccess {
                                 base: Box::new(Expression::ReadLocalVariable {
                                     name: var_name.clone(),
+                                    discriminator: None,
                                     ty: from_ty.clone(),
                                 }),
                                 name: key.clone(),
@@ -1203,7 +1206,11 @@ impl Expression {
                         new_values.insert(key.clone(), expression);
                     }
                     return Expression::CodeBlock(vec![
-                        Expression::StoreLocalVariable { name: var_name, value: Box::new(self) },
+                        Expression::StoreLocalVariable {
+                            name: var_name,
+                            discriminator: None,
+                            value: Box::new(self),
+                        },
                         Expression::Struct { values: new_values, ty: right.clone() },
                     ]);
                 }
@@ -1632,12 +1639,12 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
             write!(f, ".@model")
         }
         Expression::FunctionParameterReference { index, ty: _ } => write!(f, "_arg_{index}"),
-        Expression::StoreLocalVariable { name, value } => {
+        Expression::StoreLocalVariable { name, value, .. } => {
             write!(f, "{name} = ")?;
             pretty_print(f, value)
         }
-        Expression::ReadLocalVariable { name, ty: _ } => write!(f, "{name}"),
-        Expression::StructFieldAccess { base, name } => {
+        Expression::ReadLocalVariable { name, ty: _, .. } => write!(f, "{name}"),
+        Expression::StructFieldAccess { base, name, .. } => {
             pretty_print(f, base)?;
             write!(f, ".{name}")
         }

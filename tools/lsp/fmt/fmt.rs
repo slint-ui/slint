@@ -120,6 +120,9 @@ fn format_node(
         SyntaxKind::ReturnStatement => {
             return format_return_statement(node, writer, state);
         }
+        SyntaxKind::LetStatement => {
+            return format_let_statement(node, writer, state);
+        }
         SyntaxKind::AtGradient => {
             return format_at_gradient(node, writer, state);
         }
@@ -797,6 +800,29 @@ fn format_return_statement(
     if node.child_node(SyntaxKind::Expression).is_some() {
         whitespace_to(&mut sub, SyntaxKind::Identifier, writer, state, " ")?;
     }
+    whitespace_to(&mut sub, SyntaxKind::Semicolon, writer, state, "")?;
+    state.new_line();
+    finish_node(sub, writer, state)?;
+    Ok(())
+}
+
+fn format_let_statement(
+    node: &SyntaxNode,
+    writer: &mut impl TokenWriter,
+    state: &mut FormatState,
+) -> Result<(), std::io::Error> {
+    let mut sub = node.children_with_tokens();
+    whitespace_to(&mut sub, SyntaxKind::Identifier, writer, state, "")?; // "let"
+    whitespace_to(&mut sub, SyntaxKind::DeclaredIdentifier, writer, state, " ")?;
+    // if type annotated
+    if node.child_token(SyntaxKind::Colon).is_some() {
+        whitespace_to(&mut sub, SyntaxKind::Colon, writer, state, "")?;
+        if node.child_node(SyntaxKind::Type).is_some() {
+            whitespace_to(&mut sub, SyntaxKind::Type, writer, state, " ")?;
+        }
+    }
+    whitespace_to(&mut sub, SyntaxKind::Equal, writer, state, " ")?;
+    whitespace_to(&mut sub, SyntaxKind::Expression, writer, state, " ")?;
     whitespace_to(&mut sub, SyntaxKind::Semicolon, writer, state, "")?;
     state.new_line();
     finish_node(sub, writer, state)?;

@@ -1,0 +1,72 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase {
+    public function test_simple() -> int {
+        let a = 1;
+
+        return a;
+    }
+
+    public function test_shadowing() -> int {
+        let a = 1;
+        let a = a + 1;
+
+        return a;
+    }
+
+    public function test_shadowing_scope() -> int {
+        let a = 1;
+
+        if (true) {
+            let a = a + 1;
+
+            return a;
+        }
+
+        return a;
+    }
+
+    public function test_shadowing_different_types() -> string {
+        let a = 1;
+        let a: float = a + 1.0;
+        let a = @tr("{}", a);
+
+        return a;
+    }
+
+    public function test_type_annotation() -> int {
+        let a: int = 1;
+
+        return a;
+    }
+
+    public function test_type_annotation_conversion() -> int {
+        let a: int = 1.0;
+
+        return a;
+    }
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.invoke_test_simple(), 1);
+assert_eq!(instance.invoke_test_shadowing(), 2);
+assert_eq!(instance.invoke_test_shadowing_scope(), 2);
+assert_eq!(instance.invoke_test_shadowing_different_types(), "2");
+assert_eq!(instance.invoke_test_type_annotation(), 1);
+assert_eq!(instance.invoke_test_type_annotation_conversion(), 1);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.invoke_test_simple(), 1);
+assert_eq(instance.invoke_test_shadowing(), 2);
+assert_eq(instance.invoke_test_shadowing_scope(), 2);
+assert_eq(instance.invoke_test_shadowing_different_types(), "2");
+assert_eq(instance.invoke_test_type_annotation(), 1);
+assert_eq(instance.invoke_test_type_annotation_conversion(), 1);
+```
+*/
