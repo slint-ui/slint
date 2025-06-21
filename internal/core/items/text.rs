@@ -83,7 +83,7 @@ impl Item for ComplexText {
 
     fn input_event_filter_before_children(
         self: Pin<&Self>,
-        _: MouseEvent,
+        _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
@@ -92,7 +92,7 @@ impl Item for ComplexText {
 
     fn input_event(
         self: Pin<&Self>,
-        _: MouseEvent,
+        _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> InputEventResult {
@@ -245,7 +245,7 @@ impl Item for SimpleText {
 
     fn input_event_filter_before_children(
         self: Pin<&Self>,
-        _: MouseEvent,
+        _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
@@ -254,7 +254,7 @@ impl Item for SimpleText {
 
     fn input_event(
         self: Pin<&Self>,
-        _: MouseEvent,
+        _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> InputEventResult {
@@ -574,7 +574,7 @@ impl Item for TextInput {
 
     fn input_event_filter_before_children(
         self: Pin<&Self>,
-        _: MouseEvent,
+        _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
@@ -583,7 +583,7 @@ impl Item for TextInput {
 
     fn input_event(
         self: Pin<&Self>,
-        event: MouseEvent,
+        event: &MouseEvent,
         window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &ItemRc,
     ) -> InputEventResult {
@@ -593,7 +593,7 @@ impl Item for TextInput {
         match event {
             MouseEvent::Pressed { position, button: PointerEventButton::Left, click_count } => {
                 let clicked_offset =
-                    self.byte_offset_for_position(position, window_adapter, self_rc) as i32;
+                    self.byte_offset_for_position(*position, window_adapter, self_rc) as i32;
                 self.as_ref().pressed.set((click_count % 3) + 1);
 
                 if !window_adapter.window().0.modifiers.get().shift() {
@@ -630,7 +630,7 @@ impl Item for TextInput {
             }
             MouseEvent::Released { position, button: PointerEventButton::Middle, .. } => {
                 let clicked_offset =
-                    self.byte_offset_for_position(position, window_adapter, self_rc) as i32;
+                    self.byte_offset_for_position(*position, window_adapter, self_rc) as i32;
                 self.as_ref().anchor_position_byte_offset.set(clicked_offset);
                 self.set_cursor_position(
                     clicked_offset,
@@ -655,7 +655,7 @@ impl Item for TextInput {
                 let pressed = self.as_ref().pressed.get();
                 if pressed > 0 {
                     let clicked_offset =
-                        self.byte_offset_for_position(position, window_adapter, self_rc) as i32;
+                        self.byte_offset_for_position(*position, window_adapter, self_rc) as i32;
                     self.set_cursor_position(
                         clicked_offset,
                         true,

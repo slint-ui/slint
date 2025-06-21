@@ -149,7 +149,7 @@ impl Item for NativeSlider {
 
     fn input_event_filter_before_children(
         self: Pin<&Self>,
-        _: MouseEvent,
+        _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
@@ -159,7 +159,7 @@ impl Item for NativeSlider {
     #[allow(clippy::unnecessary_cast)] // MouseEvent uses Coord
     fn input_event(
         self: Pin<&Self>,
-        event: MouseEvent,
+        event: &MouseEvent,
         window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &i_slint_core::items::ItemRc,
     ) -> InputEventResult {
@@ -248,9 +248,10 @@ impl Item for NativeSlider {
                 InputEventResult::EventAccepted
             }
             MouseEvent::Pressed { button, .. } | MouseEvent::Released { button, .. } => {
-                debug_assert_ne!(button, PointerEventButton::Left);
+                debug_assert_ne!(*button, PointerEventButton::Left);
                 InputEventResult::EventIgnored
             }
+            MouseEvent::DragMove(..) | MouseEvent::Drop(..) => InputEventResult::EventIgnored,
         };
         data.active_controls = new_control;
 

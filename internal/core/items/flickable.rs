@@ -106,7 +106,7 @@ impl Item for Flickable {
 
     fn input_event_filter_before_children(
         self: Pin<&Self>,
-        event: MouseEvent,
+        event: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &ItemRc,
     ) -> InputEventFilterResult {
@@ -128,7 +128,7 @@ impl Item for Flickable {
 
     fn input_event(
         self: Pin<&Self>,
-        event: MouseEvent,
+        event: &MouseEvent,
         window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &ItemRc,
     ) -> InputEventResult {
@@ -253,13 +253,13 @@ impl FlickableData {
     fn handle_mouse_filter(
         &self,
         flick: Pin<&Flickable>,
-        event: MouseEvent,
+        event: &MouseEvent,
         flick_rc: &ItemRc,
     ) -> InputEventFilterResult {
         let mut inner = self.inner.borrow_mut();
         match event {
             MouseEvent::Pressed { position, button: PointerEventButton::Left, .. } => {
-                inner.pressed_pos = position;
+                inner.pressed_pos = *position;
                 inner.pressed_time = Some(crate::animations::current_tick());
                 inner.pressed_viewport_pos = LogicalPoint::from_lengths(
                     (Flickable::FIELD_OFFSETS.viewport_x).apply_pin(flick).get(),
@@ -288,7 +288,7 @@ impl FlickableData {
                         }
                         // Check if the mouse was moved more than the DISTANCE_THRESHOLD in a
                         // direction in which the flickable can flick
-                        let diff = position - inner.pressed_pos;
+                        let diff = *position - inner.pressed_pos;
                         let geo = flick_rc.geometry();
                         let w = geo.width_length();
                         let h = geo.height_length();
@@ -313,13 +313,16 @@ impl FlickableData {
             MouseEvent::Pressed { .. } | MouseEvent::Released { .. } => {
                 InputEventFilterResult::ForwardAndIgnore
             }
+            MouseEvent::DragMove(..) | MouseEvent::Drop(..) => {
+                InputEventFilterResult::ForwardAndIgnore
+            }
         }
     }
 
     fn handle_mouse(
         &self,
         flick: Pin<&Flickable>,
-        event: MouseEvent,
+        event: &MouseEvent,
         window_adapter: &Rc<dyn WindowAdapter>,
         flick_rc: &ItemRc,
     ) -> InputEventResult {
@@ -340,7 +343,7 @@ impl FlickableData {
             }
             MouseEvent::Moved { position } => {
                 if inner.pressed_time.is_some() {
-                    let new_pos = inner.pressed_viewport_pos + (position - inner.pressed_pos);
+                    let new_pos = inner.pressed_viewport_pos + (*position - inner.pressed_pos);
                     let x = (Flickable::FIELD_OFFSETS.viewport_x).apply_pin(flick);
                     let y = (Flickable::FIELD_OFFSETS.viewport_y).apply_pin(flick);
                     let should_capture = || {
@@ -390,9 +393,9 @@ impl FlickableData {
                     && !cfg!(target_os = "macos")
                 {
                     // Shift invert coordinate for the purpose of scrolling. But not on macOs because there the OS already take care of the change
-                    LogicalVector::new(delta_y, delta_x)
+                    LogicalVector::new(*delta_y, *delta_x)
                 } else {
-                    LogicalVector::new(delta_x, delta_y)
+                    LogicalVector::new(*delta_x, *delta_y)
                 };
                 let new_pos = ensure_in_bound(flick, old_pos + delta, flick_rc);
 
@@ -406,13 +409,14 @@ impl FlickableData {
                 }
                 InputEventResult::EventAccepted
             }
+            MouseEvent::DragMove(..) | MouseEvent::Drop(..) => InputEventResult::EventIgnored,
         }
     }
 
     fn mouse_released(
         inner: &mut FlickableDataInner,
         flick: Pin<&Flickable>,
-        event: MouseEvent,
+        event: &MouseEvent,
         flick_rc: &ItemRc,
     ) {
         if let (Some(pressed_time), Some(pos)) = (inner.pressed_time, event.position()) {

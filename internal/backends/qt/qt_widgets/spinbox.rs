@@ -123,7 +123,7 @@ impl Item for NativeSpinBox {
 
     fn input_event_filter_before_children(
         self: Pin<&Self>,
-        _: MouseEvent,
+        _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
@@ -132,7 +132,7 @@ impl Item for NativeSpinBox {
 
     fn input_event(
         self: Pin<&Self>,
-        event: MouseEvent,
+        event: &MouseEvent,
         window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &i_slint_core::items::ItemRc,
     ) -> InputEventResult {
@@ -178,7 +178,7 @@ impl Item for NativeSpinBox {
                 }
                 MouseEvent::Released { button, .. } => {
                     data.pressed = false;
-                    let left_button = button == PointerEventButton::Left;
+                    let left_button = *button == PointerEventButton::Left;
                     if new_control == cpp!(unsafe []->u32 as "int" { return QStyle::SC_SpinBoxUp;})
                         && enabled
                         && left_button
@@ -206,14 +206,14 @@ impl Item for NativeSpinBox {
                 }
                 MouseEvent::Moved { .. } => false,
                 MouseEvent::Wheel { delta_y, .. } => {
-                    if delta_y > 0. {
+                    if *delta_y > 0. {
                         let v = self.value();
                         if v < self.maximum() {
                             let new_val = v + step_size;
                             self.value.set(new_val);
                             Self::FIELD_OFFSETS.edited.apply_pin(self).call(&(new_val,));
                         }
-                    } else if delta_y < 0. {
+                    } else if *delta_y < 0. {
                         let v = self.value();
                         if v > self.minimum() {
                             let new_val = v - step_size;
@@ -224,6 +224,7 @@ impl Item for NativeSpinBox {
 
                     true
                 }
+                MouseEvent::DragMove(..) | MouseEvent::Drop(..) => false,
             };
         data.active_controls = new_control;
         if changed {

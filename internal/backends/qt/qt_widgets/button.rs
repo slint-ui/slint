@@ -237,7 +237,7 @@ impl Item for NativeButton {
 
     fn input_event_filter_before_children(
         self: Pin<&Self>,
-        event: MouseEvent,
+        event: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
@@ -247,7 +247,7 @@ impl Item for NativeButton {
 
     fn input_event(
         self: Pin<&Self>,
-        event: MouseEvent,
+        event: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &i_slint_core::items::ItemRc,
     ) -> InputEventResult {
@@ -262,7 +262,7 @@ impl Item for NativeButton {
         let was_pressed = self.pressed();
 
         Self::FIELD_OFFSETS.pressed.apply_pin(self).set(match event {
-            MouseEvent::Pressed { button, .. } => button == PointerEventButton::Left,
+            MouseEvent::Pressed { button, .. } => *button == PointerEventButton::Left,
             MouseEvent::Exit | MouseEvent::Released { .. } => false,
             MouseEvent::Moved { .. } => {
                 return if was_pressed {
@@ -272,10 +272,14 @@ impl Item for NativeButton {
                 }
             }
             MouseEvent::Wheel { .. } => return InputEventResult::EventIgnored,
+            MouseEvent::DragMove(..) | MouseEvent::Drop(..) => {
+                return InputEventResult::EventIgnored
+            }
         });
         if let MouseEvent::Released { position, .. } = event {
             let geo = self_rc.geometry();
-            if LogicalRect::new(LogicalPoint::default(), geo.size).contains(position) && was_pressed
+            if LogicalRect::new(LogicalPoint::default(), geo.size).contains(*position)
+                && was_pressed
             {
                 self.activate();
             }

@@ -105,7 +105,7 @@ impl Item for NativeScrollView {
 
     fn input_event_filter_before_children(
         self: Pin<&Self>,
-        _: MouseEvent,
+        _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
@@ -114,7 +114,7 @@ impl Item for NativeScrollView {
 
     fn input_event(
         self: Pin<&Self>,
-        event: MouseEvent,
+        event: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &i_slint_core::items::ItemRc,
     ) -> InputEventResult {
@@ -225,6 +225,7 @@ impl Item for NativeScrollView {
                     }
                     InputEventResult::EventAccepted
                 }
+                MouseEvent::DragMove(..) | MouseEvent::Drop(..) => InputEventResult::EventIgnored,
             };
             self.data.set(data);
             result

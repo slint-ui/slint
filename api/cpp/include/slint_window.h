@@ -224,7 +224,7 @@ public:
     void dispatch_pointer_event(const cbindgen_private::MouseEvent &event)
     {
         private_api::assert_main_thread();
-        cbindgen_private::slint_windowrc_dispatch_pointer_event(&inner, event);
+        cbindgen_private::slint_windowrc_dispatch_pointer_event(&inner, &event);
     }
 
     /// Registers a font by the specified path. The path must refer to an existing
@@ -499,12 +499,8 @@ public:
     void dispatch_pointer_press_event(LogicalPosition pos, PointerEventButton button)
     {
         private_api::assert_main_thread();
-        using slint::cbindgen_private::MouseEvent;
-        MouseEvent event { .tag = MouseEvent::Tag::Pressed,
-                           .pressed = MouseEvent::Pressed_Body { .position = { pos.x, pos.y },
-                                                                 .button = button,
-                                                                 .click_count = 0 } };
-        inner.dispatch_pointer_event(event);
+        inner.dispatch_pointer_event(
+                slint::cbindgen_private::MouseEvent::Pressed({ pos.x, pos.y }, button, 0));
     }
     /// Dispatches a pointer or mouse release event to the scene.
     ///
@@ -516,12 +512,8 @@ public:
     void dispatch_pointer_release_event(LogicalPosition pos, PointerEventButton button)
     {
         private_api::assert_main_thread();
-        using slint::cbindgen_private::MouseEvent;
-        MouseEvent event { .tag = MouseEvent::Tag::Released,
-                           .released = MouseEvent::Released_Body { .position = { pos.x, pos.y },
-                                                                   .button = button,
-                                                                   .click_count = 0 } };
-        inner.dispatch_pointer_event(event);
+        inner.dispatch_pointer_event(
+                slint::cbindgen_private::MouseEvent::Released({ pos.x, pos.y }, button, 0));
     }
     /// Dispatches a pointer exit event to the scene.
     ///
@@ -532,9 +524,7 @@ public:
     void dispatch_pointer_exit_event()
     {
         private_api::assert_main_thread();
-        using slint::cbindgen_private::MouseEvent;
-        MouseEvent event { .tag = MouseEvent::Tag::Exit, .moved = {} };
-        inner.dispatch_pointer_event(event);
+        inner.dispatch_pointer_event(slint::cbindgen_private::MouseEvent::Exit());
     }
 
     /// Dispatches a pointer move event to the scene.
@@ -546,10 +536,7 @@ public:
     void dispatch_pointer_move_event(LogicalPosition pos)
     {
         private_api::assert_main_thread();
-        using slint::cbindgen_private::MouseEvent;
-        MouseEvent event { .tag = MouseEvent::Tag::Moved,
-                           .moved = MouseEvent::Moved_Body { .position = { pos.x, pos.y } } };
-        inner.dispatch_pointer_event(event);
+        inner.dispatch_pointer_event(slint::cbindgen_private::MouseEvent::Moved({ pos.x, pos.y }));
     }
 
     /// Dispatches a scroll (or wheel) event to the scene.
@@ -563,12 +550,8 @@ public:
     void dispatch_pointer_scroll_event(LogicalPosition pos, float delta_x, float delta_y)
     {
         private_api::assert_main_thread();
-        using slint::cbindgen_private::MouseEvent;
-        MouseEvent event { .tag = MouseEvent::Tag::Wheel,
-                           .wheel = MouseEvent::Wheel_Body { .position = { pos.x, pos.y },
-                                                             .delta_x = delta_x,
-                                                             .delta_y = delta_y } };
-        inner.dispatch_pointer_event(event);
+        inner.dispatch_pointer_event(
+                slint::cbindgen_private::MouseEvent::Wheel({ pos.x, pos.y }, delta_x, delta_y));
     }
 
     /// Set the logical size of this window after a resize event
