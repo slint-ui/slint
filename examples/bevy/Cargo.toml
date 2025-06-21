@@ -1,6 +1,10 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: MIT
 
+# This example is not part of the Slint Cargo workspace because of the git dependency to bevy. Once bevy
+# releases a version to crates.io that depends on wgpu 25, we can re-insert the example into the workspace.
+[workspace]
+
 [package]
 name = "bevy-example"
 version = "1.13.0"
@@ -15,9 +19,10 @@ name = "bevy_example"
 path = "main.rs"
 
 [dependencies]
-slint = { path = "../../api/rs/slint", features = ["unstable-wgpu-24"] }
+slint = { path = "../../api/rs/slint", features = ["unstable-wgpu-25"] }
 spin_on = { version = "0.1" }
-bevy = { version = "0.16.0", default-features = false, features = ["bevy_core_pipeline", "bevy_pbr", "bevy_window", "bevy_scene", "bevy_gltf", "bevy_log", "jpeg", "png", "tonemapping_luts", "multi_threaded"] }
+bevy = { git = "https://github.com/bevyengine/bevy.git", rev = "96dcbc5f8c37753dd854b0902758d0e2030e0df9", version = "0.17.0-dev", default-features = false, features = ["bevy_core_pipeline", "bevy_pbr", "bevy_window", "bevy_scene", "bevy_gltf", "bevy_log", "jpeg", "png", "tonemapping_luts", "multi_threaded"] }
+bevy_utils = { git = "https://github.com/bevyengine/bevy.git", rev = "96dcbc5f8c37753dd854b0902758d0e2030e0df9", version = "0.17.0-dev", default-features = false, features = ["wgpu_wrapper"] }
 smol = { version = "2.0.0" }
 async-compat = { version = "0.2.4" }
 reqwest = { version = "0.12", features = ["stream"] }

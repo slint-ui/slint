@@ -9,7 +9,7 @@
 
 use std::sync::Arc;
 
-use slint::wgpu_24::wgpu;
+use slint::wgpu_25::wgpu;
 
 use bevy::{
     prelude::*,
@@ -58,7 +58,11 @@ pub async fn run_bevy_app_with_slint(
         flags: wgpu::InstanceFlags::from_build_config().with_env(),
         backend_options: wgpu::BackendOptions {
             dx12: wgpu::Dx12BackendOptions { shader_compiler: dx12_shader_compiler },
-            gl: wgpu::GlBackendOptions { gles_minor_version },
+            gl: wgpu::GlBackendOptions {
+                gles_minor_version,
+                fence_behavior: wgpu::GlFenceBehavior::default(),
+            },
+            noop: wgpu::NoopBackendOptions::default(),
         },
     })
     .await;
@@ -72,7 +76,7 @@ pub async fn run_bevy_app_with_slint(
         .await;
 
     let selector =
-        slint::BackendSelector::new().require_wgpu_24(slint::wgpu_24::WGPUConfiguration::Manual {
+        slint::BackendSelector::new().require_wgpu_25(slint::wgpu_25::WGPUConfiguration::Manual {
             instance: instance.clone(),
             adapter: (**adapter.0).clone(),
             device: render_device.wgpu_device().clone(),
@@ -185,9 +189,9 @@ pub async fn run_bevy_app_with_slint(
                     render_queue,
                     adapter_info,
                     adapter,
-                    bevy::render::renderer::RenderInstance(Arc::new(
-                        bevy::render::renderer::WgpuWrapper::new(instance),
-                    )),
+                    bevy::render::renderer::RenderInstance(Arc::new(bevy_utils::WgpuWrapper::new(
+                        instance,
+                    ))),
                 ),
                 ..default()
             }), //.disable::<bevy::winit::WinitPlugin>(),

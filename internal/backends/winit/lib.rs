@@ -381,14 +381,14 @@ impl BackendBuilder {
             #[cfg(feature = "renderer-femtovg-wgpu")]
             (Some("femtovg-wgpu"), maybe_graphics_api) => {
                 if !maybe_graphics_api.is_some_and(|_api| {
-                    #[cfg(feature = "unstable-wgpu-24")]
-                    if matches!(_api, RequestedGraphicsAPI::WGPU24(..)) {
+                    #[cfg(feature = "unstable-wgpu-25")]
+                    if matches!(_api, RequestedGraphicsAPI::WGPU25(..)) {
                         return true;
                     }
                     false
                 }) {
                     return Err(
-                        "The FemtoVG WGPU renderer only supports the WGPU24 graphics API selection"
+                        "The FemtoVG WGPU renderer only supports the WGPU25 graphics API selection"
                             .into(),
                     );
                 }
@@ -425,8 +425,8 @@ impl BackendBuilder {
                     return Err(PlatformError::NoPlatform);
                 }
             }
-            #[cfg(feature = "unstable-wgpu-24")]
-            (None, Some(RequestedGraphicsAPI::WGPU24(..))) => {
+            #[cfg(feature = "unstable-wgpu-25")]
+            (None, Some(RequestedGraphicsAPI::WGPU25(..))) => {
                 renderer::femtovg::WGPUFemtoVGRenderer::new_suspended
             }
             (None, Some(_requested_graphics_api)) => {

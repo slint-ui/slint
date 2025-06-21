@@ -15,7 +15,7 @@ path = "main.rs"
 name = "wgpu_texture"
 
 [dependencies]
-slint = { path = "../../api/rs/slint", features = ["unstable-wgpu-24"] }
+slint = { path = "../../api/rs/slint", features = ["unstable-wgpu-25"] }
 bytemuck = { workspace = true }
 
 [build-dependencies]
