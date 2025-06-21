@@ -269,22 +269,22 @@ pub enum GraphicsAPI<'a> {
         /// `getContext` function on the HTML Canvas element.
         context_type: &'a str,
     },
-    /// The rendering is based on WGPU 24.x. Use the provided fields to submit commits to the provided
+    /// The rendering is based on WGPU 25.x. Use the provided fields to submit commits to the provided
     /// WGPU command queue.
     ///
-    /// *Note*: This function is behind the [`unstable-wgpu-24` feature flag](slint:rust:slint/docs/cargo_features/#backends)
+    /// *Note*: This function is behind the [`unstable-wgpu-25` feature flag](slint:rust:slint/docs/cargo_features/#backends)
     ///         and may be removed or changed in future minor releases, as new major WGPU releases become available.
     ///
-    /// See also the [`slint::wgpu_24`](slint:rust:slint/wgpu_24) module.
-    #[cfg(feature = "unstable-wgpu-24")]
+    /// See also the [`slint::wgpu_25`](slint:rust:slint/wgpu_25) module.
+    #[cfg(feature = "unstable-wgpu-25")]
     #[non_exhaustive]
-    WGPU24 {
+    WGPU25 {
         /// The WGPU instance used for rendering.
-        instance: wgpu_24::Instance,
+        instance: wgpu_25::Instance,
         /// The WGPU device used for rendering.
-        device: wgpu_24::Device,
+        device: wgpu_25::Device,
         /// The WGPU queue for used for command submission.
-        queue: wgpu_24::Queue,
+        queue: wgpu_25::Queue,
     },
 }
 
@@ -295,8 +295,8 @@ impl core::fmt::Debug for GraphicsAPI<'_> {
             GraphicsAPI::WebGL { context_type, .. } => {
                 write!(f, "GraphicsAPI::WebGL(context_type = {context_type})")
             }
-            #[cfg(feature = "unstable-wgpu-24")]
-            GraphicsAPI::WGPU24 { .. } => write!(f, "GraphicsAPI::WGPU24"),
+            #[cfg(feature = "unstable-wgpu-25")]
+            GraphicsAPI::WGPU25 { .. } => write!(f, "GraphicsAPI::WGPU25"),
         }
     }
 }
