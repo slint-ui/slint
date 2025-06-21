@@ -8,6 +8,8 @@ All notable changes to this project are documented in this file.
 ### Rust
 
  - Minimum Supported Rust Version (MSRV) is 1.85
+ - Upgraded WGPU dependency to version 25: The `unstable-wgpu-25` Cargo feature replaces the old `unstable-wgpu-24` feature,
+   and the `slint::wgpu_25` module replaces the `slint::wgpu_24` module. There were no further changes to the API.
 
 ### Node.js API
 
