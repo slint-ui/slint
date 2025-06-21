@@ -103,6 +103,19 @@ The `cbindgen` xtask generates multiple header files for four different modules:
 
 Typically the input to `cbindgen` is within `ffi` sub-modules in the corresponding input crates to `cbindgen`. These `ffi` modules are gated with `#[cfg(feature = "ffi")]`.
 
+## Pre-commit
+
+Before commiting it can be useful to use pre-commit for checking file (as yaml file)
+
+Installing it it's easy:
+
+```
+$ pre-commit install -f
+```
+
+Each time that you will create a MR it will execute it.
+
+
 ## Commit History & Code Reviews
 
 Linear history is preferred over merge commits. Long lived features can live in feature branches and those can be integrated
