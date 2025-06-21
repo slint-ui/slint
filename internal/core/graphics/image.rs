@@ -7,6 +7,7 @@ This module contains image decoding and caching related types for the run-time l
 
 use crate::lengths::{PhysicalPx, ScaleFactor};
 use crate::slice::Slice;
+#[allow(unused)]
 use crate::{SharedString, SharedVector};
 
 use super::{IntRect, IntSize};
@@ -288,21 +289,22 @@ pub struct StaticTextures {
 /// time of the file it points to.
 #[derive(PartialEq, Eq, Debug, Hash, Clone)]
 #[repr(C)]
+#[cfg(feature = "std")]
 pub struct CachedPath {
     path: SharedString,
     /// SystemTime since UNIX_EPOC as secs
-    last_modified: u64,
+    last_modified: u32,
 }
 
+#[cfg(feature = "std")]
 impl CachedPath {
-    #[cfg(feature = "std")]
     fn new<P: AsRef<std::path::Path>>(path: P) -> Self {
-        let path_str = SharedString::from(path.as_ref().to_string_lossy().as_ref());
+        let path_str = path.as_ref().to_string_lossy().as_ref().into();
         let timestamp = std::fs::metadata(path)
             .and_then(|md| md.modified())
             .unwrap_or(std::time::UNIX_EPOCH)
             .duration_since(std::time::UNIX_EPOCH)
-            .map(|t| t.as_secs())
+            .map(|t| t.as_secs() as u32)
             .unwrap_or_default();
         Self { path: path_str, last_modified: timestamp }
     }
@@ -316,6 +318,7 @@ pub enum ImageCacheKey {
     /// This variant indicates that no image cache key can be created for the image.
     /// For example this is the case for programmatically created images.
     Invalid = 0,
+    #[cfg(feature = "std")]
     /// The image is identified by its path on the file system and the last modification time stamp.
     Path(CachedPath) = 1,
     /// The image is identified by a URL.
@@ -1341,11 +1344,13 @@ pub(crate) mod ffi {
     pub extern "C" fn slint_image_path(image: &Image) -> Option<&SharedString> {
         match &image.0 {
             ImageInner::EmbeddedImage { cache_key, .. } => match cache_key {
+                #[cfg(feature = "std")]
                 ImageCacheKey::Path(CachedPath { path, .. }) => Some(path),
                 _ => None,
             },
             ImageInner::NineSlice(nine) => match &nine.0 {
                 ImageInner::EmbeddedImage { cache_key, .. } => match cache_key {
+                    #[cfg(feature = "std")]
                     ImageCacheKey::Path(CachedPath { path, .. }) => Some(path),
                     _ => None,
                 },

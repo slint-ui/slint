@@ -4,6 +4,7 @@
 // for MenuVTable_static
 #![allow(unsafe_code)]
 
+use crate::graphics::Image;
 use crate::item_rendering::CachedRenderingData;
 use crate::item_tree::{ItemTreeRc, ItemWeak, VisitChildrenResult};
 use crate::items::{ItemRc, ItemRef, MenuEntry, VoidArg};
@@ -87,11 +88,12 @@ impl MenuFromItemTree {
                     let children = self.update_shadow_tree_recursive(&item);
                     let has_sub_menu = !children.is_empty();
                     let enabled = menu_item.enabled();
+                    let icon = menu_item.icon();
                     self.item_cache.borrow_mut().insert(
                         id.clone(),
                         ShadowTreeNode { item: ItemRc::downgrade(&item), children },
                     );
-                    result.push(MenuEntry { title, id, has_sub_menu, is_separator, enabled });
+                    result.push(MenuEntry { title, id, has_sub_menu, is_separator, enabled, icon });
                 }
                 VisitChildrenResult::CONTINUE
             };
@@ -146,6 +148,7 @@ pub struct MenuItem {
     pub title: Property<SharedString>,
     pub activated: Callback<VoidArg>,
     pub enabled: Property<bool>,
+    pub icon: Property<Image>,
 }
 
 impl crate::items::Item for MenuItem {
