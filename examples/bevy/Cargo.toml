@@ -15,9 +15,10 @@ name = "bevy_example"
 path = "main.rs"
 
 [dependencies]
-slint = { path = "../../api/rs/slint", features = ["unstable-wgpu-24"] }
+slint = { path = "../../api/rs/slint", features = ["unstable-wgpu-25"] }
 spin_on = { version = "0.1" }
-bevy = { version = "0.16.0", default-features = false, features = ["bevy_core_pipeline", "bevy_pbr", "bevy_window", "bevy_scene", "bevy_gltf", "bevy_log", "jpeg", "png", "tonemapping_luts", "multi_threaded"] }
+bevy = { git = "https://github.com/bevyengine/bevy.git", rev = "refs/pull/19563/merge", version = "0.16.0-dev", default-features = false, features = ["bevy_core_pipeline", "bevy_pbr", "bevy_window", "bevy_scene", "bevy_gltf", "bevy_log", "jpeg", "png", "tonemapping_luts", "multi_threaded"] }
+bevy_utils = { git = "https://github.com/bevyengine/bevy.git", rev = "refs/pull/19563/merge", version = "0.16.0-dev", default-features = false, features = ["wgpu_wrapper"] }
 smol = { version = "2.0.0" }
 async-compat = { version = "0.2.4" }
 reqwest = { version = "0.12", features = ["stream"] }
