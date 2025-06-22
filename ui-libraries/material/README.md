@@ -33,7 +33,7 @@ development and user interface components. Our aim is to make developing user
 interfaces fun for everyone: from Python, JavaScript, C++, or Rust developers all the
 way to UI/UX designers. We believe that software grows organically and keeping
 it open source is the best way to sustain that growth. Our team members are
-located remotely in Germany, Finland, and US.
+located remotely in Germany, Finland, and the US.
 
 ### Stay up to date
 
