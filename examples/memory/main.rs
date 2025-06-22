@@ -22,7 +22,7 @@ pub fn main() {
     let main_window = MainWindow::new().unwrap();
 
     let mut tiles: Vec<TileData> = main_window.get_memory_tiles().iter().collect();
-    tiles.extend(tiles.clone());
+    tiles.extend_from_within(..);
 
     use rand::seq::SliceRandom;
     let mut rng = rand::thread_rng();
