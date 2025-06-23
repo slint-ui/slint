@@ -19,6 +19,8 @@ struct ChangeTrackerInner<T, EvalFn, NotifyFn, Data> {
     notify_fn: NotifyFn,
     value: T,
     data: Data,
+    /// When true, we are currently running eval_fn or notify_fn and we shouldn't be dropped
+    evaluating: bool,
 }
 
 /// A change tracker is used to run a callback when a property value changes.
@@ -82,7 +84,8 @@ impl ChangeTracker {
         delayed: bool,
     ) {
         self.clear();
-        let inner = ChangeTrackerInner { eval_fn, notify_fn, value: T::default(), data };
+        let inner =
+            ChangeTrackerInner { eval_fn, notify_fn, value: T::default(), data, evaluating: false };
 
         unsafe fn evaluate<T: PartialEq, EF: Fn(&Data) -> T, NF: Fn(&Data, &T), Data>(
             _self: *mut BindingHolder,
@@ -91,19 +94,29 @@ impl ChangeTracker {
             let pinned_holder = Pin::new_unchecked(&*_self);
             let _self = _self as *mut BindingHolder<ChangeTrackerInner<T, EF, NF, Data>>;
             let inner = core::ptr::addr_of_mut!((*_self).binding).as_mut().unwrap();
+            assert!(!inner.evaluating);
+            inner.evaluating = true;
             let new_value =
                 super::CURRENT_BINDING.set(Some(pinned_holder), || (inner.eval_fn)(&inner.data));
             if new_value != inner.value {
                 inner.value = new_value;
                 (inner.notify_fn)(&inner.data, &inner.value);
             }
+            if !core::mem::replace(&mut inner.evaluating, false) {
+                core::mem::drop(Box::from_raw(_self));
+            }
             BindingResult::KeepBinding
         }
 
         unsafe fn drop<T, EF, NF, Data>(_self: *mut BindingHolder) {
-            core::mem::drop(Box::from_raw(
-                _self as *mut BindingHolder<ChangeTrackerInner<T, EF, NF, Data>>,
-            ));
+            let _self = _self as *mut BindingHolder<ChangeTrackerInner<T, EF, NF, Data>>;
+            let evaluating = core::mem::replace(
+                &mut core::ptr::addr_of_mut!((*_self).binding).as_mut().unwrap().evaluating,
+                false,
+            );
+            if !evaluating {
+                core::mem::drop(Box::from_raw(_self));
+            }
         }
 
         trait HasBindingVTable {
@@ -177,16 +190,14 @@ impl ChangeTracker {
                     return;
                 }
                 DependencyListHead::swap(list.as_ref(), old_list.as_ref());
-                old_list.for_each(|node| {
-                    let node = *node;
+                while let Some(node) = old_list.take_head() {
                     unsafe {
                         ((*addr_of!((*node).vtable)).evaluate)(
                             node as *mut BindingHolder,
                             core::ptr::null_mut(),
                         );
                     }
-                });
-                old_list.as_ref().clear();
+                }
             }
         });
     }
@@ -254,4 +265,45 @@ fn change_tracker() {
     assert_eq!(state.borrow().as_str(), ":1(30):2(60)");
     ChangeTracker::run_change_handlers();
     assert_eq!(state.borrow().as_str(), ":1(30):2(60):1(1):2(2)");
+}
+
+/// test for issue #8741
+#[test]
+fn delete_from_eval_fn() {
+    use std::cell::RefCell;
+    use std::rc::Rc;
+    use std::string::String;
+
+    let change = Rc::<RefCell<Option<ChangeTracker>>>::new(Some(ChangeTracker::default()).into());
+    let xyz = RefCell::new(String::from("*"));
+    let result = Rc::new(RefCell::new(String::new()));
+    let result2 = result.clone();
+    // The change event are run in reverse order as they are created, so this one shouldn't be ever called as it is being detroyed from `change`
+    let another = Rc::<RefCell<Option<ChangeTracker>>>::new(Some(ChangeTracker::default()).into());
+    another.borrow().as_ref().unwrap().init_delayed(
+        (),
+        |()| unreachable!(),
+        move |(), &()| unreachable!(),
+    );
+    change.borrow().as_ref().unwrap().init_delayed(
+        change.clone(),
+        |x| {
+            x.borrow_mut().take().unwrap();
+            String::from("hi")
+        },
+        move |x, val| {
+            assert!(x.borrow().is_none());
+            assert_eq!(val, "hi");
+            xyz.borrow_mut().push_str("+");
+            assert!(xyz.borrow().as_str().starts_with("*+"));
+            result2.replace(xyz.borrow().clone());
+            another.borrow_mut().take().unwrap();
+        },
+    );
+
+    assert_eq!(result.borrow().as_str(), "");
+    ChangeTracker::run_change_handlers();
+    assert_eq!(result.borrow().as_str(), "*+");
+    ChangeTracker::run_change_handlers();
+    assert_eq!(result.borrow().as_str(), "*+");
 }
