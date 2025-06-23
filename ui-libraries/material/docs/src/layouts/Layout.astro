@@ -1,0 +1,48 @@
+---
+// Copyright © onWidget <https://github.com/onwidget>
+// SPDX-License-Identifier: MIT
+import "~/assets/styles/tailwind.css";
+
+import { I18N } from "astrowind:config";
+
+import CommonMeta from "~/components/common/CommonMeta.astro";
+import Favicons from "~/components/Favicons.astro";
+import CustomStyles from "~/components/CustomStyles.astro";
+import ApplyColorMode from "~/components/common/ApplyColorMode.astro";
+import Metadata from "~/components/common/Metadata.astro";
+import SiteVerification from "~/components/common/SiteVerification.astro";
+import BasicScripts from "~/components/common/BasicScripts.astro";
+
+// Comment the line below to disable View Transitions
+import { ClientRouter } from "astro:transitions";
+
+import type { MetaData as MetaDataType } from "~/types";
+
+export interface Props {
+    metadata?: MetaDataType;
+}
+
+const { metadata = {} } = Astro.props;
+const { language, textDirection } = I18N;
+---
+
+<!doctype html>
+<html lang={language} dir={textDirection} class="2xl:text-[20px]">
+  <head>
+    <CommonMeta />
+    <Favicons />
+    <CustomStyles />
+    <ApplyColorMode />
+    <Metadata {...metadata} />
+    <SiteVerification />
+
+    <!-- Comment the line below to disable View Transitions -->
+    <ClientRouter fallback="swap" />
+  </head>
+
+  <body class="antialiased text-default bg-page tracking-tight">
+    <slot />
+
+    <BasicScripts />
+  </body>
+</html>

@@ -1,0 +1,69 @@
+site:
+  name: Slint Material Components
+  site: 'https://material.slint.dev'
+  base: '/'
+  trailingSlash: true
+
+  googleSiteVerificationId: orcPxI47GSa-cRvY11tUe6iGg2IO_RPvnA1q95iEM3M
+
+# Default SEO metadata
+metadata:
+  title:
+    default: Slint Material Components
+    template: '%s — Slint Material UI'
+  description: "\U0001F680 A collection of modern, easy-to-use touch-friendly components."
+  robots:
+    index: true
+    follow: true
+  openGraph:
+    site_name: Slint Material Components
+    images:
+      - url: '~/assets/images/Components.png'
+        width: 1200
+        height: 628
+    type: website
+  twitter:
+    handle: '@slint_ui'
+    site: '@slint_ui'
+    cardType: summary_large_image
+
+i18n:
+  language: en
+  textDirection: ltr
+
+apps:
+  blog:
+    isEnabled: true
+    postsPerPage: 6
+
+    post:
+      isEnabled: true
+      permalink: '/%slug%' # Variables: %slug%, %year%, %month%, %day%, %hour%, %minute%, %second%, %category%
+      robots:
+        index: true
+
+    list:
+      isEnabled: true
+      pathname: 'blog' # Blog main path, you can change this to "articles" (/articles)
+      robots:
+        index: true
+
+    category:
+      isEnabled: true
+      pathname: 'category' # Category main path /category/some-category, you can change this to "group" (/group/some-category)
+      robots:
+        index: true
+
+    tag:
+      isEnabled: true
+      pathname: 'tag' # Tag main path /tag/some-tag, you can change this to "topics" (/topics/some-category)
+      robots:
+        index: false
+
+    isRelatedPostsEnabled: true
+    relatedPostsCount: 4
+
+
+
+ui:
+  theme: 'system' # Values: "system" | "light" | "dark" | "light:only" | "dark:only"

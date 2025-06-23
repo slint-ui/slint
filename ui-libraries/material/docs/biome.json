@@ -1,6 +1,12 @@
 {
     "formatter": {
-        "ignore": ["archive/**", ".astro", "dist", "codemirror.js"],
+        "includes": [
+            "**",
+            "!**/archive/**",
+            "!**/.astro",
+            "!**/dist",
+            "!**/codemirror.js"
+        ],
         "enabled": true,
         "formatWithErrors": false,
         "indentStyle": "space",
@@ -9,12 +15,19 @@
         "attributePosition": "auto"
     },
     "linter": {
-        "ignore": ["archive/**", ".astro", "dist", "codemirror.js"],
+        "includes": [
+            "**",
+            "!**/archive/**",
+            "!**/.astro",
+            "!**/dist",
+            "!**/codemirror.js"
+        ],
         "rules": {
             "recommended": false,
             "complexity": {
                 "noBannedTypes": "warn",
-                "noUselessConstructor": "error"
+                "noUselessConstructor": "error",
+                "useArrowFunction": "off"
             },
             "style": {
                 "useBlockStatements": "warn",
@@ -43,7 +56,7 @@
     },
     "overrides": [
         {
-            "include": ["*.astro"],
+            "includes": ["**/*.astro"],
             "linter": {
                 "rules": {
                     "style": {

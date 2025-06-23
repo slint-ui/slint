@@ -23,6 +23,11 @@ path = [
   "docs/src/assets/**.webp",
   ".gitignore",
   "docs/pnpm-lock.yaml",
+  "docs/src/assets/favicons/apple-touch-icon.png",
+  "docs/src/assets/favicons/favicon.ico",
+  "docs/src/assets/images/Components.png",
+  "docs/src/assets/styles/tailwind.css",
+  "docs/src/config.yaml",
 ]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"
