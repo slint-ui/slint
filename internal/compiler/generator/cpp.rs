@@ -3129,10 +3129,10 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             format!("slint::private_api::{}({})", ident(function), a.join(","))
         }
         Expression::FunctionParameterReference { index, .. } => format!("arg_{index}"),
-        Expression::StoreLocalVariable { name, discriminator, value } => {
-            format!("auto {}{} = {};", ident(name), discriminator.map_or(SmolStr::new(""), |d| d.to_smolstr()), compile_expression(value, ctx))
+        Expression::StoreLocalVariable { name, value } => {
+            format!("auto {} = {};", ident(name), compile_expression(value, ctx))
         }
-        Expression::ReadLocalVariable { name, discriminator, .. } => format!("{}{}", ident(name), discriminator.map_or(SmolStr::new(""), |d| d.to_smolstr())),
+        Expression::ReadLocalVariable { name, .. } => format!("{}", ident(name)),
         Expression::StructFieldAccess { base, name } => match base.ty(ctx) {
             Type::Struct(s)=> {
                 if s.name.is_none() {

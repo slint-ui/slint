@@ -35,14 +35,12 @@ pub fn lower_absolute_coordinates(component: &Rc<Component>) {
 
         let parent_position_var = Box::new(Expression::ReadLocalVariable {
             name: "parent_position".into(),
-            discriminator: None,
             ty: point_type.clone().into(),
         });
 
         let binding = Expression::CodeBlock(vec![
             Expression::StoreLocalVariable {
                 name: "parent_position".into(),
-                discriminator: None,
                 value: Expression::FunctionCall {
                     function: BuiltinFunction::ItemAbsolutePosition.into(),
                     arguments: vec![Expression::ElementReference(Rc::downgrade(&elem))],

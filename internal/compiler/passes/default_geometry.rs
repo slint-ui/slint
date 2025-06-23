@@ -273,7 +273,6 @@ fn merge_explicit_constraints(
         let ty = expr.ty();
         let store = Expression::StoreLocalVariable {
             name: unique_name.clone(),
-            discriminator: None,
             value: Box::new(std::mem::take(expr)),
         };
         let Type::Struct(s) = &ty else { unreachable!() };
@@ -286,7 +285,6 @@ fn merge_explicit_constraints(
                     Expression::StructFieldAccess {
                         base: Expression::ReadLocalVariable {
                             name: unique_name.clone(),
-                            discriminator: None,
                             ty: ty.clone(),
                         }
                         .into(),
@@ -442,14 +440,12 @@ fn make_default_aspect_ratio_preserving_binding(
     } else {
         let implicit_size_var = Box::new(Expression::ReadLocalVariable {
             name: "image_implicit_size".into(),
-            discriminator: None,
             ty: BuiltinFunction::ImageSize.ty().return_type.clone(),
         });
 
         Expression::CodeBlock(vec![
             Expression::StoreLocalVariable {
                 name: "image_implicit_size".into(),
-                discriminator: None,
                 value: Box::new(Expression::FunctionCall {
                     function: BuiltinFunction::ImageSize.into(),
                     arguments: vec![Expression::PropertyReference(NamedReference::new(

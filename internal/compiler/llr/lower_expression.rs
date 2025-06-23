@@ -109,17 +109,15 @@ pub fn lower_expression(
         tree_Expression::FunctionParameterReference { index, .. } => {
             llr_Expression::FunctionParameterReference { index: *index }
         }
-        tree_Expression::StoreLocalVariable { name, discriminator, value } => {
+        tree_Expression::StoreLocalVariable { name, value } => {
             llr_Expression::StoreLocalVariable {
                 name: name.clone(),
-                discriminator: discriminator.clone(),
                 value: Box::new(lower_expression(value, ctx)),
             }
         }
-        tree_Expression::ReadLocalVariable { name, discriminator, ty } => {
+        tree_Expression::ReadLocalVariable { name, ty } => {
             llr_Expression::ReadLocalVariable {
                 name: name.clone(),
-                discriminator: discriminator.clone(),
                 ty: ty.clone(),
             }
         }
@@ -295,11 +293,10 @@ fn lower_assignment(
             );
             let s = tree_Expression::StoreLocalVariable {
                 name: unique_name.clone(),
-                discriminator: None,
                 value: base.clone(),
             };
             let lower_base =
-                tree_Expression::ReadLocalVariable { name: unique_name, discriminator: None, ty: ty.clone() };
+                tree_Expression::ReadLocalVariable { name: unique_name, ty: ty.clone() };
             let mut values = HashMap::new();
             let Type::Struct(ty) = ty else { unreachable!() };
 
@@ -517,7 +514,6 @@ pub fn lower_animation(a: &PropertyAnimation, ctx: &mut ExpressionLoweringCtx<'_
         PropertyAnimation::Transition { state_ref, animations } => {
             let set_state = llr_Expression::StoreLocalVariable {
                 name: "state".into(),
-                discriminator: None,
                 value: Box::new(lower_expression(state_ref, ctx)),
             };
             let animation_ty = Type::Struct(animation_ty());
@@ -526,7 +522,6 @@ pub fn lower_animation(a: &PropertyAnimation, ctx: &mut ExpressionLoweringCtx<'_
                 let condition = lower_expression(
                     &tr.condition(tree_Expression::ReadLocalVariable {
                         name: "state".into(),
-                        discriminator: None,
                         ty: state_ref.ty(),
                     }),
                     ctx,
@@ -557,7 +552,6 @@ pub fn lower_animation(a: &PropertyAnimation, ctx: &mut ExpressionLoweringCtx<'_
                         llr_Expression::StructFieldAccess {
                             base: llr_Expression::ReadLocalVariable {
                                 name: "state".into(),
-                                discriminator: None,
                                 ty: state_ref.ty(),
                             }
                             .into(),
@@ -664,7 +658,6 @@ fn solve_layout(
                                     cells_ty.clone(),
                                     llr_Expression::ReadLocalVariable {
                                         name: "cells".into(),
-                                        discriminator: None,
                                         ty: cells_ty,
                                     },
                                 ),
@@ -720,7 +713,6 @@ fn solve_layout(
                             data,
                             llr_Expression::ReadLocalVariable {
                                 name: "repeated_indices".into(),
-                                discriminator: None,
                                 ty: Type::Array(Type::Int32.into()),
                             },
                         ],
@@ -815,7 +807,6 @@ fn box_layout_data(
         }
         let cells = llr_Expression::ReadLocalVariable {
             name: "cells".into(),
-            discriminator: None,
             ty: Type::Array(Rc::new(crate::typeregister::layout_info_type().into())),
         };
         BoxLayoutDataResult { alignment, cells, compute_cells: Some(("cells".into(), elements)) }
@@ -914,7 +905,6 @@ pub fn get_layout_info(
     if constraints.has_explicit_restrictions(orientation) {
         let store = llr_Expression::StoreLocalVariable {
             name: "layout_info".into(),
-            discriminator: None,
             value: layout_info.into(),
         };
         let ty = crate::typeregister::layout_info_type();
@@ -927,7 +917,6 @@ pub fn get_layout_info(
                     llr_Expression::StructFieldAccess {
                         base: llr_Expression::ReadLocalVariable {
                             name: "layout_info".into(),
-                            discriminator: None,
                             ty: ty.clone().into(),
                         }
                         .into(),

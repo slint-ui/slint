@@ -50,12 +50,7 @@ pub struct LookupCtx<'a> {
     pub current_token: Option<NodeOrToken>,
 
     /// Local variables declared in the current scope
-    /// Contains variable name, discriminator, and type
-    pub local_variables: Vec<(SmolStr, usize, Type)>,
-
-    /// A discriminator to ensure that local variable names are unique
-    /// (this is used to ensure that shadowed local variables will compile in the C++)
-    pub next_local_variable_discriminator: usize,
+    pub local_variables: Vec<(SmolStr, Type)>,
 }
 
 impl<'a> LookupCtx<'a> {
@@ -71,7 +66,6 @@ impl<'a> LookupCtx<'a> {
             type_loader: None,
             current_token: None,
             local_variables: Default::default(),
-            next_local_variable_discriminator: 0,
         }
     }
 
@@ -235,13 +229,11 @@ impl LookupObject for LocalVariableLookup {
         ctx: &LookupCtx,
         f: &mut impl FnMut(&SmolStr, LookupResult) -> Option<R>,
     ) -> Option<R> {
-        // Reverse the local variables so that the last shadow is found first during lookup
-        for (name, discriminator, ty) in ctx.local_variables.iter().rev() {
+        for (name, ty) in ctx.local_variables.iter() {
             if let Some(r) = f(
-                &name,
+                &name.strip_prefix("local_").unwrap_or(name).into(),
                 Expression::ReadLocalVariable {
                     name: name.clone(),
-                    discriminator: Some(*discriminator),
                     ty: ty.clone(),
                 }
                 .into(),

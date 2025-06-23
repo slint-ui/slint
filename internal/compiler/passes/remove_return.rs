@@ -214,12 +214,10 @@ fn continue_codeblock(
     );
     let load = Box::new(Expression::ReadLocalVariable {
         name: unique_name.clone(),
-        discriminator: None,
         ty: return_object.ty(),
     });
     stmts.push(Expression::StoreLocalVariable {
         name: unique_name,
-        discriminator: None,
         value: return_object.into(),
     });
     stmts.push(Expression::Condition {
@@ -305,13 +303,11 @@ impl ExpressionResult {
                 );
                 let load = Box::new(Expression::ReadLocalVariable {
                     name: name.clone(),
-                    discriminator: None,
                     ty: value.ty(),
                 });
                 Expression::CodeBlock(vec![
                     Expression::StoreLocalVariable {
                         name,
-                        discriminator: None,
                         value: value.into(),
                     },
                     Expression::Condition {
@@ -448,7 +444,6 @@ impl ExpressionResult {
                 let load = |field: &str| Expression::StructFieldAccess {
                     base: Box::new(Expression::ReadLocalVariable {
                         name: name.clone(),
-                        discriminator: None,
                         ty: value_ty.clone(),
                     }),
                     name: field.into(),
@@ -464,7 +459,6 @@ impl ExpressionResult {
                     value: Expression::CodeBlock(vec![
                         Expression::StoreLocalVariable {
                             name,
-                            discriminator: None,
                             value: value.into(),
                         },
                         make_struct([condition, actual].into_iter().chain(ret.into_iter())),
@@ -553,7 +547,6 @@ fn convert_struct(from: Expression, to: Type) -> Expression {
             Expression::StructFieldAccess {
                 base: Box::new(Expression::ReadLocalVariable {
                     name: var_name.clone(),
-                    discriminator: None,
                     ty: from_ty.clone(),
                 }),
                 name: key.clone(),
@@ -566,7 +559,6 @@ fn convert_struct(from: Expression, to: Type) -> Expression {
     Expression::CodeBlock(vec![
         Expression::StoreLocalVariable {
             name: var_name,
-            discriminator: None,
             value: Box::new(from),
         },
         Expression::Struct { values: new_values, ty: to },

@@ -34,7 +34,6 @@ pub enum Expression {
     /// Should be directly within a CodeBlock expression, and store the value of the expression in a local variable
     StoreLocalVariable {
         name: SmolStr,
-        discriminator: Option<usize>,
         value: Box<Expression>,
     },
 
@@ -42,7 +41,7 @@ pub enum Expression {
     /// with this name and this type before in one of the statement of an enclosing codeblock
     ReadLocalVariable {
         name: SmolStr,
-        discriminator: Option<usize>,
+
         ty: Type,
     },
 

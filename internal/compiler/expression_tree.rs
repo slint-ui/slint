@@ -611,7 +611,6 @@ pub enum Expression {
     /// Should be directly within a CodeBlock expression, and store the value of the expression in a local variable
     StoreLocalVariable {
         name: SmolStr,
-        discriminator: Option<usize>,
         value: Box<Expression>,
     },
 
@@ -619,7 +618,6 @@ pub enum Expression {
     /// with this name and this type before in one of the statement of an enclosing codeblock
     ReadLocalVariable {
         name: SmolStr,
-        discriminator: Option<usize>,
         ty: Type,
     },
 
@@ -1194,7 +1192,6 @@ impl Expression {
                             Expression::StructFieldAccess {
                                 base: Box::new(Expression::ReadLocalVariable {
                                     name: var_name.clone(),
-                                    discriminator: None,
                                     ty: from_ty.clone(),
                                 }),
                                 name: key.clone(),
@@ -1208,7 +1205,6 @@ impl Expression {
                     return Expression::CodeBlock(vec![
                         Expression::StoreLocalVariable {
                             name: var_name,
-                            discriminator: None,
                             value: Box::new(self),
                         },
                         Expression::Struct { values: new_values, ty: right.clone() },
