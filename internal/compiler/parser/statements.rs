@@ -55,7 +55,7 @@ pub fn parse_statement(p: &mut impl Parser) -> bool {
         return true;
     }
 
-    if p.peek().as_str() == "let" {
+    if p.peek().as_str() == "let" && p.nth(1).kind() == SyntaxKind::Identifier {
         parse_let_statement(p);
         return true;
     }
