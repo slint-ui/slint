@@ -237,6 +237,8 @@ pub async fn run_passes(
     });
 
     remove_unused_properties::remove_unused_properties(doc);
+    // collect globals once more: After optimizations we might have less globals
+    collect_globals::collect_globals(doc, diag);
     collect_structs_and_enums::collect_structs_and_enums(doc);
 
     doc.visit_all_used_components(|component| {
@@ -244,9 +246,6 @@ pub async fn run_passes(
             generate_item_indices::generate_item_indices(component);
         }
     });
-
-    // collect globals once more: After optimizations we might have less globals
-    collect_globals::collect_globals(doc, diag);
 
     embed_images::embed_images(
         doc,
