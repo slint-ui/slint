@@ -145,6 +145,10 @@ impl Document {
                 .collect();
             let en =
                 Enumeration { name: name.clone(), values, default_value: 0, node: Some(n.clone()) };
+            if en.values.is_empty() {
+                diag.push_error("Enums must have at least one value".into(), &n);
+            }
+
             let ty = Type::Enumeration(Rc::new(en));
             if !local_registry.insert_type_with_name(ty.clone(), name.clone()) {
                 diag.push_warning(
