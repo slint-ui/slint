@@ -295,16 +295,13 @@ fn parse_callback_connection(p: &mut impl Parser) {
         p.expect(SyntaxKind::RParent);
     }
     p.expect(SyntaxKind::FatArrow);
-    // parse_code_block(&mut *p);
     if p.nth(0).kind() == SyntaxKind::LBrace && p.nth(2).kind() != SyntaxKind::Colon {
         parse_code_block(&mut *p);
         p.test(SyntaxKind::Semicolon);
-        // true
     } else if parse_expression(&mut *p) {
         p.expect(SyntaxKind::Semicolon) ;
     } else {
         p.test(SyntaxKind::Semicolon);
-        // false
     }
 }
 
