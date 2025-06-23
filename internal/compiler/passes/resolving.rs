@@ -257,11 +257,23 @@ impl Expression {
     ) -> Expression {
         ctx.arguments =
             node.DeclaredIdentifier().map(|x| identifier_text(&x).unwrap_or_default()).collect();
-        Self::from_codeblock_node(node.CodeBlock(), ctx).maybe_convert_to(
-            ctx.return_type().clone(),
-            &node,
-            ctx.diag,
-        )
+            if let Some(code_block_node) = node.CodeBlock(){
+                Self::from_codeblock_node(code_block_node, ctx).maybe_convert_to(
+                ctx.return_type().clone(),
+                &node,
+                ctx.diag,
+            )
+            }
+            else if let Some(expr_node) = node.Expression(){
+                Self::from_expression_node(expr_node, ctx).maybe_convert_to(
+                ctx.return_type().clone(),
+                &node,
+                ctx.diag,
+                )
+            }
+            else{
+                return Expression::Invalid;
+            }
     }
 
     fn from_function(node: syntax_nodes::Function, ctx: &mut LookupCtx) -> Expression {

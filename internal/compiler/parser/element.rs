@@ -274,6 +274,7 @@ pub fn parse_code_block(p: &mut impl Parser) {
 #[cfg_attr(test, parser_test)]
 /// ```test,CallbackConnection
 /// clicked => {}
+/// clicked => bar ; 
 /// clicked() => { foo; }
 /// mouse_move(x, y) => {}
 /// mouse_move(x, y, ) => { bar; goo; }
@@ -294,7 +295,17 @@ fn parse_callback_connection(p: &mut impl Parser) {
         p.expect(SyntaxKind::RParent);
     }
     p.expect(SyntaxKind::FatArrow);
-    parse_code_block(&mut *p);
+    // parse_code_block(&mut *p);
+    if p.nth(0).kind() == SyntaxKind::LBrace && p.nth(2).kind() != SyntaxKind::Colon {
+        parse_code_block(&mut *p);
+        p.test(SyntaxKind::Semicolon);
+        // true
+    } else if parse_expression(&mut *p) {
+        p.expect(SyntaxKind::Semicolon) ;
+    } else {
+        p.test(SyntaxKind::Semicolon);
+        // false
+    }
 }
 
 #[cfg_attr(test, parser_test)]
