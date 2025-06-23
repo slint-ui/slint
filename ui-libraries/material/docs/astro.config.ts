@@ -66,7 +66,10 @@ export default defineConfig({
             logo: {
                 src: "./src/assets/slint-logo-small-light.svg",
             },
-            customCss: ["./src/styles/custom.css", "./src/styles/theme.css"],
+            customCss: [
+                "./src/assets/styles/custom.css",
+                "./src/assets/styles/theme.css",
+            ],
 
             components: {
                 Footer: "./src/components/Footer.astro",

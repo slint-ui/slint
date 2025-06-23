@@ -18,7 +18,7 @@ SPDX-License-Identifier = "Apache-2.0"
 [[annotations]]
 path = [
   "docs/**.json",
-  "docs/src/styles/**.css",
+  "docs/src/assets/styles/**.css",
   "docs/src/assets/**.svg",
   "docs/src/assets/**.webp",
   ".gitignore",
@@ -26,7 +26,6 @@ path = [
   "docs/src/assets/favicons/apple-touch-icon.png",
   "docs/src/assets/favicons/favicon.ico",
   "docs/src/assets/images/Components.png",
-  "docs/src/assets/styles/tailwind.css",
   "docs/src/config.yaml",
 ]
 precedence = "aggregate"

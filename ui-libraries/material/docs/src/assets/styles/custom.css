@@ -55,16 +55,16 @@
     --sl-color-bg: #1b1b1f;
     --sl-color-hairline: #212329;
     --sl-color-hairline-shade: var(--sl-color-hairline);
-    --badge-border-color: --sl-color-hairline;
+    --badge-border-color: var(--sl-color-hairline);
     --slint-code-background: #151517;
-
-    .screenshot-container {
-        background-color: #cdcdcd;
-    }
 
     --sl-color-accent-low: hsl(228, 70%, 30%);
     --sl-color-accent: hsl(228, 100%, 70%);
     --sl-color-accent-high: hsl(228, 90%, 85%);
+}
+
+.screenshot-container {
+    background-color: #cdcdcd;
 }
 
 /* Light mode colors. */
@@ -76,16 +76,17 @@
     --sl-color-hairline: #edeef3;
     --slint-code-background: #f6f6f7;
 
-    .screenshot-container {
-        background-color: whitesmoke;
-    }
-
     --sl-color-accent-high: hsl(222, 80%, 35%);
     --sl-color-accent: hsl(222, 89%, 55%);
     --sl-color-accent-low: hsl(222, 89%, 85%);
-    .site-title {
-        color: #000;
-    }
+}
+
+:root[data-theme="light"] .site-title {
+    color: #000;
+}
+
+:root[data-theme="light"] .screenshot-container {
+    background-color: whitesmoke;
 }
 
 .hero {
@@ -101,7 +102,6 @@
 
 .site-title {
     font-size: 1.3rem;
-    color: #fff;
     margin-top: -4px;
 }
 
@@ -124,8 +124,6 @@ span {
     color: var(--sl-color-orange-high);
 }
 
-.sl-markdown-content {
-    .slint-property {
-        margin-top: 0.1rem;
-    }
+.sl-markdown-content .slint-property {
+    margin-top: 0.1rem;
 }
