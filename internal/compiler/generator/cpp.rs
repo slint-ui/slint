@@ -12,7 +12,7 @@ use std::fmt::Write;
 use std::io::BufWriter;
 use std::sync::OnceLock;
 
-use smol_str::{format_smolstr, SmolStr, StrExt, ToSmolStr};
+use smol_str::{format_smolstr, SmolStr, StrExt};
 
 /// The configuration for the C++ code generator
 #[derive(Clone, Debug, Default, PartialEq)]
