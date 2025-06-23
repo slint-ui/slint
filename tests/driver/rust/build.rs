@@ -15,7 +15,7 @@ fn main() -> std::io::Result<()> {
         if module_name.starts_with(|c: char| !c.is_ascii_alphabetic()) {
             module_name.insert(0, '_');
         }
-        writeln!(generated_file, "#[path=\"{module_name}.rs\"] mod r#{module_name};")?;
+        writeln!(generated_file, "#[path=\"{module_name}.rs\"] pub mod r#{module_name};")?;
         let source = std::fs::read_to_string(&testcase.absolute_path)?;
         let ignored = if testcase.is_ignored("rust") {
             "#[ignore = \"testcase ignored for rust\"]"
