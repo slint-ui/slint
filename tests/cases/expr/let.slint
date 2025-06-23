@@ -1,23 +1,47 @@
+struct TestStruct {
+    a: int,
+    b: int,
+}
+
+enum TestEnum {
+    a,
+    b,
+}
+
 export component TestCase inherits Rectangle {
-    public function test_simple() -> int {
+    public pure function test_simple() -> int {
         let a = 1;
 
         return a;
+        return 1;
     }
 
-    public function test_type_annotation() -> int {
+    public pure function test_type_annotation() -> int {
         let a: int = 1;
 
         return a;
+        return 1;
     }
 
-    public function test_type_annotation_conversion() -> int {
+    public pure function test_type_annotation_conversion() -> int {
         let a: int = 1.0;
 
         return a;
     }
 
-    out property <bool> test: test_simple() == 1 && test_type_annotation() == 1 && test_type_annotation_conversion() == 1;
+    public pure function test_struct_conversion() -> int {
+        let a: TestStruct = { a: 1, b: 2 };
+
+        return a.b;
+    }
+
+    public pure function test_enum() -> int {
+        let a = TestEnum.b;
+
+        return a == TestEnum.b ? 1 : 0;
+    }
+
+    out property <bool> test: test_simple() == 1 && test_type_annotation() == 1 && test_type_annotation_conversion() == 1 && test_struct_conversion() == 2 && test_enum() == 1;
 }
 
 /*
@@ -26,6 +50,8 @@ let instance = TestCase::new().unwrap();
 assert_eq!(instance.invoke_test_simple(), 1);
 assert_eq!(instance.invoke_test_type_annotation(), 1);
 assert_eq!(instance.invoke_test_type_annotation_conversion(), 1);
+assert_eq!(instance.invoke_test_struct_conversion(), 2);
+assert_eq!(instance.invoke_test_enum(), 1);
 ```
 
 ```cpp
@@ -34,5 +60,7 @@ const TestCase &instance = *handle;
 assert_eq(instance.invoke_test_simple(), 1);
 assert_eq(instance.invoke_test_type_annotation(), 1);
 assert_eq(instance.invoke_test_type_annotation_conversion(), 1);
+assert_eq(instance.invoke_test_struct_conversion(), 2);
+assert_eq(instance.invoke_test_enum(), 1);
 ```
 */
