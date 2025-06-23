@@ -274,7 +274,7 @@ pub fn parse_code_block(p: &mut impl Parser) {
 #[cfg_attr(test, parser_test)]
 /// ```test,CallbackConnection
 /// clicked => {}
-/// clicked => bar ; 
+/// clicked => bar ;
 /// clicked() => { foo; }
 /// mouse_move(x, y) => {}
 /// mouse_move(x, y, ) => { bar; goo; }
@@ -299,7 +299,7 @@ fn parse_callback_connection(p: &mut impl Parser) {
         parse_code_block(&mut *p);
         p.test(SyntaxKind::Semicolon);
     } else if parse_expression(&mut *p) {
-        p.expect(SyntaxKind::Semicolon) ;
+        p.expect(SyntaxKind::Semicolon);
     } else {
         p.test(SyntaxKind::Semicolon);
     }
