@@ -103,6 +103,7 @@ impl ChangeTracker {
                 (inner.notify_fn)(&inner.data, &inner.value);
             }
             if !core::mem::replace(&mut inner.evaluating, false) {
+                // `drop` from the vtable was called while evaluating. Do it now.
                 core::mem::drop(Box::from_raw(_self));
             }
             BindingResult::KeepBinding
