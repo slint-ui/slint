@@ -2166,4 +2166,30 @@ export component MainWindow2 inherits Rectangle {
 "#,
         );
     }
+
+    #[test]
+    fn let_statement() {
+        assert_formatting(
+            "component X { function foo() { let bar=42; } }",
+            r#"component X {
+    function foo() {
+        let bar = 42;
+    }
+}
+"#,
+        );
+    }
+
+    #[test]
+    fn let_statement_type_annotation() {
+        assert_formatting(
+            "component X { function foo() { let bar : int=42; } }",
+            r#"component X {
+    function foo() {
+        let bar: int = 42;
+    }
+}
+"#,
+        );
+    }
 }
