@@ -1,0 +1,66 @@
+---
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+title: TextButton
+description: TextButton API.
+---
+
+import CodeSnippetMD from '/src/components/CodeSnippetMD.astro';
+import SlintProperty from '/src/components/SlintProperty.astro';
+
+<CodeSnippetMD imagePath="" imageWidth="0" imageHeight="0" imageAlt="">
+```slint
+import { TextButton } from "material.slint";
+export component Example inherits Window {
+    width: 200px;
+    height: 100px;
+    background: transparent;
+    TextButton {
+        text: "Click me";
+        width: 120px;
+        height: 40px;
+    }
+}
+```
+</CodeSnippetMD>
+
+A `TextButton` is a button with no background or border, displaying only text and optional icons. It's the most subtle button style and is used for tertiary actions.
+
+## Properties
+
+### text
+<SlintProperty propName="text" typeName="string">
+The text label displayed on the button.
+</SlintProperty>
+
+### icon
+<SlintProperty propName="icon" typeName="image">
+An optional icon displayed on the button.
+</SlintProperty>
+
+### tooltip
+<SlintProperty propName="tooltip" typeName="string">
+A tooltip text that appears when hovering over the button.
+</SlintProperty>
+
+### enabled
+<SlintProperty propName="enabled" typeName="bool" defaultValue="true">
+Whether the button is enabled and can be interacted with.
+</SlintProperty>
+
+### inverse
+<SlintProperty propName="inverse" typeName="bool">
+Whether to use inverse colors for the button text and icons.
+</SlintProperty>
+
+## Callbacks
+
+### clicked()
+Invoked when the button is clicked.
+
+```slint {2-4}
+TextButton {
+    clicked() => {
+        debug("Button clicked");
+    }
+}
+```

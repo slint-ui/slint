@@ -70,7 +70,12 @@ export type KnownType =
     | "Point"
     | "relative-font-size"
     | "string"
-    | "struct";
+    | "struct"
+    | "IconButtonItem"
+    | "FABStyle"
+    | "SegmentedItem"
+    | "Time"
+    | "CheckState";
 
 export type PropertyVisibility = "private" | "in" | "out" | "in-out";
 
@@ -166,6 +171,31 @@ export function getTypeInfo(typeName: KnownType): TypeInfo {
             return {
                 href: linkMap.StructType.href,
                 defaultValue: "a struct with all default values",
+            };
+        case "IconButtonItem":
+            return {
+                href: linkMap.IconButtonItem.href,
+                defaultValue: "a IconButtonItem with default values",
+            };
+        case "FABStyle":
+            return {
+                href: linkMap.FABStyle.href,
+                defaultValue: "FABStyle.standard",
+            };
+        case "SegmentedItem":
+            return {
+                href: linkMap.SegmentedItem.href,
+                defaultValue: "a SegmentedItem with default values",
+            };
+        case "Time":
+            return {
+                href: linkMap.Time.href,
+                defaultValue: "Time { hour: 0, minute: 0, second: 0 }",
+            };
+        case "CheckState":
+            return {
+                href: linkMap.CheckState.href,
+                defaultValue: "CheckState.unchecked",
             };
         default: {
             console.error("Unknown type: ", typeName);

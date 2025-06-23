@@ -1,0 +1,72 @@
+---
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+title: MediumAppBar
+description: MediumAppBar API.
+---
+
+import CodeSnippetMD from '/src/components/CodeSnippetMD.astro';
+import SlintProperty from '/src/components/SlintProperty.astro';
+
+<CodeSnippetMD imagePath="" imageWidth="0" imageHeight="0" imageAlt="">
+```slint
+import { MediumAppBar } from "material.slint";
+export component Example inherits Window {
+    width: 400px;
+    height: 200px;
+    background: transparent;
+    MediumAppBar {
+        title: "My App";
+        width: parent.width;
+        height: parent.height;
+    }
+}
+```
+</CodeSnippetMD>
+
+A `MediumAppBar` is a medium-sized app bar that displays the app title and optional action buttons with more padding and spacing than the small variant.
+
+## Properties
+
+### container_background
+<SlintProperty propName="container_background" typeName="bool">
+Whether to use the container background color instead of the surface color.
+</SlintProperty>
+
+### leading_icon
+<SlintProperty propName="leading_icon" typeName="IconButtonItem">
+An icon button item displayed at the start of the app bar, typically used for navigation.
+</SlintProperty>
+
+### title
+<SlintProperty propName="title" typeName="string">
+The title text displayed in the app bar.
+</SlintProperty>
+
+### trailing_icons
+<SlintProperty propName="trailing_icons" typeName="[IconButtonItem]">
+An array of icon button items displayed at the end of the app bar, typically used for actions.
+</SlintProperty>
+
+## Callbacks
+
+### leading_clicked()
+Invoked when the leading icon is clicked.
+
+```slint {2-4}
+MediumAppBar {
+    leading_clicked() => {
+        debug("Leading icon clicked");
+    }
+}
+```
+
+### traling_clicked(index: int)
+Invoked when a trailing icon is clicked, with the index of the clicked icon.
+
+```slint {2-4}
+MediumAppBar {
+    traling_clicked(index) => {
+        debug("Trailing icon clicked at index: ", index);
+    }
+}
+```

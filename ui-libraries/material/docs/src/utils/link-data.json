@@ -196,5 +196,20 @@
     },
     "index": {
         "href": ""
+    },
+    "FABStyle": {
+        "href": "reference/global-structs-enums/#fabstyle"
+    },
+    "SegmentedItem": {
+        "href": "reference/global-structs-enums/#segmenteditem"
+    },
+    "Time": {
+        "href": "reference/global-structs-enums/#time"
+    },
+    "IconButtonItem": {
+        "href": "reference/global-structs-enums/#iconbuttonitem"
+    },
+    "CheckState": {
+        "href": "reference/global-structs-enums/#checkstate"
     }
 }

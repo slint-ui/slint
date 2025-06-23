@@ -1,0 +1,71 @@
+---
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+title: CheckBox
+description: CheckBox API.
+---
+
+import CodeSnippetMD from '/src/components/CodeSnippetMD.astro';
+import SlintProperty from '/src/components/SlintProperty.astro';
+
+<CodeSnippetMD imagePath="" imageWidth="0" imageHeight="0" imageAlt="">
+```slint
+import { CheckBox } from "material.slint";
+export component Example inherits Window {
+    width: 200px;
+    height: 100px;
+    background: transparent;
+    CheckBox {
+        x: 10px;
+        y: 10px;
+    }
+}
+```
+</CodeSnippetMD>
+
+A `CheckBox` is a control that allows users to select one or more options from a set. It can be in three states: unchecked, checked, or partially checked (when `tristate` is enabled).
+
+## Properties
+
+### check_state
+<SlintProperty propName="check_state" typeName="CheckState" propertyVisibility="in-out">
+The current state of the checkbox. Can be `unchecked`, `partially_checked`, or `checked`.
+
+```slint "check_state: CheckState.checked;"
+CheckBox {
+    check_state: CheckState.checked;
+}
+```
+</SlintProperty>
+
+### checked
+<SlintProperty propName="checked" typeName="bool" propertyVisibility="out">
+Whether the checkbox is checked (either fully or partially).
+</SlintProperty>
+
+### enabled
+<SlintProperty propName="enabled" typeName="bool" defaultValue="true">
+Whether the checkbox is enabled and can be interacted with.
+</SlintProperty>
+
+### error
+<SlintProperty propName="error" typeName="bool">
+Whether the checkbox should display an error state.
+</SlintProperty>
+
+### tristate
+<SlintProperty propName="tristate" typeName="bool">
+Whether the checkbox supports three states (unchecked, partially checked, checked).
+</SlintProperty>
+
+## Functions
+
+### toggle()
+Toggles the checkbox state. In tristate mode, cycles through unchecked → partially checked → checked → unchecked.
+
+```slint {2-4}
+CheckBox {
+    clicked() => {
+        self.toggle();
+    }
+}
+```

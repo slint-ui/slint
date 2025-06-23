@@ -1,0 +1,41 @@
+---
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+title: TabBar
+description: TabBar API.
+---
+
+import CodeSnippetMD from '/src/components/CodeSnippetMD.astro';
+import SlintProperty from '/src/components/SlintProperty.astro';
+
+<CodeSnippetMD imagePath="" imageWidth="0" imageHeight="0" imageAlt="">
+```slint
+import { TabBar } from "material.slint";
+export component Example inherits Window {
+    width: 400px;
+    height: 100px;
+    background: transparent;
+    TabBar {
+        width: parent.width;
+        items: [
+            { icon: @image-url("icons/home.svg"), text: "Home" },
+            { icon: @image-url("icons/search.svg"), text: "Search" },
+            { icon: @image-url("icons/settings.svg"), text: "Settings" }
+        ];
+    }
+}
+```
+</CodeSnippetMD>
+
+A `TabBar` displays a row of tabs for navigation between different views or content sections.
+
+## Properties
+
+### current_item
+<SlintProperty propName="current_item" typeName="int" propertyVisibility="in-out">
+The index of the currently selected tab.
+</SlintProperty>
+
+### items
+<SlintProperty propName="items" typeName="[NavigationItem]">
+An array of tab items to display in the bar.
+</SlintProperty>

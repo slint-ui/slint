@@ -1,0 +1,61 @@
+---
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+title: OutlineButton
+description: OutlineButton API.
+---
+
+import CodeSnippetMD from '/src/components/CodeSnippetMD.astro';
+import SlintProperty from '/src/components/SlintProperty.astro';
+
+<CodeSnippetMD imagePath="" imageWidth="0" imageHeight="0" imageAlt="">
+```slint
+import { OutlineButton } from "material.slint";
+export component Example inherits Window {
+    width: 200px;
+    height: 100px;
+    background: transparent;
+    OutlineButton {
+        text: "Click me";
+        width: 120px;
+        height: 40px;
+    }
+}
+```
+</CodeSnippetMD>
+
+An `OutlineButton` is a button with a transparent background and a border outline. It's used for secondary actions that are less prominent than filled buttons.
+
+## Properties
+
+### enabled
+<SlintProperty propName="enabled" typeName="bool" defaultValue="true">
+Whether the button is enabled and can be interacted with.
+</SlintProperty>
+
+### icon
+<SlintProperty propName="icon" typeName="image">
+An optional icon displayed on the button.
+</SlintProperty>
+
+### text
+<SlintProperty propName="text" typeName="string">
+The text label displayed on the button.
+</SlintProperty>
+
+### tooltip
+<SlintProperty propName="tooltip" typeName="string">
+A tooltip text that appears when hovering over the button.
+</SlintProperty>
+
+## Callbacks
+
+### clicked()
+Invoked when the button is clicked.
+
+```slint {2-4}
+OutlineButton {
+    clicked() => {
+        debug("Button clicked");
+    }
+}
+```

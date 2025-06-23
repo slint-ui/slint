@@ -1,0 +1,73 @@
+---
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+title: FilterChip
+description: FilterChip API.
+---
+
+import CodeSnippetMD from '/src/components/CodeSnippetMD.astro';
+import SlintProperty from '/src/components/SlintProperty.astro';
+
+<CodeSnippetMD imagePath="" imageWidth="0" imageHeight="0" imageAlt="">
+```slint
+import { FilterChip } from "material.slint";
+export component Example inherits Window {
+    width: 200px;
+    height: 100px;
+    background: transparent;
+    FilterChip {
+        text: "Filter";
+        icon: @image-url("icons/filter.svg");
+        width: 100px;
+        height: 32px;
+    }
+}
+```
+</CodeSnippetMD>
+
+A `FilterChip` is a chip that can be toggled on and off to filter content. When selected, it displays a checkmark icon and changes its appearance to indicate the active state.
+
+## Properties
+
+### checked
+<SlintProperty propName="checked" typeName="bool" propertyVisibility="in-out">
+Whether the filter chip is in the checked (active) state.
+
+```slint "checked: true;"
+FilterChip {
+    checked: true;
+}
+```
+</SlintProperty>
+
+### enabled
+<SlintProperty propName="enabled" typeName="bool" defaultValue="true">
+Whether the chip is enabled and can be interacted with.
+</SlintProperty>
+
+### icon
+<SlintProperty propName="icon" typeName="image">
+An optional icon displayed on the chip.
+</SlintProperty>
+
+### text
+<SlintProperty propName="text" typeName="string">
+The text label displayed on the chip.
+</SlintProperty>
+
+### tooltip
+<SlintProperty propName="tooltip" typeName="string">
+A tooltip text that appears when hovering over the chip.
+</SlintProperty>
+
+## Functions
+
+### toggle()
+Toggles the filter chip state between checked and unchecked.
+
+```slint {2-4}
+FilterChip {
+    clicked() => {
+        self.toggle();
+    }
+}
+```

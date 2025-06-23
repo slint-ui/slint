@@ -1,0 +1,53 @@
+---
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+title: SegmentedButton
+description: SegmentedButton API.
+---
+
+import CodeSnippetMD from '/src/components/CodeSnippetMD.astro';
+import SlintProperty from '/src/components/SlintProperty.astro';
+
+<CodeSnippetMD imagePath="" imageWidth="0" imageHeight="0" imageAlt="">
+```slint
+import { SegmentedButton } from "material.slint";
+export component Example inherits Window {
+    width: 300px;
+    height: 100px;
+    background: transparent;
+    SegmentedButton {
+        model: [
+            { icon: @image-url("icons/list.svg"), text: "List" },
+            { icon: @image-url("icons/grid.svg"), text: "Grid" }
+        ];
+        current_item: 0;
+    }
+}
+```
+</CodeSnippetMD>
+
+A `SegmentedButton` displays a group of related options as a single control, where only one option can be selected at a time.
+
+## Properties
+
+### current_item
+<SlintProperty propName="current_item" typeName="int" propertyVisibility="in-out">
+The index of the currently selected item.
+</SlintProperty>
+
+### model
+<SlintProperty propName="model" typeName="[SegmentedItem]">
+An array of segmented items, each containing an icon and text.
+</SlintProperty>
+
+## Functions
+
+### select(index: int)
+Selects the item at the specified index.
+
+```slint {2-4}
+SegmentedButton {
+    clicked() => {
+        self.select(1);
+    }
+}
+```

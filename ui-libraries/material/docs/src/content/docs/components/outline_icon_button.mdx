@@ -1,0 +1,70 @@
+---
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+title: OutlineIconButton
+description: OutlineIconButton API.
+---
+
+import CodeSnippetMD from '/src/components/CodeSnippetMD.astro';
+import SlintProperty from '/src/components/SlintProperty.astro';
+
+<CodeSnippetMD imagePath="" imageWidth="0" imageHeight="0" imageAlt="">
+```slint
+import { OutlineIconButton } from "material.slint";
+export component Example inherits Window {
+    width: 100px;
+    height: 100px;
+    background: transparent;
+    OutlineIconButton {
+        icon: @image-url("icons/edit.svg");
+        tooltip: "Edit";
+    }
+}
+```
+</CodeSnippetMD>
+
+An `OutlineIconButton` is a button with a border outline and an icon, used for secondary actions.
+
+## Properties
+
+### checkable
+<SlintProperty propName="checkable" typeName="bool">
+Whether the button can be toggled between checked and unchecked states.
+</SlintProperty>
+
+### checked
+<SlintProperty propName="checked" typeName="bool" propertyVisibility="in-out">
+Whether the button is currently checked.
+</SlintProperty>
+
+### enabled
+<SlintProperty propName="enabled" typeName="bool" defaultValue="true">
+Whether the button is enabled and can be interacted with.
+</SlintProperty>
+
+### icon
+<SlintProperty propName="icon" typeName="image">
+The icon image displayed on the button.
+</SlintProperty>
+
+### icon_checked
+<SlintProperty propName="icon_checked" typeName="image">
+The icon image displayed when the button is checked (if checkable).
+</SlintProperty>
+
+### tooltip
+<SlintProperty propName="tooltip" typeName="string">
+A tooltip text that appears when hovering over the button.
+</SlintProperty>
+
+## Callbacks
+
+### clicked()
+Invoked when the button is clicked.
+
+```slint {2-4}
+OutlineIconButton {
+    clicked() => {
+        debug("Outline icon button clicked");
+    }
+}
+```

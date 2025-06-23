@@ -1,0 +1,47 @@
+---
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+title: FilledCard
+description: FilledCard API.
+---
+
+import CodeSnippetMD from '/src/components/CodeSnippetMD.astro';
+import SlintProperty from '/src/components/SlintProperty.astro';
+
+<CodeSnippetMD imagePath="" imageWidth="0" imageHeight="0" imageAlt="">
+```slint
+import { FilledCard } from "material.slint";
+export component Example inherits Window {
+    width: 300px;
+    height: 200px;
+    background: transparent;
+    FilledCard {
+        width: 200px;
+        height: 150px;
+        clickable: true;
+    }
+}
+```
+</CodeSnippetMD>
+
+A `FilledCard` is a card component with a filled background color. It's used to group related content and actions together with a more prominent visual appearance.
+
+## Properties
+
+### clickable
+<SlintProperty propName="clickable" typeName="bool">
+Whether the card can be clicked and will respond to click events.
+</SlintProperty>
+
+## Callbacks
+
+### clicked()
+Invoked when the card is clicked (only if `clickable` is true).
+
+```slint {2-4}
+FilledCard {
+    clickable: true;
+    clicked() => {
+        debug("Card clicked");
+    }
+}
+```

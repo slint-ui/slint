@@ -1,0 +1,32 @@
+---
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+title: ModalBottomSheet
+description: ModalBottomSheet API.
+---
+
+import CodeSnippetMD from '/src/components/CodeSnippetMD.astro';
+import SlintProperty from '/src/components/SlintProperty.astro';
+
+<CodeSnippetMD imagePath="" imageWidth="0" imageHeight="0" imageAlt="">
+```slint
+import { ModalBottomSheet } from "material.slint";
+export component Example inherits Window {
+    width: 400px;
+    height: 300px;
+    background: transparent;
+    ModalBottomSheet {
+        width: 320px;
+        height: 200px;
+    }
+}
+```
+</CodeSnippetMD>
+
+A `ModalBottomSheet` is a modal overlay that slides up from the bottom of the screen, typically used for presenting additional options or content.
+
+## Properties
+
+### drag_margin
+<SlintProperty propName="drag_margin" typeName="length" defaultValue="MaterialStyleMetrics.padding_56">
+The margin from the bottom of the screen at which the sheet will close when dragged.
+</SlintProperty>

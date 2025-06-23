@@ -1,0 +1,56 @@
+---
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+title: SnackBar
+description: SnackBar API.
+---
+
+import CodeSnippetMD from '/src/components/CodeSnippetMD.astro';
+import SlintProperty from '/src/components/SlintProperty.astro';
+
+<CodeSnippetMD imagePath="" imageWidth="0" imageHeight="0" imageAlt="">
+```slint
+import { SnackBar } from "material.slint";
+export component Example inherits Window {
+    width: 400px;
+    height: 200px;
+    background: transparent;
+    SnackBar {
+        text: "Message sent";
+        action_text: "Undo";
+        has_close_button: true;
+    }
+}
+```
+</CodeSnippetMD>
+
+A `SnackBar` provides brief messages about app processes at the bottom of the screen. It can include an action and a close button.
+
+## Properties
+
+### action_text
+<SlintProperty propName="action_text" typeName="string">
+The label for the action button.
+</SlintProperty>
+
+### has_close_button
+<SlintProperty propName="has_close_button" typeName="bool">
+Whether to show a close button on the snackbar.
+</SlintProperty>
+
+### text
+<SlintProperty propName="text" typeName="string">
+The message text displayed in the snackbar.
+</SlintProperty>
+
+## Callbacks
+
+### action()
+Invoked when the action button is clicked.
+
+```slint {2-4}
+SnackBar {
+    action() => {
+        debug("SnackBar action clicked");
+    }
+}
+```

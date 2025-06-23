@@ -1,0 +1,38 @@
+---
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+title: CircularProgressIndicator
+description: CircularProgressIndicator API.
+---
+
+import CodeSnippetMD from '/src/components/CodeSnippetMD.astro';
+import SlintProperty from '/src/components/SlintProperty.astro';
+
+<CodeSnippetMD imagePath="" imageWidth="0" imageHeight="0" imageAlt="">
+```slint
+import { CircularProgressIndicator } from "material.slint";
+export component Example inherits Window {
+    width: 100px;
+    height: 100px;
+    background: transparent;
+    CircularProgressIndicator {
+        value: 0.75;
+        width: 80px;
+        height: 80px;
+    }
+}
+```
+</CodeSnippetMD>
+
+A `CircularProgressIndicator` displays progress in a circular form, typically used for loading or processing tasks.
+
+## Properties
+
+### indeterminate
+<SlintProperty propName="indeterminate" typeName="bool">
+Whether the indicator is in indeterminate mode (shows a looping animation instead of a specific value).
+</SlintProperty>
+
+### value
+<SlintProperty propName="value" typeName="float">
+The progress value, between 0 and 1.
+</SlintProperty>

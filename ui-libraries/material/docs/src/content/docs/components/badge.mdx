@@ -1,0 +1,33 @@
+---
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+title: Badge
+description: Badge API.
+---
+
+import CodeSnippetMD from '/src/components/CodeSnippetMD.astro';
+import SlintProperty from '/src/components/SlintProperty.astro';
+
+<CodeSnippetMD imagePath="" imageWidth="0" imageHeight="0" imageAlt="">
+```slint
+import { Badge } from "material.slint";
+export component Example inherits Window {
+    width: 100px;
+    height: 50px;
+    background: transparent;
+    Badge {
+        text: "3";
+        x: 10px;
+        y: 10px;
+    }
+}
+```
+</CodeSnippetMD>
+
+A `Badge` is a small status indicator, often used to display a count or status on top of another component (such as an icon or button).
+
+## Properties
+
+### text
+<SlintProperty propName="text" typeName="string">
+The text or number displayed inside the badge. If empty, the badge is shown as a small dot.
+</SlintProperty>

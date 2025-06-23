@@ -1,0 +1,64 @@
+---
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+title: NavigationDrawer
+description: NavigationDrawer API.
+---
+
+import CodeSnippetMD from '/src/components/CodeSnippetMD.astro';
+import SlintProperty from '/src/components/SlintProperty.astro';
+
+<CodeSnippetMD imagePath="" imageWidth="0" imageHeight="0" imageAlt="">
+```slint
+import { NavigationDrawer } from "material.slint";
+export component Example inherits Window {
+    width: 400px;
+    height: 300px;
+    background: transparent;
+    NavigationDrawer {
+        width: 280px;
+        height: parent.height;
+        groups: [
+            {
+                title: "Main",
+                items: [
+                    { icon: @image-url("icons/home.svg"), text: "Home" },
+                    { icon: @image-url("icons/search.svg"), text: "Search" }
+                ]
+            }
+        ];
+    }
+}
+```
+</CodeSnippetMD>
+
+A `NavigationDrawer` is a side panel that contains navigation items organized in groups, typically used for app navigation.
+
+## Properties
+
+### current_group
+<SlintProperty propName="current_group" typeName="int" propertyVisibility="in-out">
+The index of the currently selected navigation group.
+</SlintProperty>
+
+### current_item
+<SlintProperty propName="current_item" typeName="int" propertyVisibility="in-out">
+The index of the currently selected navigation item within the current group.
+</SlintProperty>
+
+### groups
+<SlintProperty propName="groups" typeName="[NavigationGroup]">
+An array of navigation groups, each containing a title and navigation items.
+</SlintProperty>
+
+## Functions
+
+### select(group_index: int, item_index: int)
+Selects the navigation item at the specified group and item indices.
+
+```slint {2-4}
+NavigationDrawer {
+    clicked() => {
+        self.select(0, 1);
+    }
+}
+```

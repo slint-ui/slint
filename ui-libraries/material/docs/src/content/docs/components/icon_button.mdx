@@ -1,0 +1,85 @@
+---
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+title: IconButton
+description: IconButton API.
+---
+
+import CodeSnippetMD from '/src/components/CodeSnippetMD.astro';
+import SlintProperty from '/src/components/SlintProperty.astro';
+
+<CodeSnippetMD imagePath="" imageWidth="0" imageHeight="0" imageAlt="">
+```slint
+import { IconButton } from "material.slint";
+export component Example inherits Window {
+    width: 100px;
+    height: 100px;
+    background: transparent;
+    IconButton {
+        icon: @image-url("icons/menu.svg");
+        tooltip: "Menu";
+    }
+}
+```
+</CodeSnippetMD>
+
+An `IconButton` is a button that displays an icon and can be used for actions, toggles, or navigation.
+
+## Properties
+
+### checkable
+<SlintProperty propName="checkable" typeName="bool">
+Whether the button can be toggled between checked and unchecked states.
+</SlintProperty>
+
+### checked
+<SlintProperty propName="checked" typeName="bool" propertyVisibility="in-out">
+Whether the button is currently checked.
+</SlintProperty>
+
+### enabled
+<SlintProperty propName="enabled" typeName="bool" defaultValue="true">
+Whether the button is enabled and can be interacted with.
+</SlintProperty>
+
+### has_error
+<SlintProperty propName="has_error" typeName="bool">
+Whether the button should display an error state.
+</SlintProperty>
+
+### icon
+<SlintProperty propName="icon" typeName="image">
+The icon image displayed on the button.
+</SlintProperty>
+
+### icon_checked
+<SlintProperty propName="icon_checked" typeName="image">
+The icon image displayed when the button is checked (if checkable).
+</SlintProperty>
+
+### inline
+<SlintProperty propName="inline" typeName="bool" defaultValue="false">
+Whether the button is displayed inline (smaller size, no background).
+</SlintProperty>
+
+### inverse
+<SlintProperty propName="inverse" typeName="bool">
+Whether to use inverse colors for the button.
+</SlintProperty>
+
+### tooltip
+<SlintProperty propName="tooltip" typeName="string">
+A tooltip text that appears when hovering over the button.
+</SlintProperty>
+
+## Callbacks
+
+### clicked()
+Invoked when the button is clicked.
+
+```slint {2-4}
+IconButton {
+    clicked() => {
+        debug("Icon button clicked");
+    }
+}
+```

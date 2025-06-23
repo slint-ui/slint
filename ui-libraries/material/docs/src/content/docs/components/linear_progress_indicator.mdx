@@ -1,0 +1,38 @@
+---
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+title: LinearProgressIndicator
+description: LinearProgressIndicator API.
+---
+
+import CodeSnippetMD from '/src/components/CodeSnippetMD.astro';
+import SlintProperty from '/src/components/SlintProperty.astro';
+
+<CodeSnippetMD imagePath="" imageWidth="0" imageHeight="0" imageAlt="">
+```slint
+import { LinearProgressIndicator } from "material.slint";
+export component Example inherits Window {
+    width: 200px;
+    height: 40px;
+    background: transparent;
+    LinearProgressIndicator {
+        value: 0.5;
+        width: 180px;
+        height: 8px;
+    }
+}
+```
+</CodeSnippetMD>
+
+A `LinearProgressIndicator` displays progress along a line, typically used for loading or processing tasks.
+
+## Properties
+
+### indeterminate
+<SlintProperty propName="indeterminate" typeName="bool">
+Whether the indicator is in indeterminate mode (shows a looping animation instead of a specific value).
+</SlintProperty>
+
+### value
+<SlintProperty propName="value" typeName="float">
+The progress value, between 0 and 1.
+</SlintProperty>

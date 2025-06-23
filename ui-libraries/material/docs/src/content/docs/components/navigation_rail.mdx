@@ -1,0 +1,80 @@
+---
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+title: NavigationRail
+description: NavigationRail API.
+---
+
+import CodeSnippetMD from '/src/components/CodeSnippetMD.astro';
+import SlintProperty from '/src/components/SlintProperty.astro';
+
+<CodeSnippetMD imagePath="" imageWidth="0" imageHeight="0" imageAlt="">
+```slint
+import { NavigationRail } from "material.slint";
+export component Example inherits Window {
+    width: 400px;
+    height: 300px;
+    background: transparent;
+    NavigationRail {
+        width: 80px;
+        height: parent.height;
+        items: [
+            { icon: @image-url("icons/home.svg"), text: "Home" },
+            { icon: @image-url("icons/search.svg"), text: "Search" }
+        ];
+    }
+}
+```
+</CodeSnippetMD>
+
+A `NavigationRail` is a vertical navigation component that displays navigation items with optional menu button and floating action button.
+
+## Properties
+
+### alignment
+<SlintProperty propName="alignment" typeName="LayoutAlignment">
+The alignment of the navigation items within the rail.
+</SlintProperty>
+
+### current_item
+<SlintProperty propName="current_item" typeName="int" propertyVisibility="in-out">
+The index of the currently selected navigation item.
+</SlintProperty>
+
+### fab_icon
+<SlintProperty propName="fab_icon" typeName="image">
+The icon for the floating action button.
+</SlintProperty>
+
+### has_menu
+<SlintProperty propName="has_menu" typeName="bool">
+Whether to show a menu button at the top of the rail.
+</SlintProperty>
+
+### items
+<SlintProperty propName="items" typeName="[NavigationItem]">
+An array of navigation items to display in the rail.
+</SlintProperty>
+
+## Callbacks
+
+### menu_clicked()
+Invoked when the menu button is clicked.
+
+```slint {2-4}
+NavigationRail {
+    menu_clicked() => {
+        debug("Menu clicked");
+    }
+}
+```
+
+### fab_clicked()
+Invoked when the floating action button is clicked.
+
+```slint {2-4}
+NavigationRail {
+    fab_clicked() => {
+        debug("FAB clicked");
+    }
+}
+```

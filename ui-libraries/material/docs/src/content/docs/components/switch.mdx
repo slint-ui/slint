@@ -1,0 +1,71 @@
+---
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+title: Switch
+description: Switch API.
+---
+
+import CodeSnippetMD from '/src/components/CodeSnippetMD.astro';
+import SlintProperty from '/src/components/SlintProperty.astro';
+
+<CodeSnippetMD imagePath="" imageWidth="0" imageHeight="0" imageAlt="">
+```slint
+import { Switch } from "material.slint";
+export component Example inherits Window {
+    width: 200px;
+    height: 100px;
+    background: transparent;
+    Switch {
+        x: 10px;
+        y: 10px;
+    }
+}
+```
+</CodeSnippetMD>
+
+A `Switch` is a control that allows users to toggle between two states (on/off). It provides a more prominent visual indication than a checkbox for binary settings.
+
+## Properties
+
+### checked
+<SlintProperty propName="checked" typeName="bool" propertyVisibility="in-out">
+Whether the switch is in the checked (on) state.
+
+```slint "checked: true;"
+Switch {
+    checked: true;
+}
+```
+</SlintProperty>
+
+### enabled
+<SlintProperty propName="enabled" typeName="bool" defaultValue="true">
+Whether the switch is enabled and can be interacted with.
+</SlintProperty>
+
+### off_icon
+<SlintProperty propName="off_icon" typeName="image">
+An icon displayed when the switch is in the unchecked state.
+</SlintProperty>
+
+### on_icon
+<SlintProperty propName="on_icon" typeName="image">
+An icon displayed when the switch is in the checked state.
+</SlintProperty>
+
+### tooltip
+<SlintProperty propName="tooltip" typeName="string">
+A tooltip text that appears when hovering over the switch.
+</SlintProperty>
+
+## Functions
+
+### toggle()
+Toggles the switch state between checked and unchecked.
+
+```slint {2-4}
+Switch {
+    clicked() => {
+        self.toggle();
+    }
+}
+```

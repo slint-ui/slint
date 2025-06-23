@@ -28,7 +28,7 @@ export default defineConfig({
     },
     integrations: [
         starlight({
-            title: "Slint Docs",
+            title: "Material UI",
             logo: {
                 src: "./src/assets/slint-logo-small-light.svg",
             },
@@ -44,8 +44,8 @@ export default defineConfig({
                 { label: "Style", link: "style" },
 
                 {
-                    label: "Basic Widgets",
-                    autogenerate: { directory: "basic-widgets" },
+                    label: "Components",
+                    autogenerate: { directory: "components" },
                 },
             ],
             plugins: [

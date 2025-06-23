@@ -1,0 +1,62 @@
+---
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+title: TonalButton
+description: TonalButton API.
+---
+
+import CodeSnippetMD from '/src/components/CodeSnippetMD.astro';
+import SlintProperty from '/src/components/SlintProperty.astro';
+
+<CodeSnippetMD imagePath="" imageWidth="0" imageHeight="0" imageAlt="">
+```slint
+import { TonalButton } from "material.slint";
+export component Example inherits Window {
+    width: 200px;
+    height: 100px;
+    background: transparent;
+    TonalButton {
+        text: "Tonal";
+        icon: @image-url("icons/music_note.svg");
+        width: 120px;
+        height: 40px;
+    }
+}
+```
+</CodeSnippetMD>
+
+A `TonalButton` is a button with a secondary container background, used for less prominent actions than filled or elevated buttons.
+
+## Properties
+
+### enabled
+<SlintProperty propName="enabled" typeName="bool" defaultValue="true">
+Whether the button is enabled and can be interacted with.
+</SlintProperty>
+
+### icon
+<SlintProperty propName="icon" typeName="image">
+An optional icon displayed on the button.
+</SlintProperty>
+
+### text
+<SlintProperty propName="text" typeName="string">
+The text label displayed on the button.
+</SlintProperty>
+
+### tooltip
+<SlintProperty propName="tooltip" typeName="string">
+A tooltip text that appears when hovering over the button.
+</SlintProperty>
+
+## Callbacks
+
+### clicked()
+Invoked when the button is clicked.
+
+```slint {2-4}
+TonalButton {
+    clicked() => {
+        debug("Tonal button clicked");
+    }
+}
+```

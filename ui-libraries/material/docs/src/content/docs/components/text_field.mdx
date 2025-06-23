@@ -30,9 +30,29 @@ A widget used to enter a single line of text with additional features like icons
 
 ## Properties
 
+### enabled
+<SlintProperty propName="enabled" typeName="bool" defaultValue="true">
+When false, the text field is disabled and cannot be interacted with.
+</SlintProperty>
+
+### has_error
+<SlintProperty propName="has_error" typeName="bool">
+Indicates whether the text field should display an error state.
+</SlintProperty>
+
+### has_focus
+<SlintProperty propName="has_focus" typeName="bool" propertyVisibility="out">
+Set to true when the text field currently has the focus.
+</SlintProperty>
+
 ### label
 <SlintProperty propName="label" typeName="string">
 The label text displayed above the text input.
+</SlintProperty>
+
+### leading_icon
+<SlintProperty propName="leading_icon" typeName="image">
+An icon displayed at the beginning of the text input.
 </SlintProperty>
 
 ### placeholder
@@ -45,34 +65,14 @@ A placeholder text being shown when there is no text in the edit field.
 Additional text displayed below the text input, often used for hints or error messages.
 </SlintProperty>
 
-### has_error
-<SlintProperty propName="has_error" typeName="bool">
-Indicates whether the text field should display an error state.
-</SlintProperty>
-
-### leading_icon
-<SlintProperty propName="leading_icon" typeName="image">
-An icon displayed at the beginning of the text input.
+### text
+<SlintProperty propName="text" typeName="string" propertyVisibility="in-out">
+The text being edited.
 </SlintProperty>
 
 ### trailing_icon
 <SlintProperty propName="trailing_icon" typeName="image">
 An icon displayed at the end of the text input.
-</SlintProperty>
-
-### enabled
-<SlintProperty propName="enabled" typeName="bool" defaultValue="true">
-When false, the text field is disabled and cannot be interacted with.
-</SlintProperty>
-
-### has_focus
-<SlintProperty propName="has_focus" typeName="bool" propertyVisibility="out">
-Set to true when the text field currently has the focus.
-</SlintProperty>
-
-### text
-<SlintProperty propName="text" typeName="string" propertyVisibility="in-out">
-The text being edited.
 </SlintProperty>
 
 ## Functions
@@ -96,28 +96,6 @@ Copies the selected text to the clipboard.
 Pastes the text content of the clipboard at the cursor position.
 
 ## Callbacks
-
-### leading_icon_clicked()
-Invoked when the leading icon is clicked.
-
-```slint {2-4}
-TextField {
-    leading_icon_clicked() => {
-        debug("Leading icon clicked");
-    }
-}
-```
-
-### trailing_icon_clicked()
-Invoked when the trailing icon is clicked.
-
-```slint {2-4}
-TextField {
-    trailing_icon_clicked() => {
-        debug("Trailing icon clicked");
-    }
-}
-```
 
 ### accepted(string)
 Invoked when the enter key is pressed.
@@ -146,3 +124,25 @@ Invoked when a key is pressed, the argument is a <Link type="KeyEvent" /> struct
 
 ### key_released(KeyEvent) -> EventResult
 Invoked when a key is released, the argument is a <Link type="KeyEvent" /> struct. Use this callback to handle keys before `TextField` does. Return `accept` to indicate that you've handled the event, or return `reject` to let `TextField` handle it.
+
+### leading_icon_clicked()
+Invoked when the leading icon is clicked.
+
+```slint {2-4}
+TextField {
+    leading_icon_clicked() => {
+        debug("Leading icon clicked");
+    }
+}
+```
+
+### trailing_icon_clicked()
+Invoked when the trailing icon is clicked.
+
+```slint {2-4}
+TextField {
+    trailing_icon_clicked() => {
+        debug("Trailing icon clicked");
+    }
+}
+```

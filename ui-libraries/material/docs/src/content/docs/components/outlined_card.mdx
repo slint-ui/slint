@@ -1,0 +1,47 @@
+---
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+title: OutlinedCard
+description: OutlinedCard API.
+---
+
+import CodeSnippetMD from '/src/components/CodeSnippetMD.astro';
+import SlintProperty from '/src/components/SlintProperty.astro';
+
+<CodeSnippetMD imagePath="" imageWidth="0" imageHeight="0" imageAlt="">
+```slint
+import { OutlinedCard } from "material.slint";
+export component Example inherits Window {
+    width: 300px;
+    height: 200px;
+    background: transparent;
+    OutlinedCard {
+        width: 200px;
+        height: 150px;
+        clickable: true;
+    }
+}
+```
+</CodeSnippetMD>
+
+An `OutlinedCard` is a card component with a border outline and transparent background. It's used to group related content and actions together with a subtle visual appearance.
+
+## Properties
+
+### clickable
+<SlintProperty propName="clickable" typeName="bool">
+Whether the card can be clicked and will respond to click events.
+</SlintProperty>
+
+## Callbacks
+
+### clicked()
+Invoked when the card is clicked (only if `clickable` is true).
+
+```slint {2-4}
+OutlinedCard {
+    clickable: true;
+    clicked() => {
+        debug("Card clicked");
+    }
+}
+```

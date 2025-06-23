@@ -1,0 +1,38 @@
+---
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+title: Modal
+description: Modal API.
+---
+
+import CodeSnippetMD from '/src/components/CodeSnippetMD.astro';
+import SlintProperty from '/src/components/SlintProperty.astro';
+
+<CodeSnippetMD imagePath="" imageWidth="0" imageHeight="0" imageAlt="">
+```slint
+import { Modal } from "material.slint";
+export component Example inherits Window {
+    width: 400px;
+    height: 300px;
+    background: transparent;
+    Modal {
+        width: parent.width;
+        height: parent.height;
+    }
+}
+```
+</CodeSnippetMD>
+
+A `Modal` is a backdrop overlay that blocks interaction with the content behind it and can contain modal content.
+
+## Callbacks
+
+### clicked()
+Invoked when the modal background is clicked.
+
+```slint {2-4}
+Modal {
+    clicked() => {
+        debug("Modal background clicked");
+    }
+}
+```

@@ -1,0 +1,33 @@
+---
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+title: ToolTip
+description: ToolTip API.
+---
+
+import CodeSnippetMD from '/src/components/CodeSnippetMD.astro';
+import SlintProperty from '/src/components/SlintProperty.astro';
+
+<CodeSnippetMD imagePath="" imageWidth="0" imageHeight="0" imageAlt="">
+```slint
+import { ToolTip } from "material.slint";
+export component Example inherits Window {
+    width: 200px;
+    height: 100px;
+    background: transparent;
+    ToolTip {
+        text: "This is a tooltip";
+        x: 10px;
+        y: 10px;
+    }
+}
+```
+</CodeSnippetMD>
+
+A `ToolTip` displays additional information when hovering over a component.
+
+## Properties
+
+### text
+<SlintProperty propName="text" typeName="string">
+The text to display in the tooltip.
+</SlintProperty>

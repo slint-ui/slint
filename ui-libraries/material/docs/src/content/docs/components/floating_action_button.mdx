@@ -1,0 +1,61 @@
+---
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+title: FloatingActionButton
+description: FloatingActionButton API.
+---
+
+import CodeSnippetMD from '/src/components/CodeSnippetMD.astro';
+import SlintProperty from '/src/components/SlintProperty.astro';
+
+<CodeSnippetMD imagePath="" imageWidth="0" imageHeight="0" imageAlt="">
+```slint
+import { FloatingActionButton } from "material.slint";
+export component Example inherits Window {
+    width: 120px;
+    height: 120px;
+    background: transparent;
+    FloatingActionButton {
+        icon: @image-url("icons/add.svg");
+        tooltip: "Add";
+        style: FABStyle.standard;
+    }
+}
+```
+</CodeSnippetMD>
+
+A `FloatingActionButton` (FAB) is a circular button that floats above the UI and is used for a primary action.
+
+## Properties
+
+### icon
+<SlintProperty propName="icon" typeName="image">
+The icon image displayed on the button.
+</SlintProperty>
+
+### style
+<SlintProperty propName="style" typeName="FABStyle">
+The style of the FAB: `small`, `standard`, or `large`.
+</SlintProperty>
+
+### text
+<SlintProperty propName="text" typeName="string">
+An optional text label for the button.
+</SlintProperty>
+
+### tooltip
+<SlintProperty propName="tooltip" typeName="string">
+A tooltip text that appears when hovering over the button.
+</SlintProperty>
+
+## Callbacks
+
+### clicked()
+Invoked when the button is clicked.
+
+```slint {2-4}
+FloatingActionButton {
+    clicked() => {
+        debug("FAB clicked");
+    }
+}
+```

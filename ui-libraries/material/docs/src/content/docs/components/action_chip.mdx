@@ -1,0 +1,72 @@
+---
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+title: ActionChip
+description: ActionChip API.
+---
+
+import CodeSnippetMD from '/src/components/CodeSnippetMD.astro';
+import SlintProperty from '/src/components/SlintProperty.astro';
+
+<CodeSnippetMD imagePath="" imageWidth="0" imageHeight="0" imageAlt="">
+```slint
+import { ActionChip } from "material.slint";
+export component Example inherits Window {
+    width: 200px;
+    height: 100px;
+    background: transparent;
+    ActionChip {
+        text: "Action";
+        icon: @image-url("icons/add.svg");
+        width: 100px;
+        height: 32px;
+    }
+}
+```
+</CodeSnippetMD>
+
+An `ActionChip` is a compact element that represents an action or choice. It can contain text, icons, and avatars, and is commonly used in forms, search interfaces, and other interactive areas.
+
+## Properties
+
+### avatar
+<SlintProperty propName="avatar" typeName="image">
+An optional avatar image displayed on the chip.
+</SlintProperty>
+
+### avatar_background
+<SlintProperty propName="avatar_background" typeName="color" defaultValue="#00000000">
+The background color for the avatar.
+</SlintProperty>
+
+### enabled
+<SlintProperty propName="enabled" typeName="bool" defaultValue="true">
+Whether the chip is enabled and can be interacted with.
+</SlintProperty>
+
+### icon
+<SlintProperty propName="icon" typeName="image">
+An optional icon displayed on the chip.
+</SlintProperty>
+
+### text
+<SlintProperty propName="text" typeName="string">
+The text label displayed on the chip.
+</SlintProperty>
+
+### tooltip
+<SlintProperty propName="tooltip" typeName="string">
+A tooltip text that appears when hovering over the chip.
+</SlintProperty>
+
+## Callbacks
+
+### clicked()
+Invoked when the chip is clicked.
+
+```slint {2-4}
+ActionChip {
+    clicked() => {
+        debug("Action chip clicked");
+    }
+}
+```

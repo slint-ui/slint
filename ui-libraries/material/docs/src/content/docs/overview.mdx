@@ -9,18 +9,15 @@ import SlintProperty  from '/src/components/SlintProperty.astro';
 import Link from '/src/components/Link.astro';
 
 ```slint playground
-import { Palette, HorizontalBox } from "std-widgets.slint";
+import { TextField, Vertical } from "material.slint";
+export component Example inherits Window {
+    width: 200px;
+    height: 100px;
 
-export component MyCustomWidget {
-    in property <string> text <=> label.text;
-
-    Rectangle {
-        background: Palette.control-background;
-
-        HorizontalBox {
-            label := Text {
-                color: Palette.control-foreground;
-            }
+    Vertical {
+        TextField {
+            label: "Name";
+            placeholder: "Enter your name";
         }
     }
 }

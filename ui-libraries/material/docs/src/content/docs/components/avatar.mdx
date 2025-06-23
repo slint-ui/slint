@@ -1,0 +1,38 @@
+---
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+title: Avatar
+description: Avatar API.
+---
+
+import CodeSnippetMD from '/src/components/CodeSnippetMD.astro';
+import SlintProperty from '/src/components/SlintProperty.astro';
+
+<CodeSnippetMD imagePath="" imageWidth="0" imageHeight="0" imageAlt="">
+```slint
+import { Avatar } from "material.slint";
+export component Example inherits Window {
+    width: 100px;
+    height: 100px;
+    background: transparent;
+    Avatar {
+        image: @image-url("profile.jpg");
+        x: 10px;
+        y: 10px;
+    }
+}
+```
+</CodeSnippetMD>
+
+An `Avatar` is a circular component that displays a user's profile picture or image.
+
+## Properties
+
+### background
+<SlintProperty propName="background" typeName="color" defaultValue="MaterialPalette.primary">
+The background color of the avatar.
+</SlintProperty>
+
+### image
+<SlintProperty propName="image" typeName="image">
+The image to display in the avatar.
+</SlintProperty>

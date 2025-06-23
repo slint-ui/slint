@@ -1,0 +1,99 @@
+---
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+title: Dialog
+description: Dialog API.
+---
+
+import CodeSnippetMD from '/src/components/CodeSnippetMD.astro';
+import SlintProperty from '/src/components/SlintProperty.astro';
+
+<CodeSnippetMD imagePath="" imageWidth="0" imageHeight="0" imageAlt="">
+```slint
+import { BaseDialog } from "material.slint";
+export component Example inherits Window {
+    width: 400px;
+    height: 300px;
+    background: transparent;
+    BaseDialog {
+        title: "Confirm Action";
+        default_action_text: "OK";
+        actions: ["Cancel"];
+    }
+}
+```
+</CodeSnippetMD>
+
+A `Dialog` is a modal overlay that appears on top of the main content to present important information or request user input. It can contain various content and action buttons.
+
+## Properties
+
+### actions
+<SlintProperty propName="actions" typeName="[string]">
+An array of text labels for secondary action buttons.
+</SlintProperty>
+
+### default_action_text
+<SlintProperty propName="default_action_text" typeName="string">
+The text for the primary action button (typically "OK" or "Confirm").
+</SlintProperty>
+
+### icon
+<SlintProperty propName="icon" typeName="image">
+An optional icon displayed at the top of the dialog.
+</SlintProperty>
+
+### icon_actions
+<SlintProperty propName="icon_actions" typeName="[image]">
+An array of icon buttons displayed in the dialog's action area.
+</SlintProperty>
+
+### title
+<SlintProperty propName="title" typeName="string">
+The title text displayed at the top of the dialog.
+</SlintProperty>
+
+## Callbacks
+
+### action(index: int)
+Invoked when a secondary action button is clicked.
+
+```slint {2-4}
+BaseDialog {
+    action(index) => {
+        debug("Action clicked at index: ", index);
+    }
+}
+```
+
+### close()
+Invoked when the dialog is closed (e.g., by clicking outside or pressing Escape).
+
+```slint {2-4}
+BaseDialog {
+    close() => {
+        debug("Dialog closed");
+    }
+}
+```
+
+### default_action()
+Invoked when the default action button is clicked or when Enter is pressed.
+
+```slint {2-4}
+BaseDialog {
+    default_action() => {
+        debug("Default action clicked");
+    }
+}
+```
+
+### icon_action(index: int)
+Invoked when an icon action button is clicked.
+
+```slint {2-4}
+BaseDialog {
+    icon_action(index) => {
+        debug("Icon action clicked at index: ", index);
+    }
+}
+```
