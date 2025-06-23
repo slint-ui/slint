@@ -1178,8 +1178,8 @@ fn property_two_ways_recurse_from_binding() {
             if !done.get() {
                 done.set(true);
                 Property::link_two_way(p1.as_ref(), p2.as_ref());
-                let xx = xx_weak.upgrade().unwrap();
-                p1.as_ref().set_binding(move || xx.as_ref().get() + 9);
+                let xx_weak = xx_weak.clone();
+                p1.as_ref().set_binding(move || xx_weak.upgrade().unwrap().as_ref().get() + 9);
             }
             global.as_ref().get() + 2
         }
