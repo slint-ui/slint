@@ -236,14 +236,31 @@ impl Expression {
     }
 
     fn from_let_statement(node: syntax_nodes::LetStatement, ctx: &mut LookupCtx) -> Expression {
-        let name: SmolStr =
-            format!("local_{}", identifier_text(&node.DeclaredIdentifier()).unwrap_or_default())
-                .into();
+        let name = identifier_text(&node.DeclaredIdentifier()).unwrap_or_default();
 
-        if ctx.local_variables.iter().any(|v| v.0 == name) {
-            ctx.diag.push_error("Redeclaration of local variables is not allowed".into(), &node);
-            return Expression::Invalid;
+        // we need to do a global lookup here to ensure that the variable isn't already declared in any scope
+
+        let global_lookup = crate::lookup::global_lookup();
+        match global_lookup.lookup(ctx, &name) {
+            // conflicts with another local variable
+            Some(LookupResult::Expression {
+                expression: Expression::ReadLocalVariable { .. },
+                ..
+            }) => {
+                ctx.diag
+                    .push_error(format!("Redeclaration of local variables is not allowed"), &node);
+                return Expression::Invalid;
+            }
+            // conflicts with something else
+            Some(_) => {
+                ctx.diag.push_error(format!("Local variable declaration conflicts with existing name"), &node);
+                return Expression::Invalid;
+            }
+            _ => {}
         }
+
+        // prefix with "local_" to avoid conflicts
+        let name: SmolStr = format!("local_{name}",).into();
 
         let value = Self::from_expression_node(node.Expression(), ctx);
         let ty = match node.Type() {

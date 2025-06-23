@@ -231,6 +231,7 @@ impl LookupObject for LocalVariableLookup {
     ) -> Option<R> {
         for (name, ty) in ctx.local_variables.iter() {
             if let Some(r) = f(
+                // we need to strip the "local_" prefix because a lookup call will not include it
                 &name.strip_prefix("local_").unwrap_or(name).into(),
                 Expression::ReadLocalVariable {
                     name: name.clone(),
