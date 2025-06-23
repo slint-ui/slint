@@ -175,6 +175,7 @@ pub struct DrawRectangleArgs {
     /// A value between 0 and 255 that specifies the opacity.
     /// A value of 0 would mean that the rectangle is fully transparent (so nothing is drawn),
     /// and a value of 255 would mean fully opaque.
+    /// Note that the brush also might have an alpha value and the two values should be combined.
     pub alpha: u8,
     /// An extra rotation that should be applied to the gradient (and only to the gradient, it doesn't impact the border radius)
     pub rotation: RenderingRotation,
