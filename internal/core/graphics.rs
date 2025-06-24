@@ -192,7 +192,7 @@ pub enum RequestedGraphicsAPI {
     Direct3D,
     #[cfg(feature = "unstable-wgpu-25")]
     /// WGPU 25.x
-    WGPU25(wgpu_25::WGPUConfiguration),
+    WGPU25(wgpu_25::api::WGPUConfiguration),
 }
 
 impl TryFrom<RequestedGraphicsAPI> for RequestedOpenGLVersion {

@@ -18,7 +18,7 @@ path = "lib.rs"
 [features]
 default = []
 wgpu = ["wgpu-25"]
-wgpu-25 = ["dep:wgpu-25", "femtovg/wgpu"]
+wgpu-25 = ["dep:wgpu-25", "femtovg/wgpu", "i-slint-core/unstable-wgpu-25"]
 unstable-wgpu-25 = ["wgpu-25"]
 
 [dependencies]
