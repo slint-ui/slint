@@ -41,7 +41,8 @@ export component TestCase inherits Rectangle {
         return a == TestEnum.b ? 1 : 0;
     }
 
-    // this is just a test to make sure it compiles
+    // this is just a test to make sure it compiles with codeblock simplification
+    // previously this would break if a let statement was the final expression in a block
     public pure function test_lone_let_in_block() {
         if (true) {
             let a = 1;
