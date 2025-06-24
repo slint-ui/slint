@@ -62,7 +62,7 @@ export default defineConfig({
     },
     integrations: [
         starlight({
-            title: "Material UI",
+            title: "Slint Material Components",
             logo: {
                 src: "./src/assets/slint-logo-small-light.svg",
             },

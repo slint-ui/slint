@@ -26,6 +26,7 @@ path = [
   "docs/src/assets/favicons/apple-touch-icon.png",
   "docs/src/assets/favicons/favicon.ico",
   "docs/src/assets/images/Components.png",
+   "docs/src/assets/images/phone-dark.webp",
   "docs/src/config.yaml",
 ]
 precedence = "aggregate"

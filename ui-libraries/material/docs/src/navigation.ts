@@ -22,13 +22,13 @@ export const headerData = {
         //     ],
         // },
     ],
-    actions: [
-        {
-            text: "Download",
-            href: "https://github.com/slint-ui/material-components",
-            target: "_blank",
-        },
-    ],
+    // actions: [
+    //     {
+    //         text: "Download",
+    //         href: "https://github.com/slint-ui/material-components",
+    //         target: "_blank",
+    //     },
+    // ],
 };
 
 export const footerData = {
