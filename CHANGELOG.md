@@ -21,7 +21,7 @@ All notable changes to this project are documented in this file.
 ### LSP and Tooling
 
  - Added binaries for Windows on ARM (VS Code extension, slint-lsp binaries).
- - Binaries have bigger stack size on Windows
+ - Fixed potential crashes due to stack overflows on Windows.
  - live-preview: Lazily compute palette to speedup the UI.
 
 ## [1.12.0] - 2026-06-16
