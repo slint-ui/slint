@@ -198,6 +198,9 @@ impl Expression {
     fn from_codeblock_node(node: syntax_nodes::CodeBlock, ctx: &mut LookupCtx) -> Expression {
         debug_assert_eq!(node.kind(), SyntaxKind::CodeBlock);
 
+        // new scope for locals
+        ctx.local_variables.push(Vec::new());
+
         let mut statements_or_exprs = node
             .children()
             .filter_map(|n| match n.kind() {
@@ -232,6 +235,9 @@ impl Expression {
             statements_or_exprs[index] = expr;
         });
 
+        // pop local scope
+        ctx.local_variables.pop();
+
         Expression::CodeBlock(statements_or_exprs)
     }
 
@@ -253,7 +259,10 @@ impl Expression {
             }
             // conflicts with something else
             Some(_) => {
-                ctx.diag.push_error(format!("Local variable declaration conflicts with existing name"), &node);
+                ctx.diag.push_error(
+                    format!("Local variable declaration conflicts with existing name"),
+                    &node,
+                );
                 return Expression::Invalid;
             }
             _ => {}
@@ -268,9 +277,10 @@ impl Expression {
             None => value.ty(),
         };
 
-        let value = Box::new(value.maybe_convert_to(ty, &node, ctx.diag));
+        // we can get the last scope exists, because each codeblock creates a new scope and we are inside a codeblock here by necessity
+        ctx.local_variables.last_mut().unwrap().push((name.clone(), ty.clone()));
 
-        ctx.local_variables.push((name.clone(), value.ty()));
+        let value = Box::new(value.maybe_convert_to(ty.clone(), &node, ctx.diag));
 
         Expression::StoreLocalVariable { name, value }
     }

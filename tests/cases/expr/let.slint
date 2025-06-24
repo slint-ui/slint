@@ -41,6 +41,13 @@ export component TestCase inherits Rectangle {
         return a == TestEnum.b ? 1 : 0;
     }
 
+    // this is just a test to make sure it compiles
+    public pure function test_lone_let_in_block() {
+        if (true) {
+            let a = 1;
+        }
+    }
+
     out property <bool> test: test_simple() == 1 && test_type_annotation() == 1 && test_type_annotation_conversion() == 1 && test_struct_conversion() == 2 && test_enum() == 1;
 }
 

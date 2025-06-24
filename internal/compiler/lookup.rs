@@ -49,8 +49,8 @@ pub struct LookupCtx<'a> {
     /// The token currently processed
     pub current_token: Option<NodeOrToken>,
 
-    /// Local variables declared in the current scope
-    pub local_variables: Vec<(SmolStr, Type)>,
+    /// A stack of local variable scopes
+    pub local_variables: Vec<Vec<(SmolStr, Type)>>,
 }
 
 impl<'a> LookupCtx<'a> {
@@ -229,17 +229,15 @@ impl LookupObject for LocalVariableLookup {
         ctx: &LookupCtx,
         f: &mut impl FnMut(&SmolStr, LookupResult) -> Option<R>,
     ) -> Option<R> {
-        for (name, ty) in ctx.local_variables.iter() {
-            if let Some(r) = f(
-                // we need to strip the "local_" prefix because a lookup call will not include it
-                &name.strip_prefix("local_").unwrap_or(name).into(),
-                Expression::ReadLocalVariable {
-                    name: name.clone(),
-                    ty: ty.clone(),
+        for scope in ctx.local_variables.iter() {
+            for (name, ty) in scope {
+                if let Some(r) = f(
+                    // we need to strip the "local_" prefix because a lookup call will not include it
+                    &name.strip_prefix("local_").unwrap_or(name).into(),
+                    Expression::ReadLocalVariable { name: name.clone(), ty: ty.clone() }.into(),
+                ) {
+                    return Some(r);
                 }
-                .into(),
-            ) {
-                return Some(r);
             }
         }
         None

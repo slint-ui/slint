@@ -186,7 +186,10 @@ fn simplify_expression(expr: &mut Expression) -> bool {
             };
             can_inline
         }
-        Expression::CodeBlock(stmts) if stmts.len() == 1 => {
+        // disable this simplification for store local variable, as "let" is not an expression in rust
+        Expression::CodeBlock(stmts)
+            if stmts.len() == 1 && !matches!(stmts[0], Expression::StoreLocalVariable { .. }) =>
+        {
             *expr = stmts[0].clone();
             simplify_expression(expr)
         }
