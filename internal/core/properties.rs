@@ -49,6 +49,14 @@ mod single_linked_list_pin {
             unsafe { Pin::new_unchecked(&self.0.as_ref().unwrap().value) }
         }
 
+        /// Take the first node out of the list and return a list that has only this one node, or none
+        pub fn pop_front(&mut self) -> Self {
+            let Some(mut first) = self.0.take() else { return Self(None) };
+            // Safety: we don't touch the `x.value` which is the one protected by the Pin
+            self.0 = unsafe { Pin::get_unchecked_mut(first.as_mut()).next.take() };
+            Self(Some(first))
+        }
+
         #[allow(unused)]
         pub fn iter(&self) -> impl Iterator<Item = Pin<&T>> {
             struct I<'a, T>(&'a NodePtr<T>);

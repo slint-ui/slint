@@ -94,6 +94,7 @@ impl ChangeTracker {
             let pinned_holder = Pin::new_unchecked(&*_self);
             let _self = _self as *mut BindingHolder<ChangeTrackerInner<T, EF, NF, Data>>;
             let inner = core::ptr::addr_of_mut!((*_self).binding).as_mut().unwrap();
+            (*core::ptr::addr_of_mut!((*_self).dep_nodes)).take();
             assert!(!inner.evaluating);
             inner.evaluating = true;
             let new_value =
@@ -204,16 +205,19 @@ impl ChangeTracker {
     }
 
     pub(super) unsafe fn mark_dirty(_self: *const BindingHolder, _was_dirty: bool) {
-        // Move the dependency list node from the dependency list to the CHANGED_NODE
         let _self = _self.as_ref().unwrap();
-        let node_head = _self.dep_nodes.take();
+        let mut node_head = _self.dep_nodes.take();
+        // Re-use first dependency list node from the dependency list to the CHANGED_NODE
+        // (and drop the remaining nodes)
+        node_head = node_head.pop_front();
         if let Some(node) = node_head.iter().next() {
             node.remove();
             CHANGED_NODES.with(|changed_nodes| {
                 changed_nodes.append(node);
             });
         }
-        _self.dep_nodes.set(node_head);
+        let other = _self.dep_nodes.replace(node_head);
+        debug_assert!(other.iter().next().is_none());
     }
 
     pub(super) unsafe fn set_internal(&self, raw: *mut BindingHolder) {
