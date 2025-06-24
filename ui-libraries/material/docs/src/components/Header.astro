@@ -7,7 +7,6 @@ import Search from "@astrojs/starlight/components/Search.astro";
 import SiteTitle from "@astrojs/starlight/components/SiteTitle.astro";
 import SocialIcons from "@astrojs/starlight/components/SocialIcons.astro";
 import ThemeSelect from "./ThemeSelect.astro";
-import VersionSelector from "./VersionSelector.astro";
 ---
 
 <div class="header sl-flex">
@@ -19,7 +18,7 @@ import VersionSelector from "./VersionSelector.astro";
 	</div>
 	<div class="sl-hidden md:sl-flex right-group">
 	<div class="sl-flex social-icons">
-			<VersionSelector {...Astro.locals.starlightRoute} />
+			<span class="tech-preview">Tech preview</span>
 	</div>
 		<div class="sl-flex social-icons">
 			<SocialIcons />
@@ -53,6 +52,16 @@ import VersionSelector from "./VersionSelector.astro";
 		border-inline-end: 1px solid var(--sl-color-gray-5);
 	}
 
+	.tech-preview {
+		font-size: var(--sl-text-sm);
+		color: var(--sl-color-orange);
+		font-weight: 500;
+		padding: 0.25rem 0.5rem;
+		border: 1px solid var(--sl-color-orange);
+		border-radius: 0.375rem;
+		background-color: var(--sl-color-orange-low);
+	}
+
 	@media (min-width: 50rem) {
 		:global(:root[data-has-sidebar]) {
 			--__sidebar-pad: calc(2 * var(--sl-nav-pad-x));
@@ -71,7 +80,7 @@ import VersionSelector from "./VersionSelector.astro";
 			);
 			display: grid;
 			grid-template-columns:
-        /* 1 (site title): runs up until the main content column’s left edge or the width of the title, whichever is the largest  */
+        /* 1 (site title): runs up until the main content column's left edge or the width of the title, whichever is the largest  */
 				minmax(
 					calc(var(--__sidebar-width) + max(0rem, var(--__main-column-fr) - var(--sl-nav-gap))),
 					auto

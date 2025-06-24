@@ -9,6 +9,7 @@ import Button from "~/components/ui/Button.astro";
 
 import { getHomePermalink } from "~/utils/permalinks";
 import { trimSlash, getAsset } from "~/utils/permalinks";
+import { footerData } from "~/navigation";
 import type { CallToAction } from "~/types";
 
 interface Link {
@@ -45,6 +46,7 @@ const {
 } = Astro.props;
 
 const currentPath = `/${trimSlash(new URL(Astro.url).pathname)}`;
+const { socialLinks = [] } = footerData;
 ---
 
 <header
@@ -58,7 +60,7 @@ const currentPath = `/${trimSlash(new URL(Astro.url).pathname)}`;
   <div class="absolute inset-0"></div>
   <div
     class:list={[
-      'relative text-default py-3 px-3 md:px-6 mx-auto w-full',
+      'relative text-default px-3 md:px-6 mx-auto w-full',
       {
         'md:flex md:justify-between': position !== 'center',
       },
@@ -69,6 +71,7 @@ const currentPath = `/${trimSlash(new URL(Astro.url).pathname)}`;
         'max-w-7xl': !isFullWidth,
       },
     ]}
+    style="height: var(--sl-nav-height); padding-top: var(--sl-nav-pad-y); padding-bottom: var(--sl-nav-pad-y);"
   >
     <div class:list={[{ 'mr-auto rtl:mr-0 rtl:ml-auto': position === 'right' }, 'flex justify-between']}>
       <a class="flex items-center" href={getHomePermalink()}>
@@ -136,7 +139,28 @@ const currentPath = `/${trimSlash(new URL(Astro.url).pathname)}`;
       ]}
     >
       <div class="items-center flex justify-between w-full md:w-auto">
-        <div class="flex">
+        <div class="flex items-center gap-2">
+          {
+            socialLinks?.length ? (
+              <ul class="flex items-center gap-1">
+                {socialLinks.map(({ ariaLabel, href, icon }) => (
+                  <li>
+                    <a
+                      class="text-muted dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-200 dark:focus:ring-gray-700 rounded-lg p-1.5 inline-flex items-center transition-colors"
+                      aria-label={ariaLabel}
+                      href={href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      {icon && <Icon name={icon} class="w-4 h-4" />}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              ''
+            )
+          }
           {showToggleTheme && <ToggleTheme iconClass="w-6 h-6 md:w-5 md:h-5 md:inline-block" />}
         </div>
         {

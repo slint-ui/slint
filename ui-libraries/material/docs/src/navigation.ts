@@ -83,6 +83,11 @@ export const footerData = {
     ],
     socialLinks: [
         {
+            ariaLabel: "Github",
+            icon: "tabler:brand-github",
+            href: "https://github.com/slint-ui/material-components",
+        },
+        {
             ariaLabel: "X",
             icon: "tabler:brand-x",
             href: "https://x.com/slint_ui",
@@ -98,14 +103,14 @@ export const footerData = {
             href: "https://fosstodon.org/@slint",
         },
         {
-            ariaLabel: "Facebook",
+            ariaLabel: "LinkedIn",
             icon: "tabler:brand-linkedin",
             href: "https://www.linkedin.com/company/slint-ui",
         },
         {
-            ariaLabel: "Github",
-            icon: "tabler:brand-github",
-            href: "https://github.com/slint-ui/material-components",
+            ariaLabel: "YouTube",
+            icon: "tabler:brand-youtube",
+            href: "https://www.youtube.com/@slint-ui",
         },
     ],
     footNote: `

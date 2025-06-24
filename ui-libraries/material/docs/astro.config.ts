@@ -98,6 +98,11 @@ export default defineConfig({
                 },
                 { icon: "x.com", label: "X", href: "https://x.com/slint_ui" },
                 {
+                    icon: "blueSky",
+                    label: "Bluesky",
+                    href: "https://bsky.app/profile/slint.dev",
+                },
+                {
                     icon: "linkedin",
                     label: "Linkedin",
                     href: "https://www.linkedin.com/company/slint-ui/",
@@ -106,6 +111,11 @@ export default defineConfig({
                     icon: "mastodon",
                     label: "Mastodon",
                     href: "https://fosstodon.org/@slint",
+                },
+                {
+                    icon: "youtube",
+                    label: "YouTube",
+                    href: "https://www.youtube.com/@slint-ui",
                 },
             ],
             favicon: "favicon.svg",
