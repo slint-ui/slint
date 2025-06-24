@@ -540,7 +540,7 @@ pub mod wgpu_25 {
     //!}
     //!```
     //!
-    pub use i_slint_core::graphics::wgpu_25::*;
+    pub use i_slint_core::graphics::wgpu_25::api::*;
 }
 
 #[cfg(feature = "unstable-winit-030")]
