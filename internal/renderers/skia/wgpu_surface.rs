@@ -28,6 +28,7 @@ pub struct WGPUSurface {
     queue: wgpu::Queue,
     surface_config: RefCell<wgpu::SurfaceConfiguration>,
     surface: wgpu::Surface<'static>,
+    textures_to_transition_for_sampling: RefCell<Vec<wgpu::Texture>>,
 }
 
 impl super::Surface for WGPUSurface {
@@ -86,6 +87,7 @@ impl super::Surface for WGPUSurface {
             queue,
             surface_config: surface_config.into(),
             surface,
+            textures_to_transition_for_sampling: RefCell::new(Vec::new()),
         })
     }
 
@@ -146,6 +148,23 @@ impl super::Surface for WGPUSurface {
 
         callback(skia_surface.canvas(), Some(gr_context), 0);
 
+        let textures_to_transition = self.textures_to_transition_for_sampling.take();
+        if !textures_to_transition.is_empty() {
+            let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("Skia texture transition encoder"),
+            });
+            encoder.transition_resources(
+                std::iter::empty(),
+                textures_to_transition.iter().map(|texture| wgpu::TextureTransition {
+                    texture,
+                    selector: None,
+                    state: wgpu::TextureUses::RESOURCE,
+                }),
+            );
+
+            self.queue.submit(Some(encoder.finish()));
+        }
+
         gr_context.submit(None);
 
         frame.present();
@@ -183,6 +202,11 @@ impl super::Surface for WGPUSurface {
         let texture = match any_wgpu_texture {
             i_slint_core::graphics::WGPUTexture::WGPU25Texture(texture) => texture.clone(),
         };
+
+        // Skia won't submit commands right away, so remember the texture and transition before
+        // submitting.
+        self.textures_to_transition_for_sampling.borrow_mut().push(texture.clone());
+
         #[allow(unused_mut)]
         let mut image: Option<skia_safe::Image> = None;
 
