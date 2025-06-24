@@ -118,7 +118,7 @@ impl BackendSelector {
     #[must_use]
     pub fn require_wgpu_25(
         mut self,
-        configuration: i_slint_core::graphics::wgpu_25::WGPUConfiguration,
+        configuration: i_slint_core::graphics::wgpu_25::api::WGPUConfiguration,
     ) -> Self {
         self.requested_graphics_api = Some(RequestedGraphicsAPI::WGPU25(configuration));
         self
