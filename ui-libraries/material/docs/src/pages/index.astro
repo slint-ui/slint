@@ -23,29 +23,26 @@ const metadata = {
 
   <Hero
     actions={[
-      {
-        variant: 'primary',
-        text: 'Android APK',
-        href: '/apk/slint_material.apk',
-        target: '_blank',
-        icon: 'tabler:download',
-      },
       { text: 'Features', href: '#features' },
-      { text: 'Gallery', href: '/wasm/index.html' },
+      { text: 'Demo', href: '/wasm/index.html' },
     ]}
     image={{ src: '~/assets/images/phone-dark.webp', alt: 'Material Components Hero Image' }}
   >
     <Fragment slot="title">
-      Material components for <span class="hidden xl:inline">creating apps with</span>
-      <span class="text-accent dark:text-white"> Slint</span>
+      <span
+        class="bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 bg-clip-text text-transparent dark:from-cyan-400 dark:via-fuchsia-500 dark:to-yellow-400"
+      >
+        Slint
+      </span>
+      + Material Design
+      <br/>Start building your next product today
     </Fragment>
 
     <Fragment slot="subtitle">
       <span class="hidden sm:inline">
-        <span class="font-semibold">Material UI</span> components are free, customizable and production-ready.</span
+        It's never been easier to build a touch based device. </span
       >
-      <span class="block mb-1 sm:hidden font-bold text-blue-600">Material UI: Production-ready.</span>
-      Suitable for touch based products on embedded, mobile and desktop.
+      Combine Slint's production grade toolkit with everyone's favorite <span class="font-semibold">Material Design Components</span>
     </Fragment>
   </Hero>
 
@@ -58,14 +55,20 @@ const metadata = {
   <Features
     id="features"
     tagline="Features"
-    title="What you get with Material UI"
-    subtitle="Google's award winning design system, now available for Slint."
+    title="Not everyone wants to build their own UI components"
+    subtitle="But every product should have a great design."
     items={[
       {
-        title: 'Native Performance',
+        title: 'A decade in the making',
         description:
-          'High-performance UI components optimized for embedded systems, mobile devices, and desktop applications with minimal resource usage.',
-        icon: 'tabler:rocket',
+          "Material Design has been evolved over the past 10 years. It\'s been the foundation of Android phones since 2014 and proven in billions of devices.",
+        icon: 'tabler:play-card-10',
+      },
+      {
+        title: 'Proven quality',
+        description:
+          'Don\'t let your own product be ugly. Google\'s Material Design isn\'t just functional, it\'s beautiful. It\'s also been battle tested in billions of devices.',
+        icon: 'tabler:award',
       },
       {
         title: 'Cross-Platform Support',
@@ -73,22 +76,17 @@ const metadata = {
           'Build once, deploy everywhere. Material UI components work seamlessly across desktop, mobile, and embedded platforms.',
         icon: 'tabler:devices',
       },
-      {
-        title: 'Material Design Compliance',
-        description:
-          'Follows Google\'s Material Design guidelines with proper spacing, typography, elevation, and interaction patterns.',
-        icon: 'tabler:palette',
-      },
+
       {
         title: 'Touch-Optimized',
         description:
-          'Designed specifically for touch interfaces with appropriate touch targets, gestures, and haptic feedback support.',
+          'Designed specifically for touch interfaces with appropriate touch targets and gestures.',
         icon: 'tabler:hand-click',
       },
       {
-        title: 'Lightweight & Efficient',
+        title: 'Slint\'s ese of use',
         description:
-          'Minimal memory footprint and fast rendering make it perfect for resource-constrained embedded systems.',
+          'With Slint\'s simple syntax there has never been an easier way to build a Material design product.',
         icon: 'tabler:gauge',
       },
       {
@@ -131,44 +129,6 @@ const metadata = {
     }}
   >
     <Fragment slot="content">Build professional applications with Material Design.</Fragment>
-
-    <Fragment slot="bg">
-      <div class="absolute inset-0 bg-blue-50 dark:bg-transparent"></div>
-    </Fragment>
-  </Content>
-
-  <!-- Content Widget **************** -->
-
-  <Content
-    isReversed
-    isAfterContent
-    items={[
-      {
-        title: 'Enhanced User Experience',
-        description:
-          'Captivate your users with intuitive navigation, smooth animations, and visually appealing interfaces that encourage engagement.',
-      },
-      {
-        title: 'Continuous Updates',
-        description:
-          'Stay aligned with the latest Material Design specifications through regular updates and new component additions.',
-      },
-      {
-        title: 'Rapid Development',
-        description:
-          'Skip the time-consuming process of building UI components from scratch and launch your Slint application sooner with Material UI.',
-      },
-      {
-        title: 'Community Support',
-        description: `Join the growing Slint community for insights, resources, and assistance, ensuring you're never alone on your development journey.`,
-      },
-    ]}
-    image={{
-      src: '~/assets/images/Components.png',
-      alt: 'Slint Material UI Development',
-    }}
-  >
-    <Fragment slot="content">Designed to accelerate your development workflow.</Fragment>
 
     <Fragment slot="bg">
       <div class="absolute inset-0 bg-blue-50 dark:bg-transparent"></div>
