@@ -18,7 +18,7 @@ metadata:
   openGraph:
     site_name: Slint Material Components
     images:
-      - url: '~/assets/images/Components.png'
+      - url: '~/assets/images/material-award.jpg'
         width: 1200
         height: 628
     type: website
