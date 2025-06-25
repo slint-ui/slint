@@ -16,6 +16,7 @@ All notable changes to this project are documented in this file.
 ### Slint Language
 
  - Enums without value cause compilation errors (instead of panics)
+ - Fixed runtime and compile errors when accessing the `Platform` global from within other globals. (#8777)
 
 ### Node.js API
 
