@@ -2,12 +2,12 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 //! Provides production-ready model adapters with advanced caching, error handling, and event propagation.
-//! 
+//!
 //! Includes:
 //! - `MappedModel`: Unidirectional data transformation
 //! - `BidirectionalMappedModel`: Bidirectional data flow with inverse mapping
 //! - `ModelAdapter`: Base adapter for common event handling
-//! 
+//!
 //! Features:
 //! - LRU caching with size monitoring
 //! - Comprehensive error handling
@@ -49,7 +49,7 @@ impl fmt::Display for MappingError {
 impl std::error::Error for MappingError {}
 
 use i_slint_core::model::{
-    Model, ModelNotify, ModelRc, ModelTracker, ModelEvent, ModelPeer, 
+    Model, ModelNotify, ModelRc, ModelTracker, ModelEvent, ModelPeer,
     ModelEventDispatcher
 };
 use lru::LruCache;
@@ -207,8 +207,8 @@ where
     /// * `inverse_mapper` - Inverse mapping function
     /// * `cache_size` - Maximum number of items to cache (default: 100)
     pub fn new(
-        source: ModelRc<SourceModel>, 
-        mapper: F, 
+        source: ModelRc<SourceModel>,
+        mapper: F,
         inverse_mapper: G,
         cache_size: Option<usize>
     ) -> Rc<Self> {
@@ -216,7 +216,7 @@ where
         let cache = Rc::new(RefCell::new(LruCache::new(cache_size)));
         let metrics = Rc::new(CacheMetrics::new());
         let adapter = ModelAdapter::new();
-        
+
         let model = Rc::new(Self {
             source: source.clone(),
             mapper: Rc::new(mapper),
@@ -225,7 +225,7 @@ where
             metrics: metrics.clone(),
             cache: cache.clone(),
         });
-        
+
         model.adapter.connect_source(source);
         model
     }
@@ -347,7 +347,7 @@ where
             error!("Error setting row {}: {}", row, e);
         }
     }
-    
+
     fn model_tracker(&self) -> &dyn ModelTracker {
         &self.adapter.notify
     }
@@ -408,15 +408,15 @@ where
     /// * `mapper` - Mapping function
     /// * `cache_size` - Maximum number of items to cache (default: 100)
     pub fn new(
-        source: ModelRc<SourceModel>, 
-        mapper: F, 
+        source: ModelRc<SourceModel>,
+        mapper: F,
         cache_size: Option<usize>
     ) -> Rc<Self> {
         let cache_size = cache_size.unwrap_or(100);
         let cache = Rc::new(RefCell::new(LruCache::new(cache_size)));
         let metrics = Rc::new(CacheMetrics::new());
         let adapter = ModelAdapter::new();
-        
+
         let model = Rc::new(Self {
             source: source.clone(),
             mapper: Rc::new(mapper),
@@ -424,7 +424,7 @@ where
             metrics: metrics.clone(),
             cache: cache.clone(),
         });
-        
+
         model.adapter.connect_source(source);
         model
     }
@@ -452,7 +452,7 @@ where
     pub fn reset_metrics(&self) {
         self.metrics.reset();
     }
-    
+
     /// Safe access to row data
     pub fn try_row_data(&self, row: usize) -> Result<Option<TargetData>, MappingError> {
         if row >= self.source.row_count() {

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 //! Provides the `FilteredModel` adapter that wraps another model and filters items based on a predicate.
-//! 
+//!
 //! This module implements a reactive filtering mechanism that automatically updates when the source model changes.
 //! The filter predicate is applied lazily and results are cached for performance.
 
@@ -49,10 +49,10 @@ where
     fn handle_row_count_change(&self) {
         let new_count = self.source.row_count();
         let mut indices = self.filtered_indices.borrow_mut();
-        
+
         // Remove indices that are now out of bounds due to reduced row count
         indices.retain(|&i| i < new_count);
-        
+
         // Check only newly added rows to avoid full regeneration
         for i in indices.len()..new_count {
             if let Some(data) = self.source.row_data(i) {
@@ -140,11 +140,11 @@ where
                                 use std::sync::Once;
                                 static mut LAST_LOG: Option<std::time::Instant> = None;
                                 static mut ONCE: Once = Once::new();
-                                
+
                                 ONCE.call_once(|| {
                                     LAST_LOG = Some(std::time::Instant::now() - std::time::Duration::from_secs(61));
                                 });
-                                
+
                                 let now = std::time::Instant::now();
                                 let can_log = unsafe {
                                     match LAST_LOG {
@@ -152,7 +152,7 @@ where
                                         Some(last) => now.duration_since(last) > std::time::Duration::from_secs(60),
                                     }
                                 };
-                                
+
                                 if can_log {
                                     log::error!("Index inconsistency detected after removal: expected {} rows but got {}", current_count - 1, this.row_count());
                                     unsafe { LAST_LOG = Some(now); }
