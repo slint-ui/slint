@@ -235,7 +235,7 @@ impl TestingClient {
         let format = if image_mime_type.is_empty() {
             image::ImageFormat::Png
         } else {
-            image::ImageFormat::from_mime_type(image_mime_type).ok_or_else(|| {
+            image::ImageFormat::from_mime_type(&image_mime_type).ok_or_else(|| {
                 format!(
                     "Unsupported image format {image_mime_type} requested for window snapshotting"
                 )
