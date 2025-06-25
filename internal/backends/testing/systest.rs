@@ -232,8 +232,16 @@ impl TestingClient {
             window.take_snapshot().map_err(|e| format!("Error grabbing window screenshot: {e}"))?;
         let mut window_contents_as_encoded_image: Vec<u8> = Vec::new();
         let mut cursor = std::io::Cursor::new(&mut window_contents_as_encoded_image);
-        let format =
-            image::ImageFormat::from_mime_type(image_mime_type).unwrap_or(image::ImageFormat::Png);
+        let format = if image_mime_type.is_empty() {
+            image::ImageFormat::Png
+        } else {
+            image::ImageFormat::from_mime_type(image_mime_type).ok_or_else(|| {
+                format!(
+                    "Unsupported image format {image_mime_type} requested for window snapshotting"
+                )
+            })?
+        };
+
         image::write_buffer_with_format(
             &mut cursor,
             buffer.as_bytes(),
