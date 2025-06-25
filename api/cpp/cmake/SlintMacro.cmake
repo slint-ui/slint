@@ -91,5 +91,5 @@ function(SLINT_TARGET_SOURCES target)
 
         target_sources(${target} PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/${_SLINT_BASE_NAME}.h ${cpp_files})
     endforeach()
-    target_include_directories(${target} PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
+    target_include_directories(${target} PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>")
 endfunction()
