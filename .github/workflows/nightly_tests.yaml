@@ -38,12 +38,6 @@ jobs:
               run: |
                   . ${IDF_PATH}/export.sh
                   idf.py -D SLINT_ESP_LOCAL_EXAMPLE=OFF build
-            - name: Build and Test Carousel example s3 usb otg
-              shell: bash
-              working-directory: examples/carousel/esp-idf/s3-usb-otg
-              run: |
-                  . ${IDF_PATH}/export.sh
-                  idf.py -D SLINT_ESP_LOCAL_EXAMPLE=OFF build
 
     qa-tree-sitter-latest:
         uses: ./.github/workflows/tree_sitter.yaml
