@@ -1,0 +1,75 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+name: Upload briefcasex-slint to Python Package Index
+
+on:
+    workflow_dispatch:
+      inputs:
+        release:
+            type: boolean
+            default: false
+            required: false
+            description: "Release? If false, publish to test.pypi.org, if true, publish to pypi.org"
+
+jobs:
+
+    build_source_package:
+        name: Build source package
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+            - name: Install uv
+              uses: astral-sh/setup-uv@v6
+            - name: Build source package
+              working-directory: api/python/briefcase
+              run: uv build --sdist
+            - uses: actions/upload-artifact@v4
+              with:
+                name: python-package-distributions-source
+                path: api/python/briefcase/dist/*.tar.gz
+
+    publish-to-test-pypi:
+        if: ${{ github.event.inputs.release != 'true' }}
+        name: >-
+            Publish Python 🐍 distribution 📦 to Test PyPI
+        needs: [build_source_package]
+        runs-on: ubuntu-latest
+        environment:
+            name: testpypi
+            url: https://test.pypi.org/p/briefcasex-slint
+        permissions:
+            id-token: write  # IMPORTANT: mandatory for trusted publishing
+        steps:
+            - uses: actions/download-artifact@v4
+              with:
+                pattern: python-package-distributions-*
+                path: dist
+                merge-multiple: true
+            - name: Publish distribution 📦 to Test PyPI
+              uses: pypa/gh-action-pypi-publish@release/v1
+              with:
+                repository-url: https://test.pypi.org/legacy/
+
+    publish-to-pypi:
+      if: ${{ github.event.inputs.release == 'true' }}
+      name: >-
+          Publish Python 🐍 distribution 📦 to PyPI
+      needs: [build_source_package]
+      runs-on: ubuntu-latest
+      environment:
+          name: pypi
+          url: https://test.pypi.org/p/briefcasex-slint
+      permissions:
+          id-token: write  # IMPORTANT: mandatory for trusted publishing
+      steps:
+          - uses: actions/download-artifact@v4
+            with:
+              pattern: python-package-distributions-*
+              path: dist
+              merge-multiple: true
+          - name: Publish distribution 📦 to PyPI
+            uses: pypa/gh-action-pypi-publish@release/v1
+            with:
+              verbose: true
+
