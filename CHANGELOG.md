@@ -9,6 +9,13 @@ All notable changes to this project are documented in this file.
 
  - Fixed invalid code gen with return statements. (#8723)
  - Updated `muda` dependency to avoid outdated and insecure `gtk` dependency to appear in the `Cargo.lock` file even if it was not used. (#7800)
+ - Fixed memory leaks and crash in change callbacks (#8768, #8741)
+ - winit: Fixed window constraints (min, max, pref) not being applied sometimes (#8765)
+ - No longer generate unused structs in the generated code to avoid warnings with Rust 1.89
+
+### Slint Language
+
+ - Enums without value cause compilation errors (instead of panics)
 
 ### Node.js API
 
