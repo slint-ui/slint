@@ -41,7 +41,6 @@ pub enum Expression {
     /// with this name and this type before in one of the statement of an enclosing codeblock
     ReadLocalVariable {
         name: SmolStr,
-
         ty: Type,
     },
 

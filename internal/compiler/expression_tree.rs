@@ -1635,12 +1635,12 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
             write!(f, ".@model")
         }
         Expression::FunctionParameterReference { index, ty: _ } => write!(f, "_arg_{index}"),
-        Expression::StoreLocalVariable { name, value, .. } => {
+        Expression::StoreLocalVariable { name, value } => {
             write!(f, "{name} = ")?;
             pretty_print(f, value)
         }
-        Expression::ReadLocalVariable { name, ty: _, .. } => write!(f, "{name}"),
-        Expression::StructFieldAccess { base, name, .. } => {
+        Expression::ReadLocalVariable { name, ty: _ } => write!(f, "{name}"),
+        Expression::StructFieldAccess { base, name } => {
             pretty_print(f, base)?;
             write!(f, ".{name}")
         }

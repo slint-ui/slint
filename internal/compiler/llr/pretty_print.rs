@@ -253,7 +253,7 @@ impl<'a, T> Display for DisplayExpression<'a, T> {
             Expression::BoolLiteral(x) => write!(f, "{x:?}"),
             Expression::PropertyReference(x) => write!(f, "{}", DisplayPropertyRef(x, ctx)),
             Expression::FunctionParameterReference { index } => write!(f, "arg_{index}"),
-            Expression::StoreLocalVariable { name, value, .. } => {
+            Expression::StoreLocalVariable { name, value } => {
                 write!(f, "{} = {}", name, e(value))
             }
             Expression::ReadLocalVariable { name, .. } => write!(f, "{name}"),

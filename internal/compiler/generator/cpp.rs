@@ -3132,7 +3132,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
         Expression::StoreLocalVariable { name, value } => {
             format!("[[maybe_unused]] auto {} = {};", ident(name), compile_expression(value, ctx))
         }
-        Expression::ReadLocalVariable { name, .. } => format!("{}", ident(name)),
+        Expression::ReadLocalVariable { name, .. } => ident(name).to_string(),
         Expression::StructFieldAccess { base, name } => match base.ty(ctx) {
             Type::Struct(s)=> {
                 if s.name.is_none() {

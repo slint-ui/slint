@@ -179,7 +179,7 @@ fn eval_expression(
                     .collect()
             })
         }
-        Expression::StoreLocalVariable { name, value, .. } => {
+        Expression::StoreLocalVariable { name, value } => {
             let value = eval_expression(value, local_context, None);
             local_context.local_variables.insert(name.clone(), value);
             Value::Void

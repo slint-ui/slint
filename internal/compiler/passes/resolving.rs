@@ -244,11 +244,9 @@ impl Expression {
     fn from_let_statement(node: syntax_nodes::LetStatement, ctx: &mut LookupCtx) -> Expression {
         let name = identifier_text(&node.DeclaredIdentifier()).unwrap_or_default();
 
-        // we need to do a global lookup here to ensure that the variable isn't already declared in any scope
-
         let global_lookup = crate::lookup::global_lookup();
         match global_lookup.lookup(ctx, &name) {
-            // conflicts with another local variable
+            // conflicts with another local variable or function argument
             Some(LookupResult::Expression {
                 expression: Expression::ReadLocalVariable { .. } | Expression::FunctionParameterReference { .. },
                 ..
