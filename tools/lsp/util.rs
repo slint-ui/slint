@@ -4,7 +4,7 @@
 use i_slint_compiler::diagnostics::{DiagnosticLevel, SourceFile, Spanned};
 use i_slint_compiler::expression_tree::Expression;
 use i_slint_compiler::langtype::{ElementType, Type};
-use i_slint_compiler::lookup::{LookupCtx};
+use i_slint_compiler::lookup::LookupCtx;
 use i_slint_compiler::object_tree::{self, type_from_node};
 use i_slint_compiler::parser::{syntax_nodes, SyntaxKind, SyntaxNode, SyntaxToken};
 use i_slint_compiler::parser::{TextRange, TextSize};
@@ -160,16 +160,18 @@ impl ExpressionContextInfo {
 pub fn with_lookup_ctx<R>(
     document_cache: &common::DocumentCache,
     node: SyntaxNode,
+    to_offset: Option<TextSize>,
     f: impl FnOnce(&mut LookupCtx) -> R,
 ) -> Option<R> {
     let expr_context_info = lookup_expression_context(node)?;
-    with_property_lookup_ctx::<R>(document_cache, &expr_context_info, f)
+    with_property_lookup_ctx::<R>(document_cache, &expr_context_info, to_offset, f)
 }
 
 /// Run the function with the LookupCtx associated with the token
 pub fn with_property_lookup_ctx<R>(
     document_cache: &common::DocumentCache,
     expr_context_info: &ExpressionContextInfo,
+    to_offset: Option<TextSize>,
     f: impl FnOnce(&mut LookupCtx) -> R,
 ) -> Option<R> {
     let (element, prop_name, is_animate) = (
@@ -247,7 +249,7 @@ pub fn with_property_lookup_ctx<R>(
             .flat_map(|a| i_slint_compiler::parser::identifier_text(&a))
             .collect();
 
-        add_codeblock_local_variables(&cb.CodeBlock(), &mut lookup_context);
+        add_codeblock_local_variables(&cb.CodeBlock(), to_offset, &mut lookup_context);
     } else if let Some(f) = element.Function().find(|p| {
         i_slint_compiler::parser::identifier_text(&p.DeclaredIdentifier())
             .is_some_and(|x| x == prop_name)
@@ -257,12 +259,18 @@ pub fn with_property_lookup_ctx<R>(
             .flat_map(|a| i_slint_compiler::parser::identifier_text(&a.DeclaredIdentifier()))
             .collect();
 
-        add_codeblock_local_variables(&f.CodeBlock(), &mut lookup_context);
-    } else if let Some(cb) = element.PropertyChangedCallback().find(|p| i_slint_compiler::parser::identifier_text(p).is_some_and(|x| x == prop_name)) {
-        add_codeblock_local_variables(&cb.CodeBlock(), &mut lookup_context);
-    } else if let Some(b) = element.Binding().find(|p| i_slint_compiler::parser::identifier_text(p).is_some_and(|x| x == prop_name)) {
+        add_codeblock_local_variables(&f.CodeBlock(), to_offset, &mut lookup_context);
+    } else if let Some(cb) = element
+        .PropertyChangedCallback()
+        .find(|p| i_slint_compiler::parser::identifier_text(p).is_some_and(|x| x == prop_name))
+    {
+        add_codeblock_local_variables(&cb.CodeBlock(), to_offset, &mut lookup_context);
+    } else if let Some(b) = element
+        .Binding()
+        .find(|p| i_slint_compiler::parser::identifier_text(p).is_some_and(|x| x == prop_name))
+    {
         if let Some(cb) = b.BindingExpression().CodeBlock() {
-            add_codeblock_local_variables(&cb, &mut lookup_context);
+            add_codeblock_local_variables(&cb, to_offset, &mut lookup_context);
         }
     }
 
@@ -270,16 +278,26 @@ pub fn with_property_lookup_ctx<R>(
 }
 
 // recursively add local variables from a code block to the context
-fn add_codeblock_local_variables(code_block: &syntax_nodes::CodeBlock, ctx: &mut LookupCtx) {
-    let locals: Vec<_> = code_block
+fn add_codeblock_local_variables(
+    code_block: &syntax_nodes::CodeBlock,
+    to_offset: Option<TextSize>,
+    ctx: &mut LookupCtx,
+) {
+    if let Some(offset) = to_offset {
+        if !code_block.text_range().contains(offset) {
+            return; // out of scope
+        }
+    }
+
+    let locals = code_block
         .LetStatement()
+        .take_while(|e| to_offset.map_or(true, |offset| e.text_range().start() < offset))
         .map(|e| {
             let value = Expression::from_expression_node(e.Expression(), ctx);
-            let ty = match e.Type() {
-                Some(ty) => type_from_node(ty, ctx.diag, ctx.type_register),
-                None => value.ty(),
-            };
-
+            let ty = e
+                .Type()
+                .map(|ty| type_from_node(ty, ctx.diag, ctx.type_register))
+                .unwrap_or_else(|| value.ty());
             (
                 i_slint_compiler::parser::identifier_text(&e.DeclaredIdentifier())
                     .unwrap_or_default(),
@@ -292,7 +310,7 @@ fn add_codeblock_local_variables(code_block: &syntax_nodes::CodeBlock, ctx: &mut
 
     code_block.Expression().for_each(|e| {
         if let Some(cb) = e.CodeBlock() {
-            add_codeblock_local_variables(&cb, ctx);
+            add_codeblock_local_variables(&cb, to_offset, ctx);
         }
     })
 }
@@ -306,7 +324,10 @@ fn lookup_expression_context(mut n: SyntaxNode) -> Option<ExpressionContextInfo>
             break (element, prop_name, false);
         }
         match n.kind() {
-            SyntaxKind::Binding | SyntaxKind::TwoWayBinding | SyntaxKind::CallbackConnection | SyntaxKind::PropertyChangedCallback => {
+            SyntaxKind::Binding
+            | SyntaxKind::TwoWayBinding
+            | SyntaxKind::CallbackConnection
+            | SyntaxKind::PropertyChangedCallback => {
                 let mut parent = n.parent()?;
                 if parent.kind() == SyntaxKind::PropertyAnimation {
                     let prop_name = i_slint_compiler::parser::identifier_text(&n)?;
