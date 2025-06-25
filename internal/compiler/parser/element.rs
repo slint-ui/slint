@@ -274,7 +274,7 @@ pub fn parse_code_block(p: &mut impl Parser) {
 #[cfg_attr(test, parser_test)]
 /// ```test,CallbackConnection
 /// clicked => {}
-/// clicked => bar ; 
+/// clicked => bar ;
 /// clicked => { foo; } ;
 /// clicked() => { foo; }
 /// mouse_move(x, y) => {}
