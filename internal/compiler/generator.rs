@@ -27,6 +27,9 @@ pub mod rust;
 #[cfg(feature = "rust")]
 pub mod rust_live_reload;
 
+#[cfg(feature = "python")]
+mod python;
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum OutputFormat {
     #[cfg(feature = "cpp")]
@@ -35,6 +38,8 @@ pub enum OutputFormat {
     Rust,
     Interpreter,
     Llr,
+    #[cfg(feature = "python")]
+    Python,
 }
 
 impl OutputFormat {
@@ -46,6 +51,8 @@ impl OutputFormat {
             }
             #[cfg(feature = "rust")]
             Some("rs") => Some(Self::Rust),
+            #[cfg(feature = "python")]
+            Some("py") => Some(Self::Python),
             _ => None,
         }
     }
@@ -60,6 +67,8 @@ impl std::str::FromStr for OutputFormat {
             #[cfg(feature = "rust")]
             "rust" => Ok(Self::Rust),
             "llr" => Ok(Self::Llr),
+            #[cfg(feature = "python")]
+            "python" => Ok(Self::Python),
             _ => Err(format!("Unknown output format {s}")),
         }
     }
@@ -68,6 +77,7 @@ impl std::str::FromStr for OutputFormat {
 pub fn generate(
     format: OutputFormat,
     destination: &mut impl std::io::Write,
+    destination_path: Option<&std::path::Path>,
     doc: &Document,
     compiler_config: &CompilerConfiguration,
 ) -> std::io::Result<()> {
@@ -95,6 +105,11 @@ pub fn generate(
             let root = crate::llr::lower_to_item_tree::lower_to_item_tree(doc, compiler_config)?;
             let mut output = String::new();
             crate::llr::pretty_print::pretty_print(&root, &mut output).unwrap();
+            write!(destination, "{output}")?;
+        }
+        #[cfg(feature = "python")]
+        OutputFormat::Python => {
+            let output = python::generate(doc, compiler_config, destination_path)?;
             write!(destination, "{output}")?;
         }
     }
