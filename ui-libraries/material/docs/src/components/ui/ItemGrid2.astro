@@ -2,7 +2,6 @@
 // Copyright © onWidget <https://github.com/onwidget>
 // SPDX-License-Identifier: MIT
 import type { ItemGrid as Props } from "~/types";
-import { Icon } from "astro-icon/components";
 import { twMerge } from "tailwind-merge";
 import Button from "./Button.astro";
 
@@ -16,6 +15,16 @@ const {
     description: descriptionClass = "",
     icon: defaultIconClass = "text-primary",
 } = classes;
+
+import handClickIcon from "~/assets/images/icons/hand-click.svg?url";
+import filesIcon from "~/assets/images/icons/files.svg?url";
+import bellRingingIcon from "~/assets/images/icons/bell-ringing.svg?url";
+import playCardIcon from "~/assets/images/icons/play-card.svg?url";
+import navigationIcon from "~/assets/images/icons/navigation.svg?url";
+import messageCircleIcon from "~/assets/images/icons/message-circle.svg?url";
+import loaderIcon from "~/assets/images/icons/loader.svg?url";
+import infoOctagonIcon from "~/assets/images/icons/info-octagon.svg?url";
+import layoutNavbarIcon from "~/assets/images/icons/layout-navbar.svg?url";
 ---
 
 {
@@ -55,31 +64,31 @@ const {
           ].includes(icon) && (
             <>
             {icon === 'buttons' && (
-                <img src="/src/assets/images/icons/hand-click.svg" alt="Hand Click Icon" class="mb-2 w-10 h-10" />
+                <img src={handClickIcon} alt="Buttons Icon" class="mb-2 w-10 h-10" />
               )}
               {icon === 'forms' && (
-                <img src="/src/assets/images/icons/files.svg" alt="Hand Click Icon" class="mb-2 w-10 h-10" />
+                <img src={filesIcon} alt="Forms Icon" class="mb-2 w-10 h-10" />
               )}
               {icon === 'snackbars' && (
-                <img src="/src/assets/images/icons/bell-ringing.svg" alt="Loader Icon" class="mb-2 w-10 h-10" />
+                <img src={bellRingingIcon} alt="Snackbars Icon" class="mb-2 w-10 h-10" />
               )}
               {icon === 'cards' && (
-                <img src="/src/assets/images/icons/play-card.svg" alt="Loader Icon" class="mb-2 w-10 h-10" />
+                <img src={playCardIcon} alt="Cards Icon" class="mb-2 w-10 h-10" />
               )}
               {icon === 'navigation' && (
-                <img src="/src/assets/images/icons/navigation.svg" alt="Loader Icon" class="mb-2 w-10 h-10" />
+                <img src={navigationIcon} alt="Navigation Icon" class="mb-2 w-10 h-10" />
               )}
               {icon === 'dialogs' && (
-                <img src="/src/assets/images/icons/message-circle.svg" alt="Loader Icon" class="mb-2 w-10 h-10" />
+                <img src={messageCircleIcon} alt="Dialogs Icon" class="mb-2 w-10 h-10" />
               )}
               {icon === 'progress-indicators' && (
-                <img src="/src/assets/images/icons/loader.svg" alt="Loader Icon" class="mb-2 w-10 h-10" />
+                <img src={loaderIcon} alt="Progress Indicators Icon" class="mb-2 w-10 h-10" />
               )}
               {icon === 'tooltips' && (
-                <img src="/src/assets/images/icons/info-octagon.svg" alt="Loader Icon" class="mb-2 w-10 h-10" />
+                <img src={infoOctagonIcon} alt="Tooltips Icon" class="mb-2 w-10 h-10" />
               )}
               {icon === 'appbar' && (
-                <img src="/src/assets/images/icons/layout-navbar.svg" alt="Loader Icon" class="mb-2 w-10 h-10" />
+                <img src={layoutNavbarIcon} alt="Appbar Icon" class="mb-2 w-10 h-10" />
               )}
             </>
           )}
