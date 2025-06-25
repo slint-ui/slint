@@ -216,10 +216,7 @@ fn continue_codeblock(
         name: unique_name.clone(),
         ty: return_object.ty(),
     });
-    stmts.push(Expression::StoreLocalVariable {
-        name: unique_name,
-        value: return_object.into(),
-    });
+    stmts.push(Expression::StoreLocalVariable { name: unique_name, value: return_object.into() });
     stmts.push(Expression::Condition {
         condition: Expression::StructFieldAccess {
             base: load.clone(),
@@ -301,15 +298,10 @@ impl ExpressionResult {
                     "returned_expression{}",
                     COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
                 );
-                let load = Box::new(Expression::ReadLocalVariable {
-                    name: name.clone(),
-                    ty: value.ty(),
-                });
+                let load =
+                    Box::new(Expression::ReadLocalVariable { name: name.clone(), ty: value.ty() });
                 Expression::CodeBlock(vec![
-                    Expression::StoreLocalVariable {
-                        name,
-                        value: value.into(),
-                    },
+                    Expression::StoreLocalVariable { name, value: value.into() },
                     Expression::Condition {
                         condition: Expression::StructFieldAccess {
                             base: load.clone(),
@@ -457,10 +449,7 @@ impl ExpressionResult {
                 });
                 ExpressionResult::ReturnObject {
                     value: Expression::CodeBlock(vec![
-                        Expression::StoreLocalVariable {
-                            name,
-                            value: value.into(),
-                        },
+                        Expression::StoreLocalVariable { name, value: value.into() },
                         make_struct([condition, actual].into_iter().chain(ret.into_iter())),
                     ]),
                     has_value,
@@ -557,10 +546,7 @@ fn convert_struct(from: Expression, to: Type) -> Expression {
         new_values.insert(key.clone(), expression);
     }
     Expression::CodeBlock(vec![
-        Expression::StoreLocalVariable {
-            name: var_name,
-            value: Box::new(from),
-        },
+        Expression::StoreLocalVariable { name: var_name, value: Box::new(from) },
         Expression::Struct { values: new_values, ty: to },
     ])
 }

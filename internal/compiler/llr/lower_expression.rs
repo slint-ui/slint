@@ -109,17 +109,12 @@ pub fn lower_expression(
         tree_Expression::FunctionParameterReference { index, .. } => {
             llr_Expression::FunctionParameterReference { index: *index }
         }
-        tree_Expression::StoreLocalVariable { name, value } => {
-            llr_Expression::StoreLocalVariable {
-                name: name.clone(),
-                value: Box::new(lower_expression(value, ctx)),
-            }
-        }
+        tree_Expression::StoreLocalVariable { name, value } => llr_Expression::StoreLocalVariable {
+            name: name.clone(),
+            value: Box::new(lower_expression(value, ctx)),
+        },
         tree_Expression::ReadLocalVariable { name, ty } => {
-            llr_Expression::ReadLocalVariable {
-                name: name.clone(),
-                ty: ty.clone(),
-            }
+            llr_Expression::ReadLocalVariable { name: name.clone(), ty: ty.clone() }
         }
         tree_Expression::StructFieldAccess { base, name } => llr_Expression::StructFieldAccess {
             base: Box::new(lower_expression(base, ctx)),

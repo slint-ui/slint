@@ -1203,10 +1203,7 @@ impl Expression {
                         new_values.insert(key.clone(), expression);
                     }
                     return Expression::CodeBlock(vec![
-                        Expression::StoreLocalVariable {
-                            name: var_name,
-                            value: Box::new(self),
-                        },
+                        Expression::StoreLocalVariable { name: var_name, value: Box::new(self) },
                         Expression::Struct { values: new_values, ty: right.clone() },
                     ]);
                 }

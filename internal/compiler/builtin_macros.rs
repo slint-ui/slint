@@ -389,10 +389,7 @@ fn to_debug_string(
             match string {
                 None => Expression::StringLiteral("{}".into()),
                 Some(string) => Expression::CodeBlock(vec![
-                    Expression::StoreLocalVariable {
-                        name: local_object,
-                        value: Box::new(expr),
-                    },
+                    Expression::StoreLocalVariable { name: local_object, value: Box::new(expr) },
                     Expression::BinaryExpression {
                         lhs: Box::new(string),
                         op: '+',

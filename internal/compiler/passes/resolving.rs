@@ -246,9 +246,11 @@ impl Expression {
 
         let global_lookup = crate::lookup::global_lookup();
         if let Some(LookupResult::Expression {
-                expression: Expression::ReadLocalVariable { .. } | Expression::FunctionParameterReference { .. },
-                ..
-            }) = global_lookup.lookup(ctx, &name) {
+            expression:
+                Expression::ReadLocalVariable { .. } | Expression::FunctionParameterReference { .. },
+            ..
+        }) = global_lookup.lookup(ctx, &name)
+        {
             ctx.diag
                 .push_error("Redeclaration of local variables is not allowed".to_string(), &node);
             return Expression::Invalid;
