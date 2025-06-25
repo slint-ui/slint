@@ -215,6 +215,9 @@ jobs:
             - name: Run ruff linter
               working-directory: api/python/slint
               run: uv tool run ruff check
+            - name: Run ruff linter
+              working-directory: api/python/briefcase
+              run: uv tool run ruff check
 
     cpp_test_driver:
         needs: files-changed
