@@ -8,7 +8,7 @@ members = [
   'api/rs/build',
   'api/rs/macros',
   'api/rs/slint',
-  'api/python',
+  'api/python/slint',
   'api/wasm-interpreter',
   'examples/7guis',
   "examples/bevy",

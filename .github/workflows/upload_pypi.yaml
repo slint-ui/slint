@@ -54,7 +54,7 @@ jobs:
               with:
                   crate: taplo-cli
             - name: Prepare feature config for binaries
-              working-directory: api/python
+              working-directory: api/python/slint
               shell: bash
               run: |
                 cat Cargo.toml | taplo format --option column_width=100000 --stdin-filepath=Cargo.toml - | \
@@ -67,7 +67,7 @@ jobs:
             - name: Build a binary wheel
               uses: PyO3/maturin-action@v1
               with:
-                  working-directory: api/python
+                  working-directory: api/python/slint
                   target: ${{ matrix.platform.target }}
                   args: --release --out wheelhouse --find-interpreter
                   container: ${{ matrix.platform.container }}
@@ -75,7 +75,7 @@ jobs:
               uses: actions/upload-artifact@v4
               with:
                 name: python-package-distributions-${{ matrix.platform.runner }}-${{ strategy.job-index }}
-                path: api/python/wheelhouse/*.whl
+                path: api/python/slint/wheelhouse/*.whl
 
     ios_binaries:
         strategy:
@@ -108,7 +108,7 @@ jobs:
               with:
                   crate: taplo-cli
             - name: Prepare feature config for binaries
-              working-directory: api/python
+              working-directory: api/python/slint
               shell: bash
               run: |
                 cat Cargo.toml | taplo format --option column_width=100000 --stdin-filepath=Cargo.toml - | \
@@ -138,7 +138,7 @@ jobs:
               env:
                   _PYTHON_HOST_PLATFORM: ${{ matrix.tag }}
               with:
-                  working-directory: api/python
+                  working-directory: api/python/slint
                   target: ${{ matrix.target }}
                   args: --release --out wheelhouse --find-interpreter
 
@@ -146,7 +146,7 @@ jobs:
               uses: actions/upload-artifact@v4
               with:
                 name: python-package-distributions-${{ matrix.target }}
-                path: api/python/wheelhouse/*.whl
+                path: api/python/slint/wheelhouse/*.whl
 
     build_source_package:
         name: Build source package
@@ -157,7 +157,7 @@ jobs:
               with:
                   crate: taplo-cli
             - name: Prepare feature config for binaries
-              working-directory: api/python
+              working-directory: api/python/slint
               shell: bash
               run: |
                 cat Cargo.toml | taplo format --option column_width=100000 --stdin-filepath=Cargo.toml - | \
@@ -169,13 +169,13 @@ jobs:
             - name: Build source package
               uses: PyO3/maturin-action@v1
               with:
-                  working-directory: api/python
+                  working-directory: api/python/slint
                   command: sdist
                   args: --out dist
             - uses: actions/upload-artifact@v4
               with:
                 name: python-package-distributions-source
-                path: api/python/dist/*.tar.gz
+                path: api/python/slint/dist/*.tar.gz
 
     publish-to-test-pypi:
         if: ${{ github.event.inputs.release != 'true' }}

@@ -22,7 +22,7 @@ on:
         - cron: "0 2 * * *"
 
 env:
-    # Keep in sync with features in slint_tool_binary.yaml, cpp_package.yaml, api/node/Cargo.toml, and api/python/Cargo.toml
+    # Keep in sync with features in slint_tool_binary.yaml, cpp_package.yaml, api/node/Cargo.toml, and api/python/slint/Cargo.toml
     SLINT_BINARY_FEATURES: "backend-linuxkms-noseat,backend-winit,renderer-femtovg,renderer-skia,renderer-software"
     MACOSX_DEPLOYMENT_TARGET: "11.0"
 
@@ -475,7 +475,7 @@ jobs:
                 mkdir -p $output_path/docs/node
                 cp -a ../api/node/docs/* $output_path/docs/node/
                 mkdir -p $output_path/docs/python
-                cp -a ../api/python/docs/* $output_path/docs/python/
+                cp -a ../api/python/slint/docs/* $output_path/docs/python/
                 mkdir -p $output_path/docs/slint
                 cp -a ../docs/astro/dist/* $output_path/docs/slint/
 
