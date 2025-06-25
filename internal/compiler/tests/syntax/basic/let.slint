@@ -1,8 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-export X := Rectangle {
-//       ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
+export component X inherits Rectangle {
     background: {
         let blue: brush = 42;
 //      ^error{Local variable declaration conflicts with existing name}
