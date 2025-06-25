@@ -55,7 +55,7 @@ dev = [
 # Rebuild package when any rust files change
 cache-keys = [{ file = "pyproject.toml" }, { file = "Cargo.toml" }, { file = "**/*.rs" }]
 # Uncomment to build rust code in development mode
-# config-settings = { build-args = '--profile=dev' }
+config-settings = { build-args = '--profile=dev' }
 
 [tool.mypy]
 strict = true

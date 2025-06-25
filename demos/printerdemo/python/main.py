@@ -8,22 +8,22 @@ import os
 import copy
 import sys
 import gettext
+import printerdemo
 import typing
 
-sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
+PrinterQueueItem = printerdemo.PrinterQueueItem
+InkLevel = printerdemo.InkLevel
 
-PrinterQueueItem = slint.loader.ui.printerdemo.PrinterQueueItem
 
-
-class MainWindow(slint.loader.ui.printerdemo.MainWindow):
-    def __init__(self):
+class MainWindow(printerdemo.MainWindow):
+    def __init__(self) -> None:
         super().__init__()
         self.ink_levels = ListModel(
             [
-                {"color": Color("#0ff"), "level": 0.4},
-                {"color": Color("#ff0"), "level": 0.2},
-                {"color": Color("#f0f"), "level": 0.5},
-                {"color": Color("#000"), "level": 0.8},
+                InkLevel(color=Color("#0ff"), level=0.4),
+                InkLevel(color=Color("#ff0"), level=0.2),
+                InkLevel(color=Color("#f0f"), level=0.5),
+                InkLevel(color=Color("#000"), level=0.8),
             ]
         )
         # Copy the read-only mock data from the UI into a mutable ListModel
@@ -35,11 +35,11 @@ class MainWindow(slint.loader.ui.printerdemo.MainWindow):
         )
 
     @slint.callback
-    def quit(self):
+    def quit(self) -> None:
         self.hide()
 
     @slint.callback(global_name="PrinterQueue", name="start_job")
-    def push_job(self, title):
+    def push_job(self, title: str) -> None:
         self.printer_queue.append(
             PrinterQueueItem(
                 status="waiting",
@@ -53,12 +53,13 @@ class MainWindow(slint.loader.ui.printerdemo.MainWindow):
         )
 
     @slint.callback(global_name="PrinterQueue")
-    def cancel_job(self, index):
+    def cancel_job(self, index: int) -> None:
         del self.printer_queue[index]
 
-    def update_jobs(self):
+    def update_jobs(self) -> None:
         if len(self.printer_queue) <= 0:
             return
+        assert self.printer_queue[0] is not None
         top_item = copy.copy(self.printer_queue[0])
         top_item.progress += 1
         if top_item.progress >= 100:
