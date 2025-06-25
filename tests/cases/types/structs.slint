@@ -87,4 +87,36 @@ assert.equal(instance.player_2_score, 99);
 assert.equal(instance.player_2.energy_level, 0.4);
 ```
 
+```pyi
+class Player:
+    energy_level: float
+    name: str
+    score: float
+
+    def __init__(self, *, energy_level: typing.Optional[float] = None, name: typing.Optional[str] = None, score: typing.Optional[float] = None) -> None: ...
+
+
+class Unused:
+    foo: float
+
+    def __init__(self, *, foo: typing.Optional[float] = None) -> None: ...
+
+
+class With_Dash_And_underscore:
+    foo_bar: float
+
+    def __init__(self, *, foo_bar: typing.Optional[float] = None) -> None: ...
+
+
+class TestCase(slint.Component):
+    player_1: Player
+    player_2: Player
+    player_2_alias: Player
+    player_2_score: float
+    player_list: slint.Model[Player]
+    players: slint.Model[Player]
+    test: bool
+    underscore: With_Dash_And_underscore
+```
+
 */

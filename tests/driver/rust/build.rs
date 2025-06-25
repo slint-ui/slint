@@ -189,6 +189,7 @@ fn generate_source(
     generator::generate(
         generator::OutputFormat::Rust,
         output,
+        None,
         &root_component,
         &loader.compiler_config,
     )?;

@@ -49,6 +49,7 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
     generator::generate(
         output_format,
         &mut generated_cpp,
+        None,
         &root_component,
         &loader.compiler_config,
     )?;

@@ -6,6 +6,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::rc::Rc;
 
+use i_slint_compiler::generator::python::ident;
 use pyo3::IntoPyObjectExt;
 use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pyclass_enum, gen_stub_pymethods};
 use slint_interpreter::{ComponentHandle, Value};
@@ -19,6 +20,7 @@ use pyo3::prelude::*;
 use pyo3::types::PyTuple;
 use pyo3::PyTraverseError;
 
+use crate::api_match::PyGeneratedAPI;
 use crate::errors::{
     PyGetPropertyError, PyInvokeError, PyPlatformError, PySetCallbackError, PySetPropertyError,
 };
@@ -74,7 +76,8 @@ impl Compiler {
     }
 
     fn build_from_path(&mut self, py: Python<'_>, path: PathBuf) -> CompilationResult {
-        CompilationResult::new(spin_on::spin_on(self.compiler.build_from_path(path)), py)
+        let result = spin_on::spin_on(self.compiler.build_from_path(&path));
+        CompilationResult::new(result, path, py)
     }
 
     fn build_from_source(
@@ -83,10 +86,8 @@ impl Compiler {
         source_code: String,
         path: PathBuf,
     ) -> CompilationResult {
-        CompilationResult::new(
-            spin_on::spin_on(self.compiler.build_from_source(source_code, path)),
-            py,
-        )
+        let result = spin_on::spin_on(self.compiler.build_from_source(source_code, path.clone()));
+        CompilationResult::new(result, path, py)
     }
 }
 
@@ -145,12 +146,13 @@ pub enum PyDiagnosticLevel {
 pub struct CompilationResult {
     result: slint_interpreter::CompilationResult,
     type_collection: TypeCollection,
+    path: PathBuf,
 }
 
 impl CompilationResult {
-    fn new(result: slint_interpreter::CompilationResult, py: Python<'_>) -> Self {
+    fn new(result: slint_interpreter::CompilationResult, path: PathBuf, py: Python<'_>) -> Self {
         let type_collection = TypeCollection::new(&result, py);
-        Self { result, type_collection }
+        Self { result, type_collection, path }
     }
 }
 
@@ -188,14 +190,14 @@ impl CompilationResult {
                         self.type_collection.struct_to_py(slint_interpreter::Struct::from_iter(
                             s.fields.iter().map(|(name, field_type)| {
                                 (
-                                    name.to_string(),
+                                    ident(&name).into(),
                                     slint_interpreter::default_value_for_type(field_type),
                                 )
                             }),
                         ));
 
                     structs.insert(
-                        s.name.slint_name().unwrap().to_string(),
+                        ident(&s.name.slint_name().unwrap()).into(),
                         struct_instance.into_bound_py_any(py).unwrap(),
                     );
                 }
@@ -215,6 +217,35 @@ impl CompilationResult {
     #[getter]
     fn named_exports(&self) -> Vec<(String, String)> {
         self.result.named_exports(i_slint_core::InternalToken {}).cloned().collect::<Vec<_>>()
+    }
+
+    #[getter]
+    fn generated_api(&self) -> PyResult<PyGeneratedAPI> {
+        let type_loader = self
+            .result
+            .components()
+            .next()
+            .ok_or_else(|| {
+                pyo3::exceptions::PyRuntimeError::new_err(
+                    "Cannot generated API for empty slint file",
+                )
+            })?
+            .type_loader();
+        let doc = type_loader.get_document(&self.path).ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "Failed to load document from cache for API generation",
+            )
+        })?;
+        i_slint_compiler::generator::python::generate_py_module(
+            doc,
+            &i_slint_compiler::CompilerConfiguration::new(
+                i_slint_compiler::generator::OutputFormat::Python,
+            ),
+        )
+        .map_err(|e| {
+            pyo3::exceptions::PyRuntimeError::new_err(format!("Error generating pymodule: {}", e))
+        })
+        .map(|module| PyGeneratedAPI { path: self.path.clone(), module })
     }
 }
 
@@ -344,6 +375,7 @@ impl From<i_slint_compiler::langtype::Type> for PyValueType {
             | i_slint_compiler::langtype::Type::PhysicalLength
             | i_slint_compiler::langtype::Type::LogicalLength
             | i_slint_compiler::langtype::Type::Percent
+            | i_slint_compiler::langtype::Type::Rem
             | i_slint_compiler::langtype::Type::UnitProduct(_) => PyValueType::Number,
             i_slint_compiler::langtype::Type::String => PyValueType::String,
             i_slint_compiler::langtype::Type::Array(..) => PyValueType::Model,

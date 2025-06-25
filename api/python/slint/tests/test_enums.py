@@ -34,6 +34,9 @@ def test_enums() -> None:
     instance.enum_property = TestEnum.Variant1
     assert instance.enum_property == TestEnum.Variant1
     assert instance.enum_property.__class__ is TestEnum
+    instance.enum_property = TestEnum.Variant_three
+    assert instance.enum_property == TestEnum.Variant_three
+    assert instance.enum_property.__class__ is TestEnum
 
     model_with_enums = instance.model_with_enums
     assert len(model_with_enums) == 2
