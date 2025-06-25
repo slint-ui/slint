@@ -9,26 +9,10 @@ export const headerData = {
             href: "/overview/",
         },
         {
-            text: "Gallery",
+            text: "Demo",
             href: "/wasm/index.html",
         },
-        // {
-        //     text: "Pages",
-        //     links: [
-        //         {
-        //             text: "Privacy policy",
-        //             href: getPermalink("/privacy"),
-        //         },
-        //     ],
-        // },
     ],
-    // actions: [
-    //     {
-    //         text: "Download",
-    //         href: "https://github.com/slint-ui/material-components",
-    //         target: "_blank",
-    //     },
-    // ],
 };
 
 export const footerData = {

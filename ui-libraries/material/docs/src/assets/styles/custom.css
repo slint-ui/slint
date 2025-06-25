@@ -127,3 +127,21 @@ span {
 .sl-markdown-content .slint-property {
     margin-top: 0.1rem;
 }
+
+.icon-gradient {
+    background: linear-gradient(to right, #3b82f6, #a21caf, #ec4899); /* blue-500, purple-700, pink-500 */
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    color: transparent;
+}
+
+.icon-gradient-mask {
+    display: inline-block;
+    background: linear-gradient(to right, #3b82f6, #a21caf, #ec4899); /* blue-500, purple-700, pink-500 */
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-size: cover;
+    mask-size: cover;
+    /* The mask-image will be set inline for each icon */
+}
