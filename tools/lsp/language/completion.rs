@@ -1421,7 +1421,7 @@ mod tests {
                     let foo1 = 42;
                     let foo2: int = 43;
                 }
-                
+
                 function bar() {
                     🔺
                 }
