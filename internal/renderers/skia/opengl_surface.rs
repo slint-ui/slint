@@ -313,7 +313,7 @@ impl OpenGLSurface {
             glutin::display::Display::new(_display_handle.as_raw(), display_api_preference)
                 .map_err(|glutin_error| {
                     format!(
-                        "Error creating glutin display for native display {:#?}: {}",
+                        "Error creating glutin display for native display {:?}: {}",
                         _display_handle.as_raw(),
                         glutin_error
                     )
