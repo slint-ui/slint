@@ -19,6 +19,7 @@ use pyo3::prelude::*;
 use pyo3::types::PyTuple;
 use pyo3::PyTraverseError;
 
+use crate::api_match::PyGeneratedAPI;
 use crate::errors::{
     PyGetPropertyError, PyInvokeError, PyPlatformError, PySetCallbackError, PySetPropertyError,
 };
@@ -74,7 +75,8 @@ impl Compiler {
     }
 
     fn build_from_path(&mut self, py: Python<'_>, path: PathBuf) -> CompilationResult {
-        CompilationResult::new(spin_on::spin_on(self.compiler.build_from_path(path)), py)
+        let result = spin_on::spin_on(self.compiler.build_from_path(&path));
+        CompilationResult::new(result, path, py)
     }
 
     fn build_from_source(
@@ -83,10 +85,8 @@ impl Compiler {
         source_code: String,
         path: PathBuf,
     ) -> CompilationResult {
-        CompilationResult::new(
-            spin_on::spin_on(self.compiler.build_from_source(source_code, path)),
-            py,
-        )
+        let result = spin_on::spin_on(self.compiler.build_from_source(source_code, path.clone()));
+        CompilationResult::new(result, path, py)
     }
 }
 
@@ -145,12 +145,13 @@ pub enum PyDiagnosticLevel {
 pub struct CompilationResult {
     result: slint_interpreter::CompilationResult,
     type_collection: TypeCollection,
+    path: PathBuf,
 }
 
 impl CompilationResult {
-    fn new(result: slint_interpreter::CompilationResult, py: Python<'_>) -> Self {
+    fn new(result: slint_interpreter::CompilationResult, path: PathBuf, py: Python<'_>) -> Self {
         let type_collection = TypeCollection::new(&result, py);
-        Self { result, type_collection }
+        Self { result, type_collection, path }
     }
 }
 
@@ -215,6 +216,35 @@ impl CompilationResult {
     #[getter]
     fn named_exports(&self) -> Vec<(String, String)> {
         self.result.named_exports(i_slint_core::InternalToken {}).cloned().collect::<Vec<_>>()
+    }
+
+    #[getter]
+    fn generated_api(&self) -> PyResult<PyGeneratedAPI> {
+        let type_loader = self
+            .result
+            .components()
+            .next()
+            .ok_or_else(|| {
+                pyo3::exceptions::PyRuntimeError::new_err(
+                    "Cannot generated API for empty slint file",
+                )
+            })?
+            .type_loader();
+        let doc = type_loader.get_document(&self.path).ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "Failed to load document from cache for API generation",
+            )
+        })?;
+        i_slint_compiler::generator::python::generate_py_module(
+            doc,
+            &i_slint_compiler::CompilerConfiguration::new(
+                i_slint_compiler::generator::OutputFormat::Python,
+            ),
+        )
+        .map_err(|e| {
+            pyo3::exceptions::PyRuntimeError::new_err(format!("Error generating pymodule: {}", e))
+        })
+        .map(From::from)
     }
 }
 

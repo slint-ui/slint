@@ -196,10 +196,16 @@ fn main() -> std::io::Result<()> {
     let diag = diag.check_and_exit_on_error();
 
     if args.output == std::path::Path::new("-") {
-        generator::generate(format, &mut std::io::stdout(), &doc, &loader.compiler_config)?;
+        generator::generate(format, &mut std::io::stdout(), None, &doc, &loader.compiler_config)?;
     } else {
         let mut file_writer = BufWriter::new(std::fs::File::create(&args.output)?);
-        generator::generate(format, &mut file_writer, &doc, &loader.compiler_config)?;
+        generator::generate(
+            format,
+            &mut file_writer,
+            Some(&args.output),
+            &doc,
+            &loader.compiler_config,
+        )?;
         file_writer.flush()?;
     }
 

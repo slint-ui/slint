@@ -268,7 +268,7 @@ def _build_struct(name: str, struct_prototype: native.PyStruct) -> type:
     return type(name, (), type_dict)
 
 
-def load_file(
+def _load_file(
     path: str | os.PathLike[Any] | pathlib.Path,
     quiet: bool = False,
     style: typing.Optional[str] = None,
@@ -277,7 +277,7 @@ def load_file(
         typing.Dict[str, os.PathLike[Any] | pathlib.Path]
     ] = None,
     translation_domain: typing.Optional[str] = None,
-) -> types.SimpleNamespace:
+) -> typing.Tuple[types.SimpleNamespace, native.CompilationResult]:
     """This function is the low-level entry point into Slint for instantiating components. It loads the `.slint` file at
     the specified `path` and returns a namespace with all exported components as Python classes, as well as enums, and structs.
 
@@ -338,6 +338,50 @@ def load_file(
         orig_name = _normalize_prop(orig_name)
         new_name = _normalize_prop(new_name)
         setattr(module, new_name, getattr(module, orig_name))
+
+    return (module, result)
+
+
+def load_file(
+    path: str | os.PathLike[Any] | pathlib.Path,
+    quiet: bool = False,
+    style: typing.Optional[str] = None,
+    include_paths: typing.Optional[typing.List[os.PathLike[Any] | pathlib.Path]] = None,
+    library_paths: typing.Optional[
+        typing.Dict[str, os.PathLike[Any] | pathlib.Path]
+    ] = None,
+    translation_domain: typing.Optional[str] = None,
+) -> types.SimpleNamespace:
+    """This function is the low-level entry point into Slint for instantiating components. It loads the `.slint` file at
+    the specified `path` and returns a namespace with all exported components as Python classes, as well as enums, and structs.
+
+    * `quiet`: Set to true to prevent any warnings during compilation from being printed to stderr.
+    * `style`: Specify a widget style.
+    * `include_paths`: Additional include paths used to look up `.slint` files imported from other `.slint` files.
+    * `library_paths`: A dictionary that maps library names to their location in the file system. This is then used to look up
+       library imports, such as `import { MyButton } from "@mylibrary";`.
+    * `translation_domain`: The domain to use for looking up the catalogue run-time translations. This must match the
+       translation domain used when extracting translations with `slint-tr-extractor`.
+
+    """
+
+    return _load_file(
+        path, quiet, style, include_paths, library_paths, translation_domain
+    )[0]
+
+
+def _load_file_checked(
+    path: str | os.PathLike[Any] | pathlib.Path,
+    expected_api: str,
+) -> types.SimpleNamespace:
+    """@private"""
+
+    module, compilation_result = _load_file(path)
+
+    generated_api_module = native.GeneratedAPI(expected_api)
+    actual_api_module = compilation_result.generated_api
+
+    generated_api_module.compare_generated_vs_actual(actual_api_module)
 
     return module
 
@@ -420,7 +464,7 @@ def _callback_decorator(
 
 
 def callback(
-    global_name: str | None = None, name: str | None = None
+    global_name: typing.Callable[..., Any] | str | None = None, name: str | None = None
 ) -> typing.Callable[..., Any]:
     """Use the callback decorator to mark a method as a callback that can be invoked from the Slint component.
 
@@ -553,6 +597,7 @@ __all__ = [
     "CompileError",
     "Component",
     "load_file",
+    "_load_file_checked",
     "loader",
     "Image",
     "Color",
