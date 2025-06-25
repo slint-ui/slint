@@ -12,7 +12,8 @@
     out property<int> n3: round(-24.6);
     out property<int> n4: round(-25);
 
-    out property <bool> test: 188.9.round() == 189 && (-4.58).round() == -(5.1).round();
+    out property <bool> test: 188.9.round() == 189 && (-4.58).round() == -(5.1).round()
+        && round(10.1) != 10.1 && !(30.3 == round(30.3));
 }
 /*
 ```cpp

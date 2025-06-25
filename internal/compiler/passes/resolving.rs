@@ -1276,6 +1276,7 @@ impl Expression {
                         .into()
                     }),
                     (Type::Color, Type::Brush) | (Type::Brush, Type::Color) => Type::Brush,
+                    (Type::Float32, Type::Int32) | (Type::Int32, Type::Float32) => Type::Float32,
                     (target_type, expr_ty) => {
                         if expr_ty.can_convert(&target_type) {
                             target_type
