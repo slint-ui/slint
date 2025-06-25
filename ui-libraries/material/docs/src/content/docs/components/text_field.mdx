@@ -100,24 +100,8 @@ Pastes the text content of the clipboard at the cursor position.
 ### accepted(string)
 Invoked when the enter key is pressed.
 
-```slint {2-4}
-TextField {
-    accepted(text) => {
-        debug("Accepted: ", text);
-    }
-}
-```
-
 ### edited(string)
 Emitted when the text has changed because the user modified it.
-
-```slint {2-4}
-TextField {
-    edited(text) => {
-        debug("Text edited: ", text);
-    }
-}
-```
 
 ### key_pressed(KeyEvent) -> EventResult
 Invoked when a key is pressed, the argument is a <Link type="KeyEvent" /> struct. Use this callback to handle keys before `TextField` does. Return `accept` to indicate that you've handled the event, or return `reject` to let `TextField` handle it.
@@ -128,21 +112,5 @@ Invoked when a key is released, the argument is a <Link type="KeyEvent" /> struc
 ### leading_icon_clicked()
 Invoked when the leading icon is clicked.
 
-```slint {2-4}
-TextField {
-    leading_icon_clicked() => {
-        debug("Leading icon clicked");
-    }
-}
-```
-
 ### trailing_icon_clicked()
 Invoked when the trailing icon is clicked.
-
-```slint {2-4}
-TextField {
-    trailing_icon_clicked() => {
-        debug("Trailing icon clicked");
-    }
-}
-```

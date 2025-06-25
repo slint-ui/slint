@@ -57,43 +57,11 @@ The title text displayed at the top of the dialog.
 ### action(index: int)
 Invoked when a secondary action button is clicked.
 
-```slint {2-4}
-BaseDialog {
-    action(index) => {
-        debug("Action clicked at index: ", index);
-    }
-}
-```
-
 ### close()
 Invoked when the dialog is closed (e.g., by clicking outside or pressing Escape).
-
-```slint {2-4}
-BaseDialog {
-    close() => {
-        debug("Dialog closed");
-    }
-}
-```
 
 ### default_action()
 Invoked when the default action button is clicked or when Enter is pressed.
 
-```slint {2-4}
-BaseDialog {
-    default_action() => {
-        debug("Default action clicked");
-    }
-}
-```
-
 ### icon_action(index: int)
 Invoked when an icon action button is clicked.
-
-```slint {2-4}
-BaseDialog {
-    icon_action(index) => {
-        debug("Icon action clicked at index: ", index);
-    }
-}
-```

@@ -74,39 +74,6 @@ The icon displayed at the end of the search bar.
 
 ## Callbacks
 
-### action(index: int)
-Invoked when a search result item action is triggered.
-
-```slint {2-4}
-SearchBar {
-    action(index) => {
-        debug("Search action at index: ", index);
-    }
-}
-```
-
-### accepted(text: string)
-Invoked when the user presses Enter in the search bar.
-
-```slint {2-4}
-SearchBar {
-    accepted(text) => {
-        debug("Search accepted: ", text);
-    }
-}
-```
-
-### edited(text: string)
-Invoked when the text in the search bar changes.
-
-```slint {2-4}
-SearchBar {
-    edited(text) => {
-        debug("Search text edited: ", text);
-    }
-}
-```
-
 ### key_pressed(event: KeyEvent) -> EventResult
 Invoked when a key is pressed in the search bar.
 

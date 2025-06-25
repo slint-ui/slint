@@ -61,11 +61,3 @@ Whether the checkbox supports three states (unchecked, partially checked, checke
 
 ### toggle()
 Toggles the checkbox state. In tristate mode, cycles through unchecked → partially checked → checked → unchecked.
-
-```slint {2-4}
-CheckBox {
-    clicked() => {
-        self.toggle();
-    }
-}
-```

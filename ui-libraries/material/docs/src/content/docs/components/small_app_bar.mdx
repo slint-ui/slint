@@ -52,21 +52,5 @@ An array of icon button items displayed at the end of the app bar, typically use
 ### leading_clicked()
 Invoked when the leading icon is clicked.
 
-```slint {2-4}
-SmallAppBar {
-    leading_clicked() => {
-        debug("Leading icon clicked");
-    }
-}
-```
-
 ### traling_clicked(index: int)
 Invoked when a trailing icon is clicked, with the index of the clicked icon.
-
-```slint {2-4}
-SmallAppBar {
-    traling_clicked(index) => {
-        debug("Trailing icon clicked at index: ", index);
-    }
-}
-```

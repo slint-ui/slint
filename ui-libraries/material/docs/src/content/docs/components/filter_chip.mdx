@@ -32,11 +32,6 @@ A `FilterChip` is a chip that can be toggled on and off to filter content. When 
 <SlintProperty propName="checked" typeName="bool" propertyVisibility="in-out">
 Whether the filter chip is in the checked (active) state.
 
-```slint "checked: true;"
-FilterChip {
-    checked: true;
-}
-```
 </SlintProperty>
 
 ### enabled
@@ -63,11 +58,3 @@ A tooltip text that appears when hovering over the chip.
 
 ### toggle()
 Toggles the filter chip state between checked and unchecked.
-
-```slint {2-4}
-FilterChip {
-    clicked() => {
-        self.toggle();
-    }
-}
-```
