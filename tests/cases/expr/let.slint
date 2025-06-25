@@ -9,6 +9,15 @@ enum TestEnum {
 }
 
 export component TestCase inherits Rectangle {
+    // test to make sure this compiles (local variable overlapping global name)
+    background: {
+        let blue: brush = red;
+
+        return blue;
+    }
+
+    in-out property <bool> test-background: self.background == Colors.red;
+
     public pure function test_simple() -> int {
         let a = 1;
 
@@ -49,7 +58,7 @@ export component TestCase inherits Rectangle {
         }
     }
 
-    out property <bool> test: test_simple() == 1 && test_type_annotation() == 1 && test_type_annotation_conversion() == 1 && test_struct_conversion() == 2 && test_enum() == 1;
+    out property <bool> test: test_simple() == 1 && test_type_annotation() == 1 && test_type_annotation_conversion() == 1 && test_struct_conversion() == 2 && test_enum() == 1 && self.test_background;
 }
 
 /*
@@ -60,6 +69,7 @@ assert_eq!(instance.invoke_test_type_annotation(), 1);
 assert_eq!(instance.invoke_test_type_annotation_conversion(), 1);
 assert_eq!(instance.invoke_test_struct_conversion(), 2);
 assert_eq!(instance.invoke_test_enum(), 1);
+assert!(instance.get_test_background());
 ```
 
 ```cpp
@@ -70,5 +80,6 @@ assert_eq(instance.invoke_test_type_annotation(), 1);
 assert_eq(instance.invoke_test_type_annotation_conversion(), 1);
 assert_eq(instance.invoke_test_struct_conversion(), 2);
 assert_eq(instance.invoke_test_enum(), 1);
+assert(instance.get_test_background());
 ```
 */

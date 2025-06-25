@@ -250,19 +250,11 @@ impl Expression {
         match global_lookup.lookup(ctx, &name) {
             // conflicts with another local variable
             Some(LookupResult::Expression {
-                expression: Expression::ReadLocalVariable { .. },
+                expression: Expression::ReadLocalVariable { .. } | Expression::FunctionParameterReference { .. },
                 ..
             }) => {
                 ctx.diag
                     .push_error(format!("Redeclaration of local variables is not allowed"), &node);
-                return Expression::Invalid;
-            }
-            // conflicts with something else
-            Some(_) => {
-                ctx.diag.push_error(
-                    format!("Local variable declaration conflicts with existing name"),
-                    &node,
-                );
                 return Expression::Invalid;
             }
             _ => {}

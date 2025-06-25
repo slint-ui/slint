@@ -2,13 +2,6 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 export component X inherits Rectangle {
-    background: {
-        let blue: brush = 42;
-//      ^error{Local variable declaration conflicts with existing name}
-
-        return blue;
-    }
-
     callback aaa();
     aaa => {
         let foo: string = 42phx;
@@ -67,6 +60,5 @@ export component X inherits Rectangle {
     callback ggg();
     ggg => {
         let ggg = 1;
-//      ^error{Local variable declaration conflicts with existing name}
     }
 }
