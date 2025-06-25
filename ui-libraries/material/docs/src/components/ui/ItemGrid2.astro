@@ -42,86 +42,46 @@ const {
             itemClasses?.panel
           )}
         >
-          {(icon || defaultIcon) && (
-            [
-              'tabler:hand-click',
-              'tabler:forms',
-              'tabler:library',
-              'tabler:message-circle',
-              'tabler:navigation',
-              'tabler:layout-navbar',
-              'tabler:loader',
-              'tabler:notification',
-              'tabler:info-circle',
-            ].includes(icon || "") ? (
-              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="url(#gradient-main)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mb-2 w-10 h-10">
-                <defs>
-                  <linearGradient id="gradient-main" x1="0" y1="0" x2="1" y2="1">
-                    <stop offset="0%" stop-color="#3b82f6" />
-                    <stop offset="50%" stop-color="#a21caf" />
-                    <stop offset="100%" stop-color="#ec4899" />
-                  </linearGradient>
-                </defs>
-                {icon === 'tabler:hand-click' && <>
-                  <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
-                  <path d="M8 13v-8.5a1.5 1.5 0 0 1 3 0v7.5" />
-                  <path d="M11 11.5v-2a1.5 1.5 0 0 1 3 0v2.5" />
-                  <path d="M14 10.5a1.5 1.5 0 0 1 3 0v1.5" />
-                  <path d="M17 11.5a1.5 1.5 0 0 1 3 0v4.5a6 6 0 0 1 -6 6h-2h.208a6 6 0 0 1 -5.012 -2.7l-.196 -.3c-.312 -.479 -1.407 -2.388 -3.286 -5.728a1.5 1.5 0 0 1 .536 -2.022a1.867 1.867 0 0 1 2.28 .28l1.47 1.47" />
-                  <path d="M5 3l-1 -1" />
-                  <path d="M4 7h-1" />
-                  <path d="M14 3l1 -1" />
-                  <path d="M15 6h1" />
-                </>}
-                {icon === 'tabler:forms' && <>
-                  <rect x="4" y="4" width="16" height="16" rx="2" />
-                  <path d="M8 10h8" />
-                  <path d="M8 14h6" />
-                </>}
-                {icon === 'tabler:library' && <>
-                  <rect x="4" y="4" width="16" height="16" rx="2" />
-                  <path d="M8 4v16" />
-                  <path d="M16 4v16" />
-                  <path d="M4 8h16" />
-                  <path d="M4 16h16" />
-                </>}
-                {icon === 'tabler:message-circle' && <>
-                  <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
-                  <path d="M12.802 2.165l5.575 2.389c.48 .206 .863 .589 1.07 1.07l2.388 5.574c.22 .512 .22 1.092 0 1.604l-2.389 5.575c-.206 .48 -.589 .863 -1.07 1.07l-5.574 2.388c-.512 .22 -1.092 .22 -1.604 0l-5.575 -2.389a2.036 2.036 0 0 1 -1.07 -1.07l-2.388 -5.574a2.036 2.036 0 0 1 0 -1.604l2.389 -5.575c.206 -.48 .589 -.863 1.07 -1.07l5.574 -2.388a2.036 2.036 0 0 1 1.604 0z" />
-                  <path d="M12 9h.01" />
-                  <path d="M11 12h1v4h1" />
-                </>}
-                {icon === 'tabler:navigation' && <>
-                  <polygon points="12 3 20 21 12 17 4 21 12 3" />
-                </>}
-                {icon === 'tabler:layout-navbar' && <>
-                  <rect x="4" y="6" width="16" height="12" rx="2" />
-                  <path d="M4 10h16" />
-                </>}
-                {icon === 'tabler:loader' && <>
-                  <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
-                  <path d="M12 6l0 -3" />
-                  <path d="M16.25 7.75l2.15 -2.15" />
-                  <path d="M18 12l3 0" />
-                  <path d="M16.25 16.25l2.15 2.15" />
-                  <path d="M12 18l0 3" />
-                  <path d="M7.75 16.25l-2.15 2.15" />
-                  <path d="M6 12l-3 0" />
-                  <path d="M7.75 7.75l-2.15 -2.15" />
-                </>}
-                {icon === 'tabler:notification' && <>
-                  <path d="M18 8a6 6 0 0 0 -12 0c0 7 -3 9 -3 9h18s-3 -2 -3 -9" />
-                  <path d="M13.73 21a2 2 0 0 1 -3.46 0" />
-                </>}
-                {icon === 'tabler:info-circle' && <>
-                  <circle cx="12" cy="12" r="9" />
-                  <path d="M12 9h.01" />
-                  <path d="M11 12h1v4h1" />
-                </>}
-              </svg>
-            ) : (
-              <Icon name={icon || defaultIcon} class={twMerge('mb-2 w-10 h-10', defaultIconClass, itemClasses?.icon)} />
-            )
+          {icon && [
+            'buttons',
+            'forms',
+            'snackbars',
+            'cards',
+            'navigation',
+            'appbar',
+            'tooltips',
+            'progress-indicators',
+            'dialogs',
+          ].includes(icon) && (
+            <>
+            {icon === 'buttons' && (
+                <img src="/src/assets/images/icons/hand-click.svg" alt="Hand Click Icon" class="mb-2 w-10 h-10" />
+              )}
+              {icon === 'forms' && (
+                <img src="/src/assets/images/icons/files.svg" alt="Hand Click Icon" class="mb-2 w-10 h-10" />
+              )}
+              {icon === 'snackbars' && (
+                <img src="/src/assets/images/icons/bell-ringing.svg" alt="Loader Icon" class="mb-2 w-10 h-10" />
+              )}
+              {icon === 'cards' && (
+                <img src="/src/assets/images/icons/play-card.svg" alt="Loader Icon" class="mb-2 w-10 h-10" />
+              )}
+              {icon === 'navigation' && (
+                <img src="/src/assets/images/icons/navigation.svg" alt="Loader Icon" class="mb-2 w-10 h-10" />
+              )}
+              {icon === 'dialogs' && (
+                <img src="/src/assets/images/icons/message-circle.svg" alt="Loader Icon" class="mb-2 w-10 h-10" />
+              )}
+              {icon === 'progress-indicators' && (
+                <img src="/src/assets/images/icons/loader.svg" alt="Loader Icon" class="mb-2 w-10 h-10" />
+              )}
+              {icon === 'tooltips' && (
+                <img src="/src/assets/images/icons/info-octagon.svg" alt="Loader Icon" class="mb-2 w-10 h-10" />
+              )}
+              {icon === 'appbar' && (
+                <img src="/src/assets/images/icons/layout-navbar.svg" alt="Loader Icon" class="mb-2 w-10 h-10" />
+              )}
+            </>
           )}
           <div class={twMerge('text-xl font-bold', titleClass, itemClasses?.title)}>{title}</div>
           {description && (

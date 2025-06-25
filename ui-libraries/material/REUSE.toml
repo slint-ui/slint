@@ -34,3 +34,11 @@ path = [
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"
 SPDX-License-Identifier = "MIT"
+
+[[annotations]]
+path = [
+  "docs/src/assets/images/icons/**.svg",
+]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Copyright (c) 2020-2024 Paweł Kuna <https://github.com/tabler/tabler-icons>"
+SPDX-License-Identifier = "MIT"
