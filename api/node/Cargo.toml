@@ -22,7 +22,7 @@ path = "rust/lib.rs"
 
 [features]
 default = ["backend-winit", "renderer-femtovg", "renderer-software", "backend-qt", "accessibility"]
-# Keep in sync with features in nightly_snapshot.yaml, cpp_package.yaml, slint_tool_binary.yaml, and api/python/Cargo.toml
+# Keep in sync with features in nightly_snapshot.yaml, cpp_package.yaml, slint_tool_binary.yaml, and api/python/slint/Cargo.toml
 # binaries: default = ["backend-linuxkms-noseat", "backend-winit", "renderer-femtovg", "renderer-skia", "accessibility"]
 
 backend-qt = ["slint-interpreter/backend-qt"]

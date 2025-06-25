@@ -207,13 +207,13 @@ jobs:
               uses: astral-sh/setup-uv@v6
             - uses: fjwillemsen/setup-nox2@v3.0.0
             - name: Run python tests
-              working-directory: api/python
+              working-directory: api/python/slint
               run: nox --default-venv-backend uv
             - name: Run mypy
-              working-directory: api/python
+              working-directory: api/python/slint
               run: uv run mypy -p tests -p slint
             - name: Run ruff linter
-              working-directory: api/python
+              working-directory: api/python/slint
               run: uv tool run ruff check
 
     cpp_test_driver:

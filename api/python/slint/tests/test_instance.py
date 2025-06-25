@@ -38,7 +38,7 @@ def test_property_access() -> None:
                 finished: true,
                 dash-prop: true,
             };
-            in property <image> imageprop: @image-url("../../../demos/printerdemo/ui/images/cat.jpg");
+            in property <image> imageprop: @image-url("../../../../demos/printerdemo/ui/images/cat.jpg");
 
             callback test-callback();
         }
@@ -103,7 +103,7 @@ def test_property_access() -> None:
         Image.load_from_path(
             os.path.join(
                 os.path.dirname(__file__),
-                "../../../examples/iot-dashboard/images/humidity.png",
+                "../../../../examples/iot-dashboard/images/humidity.png",
             )
         ),
     )
@@ -193,7 +193,7 @@ def test_callbacks() -> None:
 if __name__ == "__main__":
     import slint
 
-    module = slint.load_file(Path("../../demos/printerdemo/ui/printerdemo.slint"))
+    module = slint.load_file(Path("../../../demos/printerdemo/ui/printerdemo.slint"))
     instance = module.MainWindow()
     instance.PrinterQueue.start_job = lambda title: print(f"new print job {title}")
     instance.run()

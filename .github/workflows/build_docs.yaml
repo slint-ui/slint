@@ -149,7 +149,7 @@ jobs:
 
             - name: "Python docs"
               run: uv run build_docs.py
-              working-directory: api/python
+              working-directory: api/python/slint
 
             - name: Generate a token
               if: ${{ github.ref == 'refs/heads/master' }}
@@ -192,11 +192,11 @@ jobs:
                       target/cppdocs/html
                       docs/astro/dist
                       api/node/docs
-                      api/python/docs
+                      api/python/slint/docs
                       docs/site
             - name: "Check for docs warnings in internal crates"
               run: cargo doc --workspace --no-deps --all-features --exclude slint-node --exclude pyslint --exclude mcu-board-support --exclude mcu-embassy --exclude printerdemo_mcu --exclude carousel --exclude test-* --exclude plotter --exclude uefi-demo --exclude ffmpeg --exclude gstreamer-player --exclude slint-cpp --exclude slint-python
             - name: Clean cache # Don't cache docs to avoid them including removed classes being published
               run: |
-                  rm -rf target/doc target/cppdocs api/node/docs api/python/docs
+                  rm -rf target/doc target/cppdocs api/node/docs api/python/slint/docs
 

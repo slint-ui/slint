@@ -47,7 +47,7 @@ Add the following section to your `pyproject.toml` to configure [uv](https://doc
 
 ```toml
 [tool.uv.sources]
-slint = { git = "https://github.com/slint-ui/slint", subdirectory = "api/python" }
+slint = { git = "https://github.com/slint-ui/slint", subdirectory = "api/python/slint" }
 ```
 
 ### Editors / IDEs
