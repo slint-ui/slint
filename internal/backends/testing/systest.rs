@@ -148,13 +148,17 @@ impl TestingClient {
                 )
             }
             proto::mod_RequestToAUT::OneOfmsg::request_take_snapshot(
-                proto::RequestTakeSnapshot { window_handle },
-            ) => proto::mod_AUTResponse::OneOfmsg::take_snapshot_response(
-                self.take_snapshot(handle_to_index(
-                    window_handle
-                        .ok_or_else(|| "grab window request missing window handle".to_string())?,
-                ))?,
-            ),
+                proto::RequestTakeSnapshot { window_handle, image_mime_type },
+            ) => {
+                proto::mod_AUTResponse::OneOfmsg::take_snapshot_response(self.take_snapshot(
+                    handle_to_index(
+                        window_handle.ok_or_else(|| {
+                            "grab window request missing window handle".to_string()
+                        })?,
+                    ),
+                    image_mime_type,
+                )?)
+            }
             proto::mod_RequestToAUT::OneOfmsg::request_element_click(
                 proto::RequestElementClick { element_handle, action, button },
             ) => {
@@ -220,27 +224,26 @@ impl TestingClient {
     fn take_snapshot(
         &self,
         window_index: generational_arena::Index,
+        image_mime_type: String,
     ) -> Result<proto::TakeSnapshotResponse, String> {
-        use image::ImageEncoder;
-
         let adapter = self.window_adapter(window_index)?;
         let window = adapter.window();
         let buffer =
             window.take_snapshot().map_err(|e| format!("Error grabbing window screenshot: {e}"))?;
-        let mut window_contents_as_png: Vec<u8> = Vec::new();
-        let cursor = std::io::Cursor::new(&mut window_contents_as_png);
-        let encoder = image::codecs::png::PngEncoder::new(cursor);
-        encoder
-            .write_image(
-                buffer.as_bytes(),
-                buffer.width(),
-                buffer.height(),
-                image::ColorType::Rgba8.into(),
-            )
-            .map_err(|encode_err| {
-                format!("error encoding png image after screenshot: {encode_err}")
-            })?;
-        Ok(proto::TakeSnapshotResponse { window_contents_as_png })
+        let mut window_contents_as_encoded_image: Vec<u8> = Vec::new();
+        let mut cursor = std::io::Cursor::new(&mut window_contents_as_encoded_image);
+        let format =
+            image::ImageFormat::from_mime_type(image_mime_type).unwrap_or(image::ImageFormat::Png);
+        image::write_buffer_with_format(
+            &mut cursor,
+            buffer.as_bytes(),
+            buffer.width(),
+            buffer.height(),
+            image::ExtendedColorType::Rgba8,
+            format,
+        )
+        .map_err(|encode_err| format!("error encoding png image after screenshot: {encode_err}"))?;
+        Ok(proto::TakeSnapshotResponse { window_contents_as_encoded_image })
     }
 
     fn dispatch_window_event(

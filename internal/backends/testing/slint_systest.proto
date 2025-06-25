@@ -143,6 +143,7 @@ message RequestSetElementAccessibleValue {
 
 message RequestTakeSnapshot {
     Handle window_handle = 1;
+    string image_mime_type = 2;
 }
 
 message RequestElementClick {
@@ -251,7 +252,7 @@ message SetElementAccessibleValueResponse {
 }
 
 message TakeSnapshotResponse {
-    bytes window_contents_as_png = 1;
+    bytes window_contents_as_encoded_image = 1;
 }
 
 message ElementClickResponse {
