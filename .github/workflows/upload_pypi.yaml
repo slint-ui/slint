@@ -181,7 +181,7 @@ jobs:
         if: ${{ github.event.inputs.release != 'true' }}
         name: >-
             Publish Python 🐍 distribution 📦 to Test PyPI
-        needs: [build_binaries, build_source_package]
+        needs: [build_binaries, ios_binaries, build_source_package]
         runs-on: ubuntu-latest
         environment:
             name: testpypi
