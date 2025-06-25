@@ -250,7 +250,9 @@ impl TestingClient {
             image::ExtendedColorType::Rgba8,
             format,
         )
-        .map_err(|encode_err| format!("error encoding png image after screenshot: {encode_err}"))?;
+        .map_err(|encode_err| {
+            format!("error encoding {image_mime_type} image after screenshot: {encode_err}")
+        })?;
         Ok(proto::TakeSnapshotResponse { window_contents_as_encoded_image })
     }
 
