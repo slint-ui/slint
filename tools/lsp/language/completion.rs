@@ -1327,6 +1327,127 @@ mod tests {
         res.iter().find(|ci| ci.label == "yy").unwrap();
         assert_eq!(res.len(), 2);
     }
+    
+    #[test]
+    fn local_variables_function() {
+        let source = r#"
+            component Foo {
+                function bar() {
+                    let foo1 = 42;
+                    let foo2: int = 43;
+                    🔺
+                }
+            }
+        "#;
+        let res = get_completions(source).unwrap();
+        assert!(res.iter().any(|ci| ci.label == "foo1"));
+        assert!(res.iter().any(|ci| ci.label == "foo2"));
+    }
+
+    #[test]
+    fn local_variables_callback() {
+        let source = r#"
+            component Foo {
+                callback bar;
+                bar => {
+                    let foo1 = 42;
+                    let foo2: int = 43;
+                    🔺
+                }
+            }
+        "#;
+        let res = get_completions(source).unwrap();
+        assert!(res.iter().any(|ci| ci.label == "foo1" && ci.detail.as_ref().unwrap() == "float"));
+        assert!(res.iter().any(|ci| ci.label == "foo2" && ci.detail.as_ref().unwrap() == "int"));
+    }
+
+    #[test]
+    fn local_variables_changed_callback() {
+        let source = r#"
+            component Foo inherits Rectangle {
+                property<int> foo;
+
+                changed foo => {
+                    let foo1 = 42;
+                    let foo2: int = 43;
+                    🔺
+                }
+            }
+        "#;
+        let res = get_completions(source).unwrap();
+        assert!(res.iter().any(|ci| ci.label == "foo1"));
+        assert!(res.iter().any(|ci| ci.label == "foo2"));
+    }
+
+    #[test]
+    fn local_variables_binding() {
+        let source: &'static str = r#"
+            component Foo inherits Rectangle {
+                background: {
+                    let c = blue;
+                    🔺
+                    return c;
+                }
+            }
+        "#;
+        let res = get_completions(source).unwrap();
+        assert!(res.iter().any(|ci| ci.label == "c" && ci.detail.as_ref().unwrap() == "color"));
+    }
+
+    #[test]
+    fn local_variables_nested_scope() {
+        let source = r#"
+            component Foo {
+                function bar() {
+                    let foo1 = 42;
+                    let foo2: int = 43;
+
+                    if (true) {
+                        🔺
+                    }
+                }
+            }
+        "#;
+        let res = get_completions(source).unwrap();
+        assert!(res.iter().any(|ci| ci.label == "foo1" && ci.detail.as_ref().unwrap() == "float"));
+        assert!(res.iter().any(|ci| ci.label == "foo2" && ci.detail.as_ref().unwrap() == "int"));
+    }
+
+    #[test]
+    fn local_variables_out_of_function_scope() {
+        let source = r#"
+            component Foo {
+                function foo() {
+                    let foo1 = 42;
+                    let foo2: int = 43;
+                }
+                
+                function bar() {
+                    🔺
+                }
+            }
+        "#;
+        let res = get_completions(source).unwrap();
+        assert!(!res.iter().any(|ci| ci.label == "foo1" && ci.detail.as_ref().unwrap() == "float"));
+        assert!(!res.iter().any(|ci| ci.label == "foo2" && ci.detail.as_ref().unwrap() == "int"));
+    }
+    
+    #[test]
+    fn local_variables_out_of_scope() {
+        let source = r#"
+            component Foo {
+                function foo() {
+                    🔺
+
+                    let foo1 = 42;
+                    let foo2: int = 43;
+                }
+            }
+        "#;
+        let res = get_completions(source).unwrap();
+        assert!(!res.iter().any(|ci| ci.label == "foo1" && ci.detail.as_ref().unwrap() == "float"));
+        assert!(!res.iter().any(|ci| ci.label == "foo2" && ci.detail.as_ref().unwrap() == "int"));
+    }
 
     #[test]
     fn function_args() {
