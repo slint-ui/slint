@@ -206,10 +206,7 @@ impl ChangeTracker {
 
     pub(super) unsafe fn mark_dirty(_self: *const BindingHolder, _was_dirty: bool) {
         let _self = _self.as_ref().unwrap();
-        let mut node_head = _self.dep_nodes.take();
-        // Re-use first dependency list node from the dependency list to the CHANGED_NODE
-        // (and drop the remaining nodes)
-        node_head = node_head.pop_front();
+        let node_head = _self.dep_nodes.take();
         if let Some(node) = node_head.iter().next() {
             node.remove();
             CHANGED_NODES.with(|changed_nodes| {
@@ -311,4 +308,78 @@ fn delete_from_eval_fn() {
     assert_eq!(result.borrow().as_str(), "*+");
     ChangeTracker::run_change_handlers();
     assert_eq!(result.borrow().as_str(), "*+");
+}
+
+#[test]
+fn change_mutliple_dependencies() {
+    use super::Property;
+    use std::cell::RefCell;
+    use std::rc::Rc;
+    use std::string::String;
+    let prop1 = Rc::pin(Property::new(1));
+    let prop2 = Rc::pin(Property::new(2));
+    let prop3 = Rc::pin(Property::new(3));
+    let prop4 = Rc::pin(Property::new(4));
+    let prop_with_deps = Rc::pin(Property::new(5));
+    let result = Rc::new(RefCell::new(String::new()));
+
+    let change_tracker = ChangeTracker::default();
+    change_tracker.init(
+        result.clone(),
+        {
+            let prop1 = prop1.clone();
+            let prop2 = prop2.clone();
+            let prop3 = prop3.clone();
+            let prop4 = prop4.clone();
+            let prop_with_deps = prop_with_deps.clone();
+            move |_| {
+                prop1.as_ref().get()
+                    + prop2.as_ref().get()
+                    + prop3.as_ref().get()
+                    + prop4.as_ref().get()
+                    + prop_with_deps.as_ref().get()
+            }
+        },
+        move |result, val| {
+            *result.borrow_mut() += &std::format!("[{val}]");
+        },
+    );
+
+    assert_eq!(result.borrow().as_str(), "");
+    ChangeTracker::run_change_handlers();
+    assert_eq!(result.borrow().as_str(), "");
+
+    prop_with_deps.as_ref().set_binding({
+        let prop1 = prop1.clone();
+        let prop2 = prop2.clone();
+        move || prop1.as_ref().get() + prop2.as_ref().get()
+    });
+
+    assert_eq!(result.borrow().as_str(), "");
+    ChangeTracker::run_change_handlers();
+    assert_eq!(prop_with_deps.as_ref().get(), 3);
+    assert_eq!(result.borrow().as_str(), "[13]"); // 1 + 2 + 3 + 4 + 3
+
+    ChangeTracker::run_change_handlers();
+    assert_eq!(result.borrow().as_str(), "[13]");
+
+    prop1.as_ref().set(10);
+    assert_eq!(result.borrow().as_str(), "[13]");
+    ChangeTracker::run_change_handlers();
+    assert_eq!(result.borrow().as_str(), "[13][31]"); // 10 + 2 + 3 + 4 + 12
+
+    prop2.as_ref().set(20);
+    prop3.as_ref().set(30);
+    assert_eq!(result.borrow().as_str(), "[13][31]");
+    ChangeTracker::run_change_handlers();
+    assert_eq!(result.borrow().as_str(), "[13][31][94]"); // 10 + 20 + 30 + 4 + 30
+
+    ChangeTracker::run_change_handlers();
+    assert_eq!(result.borrow().as_str(), "[13][31][94]");
+
+    // just swap prop1 and prop2, doesn't change the outcome
+    prop1.as_ref().set(20);
+    prop2.as_ref().set(10);
+    ChangeTracker::run_change_handlers();
+    assert_eq!(result.borrow().as_str(), "[13][31][94]");
 }
