@@ -4,6 +4,10 @@
 // Basic test for Platform.os and Platform.style-name. This is done in JS, as with Rust and C++ the style is fixed
 // to fluent.
 
+export global Info {
+    out property <string> style-name: Platform.style-name;
+}
+
 export component TestCase inherits Window {
     out property <string> os: {
         if Platform.os == OperatingSystemType.android {
@@ -22,7 +26,7 @@ export component TestCase inherits Window {
             "error"
         }
     }
-    out property <string> style-name: Platform.style-name;
+    out property <string> style-name: Info.style-name;
 }
 
 /*

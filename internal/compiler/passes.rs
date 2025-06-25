@@ -123,7 +123,6 @@ pub async fn run_passes(
         );
         lower_states::lower_states(component, &doc.local_registry, diag);
         lower_text_input_interface::lower_text_input_interface(component);
-        lower_platform::lower_platform(component, type_loader);
         repeater_component::process_repeater_components(component);
         lower_popups::lower_popups(component, &doc.local_registry, diag);
         collect_init_code::collect_init_code(component);
@@ -212,6 +211,8 @@ pub async fn run_passes(
     unique_id::assign_unique_id(doc);
 
     doc.visit_all_used_components(|component| {
+        lower_platform::lower_platform(component, type_loader);
+
         // Don't perform the empty rectangle removal when debug info is requested, because the resulting
         // item tree ends up with a hierarchy where certain items have children that aren't child elements
         // but siblings or sibling children. We need a new data structure to perform a correct element tree
