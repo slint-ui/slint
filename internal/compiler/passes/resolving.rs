@@ -245,17 +245,13 @@ impl Expression {
         let name = identifier_text(&node.DeclaredIdentifier()).unwrap_or_default();
 
         let global_lookup = crate::lookup::global_lookup();
-        match global_lookup.lookup(ctx, &name) {
-            // conflicts with another local variable or function argument
-            Some(LookupResult::Expression {
+        if let Some(LookupResult::Expression {
                 expression: Expression::ReadLocalVariable { .. } | Expression::FunctionParameterReference { .. },
                 ..
-            }) => {
-                ctx.diag
-                    .push_error(format!("Redeclaration of local variables is not allowed"), &node);
-                return Expression::Invalid;
-            }
-            _ => {}
+            }) = global_lookup.lookup(ctx, &name) {
+            ctx.diag
+                .push_error("Redeclaration of local variables is not allowed".to_string(), &node);
+            return Expression::Invalid;
         }
 
         // prefix with "local_" to avoid conflicts

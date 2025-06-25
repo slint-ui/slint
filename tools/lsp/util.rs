@@ -291,7 +291,7 @@ fn add_codeblock_local_variables(
 
     let locals = code_block
         .LetStatement()
-        .take_while(|e| to_offset.map_or(true, |offset| e.text_range().start() < offset))
+        .take_while(|e| to_offset.is_none_or(|offset| e.text_range().start() < offset))
         .map(|e| {
             let value = Expression::from_expression_node(e.Expression(), ctx);
             let ty = e
