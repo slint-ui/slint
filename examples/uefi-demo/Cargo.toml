@@ -3,7 +3,7 @@
 
 [package]
 name = "uefi-demo"
-version = "1.12.1"
+version = "1.13.0"
 edition = "2021"
 license = "MIT"
 build = "build.rs"

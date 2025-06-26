@@ -3,7 +3,7 @@
 
 [package]
 name = "todo-mvc"
-version = "1.12.1"
+version = "1.13.0"
 authors = ["Slint Developers <info@slint.dev>"]
 edition = "2021"
 build = "build.rs"

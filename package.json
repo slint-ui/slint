@@ -1,6 +1,6 @@
 {
   "name": "slint_repository",
-  "version": "1.12.1",
+  "version": "1.13.0",
   "description": "",
   "main": "index.js",
   "scripts": {
