@@ -13,5 +13,5 @@ description: CheckState content
  This enum is used to define the state of a checkbox.
 
 * **`unchecked`**:  The checkbox is unchecked.
-* **`partially_checked`**:  The checkbox is partially checked.
+* **`partially-checked`**:  The checkbox is partially checked.
 * **`checked`**:  The checkbox is checked.

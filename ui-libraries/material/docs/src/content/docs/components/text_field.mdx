@@ -35,13 +35,13 @@ A widget used to enter a single line of text with additional features like icons
 When false, the text field is disabled and cannot be interacted with.
 </SlintProperty>
 
-### has_error
-<SlintProperty propName="has_error" typeName="bool">
+### has-error
+<SlintProperty propName="has-error" typeName="bool">
 Indicates whether the text field should display an error state.
 </SlintProperty>
 
-### has_focus
-<SlintProperty propName="has_focus" typeName="bool" propertyVisibility="out">
+### has-focus
+<SlintProperty propName="has-focus" typeName="bool" propertyVisibility="out">
 Set to true when the text field currently has the focus.
 </SlintProperty>
 
@@ -50,8 +50,8 @@ Set to true when the text field currently has the focus.
 The label text displayed above the text input.
 </SlintProperty>
 
-### leading_icon
-<SlintProperty propName="leading_icon" typeName="image">
+### leading-icon
+<SlintProperty propName="leading-icon" typeName="image">
 An icon displayed at the beginning of the text input.
 </SlintProperty>
 
@@ -60,8 +60,8 @@ An icon displayed at the beginning of the text input.
 A placeholder text being shown when there is no text in the edit field.
 </SlintProperty>
 
-### supporting_text
-<SlintProperty propName="supporting_text" typeName="string">
+### supporting-text
+<SlintProperty propName="supporting-text" typeName="string">
 Additional text displayed below the text input, often used for hints or error messages.
 </SlintProperty>
 
@@ -70,20 +70,20 @@ Additional text displayed below the text input, often used for hints or error me
 The text being edited.
 </SlintProperty>
 
-### trailing_icon
-<SlintProperty propName="trailing_icon" typeName="image">
+### trailing-icon
+<SlintProperty propName="trailing-icon" typeName="image">
 An icon displayed at the end of the text input.
 </SlintProperty>
 
 ## Functions
 
-### set_selection_offsets(int, int)
+### set-selection-offsets(int, int)
 Selects the text between two UTF-8 offsets.
 
-### select_all()
+### select-all()
 Selects all text in the text field.
 
-### clear_selection()
+### clear-selection()
 Clears the current text selection.
 
 ### cut()
@@ -103,14 +103,14 @@ Invoked when the enter key is pressed.
 ### edited(string)
 Emitted when the text has changed because the user modified it.
 
-### key_pressed(KeyEvent) -> EventResult
+### key-pressed(KeyEvent) -> EventResult
 Invoked when a key is pressed, the argument is a <Link type="KeyEvent" /> struct. Use this callback to handle keys before `TextField` does. Return `accept` to indicate that you've handled the event, or return `reject` to let `TextField` handle it.
 
-### key_released(KeyEvent) -> EventResult
+### key-released(KeyEvent) -> EventResult
 Invoked when a key is released, the argument is a <Link type="KeyEvent" /> struct. Use this callback to handle keys before `TextField` does. Return `accept` to indicate that you've handled the event, or return `reject` to let `TextField` handle it.
 
-### leading_icon_clicked()
+### leading-icon-clicked()
 Invoked when the leading icon is clicked.
 
-### trailing_icon_clicked()
+### trailing-icon-clicked()
 Invoked when the trailing icon is clicked.

@@ -26,13 +26,13 @@ A `CheckBox` is a control that allows users to select one or more options from a
 
 ## Properties
 
-### check_state
-<SlintProperty propName="check_state" typeName="CheckState" propertyVisibility="in-out">
-The current state of the checkbox. Can be `unchecked`, `partially_checked`, or `checked`.
+### check-state
+<SlintProperty propName="check-state" typeName="enum" enumName="CheckState" propertyVisibility="in-out">
+The current state of the checkbox. Can be `unchecked`, `partially-checked`, or `checked`.
 
-```slint "check_state: CheckState.checked;"
+```slint "check-state: CheckState.checked;"
 CheckBox {
-    check_state: CheckState.checked;
+    check-state: CheckState.checked;
 }
 ```
 </SlintProperty>

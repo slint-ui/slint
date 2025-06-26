@@ -16,7 +16,7 @@ export component Example inherits Window {
     background: transparent;
     BaseDialog {
         title: "Confirm Action";
-        default_action_text: "OK";
+        default-action-text: "OK";
         actions: ["Cancel"];
     }
 }
@@ -32,8 +32,8 @@ A `Dialog` is a modal overlay that appears on top of the main content to present
 An array of text labels for secondary action buttons.
 </SlintProperty>
 
-### default_action_text
-<SlintProperty propName="default_action_text" typeName="string">
+### default-action-text
+<SlintProperty propName="default-action-text" typeName="string">
 The text for the primary action button (typically "OK" or "Confirm").
 </SlintProperty>
 
@@ -42,8 +42,8 @@ The text for the primary action button (typically "OK" or "Confirm").
 An optional icon displayed at the top of the dialog.
 </SlintProperty>
 
-### icon_actions
-<SlintProperty propName="icon_actions" typeName="[image]">
+### icon-actions
+<SlintProperty propName="icon-actions" typeName="[image]">
 An array of icon buttons displayed in the dialog's action area.
 </SlintProperty>
 
@@ -60,8 +60,8 @@ Invoked when a secondary action button is clicked.
 ### close()
 Invoked when the dialog is closed (e.g., by clicking outside or pressing Escape).
 
-### default_action()
+### default-action()
 Invoked when the default action button is clicked or when Enter is pressed.
 
-### icon_action(index: int)
+### icon-action(index: int)
 Invoked when an icon action button is clicked.
