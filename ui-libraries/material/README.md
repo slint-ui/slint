@@ -21,6 +21,16 @@ are possible. We will inform as soon as the component set is read for release.
 | --------------------------------------------------------------------------------------------------------- |
 | [Gallery![Gallery image](https://github.com/user-attachments/assets/e8031b78-4e7e-42fe-b34d-ef81a10defbe)](examples/gallery) |
 
+## Get Started
+
+1. Install Rust by following the [Rust Getting Started Guide](https://www.rust-lang.org/learn/get-started).
+2. Clone our [Material Components for Slint Rust Template](https://github.com/slint-ui/material-rust-template):
+   ```bash
+   git clone --recurse-submodules https://github.com/slint-ui/material-rust-template.git my-project
+   cd my-project
+   ```
+3. Build and run the template project: `cargo run`.
+
 ## Contributions
 
 We welcome your contributions: in the form of code, bug reports or feedback.
