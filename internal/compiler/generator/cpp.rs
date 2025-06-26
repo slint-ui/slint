@@ -3130,7 +3130,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
         }
         Expression::FunctionParameterReference { index, .. } => format!("arg_{index}"),
         Expression::StoreLocalVariable { name, value } => {
-            format!("auto {} = {};", ident(name), compile_expression(value, ctx))
+            format!("[[maybe_unused]] auto {} = {};", ident(name), compile_expression(value, ctx))
         }
         Expression::ReadLocalVariable { name, .. } => ident(name).to_string(),
         Expression::StructFieldAccess { base, name } => match base.ty(ctx) {

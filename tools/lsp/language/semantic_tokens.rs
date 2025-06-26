@@ -87,12 +87,14 @@ pub fn get_semantic_tokens(
                         SyntaxKind::StructDeclaration => Some((self::TYPE, 1 << self::DEFINITION)),
                         SyntaxKind::EnumDeclaration => Some((self::ENUM, 1 << self::DEFINITION)),
                         SyntaxKind::PropertyChangedCallback => Some((self::PROPERTY, 0)),
+                        SyntaxKind::LetStatement => Some((self::VARIABLE, 1 << self::DEFINITION)),
                         _ => None,
                     }
                 }
                 SyntaxKind::ChildrenPlaceholder => Some((self::MACRO, 0)),
                 SyntaxKind::Binding | SyntaxKind::TwoWayBinding => Some((self::PROPERTY, 0)),
                 SyntaxKind::ReturnStatement => Some((self::KEYWORD, 0)),
+                SyntaxKind::LetStatement => Some((self::KEYWORD, 0)),
                 SyntaxKind::AtImageUrl => Some((self::MACRO, 0)),
                 SyntaxKind::AtGradient => Some((self::MACRO, 0)),
                 SyntaxKind::AtTr => Some((self::MACRO, 0)),

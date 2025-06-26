@@ -45,6 +45,7 @@ fn resolve_expression(
             type_register,
             type_loader: Some(type_loader),
             current_token: None,
+            local_variables: vec![],
         };
 
         let new_expr = match node.kind() {
@@ -197,11 +198,15 @@ impl Expression {
     fn from_codeblock_node(node: syntax_nodes::CodeBlock, ctx: &mut LookupCtx) -> Expression {
         debug_assert_eq!(node.kind(), SyntaxKind::CodeBlock);
 
+        // new scope for locals
+        ctx.local_variables.push(Vec::new());
+
         let mut statements_or_exprs = node
             .children()
             .filter_map(|n| match n.kind() {
                 SyntaxKind::Expression => Some(Self::from_expression_node(n.into(), ctx)),
                 SyntaxKind::ReturnStatement => Some(Self::from_return_statement(n.into(), ctx)),
+                SyntaxKind::LetStatement => Some(Self::from_let_statement(n.into(), ctx)),
                 _ => None,
             })
             .collect::<Vec<_>>();
@@ -230,7 +235,42 @@ impl Expression {
             statements_or_exprs[index] = expr;
         });
 
+        // pop local scope
+        ctx.local_variables.pop();
+
         Expression::CodeBlock(statements_or_exprs)
+    }
+
+    fn from_let_statement(node: syntax_nodes::LetStatement, ctx: &mut LookupCtx) -> Expression {
+        let name = identifier_text(&node.DeclaredIdentifier()).unwrap_or_default();
+
+        let global_lookup = crate::lookup::global_lookup();
+        if let Some(LookupResult::Expression {
+            expression:
+                Expression::ReadLocalVariable { .. } | Expression::FunctionParameterReference { .. },
+            ..
+        }) = global_lookup.lookup(ctx, &name)
+        {
+            ctx.diag
+                .push_error("Redeclaration of local variables is not allowed".to_string(), &node);
+            return Expression::Invalid;
+        }
+
+        // prefix with "local_" to avoid conflicts
+        let name: SmolStr = format!("local_{name}",).into();
+
+        let value = Self::from_expression_node(node.Expression(), ctx);
+        let ty = match node.Type() {
+            Some(ty) => type_from_node(ty, ctx.diag, ctx.type_register),
+            None => value.ty(),
+        };
+
+        // we can get the last scope exists, because each codeblock creates a new scope and we are inside a codeblock here by necessity
+        ctx.local_variables.last_mut().unwrap().push((name.clone(), ty.clone()));
+
+        let value = Box::new(value.maybe_convert_to(ty.clone(), &node, ctx.diag));
+
+        Expression::StoreLocalVariable { name, value }
     }
 
     fn from_return_statement(
@@ -1650,6 +1690,7 @@ fn resolve_two_way_bindings(
                                 type_register,
                                 type_loader: None,
                                 current_token: Some(node.clone().into()),
+                                local_variables: vec![],
                             };
 
                             binding.expression = Expression::Invalid;

@@ -1,0 +1,64 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component X inherits Rectangle {
+    callback aaa();
+    aaa => {
+        let foo: string = 42phx;
+//      ^error{Cannot convert physical-length to string. Divide by 1phx to convert to a plain number}
+    }
+
+    // redeclaration of local variables in same scope
+    callback bbb();
+    bbb => {
+        let foo = "hello";
+        let foo = "world";
+//      ^error{Redeclaration of local variables is not allowed}
+    }
+
+    // redeclaration of local variables in same scope with different types
+    callback ccc();
+    ccc => {
+        let foo = "hello";
+        let foo = 1;
+//      ^error{Redeclaration of local variables is not allowed}
+    }
+
+    // redeclaration of local variables in different scopes
+    callback ddd();
+    ddd => {
+        let foo = "hello";
+
+        if (true) {
+            let foo = "world";
+//          ^error{Redeclaration of local variables is not allowed}
+        }
+    }
+
+    // redeclaration of local variables in different scopes with different types
+    callback eee();
+    eee => {
+        let foo = "hello";
+
+        if (root.x > 0) {
+            let foo = 1;
+//          ^error{Redeclaration of local variables is not allowed}
+        }
+    }
+
+    // out of scope access to local variable
+    callback fff();
+    fff => {
+        if (true) {
+            let bar = "hello";
+        }
+
+        bar;
+//      ^error{Unknown unqualified identifier 'bar'}
+    }
+
+    callback ggg();
+    ggg => {
+        let ggg = 1;
+    }
+}

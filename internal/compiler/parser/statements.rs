@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+use crate::parser::r#type::parse_type;
+
 use super::element::parse_code_block;
 use super::expressions::parse_expression;
 use super::prelude::*;
@@ -14,6 +16,9 @@ use super::prelude::*;
 /// if (true) { foo = bar; } else { bar = foo;  }
 /// return;
 /// if (true) { return 42; }
+/// let foo = 1;
+/// let bar = foo;
+/// let str: string = "hello world";
 /// ```
 pub fn parse_statement(p: &mut impl Parser) -> bool {
     if p.nth(0).kind() == SyntaxKind::RBrace {
@@ -50,6 +55,11 @@ pub fn parse_statement(p: &mut impl Parser) -> bool {
         return true;
     }
 
+    if p.peek().as_str() == "let" && p.nth(1).kind() == SyntaxKind::Identifier {
+        parse_let_statement(p);
+        return true;
+    }
+
     parse_expression(p);
     if matches!(
         p.nth(0).kind(),
@@ -65,6 +75,30 @@ pub fn parse_statement(p: &mut impl Parser) -> bool {
         parse_expression(&mut *p);
     }
     p.test(SyntaxKind::Semicolon)
+}
+
+#[cfg_attr(test, parser_test)]
+/// ```test,LetStatement
+/// let foo = 1;
+/// let bar = foo;
+/// let str: string = "hello world";
+/// ```
+fn parse_let_statement(p: &mut impl Parser) {
+    let mut p = p.start_node(SyntaxKind::LetStatement);
+    debug_assert_eq!(p.peek().as_str(), "let");
+    p.expect(SyntaxKind::Identifier); // "let"
+    {
+        let mut p = p.start_node(SyntaxKind::DeclaredIdentifier);
+        p.expect(SyntaxKind::Identifier);
+    }
+
+    if p.test(SyntaxKind::Colon) {
+        parse_type(&mut *p);
+    }
+
+    p.expect(SyntaxKind::Equal);
+    parse_expression(&mut *p);
+    p.expect(SyntaxKind::Semicolon);
 }
 
 #[cfg_attr(test, parser_test)]

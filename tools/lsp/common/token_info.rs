@@ -62,7 +62,7 @@ pub fn token_info(document_cache: &common::DocumentCache, token: SyntaxToken) ->
                     if token.kind() != SyntaxKind::Identifier {
                         return None;
                     }
-                    let lr = crate::util::with_lookup_ctx(document_cache, node, |ctx| {
+                    let lr = crate::util::with_lookup_ctx(document_cache, node, None, |ctx| {
                         let mut it = n
                             .children_with_tokens()
                             .filter_map(|t| t.into_token())
