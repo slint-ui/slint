@@ -248,8 +248,9 @@ pub fn with_property_lookup_ctx<R>(
             .DeclaredIdentifier()
             .flat_map(|a| i_slint_compiler::parser::identifier_text(&a))
             .collect();
-
-        add_codeblock_local_variables(&cb.CodeBlock(), to_offset, &mut lookup_context);
+        if let Some(block) = cb.CodeBlock() {
+            add_codeblock_local_variables(&block, to_offset, &mut lookup_context);
+        }
     } else if let Some(f) = element.Function().find(|p| {
         i_slint_compiler::parser::identifier_text(&p.DeclaredIdentifier())
             .is_some_and(|x| x == prop_name)
