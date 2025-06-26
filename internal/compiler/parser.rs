@@ -349,7 +349,7 @@ declare_syntax! {
         ArgumentDeclaration -> [DeclaredIdentifier, Type],
         /// `-> type`  (but without the ->)
         ReturnType -> [Type],
-        CallbackConnection -> [ *DeclaredIdentifier,  CodeBlock ],
+        CallbackConnection -> [ *DeclaredIdentifier, ?CodeBlock, ?Expression ],
         /// Declaration of a property.
         PropertyDeclaration-> [ ?Type , DeclaredIdentifier, ?BindingExpression, ?TwoWayBinding ],
         /// QualifiedName are the properties name
