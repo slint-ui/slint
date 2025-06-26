@@ -37,12 +37,12 @@ Whether the scroll view has focus.
 </SlintProperty>
 
 ### horizontal_scrollbar_policy
-<SlintProperty propName="horizontal_scrollbar_policy" typeName="ScrollBarPolicy">
+<SlintProperty propName="horizontal_scrollbar_policy" typeName="enum" enumName="ScrollBarPolicy">
 The policy for showing the horizontal scroll bar.
 </SlintProperty>
 
 ### vertical_scrollbar_policy
-<SlintProperty propName="vertical_scrollbar_policy" typeName="ScrollBarPolicy">
+<SlintProperty propName="vertical_scrollbar_policy" typeName="enum" enumName="ScrollBarPolicy">
 The policy for showing the vertical scroll bar.
 </SlintProperty>
 
@@ -80,11 +80,3 @@ The width of the visible area.
 
 ### scrolled()
 Invoked when the content is scrolled.
-
-```slint {2-4}
-ScrollView {
-    scrolled() => {
-        debug("Content scrolled");
-    }
-}
-```

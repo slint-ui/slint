@@ -33,7 +33,7 @@ if (propName === "") {
     console.error("No propName!!");
 }
 
-let fullTypeName = typeName;
+let fullTypeName: string = typeName;
 
 if (typeName === "enum") {
     if (enumName === undefined || enumName === "") {
@@ -46,6 +46,12 @@ if (typeName === "enum") {
         console.error("struct type without a structName:", propName);
     } else {
         fullTypeName = typeName.toString() + " " + structName!.toString();
+    }
+} else if (typeName === "[struct]") {
+    if (structName === undefined || structName === "") {
+        console.error("array of struct type without a structName:", propName);
+    } else {
+        fullTypeName = `[${typeName.toString().replace("[", "").replace("]", "")} ${structName.toString()}]`;
     }
 } else {
     if (enumName && enumName !== "") {

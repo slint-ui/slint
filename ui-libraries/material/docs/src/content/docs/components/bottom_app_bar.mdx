@@ -37,7 +37,7 @@ The icon for the floating action button.
 </SlintProperty>
 
 ### icon_buttons
-<SlintProperty propName="icon_buttons" typeName="[IconButtonItem]">
+<SlintProperty propName="icon_buttons" typeName="[struct]" structName="IconButtonItem">
 An array of icon button items to display in the bar.
 </SlintProperty>
 
@@ -46,13 +46,6 @@ An array of icon button items to display in the bar.
 ### fab_clicked()
 Invoked when the floating action button is clicked.
 
-```slint {2-4}
-BottomAppBar {
-    fab_clicked() => {
-        debug("FAB clicked");
-    }
-}
-```
 
 ### icon_button_clicked(index: int)
 Invoked when an icon button is clicked.

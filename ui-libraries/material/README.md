@@ -7,7 +7,7 @@ The components are intended to use for development of user interfaces with Slint
 Contributions and feedback from the community are welcome.
 
 [![Build status](https://github.com/slint-ui/material-components/actions/workflows/autofix.yaml/badge.svg)](https://github.com/slint-ui/material-components/actions/workflows/autofix.yaml)
-[![REUSE status](https://api.reuse.software/badge/github.com/slint-ui/material-components)](https://api.reuse.software/info/github.com/slint-ui/slint)
+[![REUSE status](https://api.reuse.software/badge/github.com/slint-ui/material-components)](https://api.reuse.software/info/github.com/slint-ui/material-components)
 [![Discussions](https://img.shields.io/github/discussions/slint-ui/material-components)](https://github.com/slint-ui/material-components/discussions)
 
 ## Disclaimer

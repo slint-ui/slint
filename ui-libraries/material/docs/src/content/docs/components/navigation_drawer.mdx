@@ -46,7 +46,7 @@ The index of the currently selected navigation item within the current group.
 </SlintProperty>
 
 ### groups
-<SlintProperty propName="groups" typeName="[NavigationGroup]">
+<SlintProperty propName="groups" typeName="[struct]" structName="NavigationGroup">
 An array of navigation groups, each containing a title and navigation items.
 </SlintProperty>
 
@@ -54,11 +54,3 @@ An array of navigation groups, each containing a title and navigation items.
 
 ### select(group_index: int, item_index: int)
 Selects the navigation item at the specified group and item indices.
-
-```slint {2-4}
-NavigationDrawer {
-    clicked() => {
-        self.select(0, 1);
-    }
-}
-```

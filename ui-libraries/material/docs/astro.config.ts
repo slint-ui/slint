@@ -91,7 +91,7 @@ export default defineConfig({
                 {
                     icon: "github",
                     label: "GitHub",
-                    href: "https://github.com/slint-ui/slint",
+                    href: "https://github.com/slint-ui/material-components",
                 },
                 { icon: "x.com", label: "X", href: "https://x.com/slint_ui" },
                 {

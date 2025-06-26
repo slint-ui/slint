@@ -71,6 +71,7 @@ export type KnownType =
     | "relative-font-size"
     | "string"
     | "struct"
+    | "[struct]"
     | "IconButtonItem"
     | "FABStyle"
     | "SegmentedItem"
@@ -174,7 +175,7 @@ export function getTypeInfo(typeName: KnownType): TypeInfo {
             };
         case "IconButtonItem":
             return {
-                href: linkMap.IconButtonItem.href,
+                href: linkMap.StructType.href,
                 defaultValue: "a IconButtonItem with default values",
             };
         case "FABStyle":
@@ -184,7 +185,7 @@ export function getTypeInfo(typeName: KnownType): TypeInfo {
             };
         case "SegmentedItem":
             return {
-                href: linkMap.SegmentedItem.href,
+                href: linkMap.StructType.href,
                 defaultValue: "a SegmentedItem with default values",
             };
         case "Time":
