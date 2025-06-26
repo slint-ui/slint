@@ -21,7 +21,7 @@ component BaseAppBar {
     in property <length> text_padding;
 
     callback leading_clicked();
-    callback traling_clicked(index: int);
+    callback trailing_clicked(index: int);
 
     min_width: layout.min_width;
     min_height: layout.min_height;
@@ -81,7 +81,7 @@ component BaseAppBar {
                             tooltip: item.tooltip;
 
                             clicked => {
-                                root.traling_clicked(index);
+                                root.trailing_clicked(index);
                             }
                         }
                     }
@@ -111,7 +111,7 @@ export component AppBar {
     in property <bool> container_background;
 
     callback leading_clicked();
-    callback traling_clicked();
+    callback trailing_clicked();
 
     min_height: max(MaterialStyleMetrics.size_64, base.min_height);
 
@@ -133,8 +133,8 @@ export component AppBar {
                 root.leading_clicked();
             }
 
-            traling_clicked(index) => {
-                root.traling_clicked();
+            trailing_clicked(index) => {
+                root.trailing_clicked();
             }
         }
     }
@@ -147,7 +147,7 @@ export component SmallAppBar {
     in property <bool> container_background;
 
     callback leading_clicked();
-    callback traling_clicked(index: int);
+    callback trailing_clicked(index: int);
 
     min_height: max(MaterialStyleMetrics.size_64, base.min_height);
 
@@ -169,8 +169,8 @@ export component SmallAppBar {
                 root.leading_clicked();
             }
 
-            traling_clicked(index) => {
-                root.traling_clicked(index);
+            trailing_clicked(index) => {
+                root.trailing_clicked(index);
             }
         }
     }
@@ -183,7 +183,7 @@ export component MediumAppBar {
     in property <bool> container_background;
 
     callback leading_clicked();
-    callback traling_clicked(index: int);
+    callback trailing_clicked(index: int);
 
     min_height: max(MaterialStyleMetrics.size_64, base.min_height);
 
@@ -208,8 +208,8 @@ export component MediumAppBar {
                 root.leading_clicked();
             }
 
-            traling_clicked(index) => {
-                root.traling_clicked(index);
+            trailing_clicked(index) => {
+                root.trailing_clicked(index);
             }
         }
     }
@@ -222,7 +222,7 @@ export component LargeAppBar {
     in property <bool> container_background;
 
     callback leading_clicked();
-    callback traling_clicked(index: int);
+    callback trailing_clicked(index: int);
 
     min_height: max(MaterialStyleMetrics.size_64, base.min_height);
 
@@ -247,8 +247,8 @@ export component LargeAppBar {
                 root.leading_clicked();
             }
 
-            traling_clicked(index) => {
-                root.traling_clicked(index);
+            trailing_clicked(index) => {
+                root.trailing_clicked(index);
             }
         }
     }

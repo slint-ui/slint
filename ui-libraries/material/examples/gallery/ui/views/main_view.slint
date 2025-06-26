@@ -38,7 +38,7 @@ export component MainView {
             trailing_icons: [{ icon: Palette.color_scheme == ColorScheme.light ? OutlinedIcons.dark_mode : OutlinedIcons.light_mode, enabled: true }];
             container_background: MainWindowAdapter.container_background;
 
-            traling_clicked(index) => {
+            trailing_clicked(index) => {
                 if Palette.color_scheme == ColorScheme.light {
                     Palette.color_scheme = ColorScheme.dark;
                     return;
