@@ -1,0 +1,15 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: MIT
+
+[target.x86_64-pc-windows-msvc]
+# Increase default stack size to avoid running out of stack
+# space in debug builds. The size matches Linux's default.
+rustflags = [
+    "-C", "link-arg=/STACK:8000000"
+]
+[target.aarch64-pc-windows-msvc]
+# Increase default stack size to avoid running out of stack
+# space in debug builds. The size matches Linux's default.
+rustflags = [
+    "-C", "link-arg=/STACK:8000000"
+]
