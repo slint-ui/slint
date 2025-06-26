@@ -8,7 +8,6 @@ edition = "2021"
 authors = ["David Haig <david@ninjametal.com>"]
 readme = "README.md"
 license = "MIT"
-resolver = "3"
 publish = false
 repository = "https://github.com/slint-ui/slint"
 homepage = "https://slint.dev"
