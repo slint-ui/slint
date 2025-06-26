@@ -1,4 +1,7 @@
 {
+    "AccessibleProperties": {
+        "href": "reference/common/#accessibility-properties"
+    },
     "AnimationRef": {
         "href": "reference/primitive-types/#animation"
     },
