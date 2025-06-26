@@ -116,6 +116,9 @@ struct SharedString
                 == 0;
     }
 
+    /// Reset to an empty string
+    void clear() { *this = std::string_view("", 0); }
+
     /// Creates a new SharedString from the given number \a n. The string representation of the
     /// number uses a minimal formatting scheme: If \a n has no fractional part, the number will be
     /// formatted as an integer.
