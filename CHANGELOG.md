@@ -32,7 +32,7 @@ All notable changes to this project are documented in this file.
  - Fixed potential crashes due to stack overflows on Windows.
  - live-preview: Lazily compute palette to speedup the UI.
 
-## [1.12.0] - 2026-06-16
+## [1.12.0] - 2025-06-16
 
 ### General
 
