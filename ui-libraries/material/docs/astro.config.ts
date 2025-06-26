@@ -70,7 +70,6 @@ export default defineConfig({
                 "./src/assets/styles/custom.css",
                 "./src/assets/styles/theme.css",
             ],
-
             components: {
                 Footer: "./src/components/Footer.astro",
                 Header: "./src/components/Header.astro",
@@ -78,8 +77,6 @@ export default defineConfig({
             },
             sidebar: [
                 { label: "Overview", link: "overview" },
-                { label: "Style", link: "style" },
-
                 {
                     label: "Components",
                     autogenerate: { directory: "components" },
