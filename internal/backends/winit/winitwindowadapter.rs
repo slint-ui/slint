@@ -233,13 +233,6 @@ impl WinitWindowOrNone {
         match self {
             Self::HasWindow { window, .. } => {
                 window.set_resizable(resizable);
-
-                // Workaround for winit bug #2990
-                // Non-resizable windows can still contain a maximize button,
-                // so we'd have to additionally remove the button.
-                let mut buttons = window.enabled_buttons();
-                buttons.set(WindowButtons::MAXIMIZE, resizable);
-                window.set_enabled_buttons(buttons);
             }
             Self::None(attributes) => attributes.borrow_mut().resizable = resizable,
         }
@@ -439,6 +432,7 @@ impl WinitWindowAdapter {
         //  a) need to compute the correct size based on the scale factor before it's shown on the screen (handled by set_visible)
         //  b) need to create the accesskit adapter before it's shown on the screen, as required by accesskit.
         let show_after_creation = std::mem::replace(&mut window_attributes.visible, false);
+        let resizable = window_attributes.resizable;
 
         let overriding_scale_factor = std::env::var("SLINT_SCALE_FACTOR")
             .ok()
@@ -490,6 +484,15 @@ impl WinitWindowAdapter {
         if show_after_creation {
             self.shown.set(WindowVisibility::Hidden);
             self.set_visibility(WindowVisibility::ShownFirstTime)?;
+        }
+
+        {
+            // Workaround for winit bug #2990
+            // Non-resizable windows can still contain a maximize button,
+            // so we'd have to additionally remove the button.
+            let mut buttons = winit_window.enabled_buttons();
+            buttons.set(WindowButtons::MAXIMIZE, resizable);
+            winit_window.set_enabled_buttons(buttons);
         }
 
         self.shared_backend_data
