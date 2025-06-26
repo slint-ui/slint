@@ -612,18 +612,18 @@ jobs:
               env:
                    RELEASE_INPUT: ${{ github.event.inputs.release }}
               run: |
-                  version=$(echo artifacts/Slint-cpp-*-win64-MSVC-AMD64.exe | sed -nre 's/^.*-([0-9]+\.[0-9]+\.[0-9]+).*$/\1/p')
-                  if [[ -z "$version" ]]; then
-                    echo "Version not found"
-                    exit 1
-                  fi
-                  major_version=`echo $version | sed -e "s,\([0-9]*\)\.[0-9]*\.[0-9]*,\1,"`
-                  minor_version=`echo $version | sed -e "s,[0-9]*\.\([0-9]*\)\.[0-9]*,\1,"`
                   if [ "$RELEASE_INPUT" != "true" ]; then
                     notes_file=slint-src/docs/nightly-release-notes.md
                     version=nightly
                     download_version=$version
                   else
+                    version=$(echo artifacts/Slint-cpp-*-win64-MSVC-AMD64.exe | sed -nre 's/^.*-([0-9]+\.[0-9]+\.[0-9]+).*$/\1/p')
+                    if [[ -z "$version" ]]; then
+                      echo "Version not found"
+                      exit 1
+                    fi
+                    major_version=`echo $version | sed -e "s,\([0-9]*\)\.[0-9]*\.[0-9]*,\1,"`
+                    minor_version=`echo $version | sed -e "s,[0-9]*\.\([0-9]*\)\.[0-9]*,\1,"`
                     notes_file=slint-src/docs/release-notes.md
                     download_version=v$version
                   fi
