@@ -8,7 +8,6 @@ import Note from "~/components/widgets/Note.astro";
 import Features from "~/components/widgets/Features.astro";
 import Features2 from "~/components/widgets/Features2.astro";
 import Steps from "~/components/widgets/Steps.astro";
-import Content from "~/components/widgets/Content.astro";
 import FAQs from "~/components/widgets/FAQs.astro";
 import CallToAction from "~/components/widgets/CallToAction.astro";
 
@@ -23,7 +22,7 @@ const metadata = {
 
   <Hero
     actions={[
-      { text: 'Features', href: '#features' },
+      { text: 'Get Started', href: '/overview/' },
       { text: 'Demo', href: '/wasm/index.html' },
     ]}
     image={{ src: '~/assets/images/phone-dark.webp', alt: 'Material Components Hero Image' }}
@@ -106,43 +105,6 @@ const metadata = {
     ]}
   />
 
-  <!-- Content Widget **************** -->
-
-  <Content
-    isAfterContent
-    items={[
-      {
-        title: 'Material Design Customization',
-        description: `Tailor the Material Design theme effortlessly to match your brand's identity and requirements, making your app distinct and professional.`,
-      },
-      {
-        title: 'Flexible Component Layouts',
-        description:
-          'Explore various layout options with responsive grids, flexible containers, and adaptive components that work across all screen sizes.',
-      },
-      {
-        title: 'Cross-Platform Responsiveness',
-        description:
-          "Ensure your app's optimal performance on various devices and screen sizes, providing a consistent and enjoyable user experience.",
-      },
-      {
-        title: 'Rich Media Support',
-        description:
-          'Seamlessly incorporate images, icons, and multimedia elements that enhance your content and engage users effectively.',
-      },
-    ]}
-    image={{
-      src: '~/assets/images/material-award.jpg',
-      alt: 'Slint Material UI Components',
-    }}
-  >
-    <Fragment slot="content">Build professional applications with Material Design.</Fragment>
-
-    <Fragment slot="bg">
-      <div class="absolute inset-0 bg-blue-50 dark:bg-transparent"></div>
-    </Fragment>
-  </Content>
-
   <!-- Steps Widget ****************** -->
 
   <Steps
@@ -173,7 +135,7 @@ const metadata = {
       },
     ]}
     image={{
-      src: '~/assets/images/material-design.jpg',
+      src: '~/assets/images/material-award.jpg',
       alt: 'Slint Material UI Setup',
     }}
   />
@@ -268,34 +230,4 @@ const metadata = {
       },
     ]}
   />
-
-  <!-- CallToAction Widget *********** -->
-
-  <CallToAction
-    actions={[
-      {
-        variant: 'primary',
-        text: 'Get Started',
-        href: 'https://github.com/slint-ui/material-components',
-        target: '_blank',
-        icon: 'tabler:download',
-      },
-    ]}
-  >
-    <Fragment slot="title">
-      <a
-        href="https://www.slint.dev"
-        target="_blank"
-        rel="noopener noreferrer"
-        class="transition-colors duration-200 text-inherit hover:text-blue-600 hover:underline hover:decoration-[3px] cursor-pointer"
-      >
-        Slint
-      </a>
-      &nbsp;+&nbsp;<br class="block sm:hidden" /><span class="sm:whitespace-nowrap">Material UI</span>
-    </Fragment>
-
-    <Fragment slot="subtitle">
-      Start building beautiful, professional applications today with Material Design components for Slint.
-    </Fragment>
-  </CallToAction>
 </Layout>

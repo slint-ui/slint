@@ -20,8 +20,8 @@ export const footerData = {
         {
             title: "Company",
             links: [
-                { text: "Privacy Policy", href: getPermalink("/privacy") },
                 { text: "Learn more about Slint", href: "https://slint.dev/" },
+                { text: "Privacy Policy", href: "https://slint.dev/imprint" },
             ],
         },
     ],
