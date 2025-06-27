@@ -21,10 +21,6 @@ const metadata = {
   <!-- Hero Widget ******************* -->
 
   <Hero
-    actions={[
-      { text: 'Get Started', href: '/overview/' },
-      { text: 'Demo', href: '/wasm/index.html' },
-    ]}
     image={{ src: '~/assets/images/phone-dark.webp', alt: 'Material Components Hero Image' }}
   >
     <Fragment slot="title">
@@ -53,9 +49,11 @@ const metadata = {
     </Fragment>
   </Hero>
 
-  <!-- Note Widget ******************* -->
 
-  <Note title="Android user?" description="Test out the Slint Material Design components on your phone!" href="https://material.slint.dev/apk/slint_material.apk" />
+   <!-- Note Widget ******************* -->
+
+
+
 
   <!-- Features Widget *************** -->
 
@@ -104,6 +102,35 @@ const metadata = {
       },
     ]}
   />
+
+  <CallToAction
+  actions={[
+    {
+      variant: 'primary',
+      text: 'Download APK',
+      href: 'https://material.slint.dev/apk/slint_material.apk',
+      target: '_blank',
+      icon: 'tabler:download',
+    },
+    {
+      variant: 'secondary',
+      text: 'Web Gallery',
+      href: 'https://material.slint.dev/wasm/',
+      target: '_blank',
+      icon: 'tabler:browser',
+    },
+  ]}
+>
+  <Fragment slot="title">
+    <a>
+      Try Slint + Material Now!
+    </a>
+  </Fragment>
+
+  <Fragment slot="subtitle">
+    Android user? Download the APK and try the gallery on your phone. Otherwise try out the browser version.
+  </Fragment>
+</CallToAction>
 
   <!-- Steps Widget ****************** -->
 
