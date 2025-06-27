@@ -1,0 +1,59 @@
+{
+    "version": 3,
+    "configurePresets": [
+        {
+            "name": "base",
+            "displayName": "base preset",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build-${presetName}",
+            "hidden": true
+        },
+        {
+            "name": "dev-mold",
+            "displayName": "Build as debug + using mold linker",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "CMAKE_SHARED_LINKER_FLAGS": "-fuse-ld=mold"
+            },
+            "inherits": [
+                "base"
+            ]
+        },
+        {
+            "name": "dev",
+            "displayName": "Build against",
+            "binaryDir": "${sourceDir}/build",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+		"SLINT_BUILD_EXAMPLES": "ON"
+            },
+            "inherits": [
+                "base"
+            ]
+        },
+        {
+            "name": "release",
+            "displayName": "Build as release mode.",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release"
+            },
+            "inherits": [
+                "base"
+            ]
+        }
+    ],
+    "buildPresets": [
+        {
+            "name": "dev-mold",
+            "configurePreset": "dev-mold"
+        },
+        {
+            "name": "dev",
+            "configurePreset": "dev"
+        },
+        {
+            "name": "release",
+            "configurePreset": "release"
+        }
+    ]
+}
