@@ -1344,13 +1344,13 @@ fn call_builtin_function(
             Value::Void
         }
         BuiltinFunction::DetectOperatingSystem => i_slint_core::detect_operating_system().into(),
-        BuiltinFunction::StartTimer => {
-            todo!()
-        }
-        BuiltinFunction::StopTimer => {
-            todo!()
-        }
+        // start and stop are unreachable because they are lowered to simple assignment of running
+        BuiltinFunction::StartTimer => unreachable!(),
+        BuiltinFunction::StopTimer => unreachable!(),
         BuiltinFunction::RestartTimer => {
+            // if let [Expression::ElementReference(timer)] = arguments {
+            //     timer.upgrade().unwrap().borrow().enclosing_component.upgrade().unwrap().timers
+            // }
             todo!()
         }
     }

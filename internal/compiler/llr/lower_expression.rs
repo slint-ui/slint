@@ -131,9 +131,7 @@ pub fn lower_expression(
             llr_Expression::CodeBlock(expr.iter().map(|e| lower_expression(e, ctx)).collect::<_>())
         }
         tree_Expression::FunctionCall { function, arguments, .. } => match function {
-            Callable::Builtin(BuiltinFunction::StartTimer) => lower_start_timer(arguments, ctx),
-            Callable::Builtin(BuiltinFunction::StopTimer) => lower_stop_timer(arguments, ctx),
-            Callable::Builtin(BuiltinFunction::RestartTimer) => lower_restart_timer(arguments, ctx),
+            Callable::Builtin(BuiltinFunction::RestartTimer) => lower_restart_timer(arguments),
             Callable::Builtin(BuiltinFunction::ShowPopupWindow) => {
                 lower_show_popup_window(arguments, ctx)
             }
@@ -392,61 +390,18 @@ fn repeater_special_property(
     llr_Expression::PropertyReference(r)
 }
 
-// helper function for lowering timer member functions
-fn get_timer_index_and_parent(
-    element: &Weak<RefCell<Element>>,
-    ctx: &mut ExpressionLoweringCtx,
-) -> (usize, llr_Expression) {
-    let timer_element = element.upgrade().unwrap();
-    let timer_comp = timer_element.borrow().enclosing_component.upgrade().unwrap();
-
-    let timer_list = timer_comp.timers.borrow();
-    let (timer_index, ..) =
-        timer_list.iter().enumerate().find(|(_, t)| Rc::ptr_eq(&t.component, &timer_comp)).unwrap();
-    let item_ref = lower_expression(
-        &tree_Expression::ElementReference(Rc::downgrade(&timer_element)),
-        ctx,
-    );
-
-    return (timer_index, item_ref);
-}
-
-fn lower_start_timer(args: &[tree_Expression], ctx: &mut ExpressionLoweringCtx) -> llr_Expression {
+fn lower_restart_timer(args: &[tree_Expression]) -> llr_Expression {
     if let [tree_Expression::ElementReference(e)] = args {
-        let (timer_index, item_ref) = get_timer_index_and_parent(e, ctx);
+        let timer_element = e.upgrade().unwrap();
+        let timer_comp = timer_element.borrow().enclosing_component.upgrade().unwrap();
 
-        llr_Expression::BuiltinFunctionCall {
-            function: BuiltinFunction::StartTimer,
-            arguments: vec![llr_Expression::NumberLiteral(timer_index as _), item_ref],
-        }
-    } else {
-        panic!("invalid arguments to StartTimer");
-    }
-}
-
-fn lower_stop_timer(args: &[tree_Expression], ctx: &mut ExpressionLoweringCtx) -> llr_Expression {
-    if let [tree_Expression::ElementReference(e)] = args {
-        let (timer_index, item_ref) = get_timer_index_and_parent(e, ctx);
-
-        llr_Expression::BuiltinFunctionCall {
-            function: BuiltinFunction::StopTimer,
-            arguments: vec![llr_Expression::NumberLiteral(timer_index as _), item_ref],
-        }
-    } else {
-        panic!("invalid arguments to StopTimer");
-    }
-}
-
-fn lower_restart_timer(
-    args: &[tree_Expression],
-    ctx: &mut ExpressionLoweringCtx,
-) -> llr_Expression {
-    if let [tree_Expression::ElementReference(e)] = args {
-        let (timer_index, item_ref) = get_timer_index_and_parent(e, ctx);
+        let timer_list = timer_comp.timers.borrow();
+        let timer_index =
+            timer_list.iter().position(|t| Rc::ptr_eq(&t.component, &timer_comp)).unwrap();
 
         llr_Expression::BuiltinFunctionCall {
             function: BuiltinFunction::RestartTimer,
-            arguments: vec![llr_Expression::NumberLiteral(timer_index as _), item_ref],
+            arguments: vec![llr_Expression::NumberLiteral(timer_index as _)],
         }
     } else {
         panic!("invalid arguments to RestartTimer");
