@@ -4,7 +4,12 @@ SPDX-PackageSupplier = "Slint Developers <info@slint.dev>"
 SPDX-PackageDownloadLocation = "https://slint.dev/"
 
 [[annotations]]
-path = ["docs/public/favicon.svg", "docs/public/slint-logo-small-light.svg", "docs/public/favicon.ico"]
+path = [
+  "docs/public/favicon.svg",
+  "docs/public/slint-logo-small-light.svg",
+  "docs/public/apple-touch-icon.png",
+  "docs/public/favicon.ico"
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"
 SPDX-License-Identifier = "CC-BY-ND-4.0"
@@ -23,8 +28,6 @@ path = [
   "docs/src/assets/**.webp",
   ".gitignore",
   "docs/pnpm-lock.yaml",
-  "docs/src/assets/favicons/apple-touch-icon.png",
-  "docs/src/assets/favicons/favicon.ico",
   "docs/src/assets/images/Components.png",
   "docs/src/assets/images/phone-dark.webp",
   "docs/src/assets/images/material-award.jpg",
