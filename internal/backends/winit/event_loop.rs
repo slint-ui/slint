@@ -40,7 +40,7 @@ pub enum CustomEvent {
     #[cfg(enable_accesskit)]
     Accesskit(accesskit_winit::Event),
     #[cfg(muda)]
-    Muda(muda::MenuEvent),
+    Muda(muda::MenuEvent, MudaType),
 }
 
 impl std::fmt::Debug for CustomEvent {
@@ -53,9 +53,16 @@ impl std::fmt::Debug for CustomEvent {
             #[cfg(enable_accesskit)]
             Self::Accesskit(a) => write!(f, "AccessKit({a:?})"),
             #[cfg(muda)]
-            Self::Muda(e) => write!(f, "Muda({e:?})"),
+            Self::Muda(e, mt) => write!(f, "Muda({e:?},{mt:?})"),
         }
     }
+}
+
+#[cfg(muda)]
+#[derive(Clone, Copy, Debug)]
+pub enum MudaType {
+    Menubar,
+    Context,
 }
 
 pub struct EventLoopState {
@@ -447,7 +454,7 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
                 event_loop.set_control_flow(ControlFlow::Poll);
             }
             #[cfg(muda)]
-            CustomEvent::Muda(event) => {
+            CustomEvent::Muda(event, muda_type) => {
                 if let Some((window, eid)) = event.id().0.split_once('|').and_then(|(w, e)| {
                     Some((
                         self.shared_backend_data
@@ -455,7 +462,7 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
                         e.parse::<usize>().ok()?,
                     ))
                 }) {
-                    window.muda_event(eid);
+                    window.muda_event(eid, muda_type);
                 };
             }
         }

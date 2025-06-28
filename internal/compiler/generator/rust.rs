@@ -2789,7 +2789,8 @@ fn compile_builtin_function_call(
             }
         }
         BuiltinFunction::ShowPopupMenu => {
-            let [Expression::PropertyReference(context_menu_ref), entries, position] = arguments
+            let [Expression::PropertyReference(context_menu_ref), entries, position, Expression::BoolLiteral(no_native)] =
+                arguments
             else {
                 panic!("internal error: invalid args to ShowPopupMenu {arguments:?}")
             };
@@ -2880,7 +2881,7 @@ fn compile_builtin_function_call(
                     let entries = #entries;
                     {
                         let _self = popup_instance_vrc.as_pin_ref();
-                        #access_entries.set(entries);
+                        #access_entries.set(entries.clone());
                         #fw_sub_menu
                         #fw_activated
                         let self_weak = parent_weak.clone();
@@ -2893,22 +2894,37 @@ fn compile_builtin_function_call(
                 }
             };
             let context_menu = context_menu.unwrap();
+
+            let native_impl = if *no_native {
+                quote!()
+            } else {
+                quote!(if sp::WindowInner::from_pub(#window_adapter_tokens.window()).supports_native_menu_bar() {
+                    sp::WindowInner::from_pub(#window_adapter_tokens.window()).show_context_menu(sp::VBox::new(popup_instance_menu), #position);
+                } else)
+            };
+
             quote!({
                 let position = #position;
                 let popup_instance = #popup_id::new(_self.globals.get().unwrap().clone()).unwrap();
                 let popup_instance_vrc = sp::VRc::map(popup_instance.clone(), |x| x);
-                let parent_weak = _self.self_weak.get().unwrap().clone();
-                #init_popup
-                #close_popup
-                let id = sp::WindowInner::from_pub(#window_adapter_tokens.window()).show_popup(
-                    &sp::VRc::into_dyn(popup_instance.into()),
-                    position,
-                    sp::PopupClosePolicy::CloseOnClickOutside,
-                    #context_menu_rc,
-                    true, // is_menu
-                );
-                #context_menu.popup_id.set(Some(id));
-                #popup_id::user_init(popup_instance_vrc);
+                {
+                    let parent_weak = _self.self_weak.get().unwrap().clone();
+                    #init_popup
+                    let popup_instance_menu = sp::ContextMenuFromItemTree::new(sp::VRc::into_dyn(popup_instance.clone()), entries.clone());
+                    #native_impl
+                    /* else */ {
+                        #close_popup
+                        let id = sp::WindowInner::from_pub(#window_adapter_tokens.window()).show_popup(
+                            &sp::VRc::into_dyn(popup_instance.into()),
+                            position,
+                            sp::PopupClosePolicy::CloseOnClickOutside,
+                            #context_menu_rc,
+                            true, // is_menu
+                        );
+                        #context_menu.popup_id.set(Some(id));
+                        #popup_id::user_init(popup_instance_vrc);
+                    }
+                }
             })
         }
         BuiltinFunction::SetSelectionOffsets => {
@@ -3132,7 +3148,7 @@ fn compile_builtin_function_call(
                 };
 
                 quote!({
-                    let menu_item_tree_instance = #item_tree_id::new(_self.self_weak.get().unwrap().clone()).unwrap();
+                    let menu_item_tree_instance = #item_tree_id::new(_self.self_weak.get().unwrap().clone()).unwrap(); // BLGAG
                     let menu_item_tree = sp::MenuFromItemTree::new(sp::VRc::into_dyn(menu_item_tree_instance));
                     #native_impl
                     /*else*/ {

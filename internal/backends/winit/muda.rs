@@ -1,12 +1,16 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+use super::event_loop::MudaType;
+use super::CustomEvent;
 use super::WinitWindowAdapter;
 use crate::SlintEvent;
 use core::pin::Pin;
+use i_slint_core::api::LogicalPosition;
 use i_slint_core::items::MenuEntry;
 use i_slint_core::menus::MenuVTable;
 use i_slint_core::properties::{PropertyDirtyHandler, PropertyTracker};
+use muda::ContextMenu;
 use std::rc::Weak;
 use winit::event_loop::EventLoopProxy;
 use winit::window::Window;
@@ -42,7 +46,7 @@ impl MudaAdapter {
         let menu = muda::Menu::new();
 
         muda::MenuEvent::set_event_handler(Some(move |e| {
-            let _ = proxy.send_event(SlintEvent(crate::event_loop::CustomEvent::Muda(e)));
+            let _ = proxy.send_event(SlintEvent(CustomEvent::Muda(e, MudaType::Menubar)));
         }));
 
         #[cfg(target_os = "windows")]
@@ -64,6 +68,41 @@ impl MudaAdapter {
 
         let mut s = Self { entries: Default::default(), tracker, menu };
         s.rebuild_menu(winit_window, Some(menubar));
+        s
+    }
+
+    pub fn show_context_menu(
+        context_menu: &vtable::VBox<MenuVTable>,
+        winit_window: &Window,
+        position: LogicalPosition,
+        proxy: EventLoopProxy<SlintEvent>,
+    ) -> Self {
+        let menu = muda::Menu::new();
+
+        muda::MenuEvent::set_event_handler(Some(move |e| {
+            let _ = proxy.send_event(SlintEvent(CustomEvent::Muda(e, MudaType::Context)));
+        }));
+
+        let mut s = Self { entries: Default::default(), tracker: None, menu };
+        s.rebuild_menu(winit_window, Some(context_menu));
+
+        let position = i_slint_core::api::WindowPosition::Logical(position);
+        let position = Some(crate::winitwindowadapter::position_to_winit(&position));
+
+        #[cfg(target_os = "windows")]
+        {
+            use winit::raw_window_handle::*;
+            if let RawWindowHandle::Win32(handle) = winit_window.window_handle().unwrap().as_raw() {
+                unsafe {
+                    s.menu.show_context_menu_for_hwnd(handle.hwnd.get(), position);
+                }
+            }
+        }
+        #[cfg(target_os = "macos")]
+        {
+            todo!(); // unsafe { menu.show_context_menu_for_nsview(nsview, position) };
+        }
+
         s
     }
 

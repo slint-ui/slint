@@ -223,6 +223,7 @@ pub async fn lower_menus(
 
     let mut has_menu = false;
     let mut has_menubar = false;
+    let no_native_menu = type_loader.compiler_config.no_native_menu;
 
     doc.visit_all_used_components(|component| {
         recurse_elem_including_sub_components_no_borrow(component, &(), &mut |elem, _| {
@@ -230,7 +231,7 @@ pub async fn lower_menus(
                 has_menubar |= process_window(elem, &useful_menu_component, type_loader.compiler_config.no_native_menu, diag);
             }
             if matches!(&elem.borrow().builtin_type(), Some(b) if matches!(b.name.as_str(), "ContextMenuArea" | "ContextMenuInternal")) {
-                has_menu |= process_context_menu(elem, &useful_menu_component, diag);
+                has_menu |= process_context_menu(elem, &useful_menu_component, diag, no_native_menu);
             }
         })
     });
@@ -239,7 +240,8 @@ pub async fn lower_menus(
         recurse_elem_including_sub_components_no_borrow(&menubar_impl, &(), &mut |elem, _| {
             if matches!(&elem.borrow().builtin_type(), Some(b) if matches!(b.name.as_str(), "ContextMenuArea" | "ContextMenuInternal"))
             {
-                has_menu |= process_context_menu(elem, &useful_menu_component, diag);
+                has_menu |=
+                    process_context_menu(elem, &useful_menu_component, diag, no_native_menu);
             }
         });
     }
@@ -267,7 +269,7 @@ pub async fn lower_menus(
         recurse_elem_including_sub_components_no_borrow(&popup_menu_impl, &(), &mut |elem, _| {
             if matches!(&elem.borrow().builtin_type(), Some(b) if matches!(b.name.as_str(), "ContextMenuArea" | "ContextMenuInternal"))
             {
-                process_context_menu(elem, &useful_menu_component, diag);
+                process_context_menu(elem, &useful_menu_component, diag, no_native_menu);
             }
         });
         doc.popup_menu_impl = popup_menu_impl.into();
@@ -278,6 +280,7 @@ fn process_context_menu(
     context_menu_elem: &ElementRc,
     components: &UsefulMenuComponents,
     diag: &mut BuildDiagnostics,
+    no_native_menu: bool,
 ) -> bool {
     let is_internal = matches!(&context_menu_elem.borrow().base_type, ElementType::Builtin(b) if b.name == "ContextMenuInternal");
 
@@ -373,6 +376,7 @@ fn process_context_menu(
                 index: 0,
                 ty: crate::typeregister::logical_point_type(),
             },
+            Expression::BoolLiteral(no_native_menu),
         ],
         source_location,
     };
