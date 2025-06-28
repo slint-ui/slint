@@ -11,6 +11,8 @@ use std::rc::Rc;
 use std::rc::Weak;
 use std::sync::Arc;
 
+#[cfg(muda)]
+use i_slint_core::api::LogicalPosition;
 use i_slint_core::lengths::{PhysicalPx, ScaleFactor};
 use winit::event_loop::ActiveEventLoop;
 #[cfg(target_arch = "wasm32")]
@@ -18,6 +20,8 @@ use winit::platform::web::WindowExtWebSys;
 #[cfg(target_family = "windows")]
 use winit::platform::windows::WindowExtWindows;
 
+#[cfg(muda)]
+use crate::event_loop::MudaType;
 use crate::renderer::WinitCompatibleRenderer;
 
 use corelib::item_tree::ItemTreeRc;
@@ -43,7 +47,7 @@ use std::cell::OnceCell;
 use winit::event_loop::EventLoopProxy;
 use winit::window::{WindowAttributes, WindowButtons};
 
-fn position_to_winit(pos: &corelib::api::WindowPosition) -> winit::dpi::Position {
+pub(crate) fn position_to_winit(pos: &corelib::api::WindowPosition) -> winit::dpi::Position {
     match pos {
         corelib::api::WindowPosition::Logical(pos) => {
             winit::dpi::Position::new(winit::dpi::LogicalPosition::new(pos.x, pos.y))
@@ -149,6 +153,8 @@ enum WinitWindowOrNone {
         accesskit_adapter: RefCell<crate::accesskit::AccessKitAdapter>,
         #[cfg(muda)]
         muda_adapter: RefCell<Option<crate::muda::MudaAdapter>>,
+        #[cfg(muda)]
+        context_menu_muda_adapter: RefCell<Option<crate::muda::MudaAdapter>>,
     },
     None(RefCell<WindowAttributes>),
 }
@@ -340,6 +346,9 @@ pub struct WinitWindowAdapter {
     #[cfg(muda)]
     menubar: RefCell<Option<vtable::VBox<i_slint_core::menus::MenuVTable>>>,
 
+    #[cfg(muda)]
+    context_menu: RefCell<Option<vtable::VBox<i_slint_core::menus::MenuVTable>>>,
+
     #[cfg(all(muda, target_os = "macos"))]
     muda_enable_default_menu_bar: bool,
 
@@ -386,6 +395,8 @@ impl WinitWindowAdapter {
             xdg_settings_watcher: Default::default(),
             #[cfg(muda)]
             menubar: Default::default(),
+            #[cfg(muda)]
+            context_menu: Default::default(),
             #[cfg(all(muda, target_os = "macos"))]
             muda_enable_default_menu_bar,
             window_icon_cache_key: Default::default(),
@@ -477,6 +488,8 @@ impl WinitWindowAdapter {
                     )
                 })
                 .into(),
+            #[cfg(muda)]
+            context_menu_muda_adapter: None.into(),
         };
 
         drop(winit_window_or_none);
@@ -605,21 +618,31 @@ impl WinitWindowAdapter {
     }
 
     #[cfg(muda)]
-    pub fn muda_event(&self, entry_id: usize) {
+    pub fn muda_event(&self, entry_id: usize, muda_type: MudaType) {
         let Ok(maybe_muda_adapter) = std::cell::Ref::filter_map(
             self.winit_window_or_none.borrow(),
-            |winit_window_or_none| match winit_window_or_none {
-                WinitWindowOrNone::HasWindow { muda_adapter, .. } => Some(muda_adapter),
-                WinitWindowOrNone::None(..) => None,
+            |winit_window_or_none| match (winit_window_or_none, muda_type) {
+                (WinitWindowOrNone::HasWindow { muda_adapter, .. }, MudaType::Menubar) => {
+                    Some(muda_adapter)
+                }
+                (
+                    WinitWindowOrNone::HasWindow { context_menu_muda_adapter, .. },
+                    MudaType::Context,
+                ) => Some(context_menu_muda_adapter),
+                (WinitWindowOrNone::None(..), _) => None,
             },
         ) else {
             return;
         };
         let maybe_muda_adapter = maybe_muda_adapter.borrow();
         let Some(muda_adapter) = maybe_muda_adapter.as_ref() else { return };
-        let menubar = self.menubar.borrow();
-        let Some(menubar) = menubar.as_ref() else { return };
-        muda_adapter.invoke(menubar, entry_id);
+        let menu = match muda_type {
+            MudaType::Menubar => &self.menubar,
+            MudaType::Context => &self.context_menu,
+        };
+        let menu = menu.borrow();
+        let Some(menu) = menu.as_ref() else { return };
+        muda_adapter.invoke(menu, entry_id);
     }
 
     #[cfg(target_arch = "wasm32")]
@@ -1296,6 +1319,28 @@ impl WindowAdapterInternal for WinitWindowAdapter {
                 &self.winit_window().unwrap(),
                 self.event_loop_proxy.clone(),
                 self.self_weak.clone(),
+            )));
+        }
+    }
+
+    #[cfg(muda)]
+    fn show_context_menu(
+        &self,
+        context_menu: vtable::VBox<i_slint_core::menus::MenuVTable>,
+        position: LogicalPosition,
+    ) {
+        self.context_menu.replace(Some(context_menu));
+
+        if let WinitWindowOrNone::HasWindow { context_menu_muda_adapter, .. } =
+            &*self.winit_window_or_none.borrow()
+        {
+            // On Windows, we must destroy the muda menu before re-creating a new one
+            drop(context_menu_muda_adapter.borrow_mut().take());
+            context_menu_muda_adapter.replace(Some(crate::muda::MudaAdapter::show_context_menu(
+                self.context_menu.borrow().as_ref().unwrap(),
+                &self.winit_window().unwrap(),
+                position,
+                self.event_loop_proxy.clone(),
             )));
         }
     }
