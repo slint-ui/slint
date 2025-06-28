@@ -146,7 +146,7 @@
           "items": {
             "type": "string"
           },
-          "description": "List of paths in which the `import` statement and `@image-url` are looked up. Relative paths are relative to the workspace root."
+          "description": "List of paths in which the `import` statement and `@image-url` are looked up. Relative paths are resolved against the workspace root."
         },
         "slint.libraryPaths": {
           "type": "object",
@@ -155,7 +155,7 @@
               "type": "string"
             }
           },
-          "description": "Map of paths in which the `import` statement for `@mylibrary` imports are looked up. This is an object such as `{\"mylibrary\": \"/path/to/library\"}`. Relative paths are relative to the workspace root."
+          "description": "Map of paths in which the `import` statement for `@mylibrary` imports are looked up. This is an object such as `{\"mylibrary\": \"/path/to/library\"}`. Relative paths are resolved against the workspace root."
         }
       }
     },
