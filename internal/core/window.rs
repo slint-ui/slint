@@ -217,6 +217,14 @@ pub trait WindowAdapterInternal {
 
     fn setup_menubar(&self, _menubar: vtable::VBox<MenuVTable>) {}
 
+    fn show_native_popup_menu(
+        &self,
+        _context_menu_item: vtable::VBox<MenuVTable>,
+        _position: LogicalPosition,
+    ) -> bool {
+        false
+    }
+
     /// Re-implement this to support exposing raw window handles (version 0.6).
     #[cfg(all(feature = "std", feature = "raw-window-handle-06"))]
     fn window_handle_06_rc(
@@ -1277,11 +1285,14 @@ impl WindowInner {
     /// Returns false if the native platform doesn't support it
     pub fn show_native_popup_menu(
         &self,
-        _context_menu_item: &ItemRc,
-        _position: LogicalPosition,
+        context_menu_item: vtable::VBox<MenuVTable>,
+        position: LogicalPosition,
     ) -> bool {
-        // TODO
-        false
+        if let Some(x) = self.window_adapter().internal(crate::InternalToken) {
+            x.show_native_popup_menu(context_menu_item, position)
+        } else {
+            false
+        }
     }
 
     // Close the popup associated with the given popup window.

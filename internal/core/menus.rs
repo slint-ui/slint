@@ -8,6 +8,7 @@ use crate::graphics::Image;
 use crate::item_rendering::CachedRenderingData;
 use crate::item_tree::{ItemTreeRc, ItemWeak, VisitChildrenResult};
 use crate::items::{ItemRc, ItemRef, MenuEntry, VoidArg};
+use crate::model::Model;
 use crate::properties::PropertyTracker;
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
@@ -138,6 +139,58 @@ impl Menu for MenuFromItemTree {
 }
 
 MenuVTable_static!(static MENU_FROM_ITEM_TREE_VT for MenuFromItemTree);
+
+pub struct ContextMenuFromItemTree {
+    item_tree: ItemTreeRc,
+    entries: crate::model::ModelRc<MenuEntry>,
+}
+
+impl ContextMenuFromItemTree {
+    pub fn new(item_tree: ItemTreeRc, entries: crate::model::ModelRc<MenuEntry>) -> Self {
+        Self { item_tree, entries }
+    }
+}
+
+impl Menu for ContextMenuFromItemTree {
+    fn sub_menu(&self, parent: Option<&MenuEntry>, result: &mut SharedVector<MenuEntry>) {
+        let menu_entries = if let Some(parent) = parent {
+            // There absolutely MUST be a better way to do this...
+            let mut menu_entries = None;
+            let mut actual_visitor = |_item_tree: &ItemTreeRc,
+                                      _index: u32,
+                                      item_pin: Pin<ItemRef>|
+             -> VisitChildrenResult {
+                if let Some(context_menu) =
+                    ItemRef::downcast_pin::<crate::items::ContextMenu>(item_pin)
+                {
+                    let parent = parent.clone();
+                    menu_entries = Some(context_menu.sub_menu.call(&(parent,)));
+                }
+                VisitChildrenResult::CONTINUE
+            };
+
+            vtable::new_vref!(let mut actual_visitor : VRefMut<crate::item_tree::ItemVisitorVTable> for crate::item_tree::ItemVisitor = &mut actual_visitor);
+
+            vtable::VRc::borrow_pin(&self.item_tree).as_ref().visit_children_item(
+                0,
+                crate::item_tree::TraversalOrder::BackToFront,
+                actual_visitor,
+            );
+            menu_entries.unwrap()
+        } else {
+            self.entries.clone()
+        };
+
+        result.clear();
+        result.extend(menu_entries.iter());
+    }
+
+    fn activate(&self, _entry: &MenuEntry) {
+        todo!()
+    }
+}
+
+MenuVTable_static!(static CONTEXT_MENU_FROM_ITEM_TREE_VT for ContextMenuFromItemTree);
 
 #[repr(C)]
 #[derive(const_field_offset::FieldOffsets, Default, SlintElement)]
