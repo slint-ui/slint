@@ -2789,8 +2789,7 @@ fn compile_builtin_function_call(
             }
         }
         BuiltinFunction::ShowPopupMenu => {
-            let [Expression::PropertyReference(context_menu_ref), entries, position, Expression::BoolLiteral(no_native)] =
-                arguments
+            let [Expression::PropertyReference(context_menu_ref), entries, position] = arguments
             else {
                 panic!("internal error: invalid args to ShowPopupMenu {arguments:?}")
             };
@@ -2861,6 +2860,8 @@ fn compile_builtin_function_call(
                     matches!(entries.ty(ctx), Type::Array(ty) if matches!(&*ty, Type::Struct{..}))
                 );
                 let entries = compile_expression(entries, ctx);
+                let inner_component_id =
+                    self::inner_component_id(ctx.current_sub_component().unwrap());
                 let forward_callback = |access, cb| {
                     let call = context_menu
                         .clone()
@@ -2875,9 +2876,44 @@ fn compile_builtin_function_call(
                         });
                     )
                 };
-                let fw_sub_menu = forward_callback(access_sub_menu, quote!(sub_menu));
+                let fw_sub_menu = forward_callback(access_sub_menu.clone(), quote!(sub_menu));
                 let fw_activated = forward_callback(access_activated, quote!(activated));
                 quote! {
+                    let context_menu_item_tree = if sp::WindowInner::from_pub(#window_adapter_tokens.window()).supports_native_menu_bar() {
+                        // May seem overkill to have an instance of the struct for each call, but there should only be one call per component anyway
+                        struct ContextMenuWrapper(sp::VWeakMapped<sp::ItemTreeVTable, #inner_component_id>);
+                        const _ : () = {
+                            use slint::private_unstable_api::re_exports::*;
+                            MenuVTable_static!(static VT for ContextMenuWrapper);
+                        };
+                        impl sp::Menu for ContextMenuWrapper {
+                            fn sub_menu(&self, parent: sp::Option<&sp::MenuEntry>, result: &mut sp::SharedVector<sp::MenuEntry>) {
+                                let Some(self_rc) = self.0.upgrade() else { return };
+                                let _self = self_rc.as_pin_ref();
+                                let model = match parent {
+                                    None => #entries,
+                                    Some(parent) =>  {
+                                        // PROBLEM - how do I wrie this up to the submenu?
+                                        // #access_sub_menu.call(&(parent.clone(),));
+                                        todo!()
+                                    }
+                                };
+                                *result = model.iter().map(|v| v.try_into().unwrap()).collect();
+                            }
+                            fn activate(&self, entry: &sp::MenuEntry) {
+                                let Some(self_rc) = self.0.upgrade() else { return };
+                                let _self = self_rc.as_pin_ref();
+                                // PROBLEM - how do I wire this up to the activated callback?
+                                // #access_activated.call(&(entry.clone(),))
+                                todo!()
+                            }
+                        }
+                        Some(sp::VBox::new(ContextMenuWrapper(_self.self_weak.get().unwrap().clone())))
+                    }
+                    else {
+                        None
+                    };
+
                     let entries = #entries;
                     {
                         let _self = popup_instance_vrc.as_pin_ref();
@@ -2895,14 +2931,6 @@ fn compile_builtin_function_call(
             };
             let context_menu = context_menu.unwrap();
 
-            let native_impl = if *no_native {
-                quote!()
-            } else {
-                quote!(if sp::WindowInner::from_pub(#window_adapter_tokens.window()).supports_native_menu_bar() {
-                    sp::WindowInner::from_pub(#window_adapter_tokens.window()).show_context_menu(sp::VBox::new(popup_instance_menu), #position);
-                } else)
-            };
-
             quote!({
                 let position = #position;
                 let popup_instance = #popup_id::new(_self.globals.get().unwrap().clone()).unwrap();
@@ -2910,9 +2938,8 @@ fn compile_builtin_function_call(
                 {
                     let parent_weak = _self.self_weak.get().unwrap().clone();
                     #init_popup
-                    let popup_instance_menu = sp::ContextMenuFromItemTree::new(sp::VRc::into_dyn(popup_instance.clone()), entries.clone());
-                    #native_impl
-                    /* else */ {
+
+                    if !sp::WindowInner::from_pub(#window_adapter_tokens.window()).show_native_popup_menu(context_menu_item_tree.unwrap(), #position) {
                         #close_popup
                         let id = sp::WindowInner::from_pub(#window_adapter_tokens.window()).show_popup(
                             &sp::VRc::into_dyn(popup_instance.into()),
