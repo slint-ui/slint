@@ -50,10 +50,10 @@ raw-window-handle-06 = ["i-slint-core/raw-window-handle-06", "i-slint-backend-wi
 
 system-testing = ["i-slint-backend-testing/system-testing"]
 
-unstable-wgpu-24 = [
-  "i-slint-core/unstable-wgpu-24",
-  "i-slint-renderer-skia?/unstable-wgpu-24",
-  "i-slint-backend-winit?/unstable-wgpu-24",
+unstable-wgpu-25 = [
+  "i-slint-core/unstable-wgpu-25",
+  "i-slint-renderer-skia?/unstable-wgpu-25",
+  "i-slint-backend-winit?/unstable-wgpu-25",
 ]
 
 unstable-winit-030 = ["i-slint-backend-winit"]
