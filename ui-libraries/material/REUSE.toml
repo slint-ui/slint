@@ -8,7 +8,9 @@ path = [
   "docs/public/favicon.svg",
   "docs/public/slint-logo-small-light.svg",
   "docs/public/apple-touch-icon.png",
-  "docs/public/favicon.ico"
+  "docs/public/favicon.ico",
+  "docs/public/favicon-32x32.png",
+  "docs/public/favicon-16x16.png"
 ]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"
