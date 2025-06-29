@@ -1324,12 +1324,12 @@ impl WindowAdapterInternal for WinitWindowAdapter {
     }
 
     #[cfg(muda)]
-    fn show_context_menu(
+    fn show_native_popup_menu(
         &self,
-        context_menu: vtable::VBox<i_slint_core::menus::MenuVTable>,
+        context_menu_item: vtable::VBox<i_slint_core::menus::MenuVTable>,
         position: LogicalPosition,
-    ) {
-        self.context_menu.replace(Some(context_menu));
+    ) -> bool {
+        self.context_menu.replace(Some(context_menu_item));
 
         if let WinitWindowOrNone::HasWindow { context_menu_muda_adapter, .. } =
             &*self.winit_window_or_none.borrow()
@@ -1343,6 +1343,7 @@ impl WindowAdapterInternal for WinitWindowAdapter {
                 self.event_loop_proxy.clone(),
             )));
         }
+        true
     }
 
     #[cfg(enable_accesskit)]

@@ -217,11 +217,12 @@ pub trait WindowAdapterInternal {
 
     fn setup_menubar(&self, _menubar: vtable::VBox<MenuVTable>) {}
 
-    fn show_context_menu(
+    fn show_native_popup_menu(
         &self,
-        _context_menu: vtable::VBox<MenuVTable>,
+        _context_menu_item: vtable::VBox<MenuVTable>,
         _position: LogicalPosition,
-    ) {
+    ) -> bool {
+        false
     }
 
     /// Re-implement this to support exposing raw window handles (version 0.6).
@@ -1157,17 +1158,6 @@ impl WindowInner {
         }
     }
 
-    /// Show a native context menu
-    pub fn show_context_menu(
-        &self,
-        context_menu: vtable::VBox<MenuVTable>,
-        position: LogicalPosition,
-    ) {
-        if let Some(x) = self.window_adapter().internal(crate::InternalToken) {
-            x.show_context_menu(context_menu, position);
-        }
-    }
-
     /// Show a popup at the given position relative to the `parent_item` and returns its ID.
     /// The returned ID will always be non-zero.
     /// `is_menu` specifies whether the popup is a popup menu.
@@ -1295,11 +1285,14 @@ impl WindowInner {
     /// Returns false if the native platform doesn't support it
     pub fn show_native_popup_menu(
         &self,
-        _context_menu_item: &ItemRc,
-        _position: LogicalPosition,
+        context_menu_item: vtable::VBox<MenuVTable>,
+        position: LogicalPosition,
     ) -> bool {
-        // TODO
-        false
+        if let Some(x) = self.window_adapter().internal(crate::InternalToken) {
+            x.show_native_popup_menu(context_menu_item, position)
+        } else {
+            false
+        }
     }
 
     // Close the popup associated with the given popup window.
