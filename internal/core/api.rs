@@ -11,7 +11,6 @@ This module contains types that are public and re-exported in the slint-rs as we
 pub use crate::future::*;
 use crate::graphics::{Rgba8Pixel, SharedPixelBuffer};
 use crate::input::{KeyEventType, MouseEvent};
-use crate::item_tree::ItemTreeVTable;
 use crate::window::{WindowAdapter, WindowInner};
 use alloc::boxed::Box;
 use alloc::string::String;
@@ -759,9 +758,9 @@ pub trait Global<'a, Component> {
 ///
 /// This trait is implemented by the [generated component](index.html#generated-components)
 pub trait ComponentHandle {
-    /// The type of the generated component.
+    /// The internal Inner type for `Weak<Self>::inner`.
     #[doc(hidden)]
-    type Inner;
+    type WeakInner: Clone + Default;
     /// Returns a new weak pointer.
     fn as_weak(&self) -> Weak<Self>
     where
@@ -773,7 +772,9 @@ pub trait ComponentHandle {
 
     /// Internal function used when upgrading a weak reference to a strong one.
     #[doc(hidden)]
-    fn from_inner(_: vtable::VRc<ItemTreeVTable, Self::Inner>) -> Self;
+    fn upgrade_from_weak_inner(_: &Self::WeakInner) -> Option<Self>
+    where
+        Self: Sized;
 
     /// Convenience function for [`crate::Window::show()`](struct.Window.html#method.show).
     /// This shows the window on the screen and maintains an extra strong reference while
@@ -820,7 +821,7 @@ mod weak_handle {
     /// as the one it has been created from.
     /// This is useful to use with [`invoke_from_event_loop()`] or [`Self::upgrade_in_event_loop()`].
     pub struct Weak<T: ComponentHandle> {
-        inner: vtable::VWeak<ItemTreeVTable, T::Inner>,
+        inner: T::WeakInner,
         #[cfg(feature = "std")]
         thread: std::thread::ThreadId,
     }
@@ -828,7 +829,7 @@ mod weak_handle {
     impl<T: ComponentHandle> Default for Weak<T> {
         fn default() -> Self {
             Self {
-                inner: vtable::VWeak::default(),
+                inner: T::WeakInner::default(),
                 #[cfg(feature = "std")]
                 thread: std::thread::current().id(),
             }
@@ -847,9 +848,9 @@ mod weak_handle {
 
     impl<T: ComponentHandle> Weak<T> {
         #[doc(hidden)]
-        pub fn new(rc: &vtable::VRc<ItemTreeVTable, T::Inner>) -> Self {
+        pub fn new(inner: T::WeakInner) -> Self {
             Self {
-                inner: vtable::VRc::downgrade(rc),
+                inner,
                 #[cfg(feature = "std")]
                 thread: std::thread::current().id(),
             }
@@ -868,7 +869,7 @@ mod weak_handle {
             if std::thread::current().id() != self.thread {
                 return None;
             }
-            self.inner.upgrade().map(T::from_inner)
+            T::upgrade_from_weak_inner(&self.inner)
         }
 
         /// Convenience function that returns a new strongly referenced component if
@@ -883,12 +884,13 @@ mod weak_handle {
                     "Trying to upgrade a Weak from a different thread than the one it belongs to"
                 );
             }
-            T::from_inner(self.inner.upgrade().expect("The Weak doesn't hold a valid component"))
+            T::upgrade_from_weak_inner(&self.inner)
+                .expect("The Weak doesn't hold a valid component")
         }
 
         /// A helper function to allow creation on `component_factory::Component` from
         /// a `ComponentHandle`
-        pub(crate) fn inner(&self) -> vtable::VWeak<ItemTreeVTable, T::Inner> {
+        pub(crate) fn inner(&self) -> T::WeakInner {
             self.inner.clone()
         }
 

@@ -306,17 +306,17 @@ fn generate_public_component(
         }
 
         impl slint::ComponentHandle for #public_component_id {
-            type Inner = #inner_component_id;
+            type WeakInner = sp::VWeak<sp::ItemTreeVTable, #inner_component_id>;
             fn as_weak(&self) -> slint::Weak<Self> {
-                slint::Weak::new(&self.0)
+                slint::Weak::new(sp::VRc::downgrade(&self.0))
             }
 
             fn clone_strong(&self) -> Self {
                 Self(self.0.clone())
             }
 
-            fn from_inner(inner: sp::VRc<sp::ItemTreeVTable, #inner_component_id>) -> Self {
-                Self(inner)
+            fn upgrade_from_weak_inner(inner: &Self::WeakInner) -> sp::Option<Self> {
+                sp::Some(Self(inner.upgrade()?))
             }
 
             fn run(&self) -> ::core::result::Result<(), slint::PlatformError> {
@@ -1080,7 +1080,7 @@ fn generate_sub_component(
     let layout_info_h = compile_expression(&component.layout_info_h.borrow(), &ctx);
     let layout_info_v = compile_expression(&component.layout_info_v.borrow(), &ctx);
 
-    // FIXME! this is only public because of the ComponentHandle::Inner. we should find another way
+    // FIXME! this is only public because of the ComponentHandle::WeakInner. we should find another way
     let visibility = parent_ctx.is_none().then(|| quote!(pub));
 
     let subtree_index_function = if let Some(property_index) = index_property {
