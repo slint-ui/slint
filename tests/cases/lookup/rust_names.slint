@@ -4,7 +4,7 @@
 
 // Just use some of the internal names used in Slint to make sure it still compiles
 
-import { Button, ComboBox } from "std-widgets.slint";
+import { Button, ComboBox, ListView, LineEdit } from "std-widgets.slint";
 
 export struct Some {}
 export struct None { s: Some }
@@ -23,8 +23,8 @@ export struct WindowItem {}
 export struct Slint { slint: string }
 export struct LayoutInfo { layout: int }
 export struct BoxLayoutData { layout: length }
-
-
+export struct core { core: string }
+export enum alloc { Err, Ok }
 
 export enum Slice { xxx }
 export enum Coord { xxx }
@@ -46,6 +46,10 @@ export component SharedString {
     property ok <=> ComponentInstance.ok;
 }
 
+component T {
+    in property <core> T;
+}
+
 export global ItemVTable {}
 
 export component TestCase  {
@@ -56,13 +60,18 @@ export component TestCase  {
     slint := SharedString {}
     Button { text: "hello" + 42; }
     ComboBox {}
+    T { T: { core: "foo" }; }
 
     in-out property <int> Err;
     animate Err { duration: 45s; }
 
     out property <bool> test: slint.slint.value == "foobar";
 
+    Timer { interval: 45ms; }
 
+    if true: ListView {
+        for sp in 42 : LineEdit {}
+    }
 
 }
 /*

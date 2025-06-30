@@ -287,13 +287,13 @@ fn generate_public_component(
         pub struct #public_component_id(sp::VRc<sp::ItemTreeVTable, #inner_component_id>);
 
         impl #public_component_id {
-            pub fn new() -> core::result::Result<Self, slint::PlatformError> {
+            pub fn new() -> ::core::result::Result<Self, slint::PlatformError> {
                 let inner = #inner_component_id::new()?;
                 #init_bundle_translations
                 // ensure that the window exist as this point so further call to window() don't panic
                 inner.globals.get().unwrap().window_adapter_ref()?;
                 #inner_component_id::user_init(sp::VRc::map(inner.clone(), |x| x));
-                core::result::Result::Ok(Self(inner))
+                ::core::result::Result::Ok(Self(inner))
             }
 
             #property_and_callback_accessors
@@ -319,18 +319,18 @@ fn generate_public_component(
                 Self(inner)
             }
 
-            fn run(&self) -> core::result::Result<(), slint::PlatformError> {
+            fn run(&self) -> ::core::result::Result<(), slint::PlatformError> {
                 self.show()?;
                 slint::run_event_loop()?;
                 self.hide()?;
-                core::result::Result::Ok(())
+                ::core::result::Result::Ok(())
             }
 
-            fn show(&self) -> core::result::Result<(), slint::PlatformError> {
+            fn show(&self) -> ::core::result::Result<(), slint::PlatformError> {
                 self.0.globals.get().unwrap().window_adapter_ref()?.window().show()
             }
 
-            fn hide(&self) -> core::result::Result<(), slint::PlatformError> {
+            fn hide(&self) -> ::core::result::Result<(), slint::PlatformError> {
                 self.0.globals.get().unwrap().window_adapter_ref()?.window().hide()
             }
 
@@ -399,7 +399,7 @@ fn generate_shared_globals(
                     let root_rc = self.root_item_tree_weak.upgrade().unwrap();
                     sp::WindowInner::from_pub(adapter.window()).set_component(&root_rc);
                     #apply_constant_scale_factor
-                    core::result::Result::Ok(adapter)
+                    ::core::result::Result::Ok(adapter)
                 })
             }
 
@@ -1104,7 +1104,7 @@ fn generate_sub_component(
             let callback = compile_expression(&tmr.triggered.borrow(), &ctx);
             quote!(
                 if #running {
-                    let interval = core::time::Duration::from_millis(#interval as u64);
+                    let interval = ::core::time::Duration::from_millis(#interval as u64);
                     if !self.#ident.running() || interval != self.#ident.interval() {
                         let self_weak = self.self_weak.get().unwrap().clone();
                         self.#ident.start(sp::TimerMode::Repeated, interval, move || {
@@ -1602,7 +1602,7 @@ fn generate_item_tree(
         #sub_comp
 
         impl #inner_component_id {
-            fn new(#(parent: #parent_component_type,)* #globals_arg) -> core::result::Result<sp::VRc<sp::ItemTreeVTable, Self>, slint::PlatformError> {
+            fn new(#(parent: #parent_component_type,)* #globals_arg) -> ::core::result::Result<sp::VRc<sp::ItemTreeVTable, Self>, slint::PlatformError> {
                 #![allow(unused)]
                 slint::private_unstable_api::ensure_backend()?;
                 let mut _self = Self::default();
@@ -1612,7 +1612,7 @@ fn generate_item_tree(
                 let globals = #globals;
                 sp::register_item_tree(&self_dyn_rc, globals.maybe_window_adapter_impl());
                 Self::init(sp::VRc::map(self_rc.clone(), |x| x), globals, 0, 1);
-                core::result::Result::Ok(self_rc)
+                ::core::result::Result::Ok(self_rc)
             }
 
             fn item_tree() -> &'static [sp::ItemTreeNode] {
@@ -1635,7 +1635,7 @@ fn generate_item_tree(
         };
 
         impl sp::PinnedDrop for #inner_component_id {
-            fn drop(self: core::pin::Pin<&mut #inner_component_id>) {
+            fn drop(self: ::core::pin::Pin<&mut #inner_component_id>) {
                 sp::vtable::new_vref!(let vref : VRef<sp::ItemTreeVTable> for sp::ItemTree = self.as_ref().get_ref());
                 if let Some(wa) = self.globals.get().unwrap().maybe_window_adapter_impl() {
                     sp::unregister_item_tree(self.as_ref(), vref, Self::item_array(), &wa);
@@ -2845,7 +2845,7 @@ fn compile_builtin_function_call(
                             if let Some(self_rc) = self_weak.upgrade() {
                                 let _self = self_rc.as_pin_ref();
                                 #call
-                            } else { Default::default() }
+                            } else { ::core::default::Default::default() }
                         });
                     )
                 };
