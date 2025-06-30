@@ -112,8 +112,17 @@ pub fn to_value(env: &Env, unknown: JsUnknown, typ: &Type) -> Result<Value> {
                     return unknown.coerce_to_string().and_then(string_to_brush)
                 }
                 Ok(ValueType::Object) => {
-                    if let Ok(rgb_color) = unknown.coerce_to_object() {
-                        return brush_from_color(rgb_color);
+                    if let Ok(rgb_color_or_brush) = unknown.coerce_to_object() {
+                        if let Some(direct_brush) =
+                            rgb_color_or_brush.get("brush").ok().flatten().and_then(
+                                |maybe_slintbrush| {
+                                    env.get_value_external::<Brush>(&maybe_slintbrush).ok()
+                                },
+                            )
+                        {
+                            return Ok(Value::Brush(direct_brush.color().into()));
+                        }
+                        return brush_from_color(rgb_color_or_brush);
                     }
                 }
                 _ => {}
