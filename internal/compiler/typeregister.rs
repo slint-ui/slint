@@ -492,9 +492,16 @@ impl TypeRegister {
         match &mut register.elements.get_mut("Timer").unwrap() {
             ElementType::Builtin(ref mut b) => {
                 let timer = Rc::get_mut(b).unwrap();
-                timer.properties.insert("start".into(), BuiltinPropertyInfo::from(BuiltinFunction::StartTimer));
-                timer.properties.insert("stop".into(), BuiltinPropertyInfo::from(BuiltinFunction::StopTimer));
-                timer.properties.insert("restart".into(), BuiltinPropertyInfo::from(BuiltinFunction::RestartTimer));
+                timer
+                    .properties
+                    .insert("start".into(), BuiltinPropertyInfo::from(BuiltinFunction::StartTimer));
+                timer
+                    .properties
+                    .insert("stop".into(), BuiltinPropertyInfo::from(BuiltinFunction::StopTimer));
+                timer.properties.insert(
+                    "restart".into(),
+                    BuiltinPropertyInfo::from(BuiltinFunction::RestartTimer),
+                );
             }
             _ => unreachable!(),
         }
