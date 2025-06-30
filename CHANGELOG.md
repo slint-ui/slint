@@ -9,6 +9,10 @@ All notable changes to this project are documented in this file.
 
  - Minimum Supported Rust Version (MSRV) is 1.85
 
+### Node.js API
+
+ - Fixed panic when attempting to convert brushes to colors.
+
 ## [1.12.1] - 2025-06-25
 
 ### General
