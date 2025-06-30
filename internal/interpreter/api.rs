@@ -1536,23 +1536,21 @@ impl ComponentInstance {
 }
 
 impl ComponentHandle for ComponentInstance {
-    type Inner = crate::dynamic_item_tree::ErasedItemTreeBox;
+    type WeakInner = vtable::VWeak<ItemTreeVTable, crate::dynamic_item_tree::ErasedItemTreeBox>;
 
     fn as_weak(&self) -> Weak<Self>
     where
         Self: Sized,
     {
-        Weak::new(&self.inner)
+        Weak::new(vtable::VRc::downgrade(&self.inner))
     }
 
     fn clone_strong(&self) -> Self {
         Self { inner: self.inner.clone() }
     }
 
-    fn from_inner(
-        inner: vtable::VRc<i_slint_core::item_tree::ItemTreeVTable, Self::Inner>,
-    ) -> Self {
-        Self { inner }
+    fn upgrade_from_weak_inner(inner: &Self::WeakInner) -> Option<Self> {
+        Some(Self { inner: inner.upgrade()? })
     }
 
     fn show(&self) -> Result<(), PlatformError> {
