@@ -1348,10 +1348,16 @@ fn call_builtin_function(
         BuiltinFunction::StartTimer => unreachable!(),
         BuiltinFunction::StopTimer => unreachable!(),
         BuiltinFunction::RestartTimer => {
-            // if let [Expression::ElementReference(timer)] = arguments {
-            //     timer.upgrade().unwrap().borrow().enclosing_component.upgrade().unwrap().timers
-            // }
-            todo!()
+            if let [Expression::ElementReference(timer_element)] = arguments {
+                crate::dynamic_item_tree::restart_timer(
+                    timer_element.upgrade().unwrap(),
+                    local_context.component_instance,
+                );
+
+                Value::Void
+            } else {
+                panic!("internal error: argument to RestartTimer must be an element")
+            }
         }
     }
 }

@@ -647,6 +647,7 @@ impl Snapshotter {
             interval: timer.interval.snapshot(self),
             running: timer.running.snapshot(self),
             triggered: timer.triggered.snapshot(self),
+            element: self.use_element(&timer.element),
         }
     }
 

@@ -397,7 +397,7 @@ fn lower_restart_timer(args: &[tree_Expression]) -> llr_Expression {
 
         let timer_list = timer_comp.timers.borrow();
         let timer_index =
-            timer_list.iter().position(|t| Rc::ptr_eq(&t.component, &timer_comp)).unwrap();
+            timer_list.iter().position(|t| Rc::ptr_eq(&t.element, &timer_element)).unwrap();
 
         llr_Expression::BuiltinFunctionCall {
             function: BuiltinFunction::RestartTimer,

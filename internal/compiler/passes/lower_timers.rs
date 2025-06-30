@@ -102,6 +102,7 @@ fn lower_timer(
         interval: NamedReference::new(timer_element, SmolStr::new_static("interval")),
         running,
         triggered: NamedReference::new(timer_element, SmolStr::new_static("triggered")),
+        element: timer_element.clone(),
     });
     let update_timers = Expression::FunctionCall {
         function: BuiltinFunction::UpdateTimers.into(),
