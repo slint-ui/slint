@@ -24,6 +24,7 @@ pub enum TokenInfo {
     Image(std::path::PathBuf),
     LocalProperty(syntax_nodes::PropertyDeclaration),
     LocalCallback(syntax_nodes::CallbackDeclaration),
+    LocalFunction(syntax_nodes::Function),
     /// This is like a NamedReference, but the element doesn't have an ElementRc because
     /// its enclosing component might not have been properly parsed
     IncompleteNamedReference(ElementType, SmolStr),
@@ -179,9 +180,10 @@ pub fn token_info(document_cache: &common::DocumentCache, token: SyntaxToken) ->
                 return None;
             }
             let parent = node.parent()?;
-            if [SyntaxKind::PropertyChangedCallback, SyntaxKind::PropertyDeclaration]
-                .contains(&parent.kind())
-            {
+            if matches!(
+                parent.kind(),
+                SyntaxKind::PropertyChangedCallback | SyntaxKind::PropertyDeclaration
+            ) {
                 let prop_name = i_slint_compiler::parser::normalize_identifier(token.text());
                 let element = syntax_nodes::Element::new(parent.parent()?)?;
                 if let Some(p) = element.PropertyDeclaration().find_map(|p| {
@@ -192,6 +194,12 @@ pub fn token_info(document_cache: &common::DocumentCache, token: SyntaxToken) ->
                     return Some(TokenInfo::LocalProperty(p));
                 }
                 return find_property_declaration_in_base(document_cache, element, &prop_name);
+            }
+            if parent.kind() == SyntaxKind::CallbackDeclaration {
+                return Some(TokenInfo::LocalCallback(parent.into()));
+            }
+            if parent.kind() == SyntaxKind::Function {
+                return Some(TokenInfo::LocalFunction(parent.into()));
             }
             if parent.kind() == SyntaxKind::Component {
                 let doc = document_cache.get_document_for_source_file(&node.source_file)?;
@@ -247,6 +255,7 @@ pub fn token_info(document_cache: &common::DocumentCache, token: SyntaxToken) ->
                     _ => { /* nothing to do */ }
                 }
             }
+            return None;
         }
         node = node.parent()?;
     }

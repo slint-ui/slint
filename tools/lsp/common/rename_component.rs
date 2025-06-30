@@ -377,14 +377,14 @@ fn rename_local_symbols(
     while let Some(current) = current_token {
         if current.kind() == SyntaxKind::Identifier
             && i_slint_compiler::parser::normalize_identifier(current.text()) == ti.name
-            && ![
-                SyntaxKind::ExternalName,
-                SyntaxKind::InternalName,
-                SyntaxKind::ExportIdentifier,
-                SyntaxKind::ExportName,
-                SyntaxKind::PropertyDeclaration,
-            ]
-            .contains(&current.parent().kind())
+            && !matches!(
+                current.parent().kind(),
+                SyntaxKind::ExternalName
+                    | SyntaxKind::InternalName
+                    | SyntaxKind::ExportIdentifier
+                    | SyntaxKind::ExportName
+                    | SyntaxKind::PropertyDeclaration
+            )
             && ti.is_same_symbol(document_cache, current.clone())
         {
             edits.push(
@@ -560,6 +560,25 @@ impl TokenInformation {
             return false;
         };
 
+        fn check_element(
+            element: &i_slint_compiler::object_tree::ElementRc,
+            node: &SyntaxNode,
+        ) -> bool {
+            if element.borrow().debug.iter().any(|di| {
+                Rc::ptr_eq(&di.node.source_file, &node.source_file)
+                    && di.node.text_range() == node.text_range()
+            }) {
+                return true;
+            }
+            if let i_slint_compiler::langtype::ElementType::Component(c) =
+                &element.borrow().base_type
+            {
+                check_element(&c.root_element, node)
+            } else {
+                false
+            }
+        }
+
         match (&self.info, &info) {
             (common::token_info::TokenInfo::Type(s), common::token_info::TokenInfo::Type(o)) => {
                 s == o
@@ -609,10 +628,11 @@ impl TokenInformation {
             | (
                 common::token_info::TokenInfo::LocalProperty(s),
                 common::token_info::TokenInfo::NamedReference(nr),
-            ) => nr.element().borrow().debug.iter().any(|di| {
-                di.node.source_file.path() == s.source_file.path()
-                    && di.node.PropertyDeclaration().any(|pd| pd.text_range() == s.text_range())
-            }),
+            ) => {
+                s.parent().is_some_and(|n| check_element(&nr.element(), &n))
+                    && i_slint_compiler::parser::identifier_text(&s.DeclaredIdentifier())
+                        .is_some_and(|x| &x == nr.name())
+            }
             (
                 common::token_info::TokenInfo::LocalProperty(s),
                 common::token_info::TokenInfo::IncompleteNamedReference(nr1, nr2),
@@ -621,9 +641,65 @@ impl TokenInformation {
                 common::token_info::TokenInfo::IncompleteNamedReference(nr1, nr2),
                 common::token_info::TokenInfo::LocalProperty(s),
             ) => {
-                matches!(nr1, i_slint_compiler::langtype::ElementType::Component(c)
-                        if c.node.as_ref().map(|n| Rc::ptr_eq(&n.source_file, &s.source_file)
-                            && Some(n.text_range()) == s.parent().and_then(|p| p.parent()).map(|gp| gp.text_range())).unwrap_or_default())
+                matches!(nr1, i_slint_compiler::langtype::ElementType::Component(c) if s.parent().is_some_and(|n| check_element(&c.root_element, &n)))
+                    && Some(nr2)
+                        == i_slint_compiler::parser::identifier_text(&s.DeclaredIdentifier())
+                            .as_ref()
+            }
+            (
+                common::token_info::TokenInfo::LocalCallback(s),
+                common::token_info::TokenInfo::LocalCallback(o),
+            ) => Rc::ptr_eq(&s.source_file, &o.source_file) && s.text_range() == o.text_range(),
+            (
+                common::token_info::TokenInfo::NamedReference(nr),
+                common::token_info::TokenInfo::LocalCallback(s),
+            )
+            | (
+                common::token_info::TokenInfo::LocalCallback(s),
+                common::token_info::TokenInfo::NamedReference(nr),
+            ) => {
+                s.parent().is_some_and(|n| check_element(&nr.element(), &n))
+                    && i_slint_compiler::parser::identifier_text(&s.DeclaredIdentifier())
+                        .is_some_and(|x| &x == nr.name())
+            }
+            (
+                common::token_info::TokenInfo::LocalCallback(s),
+                common::token_info::TokenInfo::IncompleteNamedReference(nr1, nr2),
+            )
+            | (
+                common::token_info::TokenInfo::IncompleteNamedReference(nr1, nr2),
+                common::token_info::TokenInfo::LocalCallback(s),
+            ) => {
+                matches!(nr1, i_slint_compiler::langtype::ElementType::Component(c) if s.parent().is_some_and(|n| check_element(&c.root_element, &n)))
+                    && Some(nr2)
+                        == i_slint_compiler::parser::identifier_text(&s.DeclaredIdentifier())
+                            .as_ref()
+            }
+            (
+                common::token_info::TokenInfo::LocalFunction(s),
+                common::token_info::TokenInfo::LocalFunction(o),
+            ) => Rc::ptr_eq(&s.source_file, &o.source_file) && s.text_range() == o.text_range(),
+            (
+                common::token_info::TokenInfo::NamedReference(nr),
+                common::token_info::TokenInfo::LocalFunction(s),
+            )
+            | (
+                common::token_info::TokenInfo::LocalFunction(s),
+                common::token_info::TokenInfo::NamedReference(nr),
+            ) => {
+                s.parent().is_some_and(|n| check_element(&nr.element(), &n))
+                    && i_slint_compiler::parser::identifier_text(&s.DeclaredIdentifier())
+                        .is_some_and(|x| &x == nr.name())
+            }
+            (
+                common::token_info::TokenInfo::LocalFunction(s),
+                common::token_info::TokenInfo::IncompleteNamedReference(nr1, nr2),
+            )
+            | (
+                common::token_info::TokenInfo::IncompleteNamedReference(nr1, nr2),
+                common::token_info::TokenInfo::LocalFunction(s),
+            ) => {
+                matches!(nr1, i_slint_compiler::langtype::ElementType::Component(c) if s.parent().is_some_and(|n| check_element(&c.root_element, &n)))
                     && Some(nr2)
                         == i_slint_compiler::parser::identifier_text(&s.DeclaredIdentifier())
                             .as_ref()
@@ -743,6 +819,23 @@ impl DeclarationNodeQuery {
                             return Some(identifier);
                         }
                     }
+                    for c in element.CallbackDeclaration() {
+                        let identifier = c.DeclaredIdentifier();
+                        if i_slint_compiler::parser::identifier_text(&identifier).as_ref()
+                            == Some(&query.token_info.name)
+                        {
+                            return Some(identifier);
+                        }
+                    }
+                    for f in element.Function() {
+                        let identifier = f.DeclaredIdentifier();
+                        if i_slint_compiler::parser::identifier_text(&identifier).as_ref()
+                            == Some(&query.token_info.name)
+                        {
+                            return Some(identifier);
+                        }
+                    }
+
                     None
                 }
 
@@ -1006,7 +1099,7 @@ fn rename_declared_identifier(
     Ok(common::create_workspace_edit_from_single_text_edits(edits))
 }
 
-#[cfg(all(test, feature = "preview-engine"))]
+#[cfg(test)]
 mod tests {
     use lsp_types::Url;
 
@@ -1114,9 +1207,9 @@ mod tests {
             document_cache,
             &find_token_by_comment(document_cache, document_path, suffix),
         )
-        .unwrap()
+        .expect("Node not found")
         .rename(document_cache, new_name)
-        .unwrap();
+        .expect("Rename failed");
         compile_test_changes(document_cache, &edit, false)
     }
 
@@ -3208,8 +3301,11 @@ component Baz {
 }
 
 export component Bar {
-    Baz {
+    baz := Baz {
         re_name-me /* <- TEST_ME_2 */: 23;
+    }
+    init => {
+        baz.re_name-me = 7;
     }
 }
                 "#
@@ -3270,6 +3366,116 @@ export component Bar {
         assert!(edited_text[0].contents.contains("export component Bar {"));
         assert!(edited_text[0].contents.contains("<int> XxxYyyZzz /* <- TEST_ME_1 */: 42;"));
         assert!(edited_text[0].contents.contains("usage: id.XxxYyyZzz /* <- TEST_ME_2 */;"));
+    }
+
+    #[test]
+    fn test_rename_callback() {
+        let document_cache = test::compile_test_with_sources(
+            "fluent",
+            HashMap::from([(
+                Url::from_file_path(test::main_test_file_name()).unwrap(),
+                r#"
+struct re_name-me {}
+component re_name-me {
+    callback re_name-me(re_name-me : re_name-me) -> re_name-me;
+
+    re_name_me => {
+        re-name-me({});
+    }
+}
+
+export component Bar {
+    property <bool> re_name-me: true;
+
+    re_name-me := re_name-me {
+        re_name_me /* <- TEST_ME_1 */ => {
+            let re-name-me = 0;
+            root.re_name-me = false;
+            self.re-name-me({});
+        }
+    }
+}
+"#
+                .to_string(),
+            )]),
+            false,
+        );
+
+        let edited_text = rename_tester(&document_cache, &test::main_test_file_name(), "_1");
+        assert_eq!(edited_text.len(), 1);
+
+        assert_eq!(edited_text.len(), 1);
+        assert_eq!(
+            edited_text[0].contents,
+            r#"
+struct re_name-me {}
+component re_name-me {
+    callback XxxYyyZzz(re_name-me : re_name-me) -> re_name-me;
+
+    XxxYyyZzz => {
+        XxxYyyZzz({});
+    }
+}
+
+export component Bar {
+    property <bool> re_name-me: true;
+
+    re_name-me := re_name-me {
+        XxxYyyZzz /* <- TEST_ME_1 */ => {
+            let re-name-me = 0;
+            root.re_name-me = false;
+            self.XxxYyyZzz({});
+        }
+    }
+}
+"#
+        );
+    }
+
+    #[test]
+    fn test_rename_function() {
+        let document_cache = test::compile_test_with_sources(
+            "fluent",
+            HashMap::from([(
+                Url::from_file_path(test::main_test_file_name()).unwrap(),
+                r#"
+global X {
+    public function re_name_me /* <- TEST_ME_1 */ (re_name-me: int) {
+        debug(re_name-me);
+    }
+}
+global re-name-me {}
+export component Bar {
+    public function re-name-me(re_name-me: int) {
+        X.re_name-me(re_name-me);
+    }
+}
+"#
+                .to_string(),
+            )]),
+            false,
+        );
+
+        let edited_text = rename_tester(&document_cache, &test::main_test_file_name(), "_1");
+        assert_eq!(edited_text.len(), 1);
+
+        assert_eq!(edited_text.len(), 1);
+        assert_eq!(
+            edited_text[0].contents,
+            r#"
+global X {
+    public function XxxYyyZzz /* <- TEST_ME_1 */ (re_name-me: int) {
+        debug(re_name-me);
+    }
+}
+global re-name-me {}
+export component Bar {
+    public function re-name-me(re_name-me: int) {
+        X.XxxYyyZzz(re_name-me);
+    }
+}
+"#
+        );
     }
 
     #[test]

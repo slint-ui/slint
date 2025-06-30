@@ -64,6 +64,7 @@ pub fn goto_definition(
         }
         TokenInfo::LocalProperty(x) => goto_node(&x),
         TokenInfo::LocalCallback(x) => goto_node(&x),
+        TokenInfo::LocalFunction(x) => goto_node(&x),
         TokenInfo::IncompleteNamedReference(mut element_type, prop_name) => {
             while let ElementType::Component(com) = element_type {
                 if let Some(p) = com.root_element.borrow().property_declarations.get(&prop_name) {
