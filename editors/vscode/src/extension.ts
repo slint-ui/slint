@@ -152,6 +152,8 @@ function startClient(
     );
     options.env["SLINT_LSP_PANIC_LOG"] = slint_lsp_panic_file.fsPath;
 
+    options.cwd = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+
     const args = vscode.workspace
         .getConfiguration("slint")
         .get<[string]>("lsp-args");
