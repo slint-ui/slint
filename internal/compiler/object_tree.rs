@@ -316,7 +316,6 @@ pub struct PopupWindow {
 
 #[derive(Debug, Clone)]
 pub struct Timer {
-    pub component: Rc<Component>,
     pub interval: NamedReference,
     pub triggered: NamedReference,
     pub running: NamedReference,

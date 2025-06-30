@@ -92,13 +92,10 @@ fn lower_timer(
         }
     }
 
-    let component = timer_element.borrow().enclosing_component.upgrade().unwrap();
-
     let running = NamedReference::new(timer_element, SmolStr::new_static("running"));
     running.mark_as_set();
 
     parent_component.timers.borrow_mut().push(Timer {
-        component,
         interval: NamedReference::new(timer_element, SmolStr::new_static("interval")),
         running,
         triggered: NamedReference::new(timer_element, SmolStr::new_static("triggered")),

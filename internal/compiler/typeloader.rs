@@ -642,8 +642,6 @@ impl Snapshotter {
 
     fn snapshot_timer(&mut self, timer: &object_tree::Timer) -> object_tree::Timer {
         object_tree::Timer {
-            component: Weak::upgrade(&self.use_component(&timer.component))
-                .expect("Looking at a known component"),
             interval: timer.interval.snapshot(self),
             running: timer.running.snapshot(self),
             triggered: timer.triggered.snapshot(self),
