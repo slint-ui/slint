@@ -150,6 +150,7 @@ export default defineConfig({
                                         label: "Custom Controls",
                                         slug: "guide/development/custom-controls",
                                     },
+                                    "guide/development/best-practices",
                                 ],
                             },
                             {
