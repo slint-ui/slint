@@ -1002,9 +1002,6 @@ impl WindowAdapter for WinitWindowAdapter {
     fn request_redraw(&self) {
         if !self.pending_redraw.replace(true) {
             self.frame_throttle.request_throttled_redraw();
-            //if let Some(window) = self.winit_window_or_none.borrow().as_window() {
-            //    window.request_redraw()
-            //}
         }
     }
 
