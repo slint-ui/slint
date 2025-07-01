@@ -25,6 +25,7 @@ mod drag_resize_window;
 mod winitwindowadapter;
 use winitwindowadapter::*;
 pub(crate) mod event_loop;
+mod frame_throttle;
 
 /// Re-export of the winit crate.
 pub use winit;
@@ -469,6 +470,8 @@ pub(crate) struct SharedBackendData {
     clipboard: std::cell::RefCell<clipboard::ClipboardPair>,
     not_running_event_loop: RefCell<Option<winit::event_loop::EventLoop<SlintEvent>>>,
     event_loop_proxy: winit::event_loop::EventLoopProxy<SlintEvent>,
+    frame_throttle_factory:
+        fn(window_adapter: Weak<WinitWindowAdapter>) -> Box<dyn frame_throttle::FrameThrottle>,
 }
 
 impl SharedBackendData {
@@ -508,6 +511,9 @@ impl SharedBackendData {
         let event_loop =
             builder.build().map_err(|e| format!("Error initializing winit event loop: {e}"))?;
 
+        let frame_throttle_factory =
+            crate::frame_throttle::create_frame_throttle_factory(&event_loop);
+
         let event_loop_proxy = event_loop.create_proxy();
         #[cfg(not(target_arch = "wasm32"))]
         let clipboard = crate::clipboard::create_clipboard(
@@ -524,6 +530,7 @@ impl SharedBackendData {
             clipboard: RefCell::new(clipboard),
             not_running_event_loop: RefCell::new(Some(event_loop)),
             event_loop_proxy,
+            frame_throttle_factory,
         })
     }
 
