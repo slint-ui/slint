@@ -2,8 +2,8 @@
 # SPDX-License-Identifier: MIT
 
 [workspace]
-members = ["crate", "examples/gallery"]
-default-members = ["crate", "examples/gallery"]
+members = ["crate", "examples/gallery", "tests/doctests"]
+default-members = ["crate", "examples/gallery", "tests/doctests"]
 resolver = "3"
 
 [workspace.package]

@@ -1,0 +1,25 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: MIT
+
+[package]
+name = "doctests"
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+publish = false
+build = "build.rs"
+
+[[bin]]
+path = "main.rs"
+name = "doctests"
+
+[build-dependencies]
+walkdir = "2"
+
+[dev-dependencies]
+slint-interpreter = { version = "1.12.0", features = ["display-diagnostics"] }
+spin_on = { version = "0.1" }
