@@ -391,7 +391,10 @@ impl WinitWindowAdapter {
             #[cfg(all(muda, target_os = "macos"))]
             muda_enable_default_menu_bar,
             window_icon_cache_key: Default::default(),
-            frame_throttle: (shared_backend_data.frame_throttle_factory)(self_weak.clone()),
+            frame_throttle: crate::frame_throttle::create_frame_throttle(
+                self_weak.clone(),
+                shared_backend_data.is_wayland,
+            ),
         });
 
         self_rc.shared_backend_data.register_inactive_window((self_rc.clone()) as _);

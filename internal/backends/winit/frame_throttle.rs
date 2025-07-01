@@ -6,20 +6,16 @@ use std::rc::{Rc, Weak};
 use i_slint_core::timers::{Timer, TimerMode};
 
 use crate::winitwindowadapter::WinitWindowAdapter;
-use crate::SlintEvent;
 
-pub fn create_frame_throttle_factory(
-    _event_loop: &winit::event_loop::EventLoop<SlintEvent>,
-) -> fn(window_adapter: Weak<WinitWindowAdapter>) -> Box<dyn FrameThrottle> {
-    #[cfg(all(unix, not(target_vendor = "apple"), feature = "wayland"))]
-    {
-        use winit::platform::wayland::EventLoopExtWayland;
-        if _event_loop.is_wayland() {
-            return WinitBasedFrameThrottle::new;
-        }
+pub fn create_frame_throttle(
+    window_adapter: Weak<WinitWindowAdapter>,
+    _is_wayland: bool,
+) -> Box<dyn FrameThrottle> {
+    if _is_wayland {
+        WinitBasedFrameThrottle::new(window_adapter)
+    } else {
+        TimerBasedFrameThrottle::new(window_adapter)
     }
-
-    TimerBasedFrameThrottle::new
 }
 
 pub trait FrameThrottle {
@@ -82,19 +78,16 @@ fn redraw_now(window_adapter: &Weak<WinitWindowAdapter>) {
     winit_window.request_redraw();
 }
 
-#[cfg(all(unix, not(target_vendor = "apple"), feature = "wayland"))]
 struct WinitBasedFrameThrottle {
     window_adapter: Weak<WinitWindowAdapter>,
 }
 
-#[cfg(all(unix, not(target_vendor = "apple"), feature = "wayland"))]
 impl WinitBasedFrameThrottle {
     fn new(window_adapter: Weak<WinitWindowAdapter>) -> Box<dyn FrameThrottle> {
         Box::new(Self { window_adapter })
     }
 }
 
-#[cfg(all(unix, not(target_vendor = "apple"), feature = "wayland"))]
 impl FrameThrottle for WinitBasedFrameThrottle {
     fn request_throttled_redraw(&self) {
         redraw_now(&self.window_adapter)

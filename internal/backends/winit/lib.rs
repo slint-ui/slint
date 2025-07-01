@@ -470,8 +470,7 @@ pub(crate) struct SharedBackendData {
     clipboard: std::cell::RefCell<clipboard::ClipboardPair>,
     not_running_event_loop: RefCell<Option<winit::event_loop::EventLoop<SlintEvent>>>,
     event_loop_proxy: winit::event_loop::EventLoopProxy<SlintEvent>,
-    frame_throttle_factory:
-        fn(window_adapter: Weak<WinitWindowAdapter>) -> Box<dyn frame_throttle::FrameThrottle>,
+    is_wayland: bool,
 }
 
 impl SharedBackendData {
@@ -511,8 +510,13 @@ impl SharedBackendData {
         let event_loop =
             builder.build().map_err(|e| format!("Error initializing winit event loop: {e}"))?;
 
-        let frame_throttle_factory =
-            crate::frame_throttle::create_frame_throttle_factory(&event_loop);
+        #[allow(unused_mut)]
+        let mut is_wayland = false;
+        #[cfg(all(unix, not(target_vendor = "apple"), feature = "wayland"))]
+        {
+            use winit::platform::wayland::EventLoopExtWayland;
+            is_wayland = event_loop.is_wayland();
+        }
 
         let event_loop_proxy = event_loop.create_proxy();
         #[cfg(not(target_arch = "wasm32"))]
@@ -530,7 +534,7 @@ impl SharedBackendData {
             clipboard: RefCell::new(clipboard),
             not_running_event_loop: RefCell::new(Some(event_loop)),
             event_loop_proxy,
-            frame_throttle_factory,
+            is_wayland,
         })
     }
 
