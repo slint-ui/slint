@@ -43,8 +43,6 @@ jobs:
             - uses: Swatinem/rust-cache@v2
               with:
                   key: apk-build
-                  workspaces: |
-                      examples/gallery
             - name: dump keystore
               run: |
                   mkdir -p /home/runner/.android
@@ -57,4 +55,4 @@ jobs:
               with:
                   name: apk_gallery
                   path: |
-                      examples/gallery/target/release/apk/slint_material.apk
+                      target/release/apk/slint_material.apk

@@ -24,8 +24,6 @@ jobs:
             - uses: Swatinem/rust-cache@v2
               with:
                   key: wasm-build
-                  workspaces: |
-                      examples/gallery
             - name: Build
               working-directory: examples/gallery
               run: wasm-pack build --target web

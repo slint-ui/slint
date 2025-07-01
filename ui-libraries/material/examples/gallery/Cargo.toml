@@ -3,11 +3,11 @@
 
 [package]
 name = "material-gallery"
-version = "1.11.0"
-authors = ["Slint Developers <info@slint.dev>"]
-edition = "2021"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
 publish = false
-license = "GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0"
+license.workspace = true
 
 [lib]
 crate-type = ["lib", "cdylib"]
