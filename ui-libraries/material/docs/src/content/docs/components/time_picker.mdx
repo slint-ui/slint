@@ -15,8 +15,10 @@ export component Example inherits Window {
     height: 300px;
     background: transparent;
     TimePicker {
-        hour: 14;
-        minute: 30;
+        time: {
+            hour: 14,
+            minute: 30,
+        };
     }
 }
 ```
@@ -26,14 +28,9 @@ A `TimePicker` allows users to select a time using a clock interface or text inp
 
 ## Properties
 
-### hour
-<SlintProperty propName="hour" typeName="int" propertyVisibility="in-out">
-The selected hour (0-23).
-</SlintProperty>
-
-### minute
-<SlintProperty propName="minute" typeName="int" propertyVisibility="in-out">
-The selected minute (0-59).
+### time
+<SlintProperty propName="time" typeName="struct" structName="Time" >
+Set the initial displayed time.
 </SlintProperty>
 
 ### read-only
