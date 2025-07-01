@@ -55,7 +55,7 @@ use tikv_jemallocator::Jemalloc;
 #[global_allocator]
 static GLOBAL: Jemalloc = Jemalloc;
 
-#[derive(Clone, clap::Parser)]
+#[derive(Clone, Debug, clap::Parser)]
 #[command(author, version, about, long_about = None)]
 pub struct Cli {
     /// Add include paths for the import statements
@@ -86,13 +86,13 @@ pub struct Cli {
     command: Option<Commands>,
 }
 
-#[derive(Subcommand, Clone)]
+#[derive(Subcommand, Clone, Debug)]
 enum Commands {
     /// Format slint files
     Format(Format),
 }
 
-#[derive(Args, Clone)]
+#[derive(Args, Clone, Debug)]
 struct Format {
     #[arg(name = "path to .slint file(s)", action)]
     paths: Vec<std::path::PathBuf>,
@@ -233,16 +233,9 @@ fn main() {
         std::env::set_var("SLINT_BACKEND", &args.backend);
     }
 
-    if let Some(Commands::Format(args)) = args.command {
-        let _ = fmt::tool::run(args.paths, args.inline).map_err(|e| {
-            eprintln!("{e}");
-            std::process::exit(1);
-        });
-        std::process::exit(0);
-    }
-
     if let Ok(panic_log_file) = std::env::var("SLINT_LSP_PANIC_LOG") {
         let default_hook = std::panic::take_hook();
+        let command_line = format!("{args:#?}");
         std::panic::set_hook(Box::new(move |info| {
             let _ = std::path::Path::new(&panic_log_file).parent().map(std::fs::create_dir_all);
             if let Ok(mut file) = std::fs::File::create(&panic_log_file) {
@@ -253,6 +246,7 @@ fn main() {
                     env!("CARGO_PKG_VERSION_MINOR"),
                     env!("CARGO_PKG_VERSION_PATCH")
                 );
+                let _ = writeln!(file, "Command line arguments: {command_line}",);
                 let _ = if let Some(l) = info.location() {
                     writeln!(file, "{}:{}:{}", l.file(), l.line(), l.column())
                 } else {
@@ -263,6 +257,14 @@ fn main() {
             }
             default_hook(info);
         }));
+    }
+
+    if let Some(Commands::Format(args)) = args.command {
+        let _ = fmt::tool::run(args.paths, args.inline).map_err(|e| {
+            eprintln!("{e}");
+            std::process::exit(1);
+        });
+        std::process::exit(0);
     }
 
     #[cfg(feature = "preview-engine")]
