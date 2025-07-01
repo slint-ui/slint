@@ -234,4 +234,7 @@ pub mod re_exports {
     pub use pin_weak::rc::PinWeak;
     pub use unicode_segmentation::UnicodeSegmentation;
     pub use vtable::{self, *};
+
+    #[cfg(feature = "live-reload")]
+    pub use slint_interpreter::live_reload;
 }
