@@ -369,7 +369,7 @@ export component TimePicker inherits PopupWindow {
     in property <string> cancel_text: @tr("Cancel");
     in property <string> ok_text: @tr("Ok");
     in property <Time> time: { hour: 12 };
-    in property <string> hour_labl: @tr("Hour");
+    in property <string> hour_label: @tr("Hour");
     in property <string> minute_label: @tr("Minute");
 
     property <bool> keyboard_mode;
@@ -494,7 +494,7 @@ export component TimePicker inherits PopupWindow {
 
                     MaterialText {
                         width: hour_time_picker.width;
-                        text: root.hour_labl;
+                        text: root.hour_label;
                         color: MaterialPalette.on_surface_variant;
                     }
 
