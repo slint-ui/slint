@@ -242,6 +242,14 @@ fn main() {
     }
 
     if let Ok(panic_log_file) = std::env::var("SLINT_LSP_PANIC_LOG") {
+        // The editor may set the `SLINT_LSP_PANIC_LOG` env variable to a path in which we can write the panic log.
+        // It will read that file if our process doesn't exit properly, and will use the content to report the panic via telemetry.
+        // The content of the generated file will be the following:
+        //  - The first line will be the version of slint-lsp
+        //  - The second line will be the location of the panic, in the format `file:line:column`
+        //  - The third line will be bracktrace (in one line)
+        //  - everything that follows is the actual panic message. It can span over multiple lines.
+
         let default_hook = std::panic::take_hook();
         std::panic::set_hook(Box::new(move |info| {
             let _ = std::path::Path::new(&panic_log_file).parent().map(std::fs::create_dir_all);
