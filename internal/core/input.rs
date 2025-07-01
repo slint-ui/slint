@@ -23,7 +23,7 @@ use core::time::Duration;
 
 /// A mouse or touch event
 ///
-/// The only difference with [`crate::platform::WindowEvent`] us that it uses untyped `Point`
+/// The only difference with [`crate::platform::WindowEvent`] is that it uses untyped `Point`
 /// TODO: merge with platform::WindowEvent
 #[repr(C)]
 #[derive(Debug, Clone, PartialEq)]
@@ -50,7 +50,7 @@ pub enum MouseEvent {
     /// [`InputEventResult::EventIgnored`] means that the item does not handle the drag operation
     /// and [`InputEventResult::EventAccepted`] means that the item can accept it.
     DragMove(DropEvent),
-    /// The mouse is released while dregging over this item.
+    /// The mouse is released while dragging over this item.
     Drop(DropEvent),
     /// The mouse exited the item or component
     Exit,
@@ -115,7 +115,7 @@ pub enum InputEventResult {
     /// The event was ignored.
     #[default]
     EventIgnored,
-    /// All further mouse event need to be sent to this item or component
+    /// All further mouse events need to be sent to this item or component
     GrabMouse,
     /// Will start a drag operation. Can only be returned from a [`crate::items::DragArea`] item.
     StartDrag,
@@ -134,13 +134,13 @@ pub enum InputEventFilterResult {
     /// The event will be forwarded to the children, but the [`crate::items::ItemVTable::input_event`] is not
     /// going to be called for this item
     ForwardAndIgnore,
-    /// Just like `ForwardEvent`, but even in the case the children grabs the mouse, this function
-    /// will still be called for further event
+    /// Just like `ForwardEvent`, but even in the case that children grabs the mouse, this function
+    /// will still be called for further events
     ForwardAndInterceptGrab,
-    /// The event will not be forwarded to children, if a children already had the grab, the
+    /// The event will not be forwarded to children, if a child already had the grab, the
     /// grab will be cancelled with a [`MouseEvent::Exit`] event
     Intercept,
-    /// The event will be forwarding to the children with a delay (in milliseconds), unless it is
+    /// The event will be forwarded to the children with a delay (in milliseconds), unless it is
     /// being intercepted.
     /// This is what happens when the flickable wants to delay the event.
     /// This should only be used for Press event, and the event will be sent after the delay, or
@@ -472,14 +472,14 @@ pub enum FocusEventResult {
     FocusIgnored,
 }
 
-/// This event is sent to a component and items when they receive or loose
+/// This event is sent to a component and items when they receive or lose
 /// the keyboard focus.
 #[derive(Debug, Clone, Copy, PartialEq)]
 #[repr(u8)]
 pub enum FocusEvent {
     /// This event is sent when an item receives the focus.
     FocusIn(FocusReason),
-    /// This event is sent when an item looses the focus.
+    /// This event is sent when an item loses the focus.
     FocusOut(FocusReason),
 }
 
