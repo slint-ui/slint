@@ -20,16 +20,21 @@ are possible. We will inform as soon as the component set is read for release.
 | Gallery                                                                                                   |
 | --------------------------------------------------------------------------------------------------------- |
 | [Gallery![Gallery image](https://github.com/user-attachments/assets/e8031b78-4e7e-42fe-b34d-ef81a10defbe)](examples/gallery) |
+| 👉 Try the [WebAssembly build in the web browser](https://material.slint.dev/wasm/) 👈 |
+|Download and install the [APK for android](https://material.slint.dev/apk/slint_material.apk) |
 
-## Get Started
+## Documentation
 
-1. Install Rust by following the [Rust Getting Started Guide](https://www.rust-lang.org/learn/get-started).
-2. Clone our [Material Components for Slint Rust Template](https://github.com/slint-ui/material-rust-template):
-   ```bash
-   git clone --recurse-submodules https://github.com/slint-ui/material-rust-template.git my-project
-   cd my-project
-   ```
-3. Build and run the template project: `cargo run`.
+View the documentation online at https://material.slint.dev/overview/
+
+### Get Started
+
+Clone one of our Material Components for Slint templates and follow the instruction from their README:
+
+ - Rust: https://github.com/slint-ui/material-rust-template
+ - C++: https://github.com/slint-ui/material-cpp-template
+ - Node.js/Deno: https://github.com/slint-ui/material-nodejs-template
+ - Python: https://github.com/slint-ui/material-python-template
 
 ## Contributions
 
