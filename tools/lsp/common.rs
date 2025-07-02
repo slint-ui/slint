@@ -29,6 +29,63 @@ use crate::wasm_prelude::*;
 /// ignore a node for code analysis purposes.
 pub const NODE_IGNORE_COMMENT: &str = "@lsp:ignore-node";
 
+#[allow(dead_code)]
+pub trait LspToPreview {
+    fn send(&self, message: &LspToPreviewMessage) -> Result<()>;
+}
+
+#[derive(Default, Clone)]
+pub struct DummyLspToPreview {}
+
+impl LspToPreview for DummyLspToPreview {
+    fn send(&self, _message: &LspToPreviewMessage) -> Result<()> {
+        Ok(())
+    }
+}
+
+#[allow(dead_code)]
+pub trait PreviewToLsp {
+    fn send(&self, message: &PreviewToLspMessage) -> Result<()>;
+
+    /// Tell the editor about diagnostics
+    fn notify_diagnostics(
+        &self,
+        diagnostics: HashMap<lsp_types::Url, (SourceFileVersion, Vec<lsp_types::Diagnostic>)>,
+    ) -> Result<()> {
+        for (uri, (version, diagnostics)) in diagnostics {
+            self.send(&PreviewToLspMessage::Diagnostics { uri, version, diagnostics })?;
+        }
+        Ok(())
+    }
+
+    /// Ask the editor to show some document
+    fn ask_editor_to_show_document(
+        &self,
+        file: &str,
+        selection: lsp_types::Range,
+        take_focus: bool,
+    ) -> Result<()> {
+        let file = lsp_types::Url::from_file_path(file)
+            .map_err(|_| "Failed to convert URL".to_string())?;
+        if selection.start.character == 0 || selection.end.character == 0 {
+            return Ok(());
+        }
+        self.send(&PreviewToLspMessage::ShowDocument { file, selection, take_focus })
+    }
+
+    /// Sends a telemetry event
+    fn send_telemetry(&self, data: &mut [(String, serde_json::Value)]) -> Result<()> {
+        let object = {
+            let mut object = serde_json::Map::new();
+            for (name, value) in data.iter_mut() {
+                object.insert(std::mem::take(name), std::mem::take(value));
+            }
+            object
+        };
+        self.send(&PreviewToLspMessage::TelemetryEvent(object))
+    }
+}
+
 /// Check whether a node is marked to be ignored in the LSP/live preview
 /// using a comment containing `@lsp:ignore-node`
 pub fn is_element_node_ignored(node: &syntax_nodes::Element) -> bool {
