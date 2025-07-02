@@ -38,7 +38,7 @@ jobs:
             if: runner.os == 'Linux'
             run: |
               sudo apt-get update
-              sudo apt-get install libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libxkbcommon-x11-dev libudev-dev libinput-dev libfontconfig-dev
+              sudo apt-get install libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libxkbcommon-x11-dev libfontconfig-dev
             shell: bash
           - name: Install Rust
             uses: dtolnay/rust-toolchain@stable
@@ -61,9 +61,25 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Install Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libxkbcommon-x11-dev libfontconfig-dev
+        shell: bash
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Install docsnapper
+        uses: baptiste0928/cargo-install@v3
+        with:
+          crate: slint-docsnapper
+          git: https://github.com/slint-ui/slint
+          branch: master
       - uses: pnpm/action-setup@v4.1.0
         with:
           version: 10.12.1
+      - name: Take screenshots
+        run: slint-docsnapper docs
+        working-directory: ${{ github.workspace }}
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: Build

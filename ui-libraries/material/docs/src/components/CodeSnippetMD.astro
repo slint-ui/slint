@@ -15,15 +15,15 @@ interface Props {
     scale?: number;
 }
 const { imagePath, imageAlt, skip, needsBackground } = Astro.props as Props;
-// const images = import.meta.glob<{ default: ImageMetadata }>(
-//     "/src/assets/generated/*.{jpeg,jpg,png,gif}",
-// );
-// if (!images[imagePath]) {
-//     throw new Error(
-//         `"${imagePath}" does not exist in glob: "src/assets/generated/*.{jpeg,jpg,png,gif}"`,
-//     );
-// }
-// const imageSrc = images[imagePath]();
+const images = import.meta.glob<{ default: ImageMetadata }>(
+    "/src/assets/generated/*.{jpeg,jpg,png,gif}",
+);
+if (imagePath.length > 0 && !images[imagePath]) {
+    throw new Error(
+        `"${imagePath}" does not exist in glob: "src/assets/generated/*.{jpeg,jpg,png,gif}"`,
+    );
+}
+const imageSrc = imagePath.length > 0 ? images[imagePath]() : "";
 const imageCSS = `image-block ${needsBackground ? "screenshot-container" : ""}`;
 ---
 
@@ -32,8 +32,7 @@ const imageCSS = `image-block ${needsBackground ? "screenshot-container" : ""}`;
         <slot/>
     </div>
 
+    {imageSrc && <div class={imageCSS}>
+        <Image src={imageSrc} alt={imageAlt} />
+    </div>}
 </div>}
-
-<!-- <div class={imageCSS}>
-    <Image src={imageSrc} alt={imageAlt} />
-</div> -->

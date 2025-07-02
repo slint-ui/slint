@@ -9,3 +9,4 @@ licenses/output
 *.bak
 target/
 Cargo.lock
+docs/src/assets/generated
