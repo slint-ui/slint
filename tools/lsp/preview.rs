@@ -31,6 +31,8 @@ use std::rc::Rc;
 #[cfg(target_arch = "wasm32")]
 use crate::wasm_prelude::*;
 
+pub mod connector;
+
 mod debug;
 mod drop_location;
 mod element_selection;
@@ -40,14 +42,6 @@ mod preview_data;
 use ext::ElementRcNodeExt;
 mod properties;
 pub mod ui;
-#[cfg(all(target_arch = "wasm32", feature = "preview-external"))]
-mod wasm;
-#[cfg(all(target_arch = "wasm32", feature = "preview-external"))]
-pub use wasm::*;
-#[cfg(all(not(target_arch = "wasm32"), feature = "preview-builtin"))]
-mod native;
-#[cfg(all(not(target_arch = "wasm32"), feature = "preview-builtin"))]
-pub use native::*;
 
 /// The state of the preview engine:
 ///
@@ -85,8 +79,8 @@ struct SourceCodeCacheEntry {
 type SourceCodeCache = HashMap<Url, SourceCodeCacheEntry>;
 
 #[derive(Default)]
-struct PreviewState {
-    ui: Option<ui::PreviewUi>,
+pub struct PreviewState {
+    pub ui: Option<ui::PreviewUi>,
     property_range_declarations: Option<ui::PropertyDeclarations>,
     handle: Rc<RefCell<Option<slint_interpreter::ComponentInstance>>>,
     document_cache: Rc<RefCell<Option<Rc<common::DocumentCache>>>>,
@@ -101,7 +95,7 @@ struct PreviewState {
     source_code: SourceCodeCache,
     resources: HashSet<Url>,
     dependencies: HashSet<Url>,
-    config: PreviewConfig,
+    pub config: PreviewConfig,
     current_previewed_component: Option<PreviewComponent>,
     current_load_behavior: Option<LoadBehavior>,
     loading_state: PreviewFutureState,
@@ -138,7 +132,7 @@ impl PreviewState {
         self.ui.as_ref().map(|ui| ui.window().is_visible()).unwrap_or_default()
     }
 }
-thread_local! {static PREVIEW_STATE: std::cell::RefCell<PreviewState> = Default::default();}
+thread_local! {pub static PREVIEW_STATE: std::cell::RefCell<PreviewState> = Default::default();}
 
 // Just mark the cache as "read from disk" by setting the version to None.
 // Do not reset the code: We can check once the LSP has re-read it from disk
@@ -512,7 +506,10 @@ fn set_code_binding(
     property_name: slint::SharedString,
     property_value: slint::SharedString,
 ) {
-    send_telemetry(&mut [("type".to_string(), serde_json::to_value("property_changed").unwrap())]);
+    connector::send_telemetry(&mut [(
+        "type".to_string(),
+        serde_json::to_value("property_changed").unwrap(),
+    )]);
 
     set_binding(
         element_url,
@@ -591,7 +588,11 @@ fn show_component(name: slint::SharedString, url: slint::SharedString) {
 
     let start =
         util::text_size_to_lsp_position(&identifier.source_file, identifier.text_range().start());
-    ask_editor_to_show_document(&file.to_string_lossy(), lsp_types::Range::new(start, start), false)
+    connector::ask_editor_to_show_document(
+        &file.to_string_lossy(),
+        lsp_types::Range::new(start, start),
+        false,
+    )
 }
 
 fn show_document_offset_range(url: slint::SharedString, start: i32, end: i32, take_focus: bool) {
@@ -617,7 +618,11 @@ fn show_document_offset_range(url: slint::SharedString, start: i32, end: i32, ta
     }
 
     if let Some((f, s, e)) = internal(url, start, end) {
-        ask_editor_to_show_document(&f.to_string_lossy(), lsp_types::Range::new(s, e), take_focus);
+        connector::ask_editor_to_show_document(
+            &f.to_string_lossy(),
+            lsp_types::Range::new(s, e),
+            take_focus,
+        );
     }
 }
 
@@ -656,7 +661,10 @@ fn can_drop_component(component_index: i32, x: f32, y: f32, on_drop_area: bool) 
 }
 
 fn drop_component(component_index: i32, x: f32, y: f32) {
-    send_telemetry(&mut [("type".to_string(), serde_json::to_value("component_dropped").unwrap())]);
+    connector::send_telemetry(&mut [(
+        "type".to_string(),
+        serde_json::to_value("component_dropped").unwrap(),
+    )]);
 
     let Some(document_cache) = document_cache() else {
         return;
@@ -901,7 +909,10 @@ fn send_workspace_edit(label: String, edit: lsp_types::WorkspaceEdit, test_edit:
     });
 
     if !workspace_edit_sent {
-        send_message_to_lsp(PreviewToLspMessage::SendWorkspaceEdit { label: Some(label), edit });
+        connector::send_message_to_lsp(PreviewToLspMessage::SendWorkspaceEdit {
+            label: Some(label),
+            edit,
+        });
         return true;
     }
     false
@@ -1213,7 +1224,7 @@ async fn reload_timer_function() {
                         let sf = &node.source_file;
                         (sf.path().to_owned(), util::text_size_to_lsp_position(sf, se.offset))
                     });
-                    ask_editor_to_show_document(
+                    connector::ask_editor_to_show_document(
                         &path.to_string_lossy(),
                         lsp_types::Range::new(pos, pos),
                         false,
@@ -1303,7 +1314,7 @@ async fn parse_source(
     };
     #[cfg(target_arch = "wasm32")]
     {
-        cc.resource_url_mapper = resource_url_mapper();
+        cc.resource_url_mapper = connector::resource_url_mapper();
     }
     cc.embed_resources = EmbedResourcesKind::ListAllResources;
     cc.no_native_menu = true;
@@ -1384,7 +1395,7 @@ async fn reload_preview_impl(
         }
     });
     let diags = convert_diagnostics(&diagnostics, &source_file_versions.borrow());
-    notify_diagnostics(diags);
+    connector::notify_diagnostics(diags);
 
     update_preview_area(compiled, behavior, open_import_fallback, source_file_versions)?;
 
@@ -1397,7 +1408,7 @@ fn send_platform_error_notification(platform_error_str: &str) {
     let message = format!("Error displaying the Slint preview window: {platform_error_str}");
     // Also output the message in the console in case the user missed the notification in the editor
     eprintln!("{message}");
-    send_message_to_lsp(PreviewToLspMessage::SendShowMessage {
+    connector::send_message_to_lsp(PreviewToLspMessage::SendShowMessage {
         message: lsp_types::ShowMessageParams { typ: lsp_types::MessageType::ERROR, message },
     })
 }
@@ -1729,7 +1740,7 @@ fn set_selected_element(
                     util::text_size_to_lsp_position(sf, node.text_range().start()),
                 )
             });
-            ask_editor_to_show_document(
+            connector::ask_editor_to_show_document(
                 &path.to_string_lossy(),
                 lsp_types::Range::new(pos, pos),
                 false,
@@ -1811,8 +1822,7 @@ fn update_preview_area(
     PREVIEW_STATE.with_borrow_mut(move |preview_state| {
         preview_state.workspace_edit_sent = false;
 
-        #[cfg(not(target_arch = "wasm32"))]
-        native::open_ui_impl(preview_state)?;
+        connector::open_ui_callback(preview_state)?;
 
         let ui = preview_state.ui.as_ref().unwrap();
         let shared_handle = preview_state.handle.clone();
@@ -1859,37 +1869,6 @@ fn update_preview_area(
 
     element_selection::reselect_element();
     Ok(())
-}
-
-fn lsp_to_preview_message_impl(message: crate::common::LspToPreviewMessage) {
-    use crate::common::LspToPreviewMessage as M;
-    match message {
-        M::InvalidateContents { url } => invalidate_contents(&url),
-        M::ForgetFile { url } => delete_document(&url),
-        M::SetContents { url, contents } => {
-            set_contents(&url, contents);
-        }
-        M::SetConfiguration { config } => {
-            config_changed(config);
-        }
-        M::ShowPreview(pc) => {
-            load_preview(pc, LoadBehavior::BringWindowToFront);
-        }
-        M::HighlightFromEditor { url, offset } => {
-            highlight(url, offset.into());
-        }
-    }
-}
-
-pub fn send_telemetry(data: &mut [(String, serde_json::Value)]) {
-    let object = {
-        let mut object = serde_json::Map::new();
-        for (name, value) in data.iter_mut() {
-            object.insert(std::mem::take(name), std::mem::take(value));
-        }
-        object
-    };
-    send_message_to_lsp(crate::common::PreviewToLspMessage::TelemetryEvent(object));
 }
 
 #[cfg(test)]
