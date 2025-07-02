@@ -2877,11 +2877,17 @@ fn compile_builtin_function_call(
                     )
                 };
                 let fw_sub_menu = forward_callback(access_sub_menu.clone(), quote!(sub_menu));
-                let fw_activated = forward_callback(access_activated, quote!(activated));
+                let fw_activated = forward_callback(access_activated.clone(), quote!(activated));
                 quote! {
                     let context_menu_item_tree = if sp::WindowInner::from_pub(#window_adapter_tokens.window()).supports_native_menu_bar() {
                         // May seem overkill to have an instance of the struct for each call, but there should only be one call per component anyway
-                        struct ContextMenuWrapper(sp::VWeakMapped<sp::ItemTreeVTable, #inner_component_id>);
+                        //
+                        // HACK:  These usages of Box::<dyn ...> are really hacks to get around the challenges of using access_sub_menu
+                        // and access_activated from within ContextMenuWrapper
+                        type PopupAccessSubMenu = Box::<dyn Fn(&sp::MenuEntry) -> sp::ModelRc<sp::MenuEntry> + 'static>;
+                        type PopupActivate = Box::<dyn Fn(&sp::MenuEntry) + 'static>;
+                        struct ContextMenuWrapper(sp::VWeakMapped<sp::ItemTreeVTable, #inner_component_id>, PopupAccessSubMenu, PopupActivate);
+
                         const _ : () = {
                             use slint::private_unstable_api::re_exports::*;
                             MenuVTable_static!(static VT for ContextMenuWrapper);
@@ -2892,23 +2898,30 @@ fn compile_builtin_function_call(
                                 let _self = self_rc.as_pin_ref();
                                 let model = match parent {
                                     None => #entries,
-                                    Some(parent) =>  {
-                                        // PROBLEM - how do I wrie this up to the submenu?
-                                        // #access_sub_menu.call(&(parent.clone(),));
-                                        todo!()
-                                    }
+                                    Some(parent) => self.1(parent)
                                 };
                                 *result = model.iter().map(|v| v.try_into().unwrap()).collect();
                             }
                             fn activate(&self, entry: &sp::MenuEntry) {
                                 let Some(self_rc) = self.0.upgrade() else { return };
-                                let _self = self_rc.as_pin_ref();
-                                // PROBLEM - how do I wire this up to the activated callback?
-                                // #access_activated.call(&(entry.clone(),))
-                                todo!()
+                                self.2(entry);
                             }
                         }
-                        Some(sp::VBox::new(ContextMenuWrapper(_self.self_weak.get().unwrap().clone())))
+                        let popup_instance_vrc = sp::VRc::downgrade(&popup_instance);
+                        let popup_access_sub_menu = move |parent: &sp::MenuEntry| {
+                            let self_rc = popup_instance_vrc.upgrade().unwrap();
+                            let _self = self_rc.as_pin_ref();
+                            #access_sub_menu.call(&(parent.clone(),))
+                        };
+                        let popup_instance_vrc = popup_instance.clone(); // This is obviously wrong
+                        let popup_access_sub_menu = Box::new(popup_access_sub_menu) as PopupAccessSubMenu;
+                        let popup_activate = move |entry: &sp::MenuEntry| {
+                            let self_rc = popup_instance_vrc.clone();
+                            let _self = self_rc.as_pin_ref();
+                            #access_activated.call(&(entry.clone(),));
+                        };
+                        let popup_activate = Box::new(popup_activate) as PopupActivate;
+                        Some(sp::VBox::new(ContextMenuWrapper(_self.self_weak.get().unwrap().clone(), popup_access_sub_menu, popup_activate)))
                     }
                     else {
                         None
