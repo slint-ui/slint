@@ -19,11 +19,14 @@ path = "src/main.rs"
 name = "material_gallery"
 
 [dependencies]
-slint = { version = "1.12", features = ["backend-android-activity-06", "renderer-skia"] }
+slint = { version = "1.12", features = ["backend-android-activity-06"] }
 
-[target.'cfg(target_arch = "wasm32")'.dependencies]
+[target.'cfg(target_family = "wasm")'.dependencies]
 wasm-bindgen = { version = "0.2" }
 console_error_panic_hook = "0.1.5"
+
+[target.'cfg(not(target_family = "wasm"))'.dependencies]
+slint = { version = "1.12", features = ["renderer-skia"] }
 
 [build-dependencies]
 slint-build = { version = "1.12" }
