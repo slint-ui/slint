@@ -25,7 +25,7 @@ Download and install the [APK for android](https://material.slint.dev/apk/slint_
 
 ## Documentation
 
-View the documentation online at https://material.slint.dev/overview/
+View the documentation online at https://material.slint.dev/getting-started/
 
 ### Get Started
 
