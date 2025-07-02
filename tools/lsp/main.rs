@@ -176,7 +176,7 @@ impl ServerNotifier {
             let _ = self.send_notification::<common::LspToPreviewMessage>(message);
         } else {
             #[cfg(feature = "preview-builtin")]
-            preview::lsp_to_preview_message(message);
+            preview::connector::lsp_to_preview_message(message);
         }
     }
 
@@ -283,7 +283,7 @@ fn main() {
                 struct QuitEventLoop;
                 impl Drop for QuitEventLoop {
                     fn drop(&mut self) {
-                        preview::quit_ui_event_loop();
+                        preview::connector::quit_ui_event_loop();
                     }
                 }
                 let quit_ui_loop = QuitEventLoop;
@@ -301,7 +301,7 @@ fn main() {
             })
             .unwrap();
 
-        preview::start_ui_event_loop(cli_args);
+        preview::connector::start_ui_event_loop(cli_args);
         lsp_thread.join().unwrap();
     }
 
@@ -346,7 +346,7 @@ fn main_loop(connection: Connection, init_param: InitializeParams, cli_args: Cli
     };
 
     #[cfg(feature = "preview-builtin")]
-    preview::set_server_notifier(server_notifier.clone());
+    preview::connector::set_server_notifier(server_notifier.clone());
 
     let server_notifier_ = server_notifier.clone();
     let compiler_config = CompilerConfiguration {
