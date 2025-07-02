@@ -1664,7 +1664,7 @@ fn set_selected_element(
         );
 
         if let Some(ui) = &preview_state.ui {
-            if let Some(document_cache) = document_cache_from(&preview_state) {
+            if let Some(document_cache) = document_cache_from(preview_state) {
                 if let Some((uri, version, selection)) = selection
                     .clone()
                     .or_else(|| {
@@ -1749,7 +1749,7 @@ fn component_instance() -> Option<ComponentInstance> {
 /// This is a *read-only* snapshot of the raw type loader, use this when you
 /// need to know the exact state the compiled resources were in.
 fn document_cache() -> Option<Rc<common::DocumentCache>> {
-    PREVIEW_STATE.with_borrow(move |preview_state| document_cache_from(preview_state))
+    PREVIEW_STATE.with_borrow(document_cache_from)
 }
 
 /// This is a *read-only* snapshot of the raw type loader, use this when you
@@ -1808,11 +1808,11 @@ fn update_preview_area(
     open_import_fallback: common::document_cache::OpenImportFallback,
     source_file_versions: Rc<RefCell<common::document_cache::SourceFileVersionMap>>,
 ) -> Result<(), PlatformError> {
-    PREVIEW_STATE.with_borrow_mut(move |mut preview_state| {
+    PREVIEW_STATE.with_borrow_mut(move |preview_state| {
         preview_state.workspace_edit_sent = false;
 
         #[cfg(not(target_arch = "wasm32"))]
-        native::open_ui_impl(&mut preview_state)?;
+        native::open_ui_impl(preview_state)?;
 
         let ui = preview_state.ui.as_ref().unwrap();
         let shared_handle = preview_state.handle.clone();

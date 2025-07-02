@@ -237,7 +237,7 @@ pub fn map_properties_to_ui(
             document_cache,
             &properties.element_rc_node.element,
             pi,
-            Some(&window_adapter),
+            Some(window_adapter),
         );
 
         declarations.insert(pi.name.clone(), declared_at);
