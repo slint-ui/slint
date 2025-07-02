@@ -6,7 +6,10 @@
 use std::collections::HashMap;
 
 use crate::common::{self, PreviewToLspMessage, SourceFileVersion};
+use crate::preview::{self, connector};
+
 use crate::ServerNotifier;
+
 use slint_interpreter::ComponentHandle;
 use std::future::Future;
 use std::sync::{Condvar, LazyLock, Mutex};
@@ -177,7 +180,7 @@ pub fn quit_ui_event_loop() {
 }
 
 pub(super) fn open_ui_impl(
-    preview_state: &mut super::PreviewState,
+    preview_state: &mut preview::PreviewState,
 ) -> Result<(), slint::PlatformError> {
     let (default_style, show_preview_ui, fullscreen) = {
         let style = preview_state.config.style.clone();
@@ -198,8 +201,8 @@ pub(super) fn open_ui_impl(
     let experimental = std::env::var_os("SLINT_ENABLE_EXPERIMENTAL_FEATURES").is_some();
 
     if preview_state.ui.is_none() {
-        let ui = super::ui::create_ui(default_style, experimental)?;
-        crate::preview::send_telemetry(&mut [(
+        let ui = preview::ui::create_ui(default_style, experimental)?;
+        connector::send_telemetry(&mut [(
             "type".to_string(),
             serde_json::to_value("preview_opened").unwrap(),
         )]);
@@ -215,7 +218,7 @@ pub(super) fn open_ui_impl(
 }
 
 pub fn close_ui() {
-    super::PREVIEW_STATE.with_borrow_mut(|preview_state| {
+    preview::PREVIEW_STATE.with_borrow_mut(|preview_state| {
         if let Some(ui) = &preview_state.ui {
             ui.hide().unwrap();
         }
@@ -224,7 +227,7 @@ pub fn close_ui() {
 
 #[cfg(target_vendor = "apple")]
 fn toggle_always_on_top() {
-    super::PREVIEW_STATE.with_borrow_mut(move |preview_state| {
+    preview::PREVIEW_STATE.with_borrow_mut(move |preview_state| {
         let Some(ui) = preview_state.ui.as_ref() else { return };
         let api = ui.global::<crate::preview::ui::Api>();
         api.set_always_on_top(!api.get_always_on_top());
@@ -338,7 +341,7 @@ fn init_apple_platform(
             if menu_event.id == close_id {
                 close_ui();
             } else if menu_event.id == reload_id {
-                super::reload_preview();
+                preview::reload_preview();
             } else if menu_event.id == keep_on_top_id {
                 toggle_always_on_top();
             }

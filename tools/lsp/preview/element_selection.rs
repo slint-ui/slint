@@ -12,7 +12,7 @@ use slint_interpreter::{ComponentHandle, ComponentInstance};
 
 use crate::common;
 
-use crate::preview::{ext::ElementRcNodeExt, ui, SelectionNotification};
+use crate::preview::{connector, ext::ElementRcNodeExt, ui, SelectionNotification};
 
 #[derive(Clone, Debug)]
 pub struct ElementSelection {
@@ -149,7 +149,7 @@ fn select_element_node(
     );
 
     if let Some(document_position) = lsp_element_node_position(selected_element) {
-        super::ask_editor_to_show_document(&document_position.0, document_position.1, false);
+        connector::ask_editor_to_show_document(&document_position.0, document_position.1, false);
     }
 }
 
