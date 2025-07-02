@@ -20,11 +20,11 @@ import { UI } from "astrowind:config";
   }
 
   const initTheme = function () {
-    if ((defaultTheme && defaultTheme.endsWith(':only')) || (!localStorage.theme && defaultTheme !== 'system')) {
+    if ((defaultTheme && defaultTheme.endsWith(':only')) || (!localStorage.getItem('starlight-theme') && defaultTheme !== 'system')) {
       applyTheme(defaultTheme.replace(':only', ''));
     } else if (
-      localStorage.theme === 'dark' ||
-      (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)
+      localStorage.getItem('starlight-theme') === 'dark' ||
+      (!localStorage.getItem('starlight-theme') && window.matchMedia('(prefers-color-scheme: dark)').matches)
     ) {
       applyTheme('dark');
     } else {
@@ -74,7 +74,7 @@ import { UI } from "astrowind:config";
       document.documentElement.classList.toggle('dark');
       const isDark = document.documentElement.classList.contains('dark');
       document.documentElement.dataset.theme = isDark ? 'dark' : 'light';
-      localStorage.theme = isDark ? 'dark' : 'light';
+      localStorage.setItem('starlight-theme', isDark ? 'dark' : 'light');
       setTimeout(() => {
         document.documentElement.removeAttribute('data-theme-transitioning');
       }, 50);
