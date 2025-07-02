@@ -32,21 +32,19 @@ fn default_cc() -> i_slint_compiler::CompilerConfiguration {
     )
 }
 
-pub type OpenImportFallback = Option<
-    Rc<
-        dyn Fn(
-            String,
-        ) -> Pin<
-            Box<dyn Future<Output = Option<std::io::Result<(SourceFileVersion, String)>>>>,
-        >,
-    >,
+/// This is i_slint_compiler::OpenImportFallback with version information
+pub type OpenImportFallback = Rc<
+    dyn Fn(
+        String,
+    )
+        -> Pin<Box<dyn Future<Output = Option<std::io::Result<(SourceFileVersion, String)>>>>>,
 >;
 
 pub struct CompilerConfiguration {
     pub include_paths: Vec<std::path::PathBuf>,
     pub library_paths: HashMap<String, std::path::PathBuf>,
     pub style: Option<String>,
-    pub open_import_fallback: OpenImportFallback,
+    pub open_import_fallback: Option<OpenImportFallback>,
     pub resource_url_mapper:
         Option<Rc<dyn Fn(&str) -> Pin<Box<dyn Future<Output = Option<String>>>>>>,
 }
@@ -66,7 +64,7 @@ impl Default for CompilerConfiguration {
 }
 
 impl CompilerConfiguration {
-    fn build(mut self) -> (i_slint_compiler::CompilerConfiguration, OpenImportFallback) {
+    fn build(mut self) -> (i_slint_compiler::CompilerConfiguration, Option<OpenImportFallback>) {
         let mut result = default_cc();
         result.include_paths = std::mem::take(&mut self.include_paths);
         result.library_paths = std::mem::take(&mut self.library_paths);
@@ -80,16 +78,16 @@ impl CompilerConfiguration {
 /// A cache of loaded documents
 pub struct DocumentCache {
     type_loader: TypeLoader,
-    open_import_fallback: OpenImportFallback,
+    open_import_fallback: Option<OpenImportFallback>,
     source_file_versions: Rc<RefCell<SourceFileVersionMap>>,
 }
 
 #[cfg(feature = "preview-engine")]
 pub fn document_cache_parts_setup(
     compiler_config: &mut i_slint_compiler::CompilerConfiguration,
-    open_import_fallback: OpenImportFallback,
+    open_import_fallback: Option<OpenImportFallback>,
     initial_file_versions: SourceFileVersionMap,
-) -> (OpenImportFallback, Rc<RefCell<SourceFileVersionMap>>) {
+) -> (Option<OpenImportFallback>, Rc<RefCell<SourceFileVersionMap>>) {
     let source_file_versions = Rc::new(RefCell::new(initial_file_versions));
     DocumentCache::wire_up_import_fallback(
         compiler_config,
@@ -101,9 +99,9 @@ pub fn document_cache_parts_setup(
 impl DocumentCache {
     fn wire_up_import_fallback(
         compiler_config: &mut i_slint_compiler::CompilerConfiguration,
-        open_import_fallback: OpenImportFallback,
+        open_import_fallback: Option<OpenImportFallback>,
         source_file_versions: Rc<RefCell<SourceFileVersionMap>>,
-    ) -> (OpenImportFallback, Rc<RefCell<SourceFileVersionMap>>) {
+    ) -> (Option<OpenImportFallback>, Rc<RefCell<SourceFileVersionMap>>) {
         let sfv = source_file_versions.clone();
         if let Some(open_import_fallback) = open_import_fallback.clone() {
             compiler_config.open_import_fallback = Some(Rc::new(move |file_name: String| {
@@ -152,7 +150,7 @@ impl DocumentCache {
 
     pub fn new_from_raw_parts(
         mut type_loader: TypeLoader,
-        open_import_fallback: OpenImportFallback,
+        open_import_fallback: Option<OpenImportFallback>,
         source_file_versions: Rc<RefCell<SourceFileVersionMap>>,
     ) -> Self {
         let (open_import_fallback, source_file_versions) = Self::wire_up_import_fallback(
