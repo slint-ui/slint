@@ -11,8 +11,7 @@ use i_slint_core::lengths::{LogicalPoint, LogicalRect};
 use slint_interpreter::{ComponentHandle, ComponentInstance};
 
 use crate::common;
-
-use crate::preview::{connector, ext::ElementRcNodeExt, ui, SelectionNotification};
+use crate::preview::{self, ext::ElementRcNodeExt, ui, SelectionNotification};
 
 #[derive(Clone, Debug)]
 pub struct ElementSelection {
@@ -99,7 +98,7 @@ pub fn select_element_at_source_code_position(
     path: PathBuf,
     offset: TextSize,
     position: Option<LogicalPoint>,
-    editor_notification: crate::preview::SelectionNotification,
+    editor_notification: preview::SelectionNotification,
 ) {
     let Some(component_instance) = super::component_instance() else {
         return;
@@ -149,7 +148,10 @@ fn select_element_node(
     );
 
     if let Some(document_position) = lsp_element_node_position(selected_element) {
-        connector::ask_editor_to_show_document(&document_position.0, document_position.1, false);
+        let to_lsp = preview::PREVIEW_STATE.with_borrow(|ps| ps.to_lsp.borrow().clone().unwrap());
+        to_lsp
+            .ask_editor_to_show_document(&document_position.0, document_position.1, false)
+            .unwrap();
     }
 }
 
@@ -285,10 +287,7 @@ pub fn select_element_at(x: f32, y: f32, enter_component: bool) {
     select_element_node(&component_instance, &en, Some(position));
 }
 
-pub fn selection_stack_at(
-    x: f32,
-    y: f32,
-) -> slint::ModelRc<crate::preview::ui::SelectionStackFrame> {
+pub fn selection_stack_at(x: f32, y: f32) -> slint::ModelRc<ui::SelectionStackFrame> {
     let Some(component_instance) = &super::component_instance() else {
         return Default::default();
     };
@@ -300,7 +299,7 @@ pub fn selection_stack_at(
 
     let position = LogicalPoint::new(x, y);
 
-    let (known_components, mut selected) = crate::preview::PREVIEW_STATE.with(|preview_state| {
+    let (known_components, mut selected) = preview::PREVIEW_STATE.with(|preview_state| {
         let preview_state = preview_state.borrow();
 
         let known_components = preview_state.known_components.clone();
@@ -399,7 +398,7 @@ pub fn selection_stack_at(
                 .map(|index| known_components.get(index).unwrap().is_interactive)
                 .unwrap_or_default();
 
-            crate::preview::ui::SelectionStackFrame {
+            ui::SelectionStackFrame {
                 width,
                 height,
                 x,
@@ -439,12 +438,12 @@ pub fn selection_stack_at(
 }
 
 pub fn filter_sort_selection_stack(
-    model: slint::ModelRc<crate::preview::ui::SelectionStackFrame>,
+    model: slint::ModelRc<ui::SelectionStackFrame>,
     filter_text: slint::SharedString,
-    filter: crate::preview::ui::SelectionStackFilter,
-) -> slint::ModelRc<crate::preview::ui::SelectionStackFrame> {
-    use crate::preview::ui::{SelectionStackFilter, SelectionStackFrame};
+    filter: ui::SelectionStackFilter,
+) -> slint::ModelRc<ui::SelectionStackFrame> {
     use slint::ModelExt;
+    use ui::{SelectionStackFilter, SelectionStackFrame};
 
     fn filter_fn(frame: &SelectionStackFrame, filter: SelectionStackFilter) -> bool {
         match filter {

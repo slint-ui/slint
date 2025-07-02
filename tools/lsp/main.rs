@@ -14,7 +14,7 @@ mod language;
 mod preview;
 pub mod util;
 
-use common::Result;
+use common::{LspToPreview, Result};
 use language::*;
 
 use lsp_types::notification::{
@@ -90,6 +90,8 @@ pub struct Cli {
 enum Commands {
     /// Format slint files
     Format(Format),
+    /// Run live preview
+    LivePreview(LivePreview),
 }
 
 #[derive(Args, Clone)]
@@ -101,7 +103,21 @@ struct Format {
     #[arg(short, long, action)]
     inline: bool,
 }
-
+#[derive(Args, Clone, Debug)]
+struct LivePreview {
+    /// Run remote controlled by the LSP
+    #[arg(long)]
+    remote_controlled: bool,
+    /// Run remote controlled by the LSP
+    #[arg(long, default_value = "")]
+    style: String,
+    /// Hide the UI around the previewed application
+    #[arg(long)]
+    hide_chrome: bool,
+    /// toggle fullscreen mode
+    #[arg(long)]
+    fullscreen: bool,
+}
 enum OutgoingRequest {
     Start,
     Pending(Waker),
@@ -118,8 +134,6 @@ pub struct ServerNotifier {
     sender: crossbeam_channel::Sender<Message>,
     queue: OutgoingRequestQueue,
     use_external_preview: Arc<atomic::AtomicBool>,
-    #[cfg(feature = "preview-engine")]
-    preview_to_lsp_sender: crossbeam_channel::Sender<crate::common::PreviewToLspMessage>,
 }
 
 impl ServerNotifier {
@@ -171,28 +185,12 @@ impl ServerNotifier {
         }))
     }
 
-    pub fn send_message_to_preview(&self, message: common::LspToPreviewMessage) {
-        if self.use_external_preview() {
-            let _ = self.send_notification::<common::LspToPreviewMessage>(message);
-        } else {
-            #[cfg(feature = "preview-builtin")]
-            preview::connector::lsp_to_preview_message(message);
-        }
-    }
-
-    #[cfg(feature = "preview-engine")]
-    pub fn send_message_to_lsp(&self, message: common::PreviewToLspMessage) {
-        let _ = self.preview_to_lsp_sender.send(message);
-    }
-
     #[cfg(test)]
     pub fn dummy() -> Self {
         Self {
             sender: crossbeam_channel::unbounded().0,
             queue: Default::default(),
             use_external_preview: Default::default(),
-            #[cfg(feature = "preview-engine")]
-            preview_to_lsp_sender: crossbeam_channel::unbounded().0,
         }
     }
 }
@@ -233,14 +231,6 @@ fn main() {
         std::env::set_var("SLINT_BACKEND", &args.backend);
     }
 
-    if let Some(Commands::Format(args)) = args.command {
-        let _ = fmt::tool::run(args.paths, args.inline).map_err(|e| {
-            eprintln!("{e}");
-            std::process::exit(1);
-        });
-        std::process::exit(0);
-    }
-
     if let Ok(panic_log_file) = std::env::var("SLINT_LSP_PANIC_LOG") {
         // The editor may set the `SLINT_LSP_PANIC_LOG` env variable to a path in which we can write the panic log.
         // It will read that file if our process doesn't exit properly, and will use the content to report the panic via telemetry.
@@ -273,43 +263,33 @@ fn main() {
         }));
     }
 
-    #[cfg(feature = "preview-engine")]
-    {
-        let cli_args = args.clone();
-        let lsp_thread = std::thread::Builder::new()
-            .name("LanguageServer".into())
-            .spawn(move || {
-                /// Make sure we quit the event loop even if we panic
-                struct QuitEventLoop;
-                impl Drop for QuitEventLoop {
-                    fn drop(&mut self) {
-                        preview::connector::quit_ui_event_loop();
-                    }
+    if let Some(command) = &args.command {
+        match command {
+            Commands::Format(fmt) => match fmt::tool::run(&fmt.paths, fmt.inline) {
+                Ok(()) => std::process::exit(0),
+                Err(e) => {
+                    eprintln!("Format Error: {e}");
+                    std::process::exit(2)
                 }
-                let quit_ui_loop = QuitEventLoop;
-
-                let threads = match run_lsp_server(args) {
-                    Ok(threads) => threads,
-                    Err(error) => {
-                        eprintln!("Error running LSP server: {error}");
-                        return;
-                    }
-                };
-
-                drop(quit_ui_loop);
-                threads.join().unwrap();
-            })
-            .unwrap();
-
-        preview::connector::start_ui_event_loop(cli_args);
-        lsp_thread.join().unwrap();
-    }
-
-    #[cfg(not(feature = "preview-engine"))]
-    match run_lsp_server(args) {
-        Ok(threads) => threads.join().unwrap(),
-        Err(error) => {
-            eprintln!("Error running LSP server: {}", error);
+            },
+            Commands::LivePreview(live_preview) => match preview::run(live_preview) {
+                Ok(()) => {
+                    eprintln!("Closing application");
+                    std::process::exit(0)
+                }
+                Err(e) => {
+                    eprintln!("Preview Error: {e}");
+                    std::process::exit(2);
+                }
+            },
+        }
+    } else {
+        match run_lsp_server(args) {
+            Ok(threads) => threads.join().unwrap(),
+            Err(error) => {
+                eprintln!("Error running LSP server: {error}");
+                std::process::exit(3);
+            }
         }
     }
 }
@@ -341,14 +321,19 @@ fn main_loop(connection: Connection, init_param: InitializeParams, cli_args: Cli
         sender: connection.sender.clone(),
         queue: request_queue.clone(),
         use_external_preview: Default::default(),
-        #[cfg(feature = "preview-engine")]
-        preview_to_lsp_sender,
     };
 
-    #[cfg(feature = "preview-builtin")]
-    preview::connector::set_server_notifier(server_notifier.clone());
+    #[cfg(not(feature = "preview-engine"))]
+    let to_preview: Rc<dyn LspToPreview> = Rc::new(common::DummyLspToPreview::default());
+    #[cfg(feature = "preview-engine")]
+    let to_preview: Rc<dyn LspToPreview> =
+        Rc::new(preview::connector::NativeLspToPreview::new(preview_to_lsp_sender));
 
-    let server_notifier_ = server_notifier.clone();
+    // #[cfg(feature = "preview-builtin")]
+    // preview::connector::set_server_notifier(server_notifier.clone());
+
+    // let server_notifier_ = server_notifier.clone();
+    let to_preview_clone = to_preview.clone();
     let compiler_config = CompilerConfiguration {
         style: Some(if cli_args.style.is_empty() { "native".into() } else { cli_args.style }),
         include_paths: cli_args.include_paths,
@@ -358,21 +343,20 @@ fn main_loop(connection: Connection, init_param: InitializeParams, cli_args: Cli
             .filter_map(|entry| entry.split('=').collect_tuple().map(|(k, v)| (k.into(), v.into())))
             .collect(),
         open_import_fallback: Some(Rc::new(move |path| {
-            let server_notifier = server_notifier_.clone();
+            let to_preview = to_preview_clone.clone();
+            // let server_notifier = server_notifier_.clone();
             Box::pin(async move {
                 let contents = std::fs::read_to_string(&path);
                 if let Ok(url) = Url::from_file_path(&path) {
                     if let Ok(contents) = &contents {
-                        server_notifier.send_message_to_preview(
-                            common::LspToPreviewMessage::SetContents {
+                        to_preview
+                            .send(&common::LspToPreviewMessage::SetContents {
                                 url: common::VersionedUrl::new(url, None),
                                 contents: contents.clone(),
-                            },
-                        )
+                            })
+                            .unwrap();
                     } else {
-                        server_notifier.send_message_to_preview(
-                            common::LspToPreviewMessage::ForgetFile { url },
-                        )
+                        to_preview.send(&common::LspToPreviewMessage::ForgetFile { url }).unwrap();
                     }
                 }
                 Some(contents.map(|c| (None, c)))
@@ -389,6 +373,7 @@ fn main_loop(connection: Connection, init_param: InitializeParams, cli_args: Cli
         #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
         to_show: Default::default(),
         open_urls: Default::default(),
+        to_preview,
     });
 
     let mut futures = Vec::<Pin<Box<dyn Future<Output = Result<()>>>>>::new();
