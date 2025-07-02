@@ -390,7 +390,7 @@ fn find_project_root(docs_folder: &Path) -> Result<PathBuf> {
     let mut path = Some(docs_folder.canonicalize()?);
 
     while let Some(d) = path {
-        if d.join("astro.config.mjs").exists() {
+        if d.join("astro.config.mjs").exists() || d.join("astro.config.ts").exists() {
             return Ok(d);
         }
         path = d.parent().map(|p| p.to_path_buf());
