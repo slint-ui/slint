@@ -19,7 +19,7 @@ path = "src/main.rs"
 name = "material_gallery"
 
 [dependencies]
-slint = { version = "1.12", features = ["backend-android-activity-06"] }
+slint = { version = "1.12", features = ["backend-android-activity-06", "renderer-skia"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = { version = "0.2" }
