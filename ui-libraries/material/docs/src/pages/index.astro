@@ -6,8 +6,6 @@ import Layout from "~/layouts/PageLayout.astro";
 import Hero from "~/components/widgets/Hero.astro";
 import Features from "~/components/widgets/Features.astro";
 import Features2 from "~/components/widgets/Features2.astro";
-import Steps from "~/components/widgets/Steps.astro";
-import FAQs from "~/components/widgets/FAQs.astro";
 import CallToAction from "~/components/widgets/CallToAction.astro";
 
 const metadata = {
@@ -23,15 +21,16 @@ const metadata = {
   actions={[
     { text: 'Get Started', href: '/getting-started/' },
   ]}
-    image={{ src: '~/assets/images/phone-dark.webp', alt: 'Material Components Hero Image' }}
+    image={{ src: '~/assets/images/material-tablet.webp', alt: 'Material Components Hero Image' }}
   >
     <Fragment slot="title">
       <a
         href="https://slint.dev/"
         target="_blank"
         rel="noopener noreferrer"
-        class="transition-colors duration-200 text-inherit hover:text-blue-600 hover:underline hover:decoration-[3px] cursor-pointer"
+        class="transition-colors duration-200 text-inherit hover:text-blue-600 hover:decoration-[3px] cursor-pointer"
       >
+        <span class="icon-slint-logo-small-light slint-logo-inline"></span>
         Slint
       </a>
       +
@@ -51,13 +50,6 @@ const metadata = {
 
   </Hero>
 
-
-   <!-- Note Widget ******************* -->
-
-
-
-
-  <!-- Features Widget *************** -->
 
   <Features
     id="features"

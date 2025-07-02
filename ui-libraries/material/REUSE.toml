@@ -7,6 +7,7 @@ SPDX-PackageDownloadLocation = "https://slint.dev/"
 path = [
   "docs/public/favicon.svg",
   "docs/public/slint-logo-small-light.svg",
+  "docs/public/slint-logo.woff",
   "docs/public/apple-touch-icon.png",
   "docs/public/favicon.ico",
   "docs/public/favicon-32x32.png",
@@ -32,6 +33,7 @@ path = [
   "docs/pnpm-lock.yaml",
   "docs/src/assets/images/Components.png",
   "docs/src/assets/images/phone-dark.webp",
+  "docs/src/assets/images/material-tablet.webp",
   "docs/src/assets/images/material-award.jpg",
   "docs/src/assets/images/material-design.jpg",
   "docs/src/config.yaml",
