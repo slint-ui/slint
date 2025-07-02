@@ -5,13 +5,11 @@
 #![cfg(target_arch = "wasm32")]
 
 use crate::common;
-use crate::preview::{self, ui};
+use crate::preview::{self, connector, ui};
 
 use slint_interpreter::ComponentHandle;
 
 use std::cell::RefCell;
-use std::future::Future;
-use std::pin::Pin;
 use std::rc::Rc;
 
 use wasm_bindgen::prelude::*;
@@ -33,11 +31,14 @@ extern "C" {
     pub type PreviewConnectorPromise;
 }
 
+// We have conceptually two threads: The UI thread and the JS runtime, even though
+// the WASM is strictly single threaded.
+//
+// So we use a thread local variable to transfer data between the two conceptual threads.
 struct WasmCallbacks {
     lsp_notifier: SignalLspFunction,
     resource_url_mapper: ResourceUrlMapperFunction,
 }
-
 thread_local! {static WASM_CALLBACKS: RefCell<Option<WasmCallbacks>> = Default::default();}
 
 #[wasm_bindgen(start)]
@@ -83,14 +84,18 @@ impl PreviewConnector {
             let reject_c = send_wrapper::SendWrapper::new(reject.clone());
             let style = style.clone();
             if let Err(e) = slint_interpreter::invoke_from_event_loop(move || {
+                let to_lsp: Rc<dyn common::PreviewToLsp> = Rc::new(WasmPreviewToLsp::default());
+
                 preview::PREVIEW_STATE.with(move |preview_state| {
                     if preview_state.borrow().ui.is_some() {
                         reject_c.take().call1(&JsValue::UNDEFINED,
                             &JsValue::from("PreviewConnector already set up.")).unwrap_throw();
                     } else {
-                        match ui::create_ui(style, experimental) {
+                        match ui::create_ui(&to_lsp, &style, experimental) {
                             Ok(ui) => {
                                 preview_state.borrow_mut().ui = Some(ui);
+                                *preview_state.borrow().to_lsp.borrow_mut() = Some(to_lsp);
+
                                 resolve.take().call1(&JsValue::UNDEFINED,
                                     &JsValue::from(Self { })).unwrap_throw()
                             }
@@ -127,7 +132,7 @@ impl PreviewConnector {
         let message = serde_wasm_bindgen::from_value(value)
             .map_err(|e| -> JsValue { format!("{e:?}").into() })?;
         i_slint_core::api::invoke_from_event_loop(move || {
-            lsp_to_preview_message(message);
+            connector::lsp_to_preview(message);
         })
         .map_err(|e| -> JsValue { format!("{e:?}").into() })?;
         Ok(())
@@ -190,8 +195,7 @@ fn invoke_from_event_loop_wrapped_in_promise(
     }))
 }
 
-pub fn resource_url_mapper(
-) -> Option<Rc<dyn Fn(&str) -> Pin<Box<dyn Future<Output = Option<String>>>>>> {
+pub fn resource_url_mapper() -> Option<i_slint_compiler::ResourceUrlMapper> {
     let callback = WASM_CALLBACKS.with_borrow(|callbacks| {
         callbacks.as_ref().map(|cb| js_sys::Function::from((cb.resource_url_mapper).clone()))
     })?;
@@ -205,16 +209,44 @@ pub fn resource_url_mapper(
     }))
 }
 
-pub fn send_message_to_lsp(message: common::PreviewToLspMessage) {
-    WASM_CALLBACKS.with_borrow(|callbacks| {
-        if let Some(callbacks) = &callbacks {
-            let notifier = js_sys::Function::from((callbacks.lsp_notifier).clone());
-            let value = serde_wasm_bindgen::to_value(&message).unwrap();
-            let _ = notifier.call1(&JsValue::UNDEFINED, &value);
-        }
-    })
+pub struct WasmLspToPreview {
+    server_notifier: crate::ServerNotifier,
 }
 
-fn lsp_to_preview_message(message: common::LspToPreviewMessage) {
-    super::lsp_to_preview_message_impl(message);
+impl WasmLspToPreview {
+    pub fn new(server_notifier: crate::ServerNotifier) -> Self {
+        Self { server_notifier }
+    }
+}
+
+impl common::LspToPreview for WasmLspToPreview {
+    fn send(&self, message: &common::LspToPreviewMessage) -> common::Result<()> {
+        self.server_notifier.send_notification::<common::LspToPreviewMessage>(message.clone())
+    }
+
+    fn preview_target(&self) -> common::PreviewTarget {
+        common::PreviewTarget::EmbeddedWasm
+    }
+
+    fn set_preview_target(&self, _: common::PreviewTarget) -> common::Result<()> {
+        Err("Can not change the preview target".into())
+    }
+}
+
+#[derive(Default)]
+struct WasmPreviewToLsp {}
+
+impl common::PreviewToLsp for WasmPreviewToLsp {
+    fn send(&self, message: &common::PreviewToLspMessage) -> common::Result<()> {
+        WASM_CALLBACKS.with_borrow(|callbacks| {
+            let notifier = js_sys::Function::from(
+                (callbacks.as_ref().expect("Callbacks were set up earlier").lsp_notifier).clone(),
+            );
+            let value = serde_wasm_bindgen::to_value(&message)?;
+            notifier
+                .call1(&JsValue::UNDEFINED, &value)
+                .map_err(|_| "Failed to send message to LSP".to_string())?;
+            Ok(())
+        })
+    }
 }
