@@ -76,17 +76,13 @@ export default defineConfig({
                 Banner: "./src/components/Banner.astro",
             },
             sidebar: [
-                { label: "Overview", link: "overview" },
+                { label: "Getting Started", link: "getting-started" },
                 {
                     label: "Components",
                     autogenerate: { directory: "components" },
                 },
             ],
-            plugins: [
-                starlightLinksValidator({
-                    errorOnLocalLinks: false,
-                }),
-            ],
+            plugins: [starlightLinksValidator()],
             social: [
                 {
                     icon: "github",

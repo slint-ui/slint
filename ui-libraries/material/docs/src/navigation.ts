@@ -6,7 +6,7 @@ export const headerData = {
     links: [
         {
             text: "Documentation",
-            href: "/overview/",
+            href: "/getting-started/",
         },
         {
             text: "Demo",

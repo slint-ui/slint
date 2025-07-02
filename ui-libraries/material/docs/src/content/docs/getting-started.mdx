@@ -1,0 +1,104 @@
+---
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+title: Getting Started
+description: Getting Started with Slint Material UI.
+---
+
+import CodeSnippetMD from '/src/components/CodeSnippetMD.astro';
+import SlintProperty  from '/src/components/SlintProperty.astro';
+import Link from '/src/components/Link.astro';
+import { Steps, Tabs, TabItem } from '@astrojs/starlight/components';
+
+![Slint Material UI](~/assets/images/phone-dark.webp)
+
+This is a technical preview of the Material 3 Design System for Slint. Learn more about
+Slint [here](https://slint.dev/).
+
+We recommend using an IDE for development, along with our [LSP-based IDE integration for
+.slint files](https://github.com/slint-ui/slint/blob/master/tools/lsp/README.md). You
+can also load this project directly in [Visual Studio Code](https://code.visualstudio.com/)
+and install our [Slint extension](https://marketplace.visualstudio.com/items?itemName=Slint.slint).
+
+<Tabs>
+<TabItem label="Rust">
+
+1. Install Rust by following its [getting-started guide](https://www.rust-lang.org/learn/get-started). Once this is done, you should have the rustc compiler and the cargo build system installed in your `PATH`.
+2. Clone the getting-started repository:
+```bash
+git clone git clone --recurse-submodules https://github.com/slint-ui/material-rust-template.git my-project
+cd my-project
+```
+3. Build the sample application:
+```bash
+cargo build
+```
+4. Run the sample application:
+```bash
+cargo run
+```
+
+With Rust based Slint apps you can also target Web and Android. For more details, see the [template repository](https://github.com/slint-ui/material-rust-template).
+
+</TabItem>
+<TabItem label="C++">
+1. Setup the [development environment](https://docs.slint.dev/latest/docs/cpp/cmake).
+2. Clone the getting-started repository:
+```bash
+git clone --recurse-submodules https://github.com/slint-ui/material-cpp-template.git my-project
+cd my-project
+```
+3. Build the sample application:
+```bash
+mkdir build && cd build
+cmake .. -G Ninja
+cmake --build .
+```
+4. Run the sample application:
+```bash
+./my_application
+```
+</TabItem>
+<TabItem label="NodeJS">
+
+1. Install [Node.js](https://nodejs.org/) and [npm](https://www.npmjs.com/).
+2. Clone the getting-started repository:
+```bash
+git clone git clone --recurse-submodules https://github.com/slint-ui/material-nodejs-template.git my-project
+cd my-project
+```
+3. Install the dependencies:
+```bash
+npm install
+```
+4. Run the sample application:
+```bash
+npm start
+```
+
+</TabItem>
+<TabItem label="Python" >
+1. Install [uv](https://docs.astral.sh/uv/).
+2. Clone the getting-started repository:
+```bash
+git clone --recurse-submodules https://github.com/slint-ui/material-python-template.git my-project
+cd my-project
+```
+3. Run the sample application:
+```bash
+uv run main.py
+```
+
+</TabItem>
+</Tabs>
+
+
+## Next Steps
+
+All the documentation for Slint's Material UI components can be found on this site.
+
+Follow the development in the [Github repository](https://github.com/slint-ui/material-components).
+
+To learn more about Material Design, dive into Google's comprehensive [Material Design 3 documentation](https://m3.material.io/components).
+
+Compose designs in Figma by taking advantage of the [Material Design 3 Figma Kit](https://www.figma.com/community/file/1035203688168086460/material-3-design-kit)
+
