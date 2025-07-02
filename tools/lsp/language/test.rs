@@ -169,6 +169,7 @@ fn accurate_diagnostics_in_dependencies() {
         #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
         to_show: Default::default(),
         open_urls: RefCell::new(HashSet::from_iter([foo_url.clone(), bar_url.clone()])),
+        to_preview: Rc::new(common::DummyLspToPreview::default()),
     }));
 
     let (bar_url, diag) = load(
@@ -222,6 +223,7 @@ fn accurate_diagnostics_in_dependencies_with_parse_errors() {
         #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
         to_show: Default::default(),
         open_urls: Default::default(),
+        to_preview: Rc::new(common::DummyLspToPreview::default()),
     });
 
     let (bar_url, diag) = load(
