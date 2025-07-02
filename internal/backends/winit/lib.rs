@@ -510,12 +510,13 @@ impl SharedBackendData {
         let event_loop =
             builder.build().map_err(|e| format!("Error initializing winit event loop: {e}"))?;
 
-        #[allow(unused_mut)]
-        let mut is_wayland = false;
-        #[cfg(all(unix, not(target_vendor = "apple"), feature = "wayland"))]
-        {
-            use winit::platform::wayland::EventLoopExtWayland;
-            is_wayland = event_loop.is_wayland();
+        cfg_if::cfg_if! {
+            if #[cfg(all(unix, not(target_vendor = "apple"), feature = "wayland"))] {
+                use winit::platform::wayland::EventLoopExtWayland;
+                let is_wayland = event_loop.is_wayland();
+            } else {
+                let is_wayland = false;
+            }
         }
 
         let event_loop_proxy = event_loop.create_proxy();
