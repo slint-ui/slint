@@ -3,9 +3,7 @@
 
 // cSpell: ignore condvar
 
-use std::collections::HashMap;
-
-use crate::common::{self, PreviewToLspMessage, SourceFileVersion};
+use crate::common::{self, PreviewToLspMessage};
 use crate::preview::{self, connector};
 
 use crate::ServerNotifier;
@@ -239,29 +237,6 @@ static SERVER_NOTIFIER: Mutex<Option<ServerNotifier>> = Mutex::new(None);
 /// Give the UI thread a handle to send message back to the LSP thread
 pub fn set_server_notifier(sender: ServerNotifier) {
     *SERVER_NOTIFIER.lock().unwrap() = Some(sender);
-}
-
-pub fn notify_diagnostics(
-    diagnostics: HashMap<lsp_types::Url, (SourceFileVersion, Vec<lsp_types::Diagnostic>)>,
-) -> Option<()> {
-    let Some(sender) = SERVER_NOTIFIER.lock().unwrap().clone() else {
-        return Some(());
-    };
-
-    for (url, (version, diagnostics)) in diagnostics {
-        common::lsp_to_editor::notify_lsp_diagnostics(&sender, url, version, diagnostics)?;
-    }
-    Some(())
-}
-
-pub fn ask_editor_to_show_document(file: &str, selection: lsp_types::Range, take_focus: bool) {
-    let Some(sender) = SERVER_NOTIFIER.lock().unwrap().clone() else {
-        return;
-    };
-    let Ok(url) = lsp_types::Url::from_file_path(file) else { return };
-    let fut =
-        common::lsp_to_editor::send_show_document_to_editor(sender, url, selection, take_focus);
-    slint_interpreter::spawn_local(fut).unwrap(); // Fire and forget.
 }
 
 pub fn send_message_to_lsp(message: PreviewToLspMessage) {

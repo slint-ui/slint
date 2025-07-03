@@ -10,12 +10,10 @@ use crate::preview::{self, ui};
 use slint_interpreter::ComponentHandle;
 
 use std::cell::RefCell;
-use std::collections::HashMap;
 use std::future::Future;
 use std::pin::Pin;
 use std::rc::Rc;
 
-use crate::wasm_prelude::*;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen(typescript_custom_section)]
@@ -215,20 +213,6 @@ pub fn send_message_to_lsp(message: common::PreviewToLspMessage) {
             let _ = notifier.call1(&JsValue::UNDEFINED, &value);
         }
     })
-}
-
-pub fn notify_diagnostics(
-    diagnostics: HashMap<lsp_types::Url, (common::SourceFileVersion, Vec<lsp_types::Diagnostic>)>,
-) -> Option<()> {
-    for (uri, (version, diagnostics)) in diagnostics {
-        send_message_to_lsp(common::PreviewToLspMessage::Diagnostics { uri, version, diagnostics });
-    }
-    Some(())
-}
-
-pub fn ask_editor_to_show_document(file: &str, selection: lsp_types::Range, take_focus: bool) {
-    let Ok(file) = lsp_types::Url::from_file_path(file) else { return };
-    send_message_to_lsp(common::PreviewToLspMessage::ShowDocument { file, selection, take_focus });
 }
 
 fn lsp_to_preview_message(message: common::LspToPreviewMessage) {
