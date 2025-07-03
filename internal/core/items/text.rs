@@ -512,10 +512,52 @@ pub struct TextInput {
     pressed: Cell<u8>,
     undo_items: Cell<SharedVector<UndoItem>>,
     redo_items: Cell<SharedVector<UndoItem>>,
+    cursor_anchor_bounds_handler: crate::properties::ChangeTracker,
 }
 
 impl Item for TextInput {
-    fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
+    fn init(self: Pin<&Self>, self_rc: &ItemRc) {
+        self.cursor_anchor_bounds_handler.init_delayed(
+            self_rc.downgrade(),
+            |self_weak| {
+                let Some(textinput_rc) = self_weak.upgrade() else { return false };
+                let Some(textinput) = textinput_rc.downcast::<TextInput>() else { return false };
+                let textinput = textinput.as_pin_ref();
+                let text: SharedString = textinput.text();
+
+                let anchor_offset = textinput.anchor_position_byte_offset();
+                let cursor_offset = textinput.cursor_position_byte_offset();
+
+                let anchor_in_bounds =
+                    safe_byte_offset(anchor_offset, &text) as i32 == anchor_offset;
+
+                let cursor_in_bounds =
+                    safe_byte_offset(cursor_offset, &text) as i32 == anchor_offset;
+
+                !anchor_in_bounds || !cursor_in_bounds
+            },
+            |self_weak, offsets_out_of_bounds| {
+                if *offsets_out_of_bounds {
+                    let Some(textinput_rc) = self_weak.upgrade() else {
+                        return;
+                    };
+                    let Some(textinput) = textinput_rc.downcast::<TextInput>() else {
+                        return;
+                    };
+                    let textinput = textinput.as_pin_ref();
+                    let text: SharedString = textinput.text();
+
+                    let anchor_offset =
+                        safe_byte_offset(textinput.anchor_position_byte_offset(), &text) as i32;
+                    let cursor_offset =
+                        safe_byte_offset(textinput.cursor_position_byte_offset(), &text) as i32;
+
+                    textinput.anchor_position_byte_offset.set(anchor_offset);
+                    textinput.cursor_position_byte_offset.set(cursor_offset);
+                }
+            },
+        );
+    }
 
     fn layout_info(
         self: Pin<&Self>,
