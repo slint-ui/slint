@@ -14,7 +14,11 @@ path = [
   "**/slint-logo-**.pdf",
   "**/slint-logo-**.png",
   "**/slint-logo-**.svg",
+  "docs/astro/public/apple-touch-icon.png",
   "docs/astro/public/favicon.svg",
+  "docs/astro/public/favicon-16x16.png",
+  "docs/astro/public/favicon-32x32.png",
+  "docs/astro/public/favicon.ico",
   "docs/astro/src/content/docs/reference/elements/slint-logo.png",
 ]
 precedence = "aggregate"
