@@ -733,7 +733,7 @@ pub struct PropertyLookupResult<'a> {
     pub declared_pure: Option<bool>,
     /// True if the property is part of the current component (for visibility purposes)
     pub is_local_to_component: bool,
-    /// True if the property in the direct base of the component (for visibility purposes)
+    /// True if the property in the direct base of the component (for protected visibility purposes)
     pub is_in_direct_base: bool,
 
     /// If the property is a builtin function

@@ -115,7 +115,7 @@ fn lower_element_layout(
         "VerticalLayout" => lower_box_layout(elem, diag, Orientation::Vertical),
         "Dialog" => {
             lower_dialog_layout(elem, style_metrics, diag);
-            return false; // the Dialog stays in the tree as a Dialog
+            return true; // the Dialog stays in the tree as a Dialog
         }
         _ => return false,
     };
