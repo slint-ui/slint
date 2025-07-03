@@ -10,6 +10,10 @@
 
 #[cfg(all(target_arch = "wasm32", feature = "preview-external"))]
 mod wasm;
+use std::collections::HashMap;
+
+#[cfg(target_arch = "wasm32")]
+use crate::wasm_prelude::*;
 #[cfg(all(target_arch = "wasm32", feature = "preview-external"))]
 pub use wasm::*;
 #[cfg(all(not(target_arch = "wasm32"), feature = "preview-builtin"))]
@@ -60,6 +64,23 @@ pub fn send_telemetry(data: &mut [(String, serde_json::Value)]) {
         object
     };
     send_message_to_lsp(common::PreviewToLspMessage::TelemetryEvent(object));
+}
+
+pub fn notify_diagnostics(
+    diagnostics: HashMap<lsp_types::Url, (common::SourceFileVersion, Vec<lsp_types::Diagnostic>)>,
+) -> Option<()> {
+    for (uri, (version, diagnostics)) in diagnostics {
+        send_message_to_lsp(common::PreviewToLspMessage::Diagnostics { uri, version, diagnostics });
+    }
+    Some(())
+}
+
+pub fn ask_editor_to_show_document(file: &str, selection: lsp_types::Range, take_focus: bool) {
+    let Ok(file) = lsp_types::Url::from_file_path(file) else { return };
+    if selection.start.character == 0 || selection.end.character == 0 {
+        return;
+    }
+    send_message_to_lsp(common::PreviewToLspMessage::ShowDocument { file, selection, take_focus });
 }
 
 /// Run a callback when the UI is opened
