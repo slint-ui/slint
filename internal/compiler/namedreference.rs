@@ -151,6 +151,21 @@ impl Hash for NamedReference {
     }
 }
 
+impl PartialOrd for NamedReference {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+impl Ord for NamedReference {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.element()
+            .borrow()
+            .id
+            .cmp(&other.element().borrow().id)
+            .then(self.name().cmp(other.name()))
+    }
+}
+
 struct NamedReferenceInner {
     /// The element.
     element: Weak<RefCell<Element>>,

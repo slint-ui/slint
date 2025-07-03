@@ -8,7 +8,7 @@ use crate::langtype::Type;
 use crate::object_tree::*;
 use smol_str::{format_smolstr, SmolStr};
 use std::cell::RefCell;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 
 pub fn deduplicate_property_read(component: &Component) {
     visit_all_expressions(component, |expr, ty| {
@@ -28,7 +28,7 @@ struct ReadCount {
 
 #[derive(Default)]
 struct PropertyReadCounts {
-    counts: HashMap<NamedReference, ReadCount>,
+    counts: BTreeMap<NamedReference, ReadCount>,
     /// If at least one element of the map has duplicates
     has_duplicate: bool,
     /// if there is an assignment of a property we currently disable this optimization
