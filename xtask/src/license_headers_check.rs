@@ -493,6 +493,7 @@ static LICENSE_LOCATION_FOR_FILE: LazyLock<Vec<(regex::Regex, LicenseLocation)>>
             ("\\.css$", LicenseLocation::NoLicense),
             ("\\.gitattributes$", LicenseLocation::NoLicense),
             ("\\.gitignore$", LicenseLocation::NoLicense),
+            ("\\.ico$", LicenseLocation::NoLicense),
             ("\\.vscodeignore$", LicenseLocation::NoLicense),
             ("\\.dockerignore$", LicenseLocation::NoLicense),
             ("\\.dockerignore$", LicenseLocation::NoLicense),
