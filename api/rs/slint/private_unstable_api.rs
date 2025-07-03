@@ -209,7 +209,7 @@ pub mod re_exports {
     pub use i_slint_core::lengths::{
         logical_position_to_api, LogicalLength, LogicalPoint, LogicalRect,
     };
-    pub use i_slint_core::menus::{ContextMenuFromItemTree, Menu, MenuFromItemTree, MenuVTable};
+    pub use i_slint_core::menus::{Menu, MenuFromItemTree, MenuVTable};
     pub use i_slint_core::model::*;
     pub use i_slint_core::properties::{
         set_state_binding, ChangeTracker, Property, PropertyTracker, StateInfo,

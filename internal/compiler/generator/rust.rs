@@ -2879,34 +2879,29 @@ fn compile_builtin_function_call(
                 quote! {
                     let entries = #entries;
 
-                    let context_menu_item_tree = if sp::WindowInner::from_pub(#window_adapter_tokens.window()).supports_native_menu_bar() {
-                        // May seem overkill to have an instance of the struct for each call, but there should only be one call per component anyway
-                        struct ContextMenuWrapper(sp::VRc<sp::ItemTreeVTable, #popup_id>, sp::ModelRc<sp::MenuEntry>);
-                        const _ : () = {
-                            use slint::private_unstable_api::re_exports::*;
-                            MenuVTable_static!(static VT for ContextMenuWrapper);
-                        };
-                        impl sp::Menu for ContextMenuWrapper {
-                            fn sub_menu(&self, parent: sp::Option<&sp::MenuEntry>, result: &mut sp::SharedVector<sp::MenuEntry>) {
-                                let self_rc = self.0.clone();
-                                let _self = self_rc.as_pin_ref();
-                                let model = match parent {
-                                    None => self.1.clone(),
-                                    Some(parent) => #access_sub_menu.call(&(parent.clone(),))
-                                };
-                                *result = model.iter().map(|v| v.try_into().unwrap()).collect();
-                            }
-                            fn activate(&self, entry: &sp::MenuEntry) {
-                                let self_rc = self.0.clone();
-                                let _self = self_rc.as_pin_ref();
-                                #access_activated.call(&(entry.clone(),));
-                            }
-                        }
-                        Some(sp::VBox::new(ContextMenuWrapper(popup_instance.clone(), entries.clone())))
-                    }
-                    else {
-                        None
+                    // May seem overkill to have an instance of the struct for each call, but there should only be one call per component anyway
+                    struct ContextMenuWrapper(sp::VRc<sp::ItemTreeVTable, #popup_id>, sp::ModelRc<sp::MenuEntry>);
+                    const _ : () = {
+                        use slint::private_unstable_api::re_exports::*;
+                        MenuVTable_static!(static VT for ContextMenuWrapper);
                     };
+                    impl sp::Menu for ContextMenuWrapper {
+                        fn sub_menu(&self, parent: sp::Option<&sp::MenuEntry>, result: &mut sp::SharedVector<sp::MenuEntry>) {
+                            let self_rc = self.0.clone();
+                            let _self = self_rc.as_pin_ref();
+                            let model = match parent {
+                                None => self.1.clone(),
+                                Some(parent) => #access_sub_menu.call(&(parent.clone(),))
+                            };
+                            *result = model.iter().map(|v| v.try_into().unwrap()).collect();
+                        }
+                        fn activate(&self, entry: &sp::MenuEntry) {
+                            let self_rc = self.0.clone();
+                            let _self = self_rc.as_pin_ref();
+                            #access_activated.call(&(entry.clone(),));
+                        }
+                    }
+                    let context_menu_item_tree = sp::VBox::new(ContextMenuWrapper(popup_instance.clone(), entries.clone()));
 
                     {
                         let _self = popup_instance_vrc.as_pin_ref();
@@ -2932,7 +2927,7 @@ fn compile_builtin_function_call(
                     let parent_weak = _self.self_weak.get().unwrap().clone();
                     #init_popup
 
-                    if !sp::WindowInner::from_pub(#window_adapter_tokens.window()).show_native_popup_menu(context_menu_item_tree.unwrap(), #position) {
+                    if !sp::WindowInner::from_pub(#window_adapter_tokens.window()).show_native_popup_menu(context_menu_item_tree, #position) {
                         #close_popup
                         let id = sp::WindowInner::from_pub(#window_adapter_tokens.window()).show_popup(
                             &sp::VRc::into_dyn(popup_instance.into()),

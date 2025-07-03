@@ -21,7 +21,7 @@ use winit::platform::web::WindowExtWebSys;
 use winit::platform::windows::WindowExtWindows;
 
 #[cfg(muda)]
-use crate::event_loop::MudaType;
+use crate::muda::MudaType;
 use crate::renderer::WinitCompatibleRenderer;
 
 use corelib::item_tree::ItemTreeRc;

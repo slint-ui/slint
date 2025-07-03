@@ -40,7 +40,7 @@ pub enum CustomEvent {
     #[cfg(enable_accesskit)]
     Accesskit(accesskit_winit::Event),
     #[cfg(muda)]
-    Muda(muda::MenuEvent, MudaType),
+    Muda(muda::MenuEvent, crate::muda::MudaType),
 }
 
 impl std::fmt::Debug for CustomEvent {
@@ -56,13 +56,6 @@ impl std::fmt::Debug for CustomEvent {
             Self::Muda(e, mt) => write!(f, "Muda({e:?},{mt:?})"),
         }
     }
-}
-
-#[cfg(muda)]
-#[derive(Clone, Copy, Debug)]
-pub enum MudaType {
-    Menubar,
-    Context,
 }
 
 pub struct EventLoopState {
