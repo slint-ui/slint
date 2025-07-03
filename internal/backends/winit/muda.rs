@@ -126,7 +126,7 @@ impl MudaAdapter {
             map.push(entry.clone());
             if entry.is_separator {
                 Box::new(muda::PredefinedMenuItem::separator())
-            } else if !entry.has_sub_menu && depth != 0 {
+            } else if !entry.has_sub_menu {
                 // the top level always has a sub menu regardless of entry.has_sub_menu
                 let icon = entry
                     .icon
