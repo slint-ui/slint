@@ -7,16 +7,14 @@ description: CheckBox API.
 import CodeSnippetMD from '/src/components/CodeSnippetMD.astro';
 import SlintProperty from '/src/components/SlintProperty.astro';
 
-<CodeSnippetMD imagePath="" noScreenShot imageWidth="300" imageHeight="200" imageAlt="">
+<CodeSnippetMD imagePath="/src/assets/generated/checkbox.png" scale="3" imageWidth="300" imageHeight="200" imageAlt="" needsBackground="true">
 ```slint
-import { CheckBox } from "material.slint";
+import { CheckBox, CheckState } from "material.slint";
 export component Example inherits Window {
     width: 200px;
     height: 100px;
-    background: transparent;
     CheckBox {
-        x: 10px;
-        y: 10px;
+        check-state: CheckState.checked;
     }
 }
 ```
