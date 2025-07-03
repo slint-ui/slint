@@ -2860,8 +2860,6 @@ fn compile_builtin_function_call(
                     matches!(entries.ty(ctx), Type::Array(ty) if matches!(&*ty, Type::Struct{..}))
                 );
                 let entries = compile_expression(entries, ctx);
-                let inner_component_id =
-                    self::inner_component_id(ctx.current_sub_component().unwrap());
                 let forward_callback = |access, cb| {
                     let call = context_menu
                         .clone()
@@ -2879,55 +2877,37 @@ fn compile_builtin_function_call(
                 let fw_sub_menu = forward_callback(access_sub_menu.clone(), quote!(sub_menu));
                 let fw_activated = forward_callback(access_activated.clone(), quote!(activated));
                 quote! {
+                    let entries = #entries;
+
                     let context_menu_item_tree = if sp::WindowInner::from_pub(#window_adapter_tokens.window()).supports_native_menu_bar() {
                         // May seem overkill to have an instance of the struct for each call, but there should only be one call per component anyway
-                        //
-                        // HACK:  These usages of Box::<dyn ...> are really hacks to get around the challenges of using access_sub_menu
-                        // and access_activated from within ContextMenuWrapper
-                        type PopupAccessSubMenu = Box::<dyn Fn(&sp::MenuEntry) -> sp::ModelRc<sp::MenuEntry> + 'static>;
-                        type PopupActivate = Box::<dyn Fn(&sp::MenuEntry) + 'static>;
-                        struct ContextMenuWrapper(sp::VWeakMapped<sp::ItemTreeVTable, #inner_component_id>, PopupAccessSubMenu, PopupActivate);
-
+                        struct ContextMenuWrapper(sp::VRc<sp::ItemTreeVTable, #popup_id>, sp::ModelRc<sp::MenuEntry>);
                         const _ : () = {
                             use slint::private_unstable_api::re_exports::*;
                             MenuVTable_static!(static VT for ContextMenuWrapper);
                         };
                         impl sp::Menu for ContextMenuWrapper {
                             fn sub_menu(&self, parent: sp::Option<&sp::MenuEntry>, result: &mut sp::SharedVector<sp::MenuEntry>) {
-                                let Some(self_rc) = self.0.upgrade() else { return };
+                                let self_rc = self.0.clone();
                                 let _self = self_rc.as_pin_ref();
                                 let model = match parent {
-                                    None => #entries,
-                                    Some(parent) => self.1(parent)
+                                    None => self.1.clone(),
+                                    Some(parent) => #access_sub_menu.call(&(parent.clone(),))
                                 };
                                 *result = model.iter().map(|v| v.try_into().unwrap()).collect();
                             }
                             fn activate(&self, entry: &sp::MenuEntry) {
-                                let Some(self_rc) = self.0.upgrade() else { return };
-                                self.2(entry);
+                                let self_rc = self.0.clone();
+                                let _self = self_rc.as_pin_ref();
+                                #access_activated.call(&(entry.clone(),));
                             }
                         }
-                        let popup_instance_vrc = sp::VRc::downgrade(&popup_instance);
-                        let popup_access_sub_menu = move |parent: &sp::MenuEntry| {
-                            let self_rc = popup_instance_vrc.upgrade().unwrap();
-                            let _self = self_rc.as_pin_ref();
-                            #access_sub_menu.call(&(parent.clone(),))
-                        };
-                        let popup_instance_vrc = popup_instance.clone(); // This is obviously wrong
-                        let popup_access_sub_menu = Box::new(popup_access_sub_menu) as PopupAccessSubMenu;
-                        let popup_activate = move |entry: &sp::MenuEntry| {
-                            let self_rc = popup_instance_vrc.clone();
-                            let _self = self_rc.as_pin_ref();
-                            #access_activated.call(&(entry.clone(),));
-                        };
-                        let popup_activate = Box::new(popup_activate) as PopupActivate;
-                        Some(sp::VBox::new(ContextMenuWrapper(_self.self_weak.get().unwrap().clone(), popup_access_sub_menu, popup_activate)))
+                        Some(sp::VBox::new(ContextMenuWrapper(popup_instance.clone(), entries.clone())))
                     }
                     else {
                         None
                     };
 
-                    let entries = #entries;
                     {
                         let _self = popup_instance_vrc.as_pin_ref();
                         #access_entries.set(entries.clone());
