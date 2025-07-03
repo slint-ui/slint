@@ -1,7 +1,6 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use super::event_loop::MudaType;
 use super::CustomEvent;
 use super::WinitWindowAdapter;
 use crate::SlintEvent;
@@ -19,6 +18,12 @@ pub struct MudaAdapter {
     entries: Vec<MenuEntry>,
     tracker: Option<Pin<Box<PropertyTracker<MudaPropertyTracker>>>>,
     menu: muda::Menu,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub enum MudaType {
+    Menubar,
+    Context,
 }
 
 struct MudaPropertyTracker {
