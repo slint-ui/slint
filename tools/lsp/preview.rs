@@ -127,10 +127,6 @@ impl PreviewState {
             }
         }
     }
-
-    pub fn ui_is_visible(&self) -> bool {
-        self.ui.as_ref().map(|ui| ui.window().is_visible()).unwrap_or_default()
-    }
 }
 thread_local! {pub static PREVIEW_STATE: std::cell::RefCell<PreviewState> = Default::default();}
 
@@ -146,17 +142,16 @@ fn invalidate_contents(url: &lsp_types::Url) {
 }
 
 fn delete_document(url: &lsp_types::Url) {
-    let (current, url_is_used, ui_is_visible) = PREVIEW_STATE.with_borrow_mut(|preview_state| {
+    let (current, url_is_used) = PREVIEW_STATE.with_borrow_mut(|preview_state| {
         preview_state.source_code.remove(url);
         (
             preview_state.current_previewed_component.clone(),
             preview_state.dependencies.contains(url),
-            preview_state.ui_is_visible(),
         )
     });
 
     if let Some(current) = current {
-        if (&current.url == url || url_is_used) && ui_is_visible {
+        if &current.url == url || url_is_used {
             // Trigger a compile error now!
             load_preview(current, LoadBehavior::Reload);
         }
@@ -206,7 +201,7 @@ fn apply_live_preview_data() {
 }
 
 fn set_contents(url: &common::VersionedUrl, content: String) {
-    if let Some((ui_is_visible, current)) = PREVIEW_STATE.with_borrow_mut(|preview_state| {
+    if let Some(current) = PREVIEW_STATE.with_borrow_mut(|preview_state| {
         let old = preview_state.source_code.insert(
             url.url().clone(),
             SourceCodeCacheEntry { version: *url.version(), code: content.clone() },
@@ -217,16 +212,12 @@ fn set_contents(url: &common::VersionedUrl, content: String) {
         }
 
         if preview_state.dependencies.contains(url.url()) {
-            let ui_is_visible = preview_state.ui_is_visible();
-            if let Some(current) = preview_state.current_component() {
-                return Some((ui_is_visible, current));
-            };
+            preview_state.current_component()
+        } else {
+            None
         }
-        None
     }) {
-        if ui_is_visible {
-            load_preview(current, LoadBehavior::Reload);
-        }
+        load_preview(current, LoadBehavior::Reload);
     }
 }
 
@@ -919,16 +910,13 @@ fn send_workspace_edit(label: String, edit: lsp_types::WorkspaceEdit, test_edit:
 }
 
 fn change_style() {
-    let Some((ui_is_visible, current)) = PREVIEW_STATE.with_borrow(|preview_state| {
-        let ui_is_visible = preview_state.ui_is_visible();
-        preview_state.current_component().map(|c| (ui_is_visible, c))
-    }) else {
+    let Some(current) =
+        PREVIEW_STATE.with_borrow(|preview_state| preview_state.current_component())
+    else {
         return;
     };
 
-    if ui_is_visible {
-        load_preview(current, LoadBehavior::Reload);
-    }
+    load_preview(current, LoadBehavior::Reload);
 }
 
 fn start_parsing() {
@@ -1062,29 +1050,21 @@ fn finish_parsing(preview_url: &Url, previewed_component: Option<String>, succes
 }
 
 fn config_changed(config: PreviewConfig) {
-    let Some((current, ui_is_visible, hide_ui)) =
-        PREVIEW_STATE.with_borrow_mut(move |preview_state| {
-            (preview_state.config != config).then(|| {
-                preview_state.config = config.clone();
+    let Some((current, hide_ui)) = PREVIEW_STATE.with_borrow_mut(move |preview_state| {
+        (preview_state.config != config).then(|| {
+            preview_state.config = config.clone();
 
-                (
-                    preview_state.current_component(),
-                    preview_state.ui_is_visible(),
-                    preview_state.config.hide_ui,
-                )
-            })
+            (preview_state.current_component(), preview_state.config.hide_ui)
         })
-    else {
+    }) else {
         return;
     };
 
-    if ui_is_visible {
-        if let Some(hide_ui) = hide_ui {
-            set_show_preview_ui(!hide_ui);
-        }
-        if let Some(current) = current {
-            load_preview(current, LoadBehavior::Reload);
-        }
+    if let Some(hide_ui) = hide_ui {
+        set_show_preview_ui(!hide_ui);
+    }
+    if let Some(current) = current {
+        load_preview(current, LoadBehavior::Reload);
     }
 }
 
@@ -1154,15 +1134,10 @@ async fn reload_timer_function() {
 
                 assert_eq!(preview_state.loading_state, PreviewFutureState::PreLoading);
 
-                if !preview_state.ui_is_visible() && behavior == LoadBehavior::Reload {
-                    preview_state.loading_state = PreviewFutureState::Pending;
-                    None
-                } else {
-                    preview_state.loading_state = PreviewFutureState::Loading;
-                    preview_state.dependencies.clear();
+                preview_state.loading_state = PreviewFutureState::Loading;
+                preview_state.dependencies.clear();
 
-                    Some((preview_component, preview_state.config.clone(), behavior))
-                }
+                Some((preview_component, preview_state.config.clone(), behavior))
             })
         else {
             return;
@@ -1238,11 +1213,7 @@ async fn reload_timer_function() {
 pub fn load_preview(preview_component: PreviewComponent, behavior: LoadBehavior) {
     PREVIEW_STATE.with_borrow_mut(|preview_state| {
         match behavior {
-            LoadBehavior::Reload => {
-                if !preview_state.ui_is_visible() {
-                    return;
-                }
-            }
+            LoadBehavior::Reload => {}
             LoadBehavior::Load
             | LoadBehavior::LoadWithoutLiveData
             | LoadBehavior::BringWindowToFront => {
