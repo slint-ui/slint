@@ -15,6 +15,15 @@ jobs:
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v4
+            - name: Cache WASM build
+              id: cache-wasm
+              uses: actions/cache@v4
+              with:
+                  path: |
+                      examples/gallery/pkg
+                      examples/gallery/index.html
+                      examples/gallery/frame-tablet.webp
+                  key: wasm-build-${{ hashFiles('examples/gallery/**', 'ui/**', 'Cargo.toml', 'material.slint', 'crate/**') }}
             - name: Install Rust
               uses: dtolnay/rust-toolchain@stable
               with:
@@ -25,6 +34,7 @@ jobs:
               with:
                   key: wasm-build
             - name: Build
+              if: steps.cache-wasm.outputs.cache-hit != 'true'
               working-directory: examples/gallery
               run: wasm-pack build --target web
             - name: "Upload Artifacts"

@@ -22,6 +22,13 @@ jobs:
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v4
+            - name: Cache APK build
+              id: cache-apk
+              uses: actions/cache@v4
+              with:
+                  path: |
+                      target/release/apk/slint_material.apk
+                  key: apk-build-${{ hashFiles('examples/gallery/**', 'ui/**', 'Cargo.toml', 'material.slint', 'crate/**') }}
             - name: Install Android API level 30
               run: ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-30"
             - name: Install Rust
@@ -48,6 +55,7 @@ jobs:
                   mkdir -p /home/runner/.android
                   echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > $CARGO_APK_RELEASE_KEYSTORE
             - name: Build
+              if: steps.cache-apk.outputs.cache-hit != 'true'
               working-directory: examples/gallery
               run: cargo apk build --target aarch64-linux-android --lib --release
             - name: "Upload Artifacts"
