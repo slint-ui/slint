@@ -30,8 +30,10 @@ jobs:
                       target/release/apk/slint_material.apk
                   key: apk-build-${{ hashFiles('examples/gallery/**', 'ui/**', 'Cargo.toml', 'material.slint', 'crate/**') }}
             - name: Install Android API level 30
+              if: steps.cache-apk.outputs.cache-hit != 'true'
               run: ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-30"
             - name: Install Rust
+              if: steps.cache-apk.outputs.cache-hit != 'true'
               uses: dtolnay/rust-toolchain@stable
               with:
                   target: aarch64-linux-android
@@ -48,6 +50,7 @@ jobs:
               if: steps.cargo-apk-cache.outputs.cache-hit != 'true'
               run: cargo install cargo-apk
             - uses: Swatinem/rust-cache@v2
+              if: steps.cache-apk.outputs.cache-hit != 'true'
               with:
                   key: apk-build
             - name: dump keystore

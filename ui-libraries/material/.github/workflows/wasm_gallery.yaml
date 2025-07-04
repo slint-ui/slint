@@ -25,12 +25,15 @@ jobs:
                       examples/gallery/frame-tablet.webp
                   key: wasm-build-${{ hashFiles('examples/gallery/**', 'ui/**', 'Cargo.toml', 'material.slint', 'crate/**') }}
             - name: Install Rust
+              if: steps.cache-wasm.outputs.cache-hit != 'true'
               uses: dtolnay/rust-toolchain@stable
               with:
                   target: wasm32-unknown-unknown
             - name: Install wasm-pack
+              if: steps.cache-wasm.outputs.cache-hit != 'true'
               run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
             - uses: Swatinem/rust-cache@v2
+              if: steps.cache-wasm.outputs.cache-hit != 'true'
               with:
                   key: wasm-build
             - name: Build
