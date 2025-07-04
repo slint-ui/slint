@@ -14,16 +14,21 @@ interface Props {
     skip?: boolean;
     scale?: number;
 }
-const { imagePath, imageAlt, skip, needsBackground } = Astro.props as Props;
+const { imagePath, imageAlt, skip, needsBackground, imageWidth, imageHeight } =
+    Astro.props as Props;
 const images = import.meta.glob<{ default: ImageMetadata }>(
     "/src/assets/generated/*.{jpeg,jpg,png,gif}",
 );
-if (imagePath.length > 0 && !images[imagePath]) {
-    throw new Error(
-        `"${imagePath}" does not exist in glob: "src/assets/generated/*.{jpeg,jpg,png,gif}"`,
-    );
+
+let imageMeta: ImageMetadata | undefined = undefined;
+if (imagePath.length > 0) {
+    if (!images[imagePath]) {
+        throw new Error(
+            `"${imagePath}" does not exist in glob: "src/assets/generated/*.{jpeg,jpg,png,gif}"`,
+        );
+    }
+    imageMeta = (await images[imagePath]()).default;
 }
-const imageSrc = imagePath.length > 0 ? images[imagePath]() : "";
 const imageCSS = `image-block ${needsBackground ? "screenshot-container" : ""}`;
 ---
 
@@ -32,7 +37,12 @@ const imageCSS = `image-block ${needsBackground ? "screenshot-container" : ""}`;
         <slot/>
     </div>
 
-    {imageSrc && <div class={imageCSS}>
-        <Image src={imageSrc} alt={imageAlt} />
+    {imageMeta && <div class={imageCSS}>
+        <Image
+            src={imageMeta}
+            alt={imageAlt}
+            widths={[120, 200, 320]}
+            sizes="(max-width: 600px) 40vw, 200px"
+        />
     </div>}
 </div>}
