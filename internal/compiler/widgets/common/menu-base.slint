@@ -12,6 +12,9 @@ export component MenuBarItemBase {
     in property <length> font-size <=> label.font-size;
     in property <int> font-weight <=> label.font-weight;
     in property <length> border-radius <=> background-layer.border-radius;
+    in property <length> horizontal-padding;
+    in property <length> top-padding;
+    in property <length> bottom-padding;
 
     callback clicked;
     callback hovered;
@@ -21,10 +24,10 @@ export component MenuBarItemBase {
 
         touch-area := TouchArea {
             layout := HorizontalLayout {
-                padding-top: root.padding-top;
-                padding-bottom: root.padding-bottom;
-                padding-left: root.padding-left;
-                padding-right: root.padding-right;
+                padding-top: root.top-padding;
+                padding-bottom: root.bottom-padding;
+                padding-left: root.horizontal-padding;
+                padding-right: root.horizontal-padding;
 
                 label := Text {
                     text: entry.title;
@@ -62,16 +65,14 @@ export component MenuBarBase inherits Rectangle {
     in property <length> spacing <=> layout.spacing;
     in property <LayoutAlignment> alignment <=> layout.alignment;
     in property <length> min-layout-height;
+    in property <length> horizontal-padding;
 
     min-height: max(root.min-layout-height, layout.min-height);
 
     layout := HorizontalLayout {
         alignment: start;
-        padding: root.padding;
-        padding-left: root.padding-left;
-        padding-right: root.padding-right;
-        padding-top: root.padding-top;
-        padding-bottom: root.padding-bottom;
+        padding-left: root.horizontal-padding;
+        padding-right: root.horizontal-padding;
 
         @children
     }
@@ -80,13 +81,13 @@ export component MenuBarBase inherits Rectangle {
 export component MenuFrameBase inherits Rectangle {
     in property <length> spacing <=> layout.spacing;
     in property <length> layout-min-width;
+    in property <length> margin;
 
     clip: true;
     min-width: max(root.layout-min-width, layout.min-width);
 
     layout := VerticalLayout {
-        padding: root.padding;
-
+        padding: root.margin;
         @children
     }
 }
@@ -105,6 +106,8 @@ export component MenuItemBase {
     in property <image> sub-menu-icon;
     in property <length> spacing <=> layout.spacing;
     in property <length> icon-size;
+    in property <length> horizontal-padding;
+    in property <length> vertical-padding;
 
     callback set-current();
     callback clear-current();
@@ -118,10 +121,10 @@ export component MenuItemBase {
             enabled: entry.enabled;
 
             layout := HorizontalLayout {
-                padding-top: root.padding-top;
-                padding-bottom: root.padding-bottom;
-                padding-left: root.padding-left;
-                padding-right: root.padding-right;
+                padding-top: root.vertical-padding;
+                padding-bottom: root.vertical-padding;
+                padding-left: root.horizontal-padding;
+                padding-right: root.horizontal-padding;
 
                 spacing: 10px;
 

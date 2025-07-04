@@ -13,10 +13,9 @@ export component MenuBarItem {
     min-height: base.min-height;
 
     base := MenuBarItemBase {
-        padding-left: 11px;
-        padding-right: 11px;
-        padding-top: 4px;
-        padding-bottom: 6px;
+        horizontal-padding: 11px;
+        top-padding: 4px;
+        bottom-padding: 6px;
         default-foreground: NativePalette.foreground;
         hover-foreground: NativePalette.accent-foreground;
         pressed-foreground: NativePalette.accent-foreground;
@@ -29,7 +28,6 @@ export component MenuBarItem {
 }
 
 export component MenuBar inherits MenuBarBase {
-    padding: 9px;
     spacing: 10px;
     min-layout-height: 40px;
 }
@@ -40,7 +38,7 @@ export component MenuFrame inherits MenuFrameBase {
     border-width: 1px;
     border-color: NativePalette.border;
     drop-shadow-color: transparent;
-    padding: 1px;
+    margin: 1px;
     layout-min-width: 280px;
 }
 
@@ -65,8 +63,7 @@ export component MenuItem {
             font-size: NativeStyleMetrics.default-font-size;
             font-weight: 300;
             border-radius: 4px;
-            padding-left: 11px;
-            padding-right: 11px;
+            horizontal-padding: 11px;
             spacing: 8px;
             sub-menu-icon: @image-url("_arrow_forward.svg");
             icon-size: 12px;
