@@ -40,7 +40,7 @@ async fn parse_source(
         }));
         #[cfg(target_arch = "wasm32")]
         {
-            tmp.resource_url_mapper = resource_url_mapper();
+            tmp.resource_url_mapper = crate::preview::connector::resource_url_mapper();
         }
         tmp
     };

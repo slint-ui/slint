@@ -8,6 +8,10 @@ use crate::{common, preview};
 use std::cell::RefCell;
 use std::io::{BufRead as _, Write as _};
 
+pub fn resource_url_mapper() -> Option<i_slint_compiler::ResourceUrlMapper> {
+    None
+}
+
 struct NativeLspToPreviewInner {
     communication_handle: std::thread::JoinHandle<std::result::Result<(), String>>,
     to_child: std::process::ChildStdin,
