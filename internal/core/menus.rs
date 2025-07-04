@@ -33,19 +33,10 @@ pub struct MenuVTable {
     sub_menu: extern "C" fn(VRef<MenuVTable>, Option<&MenuEntry>, &mut SharedVector<MenuEntry>),
     /// Handler when the menu entry is activated
     activate: extern "C" fn(VRef<MenuVTable>, &MenuEntry),
-}
-
-unsafe impl vtable::VTableMetaDropInPlace for MenuVTable {
-    unsafe fn drop_in_place(
-        _: &<Self as vtable::VTableMeta>::VTable,
-        _: *mut u8,
-    ) -> vtable::Layout {
-        todo!()
-    }
-
-    unsafe fn dealloc(_: &<Self as vtable::VTableMeta>::VTable, _: *mut u8, _: vtable::Layout) {
-        // TODO - memory leak until this is implemented
-    }
+    /// drop_in_place handler
+    drop_in_place: extern "C" fn(VRefMut<MenuVTable>) -> Layout,
+    /// dealloc handler
+    dealloc: extern "C" fn(&MenuVTable, ptr: *mut u8, layout: Layout),
 }
 
 struct ShadowTreeNode {
