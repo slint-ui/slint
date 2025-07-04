@@ -1316,7 +1316,7 @@ async fn parse_source(
 ) -> (
     Vec<diagnostics::Diagnostic>,
     Option<ComponentDefinition>,
-    common::document_cache::OpenImportFallback,
+    Option<common::document_cache::OpenImportFallback>,
     Rc<RefCell<common::document_cache::SourceFileVersionMap>>,
 ) {
     let mut builder = slint_interpreter::Compiler::default();
@@ -1327,10 +1327,7 @@ async fn parse_source(
     } else {
         i_slint_compiler::ComponentSelection::LastExported
     };
-    #[cfg(target_arch = "wasm32")]
-    {
-        cc.resource_url_mapper = connector::resource_url_mapper();
-    }
+    cc.resource_url_mapper = connector::resource_url_mapper();
     cc.embed_resources = EmbedResourcesKind::ListAllResources;
     cc.no_native_menu = true;
     // Otherwise this may cause a runtime panic because of the recursion
@@ -1825,7 +1822,7 @@ fn set_status_text(text: &str) {
 fn update_preview_area(
     compiled: Option<ComponentDefinition>,
     behavior: LoadBehavior,
-    open_import_fallback: common::document_cache::OpenImportFallback,
+    open_import_fallback: Option<common::document_cache::OpenImportFallback>,
     source_file_versions: Rc<RefCell<common::document_cache::SourceFileVersionMap>>,
 ) -> Result<(), PlatformError> {
     PREVIEW_STATE.with_borrow_mut(move |preview_state| {

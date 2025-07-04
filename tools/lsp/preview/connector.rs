@@ -3,11 +3,9 @@
 
 #[cfg(all(target_arch = "wasm32", feature = "preview-external"))]
 mod wasm;
-
-#[cfg(target_arch = "wasm32")]
-use crate::wasm_prelude::*;
 #[cfg(all(target_arch = "wasm32", feature = "preview-external"))]
 pub use wasm::*;
+
 #[cfg(all(not(target_arch = "wasm32"), feature = "preview-builtin"))]
 mod native;
 #[cfg(all(not(target_arch = "wasm32"), feature = "preview-builtin"))]
