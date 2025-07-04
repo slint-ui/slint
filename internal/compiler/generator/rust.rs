@@ -2806,29 +2806,34 @@ fn compile_builtin_function_call(
                     &ctx.compilation_unit.sub_components
                         [current_sub_component.menu_item_trees[*tree_index as usize].root],
                 );
-                quote!({
+                quote! {
                     let menu_item_tree_instance = #item_tree_id::new(_self.self_weak.get().unwrap().clone()).unwrap();
-                    let context_menu_item_tree = sp::Rc::new(sp::MenuFromItemTree::new(sp::VRc::into_dyn(menu_item_tree_instance)));
-                    let mut entries = sp::SharedVector::default();
-                    sp::Menu::sub_menu(&*context_menu_item_tree, sp::Option::None, &mut entries);
-                    let _self = popup_instance_vrc.as_pin_ref();
-                    #access_entries.set(sp::ModelRc::new(sp::SharedVectorModel::from(entries)));
+                    let context_menu_item_tree = sp::VRc::new(sp::MenuFromItemTree::new(sp::VRc::into_dyn(menu_item_tree_instance)));
                     let context_menu_item_tree_ = context_menu_item_tree.clone();
-                    #access_sub_menu.set_handler(move |entry| {
+                    {
                         let mut entries = sp::SharedVector::default();
-                        sp::Menu::sub_menu(&*context_menu_item_tree_, sp::Option::Some(&entry.0), &mut entries);
-                        sp::ModelRc::new(sp::SharedVectorModel::from(entries))
-                    });
-                    #access_activated.set_handler(move |entry| {
-                        sp::Menu::activate(&*context_menu_item_tree, &entry.0);
-                    });
-                    let self_weak = parent_weak.clone();
-                    #access_close.set_handler(move |()| {
-                        let Some(self_rc) = self_weak.upgrade() else { return };
-                        let _self = self_rc.as_pin_ref();
-                        #close_popup
-                    });
-                })
+                        sp::Menu::sub_menu(&*context_menu_item_tree, sp::Option::None, &mut entries);
+                        let _self = popup_instance_vrc.as_pin_ref();
+                        #access_entries.set(sp::ModelRc::new(sp::SharedVectorModel::from(entries)));
+                        let context_menu_item_tree = context_menu_item_tree_.clone();
+                        #access_sub_menu.set_handler(move |entry| {
+                            let mut entries = sp::SharedVector::default();
+                            sp::Menu::sub_menu(&*context_menu_item_tree, sp::Option::Some(&entry.0), &mut entries);
+                            sp::ModelRc::new(sp::SharedVectorModel::from(entries))
+                        });
+                        let context_menu_item_tree = context_menu_item_tree_.clone();
+                        #access_activated.set_handler(move |entry| {
+                            sp::Menu::activate(&*context_menu_item_tree_, &entry.0);
+                        });
+                        let self_weak = parent_weak.clone();
+                        #access_close.set_handler(move |()| {
+                            let Some(self_rc) = self_weak.upgrade() else { return };
+                            let _self = self_rc.as_pin_ref();
+                            #close_popup
+                        });
+                    }
+                    let context_menu_item_tree = sp::VRc::into_dyn(context_menu_item_tree);
+                }
             } else {
                 // entries should be an expression of type array of MenuEntry
                 debug_assert!(
@@ -2876,7 +2881,8 @@ fn compile_builtin_function_call(
                             #access_activated.call(&(entry.clone(),));
                         }
                     }
-                    let context_menu_item_tree = sp::VBox::new(ContextMenuWrapper(popup_instance.clone(), entries.clone()));
+                    let context_menu_item_tree = sp::VRc::new(ContextMenuWrapper(popup_instance.clone(), entries.clone()));
+                    let context_menu_item_tree = sp::VRc::into_dyn(context_menu_item_tree);
 
                     {
                         let _self = popup_instance_vrc.as_pin_ref();

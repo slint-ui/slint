@@ -344,10 +344,10 @@ pub struct WinitWindowAdapter {
     xdg_settings_watcher: RefCell<Option<i_slint_core::future::JoinHandle<()>>>,
 
     #[cfg(muda)]
-    menubar: RefCell<Option<vtable::VBox<i_slint_core::menus::MenuVTable>>>,
+    menubar: RefCell<Option<vtable::VRc<i_slint_core::menus::MenuVTable>>>,
 
     #[cfg(muda)]
-    context_menu: RefCell<Option<vtable::VBox<i_slint_core::menus::MenuVTable>>>,
+    context_menu: RefCell<Option<vtable::VRc<i_slint_core::menus::MenuVTable>>>,
 
     #[cfg(all(muda, target_os = "macos"))]
     muda_enable_default_menu_bar: bool,
@@ -637,12 +637,12 @@ impl WinitWindowAdapter {
         let maybe_muda_adapter = maybe_muda_adapter.borrow();
         let Some(muda_adapter) = maybe_muda_adapter.as_ref() else { return };
         let menu = match muda_type {
-            MudaType::Menubar => &self.menubar,
-            MudaType::Context => &self.context_menu,
+                MudaType::Menubar => &self.menubar,
+                MudaType::Context => &self.context_menu,
         };
         let menu = menu.borrow();
         let Some(menu) = menu.as_ref() else { return };
-        muda_adapter.invoke(menu, entry_id);
+        muda_adapter.invoke(menu, entry_id);            
     }
 
     #[cfg(target_arch = "wasm32")]
@@ -1306,7 +1306,7 @@ impl WindowAdapterInternal for WinitWindowAdapter {
     }
 
     #[cfg(muda)]
-    fn setup_menubar(&self, menubar: vtable::VBox<i_slint_core::menus::MenuVTable>) {
+    fn setup_menubar(&self, menubar: vtable::VRc<i_slint_core::menus::MenuVTable>) {
         self.menubar.replace(Some(menubar));
 
         if let WinitWindowOrNone::HasWindow { muda_adapter, .. } =
@@ -1326,7 +1326,7 @@ impl WindowAdapterInternal for WinitWindowAdapter {
     #[cfg(muda)]
     fn show_native_popup_menu(
         &self,
-        context_menu_item: vtable::VBox<i_slint_core::menus::MenuVTable>,
+        context_menu_item: vtable::VRc<i_slint_core::menus::MenuVTable>,
         position: LogicalPosition,
     ) -> bool {
         self.context_menu.replace(Some(context_menu_item));

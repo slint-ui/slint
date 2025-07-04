@@ -43,7 +43,7 @@ impl PropertyDirtyHandler for MudaPropertyTracker {
 
 impl MudaAdapter {
     pub fn setup(
-        menubar: &vtable::VBox<MenuVTable>,
+        menubar: &vtable::VRc<MenuVTable>,
         winit_window: &Window,
         proxy: EventLoopProxy<SlintEvent>,
         window_adapter_weak: Weak<WinitWindowAdapter>,
@@ -77,7 +77,7 @@ impl MudaAdapter {
     }
 
     pub fn show_context_menu(
-        context_menu: &vtable::VBox<MenuVTable>,
+        context_menu: &vtable::VRc<MenuVTable>,
         winit_window: &Window,
         position: LogicalPosition,
         proxy: EventLoopProxy<SlintEvent>,
@@ -114,7 +114,7 @@ impl MudaAdapter {
     pub fn rebuild_menu(
         &mut self,
         winit_window: &Window,
-        menubar: Option<&vtable::VBox<MenuVTable>>,
+        menubar: Option<&vtable::VRc<MenuVTable>>,
     ) {
         // clear the menu
         while self.menu.remove_at(0).is_some() {}
@@ -176,15 +176,15 @@ impl MudaAdapter {
         #[cfg(target_os = "macos")]
         create_default_app_menu(&self.menu).unwrap();
 
-        if let Some(menubar) = menubar.as_ref() {
+        if let Some(menubar) = menubar.as_deref() {
             let mut build_menu = || {
                 let mut menu_entries = Default::default();
-                menubar.sub_menu(None, &mut menu_entries);
+                vtable::VRc::borrow(&menubar).sub_menu(None, &mut menu_entries);
                 let window_id = u64::from(winit_window.id()).to_string();
                 for e in menu_entries {
                     self.menu
                         .append(&*generate_menu_entry(
-                            menubar.borrow(),
+                            vtable::VRc::borrow(&menubar),
                             &e,
                             0,
                             &mut self.entries,
@@ -202,9 +202,9 @@ impl MudaAdapter {
         }
     }
 
-    pub fn invoke(&self, menubar: &vtable::VBox<MenuVTable>, entry_id: usize) {
+    pub fn invoke(&self, menubar: &vtable::VRc<MenuVTable>, entry_id: usize) {
         let Some(entry) = &self.entries.get(entry_id) else { return };
-        menubar.activate(entry);
+        vtable::VRc::borrow(&menubar).activate(entry);
     }
 
     #[cfg(target_os = "macos")]
