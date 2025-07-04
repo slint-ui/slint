@@ -655,12 +655,12 @@ impl WinitWindowAdapter {
         let maybe_muda_adapter = maybe_muda_adapter.borrow();
         let Some(muda_adapter) = maybe_muda_adapter.as_ref() else { return };
         let menu = match muda_type {
-                MudaType::Menubar => &self.menubar,
-                MudaType::Context => &self.context_menu,
+            MudaType::Menubar => &self.menubar,
+            MudaType::Context => &self.context_menu,
         };
         let menu = menu.borrow();
         let Some(menu) = menu.as_ref() else { return };
-        muda_adapter.invoke(menu, entry_id);            
+        muda_adapter.invoke(menu, entry_id);
     }
 
     #[cfg(target_arch = "wasm32")]

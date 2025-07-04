@@ -36,7 +36,10 @@ pub struct MenuVTable {
 }
 
 unsafe impl vtable::VTableMetaDropInPlace for MenuVTable {
-    unsafe fn drop_in_place(_: &<Self as vtable::VTableMeta>::VTable, _: *mut u8) -> vtable::Layout {
+    unsafe fn drop_in_place(
+        _: &<Self as vtable::VTableMeta>::VTable,
+        _: *mut u8,
+    ) -> vtable::Layout {
         todo!()
     }
 
