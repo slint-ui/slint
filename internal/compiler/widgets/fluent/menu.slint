@@ -14,10 +14,9 @@ export component MenuBarItem {
     min-height: base.min-height;
 
     base := MenuBarItemBase {
-        padding-left: 11px;
-        padding-right: 11px;
-        padding-top: 4px;
-        padding-bottom: 6px;
+        horizontal-padding: 11px;
+        top-padding: 4px;
+        bottom-padding: 6px;
         default-foreground: FluentPalette.foreground;
         hover-foreground: FluentPalette.foreground;
         pressed-foreground: FluentPalette.text-secondary;
@@ -30,7 +29,6 @@ export component MenuBarItem {
 }
 
 export component MenuBar inherits MenuBarBase {
-    padding: 9px;
     spacing: 10px;
     min-layout-height: 40px;
 }
@@ -43,7 +41,7 @@ export component MenuFrame inherits MenuFrameBase {
     drop-shadow-color: FluentPalette.shadow;
     drop-shadow-offset-y: 8px;
     drop-shadow-blur: 16px;
-    padding: 1px;
+    margin: 1px;
     layout-min-width: 280px;
 }
 
@@ -68,8 +66,7 @@ export component MenuItem {
             font-size: FluentFontSettings.body.font-size;
             font-weight: FluentFontSettings.body.font-weight;
             border-radius: 4px;
-            padding-left: 11px;
-            padding-right: 11px;
+            horizontal-padding: 11px;
             spacing: 8px;
             sub-menu-icon: @image-url("_arrow_forward.svg");
             icon-size: 12px;

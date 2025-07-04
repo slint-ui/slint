@@ -14,10 +14,9 @@ export component MenuBarItem {
     min-height: base.min-height;
 
     base := MenuBarItemBase {
-        padding-left: 12px;
-        padding-right: 12px;
-        padding-top: 4px;
-        padding-bottom: 4px;
+        horizontal-padding: 12px;
+        top-padding: 4px;
+        bottom-padding: 4px;
         default-foreground: CosmicPalette.accent-background;
         hover-foreground: CosmicPalette.accent-background;
         pressed-foreground: CosmicPalette.accent-background;
@@ -30,7 +29,6 @@ export component MenuBarItem {
 }
 
 export component MenuBar inherits MenuBarBase {
-    padding: 8px;
     spacing: 4px;
     min-layout-height: 48px;
 }
@@ -64,8 +62,7 @@ export component MenuItem {
             separator-color: CosmicPalette.border;
             font-size: CosmicFontSettings.body.font-size;
             font-weight: CosmicFontSettings.body.font-weight;
-            padding-left: 16px;
-            padding-right: 16px;
+            horizontal-padding: 16px;
             spacing: 8px;
             sub-menu-icon: @image-url("_arrow_forward.svg");
             icon-size: 16px;
