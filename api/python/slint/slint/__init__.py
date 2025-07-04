@@ -375,7 +375,7 @@ def _callback_decorator(
 
 
 def callback(
-    global_name: str | None = None, name: str | None = None
+    global_name: typing.Callable[..., Any] | str | None = None, name: str | None = None
 ) -> typing.Callable[..., Any]:
     """Use the callback decorator to mark a method as a callback that can be invoked from the Slint component.
 

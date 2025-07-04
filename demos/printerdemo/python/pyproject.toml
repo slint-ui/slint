@@ -11,3 +11,7 @@ dependencies = ["slint"]
 
 [tool.uv.sources]
 slint = { path = "../../../api/python/slint", editable = true }
+
+[tool.mypy]
+disallow_incomplete_defs = true
+disallow_untyped_defs = true
