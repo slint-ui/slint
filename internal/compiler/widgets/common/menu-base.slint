@@ -81,12 +81,13 @@ export component MenuBarBase inherits Rectangle {
 export component MenuFrameBase inherits Rectangle {
     in property <length> spacing <=> layout.spacing;
     in property <length> layout-min-width;
-    in property <length> margin <=> layout.padding;
+    in property <length> margin;
 
     clip: true;
     min-width: max(root.layout-min-width, layout.min-width);
 
     layout := VerticalLayout {
+        padding: root.margin;
         @children
     }
 }
