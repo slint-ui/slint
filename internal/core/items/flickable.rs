@@ -116,7 +116,9 @@ impl Item for Flickable {
                 || pos.x_length() > geometry.width_length()
                 || pos.y_length() > geometry.height_length()
             {
-                return InputEventFilterResult::Intercept;
+                if !self.data.inner.borrow().pressed_time.is_some() {
+                    return InputEventFilterResult::Intercept;
+                }
             }
         }
         if !self.interactive() && !matches!(event, MouseEvent::Wheel { .. }) {
