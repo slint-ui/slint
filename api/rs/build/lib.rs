@@ -484,7 +484,9 @@ pub fn compile_with_output_path(
     let (doc, diag, loader) =
         spin_on::spin_on(i_slint_compiler::compile_syntax_node(syntax_node, diag, compiler_config));
 
-    if diag.has_errors() {
+    if diag.has_errors()
+        || (!diag.is_empty() && std::env::var("SLINT_COMPILER_DENY_WARNINGS").is_ok())
+    {
         let vec = diag.to_string_vec();
         diag.print();
         return Err(CompileError::CompileError(vec));
