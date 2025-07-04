@@ -3139,7 +3139,9 @@ fn compile_builtin_function_call(
                     quote!()
                 } else {
                     quote!(if sp::WindowInner::from_pub(#window_adapter_tokens.window()).supports_native_menu_bar() {
-                        sp::WindowInner::from_pub(#window_adapter_tokens.window()).setup_menubar(sp::VBox::new(menu_item_tree));
+                        let menu_item_tree = sp::VRc::new(menu_item_tree);
+                        let menu_item_tree = sp::VRc::into_dyn(menu_item_tree);
+                        sp::WindowInner::from_pub(#window_adapter_tokens.window()).setup_menubar(menu_item_tree);
                     } else)
                 };
 
@@ -3198,7 +3200,9 @@ fn compile_builtin_function_call(
                                 #activated.call(&(entry.clone(),))
                             }
                         }
-                        sp::WindowInner::from_pub(#window_adapter_tokens.window()).setup_menubar(sp::VBox::new(MenuBarWrapper(_self.self_weak.get().unwrap().clone())));
+                        let menubar = sp::VRc::new(MenuBarWrapper(_self.self_weak.get().unwrap().clone()));
+                        let menubar = sp::VRc::into_dyn(menubar);
+                        sp::WindowInner::from_pub(#window_adapter_tokens.window()).setup_menubar(menubar);
                     }
                 }
             } else {
