@@ -67,8 +67,7 @@ export component RainInfo inherits Rectangle {
 
     property<float> max-bar-volume: 10;
 
-    padding-top: 2px;
-    padding-bottom: 2px;
+    property<length> margin: 2px;
 
     opacity: root.minimal ? (root.precipitation-probability * 30% + 70%) : 100%;
 
@@ -77,7 +76,7 @@ export component RainInfo inherits Rectangle {
         y: parent.height - self.height;
 
         width: 3px;
-        height: (parent.height - parent.padding-top - parent.padding-bottom) *
+        height: (parent.height - 2 * parent.margin) *
                     Math.min(root.volume, root.max-bar-volume) / root.max-bar-volume * 100%;
 
         background: root.type-color;

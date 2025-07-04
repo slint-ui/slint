@@ -255,16 +255,10 @@ export component ExpandedCityWeatherTile inherits TouchArea {
             clip: true;
 
             Flickable {
-                padding-top: 15px;
-                padding-bottom: 15px;
-
-                y: self.padding-top;
-                height: parent.height - self.padding-top - self.padding-bottom;
 
                 VerticalLayout {
                     alignment: start;
-                    padding-left: 15px;
-                    padding-right: 15px;
+                    padding: 15px;
 
                     ForecastTitleLine {}
 

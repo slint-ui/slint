@@ -104,7 +104,6 @@ component CityWeatherList inherits Flickable {
 
     VerticalLayout {
         alignment: start;
-        padding: 0px;
 
         for city-weather-info[index] in CityWeather.city-weather:
             CitySlideArea {
@@ -171,8 +170,6 @@ export component CityListView inherits PageBase {
     property<TileInfo> selected-tile;
 
     CityWeatherList {
-        padding: 16px;
-
         expand(index, absolute-position, width, height) => {
             root.selected-tile = {
                 index: index,

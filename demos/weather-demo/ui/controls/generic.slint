@@ -28,11 +28,7 @@ export component FloatingTextButton inherits Rectangle {
     background: AppPalette.background;
     border-radius: Math.min(self.width, self.height) / 2;
 
-    padding: 12px;
-    padding-left: self.padding;
-    padding-right: self.padding;
-    padding-top: self.padding;
-    padding-bottom: self.padding;
+    property<length> margins: 12px;
 
     preferred-width: 48px;
     preferred-height: 48px;
@@ -41,8 +37,8 @@ export component FloatingTextButton inherits Rectangle {
     height: self.preferred-height;
 
     icon := AppIcon {
-        width: parent.width - parent.padding-left - parent.padding-right;
-        height: parent.height - parent.padding-top - parent.padding-bottom;
+        width: parent.width - 2 * parent.margins;
+        height: parent.height - 2 * parent.margins;
     }
 
     TouchArea {
@@ -77,24 +73,15 @@ export component TextField inherits Rectangle {
 
     forward-focus: text-input;
 
-    padding: 5px;
-    padding-top: self.padding;
-    padding-right: self.padding;
-    padding-bottom: self.padding;
-    padding-left: self.padding;
-
-    preferred-height: text-input.preferred-height + self.padding-top + self.padding-bottom;
+    property <length> margins: 5px;
+    preferred-height: text-input.preferred-height + 2 * self.margins;
     height: self.preferred-height;
 
     border-radius: 5px;
     background: white.with-alpha(15%);
 
     HorizontalLayout {
-        x: root.padding-left;
-        width: parent.width - root.padding-left - root.padding-right;
-
-        y: root.padding-top;
-        height: parent.height - root.padding-top - root.padding-bottom;
+        padding: parent.margins;
 
         spacing: icon.preferred-width > 0 ? 10px : 0px;
 
