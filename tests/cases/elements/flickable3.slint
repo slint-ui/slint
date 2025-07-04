@@ -27,16 +27,30 @@ TestCase := Window {
     x: 250phx;
     width: 250phx;
     viewport-width: 800phx;
+    y: 0;
+    height: 300phx;
 
     t2 := TouchArea {
       width: 50phx;
       Rectangle { background: parent.has-hover ? green: yellow; }
+      pointer-event(event) => {
+        if event.kind == PointerEventKind.cancel {
+            root.pointer-events += "C";
+        } else if event.kind == PointerEventKind.down {
+            root.pointer-events += "D(" + self.mouse-y/1px + ")";
+        } else if event.kind == PointerEventKind.up {
+            root.pointer-events += "U(" + self.mouse-y/1px + ")";
+        } else if event.kind == PointerEventKind.move {
+            root.pointer-events += "M(" + self.mouse-y/1px + ")";
+        }
+        }
     }
   }
 
   out property<bool> t1-has-hover: t1.has-hover;
   out property<bool> t1sec-has-hover: t1sec.has-hover;
   out property<bool> t2-has-hover: t2.has-hover;
+  out property <string> pointer-events;
 
   in-out property f1_pos <=> f1.viewport_y;
 }
@@ -89,6 +103,30 @@ slint_testing::mock_elapsed_time(100);
 assert_eq!(instance.get_f1_pos(), -60.0);
 instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(30.0, 25.0) });
 assert_eq!(instance.get_f1_pos(), -60.0);
+```
+
+```rust
+// Test pointer event of the inner touch area
+use slint::{platform::WindowEvent, LogicalPosition, platform::PointerEventButton};
+let instance = TestCase::new().unwrap();
+
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(255.0, 25.0) });
+assert_eq!(instance.get_t2_has_hover(), true);
+assert_eq!(instance.get_pointer_events(), "M(25)");
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(255.0, 28.0), button: PointerEventButton::Left });
+slint_testing::mock_elapsed_time(100);
+assert_eq!(instance.get_t2_has_hover(), true);
+assert_eq!(instance.get_pointer_events(), "M(25)D(28)");
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(255.0, 30.0) });
+assert_eq!(instance.get_pointer_events(), "M(25)D(28)M(30)");
+slint_testing::mock_elapsed_time(200);
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(255.0, 350.0) });
+assert_eq!(instance.get_pointer_events(), "M(25)D(28)M(30)M(350)");
+slint_testing::mock_elapsed_time(100);
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(255.0, 380.0), button: PointerEventButton::Left });
+slint_testing::mock_elapsed_time(100);
+assert_eq!(instance.get_pointer_events(), "M(25)D(28)M(30)M(350)U(380)");
+
 ```
 
 
