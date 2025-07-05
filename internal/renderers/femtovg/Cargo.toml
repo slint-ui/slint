@@ -17,9 +17,9 @@ path = "lib.rs"
 
 [features]
 default = []
-wgpu = ["wgpu-24"]
-wgpu-24 = ["dep:wgpu-24", "femtovg/wgpu"]
-unstable-wgpu-24 = ["wgpu-24"]
+wgpu = ["wgpu-25"]
+wgpu-25 = ["dep:wgpu-25", "femtovg/wgpu"]
+unstable-wgpu-25 = ["wgpu-25"]
 
 [dependencies]
 i-slint-core = { workspace = true, features = ["default", "box-shadow-cache", "shared-fontdb"] }
@@ -33,7 +33,7 @@ derive_more = { workspace = true }
 lyon_path = "1.0"
 pin-weak = "1"
 scoped-tls-hkt = "0.1"
-femtovg = { version = "0.14.1" }
+femtovg = { version = "0.15.0" }
 ttf-parser = { workspace = true }
 unicode-script = { version = "0.5.4" } # Use the same version was femtovg's rustybuzz, to avoid duplicate crates
 imgref = { version = "1.6.1" }
@@ -42,7 +42,7 @@ rgb = { version = "0.8.27" }
 glow = { workspace = true }
 unicode-segmentation = { workspace = true }
 
-wgpu-24 = { workspace = true, optional = true, default-features = true }
+wgpu-25 = { workspace = true, optional = true, default-features = true }
 
 [target.'cfg(target_family = "windows")'.dependencies]
 winapi = { version = "0.3", features = ["dwrite"] }

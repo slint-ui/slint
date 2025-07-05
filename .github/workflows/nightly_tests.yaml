@@ -183,3 +183,17 @@ jobs:
                 path: ${{ matrix.scheme }}.png
 
 
+    bevy_example:
+        strategy:
+            matrix:
+                os: [ubuntu-22.04, macos-14, windows-2022]
+        runs-on: ${{ matrix.os }}
+        steps:
+            - uses: actions/checkout@v4
+            - uses: ./.github/actions/setup-rust
+            - uses: ./.github/actions/install-linux-dependencies
+            - uses: ./.github/actions/install-skia-dependencies
+            - uses: ilammy/msvc-dev-cmd@v1
+            - name: Build Bevy Example
+              run: cargo build
+              working-directory: examples/bevy

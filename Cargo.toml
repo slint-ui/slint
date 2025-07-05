@@ -11,7 +11,6 @@ members = [
   'api/python/slint',
   'api/wasm-interpreter',
   'examples/7guis',
-  "examples/bevy",
   'examples/gallery',
   'examples/imagefilter/rust',
   'examples/maps',
@@ -166,7 +165,7 @@ raw-window-handle-06 = { package = "raw-window-handle", version = "0.6", feature
 unicode-segmentation = { version = "1.12.0" }
 glow = { version = "0.16" }
 tikv-jemallocator = { version = "0.6" }
-wgpu-24 = { package = "wgpu", version = "24", default-features = false }
+wgpu-25 = { package = "wgpu", version = "25", default-features = false }
 
 [profile.release]
 lto = true
