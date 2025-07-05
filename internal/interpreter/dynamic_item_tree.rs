@@ -2518,3 +2518,15 @@ pub fn update_timers(instance: InstanceRef) {
         }
     }
 }
+
+pub fn restart_timer(element: ElementRc, instance: InstanceRef) {
+    let timers = instance.description.original.timers.borrow();
+    if let Some((_, offset)) = timers
+        .iter()
+        .zip(&instance.description.timers)
+        .find(|(desc, _)| Rc::ptr_eq(&desc.element, &element))
+    {
+        let timer = offset.apply(instance.as_ref());
+        timer.restart();
+    }
+}

@@ -3236,6 +3236,17 @@ fn compile_builtin_function_call(
         BuiltinFunction::DetectOperatingSystem => {
             quote!(sp::detect_operating_system())
         }
+        // start and stop are unreachable because they are lowered to simple assignment of running
+        BuiltinFunction::StartTimer => unreachable!(),
+        BuiltinFunction::StopTimer => unreachable!(),
+        BuiltinFunction::RestartTimer => {
+            if let [Expression::NumberLiteral(timer_index)] = arguments {
+                let ident = format_ident!("timer{}", *timer_index as usize);
+                quote!(_self.#ident.restart())
+            } else {
+                panic!("internal error: invalid args to RetartTimer {arguments:?}")
+            }
+        }
     }
 }
 
