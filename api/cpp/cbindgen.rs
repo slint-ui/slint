@@ -896,6 +896,7 @@ fn gen_interpreter(
         "Diagnostic",
         "PropertyDescriptor",
         "Box",
+        "LiveReloadingComponentInner",
     ])
     .map(String::from)
     .collect();
@@ -942,6 +943,7 @@ fn gen_interpreter(
                 using slint::interpreter::ValueType;
                 using slint::interpreter::PropertyDescriptor;
                 using slint::interpreter::Diagnostic;
+                struct LiveReloadingComponentInner;
                 template <typename T> using Box = T*;
             }",
         )
@@ -985,6 +987,7 @@ macro_rules! declare_features {
 
 declare_features! {
     interpreter
+    live_reload
     testing
     backend_qt
     backend_winit
