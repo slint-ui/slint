@@ -1227,7 +1227,7 @@ pub fn print_diagnostics(diagnostics: &[Diagnostic]) {
 /// An instance can be put on screen with the [`ComponentInstance::run`] function.
 #[repr(C)]
 pub struct ComponentInstance {
-    inner: crate::dynamic_item_tree::DynamicComponentVRc,
+    pub(crate) inner: crate::dynamic_item_tree::DynamicComponentVRc,
 }
 
 impl ComponentInstance {

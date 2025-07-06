@@ -303,3 +303,137 @@ impl Watcher {
         self.files.insert(path.into());
     }
 }
+
+#[cfg(feature = "ffi")]
+mod ffi {
+    use super::*;
+    use core::ffi::c_void;
+    use i_slint_core::window::WindowAdapter;
+    use i_slint_core::{slice::Slice, SharedString, SharedVector};
+    type LiveReloadingComponentInner = RefCell<LiveReloadingComponent>;
+
+    #[no_mangle]
+    /// LibraryPath is an array of string that have in the form `lib=...`
+    pub extern "C" fn slint_live_reload_new(
+        file_name: Slice<u8>,
+        component_name: Slice<u8>,
+        include_paths: &SharedVector<SharedString>,
+        library_paths: &SharedVector<SharedString>,
+        style: Slice<u8>,
+    ) -> *const LiveReloadingComponentInner {
+        let mut compiler = Compiler::default();
+        compiler.set_include_paths(
+            include_paths.iter().map(|path| PathBuf::from(path.as_str())).collect(),
+        );
+        compiler.set_library_paths(
+            library_paths
+                .iter()
+                .map(|path| path.as_str().split_once('=').expect("library path must have an '='"))
+                .map(|(lib, path)| (lib.into(), PathBuf::from(path)))
+                .collect(),
+        );
+        if !style.is_empty() {
+            compiler.set_style(std::str::from_utf8(&style).unwrap().into());
+        }
+        Rc::into_raw(
+            LiveReloadingComponent::new(
+                compiler,
+                std::path::PathBuf::from(std::str::from_utf8(&file_name).unwrap()),
+                std::str::from_utf8(&component_name).unwrap().into(),
+            )
+            .expect("Creating the component failed"),
+        )
+    }
+
+    #[no_mangle]
+    pub unsafe extern "C" fn slint_live_reload_clone(
+        component: *const LiveReloadingComponentInner,
+    ) {
+        Rc::increment_strong_count(component);
+    }
+
+    #[no_mangle]
+    pub unsafe extern "C" fn slint_live_reload_drop(component: *const LiveReloadingComponentInner) {
+        Rc::decrement_strong_count(component);
+    }
+
+    #[no_mangle]
+    pub extern "C" fn slint_live_reload_set_property(
+        component: &LiveReloadingComponentInner,
+        property: Slice<u8>,
+        value: &Value,
+    ) {
+        let property = std::str::from_utf8(&property).unwrap();
+        if let Some((global, prop)) = property.split_once('.') {
+            component.borrow_mut().set_global_property(global, prop, value.clone());
+        } else {
+            component.borrow_mut().set_property(property, value.clone());
+        }
+    }
+
+    #[no_mangle]
+    pub extern "C" fn slint_live_reload_get_property(
+        component: &LiveReloadingComponentInner,
+        property: Slice<u8>,
+    ) -> *mut Value {
+        let property = std::str::from_utf8(&property).unwrap();
+        let val = if let Some((global, prop)) = property.split_once('.') {
+            component.borrow().get_global_property(global, prop)
+        } else {
+            component.borrow().get_property(property)
+        };
+        Box::into_raw(Box::new(val))
+    }
+
+    #[no_mangle]
+    pub extern "C" fn slint_live_reload_invoke(
+        component: &LiveReloadingComponentInner,
+        callback: Slice<u8>,
+        args: Slice<Box<Value>>,
+    ) -> *mut Value {
+        let callback = std::str::from_utf8(&callback).unwrap();
+        let args = args.iter().map(|vb| vb.as_ref().clone()).collect::<Vec<_>>();
+        let val = if let Some((global, prop)) = callback.split_once('.') {
+            component.borrow().invoke_global(global, prop, &args)
+        } else {
+            component.borrow().invoke(callback, &args)
+        };
+        Box::into_raw(Box::new(val))
+    }
+
+    #[no_mangle]
+    pub unsafe extern "C" fn slint_live_reload_set_callback(
+        component: &LiveReloadingComponentInner,
+        callback: Slice<u8>,
+        callback_handler: extern "C" fn(
+            user_data: *mut c_void,
+            arg: Slice<Box<Value>>,
+        ) -> Box<Value>,
+        user_data: *mut c_void,
+        drop_user_data: Option<extern "C" fn(*mut c_void)>,
+    ) {
+        let ud = crate::ffi::CallbackUserData::new(user_data, drop_user_data, callback_handler);
+        let handler = Rc::new(move |args: &[Value]| ud.call(args));
+        let callback = std::str::from_utf8(&callback).unwrap();
+        if let Some((global, prop)) = callback.split_once('.') {
+            component.borrow_mut().set_global_callback(global, prop, handler);
+        } else {
+            component.borrow_mut().set_callback(callback, handler);
+        }
+    }
+
+    /// Same precondition as slint_interpreter_component_instance_window
+    #[unsafe(no_mangle)]
+    pub unsafe extern "C" fn slint_live_reload_window(
+        component: &LiveReloadingComponentInner,
+        out: *mut *const i_slint_core::window::ffi::WindowAdapterRcOpaque,
+    ) {
+        assert_eq!(
+            core::mem::size_of::<Rc<dyn WindowAdapter>>(),
+            core::mem::size_of::<i_slint_core::window::ffi::WindowAdapterRcOpaque>()
+        );
+        let borrow = component.borrow();
+        let adapter = borrow.instance().inner.window_adapter_ref().unwrap();
+        core::ptr::write(out as *mut *const Rc<dyn WindowAdapter>, adapter as *const _)
+    }
+}
