@@ -20,7 +20,7 @@ jobs:
         steps:
             - uses: actions/checkout@v4
             - uses: dtolnay/rust-toolchain@stable
-            - uses: esp-rs/xtensa-toolchain@v1.5
+            - uses: esp-rs/xtensa-toolchain@v1.6
               with:
                   default: true
                   buildtargets: esp32
