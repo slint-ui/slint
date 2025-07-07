@@ -374,7 +374,7 @@ declare_syntax! {
         Expression-> [ ?Expression, ?FunctionCallExpression, ?IndexExpression, ?SelfAssignment,
                        ?ConditionalExpression, ?QualifiedName, ?BinaryExpression, ?Array, ?ObjectLiteral,
                        ?UnaryOpExpression, ?CodeBlock, ?StringTemplate, ?AtImageUrl, ?AtGradient, ?AtTr,
-                       ?MemberAccess ],
+                       ?MemberAccess, ?AtKeys ],
         /// Concatenate the Expressions to make a string (usually expended from a template string)
         StringTemplate -> [*Expression],
         /// `@image-url("foo.png")`
@@ -387,6 +387,8 @@ declare_syntax! {
         TrContext -> [],
         /// `| "foo" % n`  in a `AtTr` node
         TrPlural -> [Expression],
+        /// `@keys(...)`
+        AtKeys -> [],
         /// expression()
         FunctionCallExpression -> [*Expression],
         /// `expression[index]`

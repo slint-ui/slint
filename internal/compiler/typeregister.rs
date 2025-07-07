@@ -388,6 +388,7 @@ impl TypeRegister {
         register.insert_type(Type::Angle);
         register.insert_type(Type::Brush);
         register.insert_type(Type::Rem);
+        register.insert_type(Type::KeyboardShortcut);
         register.types.insert("Point".into(), logical_point_type());
 
         BUILTIN.with(|e| e.enums.fill_register(&mut register));

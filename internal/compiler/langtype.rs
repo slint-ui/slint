@@ -54,6 +54,7 @@ pub enum Type {
     Array(Rc<Type>),
     Struct(Rc<Struct>),
     Enumeration(Rc<Enumeration>),
+    KeyboardShortcut,
 
     /// A type made up of the product of several "unit" types.
     /// The first parameter is the unit, and the second parameter is the power.
@@ -101,6 +102,7 @@ impl core::cmp::PartialEq for Type {
                 matches!(other, Type::Struct(rhs) if lhs.fields == rhs.fields && lhs.name == rhs.name)
             }
             Type::Enumeration(lhs) => matches!(other, Type::Enumeration(rhs) if lhs == rhs),
+            Type::KeyboardShortcut => matches!(other, Type::KeyboardShortcut),
             Type::UnitProduct(a) => matches!(other, Type::UnitProduct(b) if a == b),
             Type::ElementReference => matches!(other, Type::ElementReference),
             Type::LayoutCache => matches!(other, Type::LayoutCache),
@@ -160,6 +162,7 @@ impl Display for Type {
             Type::Easing => write!(f, "easing"),
             Type::Brush => write!(f, "brush"),
             Type::Enumeration(enumeration) => write!(f, "enum {}", enumeration.name),
+            Type::KeyboardShortcut => write!(f, "keyboard-shortcut"),
             Type::UnitProduct(vec) => {
                 const POWERS: &[char] = &['⁰', '¹', '²', '³', '⁴', '⁵', '⁶', '⁷', '⁸', '⁹'];
                 let mut x = vec.iter().map(|(unit, power)| {
@@ -208,6 +211,7 @@ impl Type {
                 | Self::Bool
                 | Self::Easing
                 | Self::Enumeration(_)
+                | Self::KeyboardShortcut
                 | Self::ElementReference
                 | Self::Struct { .. }
                 | Self::Array(_)
@@ -265,6 +269,7 @@ impl Type {
             | (Type::LogicalLength, Type::Rem)
             | (Type::PhysicalLength, Type::Rem)
             | (Type::Percent, Type::Float32)
+            | (Type::KeyboardShortcut, Type::String)
             | (Type::Brush, Type::Color)
             | (Type::Color, Type::Brush) => true,
             (Type::Array(a), Type::Model) if a.is_property_type() => true,
@@ -311,6 +316,7 @@ impl Type {
             Type::Array(_) => None,
             Type::Struct { .. } => None,
             Type::Enumeration(_) => None,
+            Type::KeyboardShortcut => None,
             Type::UnitProduct(_) => None,
             Type::ElementReference => None,
             Type::LayoutCache => None,
@@ -837,6 +843,40 @@ impl Enumeration {
             }
         })
     }
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct KeyboardModifiers {
+    pub alt: bool,
+    pub control: bool,
+    pub meta: bool,
+    pub shift: bool,
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct KeyboardShortcut {
+    pub key: String,
+    pub modifiers: KeyboardModifiers,
+}
+
+impl PartialEq for KeyboardShortcut {
+    fn eq(&self, _other: &Self) -> bool {
+        true
+    }
+}
+
+impl std::fmt::Display for KeyboardShortcut {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let alt = if self.modifiers.alt { "alt+" } else { "" };
+        let ctrl = if self.modifiers.control { "ctrl+" } else { "" };
+        let meta = if self.modifiers.meta { "meta+" } else { "" };
+        let shift = if self.modifiers.shift { "shift+" } else { "" };
+        write!(f, "{alt}{ctrl}{meta}{shift}{}", self.key)
+    }
+}
+
+pub fn keyboard_shortcuts_to_string(shortcuts: &[KeyboardShortcut]) -> String {
+    shortcuts.iter().map(|ks| ks.to_string()).join(", ")
 }
 
 #[derive(Clone, Debug)]
