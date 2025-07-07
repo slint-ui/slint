@@ -22,13 +22,14 @@ def test_load_file(caplog: pytest.LogCaptureFixture) -> None:
         in caplog.text
     )
 
-    assert len(list(module.__dict__.keys())) == 6
+    assert len(list(module.__dict__.keys())) == 7
     assert "App" in module.__dict__
     assert "Diag" in module.__dict__
     assert "MyDiag" in module.__dict__
     assert "MyData" in module.__dict__
     assert "Secret_Struct" in module.__dict__
     assert "Public_Struct" in module.__dict__
+    assert "TestEnum" in module.__dict__
     instance = module.App()
     del instance
     instance = module.MyDiag()

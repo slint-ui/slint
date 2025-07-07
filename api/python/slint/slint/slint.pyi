@@ -171,7 +171,7 @@ class CompilationResult:
     component_names: list[str]
     diagnostics: list[PyDiagnostic]
     named_exports: list[typing.Tuple[str, str]]
-    structs_and_enums: typing.Dict[str, PyStruct]
+    structs_and_enums: typing.Tuple[typing.Dict[str, PyStruct], typing.Dict[str, Enum]]
     def component(self, name: str) -> ComponentDefinition: ...
 
 class Compiler:

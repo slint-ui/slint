@@ -295,6 +295,37 @@ data.age = 10
 main_window.data = data
 ```
 
+### Enums
+
+Enums declared in Slint and exposed to Python via `export` are then accessible in the namespace that is returned
+when [instantiating a component](#instantiating-a-component). The enums are subclasses of [enum.Enum](https://docs.python.org/3/library/enum.html).
+
+**`app.slint`**
+
+```slint
+export enum MyOption {
+    Variant1,
+    Variant2
+}
+
+export component MainWindow inherits Window {
+    in-out property <MyOption> data;
+}
+```
+
+**`main.py`**
+
+Variants of the exported `MyOption` enum can be constructed as follows:
+
+```python
+import slint
+# Look for for `app.slint` in `sys.path`:
+main_window = slint.loader.app.MainWindow()
+
+value = slint.loader.app.MyOption.Variant2
+main_window.data = value
+```
+
 ## Third-Party Licenses
 
 For a list of the third-party licenses of all dependencies, see the separate [Third-Party Licenses page](thirdparty.html).
