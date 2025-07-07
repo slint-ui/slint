@@ -10,7 +10,8 @@
 
 use crate::diagnostics::{BuildDiagnostics, Spanned};
 use crate::expression_tree::*;
-use crate::langtype::{ElementType, Struct, StructName, Type};
+use crate::langtype;
+use crate::langtype::{ElementType, KeyboardModifiers, Struct, StructName, Type};
 use crate::lookup::{LookupCtx, LookupObject, LookupResult, LookupResultCallable};
 use crate::object_tree::*;
 use crate::parser::{NodeOrToken, SyntaxKind, SyntaxNode, identifier_text, syntax_nodes};
@@ -84,6 +85,9 @@ fn resolve_expression(
                     "Two way binding should have been resolved already  (property: {property_name:?})"
                 );
                 Expression::Invalid
+            }
+            SyntaxKind::AtKeys => {
+                Expression::from_at_keys_node(node.clone().into(), &mut lookup_ctx)
             }
             _ => {
                 debug_assert!(diag.has_errors());
@@ -364,6 +368,7 @@ impl Expression {
                     SyntaxKind::AtGradient => Some(Self::from_at_gradient(node.into(), ctx)),
                     SyntaxKind::AtTr => Some(Self::from_at_tr(node.into(), ctx)),
                     SyntaxKind::AtMarkdown => Some(Self::from_at_markdown(node.into(), ctx)),
+                    SyntaxKind::AtKeys => Some(Self::from_at_keys_node(node.into(), ctx)),
                     SyntaxKind::QualifiedName => Some(Self::from_qualified_name_node(
                         node.clone().into(),
                         ctx,
@@ -1062,6 +1067,40 @@ impl Expression {
             ],
             source_location: Some(node.to_source_location()),
         }
+    }
+
+    pub fn from_at_keys_node(node: syntax_nodes::AtKeys, ctx: &mut LookupCtx) -> Self {
+        let mut shortcut = langtype::KeyboardShortcut::default();
+
+        for identifier in node
+            .children_with_tokens()
+            .filter(|n| matches!(n.kind(), SyntaxKind::Identifier))
+            // The first identifier is always `keys`
+            .skip(1)
+        {
+            match identifier.as_token().unwrap().text() {
+                "Alt" => shortcut.modifiers.alt = true,
+                "Control" => shortcut.modifiers.control = true,
+                "Meta" => shortcut.modifiers.meta = true,
+                "Shift" => shortcut.modifiers.shift = true,
+                s => {
+                    let count = s.chars().count();
+                    let lookup = crate::lookup::KeysLookup {};
+                    if count > 1 && lookup.lookup(ctx, &SmolStr::from(s)).is_none() {
+                        ctx.diag.push_error(
+                            format!("'{s}' is not a member of the `Keys` namespace"),
+                            &identifier,
+                        );
+                        shortcut.modifiers = KeyboardModifiers::default();
+                        break;
+                    } else {
+                        shortcut.key = s.to_string();
+                    }
+                }
+            }
+        }
+
+        Expression::KeyboardShortcut(shortcut)
     }
 
     /// Perform the lookup

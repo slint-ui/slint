@@ -137,6 +137,8 @@ pub enum Value {
     StyledText(StyledText) = 13,
     #[doc(hidden)]
     ArrayOfU16(SharedVector<u16>) = 14,
+    /// Correspond to the `keyboard-shortcut` type in .slint
+    KeyboardShortcut(KeyboardShortcut) = 15,
 }
 
 impl Value {
@@ -186,6 +188,9 @@ impl PartialEq for Value {
             Value::StyledText(lhs) => {
                 matches!(other, Value::StyledText(rhs) if lhs == rhs)
             }
+            Value::KeyboardShortcut(lhs) => {
+                matches!(other, Value::KeyboardShortcut(rhs) if lhs == rhs)
+            }
         }
     }
 }
@@ -214,6 +219,7 @@ impl std::fmt::Debug for Value {
             Value::ArrayOfU16(data) => {
                 write!(f, "Value::ArrayOfU16({data:?})")
             }
+            Value::KeyboardShortcut(ks) => write!(f, "Value::KeyboardShortcut({ks})"),
         }
     }
 }

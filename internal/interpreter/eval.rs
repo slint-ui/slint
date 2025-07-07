@@ -443,6 +443,17 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
         Expression::EnumerationValue(value) => {
             Value::EnumerationValue(value.enumeration.name.to_string(), value.to_string())
         }
+        Expression::KeyboardShortcut(ks) => {
+            Value::KeyboardShortcut(i_slint_core::input::KeyboardShortcut {
+                key: SharedString::from(ks.key.clone()),
+                modifiers: i_slint_core::input::KeyboardModifiers {
+                    alt: ks.modifiers.alt,
+                    control: ks.modifiers.control,
+                    shift: ks.modifiers.shift,
+                    meta: ks.modifiers.meta,
+                },
+            })
+        }
         Expression::ReturnStatement(x) => {
             let val = x.as_ref().map_or(Value::Void, |x| eval_expression(x, local_context));
             if local_context.return_value.is_none() {
@@ -1892,6 +1903,7 @@ fn check_value_type(value: &mut Value, ty: &Type) -> bool {
         Type::Enumeration(en) => {
             matches!(value, Value::EnumerationValue(name, _) if name == en.name.as_str())
         }
+        Type::KeyboardShortcutType => matches!(value, Value::String(_)), // TODO: This is wrong, Strings in general are not applicable!
         Type::LayoutCache => matches!(value, Value::LayoutCache(_)),
         Type::ArrayOfU16 => matches!(value, Value::ArrayOfU16(_)),
         Type::ComponentFactory => matches!(value, Value::ComponentFactory(_)),
@@ -2186,6 +2198,7 @@ pub fn default_value_for_type(ty: &Type) -> Value {
             e.name.to_string(),
             e.values.get(e.default_value).unwrap().to_string(),
         ),
+        Type::KeyboardShortcutType => Value::String(SharedString::new()), // TODO: I need a Value-type for this
         Type::Easing => Value::EasingCurve(Default::default()),
         Type::Void | Type::Invalid => Value::Void,
         Type::UnitProduct(_) => Value::Number(0.),

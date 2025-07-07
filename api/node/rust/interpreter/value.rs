@@ -293,6 +293,7 @@ pub fn to_value(env: &Env, unknown: JsUnknown, typ: &Type) -> Result<Value> {
         | Type::PathData
         | Type::LayoutCache
         | Type::ArrayOfU16
+        | Type::KeyboardShortcutType
         | Type::ElementReference
         | Type::StyledText => Err(napi::Error::from_reason("reason")),
     }
