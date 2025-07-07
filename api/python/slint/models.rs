@@ -11,7 +11,7 @@ use pyo3::gc::PyVisit;
 use pyo3::prelude::*;
 use pyo3::PyTraverseError;
 
-use crate::value::PyValue;
+use crate::value::{PyToSlintValue, SlintToPyValue};
 
 pub struct PyModelShared {
     notify: ModelNotify,
@@ -119,7 +119,7 @@ impl i_slint_core::model::Model for PyModelShared {
                 }
             };
 
-            match result.extract::<PyValue>(py) {
+            match result.extract::<PyToSlintValue>(py) {
                 Ok(pv) => Some(pv.0),
                 Err(err) => {
                     eprintln!("Python: Model implementation of row_data() returned value that cannot be converted to Rust: {err}");
@@ -137,7 +137,9 @@ impl i_slint_core::model::Model for PyModelShared {
                 return;
             };
 
-            if let Err(err) = obj.call_method1(py, "set_row_data", (row, PyValue::from(data))) {
+            if let Err(err) =
+                obj.call_method1(py, "set_row_data", (row, SlintToPyValue::from(data)))
+            {
                 eprintln!(
                     "Python: Model implementation of set_row_data() threw an exception: {err}"
                 );
@@ -174,7 +176,7 @@ impl ReadOnlyRustModel {
         self.0.row_count()
     }
 
-    fn row_data(&self, row: usize) -> Option<PyValue> {
+    fn row_data(&self, row: usize) -> Option<SlintToPyValue> {
         self.0.row_data(row).map(|value| value.into())
     }
 
@@ -186,7 +188,7 @@ impl ReadOnlyRustModel {
         ReadOnlyRustModelIterator { model: slf.0.clone(), row: 0 }
     }
 
-    fn __getitem__(&self, index: usize) -> Option<PyValue> {
+    fn __getitem__(&self, index: usize) -> Option<SlintToPyValue> {
         self.row_data(index)
     }
 }
@@ -209,7 +211,7 @@ impl ReadOnlyRustModelIterator {
         slf
     }
 
-    fn __next__(&mut self) -> Option<PyValue> {
+    fn __next__(&mut self) -> Option<SlintToPyValue> {
         if self.row >= self.model.row_count() {
             return None;
         }
