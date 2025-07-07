@@ -24,6 +24,11 @@ struct Secret-Struct {
 
 export { Secret-Struct as Public-Struct }
 
+export enum TestEnum {
+    Variant1,
+    Variant2,
+}
+
 export component App inherits Window {
     in-out property <string> hello: "World";
     callback say-hello(string) -> string;
@@ -33,20 +38,20 @@ export component App inherits Window {
     invoke-say-hello(arg) => {
         return self.say-hello(arg);
     }
-
     callback invoke-say-hello-again(string) -> string;
     invoke-say-hello-again(arg) => {
         return self.say-hello-again(arg);
     }
-
     callback invoke-global-callback(string) -> string;
     invoke-global-callback(arg) => {
         return MyGlobal.global-callback(arg);
     }
-
     public function plus-one(value: int) {
         return value + 1;
     }
+
+    in-out property <TestEnum> enum-property: TestEnum.Variant2;
+    in-out property <[TestEnum]> model-with-enums: [TestEnum.Variant2, TestEnum.Variant1];
 
     Rectangle {
         color: red;

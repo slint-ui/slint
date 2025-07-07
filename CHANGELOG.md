@@ -13,6 +13,10 @@ All notable changes to this project are documented in this file.
 
  - Fixed panic when attempting to convert brushes to colors.
 
+### Python
+
+ - Added support for automatically mapping exported Slint enums to property Python `enum.Enum` subclasses.
+
 ## [1.12.1] - 2025-06-25
 
 ### General
