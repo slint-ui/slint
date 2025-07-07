@@ -6,23 +6,24 @@
 use crate::{common, preview};
 
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::io::{BufRead as _, Write as _};
 
 pub fn resource_url_mapper() -> Option<i_slint_compiler::ResourceUrlMapper> {
     None
 }
 
-struct NativeLspToPreviewInner {
+struct ChildProcessLspToPreviewInner {
     communication_handle: std::thread::JoinHandle<std::result::Result<(), String>>,
     to_child: std::process::ChildStdin,
 }
 
-pub struct NativeLspToPreview {
-    inner: RefCell<Option<NativeLspToPreviewInner>>,
+pub struct ChildProcessLspToPreview {
+    inner: RefCell<Option<ChildProcessLspToPreviewInner>>,
     preview_to_lsp_channel: crossbeam_channel::Sender<common::PreviewToLspMessage>,
 }
 
-impl NativeLspToPreview {
+impl ChildProcessLspToPreview {
     pub fn new(
         preview_to_lsp_channel: crossbeam_channel::Sender<common::PreviewToLspMessage>,
     ) -> Self {
@@ -64,13 +65,14 @@ impl NativeLspToPreview {
             Ok(())
         });
 
-        *self.inner.borrow_mut() = Some(NativeLspToPreviewInner { communication_handle, to_child });
+        *self.inner.borrow_mut() =
+            Some(ChildProcessLspToPreviewInner { communication_handle, to_child });
 
         Ok(())
     }
 }
 
-impl Drop for NativeLspToPreview {
+impl Drop for ChildProcessLspToPreview {
     fn drop(&mut self) {
         if let Some(inner) = self.inner.borrow_mut().take() {
             let _ = inner.communication_handle.join();
@@ -78,7 +80,7 @@ impl Drop for NativeLspToPreview {
     }
 }
 
-impl common::LspToPreview for NativeLspToPreview {
+impl common::LspToPreview for ChildProcessLspToPreview {
     fn send(&self, message: &common::LspToPreviewMessage) -> common::Result<()> {
         if self.preview_is_running() {
             let mut inner = self.inner.borrow_mut();
@@ -93,6 +95,77 @@ impl common::LspToPreview for NativeLspToPreview {
             eprintln!("Ignoring LSP -> PREVIEW communication attempt");
         }
         Ok(())
+    }
+
+    fn preview_target(&self) -> common::PreviewTarget {
+        common::PreviewTarget::ChildProcess
+    }
+
+    fn set_preview_target(&self, _: common::PreviewTarget) -> common::Result<()> {
+        Err("Can not change the preview target".into())
+    }
+}
+
+pub struct EmbeddedLspToPreview {
+    server_notifier: crate::ServerNotifier,
+}
+
+impl EmbeddedLspToPreview {
+    pub fn new(server_notifier: crate::ServerNotifier) -> Self {
+        Self { server_notifier }
+    }
+}
+
+impl common::LspToPreview for EmbeddedLspToPreview {
+    fn send(&self, message: &common::LspToPreviewMessage) -> common::Result<()> {
+        self.server_notifier.send_notification::<common::LspToPreviewMessage>(message.clone())
+    }
+
+    fn preview_target(&self) -> common::PreviewTarget {
+        common::PreviewTarget::EmbeddedWasm
+    }
+
+    fn set_preview_target(&self, _: common::PreviewTarget) -> common::Result<()> {
+        Err("Can not change the preview target".into())
+    }
+}
+
+pub struct SwitchableLspToPreview {
+    lsp_to_previews: HashMap<common::PreviewTarget, Box<dyn common::LspToPreview>>,
+    current_target: RefCell<common::PreviewTarget>,
+}
+
+impl SwitchableLspToPreview {
+    pub fn new(
+        lsp_to_previews: HashMap<common::PreviewTarget, Box<dyn common::LspToPreview>>,
+        current_target: common::PreviewTarget,
+    ) -> common::Result<Self> {
+        if lsp_to_previews.contains_key(&current_target) {
+            Ok(Self { lsp_to_previews, current_target: RefCell::new(current_target) })
+        } else {
+            Err("No such target".into())
+        }
+    }
+}
+
+impl common::LspToPreview for SwitchableLspToPreview {
+    fn send(&self, message: &common::LspToPreviewMessage) -> common::Result<()> {
+        self.lsp_to_previews.get(&self.current_target.borrow()).unwrap().send(message)
+    }
+
+    fn preview_target(&self) -> common::PreviewTarget {
+        self.current_target.borrow().clone()
+    }
+
+    fn set_preview_target(&self, target: common::PreviewTarget) -> common::Result<()> {
+        if self.lsp_to_previews.contains_key(&target) {
+            eprintln!("Switching to target: {target:?}: FOUND");
+            *self.current_target.borrow_mut() = target;
+            Ok(())
+        } else {
+            eprintln!("Switching to target: {target:?}: NOT FOUND");
+            Err("Target not found".into())
+        }
     }
 }
 

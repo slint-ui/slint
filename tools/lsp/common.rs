@@ -29,9 +29,21 @@ use crate::wasm_prelude::*;
 /// ignore a node for code analysis purposes.
 pub const NODE_IGNORE_COMMENT: &str = "@lsp:ignore-node";
 
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+pub enum PreviewTarget {
+    #[allow(dead_code)]
+    ChildProcess,
+    #[allow(dead_code)]
+    EmbeddedWasm,
+    #[allow(dead_code)]
+    Dummy,
+}
+
 #[allow(dead_code)]
 pub trait LspToPreview {
     fn send(&self, message: &LspToPreviewMessage) -> Result<()>;
+    fn set_preview_target(&self, target: PreviewTarget) -> Result<()>;
+    fn preview_target(&self) -> PreviewTarget;
 }
 
 #[derive(Default, Clone)]
@@ -40,6 +52,14 @@ pub struct DummyLspToPreview {}
 impl LspToPreview for DummyLspToPreview {
     fn send(&self, _message: &LspToPreviewMessage) -> Result<()> {
         Ok(())
+    }
+
+    fn preview_target(&self) -> PreviewTarget {
+        PreviewTarget::Dummy
+    }
+
+    fn set_preview_target(&self, _: PreviewTarget) -> Result<()> {
+        Err("Can not change the preview target".into())
     }
 }
 
