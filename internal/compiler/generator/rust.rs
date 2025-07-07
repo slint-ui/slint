@@ -79,7 +79,7 @@ pub fn rust_primitive_type(ty: &Type) -> Option<proc_macro2::TokenStream> {
         Type::Void => Some(quote!(())),
         Type::Int32 => Some(quote!(i32)),
         Type::Float32 => Some(quote!(f32)),
-        Type::String => Some(quote!(sp::SharedString)),
+        Type::String | Type::KeyboardShortcut => Some(quote!(sp::SharedString)),
         Type::Color => Some(quote!(sp::Color)),
         Type::Easing => Some(quote!(sp::EasingCurve)),
         Type::ComponentFactory => Some(quote!(slint::ComponentFactory)),

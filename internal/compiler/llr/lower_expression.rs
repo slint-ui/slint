@@ -14,7 +14,7 @@ use super::{
     MemberReference, PropertyIdx,
 };
 use crate::expression_tree::{BuiltinFunction, Callable, Expression as tree_Expression};
-use crate::langtype::{BuiltinPrivateStruct, EnumerationValue, Struct, StructName, Type};
+use crate::langtype::{self, BuiltinPrivateStruct, EnumerationValue, Struct, StructName, Type};
 use crate::layout::{GridLayoutCell, Orientation, RowColExpr};
 use crate::llr::ArrayOutput as llr_ArrayOutput;
 use crate::llr::Expression as llr_Expression;
@@ -247,6 +247,9 @@ pub fn lower_expression(
                 .collect::<_>(),
         },
         tree_Expression::EnumerationValue(e) => llr_Expression::EnumerationValue(e.clone()),
+        tree_Expression::KeyboardShortcut(ks) => {
+            llr_Expression::StringLiteral(SmolStr::from(langtype::keyboard_shortcuts_to_string(ks)))
+        }
         tree_Expression::ReturnStatement(..) => {
             panic!("The remove return pass should have removed all return")
         }

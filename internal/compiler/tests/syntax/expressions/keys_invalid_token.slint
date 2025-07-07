@@ -1,0 +1,9 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component SuperSimple {
+    property <keyboard-shortcut> k1: @keys();
+    property <keyboard-shortcut> k2: @keys(a);
+    property <keyboard-shortcut> k3: @keys(a, b);
+//                                          ^error{Expected 'Alt', 'Control', 'Meta', 'Shift, '+', <CHAR>, or any other symbol in the Keys namespace}
+}
