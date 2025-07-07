@@ -242,7 +242,11 @@ struct Watcher {
 
 impl Watcher {
     fn new(component_weak: std::rc::Weak<RefCell<LiveReloadingComponent>>) -> Arc<Mutex<Self>> {
-        let arc = Arc::new(Mutex::new(Self { state: WatcherState::Starting, watcher: None, files: Default::default() }));
+        let arc = Arc::new(Mutex::new(Self {
+            state: WatcherState::Starting,
+            watcher: None,
+            files: Default::default(),
+        }));
 
         let watcher_weak = Arc::downgrade(&arc);
         let result = crate::spawn_local(std::future::poll_fn(move |cx| {
@@ -274,9 +278,7 @@ impl Watcher {
                 let Ok(event) = event else { return };
                 let Some(watcher) = watcher_weak.upgrade() else { return };
                 if matches!(event.kind, K::Modify(ModifyKind::Data(_)) | K::Create(_))
-                    && watcher
-                        .lock()
-                        .is_ok_and(|w| event.paths.iter().any(|p| w.files.contains(p)))
+                    && watcher.lock().is_ok_and(|w| event.paths.iter().any(|p| w.files.contains(p)))
                 {
                     if let WatcherState::Waiting(waker) =
                         std::mem::replace(&mut watcher.lock().unwrap().state, WatcherState::Changed)
