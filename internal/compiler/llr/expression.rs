@@ -7,7 +7,7 @@ use super::{
     SubComponentInstanceIdx,
 };
 use crate::expression_tree::{BuiltinFunction, MinMaxOp, OperatorClass};
-use crate::langtype::Type;
+use crate::langtype::{KeyboardShortcut, Type};
 use crate::layout::Orientation;
 use itertools::Either;
 use smol_str::SmolStr;
@@ -29,6 +29,9 @@ pub enum Expression {
     NumberLiteral(f64),
     /// Bool
     BoolLiteral(bool),
+
+    // KeyboardShortcut
+    KeyboardShortcutLiteral(KeyboardShortcut),
 
     /// Reference to a property (which can also be a callback) or an element (property name is empty then).
     PropertyReference(MemberReference),
@@ -290,6 +293,9 @@ impl Expression {
             Type::Enumeration(enumeration) => {
                 Expression::EnumerationValue(enumeration.clone().default_value())
             }
+            Type::KeyboardShortcutType => {
+                Expression::KeyboardShortcutLiteral(KeyboardShortcut::default())
+            }
             Type::ComponentFactory => Expression::EmptyComponentFactory,
             Type::StyledText => return None,
         })
@@ -346,6 +352,7 @@ impl Expression {
             Self::RadialGradient { .. } => Type::Brush,
             Self::ConicGradient { .. } => Type::Brush,
             Self::EnumerationValue(e) => Type::Enumeration(e.enumeration.clone()),
+            Self::KeyboardShortcutLiteral(_) => Type::KeyboardShortcutType,
             Self::LayoutCacheAccess { .. } => Type::LogicalLength,
             Self::WithLayoutItemInfo { sub_expression, .. } => sub_expression.ty(ctx),
             Self::WithGridInputData { sub_expression, .. } => sub_expression.ty(ctx),
@@ -427,6 +434,7 @@ macro_rules! visit_impl {
                 }
             }
             Expression::EnumerationValue(_) => {}
+            Expression::KeyboardShortcutLiteral(_) => {}
             Expression::LayoutCacheAccess { repeater_index, .. } => {
                 if let Some(repeater_index) = repeater_index {
                     $visitor(repeater_index);

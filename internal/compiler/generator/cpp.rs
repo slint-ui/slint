@@ -106,7 +106,7 @@ pub mod cpp_ast {
 
     use smol_str::{SmolStr, format_smolstr};
 
-    thread_local!(static INDENTATION : Cell<u32> = Cell::new(0));
+    thread_local!(static INDENTATION : Cell<u32> = const { Cell::new(0) });
     fn indent(f: &mut Formatter<'_>) -> Result<(), Error> {
         INDENTATION.with(|i| {
             for _ in 0..(i.get()) {
@@ -157,7 +157,7 @@ pub mod cpp_ast {
                             Some(Declaration::Var(Var {
                                 ty: var.ty.clone(),
                                 name: var.name.clone(),
-                                array_size: var.array_size.clone(),
+                                array_size: var.array_size,
                                 init: std::mem::take(&mut var.init),
                                 is_extern: false,
                                 ..Default::default()
@@ -529,7 +529,7 @@ impl CppType for Type {
             Type::Void => Some("void".into()),
             Type::Float32 => Some("float".into()),
             Type::Int32 => Some("int".into()),
-            Type::String => Some("slint::SharedString".into()),
+            Type::String | Type::KeyboardShortcutType => Some("slint::SharedString".into()),
             Type::Color => Some("slint::Color".into()),
             Type::Duration => Some("std::int64_t".into()),
             Type::Angle => Some("float".into()),
@@ -576,7 +576,7 @@ fn remove_parentheses(expr: &str) -> &str {
     if expr.starts_with('(') && expr.ends_with(')') {
         let mut level = 0;
         // check that the opening and closing parentheses are on the same level
-        for byte in expr[1..expr.len() - 1].as_bytes() {
+        for byte in &expr.as_bytes()[1..expr.len() - 1] {
             match byte {
                 b')' if level == 0 => return expr,
                 b')' => level -= 1,
@@ -2279,7 +2279,7 @@ fn generate_sub_component(
                 "   if (!self->{name}.running() || self->{name}.interval() != interval)"
             ));
             update_timers.push(format!("       self->{name}.start(slint::TimerMode::Repeated, interval, [self] {{ {callback}; }});"));
-            update_timers.push(format!("}} else {{ self->{name}.stop(); }}").into());
+            update_timers.push(format!("}} else {{ self->{name}.stop(); }}"));
             target_struct.members.push((
                 field_access,
                 Declaration::Var(Var { ty: "slint::Timer".into(), name, ..Default::default() }),
@@ -3325,6 +3325,16 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             }
         }
         Expression::BoolLiteral(b) => b.to_string(),
+        Expression::KeyboardShortcutLiteral(ks) => {
+            format!(
+                "slint::private_api::KeyboardShortcut {{ .key = {}, .modifiers = {{{}, {}, {}, {}}} }}",
+                ks.key,
+                ks.modifiers.alt,
+                ks.modifiers.control,
+                ks.modifiers.shift,
+                ks.modifiers.meta
+            )
+        }
         Expression::PropertyReference(nr) => access_member(nr, ctx).get_property(),
         Expression::BuiltinFunctionCall { function, arguments } => {
             compile_builtin_function_call(function.clone(), arguments, ctx)
