@@ -120,6 +120,7 @@ SPDX-License-Identifier = "MIT"
 path = [
   "api/**/**.json",
   "api/node/__test__/resources/**.png",
+  "CMakePresets.json",
 
   "editors/sublime/LSP.sublime-settings",
   "editors/tree-sitter-slint/corpus/**.txt",
