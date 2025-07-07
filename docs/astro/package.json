@@ -29,7 +29,8 @@
     "sharp": "0.34.2",
     "starlight-links-validator": "0.17.0",
     "starlight-sidebar-topics": "0.6.0",
-    "typescript": "5.8.3"
+    "typescript": "5.8.3",
+    "@slint/common-files": "workspace:*"
   },
   "devDependencies": {
     "@playwright/test": "1.53.2",

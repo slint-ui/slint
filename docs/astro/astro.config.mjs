@@ -13,7 +13,7 @@ import {
     RUST_SLINT_CRATE_URL,
     NODEJS_BASE_URL,
     PYTHON_BASE_URL,
-} from "./src/utils/site-config";
+} from "@slint/common-files/src/utils/site-config";
 
 // https://astro.build/config
 export default defineConfig({
@@ -46,9 +46,9 @@ export default defineConfig({
             customCss: ["./src/styles/custom.css", "./src/styles/theme.css"],
 
             components: {
-                Footer: "./src/components/Footer.astro",
-                Header: "./src/components/Header.astro",
-                Banner: "./src/components/Banner.astro",
+                Footer: "@slint/common-files/src/components/Footer.astro",
+                Header: "@slint/common-files/src/components/Header.astro",
+                Banner: "@slint/common-files/src/components/Banner.astro",
             },
             plugins: [
                 starlightSidebarTopics([
