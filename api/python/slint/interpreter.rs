@@ -21,7 +21,7 @@ use pyo3::PyTraverseError;
 use crate::errors::{
     PyGetPropertyError, PyInvokeError, PyPlatformError, PySetCallbackError, PySetPropertyError,
 };
-use crate::value::{PyStruct, PyValue};
+use crate::value::{PyStruct, PyToSlintValue, SlintToPyValue};
 
 #[gen_stub_pyclass]
 #[pyclass(unsendable)]
@@ -300,12 +300,12 @@ impl ComponentInstance {
         ComponentDefinition { definition: self.instance.definition() }
     }
 
-    fn get_property(&self, name: &str) -> Result<PyValue, PyGetPropertyError> {
+    fn get_property(&self, name: &str) -> Result<SlintToPyValue, PyGetPropertyError> {
         Ok(self.instance.get_property(name)?.into())
     }
 
     fn set_property(&self, name: &str, value: Bound<'_, PyAny>) -> PyResult<()> {
-        let pv: PyValue = value.extract()?;
+        let pv: PyToSlintValue = value.extract()?;
         Ok(self.instance.set_property(name, pv.0).map_err(|e| PySetPropertyError(e))?)
     }
 
@@ -313,7 +313,7 @@ impl ComponentInstance {
         &self,
         global_name: &str,
         prop_name: &str,
-    ) -> Result<PyValue, PyGetPropertyError> {
+    ) -> Result<SlintToPyValue, PyGetPropertyError> {
         Ok(self.instance.get_global_property(global_name, prop_name)?.into())
     }
 
@@ -323,7 +323,7 @@ impl ComponentInstance {
         prop_name: &str,
         value: Bound<'_, PyAny>,
     ) -> PyResult<()> {
-        let pv: PyValue = value.extract()?;
+        let pv: PyToSlintValue = value.extract()?;
         Ok(self
             .instance
             .set_global_property(global_name, prop_name, pv.0)
@@ -331,10 +331,10 @@ impl ComponentInstance {
     }
 
     #[pyo3(signature = (callback_name, *args))]
-    fn invoke(&self, callback_name: &str, args: Bound<'_, PyTuple>) -> PyResult<PyValue> {
+    fn invoke(&self, callback_name: &str, args: Bound<'_, PyTuple>) -> PyResult<SlintToPyValue> {
         let mut rust_args = vec![];
         for arg in args.iter() {
-            let pv: PyValue = arg.extract()?;
+            let pv: PyToSlintValue = arg.extract()?;
             rust_args.push(pv.0)
         }
         Ok(self.instance.invoke(callback_name, &rust_args).map_err(|e| PyInvokeError(e))?.into())
@@ -346,10 +346,10 @@ impl ComponentInstance {
         global_name: &str,
         callback_name: &str,
         args: Bound<'_, PyTuple>,
-    ) -> PyResult<PyValue> {
+    ) -> PyResult<SlintToPyValue> {
         let mut rust_args = vec![];
         for arg in args.iter() {
-            let pv: PyValue = arg.extract()?;
+            let pv: PyToSlintValue = arg.extract()?;
             rust_args.push(pv.0)
         }
         Ok(self
@@ -419,7 +419,8 @@ impl GcVisibleCallbacks {
             let callables = callables.borrow();
             let callable = callables.get(&name).unwrap();
             Python::with_gil(|py| {
-                let py_args = PyTuple::new(py, args.iter().map(|v| PyValue(v.clone()))).unwrap();
+                let py_args =
+                    PyTuple::new(py, args.iter().map(|v| SlintToPyValue(v.clone()))).unwrap();
                 let result = match callable.call(py, py_args, None) {
                     Ok(result) => result,
                     Err(err) => {
@@ -429,7 +430,7 @@ impl GcVisibleCallbacks {
                         return Value::Void;
                     }
                 };
-                let pv: PyValue = match result.extract(py) {
+                let pv: PyToSlintValue = match result.extract(py) {
                     Ok(value) => value,
                     Err(err) => {
                         eprintln!("Python: Unable to convert return value of Python callback for {name} to Slint value: {err}");

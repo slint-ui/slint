@@ -9,9 +9,12 @@ use pyo3_stub_gen::{derive::gen_stub_pyclass, derive::gen_stub_pymethods};
 use std::collections::HashMap;
 
 #[gen_stub_pyclass]
-pub struct PyValue(pub slint_interpreter::Value);
+pub struct PyToSlintValue(pub slint_interpreter::Value);
 
-impl<'py> IntoPyObject<'py> for PyValue {
+#[gen_stub_pyclass]
+pub struct SlintToPyValue(pub slint_interpreter::Value);
+
+impl<'py> IntoPyObject<'py> for SlintToPyValue {
     type Target = PyAny;
     type Output = Bound<'py, Self::Target>;
     type Error = PyErr;
@@ -45,10 +48,10 @@ impl<'py> IntoPyObject<'py> for PyValue {
     }
 }
 
-impl<'py> FromPyObject<'py> for PyValue {
+impl<'py> FromPyObject<'py> for PyToSlintValue {
     fn extract_bound(ob: &Bound<'py, PyAny>) -> PyResult<Self> {
         if ob.is_none() {
-            return Ok(slint_interpreter::Value::Void.into());
+            return Ok(Self(slint_interpreter::Value::Void));
         }
 
         let interpreter_val = ob
@@ -89,7 +92,7 @@ impl<'py> FromPyObject<'py> for PyValue {
                     .iter()
                     .map(|(name, pyval)| {
                         let name = name.extract::<&str>()?.to_string();
-                        let slintval = PyValue::extract_bound(&pyval)?;
+                        let slintval = PyToSlintValue::extract_bound(&pyval)?;
                         Ok((name, slintval.0))
                     })
                     .collect::<Result<Vec<(_, _)>, PyErr>>();
@@ -98,10 +101,11 @@ impl<'py> FromPyObject<'py> for PyValue {
                 ))
             })?;
 
-        Ok(PyValue(interpreter_val))
+        Ok(PyToSlintValue(interpreter_val))
     }
 }
-impl From<slint_interpreter::Value> for PyValue {
+
+impl From<slint_interpreter::Value> for SlintToPyValue {
     fn from(value: slint_interpreter::Value) -> Self {
         Self(value)
     }
@@ -122,7 +126,7 @@ impl PyStruct {
         Default::default()
     }
 
-    fn __getattr__(&self, key: &str) -> PyResult<PyValue> {
+    fn __getattr__(&self, key: &str) -> PyResult<SlintToPyValue> {
         self.data.get_field(key).map_or_else(
             || {
                 Err(pyo3::exceptions::PyAttributeError::new_err(format!(
@@ -133,7 +137,7 @@ impl PyStruct {
         )
     }
     fn __setattr__(&mut self, py: Python<'_>, key: String, value: PyObject) -> PyResult<()> {
-        let pv: PyValue = value.extract(py)?;
+        let pv: PyToSlintValue = value.extract(py)?;
         self.data.set_field(key, pv.0);
         Ok(())
     }
@@ -173,7 +177,7 @@ impl PyStructFieldIterator {
         slf
     }
 
-    fn __next__(mut slf: PyRefMut<'_, Self>) -> Option<(String, PyValue)> {
-        slf.inner.next().map(|(name, val)| (name, PyValue(val)))
+    fn __next__(mut slf: PyRefMut<'_, Self>) -> Option<(String, SlintToPyValue)> {
+        slf.inner.next().map(|(name, val)| (name, SlintToPyValue(val)))
     }
 }
