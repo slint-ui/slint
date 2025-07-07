@@ -242,8 +242,8 @@ importers:
         specifier: 0.0.24
         version: 0.0.24(@types/node@20.16.10)
       vite-plugin-singlefile:
-        specifier: 2.2.0
-        version: 2.2.0(rollup@4.44.2)(vite@7.0.0(@types/node@20.16.10)(jiti@2.4.2)(lightningcss@1.29.2)(yaml@2.8.0))
+        specifier: 2.3.0
+        version: 2.3.0(rollup@4.44.2)(vite@7.0.0(@types/node@20.16.10)(jiti@2.4.2)(lightningcss@1.29.2)(yaml@2.8.0))
       vitest:
         specifier: 3.2.4
         version: 3.2.4(@types/debug@4.1.12)(@types/node@20.16.10)(jiti@2.4.2)(lightningcss@1.29.2)(yaml@2.8.0)
@@ -5382,12 +5382,12 @@ packages:
     engines: {node: ^18.0.0 || ^20.0.0 || >=22.0.0}
     hasBin: true
 
-  vite-plugin-singlefile@2.2.0:
-    resolution: {integrity: sha512-Ik1wXmJaGzeQtUeIV7JprDUqqy6DlLzXAY27Blei5peE4c9VJF+Kp9xWDJeuX0RJUZmFbIAuw1/RAh06A+Ql7w==}
+  vite-plugin-singlefile@2.3.0:
+    resolution: {integrity: sha512-DAcHzYypM0CasNLSz/WG0VdKOCxGHErfrjOoyIPiNxTPTGmO6rRD/te93n1YL/s+miXq66ipF1brMBikf99c6A==}
     engines: {node: '>18.0.0'}
     peerDependencies:
-      rollup: ^4.35.0
-      vite: ^5.4.11 || ^6.0.0
+      rollup: ^4.44.1
+      vite: ^5.4.11 || ^6.0.0 || ^7.0.0
 
   vite@6.3.5:
     resolution: {integrity: sha512-cZn6NDFE7wdTpINgs++ZJ4N49W2vRp8LCKrn3Ob1kYNtOo21vfDoaV5GzBfLU4MovSAB8uNRm4jgzVQZ+mBzPQ==}
@@ -11761,7 +11761,7 @@ snapshots:
       - tsx
       - yaml
 
-  vite-plugin-singlefile@2.2.0(rollup@4.44.2)(vite@7.0.0(@types/node@20.16.10)(jiti@2.4.2)(lightningcss@1.29.2)(yaml@2.8.0)):
+  vite-plugin-singlefile@2.3.0(rollup@4.44.2)(vite@7.0.0(@types/node@20.16.10)(jiti@2.4.2)(lightningcss@1.29.2)(yaml@2.8.0)):
     dependencies:
       micromatch: 4.0.8
       rollup: 4.44.2
