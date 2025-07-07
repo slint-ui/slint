@@ -223,6 +223,14 @@ impl common::LspToPreview for WasmLspToPreview {
     fn send(&self, message: &common::LspToPreviewMessage) -> common::Result<()> {
         self.server_notifier.send_notification::<common::LspToPreviewMessage>(message.clone())
     }
+
+    fn preview_target(&self) -> common::PreviewTarget {
+        common::PreviewTarget::EmbeddedWasm
+    }
+
+    fn set_preview_target(&self, _: common::PreviewTarget) -> common::Result<()> {
+        Err("Can not change the preview target".into())
+    }
 }
 
 #[derive(Default)]

@@ -136,18 +136,9 @@ type OutgoingRequestQueue = Arc<Mutex<HashMap<RequestId, OutgoingRequest>>>;
 pub struct ServerNotifier {
     sender: crossbeam_channel::Sender<Message>,
     queue: OutgoingRequestQueue,
-    use_external_preview: Arc<atomic::AtomicBool>,
 }
 
 impl ServerNotifier {
-    pub fn use_external_preview(&self) -> bool {
-        self.use_external_preview.load(atomic::Ordering::Relaxed)
-    }
-
-    pub fn set_use_external_preview(&self, is_external: bool) {
-        self.use_external_preview.store(is_external, atomic::Ordering::Release);
-    }
-
     pub fn send_notification<N: Notification>(&self, params: N::Params) -> Result<()> {
         self.sender.send(Message::Notification(lsp_server::Notification::new(
             N::METHOD.to_string(),
@@ -190,11 +181,7 @@ impl ServerNotifier {
 
     #[cfg(test)]
     pub fn dummy() -> Self {
-        Self {
-            sender: crossbeam_channel::unbounded().0,
-            queue: Default::default(),
-            use_external_preview: Default::default(),
-        }
+        Self { sender: crossbeam_channel::unbounded().0, queue: Default::default() }
     }
 }
 
@@ -321,22 +308,31 @@ fn main_loop(connection: Connection, init_param: InitializeParams, cli_args: Cli
     let (preview_to_lsp_sender, preview_to_lsp_receiver) =
         crossbeam_channel::unbounded::<crate::common::PreviewToLspMessage>();
 
-    let server_notifier = ServerNotifier {
-        sender: connection.sender.clone(),
-        queue: request_queue.clone(),
-        use_external_preview: Default::default(),
-    };
+    let server_notifier =
+        ServerNotifier { sender: connection.sender.clone(), queue: request_queue.clone() };
 
     #[cfg(not(feature = "preview-engine"))]
     let to_preview: Rc<dyn LspToPreview> = Rc::new(common::DummyLspToPreview::default());
     #[cfg(feature = "preview-engine")]
-    let to_preview: Rc<dyn LspToPreview> =
-        Rc::new(preview::connector::NativeLspToPreview::new(preview_to_lsp_sender));
+    let to_preview: Rc<dyn LspToPreview> = {
+        let sn = server_notifier.clone();
 
-    // #[cfg(feature = "preview-builtin")]
-    // preview::connector::set_server_notifier(server_notifier.clone());
+        let child_preview: Box<dyn common::LspToPreview> =
+            Box::new(preview::connector::ChildProcessLspToPreview::new(preview_to_lsp_sender));
+        let embedded_preview: Box<dyn common::LspToPreview> =
+            Box::new(preview::connector::EmbeddedLspToPreview::new(sn));
+        Rc::new(
+            preview::connector::SwitchableLspToPreview::new(
+                HashMap::from([
+                    (common::PreviewTarget::ChildProcess, child_preview),
+                    (common::PreviewTarget::EmbeddedWasm, embedded_preview),
+                ]),
+                common::PreviewTarget::ChildProcess,
+            )
+            .unwrap(),
+        )
+    };
 
-    // let server_notifier_ = server_notifier.clone();
     let to_preview_clone = to_preview.clone();
     let compiler_config = CompilerConfiguration {
         style: Some(if cli_args.style.is_empty() { "native".into() } else { cli_args.style }),
@@ -566,7 +562,12 @@ async fn handle_preview_to_lsp_message(
             .await;
         }
         M::PreviewTypeChanged { is_external } => {
-            ctx.server_notifier.set_use_external_preview(is_external);
+            eprintln!("PREVIEW_TYPE_CHANGED {is_external:?}");
+            if is_external {
+                ctx.to_preview.set_preview_target(common::PreviewTarget::EmbeddedWasm)?;
+            } else {
+                ctx.to_preview.set_preview_target(common::PreviewTarget::ChildProcess)?;
+            }
         }
         M::RequestState { .. } => {
             crate::language::request_state(ctx);
