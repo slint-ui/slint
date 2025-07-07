@@ -381,6 +381,7 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
         Expression::EnumerationValue(value) => {
             Value::EnumerationValue(value.enumeration.name.to_string(), value.to_string())
         }
+        Expression::KeyboardShortcut(ks) => Value::String(i_slint_compiler::langtype::keyboard_shortcuts_to_string(ks).into()),
         Expression::ReturnStatement(x) => {
             let val = x.as_ref().map_or(Value::Void, |x| eval_expression(x, local_context));
             if local_context.return_value.is_none() {
@@ -1683,6 +1684,7 @@ fn check_value_type(value: &Value, ty: &Type) -> bool {
         Type::Enumeration(en) => {
             matches!(value, Value::EnumerationValue(name, _) if name == en.name.as_str())
         }
+        Type::KeyboardShortcut => matches!(value, Value::String(_)), // TODO: This is wrong, Strings in general are not applicable!
         Type::LayoutCache => matches!(value, Value::LayoutCache(_)),
         Type::ComponentFactory => matches!(value, Value::ComponentFactory(_)),
     }
@@ -1973,6 +1975,7 @@ pub fn default_value_for_type(ty: &Type) -> Value {
             e.name.to_string(),
             e.values.get(e.default_value).unwrap().to_string(),
         ),
+        Type::KeyboardShortcut => Value::String(SharedString::new()), // TODO: I need a Value-type for this
         Type::Easing => Value::EasingCurve(Default::default()),
         Type::Void | Type::Invalid => Value::Void,
         Type::UnitProduct(_) => Value::Number(0.),

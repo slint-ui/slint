@@ -1,0 +1,9 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component SuperSimple {
+    property <keyboard-shortcut> k1: @keys(Alt + Control + Shift + Meta + a);
+    property <keyboard-shortcut> k2: @keys(Alt + Control + Shift + Meta + Return);
+    property <keyboard-shortcut> k3: @keys(Alt Control + Shift + Meta + a);
+//                                             ^error{Expected '+' to separate parts of a keyboard shortcut}
+}

@@ -12,7 +12,7 @@ use smol_str::{format_smolstr, SmolStr};
 use super::lower_to_item_tree::{LoweredElement, LoweredSubComponentMapping, LoweringState};
 use super::{Animation, PropertyIdx, PropertyReference, RepeatedElementIdx};
 use crate::expression_tree::{BuiltinFunction, Callable, Expression as tree_Expression};
-use crate::langtype::{EnumerationValue, Struct, Type};
+use crate::langtype::{self, EnumerationValue, Struct, Type};
 use crate::layout::Orientation;
 use crate::llr::Expression as llr_Expression;
 use crate::namedreference::NamedReference;
@@ -240,6 +240,9 @@ pub fn lower_expression(
                 .collect::<_>(),
         },
         tree_Expression::EnumerationValue(e) => llr_Expression::EnumerationValue(e.clone()),
+        tree_Expression::KeyboardShortcut(ks) => {
+            llr_Expression::StringLiteral(SmolStr::from(langtype::keyboard_shortcuts_to_string(ks)))
+        }
         tree_Expression::ReturnStatement(..) => {
             panic!("The remove return pass should have removed all return")
         }

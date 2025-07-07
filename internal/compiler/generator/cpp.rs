@@ -116,7 +116,7 @@ pub mod cpp_ast {
 
     use smol_str::{format_smolstr, SmolStr};
 
-    thread_local!(static INDENTATION : Cell<u32> = Cell::new(0));
+    thread_local!(static INDENTATION : Cell<u32> = const { Cell::new(0) });
     fn indent(f: &mut Formatter<'_>) -> Result<(), Error> {
         INDENTATION.with(|i| {
             for _ in 0..(i.get()) {
@@ -167,7 +167,7 @@ pub mod cpp_ast {
                             Some(Declaration::Var(Var {
                                 ty: var.ty.clone(),
                                 name: var.name.clone(),
-                                array_size: var.array_size.clone(),
+                                array_size: var.array_size,
                                 init: std::mem::take(&mut var.init),
                                 is_extern: false,
                                 ..Default::default()
@@ -506,7 +506,7 @@ impl CppType for Type {
             Type::Void => Some("void".into()),
             Type::Float32 => Some("float".into()),
             Type::Int32 => Some("int".into()),
-            Type::String => Some("slint::SharedString".into()),
+            Type::String | Type::KeyboardShortcut => Some("slint::SharedString".into()),
             Type::Color => Some("slint::Color".into()),
             Type::Duration => Some("std::int64_t".into()),
             Type::Angle => Some("float".into()),
@@ -560,7 +560,7 @@ fn remove_parentheses(expr: &str) -> &str {
     if expr.starts_with('(') && expr.ends_with(')') {
         let mut level = 0;
         // check that the opening and closing parentheses are on the same level
-        for byte in expr[1..expr.len() - 1].as_bytes() {
+        for byte in &expr.as_bytes()[1..expr.len() - 1] {
             match byte {
                 b')' if level == 0 => return expr,
                 b')' => level -= 1,
@@ -873,7 +873,7 @@ pub fn generate(
 
     for (cpp_file_name, cpp_file) in config.cpp_files.iter().zip(cpp_files) {
         use std::io::Write;
-        write!(&mut BufWriter::new(std::fs::File::create(&cpp_file_name)?), "{cpp_file}")?;
+        write!(&mut BufWriter::new(std::fs::File::create(cpp_file_name)?), "{cpp_file}")?;
     }
 
     Ok(file)
@@ -2229,7 +2229,7 @@ fn generate_sub_component(
                 "   if (!self->{name}.running() || self->{name}.interval() != interval)"
             ));
             update_timers.push(format!("       self->{name}.start(slint::TimerMode::Repeated, interval, [self] {{ {callback}; }});"));
-            update_timers.push(format!("}} else {{ self->{name}.stop(); }}").into());
+            update_timers.push(format!("}} else {{ self->{name}.stop(); }}"));
             target_struct.members.push((
                 field_access,
                 Declaration::Var(Var { ty: "slint::Timer".into(), name, ..Default::default() }),
@@ -3140,7 +3140,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             let item_rc = access_item_rc(function, ctx);
             let window = access_window_field(ctx);
             let (native, name) = native_prop_info(function, ctx);
-            let function_name = format!("slint_{}_{}", native.class_name.to_lowercase(), ident(&name).to_lowercase());
+            let function_name = format!("slint_{}_{}", native.class_name.to_lowercase(), ident(name).to_lowercase());
             format!("{function_name}(&{item}, &{window}.handle(), &{item_rc})")
         }
         Expression::ExtraBuiltinFunctionCall { function, arguments, return_ty: _ } => {
@@ -4018,7 +4018,7 @@ fn compile_builtin_function_call(
             "self->update_timers()".into()
         }
         BuiltinFunction::DetectOperatingSystem => {
-            format!("slint::cbindgen_private::slint_detect_operating_system()")
+            "slint::cbindgen_private::slint_detect_operating_system()".to_string()
         }
         // start and stop are unreachable because they are lowered to simple assignment of running
         BuiltinFunction::StartTimer => unreachable!(),

@@ -264,6 +264,7 @@ impl Expression {
             Type::Enumeration(enumeration) => {
                 Expression::EnumerationValue(enumeration.clone().default_value())
             }
+            Type::KeyboardShortcut => Expression::StringLiteral(SmolStr::new_static("")),
             Type::ComponentFactory => Expression::EmptyComponentFactory,
         })
     }

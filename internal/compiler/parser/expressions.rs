@@ -252,10 +252,13 @@ fn parse_at_keyword(p: &mut impl Parser) {
         "tr" => {
             parse_tr(p);
         }
+        "keys" => {
+            parse_keys(p);
+        }
         _ => {
             p.consume();
             p.test(SyntaxKind::Identifier); // consume the identifier, so that autocomplete works
-            p.error("Expected 'image-url', 'tr', 'linear-gradient', 'radial-gradient' or 'conic-gradient' after '@'");
+            p.error("Expected 'image-url', 'tr', 'keys', 'conic-gradient', 'linear-gradient', or 'radial-gradient' after '@'");
         }
     }
 }
@@ -433,6 +436,99 @@ fn parse_tr(p: &mut impl Parser) {
         }
     }
     p.expect(SyntaxKind::RParent);
+}
+
+#[cfg_attr(test, parser_test)]
+/// ```test,AtKeys
+/// @keys()
+/// @keys(x)
+/// @keys(Control +Shift + Alt+Meta+a)
+/// @keys(Control +Shift + Alt+Meta+Return)
+/// ```
+fn parse_keys(p: &mut impl Parser) {
+    let mut p = p.start_node(SyntaxKind::AtKeys);
+    p.expect(SyntaxKind::At);
+    debug_assert_eq!(p.peek().as_str(), "keys");
+    p.expect(SyntaxKind::Identifier); //"keys"
+    p.expect(SyntaxKind::LParent);
+
+    // Parse custom syntax here...
+    let mut key_count = 0_u32;
+
+    let mut alt_count = 0_u32;
+    let mut control_count = 0_u32;
+    let mut shift_count = 0_u32;
+    let mut meta_count = 0_u32;
+
+    let mut need_plus = false;
+
+    loop {
+        match p.peek().kind() {
+            SyntaxKind::RParent => {
+                assert!(key_count <= 1);
+                if key_count == 0 && (alt_count + control_count + shift_count + meta_count) > 0 {
+                    p.error("A keyboard shortcut must be empty or contain exactly one key");
+                }
+                p.consume();
+                break;
+            }
+            SyntaxKind::Plus => {
+                if need_plus {
+                    need_plus = false;
+                    p.consume();
+                } else {
+                    p.error("Unexpected '+' in keyboard shortcut");
+                    p.until(SyntaxKind::RParent);
+                    break;
+                }
+                continue;
+            }
+            SyntaxKind::Identifier => {
+                if need_plus {
+                    p.error("Expected '+' to separate parts of a keyboard shortcut");
+                    p.until(SyntaxKind::RParent);
+                    break;
+                }
+
+                let token = p.peek();
+                let text = token.as_str();
+
+                match text {
+                    "Alt" => alt_count += 1,
+                    "Control" => control_count += 1,
+                    "Meta" => meta_count += 1,
+                    "Shift" => shift_count += 1,
+                    "AltR" | "ShiftR" | "MetaR" | "ControlR" => {
+                        p.error("Right-side modifiers are not supported");
+                        p.until(SyntaxKind::RParent);
+                        break;
+                    }
+                    _ => key_count += 1,
+                }
+
+                need_plus = true;
+
+                if alt_count > 1 || control_count > 1 || meta_count > 1 || shift_count > 1 {
+                    p.error("Duplicated modifier in keyboard shortcut");
+                    p.until(SyntaxKind::RParent);
+                    break;
+                }
+                if key_count > 1 {
+                    p.error("Duplicated key in keyboard shortcut");
+                    p.until(SyntaxKind::RParent);
+                    break;
+                }
+
+                p.consume();
+                continue;
+            }
+            _ => {
+                p.error("Expected 'Alt', 'Control', 'Meta', 'Shift, '+', <CHAR>, or any other symbol in the Keys namespace");
+                p.until(SyntaxKind::RParent);
+                break;
+            }
+        }
+    }
 }
 
 #[cfg_attr(test, parser_test)]
