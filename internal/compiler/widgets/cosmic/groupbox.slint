@@ -2,11 +2,18 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { CosmicFontSettings, CosmicPalette } from "styling.slint";
+import { CheckBox } from "checkbox.slint";
+
 
 export component GroupBox {
     in property <string> title;
     in property <bool> enabled: true;
     in property <length> content-padding: 8px;
+
+    in property <bool> checkable: false;
+    property <bool> checked: true;
+
+
 
     accessible-role: groupbox;
     accessible-label: root.title;
@@ -17,13 +24,21 @@ export component GroupBox {
         padding-top: 16px;
         padding-bottom: 8px;
 
-        if root.title != "" : Text {
+        if root.checkable : CheckBox {
+            vertical-stretch: 0;
+            text: root.title;
+            checked <=> root.checked;
+        }
+
+
+        if !root.checkable && root.title != "" : Text {
             vertical-stretch: 0;
             color: !root.enabled ? CosmicPalette.text-disabled : CosmicPalette.control-foreground;
             font-size: CosmicFontSettings.body-strong.font-size;
             font-weight: CosmicFontSettings.body-strong.font-weight;
             text: root.title;
         }
+
 
         Rectangle {
             vertical-stretch: 1;
