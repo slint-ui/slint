@@ -54,7 +54,7 @@ pub fn run(config: &crate::LivePreview) -> std::result::Result<(), slint::Platfo
     let to_lsp: Rc<dyn common::PreviewToLsp> = Rc::new(connector::NativePreviewToLsp::new());
 
     let experimental = std::env::var_os("SLINT_ENABLE_EXPERIMENTAL_FEATURES").is_some();
-    let ui = ui::create_ui(&to_lsp, &config.style, experimental)?;
+    let ui = ui::create_ui(&to_lsp, &"", experimental)?;
 
     to_lsp
         .send_telemetry(&mut [(
@@ -63,9 +63,6 @@ pub fn run(config: &crate::LivePreview) -> std::result::Result<(), slint::Platfo
         )])
         .unwrap();
     ui.window().set_fullscreen(config.fullscreen);
-
-    let api = ui.global::<crate::preview::ui::Api>();
-    api.set_show_preview_ui(!config.hide_chrome);
 
     to_lsp.send(&common::PreviewToLspMessage::RequestState { unused: true }).unwrap();
 
@@ -77,9 +74,6 @@ pub fn run(config: &crate::LivePreview) -> std::result::Result<(), slint::Platfo
     });
 
     ui_clone.run()?;
-
-    // flush stdout...
-    println!();
 
     Ok(())
 }
