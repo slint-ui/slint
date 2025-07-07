@@ -76,10 +76,6 @@ impl ServerNotifier {
             })
         })
     }
-
-    // pub fn send_message_to_preview(&self, message: LspToPreviewMessage) {
-    //     let _ = self.send_notification::<LspToPreviewMessage>(message);
-    // }
 }
 
 impl RequestHandler {

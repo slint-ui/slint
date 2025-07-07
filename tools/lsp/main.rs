@@ -92,6 +92,7 @@ enum Commands {
     Format(Format),
     /// Run live preview
     #[cfg(feature = "preview-engine")]
+    #[command(hide(true))]
     LivePreview(LivePreview),
 }
 
@@ -111,12 +112,6 @@ struct LivePreview {
     /// Run remote controlled by the LSP
     #[arg(long)]
     remote_controlled: bool,
-    /// Run remote controlled by the LSP
-    #[arg(long, default_value = "")]
-    style: String,
-    /// Hide the UI around the previewed application
-    #[arg(long)]
-    hide_chrome: bool,
     /// toggle fullscreen mode
     #[arg(long)]
     fullscreen: bool,
@@ -259,15 +254,12 @@ fn main() {
                 Ok(()) => std::process::exit(0),
                 Err(e) => {
                     eprintln!("Format Error: {e}");
-                    std::process::exit(2)
+                    std::process::exit(1)
                 }
             },
             #[cfg(feature = "preview-engine")]
             Commands::LivePreview(live_preview) => match preview::run(live_preview) {
-                Ok(()) => {
-                    eprintln!("Closing application");
-                    std::process::exit(0)
-                }
+                Ok(()) => std::process::exit(0),
                 Err(e) => {
                     eprintln!("Preview Error: {e}");
                     std::process::exit(2);
@@ -562,7 +554,6 @@ async fn handle_preview_to_lsp_message(
             .await;
         }
         M::PreviewTypeChanged { is_external } => {
-            eprintln!("PREVIEW_TYPE_CHANGED {is_external:?}");
             if is_external {
                 ctx.to_preview.set_preview_target(common::PreviewTarget::EmbeddedWasm)?;
             } else {

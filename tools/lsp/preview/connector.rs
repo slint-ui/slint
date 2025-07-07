@@ -15,7 +15,6 @@ use crate::{common, preview};
 
 pub fn lsp_to_preview(message: common::LspToPreviewMessage) {
     use common::LspToPreviewMessage as M;
-    eprintln!("UI THREAD: Handling {message:?}");
     match message {
         M::InvalidateContents { url } => preview::invalidate_contents(&url),
         M::ForgetFile { url } => preview::delete_document(&url),

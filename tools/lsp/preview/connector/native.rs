@@ -40,7 +40,7 @@ impl ChildProcessLspToPreview {
         }
 
         let mut child = std::process::Command::new(
-            std::env::args_os().next().expect("I was started, so I should have this!"),
+            std::env::current_exe().expect("Could not find executable name of the slint-lsp"),
         )
         .args(["live-preview", "--remote-controlled"])
         .stdin(std::process::Stdio::piped())
@@ -57,7 +57,6 @@ impl ChildProcessLspToPreview {
             for line in reader.lines() {
                 let line = line.map_err(|e| e.to_string())?;
                 if let Ok(message) = serde_json::from_str(&line) {
-                    eprintln!("PREVIEW -> LSP: {message:?}");
                     channel.send(message).map_err(|e| e.to_string())?;
                 }
             }
@@ -87,12 +86,8 @@ impl common::LspToPreview for ChildProcessLspToPreview {
             let inner = inner.as_mut().unwrap();
             let message = serde_json::to_string(message).map_err(|e| e.to_string())?;
             writeln!(inner.to_child, "{message}")?;
-            eprintln!("LSP -> PREVIEW: {message}");
         } else if let common::LspToPreviewMessage::ShowPreview(_) = message {
-            eprintln!("Starting preview");
             self.start_preview().unwrap();
-        } else {
-            eprintln!("Ignoring LSP -> PREVIEW communication attempt");
         }
         Ok(())
     }
@@ -159,11 +154,9 @@ impl common::LspToPreview for SwitchableLspToPreview {
 
     fn set_preview_target(&self, target: common::PreviewTarget) -> common::Result<()> {
         if self.lsp_to_previews.contains_key(&target) {
-            eprintln!("Switching to target: {target:?}: FOUND");
             *self.current_target.borrow_mut() = target;
             Ok(())
         } else {
-            eprintln!("Switching to target: {target:?}: NOT FOUND");
             Err("Target not found".into())
         }
     }
