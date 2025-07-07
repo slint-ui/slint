@@ -53,7 +53,7 @@
         "@types/lodash.merge": "4.6.9",
         "@types/mdx": "2.0.13",
         "astro-compress": "2.3.8",
-        "globals": "16.2.0",
+        "globals": "16.3.0",
         "js-yaml": "4.1.0",
         "mdast-util-to-string": "4.0.0",
         "reading-time": "1.5.0",
