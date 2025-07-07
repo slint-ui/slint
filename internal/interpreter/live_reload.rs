@@ -7,7 +7,7 @@ use crate::dynamic_item_tree::WindowOptions;
 use core::cell::RefCell;
 use core::task::Waker;
 use i_slint_core::api::{ComponentHandle, PlatformError};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
@@ -237,11 +237,16 @@ struct Watcher {
     // (wouldn't need to be an option if new_cyclic() could return errors)
     watcher: Option<notify::RecommendedWatcher>,
     state: WatcherState,
+    files: HashSet<PathBuf>,
 }
 
 impl Watcher {
     fn new(component_weak: std::rc::Weak<RefCell<LiveReloadingComponent>>) -> Arc<Mutex<Self>> {
-        let arc = Arc::new(Mutex::new(Self { state: WatcherState::Starting, watcher: None }));
+        let arc = Arc::new(Mutex::new(Self {
+            state: WatcherState::Starting,
+            watcher: None,
+            files: Default::default(),
+        }));
 
         let watcher_weak = Arc::downgrade(&arc);
         let result = crate::spawn_local(std::future::poll_fn(move |cx| {
@@ -269,13 +274,17 @@ impl Watcher {
         let watcher_weak = Arc::downgrade(&arc);
         arc.lock().unwrap().watcher =
             notify::recommended_watcher(move |event: notify::Result<notify::Event>| {
-                use notify::EventKind as K;
+                use notify::{event::ModifyKind, EventKind as K};
                 let Ok(event) = event else { return };
                 let Some(watcher) = watcher_weak.upgrade() else { return };
-                if matches!(event.kind, K::Modify(_) | K::Create(_)) {
+                if matches!(event.kind, K::Modify(ModifyKind::Data(_)) | K::Create(_))
+                    && watcher.lock().is_ok_and(|w| event.paths.iter().any(|p| w.files.contains(p)))
+                {
                     if let WatcherState::Waiting(waker) =
                         std::mem::replace(&mut watcher.lock().unwrap().state, WatcherState::Changed)
                     {
+                        // Wait a bit to let the time to write multiple files
+                        std::thread::sleep(std::time::Duration::from_millis(15));
                         waker.wake();
                     }
                 }
@@ -286,14 +295,11 @@ impl Watcher {
 
     fn watch(&mut self, path: &Path) {
         let Some(watcher) = self.watcher.as_mut() else { return };
-        notify::Watcher::watch(watcher, path, notify::RecursiveMode::NonRecursive).unwrap_or_else(
-            |err| match err.kind {
-                notify::ErrorKind::PathNotFound => {
-                    // Editors can save the file by first removing the old file and then renaming the new file to the final name.
-                    // Ignore the error if the file doesn't exist
-                }
-                _ => eprintln!("Warning: error while watching {}: {:?}", path.display(), err),
-            },
-        );
+        let Some(parent) = path.parent() else { return };
+        notify::Watcher::watch(watcher, parent, notify::RecursiveMode::NonRecursive)
+            .unwrap_or_else(|err| {
+                eprintln!("Warning: error while watching {}: {:?}", path.display(), err)
+            });
+        self.files.insert(path.into());
     }
 }
