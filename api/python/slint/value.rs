@@ -20,7 +20,7 @@ impl<'py> IntoPyObject<'py> for SlintToPyValue {
     type Error = PyErr;
 
     fn into_pyobject(self, py: Python<'py>) -> Result<Self::Output, Self::Error> {
-        match &self.0 {
+        match self.0 {
             slint_interpreter::Value::Void => ().into_bound_py_any(py),
             slint_interpreter::Value::Number(num) => num.into_bound_py_any(py),
             slint_interpreter::Value::String(str) => str.into_bound_py_any(py),
@@ -29,16 +29,16 @@ impl<'py> IntoPyObject<'py> for SlintToPyValue {
                 crate::image::PyImage::from(image).into_bound_py_any(py)
             }
             slint_interpreter::Value::Model(model) => {
-                crate::models::PyModelShared::rust_into_py_model(model, py).map_or_else(
-                    || crate::models::ReadOnlyRustModel::from(model).into_bound_py_any(py),
+                crate::models::PyModelShared::rust_into_py_model(&model, py).map_or_else(
+                    || crate::models::ReadOnlyRustModel::from(&model).into_bound_py_any(py),
                     |m| Ok(m),
                 )
             }
             slint_interpreter::Value::Struct(structval) => {
-                PyStruct { data: structval.clone() }.into_bound_py_any(py)
+                PyStruct { data: structval }.into_bound_py_any(py)
             }
             slint_interpreter::Value::Brush(brush) => {
-                crate::brush::PyBrush::from(brush.clone()).into_bound_py_any(py)
+                crate::brush::PyBrush::from(brush).into_bound_py_any(py)
             }
             v @ _ => {
                 eprintln!("Python: conversion from slint to python needed for {v:#?} and not implemented yet");
