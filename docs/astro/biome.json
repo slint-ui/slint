@@ -2,7 +2,12 @@
     "root": false,
     "extends": "//",
     "files": {
-        "includes": ["**", "!**/.astro/**", "**/*.astro"]
+        "includes": [
+            "**",
+            "!**/.astro/**",
+            "**/*.astro",
+            "!**/playwright-report/**"
+        ]
     },
     "formatter": {},
     "linter": {
