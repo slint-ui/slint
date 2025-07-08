@@ -223,10 +223,15 @@ impl Item for TouchArea {
 
     fn render(
         self: Pin<&Self>,
-        _backend: &mut ItemRendererRef,
-        _self_rc: &ItemRc,
-        _size: LogicalSize,
+        backend: &mut ItemRendererRef,
+        self_rc: &ItemRc,
+        size: LogicalSize,
     ) -> RenderingResult {
+        if let Some(color) = (*backend).window().debug_touch.get() {
+            if self.enabled() {
+                debug_rect(color, backend, self_rc, size, &self.cached_rendering_data);
+            }
+        }
         RenderingResult::ContinueRenderingChildren
     }
 
@@ -234,9 +239,8 @@ impl Item for TouchArea {
         self: core::pin::Pin<&Self>,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
-        mut geometry: LogicalRect,
+        geometry: LogicalRect,
     ) -> LogicalRect {
-        geometry.size = LogicalSize::zero();
         geometry
     }
 
@@ -560,10 +564,16 @@ impl Item for SwipeGestureHandler {
 
     fn render(
         self: Pin<&Self>,
-        _backend: &mut ItemRendererRef,
-        _self_rc: &ItemRc,
-        _size: LogicalSize,
+        backend: &mut ItemRendererRef,
+        self_rc: &ItemRc,
+        size: LogicalSize,
     ) -> RenderingResult {
+        if let Some(color) = (*backend).window().debug_swipe.get() {
+            if self.enabled() {
+                debug_rect(color, backend, self_rc, size, &self.cached_rendering_data);
+            }
+        }
+
         RenderingResult::ContinueRenderingChildren
     }
 
@@ -571,9 +581,8 @@ impl Item for SwipeGestureHandler {
         self: core::pin::Pin<&Self>,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
-        mut geometry: LogicalRect,
+        geometry: LogicalRect,
     ) -> LogicalRect {
-        geometry.size = LogicalSize::zero();
         geometry
     }
 
@@ -615,4 +624,26 @@ pub unsafe extern "C" fn slint_swipegesturehandler_cancel(
     let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
     let self_rc = ItemRc::new(self_component.clone(), self_index);
     s.cancel(window_adapter, &self_rc);
+}
+
+fn debug_rect(
+    color: crate::Color,
+    backend: &mut ItemRendererRef,
+    self_rc: &ItemRc,
+    size: LogicalSize,
+    cached_rendering_data: &CachedRenderingData,
+) {
+    let d = DebugTouchArea { color };
+    let debug = Pin::new(&d);
+    (*backend).draw_rectangle(debug, self_rc, size, cached_rendering_data);
+}
+
+struct DebugTouchArea {
+    color: crate::Color,
+}
+
+impl crate::item_rendering::RenderRectangle for DebugTouchArea {
+    fn background(self: Pin<&Self>) -> crate::Brush {
+        crate::Brush::SolidColor(self.color)
+    }
 }

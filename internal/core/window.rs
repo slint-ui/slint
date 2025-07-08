@@ -463,6 +463,9 @@ pub struct WindowInner {
     close_requested: Callback<(), CloseRequestResponse>,
     click_state: ClickState,
     pub(crate) ctx: once_cell::unsync::Lazy<crate::SlintContext>,
+
+    pub(crate) debug_touch: Cell<Option<crate::Color>>,
+    pub(crate) debug_swipe: Cell<Option<crate::Color>>,
 }
 
 impl Drop for WindowInner {
@@ -530,6 +533,8 @@ impl WindowInner {
             ctx: once_cell::unsync::Lazy::new(|| {
                 crate::context::GLOBAL_CONTEXT.with(|ctx| ctx.get().unwrap().clone())
             }),
+            debug_touch: Cell::new(None),
+            debug_swipe: Cell::new(None),
         }
     }
 
@@ -1467,6 +1472,43 @@ impl WindowInner {
     /// Provides access to the Windows' Slint context.
     pub fn context(&self) -> &crate::SlintContext {
         &self.ctx
+    }
+
+    /// Returns whether debug touch areas is enabled
+    pub fn get_debug_touch(&self) -> Option<crate::Color> {
+        self.debug_touch.get()
+    }
+
+    /// Set debug touch areas to enabled or disabled
+    pub fn set_debug_touch(&self, color: Option<crate::Color>) {
+        self.debug_touch.set(color);
+        self.full_redraw();
+    }
+
+    /// Returns whether debug swipe areas is enabled
+    pub fn get_debug_swipe(&self) -> Option<crate::Color> {
+        self.debug_swipe.get()
+    }
+
+    /// Set debug swipe areas to enabled or disabled
+    pub fn set_debug_swipe(&self, color: Option<crate::Color>) {
+        self.debug_swipe.set(color);
+        self.full_redraw();
+    }
+
+    // mark the entire window as dirty to ensure a full redraw
+    fn full_redraw(&self) {
+        let adapter = self.window_adapter();
+        let scale_factor = self.scale_factor();
+        let physical_size = adapter.size();
+        let logical_size = physical_size.to_logical(scale_factor);
+        let window_bounds_rect = crate::lengths::LogicalRect::new(
+            crate::lengths::LogicalPoint::default(),
+            logical_size.to_euclid(),
+        );
+        adapter.renderer().mark_dirty_region(window_bounds_rect.into());
+
+        self.window_adapter().request_redraw();
     }
 }
 
