@@ -111,9 +111,9 @@ jobs:
                     base_path="/${{ steps.version.outputs.VERSION }}/docs/slint/"
                     slint_download_version=v${{ steps.version.outputs.VERSION }}
                 fi
-                sed -i "s|BASE_URL = \".*\"|BASE_URL = \"$base_url\"|" docs/astro/src/utils/site-config.ts
-                sed -i "s|BASE_PATH = \".*\"|BASE_PATH = \"$base_path\"|" docs/astro/src/utils/site-config.ts
-                sed -i "s|SLINT_DOWNLOAD_VERSION = \".*\"| SLINT_DOWNLOAD_VERSION = \"$slint_download_version\"|" docs/astro/src/utils/site-config.ts
+                sed -i "s|BASE_URL = \".*\"|BASE_URL = \"$base_url\"|" docs/common/src/utils/site-config.ts
+                sed -i "s|BASE_PATH = \".*\"|BASE_PATH = \"$base_path\"|" docs/common/src/utils/site-config.ts
+                sed -i "s|SLINT_DOWNLOAD_VERSION = \".*\"| SLINT_DOWNLOAD_VERSION = \"$slint_download_version\"|" docs/common/src/utils/site-config.ts
             - name: "Slint Language Documentation"
               run: cargo xtask slintdocs
             - name: Spellcheck
