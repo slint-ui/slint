@@ -59,8 +59,8 @@ impl PyImage {
     }
 }
 
-impl From<&slint_interpreter::Image> for PyImage {
-    fn from(image: &slint_interpreter::Image) -> Self {
-        Self { image: image.clone() }
+impl From<slint_interpreter::Image> for PyImage {
+    fn from(image: slint_interpreter::Image) -> Self {
+        Self { image: image }
     }
 }
