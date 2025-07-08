@@ -79,6 +79,13 @@ fn generate_public_component(
     let public_component_id = ident(&llr.name);
     let component_name = llr.name.as_str();
 
+    let main_file = if main_file.ends_with("/Cargo.toml") {
+        // We couldn't get the actual .rs file from a slint! macro, so use file!() which will expand to the actual file name
+        quote!(file!())
+    } else {
+        quote!(#main_file)
+    };
+
     let mut property_and_callback_accessors: Vec<TokenStream> = vec![];
     for p in &llr.public_properties {
         let prop_name = p.name.as_str();
