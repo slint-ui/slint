@@ -162,15 +162,15 @@ impl common::LspToPreview for SwitchableLspToPreview {
     }
 }
 
-pub struct NativePreviewToLsp {}
+pub struct RemoteControlledPreviewToLsp {}
 
-impl Default for NativePreviewToLsp {
+impl Default for RemoteControlledPreviewToLsp {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl NativePreviewToLsp {
+impl RemoteControlledPreviewToLsp {
     pub fn new() -> Self {
         let _ = Self::process_input();
         Self {}
@@ -193,7 +193,7 @@ impl NativePreviewToLsp {
     }
 }
 
-impl common::PreviewToLsp for NativePreviewToLsp {
+impl common::PreviewToLsp for RemoteControlledPreviewToLsp {
     fn send(&self, message: &common::PreviewToLspMessage) -> common::Result<()> {
         let message = serde_json::to_string(message).map_err(|e| e.to_string())?;
         println!("{message}");
