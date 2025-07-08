@@ -47,12 +47,12 @@ crate::thread_local!(static GLYPH_CACHE: core::cell::RefCell<GlyphCache>  =
 );
 
 pub struct VectorFont {
-    id: fontdb::ID,
+    pub(crate) id: fontdb::ID,
     ascender: PhysicalLength,
     descender: PhysicalLength,
     height: PhysicalLength,
     scale: FontScaleFactor,
-    pixel_size: PhysicalLength,
+    pub(crate) pixel_size: PhysicalLength,
     x_height: PhysicalLength,
     cap_height: PhysicalLength,
 }

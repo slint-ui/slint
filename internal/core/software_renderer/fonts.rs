@@ -183,6 +183,25 @@ pub fn register_bitmap_font(font_data: &'static BitmapFont) {
     BITMAP_FONTS.with(|fonts| fonts.borrow_mut().push(font_data))
 }
 
+#[cfg(feature = "std")]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+struct TextSizeCacheKey {
+    font_id: i_slint_common::sharedfontdb::fontdb::ID,
+    pixel_size: PhysicalLength,
+    text: std::string::String,
+    max_width: Option<usize>,
+    text_wrap: TextWrap,
+}
+
+#[cfg(feature = "std")]
+crate::thread_local!(static TEXT_SIZE_CACHE: core::cell::RefCell<clru::CLruCache<TextSizeCacheKey, PhysicalSize>>  =
+    core::cell::RefCell::new(
+        clru::CLruCache::with_config(
+            clru::CLruCacheConfig::new(core::num::NonZeroUsize::new(1024).unwrap())
+        )
+    )
+);
+
 pub fn text_size(
     font_request: FontRequest,
     text: &str,
@@ -191,27 +210,43 @@ pub fn text_size(
     text_wrap: TextWrap,
 ) -> LogicalSize {
     let font = match_font(&font_request, scale_factor);
-    let (longest_line_width, height) = match font {
+    match font {
         Font::PixelFont(pf) => {
             let layout = text_layout_for_font(&pf, &font_request, scale_factor);
-            layout.text_size(
+            let (longest_line_width, height) = layout.text_size(
                 text,
                 max_width.map(|max_width| (max_width.cast() * scale_factor).cast()),
                 text_wrap,
-            )
+            );
+            (PhysicalSize::from_lengths(longest_line_width, height).cast() / scale_factor).cast()
         }
         #[cfg(feature = "software-renderer-systemfonts")]
         Font::VectorFont(vf) => {
+            #[cfg(feature = "std")]
+            let cache_key = TextSizeCacheKey {
+                font_id: vf.id,
+                pixel_size: vf.pixel_size,
+                text: text.into(),
+                max_width: max_width.map(|mw| (mw.0 * 1000.0) as _),
+                text_wrap,
+            };
+            #[cfg(feature = "std")]
+            if let Some(cached) = TEXT_SIZE_CACHE.with(|c| c.borrow_mut().get(&cache_key).cloned())
+            {
+                return (cached.cast() / scale_factor).cast();
+            }
             let layout = text_layout_for_font(&vf, &font_request, scale_factor);
-            layout.text_size(
+            let (longest_line_width, height) = layout.text_size(
                 text,
                 max_width.map(|max_width| (max_width.cast() * scale_factor).cast()),
                 text_wrap,
-            )
+            );
+            let result = PhysicalSize::from_lengths(longest_line_width, height);
+            #[cfg(feature = "std")]
+            TEXT_SIZE_CACHE.with(|c| c.borrow_mut().put(cache_key, result));
+            (result.cast() / scale_factor).cast()
         }
-    };
-
-    (PhysicalSize::from_lengths(longest_line_width, height).cast() / scale_factor).cast()
+    }
 }
 
 pub fn font_metrics(
