@@ -14,7 +14,7 @@ runs:
           shell: bash
         - name: Upgrade LLVM for Skia build on Windows
           if: runner.os == 'Windows'
-          run: choco upgrade llvm --version "19.1.7"
+          run: choco upgrade llvm --version "19.1.7" --allow-downgrade
           shell: bash
         # See https://github.com/ilammy/msvc-dev-cmd?tab=readme-ov-file#caveats
         - name: Remove GNU link.exe from GH actions
