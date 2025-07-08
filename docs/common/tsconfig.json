@@ -1,9 +1,12 @@
 {
   "compilerOptions": {
     "allowImportingTsExtensions": true,
+    "noEmit": true,
     "module": "ESNext",
     "target": "ESNext",
-    "moduleResolution": "Node"
+    "moduleResolution": "Node",
+    "resolveJsonModule": true,
+    "allowSyntheticDefaultImports": true
   },
   "include": ["src/**/*"]
-} 
+}
