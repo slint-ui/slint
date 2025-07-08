@@ -12,3 +12,4 @@ packages:
   - "examples/todo/node"
   - "examples/memory"
   - "docs/astro"
+  - "docs/common"

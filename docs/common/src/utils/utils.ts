@@ -5,7 +5,7 @@ import linkMapData from "../../../../internal/core-macros/link-data.json" with {
     type: "json",
 };
 
-type LinkMapType = {
+export type LinkMapType = {
     [K: string]: {
         href: string;
     };

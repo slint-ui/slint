@@ -1,0 +1,11 @@
+{
+  "name": "@slint/common-files",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "format": "biome format",
+    "format:fix": "biome format --write",
+    "lint": "biome lint",
+    "lint:fix": "biome lint --fix"
+  }
+}
