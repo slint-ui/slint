@@ -171,6 +171,13 @@ impl Default for RemoteControlledPreviewToLsp {
 }
 
 impl RemoteControlledPreviewToLsp {
+    /// Cretaes a RemoteConfrolledPreviewToLsp connector.
+    ///
+    /// This means the applications lifetime is bound to the lifetime of the
+    /// applications's STDIN: We quit as soon as that gets fishy or closed.
+    ///
+    /// It also means we do not need to join the reader thread: The OS will clean
+    /// that one up for us anyway.
     pub fn new() -> Self {
         let _ = Self::process_input();
         Self {}
@@ -180,7 +187,10 @@ impl RemoteControlledPreviewToLsp {
         std::thread::spawn(move || -> Result<(), String> {
             let reader = std::io::BufReader::new(std::io::stdin().lock());
             for line in reader.lines() {
-                let line = line.map_err(|e| e.to_string())?;
+                let Ok(line) = line else {
+                    let _ = slint::quit_event_loop();
+                    return Ok(());
+                };
                 if let Ok(message) = serde_json::from_str(&line) {
                     slint::invoke_from_event_loop(move || {
                         preview::connector::lsp_to_preview(message);
@@ -188,6 +198,7 @@ impl RemoteControlledPreviewToLsp {
                     .map_err(|e| e.to_string())?;
                 }
             }
+            let _ = slint::quit_event_loop();
             Ok(())
         })
     }
