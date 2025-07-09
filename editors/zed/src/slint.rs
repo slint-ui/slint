@@ -35,10 +35,7 @@ impl SlintExtension {
 
         let release = zed::latest_github_release(
             "slint-ui/slint",
-            zed::GithubReleaseOptions {
-                require_assets: true,
-                pre_release: false,
-            },
+            zed::GithubReleaseOptions { require_assets: true, pre_release: false },
         )?;
 
         let target = zed::current_platform();
@@ -107,9 +104,7 @@ impl SlintExtension {
 
 impl zed::Extension for SlintExtension {
     fn new() -> Self {
-        Self {
-            cached_binary_path: None,
-        }
+        Self { cached_binary_path: None }
     }
 
     fn language_server_command(

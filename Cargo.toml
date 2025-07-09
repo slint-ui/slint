@@ -10,6 +10,7 @@ members = [
   'api/rs/slint',
   'api/python/slint',
   'api/wasm-interpreter',
+  'editors/zed',
   'examples/7guis',
   'examples/gallery',
   'examples/imagefilter/rust',
