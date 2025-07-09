@@ -6,7 +6,7 @@
   - [Why does Slint use a domain specific language?](#why-does-slint-use-a-domain-specific-language)
   - [Will there be API bindings to integrate with my favorite programming language?](#will-there-be-api-bindings-to-integrate-with-my-favorite-programming-language)
 - [Licensing](#licensing)
-  - [Using Slint (GPL) in Permissively Licensed Open Source Projects](#using-slint-gpl-in-permissively-licensed-open-source-projects)
+  - [Using Slint in Permissively Licensed Open Source Projects](#using-slint-in-permissively-licensed-open-source-projects)
   - [Royalty-free license](#royalty-free-license)
     - [Who can use the Royalty-free license?](#who-can-use-the-royalty-free-license)
     - [What obligations do I need to fulfil to use the Royalty-free license?](#what-obligations-do-i-need-to-fulfil-to-use-the-royalty-free-license)
@@ -61,51 +61,44 @@ You can use Slint under ***any*** of the following licenses, at your choice:
 2. [GNU GPLv3](LICENSES/GPL-3.0-only.txt),
 3. [Paid license](LICENSES/LicenseRef-Slint-Software-3.0.md).
 
-### Using Slint (GPL) in Permissively Licensed Open Source Projects
+### Using Slint in Permissively Licensed Open Source Projects
 
-If you use **Slint under the GPL**, your project must also be licensed **under GPL-compatible terms**. This can be done while still keeping your project **open source and permissively licensed**, with a few considerations. You **can** build open source software with Slint (GPL) **if**:
+You can use Slint in an open source project that is licensed under a permissive license like MIT, Apache-2.0, or any other [GPL-Compatible Licenses](https://www.gnu.org/licenses/license-list.html)
 
-1. **Your project is itself open source**.
-2. **The license you use is GPLv3-compatible**.
-3. **You distribute the full source code**, including any modifications.
+Your project’s source code can remain permissively licensed. When building or distribute binaries that include Slint, one must comply with one of Slint’s available licenses.
 
-#### GPL-Compatible Licenses
+#### If your application targets desktop, mobile, or web
 
-To use Slint (GPL) in your project, your license must be **compatible** with GPLv3. Examples include:
+* You can use Slint under the royalty-free license.
+* Your project can remain licensed under MIT, Apache-2.0, or another permissive license.
+* Binaries can also be distributed under any license of your choice, as long as they comply with Slint’s royalty-free terms (e.g., display the “Made with Slint” badge).
 
-- **MIT License**
-- **Apache License 2.0**
-- **BSD 2-Clause or 3-Clause**
-- **Mozilla Public License 2.0 (MPL 2.0)**
-- **LGPL**
+Example notice for your README:
 
-##### Note
-
-While these are permissive licenses, when you combine them with GPL-licensed code (like Slint), the resulting software **must be distributed under GPLv3**. That doesn't mean you need to change your original license, but the **overall distribution must comply with GPL**.
-
-#### Compliance Checklist
-
-Make sure you:
-
-- [ ] Include a LICENSE file (e.g., MIT or Apache) + a clear notice about GPLv3 when linking to Slint.
-- [ ] Include the source code for your entire project, including any build scripts.
-- [ ] Do not add additional restrictions beyond those in the GPLv3.
-- [ ] Provide instructions or scripts for building the software (per GPLv3 §6).
-- [ ] Acknowledge use of Slint under GPL in your documentation or README.
-
-##### Example Notice in README
-
-```markdown
+```md
 This project is licensed under the MIT License.
 
-It uses the Slint toolkit under the terms of the GNU General Public License v3.0 (GPLv3).
-By linking with Slint, the resulting binary is subject to GPLv3.
+It uses the Slint GUI toolkit, which is available under your choice of the GPLv3 license, a royalty-free license for desktop, mobile, and web applications, or a commercial license.
+
+See https://slint.dev/pricing for more information.
 ```
 
-#### Resources
+#### If your application is for embedded systems
 
-- [GNU GPLv3 Overview](https://www.gnu.org/licenses/gpl-3.0.en.html)
-- [GPL-Compatible Licenses](https://www.gnu.org/licenses/license-list.html)
+* Your source code can still be licensed under a permissive license
+* Binaries must be distributed under the terms of the GPLv3, or the distributor must obtain a commercial license from Slint.
+
+You can include a short note in your README:
+
+```md
+This project is licensed under the MIT License.
+
+It uses the Slint GUI toolkit, which is available under multiple licenses.
+
+If building for embedded systems, users must comply with the terms of the GPLv3 or obtain a commercial license from Slint.
+
+See https://slint.dev/pricing for more information.
+```
 
 ### Royalty-free license
 
