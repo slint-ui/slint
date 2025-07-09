@@ -658,6 +658,14 @@ impl Backend {
             custom_application_handler: None,
         }
     }
+
+    /// Creates a new winit event loop proxy. Use the event loop proxy to faciliate integrating external
+    /// event loops with the winit event loop. Returns `None` if the event loop is already running.
+    pub fn create_winit_event_loop_proxy(
+        &self,
+    ) -> Option<winit::event_loop::EventLoopProxy<SlintEvent>> {
+        self.shared_data.not_running_event_loop.borrow().as_ref().map(|nre| nre.create_proxy())
+    }
 }
 
 impl i_slint_core::platform::Platform for Backend {
@@ -902,4 +910,12 @@ fn test_window_accessor_and_rwh() {
         .unwrap();
 
     slint::run_event_loop().unwrap();
+}
+
+// Sorry, can't test with rust test harness and multiple threads.
+#[cfg(not(any(target_arch = "wasm32", target_vendor = "apple")))]
+#[test]
+fn test_create_event_loop_proxy() {
+    let backend = crate::Backend::new().unwrap();
+    assert!(backend.create_winit_event_loop_proxy().is_some());
 }
