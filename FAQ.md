@@ -83,18 +83,6 @@ To use Slint (GPL) in your project, your license must be **compatible** with GPL
 
 While these are permissive licenses, when you combine them with GPL-licensed code (like Slint), the resulting software **must be distributed under GPLv3**. That doesn't mean you need to change your original license, but the **overall distribution must comply with GPL**.
 
-#### How to Structure Your Project
-
-Try to keep your GPL-dependent code (e.g., UI layer using Slint) separate from core logic.
-
-```text
-my_project/
-├— LICENSE (MIT)
-├— core/        # MIT-licensed logic
-├— ui/          # Uses Slint under GPLv3
-└— main.rs/main.cpp/main.js/main.py
-```
-
 #### Compliance Checklist
 
 Make sure you:
