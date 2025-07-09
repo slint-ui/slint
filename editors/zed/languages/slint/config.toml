@@ -1,3 +1,6 @@
+# Copyright © Luke. D Jones <luke@ljones.dev>
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 name = "Slint"
 grammar = "slint"
 path_suffixes = ["Cargo.lock", "slint"]

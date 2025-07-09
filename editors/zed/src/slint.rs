@@ -1,3 +1,6 @@
+// Copyright © Luke. D Jones <luke@ljones.dev>
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 use std::fs;
 use zed::{DownloadedFileType, LanguageServerId};
 use zed_extension_api::{self as zed, Architecture, Os, Result};
