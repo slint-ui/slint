@@ -111,7 +111,7 @@ An application is composed of the business logic written in Rust, C++, Python, o
 JavaScript and the `.slint` user interface design markup, which is compiled to
 native code.
 
-![Architecture Overview](https://slint.dev/resources/architecture.drawio.svg)
+![Architecture Overview](https://slint.dev/resources/slint_architecture_block_diagram.svg)
 
 ### Compiler
 
