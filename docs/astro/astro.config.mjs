@@ -465,7 +465,7 @@ export default defineConfig({
                         rel: "icon",
                         type: "image/png",
                         sizes: "32x32",
-                        href:  `${BASE_PATH}/favicon-32x32.png`,
+                        href: `${BASE_PATH}/favicon-32x32.png`,
                     },
                 },
                 {
@@ -474,7 +474,7 @@ export default defineConfig({
                         rel: "icon",
                         type: "image/png",
                         sizes: "16x16",
-                        href:  `${BASE_PATH}/favicon-16x16.png`,
+                        href: `${BASE_PATH}/favicon-16x16.png`,
                     },
                 },
                 {
@@ -482,14 +482,14 @@ export default defineConfig({
                     attrs: {
                         rel: "icon",
                         type: "image/x-icon",
-                        href:  `${BASE_PATH}/favicon.ico`,
+                        href: `${BASE_PATH}/favicon.ico`,
                     },
                 },
                 {
                     tag: "link",
                     attrs: {
                         rel: "mask-icon",
-                        href:  `${BASE_PATH}/favicon.svg`,
+                        href: `${BASE_PATH}/favicon.svg`,
                         color: "#8D46E7",
                     },
                 },
@@ -498,7 +498,7 @@ export default defineConfig({
                     attrs: {
                         rel: "apple-touch-icon",
                         sizes: "180x180",
-                        href:  `${BASE_PATH}/apple-touch-icon.png`,
+                        href: `${BASE_PATH}/apple-touch-icon.png`,
                     },
                 },
             ],
