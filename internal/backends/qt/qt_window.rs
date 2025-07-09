@@ -2379,16 +2379,6 @@ impl i_slint_core::renderer::RendererSealed for QtWindow {
         Ok(())
     }
 
-    fn default_font_size(&self) -> LogicalLength {
-        let default_font_size = cpp!(unsafe[] -> i32 as "int" {
-            return QFontInfo(qApp->font()).pixelSize();
-        });
-        // Ideally this would return the value from another property with a binding that's updated
-        // as a FontChange event is received. This is relevant for the case of using the Qt backend
-        // with a non-native style.
-        LogicalLength::new(default_font_size as f32)
-    }
-
     fn free_graphics_resources(
         &self,
         component: ItemTreeRef,

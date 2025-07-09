@@ -116,8 +116,6 @@ pub trait RendererSealed {
         Err(crate::api::SetRenderingNotifierError::Unsupported)
     }
 
-    fn default_font_size(&self) -> LogicalLength;
-
     fn set_window_adapter(&self, _window_adapter: &Rc<dyn WindowAdapter>);
 
     fn resize(&self, _size: crate::api::PhysicalSize) -> Result<(), PlatformError> {
