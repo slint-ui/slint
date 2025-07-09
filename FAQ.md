@@ -6,6 +6,7 @@
   - [Why does Slint use a domain specific language?](#why-does-slint-use-a-domain-specific-language)
   - [Will there be API bindings to integrate with my favorite programming language?](#will-there-be-api-bindings-to-integrate-with-my-favorite-programming-language)
 - [Licensing](#licensing)
+  - [Using Slint (GPL) in Permissively Licensed Open Source Projects](#using-slint-gpl-in-permissively-licensed-open-source-projects)
   - [Royalty-free license](#royalty-free-license)
     - [Who can use the Royalty-free license?](#who-can-use-the-royalty-free-license)
     - [What obligations do I need to fulfil to use the Royalty-free license?](#what-obligations-do-i-need-to-fulfil-to-use-the-royalty-free-license)
@@ -22,6 +23,8 @@
       - [Can Alice use the MIT license header to the source code of AliceApp application?](#can-alice-use-the-mit-license-header-to-the-source-code-of-aliceapp-application)
       - [Under what license should she distribute the AliceApp binary?](#under-what-license-should-she-distribute-the-aliceapp-binary)
       - [How can Alice make it clear to Bob that he can distribute BobApp under a proprietary license?](#how-can-alice-make-it-clear-to-bob-that-he-can-distribute-bobapp-under-a-proprietary-license)
+  - [Paid License](#paid-license)
+    - [What are the paid license options?](#what-are-the-paid-license-options)
 - [Miscellaneous](#miscellaneous)
   - [Do you provide Support?](#do-you-provide-support)
 
@@ -39,12 +42,13 @@ between properties, even in complex user interfaces.
 ### Will there be API bindings to integrate with my favorite programming language?
 
 We want to make it possible to use Slint with any programming language. We do
-not favor one programming language over another. We have chosen to start with
-three languages:
+not favor one programming language over another. We currently support the following
+languages:
 
-- Rust, our implementation language.
-- C++, another systems programming language we have a lot of experience with.
-- JavaScript, a popular dynamically typed language.
+- Rust, our implementation language,
+- C++, another systems programming language we have a lot of experience with,
+- JavaScript, a popular dynamically typed language,
+- Python, a popular scripting language.
 
 This choice builds the foundation that allows us to create bindings for most
 types of programming languages.
@@ -56,6 +60,64 @@ You can use Slint under ***any*** of the following licenses, at your choice:
 1. [Royalty-free license](LICENSES/LicenseRef-Slint-Royalty-free-2.0.md),
 2. [GNU GPLv3](LICENSES/GPL-3.0-only.txt),
 3. [Paid license](LICENSES/LicenseRef-Slint-Software-3.0.md).
+
+### Using Slint (GPL) in Permissively Licensed Open Source Projects
+
+If you use **Slint under the GPL**, your project must also be licensed **under GPL-compatible terms**. This can be done while still keeping your project **open source and permissively licensed**, with a few considerations. You **can** build open source software with Slint (GPL) **if**:
+
+1. **Your project is itself open source**.
+2. **The license you use is GPLv3-compatible**.
+3. **You distribute the full source code**, including any modifications.
+
+#### GPL-Compatible Licenses
+
+To use Slint (GPL) in your project, your license must be **compatible** with GPLv3. Examples include:
+
+- **MIT License**
+- **Apache License 2.0**
+- **BSD 2-Clause or 3-Clause**
+- **Mozilla Public License 2.0 (MPL 2.0)**
+- **LGPL**
+
+##### Note
+
+While these are permissive licenses, when you combine them with GPL-licensed code (like Slint), the resulting software **must be distributed under GPLv3**. That doesn't mean you need to change your original license, but the **overall distribution must comply with GPL**.
+
+#### How to Structure Your Project
+
+Try to keep your GPL-dependent code (e.g., UI layer using Slint) separate from core logic.
+
+```text
+my_project/
+├— LICENSE (MIT)
+├— core/        # MIT-licensed logic
+├— ui/          # Uses Slint under GPLv3
+└— main.rs/main.cpp/main.js/main.py
+```
+
+#### Compliance Checklist
+
+Make sure you:
+
+- [ ] Include a LICENSE file (e.g., MIT or Apache) + a clear notice about GPLv3 when linking to Slint.
+- [ ] Include the source code for your entire project, including any build scripts.
+- [ ] Do not add additional restrictions beyond those in the GPLv3.
+- [ ] Provide instructions or scripts for building the software (per GPLv3 §6).
+- [ ] Acknowledge use of Slint under GPL in your documentation or README.
+
+##### Example Notice in README
+
+```markdown
+This project is licensed under the MIT License.
+
+It uses the Slint toolkit under the terms of the GNU General Public License v3.0 (GPLv3).
+By linking with Slint, the resulting binary is subject to GPLv3.
+```
+
+#### Resources
+
+- [GNU GPLv3 Overview](https://www.gnu.org/licenses/gpl-3.0.en.html)
+- [GPL-Compatible Licenses](https://www.gnu.org/licenses/license-list.html)
 
 ### Royalty-free license
 
@@ -132,6 +194,10 @@ Alice can add a note that Bob can distribute BobApp under a proprietary license 
 #### What are the paid license options?
 
 Check out the pricing plans on our website <https://slint.dev/pricing>.
+
+### ✉️ Questions?
+
+If you're unsure about licenses, reach out to the [Slint team](https://slint.dev/contact/) or consult with an open source licensing expert.
 
 ## Miscellaneous
 
