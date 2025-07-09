@@ -4,6 +4,9 @@
 export component TestCase inherits Window {
     out property <string> result1;
     out property <string> result2;
+    out property <string> result3;
+    out property <string> result4;
+    in-out property <bool> validRect;
 
     // multiple timers so we can ensure that the index resolution is working correctly
     timer1 := Timer {
@@ -19,6 +22,41 @@ export component TestCase inherits Window {
         running: false;
         triggered => {
             result2 += "1";
+        }
+    }
+
+    // checks if its working in another element
+    Rectangle {
+        timer3 := Timer {
+            interval: 3s;
+            running: false;
+            triggered => {
+                root.result3 += "1";
+                self.stop();
+            }
+        }
+        init => {
+            timer3.start();
+        }
+    }
+
+    // checks if it is working in a conditional
+    if (validRect): TouchArea{
+        width: 10px;
+        height: 10px;
+        timer4 := Timer {
+            interval: 4s;
+            running: false;
+            triggered => {
+                root.result4 += "1";
+                self.stop();
+            }
+        }
+        clicked => {
+            // this is just here to load the actual area
+        }
+        init => {
+            timer4.start();
         }
     }
 
@@ -50,6 +88,11 @@ export component TestCase inherits Window {
 /*
 ```rust
 let instance = TestCase::new().unwrap();
+slint_testing::mock_elapsed_time(1);
+slint_testing::mock_elapsed_time(3000);
+assert_eq!(instance.get_result3(), "1");
+slint_testing::mock_elapsed_time(1000);
+assert_eq!(instance.get_result3(), "1");
 instance.invoke_start_timer1();
 // any time we invoke one of these we need to double up on the mock time
 // the first will just trigger the change handler processing, and the second the actual timer
@@ -101,11 +144,27 @@ slint_testing::mock_elapsed_time(30);
 assert_eq!(instance.get_result2(), "111");
 slint_testing::mock_elapsed_time(20);
 assert_eq!(instance.get_result2(), "1111");
+
+instance.set_validRect(true);
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert_eq!(instance.get_result4(), "");
+slint_testing::mock_elapsed_time(1);
+slint_testing::mock_elapsed_time(4000);
+assert_eq!(instance.get_result4(), "1");
+slint_testing::mock_elapsed_time(4000);
+assert_eq!(instance.get_result4(), "1");
 ```
 
 ```cpp
 auto handle = TestCase::create();
 const TestCase &instance = *handle;
+
+slint_testing::mock_elapsed_time(1);
+slint_testing::mock_elapsed_time(3000);
+assert_eq(instance.get_result3(), "1");
+slint_testing::mock_elapsed_time(1000);
+assert_eq(instance.get_result3(), "1");
+
 instance.invoke_start_timer1();
 // any time we invoke one of these we need to double up on the mock time
 // the first will just trigger the change handler processing, and the second the actual timer
@@ -157,10 +216,25 @@ slint_testing::mock_elapsed_time(30);
 assert_eq(instance.get_result2(), "111");
 slint_testing::mock_elapsed_time(20);
 assert_eq(instance.get_result2(), "1111");
+
+instance.set_validRect(true);
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert_eq(instance.get_result4(), "");
+slint_testing::mock_elapsed_time(1);
+slint_testing::mock_elapsed_time(4000);
+assert_eq(instance.get_result4(), "1");
+slint_testing::mock_elapsed_time(4000);
+assert_eq(instance.get_result4(), "1");
 ```
 
 ```js
 var instance = new slint.TestCase({});
+
+slintlib.private_api.mock_elapsed_time(1);
+slintlib.private_api.mock_elapsed_time(3000);
+assert.equal(instance.result3, "1");
+slintlib.private_api.mock_elapsed_time(1000);
+assert.equal(instance.result3, "1");
 
 instance.start_timer1();
 slintlib.private_api.mock_elapsed_time(1);
@@ -211,5 +285,14 @@ slintlib.private_api.mock_elapsed_time(30);
 assert.equal(instance.result2, "111");
 slintlib.private_api.mock_elapsed_time(20);
 assert.equal(instance.result2, "1111");
+
+instance.validRect = true;
+slintlib.private_api.send_mouse_click(&instance, 5., 5.);
+assert.eqaul(instance.result4, "");
+slintlib.private_api.mock_elapsed_time(1);
+slintlib.private_api.mock_elapsed_time(4000);
+assert.eqaul(instance.result4, "1");
+slintlib.private_api.mock_elapsed_time(4000);
+assert.eqaul(instance.result4, "1");
 ```
 */
