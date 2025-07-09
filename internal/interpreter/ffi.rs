@@ -91,6 +91,24 @@ pub unsafe extern "C" fn slint_interpreter_value_new_model(
     )))))
 }
 
+/// If the value contains a model set from [`slint_interpreter_value_new_model]` with the same vtable pointer,
+/// return the model that was set.
+/// Returns a null ptr otherwise
+#[unsafe(no_mangle)]
+pub extern "C" fn slint_interpreter_value_to_model(
+    val: &Value,
+    vtable: &ModelAdaptorVTable,
+) -> *const u8 {
+    if let Value::Model(m) = val {
+        if let Some(m) = m.as_any().downcast_ref::<ModelAdaptorWrapper>() {
+            if core::ptr::eq(m.0.get_vtable() as *const _, vtable as *const _) {
+                return m.0.as_ptr();
+            }
+        }
+    }
+    core::ptr::null()
+}
+
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_interpreter_value_type(val: &Value) -> ValueType {
     val.value_type()
@@ -574,6 +592,10 @@ impl Model for ModelAdaptorWrapper {
     fn set_row_data(&self, row: usize, data: Value) {
         let val = Box::new(data);
         self.0.set_row_data(row, val);
+    }
+
+    fn as_any(&self) -> &dyn core::any::Any {
+        self
     }
 }
 

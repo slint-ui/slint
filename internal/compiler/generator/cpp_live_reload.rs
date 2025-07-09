@@ -441,6 +441,12 @@ fn convert_to_value_fn(ty: &Type) -> String {
             });
             format!("([](const auto &tuple) {{ slint::interpreter::Struct s; {}return slint::interpreter::Value(s); }})", init.join(""))
         }
+        // Array of anonymous struct
+        Type::Array(a) if matches!(a.as_ref(), Type::Struct(s) if s.name.is_none()) => {
+            let conf_fn = convert_to_value_fn(&a);
+            let aty = a.cpp_type().unwrap();
+            format!("([](const auto &model) {{ return slint::interpreter::Value(std::make_shared<slint::MapModel<{aty}, slint::interpreter::Value>>(model, {conf_fn})); }})")
+        }
         _ => "into_slint_value".into(),
     }
 }

@@ -82,13 +82,9 @@ inline interpreter::Value into_slint_value(const long int &val)
 }
 
 template<typename ModelData>
-inline std::shared_ptr<slint::Model<ModelData>>
+std::shared_ptr<slint::Model<ModelData>>
 from_slint_value(const slint::interpreter::Value &,
-                 const std::shared_ptr<slint::Model<ModelData>> *)
-{
-    std::cout << "NOT IMPLEMENTED " << __PRETTY_FUNCTION__ << std::endl;
-    return {};
-}
+                 const std::shared_ptr<slint::Model<ModelData>> *);
 
 template<typename ModelData>
 slint::interpreter::Value into_slint_value(const std::shared_ptr<slint::Model<ModelData>> &val);
@@ -297,11 +293,28 @@ protected:
         return interpreter::Value(cbindgen_private::slint_interpreter_value_new_model(
                 reinterpret_cast<uint8_t *>(wrapper.get()), vtable()));
     }
+
+public:
+    // get the model wrapper from a value (or nullptr if the value don't contain a model)
+    static const LiveReloadModelWrapperBase *get(const slint::interpreter::Value &value)
+    {
+        if (auto model =
+                    cbindgen_private::slint_interpreter_value_to_model(value.inner, vtable())) {
+            return reinterpret_cast<const LiveReloadModelWrapperBase *>(model);
+        } else {
+            return nullptr;
+        }
+    }
 };
 
 template<typename ModelData>
 class LiveReloadModelWrapper : public LiveReloadModelWrapperBase
 {
+public:
+    LiveReloadModelWrapper(std::shared_ptr<slint::Model<ModelData>> model) : model(std::move(model))
+    {
+    }
+
     std::shared_ptr<slint::Model<ModelData>> model = nullptr;
 
     int row_count() const override { return model->row_count(); }
@@ -317,11 +330,6 @@ class LiveReloadModelWrapper : public LiveReloadModelWrapperBase
     void set_row_data(int i, const slint::interpreter::Value &value) override
     {
         model->set_row_data(i, from_slint_value<ModelData>(value));
-    }
-
-public:
-    LiveReloadModelWrapper(std::shared_ptr<slint::Model<ModelData>> model) : model(std::move(model))
-    {
     }
 
     static slint::interpreter::Value wrap(std::shared_ptr<slint::Model<ModelData>> model)
@@ -340,6 +348,19 @@ slint::interpreter::Value into_slint_value(const std::shared_ptr<slint::Model<Mo
         return {};
     }
     return LiveReloadModelWrapper<ModelData>::wrap(val);
+}
+
+template<typename ModelData>
+std::shared_ptr<slint::Model<ModelData>>
+from_slint_value(const slint::interpreter::Value &value,
+                 const std::shared_ptr<slint::Model<ModelData>> *)
+{
+    if (const LiveReloadModelWrapperBase *base = LiveReloadModelWrapperBase::get(value)) {
+        if (auto wrapper = dynamic_cast<const LiveReloadModelWrapper<ModelData> *>(base)) {
+            return wrapper->model;
+        }
+    }
+    return {};
 }
 
 } // namespace slint::private_api::live_reload

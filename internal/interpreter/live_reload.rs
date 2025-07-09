@@ -312,7 +312,7 @@ mod ffi {
     use i_slint_core::{slice::Slice, SharedString, SharedVector};
     type LiveReloadingComponentInner = RefCell<LiveReloadingComponent>;
 
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     /// LibraryPath is an array of string that have in the form `lib=...`
     pub extern "C" fn slint_live_reload_new(
         file_name: Slice<u8>,
@@ -345,19 +345,19 @@ mod ffi {
         )
     }
 
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_live_reload_clone(
         component: *const LiveReloadingComponentInner,
     ) {
         Rc::increment_strong_count(component);
     }
 
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_live_reload_drop(component: *const LiveReloadingComponentInner) {
         Rc::decrement_strong_count(component);
     }
 
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub extern "C" fn slint_live_reload_set_property(
         component: &LiveReloadingComponentInner,
         property: Slice<u8>,
@@ -371,7 +371,7 @@ mod ffi {
         }
     }
 
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub extern "C" fn slint_live_reload_get_property(
         component: &LiveReloadingComponentInner,
         property: Slice<u8>,
@@ -385,7 +385,7 @@ mod ffi {
         Box::into_raw(Box::new(val))
     }
 
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub extern "C" fn slint_live_reload_invoke(
         component: &LiveReloadingComponentInner,
         callback: Slice<u8>,
@@ -401,7 +401,7 @@ mod ffi {
         Box::into_raw(Box::new(val))
     }
 
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_live_reload_set_callback(
         component: &LiveReloadingComponentInner,
         callback: Slice<u8>,
