@@ -7,6 +7,7 @@
   - [Will there be API bindings to integrate with my favorite programming language?](#will-there-be-api-bindings-to-integrate-with-my-favorite-programming-language)
 - [Licensing](#licensing)
   - [Using Slint in Permissively Licensed Open Source Projects](#using-slint-in-permissively-licensed-open-source-projects)
+- [FAQs on Slint Licenses](#faqs-on-slint-licenses)
   - [Royalty-free license](#royalty-free-license)
     - [Who can use the Royalty-free license?](#who-can-use-the-royalty-free-license)
     - [What obligations do I need to fulfil to use the Royalty-free license?](#what-obligations-do-i-need-to-fulfil-to-use-the-royalty-free-license)
@@ -66,7 +67,7 @@ You can use Slint under ***any*** of the following licenses, at your choice:
 This guide helps you understand how to use Slint with a permissive license (e.g., MIT, Apache-2.0) while complying with the appropriate Slint license. The key factors to consider are the type of application you’re building, the license of your distributables, the impact on derivative works, and any applicable restrictions.
 
 | Type of Project | Project License | Selected Slint License  | License of the Distributables | Your Obligations | Impact on Derivative Works | Restrictions |
-|--|--|--|--|--|--|--|--|
+|--|--|--|--|--|--|--|
 | **Desktop, Mobile, Web** Application | MIT, Apache-2.0, etc. | Royalty-Free | MIT, Apache-2.0, etc. | ✅ Display the [`AboutSlint` widget](https://docs.slint.dev/latest/docs/slint/reference/std-widgets/misc/aboutslint/) in the app's "About" screen or splash screen; *or* display the [Slint badge](https://github.com/slint-ui/slint/tree/master/logo/MadeWithSlint-logo-whitebg.png) on your public download page. | ❗ The Derivate works can use Slint under any one of the licenses - (1) Royalty-free, (2) GPLv3, or (3) Commercial. | ❌ Slint source code may not be redistributed except under GPLv3.  |
 | **Embedded Systems, Desktop, Mobile, Web** Application | MIT, Apache-2.0, etc. | Commercial | MIT, Apache-2.0, etc. | ✅ Obtain a commercial license from Slint. | ❗ Derivatives must use a license compatible with the project's license. The Derivate works can use Slint under any one of the licenses - (1) GPLv3, or (2) Commercial.| ❌ Slint source code may not be redistributed except under GPLv3.  |
 | **Desktop, Mobile, Web** Application | GPL-compatible (e.g., MIT) | GPLv3 | GPLv3 | ✅ Include full source code (including build scripts), LICENSE file, GPL notice, and build/install instructions (GPL §6). <br>✅ Acknowledge Slint use in README or docs. | ❗ Derivatives must use a license compatible with the project's license. The Derivate works can use Slint under any one of the licenses - (1) Royalty-free, (2) GPLv3, or (3) Commercial. | ❌ Slint source code may not be redistributed except under GPLv3.  |
@@ -89,6 +90,7 @@ This project is licensed under the {your-project-license} License.
 It uses the Slint GUI toolkit under the {selected-Slint-license} License. The Derivate works can use Slint under any one of the licenses - (1) [Commercial](https://slint.dev/terms-and-conditions#license), or (2) [GPLv3](https://slint.dev/terms-and-conditions#gplv3).
 
 ```
+## FAQs on Slint Licenses
 
 ### Royalty-free license
 
