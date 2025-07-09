@@ -23,7 +23,7 @@ use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, SizeLengths};
 use crate::menus::MenuVTable;
 use crate::properties::{Property, PropertyTracker};
 use crate::renderer::Renderer;
-use crate::{Callback, Coord, SharedString};
+use crate::{Callback, SharedString};
 use alloc::boxed::Box;
 use alloc::rc::{Rc, Weak};
 use alloc::vec::Vec;
@@ -538,17 +538,6 @@ impl WindowInner {
         self.pinned_fields.window_properties_tracker.set_dirty(); // component changed, layout constraints for sure must be re-calculated
         let window_adapter = self.window_adapter();
         window_adapter.renderer().set_window_adapter(&window_adapter);
-        {
-            let component = ItemTreeRc::borrow_pin(component);
-            let root_item = component.as_ref().get_item_ref(0);
-            let window_item = ItemRef::downcast_pin::<crate::items::WindowItem>(root_item).unwrap();
-
-            let default_font_size_prop =
-                crate::items::WindowItem::FIELD_OFFSETS.default_font_size.apply_pin(window_item);
-            if default_font_size_prop.get().get() <= 0 as Coord {
-                default_font_size_prop.set(window_adapter.renderer().default_font_size());
-            }
-        }
         self.set_window_item_geometry(
             window_adapter.size().to_logical(self.scale_factor()).to_euclid(),
         );
