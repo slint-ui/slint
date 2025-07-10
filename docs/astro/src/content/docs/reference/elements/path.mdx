@@ -80,6 +80,17 @@ These four properties allow defining the position and size of the viewport of th
 If the `viewbox-width` or `viewbox-height` is less or equal than zero, the viewbox properties are
 ignored and instead the bounding rectangle of all path elements is used to define the view port.
 
+### fit-style
+<SlintProperty propName="fit-style" typeName="enum" enumName="ImageFit" defaultValue="contain"/>
+
+This property defines how elements in a path's view box are transformed to fit into the Path's
+width and height. If no view box is defined, the implicit bounding rectangle becomes the view box.
+
+- **`contain`** (default): Scale the path uniformly to fit within the element's dimensions without overflow, preserving the aspect ratio.
+- **`cover`**: Scale the path uniformly to cover the entire element, preserving the aspect ratio. If the aspect ratios differ, the path will overflow.
+- **`fill`**: Stretch the path horizontally and vertically to exactly match the element's dimensions, ignoring the aspect ratio.
+- **`preserve`**: No scaling is applied; the view box coordinates are mapped 1:1 to logical pixels in the element.
+
 ### clip
 <SlintProperty propName="clip" typeName="bool" defaultValue="false"/>
  By default, when a path has a view box defined and the elements render

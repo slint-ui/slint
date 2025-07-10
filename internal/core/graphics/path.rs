@@ -7,7 +7,7 @@ This module contains path related types and functions for the run-time library.
 
 #[cfg(feature = "std")]
 use crate::debug_log;
-use crate::items::PathEvent;
+use crate::items::{ImageFit, PathEvent};
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
 use auto_enums::auto_enum;
@@ -247,14 +247,26 @@ impl PathDataIterator {
     /// Applies a transformation on the elements this iterator provides that tries to fit everything
     /// into the specified width/height, respecting the provided viewbox. If no viewbox is specified,
     /// the bounding rectangle of the path is used.
-    pub fn fit(&mut self, width: f32, height: f32, viewbox: Option<lyon_path::math::Box2D>) {
+    pub fn fit(
+        &mut self,
+        width: f32,
+        height: f32,
+        viewbox: Option<lyon_path::math::Box2D>,
+        style: ImageFit,
+    ) {
         if width > 0. || height > 0. {
+            let fit_style = match style {
+                ImageFit::Contain => lyon_algorithms::fit::FitStyle::Min,
+                ImageFit::Cover => lyon_algorithms::fit::FitStyle::Max,
+                ImageFit::Fill => lyon_algorithms::fit::FitStyle::Stretch,
+                ImageFit::Preserve => return,
+            };
             let viewbox =
                 viewbox.unwrap_or_else(|| lyon_algorithms::aabb::bounding_box(self.iter()));
             self.transform = lyon_algorithms::fit::fit_box(
                 &viewbox,
                 &lyon_path::math::Box2D::from_size(lyon_path::math::Size::new(width, height)),
-                lyon_algorithms::fit::FitStyle::Min,
+                fit_style,
             );
         }
     }
