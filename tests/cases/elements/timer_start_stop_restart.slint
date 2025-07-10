@@ -288,11 +288,11 @@ assert.equal(instance.result2, "1111");
 
 instance.validRect = true;
 slintlib.private_api.send_mouse_click(instance, 5., 5.);
-assert.eqaul(instance.result4, "");
+assert.equal(instance.result4, "");
 slintlib.private_api.mock_elapsed_time(1);
 slintlib.private_api.mock_elapsed_time(4000);
-assert.eqaul(instance.result4, "1");
+assert.equal(instance.result4, "1");
 slintlib.private_api.mock_elapsed_time(4000);
-assert.eqaul(instance.result4, "1");
+assert.equal(instance.result4, "1");
 ```
 */
