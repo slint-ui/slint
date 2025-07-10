@@ -57,6 +57,20 @@ export component PreviewUi inherits Window {
         WindowGlobal.window-height = self.height;
     }
 
+    MenuBar {
+        Menu {
+            title: @tr("Window");
+            MenuItem {
+                title: @tr("Reload");
+                activated => { Api.reload-preview(); }
+            }
+            MenuItem {
+                title: @tr("Always on top");
+                activated => { Api.always-on-top = !Api.always-on-top; }
+            }
+        }
+    }
+
     VerticalLayout {
         if !Api.show-preview-ui: no-ui-drawing-rect := Rectangle {
             VerticalLayout {

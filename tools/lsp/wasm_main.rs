@@ -11,7 +11,7 @@ mod language;
 mod preview;
 pub mod util;
 
-use common::{DocumentCache, LspToPreviewMessage, Result, VersionedUrl};
+use common::{DocumentCache, LspToPreview, LspToPreviewMessage, Result, VersionedUrl};
 use js_sys::Function;
 pub use language::{Context, RequestHandler};
 use lsp_types::Url;
@@ -75,10 +75,6 @@ impl ServerNotifier {
                 serde_wasm_bindgen::from_value(v).map_err(|e| format!("{e:?}").into())
             })
         })
-    }
-
-    pub fn send_message_to_preview(&self, message: LspToPreviewMessage) {
-        let _ = self.send_notification::<LspToPreviewMessage>(message);
     }
 }
 
@@ -190,20 +186,28 @@ pub fn create(
 
     let mut compiler_config = crate::common::document_cache::CompilerConfiguration::default();
 
-    let server_notifier_ = server_notifier.clone();
+    #[cfg(not(feature = "preview-engine"))]
+    let to_preview: Rc<dyn LspToPreview> = Rc::new(common::DummyLspToPreview::default());
+    #[cfg(feature = "preview-engine")]
+    let to_preview: Rc<dyn LspToPreview> =
+        Rc::new(preview::connector::WasmLspToPreview::new(server_notifier.clone()));
+
+    let to_preview_clone = to_preview.clone();
     compiler_config.open_import_fallback = Some(Rc::new(move |path| {
         let load_file = Function::from(load_file.clone());
-        let server_notifier = server_notifier_.clone();
+        let to_preview = to_preview_clone.clone();
         Box::pin(async move {
             let contents = self::load_file(path.clone(), &load_file).await;
             let Ok(url) = Url::from_file_path(&path) else {
                 return Some(contents.map(|c| (None, c)));
             };
             if let Ok(contents) = &contents {
-                server_notifier.send_message_to_preview(LspToPreviewMessage::SetContents {
-                    url: VersionedUrl::new(url, None),
-                    contents: contents.clone(),
-                })
+                to_preview
+                    .send(&LspToPreviewMessage::SetContents {
+                        url: VersionedUrl::new(url, None),
+                        contents: contents.clone(),
+                    })
+                    .unwrap()
             }
             Some(contents.map(|c| (None, c)))
         })
@@ -222,13 +226,14 @@ pub fn create(
             server_notifier,
             to_show: Default::default(),
             open_urls: Default::default(),
+            to_preview,
         }),
         reentry_guard,
         rh: Rc::new(rh),
     })
 }
 
-fn send_workspace_edit(
+fn forward_workspace_edit(
     server_notifier: ServerNotifier,
     label: Option<String>,
     edit: Result<lsp_types::WorkspaceEdit>,
@@ -294,7 +299,7 @@ impl SlintServer {
                 crate::language::request_state(&self.ctx);
             }
             M::SendWorkspaceEdit { label, edit } => {
-                send_workspace_edit(self.ctx.server_notifier.clone(), label, Ok(edit));
+                forward_workspace_edit(self.ctx.server_notifier.clone(), label, Ok(edit));
             }
             M::SendShowMessage { message } => {
                 let _ = self
