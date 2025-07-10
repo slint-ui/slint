@@ -374,6 +374,25 @@ macro_rules! for_each_enums {
                 EndClosed,
             }
 
+            /// This enum defines how elements in a path's view box are transformed to fit into the Path's
+            /// width and height. If no view box is defined, the
+            /// implicit bounding rectangle becomes the view box.
+            #[non_exhaustive]
+            enum PathFitStyle {
+                /// Scale elements to fit into the Path element's
+                /// dimensions while preserving the aspect ratio,
+                /// avoiding overflow.
+                Min,
+                /// Scale elements to fit into the Path element's
+                /// dimensions while preserving the aspect ratio.
+                /// If the aspect ratio of the view box differs from
+                /// the aspect ratio of the Path, then the elements will overflow.
+                Max,
+                /// Scale elements horizontall and vertically to
+                /// fit exactly the Path's dimenions.
+                Stretch,
+            }
+
             /// This enum represents the different values for the `accessible-role` property, used to describe the
             /// role of an element in the context of assistive technology such as screen readers.
             #[non_exhaustive]
