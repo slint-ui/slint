@@ -24,6 +24,9 @@ mod linuxfb;
 pub fn new(
     device_opener: &crate::DeviceOpener,
 ) -> Result<Arc<dyn SoftwareBufferDisplay>, PlatformError> {
+    if std::env::var_os("SLINT_BACKEND_LINUXFB").is_some() {
+        return linuxfb::LinuxFBDisplay::new(device_opener);
+    }
     dumbbuffer::DumbBufferDisplay::new(device_opener)
         .or_else(|_| linuxfb::LinuxFBDisplay::new(device_opener))
 }
