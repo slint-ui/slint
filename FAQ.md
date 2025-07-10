@@ -7,6 +7,7 @@
   - [Will there be API bindings to integrate with my favorite programming language?](#will-there-be-api-bindings-to-integrate-with-my-favorite-programming-language)
 - [Licensing](#licensing)
   - [Using Slint in Permissively Licensed Open Source Projects](#using-slint-in-permissively-licensed-open-source-projects)
+  - [Using Slint in Proprietary Licensed Projects](#using-slint-in-proprietary-licensed-projects)
 - [FAQs on Slint Licenses](#faqs-on-slint-licenses)
   - [Royalty-free license](#royalty-free-license)
     - [Who can use the Royalty-free license?](#who-can-use-the-royalty-free-license)
@@ -90,6 +91,16 @@ This project is licensed under the {your-project-license} License.
 It uses the Slint GUI toolkit under the {selected-Slint-license} License. The Derivate works can use Slint under any one of the licenses - (1) [Commercial](https://slint.dev/terms-and-conditions#license), or (2) [GPLv3](https://slint.dev/terms-and-conditions#gplv3).
 
 ```
+
+### Using Slint in Proprietary Licensed Projects
+
+This guide helps you understand how to use Slint with a proprietary license. The key factor to consider is the type of application you’re building.
+
+| Type of Project | Project License | Selected Slint License  | License of the Distributables | Your Obligations | Restrictions |
+|--|--|--|--|--|--|
+| **Desktop, Mobile, Web** Application | Proprietary | Royalty-Free | Proprietary | ✅ Display the [`AboutSlint` widget](https://docs.slint.dev/latest/docs/slint/reference/std-widgets/misc/aboutslint/) in the app's "About" screen or splash screen; *or* display the [Slint badge](https://github.com/slint-ui/slint/tree/master/logo/MadeWithSlint-logo-whitebg.png) on your public download page. | ❌ Slint source code may not be redistributed except under GPLv3.  |
+| **Embedded Systems, Desktop, Mobile, Web** Application | Proprietary | Commercial | Proprietary | ✅ Obtain a commercial license from Slint. | ❌ Slint source code may not be redistributed except under GPLv3.  |
+
 ## FAQs on Slint Licenses
 
 ### Royalty-free license
