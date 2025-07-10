@@ -3,7 +3,12 @@
 
 use std::fs;
 use zed::{DownloadedFileType, LanguageServerId};
-use zed_extension_api::{self as zed, Architecture, Os, Result};
+use zed_extension_api::{self as zed, settings::LspSettings, Architecture, Os, Result};
+
+struct SlintBinary {
+    path: String,
+    args: Option<Vec<String>>,
+}
 
 struct SlintExtension {
     cached_binary_path: Option<String>,
@@ -13,13 +18,21 @@ impl SlintExtension {
     fn language_server_binary_path(
         &mut self,
         language_server_id: &LanguageServerId,
-        _worktree: &zed::Worktree,
-    ) -> Result<String> {
-        // Use a local binary first
-        // TODO: this causes a hang on linux
-        // if let Some(path) = worktree.which("slint-lsp") {
-        //     return Ok(path);
-        // }
+        worktree: &zed::Worktree,
+    ) -> Result<SlintBinary> {
+        let binary_settings = LspSettings::for_worktree("slint", worktree)
+            .ok()
+            .and_then(|lsp_settings| lsp_settings.binary);
+        let binary_args =
+            binary_settings.as_ref().and_then(|binary_settings| binary_settings.arguments.clone());
+
+        if let Some(path) = binary_settings.and_then(|binary_settings| binary_settings.path) {
+            return Ok(SlintBinary { path, args: binary_args });
+        }
+
+        if let Some(path) = worktree.which("slint-lsp") {
+            return Ok(SlintBinary { path, args: binary_args });
+        }
 
         if let Some(path) = &self.cached_binary_path {
             if fs::metadata(path).is_ok_and(|stat| stat.is_file()) {
@@ -27,7 +40,7 @@ impl SlintExtension {
                     language_server_id,
                     &zed::LanguageServerInstallationStatus::None,
                 );
-                return Ok(path.to_owned());
+                return Ok(SlintBinary { path: path.to_owned(), args: binary_args });
             }
         }
 
@@ -101,7 +114,7 @@ impl SlintExtension {
         }
 
         self.cached_binary_path = Some(binary_path.clone());
-        Ok(binary_path)
+        Ok(SlintBinary { path: binary_path, args: binary_args })
     }
 }
 
@@ -115,11 +128,24 @@ impl zed::Extension for SlintExtension {
         language_server_id: &LanguageServerId,
         worktree: &zed::Worktree,
     ) -> Result<zed::Command> {
+        let slint_binary = self.language_server_binary_path(language_server_id, worktree)?;
         Ok(zed::Command {
-            command: self.language_server_binary_path(language_server_id, worktree)?,
-            args: vec![],
+            command: slint_binary.path,
+            args: slint_binary.args.unwrap_or(Vec::new()),
             env: Default::default(),
         })
+    }
+
+    fn language_server_workspace_configuration(
+        &mut self,
+        language_server_id: &LanguageServerId,
+        worktree: &zed::Worktree,
+    ) -> Result<Option<zed::serde_json::Value>> {
+        let settings = LspSettings::for_worktree(language_server_id.as_ref(), worktree)
+            .ok()
+            .and_then(|lsp_settings| lsp_settings.settings.clone())
+            .unwrap_or_default();
+        Ok(Some(settings))
     }
 }
 
