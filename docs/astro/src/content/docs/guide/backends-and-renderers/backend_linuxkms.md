@@ -163,7 +163,7 @@ udevadm trigger
 
 ## Legacy LinuxFB Interface
 
-For software rendering, DRM dumb buffers are the preferred default way of posting framebuffers to the display. If DRM dumb buffers are not supported, the LinuxKMS backend falls back to using the Linux legacy
+For software rendering, DRM dumb buffers are the preferred default way of posting frame buffers to the display. If DRM dumb buffers are not supported, the LinuxKMS backend falls back to using the Linux legacy
 framebuffer interface (`/dev/fbX`).
 
-To override this default and use only the legay framebuffer interface, set the `SLINT_BACKEND_LINUXFB=1` environment variable.
+To override this default and use only the legacy framebuffer interface, set the `SLINT_BACKEND_LINUXFB=1` environment variable.
