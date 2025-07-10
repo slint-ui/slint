@@ -55,9 +55,8 @@ jobs:
               with:
                   crate: cargo-about
                   version: "=0.6.6"
-            - name: Upgrade pip and install pipenv
-              run: |
-                  sudo apt-get install python3-pip pipenv
+            - name: Install uv
+              uses: astral-sh/setup-uv@v6
             - name: Remove docs from cache # Avoid stale docs
               run: |
                   rm -rf target/doc target/cppdocs api/node/docs
@@ -140,9 +139,6 @@ jobs:
             - name: "Node docs"
               run: pnpm run docs
               working-directory: api/node
-
-            - name: Install uv
-              uses: astral-sh/setup-uv@v6
 
             - name: Setup headless display
               uses: pyvista/setup-headless-display-action@v4
