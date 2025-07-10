@@ -44,8 +44,8 @@ enum Embedding {
 struct Cli {
     /// Set the output format for generated code.
     /// Possible values: 'cpp' for C++ code or 'rust' for Rust code.
-    #[arg(short = 'f', long = "format", default_value = "cpp")]
-    format: generator::OutputFormat,
+    #[arg(short = 'f', long = "format")]
+    format: Option<generator::OutputFormat>,
 
     /// Specify include paths for imported .slint files or image resources.
     /// This is used for including external .slint files or image resources referenced by '@image-url'.
@@ -121,7 +121,12 @@ fn main() -> std::io::Result<()> {
         std::process::exit(-1);
     }
 
-    let mut format = args.format.clone();
+    let mut format = args.format.clone().unwrap_or_else(|| {
+        match std::path::Path::new(&args.output).extension().and_then(|ext| ext.to_str()) {
+            Some("rs") => generator::OutputFormat::Rust,
+            _ => generator::OutputFormat::Cpp(Default::default()),
+        }
+    });
 
     if args.cpp_namespace.is_some() {
         if !matches!(format, generator::OutputFormat::Cpp(..)) {
