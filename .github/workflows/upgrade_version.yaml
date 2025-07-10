@@ -26,7 +26,7 @@ jobs:
                   sed -i 's/ VERSION [0-9]*\.[0-9]*\.[0-9]*)$/ VERSION ${{ github.event.inputs.new_version }})/' api/cpp/CMakeLists.txt
 
                   # The version is also in these files
-                  sed -i "s/^version = \"[0-9]*\.[0-9]*\.[0-9]*\(.*\)\"/version = \"${{ github.event.inputs.new_version }}\1\"/" api/cpp/docs/conf.py api/python/slint/pyproject.toml api/python/briefcase/pyproject.toml
+                  sed -i "s/^version = \"[0-9]*\.[0-9]*\.[0-9]*\(.*\)\"/version = \"${{ github.event.inputs.new_version }}\1\"/" api/cpp/docs/conf.py api/python/slint/pyproject.toml api/python/briefcase/pyproject.toml api/python/compiler/pyproject.toml
 
                   # Version in package.json files
                   git ls-files | grep package.json | xargs sed -i 's/"version": ".*"/"version": "${{ github.event.inputs.new_version }}"/'

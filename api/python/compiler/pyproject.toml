@@ -1,0 +1,13 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+[project]
+name = "slint-compiler"
+version = "1.12.1b1"
+description = "Python wrapper around the Slint compiler for Python"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = ["cached-path>=1.7.3"]
+
+[project.scripts]
+slint-compiler = "slint_compiler:main"
