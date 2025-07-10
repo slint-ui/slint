@@ -410,6 +410,7 @@ fn process_property(
         let element = prop.prop.element();
         if element.borrow().bindings.contains_key(prop.prop.name()) {
             analyze_binding(&prop, context, reverse_aliases, diag);
+            break;
         }
         let next = match &element.borrow().base_type {
             ElementType::Component(base) => {
