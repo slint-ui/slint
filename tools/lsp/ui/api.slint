@@ -215,7 +215,8 @@ export struct ElementInformation {
     type-name: string,
     source-uri: string,
     source-version: int,
-    range: Range,
+    /// The offset within source-uri
+    offset: int,
 }
 
 export struct PaletteEntry {
@@ -243,7 +244,7 @@ export struct OutlineTreeNode {
     is-expended: bool,
     indent-level: int,
     name: string,
-    file-name: string,
+    uri: string,
     offset: int,
     is-last-child: bool,
 }
@@ -490,11 +491,11 @@ export global Api {
 
     // ## Outline
     in-out property <[OutlineTreeNode]> outline;
-    callback outline-select-element(file: string, offset: int);
+    callback outline-select-element(uri: string, offset: int);
     // Data is either a "file:offset" for an element to move, or just a component index.
     // location = 0 means on top of the element, location = 1 means after the element,
     // location = -1 means before
-    callback outline-drop(data: string, file: string, offset: int, location: int);
+    callback outline-drop(data: string, uri: string, offset: int, location: int);
 
     // ## preview data
 

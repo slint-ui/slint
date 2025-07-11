@@ -81,7 +81,7 @@ pub struct PropertyInformation {
 pub struct ElementInformation {
     pub id: SmolStr,
     pub type_name: SmolStr,
-    pub range: TextRange,
+    pub offset: TextSize,
 }
 
 #[derive(Clone, Debug)]
@@ -574,14 +574,14 @@ fn find_block_range(element: &common::ElementRcNode) -> Option<TextRange> {
 }
 
 fn get_element_information(element: &common::ElementRcNode) -> ElementInformation {
-    let range = element.with_decorated_node(|node| util::node_range_without_trailing_ws(&node));
+    let offset = element.with_element_node(|n| n.text_range().start());
     let e = element.element.borrow();
     let type_name = if matches!(&e.base_type, ElementType::Builtin(b) if b.name == "Empty") {
         SmolStr::default()
     } else {
         e.base_type.to_smolstr()
     };
-    ElementInformation { id: e.id.clone(), type_name, range }
+    ElementInformation { id: e.id.clone(), type_name, offset }
 }
 
 pub(crate) fn query_properties(
@@ -963,14 +963,12 @@ pub mod tests {
 
         let result = get_element_information(&element);
 
-        let r = util::text_range_to_lsp_range(
+        let o = util::text_size_to_lsp_position(
             &element.with_element_node(|n| n.source_file.clone()),
-            result.range,
+            result.offset,
         );
-        assert_eq!(r.start.line, 32);
-        assert_eq!(r.start.character, 12);
-        assert_eq!(r.end.line, 35);
-        assert_eq!(r.end.character, 13);
+        assert_eq!(o.line, 32);
+        assert_eq!(o.character, 12);
 
         assert_eq!(result.type_name.to_string(), "Text");
     }
