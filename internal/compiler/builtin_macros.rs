@@ -322,7 +322,12 @@ fn to_debug_string(
         Type::Float32 | Type::Int32 => expr.maybe_convert_to(Type::String, node, diag),
         Type::String => expr,
         // TODO
-        Type::Color | Type::Brush | Type::Image | Type::Easing | Type::Array(_) => {
+        Type::Color
+        | Type::Brush
+        | Type::Image
+        | Type::Easing
+        | Type::Array(_)
+        | Type::KeyboardShortcut => {
             Expression::StringLiteral("<debug-of-this-type-not-yet-implemented>".into())
         }
         Type::Duration
