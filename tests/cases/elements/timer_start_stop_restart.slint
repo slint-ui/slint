@@ -1,5 +1,29 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+component Other inherits Rectangle {
+    out property <string> res;
+    callback stop_rect_timer();
+    callback start_rect_timer();
+    callback restart_rect_timer();
+
+    timer := Timer {
+        interval: 250ms;
+        running: false;
+        triggered => {
+            res += "t";
+        }
+    }
+
+    stop_rect_timer => {
+        timer.stop();
+    }
+    start_rect_timer => {
+        timer.start();
+    }
+    restart_rect_timer => {
+        timer.restart();
+    }
+}
 
 export component TestCase inherits Window {
     out property <string> result1;
@@ -7,6 +31,8 @@ export component TestCase inherits Window {
     out property <string> result3;
     out property <string> result4;
     in-out property <bool> validRect;
+
+    other := Other {}
 
     // multiple timers so we can ensure that the index resolution is working correctly
     timer1 := Timer {
@@ -83,6 +109,21 @@ export component TestCase inherits Window {
     public function restart_timer2() {
         timer2.restart();
     }
+
+    public function start_other_timer() {
+        other.start_rect_timer();
+    }
+
+    public function stop_other_timer() {
+        other.stop_rect_timer();
+    }
+
+    public function restart_other_timer() {
+        other.restart_rect_timer();
+    }
+    public function get_other_res() -> string {
+        return other.res;
+    }
 }
 
 /*
@@ -153,6 +194,28 @@ slint_testing::mock_elapsed_time(4000);
 assert_eq!(instance.get_result4(), "1");
 slint_testing::mock_elapsed_time(4000);
 assert_eq!(instance.get_result4(), "1");
+
+assert_eq!(instance.invoke_get_other_res(), "");
+instance.invoke_start_other_timer();
+slint_testing::mock_elapsed_time(1);
+slint_testing::mock_elapsed_time(250);
+assert_eq!(instance.invoke_get_other_res(), "t");
+instance.invoke_stop_other_timer();
+slint_testing::mock_elapsed_time(1);
+slint_testing::mock_elapsed_time(300);
+assert_eq!(instance.invoke_get_other_res(), "t");
+instance.invoke_start_other_timer();
+slint_testing::mock_elapsed_time(1);
+slint_testing::mock_elapsed_time(250);
+assert_eq!(instance.invoke_get_other_res(), "tt");
+slint_testing::mock_elapsed_time(50);
+instance.invoke_restart_other_timer();
+slint_testing::mock_elapsed_time(1);
+slint_testing::mock_elapsed_time(200);
+assert_eq!(instance.invoke_get_other_res(), "tt");
+slint_testing::mock_elapsed_time(1);
+slint_testing::mock_elapsed_time(50);
+assert_eq!(instance.invoke_get_other_res(), "ttt");
 ```
 
 ```cpp
@@ -225,6 +288,28 @@ slint_testing::mock_elapsed_time(4000);
 assert_eq(instance.get_result4(), "1");
 slint_testing::mock_elapsed_time(4000);
 assert_eq(instance.get_result4(), "1");
+
+assert_eq(instance.invoke_get_other_res(), "");
+instance.invoke_start_other_timer();
+slint_testing::mock_elapsed_time(1);
+slint_testing::mock_elapsed_time(250);
+assert_eq(instance.invoke_get_other_res(), "t");
+instance.invoke_stop_other_timer();
+slint_testing::mock_elapsed_time(1);
+slint_testing::mock_elapsed_time(300);
+assert_eq(instance.invoke_get_other_res(), "t");
+instance.invoke_start_other_timer();
+slint_testing::mock_elapsed_time(1);
+slint_testing::mock_elapsed_time(250);
+assert_eq(instance.invoke_get_other_res(), "tt");
+slint_testing::mock_elapsed_time(50);
+instance.invoke_restart_other_timer();
+slint_testing::mock_elapsed_time(1);
+slint_testing::mock_elapsed_time(200);
+assert_eq(instance.invoke_get_other_res(), "tt");
+slint_testing::mock_elapsed_time(1);
+slint_testing::mock_elapsed_time(50);
+assert_eq(instance.invoke_get_other_res(), "ttt");
 ```
 
 ```js
@@ -294,5 +379,27 @@ slintlib.private_api.mock_elapsed_time(4000);
 assert.equal(instance.result4, "1");
 slintlib.private_api.mock_elapsed_time(4000);
 assert.equal(instance.result4, "1");
+
+assert.equal(instance.get_other_res(), "");
+instance.start_other_timer();
+slintlib.private_api.mock_elapsed_time(1);
+slintlib.private_api.mock_elapsed_time(250);
+assert.equal(instance.get_other_res(), "t");
+instance.stop_other_timer();
+slintlib.private_api.mock_elapsed_time(1);
+slintlib.private_api.mock_elapsed_time(300);
+assert.equal(instance.get_other_res(), "t");
+instance.start_other_timer();
+slintlib.private_api.mock_elapsed_time(1);
+slintlib.private_api.mock_elapsed_time(250);
+assert.equal(instance.get_other_res(), "tt");
+slintlib.private_api.mock_elapsed_time(50);
+instance.restart_other_timer();
+slintlib.private_api.mock_elapsed_time(1);
+slintlib.private_api.mock_elapsed_time(200);
+assert.equal(instance.get_other_res(), "tt");
+slintlib.private_api.mock_elapsed_time(1);
+slintlib.private_api.mock_elapsed_time(50);
+assert.equal(instance.get_other_res(), "ttt");
 ```
 */
