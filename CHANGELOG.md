@@ -5,11 +5,36 @@ All notable changes to this project are documented in this file.
 
 ## [1.13.0] - Unreleased
 
+### General
+
+ - winit: Fixed the maximize window not being disabled for fixed-size windows
+ - winit: Added support for timer based frame throttling (#8826)
+ - Switched from WGPU24 to WGPU25
+ - Qt: Fixed default-font-size not working with PopupWindow
+ - LinuxKMS: Added support for overriding the default framebuffer interface selection
+
+### Slint Language
+
+ - Callbacks handler no longer need curly-braces. Extra semi-colon is no longer an error. (#8401)
+ - Added local variable with `let` (#2752)
+ - Added icon property to MenuItem and Menu
+ - Flickable forward wheel event in a orthogonal direction to their parent
+ - Add a compiler warning when using `padding` outside of layout (#6288)
+
 ### Rust
 
  - Minimum Supported Rust Version (MSRV) is 1.85
  - Upgraded WGPU dependency to version 25: The `unstable-wgpu-25` Cargo feature replaces the old `unstable-wgpu-24` feature,
    and the `slint::wgpu_25` module replaces the `slint::wgpu_24` module. There were no further changes to the API.
+ - Fixed compilation of generated code if the slint code declares a type named `core`
+ - Support for live-reload with the `slint/live-reload` feature and `SLINT_LIVE_RELOAD` env variable
+
+
+### C++
+
+ - Added `SharedString::clear()`
+ - Support for live-reload with the `SLINT_FEATURE_LIVE_RELOAD` feature and `SLINT_LIVE_RELOAD` env variable
+ - `SLINT_FEATURE_RENDERER_FEMTOVG_WGPU` is no longer enabled by default
 
 ### Node.js API
 
@@ -18,6 +43,14 @@ All notable changes to this project are documented in this file.
 ### Python
 
  - Added support for automatically mapping exported Slint enums to property Python `enum.Enum` subclasses.
+ - ...
+
+### Tooling
+
+ - lsp: allow to rename functions and callbacks
+ - slint-compiler: Guess default output format from file extension
+
+
 
 ## [1.12.1] - 2025-06-25
 
