@@ -202,7 +202,7 @@ pub fn generate(
     #[cfg(not(feature = "bundle-translations"))]
     let translations = quote!();
     #[cfg(feature = "bundle-translations")]
-    let translations = llr.translations.as_ref().map(|t| (generate_translations(t, &llr)));
+    let translations = llr.translations.as_ref().map(|t| generate_translations(t, &llr));
 
     Ok(quote! {
         mod #generated_mod {

@@ -664,7 +664,7 @@ fn lower_repeated_component(
         }
     });
 
-    let parent_index = parent_component_container.map(|p| (*p.borrow().item_index.get().unwrap()));
+    let parent_index = parent_component_container.map(|p| *p.borrow().item_index.get().unwrap());
     let container_item_index =
         parent_index.and_then(|pii| sub_component.items.position(|i| i.index_in_tree == pii));
 
