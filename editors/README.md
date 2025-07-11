@@ -213,12 +213,8 @@ _Note: This plugin is developed by @kizeevov._
 
 ## Zed
 
-[Zed](https://zed.dev) is a high-performance, multiplayer code editor. Luke Jones maintains
-the [zed-slint extension](https://gitlab.com/flukejones/zed-slint), that integrates the latest
-release of the [slint language server](../tools/lsp/README.md) into Zed, offering code completion
-and syntax highlighting. Install the extension via the following steps:
+[Zed](https://zed.dev) is a high-performance, multiplayer code editor. The [zed-slint extension](https://github.com/slint-ui/slint/tree/master/editors/zed), originally developed and donated by Luke Jones, now lives under the slint organization. It integrates the latest release of the [slint language server](../tools/lsp/README.md) into Zed, offering code completion and syntax highlighting. Install the extension via the following steps:
 
 1. Open the extensions tab via the Zed -> Extensions menu.
 2. In the search field, enter "slint".
 3. Click on "Install" for the "Slint" extension.
-
