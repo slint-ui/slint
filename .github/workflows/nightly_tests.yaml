@@ -20,7 +20,7 @@ jobs:
         steps:
             - uses: actions/checkout@v4
             - uses: dtolnay/rust-toolchain@stable
-            - uses: esp-rs/xtensa-toolchain@v1.5
+            - uses: esp-rs/xtensa-toolchain@v1.6
               with:
                   default: true
                   buildtargets: esp32
@@ -183,3 +183,33 @@ jobs:
                 path: ${{ matrix.scheme }}.png
 
 
+    bevy_example:
+        strategy:
+            matrix:
+                os: [ubuntu-22.04, macos-14, windows-2022]
+        runs-on: ${{ matrix.os }}
+        steps:
+            - uses: actions/checkout@v4
+            - uses: ./.github/actions/setup-rust
+            - uses: ./.github/actions/install-linux-dependencies
+            - uses: ./.github/actions/install-skia-dependencies
+            - uses: ilammy/msvc-dev-cmd@v1
+            - name: Build Bevy Example
+              run: cargo build
+              working-directory: examples/bevy
+
+    uvx_slint_compiler:
+        strategy:
+            matrix:
+                os: [ubuntu-22.04, ubuntu-22.04-arm, macos-13, macos-14, windows-2022, windows-11-arm]
+        runs-on: ${{ matrix.os }}
+        steps:
+            - uses: actions/checkout@v4
+            - name: Install uv
+              uses: astral-sh/setup-uv@v6
+            - name: Run slint compiler via uxv
+              working-directory: api/python/compiler
+              env:
+                SLINT_COMPILER_VERSION: nightly
+              # TODO: generate python code when the python generator lands
+              run: uvx --with-editable=. slint-compiler ../../../demos/printerdemo/ui/printerdemo.slint

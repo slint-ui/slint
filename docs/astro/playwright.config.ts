@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 import { defineConfig, devices } from "@playwright/test";
-import { BASE_PATH } from "./src/utils/site-config";
+import { BASE_PATH } from "../common/src/utils/site-config";
 
 /**
  * Read environment variables from file.

@@ -37,7 +37,7 @@ mod fonts;
 mod images;
 mod itemrenderer;
 pub mod opengl;
-#[cfg(feature = "wgpu-24")]
+#[cfg(feature = "wgpu-25")]
 pub mod wgpu;
 
 pub trait WindowSurface<R: femtovg::Renderer> {
@@ -425,10 +425,6 @@ impl<B: GraphicsBackend> RendererSealed for FemtoVGRenderer<B> {
         path: &std::path::Path,
     ) -> Result<(), Box<dyn std::error::Error>> {
         sharedfontdb::register_font_from_path(path)
-    }
-
-    fn default_font_size(&self) -> LogicalLength {
-        self::fonts::DEFAULT_FONT_SIZE
     }
 
     fn set_rendering_notifier(

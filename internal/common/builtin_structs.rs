@@ -204,8 +204,8 @@ macro_rules! for_each_builtin_structs {
                 export {
                     /// The text of the menu entry
                     title: SharedString,
-                    // /// the icon associated with the menu entry
-                    // icon: Image,
+                    /// the icon associated with the menu entry
+                    icon: Image,
                     /// an opaque id that can be used to identify the menu entry
                     id: SharedString,
                     // keyboard_shortcut: KeySequence,

@@ -170,7 +170,7 @@ int main()
         if (*error == slint::SetRenderingNotifierError::Unsupported) {
             fprintf(stderr,
                     "This example requires the use of a GL renderer. Please run with the "
-                    "environment variable SLINT_BACKEND=winit set.\n");
+                    "environment variable SLINT_BACKEND=winit-femtovg set.\n");
         } else {
             fprintf(stderr, "Unknown error calling set_rendering_notifier\n");
         }

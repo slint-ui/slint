@@ -54,11 +54,11 @@ renderer-software = [
 ]
 accessibility = ["dep:accesskit", "dep:accesskit_winit"]
 raw-window-handle-06 = ["i-slint-core/raw-window-handle-06"]
-unstable-wgpu-24 = [
-  "i-slint-core/unstable-wgpu-24",
+unstable-wgpu-25 = [
+  "i-slint-core/unstable-wgpu-25",
   "renderer-femtovg-wgpu",
-  "i-slint-renderer-femtovg/unstable-wgpu-24",
-  "i-slint-renderer-skia?/unstable-wgpu-24",
+  "i-slint-renderer-femtovg/unstable-wgpu-25",
+  "i-slint-renderer-skia?/unstable-wgpu-25",
 ]
 default = []
 
@@ -100,8 +100,8 @@ wasm-bindgen = { version = "0.2" }
 glutin = { workspace = true, optional = true, default-features = false, features = ["egl", "wgl"] }
 glutin-winit = { version = "0.5", optional = true, default-features = false, features = ["egl", "wgl"] }
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-accesskit = { version = "0.19", optional = true }
-accesskit_winit = { version = "0.27", optional = true }
+accesskit = { version = "0.20", optional = true }
+accesskit_winit = { version = "0.28", optional = true }
 copypasta = { version = "0.10", default-features = false }
 
 [target.'cfg(not(any(target_family = "windows", target_vendor = "apple", target_arch = "wasm32")))'.dependencies]

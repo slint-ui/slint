@@ -3,9 +3,9 @@
 title: Flickable
 description: Flickable element api.
 ---
-import SlintProperty  from '/src/components/SlintProperty.astro';
-import CodeSnippetMD from '/src/components/CodeSnippetMD.astro';
-import Link from '/src/components/Link.astro';
+import SlintProperty from '@slint/common-files/src/components/SlintProperty.astro';
+import CodeSnippetMD from '@slint/common-files/src/components/CodeSnippetMD.astro';
+import Link from '@slint/common-files/src/components/Link.astro';
 
 ```slint playground
 export component Example inherits Window {
@@ -59,6 +59,12 @@ interacting with `TouchArea` elements:
    a `TouchArea`, then `Flickable` will flick immediately on pointer move events when the euclidean distance
    to the coordinates of the press event exceeds 8 logical pixels.
 
+## Wheel/Scroll Event Interaction
+
+The `Flickable` also supports scrolling with the mouse wheel and touchpad scroll gestures.
+It will scroll regardless of the `interactive` property.
+If the `Flickable` can scroll in the event's direction, the event will be intercepted.
+If the Flickable can't scroll in the direction of the event, the event will be forwarded to the parent.
 
 ## Properties
 

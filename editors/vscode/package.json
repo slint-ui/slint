@@ -59,7 +59,7 @@
       {
         "language": "slint",
         "scopeName": "source.slint",
-        "path": "./slint.tmLanguage.json"
+        "path": "../../docs/common/src/utils/slint.tmLanguage.json"
       },
       {
         "injectTo": [
@@ -146,7 +146,7 @@
           "items": {
             "type": "string"
           },
-          "description": "List of paths in which the `import` statement and `@image-url` are looked up"
+          "description": "List of paths in which the `import` statement and `@image-url` are looked up. Relative paths are resolved against the workspace root."
         },
         "slint.libraryPaths": {
           "type": "object",
@@ -155,7 +155,7 @@
               "type": "string"
             }
           },
-          "description": "Map of paths in which the `import` statement for `@library` imports are looked up"
+          "description": "Map of paths in which the `import` statement for `@mylibrary` imports are looked up. This is an object such as `{\"mylibrary\": \"/path/to/library\"}`. Relative paths are resolved against the workspace root."
         }
       }
     },
@@ -231,7 +231,7 @@
     "vscode-languageserver": "9.0.1"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.0.5",
+    "@biomejs/biome": "2.0.6",
     "@rauschma/env-var": "1.0.1",
     "@types/fs-extra": "11.0.4",
     "@types/node": "18.11.9",

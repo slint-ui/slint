@@ -25,6 +25,7 @@ mod drag_resize_window;
 mod winitwindowadapter;
 use winitwindowadapter::*;
 pub(crate) mod event_loop;
+mod frame_throttle;
 
 /// Re-export of the winit crate.
 pub use winit;
@@ -380,14 +381,14 @@ impl BackendBuilder {
             #[cfg(feature = "renderer-femtovg-wgpu")]
             (Some("femtovg-wgpu"), maybe_graphics_api) => {
                 if !maybe_graphics_api.is_some_and(|_api| {
-                    #[cfg(feature = "unstable-wgpu-24")]
-                    if matches!(_api, RequestedGraphicsAPI::WGPU24(..)) {
+                    #[cfg(feature = "unstable-wgpu-25")]
+                    if matches!(_api, RequestedGraphicsAPI::WGPU25(..)) {
                         return true;
                     }
                     false
                 }) {
                     return Err(
-                        "The FemtoVG WGPU renderer only supports the WGPU24 graphics API selection"
+                        "The FemtoVG WGPU renderer only supports the WGPU25 graphics API selection"
                             .into(),
                     );
                 }
@@ -424,8 +425,8 @@ impl BackendBuilder {
                     return Err(PlatformError::NoPlatform);
                 }
             }
-            #[cfg(feature = "unstable-wgpu-24")]
-            (None, Some(RequestedGraphicsAPI::WGPU24(..))) => {
+            #[cfg(feature = "unstable-wgpu-25")]
+            (None, Some(RequestedGraphicsAPI::WGPU25(..))) => {
                 renderer::femtovg::WGPUFemtoVGRenderer::new_suspended
             }
             (None, Some(_requested_graphics_api)) => {
@@ -469,6 +470,7 @@ pub(crate) struct SharedBackendData {
     clipboard: std::cell::RefCell<clipboard::ClipboardPair>,
     not_running_event_loop: RefCell<Option<winit::event_loop::EventLoop<SlintEvent>>>,
     event_loop_proxy: winit::event_loop::EventLoopProxy<SlintEvent>,
+    is_wayland: bool,
 }
 
 impl SharedBackendData {
@@ -508,6 +510,15 @@ impl SharedBackendData {
         let event_loop =
             builder.build().map_err(|e| format!("Error initializing winit event loop: {e}"))?;
 
+        cfg_if::cfg_if! {
+            if #[cfg(all(unix, not(target_vendor = "apple"), feature = "wayland"))] {
+                use winit::platform::wayland::EventLoopExtWayland;
+                let is_wayland = event_loop.is_wayland();
+            } else {
+                let is_wayland = false;
+            }
+        }
+
         let event_loop_proxy = event_loop.create_proxy();
         #[cfg(not(target_arch = "wasm32"))]
         let clipboard = crate::clipboard::create_clipboard(
@@ -524,6 +535,7 @@ impl SharedBackendData {
             clipboard: RefCell::new(clipboard),
             not_running_event_loop: RefCell::new(Some(event_loop)),
             event_loop_proxy,
+            is_wayland,
         })
     }
 

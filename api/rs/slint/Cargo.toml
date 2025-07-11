@@ -83,6 +83,19 @@ raw-window-handle-06 = ["dep:raw-window-handle-06", "i-slint-backend-selector/ra
 ## AVIF, BMP, DDS, Farbfeld, GIF, HDR, ICO, JPEG, EXR, PNG, PNM, QOI, TGA, TIFF, WebP.
 image-default-formats = ["i-slint-core/image-default-formats"]
 
+## Enable the live reload feature
+##
+## Enable this feature to reload the .slint files at runtime and reload it whenever the files are modified on disk.
+## For this feature to work, it's also required to set the `SLINT_LIVE_RELOAD` environment variable during
+## application compilation.
+##
+## This is a feature for debugging and development. It's not recommended to add this feature to your Cargo.toml.
+## Instead, use the `--features` command line argument like so when building your app:
+## ```bash
+## SLINT_LIVE_RELOAD=1 cargo build --features slint/live-reload
+## ```
+live-reload = ["dep:slint-interpreter"]
+
 #! ### Backends
 
 #! Slint needs a backend that will act as liaison between Slint and the OS.
@@ -176,7 +189,7 @@ backend-android-activity-05 = [
   "i-slint-backend-android-activity/aa-05",
 ]
 
-## Enable support for [WGPU](http://wgpu.rs) based rendering and expose WGPU based APIs based on WGPU version 24.x.
+## Enable support for [WGPU](http://wgpu.rs) based rendering and expose WGPU based APIs based on WGPU version 25.x.
 ##
 ## APIs guarded with this feature are *NOT* subject to the usual Slint API stability guarantees, because WGPU releases new major
 ## versions frequently. This feature as well as the APIs changed or removed in future minor releases of Slint, likely to be replaced
@@ -186,9 +199,9 @@ backend-android-activity-05 = [
 ## in your `Cargo.toml` when enabling this feature:
 ##
 ## ```toml
-## slint = { version = "~1.12", features = ["unstable-wgpu-24"] }
+## slint = { version = "~1.13", features = ["unstable-wgpu-25"] }
 ## ```
-unstable-wgpu-24 = ["i-slint-core/unstable-wgpu-24", "i-slint-backend-selector/unstable-wgpu-24", "dep:wgpu-24"]
+unstable-wgpu-25 = ["i-slint-core/unstable-wgpu-25", "i-slint-backend-selector/unstable-wgpu-25", "dep:wgpu-25"]
 
 ## APIs guarded with this feature are *NOT* subject to the usual Slint API stability guarantees, because winit releases new major
 ## versions more frequently than Slint. This feature as well as the APIs changed or removed in future minor releases of Slint, likely to be replaced
@@ -207,6 +220,7 @@ i-slint-core = { workspace = true }
 slint-macros = { workspace = true }
 i-slint-backend-selector = { workspace = true }
 i-slint-core-macros = { workspace = true }
+slint-interpreter = { workspace = true, optional = true, default-features = false, features = ["display-diagnostics", "compat-1-2", "internal-live-reload"] }
 
 const-field-offset = { version = "0.1.2", path = "../../../helper_crates/const-field-offset" }
 document-features = { version = "0.2.0", optional = true }
@@ -222,7 +236,7 @@ raw-window-handle-06 = { workspace = true, optional = true }
 
 unicode-segmentation = { workspace = true }
 
-wgpu-24 = { workspace = true, optional = true }
+wgpu-25 = { workspace = true, optional = true }
 
 i-slint-backend-winit = { workspace = true, optional = true }
 
@@ -257,7 +271,7 @@ features = [
   "renderer-software",
   "renderer-femtovg",
   "raw-window-handle-06",
-  "unstable-wgpu-24",
+  "unstable-wgpu-25",
   "unstable-winit-030",
 ]
 rustdoc-args = ["--generate-link-to-definition"]

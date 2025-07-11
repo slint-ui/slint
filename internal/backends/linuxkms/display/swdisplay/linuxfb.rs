@@ -21,7 +21,7 @@ impl LinuxFBDisplay {
     pub fn new(
         device_opener: &crate::DeviceOpener,
     ) -> Result<Arc<dyn super::SoftwareBufferDisplay>, PlatformError> {
-        let mut last_err = None;
+        let mut fb_errors: Vec<String> = Vec::new();
 
         for fbnum in 0..10 {
             match Self::new_with_path(
@@ -29,11 +29,14 @@ impl LinuxFBDisplay {
                 std::path::Path::new(&format!("/dev/fb{fbnum}")),
             ) {
                 Ok(dsp) => return Ok(dsp),
-                Err(e) => last_err = Some(e),
+                Err(e) => fb_errors.push(format!("Error using /dev/fb{fbnum}: {}", e)),
             }
         }
 
-        Err(last_err.unwrap_or_else(|| "Could not create a linuxfb display".into()))
+        Err(PlatformError::Other(format!(
+            "Could not open any legacy framebuffers.\n{}",
+            fb_errors.join("\n")
+        )))
     }
 
     fn new_with_path(

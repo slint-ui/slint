@@ -300,10 +300,16 @@ def load_file(
 
         setattr(module, comp_name, wrapper_class)
 
-    for name, struct_or_enum_prototype in result.structs_and_enums.items():
+    structs, enums = result.structs_and_enums
+
+    for name, struct_prototype in structs.items():
         name = _normalize_prop(name)
-        struct_wrapper = _build_struct(name, struct_or_enum_prototype)
+        struct_wrapper = _build_struct(name, struct_prototype)
         setattr(module, name, struct_wrapper)
+
+    for name, enum_class in enums.items():
+        name = _normalize_prop(name)
+        setattr(module, name, enum_class)
 
     for orig_name, new_name in result.named_exports:
         orig_name = _normalize_prop(orig_name)

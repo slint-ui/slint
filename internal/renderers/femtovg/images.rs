@@ -21,8 +21,8 @@ where
     #[cfg(not(target_family = "wasm"))]
     fn convert_opengl_texture(opengl_texture: std::num::NonZero<u32>) -> Self::NativeTexture;
 
-    #[cfg(feature = "unstable-wgpu-24")]
-    fn convert_wgpu_24_texture(wgpu_texture: wgpu_24::Texture) -> Self::NativeTexture;
+    #[cfg(feature = "unstable-wgpu-25")]
+    fn convert_wgpu_25_texture(wgpu_texture: wgpu_25::Texture) -> Self::NativeTexture;
 }
 
 impl TextureImporter for femtovg::renderer::OpenGl {
@@ -31,8 +31,8 @@ impl TextureImporter for femtovg::renderer::OpenGl {
         glow::NativeTexture(opengl_texture)
     }
 
-    #[cfg(feature = "unstable-wgpu-24")]
-    fn convert_wgpu_24_texture(_wgpu_texture: wgpu_24::Texture) -> Self::NativeTexture {
+    #[cfg(feature = "unstable-wgpu-25")]
+    fn convert_wgpu_25_texture(_wgpu_texture: wgpu_25::Texture) -> Self::NativeTexture {
         unimplemented!()
     }
 }
@@ -43,8 +43,8 @@ impl TextureImporter for femtovg::renderer::WGPURenderer {
         todo!()
     }
 
-    #[cfg(feature = "unstable-wgpu-24")]
-    fn convert_wgpu_24_texture(wgpu_texture: wgpu_24::Texture) -> Self::NativeTexture {
+    #[cfg(feature = "unstable-wgpu-25")]
+    fn convert_wgpu_25_texture(wgpu_texture: wgpu_25::Texture) -> Self::NativeTexture {
         wgpu_texture
     }
 }
@@ -183,17 +183,17 @@ impl<R: femtovg::Renderer + TextureImporter> Texture<R> {
                     )
                     .unwrap()
             }
-            #[cfg(all(not(target_arch = "wasm32"), feature = "unstable-wgpu-24"))]
+            #[cfg(all(not(target_arch = "wasm32"), feature = "unstable-wgpu-25"))]
             ImageInner::WGPUTexture(any_wgpu_texture) => {
                 let texture = match any_wgpu_texture {
-                    i_slint_core::graphics::WGPUTexture::WGPU24Texture(texture) => texture.clone(),
+                    i_slint_core::graphics::WGPUTexture::WGPU25Texture(texture) => texture.clone(),
                 };
                 let size = texture.size();
 
                 canvas
                     .borrow_mut()
                     .create_image_from_native_texture(
-                        <R as TextureImporter>::convert_wgpu_24_texture(texture),
+                        <R as TextureImporter>::convert_wgpu_25_texture(texture),
                         femtovg::ImageInfo::new(
                             image_flags,
                             size.width as _,

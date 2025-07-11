@@ -101,6 +101,7 @@ public:
     {
         if (!--inner->strong_ref) {
             Layout layout = inner->vtable->drop_in_place({ inner->vtable, &inner->data });
+            layout.size = std::max<size_t>(layout.size, sizeof(Layout)); // because of the union
             layout.size += inner->data_offset;
             layout.align = std::max<size_t>(layout.align, alignof(VRcInner<VTable, Dyn>));
             inner->layout = layout;

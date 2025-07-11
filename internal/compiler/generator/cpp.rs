@@ -47,7 +47,7 @@ fn is_cpp_keyword(word: &str) -> bool {
     keywords.contains(word)
 }
 
-fn ident(ident: &str) -> SmolStr {
+pub fn ident(ident: &str) -> SmolStr {
     let mut new_ident = SmolStr::from(ident);
     if ident.contains('-') {
         new_ident = ident.replace_smolstr("-", "_");
@@ -58,7 +58,7 @@ fn ident(ident: &str) -> SmolStr {
     new_ident
 }
 
-fn concatenate_ident(ident: &str) -> SmolStr {
+pub fn concatenate_ident(ident: &str) -> SmolStr {
     if ident.contains('-') {
         ident.replace_smolstr("-", "_")
     } else {
@@ -109,7 +109,7 @@ fn access_item_rc(pr: &llr::PropertyReference, ctx: &EvaluationContext) -> Strin
 
 /// This module contains some data structure that helps represent a C++ code.
 /// It is then rendered into an actual C++ text using the Display trait
-mod cpp_ast {
+pub mod cpp_ast {
 
     use std::cell::Cell;
     use std::fmt::{Display, Error, Formatter};
@@ -681,31 +681,14 @@ pub fn generate(
     config: Config,
     compiler_config: &CompilerConfiguration,
 ) -> std::io::Result<impl std::fmt::Display> {
-    let mut file = File { namespace: config.namespace.clone(), ..Default::default() };
+    if std::env::var("SLINT_LIVE_RELOAD").is_ok() {
+        return super::cpp_live_reload::generate(doc, config, compiler_config);
+    }
 
-    file.includes.push("<array>".into());
-    file.includes.push("<limits>".into());
-    file.includes.push("<slint.h>".into());
+    let mut file = generate_types(&doc.used_types.borrow().structs_and_enums, &config);
 
     for (path, er) in doc.embedded_file_resources.borrow().iter() {
         embed_resource(er, path, &mut file.resources);
-    }
-
-    for ty in doc.used_types.borrow().structs_and_enums.iter() {
-        match ty {
-            Type::Struct(s) if s.name.is_some() && s.node.is_some() => {
-                generate_struct(
-                    &mut file,
-                    s.name.as_ref().unwrap(),
-                    &s.fields,
-                    s.node.as_ref().unwrap(),
-                );
-            }
-            Type::Enumeration(en) => {
-                generate_enum(&mut file, en);
-            }
-            _ => (),
-        }
     }
 
     let llr = llr::lower_to_item_tree::lower_to_item_tree(doc, compiler_config)?;
@@ -874,15 +857,6 @@ pub fn generate(
 
     generate_type_aliases(&mut file, doc);
 
-    file.after_includes = format!(
-        "static_assert({x} == SLINT_VERSION_MAJOR && {y} == SLINT_VERSION_MINOR && {z} == SLINT_VERSION_PATCH, \
-        \"This file was generated with Slint compiler version {x}.{y}.{z}, but the Slint library used is \" \
-        SLINT_VERSION_STRING \". The version numbers must match exactly.\");",
-        x = env!("CARGO_PKG_VERSION_MAJOR"),
-        y = env!("CARGO_PKG_VERSION_MINOR"),
-        z = env!("CARGO_PKG_VERSION_PATCH")
-    );
-
     if conditional_includes.iostream.get() {
         file.includes.push("<iostream>".into());
     }
@@ -903,6 +877,42 @@ pub fn generate(
     }
 
     Ok(file)
+}
+
+pub fn generate_types(used_types: &[Type], config: &Config) -> File {
+    let mut file = File { namespace: config.namespace.clone(), ..Default::default() };
+
+    file.includes.push("<array>".into());
+    file.includes.push("<limits>".into());
+    file.includes.push("<slint.h>".into());
+
+    file.after_includes = format!(
+        "static_assert({x} == SLINT_VERSION_MAJOR && {y} == SLINT_VERSION_MINOR && {z} == SLINT_VERSION_PATCH, \
+        \"This file was generated with Slint compiler version {x}.{y}.{z}, but the Slint library used is \" \
+        SLINT_VERSION_STRING \". The version numbers must match exactly.\");",
+        x = env!("CARGO_PKG_VERSION_MAJOR"),
+        y = env!("CARGO_PKG_VERSION_MINOR"),
+        z = env!("CARGO_PKG_VERSION_PATCH")
+    );
+
+    for ty in used_types {
+        match ty {
+            Type::Struct(s) if s.name.is_some() && s.node.is_some() => {
+                generate_struct(
+                    &mut file,
+                    s.name.as_ref().unwrap(),
+                    &s.fields,
+                    s.node.as_ref().unwrap(),
+                );
+            }
+            Type::Enumeration(en) => {
+                generate_enum(&mut file, en);
+            }
+            _ => (),
+        }
+    }
+
+    file
 }
 
 fn embed_resource(
@@ -4098,7 +4108,7 @@ fn return_compile_expression(
     }
 }
 
-fn generate_type_aliases(file: &mut File, doc: &Document) {
+pub fn generate_type_aliases(file: &mut File, doc: &Document) {
     let type_aliases = doc
         .exports
         .iter()

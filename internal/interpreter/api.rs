@@ -27,9 +27,7 @@ pub use i_slint_core::graphics::{
 };
 use i_slint_core::items::*;
 
-use crate::dynamic_item_tree::ErasedItemTreeBox;
-#[cfg(any(feature = "internal", target_arch = "wasm32"))]
-use crate::dynamic_item_tree::WindowOptions;
+use crate::dynamic_item_tree::{ErasedItemTreeBox, WindowOptions};
 
 /// This enum represents the different public variants of the [`Value`] enum, without
 /// the contained values.
@@ -972,23 +970,19 @@ impl ComponentDefinition {
     }
     /// Creates a new instance of the component and returns a shared handle to it.
     pub fn create(&self) -> Result<ComponentInstance, PlatformError> {
-        generativity::make_guard!(guard);
-        let instance = self.inner.unerase(guard).clone().create(Default::default())?;
+        let instance = self.create_with_options(Default::default())?;
         // Make sure the window adapter is created so call to `window()` do not panic later.
-        instance.window_adapter_ref()?;
-        Ok(ComponentInstance { inner: instance })
+        instance.inner.window_adapter_ref()?;
+        Ok(instance)
     }
 
     /// Creates a new instance of the component and returns a shared handle to it.
     #[doc(hidden)]
     #[cfg(feature = "internal")]
     pub fn create_embedded(&self, ctx: FactoryContext) -> Result<ComponentInstance, PlatformError> {
-        generativity::make_guard!(guard);
-        Ok(ComponentInstance {
-            inner: self.inner.unerase(guard).clone().create(WindowOptions::Embed {
-                parent_item_tree: ctx.parent_item_tree,
-                parent_item_tree_index: ctx.parent_item_tree_index,
-            })?,
+        self.create_with_options(WindowOptions::Embed {
+            parent_item_tree: ctx.parent_item_tree,
+            parent_item_tree_index: ctx.parent_item_tree_index,
         })
     }
 
@@ -999,12 +993,18 @@ impl ComponentDefinition {
         &self,
         window: &Window,
     ) -> Result<ComponentInstance, PlatformError> {
+        self.create_with_options(WindowOptions::UseExistingWindow(
+            WindowInner::from_pub(window).window_adapter(),
+        ))
+    }
+
+    /// Private implementation of create
+    pub(crate) fn create_with_options(
+        &self,
+        options: WindowOptions,
+    ) -> Result<ComponentInstance, PlatformError> {
         generativity::make_guard!(guard);
-        Ok(ComponentInstance {
-            inner: self.inner.unerase(guard).clone().create(WindowOptions::UseExistingWindow(
-                WindowInner::from_pub(window).window_adapter(),
-            ))?,
-        })
+        Ok(ComponentInstance { inner: self.inner.unerase(guard).clone().create(options)? })
     }
 
     /// List of publicly declared properties or callback.
@@ -1227,7 +1227,7 @@ pub fn print_diagnostics(diagnostics: &[Diagnostic]) {
 /// An instance can be put on screen with the [`ComponentInstance::run`] function.
 #[repr(C)]
 pub struct ComponentInstance {
-    inner: crate::dynamic_item_tree::DynamicComponentVRc,
+    pub(crate) inner: crate::dynamic_item_tree::DynamicComponentVRc,
 }
 
 impl ComponentInstance {
@@ -1536,23 +1536,21 @@ impl ComponentInstance {
 }
 
 impl ComponentHandle for ComponentInstance {
-    type Inner = crate::dynamic_item_tree::ErasedItemTreeBox;
+    type WeakInner = vtable::VWeak<ItemTreeVTable, crate::dynamic_item_tree::ErasedItemTreeBox>;
 
     fn as_weak(&self) -> Weak<Self>
     where
         Self: Sized,
     {
-        Weak::new(&self.inner)
+        Weak::new(vtable::VRc::downgrade(&self.inner))
     }
 
     fn clone_strong(&self) -> Self {
         Self { inner: self.inner.clone() }
     }
 
-    fn from_inner(
-        inner: vtable::VRc<i_slint_core::item_tree::ItemTreeVTable, Self::Inner>,
-    ) -> Self {
-        Self { inner }
+    fn upgrade_from_weak_inner(inner: &Self::WeakInner) -> Option<Self> {
+        Some(Self { inner: inner.upgrade()? })
     }
 
     fn show(&self) -> Result<(), PlatformError> {

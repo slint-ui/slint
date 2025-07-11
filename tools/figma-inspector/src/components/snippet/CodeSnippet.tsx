@@ -18,7 +18,7 @@ import type {
 } from "@shikijs/types";
 import OnigurumaEngine from "shiki/wasm";
 
-import slintLang from "../../../../../editors/vscode/slint.tmLanguage.json";
+import slintLang from "../../../../../docs/common/src/utils/slint.tmLanguage.json";
 import { getColorTheme, subscribeColorTheme } from "../../utils/bolt-utils.js";
 
 let highlighter: HighlighterCore | null = null;

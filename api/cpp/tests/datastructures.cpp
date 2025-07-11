@@ -4,7 +4,7 @@
 #include <ranges>
 #include <chrono>
 #define CATCH_CONFIG_MAIN
-#include "catch2/catch.hpp"
+#include "catch2/catch_all.hpp"
 
 #include <slint.h>
 
@@ -51,6 +51,14 @@ SCENARIO("SharedString API")
     {
         str = "Hello";
         REQUIRE(str.size() == 5);
+    }
+
+    SECTION("clear")
+    {
+        str = "Hello";
+        str.clear();
+        REQUIRE(str.size() == 0);
+        REQUIRE(std::string_view(str.data()) == "");
     }
 
     SECTION("to_lowercase")

@@ -31,9 +31,9 @@
     "jszip": "3.10.1",
     "shiki": "3.7.0",
     "typescript": "5.8.3",
-    "vite": "6.3.5",
+    "vite": "7.0.2",
     "vite-figma-plugin": "0.0.24",
-    "vite-plugin-singlefile": "2.2.0",
+    "vite-plugin-singlefile": "2.3.0",
     "vitest": "3.2.4"
   },
   "dependencies": {
@@ -42,6 +42,6 @@
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "react-rnd": "10.5.2",
-    "zustand": "5.0.5"
+    "zustand": "5.0.6"
   }
 }

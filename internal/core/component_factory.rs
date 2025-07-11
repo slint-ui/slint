@@ -50,12 +50,12 @@ pub struct ComponentFactory(Option<ComponentFactoryInner>);
 
 impl ComponentFactory {
     /// Create a new `ComponentFactory`
-    pub fn new<T: ComponentHandle + 'static>(
+    pub fn new<
+        X: vtable::HasStaticVTable<ItemTreeVTable> + 'static,
+        T: ComponentHandle<WeakInner = vtable::VWeak<ItemTreeVTable, X>> + 'static,
+    >(
         factory: impl Fn(FactoryContext) -> Option<T> + 'static,
-    ) -> Self
-    where
-        T::Inner: vtable::HasStaticVTable<ItemTreeVTable> + 'static,
-    {
+    ) -> Self {
         let factory = Box::new(factory) as Box<dyn Fn(FactoryContext) -> Option<T> + 'static>;
 
         Self(Some(ComponentFactoryInner(Rc::new(move |ctx| -> Option<ItemTreeRc> {

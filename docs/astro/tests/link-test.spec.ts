@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 import { test, expect } from "@playwright/test";
-import { linkMap } from "../src/utils/utils";
+import { linkMap } from "../../common/src/utils/utils";
 
 test("Test all links", async ({ page }) => {
     for (const [key, value] of Object.entries(linkMap)) {

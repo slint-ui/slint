@@ -5,9 +5,9 @@ title: The `.slint` File
 description:  The `.slint` File
 ---
 
-import CodeSnippetMD from '/src/components/CodeSnippetMD.astro';
-import Link from '/src/components/Link.astro';
-import LangRefLink from '/src/components/LangRefLink.astro';
+import CodeSnippetMD from '@slint/common-files/src/components/CodeSnippetMD.astro';
+import Link from '@slint/common-files/src/components/Link.astro';
+import LangRefLink from '@slint/common-files/src/components/LangRefLink.astro';
 
 
 You write user interfaces in the Slint language and saved in files with the `.slint` extension.
@@ -356,4 +356,6 @@ path on disk:
       "otherlibrary": "/path/to/otherlib/index.slint",
   },
   ```
+  This can also be edited in the `.vscode/settings.json` file committed to your repository.
+  Relative paths are resolved against the workspace root.
 * With other editors, you can configure them to pass the `-L` argument to the `slint-lsp` just like for the slint-viewer.

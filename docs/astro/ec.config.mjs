@@ -189,7 +189,7 @@ export default {
         langs: [
             JSON.parse(
                 fs.readFileSync(
-                    "../../editors/vscode/slint.tmLanguage.json",
+                    "../common/src/utils/slint.tmLanguage.json",
                     "utf-8",
                 ),
             ),

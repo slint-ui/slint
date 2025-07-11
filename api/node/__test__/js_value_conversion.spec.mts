@@ -496,6 +496,17 @@ test("get/set brush properties", (t) => {
         t.deepEqual(ref_color.blue, 0);
         t.deepEqual(ref_color.alpha, 255);
     }
+
+    // ref is a brush, but setting to a color should not throw, but take the brush's color.
+    instance!.setProperty("ref-color", ref);
+    instance_ref = instance!.getProperty("ref-color");
+    if (t.true(instance_ref instanceof private_api.SlintBrush)) {
+        const ref_color = (instance_ref as private_api.SlintBrush).color;
+        t.deepEqual(ref_color.red, ref.color.red);
+        t.deepEqual(ref_color.green, ref.color.green);
+        t.deepEqual(ref_color.blue, ref.color.blue);
+        t.deepEqual(ref_color.alpha, ref.color.alpha);
+    }
 });
 
 test("get/set enum properties", (t) => {

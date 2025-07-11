@@ -35,7 +35,7 @@ jobs:
             - name: Set up crate rustdoc link
               run: |
                   rgb_version=`grep 'rgb = '  internal/core/Cargo.toml | sed 's/^.*"\(.*\)"/\1/'`
-                  echo "RUSTDOCFLAGS=$RUSTDOCFLAGS --extern-html-root-url rgb=https://docs.rs/rgb/$rgb_version/ --extern-html-root-url android_activity=https://docs.rs/android-activity/0.5/ --extern-html-root-url raw_window_handle=https://docs.rs/raw_window_handle/0.6 --extern-html-root-url winit=https://docs.rs/winit/0.30 --extern-html-root-url wgpu=https://docs.rs/wgpu/24" >> $GITHUB_ENV
+                  echo "RUSTDOCFLAGS=$RUSTDOCFLAGS --extern-html-root-url rgb=https://docs.rs/rgb/$rgb_version/ --extern-html-root-url android_activity=https://docs.rs/android-activity/0.5/ --extern-html-root-url raw_window_handle=https://docs.rs/raw_window_handle/0.6 --extern-html-root-url winit=https://docs.rs/winit/0.30 --extern-html-root-url wgpu=https://docs.rs/wgpu/25" >> $GITHUB_ENV
             - uses: actions/setup-node@v4
               with:
                 node-version: 20
@@ -55,9 +55,8 @@ jobs:
               with:
                   crate: cargo-about
                   version: "=0.6.6"
-            - name: Upgrade pip and install pipenv
-              run: |
-                  sudo apt-get install python3-pip pipenv
+            - name: Install uv
+              uses: astral-sh/setup-uv@v6
             - name: Remove docs from cache # Avoid stale docs
               run: |
                   rm -rf target/doc target/cppdocs api/node/docs
@@ -111,9 +110,9 @@ jobs:
                     base_path="/${{ steps.version.outputs.VERSION }}/docs/slint/"
                     slint_download_version=v${{ steps.version.outputs.VERSION }}
                 fi
-                sed -i "s|BASE_URL = \".*\"|BASE_URL = \"$base_url\"|" docs/astro/src/utils/site-config.ts
-                sed -i "s|BASE_PATH = \".*\"|BASE_PATH = \"$base_path\"|" docs/astro/src/utils/site-config.ts
-                sed -i "s|SLINT_DOWNLOAD_VERSION = \".*\"| SLINT_DOWNLOAD_VERSION = \"$slint_download_version\"|" docs/astro/src/utils/site-config.ts
+                sed -i "s|BASE_URL = \".*\"|BASE_URL = \"$base_url\"|" docs/common/src/utils/site-config.ts
+                sed -i "s|BASE_PATH = \".*\"|BASE_PATH = \"$base_path\"|" docs/common/src/utils/site-config.ts
+                sed -i "s|SLINT_DOWNLOAD_VERSION = \".*\"| SLINT_DOWNLOAD_VERSION = \"$slint_download_version\"|" docs/common/src/utils/site-config.ts
             - name: "Slint Language Documentation"
               run: cargo xtask slintdocs
             - name: Spellcheck
@@ -140,9 +139,6 @@ jobs:
             - name: "Node docs"
               run: pnpm run docs
               working-directory: api/node
-
-            - name: Install uv
-              uses: astral-sh/setup-uv@v6
 
             - name: Setup headless display
               uses: pyvista/setup-headless-display-action@v4

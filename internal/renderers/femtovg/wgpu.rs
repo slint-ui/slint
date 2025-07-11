@@ -7,7 +7,7 @@ use i_slint_core::{api::PhysicalSize as PhysicalWindowSize, graphics::RequestedG
 
 use crate::{FemtoVGRenderer, GraphicsBackend, WindowSurface};
 
-use wgpu_24 as wgpu;
+use wgpu_25 as wgpu;
 
 pub struct WGPUBackend {
     instance: RefCell<Option<wgpu::Instance>>,
@@ -73,7 +73,7 @@ impl GraphicsBackend for WGPUBackend {
         Ok(())
     }
 
-    #[cfg(feature = "unstable-wgpu-24")]
+    #[cfg(feature = "unstable-wgpu-25")]
     fn with_graphics_api<R>(
         &self,
         callback: impl FnOnce(Option<i_slint_core::api::GraphicsAPI<'_>>) -> R,
@@ -82,7 +82,7 @@ impl GraphicsBackend for WGPUBackend {
         let device = self.device.borrow().clone();
         let queue = self.queue.borrow().clone();
         if let (Some(instance), Some(device), Some(queue)) = (instance, device, queue) {
-            Ok(callback(Some(i_slint_core::graphics::create_graphics_api_wgpu_24(
+            Ok(callback(Some(i_slint_core::graphics::create_graphics_api_wgpu_25(
                 instance, device, queue,
             ))))
         } else {
@@ -90,7 +90,7 @@ impl GraphicsBackend for WGPUBackend {
         }
     }
 
-    #[cfg(not(feature = "unstable-wgpu-24"))]
+    #[cfg(not(feature = "unstable-wgpu-25"))]
     fn with_graphics_api<R>(
         &self,
         callback: impl FnOnce(Option<i_slint_core::api::GraphicsAPI<'_>>) -> R,
@@ -130,9 +130,9 @@ impl FemtoVGRenderer<WGPUBackend> {
         requested_graphics_api: Option<RequestedGraphicsAPI>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let (instance, adapter, device, queue, surface) = match requested_graphics_api {
-            #[cfg(feature = "unstable-wgpu-24")]
-            Some(RequestedGraphicsAPI::WGPU24(
-                i_slint_core::graphics::wgpu_24::WGPUConfiguration::Manual {
+            #[cfg(feature = "unstable-wgpu-25")]
+            Some(RequestedGraphicsAPI::WGPU25(
+                i_slint_core::graphics::wgpu_25::WGPUConfiguration::Manual {
                     instance,
                     adapter,
                     device,
@@ -142,17 +142,17 @@ impl FemtoVGRenderer<WGPUBackend> {
                 let surface = instance.create_surface(window_handle).unwrap();
                 (instance, adapter, device, queue, surface)
             }
-            #[cfg(feature = "unstable-wgpu-24")]
-            Some(RequestedGraphicsAPI::WGPU24(
-                i_slint_core::graphics::wgpu_24::WGPUConfiguration::Automatic(wgpu24_settings),
+            #[cfg(feature = "unstable-wgpu-25")]
+            Some(RequestedGraphicsAPI::WGPU25(
+                i_slint_core::graphics::wgpu_25::WGPUConfiguration::Automatic(wgpu25_settings),
             )) => {
                 // wgpu uses async here, but the returned future is ready on first poll on all platforms except WASM,
                 // which we don't support right now.
                 let instance = poll_once(async {
                     wgpu::util::new_instance_with_webgpu_detection(&wgpu::InstanceDescriptor {
-                        backends: wgpu24_settings.backends,
-                        flags: wgpu24_settings.instance_flags,
-                        backend_options: wgpu24_settings.backend_options,
+                        backends: wgpu25_settings.backends,
+                        flags: wgpu25_settings.instance_flags,
+                        backend_options: wgpu25_settings.backend_options,
                     })
                     .await
                 })
@@ -164,11 +164,11 @@ impl FemtoVGRenderer<WGPUBackend> {
                 // which we don't support right now.
                 let adapter = poll_once(async {
                     match wgpu::util::initialize_adapter_from_env(&instance, Some(&surface)) {
-                        Some(adapter) => Some(adapter),
-                        None => {
+                        Ok(adapter) => Ok(adapter),
+                        Err(_) => {
                             instance
                                 .request_adapter(&wgpu::RequestAdapterOptions {
-                                    power_preference: wgpu24_settings.power_preference,
+                                    power_preference: wgpu25_settings.power_preference,
                                     force_fallback_adapter: false,
                                     compatible_surface: Some(&surface),
                                 })
@@ -181,18 +181,16 @@ impl FemtoVGRenderer<WGPUBackend> {
 
                 let (device, queue) = poll_once(async {
                     adapter
-                        .request_device(
-                            &wgpu::DeviceDescriptor {
-                                label: wgpu24_settings.device_label.as_deref(),
-                                required_features: wgpu24_settings.device_required_features,
-                                // Make sure we use the texture resolution limits from the adapter, so we can support images the size of the swapchain.
-                                required_limits: wgpu24_settings
-                                    .device_required_limits
-                                    .using_resolution(adapter.limits()),
-                                memory_hints: wgpu24_settings.device_memory_hints,
-                            },
-                            None,
-                        )
+                        .request_device(&wgpu::DeviceDescriptor {
+                            label: wgpu25_settings.device_label.as_deref(),
+                            required_features: wgpu25_settings.device_required_features,
+                            // Make sure we use the texture resolution limits from the adapter, so we can support images the size of the swapchain.
+                            required_limits: wgpu25_settings
+                                .device_required_limits
+                                .using_resolution(adapter.limits()),
+                            memory_hints: wgpu25_settings.device_memory_hints,
+                            trace: wgpu::Trace::default(),
+                        })
                         .await
                         .expect("Failed to create device")
                 })
@@ -215,7 +213,11 @@ impl FemtoVGRenderer<WGPUBackend> {
                             dx12: wgpu::Dx12BackendOptions {
                                 shader_compiler: dx12_shader_compiler,
                             },
-                            gl: wgpu::GlBackendOptions { gles_minor_version },
+                            gl: wgpu::GlBackendOptions {
+                                gles_minor_version,
+                                fence_behavior: wgpu::GlFenceBehavior::default(),
+                            },
+                            noop: wgpu::NoopBackendOptions::default(),
                         },
                     })
                     .await
@@ -235,17 +237,15 @@ impl FemtoVGRenderer<WGPUBackend> {
 
                 let (device, queue) = poll_once(async {
                     adapter
-                        .request_device(
-                            &wgpu::DeviceDescriptor {
-                                label: None,
-                                required_features: wgpu::Features::empty(),
-                                // Make sure we use the texture resolution limits from the adapter, so we can support images the size of the swapchain.
-                                required_limits: wgpu::Limits::downlevel_webgl2_defaults()
-                                    .using_resolution(adapter.limits()),
-                                memory_hints: wgpu::MemoryHints::MemoryUsage,
-                            },
-                            None,
-                        )
+                        .request_device(&wgpu::DeviceDescriptor {
+                            label: None,
+                            required_features: wgpu::Features::empty(),
+                            // Make sure we use the texture resolution limits from the adapter, so we can support images the size of the swapchain.
+                            required_limits: wgpu::Limits::downlevel_webgl2_defaults()
+                                .using_resolution(adapter.limits()),
+                            memory_hints: wgpu::MemoryHints::MemoryUsage,
+                            trace: wgpu::Trace::default(),
+                        })
                         .await
                         .expect("Failed to create device")
                 })

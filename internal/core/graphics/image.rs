@@ -7,6 +7,7 @@ This module contains image decoding and caching related types for the run-time l
 
 use crate::lengths::{PhysicalPx, ScaleFactor};
 use crate::slice::Slice;
+#[allow(unused)]
 use crate::{SharedString, SharedVector};
 
 use super::{IntRect, IntSize};
@@ -288,21 +289,22 @@ pub struct StaticTextures {
 /// time of the file it points to.
 #[derive(PartialEq, Eq, Debug, Hash, Clone)]
 #[repr(C)]
+#[cfg(feature = "std")]
 pub struct CachedPath {
     path: SharedString,
     /// SystemTime since UNIX_EPOC as secs
-    last_modified: u64,
+    last_modified: u32,
 }
 
+#[cfg(feature = "std")]
 impl CachedPath {
-    #[cfg(feature = "std")]
     fn new<P: AsRef<std::path::Path>>(path: P) -> Self {
-        let path_str = SharedString::from(path.as_ref().to_string_lossy().as_ref());
+        let path_str = path.as_ref().to_string_lossy().as_ref().into();
         let timestamp = std::fs::metadata(path)
             .and_then(|md| md.modified())
             .unwrap_or(std::time::UNIX_EPOCH)
             .duration_since(std::time::UNIX_EPOCH)
-            .map(|t| t.as_secs())
+            .map(|t| t.as_secs() as u32)
             .unwrap_or_default();
         Self { path: path_str, last_modified: timestamp }
     }
@@ -316,6 +318,7 @@ pub enum ImageCacheKey {
     /// This variant indicates that no image cache key can be created for the image.
     /// For example this is the case for programmatically created images.
     Invalid = 0,
+    #[cfg(feature = "std")]
     /// The image is identified by its path on the file system and the last modification time stamp.
     Path(CachedPath) = 1,
     /// The image is identified by a URL.
@@ -343,7 +346,7 @@ impl ImageCacheKey {
             #[cfg(not(target_arch = "wasm32"))]
             ImageInner::BorrowedOpenGLTexture(..) => return None,
             ImageInner::NineSlice(nine) => vtable::VRc::borrow(nine).cache_key(),
-            #[cfg(feature = "unstable-wgpu-24")]
+            #[cfg(feature = "unstable-wgpu-25")]
             ImageInner::WGPUTexture(..) => return None,
         };
         if matches!(key, ImageCacheKey::Invalid) {
@@ -379,19 +382,19 @@ impl OpaqueImage for NineSliceImage {
 }
 
 /// Represents a `wgpu::Texture` for each version of WGPU we support.
-#[cfg(feature = "unstable-wgpu-24")]
+#[cfg(feature = "unstable-wgpu-25")]
 #[derive(Clone, Debug)]
 pub enum WGPUTexture {
-    /// A texture for WGPU version 24.
-    #[cfg(feature = "unstable-wgpu-24")]
-    WGPU24Texture(wgpu_24::Texture),
+    /// A texture for WGPU version 25.
+    #[cfg(feature = "unstable-wgpu-25")]
+    WGPU25Texture(wgpu_25::Texture),
 }
 
-#[cfg(feature = "unstable-wgpu-24")]
+#[cfg(feature = "unstable-wgpu-25")]
 impl OpaqueImage for WGPUTexture {
     fn size(&self) -> IntSize {
         match self {
-            Self::WGPU24Texture(texture) => {
+            Self::WGPU25Texture(texture) => {
                 let size = texture.size();
                 (size.width, size.height).into()
             }
@@ -426,7 +429,7 @@ pub enum ImageInner {
     #[cfg(not(target_arch = "wasm32"))]
     BorrowedOpenGLTexture(BorrowedOpenGLTexture) = 6,
     NineSlice(vtable::VRc<OpaqueImageVTable, NineSliceImage>) = 7,
-    #[cfg(feature = "unstable-wgpu-24")]
+    #[cfg(feature = "unstable-wgpu-25")]
     WGPUTexture(WGPUTexture) = 8,
 }
 
@@ -545,7 +548,7 @@ impl ImageInner {
             #[cfg(not(target_arch = "wasm32"))]
             ImageInner::BorrowedOpenGLTexture(BorrowedOpenGLTexture { size, .. }) => *size,
             ImageInner::NineSlice(nine) => nine.0.size(),
-            #[cfg(feature = "unstable-wgpu-24")]
+            #[cfg(feature = "unstable-wgpu-25")]
             ImageInner::WGPUTexture(texture) => texture.size(),
         }
     }
@@ -814,15 +817,15 @@ impl Image {
         })
     }
 
-    /// Returns the [WGPU](http://wgpu.rs) 24.x texture that this image wraps; returns None if the image does not
+    /// Returns the [WGPU](http://wgpu.rs) 25.x texture that this image wraps; returns None if the image does not
     /// hold such a previously wrapped texture.
     ///
     /// *Note*: This function is behind a feature flag and may be removed or changed in future minor releases,
     ///         as new major WGPU releases become available.
-    #[cfg(feature = "unstable-wgpu-24")]
-    pub fn to_wgpu_24_texture(&self) -> Option<wgpu_24::Texture> {
+    #[cfg(feature = "unstable-wgpu-25")]
+    pub fn to_wgpu_25_texture(&self) -> Option<wgpu_25::Texture> {
         match &self.0 {
-            ImageInner::WGPUTexture(WGPUTexture::WGPU24Texture(texture)) => Some(texture.clone()),
+            ImageInner::WGPUTexture(WGPUTexture::WGPU25Texture(texture)) => Some(texture.clone()),
             _ => None,
         }
     }
@@ -1341,11 +1344,13 @@ pub(crate) mod ffi {
     pub extern "C" fn slint_image_path(image: &Image) -> Option<&SharedString> {
         match &image.0 {
             ImageInner::EmbeddedImage { cache_key, .. } => match cache_key {
+                #[cfg(feature = "std")]
                 ImageCacheKey::Path(CachedPath { path, .. }) => Some(path),
                 _ => None,
             },
             ImageInner::NineSlice(nine) => match &nine.0 {
                 ImageInner::EmbeddedImage { cache_key, .. } => match cache_key {
+                    #[cfg(feature = "std")]
                     ImageCacheKey::Path(CachedPath { path, .. }) => Some(path),
                     _ => None,
                 },

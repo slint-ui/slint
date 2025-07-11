@@ -224,8 +224,7 @@ pub fn close_ui() {
 
 #[cfg(target_vendor = "apple")]
 fn toggle_always_on_top() {
-    super::PREVIEW_STATE.with(move |preview_state| {
-        let preview_state = preview_state.borrow_mut();
+    super::PREVIEW_STATE.with_borrow_mut(move |preview_state| {
         let Some(ui) = preview_state.ui.as_ref() else { return };
         let api = ui.global::<crate::preview::ui::Api>();
         api.set_always_on_top(!api.get_always_on_top());

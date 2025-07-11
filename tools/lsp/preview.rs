@@ -144,8 +144,7 @@ thread_local! {static PREVIEW_STATE: std::cell::RefCell<PreviewState> = Default:
 // Do not reset the code: We can check once the LSP has re-read it from disk
 // whether we need to refresh the preview or not.
 fn invalidate_contents(url: &lsp_types::Url) {
-    PREVIEW_STATE.with(|preview_state| {
-        let mut preview_state = preview_state.borrow_mut();
+    PREVIEW_STATE.with_borrow_mut(|preview_state| {
         if let Some(cache_entry) = preview_state.source_code.get_mut(url) {
             cache_entry.version = None;
         }
@@ -153,8 +152,7 @@ fn invalidate_contents(url: &lsp_types::Url) {
 }
 
 fn delete_document(url: &lsp_types::Url) {
-    let (current, url_is_used, ui_is_visible) = PREVIEW_STATE.with(|preview_state| {
-        let mut preview_state = preview_state.borrow_mut();
+    let (current, url_is_used, ui_is_visible) = PREVIEW_STATE.with_borrow_mut(|preview_state| {
         preview_state.source_code.remove(url);
         (
             preview_state.current_previewed_component.clone(),
@@ -172,8 +170,7 @@ fn delete_document(url: &lsp_types::Url) {
 }
 
 fn set_current_live_data(mut result: preview_data::PreviewDataMap) {
-    PREVIEW_STATE.with(|preview_state| {
-        let mut preview_state = preview_state.borrow_mut();
+    PREVIEW_STATE.with_borrow_mut(|preview_state| {
         preview_state.current_live_data.append(&mut result);
     })
 }
@@ -185,13 +182,13 @@ fn apply_live_preview_data() {
 
     let new_initial_data = preview_data::query_preview_data_properties_and_callbacks(&instance);
 
-    let (mut previous_initial, mut previous_current) = PREVIEW_STATE.with(|preview_state| {
-        let mut preview_state = preview_state.borrow_mut();
-        (
-            std::mem::replace(&mut preview_state.initial_live_data, new_initial_data),
-            std::mem::take(&mut preview_state.current_live_data),
-        )
-    });
+    let (mut previous_initial, mut previous_current) =
+        PREVIEW_STATE.with_borrow_mut(|preview_state| {
+            (
+                std::mem::replace(&mut preview_state.initial_live_data, new_initial_data),
+                std::mem::take(&mut preview_state.current_live_data),
+            )
+        });
 
     while let Some((kc, vc)) = previous_current.pop_last() {
         let prev = previous_initial.pop_last();
@@ -215,9 +212,7 @@ fn apply_live_preview_data() {
 }
 
 fn set_contents(url: &common::VersionedUrl, content: String) {
-    if let Some((ui_is_visible, current)) = PREVIEW_STATE.with(|preview_state| {
-        let mut preview_state = preview_state.borrow_mut();
-
+    if let Some((ui_is_visible, current)) = PREVIEW_STATE.with_borrow_mut(|preview_state| {
         let old = preview_state.source_code.insert(
             url.url().clone(),
             SourceCodeCacheEntry { version: *url.version(), code: content.clone() },
@@ -258,9 +253,7 @@ fn search_for_parent_element(root: &ElementRc, child: &ElementRc) -> Option<Elem
 fn property_declaration_ranges(name: slint::SharedString) -> ui::PropertyDeclaration {
     let name = name.to_string();
     PREVIEW_STATE
-        .with(|preview_state| {
-            let preview_state = preview_state.borrow();
-
+        .with_borrow(|preview_state| {
             preview_state
                 .property_range_declarations
                 .as_ref()
@@ -271,9 +264,7 @@ fn property_declaration_ranges(name: slint::SharedString) -> ui::PropertyDeclara
 
 fn add_new_component() {
     fn find_component_name() -> Option<String> {
-        PREVIEW_STATE.with(|preview_state| {
-            let preview_state = preview_state.borrow();
-
+        PREVIEW_STATE.with_borrow(|preview_state| {
             for i in 0..preview_state.known_components.len() {
                 let name =
                     format!("MyComponent{}", if i == 0 { "".to_string() } else { i.to_string() });
@@ -294,10 +285,8 @@ fn add_new_component() {
         return;
     };
 
-    let preview_component = PREVIEW_STATE.with(|preview_state| {
-        let preview_state = preview_state.borrow();
-        preview_state.current_component()
-    });
+    let preview_component =
+        PREVIEW_STATE.with_borrow(|preview_state| preview_state.current_component());
 
     let Some(preview_component) = preview_component else {
         return;
@@ -325,8 +314,7 @@ fn add_new_component() {
             SelectionNotification::AfterUpdate,
         );
 
-        PREVIEW_STATE.with(|preview_state| {
-            let mut preview_state = preview_state.borrow_mut();
+        PREVIEW_STATE.with_borrow_mut(|preview_state| {
             preview_state.set_current_component(PreviewComponent {
                 url: preview_component.url.clone(),
                 component: Some(component_name.clone()),
@@ -429,8 +417,7 @@ fn rename_component(
     .unwrap()
     .rename(&document_cache, &new_name)
     {
-        PREVIEW_STATE.with(|preview_state| {
-            let mut preview_state = preview_state.borrow_mut();
+        PREVIEW_STATE.with_borrow_mut(|preview_state| {
             preview_state.rename_current_component(&old_url, &old_name, &new_name);
 
             if let Some(current) = &mut preview_state.current_component() {
@@ -657,8 +644,7 @@ fn can_drop_component(component_index: i32, x: f32, y: f32, on_drop_area: bool) 
 
     let position = LogicalPoint::new(x, y);
 
-    let component = PREVIEW_STATE.with(|preview_state| {
-        let preview_state = preview_state.borrow();
+    let component = PREVIEW_STATE.with_borrow(|preview_state| {
         preview_state.known_components.get(component_index as usize).cloned()
     });
 
@@ -678,9 +664,7 @@ fn drop_component(component_index: i32, x: f32, y: f32) {
 
     let position = LogicalPoint::new(x, y);
 
-    let Some(component) = PREVIEW_STATE.with(|preview_state| {
-        let preview_state = preview_state.borrow();
-
+    let Some(component) = PREVIEW_STATE.with_borrow(|preview_state| {
         preview_state.known_components.get(component_index as usize).cloned()
     }) else {
         return;
@@ -722,10 +706,8 @@ fn delete_selected_element() {
         return;
     };
 
-    let version = PREVIEW_STATE.with(|preview_state| {
-        let preview_state = preview_state.borrow();
-        preview_state.source_code.get(&url).and_then(|e| e.version)
-    });
+    let version = PREVIEW_STATE
+        .with_borrow(|preview_state| preview_state.source_code.get(&url).and_then(|e| e.version));
 
     let Some(selected_node) = selected.as_element_node() else {
         return;
@@ -912,10 +894,9 @@ fn send_workspace_edit(label: String, edit: lsp_types::WorkspaceEdit, test_edit:
         }
     }
 
-    let workspace_edit_sent = PREVIEW_STATE.with(|preview_state| {
-        let mut ps = preview_state.borrow_mut();
-        let result = ps.workspace_edit_sent;
-        ps.workspace_edit_sent = true;
+    let workspace_edit_sent = PREVIEW_STATE.with_borrow_mut(|preview_state| {
+        let result = preview_state.workspace_edit_sent;
+        preview_state.workspace_edit_sent = true;
         result
     });
 
@@ -927,8 +908,7 @@ fn send_workspace_edit(label: String, edit: lsp_types::WorkspaceEdit, test_edit:
 }
 
 fn change_style() {
-    let Some((ui_is_visible, current)) = PREVIEW_STATE.with(|preview_state| {
-        let preview_state = preview_state.borrow();
+    let Some((ui_is_visible, current)) = PREVIEW_STATE.with_borrow(|preview_state| {
         let ui_is_visible = preview_state.ui_is_visible();
         preview_state.current_component().map(|c| (ui_is_visible, c))
     }) else {
@@ -942,9 +922,7 @@ fn change_style() {
 
 fn start_parsing() {
     set_status_text("Updating Preview...");
-    PREVIEW_STATE.with(|preview_state| {
-        let preview_state = preview_state.borrow_mut();
-
+    PREVIEW_STATE.with_borrow_mut(|preview_state| {
         if let Some(ui) = &preview_state.ui {
             ui::set_diagnostics(ui, &[]);
         }
@@ -986,8 +964,7 @@ fn finish_parsing(preview_url: &Url, previewed_component: Option<String>, succes
         return;
     }
 
-    let (previewed_url, component, source_code) = PREVIEW_STATE.with(|preview_state| {
-        let preview_state = preview_state.borrow();
+    let (previewed_url, component, source_code) = PREVIEW_STATE.with_borrow(|preview_state| {
         let pc = preview_state.current_component();
         (
             pc.as_ref().map(|pc| pc.url.clone()),
@@ -1063,8 +1040,7 @@ fn finish_parsing(preview_url: &Url, previewed_component: Option<String>, succes
         });
     }
 
-    PREVIEW_STATE.with(|preview_state| {
-        let mut preview_state = preview_state.borrow_mut();
+    PREVIEW_STATE.with_borrow_mut(|preview_state| {
         if let Some(component_instance) = preview_state.component_instance() {
             preview_state.resources =
                 extract_resources(&preview_state.dependencies, &component_instance);
@@ -1075,18 +1051,19 @@ fn finish_parsing(preview_url: &Url, previewed_component: Option<String>, succes
 }
 
 fn config_changed(config: PreviewConfig) {
-    let Some((current, ui_is_visible, hide_ui)) = PREVIEW_STATE.with(move |preview_state| {
-        let mut preview_state = preview_state.borrow_mut();
-        (preview_state.config != config).then(|| {
-            preview_state.config = config.clone();
+    let Some((current, ui_is_visible, hide_ui)) =
+        PREVIEW_STATE.with_borrow_mut(move |preview_state| {
+            (preview_state.config != config).then(|| {
+                preview_state.config = config.clone();
 
-            (
-                preview_state.current_component(),
-                preview_state.ui_is_visible(),
-                preview_state.config.hide_ui,
-            )
+                (
+                    preview_state.current_component(),
+                    preview_state.ui_is_visible(),
+                    preview_state.config.hide_ui,
+                )
+            })
         })
-    }) else {
+    else {
         return;
     };
 
@@ -1107,8 +1084,7 @@ fn config_changed(config: PreviewConfig) {
 ///
 /// In any way, register it as a dependency
 fn get_url_from_cache(url: &Url) -> (SourceFileVersion, String) {
-    PREVIEW_STATE.with(|preview_state| {
-        let mut preview_state = preview_state.borrow_mut();
+    PREVIEW_STATE.with_borrow_mut(|preview_state| {
         preview_state.dependencies.insert(url.to_owned());
 
         preview_state
@@ -1140,10 +1116,8 @@ pub enum LoadBehavior {
 }
 
 pub fn reload_preview() {
-    let pc = PREVIEW_STATE.with(|preview_state| {
-        let preview_state = preview_state.borrow();
-        preview_state.current_previewed_component.clone()
-    });
+    let pc = PREVIEW_STATE
+        .with_borrow(|preview_state| preview_state.current_previewed_component.clone());
 
     let Some(pc) = pc else {
         return;
@@ -1153,33 +1127,33 @@ pub fn reload_preview() {
 }
 
 async fn reload_timer_function() {
-    let (selected, notify_editor) = PREVIEW_STATE.with(|preview_state| {
-        let mut preview_state = preview_state.borrow_mut();
+    let (selected, notify_editor) = PREVIEW_STATE.with_borrow_mut(|preview_state| {
         let notify_editor = preview_state.notify_editor_about_selection_after_update;
         preview_state.notify_editor_about_selection_after_update = false;
         (preview_state.selected.take(), notify_editor)
     });
 
     loop {
-        let Some((preview_component, config, behavior)) = PREVIEW_STATE.with(|preview_state| {
-            let mut preview_state = preview_state.borrow_mut();
-            let behavior = preview_state.current_load_behavior.take()?;
-            let preview_component = preview_state.current_component()?;
+        let Some((preview_component, config, behavior)) =
+            PREVIEW_STATE.with_borrow_mut(|preview_state| {
+                let behavior = preview_state.current_load_behavior.take()?;
+                let preview_component = preview_state.current_component()?;
 
-            preview_state.clear_style_of_component();
+                preview_state.clear_style_of_component();
 
-            assert_eq!(preview_state.loading_state, PreviewFutureState::PreLoading);
+                assert_eq!(preview_state.loading_state, PreviewFutureState::PreLoading);
 
-            if !preview_state.ui_is_visible() && behavior == LoadBehavior::Reload {
-                preview_state.loading_state = PreviewFutureState::Pending;
-                None
-            } else {
-                preview_state.loading_state = PreviewFutureState::Loading;
-                preview_state.dependencies.clear();
+                if !preview_state.ui_is_visible() && behavior == LoadBehavior::Reload {
+                    preview_state.loading_state = PreviewFutureState::Pending;
+                    None
+                } else {
+                    preview_state.loading_state = PreviewFutureState::Loading;
+                    preview_state.dependencies.clear();
 
-                Some((preview_component, preview_state.config.clone(), behavior))
-            }
-        }) else {
+                    Some((preview_component, preview_state.config.clone(), behavior))
+                }
+            })
+        else {
             return;
         };
         let style = if preview_component.style.is_empty() {
@@ -1192,24 +1166,24 @@ async fn reload_timer_function() {
         match reload_preview_impl(preview_component, behavior, style, config).await {
             Ok(()) => {}
             Err(e) => {
-                PREVIEW_STATE.with(|preview_state| {
-                    preview_state.borrow_mut().loading_state = PreviewFutureState::Pending;
+                PREVIEW_STATE.with_borrow_mut(|preview_state| {
+                    preview_state.loading_state = PreviewFutureState::Pending;
                 });
                 send_platform_error_notification(&e.to_string());
                 return;
             }
         }
 
-        match PREVIEW_STATE.with(|preview_state| preview_state.borrow().loading_state) {
+        match PREVIEW_STATE.with_borrow(|preview_state| preview_state.loading_state) {
             PreviewFutureState::Loading => {
-                PREVIEW_STATE.with(|preview_state| {
-                    preview_state.borrow_mut().loading_state = PreviewFutureState::Pending;
+                PREVIEW_STATE.with_borrow_mut(|preview_state| {
+                    preview_state.loading_state = PreviewFutureState::Pending;
                 });
                 break;
             }
             PreviewFutureState::NeedsReload => {
-                PREVIEW_STATE.with(|preview_state| {
-                    preview_state.borrow_mut().loading_state = PreviewFutureState::PreLoading;
+                PREVIEW_STATE.with_borrow_mut(|preview_state| {
+                    preview_state.loading_state = PreviewFutureState::PreLoading;
                 });
                 continue;
             }
@@ -1251,9 +1225,7 @@ async fn reload_timer_function() {
 }
 
 pub fn load_preview(preview_component: PreviewComponent, behavior: LoadBehavior) {
-    PREVIEW_STATE.with(|preview_state| {
-        let mut preview_state = preview_state.borrow_mut();
-
+    PREVIEW_STATE.with_borrow_mut(|preview_state| {
         match behavior {
             LoadBehavior::Reload => {
                 if !preview_state.ui_is_visible() {
@@ -1506,8 +1478,7 @@ pub fn highlight(url: Option<Url>, offset: TextSize) {
         }
     }
 
-    let contains_dependency = PREVIEW_STATE.with(|preview_state| {
-        let preview_state = preview_state.borrow();
+    let contains_dependency = PREVIEW_STATE.with_borrow(|preview_state| {
         url.as_ref().is_none_or(|url| preview_state.dependencies.contains(url))
     });
 
@@ -1526,8 +1497,7 @@ pub fn highlight(url: Option<Url>, offset: TextSize) {
 }
 
 pub fn get_component_info(component_type: &str) -> Option<ComponentInformation> {
-    PREVIEW_STATE.with(|preview_state| {
-        let preview_state = preview_state.borrow();
+    PREVIEW_STATE.with_borrow(|preview_state| {
         let index = preview_state
             .known_components
             .binary_search_by(|ci| ci.name.as_str().cmp(component_type))
@@ -1552,9 +1522,7 @@ fn convert_diagnostics(
         result.insert(path_to_url(path), (*version, Vec::new()));
     }
 
-    PREVIEW_STATE.with(|preview_state| {
-        let preview_state = preview_state.borrow();
-
+    PREVIEW_STATE.with_borrow(|preview_state| {
         for d in diagnostics {
             if d.source_file().is_none_or(|f| !i_slint_compiler::pathutils::is_absolute(f)) {
                 continue;
@@ -1615,9 +1583,7 @@ fn set_selections(
 }
 
 fn set_drop_mark(mark: &Option<drop_location::DropMark>) {
-    PREVIEW_STATE.with(move |preview_state| {
-        let preview_state = preview_state.borrow();
-
+    PREVIEW_STATE.with_borrow(move |preview_state| {
         let Some(ui) = &preview_state.ui else {
             return;
         };
@@ -1672,9 +1638,7 @@ fn set_selected_element(
     let notify_editor_about_selection_after_update =
         editor_notification == SelectionNotification::AfterUpdate;
 
-    PREVIEW_STATE.with(move |preview_state| {
-        let mut preview_state = preview_state.borrow_mut();
-
+    PREVIEW_STATE.with_borrow_mut(move |preview_state| {
         let is_in_layout = parent_layout_kind != ui::LayoutKind::None;
         let is_layout = layout_kind != ui::LayoutKind::None;
         let is_interactive = {
@@ -1700,7 +1664,7 @@ fn set_selected_element(
         );
 
         if let Some(ui) = &preview_state.ui {
-            if let Some(document_cache) = document_cache_from(&preview_state) {
+            if let Some(document_cache) = document_cache_from(preview_state) {
                 if let Some((uri, version, selection)) = selection
                     .clone()
                     .or_else(|| {
@@ -1775,20 +1739,17 @@ fn set_selected_element(
 }
 
 fn selected_element() -> Option<ElementSelection> {
-    PREVIEW_STATE.with(move |preview_state| {
-        let preview_state = preview_state.borrow();
-        preview_state.selected.clone()
-    })
+    PREVIEW_STATE.with_borrow(move |preview_state| preview_state.selected.clone())
 }
 
 fn component_instance() -> Option<ComponentInstance> {
-    PREVIEW_STATE.with(move |preview_state| preview_state.borrow().component_instance())
+    PREVIEW_STATE.with_borrow(move |preview_state| preview_state.component_instance())
 }
 
 /// This is a *read-only* snapshot of the raw type loader, use this when you
 /// need to know the exact state the compiled resources were in.
 fn document_cache() -> Option<Rc<common::DocumentCache>> {
-    PREVIEW_STATE.with(move |preview_state| document_cache_from(&preview_state.borrow()))
+    PREVIEW_STATE.with_borrow(document_cache_from)
 }
 
 /// This is a *read-only* snapshot of the raw type loader, use this when you
@@ -1798,8 +1759,7 @@ fn document_cache_from(preview_state: &PreviewState) -> Option<Rc<common::Docume
 }
 
 fn set_show_preview_ui(show_preview_ui: bool) {
-    PREVIEW_STATE.with(|preview_state| {
-        let preview_state = preview_state.borrow();
+    PREVIEW_STATE.with_borrow(|preview_state| {
         if let Some(ui) = &preview_state.ui {
             let api = ui.global::<ui::Api>();
             api.set_show_preview_ui(show_preview_ui)
@@ -1808,8 +1768,7 @@ fn set_show_preview_ui(show_preview_ui: bool) {
 }
 
 fn set_current_style(style: String) {
-    PREVIEW_STATE.with(move |preview_state| {
-        let preview_state = preview_state.borrow_mut();
+    PREVIEW_STATE.with_borrow(move |preview_state| {
         if let Some(ui) = &preview_state.ui {
             let api = ui.global::<ui::Api>();
             api.set_current_style(style.into())
@@ -1818,8 +1777,7 @@ fn set_current_style(style: String) {
 }
 
 fn get_current_style() -> String {
-    PREVIEW_STATE.with(|preview_state| -> String {
-        let preview_state = preview_state.borrow();
+    PREVIEW_STATE.with_borrow(|preview_state| -> String {
         if let Some(ui) = &preview_state.ui {
             let api = ui.global::<ui::Api>();
             api.get_current_style().as_str().to_string()
@@ -1833,8 +1791,7 @@ fn set_status_text(text: &str) {
     let text = text.to_string();
 
     i_slint_core::api::invoke_from_event_loop(move || {
-        PREVIEW_STATE.with(|preview_state| {
-            let preview_state = preview_state.borrow_mut();
+        PREVIEW_STATE.with_borrow(|preview_state| {
             if let Some(ui) = &preview_state.ui {
                 let api = ui.global::<ui::Api>();
                 api.set_status_text(text.into());
@@ -1851,12 +1808,11 @@ fn update_preview_area(
     open_import_fallback: common::document_cache::OpenImportFallback,
     source_file_versions: Rc<RefCell<common::document_cache::SourceFileVersionMap>>,
 ) -> Result<(), PlatformError> {
-    PREVIEW_STATE.with(move |preview_state| {
-        let mut preview_state = preview_state.borrow_mut();
+    PREVIEW_STATE.with_borrow_mut(move |preview_state| {
         preview_state.workspace_edit_sent = false;
 
         #[cfg(not(target_arch = "wasm32"))]
-        native::open_ui_impl(&mut preview_state)?;
+        native::open_ui_impl(preview_state)?;
 
         let ui = preview_state.ui.as_ref().unwrap();
         let shared_handle = preview_state.handle.clone();

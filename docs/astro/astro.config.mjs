@@ -13,7 +13,7 @@ import {
     RUST_SLINT_CRATE_URL,
     NODEJS_BASE_URL,
     PYTHON_BASE_URL,
-} from "./src/utils/site-config";
+} from "@slint/common-files/src/utils/site-config";
 
 // https://astro.build/config
 export default defineConfig({
@@ -46,9 +46,9 @@ export default defineConfig({
             customCss: ["./src/styles/custom.css", "./src/styles/theme.css"],
 
             components: {
-                Footer: "./src/components/Footer.astro",
-                Header: "./src/components/Header.astro",
-                Banner: "./src/components/Banner.astro",
+                Footer: "@slint/common-files/src/components/Footer.astro",
+                Header: "@slint/common-files/src/components/Header.astro",
+                Banner: "@slint/common-files/src/components/Banner.astro",
             },
             plugins: [
                 starlightSidebarTopics([
@@ -150,6 +150,7 @@ export default defineConfig({
                                         label: "Custom Controls",
                                         slug: "guide/development/custom-controls",
                                     },
+                                    "guide/development/best-practices",
                                 ],
                             },
                             {
@@ -449,6 +450,58 @@ export default defineConfig({
                 },
             ],
             favicon: "favicon.svg",
+            head: [
+                {
+                    tag: "link",
+                    attrs: {
+                        rel: "icon",
+                        type: "image/svg+xml",
+                        href: `${BASE_PATH}/favicon.svg`,
+                    },
+                },
+                {
+                    tag: "link",
+                    attrs: {
+                        rel: "icon",
+                        type: "image/png",
+                        sizes: "32x32",
+                        href: `${BASE_PATH}/favicon-32x32.png`,
+                    },
+                },
+                {
+                    tag: "link",
+                    attrs: {
+                        rel: "icon",
+                        type: "image/png",
+                        sizes: "16x16",
+                        href: `${BASE_PATH}/favicon-16x16.png`,
+                    },
+                },
+                {
+                    tag: "link",
+                    attrs: {
+                        rel: "icon",
+                        type: "image/x-icon",
+                        href: `${BASE_PATH}/favicon.ico`,
+                    },
+                },
+                {
+                    tag: "link",
+                    attrs: {
+                        rel: "mask-icon",
+                        href: `${BASE_PATH}/favicon.svg`,
+                        color: "#8D46E7",
+                    },
+                },
+                {
+                    tag: "link",
+                    attrs: {
+                        rel: "apple-touch-icon",
+                        sizes: "180x180",
+                        href: `${BASE_PATH}/apple-touch-icon.png`,
+                    },
+                },
+            ],
         }),
     ],
 });

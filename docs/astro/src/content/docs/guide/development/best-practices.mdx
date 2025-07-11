@@ -1,0 +1,88 @@
+---
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+title: Best Practices
+description: Best Practices
+---
+
+import Link from '@slint/common-files/src/components/Link.astro';
+import { Aside } from '@astrojs/starlight/components';
+
+In the following sections, we provide you with lessons we've learned of the years. This will help you avoid some pitfalls, tricky situations, and improve maintainability of your UI code.
+
+## Accessibility
+
+When designing custom components, consider early on to declare <Link type="AccessibleProperties" label="accessibility properties" />. At least a role, possibly a label, as well as actions.
+
+If you're developing on Windows, then [Accessibility Insights](https://accessibilityinsights.io/docs/windows/overview/) tool for windows is a great tool to help you find and fix accessibility issues.
+
+If you're developing on macOS, the [Accessibility Inspector](https://developer.apple.com/documentation/accessibility/accessibility-inspector) offers similar functionality. Note that it requires the application to be built as bundle.
+
+```slint
+component CustomButton {
+    // ...
+    in property <string> text;
+
+    accessible-role: button;
+    accessible-label: self.text;
+    accessible-action-default => { /* simulate click */ }
+}
+```
+
+## Separate Code, UI, and Assets
+
+Many projects start out small, with just a few files. But before you know it, your team grows, files get added, and it becomes harder to see forest for the trees. We recommend starting with the following basic directory structure:
+
+```
+my-project
+├── src
+│   ├── main.cpp / main.rs / main.js / main.py
+│        <this is where your main business logic lives>
+├── ui
+    ├── app-window.slint <the entry point for your Slint UI>
+    ├── <additional .slint files here>
+    ├── images
+        ├── logo.svg
+        ├── highlight-marker.svg
+        ├── <all your images go here>
+
+```
+
+## Translations
+
+* When adding user-visible strings to your UI, consider early on to mark them as <Link type="translations" label="translatable" /> by wrapping them in `@tr("...")`.
+* Avoid `+` for concatenating strings, prefer `{}` substitutions. This gives translators the option of re-ordering the arguments for the most natural translation.
+
+<Aside type="caution">
+
+```slint
+export component Example {
+    property <string> name;
+
+    Text {
+        text: "Ink Level Controls"; // Oooops, forgot to mark as translatable
+    }
+    Text {
+        text: @tr("Hello, ") + name; // Oooops, this is difficult to translate
+    }
+}
+```
+
+</Aside>
+
+<Aside type="tip">
+
+```slint
+export component Example {
+    property <string> name;
+
+    Text {
+        text: @tr("Ink Level Controls");
+    }
+    Text {
+        text: @tr("Hello, {}", name); // Good, now the translator can re-order
+    }
+}
+```
+
+</Aside>
+

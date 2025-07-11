@@ -10,8 +10,8 @@ members = [
   'api/rs/slint',
   'api/python/slint',
   'api/wasm-interpreter',
+  'editors/zed',
   'examples/7guis',
-  "examples/bevy",
   'examples/gallery',
   'examples/imagefilter/rust',
   'examples/maps',
@@ -98,7 +98,7 @@ default-members = [
   'tools/viewer',
 ]
 
-resolver = "2"
+resolver = "3"
 
 [workspace.package]
 description = "GUI toolkit to efficiently develop fluid graphical user interfaces for embedded devices and desktop applications"
@@ -109,7 +109,7 @@ homepage = "https://slint.dev"
 keywords = ["gui", "toolkit", "graphics", "design", "ui"]
 license = "GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0"
 repository = "https://github.com/slint-ui/slint"
-rust-version = "1.82"
+rust-version = "1.85"
 version = "1.13.0"
 
 [workspace.dependencies]
@@ -166,7 +166,7 @@ raw-window-handle-06 = { package = "raw-window-handle", version = "0.6", feature
 unicode-segmentation = { version = "1.12.0" }
 glow = { version = "0.16" }
 tikv-jemallocator = { version = "0.6" }
-wgpu-24 = { package = "wgpu", version = "24", default-features = false }
+wgpu-25 = { package = "wgpu", version = "25", default-features = false }
 
 [profile.release]
 lto = true

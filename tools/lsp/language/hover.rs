@@ -52,7 +52,9 @@ pub fn get_tooltip(
             value: format!("![{0}]({0})", path.to_string_lossy()),
         },
         // Todo: this can happen when there is some syntax error
-        TokenInfo::LocalProperty(_) | TokenInfo::LocalCallback(_) => return None,
+        TokenInfo::LocalProperty(_) | TokenInfo::LocalCallback(_) | TokenInfo::LocalFunction(_) => {
+            return None
+        }
         TokenInfo::IncompleteNamedReference(el, name) => from_property_in_type(&el, &name)?,
     };
 

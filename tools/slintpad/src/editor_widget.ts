@@ -392,7 +392,6 @@ export class EditorWidget extends Widget {
 
         this.clear_editors();
 
-        // biome-ignore lint/nursery/noFloatingPromises: <explanation>
         this.open_default_content();
     }
 
@@ -400,7 +399,7 @@ export class EditorWidget extends Widget {
         this.#tab_panel!.currentWidget = pane;
     }
 
-    private async open_default_content() {
+    private open_default_content() {
         const params = new URLSearchParams(window.location.search);
         const code = params.get("snippet");
         const load_url = params.get("load_url");
@@ -416,9 +415,10 @@ export class EditorWidget extends Widget {
             );
         }
         if (load_url) {
-            return await this.project_from_url(load_url);
+            void this.project_from_url(load_url);
+        } else {
+            void this.set_demo(load_demo ?? "");
         }
-        return await this.set_demo(load_demo ?? "");
     }
 
     private clear_editors() {
@@ -533,9 +533,7 @@ export class EditorWidget extends Widget {
 
         this.clear_editors();
 
-        return Promise.resolve(
-            (await this.open_tab_from_url(monaco.Uri.parse(uri)))[0],
-        );
+        return (await this.open_tab_from_url(monaco.Uri.parse(uri)))[0];
     }
 
     private async open_tab_from_url(

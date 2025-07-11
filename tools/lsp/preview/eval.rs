@@ -56,9 +56,11 @@ fn eval_expression(
             let elem = elem.borrow();
             if let Some(binding) = elem.bindings.get(source.name()) {
                 let binding = binding.borrow();
-                let mut ctx = EvalLocalContext::default();
-                ctx.recursion_count = local_context.recursion_count + 1;
-                ctx.window_adapter = local_context.window_adapter.clone();
+                let mut ctx = EvalLocalContext {
+                    recursion_count: local_context.recursion_count + 1,
+                    window_adapter: local_context.window_adapter.clone(),
+                    ..Default::default()
+                };
                 if ctx.recursion_count > 20 {
                     return Value::Void;
                 }
@@ -280,8 +282,8 @@ pub fn fully_eval_expression_tree_expression(
     expression: &expression_tree::Expression,
     window_adapter: Option<&Rc<dyn slint::platform::WindowAdapter>>,
 ) -> Option<slint_interpreter::Value> {
-    let mut ctx = EvalLocalContext::default();
-    ctx.window_adapter = window_adapter.cloned();
+    let mut ctx =
+        EvalLocalContext { window_adapter: window_adapter.cloned(), ..Default::default() };
     let value = eval_expression(expression, &mut ctx, None);
 
     (value.value_type() != ValueType::Void).then_some(value)

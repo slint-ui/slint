@@ -88,6 +88,8 @@ mod global_component;
 pub mod highlight;
 #[cfg(feature = "internal-json")]
 pub mod json;
+#[cfg(feature = "internal-live-reload")]
+pub mod live_reload;
 mod value_model;
 
 #[doc(inline)]

@@ -21,7 +21,7 @@ use pyo3::PyTraverseError;
 use crate::errors::{
     PyGetPropertyError, PyInvokeError, PyPlatformError, PySetCallbackError, PySetPropertyError,
 };
-use crate::value::{PyStruct, PyValue};
+use crate::value::{SlintToPyValue, TypeCollection};
 
 #[gen_stub_pyclass]
 #[pyclass(unsendable)]
@@ -72,14 +72,20 @@ impl Compiler {
         self.compiler.set_translation_domain(domain)
     }
 
-    fn build_from_path(&mut self, path: PathBuf) -> CompilationResult {
-        CompilationResult { result: spin_on::spin_on(self.compiler.build_from_path(path)) }
+    fn build_from_path(&mut self, py: Python<'_>, path: PathBuf) -> CompilationResult {
+        CompilationResult::new(spin_on::spin_on(self.compiler.build_from_path(path)), py)
     }
 
-    fn build_from_source(&mut self, source_code: String, path: PathBuf) -> CompilationResult {
-        CompilationResult {
-            result: spin_on::spin_on(self.compiler.build_from_source(source_code, path)),
-        }
+    fn build_from_source(
+        &mut self,
+        py: Python<'_>,
+        source_code: String,
+        path: PathBuf,
+    ) -> CompilationResult {
+        CompilationResult::new(
+            spin_on::spin_on(self.compiler.build_from_source(source_code, path)),
+            py,
+        )
     }
 }
 
@@ -137,6 +143,14 @@ pub enum PyDiagnosticLevel {
 #[pyclass(unsendable)]
 pub struct CompilationResult {
     result: slint_interpreter::CompilationResult,
+    type_collection: TypeCollection,
+}
+
+impl CompilationResult {
+    fn new(result: slint_interpreter::CompilationResult, py: Python<'_>) -> Self {
+        let type_collection = TypeCollection::new(&result, py);
+        Self { result, type_collection }
+    }
 }
 
 #[gen_stub_pymethods]
@@ -148,7 +162,10 @@ impl CompilationResult {
     }
 
     fn component(&self, name: &str) -> Option<ComponentDefinition> {
-        self.result.component(name).map(|definition| ComponentDefinition { definition })
+        self.result.component(name).map(|definition| ComponentDefinition {
+            definition,
+            type_collection: self.type_collection.clone(),
+        })
     }
 
     #[getter]
@@ -157,40 +174,41 @@ impl CompilationResult {
     }
 
     #[getter]
-    fn structs_and_enums<'py>(&self, py: Python<'py>) -> HashMap<String, Bound<'py, PyAny>> {
-        let structs_and_enums =
-            self.result.structs_and_enums(i_slint_core::InternalToken {}).collect::<Vec<_>>();
+    fn structs_and_enums<'py>(
+        &self,
+        py: Python<'py>,
+    ) -> (HashMap<String, Bound<'py, PyAny>>, HashMap<String, Bound<'py, PyAny>>) {
+        let mut structs = HashMap::new();
 
-        fn convert_type<'py>(py: Python<'py>, ty: &Type) -> Option<(String, Bound<'py, PyAny>)> {
-            match ty {
+        for struct_or_enum in self.result.structs_and_enums(i_slint_core::InternalToken {}) {
+            match struct_or_enum {
                 Type::Struct(s) if s.name.is_some() && s.node.is_some() => {
-                    let struct_instance = PyStruct::from(slint_interpreter::Struct::from_iter(
-                        s.fields.iter().map(|(name, field_type)| {
-                            (
-                                name.to_string(),
-                                slint_interpreter::default_value_for_type(field_type),
-                            )
-                        }),
-                    ));
+                    let struct_instance =
+                        self.type_collection.struct_to_py(slint_interpreter::Struct::from_iter(
+                            s.fields.iter().map(|(name, field_type)| {
+                                (
+                                    name.to_string(),
+                                    slint_interpreter::default_value_for_type(field_type),
+                                )
+                            }),
+                        ));
 
-                    return Some((
+                    structs.insert(
                         s.name.as_ref().unwrap().to_string(),
                         struct_instance.into_bound_py_any(py).unwrap(),
-                    ));
-                }
-                Type::Enumeration(_en) => {
-                    // TODO
+                    );
                 }
                 _ => {}
             }
-            None
         }
 
-        structs_and_enums
-            .iter()
-            .filter_map(|ty| convert_type(py, ty))
-            .into_iter()
-            .collect::<HashMap<String, Bound<'py, PyAny>>>()
+        (
+            structs,
+            self.type_collection
+                .enums()
+                .map(|(name, enum_cls)| (name.clone(), enum_cls.into_bound_py_any(py).unwrap()))
+                .collect(),
+        )
     }
 
     #[getter]
@@ -203,6 +221,7 @@ impl CompilationResult {
 #[pyclass(unsendable)]
 pub struct ComponentDefinition {
     definition: slint_interpreter::ComponentDefinition,
+    type_collection: TypeCollection,
 }
 
 #[pymethods]
@@ -214,7 +233,10 @@ impl ComponentDefinition {
 
     #[getter]
     fn properties(&self) -> IndexMap<String, PyValueType> {
-        self.definition.properties().map(|(name, ty)| (name, ty.into())).collect()
+        self.definition
+            .properties_and_callbacks()
+            .filter_map(|(name, (ty, _))| ty.is_property_type().then(|| (name, ty.into())))
+            .collect()
     }
 
     #[getter]
@@ -233,9 +255,11 @@ impl ComponentDefinition {
     }
 
     fn global_properties(&self, name: &str) -> Option<IndexMap<String, PyValueType>> {
-        self.definition
-            .global_properties(name)
-            .map(|propiter| propiter.map(|(name, ty)| (name, ty.into())).collect())
+        self.definition.global_properties_and_callbacks(name).map(|propiter| {
+            propiter
+                .filter_map(|(name, (ty, _))| ty.is_property_type().then(|| (name, ty.into())))
+                .collect()
+        })
     }
 
     fn global_callbacks(&self, name: &str) -> Option<Vec<String>> {
@@ -249,8 +273,12 @@ impl ComponentDefinition {
     fn create(&self) -> Result<ComponentInstance, crate::errors::PyPlatformError> {
         Ok(ComponentInstance {
             instance: self.definition.create()?,
-            callbacks: Default::default(),
+            callbacks: GcVisibleCallbacks {
+                callables: Default::default(),
+                type_collection: self.type_collection.clone(),
+            },
             global_callbacks: Default::default(),
+            type_collection: self.type_collection.clone(),
         })
     }
 }
@@ -267,19 +295,29 @@ pub enum PyValueType {
     Struct,
     Brush,
     Image,
+    Enumeration,
 }
 
-impl From<slint_interpreter::ValueType> for PyValueType {
-    fn from(value: slint_interpreter::ValueType) -> Self {
-        match value {
-            slint_interpreter::ValueType::Bool => PyValueType::Bool,
-            slint_interpreter::ValueType::Void => PyValueType::Void,
-            slint_interpreter::ValueType::Number => PyValueType::Number,
-            slint_interpreter::ValueType::String => PyValueType::String,
-            slint_interpreter::ValueType::Model => PyValueType::Model,
-            slint_interpreter::ValueType::Struct => PyValueType::Struct,
-            slint_interpreter::ValueType::Brush => PyValueType::Brush,
-            slint_interpreter::ValueType::Image => PyValueType::Image,
+impl From<i_slint_compiler::langtype::Type> for PyValueType {
+    fn from(ty: i_slint_compiler::langtype::Type) -> Self {
+        match ty {
+            i_slint_compiler::langtype::Type::Bool => PyValueType::Bool,
+            i_slint_compiler::langtype::Type::Void => PyValueType::Void,
+            i_slint_compiler::langtype::Type::Float32
+            | i_slint_compiler::langtype::Type::Int32
+            | i_slint_compiler::langtype::Type::Duration
+            | i_slint_compiler::langtype::Type::Angle
+            | i_slint_compiler::langtype::Type::PhysicalLength
+            | i_slint_compiler::langtype::Type::LogicalLength
+            | i_slint_compiler::langtype::Type::Percent
+            | i_slint_compiler::langtype::Type::UnitProduct(_) => PyValueType::Number,
+            i_slint_compiler::langtype::Type::String => PyValueType::String,
+            i_slint_compiler::langtype::Type::Array(..) => PyValueType::Model,
+            i_slint_compiler::langtype::Type::Struct { .. } => PyValueType::Struct,
+            i_slint_compiler::langtype::Type::Brush => PyValueType::Brush,
+            i_slint_compiler::langtype::Type::Color => PyValueType::Brush,
+            i_slint_compiler::langtype::Type::Image => PyValueType::Image,
+            i_slint_compiler::langtype::Type::Enumeration(..) => PyValueType::Enumeration,
             _ => unimplemented!(),
         }
     }
@@ -291,30 +329,37 @@ pub struct ComponentInstance {
     instance: slint_interpreter::ComponentInstance,
     callbacks: GcVisibleCallbacks,
     global_callbacks: HashMap<String, GcVisibleCallbacks>,
+    type_collection: TypeCollection,
 }
 
 #[pymethods]
 impl ComponentInstance {
     #[getter]
     fn definition(&self) -> ComponentDefinition {
-        ComponentDefinition { definition: self.instance.definition() }
+        ComponentDefinition {
+            definition: self.instance.definition(),
+            type_collection: self.type_collection.clone(),
+        }
     }
 
-    fn get_property(&self, name: &str) -> Result<PyValue, PyGetPropertyError> {
-        Ok(self.instance.get_property(name)?.into())
+    fn get_property(&self, name: &str) -> Result<SlintToPyValue, PyGetPropertyError> {
+        Ok(self.type_collection.to_py_value(self.instance.get_property(name)?))
     }
 
     fn set_property(&self, name: &str, value: Bound<'_, PyAny>) -> PyResult<()> {
-        let pv: PyValue = value.extract()?;
-        Ok(self.instance.set_property(name, pv.0).map_err(|e| PySetPropertyError(e))?)
+        let pv =
+            TypeCollection::slint_value_from_py_value_bound(&value, Some(&self.type_collection))?;
+        Ok(self.instance.set_property(name, pv).map_err(|e| PySetPropertyError(e))?)
     }
 
     fn get_global_property(
         &self,
         global_name: &str,
         prop_name: &str,
-    ) -> Result<PyValue, PyGetPropertyError> {
-        Ok(self.instance.get_global_property(global_name, prop_name)?.into())
+    ) -> Result<SlintToPyValue, PyGetPropertyError> {
+        Ok(self
+            .type_collection
+            .to_py_value(self.instance.get_global_property(global_name, prop_name)?))
     }
 
     fn set_global_property(
@@ -323,21 +368,25 @@ impl ComponentInstance {
         prop_name: &str,
         value: Bound<'_, PyAny>,
     ) -> PyResult<()> {
-        let pv: PyValue = value.extract()?;
+        let pv =
+            TypeCollection::slint_value_from_py_value_bound(&value, Some(&self.type_collection))?;
         Ok(self
             .instance
-            .set_global_property(global_name, prop_name, pv.0)
+            .set_global_property(global_name, prop_name, pv)
             .map_err(|e| PySetPropertyError(e))?)
     }
 
     #[pyo3(signature = (callback_name, *args))]
-    fn invoke(&self, callback_name: &str, args: Bound<'_, PyTuple>) -> PyResult<PyValue> {
+    fn invoke(&self, callback_name: &str, args: Bound<'_, PyTuple>) -> PyResult<SlintToPyValue> {
         let mut rust_args = vec![];
         for arg in args.iter() {
-            let pv: PyValue = arg.extract()?;
-            rust_args.push(pv.0)
+            let pv =
+                TypeCollection::slint_value_from_py_value_bound(&arg, Some(&self.type_collection))?;
+            rust_args.push(pv)
         }
-        Ok(self.instance.invoke(callback_name, &rust_args).map_err(|e| PyInvokeError(e))?.into())
+        Ok(self.type_collection.to_py_value(
+            self.instance.invoke(callback_name, &rust_args).map_err(|e| PyInvokeError(e))?,
+        ))
     }
 
     #[pyo3(signature = (global_name, callback_name, *args))]
@@ -346,17 +395,18 @@ impl ComponentInstance {
         global_name: &str,
         callback_name: &str,
         args: Bound<'_, PyTuple>,
-    ) -> PyResult<PyValue> {
+    ) -> PyResult<SlintToPyValue> {
         let mut rust_args = vec![];
         for arg in args.iter() {
-            let pv: PyValue = arg.extract()?;
-            rust_args.push(pv.0)
+            let pv =
+                TypeCollection::slint_value_from_py_value_bound(&arg, Some(&self.type_collection))?;
+            rust_args.push(pv)
         }
-        Ok(self
-            .instance
-            .invoke_global(global_name, callback_name, &rust_args)
-            .map_err(|e| PyInvokeError(e))?
-            .into())
+        Ok(self.type_collection.to_py_value(
+            self.instance
+                .invoke_global(global_name, callback_name, &rust_args)
+                .map_err(|e| PyInvokeError(e))?,
+        ))
     }
 
     fn set_callback(&self, name: &str, callable: PyObject) -> Result<(), PySetCallbackError> {
@@ -373,7 +423,10 @@ impl ComponentInstance {
         let rust_cb = self
             .global_callbacks
             .entry(global_name.to_string())
-            .or_default()
+            .or_insert_with(|| GcVisibleCallbacks {
+                callables: Default::default(),
+                type_collection: self.type_collection.clone(),
+            })
             .register(callback_name.to_string(), callable);
         Ok(self.instance.set_global_callback(global_name, callback_name, rust_cb)?.into())
     }
@@ -404,9 +457,9 @@ impl ComponentInstance {
     }
 }
 
-#[derive(Default)]
 struct GcVisibleCallbacks {
     callables: Rc<RefCell<HashMap<String, PyObject>>>,
+    type_collection: TypeCollection,
 }
 
 impl GcVisibleCallbacks {
@@ -414,12 +467,15 @@ impl GcVisibleCallbacks {
         self.callables.borrow_mut().insert(name.clone(), callable);
 
         let callables = self.callables.clone();
+        let type_collection = self.type_collection.clone();
 
         move |args| {
             let callables = callables.borrow();
             let callable = callables.get(&name).unwrap();
             Python::with_gil(|py| {
-                let py_args = PyTuple::new(py, args.iter().map(|v| PyValue(v.clone()))).unwrap();
+                let py_args =
+                    PyTuple::new(py, args.iter().map(|v| type_collection.to_py_value(v.clone())))
+                        .unwrap();
                 let result = match callable.call(py, py_args, None) {
                     Ok(result) => result,
                     Err(err) => {
@@ -429,14 +485,19 @@ impl GcVisibleCallbacks {
                         return Value::Void;
                     }
                 };
-                let pv: PyValue = match result.extract(py) {
+
+                let pv = match TypeCollection::slint_value_from_py_value(
+                    py,
+                    &result,
+                    Some(&type_collection),
+                ) {
                     Ok(value) => value,
                     Err(err) => {
                         eprintln!("Python: Unable to convert return value of Python callback for {name} to Slint value: {err}");
                         return Value::Void;
                     }
                 };
-                pv.0
+                pv
             })
         }
     }

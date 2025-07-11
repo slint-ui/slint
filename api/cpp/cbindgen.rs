@@ -120,6 +120,7 @@ fn builtin_structs(path: &Path) -> anyhow::Result<()> {
     writeln!(structs_priv, "#include \"slint_builtin_structs.h\"")?;
     writeln!(structs_priv, "#include \"slint_enums_internal.h\"")?;
     writeln!(structs_priv, "#include \"slint_point.h\"")?;
+    writeln!(structs_priv, "#include \"slint_image.h\"")?;
     writeln!(structs_priv, "namespace slint::cbindgen_private {{")?;
     writeln!(structs_priv, "enum class KeyEventType : uint8_t;")?;
     macro_rules! struct_file {
@@ -242,7 +243,7 @@ fn default_config() -> cbindgen::Config {
         ("target_arch = wasm32".into(), "SLINT_TARGET_WASM".into()),
         ("target_os = android".into(), "__ANDROID__".into()),
         // Disable Rust WGPU specific API feature
-        ("feature = unstable-wgpu-24".into(), "SLINT_DISABLED_CODE".into()),
+        ("feature = unstable-wgpu-25".into(), "SLINT_DISABLED_CODE".into()),
     ]
     .iter()
     .cloned()
@@ -497,7 +498,7 @@ fn gen_corelib(
                 "BorrowedOpenGLTextureOrigin"
             ],
             "slint_image_internal.h",
-            "namespace slint::cbindgen_private { struct ParsedSVG{}; struct HTMLImage{}; using namespace vtable; namespace types{ struct NineSliceImage{}; } }",
+            "#include \"slint_color.h\"\nnamespace slint::cbindgen_private { struct ParsedSVG{}; struct HTMLImage{}; using namespace vtable; namespace types{ struct NineSliceImage{}; } }",
         ),
         (
             vec!["Color", "slint_color_brighter", "slint_color_darker",
@@ -895,6 +896,7 @@ fn gen_interpreter(
         "Diagnostic",
         "PropertyDescriptor",
         "Box",
+        "LiveReloadingComponentInner",
     ])
     .map(String::from)
     .collect();
@@ -941,6 +943,7 @@ fn gen_interpreter(
                 using slint::interpreter::ValueType;
                 using slint::interpreter::PropertyDescriptor;
                 using slint::interpreter::Diagnostic;
+                struct LiveReloadingComponentInner;
                 template <typename T> using Box = T*;
             }",
         )
@@ -984,6 +987,7 @@ macro_rules! declare_features {
 
 declare_features! {
     interpreter
+    live_reload
     testing
     backend_qt
     backend_winit

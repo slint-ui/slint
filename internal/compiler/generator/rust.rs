@@ -39,7 +39,7 @@ struct RustGeneratorContext {
 type EvaluationContext<'a> = llr_EvaluationContext<'a, RustGeneratorContext>;
 type ParentCtx<'a> = llr_ParentCtx<'a, RustGeneratorContext>;
 
-fn ident(ident: &str) -> proc_macro2::Ident {
+pub fn ident(ident: &str) -> proc_macro2::Ident {
     if ident.contains('-') {
         format_ident!("r#{}", ident.replace('-', "_"))
     } else {
@@ -76,7 +76,7 @@ impl quote::ToTokens for crate::embedded_resources::PixelFormat {
     }
 }
 
-fn rust_primitive_type(ty: &Type) -> Option<proc_macro2::TokenStream> {
+pub fn rust_primitive_type(ty: &Type) -> Option<proc_macro2::TokenStream> {
     match ty {
         Type::Void => Some(quote!(())),
         Type::Int32 => Some(quote!(i32)),
@@ -155,22 +155,12 @@ pub fn generate(
     doc: &Document,
     compiler_config: &CompilerConfiguration,
 ) -> std::io::Result<TokenStream> {
-    let (structs_and_enums_ids, structs_and_enum_def): (Vec<_>, Vec<_>) = doc
-        .used_types
-        .borrow()
-        .structs_and_enums
-        .iter()
-        .filter_map(|ty| match ty {
-            Type::Struct(s) => match s.as_ref() {
-                Struct { fields, name: Some(name), node: Some(_), rust_attributes } => {
-                    Some((ident(name), generate_struct(name, fields, rust_attributes)))
-                }
-                _ => None,
-            },
-            Type::Enumeration(en) => Some((ident(&en.name), generate_enum(en))),
-            _ => None,
-        })
-        .unzip();
+    if std::env::var("SLINT_LIVE_RELOAD").is_ok() {
+        return super::rust_live_reload::generate(doc, compiler_config);
+    }
+
+    let (structs_and_enums_ids, inner_module) =
+        generate_types(&doc.used_types.borrow().structs_and_enums);
 
     let llr = crate::llr::lower_to_item_tree::lower_to_item_tree(doc, compiler_config)?;
 
@@ -189,13 +179,6 @@ pub fn generate(
     let popup_menu =
         llr.popup_menu.as_ref().map(|p| generate_item_tree(&p.item_tree, &llr, None, None, true));
 
-    let version_check = format_ident!(
-        "VersionCheck_{}_{}_{}",
-        env!("CARGO_PKG_VERSION_MAJOR"),
-        env!("CARGO_PKG_VERSION_MINOR"),
-        env!("CARGO_PKG_VERSION_PATCH"),
-    );
-
     let globals = llr
         .globals
         .iter_enumerated()
@@ -208,7 +191,7 @@ pub fn generate(
     let compo_ids = llr.public_components.iter().map(|c| ident(&c.name));
 
     let resource_symbols = generate_resources(doc);
-    let named_exports = generate_named_exports(doc);
+    let named_exports = generate_named_exports(&doc.exports);
     // The inner module was meant to be internal private, but projects have been reaching into it
     // so we can't change the name of this module
     let generated_mod = doc
@@ -219,18 +202,11 @@ pub fn generate(
     #[cfg(not(feature = "bundle-translations"))]
     let translations = quote!();
     #[cfg(feature = "bundle-translations")]
-    let translations = llr.translations.as_ref().map(|t| (generate_translations(t, &llr)));
+    let translations = llr.translations.as_ref().map(|t| generate_translations(t, &llr));
 
     Ok(quote! {
-        #[allow(non_snake_case, non_camel_case_types)]
-        #[allow(unused_braces, unused_parens)]
-        #[allow(clippy::all, clippy::pedantic, clippy::nursery)]
-        #[allow(unknown_lints, if_let_rescope, tail_expr_drop_order)] // We don't have fancy Drop
         mod #generated_mod {
-            use slint::private_unstable_api::re_exports as sp;
-            #[allow(unused_imports)]
-            use sp::{RepeatedItemTree as _, ModelExt as _, Model as _, Float as _};
-            #(#structs_and_enum_def)*
+            #inner_module
             #(#globals)*
             #(#sub_compos)*
             #popup_menu
@@ -238,13 +214,51 @@ pub fn generate(
             #shared_globals
             #(#resource_symbols)*
             #translations
-            const _THE_SAME_VERSION_MUST_BE_USED_FOR_THE_COMPILER_AND_THE_RUNTIME : slint::#version_check = slint::#version_check;
         }
         #[allow(unused_imports)]
         pub use #generated_mod::{#(#compo_ids,)* #(#structs_and_enums_ids,)* #(#globals_ids,)* #(#named_exports,)*};
         #[allow(unused_imports)]
         pub use slint::{ComponentHandle as _, Global as _, ModelExt as _};
     })
+}
+
+/// Generate the struct and enums. Return a vector of names to import and a token stream with the inner module
+pub fn generate_types(used_types: &[Type]) -> (Vec<Ident>, TokenStream) {
+    let (structs_and_enums_ids, structs_and_enum_def): (Vec<_>, Vec<_>) = used_types
+        .iter()
+        .filter_map(|ty| match ty {
+            Type::Struct(s) => match s.as_ref() {
+                Struct { fields, name: Some(name), node: Some(_), rust_attributes } => {
+                    Some((ident(name), generate_struct(name, fields, rust_attributes)))
+                }
+                _ => None,
+            },
+            Type::Enumeration(en) => Some((ident(&en.name), generate_enum(en))),
+            _ => None,
+        })
+        .unzip();
+
+    let version_check = format_ident!(
+        "VersionCheck_{}_{}_{}",
+        env!("CARGO_PKG_VERSION_MAJOR"),
+        env!("CARGO_PKG_VERSION_MINOR"),
+        env!("CARGO_PKG_VERSION_PATCH"),
+    );
+
+    let inner_module = quote! {
+        #![allow(non_snake_case, non_camel_case_types)]
+        #![allow(unused_braces, unused_parens)]
+        #![allow(clippy::all, clippy::pedantic, clippy::nursery)]
+        #![allow(unknown_lints, if_let_rescope, tail_expr_drop_order)] // We don't have fancy Drop
+
+        use slint::private_unstable_api::re_exports as sp;
+        #[allow(unused_imports)]
+        use sp::{RepeatedItemTree as _, ModelExt as _, Model as _, Float as _};
+        #(#structs_and_enum_def)*
+        const _THE_SAME_VERSION_MUST_BE_USED_FOR_THE_COMPILER_AND_THE_RUNTIME : slint::#version_check = slint::#version_check;
+    };
+
+    (structs_and_enums_ids, inner_module)
 }
 
 fn generate_public_component(
@@ -287,13 +301,13 @@ fn generate_public_component(
         pub struct #public_component_id(sp::VRc<sp::ItemTreeVTable, #inner_component_id>);
 
         impl #public_component_id {
-            pub fn new() -> core::result::Result<Self, slint::PlatformError> {
+            pub fn new() -> ::core::result::Result<Self, slint::PlatformError> {
                 let inner = #inner_component_id::new()?;
                 #init_bundle_translations
                 // ensure that the window exist as this point so further call to window() don't panic
                 inner.globals.get().unwrap().window_adapter_ref()?;
                 #inner_component_id::user_init(sp::VRc::map(inner.clone(), |x| x));
-                core::result::Result::Ok(Self(inner))
+                ::core::result::Result::Ok(Self(inner))
             }
 
             #property_and_callback_accessors
@@ -306,31 +320,31 @@ fn generate_public_component(
         }
 
         impl slint::ComponentHandle for #public_component_id {
-            type Inner = #inner_component_id;
+            type WeakInner = sp::VWeak<sp::ItemTreeVTable, #inner_component_id>;
             fn as_weak(&self) -> slint::Weak<Self> {
-                slint::Weak::new(&self.0)
+                slint::Weak::new(sp::VRc::downgrade(&self.0))
             }
 
             fn clone_strong(&self) -> Self {
                 Self(self.0.clone())
             }
 
-            fn from_inner(inner: sp::VRc<sp::ItemTreeVTable, #inner_component_id>) -> Self {
-                Self(inner)
+            fn upgrade_from_weak_inner(inner: &Self::WeakInner) -> sp::Option<Self> {
+                sp::Some(Self(inner.upgrade()?))
             }
 
-            fn run(&self) -> core::result::Result<(), slint::PlatformError> {
+            fn run(&self) -> ::core::result::Result<(), slint::PlatformError> {
                 self.show()?;
                 slint::run_event_loop()?;
                 self.hide()?;
-                core::result::Result::Ok(())
+                ::core::result::Result::Ok(())
             }
 
-            fn show(&self) -> core::result::Result<(), slint::PlatformError> {
+            fn show(&self) -> ::core::result::Result<(), slint::PlatformError> {
                 self.0.globals.get().unwrap().window_adapter_ref()?.window().show()
             }
 
-            fn hide(&self) -> core::result::Result<(), slint::PlatformError> {
+            fn hide(&self) -> ::core::result::Result<(), slint::PlatformError> {
                 self.0.globals.get().unwrap().window_adapter_ref()?.window().hide()
             }
 
@@ -399,7 +413,7 @@ fn generate_shared_globals(
                     let root_rc = self.root_item_tree_weak.upgrade().unwrap();
                     sp::WindowInner::from_pub(adapter.window()).set_component(&root_rc);
                     #apply_constant_scale_factor
-                    core::result::Result::Ok(adapter)
+                    ::core::result::Result::Ok(adapter)
                 })
             }
 
@@ -1080,7 +1094,7 @@ fn generate_sub_component(
     let layout_info_h = compile_expression(&component.layout_info_h.borrow(), &ctx);
     let layout_info_v = compile_expression(&component.layout_info_v.borrow(), &ctx);
 
-    // FIXME! this is only public because of the ComponentHandle::Inner. we should find another way
+    // FIXME! this is only public because of the ComponentHandle::WeakInner. we should find another way
     let visibility = parent_ctx.is_none().then(|| quote!(pub));
 
     let subtree_index_function = if let Some(property_index) = index_property {
@@ -1104,7 +1118,7 @@ fn generate_sub_component(
             let callback = compile_expression(&tmr.triggered.borrow(), &ctx);
             quote!(
                 if #running {
-                    let interval = core::time::Duration::from_millis(#interval as u64);
+                    let interval = ::core::time::Duration::from_millis(#interval as u64);
                     if !self.#ident.running() || interval != self.#ident.interval() {
                         let self_weak = self.self_weak.get().unwrap().clone();
                         self.#ident.start(sp::TimerMode::Repeated, interval, move || {
@@ -1602,7 +1616,7 @@ fn generate_item_tree(
         #sub_comp
 
         impl #inner_component_id {
-            fn new(#(parent: #parent_component_type,)* #globals_arg) -> core::result::Result<sp::VRc<sp::ItemTreeVTable, Self>, slint::PlatformError> {
+            fn new(#(parent: #parent_component_type,)* #globals_arg) -> ::core::result::Result<sp::VRc<sp::ItemTreeVTable, Self>, slint::PlatformError> {
                 #![allow(unused)]
                 slint::private_unstable_api::ensure_backend()?;
                 let mut _self = Self::default();
@@ -1612,7 +1626,7 @@ fn generate_item_tree(
                 let globals = #globals;
                 sp::register_item_tree(&self_dyn_rc, globals.maybe_window_adapter_impl());
                 Self::init(sp::VRc::map(self_rc.clone(), |x| x), globals, 0, 1);
-                core::result::Result::Ok(self_rc)
+                ::core::result::Result::Ok(self_rc)
             }
 
             fn item_tree() -> &'static [sp::ItemTreeNode] {
@@ -1635,7 +1649,7 @@ fn generate_item_tree(
         };
 
         impl sp::PinnedDrop for #inner_component_id {
-            fn drop(self: core::pin::Pin<&mut #inner_component_id>) {
+            fn drop(self: ::core::pin::Pin<&mut #inner_component_id>) {
                 sp::vtable::new_vref!(let vref : VRef<sp::ItemTreeVTable> for sp::ItemTree = self.as_ref().get_ref());
                 if let Some(wa) = self.globals.get().unwrap().maybe_window_adapter_impl() {
                     sp::unregister_item_tree(self.as_ref(), vref, Self::item_array(), &wa);
@@ -2845,7 +2859,7 @@ fn compile_builtin_function_call(
                             if let Some(self_rc) = self_weak.upgrade() {
                                 let _self = self_rc.as_pin_ref();
                                 #call
-                            } else { Default::default() }
+                            } else { ::core::default::Default::default() }
                         });
                     )
                 };
@@ -3364,12 +3378,13 @@ fn generate_resources(doc: &Document) -> Vec<TokenStream> {
                     let data_size = data.len();
                     quote!(
                         #link_section
-                        static #symbol_data : [u8; #data_size]= [#(#data),*];
+                        // (the second array is to ensure alignment)
+                        static #symbol_data : ([u8; #data_size], [u32;0])= ([#(#data),*], []);
                         #link_section
                         static #symbol: sp::StaticTextures = sp::StaticTextures{
                             size: sp::IntSize::new(#width as _, #height as _),
                             original_size: sp::IntSize::new(#unscaled_width as _, #unscaled_height as _),
-                            data: sp::Slice::from_slice(&#symbol_data),
+                            data: sp::Slice::from_slice(&#symbol_data.0),
                             textures: sp::Slice::from_slice(&[
                                 sp::StaticTexture {
                                     rect: sp::euclid::rect(#r_x as _, #r_y as _, #r_w as _, #r_h as _),
@@ -3452,8 +3467,8 @@ fn generate_resources(doc: &Document) -> Vec<TokenStream> {
         .collect()
 }
 
-fn generate_named_exports(doc: &Document) -> Vec<TokenStream> {
-    doc.exports
+pub fn generate_named_exports(exports: &crate::object_tree::Exports) -> Vec<TokenStream> {
+    exports
         .iter()
         .filter_map(|export| match &export.1 {
             Either::Left(component) if !component.is_global() => {

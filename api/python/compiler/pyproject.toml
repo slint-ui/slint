@@ -1,0 +1,32 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+[project]
+name = "slint-compiler"
+version = "1.13.0b1"
+description = "Python wrapper around the Slint compiler for Python"
+authors = [{ name = "Slint Team", email = "info@slint.dev" }]
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = ["cached-path>=1.7.3"]
+
+[project.urls]
+Homepage = "https://slint.dev"
+Documentation = "https://slint.dev/docs"
+Repository = "https://github.com/slint-ui/slint"
+Changelog = "https://github.com/slint-ui/slint/blob/master/CHANGELOG.md"
+Tracker = "https://github.com/slint-ui/slint/issues"
+
+[project.scripts]
+slint-compiler = "slint_compiler:main"
+
+[dependency-groups]
+dev = ["mypy>=1.15.0"]
+
+[tool.mypy]
+strict = true
+disallow_subclassing_any = false
+
+[[tool.mypy.overrides]]
+module = ["cached_path.*"]
+follow_untyped_imports = true

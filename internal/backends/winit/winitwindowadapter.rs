@@ -233,13 +233,6 @@ impl WinitWindowOrNone {
         match self {
             Self::HasWindow { window, .. } => {
                 window.set_resizable(resizable);
-
-                // Workaround for winit bug #2990
-                // Non-resizable windows can still contain a maximize button,
-                // so we'd have to additionally remove the button.
-                let mut buttons = window.enabled_buttons();
-                buttons.set(WindowButtons::MAXIMIZE, resizable);
-                window.set_enabled_buttons(buttons);
             }
             Self::None(attributes) => attributes.borrow_mut().resizable = resizable,
         }
@@ -353,6 +346,8 @@ pub struct WinitWindowAdapter {
     /// Winit's window_icon API has no way of checking if the window icon is
     /// the same as a previously set one, so keep track of that here.
     window_icon_cache_key: RefCell<Option<ImageCacheKey>>,
+
+    frame_throttle: Box<dyn crate::frame_throttle::FrameThrottle>,
 }
 
 impl WinitWindowAdapter {
@@ -366,7 +361,7 @@ impl WinitWindowAdapter {
         #[cfg(all(muda, target_os = "macos"))] muda_enable_default_menu_bar: bool,
     ) -> Result<Rc<Self>, PlatformError> {
         let self_rc = Rc::new_cyclic(|self_weak| Self {
-            shared_backend_data,
+            shared_backend_data: shared_backend_data.clone(),
             window: OnceCell::from(corelib::api::Window::new(self_weak.clone() as _)),
             self_weak: self_weak.clone(),
             pending_redraw: Default::default(),
@@ -396,6 +391,10 @@ impl WinitWindowAdapter {
             #[cfg(all(muda, target_os = "macos"))]
             muda_enable_default_menu_bar,
             window_icon_cache_key: Default::default(),
+            frame_throttle: crate::frame_throttle::create_frame_throttle(
+                self_weak.clone(),
+                shared_backend_data.is_wayland,
+            ),
         });
 
         self_rc.shared_backend_data.register_inactive_window((self_rc.clone()) as _);
@@ -439,6 +438,7 @@ impl WinitWindowAdapter {
         //  a) need to compute the correct size based on the scale factor before it's shown on the screen (handled by set_visible)
         //  b) need to create the accesskit adapter before it's shown on the screen, as required by accesskit.
         let show_after_creation = std::mem::replace(&mut window_attributes.visible, false);
+        let resizable = window_attributes.resizable;
 
         let overriding_scale_factor = std::env::var("SLINT_SCALE_FACTOR")
             .ok()
@@ -490,6 +490,15 @@ impl WinitWindowAdapter {
         if show_after_creation {
             self.shown.set(WindowVisibility::Hidden);
             self.set_visibility(WindowVisibility::ShownFirstTime)?;
+        }
+
+        {
+            // Workaround for winit bug #2990
+            // Non-resizable windows can still contain a maximize button,
+            // so we'd have to additionally remove the button.
+            let mut buttons = winit_window.enabled_buttons();
+            buttons.set(WindowButtons::MAXIMIZE, resizable);
+            winit_window.set_enabled_buttons(buttons);
         }
 
         self.shared_backend_data
@@ -922,6 +931,10 @@ impl WinitWindowAdapter {
             Ok(())
         }
     }
+
+    pub(crate) fn pending_redraw(&self) -> bool {
+        self.pending_redraw.get()
+    }
 }
 
 impl WindowAdapter for WinitWindowAdapter {
@@ -991,9 +1004,7 @@ impl WindowAdapter for WinitWindowAdapter {
 
     fn request_redraw(&self) {
         if !self.pending_redraw.replace(true) {
-            if let Some(window) = self.winit_window_or_none.borrow().as_window() {
-                window.request_redraw()
-            }
+            self.frame_throttle.request_throttled_redraw();
         }
     }
 

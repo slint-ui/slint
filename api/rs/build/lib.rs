@@ -442,6 +442,7 @@ pub fn compile_with_config(
     println!("cargo:rerun-if-env-changed=SLINT_ASSET_SECTION");
     println!("cargo:rerun-if-env-changed=SLINT_EMBED_RESOURCES");
     println!("cargo:rerun-if-env-changed=SLINT_EMIT_DEBUG_INFO");
+    println!("cargo:rerun-if-env-changed=SLINT_LIVE_RELOAD");
 
     println!(
         "cargo:rustc-env=SLINT_INCLUDE_GENERATED={}",
@@ -483,7 +484,9 @@ pub fn compile_with_output_path(
     let (doc, diag, loader) =
         spin_on::spin_on(i_slint_compiler::compile_syntax_node(syntax_node, diag, compiler_config));
 
-    if diag.has_errors() {
+    if diag.has_errors()
+        || (!diag.is_empty() && std::env::var("SLINT_COMPILER_DENY_WARNINGS").is_ok())
+    {
         let vec = diag.to_string_vec();
         diag.print();
         return Err(CompileError::CompileError(vec));

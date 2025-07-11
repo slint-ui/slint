@@ -46,14 +46,14 @@ pub fn lower_layouts(
 
     recurse_elem_including_sub_components(component, &(), &mut |elem, _| {
         let component = elem.borrow().enclosing_component.upgrade().unwrap();
-        lower_element_layout(
+        let is_layout = lower_element_layout(
             &component,
             elem,
             &type_loader.global_type_registry.borrow(),
             style_metrics,
             diag,
         );
-        check_no_layout_properties(elem, diag);
+        check_no_layout_properties(elem, is_layout, diag);
     });
 }
 
@@ -81,17 +81,19 @@ fn check_preferred_size_100(elem: &ElementRc, prop: &str, diag: &mut BuildDiagno
     false
 }
 
+/// If the element is a layout, lower it to a Rectangle, and set the geometry property of the element inside it.
+/// Returns true if the element was a layout and has been lowered
 fn lower_element_layout(
     component: &Rc<Component>,
     elem: &ElementRc,
     type_register: &TypeRegister,
     style_metrics: &Rc<Component>,
     diag: &mut BuildDiagnostics,
-) {
+) -> bool {
     let base_type = if let ElementType::Builtin(base_type) = &elem.borrow().base_type {
         base_type.clone()
     } else {
-        return;
+        return false;
     };
     match base_type.name.as_str() {
         "Row" => {
@@ -106,32 +108,32 @@ fn lower_element_layout(
                         .is_some_and(|e| e.borrow().repeated.is_some()),
                 "Error should have been caught at element lookup time"
             );
-            return;
+            return false;
         }
         "GridLayout" => lower_grid_layout(component, elem, diag, type_register),
         "HorizontalLayout" => lower_box_layout(elem, diag, Orientation::Horizontal),
         "VerticalLayout" => lower_box_layout(elem, diag, Orientation::Vertical),
         "Dialog" => {
             lower_dialog_layout(elem, style_metrics, diag);
-            return; // the Dialog stays in the tree as a Dialog
+            return true; // the Dialog stays in the tree as a Dialog
         }
-        _ => return,
+        _ => return false,
     };
 
-    {
-        let mut elem = elem.borrow_mut();
-        let elem = &mut *elem;
-        let prev_base = std::mem::replace(&mut elem.base_type, type_register.empty_type());
-        elem.default_fill_parent = (true, true);
-        // Create fake properties for the layout properties
-        for (p, ty) in prev_base.property_list() {
-            if !elem.base_type.lookup_property(&p).is_valid()
-                && !elem.property_declarations.contains_key(&p)
-            {
-                elem.property_declarations.insert(p, ty.into());
-            }
+    let mut elem = elem.borrow_mut();
+    let elem = &mut *elem;
+    let prev_base = std::mem::replace(&mut elem.base_type, type_register.empty_type());
+    elem.default_fill_parent = (true, true);
+    // Create fake properties for the layout properties
+    for (p, ty) in prev_base.property_list() {
+        if !elem.base_type.lookup_property(&p).is_valid()
+            && !elem.property_declarations.contains_key(&p)
+        {
+            elem.property_declarations.insert(p, ty.into());
         }
     }
+
+    true
 }
 
 fn lower_grid_layout(
@@ -821,13 +823,24 @@ fn eval_const_expr(
 }
 
 /// Checks that there is grid-layout specific properties left
-fn check_no_layout_properties(item: &ElementRc, diag: &mut BuildDiagnostics) {
+fn check_no_layout_properties(item: &ElementRc, is_layout: bool, diag: &mut BuildDiagnostics) {
     for (prop, expr) in item.borrow().bindings.iter() {
         if matches!(prop.as_ref(), "col" | "row" | "colspan" | "rowspan") {
             diag.push_error(format!("{prop} used outside of a GridLayout"), &*expr.borrow());
         }
         if matches!(prop.as_ref(), "dialog-button-role") {
             diag.push_error(format!("{prop} used outside of a Dialog"), &*expr.borrow());
+        }
+        if !is_layout
+            && matches!(
+                prop.as_ref(),
+                "padding" | "padding-left" | "padding-right" | "padding-top" | "padding-bottom"
+            )
+        {
+            diag.push_warning(
+                format!("{prop} only has effect on layout elements"),
+                &*expr.borrow(),
+            );
         }
     }
 }

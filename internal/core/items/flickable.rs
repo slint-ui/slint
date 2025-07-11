@@ -23,8 +23,7 @@ use crate::lengths::{
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
 use crate::window::WindowAdapter;
-use crate::Callback;
-use crate::Property;
+use crate::{Callback, Coord, Property};
 use alloc::boxed::Box;
 use alloc::rc::Rc;
 use const_field_offset::FieldOffsets;
@@ -117,7 +116,9 @@ impl Item for Flickable {
                 || pos.x_length() > geometry.width_length()
                 || pos.y_length() > geometry.height_length()
             {
-                return InputEventFilterResult::Intercept;
+                if !self.data.inner.borrow().pressed_time.is_some() {
+                    return InputEventFilterResult::Intercept;
+                }
             }
         }
         if !self.interactive() && !matches!(event, MouseEvent::Wheel { .. }) {
@@ -385,10 +386,6 @@ impl FlickableData {
                 }
             }
             MouseEvent::Wheel { delta_x, delta_y, .. } => {
-                let old_pos = LogicalPoint::from_lengths(
-                    (Flickable::FIELD_OFFSETS.viewport_x).apply_pin(flick).get(),
-                    (Flickable::FIELD_OFFSETS.viewport_y).apply_pin(flick).get(),
-                );
                 let delta = if window_adapter.window().0.modifiers.get().shift()
                     && !cfg!(target_os = "macos")
                 {
@@ -397,6 +394,20 @@ impl FlickableData {
                 } else {
                     LogicalVector::new(*delta_x, *delta_y)
                 };
+
+                let geo = flick_rc.geometry();
+
+                if (delta.x == 0 as Coord && flick.viewport_height() <= geo.height_length())
+                    || (delta.y == 0 as Coord && flick.viewport_width() <= geo.width_length())
+                {
+                    // Scroll in a orthogonal direction than what is allowed by the flickable
+                    return InputEventResult::EventIgnored;
+                }
+
+                let old_pos = LogicalPoint::from_lengths(
+                    (Flickable::FIELD_OFFSETS.viewport_x).apply_pin(flick).get(),
+                    (Flickable::FIELD_OFFSETS.viewport_y).apply_pin(flick).get(),
+                );
                 let new_pos = ensure_in_bound(flick, old_pos + delta, flick_rc);
 
                 let viewport_x = (Flickable::FIELD_OFFSETS.viewport_x).apply_pin(flick);

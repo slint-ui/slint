@@ -11,11 +11,24 @@ use pyo3::gc::PyVisit;
 use pyo3::prelude::*;
 use pyo3::PyTraverseError;
 
-use crate::value::PyValue;
+use crate::value::{SlintToPyValue, TypeCollection};
 
 pub struct PyModelShared {
     notify: ModelNotify,
     self_ref: RefCell<Option<PyObject>>,
+    /// The type collection is needed when calling a Python implementation of set_row_data and
+    /// the model data provided (for example from within a .slint file) contains an enum. Then
+    /// we need to know how to map it to the correct Python enum. This field is lazily set, whenever
+    /// time the Python model is exposed to Slint.
+    type_collection: RefCell<Option<TypeCollection>>,
+}
+
+impl PyModelShared {
+    pub fn apply_type_collection(&self, type_collection: &TypeCollection) {
+        if let Ok(mut type_collection_ref) = self.type_collection.try_borrow_mut() {
+            *type_collection_ref = Some(type_collection.clone());
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -38,6 +51,7 @@ impl PyModelBase {
             inner: Rc::new(PyModelShared {
                 notify: Default::default(),
                 self_ref: RefCell::new(None),
+                type_collection: RefCell::new(None),
             }),
         }
     }
@@ -119,8 +133,12 @@ impl i_slint_core::model::Model for PyModelShared {
                 }
             };
 
-            match result.extract::<PyValue>(py) {
-                Ok(pv) => Some(pv.0),
+            match TypeCollection::slint_value_from_py_value(
+                py,
+                &result,
+                self.type_collection.borrow().as_ref(),
+            ) {
+                Ok(pv) => Some(pv),
                 Err(err) => {
                     eprintln!("Python: Model implementation of row_data() returned value that cannot be converted to Rust: {err}");
                     None
@@ -137,7 +155,16 @@ impl i_slint_core::model::Model for PyModelShared {
                 return;
             };
 
-            if let Err(err) = obj.call_method1(py, "set_row_data", (row, PyValue::from(data))) {
+            let Some(type_collection) = self.type_collection.borrow().as_ref().cloned() else {
+                eprintln!(
+                    "Python: Model implementation is lacking type collection (in set_row_data)"
+                );
+                return;
+            };
+
+            if let Err(err) =
+                obj.call_method1(py, "set_row_data", (row, type_collection.to_py_value(data)))
+            {
                 eprintln!(
                     "Python: Model implementation of set_row_data() threw an exception: {err}"
                 );
@@ -166,16 +193,19 @@ impl PyModelShared {
 }
 
 #[pyclass(unsendable)]
-pub struct ReadOnlyRustModel(pub ModelRc<slint_interpreter::Value>);
+pub struct ReadOnlyRustModel {
+    pub model: ModelRc<slint_interpreter::Value>,
+    pub type_collection: TypeCollection,
+}
 
 #[pymethods]
 impl ReadOnlyRustModel {
     fn row_count(&self) -> usize {
-        self.0.row_count()
+        self.model.row_count()
     }
 
-    fn row_data(&self, row: usize) -> Option<PyValue> {
-        self.0.row_data(row).map(|value| value.into())
+    fn row_data(&self, row: usize) -> Option<SlintToPyValue> {
+        self.model.row_data(row).map(|value| self.type_collection.to_py_value(value))
     }
 
     fn __len__(&self) -> usize {
@@ -183,17 +213,15 @@ impl ReadOnlyRustModel {
     }
 
     fn __iter__(slf: PyRef<'_, Self>) -> ReadOnlyRustModelIterator {
-        ReadOnlyRustModelIterator { model: slf.0.clone(), row: 0 }
+        ReadOnlyRustModelIterator {
+            model: slf.model.clone(),
+            row: 0,
+            type_collection: slf.type_collection.clone(),
+        }
     }
 
-    fn __getitem__(&self, index: usize) -> Option<PyValue> {
+    fn __getitem__(&self, index: usize) -> Option<SlintToPyValue> {
         self.row_data(index)
-    }
-}
-
-impl From<&ModelRc<slint_interpreter::Value>> for ReadOnlyRustModel {
-    fn from(model: &ModelRc<slint_interpreter::Value>) -> Self {
-        Self(model.clone())
     }
 }
 
@@ -201,6 +229,7 @@ impl From<&ModelRc<slint_interpreter::Value>> for ReadOnlyRustModel {
 struct ReadOnlyRustModelIterator {
     model: ModelRc<slint_interpreter::Value>,
     row: usize,
+    type_collection: TypeCollection,
 }
 
 #[pymethods]
@@ -209,12 +238,12 @@ impl ReadOnlyRustModelIterator {
         slf
     }
 
-    fn __next__(&mut self) -> Option<PyValue> {
+    fn __next__(&mut self) -> Option<SlintToPyValue> {
         if self.row >= self.model.row_count() {
             return None;
         }
         let row = self.row;
         self.row += 1;
-        self.model.row_data(row).map(|value| value.into())
+        self.model.row_data(row).map(|value| self.type_collection.to_py_value(value))
     }
 }

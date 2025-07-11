@@ -75,6 +75,19 @@ impl LicenseTagStyle {
             is_real_end: true,
         }
     }
+
+    fn scheme_comment_style() -> LicenseTagStyle {
+        Self {
+            tag_start: ";; Copyright © ",
+            line_prefix: ";;",
+            line_indentation: " ",
+            line_break: "\n",
+            tag_end: const_format::concatcp!(";; ", SPDX_LICENSE_LINE),
+            overall_start: "",
+            overall_end: "\n",
+            is_real_end: false,
+        }
+    }
 }
 
 struct SourceFileWithTags<'a> {
@@ -493,6 +506,7 @@ static LICENSE_LOCATION_FOR_FILE: LazyLock<Vec<(regex::Regex, LicenseLocation)>>
             ("\\.css$", LicenseLocation::NoLicense),
             ("\\.gitattributes$", LicenseLocation::NoLicense),
             ("\\.gitignore$", LicenseLocation::NoLicense),
+            ("\\.ico$", LicenseLocation::NoLicense),
             ("\\.vscodeignore$", LicenseLocation::NoLicense),
             ("\\.dockerignore$", LicenseLocation::NoLicense),
             ("\\.dockerignore$", LicenseLocation::NoLicense),
@@ -522,6 +536,7 @@ static LICENSE_LOCATION_FOR_FILE: LazyLock<Vec<(regex::Regex, LicenseLocation)>>
             ("\\.rst$", LicenseLocation::Tag(LicenseTagStyle::rst_comment_style())),
             ("\\.sh$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
             ("\\.bash$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
+            ("\\.scm$", LicenseLocation::Tag(LicenseTagStyle::scheme_comment_style())),
             ("\\.slint$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
             (
                 "\\.slint\\.disabled$",
@@ -561,6 +576,7 @@ static LICENSE_LOCATION_FOR_FILE: LazyLock<Vec<(regex::Regex, LicenseLocation)>>
 static LICENSE_FOR_FILE: LazyLock<Vec<(regex::Regex, &'static str)>> = LazyLock::new(|| {
     [
         ("^editors/tree-sitter-slint/grammar.js$", MIT_LICENSE),
+        ("^editors/zed/", GPL_OR_LATER),
         ("^helper_crates/const-field-offset/", MIT_OR_APACHE2_LICENSE),
         ("^helper_crates/vtable/", MIT_OR_APACHE2_LICENSE),
         ("^api/cpp/esp-idf/LICENSE$", TRIPLE_LICENSE),
@@ -582,6 +598,7 @@ const TRIPLE_LICENSE: &str =
     "GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0";
 const MIT_LICENSE: &str = "MIT";
 const MIT_OR_APACHE2_LICENSE: &str = "MIT OR Apache-2.0";
+const GPL_OR_LATER: &str = "GPL-3.0-or-later";
 
 // This is really just the SPDX expression after the copyright line. The existence of the
 // Copyright prefix is enforced by the tag scanning (tag_start).
