@@ -19,3 +19,14 @@ Tracker = "https://github.com/slint-ui/slint/issues"
 
 [project.scripts]
 slint-compiler = "slint_compiler:main"
+
+[dependency-groups]
+dev = ["mypy>=1.15.0"]
+
+[tool.mypy]
+strict = true
+disallow_subclassing_any = false
+
+[[tool.mypy.overrides]]
+module = ["cached_path.*"]
+follow_untyped_imports = true

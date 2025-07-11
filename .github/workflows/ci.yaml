@@ -209,6 +209,9 @@ jobs:
             - name: Run mypy
               working-directory: api/python/slint
               run: uv run mypy -p tests -p slint
+            - name: Run mypy on slint-compiler
+              working-directory: api/python/compiler
+              run: uv run mypy slint_compiler
             - name: Run ruff linter
               working-directory: api/python/slint
               run: uv tool run ruff check

@@ -10,7 +10,7 @@ import os
 from importlib.metadata import version, PackageNotFoundError
 
 
-def main():
+def main() -> None:
     try:
         package_version = version("slint-compiler")
         # Strip alpha/beta from for example "1.13.0b1"
@@ -58,7 +58,7 @@ def main():
     local_path = cached_path.cached_path(
         url_and_path_within_archive, extract_archive=True
     )
-    args = [local_path]
+    args = [str(local_path)]
     args.extend(sys.argv[1:])
     subprocess.run(args)
 
