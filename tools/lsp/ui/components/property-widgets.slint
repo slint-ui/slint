@@ -249,7 +249,7 @@ export component PropertyInformationWidget inherits VerticalLayout {
             Api.set-code-binding(
                 element-information.source-uri,
                 element-information.source-version,
-                element-information.range.start,
+                element-information.offset,
                 property-information.name,
                 text,
             );
@@ -258,7 +258,7 @@ export component PropertyInformationWidget inherits VerticalLayout {
             return (Api.test-code-binding(
                 root.element-information.source-uri,
                 root.element-information.source-version,
-                root.element-information.range.start,
+                root.element-information.offset,
                 root.property-information.name,
                 text,
             ));
@@ -267,7 +267,7 @@ export component PropertyInformationWidget inherits VerticalLayout {
             Api.set-code-binding(
                 element-information.source-uri,
                 element-information.source-version,
-                element-information.range.start,
+                element-information.offset,
                 property-information.name,
                 text);
         }
@@ -275,7 +275,7 @@ export component PropertyInformationWidget inherits VerticalLayout {
             return (Api.test-code-binding(
                 root.element-information.source-uri,
                 root.element-information.source-version,
-                root.element-information.range.start,
+                root.element-information.offset,
                 root.property-information.name,
                 text));
         }
@@ -284,7 +284,7 @@ export component PropertyInformationWidget inherits VerticalLayout {
             Api.set-code-binding(
                 element-information.source-uri,
                 element-information.source-version,
-                element-information.range.start,
+                element-information.offset,
                 property-information.name,
                 "",
             );

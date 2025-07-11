@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+use crate::common::uri_to_file;
 use crate::preview::{self, ui};
 use core::cell::RefCell;
 use i_slint_compiler::object_tree;
@@ -185,7 +186,7 @@ impl Tree for OutlineModel {
                             .unwrap_or_default();
                         let name = match se.child_text(parser::SyntaxKind::Identifier) {
                             None => base,
-                            Some(id) => slint::format!("{id} = {base}"),
+                            Some(id) => slint::format!("{id} := {base}"),
                         };
                         let node = create_node(&elem, indent_level, name);
                         Some((elem, node))
@@ -232,7 +233,7 @@ fn create_node(
         is_expended: true,
         indent_level,
         name,
-        file_name: element.source_file.path().display().to_shared_string(),
+        uri: crate::common::file_to_uri(element.source_file.path()).unwrap().to_shared_string(),
         offset: usize::from(element.text_range().start()) as i32,
         is_last_child: true,
     }
@@ -248,16 +249,16 @@ pub fn reset_outline(ui: &ui::PreviewUi, root_component: Option<Rc<object_tree::
 
 pub fn setup(ui: &ui::PreviewUi) {
     let api = ui.global::<ui::Api>();
-    api.on_outline_select_element(|path, offset| {
+    api.on_outline_select_element(|uri, offset| {
         super::element_selection::select_element_at_source_code_position(
-            std::path::PathBuf::from(path.as_str()),
+            uri_to_file(&Url::parse(uri.as_str()).unwrap()).unwrap(),
             TextSize::new(offset as u32),
             None,
             super::SelectionNotification::Now,
         );
     });
-    api.on_outline_drop(|data, target_file, target_offset, location| {
-        let Some(edit) = drop_edit(data, target_file, target_offset, location) else {
+    api.on_outline_drop(|data, target_uri, target_offset, location| {
+        let Some(edit) = drop_edit(data, target_uri, target_offset, location) else {
             return;
         };
         preview::send_workspace_edit("Drop element".to_string(), edit, true);
@@ -266,12 +267,12 @@ pub fn setup(ui: &ui::PreviewUi) {
 
 fn drop_edit(
     data: SharedString,
-    target_file: SharedString,
+    target_uri: SharedString,
     target_offset: i32,
     location: i32,
 ) -> Option<lsp_types::WorkspaceEdit> {
     let document_cache = super::document_cache()?;
-    let url = Url::from_file_path(target_file.as_str()).ok()?;
+    let url = Url::parse(target_uri.as_str()).ok()?;
     let target_elem =
         document_cache.element_at_offset(&url, TextSize::new(target_offset as u32))?;
 
@@ -313,8 +314,8 @@ fn drop_edit(
         }
     };
 
-    let workspace_edit = if let Some((item_file, item_offset)) = data.rsplit_once(':') {
-        if *item_file != *target_file {
+    let workspace_edit = if let Some((item_uri, item_offset)) = data.rsplit_once(':') {
+        if *item_uri != *target_uri {
             eprintln!("Can Only move elements in the same file");
             return None;
         }
