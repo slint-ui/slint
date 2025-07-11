@@ -2524,7 +2524,7 @@ pub fn restart_timer(element: ElementRc, instance: InstanceRef) {
     if let Some((_, offset)) = timers
         .iter()
         .zip(&instance.description.timers)
-        .find(|(desc, _)| Rc::ptr_eq(&desc.element, &element))
+        .find(|(desc, _)| Rc::ptr_eq(&desc.element.upgrade().unwrap(), &element))
     {
         let timer = offset.apply(instance.as_ref());
         timer.restart();
