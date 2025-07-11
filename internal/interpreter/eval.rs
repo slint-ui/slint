@@ -1350,7 +1350,7 @@ fn call_builtin_function(
         BuiltinFunction::RestartTimer => {
             if let [Expression::ElementReference(timer_element)] = arguments {
                 crate::dynamic_item_tree::restart_timer(
-                    timer_element.upgrade().unwrap(),
+                    timer_element.clone(),
                     local_context.component_instance,
                 );
 
