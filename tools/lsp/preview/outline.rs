@@ -29,6 +29,8 @@ trait Tree {
     fn children(&self, parent: Option<&Self::Id>) -> impl Iterator<Item = Self::Id>;
     /// return the level in the tree of the given Id
     fn level(&self, id: &Self::Id) -> usize;
+    /// Return if the node is expanded
+    fn is_expanded(&self, id: &Self::Id) -> bool;
 
     /// Update the data for a given id
     /// Returns whether there was a change and we need to collapse or expand the node
@@ -46,22 +48,39 @@ struct TreeAdapterModel<T: Tree> {
 
 impl<T: Tree> TreeAdapterModel<T> {
     pub fn new(source: T) -> Self {
+        let mut cached_layout: Vec<T::Id> = source.children(None).collect();
+        for child in (0..cached_layout.len()).rev() {
+            if source.is_expanded(&cached_layout[child]) {
+                Self::expand_recursive(&source, &mut cached_layout, child);
+            }
+        }
         Self {
-            cached_layout: RefCell::new(source.children(None).collect()),
+            cached_layout: RefCell::new(cached_layout),
             model_tracker: Default::default(),
             source,
         }
     }
 
     fn expand(&self, row: usize) {
-        let mut count = 0;
         let mut cached_layout = self.cached_layout.borrow_mut();
+        let count = Self::expand_recursive(&self.source, &mut cached_layout, row);
+        drop(cached_layout);
+        self.model_tracker.row_added(row + 1, count);
+    }
+
+    /// Internal function for `expand` and return the amound of rows added
+    fn expand_recursive(source: &T, cached_layout: &mut Vec<T::Id>, row: usize) -> usize {
+        let mut count = 0;
         let parent = cached_layout[row].clone();
         let index = row + 1;
-        cached_layout
-            .splice(index..index, self.source.children(Some(&parent)).inspect(|_| count += 1));
-        drop(cached_layout);
-        self.model_tracker.row_added(index, count);
+        cached_layout.splice(index..index, source.children(Some(&parent)).inspect(|_| count += 1));
+
+        for child in (index..index + count).rev() {
+            if source.is_expanded(&cached_layout[child]) {
+                count += Self::expand_recursive(source, cached_layout, child);
+            }
+        }
+        count
     }
 
     fn collapse(&self, row: usize) {
@@ -197,6 +216,10 @@ impl Tree for OutlineModel {
         id.1 = data;
         r
     }
+
+    fn is_expanded(&self, id: &Self::Id) -> bool {
+        id.1.is_expended
+    }
 }
 
 fn create_node(
@@ -206,7 +229,7 @@ fn create_node(
 ) -> ui::OutlineTreeNode {
     ui::OutlineTreeNode {
         has_children: element.SubElement().next().is_some(),
-        is_expended: false,
+        is_expended: true,
         indent_level,
         name,
         file_name: element.source_file.path().display().to_shared_string(),
