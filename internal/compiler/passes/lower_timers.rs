@@ -4,13 +4,38 @@
 //! Passe that transform the Timer element into a timer in the Component
 
 use crate::diagnostics::BuildDiagnostics;
-use crate::expression_tree::{BuiltinFunction, Expression, NamedReference};
+use crate::expression_tree::{BuiltinFunction, Callable, Expression, NamedReference};
 use crate::langtype::ElementType;
 use crate::object_tree::*;
 use smol_str::SmolStr;
 use std::rc::Rc;
 
 pub fn lower_timers(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
+    visit_all_expressions(component, |e, _| {
+        e.visit_recursive_mut(&mut |e| match e {
+            Expression::FunctionCall { function, arguments, .. } => match function {
+                Callable::Builtin(BuiltinFunction::StartTimer | BuiltinFunction::StopTimer) => {
+                    if let [Expression::ElementReference(timer)] = arguments.as_slice() {
+                        *e = Expression::SelfAssignment {
+                            lhs: Box::new(Expression::PropertyReference(NamedReference::new(
+                                &timer.upgrade().unwrap(),
+                                SmolStr::new_static("running"),
+                            ))),
+                            rhs: Box::new(Expression::BoolLiteral(matches!(
+                                function,
+                                Callable::Builtin(BuiltinFunction::StartTimer)
+                            ))),
+                            op: '=',
+                            node: None,
+                        }
+                    }
+                }
+                _ => {}
+            },
+            _ => {}
+        });
+    });
+
     recurse_elem_including_sub_components_no_borrow(
         component,
         &None,
@@ -67,10 +92,14 @@ fn lower_timer(
         }
     }
 
+    let running = NamedReference::new(timer_element, SmolStr::new_static("running"));
+    running.mark_as_set();
+
     parent_component.timers.borrow_mut().push(Timer {
         interval: NamedReference::new(timer_element, SmolStr::new_static("interval")),
-        running: NamedReference::new(timer_element, SmolStr::new_static("running")),
+        running,
         triggered: NamedReference::new(timer_element, SmolStr::new_static("triggered")),
+        element: Rc::downgrade(timer_element),
     });
     let update_timers = Expression::FunctionCall {
         function: BuiltinFunction::UpdateTimers.into(),

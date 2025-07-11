@@ -131,6 +131,7 @@ pub fn lower_expression(
             llr_Expression::CodeBlock(expr.iter().map(|e| lower_expression(e, ctx)).collect::<_>())
         }
         tree_Expression::FunctionCall { function, arguments, .. } => match function {
+            Callable::Builtin(BuiltinFunction::RestartTimer) => lower_restart_timer(arguments),
             Callable::Builtin(BuiltinFunction::ShowPopupWindow) => {
                 lower_show_popup_window(arguments, ctx)
             }
@@ -387,6 +388,26 @@ fn repeater_special_property(
         r = PropertyReference::InParent { level, parent_reference: Box::new(r) };
     }
     llr_Expression::PropertyReference(r)
+}
+
+fn lower_restart_timer(args: &[tree_Expression]) -> llr_Expression {
+    if let [tree_Expression::ElementReference(e)] = args {
+        let timer_element = e.upgrade().unwrap();
+        let timer_comp = timer_element.borrow().enclosing_component.upgrade().unwrap();
+
+        let timer_list = timer_comp.timers.borrow();
+        let timer_index = timer_list
+            .iter()
+            .position(|t| Rc::ptr_eq(&t.element.upgrade().unwrap(), &timer_element))
+            .unwrap();
+
+        llr_Expression::BuiltinFunctionCall {
+            function: BuiltinFunction::RestartTimer,
+            arguments: vec![llr_Expression::NumberLiteral(timer_index as _)],
+        }
+    } else {
+        panic!("invalid arguments to RestartTimer");
+    }
 }
 
 fn lower_show_popup_window(

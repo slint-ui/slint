@@ -4004,7 +4004,16 @@ fn compile_builtin_function_call(
         BuiltinFunction::DetectOperatingSystem => {
             format!("slint::cbindgen_private::slint_detect_operating_system()")
         }
-
+        // start and stop are unreachable because they are lowered to simple assignment of running
+        BuiltinFunction::StartTimer => unreachable!(),
+        BuiltinFunction::StopTimer => unreachable!(),
+        BuiltinFunction::RestartTimer => {
+            if let [llr::Expression::NumberLiteral(timer_index)] = arguments {
+                format!("const_cast<slint::Timer&>(self->timer{}).restart()", timer_index)
+            } else {
+                panic!("internal error: invalid args to RetartTimer {arguments:?}")
+            }
+        }
     }
 }
 

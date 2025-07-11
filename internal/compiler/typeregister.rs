@@ -489,6 +489,23 @@ impl TypeRegister {
             _ => unreachable!(),
         };
 
+        match &mut register.elements.get_mut("Timer").unwrap() {
+            ElementType::Builtin(ref mut b) => {
+                let timer = Rc::get_mut(b).unwrap();
+                timer
+                    .properties
+                    .insert("start".into(), BuiltinPropertyInfo::from(BuiltinFunction::StartTimer));
+                timer
+                    .properties
+                    .insert("stop".into(), BuiltinPropertyInfo::from(BuiltinFunction::StopTimer));
+                timer.properties.insert(
+                    "restart".into(),
+                    BuiltinPropertyInfo::from(BuiltinFunction::RestartTimer),
+                );
+            }
+            _ => unreachable!(),
+        }
+
         let font_metrics_prop = crate::langtype::BuiltinPropertyInfo {
             ty: font_metrics_type(),
             property_visibility: PropertyVisibility::Output,

@@ -319,6 +319,7 @@ pub struct Timer {
     pub interval: NamedReference,
     pub triggered: NamedReference,
     pub running: NamedReference,
+    pub element: ElementWeak,
 }
 
 #[derive(Clone, Debug)]

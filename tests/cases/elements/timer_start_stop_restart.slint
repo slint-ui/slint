@@ -1,0 +1,405 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+component Other inherits Rectangle {
+    out property <string> res;
+    callback stop_rect_timer();
+    callback start_rect_timer();
+    callback restart_rect_timer();
+
+    timer := Timer {
+        interval: 250ms;
+        running: false;
+        triggered => {
+            res += "t";
+        }
+    }
+
+    stop_rect_timer => {
+        timer.stop();
+    }
+    start_rect_timer => {
+        timer.start();
+    }
+    restart_rect_timer => {
+        timer.restart();
+    }
+}
+
+export component TestCase inherits Window {
+    out property <string> result1;
+    out property <string> result2;
+    out property <string> result3;
+    out property <string> result4;
+    in-out property <bool> validRect;
+
+    other := Other {}
+
+    // multiple timers so we can ensure that the index resolution is working correctly
+    timer1 := Timer {
+        interval: 1s;
+        running: false;
+        triggered => {
+            result1 += "1";
+        }
+    }
+
+    timer2 := Timer {
+        interval: 50ms;
+        running: false;
+        triggered => {
+            result2 += "1";
+        }
+    }
+
+    // checks if its working in another element
+    Rectangle {
+        timer3 := Timer {
+            interval: 3s;
+            running: false;
+            triggered => {
+                root.result3 += "1";
+                self.stop();
+            }
+        }
+        init => {
+            timer3.start();
+        }
+    }
+
+    // checks if it is working in a conditional
+    if (validRect): TouchArea{
+        width: 10px;
+        height: 10px;
+        timer4 := Timer {
+            interval: 4s;
+            running: false;
+            triggered => {
+                root.result4 += "1";
+                self.stop();
+            }
+        }
+        clicked => {
+            // this is just here to load the actual area
+        }
+        init => {
+            timer4.start();
+        }
+    }
+
+    public function start_timer1() {
+        timer1.start();
+    }
+
+    public function stop_timer1() {
+        timer1.stop();
+    }
+
+    public function restart_timer1() {
+        timer1.restart();
+    }
+
+    public function start_timer2() {
+        timer2.start();
+    }
+
+    public function stop_timer2() {
+        timer2.stop();
+    }
+
+    public function restart_timer2() {
+        timer2.restart();
+    }
+
+    public function start_other_timer() {
+        other.start_rect_timer();
+    }
+
+    public function stop_other_timer() {
+        other.stop_rect_timer();
+    }
+
+    public function restart_other_timer() {
+        other.restart_rect_timer();
+    }
+    public function get_other_res() -> string {
+        return other.res;
+    }
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+slint_testing::mock_elapsed_time(1);
+slint_testing::mock_elapsed_time(3000);
+assert_eq!(instance.get_result3(), "1");
+slint_testing::mock_elapsed_time(1000);
+assert_eq!(instance.get_result3(), "1");
+instance.invoke_start_timer1();
+// any time we invoke one of these we need to double up on the mock time
+// the first will just trigger the change handler processing, and the second the actual timer
+slint_testing::mock_elapsed_time(1);
+slint_testing::mock_elapsed_time(1000);
+assert_eq!(instance.get_result1(), "1");
+slint_testing::mock_elapsed_time(1000);
+assert_eq!(instance.get_result1(), "11");
+instance.invoke_stop_timer1();
+slint_testing::mock_elapsed_time(1);
+slint_testing::mock_elapsed_time(1500);
+assert_eq!(instance.get_result1(), "11");
+instance.invoke_restart_timer1();
+slint_testing::mock_elapsed_time(1);
+slint_testing::mock_elapsed_time(1000);
+assert_eq!(instance.get_result1(), "111");
+instance.invoke_start_timer1();
+slint_testing::mock_elapsed_time(1);
+slint_testing::mock_elapsed_time(500);
+assert_eq!(instance.get_result1(), "111");
+instance.invoke_restart_timer1();
+slint_testing::mock_elapsed_time(1);
+slint_testing::mock_elapsed_time(600);
+assert_eq!(instance.get_result1(), "111");
+slint_testing::mock_elapsed_time(400);
+assert_eq!(instance.get_result1(), "1111");
+
+instance.invoke_start_timer2();
+slint_testing::mock_elapsed_time(1);
+slint_testing::mock_elapsed_time(50);
+assert_eq!(instance.get_result2(), "1");
+slint_testing::mock_elapsed_time(50);
+assert_eq!(instance.get_result2(), "11");
+instance.invoke_stop_timer2();
+slint_testing::mock_elapsed_time(1);
+slint_testing::mock_elapsed_time(1000);
+assert_eq!(instance.get_result2(), "11");
+instance.invoke_restart_timer2();
+slint_testing::mock_elapsed_time(1);
+slint_testing::mock_elapsed_time(50);
+assert_eq!(instance.get_result2(), "111");
+instance.invoke_start_timer2();
+slint_testing::mock_elapsed_time(1);
+slint_testing::mock_elapsed_time(25);
+assert_eq!(instance.get_result2(), "111");
+instance.invoke_restart_timer2();
+slint_testing::mock_elapsed_time(1);
+slint_testing::mock_elapsed_time(30);
+assert_eq!(instance.get_result2(), "111");
+slint_testing::mock_elapsed_time(20);
+assert_eq!(instance.get_result2(), "1111");
+
+instance.set_validRect(true);
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert_eq!(instance.get_result4(), "");
+slint_testing::mock_elapsed_time(1);
+slint_testing::mock_elapsed_time(4000);
+assert_eq!(instance.get_result4(), "1");
+slint_testing::mock_elapsed_time(4000);
+assert_eq!(instance.get_result4(), "1");
+
+assert_eq!(instance.invoke_get_other_res(), "");
+instance.invoke_start_other_timer();
+slint_testing::mock_elapsed_time(1);
+slint_testing::mock_elapsed_time(250);
+assert_eq!(instance.invoke_get_other_res(), "t");
+instance.invoke_stop_other_timer();
+slint_testing::mock_elapsed_time(1);
+slint_testing::mock_elapsed_time(300);
+assert_eq!(instance.invoke_get_other_res(), "t");
+instance.invoke_start_other_timer();
+slint_testing::mock_elapsed_time(1);
+slint_testing::mock_elapsed_time(250);
+assert_eq!(instance.invoke_get_other_res(), "tt");
+slint_testing::mock_elapsed_time(50);
+instance.invoke_restart_other_timer();
+slint_testing::mock_elapsed_time(1);
+slint_testing::mock_elapsed_time(200);
+assert_eq!(instance.invoke_get_other_res(), "tt");
+slint_testing::mock_elapsed_time(1);
+slint_testing::mock_elapsed_time(50);
+assert_eq!(instance.invoke_get_other_res(), "ttt");
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+slint_testing::mock_elapsed_time(1);
+slint_testing::mock_elapsed_time(3000);
+assert_eq(instance.get_result3(), "1");
+slint_testing::mock_elapsed_time(1000);
+assert_eq(instance.get_result3(), "1");
+
+instance.invoke_start_timer1();
+// any time we invoke one of these we need to double up on the mock time
+// the first will just trigger the change handler processing, and the second the actual timer
+slint_testing::mock_elapsed_time(1);
+slint_testing::mock_elapsed_time(1000);
+assert_eq(instance.get_result1(), "1");
+slint_testing::mock_elapsed_time(1000);
+assert_eq(instance.get_result1(), "11");
+instance.invoke_stop_timer1();
+slint_testing::mock_elapsed_time(1);
+slint_testing::mock_elapsed_time(1500);
+assert_eq(instance.get_result1(), "11");
+instance.invoke_restart_timer1();
+slint_testing::mock_elapsed_time(1);
+slint_testing::mock_elapsed_time(1000);
+assert_eq(instance.get_result1(), "111");
+instance.invoke_start_timer1();
+slint_testing::mock_elapsed_time(1);
+slint_testing::mock_elapsed_time(500);
+assert_eq(instance.get_result1(), "111");
+instance.invoke_restart_timer1();
+slint_testing::mock_elapsed_time(1);
+slint_testing::mock_elapsed_time(600);
+assert_eq(instance.get_result1(), "111");
+slint_testing::mock_elapsed_time(400);
+assert_eq(instance.get_result1(), "1111");
+
+instance.invoke_start_timer2();
+slint_testing::mock_elapsed_time(1);
+slint_testing::mock_elapsed_time(50);
+assert_eq(instance.get_result2(), "1");
+slint_testing::mock_elapsed_time(50);
+assert_eq(instance.get_result2(), "11");
+instance.invoke_stop_timer2();
+slint_testing::mock_elapsed_time(1);
+slint_testing::mock_elapsed_time(1000);
+assert_eq(instance.get_result2(), "11");
+instance.invoke_restart_timer2();
+slint_testing::mock_elapsed_time(1);
+slint_testing::mock_elapsed_time(50);
+assert_eq(instance.get_result2(), "111");
+instance.invoke_start_timer2();
+slint_testing::mock_elapsed_time(1);
+slint_testing::mock_elapsed_time(25);
+assert_eq(instance.get_result2(), "111");
+instance.invoke_restart_timer2();
+slint_testing::mock_elapsed_time(1);
+slint_testing::mock_elapsed_time(30);
+assert_eq(instance.get_result2(), "111");
+slint_testing::mock_elapsed_time(20);
+assert_eq(instance.get_result2(), "1111");
+
+instance.set_validRect(true);
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert_eq(instance.get_result4(), "");
+slint_testing::mock_elapsed_time(1);
+slint_testing::mock_elapsed_time(4000);
+assert_eq(instance.get_result4(), "1");
+slint_testing::mock_elapsed_time(4000);
+assert_eq(instance.get_result4(), "1");
+
+assert_eq(instance.invoke_get_other_res(), "");
+instance.invoke_start_other_timer();
+slint_testing::mock_elapsed_time(1);
+slint_testing::mock_elapsed_time(250);
+assert_eq(instance.invoke_get_other_res(), "t");
+instance.invoke_stop_other_timer();
+slint_testing::mock_elapsed_time(1);
+slint_testing::mock_elapsed_time(300);
+assert_eq(instance.invoke_get_other_res(), "t");
+instance.invoke_start_other_timer();
+slint_testing::mock_elapsed_time(1);
+slint_testing::mock_elapsed_time(250);
+assert_eq(instance.invoke_get_other_res(), "tt");
+slint_testing::mock_elapsed_time(50);
+instance.invoke_restart_other_timer();
+slint_testing::mock_elapsed_time(1);
+slint_testing::mock_elapsed_time(200);
+assert_eq(instance.invoke_get_other_res(), "tt");
+slint_testing::mock_elapsed_time(1);
+slint_testing::mock_elapsed_time(50);
+assert_eq(instance.invoke_get_other_res(), "ttt");
+```
+
+```js
+var instance = new slint.TestCase({});
+
+slintlib.private_api.mock_elapsed_time(1);
+slintlib.private_api.mock_elapsed_time(3000);
+assert.equal(instance.result3, "1");
+slintlib.private_api.mock_elapsed_time(1000);
+assert.equal(instance.result3, "1");
+
+instance.start_timer1();
+slintlib.private_api.mock_elapsed_time(1);
+slintlib.private_api.mock_elapsed_time(1000);
+assert.equal(instance.result1, "1");
+slintlib.private_api.mock_elapsed_time(1000);
+assert.equal(instance.result1, "11");
+instance.stop_timer1();
+slintlib.private_api.mock_elapsed_time(1);
+slintlib.private_api.mock_elapsed_time(1500);
+assert.equal(instance.result1, "11");
+instance.restart_timer1();
+slintlib.private_api.mock_elapsed_time(1);
+slintlib.private_api.mock_elapsed_time(1000);
+assert.equal(instance.result1, "111");
+instance.start_timer1();
+slintlib.private_api.mock_elapsed_time(1);
+slintlib.private_api.mock_elapsed_time(500);
+assert.equal(instance.result1, "111");
+instance.restart_timer1();
+slintlib.private_api.mock_elapsed_time(1);
+slintlib.private_api.mock_elapsed_time(600);
+assert.equal(instance.result1, "111");
+slintlib.private_api.mock_elapsed_time(400);
+assert.equal(instance.result1, "1111");
+
+instance.start_timer2();
+slintlib.private_api.mock_elapsed_time(1);
+slintlib.private_api.mock_elapsed_time(50);
+assert.equal(instance.result2, "1");
+slintlib.private_api.mock_elapsed_time(50);
+assert.equal(instance.result2, "11");
+instance.stop_timer2();
+slintlib.private_api.mock_elapsed_time(1);
+slintlib.private_api.mock_elapsed_time(1000);
+assert.equal(instance.result2, "11");
+instance.restart_timer2();
+slintlib.private_api.mock_elapsed_time(1);
+slintlib.private_api.mock_elapsed_time(50);
+assert.equal(instance.result2, "111");
+instance.start_timer2();
+slintlib.private_api.mock_elapsed_time(1);
+slintlib.private_api.mock_elapsed_time(25);
+assert.equal(instance.result2, "111");
+instance.restart_timer2();
+slintlib.private_api.mock_elapsed_time(1);
+slintlib.private_api.mock_elapsed_time(30);
+assert.equal(instance.result2, "111");
+slintlib.private_api.mock_elapsed_time(20);
+assert.equal(instance.result2, "1111");
+
+instance.validRect = true;
+slintlib.private_api.send_mouse_click(instance, 5., 5.);
+assert.equal(instance.result4, "");
+slintlib.private_api.mock_elapsed_time(1);
+slintlib.private_api.mock_elapsed_time(4000);
+assert.equal(instance.result4, "1");
+slintlib.private_api.mock_elapsed_time(4000);
+assert.equal(instance.result4, "1");
+
+assert.equal(instance.get_other_res(), "");
+instance.start_other_timer();
+slintlib.private_api.mock_elapsed_time(1);
+slintlib.private_api.mock_elapsed_time(250);
+assert.equal(instance.get_other_res(), "t");
+instance.stop_other_timer();
+slintlib.private_api.mock_elapsed_time(1);
+slintlib.private_api.mock_elapsed_time(300);
+assert.equal(instance.get_other_res(), "t");
+instance.start_other_timer();
+slintlib.private_api.mock_elapsed_time(1);
+slintlib.private_api.mock_elapsed_time(250);
+assert.equal(instance.get_other_res(), "tt");
+slintlib.private_api.mock_elapsed_time(50);
+instance.restart_other_timer();
+slintlib.private_api.mock_elapsed_time(1);
+slintlib.private_api.mock_elapsed_time(200);
+assert.equal(instance.get_other_res(), "tt");
+slintlib.private_api.mock_elapsed_time(1);
+slintlib.private_api.mock_elapsed_time(50);
+assert.equal(instance.get_other_res(), "ttt");
+```
+*/
