@@ -114,6 +114,13 @@
           "command": "slint.newProject",
           "when": "!isWeb"
         }
+      ],
+      "editor/title": [
+        {
+          "command": "slint.showPreview",
+          "when": "resourceLangId == slint",
+          "group": "navigation"
+        }
       ]
     },
     "configuration": {
