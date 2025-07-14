@@ -1,6 +1,6 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
-//! Board support for ESP32-S3-LCD-EV-Board using the same init sequence as Conway's Game of Life example.
+//! Board support for ESP32-S3-LCD-EV-Board with display and touch controller support.
 
 extern crate alloc;
 
@@ -41,10 +41,6 @@ where
 }
 
 use alloc::boxed::Box;
-use embedded_graphics_core::pixelcolor::Rgb565;
-use embedded_graphics_core::pixelcolor::{IntoStorage, RgbColor};
-use embedded_graphics_core::prelude::PixelColor;
-use embedded_graphics_framebuf::backends::FrameBufferBackend;
 use esp_hal::dma::{DmaDescriptor, DmaTxBuf, CHUNK_SIZE};
 use esp_hal::i2c;
 use esp_hal::peripherals::Peripherals;
@@ -91,44 +87,6 @@ fn panic(_info: &core::panic::PanicInfo) -> ! {
     loop {}
 }
 
-/// A wrapper around a boxed array that implements FrameBufferBackend.
-pub struct HeapBuffer<C: PixelColor, const N: usize>(Box<[C; N]>);
-
-impl<C: PixelColor, const N: usize> HeapBuffer<C, N> {
-    pub fn new(data: Box<[C; N]>) -> Self {
-        Self(data)
-    }
-
-    pub fn as_slice(&self) -> &[C] {
-        self.0.as_ref()
-    }
-}
-
-impl<C: PixelColor, const N: usize> core::ops::Deref for HeapBuffer<C, N> {
-    type Target = [C; N];
-    fn deref(&self) -> &Self::Target {
-        &*self.0
-    }
-}
-
-impl<C: PixelColor, const N: usize> core::ops::DerefMut for HeapBuffer<C, N> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut *self.0
-    }
-}
-
-impl<C: PixelColor, const N: usize> FrameBufferBackend for HeapBuffer<C, N> {
-    type Color = C;
-    fn set(&mut self, index: usize, color: Self::Color) {
-        self.0[index] = color;
-    }
-    fn get(&self, index: usize) -> Self::Color {
-        self.0[index]
-    }
-    fn nr_elements(&self) -> usize {
-        N
-    }
-}
 
 struct EspBackend {
     window: RefCell<Option<Rc<slint::platform::software_renderer::MinimalSoftwareWindow>>>,
@@ -315,16 +273,15 @@ impl slint::platform::Platform for EspBackend {
         let mut pixel_box: Box<[Rgb565Pixel; FRAME_PIXELS]> =
             Box::new([Rgb565Pixel(0); FRAME_PIXELS]);
         let pixel_buf: &mut [Rgb565Pixel] = &mut *pixel_box;
-        // Clear screen to blue for sanity check
-        {
-            let dst = dma_tx.as_mut_slice();
-            let [blue_lo, blue_hi] = Rgb565::BLUE.into_storage().to_le_bytes();
-            for pixel in 0..FRAME_PIXELS {
-                dst[2 * pixel] = blue_lo;
-                dst[2 * pixel + 1] = blue_hi;
-            }
+        // Initialize pixel buffer and DMA buffer
+        // The pixel buffer will be filled by Slint's renderer in the main loop
+        let dst = dma_tx.as_mut_slice();
+        for (i, px) in pixel_buf.iter().enumerate() {
+            let [lo, hi] = px.0.to_le_bytes();
+            dst[2 * i] = lo;
+            dst[2 * i + 1] = hi;
         }
-        // Initial flush of the blue screen
+        // Initial flush of the screen buffer
         match dpi.send(false, dma_tx) {
             Ok(xfer) => {
                 let (_res, dpi2, tx2) = xfer.wait();
@@ -443,7 +400,7 @@ impl Tca9554 {
     }
 }
 
-// Initialization commands matching the Conway example
+// Display initialization commands for the ESP32-S3-LCD-EV-Board
 #[derive(Copy, Clone, Debug)]
 enum InitCmd {
     Cmd(u8, &'static [u8]),
