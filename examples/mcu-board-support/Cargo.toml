@@ -88,6 +88,21 @@ esp32-s3-box-3 = [
   "slint/libm",
   "gt911",
 ]
+esp32-s3-lcd-ev-board = [
+  "slint/unsafe-single-threaded",
+  "esp-hal/esp32s3",
+  "esp-hal/unstable",             # required for PSRAM support
+  "esp-hal/psram",
+  "embedded-hal",
+  "embedded-hal-bus",
+  "esp-alloc",
+  "esp-println/esp32s3",
+  "esp-backtrace/esp32s3",
+  "dep:mipidsi",
+  "embedded-graphics-core",
+  "slint/libm",
+  "embedded-graphics-framebuf",
+]
 stm32u5g9j-dk2 = [
   "embassy-stm32/stm32u5g9zj",
   "embassy-stm32/time-driver-any",
@@ -174,6 +189,7 @@ embassy-net = { version = "0.7.0", optional = true, features = [
 
 mipidsi = { version = "0.9.0", optional = true }
 embedded-graphics-core = { version = "0.4", optional = true }
+embedded-graphics-framebuf = { version = "0.5.0", optional = true }
 
 defmt-rtt = { version = "0.4.0", optional = true }
 defmt = { version = "1.0.0", optional = true }
