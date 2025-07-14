@@ -15,12 +15,13 @@ use embedded_graphics_framebuf::FrameBuf;
 use slint::platform::software_renderer::Rgb565Pixel;
 use slint::PhysicalSize;
 
+use alloc::alloc::{alloc, handle_alloc_error};
 use alloc::boxed::Box;
 use alloc::rc::Rc;
-use core::cell::RefCell;
 use core::alloc::Layout;
-use alloc::alloc::{alloc, handle_alloc_error};
+use core::cell::RefCell;
 
+use eeprom24x::{Eeprom24x, SlaveAddr};
 use esp_hal::clock::CpuClock;
 use esp_hal::dma::{DmaDescriptor, DmaTxBuf, ExternalBurstConfig, CHUNK_SIZE};
 use esp_hal::gpio::{Level, Output, OutputConfig};
@@ -39,7 +40,6 @@ use esp_hal::timer::{timg::TimerGroup, AnyTimer};
 use esp_hal::Config as HalConfig;
 use esp_println::logger::init_logger_from_env;
 use log::{error, info};
-use eeprom24x::{Eeprom24x, SlaveAddr};
 
 use embassy_executor::Spawner;
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
@@ -108,7 +108,6 @@ pub fn init() {
     .expect("Slint platform already initialized");
 }
 
-
 /// FrameBufferBackend wrapper for a PSRAM-backed [Rgb565; N] slice.
 pub struct PSRAMFrameBuffer<'a> {
     buf: &'a mut [Rgb565; LCD_BUFFER_SIZE],
@@ -176,7 +175,7 @@ impl slint::platform::Platform for EspBackend {
 
         // Allocate framebuffer in PSRAM and reuse as DMA buffer with proper 64-byte alignment
         const FRAME_BYTES: usize = LCD_BUFFER_SIZE * 2;
-        
+
         // Use manual allocation with alignment like Conway's implementation
         let layout = Layout::from_size_align(FRAME_BYTES, 64).unwrap();
         let fb_ptr = unsafe {
@@ -187,37 +186,38 @@ impl slint::platform::Platform for EspBackend {
             }
             ptr
         };
-        
+
         // Initialize the buffer with zeros
         unsafe {
             core::ptr::write_bytes(fb_ptr, 0, FRAME_BYTES);
         }
-        
-        let psram_buf: &'static mut [u8] = unsafe { core::slice::from_raw_parts_mut(fb_ptr, FRAME_BYTES) };
-        
+
+        let psram_buf: &'static mut [u8] =
+            unsafe { core::slice::from_raw_parts_mut(fb_ptr, FRAME_BYTES) };
+
         // Verify PSRAM buffer allocation and alignment
         let buf_ptr = psram_buf.as_ptr() as usize;
         info!("PSRAM buffer allocated at address: 0x{:08X}", buf_ptr);
         info!("PSRAM buffer length: {}", psram_buf.len());
         info!("PSRAM buffer alignment modulo 64: {}", buf_ptr % 64);
-        
+
         // Assert that we have proper 64-byte alignment for DMA
         assert_eq!(buf_ptr % 64, 0, "PSRAM buffer must be 64-byte aligned for DMA");
         info!("PSRAM buffer is properly 64-byte aligned for DMA");
-        
+
         // Publish PSRAM buffer pointer and len for app core
         unsafe {
             PSRAM_BUF_PTR = psram_buf.as_mut_ptr();
             PSRAM_BUF_LEN = FRAME_BYTES;
         }
-        
+
         // Configure DMA buffer with proper burst configuration
         let mut dma_tx: DmaTxBuf = unsafe {
             let descriptors = &mut *core::ptr::addr_of_mut!(TX_DESCRIPTORS);
             DmaTxBuf::new_with_config(descriptors, psram_buf, ExternalBurstConfig::Size64).unwrap()
         };
-        
-        // Allocate pixel buffer for Slint rendering  
+
+        // Allocate pixel buffer for Slint rendering
         const FRAME_PIXELS: usize = LCD_BUFFER_SIZE;
         let mut pixel_box: Box<[Rgb565Pixel; FRAME_PIXELS]> =
             Box::new([Rgb565Pixel(0); FRAME_PIXELS]);
@@ -225,7 +225,7 @@ impl slint::platform::Platform for EspBackend {
 
         // Initialize LCD DPI interface
         let lcd_cam = LcdCam::new(peripherals.LCD_CAM);
-        
+
         // Read configuration from EEPROM
         let pclk_hz = ((eeid[12] as u32) * 1_000_000 + (eeid[13] as u32) * 100_000).min(13_600_000);
         let flags = eeid[25];
@@ -233,7 +233,7 @@ impl slint::platform::Platform for EspBackend {
         let vsync_idle_low = (flags & 0x02) != 0;
         let de_idle_high = (flags & 0x04) != 0;
         let pclk_active_neg = (flags & 0x20) != 0;
-        
+
         // Log display configuration to match Conway's working values
         info!("Display configuration:");
         info!("  Resolution: {}x{}", display_width, display_height);
@@ -243,25 +243,14 @@ impl slint::platform::Platform for EspBackend {
         info!("  VSYNC idle low: {}", vsync_idle_low);
         info!("  DE idle high: {}", de_idle_high);
         info!("  PCLK active neg: {}", pclk_active_neg);
-        
+
         let dpi_config = DpiConfig::default()
             .with_clock_mode(ClockMode {
-                polarity: if pclk_active_neg {
-                    Polarity::IdleHigh
-                } else {
-                    Polarity::IdleLow
-                },
-                phase: if pclk_active_neg {
-                    Phase::ShiftHigh
-                } else {
-                    Phase::ShiftLow
-                },
+                polarity: if pclk_active_neg { Polarity::IdleHigh } else { Polarity::IdleLow },
+                phase: if pclk_active_neg { Phase::ShiftHigh } else { Phase::ShiftLow },
             })
             .with_frequency(Rate::from_hz(pclk_hz))
-            .with_format(Format {
-                enable_2byte_mode: true,
-                ..Default::default()
-            })
+            .with_format(Format { enable_2byte_mode: true, ..Default::default() })
             // Use exact timing values that work with Conway's implementation
             .with_timing(FrameTiming {
                 horizontal_active_width: 320,
@@ -274,21 +263,9 @@ impl slint::platform::Platform for EspBackend {
                 vsync_width: 4,
                 hsync_position: 43 + 4, // (= back_porch + pulse = 47) Conway's working value
             })
-            .with_vsync_idle_level(if vsync_idle_low {
-                Level::Low
-            } else {
-                Level::High
-            })
-            .with_hsync_idle_level(if hsync_idle_low {
-                Level::Low
-            } else {
-                Level::High
-            })
-            .with_de_idle_level(if de_idle_high {
-                Level::High
-            } else {
-                Level::Low
-            })
+            .with_vsync_idle_level(if vsync_idle_low { Level::Low } else { Level::High })
+            .with_hsync_idle_level(if hsync_idle_low { Level::Low } else { Level::High })
+            .with_de_idle_level(if de_idle_high { Level::High } else { Level::Low })
             .with_disable_black_region(false);
 
         let mut dpi = Dpi::new(lcd_cam.lcd, peripherals.DMA_CH2, dpi_config)
@@ -329,7 +306,7 @@ impl slint::platform::Platform for EspBackend {
                 Rgb565Pixel(0x001F) // Blue
             };
         }
-        
+
         // Pack initial test pattern into DMA buffer
         let dst = dma_tx.as_mut_slice();
         for (i, px) in pixel_buf.iter().enumerate() {
@@ -337,7 +314,7 @@ impl slint::platform::Platform for EspBackend {
             dst[2 * i] = lo;
             dst[2 * i + 1] = hi;
         }
-        
+
         // Initial flush of the screen buffer
         info!("Sending initial test pattern to display...");
         match dpi.send(false, dma_tx) {
@@ -368,32 +345,33 @@ impl slint::platform::Platform for EspBackend {
 
         // Spawn Conway update task on app core (core 1)
         let mut cpu_control = CpuControl::new(peripherals.CPU_CTRL);
-        let _app_core = cpu_control.start_app_core(unsafe { &mut *core::ptr::addr_of_mut!(APP_CORE_STACK) }, move || {
-            // Initialize TimerGroup and timer1 for app core Embassy time driver
-            let timg1 = TimerGroup::new(unsafe { esp_hal::peripherals::TIMG1::steal() });
-            let timer1: AnyTimer = timg1.timer0.into();
-            // Initialize Embassy time driver on app core
-            esp_hal_embassy::init([timer0, timer1]);
-            // SAFETY: PSRAM_BUF_PTR and PSRAM_BUF_LEN are published before
-            let psram_ptr = unsafe { PSRAM_BUF_PTR };
-            let psram_len = unsafe { PSRAM_BUF_LEN };
-            // Wait until PSRAM is ready
-            loop {
-                if PSRAM_READY.try_take().is_some() {
-                    break;
+        let _app_core = cpu_control.start_app_core(
+            unsafe { &mut *core::ptr::addr_of_mut!(APP_CORE_STACK) },
+            move || {
+                // Initialize TimerGroup and timer1 for app core Embassy time driver
+                let timg1 = TimerGroup::new(unsafe { esp_hal::peripherals::TIMG1::steal() });
+                let timer1: AnyTimer = timg1.timer0.into();
+                // Initialize Embassy time driver on app core
+                esp_hal_embassy::init([timer0, timer1]);
+                // SAFETY: PSRAM_BUF_PTR and PSRAM_BUF_LEN are published before
+                let psram_ptr = unsafe { PSRAM_BUF_PTR };
+                let psram_len = unsafe { PSRAM_BUF_LEN };
+                // Wait until PSRAM is ready
+                loop {
+                    if PSRAM_READY.try_take().is_some() {
+                        break;
+                    }
+                    // Simple spin wait
+                    core::hint::spin_loop();
                 }
-                // Simple spin wait
-                core::hint::spin_loop();
-            }
-            // Initialize and run Embassy executor on app core
-            static EXECUTOR: StaticCell<Executor> = StaticCell::new();
-            let executor = EXECUTOR.init(Executor::new());
-            executor.run(|spawner| {
-                spawner
-                    .spawn(slint_task(psram_ptr, psram_len))
-                    .ok();
-            });
-        });
+                // Initialize and run Embassy executor on app core
+                static EXECUTOR: StaticCell<Executor> = StaticCell::new();
+                let executor = EXECUTOR.init(Executor::new());
+                executor.run(|spawner| {
+                    spawner.spawn(slint_task(psram_ptr, psram_len)).ok();
+                });
+            },
+        );
 
         // Core 0: Only send DMA frames in a loop
         loop {
@@ -418,33 +396,27 @@ impl slint::platform::Platform for EspBackend {
                 }
             }
         }
-
     }
 }
-
 
 #[embassy_executor::task]
 async fn slint_task(psram_ptr: *mut u8, _psram_len: usize) {
-    // Reconstruct the framebuffer 
+    // Reconstruct the framebuffer
     let fb: &mut [Rgb565; LCD_BUFFER_SIZE] =
         unsafe { &mut *(psram_ptr as *mut [Rgb565; LCD_BUFFER_SIZE]) };
 
-    let mut frame_buf = FrameBuf::new(
-        PSRAMFrameBuffer::new(fb),
-        LCD_H_RES_USIZE.into(),
-        LCD_V_RES_USIZE.into(),
-    );
+    let mut frame_buf =
+        FrameBuf::new(PSRAMFrameBuffer::new(fb), LCD_H_RES_USIZE.into(), LCD_V_RES_USIZE.into());
     let mut ticker = Ticker::every(embassy_time::Duration::from_millis(100));
-    
+
     loop {
         // Update Slint timers and animations
         slint::platform::update_timers_and_animations();
-        
+
         // For now, just fill the framebuffer with a simple pattern
         // In a real implementation, this would render the Slint UI
         frame_buf.clear(Rgb565::BLUE).ok();
-        
+
         ticker.next().await;
     }
 }
-

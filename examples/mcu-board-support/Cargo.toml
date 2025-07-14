@@ -91,7 +91,7 @@ esp32-s3-box-3 = [
 esp32-s3-lcd-ev-board = [
   "slint/unsafe-single-threaded",
   "esp-hal/esp32s3",
-  "esp-hal/unstable",             # required for PSRAM support
+  "esp-hal/unstable",               # required for PSRAM support
   "esp-hal/psram",
   "embedded-hal",
   "embedded-hal-bus",
@@ -106,7 +106,7 @@ esp32-s3-lcd-ev-board = [
 esope-sld-c-w-s3 = [
   "slint/unsafe-single-threaded",
   "esp-hal/esp32s3",
-  "esp-hal/unstable",             # required for PSRAM support
+  "esp-hal/unstable",               # required for PSRAM support
   "esp-hal/psram",
   "embedded-hal",
   "embedded-hal-bus",
