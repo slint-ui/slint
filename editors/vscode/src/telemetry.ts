@@ -23,7 +23,7 @@ export class SlintTelemetrySender implements vscode.TelemetrySender {
             data: data,
         };
 
-        fetch(`https://${this.#telemetry_host}/telemetry/v1/vscode-usage`, {
+        void fetch(`https://${this.#telemetry_host}/telemetry/v1/vscode-usage`, {
             headers: {
                 "Content-Type": "application/json",
             },
