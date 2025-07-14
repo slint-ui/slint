@@ -19,7 +19,7 @@
     },
     "dependencies": {
         "@astrojs/check": "0.9.4",
-        "@astrojs/starlight": "0.34.4",
+        "@astrojs/starlight": "0.34.5",
         "@expressive-code/plugin-line-numbers": "0.41.3",
         "@types/node": "24.0.10",
         "astro": "5.11.0",
