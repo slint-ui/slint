@@ -308,8 +308,10 @@ impl slint::platform::Platform for EspBackend {
         // Allocate a PSRAM-backed DMA buffer for the frame
         let buf_box: Box<[u8; FRAME_BYTES]> = Box::new([0; FRAME_BYTES]);
         let psram_buf: &'static mut [u8] = Box::leak(buf_box);
-        let mut dma_tx: DmaTxBuf =
-            unsafe { DmaTxBuf::new(&mut TX_DESCRIPTORS, psram_buf).unwrap() };
+        let mut dma_tx: DmaTxBuf = unsafe {
+            let descriptors = &mut *core::ptr::addr_of_mut!(TX_DESCRIPTORS);
+            DmaTxBuf::new(descriptors, psram_buf).unwrap()
+        };
         let mut pixel_box: Box<[Rgb565Pixel; FRAME_PIXELS]> =
             Box::new([Rgb565Pixel(0); FRAME_PIXELS]);
         let pixel_buf: &mut [Rgb565Pixel] = &mut *pixel_box;
