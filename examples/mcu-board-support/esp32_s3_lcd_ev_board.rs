@@ -41,8 +41,8 @@ where
 }
 
 use alloc::boxed::Box;
-use embedded_graphics_core::pixelcolor::{IntoStorage, RgbColor};
 use embedded_graphics_core::pixelcolor::Rgb565;
+use embedded_graphics_core::pixelcolor::{IntoStorage, RgbColor};
 use embedded_graphics_core::prelude::PixelColor;
 use embedded_graphics_framebuf::backends::FrameBufferBackend;
 use esp_hal::dma::{DmaDescriptor, DmaTxBuf, CHUNK_SIZE};
@@ -68,13 +68,12 @@ use esp_hal::time::Instant;
 use esp_hal::{
     gpio::{Level, Output, OutputConfig},
     time::Rate,
-    Blocking,
-    Config as HalConfig,
+    Blocking, Config as HalConfig,
 };
 use esp_println::logger::init_logger_from_env;
-use log::{error, info};
 use i_slint_core::input::PointerEventButton;
 use i_slint_core::platform::WindowEvent;
+use log::{error, info};
 
 // === Display constants ===
 const LCD_H_RES: u16 = 480;
@@ -419,7 +418,6 @@ impl slint::platform::Platform for EspBackend {
         }
     }
 }
-
 
 // --- I2C expander (TCA9554) ---
 struct Tca9554 {
