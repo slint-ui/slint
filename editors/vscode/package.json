@@ -59,7 +59,7 @@
       {
         "language": "slint",
         "scopeName": "source.slint",
-        "path": "../../docs/common/src/utils/slint.tmLanguage.json"
+        "path": "slint.tmLanguage.json"
       },
       {
         "injectTo": [
