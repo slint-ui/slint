@@ -216,3 +216,11 @@ To compile and run the demo:
 ```sh
 CARGO_PROFILE_RELEASE_OPT_LEVEL=s cargo +esp run -p printerdemo_mcu --target xtensa-esp32s3-none-elf --no-default-features --features=mcu-board-support/esp32-s3-box-3 --release --config examples/mcu-board-support/esp32_s3_box_3/cargo-config.toml
 ```
+
+#### ESP32-S3-LCD-EV-Board
+
+To compile and run the demo:
+
+```sh
+CARGO_PROFILE_RELEASE_OPT_LEVEL=s cargo +esp run -p printerdemo_mcu --target xtensa-esp32s3-none-elf --no-default-features --features=mcu-board-support/esp32-s3-lcd-ev-board --release --config examples/mcu-board-support/esp32_s3_lcd_ev_board/cargo-config.toml
+```
