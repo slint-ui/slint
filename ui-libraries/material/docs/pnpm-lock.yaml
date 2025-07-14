@@ -57,8 +57,8 @@ importers:
         specifier: 0.17.0
         version: 0.17.0(@astrojs/starlight@0.34.5(astro@5.11.0(@types/node@24.0.10)(jiti@1.21.7)(lightningcss@1.29.3)(rollup@4.44.2)(terser@5.39.0)(typescript@5.8.3)(yaml@2.8.0)))
       unpic:
-        specifier: 4.1.2
-        version: 4.1.2
+        specifier: 4.1.3
+        version: 4.1.3
     devDependencies:
       '@astrojs/markdown-remark':
         specifier: 6.3.2
@@ -3396,8 +3396,8 @@ packages:
   unist-util-visit@5.0.0:
     resolution: {integrity: sha512-MR04uvD+07cwl/yhVuVWAtw+3GOR/knlL55Nd/wAdblk27GCVt3lqpTivy/tkJcZoNPzTwS1Y+KMojlLDhoTzg==}
 
-  unpic@4.1.2:
-    resolution: {integrity: sha512-sau6i25EUxumNIL7e0kDpPWkVw3yxghLYcEwxPvm08263UfABDxtUJPT3H55z7W15cVXJB/PEhw4z6Oc+idWCA==}
+  unpic@4.1.3:
+    resolution: {integrity: sha512-ZXxitZC81D+szUorVQAKaaGchZjUhI6vUyHVVLaHToai9iToNIjoeg6XDUpd/0VthFIRyHbEe7XcxF4L933yQw==}
 
   unstorage@1.16.0:
     resolution: {integrity: sha512-WQ37/H5A7LcRPWfYOrDa1Ys02xAbpPJq6q5GkO88FBXVSQzHd7+BjEwfRqyaSWCv9MbsJy058GWjjPjcJ16GGA==}
@@ -7794,7 +7794,7 @@ snapshots:
       unist-util-is: 6.0.0
       unist-util-visit-parents: 6.0.1
 
-  unpic@4.1.2: {}
+  unpic@4.1.3: {}
 
   unstorage@1.16.0:
     dependencies:
