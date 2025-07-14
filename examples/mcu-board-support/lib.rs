@@ -76,6 +76,10 @@ pub fn init() {}
 mod embassy;
 
 pub mod prelude {
-    #[cfg(any(feature = "esp32-s3-box-3", feature = "esp32-s3-lcd-ev-board", feature = "esope-sld-c-w-s3"))]
+    #[cfg(any(
+        feature = "esp32-s3-box-3",
+        feature = "esp32-s3-lcd-ev-board",
+        feature = "esope-sld-c-w-s3"
+    ))]
     pub use esp_hal;
 }
