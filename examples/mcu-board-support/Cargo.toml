@@ -76,7 +76,7 @@ esp32-s3-box-3 = [
   "esp-hal/unstable",             # required for PSRAM support
   "esp-hal/psram",
   "esp-wifi/esp32s3",
-  "static_cell",
+  "dep:static_cell",
   "embassy-net",
   "embedded-hal",
   "embedded-hal-bus",
@@ -101,7 +101,28 @@ esp32-s3-lcd-ev-board = [
   "dep:mipidsi",
   "embedded-graphics-core",
   "slint/libm",
-  "embedded-graphics-framebuf",
+  "dep:embedded-graphics-framebuf",
+]
+esope-sld-c-w-s3 = [
+  "slint/unsafe-single-threaded",
+  "esp-hal/esp32s3",
+  "esp-hal/unstable",             # required for PSRAM support
+  "esp-hal/psram",
+  "embedded-hal",
+  "embedded-hal-bus",
+  "esp-alloc",
+  "esp-println/esp32s3",
+  "esp-backtrace/esp32s3",
+  "dep:mipidsi",
+  "embedded-graphics-core",
+  "slint/libm",
+  "dep:eeprom24x",
+  "dep:embassy-executor",
+  "dep:embassy-sync",
+  "dep:embassy-time",
+  "dep:esp-hal-embassy",
+  "dep:static_cell",
+  "dep:embedded-graphics-framebuf",
 ]
 stm32u5g9j-dk2 = [
   "embassy-stm32/stm32u5g9zj",
@@ -180,6 +201,7 @@ embassy-net = { version = "0.7.0", optional = true, features = ["dhcpv4", "mediu
 mipidsi = { version = "0.9.0", optional = true }
 embedded-graphics-core = { version = "0.4", optional = true }
 embedded-graphics-framebuf = { version = "0.5.0", optional = true }
+eeprom24x = { version = "0.7.2", optional = true }
 
 defmt-rtt = { version = "0.4.0", optional = true }
 defmt = { version = "1.0.0", optional = true }
@@ -189,6 +211,8 @@ embassy-stm32 = { version = "0.2.0", optional = true }
 embassy-executor = { version = "0.7.0", optional = true, default-features = false }
 embassy-time = { version = "0.4.0", optional = true }
 embassy-futures = { version = "0.1.1", optional = true }
+embassy-sync = { version = "0.7.0", optional = true }
+esp-hal-embassy = { version = "0.8.1", optional = true, features = ["esp32s3"] }
 gt911 = { version = "0.3.0", optional = true }
 
 rand_core = { version = "0.6.3", optional = true }
