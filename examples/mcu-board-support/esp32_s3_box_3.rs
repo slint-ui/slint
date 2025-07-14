@@ -35,6 +35,26 @@ struct EspBackend {
     peripherals: RefCell<Option<Peripherals>>,
 }
 
+impl slint::platform::Platform for EspBackend {
+    fn create_window_adapter(
+        &self,
+    ) -> Result<Rc<dyn slint::platform::WindowAdapter>, slint::PlatformError> {
+        let window = slint::platform::software_renderer::MinimalSoftwareWindow::new(
+            slint::platform::software_renderer::RepaintBufferType::ReusedBuffer,
+        );
+        self.window.replace(Some(window.clone()));
+        Ok(window)
+    }
+
+    fn duration_since_start(&self) -> core::time::Duration {
+        core::time::Duration::from_millis(Instant::now().duration_since_epoch().as_millis())
+    }
+
+    fn run_event_loop(&self) -> Result<(), slint::PlatformError> {
+        self.run_event_loop()
+    }
+}
+
 impl Default for EspBackend {
     fn default() -> Self {
         EspBackend { window: RefCell::new(None), peripherals: RefCell::new(None) }
@@ -89,20 +109,6 @@ impl EspBackend {
         (wifi_controller, wifi_device)
     }
 
-
-    fn create_window_adapter(
-        &self,
-    ) -> Result<Rc<dyn slint::platform::WindowAdapter>, slint::PlatformError> {
-        let window = slint::platform::software_renderer::MinimalSoftwareWindow::new(
-            slint::platform::software_renderer::RepaintBufferType::ReusedBuffer,
-        );
-        self.window.replace(Some(window.clone()));
-        Ok(window)
-    }
-
-    fn duration_since_start(&self) -> core::time::Duration {
-        core::time::Duration::from_millis(Instant::now().duration_since_epoch().as_millis())
-    }
 
     fn run_event_loop(&self) -> Result<(), slint::PlatformError> {
         // Take and configure peripherals.

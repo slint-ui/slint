@@ -60,8 +60,8 @@ i-slint-core = { workspace = true, features = ["ffi"] }
 slint-interpreter = { workspace = true, features = ["ffi", "compat-1-2"], optional = true }
 raw-window-handle = { version = "0.6", optional = true }
 
-esp-backtrace = { version = "0.15.1", features = ["panic-handler", "println"], optional = true }
-esp-println = { version = "0.13.1", default-features = false, features = ["log", "uart"], optional = true }
+esp-backtrace = { version = "0.16.0", features = ["panic-handler", "println"], optional = true }
+esp-println = { version = "0.14.0", default-features = false, features = ["log-04", "uart"], optional = true }
 unicode-segmentation = { workspace = true }
 
 [build-dependencies]
