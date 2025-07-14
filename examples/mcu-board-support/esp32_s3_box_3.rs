@@ -85,15 +85,19 @@ macro_rules! mk_static {
     }};
 }
 
+use esp_hal::{rng::Rng, timer::timg::TimerGroup};
 use esp_wifi::wifi;
 use esp_wifi::{
     wifi::{ClientConfiguration, Configuration, WifiController, WifiEvent, WifiState},
     EspWifiController,
 };
-use esp_hal::{rng::Rng, timer::timg::TimerGroup};
 
 impl EspBackend {
-    pub fn wifi<'a>(&self, ssid: &'a str, password: &'a str) -> (wifi::WifiController<'a>, wifi::WifiDevice<'a>) {
+    pub fn wifi<'a>(
+        &self,
+        ssid: &'a str,
+        password: &'a str,
+    ) -> (wifi::WifiController<'a>, wifi::WifiDevice<'a>) {
         // Initialize the Wi-Fi controller and device.
         let peripherals = self.peripherals.borrow_mut().take().expect("Peripherals already taken");
         let mut rng = Rng::new(peripherals.RNG);
@@ -108,7 +112,6 @@ impl EspBackend {
         let wifi_device = interfaces.sta;
         (wifi_controller, wifi_device)
     }
-
 
     fn run_event_loop(&self) -> Result<(), slint::PlatformError> {
         // Take and configure peripherals.
