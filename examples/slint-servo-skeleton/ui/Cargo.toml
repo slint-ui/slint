@@ -1,0 +1,17 @@
+[package]
+name = "ui"
+version = "0.1.0"
+edition = "2024"
+build   = "build.rs" 
+
+[dependencies]
+slint = "1.12"
+gl = "0.14"
+winit = "0.30"
+web   = { path = "../web" }
+embedder_traits = { path = "../servo/components/shared/embedder" }
+
+[build-dependencies]
+slint-build = "1.7.2"
+
+
