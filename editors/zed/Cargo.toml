@@ -3,7 +3,7 @@
 
 [package]
 name = "zed_slint"
-version = "0.0.9"
+version = "0.1.0"
 edition = "2021"
 publish = false
 license = "GPL-3.0-or-later"
