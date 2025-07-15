@@ -7,10 +7,9 @@
 extern crate alloc;
 
 // Import embedded_graphics_core types
-use embedded_graphics_core::{pixelcolor::Rgb565, prelude::*};
+use embedded_graphics_core::pixelcolor::Rgb565;
+use embedded_graphics_core::pixelcolor::RgbColor;
 use embedded_graphics_framebuf::backends::FrameBufferBackend;
-use embedded_graphics_framebuf::FrameBuf;
-
 // --- Slint platform integration imports ---
 use slint::platform::software_renderer::Rgb565Pixel;
 use slint::PhysicalSize;
@@ -23,7 +22,8 @@ use core::cell::RefCell;
 
 use eeprom24x::{Eeprom24x, SlaveAddr};
 use esp_hal::clock::CpuClock;
-use esp_hal::dma::{DmaDescriptor, DmaTxBuf, ExternalBurstConfig, CHUNK_SIZE};
+use esp_hal::dma::ExternalBurstConfig;
+use esp_hal::dma::{DmaDescriptor, DmaTxBuf, CHUNK_SIZE};
 use esp_hal::gpio::{Level, Output, OutputConfig};
 use esp_hal::i2c::master::I2c;
 use esp_hal::lcd_cam::{
@@ -39,12 +39,11 @@ use esp_hal::time::{Instant, Rate};
 use esp_hal::timer::{timg::TimerGroup, AnyTimer};
 use esp_hal::Config as HalConfig;
 use esp_println::logger::init_logger_from_env;
-use log::{error, info};
+use log::{debug, error, info};
 
-use embassy_executor::Spawner;
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::signal::Signal;
-use embassy_time::Ticker;
+use embassy_time::{Duration, Ticker, Timer};
 use esp_hal_embassy::Executor;
 use static_cell::StaticCell;
 
@@ -53,10 +52,12 @@ const LCD_H_RES_USIZE: usize = 320;
 const LCD_V_RES_USIZE: usize = 240;
 const LCD_BUFFER_SIZE: usize = LCD_H_RES_USIZE * LCD_V_RES_USIZE;
 
-// Embassy multicore: allocate app core stack
-static mut APP_CORE_STACK: Stack<8192> = Stack::new();
+// Embassy multicore: allocate app core stack with reduced size to save memory
+static mut APP_CORE_STACK: Stack<4096> = Stack::new();
 
 static PSRAM_READY: Signal<CriticalSectionRawMutex, ()> = Signal::new();
+static DMA_READY: Signal<CriticalSectionRawMutex, ()> = Signal::new();
+static FRAME_READY: Signal<CriticalSectionRawMutex, ()> = Signal::new();
 static mut PSRAM_BUF_PTR: *mut u8 = core::ptr::null_mut();
 static mut PSRAM_BUF_LEN: usize = 0;
 
@@ -73,8 +74,8 @@ static mut TX_DESCRIPTORS: [DmaDescriptor; MAX_NUM_DMA_DESC] =
     [DmaDescriptor::EMPTY; MAX_NUM_DMA_DESC];
 
 #[panic_handler]
-fn panic(_info: &core::panic::PanicInfo) -> ! {
-    error!("Panic: {}", _info);
+fn panic(info: &core::panic::PanicInfo) -> ! {
+    error!("PANIC: {}", info);
     loop {}
 }
 
@@ -95,17 +96,42 @@ pub fn init() {
     let config = HalConfig::default().with_cpu_clock(CpuClock::max());
     let peripherals = esp_hal::init(config);
     init_logger_from_env();
+    info!("=== ESP32-S3 ESoPe Board Initialization Starting ===");
     info!("Peripherals initialized");
+
+    // Log memory status before PSRAM init
+    let heap_start = esp_alloc::HEAP.used();
+    info!("Heap usage before PSRAM init: {} bytes", heap_start);
 
     // Initialize the PSRAM allocator.
     esp_alloc::psram_allocator!(peripherals.PSRAM, esp_hal::psram);
+    info!("PSRAM allocator initialized");
+
+    // Log memory status after PSRAM init
+    let heap_after_psram = esp_alloc::HEAP.used();
+    info!(
+        "Heap usage after PSRAM init: {} bytes (delta: +{})",
+        heap_after_psram,
+        heap_after_psram.saturating_sub(heap_start)
+    );
 
     // Create and install the Slint backend that owns the peripherals.
+    info!("Creating Slint platform backend...");
+    let heap_before_backend = esp_alloc::HEAP.used();
+
     slint::platform::set_platform(Box::new(EspBackend {
         window: RefCell::new(None),
         peripherals: RefCell::new(Some(peripherals)),
     }))
     .expect("Slint platform already initialized");
+
+    let heap_after_backend = esp_alloc::HEAP.used();
+    info!(
+        "Slint backend created. Heap usage: {} bytes (delta: +{})",
+        heap_after_backend,
+        heap_after_backend.saturating_sub(heap_before_backend)
+    );
+    info!("=== Initialization Complete ===");
 }
 
 /// FrameBufferBackend wrapper for a PSRAM-backed [Rgb565; N] slice.
@@ -148,6 +174,10 @@ impl slint::platform::Platform for EspBackend {
     }
 
     fn run_event_loop(&self) -> Result<(), slint::PlatformError> {
+        info!("=== Starting Main Event Loop ===");
+        let heap_at_start = esp_alloc::HEAP.used();
+        info!("Heap usage at event loop start: {} bytes", heap_at_start);
+
         let peripherals = self.peripherals.borrow_mut().take().expect("Peripherals already taken");
 
         // Read and set up the display configuration from EEPROM
@@ -173,55 +203,63 @@ impl slint::platform::Platform for EspBackend {
 
         info!("Display initialized, entering main loop...");
 
-        // Allocate framebuffer in PSRAM and reuse as DMA buffer with proper 64-byte alignment
+        // Allocate framebuffer in PSRAM with 64-byte alignment for DMA
         const FRAME_BYTES: usize = LCD_BUFFER_SIZE * 2;
 
-        // Use manual allocation with alignment like Conway's implementation
-        let layout = Layout::from_size_align(FRAME_BYTES, 64).unwrap();
-        let fb_ptr = unsafe {
-            let ptr = alloc(layout);
-            if ptr.is_null() {
-                error!("Failed to allocate aligned PSRAM buffer");
-                handle_alloc_error(layout);
-            }
-            ptr
-        };
+        // Use aligned allocation for DMA requirements
+        let layout = Layout::from_size_align(FRAME_BYTES, 64)
+            .expect("Failed to create layout for framebuffer");
+        let fb_ptr = unsafe { alloc(layout) };
 
-        // Initialize the buffer with zeros
-        unsafe {
-            core::ptr::write_bytes(fb_ptr, 0, FRAME_BYTES);
+        if fb_ptr.is_null() {
+            handle_alloc_error(layout);
         }
 
-        let psram_buf: &'static mut [u8] =
-            unsafe { core::slice::from_raw_parts_mut(fb_ptr, FRAME_BYTES) };
+        // Initialize the buffer with green color
+        let fb_slice = unsafe { core::slice::from_raw_parts_mut(fb_ptr, FRAME_BYTES) };
+        let rgb565_slice =
+            unsafe { core::slice::from_raw_parts_mut(fb_ptr as *mut Rgb565, LCD_BUFFER_SIZE) };
+
+        // Fill with green color (0, 31, 0)
+        for pixel in rgb565_slice.iter_mut() {
+            *pixel = Rgb565::new(0, 31, 0);
+        }
+
+        let psram_buf: &'static mut [u8] = fb_slice;
 
         // Verify PSRAM buffer allocation and alignment
         let buf_ptr = psram_buf.as_ptr() as usize;
         info!("PSRAM buffer allocated at address: 0x{:08X}", buf_ptr);
         info!("PSRAM buffer length: {}", psram_buf.len());
         info!("PSRAM buffer alignment modulo 64: {}", buf_ptr % 64);
-
-        // Assert that we have proper 64-byte alignment for DMA
-        assert_eq!(buf_ptr % 64, 0, "PSRAM buffer must be 64-byte aligned for DMA");
-        info!("PSRAM buffer is properly 64-byte aligned for DMA");
+        assert!(buf_ptr % 64 == 0, "PSRAM buffer must be 64-byte aligned for DMA");
 
         // Publish PSRAM buffer pointer and len for app core
         unsafe {
             PSRAM_BUF_PTR = psram_buf.as_mut_ptr();
-            PSRAM_BUF_LEN = FRAME_BYTES;
+            PSRAM_BUF_LEN = psram_buf.len();
         }
 
         // Configure DMA buffer with proper burst configuration
+        info!("=== DMA Buffer Configuration ===");
+        let heap_before_dma = esp_alloc::HEAP.used();
+        info!("Heap usage before DMA buffer creation: {} bytes", heap_before_dma);
+
         let mut dma_tx: DmaTxBuf = unsafe {
-            let descriptors = &mut *core::ptr::addr_of_mut!(TX_DESCRIPTORS);
-            DmaTxBuf::new_with_config(descriptors, psram_buf, ExternalBurstConfig::Size64).unwrap()
+            DmaTxBuf::new_with_config(
+                &mut *core::ptr::addr_of_mut!(TX_DESCRIPTORS),
+                psram_buf,
+                ExternalBurstConfig::Size64,
+            )
+            .unwrap()
         };
 
-        // Allocate pixel buffer for Slint rendering
-        const FRAME_PIXELS: usize = LCD_BUFFER_SIZE;
-        let mut pixel_box: Box<[Rgb565Pixel; FRAME_PIXELS]> =
-            Box::new([Rgb565Pixel(0); FRAME_PIXELS]);
-        let pixel_buf: &mut [Rgb565Pixel] = &mut *pixel_box;
+        let heap_after_dma = esp_alloc::HEAP.used();
+        info!(
+            "Heap usage after DMA buffer creation: {} bytes (delta: +{})",
+            heap_after_dma,
+            heap_after_dma.saturating_sub(heap_before_dma)
+        );
 
         // Initialize LCD DPI interface
         let lcd_cam = LcdCam::new(peripherals.LCD_CAM);
@@ -294,129 +332,249 @@ impl slint::platform::Platform for EspBackend {
             .with_data14(peripherals.GPIO19)
             .with_data15(peripherals.GPIO12);
 
-        // Initialize pixel buffer with a test pattern to verify DMA is working
-        // Fill with alternating red/blue checkerboard pattern
-        for (i, px) in pixel_buf.iter_mut().enumerate() {
-            let x = i % (LCD_H_RES as usize);
-            let y = i / (LCD_H_RES as usize);
-            let checker = ((x / 32) + (y / 32)) % 2;
-            *px = if checker == 0 {
-                Rgb565Pixel(0xF800) // Red
-            } else {
-                Rgb565Pixel(0x001F) // Blue
-            };
-        }
-
-        // Pack initial test pattern into DMA buffer
-        let dst = dma_tx.as_mut_slice();
-        for (i, px) in pixel_buf.iter().enumerate() {
-            let [lo, hi] = px.0.to_le_bytes();
-            dst[2 * i] = lo;
-            dst[2 * i + 1] = hi;
-        }
-
-        // Initial flush of the screen buffer
-        info!("Sending initial test pattern to display...");
-        match dpi.send(false, dma_tx) {
-            Ok(xfer) => {
-                let (res, dpi2, tx2) = xfer.wait();
-                dpi = dpi2;
-                dma_tx = tx2;
-                if let Err(e) = res {
-                    error!("Initial DMA error: {:?}", e);
-                } else {
-                    info!("Initial test pattern sent successfully");
-                }
-            }
-            Err((e, dpi2, tx2)) => {
-                error!("Initial DMA send error: {:?}", e);
-                dpi = dpi2;
-                dma_tx = tx2;
-            }
-        }
-
         // Tell Slint the window dimensions match the display resolution
         let size = PhysicalSize::new(LCD_H_RES.into(), LCD_V_RES.into());
         self.window.borrow().as_ref().expect("Window adapter not created").set_size(size);
 
-        PSRAM_READY.signal(());
+        // Initialize Embassy with both timers for multicore support
+        info!("=== Embassy Initialization ===");
+        let heap_before_embassy = esp_alloc::HEAP.used();
+        info!("Heap usage before Embassy init: {} bytes", heap_before_embassy);
+
         let timg0 = TimerGroup::new(peripherals.TIMG0);
         let timer0: AnyTimer = timg0.timer0.into();
+        let timg1 = TimerGroup::new(peripherals.TIMG1);
+        let timer1: AnyTimer = timg1.timer0.into();
 
-        // Spawn Conway update task on app core (core 1)
+        info!("Initializing Embassy with dual timers for multicore support...");
+        esp_hal_embassy::init([timer0, timer1]);
+
+        let heap_after_embassy = esp_alloc::HEAP.used();
+        info!(
+            "Heap usage after Embassy init: {} bytes (delta: +{})",
+            heap_after_embassy,
+            heap_after_embassy.saturating_sub(heap_before_embassy)
+        );
+
+        // Signal that PSRAM is ready for the app core
+        info!("Signaling PSRAM ready for app core...");
+        PSRAM_READY.signal(());
+
+        // Spawn app core for DMA display task (matching Conway)
+        info!("=== App Core Startup ===");
+        let heap_before_core = esp_alloc::HEAP.used();
+        info!("Heap usage before app core startup: {} bytes", heap_before_core);
+
         let mut cpu_control = CpuControl::new(peripherals.CPU_CTRL);
+        info!("Starting app core (Core 1) for DMA display task...");
         let _app_core = cpu_control.start_app_core(
             unsafe { &mut *core::ptr::addr_of_mut!(APP_CORE_STACK) },
             move || {
-                // Initialize TimerGroup and timer1 for app core Embassy time driver
-                let timg1 = TimerGroup::new(unsafe { esp_hal::peripherals::TIMG1::steal() });
-                let timer1: AnyTimer = timg1.timer0.into();
-                // Initialize Embassy time driver on app core
-                esp_hal_embassy::init([timer0, timer1]);
-                // SAFETY: PSRAM_BUF_PTR and PSRAM_BUF_LEN are published before
-                let psram_ptr = unsafe { PSRAM_BUF_PTR };
-                let psram_len = unsafe { PSRAM_BUF_LEN };
-                // Wait until PSRAM is ready
-                loop {
-                    if PSRAM_READY.try_take().is_some() {
-                        break;
-                    }
-                    // Simple spin wait
-                    core::hint::spin_loop();
-                }
+                info!("App core started! Initializing Embassy executor on Core 1...");
+
                 // Initialize and run Embassy executor on app core
-                static EXECUTOR: StaticCell<Executor> = StaticCell::new();
-                let executor = EXECUTOR.init(Executor::new());
-                executor.run(|spawner| {
-                    spawner.spawn(slint_task(psram_ptr, psram_len)).ok();
+                static APP_EXECUTOR: StaticCell<Executor> = StaticCell::new();
+                let executor = APP_EXECUTOR.init(Executor::new());
+                info!("App core executor initialized, spawning DMA task...");
+
+                executor.run(|spawner| match spawner.spawn(dma_display_task(dpi, dma_tx)) {
+                    Ok(_) => info!("DMA display task spawned successfully on Core 1"),
+                    Err(e) => error!("Failed to spawn DMA display task: {:?}", e),
                 });
             },
         );
 
-        // Core 0: Only send DMA frames in a loop
-        loop {
-            // println!("Core {}: Pushing DMA data...", Cpu::current() as usize);
-            let safe_chunk_size = 320 * 240 * 2;
-            let frame_bytes = display_width * display_height * 2;
-            let len = safe_chunk_size.min(frame_bytes as usize);
-            dma_tx.set_length(len);
-            match dpi.send(false, dma_tx) {
-                Ok(xfer) => {
-                    let (res, new_dpi, new_dma_tx) = xfer.wait();
-                    dpi = new_dpi;
-                    dma_tx = new_dma_tx;
-                    if let Err(e) = res {
-                        error!("DMA transfer error: {:?}", e);
-                    }
-                }
-                Err((e, new_dpi, new_dma_tx)) => {
-                    error!("DMA send error: {:?}", e);
-                    dpi = new_dpi;
-                    dma_tx = new_dma_tx;
-                }
+        // Initialize Embassy executor on main core for Slint rendering
+        info!("=== Main Core Executor Setup ===");
+        let heap_before_main_exec = esp_alloc::HEAP.used();
+        info!("Heap usage before main executor init: {} bytes", heap_before_main_exec);
+
+        static MAIN_EXECUTOR: StaticCell<Executor> = StaticCell::new();
+        let executor = MAIN_EXECUTOR.init(Executor::new());
+        info!("Main core executor initialized on Core 0");
+
+        let window = self.window.borrow().as_ref().expect("Window not created").clone();
+
+        let heap_before_rendering_spawn = esp_alloc::HEAP.used();
+        info!(
+            "Heap usage before Slint rendering task spawn: {} bytes",
+            heap_before_rendering_spawn
+        );
+
+        executor.run(|spawner| {
+            match spawner.spawn(slint_rendering_task(window)) {
+                Ok(_) => info!("Slint rendering task spawned successfully on Core 0"),
+                Err(e) => error!("Failed to spawn Slint rendering task: {:?}", e),
             }
-        }
+
+            let heap_after_tasks = esp_alloc::HEAP.used();
+            info!("Final heap usage after all tasks spawned: {} bytes", heap_after_tasks);
+            info!("=== All tasks running, entering main executor loop ===");
+        });
     }
 }
 
 #[embassy_executor::task]
-async fn slint_task(psram_ptr: *mut u8, _psram_len: usize) {
-    // Reconstruct the framebuffer
-    let fb: &mut [Rgb565; LCD_BUFFER_SIZE] =
-        unsafe { &mut *(psram_ptr as *mut [Rgb565; LCD_BUFFER_SIZE]) };
+async fn slint_rendering_task(
+    window: Rc<slint::platform::software_renderer::MinimalSoftwareWindow>,
+) {
+    info!("[CORE 1] Slint task starting, waiting for PSRAM ready signal...");
 
-    let mut frame_buf =
-        FrameBuf::new(PSRAMFrameBuffer::new(fb), LCD_H_RES_USIZE.into(), LCD_V_RES_USIZE.into());
-    let mut ticker = Ticker::every(embassy_time::Duration::from_millis(100));
+    // Wait for PSRAM to be ready
+    PSRAM_READY.wait().await;
+    info!("[CORE 1] PSRAM ready signal received!");
+
+    // Get the PSRAM buffer
+    let psram_ptr = unsafe { PSRAM_BUF_PTR };
+    let psram_len = unsafe { PSRAM_BUF_LEN };
+
+    if psram_ptr.is_null() || psram_len == 0 {
+        error!(
+            "[CORE 1] Invalid PSRAM buffer: ptr=0x{:08X}, len={}",
+            psram_ptr as usize, psram_len
+        );
+        return;
+    }
+
+    let fb_slice: &mut [u8] = unsafe { core::slice::from_raw_parts_mut(psram_ptr, psram_len) };
+
+    info!(
+        "[CORE 1] Slint task started on Core 1, PSRAM buffer at: 0x{:08X}, len: {}",
+        psram_ptr as usize, psram_len
+    );
+
+    // Create pixel buffer for Slint rendering in PSRAM (using Box allocation)
+    info!("[CORE 1] Creating pixel buffer in PSRAM...");
+    let mut pixel_box: Box<[Rgb565Pixel; LCD_BUFFER_SIZE]> =
+        Box::new([Rgb565Pixel(0); LCD_BUFFER_SIZE]);
+    let pixel_buf: &mut [Rgb565Pixel] = &mut *pixel_box;
+    info!("[CORE 1] Pixel buffer created in PSRAM, {} pixels", LCD_BUFFER_SIZE);
+
+    // Signal that DMA is ready to be used now that everything is initialized
+    info!("[CORE 1] Signaling DMA ready for Core 0...");
+    DMA_READY.signal(());
+
+    let mut ticker = Ticker::every(Duration::from_millis(200));
+    let mut frame_counter = 0u32;
+
+    info!("[CORE 1] Entering main rendering loop with Slint rendering...");
 
     loop {
         // Update Slint timers and animations
         slint::platform::update_timers_and_animations();
 
-        // For now, just fill the framebuffer with a simple pattern
-        // In a real implementation, this would render the Slint UI
-        frame_buf.clear(Rgb565::BLUE).ok();
+        // Use draw_if_needed to check if we need to render and get access to the renderer
+        let rendered = window.draw_if_needed(|renderer| {
+            // Render the Slint window to our pixel buffer
+            // Slint will handle partial rendering and only update the areas that changed
+            renderer.render(pixel_buf, LCD_H_RES as usize);
+
+            if frame_counter % 60 == 0 {
+                debug!("[CORE 1] Frame {} rendered by Slint", frame_counter);
+            }
+        });
+
+        // Only convert and signal if something was actually rendered
+        if rendered {
+            // Convert pixel buffer to framebuffer
+            for (i, px) in pixel_buf.iter().enumerate() {
+                let fb_offset = i * 2;
+                let [lo, hi] = px.0.to_le_bytes();
+                fb_slice[fb_offset] = lo;
+                fb_slice[fb_offset + 1] = hi;
+            }
+
+            if frame_counter % 60 == 0 {
+                debug!("[CORE 1] Frame {} actually rendered by Slint", frame_counter);
+            }
+        } else {
+            // Still convert buffer even if nothing was rendered (for first frame or fallback)
+            for (i, px) in pixel_buf.iter().enumerate() {
+                let fb_offset = i * 2;
+                let [lo, hi] = px.0.to_le_bytes();
+                fb_slice[fb_offset] = lo;
+                fb_slice[fb_offset + 1] = hi;
+            }
+
+            if frame_counter % 60 == 0 {
+                debug!("[CORE 1] Frame {} - no Slint rendering needed", frame_counter);
+            }
+        }
+
+        // Signal that frame is ready for DMA
+        FRAME_READY.signal(());
+
+        frame_counter = frame_counter.wrapping_add(1);
+
+        // Log periodic status
+        if frame_counter % 60 == 0 {
+            debug!("[CORE 1] Frame {}, continuing render loop...", frame_counter);
+        }
 
         ticker.next().await;
+    }
+}
+
+#[embassy_executor::task]
+async fn dma_display_task(mut dpi: Dpi<'static, esp_hal::Blocking>, mut dma_tx: DmaTxBuf) {
+    info!("[CORE 0] DMA task started on Core 0, waiting for DMA ready signal...");
+
+    // Wait for DMA to be ready (all initialization complete)
+    DMA_READY.wait().await;
+    info!("[CORE 0] DMA ready signal received, starting DMA transfers!");
+
+    // Stack monitoring removed for compilation compatibility
+
+    let mut transfer_counter = 0u32;
+    // Wait for frame to be ready
+    FRAME_READY.wait().await;
+    loop {
+        transfer_counter = transfer_counter.wrapping_add(1);
+
+        // Log periodic DMA status
+        if transfer_counter % 60 == 0 {
+            debug!("[CORE 0] DMA transfer {}, performing transfer...", transfer_counter);
+        }
+
+        // Set DMA transfer length (like Conway's working example)
+        let frame_bytes = LCD_BUFFER_SIZE * 2;
+        let dma_buf_len = dma_tx.as_slice().len();
+
+        if transfer_counter % 60 == 0 {
+            debug!(
+                "[CORE 0] Setting DMA length: {} bytes, buffer len: {} bytes",
+                frame_bytes, dma_buf_len
+            );
+        }
+
+        if frame_bytes > dma_buf_len {
+            error!("[CORE 0] Frame size {} exceeds DMA buffer size {}", frame_bytes, dma_buf_len);
+            Timer::after(Duration::from_millis(10)).await;
+            continue;
+        }
+
+        dma_tx.set_length(frame_bytes);
+
+        // Perform DMA transfer
+        match dpi.send(false, dma_tx) {
+            Ok(xfer) => {
+                let (res, new_dpi, new_dma_tx) = xfer.wait();
+                dpi = new_dpi;
+                dma_tx = new_dma_tx;
+                if let Err(e) = res {
+                    error!("[CORE 0] DMA transfer error: {:?}", e);
+                } else if transfer_counter % 60 == 0 {
+                    debug!("[CORE 0] DMA transfer {} completed successfully", transfer_counter);
+                }
+            }
+            Err((e, new_dpi, new_dma_tx)) => {
+                error!("[CORE 0] DMA send error: {:?}", e);
+                dpi = new_dpi;
+                dma_tx = new_dma_tx;
+
+                // Add small delay on error to prevent spinning
+                Timer::after(Duration::from_millis(100)).await;
+            }
+        }
     }
 }
