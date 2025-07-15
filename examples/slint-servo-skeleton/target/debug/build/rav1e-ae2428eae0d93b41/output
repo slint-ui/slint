@@ -1,0 +1,3 @@
+cargo:rustc-env=PROFILE=debug
+cargo:rustc-env=CARGO_CFG_TARGET_FEATURE=cmpxchg16b,fxsr,lahfsahf,sse,sse2,sse3,x87
+cargo:rustc-env=CARGO_ENCODED_RUSTFLAGS=-Clink-arg=/STACK:8000000

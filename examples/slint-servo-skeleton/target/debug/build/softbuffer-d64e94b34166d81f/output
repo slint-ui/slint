@@ -1,0 +1,8 @@
+cargo:rustc-check-cfg=cfg(free_unix)
+cargo:rustc-check-cfg=cfg(kms_platform)
+cargo:rustc-check-cfg=cfg(x11_platform)
+cargo:rustc-check-cfg=cfg(wayland_platform)
+cargo:rustc-check-cfg=cfg(free_unix)
+cargo:rustc-check-cfg=cfg(kms_platform)
+cargo:rustc-check-cfg=cfg(x11_platform)
+cargo:rustc-check-cfg=cfg(wayland_platform)

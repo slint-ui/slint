@@ -1,0 +1,2 @@
+cargo:rustc-cfg=has_min_const_generics
+cargo:rustc-cfg=nightly

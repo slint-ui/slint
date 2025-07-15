@@ -1,0 +1,1 @@
+{"rustc":6274937099765865397,"features":"[]","declared_features":"[]","target":17886154901722686619,"profile":2225463790103693989,"path":2525694464737743307,"deps":[],"local":[{"CheckDepInfo":{"dep_info":"debug\\.fingerprint\\heck-e6f418fd45ae2313\\dep-lib-heck","checksum":false}}],"rustflags":["-C","link-arg=/STACK:8000000"],"config":2069994364910194474,"compile_kind":0}

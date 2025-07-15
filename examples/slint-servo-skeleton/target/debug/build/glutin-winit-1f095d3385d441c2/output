@@ -1,0 +1,14 @@
+cargo:rustc-check-cfg=cfg(android_platform)
+cargo:rustc-check-cfg=cfg(wasm_platform)
+cargo:rustc-check-cfg=cfg(macos_platform)
+cargo:rustc-check-cfg=cfg(ios_platform)
+cargo:rustc-check-cfg=cfg(apple)
+cargo:rustc-check-cfg=cfg(free_unix)
+cargo:rustc-check-cfg=cfg(x11_platform)
+cargo:rustc-check-cfg=cfg(wayland_platform)
+cargo:rustc-check-cfg=cfg(egl_backend)
+cargo:rustc-cfg=egl_backend
+cargo:rustc-check-cfg=cfg(glx_backend)
+cargo:rustc-check-cfg=cfg(wgl_backend)
+cargo:rustc-cfg=wgl_backend
+cargo:rustc-check-cfg=cfg(cgl_backend)

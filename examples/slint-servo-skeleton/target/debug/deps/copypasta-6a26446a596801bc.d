@@ -1,0 +1,10 @@
+C:\Users\anuja\source\repos\clean-slint\examples\slint-servo-skeleton\target\debug\deps\copypasta-6a26446a596801bc.d: C:\Users\anuja\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\copypasta-0.10.2\src\lib.rs C:\Users\anuja\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\copypasta-0.10.2\src\common.rs C:\Users\anuja\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\copypasta-0.10.2\src\windows_clipboard.rs C:\Users\anuja\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\copypasta-0.10.2\src\nop_clipboard.rs
+
+C:\Users\anuja\source\repos\clean-slint\examples\slint-servo-skeleton\target\debug\deps\libcopypasta-6a26446a596801bc.rlib: C:\Users\anuja\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\copypasta-0.10.2\src\lib.rs C:\Users\anuja\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\copypasta-0.10.2\src\common.rs C:\Users\anuja\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\copypasta-0.10.2\src\windows_clipboard.rs C:\Users\anuja\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\copypasta-0.10.2\src\nop_clipboard.rs
+
+C:\Users\anuja\source\repos\clean-slint\examples\slint-servo-skeleton\target\debug\deps\libcopypasta-6a26446a596801bc.rmeta: C:\Users\anuja\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\copypasta-0.10.2\src\lib.rs C:\Users\anuja\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\copypasta-0.10.2\src\common.rs C:\Users\anuja\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\copypasta-0.10.2\src\windows_clipboard.rs C:\Users\anuja\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\copypasta-0.10.2\src\nop_clipboard.rs
+
+C:\Users\anuja\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\copypasta-0.10.2\src\lib.rs:
+C:\Users\anuja\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\copypasta-0.10.2\src\common.rs:
+C:\Users\anuja\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\copypasta-0.10.2\src\windows_clipboard.rs:
+C:\Users\anuja\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\copypasta-0.10.2\src\nop_clipboard.rs:

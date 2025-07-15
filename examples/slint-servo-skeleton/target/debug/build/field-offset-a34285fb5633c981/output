@@ -1,0 +1,3 @@
+cargo:rustc-cfg=fieldoffset_maybe_uninit
+cargo:rustc-cfg=fieldoffset_has_alloc
+cargo:rustc-cfg=fieldoffset_assert_in_const_fn

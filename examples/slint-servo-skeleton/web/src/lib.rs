@@ -1,4 +1,3 @@
-use servo::{Servo,ServoBuilder};
 use slint::Image; 
 use std::path::Path; 
 pub struct Browser { 

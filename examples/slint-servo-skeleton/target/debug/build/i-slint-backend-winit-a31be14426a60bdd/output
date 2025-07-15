@@ -1,0 +1,11 @@
+cargo:rustc-check-cfg=cfg(ios_and_friends)
+cargo:rustc-check-cfg=cfg(enable_skia_renderer)
+cargo:rustc-check-cfg=cfg(enable_accesskit)
+cargo:rustc-cfg=enable_accesskit
+cargo:rustc-check-cfg=cfg(supports_opengl)
+cargo:rustc-cfg=supports_opengl
+cargo:rustc-check-cfg=cfg(use_winit_theme)
+cargo:rustc-cfg=use_winit_theme
+cargo:rustc-check-cfg=cfg(muda)
+cargo:rustc-cfg=muda
+cargo:rustc-check-cfg=cfg(web_sys_unstable_apis)
