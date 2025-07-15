@@ -2,6 +2,11 @@
 // SPDX-License-Identifier: MIT
 
 use chrono::{Datelike, Local, Timelike};
+use kira::{
+    AudioManager, AudioManagerSettings, DefaultBackend,
+    sound::static_sound::StaticSoundData,
+};
+use std::io::Cursor;
 use slint::{Timer, TimerMode};
 
 #[cfg(target_arch = "wasm32")]
@@ -10,6 +15,10 @@ use wasm_bindgen::prelude::*;
 slint::slint! {
     export { Api, AppWindow } from "../ui/demo.slint";
 }
+
+// https://sourceforge.net/projects/sox/
+// $ sox -n dial-tick.wav synth 0.01 sine 1000 fade t 0 0.01 0.005 gain -1
+const DIAL_TICK : &[u8] = include_bytes!("../ui/sounds/dial-tick.wav");
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
 pub fn main() {
@@ -21,6 +30,18 @@ pub fn main() {
     let app = AppWindow::new().expect("AppWindow::new() failed");
     let app_weak = app.as_weak();
 
+     let mut manager = AudioManager::<DefaultBackend>::new(AudioManagerSettings::default()).unwrap();
+
+    let api = app.global::<Api>();
+    api.on_play_sound(move |sound| {
+        let sound = match sound {
+            SoundEffect::DialTick => DIAL_TICK,
+        };
+        let cursor = Cursor::new(sound);
+        let sound_data = StaticSoundData::from_cursor(cursor).unwrap();
+        let _sound_handle = manager.play(sound_data).unwrap();
+    });
+    
     let timer = Timer::default();
     timer.start(TimerMode::Repeated, std::time::Duration::from_millis(1000), move || {
         if let Some(app) = app_weak.upgrade() {
