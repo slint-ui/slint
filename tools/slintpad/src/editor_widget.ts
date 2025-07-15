@@ -392,7 +392,7 @@ export class EditorWidget extends Widget {
 
         this.clear_editors();
 
-        this.open_default_content();
+        void this.open_default_content();
     }
 
     switch_to_pane(pane: EditorPaneWidget) {
