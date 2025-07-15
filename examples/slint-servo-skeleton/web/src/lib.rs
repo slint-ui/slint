@@ -28,7 +28,3 @@ pub fn servo_start() -> Browser {
     Browser::new() 
 } 
 
-pub fn render_view_as_image(&mut Browser.texture_id) -> slint::Image {
-
-      slint::Image::load_from_path(Path::new("placeholder.png")).unwrap()
-    }
