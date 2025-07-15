@@ -123,6 +123,7 @@ esope-sld-c-w-s3 = [
   "dep:esp-hal-embassy",
   "dep:static_cell",
   "dep:embedded-graphics-framebuf",
+  "dep:sitronix-touch",
 ]
 stm32u5g9j-dk2 = [
   "embassy-stm32/stm32u5g9zj",
@@ -214,6 +215,7 @@ embassy-futures = { version = "0.1.1", optional = true }
 embassy-sync = { version = "0.7.0", optional = true }
 esp-hal-embassy = { version = "0.8.1", optional = true, features = ["esp32s3"] }
 gt911 = { version = "0.3.0", optional = true }
+sitronix-touch = { version = "0.0.1", optional = true }
 
 rand_core = { version = "0.6.3", optional = true }
 

@@ -8,7 +8,6 @@ extern crate alloc;
 
 // Import embedded_graphics_core types
 use embedded_graphics_core::pixelcolor::Rgb565;
-use embedded_graphics_core::pixelcolor::RgbColor;
 use embedded_graphics_framebuf::backends::FrameBufferBackend;
 // --- Slint platform integration imports ---
 use slint::platform::software_renderer::Rgb565Pixel;
@@ -21,6 +20,7 @@ use core::alloc::Layout;
 use core::cell::RefCell;
 
 use eeprom24x::{Eeprom24x, SlaveAddr};
+use embedded_hal_bus::i2c::RefCellDevice;
 use esp_hal::clock::CpuClock;
 use esp_hal::dma::ExternalBurstConfig;
 use esp_hal::dma::{DmaDescriptor, DmaTxBuf, CHUNK_SIZE};
@@ -33,6 +33,10 @@ use esp_hal::lcd_cam::{
     },
     LcdCam,
 };
+
+// Type alias for I2C device to simplify signatures
+type I2cDevice = RefCellDevice<'static, esp_hal::i2c::master::I2c<'static, esp_hal::Blocking>>;
+type TouchController = sitronix_touch::TouchIC<I2cDevice>;
 use esp_hal::peripherals::Peripherals;
 use esp_hal::system::{CpuControl, Stack};
 use esp_hal::time::{Instant, Rate};
@@ -46,6 +50,9 @@ use embassy_sync::signal::Signal;
 use embassy_time::{Duration, Ticker, Timer};
 use esp_hal_embassy::Executor;
 use static_cell::StaticCell;
+
+// Static storage for I2C bus
+static I2C_BUS: StaticCell<RefCell<I2c<'static, esp_hal::Blocking>>> = StaticCell::new();
 
 // Constants matching Conway's implementation
 const LCD_H_RES_USIZE: usize = 320;
@@ -181,16 +188,29 @@ impl slint::platform::Platform for EspBackend {
         let peripherals = self.peripherals.borrow_mut().take().expect("Peripherals already taken");
 
         // Read and set up the display configuration from EEPROM
-        let i2c_bus = I2c::new(peripherals.I2C0, esp_hal::i2c::master::Config::default())
+        let i2c = I2c::new(peripherals.I2C0, esp_hal::i2c::master::Config::default())
             .unwrap()
             .with_sda(peripherals.GPIO1)
             .with_scl(peripherals.GPIO41);
+        let i2c_bus = I2C_BUS.init(RefCell::new(i2c));
         let mut eeid = [0u8; 0x1c];
-        let mut eeprom = Eeprom24x::new_24x01(i2c_bus, SlaveAddr::default());
+        let mut eeprom = Eeprom24x::new_24x01(RefCellDevice::new(i2c_bus), SlaveAddr::default());
         eeprom.read_data(0x00, &mut eeid).unwrap();
         let display_width = u16::from_be_bytes([eeid[8], eeid[9]]);
         let display_height = u16::from_be_bytes([eeid[10], eeid[11]]);
         info!("Display size from EEPROM: {}x{}", display_width, display_height);
+
+        // Initialize touch controller using shared I2C bus
+        info!("Initializing touch controller...");
+        let touch_device = RefCellDevice::new(i2c_bus);
+        let mut touch_controller = sitronix_touch::TouchIC::new_default(touch_device);
+        match touch_controller.init() {
+            Ok(_) => info!("Touch controller initialized successfully"),
+            Err(e) => {
+                error!("Failed to initialize touch controller: {:?}", e);
+                // Continue without touch support
+            }
+        }
 
         // Enable panel / backlight
         let mut panel_enable = Output::new(peripherals.GPIO42, Level::Low, OutputConfig::default());
@@ -245,7 +265,7 @@ impl slint::platform::Platform for EspBackend {
         let heap_before_dma = esp_alloc::HEAP.used();
         info!("Heap usage before DMA buffer creation: {} bytes", heap_before_dma);
 
-        let mut dma_tx: DmaTxBuf = unsafe {
+        let dma_tx: DmaTxBuf = unsafe {
             DmaTxBuf::new_with_config(
                 &mut *core::ptr::addr_of_mut!(TX_DESCRIPTORS),
                 psram_buf,
@@ -306,7 +326,7 @@ impl slint::platform::Platform for EspBackend {
             .with_de_idle_level(if de_idle_high { Level::High } else { Level::Low })
             .with_disable_black_region(false);
 
-        let mut dpi = Dpi::new(lcd_cam.lcd, peripherals.DMA_CH2, dpi_config)
+        let dpi = Dpi::new(lcd_cam.lcd, peripherals.DMA_CH2, dpi_config)
             .unwrap()
             .with_vsync(peripherals.GPIO6)
             .with_hsync(peripherals.GPIO15)
@@ -402,7 +422,7 @@ impl slint::platform::Platform for EspBackend {
         );
 
         executor.run(|spawner| {
-            match spawner.spawn(slint_rendering_task(window)) {
+            match spawner.spawn(slint_rendering_task(window, touch_controller)) {
                 Ok(_) => info!("Slint rendering task spawned successfully on Core 0"),
                 Err(e) => error!("Failed to spawn Slint rendering task: {:?}", e),
             }
@@ -417,6 +437,7 @@ impl slint::platform::Platform for EspBackend {
 #[embassy_executor::task]
 async fn slint_rendering_task(
     window: Rc<slint::platform::software_renderer::MinimalSoftwareWindow>,
+    mut touch_controller: TouchController,
 ) {
     info!("[CORE 1] Slint task starting, waiting for PSRAM ready signal...");
 
@@ -456,12 +477,49 @@ async fn slint_rendering_task(
 
     let mut ticker = Ticker::every(Duration::from_millis(200));
     let mut frame_counter = 0u32;
+    let mut last_position = slint::LogicalPosition::default();
+    let mut touch_down = false;
 
-    info!("[CORE 1] Entering main rendering loop with Slint rendering...");
+    info!("[CORE 1] Entering main rendering loop with Slint rendering and touch support...");
 
     loop {
         // Update Slint timers and animations
         slint::platform::update_timers_and_animations();
+
+        // Poll touch controller for input events
+        if let Ok(maybe_touch) = touch_controller.get_point0() {
+            if let Some(sitronix_touch::Point { x: touchpad_x, y: touchpad_y }) = maybe_touch {
+                last_position = slint::LogicalPosition::new(touchpad_x as f32, touchpad_y as f32);
+
+                // Dispatch the pointer moved event
+                window.dispatch_event(slint::platform::WindowEvent::PointerMoved {
+                    position: last_position,
+                });
+
+                if !touch_down {
+                    window.dispatch_event(slint::platform::WindowEvent::PointerPressed {
+                        position: last_position,
+                        button: slint::platform::PointerEventButton::Left,
+                    });
+                    if frame_counter % 60 == 0 {
+                        debug!("[CORE 1] Touch pressed at ({}, {})", touchpad_x, touchpad_y);
+                    }
+                }
+
+                touch_down = true;
+            } else if touch_down {
+                window.dispatch_event(slint::platform::WindowEvent::PointerReleased {
+                    position: last_position,
+                    button: slint::platform::PointerEventButton::Left,
+                });
+                window.dispatch_event(slint::platform::WindowEvent::PointerExited);
+                touch_down = false;
+
+                if frame_counter % 60 == 0 {
+                    debug!("[CORE 1] Touch released");
+                }
+            }
+        }
 
         // Use draw_if_needed to check if we need to render and get access to the renderer
         let rendered = window.draw_if_needed(|renderer| {
