@@ -1,2 +1,0 @@
-cargo:rustc-cfg=no_qt
-cargo:rustc-check-cfg=cfg(no_qt)
