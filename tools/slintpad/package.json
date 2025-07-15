@@ -48,7 +48,7 @@
         "playwright-ctrf-json-reporter": "0.0.21",
         "rimraf": "6.0.1",
         "typescript": "5.8.3",
-        "vite": "7.0.2",
+        "vite": "7.0.4",
         "vscode": "npm:@codingame/monaco-vscode-api@8.0.4",
         "vscode-languageclient": "9.0.1",
         "vscode-languageserver": "9.0.1",
