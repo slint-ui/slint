@@ -25,6 +25,14 @@ export interface EventTS {
     generateSnippetRequest: { useVariables: boolean };
     nodeChanged;
     exportToFiles: { exportAsSingleFile: boolean };
+    exportToJson: Record<string, never>;
+    exportedJson: {
+        data: any[];
+        jsonString: string;
+    };
+    exportJsonError: {
+        error: string;
+    };
 
     // Resize-related messages
     resizeWindow: { width: number; height: number };
