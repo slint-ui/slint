@@ -193,9 +193,9 @@ ft5336 = { version = "0.2", optional = true }
 # Commented out until ported to newer version that matches embassy-time needed by stm32u5
 esp-hal = { version = "1.0.0-beta.1", optional = true }
 esp-alloc = { version = "0.8.0", optional = true }
-esp-println = { version = "0.14.0", features = ["log-04"], optional = true }
-esp-backtrace = { version = "0.16.0", optional = true, features = ["panic-handler", "println"] }
-esp-wifi = { version = "0.14.1", optional = true, features = ["builtin-scheduler", "esp-alloc", "smoltcp", "wifi"] }
+esp-println = { version = "0.15.0", features = ["log-04"], optional = true }
+esp-backtrace = { version = "0.17.0", optional = true, features = ["panic-handler", "println"] }
+esp-wifi = { version = "0.15.0", optional = true, features = ["builtin-scheduler", "esp-alloc", "smoltcp", "wifi"] }
 static_cell = { version = "2.1.0", optional = true, features = ["nightly"] }
 embassy-net = { version = "0.7.0", optional = true, features = ["dhcpv4", "medium-ethernet", "tcp", "udp"] }
 
@@ -213,7 +213,7 @@ embassy-executor = { version = "0.7.0", optional = true, default-features = fals
 embassy-time = { version = "0.4.0", optional = true }
 embassy-futures = { version = "0.1.1", optional = true }
 embassy-sync = { version = "0.7.0", optional = true }
-esp-hal-embassy = { version = "0.8.1", optional = true, features = ["esp32s3"] }
+esp-hal-embassy = { version = "0.9.0", optional = true, features = ["esp32s3"] }
 gt911 = { version = "0.3.0", optional = true }
 sitronix-touch = { version = "0.0.1", optional = true }
 
