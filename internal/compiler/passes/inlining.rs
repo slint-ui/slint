@@ -204,10 +204,7 @@ fn inline_element(
     root_component.timers.borrow_mut().extend(inlined_component.timers.borrow().iter().map(|t| {
         let inlined_element = mapping.get(&element_key(t.element.upgrade().unwrap())).unwrap();
 
-        Timer {
-            element: Rc::downgrade(inlined_element),
-            ..t.clone()
-        }
+        Timer { element: Rc::downgrade(inlined_element), ..t.clone() }
     }));
 
     let mut moved_into_popup = HashSet::new();
