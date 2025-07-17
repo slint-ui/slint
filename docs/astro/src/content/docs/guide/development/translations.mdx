@@ -121,20 +121,6 @@ using a dedicated translation tool for working with them, such as the following:
 -   [Lokalize](https://userbase.kde.org/Lokalize)
 -   [Transifex](https://www.transifex.com/) (web interface)
 
-## Convert `.po` Files to `.mo` Files
-
-Convert the human readable `.po` files into machine-friendly `.mo` files, which are a binary representation
-that is more efficient to read by code.
-
-Use [Gettext](https://www.gnu.org/software/gettext/)'s `msgfmt` command line tool to convert `.po` files to `.mo`
-files:
-
-```sh
-msgfmt translation.po -o translation.mo
-```
-
-For bundled translations, no conversion is needed; `.po` files are embedded directly.
-
 ## Runtime Translations with Gettext
 
 Slint can use the [Gettext](https://www.gnu.org/software/gettext/) library to load translations at run-time.
@@ -160,6 +146,18 @@ Gettext expects translation files - called message catalogs - in following direc
 :::tip[Tip]
 Read the [Gettext documentation](https://www.gnu.org/software/gettext/manual/gettext.html#Locating-Catalogs) for more information.
 :::
+
+### Convert `.po` Files to `.mo` Files
+
+Convert the human readable `.po` files into machine-friendly `.mo` files, which are a binary representation
+that is more efficient to read by code.
+
+Use [Gettext](https://www.gnu.org/software/gettext/)'s `msgfmt` command line tool to convert `.po` files to `.mo`
+files:
+
+```sh
+msgfmt translation.po -o translation.mo
+```
 
 ### Select and Load Translations
 <Tabs syncKey="dev-language">
@@ -262,6 +260,7 @@ Use `slint_build::CompilerConfiguration`'s <LangRefLink lang="rust-slint-build" 
 ```rust
 let config = slint_build::CompilerConfiguration::new()
     .with_bundled_translations("path/to/translations");
+slint_build::compile_with_config("path/to/main-ui.slint", config).unwrap();
 ```
 
 The `<domain>` is the crate name.
