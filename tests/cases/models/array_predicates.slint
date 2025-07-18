@@ -17,8 +17,8 @@ export component TestCase {
     ];
 
     out property <bool> test: self.ints.all(
-    
-    
+
+
     |x| x > 0) && !self.ints.all(
     |x| x > 1) && !self.ints.any(
     |x| x == 0) && self.ints.any(

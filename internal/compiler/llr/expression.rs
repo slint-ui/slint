@@ -209,7 +209,7 @@ pub enum Expression {
     Predicate {
         arg_name: SmolStr,
         expression: Box<Expression>,
-    }
+    },
 }
 
 impl Expression {
