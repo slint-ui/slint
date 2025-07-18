@@ -3,7 +3,7 @@
 
 import { CupertinoFontSettings, CupertinoPalette } from "styling.slint";
 import { FocusBorder } from "components.slint";
-import { LineEditBase } from "../common/lineedit-base.slint";
+import { LineEditBase, LineEditClearIcon } from "../common/lineedit-base.slint";
 
 export component LineEdit {
     in property <bool> enabled <=> base.enabled;
@@ -96,6 +96,18 @@ export component LineEdit {
                 text-color: CupertinoPalette.foreground;
                 margin: layout.padding-left + layout.padding-right;
                 placeholder-color: CupertinoPalette.foreground-secondary;
+                horizontal-stretch: 1;
+            }
+
+            LineEditClearIcon {
+                text: base.text;
+                input-type: base.input-type;
+                source: @image-url("_clear.svg");
+                colorize: base.text-color;
+                clear => {
+                    base.text = "";
+                    base.focus();
+                }
             }
         }
     }
