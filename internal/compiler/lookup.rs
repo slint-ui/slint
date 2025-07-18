@@ -284,10 +284,9 @@ impl LookupObject for PredicateArgumentsLookup {
         f: &mut impl FnMut(&SmolStr, LookupResult) -> Option<R>,
     ) -> Option<R> {
         for (name, ty) in ctx.predicate_arguments.iter().zip(ctx.predicate_argument_types.iter()) {
-            if let Some(r) = f(
-                name,
-                Expression::ReadLocalVariable { name: name.clone(), ty: ty.clone() }.into(),
-            ) {
+            if let Some(r) =
+                f(name, Expression::ReadLocalVariable { name: name.clone(), ty: ty.clone() }.into())
+            {
                 return Some(r);
             }
         }
@@ -1105,6 +1104,7 @@ impl LookupObject for ArrayExpression<'_> {
             f(&SmolStr::new_static("length"), function_call(BuiltinFunction::ArrayLength))
         })
         .or_else(|| f(&SmolStr::new_static("any"), member_function(BuiltinFunction::ArrayAny)))
+        .or_else(|| f(&SmolStr::new_static("all"), member_function(BuiltinFunction::ArrayAll)))
     }
 }
 
