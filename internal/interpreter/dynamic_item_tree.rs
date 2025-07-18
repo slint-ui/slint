@@ -8,7 +8,7 @@ use core::ptr::NonNull;
 use dynamic_type::{Instance, InstanceBox};
 use i_slint_compiler::expression_tree::{Expression, NamedReference};
 use i_slint_compiler::langtype::Type;
-use i_slint_compiler::object_tree::{ElementRc, TransitionDirection};
+use i_slint_compiler::object_tree::{ElementRc, ElementWeak, TransitionDirection};
 use i_slint_compiler::{diagnostics::BuildDiagnostics, object_tree::PropertyDeclaration};
 use i_slint_compiler::{generator, object_tree, parser, CompilerConfiguration};
 use i_slint_core::accessibility::{
@@ -2516,5 +2516,17 @@ pub fn update_timers(instance: InstanceRef) {
         } else {
             timer.stop();
         }
+    }
+}
+
+pub fn restart_timer(element: ElementWeak, instance: InstanceRef) {
+    let timers = instance.description.original.timers.borrow();
+    if let Some((_, offset)) = timers
+        .iter()
+        .zip(&instance.description.timers)
+        .find(|(desc, _)| Weak::ptr_eq(&desc.element, &element))
+    {
+        let timer = offset.apply(instance.as_ref());
+        timer.restart();
     }
 }

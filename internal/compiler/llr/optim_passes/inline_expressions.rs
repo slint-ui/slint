@@ -150,6 +150,9 @@ fn builtin_function_cost(function: &BuiltinFunction) -> isize {
         BuiltinFunction::Use24HourFormat => 2 * ALLOC_COST + PROPERTY_ACCESS_COST,
         BuiltinFunction::UpdateTimers => 10,
         BuiltinFunction::DetectOperatingSystem => 10,
+        BuiltinFunction::StartTimer => 10,
+        BuiltinFunction::StopTimer => 10,
+        BuiltinFunction::RestartTimer => 10,
     }
 }
 

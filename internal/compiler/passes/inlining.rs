@@ -201,7 +201,11 @@ fn inline_element(
             .map(|p| duplicate_popup(p, &mut mapping, priority_delta)),
     );
 
-    root_component.timers.borrow_mut().extend(inlined_component.timers.borrow().iter().cloned());
+    root_component.timers.borrow_mut().extend(inlined_component.timers.borrow().iter().map(|t| {
+        let inlined_element = mapping.get(&element_key(t.element.upgrade().unwrap())).unwrap();
+
+        Timer { element: Rc::downgrade(inlined_element), ..t.clone() }
+    }));
 
     let mut moved_into_popup = HashSet::new();
     if let Some(children) = move_children_into_popup {

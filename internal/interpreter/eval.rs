@@ -1353,6 +1353,21 @@ fn call_builtin_function(
             Value::Void
         }
         BuiltinFunction::DetectOperatingSystem => i_slint_core::detect_operating_system().into(),
+        // start and stop are unreachable because they are lowered to simple assignment of running
+        BuiltinFunction::StartTimer => unreachable!(),
+        BuiltinFunction::StopTimer => unreachable!(),
+        BuiltinFunction::RestartTimer => {
+            if let [Expression::ElementReference(timer_element)] = arguments {
+                crate::dynamic_item_tree::restart_timer(
+                    timer_element.clone(),
+                    local_context.component_instance,
+                );
+
+                Value::Void
+            } else {
+                panic!("internal error: argument to RestartTimer must be an element")
+            }
+        }
     }
 }
 
