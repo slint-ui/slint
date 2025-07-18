@@ -1,3 +1,9 @@
+#[panic_handler]
+fn panic(info: &core::panic::PanicInfo) -> ! {
+    esp_println::println!("Panic: {:?}", info);
+    loop {}
+}
+
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
@@ -78,41 +84,8 @@ pub fn init() {
     }))
     .expect("backend already initialized");
 }
-macro_rules! mk_static {
-    ($t:ty, $val:expr) => {{
-        static STATIC_CELL: static_cell::StaticCell<$t> = static_cell::StaticCell::new();
-        STATIC_CELL.init($val)
-    }};
-}
-
-use esp_hal::{rng::Rng, timer::timg::TimerGroup};
-use esp_wifi::wifi;
-use esp_wifi::{
-    wifi::{ClientConfiguration, Configuration, WifiController, WifiEvent, WifiState},
-    EspWifiController,
-};
 
 impl EspBackend {
-    pub fn wifi<'a>(
-        &self,
-        ssid: &'a str,
-        password: &'a str,
-    ) -> (wifi::WifiController<'a>, wifi::WifiDevice<'a>) {
-        // Initialize the Wi-Fi controller and device.
-        let peripherals = self.peripherals.borrow_mut().take().expect("Peripherals already taken");
-        let mut rng = Rng::new(peripherals.RNG);
-        let timer1 = TimerGroup::new(peripherals.TIMG0);
-        let wifi_init = &*mk_static!(
-            EspWifiController<'static>,
-            esp_wifi::init(timer1.timer0, rng.clone(), peripherals.RADIO_CLK).unwrap()
-        );
-        let (mut wifi_controller, interfaces) = esp_wifi::wifi::new(&wifi_init, peripherals.WIFI)
-            .expect("Failed to initialize WIFI controller");
-        let config = embassy_net::Config::dhcpv4(Default::default());
-        let wifi_device = interfaces.sta;
-        (wifi_controller, wifi_device)
-    }
-
     fn run_event_loop(&self) -> Result<(), slint::PlatformError> {
         // Take and configure peripherals.
         let peripherals = self.peripherals.borrow_mut().take().expect("Peripherals already taken");

@@ -211,6 +211,12 @@ When flashing, with `esplash`, you will be prompted to select a USB port. If thi
 
 #### ESP32-S3-Box
 
+The ESP32-S3-Box development board features:
+- 2.4" LCD display with 320x240 resolution
+- ILI9486 display controller
+- GT911 capacitive touch controller
+- ESP32-S3 with built-in WiFi and Bluetooth
+
 To compile and run the demo:
 
 ```sh
@@ -219,8 +225,28 @@ CARGO_PROFILE_RELEASE_OPT_LEVEL=s cargo +esp run -p printerdemo_mcu --target xte
 
 #### ESP32-S3-LCD-EV-Board
 
+The ESP32-S3-LCD-EV-Board development board features:
+- 4.3" LCD display with 480x480 resolution
+- RGB interface display
+- FT5x06 capacitive touch controller
+- ESP32-S3 with built-in WiFi and Bluetooth
+
 To compile and run the demo:
 
 ```sh
 CARGO_PROFILE_RELEASE_OPT_LEVEL=s cargo +esp run -p printerdemo_mcu --target xtensa-esp32s3-none-elf --no-default-features --features=mcu-board-support/esp32-s3-lcd-ev-board --release --config examples/mcu-board-support/esp32_s3_lcd_ev_board/cargo-config.toml
+```
+
+#### Waveshare ESP32-S3 Touch AMOLED 1.8"
+
+The Waveshare ESP32-S3 Touch AMOLED 1.8" board features:
+- 1.8" AMOLED display with 368x448 resolution
+- SH8601 display controller
+- FT3168 capacitive touch controller (touch support TODO)
+- ESP32-S3 with 16MB flash and 8MB PSRAM
+
+To compile and run the demo:
+
+```sh
+CARGO_PROFILE_RELEASE_OPT_LEVEL=s cargo +esp run -p printerdemo_mcu --target xtensa-esp32s3-none-elf --no-default-features --features=mcu-board-support/waveshare-esp32-s3-touch-amoled-1-8 --release --config examples/mcu-board-support/waveshare_esp32_s3_touch_amoled_1_8/cargo-config.toml
 ```
