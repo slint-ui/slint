@@ -1,0 +1,21 @@
+[package]
+name = "web"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+slint = "1.12"
+gl = "0.14"
+
+crossbeam-channel = "0.5"
+ipc-channel  = "0.16"
+
+glutin = "0.13.1"
+euclid       = "0.22"
+gleam        = "0.13"
+glow          = "0.13"
+
+winit         = "0.30"
+
+
+
