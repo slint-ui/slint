@@ -51,6 +51,14 @@ pub struct LookupCtx<'a> {
 
     /// A stack of local variable scopes
     pub local_variables: Vec<Vec<(SmolStr, Type)>>,
+
+    /// A stack of predicate argument types
+    /// This is a hack to infer the type of the predicate argument
+    pub predicate_argument_types: Vec<Type>,
+
+    /// A stack of predicate arguments
+    /// Theoretically a predicate could include another predicate, so this is a stack
+    pub predicate_arguments: Vec<SmolStr>,
 }
 
 impl<'a> LookupCtx<'a> {
@@ -66,6 +74,8 @@ impl<'a> LookupCtx<'a> {
             type_loader: None,
             current_token: None,
             local_variables: Default::default(),
+            predicate_arguments: Default::default(),
+            predicate_argument_types: Default::default(),
         }
     }
 
@@ -259,6 +269,25 @@ impl LookupObject for ArgumentsLookup {
             if let Some(r) =
                 f(name, Expression::FunctionParameterReference { index, ty: ty.clone() }.into())
             {
+                return Some(r);
+            }
+        }
+        None
+    }
+}
+
+struct PredicateArgumentsLookup;
+impl LookupObject for PredicateArgumentsLookup {
+    fn for_each_entry<R>(
+        &self,
+        ctx: &LookupCtx,
+        f: &mut impl FnMut(&SmolStr, LookupResult) -> Option<R>,
+    ) -> Option<R> {
+        for (name, ty) in ctx.predicate_arguments.iter().zip(ctx.predicate_argument_types.iter()) {
+            if let Some(r) = f(
+                name,
+                Expression::ReadLocalVariable { name: name.clone(), ty: ty.clone() }.into(),
+            ) {
                 return Some(r);
             }
         }
@@ -856,20 +885,23 @@ impl LookupObject for BuiltinNamespaceLookup {
 
 pub fn global_lookup() -> impl LookupObject {
     (
-        LocalVariableLookup,
+        PredicateArgumentsLookup,
         (
-            ArgumentsLookup,
+            LocalVariableLookup,
             (
-                SpecialIdLookup,
+                ArgumentsLookup,
                 (
-                    IdLookup,
+                    SpecialIdLookup,
                     (
-                        InScopeLookup,
+                        IdLookup,
                         (
-                            LookupType,
+                            InScopeLookup,
                             (
-                                BuiltinNamespaceLookup,
-                                (ReturnTypeSpecificLookup, BuiltinFunctionLookup),
+                                LookupType,
+                                (
+                                    BuiltinNamespaceLookup,
+                                    (ReturnTypeSpecificLookup, BuiltinFunctionLookup),
+                                ),
                             ),
                         ),
                     ),
@@ -1055,15 +1087,24 @@ impl LookupObject for ArrayExpression<'_> {
         f: &mut impl FnMut(&SmolStr, LookupResult) -> Option<R>,
     ) -> Option<R> {
         let member_function = |f: BuiltinFunction| {
+            LookupResult::Callable(LookupResultCallable::MemberFunction {
+                base: self.0.clone(),
+                base_node: ctx.current_token.clone(), // Note that this is not the base_node, but the function's node
+                member: LookupResultCallable::Callable(Callable::Builtin(f)).into(),
+            })
+        };
+        let function_call = |f: BuiltinFunction| {
             LookupResult::from(Expression::FunctionCall {
                 function: Callable::Builtin(f),
                 source_location: ctx.current_token.as_ref().map(|t| t.to_source_location()),
                 arguments: vec![self.0.clone()],
             })
         };
+
         None.or_else(|| {
-            f(&SmolStr::new_static("length"), member_function(BuiltinFunction::ArrayLength))
+            f(&SmolStr::new_static("length"), function_call(BuiltinFunction::ArrayLength))
         })
+        .or_else(|| f(&SmolStr::new_static("any"), member_function(BuiltinFunction::ArrayAny)))
     }
 }
 

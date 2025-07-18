@@ -205,6 +205,11 @@ pub enum Expression {
         /// The `n` value to use for the plural form if it is a plural form
         plural: Option<Box<Expression>>,
     },
+
+    Predicate {
+        arg_name: SmolStr,
+        expression: Box<Expression>,
+    }
 }
 
 impl Expression {
@@ -217,7 +222,8 @@ impl Expression {
             | Type::InferredProperty
             | Type::InferredCallback
             | Type::ElementReference
-            | Type::LayoutCache => return None,
+            | Type::LayoutCache
+            | Type::Predicate => return None,
             Type::Float32
             | Type::Duration
             | Type::Int32
@@ -320,6 +326,7 @@ impl Expression {
             Self::MinMax { ty, .. } => ty.clone(),
             Self::EmptyComponentFactory => Type::ComponentFactory,
             Self::TranslationReference { .. } => Type::String,
+            Self::Predicate { .. } => Type::Predicate,
         }
     }
 }
@@ -408,6 +415,9 @@ macro_rules! visit_impl {
                 if let Some(plural) = plural {
                     $visitor(plural);
                 }
+            }
+            Expression::Predicate { expression, .. } => {
+                $visitor(expression);
             }
         }
     };
