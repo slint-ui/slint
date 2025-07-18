@@ -30,6 +30,7 @@ use super::prelude::*;
 /// array[index]
 /// {object:42}
 /// "foo".bar.something().something.xx({a: 1.foo}.a)
+/// |x| x > 0
 /// ```
 pub fn parse_expression(p: &mut impl Parser) -> bool {
     p.peek(); // consume the whitespace so they aren't part of the Expression node
@@ -88,6 +89,9 @@ fn parse_expression_helper(p: &mut impl Parser, precedence: OperatorPrecedence) 
         }
         SyntaxKind::At => {
             parse_at_keyword(&mut *p);
+        }
+        SyntaxKind::Pipe => {
+            parse_predicate(&mut *p);
         }
         _ => {
             p.error("invalid expression");
@@ -225,6 +229,26 @@ fn parse_expression_helper(p: &mut impl Parser, precedence: OperatorPrecedence) 
         parse_expression(&mut *p);
     }
     true
+}
+
+#[cfg_attr(test, parser_test)]
+/// ```test
+/// |x| x > 0
+/// |y| y == 42
+/// |z| true
+/// ```
+fn parse_predicate(p: &mut impl Parser) {
+    let mut p = p.start_node(SyntaxKind::Predicate);
+    p.expect(SyntaxKind::Pipe);
+
+    {
+        let mut p = p.start_node(SyntaxKind::DeclaredIdentifier);
+        p.expect(SyntaxKind::Identifier);
+    }
+
+    p.expect(SyntaxKind::Pipe);
+
+    parse_expression(&mut *p);
 }
 
 #[cfg_attr(test, parser_test)]
