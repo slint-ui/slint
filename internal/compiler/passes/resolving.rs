@@ -895,13 +895,15 @@ impl Expression {
             return Self::Invalid;
         };
 
-        // dirty hack to supply the type of the predicate argument for array member functions, 
-        // we check if we are dealing with an array builtin, then we push the type to the context, 
+        // dirty hack to supply the type of the predicate argument for array member functions,
+        // we check if we are dealing with an array builtin, then we push the type to the context,
         // to be popped at the end of this function after all the predicate's expression is resolved
         let mut should_pop_predicate_args = false;
         match &function {
             LookupResultCallable::MemberFunction { base, member, .. } => match **member {
-                LookupResultCallable::Callable(Callable::Builtin(BuiltinFunction::ArrayAny)) => {
+                LookupResultCallable::Callable(Callable::Builtin(
+                    BuiltinFunction::ArrayAny | BuiltinFunction::ArrayAll,
+                )) => {
                     let ty = match base.ty() {
                         Type::Array(ty) => (*ty).clone(),
                         _ => unreachable!(),

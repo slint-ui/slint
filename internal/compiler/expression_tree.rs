@@ -77,6 +77,7 @@ pub enum BuiltinFunction {
     ImageSize,
     ArrayLength,
     ArrayAny,
+    ArrayAll,
     Rgb,
     Hsv,
     ColorScheme,
@@ -241,6 +242,7 @@ declare_builtin_function_types!(
     })),
     ArrayLength: (Type::Model) -> Type::Int32,
     ArrayAny: (Type::Model, Type::Predicate) -> Type::Bool,
+    ArrayAll: (Type::Model, Type::Predicate) -> Type::Bool,
     Rgb: (Type::Int32, Type::Int32, Type::Int32, Type::Float32) -> Type::Color,
     Hsv: (Type::Float32, Type::Float32, Type::Float32, Type::Float32) -> Type::Color,
     ColorScheme: () -> Type::Enumeration(
@@ -362,6 +364,7 @@ impl BuiltinFunction {
             BuiltinFunction::StopTimer => false,
             BuiltinFunction::RestartTimer => false,
             BuiltinFunction::ArrayAny => true,
+            BuiltinFunction::ArrayAll => true,
         }
     }
 
@@ -439,6 +442,7 @@ impl BuiltinFunction {
             BuiltinFunction::StopTimer => false,
             BuiltinFunction::RestartTimer => false,
             BuiltinFunction::ArrayAny => true,
+            BuiltinFunction::ArrayAll => true,
         }
     }
 }

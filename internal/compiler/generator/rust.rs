@@ -3275,7 +3275,18 @@ fn compile_builtin_function_call(
             } else {
                 panic!("internal error: invalid args to ArrayAny {arguments:?}")
             }
-        },
+        }
+        BuiltinFunction::ArrayAll => {
+            if let [_, Expression::Predicate { .. }] = arguments {
+                let arr_expression = a.next().unwrap();
+                let predicate_expression = a.next().unwrap();
+                quote!(match #arr_expression { x => {
+                    x.iter().all(#predicate_expression)
+                }})
+            } else {
+                panic!("internal error: invalid args to ArrayAll {arguments:?}")
+            }
+        }
     }
 }
 

@@ -155,6 +155,7 @@ fn builtin_function_cost(function: &BuiltinFunction) -> isize {
         BuiltinFunction::StopTimer => 10,
         BuiltinFunction::RestartTimer => 10,
         BuiltinFunction::ArrayAny => isize::MAX,
+        BuiltinFunction::ArrayAll => isize::MAX,
     }
 }
 
