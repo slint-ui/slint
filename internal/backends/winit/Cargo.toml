@@ -121,7 +121,7 @@ i-slint-renderer-skia = { workspace = true, features = ["default"] }
 cfg_aliases = { workspace = true }
 
 [dev-dependencies]
-slint = { path = "../../../api/rs/slint", default-features = false, features = ["std", "compat-1-2", "backend-winit", "renderer-software", "raw-window-handle-06"] }
+slint = { path = "../../../api/rs/slint", default-features = false, features = ["std", "compat-1-2", "backend-winit", "renderer-software", "raw-window-handle-06", "unstable-winit-030"] }
 
 [package.metadata.docs.rs]
 features = ["wayland", "renderer-software", "raw-window-handle-06"]

@@ -289,7 +289,7 @@ enum WindowVisibility {
 pub struct WinitWindowAdapter {
     pub shared_backend_data: Rc<SharedBackendData>,
     window: OnceCell<corelib::api::Window>,
-    self_weak: Weak<Self>,
+    pub(crate) self_weak: Weak<Self>,
     pending_redraw: Cell<bool>,
     color_scheme: OnceCell<Pin<Box<Property<ColorScheme>>>>,
     constraints: Cell<corelib::window::LayoutConstraints>,
@@ -333,6 +333,7 @@ pub struct WinitWindowAdapter {
     >,
 
     winit_window_or_none: RefCell<WinitWindowOrNone>,
+    window_existence_wakers: RefCell<Vec<core::task::Waker>>,
 
     #[cfg(not(use_winit_theme))]
     xdg_settings_watcher: RefCell<Option<i_slint_core::future::JoinHandle<()>>>,
@@ -373,6 +374,7 @@ impl WinitWindowAdapter {
             minimized: Cell::default(),
             fullscreen: Cell::default(),
             winit_window_or_none: RefCell::new(WinitWindowOrNone::None(window_attributes.into())),
+            window_existence_wakers: RefCell::new(Vec::default()),
             size: Cell::default(),
             pending_requested_size: Cell::new(None),
             has_explicit_size: Default::default(),
@@ -503,6 +505,10 @@ impl WinitWindowAdapter {
 
         self.shared_backend_data
             .register_window(winit_window.id(), (self.self_weak.upgrade().unwrap()) as _);
+
+        for waker in self.window_existence_wakers.take().into_iter() {
+            waker.wake();
+        }
 
         Ok(winit_window)
     }
@@ -934,6 +940,30 @@ impl WinitWindowAdapter {
 
     pub(crate) fn pending_redraw(&self) -> bool {
         self.pending_redraw.get()
+    }
+
+    pub async fn async_winit_window(
+        self_weak: Weak<Self>,
+    ) -> Result<Arc<winit::window::Window>, PlatformError> {
+        std::future::poll_fn(move |context| {
+            let Some(self_) = self_weak.upgrade() else {
+                return std::task::Poll::Ready(Err(format!(
+                    "Unable to obtain winit window from destroyed window"
+                )
+                .into()));
+            };
+            match self_.winit_window() {
+                Some(window) => std::task::Poll::Ready(Ok(window)),
+                None => {
+                    let waker = context.waker();
+                    if !self_.window_existence_wakers.borrow().iter().any(|w| w.will_wake(waker)) {
+                        self_.window_existence_wakers.borrow_mut().push(waker.clone());
+                    }
+                    std::task::Poll::Pending
+                }
+            }
+        })
+        .await
     }
 }
 

@@ -17,6 +17,7 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::rc::Weak;
+use std::sync::Arc;
 use winit::event_loop::ActiveEventLoop;
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -828,6 +829,52 @@ pub trait WinitWindowAccessor: private::WinitWindowAccessorSealed {
         callback: impl FnMut(&i_slint_core::api::Window, &winit::event::WindowEvent) -> WinitWindowEventResult
             + 'static,
     );
+
+    /// Returns a future that resolves to the [`winit::window::Window`] for this Slint window.
+    /// When the future is ready, the output it resolves to is either `Ok(Arc<winit::window::Window>)` if the window exists,
+    /// or an error if the window has been deleted in the meanwhile or isn't backed by the winit backend.
+    ///
+    /// ```rust,no_run
+    /// // Bring winit and accessor traits into scope.
+    /// use slint::winit_030::{WinitWindowAccessor, winit};
+    ///
+    /// slint::slint!{
+    ///     import { VerticalBox, Button } from "std-widgets.slint";
+    ///     export component HelloWorld inherits Window {
+    ///         callback clicked;
+    ///         VerticalBox {
+    ///             Text {
+    ///                 text: "hello world";
+    ///                 color: green;
+    ///             }
+    ///             Button {
+    ///                 text: "Click me";
+    ///                 clicked => { root.clicked(); }
+    ///             }
+    ///         }
+    ///     }
+    /// }
+    /// fn main() -> Result<(), Box<dyn std::error::Error>> {
+    ///     // Make sure the winit backed is selected:
+    ///    slint::BackendSelector::new()
+    ///        .backend_name("winit".into())
+    ///        .select()?;
+    ///
+    ///     let app = HelloWorld::new()?;
+    ///     let app_weak = app.as_weak();
+    ///
+    ///     slint::spawn_local(async move {
+    ///         let app = app_weak.unwrap();
+    ///         let winit_window = app.window().winit_window().await.unwrap();
+    ///         eprintln!("window id = {:#?}", winit_window.id());
+    ///     }).unwrap();
+    ///     app.run()?;
+    ///     Ok(())
+    /// }
+    /// ```
+    fn winit_window(
+        &self,
+    ) -> impl std::future::Future<Output = Result<Arc<winit::window::Window>, PlatformError>>;
 }
 
 impl WinitWindowAccessor for i_slint_core::api::Window {
@@ -848,6 +895,24 @@ impl WinitWindowAccessor for i_slint_core::api::Window {
             .internal(i_slint_core::InternalToken)
             .and_then(|wa| wa.as_any().downcast_ref::<WinitWindowAdapter>())
             .and_then(|adapter| adapter.winit_window().map(|w| callback(&w)))
+    }
+
+    fn winit_window(
+        &self,
+    ) -> impl std::future::Future<Output = Result<Arc<winit::window::Window>, PlatformError>> {
+        Box::pin(async move {
+            let adapter_weak = i_slint_core::window::WindowInner::from_pub(self)
+                .window_adapter()
+                .internal(i_slint_core::InternalToken)
+                .and_then(|wa| wa.as_any().downcast_ref::<WinitWindowAdapter>())
+                .map(|wa| wa.self_weak.clone())
+                .ok_or_else(|| {
+                    PlatformError::OtherError(
+                        format!("Slint window is not backed by a Winit window adapter").into(),
+                    )
+                })?;
+            WinitWindowAdapter::async_winit_window(adapter_weak).await
+        })
     }
 
     fn on_winit_window_event(
@@ -885,21 +950,27 @@ fn test_window_accessor_and_rwh() {
     slint::platform::set_platform(Box::new(crate::Backend::new().unwrap())).unwrap();
 
     use testui::*;
-    let app = App::new().unwrap();
-    app.show().unwrap();
 
-    let app_weak = app.as_weak();
-    app_weak
-        .upgrade_in_event_loop(|app| {
-            let slint_window = app.window();
-            assert!(slint_window.has_winit_window());
-            let handle = slint_window.window_handle();
-            use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
-            assert!(handle.window_handle().is_ok());
-            assert!(handle.display_handle().is_ok());
-            slint::quit_event_loop().unwrap();
-        })
-        .unwrap();
+    slint::spawn_local(async move {
+        let app = App::new().unwrap();
+        let slint_window = app.window();
+
+        assert!(!slint_window.has_winit_window());
+
+        // Show() won't immediately create the window, the event loop will have to
+        // spin first.
+        app.show().unwrap();
+
+        let result = slint_window.winit_window().await;
+        assert!(result.is_ok(), "Failed to get winit window: {:?}", result.err());
+        assert!(slint_window.has_winit_window());
+        let handle = slint_window.window_handle();
+        use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
+        assert!(handle.window_handle().is_ok());
+        assert!(handle.display_handle().is_ok());
+        slint::quit_event_loop().unwrap();
+    })
+    .unwrap();
 
     slint::run_event_loop().unwrap();
 }
