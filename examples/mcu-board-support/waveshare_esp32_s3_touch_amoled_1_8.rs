@@ -163,22 +163,24 @@ impl EspBackend {
                     renderer.render(pixel_buf, DISPLAY_SIZE.width as usize);
                 });
 
-                // Draw the rendered pixels to the display
-                for (y, row) in pixel_buf.chunks_exact(DISPLAY_SIZE.width as usize).enumerate() {
-                    for (x, pixel) in row.iter().enumerate() {
-                        let point = embedded_graphics::geometry::Point::new(x as i32, y as i32);
-                        let color =
-                            embedded_graphics::pixelcolor::Rgb888::new(pixel.r, pixel.g, pixel.b);
+                // Draw the rendered pixels to the display using draw_iter for better performance
+                use embedded_graphics::prelude::*;
+                use embedded_graphics::Pixel;
 
-                        // Draw individual pixels using embedded-graphics
-                        use embedded_graphics::prelude::*;
-                        use embedded_graphics::primitives::{PrimitiveStyle, Rectangle};
+                let pixels = pixel_buf
+                    .chunks_exact(DISPLAY_SIZE.width as usize)
+                    .enumerate()
+                    .flat_map(|(y, row)| {
+                        row.iter().enumerate().map(move |(x, pixel)| {
+                            let point = embedded_graphics::geometry::Point::new(x as i32, y as i32);
+                            let color = embedded_graphics::pixelcolor::Rgb888::new(
+                                pixel.r, pixel.g, pixel.b,
+                            );
+                            Pixel(point, color)
+                        })
+                    });
 
-                        let _ = Rectangle::new(point, embedded_graphics::geometry::Size::new(1, 1))
-                            .into_styled(PrimitiveStyle::with_fill(color))
-                            .draw(&mut display);
-                    }
-                }
+                let _ = display.draw_iter(pixels);
 
                 // Flush the display to show the rendered content
                 let _ = display.flush();
