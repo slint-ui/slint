@@ -3520,6 +3520,12 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                 None => format!("slint::private_api::translate_from_bundle(slint_translation_bundle_{string_index}, {args})"),
             }
         },
+        Expression::Predicate { arg_name, expression } => {
+            let arg = ident(arg_name);
+            let expr = compile_expression(expression, ctx);
+
+            format!("[&](auto {arg}) -> bool {{ return {expr}; }}")
+        },
     }
 }
 
@@ -4014,7 +4020,12 @@ fn compile_builtin_function_call(
                 panic!("internal error: invalid args to RetartTimer {arguments:?}")
             }
         }
-        BuiltinFunction::ArrayAny => todo!(),
+        BuiltinFunction::ArrayAny => {
+            format!("slint::private_api::model_any({}, {})", a.next().unwrap(), a.next().unwrap())
+        },
+        BuiltinFunction::ArrayAll => {
+            format!("slint::private_api::model_all({}, {})", a.next().unwrap(), a.next().unwrap())
+        },
     }
 }
 
