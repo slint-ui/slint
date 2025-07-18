@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { MaterialPalette, MaterialFontSettings } from "styling.slint";
-import { LineEditBase } from "../common/lineedit-base.slint";
+import { LineEditBase, LineEditClearIcon } from "../common/lineedit-base.slint";
 
 // Single line text input field with Material Design Outline TextField look and feel.
 export component LineEdit {
@@ -81,6 +81,18 @@ export component LineEdit {
                 margin: layout.padding-left + layout.padding-right;
                 placeholder-color: MaterialPalette.border-variant;
                 selection-background-color: MaterialPalette.selection-background;
+                horizontal-stretch: 1;
+            }
+
+            LineEditClearIcon {
+                text: base.text;
+                input-type: base.input-type;
+                source: @image-url("_clear.svg");
+                colorize: base.text-color;
+                clear => {
+                    base.text = "";
+                    base.focus();
+                }
             }
         }
     }

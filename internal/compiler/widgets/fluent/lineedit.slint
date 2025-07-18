@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { FluentFontSettings, FluentPalette } from "styling.slint";
-import { LineEditBase } from "../common/lineedit-base.slint";
+import { LineEditBase, LineEditClearIcon } from "../common/lineedit-base.slint";
 
 export component LineEdit {
     in property <bool> enabled <=> base.enabled;
@@ -89,6 +89,18 @@ export component LineEdit {
                 text-color: FluentPalette.foreground;
                 placeholder-color: FluentPalette.text-secondary;
                 margin: layout.padding-left + layout.padding-right;
+                horizontal-stretch: 1;
+            }
+
+            LineEditClearIcon {
+                text: base.text;
+                input-type: base.input-type;
+                source: @image-url("_dismiss.svg");
+                colorize: base.text-color;
+                clear => {
+                    base.text = "";
+                    base.focus();
+                }
             }
         }
 
