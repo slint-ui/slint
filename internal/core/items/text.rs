@@ -502,6 +502,7 @@ pub struct TextInput {
     pub single_line: Property<bool>,
     pub read_only: Property<bool>,
     pub preedit_text: Property<SharedString>,
+    pub show_password: Property<bool>,
     /// A selection within the preedit (cursor and anchor)
     preedit_selection: Property<PreEditSelection>,
     pub cached_rendering_data: CachedRenderingData,
@@ -1143,8 +1144,9 @@ impl TextInputVisualRepresentation {
         &mut self,
         text_input: Pin<&TextInput>,
         password_character_fn: Option<fn() -> char>,
+        show_password: bool,
     ) {
-        if !matches!(text_input.input_type(), InputType::Password) {
+        if !matches!(text_input.input_type(), InputType::Password) || show_password {
             return;
         }
 
@@ -1766,7 +1768,7 @@ impl TextInput {
             text_color,
             cursor_color,
         };
-        repr.apply_password_character_substitution(self, password_character_fn);
+        repr.apply_password_character_substitution(self, password_character_fn, self.show_password());
         repr
     }
 

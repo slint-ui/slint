@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { FluentFontSettings, FluentPalette } from "styling.slint";
-import { LineEditBase, LineEditClearIcon } from "../common/lineedit-base.slint";
+import { LineEditBase, LineEditClearIcon, LineEditPasswordIcon } from "../common/lineedit-base.slint";
 
 export component LineEdit {
     in property <bool> enabled <=> base.enabled;
@@ -99,6 +99,16 @@ export component LineEdit {
                 colorize: base.text-color;
                 clear => {
                     base.text = "";
+                    base.focus();
+                }
+            }
+
+            if base.input-type == InputType.password: LineEditPasswordIcon {
+                show-password: base.show-password;
+                show-password-image: @image-url("_eye_show.svg");
+                hide-password-image: @image-url("_eye_hide.svg");
+                show-password-changed(show) => {
+                    base.show-password = show;
                     base.focus();
                 }
             }
