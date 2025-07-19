@@ -2,14 +2,14 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { MaterialPalette, MaterialFontSettings } from "styling.slint";
-import { LineEditBase, LineEditClearIcon } from "../common/lineedit-base.slint";
+import { LineEditBase, LineEditClearIcon, LineEditPasswordIcon } from "../common/lineedit-base.slint";
 
 // Single line text input field with Material Design Outline TextField look and feel.
 export component LineEdit {
     in property <length> font-size <=> base.font-size;
     in property <string> placeholder-text <=> base.placeholder-text;
     in property <bool> enabled <=> base.enabled;
-    in property input-type <=> base.input-type;
+    in property <InputType> input-type;
     in property horizontal-alignment <=> base.horizontal-alignment;
     in property read-only <=> base.read-only;
     out property <bool> has-focus: base.has-focus;
@@ -74,6 +74,7 @@ export component LineEdit {
             padding-right: 16px;
 
             base := LineEditBase {
+                input-type: root.input-type;
                 text-color: MaterialPalette.foreground;
                 font-size: MaterialFontSettings.body-large.font-size;
                 font-weight: MaterialFontSettings.body-large.font-weight;
@@ -86,11 +87,21 @@ export component LineEdit {
 
             LineEditClearIcon {
                 text: base.text;
-                input-type: base.input-type;
+                input-type: root.input-type;
                 source: @image-url("_clear.svg");
                 colorize: base.text-color;
                 clear => {
                     base.text = "";
+                    base.focus();
+                }
+            }
+
+            if root.input-type == InputType.password: LineEditPasswordIcon {
+                show-password-image: @image-url("_visibility.svg");
+                hide-password-image: @image-url("_visibility_off.svg");
+                colorize: base.text-color;
+                show-password-changed(show) => {
+                    base.input-type = show ? InputType.text : root.input-type;
                     base.focus();
                 }
             }

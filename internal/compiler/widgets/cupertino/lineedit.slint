@@ -3,11 +3,11 @@
 
 import { CupertinoFontSettings, CupertinoPalette } from "styling.slint";
 import { FocusBorder } from "components.slint";
-import { LineEditBase, LineEditClearIcon } from "../common/lineedit-base.slint";
+import { LineEditBase, LineEditClearIcon, LineEditPasswordIcon } from "../common/lineedit-base.slint";
 
 export component LineEdit {
     in property <bool> enabled <=> base.enabled;
-    in property <InputType> input-type <=> base.input-type;
+    in property <InputType> input-type;
     in property <TextHorizontalAlignment> horizontal-alignment <=> base.horizontal-alignment;
     in property <bool> read-only <=> base.read-only;
     in property <length> font-size <=> base.font-size;
@@ -101,11 +101,21 @@ export component LineEdit {
 
             LineEditClearIcon {
                 text: base.text;
-                input-type: base.input-type;
+                input-type: root.input-type;
                 source: @image-url("_clear.svg");
                 colorize: base.text-color;
                 clear => {
                     base.text = "";
+                    base.focus();
+                }
+            }
+
+            if root.input-type == InputType.password: LineEditPasswordIcon {
+                show-password-image: @image-url("_visibility.svg");
+                hide-password-image: @image-url("_visibility_off.svg");
+                colorize: base.text-color;
+                show-password-changed(show) => {
+                    base.input-type = show ? InputType.text : root.input-type;
                     base.focus();
                 }
             }
