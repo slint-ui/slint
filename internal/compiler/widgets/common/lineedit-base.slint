@@ -153,3 +153,20 @@ export component LineEditClearIcon inherits Image {
         clicked => { root.clear(); }
     }
 }
+
+export component LineEditPasswordIcon inherits Image {
+    callback show-password-changed(bool);
+    in property <bool> show-password;
+    in property <image> show-password-image;
+    in property <image> hide-password-image;
+    private property <bool> internal-show-password : show-password;
+
+    source: internal-show-password ? hide-password-image : show-password-image;
+    vertical-alignment: center;
+    TouchArea {
+        clicked => {
+            internal-show-password = !internal-show-password;
+            root.show-password-changed(internal-show-password);
+        }
+    }
+}

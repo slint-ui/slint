@@ -2,11 +2,11 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { FluentFontSettings, FluentPalette } from "styling.slint";
-import { LineEditBase, LineEditClearIcon } from "../common/lineedit-base.slint";
+import { LineEditBase, LineEditClearIcon, LineEditPasswordIcon } from "../common/lineedit-base.slint";
 
 export component LineEdit {
     in property <bool> enabled <=> base.enabled;
-    in property <InputType> input-type <=> base.input-type;
+    in property <InputType> input-type;
     in property <TextHorizontalAlignment> horizontal-alignment <=> base.horizontal-alignment;
     in property <bool> read-only <=> base.read-only;
     in property <length> font-size <=> base.font-size;
@@ -82,6 +82,7 @@ export component LineEdit {
             padding-right: 12px;
 
             base := LineEditBase {
+                input-type: root.input-type;
                 font-size: FluentFontSettings.body.font-size;
                 font-weight: FluentFontSettings.body.font-weight;
                 selection-background-color: FluentPalette.selection-background;
@@ -94,11 +95,21 @@ export component LineEdit {
 
             LineEditClearIcon {
                 text: base.text;
-                input-type: base.input-type;
+                input-type: root.input-type;
                 source: @image-url("_dismiss.svg");
                 colorize: base.text-color;
                 clear => {
                     base.text = "";
+                    base.focus();
+                }
+            }
+
+            if root.input-type == InputType.password: LineEditPasswordIcon {
+                show-password-image: @image-url("_eye_show.svg");
+                hide-password-image: @image-url("_eye_hide.svg");
+                colorize: base.text-color;
+                show-password-changed(show) => {
+                    base.input-type = show ? InputType.text : root.input-type;
                     base.focus();
                 }
             }
