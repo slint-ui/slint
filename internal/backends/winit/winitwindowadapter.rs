@@ -41,7 +41,7 @@ use i_slint_core::{self as corelib, graphics::RequestedGraphicsAPI};
 use std::cell::OnceCell;
 #[cfg(any(enable_accesskit, muda))]
 use winit::event_loop::EventLoopProxy;
-use winit::window::{WindowAttributes, WindowButtons};
+use winit::window::{Fullscreen, WindowAttributes, WindowButtons};
 
 fn position_to_winit(pos: &corelib::api::WindowPosition) -> winit::dpi::Position {
     match pos {
@@ -299,6 +299,7 @@ pub struct WinitWindowAdapter {
     maximized: Cell<bool>,
     minimized: Cell<bool>,
     fullscreen: Cell<bool>,
+    pub fullscreen_arg: RefCell<Option<Fullscreen>>,
 
     pub(crate) renderer: Box<dyn WinitCompatibleRenderer>,
     requested_graphics_api: Option<RequestedGraphicsAPI>,
@@ -372,6 +373,7 @@ impl WinitWindowAdapter {
             maximized: Cell::default(),
             minimized: Cell::default(),
             fullscreen: Cell::default(),
+            fullscreen_arg: RefCell::default(),
             winit_window_or_none: RefCell::new(WinitWindowOrNone::None(window_attributes.into())),
             size: Cell::default(),
             pending_requested_size: Cell::new(None),
@@ -1092,11 +1094,13 @@ impl WindowAdapter for WinitWindowAdapter {
         }
 
         let m = properties.is_fullscreen();
-        if m != self.fullscreen.get() {
+        let fullscreen_arg = self.fullscreen_arg.borrow_mut().take();
+        if m != self.fullscreen.get() || fullscreen_arg.is_some() {
             if m {
-                if winit_window_or_none.fullscreen().is_none() {
-                    winit_window_or_none
-                        .set_fullscreen(Some(winit::window::Fullscreen::Borderless(None)));
+                if winit_window_or_none.fullscreen().is_none() || fullscreen_arg.is_some() {
+                    let fullscreen =
+                        fullscreen_arg.or(Some(winit::window::Fullscreen::Borderless(None)));
+                    winit_window_or_none.set_fullscreen(fullscreen);
                 }
             } else {
                 winit_window_or_none.set_fullscreen(None);
