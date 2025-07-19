@@ -202,7 +202,7 @@ if (SLINT_BUILD_RUNTIME)
     set_property(TARGET Slint APPEND PROPERTY EXPORT_PROPERTIES "SLINT_DISABLED_FEATURES")
 
     if (SLINT_FEATURE_FREESTANDING)
-        if (ESP_PLATFORM)
+        if (ESP_PLATFORM AND NOT IDF_TARGET STREQUAL "esp32p4")
             list(APPEND features "esp-backtrace/${IDF_TARGET}")
             list(APPEND features "esp-println/${IDF_TARGET}")
         endif()
