@@ -240,11 +240,12 @@ export component PreviewView {
             unselect-area := TouchArea {
                 clicked => {
                     Api.unselect();
+                    StatusLineApi.help-text = "";
                 }
                 mouse-cursor: root.mode == DrawAreaMode.selecting ? MouseCursor.crosshair : MouseCursor.default;
 
                 changed has-hover => {
-                    if self.has-hover {
+                    if self.has-hover && root.selections.length > 0 {
                         StatusLineApi.help-text = "<click> unselect";
                     } else {
                          StatusLineApi.help-text = "";
