@@ -830,7 +830,7 @@ pub trait WinitWindowAccessor: private::WinitWindowAccessorSealed {
             + 'static,
     );
 
-    /// Similar to the normal `set_fullscreen()`, but you can pass a winit `Option<Fullscreen>``
+    /// Similar to the normal `set_fullscreen()`, but you can pass a winit `Option<Fullscreen>`
     fn set_winit_fullscreen(&self, fullscreen: Option<Fullscreen>) -> Result<(), ()>;
 }
 
