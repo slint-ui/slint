@@ -1768,7 +1768,11 @@ impl TextInput {
             text_color,
             cursor_color,
         };
-        repr.apply_password_character_substitution(self, password_character_fn, self.show_password());
+        repr.apply_password_character_substitution(
+            self,
+            password_character_fn,
+            self.show_password(),
+        );
         repr
     }
 
