@@ -18,6 +18,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 use std::rc::Weak;
 use winit::event_loop::ActiveEventLoop;
+use winit::window::Fullscreen;
 
 #[cfg(not(target_arch = "wasm32"))]
 mod clipboard;
@@ -828,6 +829,9 @@ pub trait WinitWindowAccessor: private::WinitWindowAccessorSealed {
         callback: impl FnMut(&i_slint_core::api::Window, &winit::event::WindowEvent) -> WinitWindowEventResult
             + 'static,
     );
+
+    /// Similar to the normal `set_fullscreen()`, but you can pass a winit `Option<Fullscreen>``
+    fn set_winit_fullscreen(&self, fullscreen: Option<Fullscreen>) -> Result<(), ()>;
 }
 
 impl WinitWindowAccessor for i_slint_core::api::Window {
@@ -864,6 +868,21 @@ impl WinitWindowAccessor for i_slint_core::api::Window {
                 .window_event_filter
                 .set(Some(Box::new(move |window, event| callback(window, event))));
         }
+    }
+
+    fn set_winit_fullscreen(&self, fullscreen: Option<Fullscreen>) -> Result<(), ()> {
+        let adapter = i_slint_core::window::WindowInner::from_pub(self).window_adapter();
+        let adapter = adapter
+            .internal(i_slint_core::InternalToken)
+            .and_then(|wa| wa.as_any().downcast_ref::<WinitWindowAdapter>())
+            .ok_or(())?;
+
+        // Plumb the fullscreen argument through
+        let fullscreen_bool = fullscreen.is_some();
+        *adapter.fullscreen_arg.borrow_mut() = fullscreen;
+        self.set_fullscreen(fullscreen_bool);
+        *adapter.fullscreen_arg.borrow_mut() = None;
+        Ok(())
     }
 }
 
