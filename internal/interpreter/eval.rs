@@ -408,6 +408,7 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
         }
         Expression::EmptyComponentFactory => Value::ComponentFactory(Default::default()),
         Expression::DebugHook { expression, .. } => eval_expression(expression, local_context),
+        Expression::Predicate { arg_name, expression } => todo!(),
     }
 }
 
@@ -1368,6 +1369,8 @@ fn call_builtin_function(
                 panic!("internal error: argument to RestartTimer must be an element")
             }
         }
+        BuiltinFunction::ArrayAny => todo!(),
+        BuiltinFunction::ArrayAll => todo!(),
     }
 }
 
@@ -1658,7 +1661,8 @@ fn check_value_type(value: &Value, ty: &Type) -> bool {
         | Type::InferredCallback
         | Type::Callback { .. }
         | Type::Function { .. }
-        | Type::ElementReference => panic!("not valid property type"),
+        | Type::ElementReference
+        | Type::Predicate => panic!("not valid property type"),
         Type::Float32 => matches!(value, Value::Number(_)),
         Type::Int32 => matches!(value, Value::Number(_)),
         Type::String => matches!(value, Value::String(_)),
@@ -1986,7 +1990,8 @@ pub fn default_value_for_type(ty: &Type) -> Value {
         Type::InferredProperty
         | Type::InferredCallback
         | Type::ElementReference
-        | Type::Function { .. } => {
+        | Type::Function { .. }
+        | Type::Predicate => {
             panic!("There can't be such property")
         }
     }

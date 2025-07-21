@@ -1260,7 +1260,8 @@ pub(crate) fn generate_item_tree<'id>(
             | Type::Model
             | Type::PathData
             | Type::UnitProduct(_)
-            | Type::ElementReference => panic!("bad type {ty:?}"),
+            | Type::ElementReference
+            | Type::Predicate => panic!("bad type {ty:?}"),
         })
     }
 
