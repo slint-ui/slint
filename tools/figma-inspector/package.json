@@ -22,7 +22,7 @@
   },
   "devDependencies": {
     "@figma/plugin-typings": "1.116.0",
-    "@types/jszip": "3.4.0",
+    "@types/jszip": "3.4.1",
     "@types/node": "20.16.10",
     "@types/react": "19.1.8",
     "@types/react-dom": "19.1.6",
