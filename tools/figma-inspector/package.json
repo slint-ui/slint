@@ -26,7 +26,7 @@
     "@types/node": "20.16.10",
     "@types/react": "19.1.8",
     "@types/react-dom": "19.1.6",
-    "@vitejs/plugin-react": "4.6.0",
+    "@vitejs/plugin-react": "4.7.0",
     "cross-env": "7.0.3",
     "jszip": "3.10.1",
     "shiki": "3.8.1",
