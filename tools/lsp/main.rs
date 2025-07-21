@@ -222,7 +222,7 @@ fn main() {
         // The content of the generated file will be the following:
         //  - The first line will be the version of slint-lsp
         //  - The second line will be the location of the panic, in the format `file:line:column`
-        //  - The third line will be bracktrace (in one line)
+        //  - The third line will be backtrace (in one line)
         //  - everything that follows is the actual panic message. It can span over multiple lines.
 
         let default_hook = std::panic::take_hook();
@@ -375,7 +375,7 @@ fn main_loop(connection: Connection, init_param: InitializeParams, cli_args: Cli
     //  - The compiler future should always be ready immediately because we do not set a callback to load files
     //  - the future from `send_request` are blocked waiting for a response from the client.
     //    Responses are sent on the `connection.receiver` which will wake the loop, so there
-    //    is no need to do anything in the Waker.
+    //    is no need to do anything in the waker.
     struct DummyWaker;
     impl std::task::Wake for DummyWaker {
         fn wake(self: Arc<Self>) {}

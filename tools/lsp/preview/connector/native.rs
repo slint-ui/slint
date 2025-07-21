@@ -8,6 +8,7 @@ use crate::{common, preview};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::io::{BufRead as _, Write as _};
+use std::sync::{Arc, Mutex};
 
 pub fn resource_url_mapper() -> Option<i_slint_compiler::ResourceUrlMapper> {
     None
@@ -16,6 +17,7 @@ pub fn resource_url_mapper() -> Option<i_slint_compiler::ResourceUrlMapper> {
 struct ChildProcessLspToPreviewInner {
     communication_handle: std::thread::JoinHandle<std::result::Result<(), String>>,
     to_child: std::process::ChildStdin,
+    child: Arc<Mutex<std::process::Child>>,
 }
 
 pub struct ChildProcessLspToPreview {
@@ -52,6 +54,9 @@ impl ChildProcessLspToPreview {
 
         let channel = self.preview_to_lsp_channel.clone();
 
+        let child = Arc::new(Mutex::new(child));
+        let child_clone = child.clone();
+
         let communication_handle = std::thread::spawn(move || -> Result<(), String> {
             let reader = std::io::BufReader::new(from_child);
             for line in reader.lines() {
@@ -60,12 +65,13 @@ impl ChildProcessLspToPreview {
                     channel.send(message).map_err(|e| e.to_string())?;
                 }
             }
-            let _ = child.wait();
+            let mut child = child_clone.lock().expect("This can be waited for...");
+            child.wait().map_err(|e| e.to_string())?;
             Ok(())
         });
 
         *self.inner.borrow_mut() =
-            Some(ChildProcessLspToPreviewInner { communication_handle, to_child });
+            Some(ChildProcessLspToPreviewInner { communication_handle, to_child, child });
 
         Ok(())
     }
@@ -74,6 +80,11 @@ impl ChildProcessLspToPreview {
 impl Drop for ChildProcessLspToPreview {
     fn drop(&mut self) {
         if let Some(inner) = self.inner.borrow_mut().take() {
+            {
+                let mut child = inner.child.lock().expect("Can lock the child");
+                let _ = child.kill();
+            }
+
             let _ = inner.communication_handle.join();
         }
     }
