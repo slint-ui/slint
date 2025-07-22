@@ -14,10 +14,6 @@ export component TestCase inherits Rectangle {
                 height: 100%;
                 background: red;
             }
-
-            focus-gained(reason) => {
-                debug("focused red");
-            }
         }
 
         fs2 := FocusScope {
@@ -27,10 +23,6 @@ export component TestCase inherits Rectangle {
                 height: 100%;
                 background: green;
             }
-
-            focus-gained(reason) => {
-                debug("focused green");
-            }
         }
 
         fs3 := FocusScope {
@@ -39,10 +31,6 @@ export component TestCase inherits Rectangle {
                 width: 100%;
                 height: 100%;
                 background: blue;
-            }
-
-            focus-gained(reason) => {
-                debug("focused blue");
             }
         }
     }
