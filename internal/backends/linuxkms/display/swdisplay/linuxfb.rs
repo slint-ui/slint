@@ -43,6 +43,129 @@ impl LinuxFBDisplay {
         )))
     }
 
+    fn detect_pixel_format(vinfo: &fb_var_screeninfo) -> Result<drm::buffer::DrmFourcc, String> {
+        if vinfo.grayscale != 0 {
+            return Err("Grayscale framebuffers are not supported".to_string());
+        }
+
+        if vinfo.nonstd != 0 {
+            return Err("Non-standard pixel formats are not supported".to_string());
+        }
+
+        match vinfo.bits_per_pixel {
+            32 => Self::detect_32bpp_format(vinfo),
+            24 => Self::detect_24bpp_format(vinfo),
+            16 => Self::detect_16bpp_format(vinfo),
+            15 => Err("15-bit framebuffers are not supported".to_string()),
+            8 => Err("8-bit framebuffers are not supported".to_string()),
+            _ => Err(format!("Unsupported bits per pixel: {}", vinfo.bits_per_pixel)),
+        }
+    }
+
+    fn detect_32bpp_format(vinfo: &fb_var_screeninfo) -> Result<drm::buffer::DrmFourcc, String> {
+        match (
+            vinfo.red.offset,
+            vinfo.red.length,
+            vinfo.green.offset,
+            vinfo.green.length,
+            vinfo.blue.offset,
+            vinfo.blue.length,
+            vinfo.transp.length,
+        ) {
+            // ARGB8888: A(24-31) R(16-23) G(8-15) B(0-7)
+            (16, 8, 8, 8, 0, 8, 8) if vinfo.transp.offset == 24 => {
+                Ok(drm::buffer::DrmFourcc::Argb8888)
+            }
+
+            // XRGB8888: X(24-31) R(16-23) G(8-15) B(0-7)
+            (16, 8, 8, 8, 0, 8, _) => Ok(drm::buffer::DrmFourcc::Xrgb8888),
+
+            // ABGR8888: A(24-31) B(16-23) G(8-15) R(0-7)
+            (0, 8, 8, 8, 16, 8, 8) if vinfo.transp.offset == 24 => {
+                Ok(drm::buffer::DrmFourcc::Abgr8888)
+            }
+
+            // XBGR8888: X(24-31) B(16-23) G(8-15) R(0-7)
+            (0, 8, 8, 8, 16, 8, _) => Ok(drm::buffer::DrmFourcc::Xbgr8888),
+
+            // RGBA8888: R(24-31) G(16-23) B(8-15) A(0-7)
+            (24, 8, 16, 8, 8, 8, 8) if vinfo.transp.offset == 0 => {
+                Ok(drm::buffer::DrmFourcc::Rgba8888)
+            }
+
+            // BGRA8888: B(24-31) G(16-23) R(8-15) A(0-7)
+            (8, 8, 16, 8, 24, 8, 8) if vinfo.transp.offset == 0 => {
+                Ok(drm::buffer::DrmFourcc::Bgra8888)
+            }
+
+            _ => Err(format!(
+                "Unsupported 32-bit format: R({}/{}), G({}/{}), B({}/{}), A({}/{})",
+                vinfo.red.offset,
+                vinfo.red.length,
+                vinfo.green.offset,
+                vinfo.green.length,
+                vinfo.blue.offset,
+                vinfo.blue.length,
+                vinfo.transp.offset,
+                vinfo.transp.length
+            )),
+        }
+    }
+
+    fn detect_24bpp_format(vinfo: &fb_var_screeninfo) -> Result<drm::buffer::DrmFourcc, String> {
+        match (
+            vinfo.red.offset,
+            vinfo.red.length,
+            vinfo.green.offset,
+            vinfo.green.length,
+            vinfo.blue.offset,
+            vinfo.blue.length,
+        ) {
+            // RGB888: R(16-23) G(8-15) B(0-7)
+            (16, 8, 8, 8, 0, 8) => Ok(drm::buffer::DrmFourcc::Rgb888),
+
+            // BGR888: B(16-23) G(8-15) R(0-7)
+            (0, 8, 8, 8, 16, 8) => Ok(drm::buffer::DrmFourcc::Bgr888),
+
+            _ => Err(format!(
+                "Unsupported 24-bit format: R({}/{}), G({}/{}), B({}/{})",
+                vinfo.red.offset,
+                vinfo.red.length,
+                vinfo.green.offset,
+                vinfo.green.length,
+                vinfo.blue.offset,
+                vinfo.blue.length
+            )),
+        }
+    }
+
+    fn detect_16bpp_format(vinfo: &fb_var_screeninfo) -> Result<drm::buffer::DrmFourcc, String> {
+        match (
+            vinfo.red.offset,
+            vinfo.red.length,
+            vinfo.green.offset,
+            vinfo.green.length,
+            vinfo.blue.offset,
+            vinfo.blue.length,
+        ) {
+            // RGB565: R(11-15) G(5-10) B(0-4)
+            (11, 5, 5, 6, 0, 5) => Ok(drm::buffer::DrmFourcc::Rgb565),
+
+            // BGR565: B(11-15) G(5-10) R(0-4)
+            (0, 5, 5, 6, 11, 5) => Ok(drm::buffer::DrmFourcc::Bgr565),
+
+            _ => Err(format!(
+                "Unsupported 16-bit format: R({}/{}), G({}/{}), B({}/{})",
+                vinfo.red.offset,
+                vinfo.red.length,
+                vinfo.green.offset,
+                vinfo.green.length,
+                vinfo.blue.offset,
+                vinfo.blue.length
+            )),
+        }
+    }
+
     fn new_with_path(
         device_opener: &crate::DeviceOpener,
         path: &std::path::Path,
@@ -63,24 +186,30 @@ impl LinuxFBDisplay {
             finfo
         };
 
-        let format = if vinfo.bits_per_pixel == 32 {
-            drm::buffer::DrmFourcc::Xrgb8888
-        } else if vinfo.bits_per_pixel == 16 {
-            if vinfo.red != RGB565_EXPECTED_RED_CHANNEL
-                || vinfo.green != RGB565_EXPECTED_GREEN_CHANNEL
-                || vinfo.blue != RGB565_EXPECTED_BLUE_CHANNEL
-            {
-                return Err(format!("Error using linux framebuffer: 16-bpp framebuffer does not have expected 565 format. Found red:{}/{} green:{}/{} blue:{}/{}",
-                    vinfo.red.offset, vinfo.red.length,
-                    vinfo.green.offset, vinfo.green.length,
-                    vinfo.blue.offset, vinfo.blue.length).into());
+        let format = Self::detect_pixel_format(&vinfo)
+            .map_err(|e| PlatformError::Other(format!("Error detecting pixel format: {}", e)))?;
+
+        let bpp = match vinfo.bits_per_pixel {
+            32 => 4,
+            24 => 3,
+            16 => 2,
+            _ => {
+                return Err(format!("Unsupported bits per pixel: {}", vinfo.bits_per_pixel).into());
             }
-            drm::buffer::DrmFourcc::Rgb565
-        } else {
-            return Err(format!("Error using linux framebuffer: Only 32- and 16-bpp framebuffers are supported right now, found {}", vinfo.bits_per_pixel).into());
         };
 
-        let bpp = vinfo.bits_per_pixel / 8;
+        println!("Detected framebuffer format: {:?} ({}bpp)", format, vinfo.bits_per_pixel);
+        println!(
+            "Color channels - R: {}/{}, G: {}/{}, B: {}/{}, A: {}/{}",
+            vinfo.red.offset,
+            vinfo.red.length,
+            vinfo.green.offset,
+            vinfo.green.length,
+            vinfo.blue.offset,
+            vinfo.blue.length,
+            vinfo.transp.offset,
+            vinfo.transp.length
+        );
 
         let width = vinfo.xres;
         let height = vinfo.yres;
@@ -202,16 +331,28 @@ impl super::SoftwareBufferDisplay for LinuxFBDisplay {
         self.first_frame.set(false);
 
         match self.format {
-            drm::buffer::DrmFourcc::Xrgb8888 => {
-                // 32-bit format - no conversion needed
+            drm::buffer::DrmFourcc::Xrgb8888
+            | drm::buffer::DrmFourcc::Argb8888
+            | drm::buffer::DrmFourcc::Xbgr8888
+            | drm::buffer::DrmFourcc::Abgr8888
+            | drm::buffer::DrmFourcc::Rgba8888
+            | drm::buffer::DrmFourcc::Bgra8888 => {
+                // 32-bit formats
                 callback(self.back_buffer.borrow_mut().as_mut(), age, self.format)?;
             }
-            drm::buffer::DrmFourcc::Rgb565 => {
-                // 16-bit format - ensure proper handling
+            drm::buffer::DrmFourcc::Rgb888 | drm::buffer::DrmFourcc::Bgr888 => {
+                // 24-bit formats
+                callback(self.back_buffer.borrow_mut().as_mut(), age, self.format)?;
+            }
+            drm::buffer::DrmFourcc::Rgb565 | drm::buffer::DrmFourcc::Bgr565 => {
+                // 16-bit formats
                 callback(self.back_buffer.borrow_mut().as_mut(), age, self.format)?;
             }
             _ => {
-                return Err(PlatformError::Other("Unsupported pixel format".to_string()));
+                return Err(PlatformError::Other(format!(
+                    "Unsupported pixel format: {:?}",
+                    self.format
+                )));
             }
         }
 
@@ -238,15 +379,6 @@ struct vt_stat {
     v_signal: u16,
     v_state: u16,
 }
-
-const RGB565_EXPECTED_RED_CHANNEL: fb_bitfield =
-    fb_bitfield { offset: 11, length: 5, msb_right: 0 };
-
-const RGB565_EXPECTED_GREEN_CHANNEL: fb_bitfield =
-    fb_bitfield { offset: 5, length: 6, msb_right: 0 };
-
-const RGB565_EXPECTED_BLUE_CHANNEL: fb_bitfield =
-    fb_bitfield { offset: 0, length: 5, msb_right: 0 };
 
 const FBIOGET_VSCREENINFO: u32 = 0x4600;
 
