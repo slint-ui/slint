@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use std::cell::{Cell, RefCell};
+use std::fs::OpenOptions;
+use std::io::Write;
 use std::os::fd::AsRawFd;
 use std::sync::Arc;
 
@@ -15,6 +17,8 @@ pub struct LinuxFBDisplay {
     presenter: Arc<crate::display::noop_presenter::NoopPresenter>,
     first_frame: Cell<bool>,
     format: drm::buffer::DrmFourcc,
+    tty_fd: Option<std::fs::File>,
+    original_tty_mode: Option<i32>,
 }
 
 impl LinuxFBDisplay {
@@ -66,7 +70,10 @@ impl LinuxFBDisplay {
                 || vinfo.green != RGB565_EXPECTED_GREEN_CHANNEL
                 || vinfo.blue != RGB565_EXPECTED_BLUE_CHANNEL
             {
-                return Err(format!("Error using linux framebuffer: 16-bpp framebuffer does not have expected 565 format. Found {}/{}/{}", vinfo.red.length, vinfo.green.length, vinfo.blue.length).into());
+                return Err(format!("Error using linux framebuffer: 16-bpp framebuffer does not have expected 565 format. Found red:{}/{} green:{}/{} blue:{}/{}",
+                    vinfo.red.offset, vinfo.red.length,
+                    vinfo.green.offset, vinfo.green.length,
+                    vinfo.blue.offset, vinfo.blue.length).into());
             }
             drm::buffer::DrmFourcc::Rgb565
         } else {
@@ -91,8 +98,14 @@ impl LinuxFBDisplay {
                 .map_err(|err| format!("Error mmapping framebuffer: {err}"))?
         };
 
-        //eprintln!("vinfo {:#?}", vinfo);
-        //eprintln!("finfo {:#?}", finfo);
+        // Try to hide cursor by setting graphics mode on tty
+        let (tty_fd, original_tty_mode) = match Self::setup_graphics_mode() {
+            Ok((tty, mode)) => (tty, Some(mode)),
+            Err(e) => {
+                eprintln!("Warning: Could not set graphics mode: {}", e);
+                (None, None)
+            }
+        };
 
         let back_buffer = RefCell::new(vec![0u8; size_bytes].into_boxed_slice());
 
@@ -104,7 +117,71 @@ impl LinuxFBDisplay {
             presenter: crate::display::noop_presenter::NoopPresenter::new(),
             first_frame: Cell::new(true),
             format,
+            tty_fd,
+            original_tty_mode,
         }))
+    }
+
+    fn setup_graphics_mode() -> Result<(Option<std::fs::File>, i32), String> {
+        // Open control FD for VT query
+        let control = OpenOptions::new()
+            .read(true)
+            .open("/dev/console")
+            .map_err(|e| format!("Could not open /dev/console: {e}"))?;
+        let ctl_fd = control.as_raw_fd();
+
+        // Query active VT
+        let mut state: vt_stat = unsafe { std::mem::zeroed() };
+        if unsafe { nix::libc::ioctl(ctl_fd, VT_GETSTATE, &mut state) } < 0 {
+            return Err("VT_GETSTATE ioctl failed".into());
+        }
+        let tty_path = format!("/dev/tty{}", state.v_active);
+
+        // Open VT device
+        let mut tty = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open(&tty_path)
+            .map_err(|e| format!("Could not open {}: {e}", tty_path))?;
+
+        // Save old mode
+        let mut old_mode: i32 = 0;
+        if unsafe { nix::libc::ioctl(tty.as_raw_fd(), KDGETMODE, &mut old_mode) } < 0 {
+            return Err("KDGETMODE ioctl failed".into());
+        }
+
+        // Switch to graphics mode
+        if unsafe { nix::libc::ioctl(tty.as_raw_fd(), KDSETMODE, KD_GRAPHICS) } < 0 {
+            return Err("KDSETMODE KD_GRAPHICS ioctl failed".into());
+        }
+
+        // Hide cursor fallback
+        let _ = tty.write_all(b"\x1b[?25l");
+        let _ = tty.flush();
+
+        Ok((Some(tty), old_mode))
+    }
+
+    fn restore_original_mode(&self) {
+        if let Some(ref tty) = self.tty_fd {
+            use std::os::fd::AsRawFd;
+
+            if let Some(mode) = self.original_tty_mode {
+                unsafe {
+                    let _ = nix::libc::ioctl(tty.as_raw_fd(), KDSETMODE, mode);
+                }
+            }
+
+            let mut tty_write = tty;
+            let _ = tty_write.write_all(b"\x1b[?25h"); // Show cursor
+            let _ = tty_write.flush();
+        }
+    }
+}
+
+impl Drop for LinuxFBDisplay {
+    fn drop(&mut self) {
+        self.restore_original_mode();
     }
 }
 
@@ -123,7 +200,20 @@ impl super::SoftwareBufferDisplay for LinuxFBDisplay {
     ) -> Result<(), PlatformError> {
         let age = if self.first_frame.get() { 0 } else { 1 };
         self.first_frame.set(false);
-        callback(self.back_buffer.borrow_mut().as_mut(), age, self.format)?;
+
+        match self.format {
+            drm::buffer::DrmFourcc::Xrgb8888 => {
+                // 32-bit format - no conversion needed
+                callback(self.back_buffer.borrow_mut().as_mut(), age, self.format)?;
+            }
+            drm::buffer::DrmFourcc::Rgb565 => {
+                // 16-bit format - ensure proper handling
+                callback(self.back_buffer.borrow_mut().as_mut(), age, self.format)?;
+            }
+            _ => {
+                return Err(PlatformError::Other("Unsupported pixel format".to_string()));
+            }
+        }
 
         let mut fb = self.fb.borrow_mut();
         fb.as_mut().copy_from_slice(&self.back_buffer.borrow());
@@ -133,6 +223,20 @@ impl super::SoftwareBufferDisplay for LinuxFBDisplay {
     fn as_presenter(self: Arc<Self>) -> Arc<dyn crate::display::Presenter> {
         self.presenter.clone()
     }
+}
+
+const KD_GRAPHICS: i32 = 0x01;
+const VT_GETSTATE: u64 = 0x5603;
+const KDGETMODE: u64 = 0x4B3B;
+const KDSETMODE: u64 = 0x4B3A;
+
+#[repr(C)]
+#[derive(Debug)]
+#[allow(non_camel_case_types)]
+struct vt_stat {
+    v_active: u16,
+    v_signal: u16,
+    v_state: u16,
 }
 
 const RGB565_EXPECTED_RED_CHANNEL: fb_bitfield =
