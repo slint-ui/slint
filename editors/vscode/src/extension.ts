@@ -85,6 +85,77 @@ function lspPlatform(): Platform | null {
     return null;
 }
 
+function find_lsp_binary(
+    context: vscode.ExtensionContext,
+    lsp_platform: Platform,
+) {
+    const config = vscode.workspace.getConfiguration("slint");
+    const lsp_binary_path = config.lspBinaryPath;
+
+    if (lsp_binary_path === "") {
+        // No slint-lsp override configured: Try a local ../target build first, then try the plain bundled binary and
+        // finally the architecture specific one. A debug session will find the first one, a local package build the
+        // second and the distributed vsix the last.
+        const lspSearchPaths = [
+            path.join(
+                context.extensionPath,
+                "..",
+                "..",
+                "target",
+                "debug",
+                "slint-lsp" + program_extension,
+            ),
+            path.join(
+                context.extensionPath,
+                "..",
+                "..",
+                "target",
+                "release",
+                "slint-lsp" + program_extension,
+            ),
+            path.join(
+                context.extensionPath,
+                "bin",
+                "slint-lsp" + program_extension,
+            ),
+            path.join(context.extensionPath, "bin", lsp_platform.program_name),
+        ];
+
+        const serverModule = lspSearchPaths.find((path) => existsSync(path));
+
+        if (serverModule === undefined) {
+            console.warn(
+                "Could not locate slint-lsp server binary, neither in bundled bin/ directory nor relative in ../target",
+            );
+        }
+        return serverModule;
+    }
+
+    if (path.isAbsolute(lsp_binary_path)) {
+        // The slint-lsp override is a absolute path: Look in that path only
+        if (existsSync(lsp_binary_path)) {
+            return lsp_binary_path;
+        }
+        console.warn(
+            "Could not locate the configured slint-lsp server binary at absolute path",
+        );
+        return undefined;
+    }
+
+    // The slint-lsp override is a relative path: Look relative to PATH
+    const path_env = process.env.PATH?.split(path.delimiter).map((p) =>
+        path.join(p, lsp_binary_path),
+    );
+
+    const serverModule = path_env?.find((path) => existsSync(path));
+    if (serverModule === undefined) {
+        console.warn(
+            "Could not locate the configured slint-lsp server binary in PATH",
+        );
+    }
+    return serverModule;
+}
+
 // Please add changes to the BaseLanguageClient via
 // `client.add_updater((cl: BaseLanguageClient | null): void)`
 //
@@ -102,49 +173,24 @@ function startClient(
         return;
     }
 
-    // Try a local ../target build first, then try the plain bundled binary and finally the architecture specific one.
-    // A debug session will find the first one, a local package build the second and the distributed vsix the last.
-    const lspSearchPaths = [
-        path.join(
-            context.extensionPath,
-            "..",
-            "..",
-            "target",
-            "debug",
-            "slint-lsp" + program_extension,
-        ),
-        path.join(
-            context.extensionPath,
-            "..",
-            "..",
-            "target",
-            "release",
-            "slint-lsp" + program_extension,
-        ),
-        path.join(
-            context.extensionPath,
-            "bin",
-            "slint-lsp" + program_extension,
-        ),
-        path.join(context.extensionPath, "bin", lsp_platform.program_name),
-    ];
-
-    const serverModule = lspSearchPaths.find((path) => existsSync(path));
+    const serverModule = find_lsp_binary(context, lsp_platform);
 
     if (serverModule === undefined) {
-        console.warn(
-            "Could not locate slint-lsp server binary, neither in bundled bin/ directory nor relative in ../target",
-        );
         return;
     }
 
     const options = Object.assign({}, lsp_platform.options);
     options.env = Object.assign({}, process.env, lsp_platform.options?.env);
 
-    const devBuild = serverModule !== lspSearchPaths[lspSearchPaths.length - 1];
+    const devBuild = serverModule.includes("/target/debug/");
     if (devBuild) {
         options.env["RUST_BACKTRACE"] = "1";
     }
+
+    const custom_lsp = !serverModule.startsWith(
+        path.join(context.extensionPath, "bin"),
+    );
+    const version_extension = custom_lsp ? " [CUSTOM BINARY]" : "";
 
     const slint_lsp_panic_file = vscode.Uri.joinPath(
         context.logUri,
@@ -185,7 +231,7 @@ function startClient(
                     .then((data) => {
                         const contents = Buffer.from(data).toString("utf-8");
                         const lines = contents.split("\n");
-                        const version = lines[0];
+                        const version = lines[0] + version_extension;
                         // Location is trusted because it is a path within the LSP (as build on our CI)
                         const location = new vscode.TelemetryTrustedValue(
                             lines[1],
