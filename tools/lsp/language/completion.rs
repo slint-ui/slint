@@ -25,6 +25,42 @@ use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
+fn get_completion_text_edit_range(
+    t: &SyntaxToken,
+    offset: TextSize,
+    completion_label: &str,
+) -> Option<Range> {
+    let mut replace_start_offset = t.token.text_range().start();
+    let mut current_search_token = t.token.clone();
+    let label_words: Vec<&str> = completion_label.split_whitespace().collect();
+
+    if label_words.len() > 1 {
+        let mut accumulated_text = current_search_token.text().to_string();
+        while let Some(prev_token) = current_search_token.prev_token() {
+            if prev_token.kind() == SyntaxKind::Whitespace {
+                accumulated_text = format!("{}{}", prev_token.text(), accumulated_text);
+                current_search_token = prev_token;
+                continue;
+            }
+
+            let potential_prefix = format!("{}{}", prev_token.text(), accumulated_text);
+
+            if completion_label.starts_with(&potential_prefix.trim()) {
+                replace_start_offset = prev_token.text_range().start();
+                accumulated_text = potential_prefix;
+                current_search_token = prev_token;
+            } else {
+                break;
+            }
+        }
+    }
+
+    let start_pos = text_size_to_lsp_position(t.source_file()?, replace_start_offset);
+    let end_pos = text_size_to_lsp_position(t.source_file()?, offset);
+
+    Some(Range::new(start_pos, end_pos))
+}
+
 pub(crate) fn completion_at(
     document_cache: &mut DocumentCache,
     token: SyntaxToken,
@@ -87,7 +123,20 @@ pub(crate) fn completion_at(
                 .map(|(kw, ins_tex)| {
                     let mut c = CompletionItem::new_simple(kw.to_string(), String::new());
                     c.kind = Some(CompletionItemKind::KEYWORD);
-                    with_insert_text(c, ins_tex, snippet_support)
+                    c = with_insert_text(c, &ins_tex, snippet_support);
+
+                    if let Some(replace_range) =
+                        get_completion_text_edit_range(&token, offset, &c.label)
+                    {
+                        c.text_edit = Some(lsp_types::CompletionTextEdit::Edit(TextEdit::new(
+                            replace_range,
+                            ins_tex.to_string(),
+                        )));
+
+                        c.insert_text = None;
+                    }
+
+                    c
                 }),
             );
 
@@ -105,7 +154,20 @@ pub(crate) fn completion_at(
                     .map(|(kw, ins_tex)| {
                         let mut c = CompletionItem::new_simple(kw.to_string(), String::new());
                         c.kind = Some(CompletionItemKind::KEYWORD);
-                        with_insert_text(c, ins_tex, snippet_support)
+                        c = with_insert_text(c, &ins_tex, snippet_support);
+
+                        if let Some(replace_range) =
+                            get_completion_text_edit_range(&token, offset, &c.label)
+                        {
+                            c.text_edit = Some(lsp_types::CompletionTextEdit::Edit(TextEdit::new(
+                                replace_range,
+                                ins_tex.to_string(),
+                            )));
+
+                            c.insert_text = None;
+                        }
+
+                        c
                     }),
                 );
             }
@@ -414,6 +476,7 @@ fn with_insert_text(
         c.insert_text_format = Some(InsertTextFormat::SNIPPET);
         c.insert_text = Some(ins_text.to_string());
     }
+
     c
 }
 
