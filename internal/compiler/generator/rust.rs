@@ -1172,8 +1172,8 @@ fn generate_sub_component(
                     tree_index: u32, tree_index_of_first_child: u32) {
                 #![allow(unused)]
                 let _self = self_rc.as_pin_ref();
-                _self.self_weak.set(sp::VRcMapped::downgrade(&self_rc));
-                _self.globals.set(globals);
+                let _ = _self.self_weak.set(sp::VRcMapped::downgrade(&self_rc));
+                let _ = _self.globals.set(globals);
                 _self.tree_index.set(tree_index);
                 _self.tree_index_of_first_child.set(tree_index_of_first_child);
                 #(#init)*
@@ -1493,7 +1493,7 @@ fn generate_global(
             }
             fn init(self: ::core::pin::Pin<sp::Rc<Self>>, globals: &sp::Rc<SharedGlobals>) {
                 #![allow(unused)]
-                self.globals.set(sp::Rc::downgrade(globals));
+                let _ = self.globals.set(sp::Rc::downgrade(globals));
                 let self_rc = self;
                 let _self = self_rc.as_ref();
                 #(#init)*
