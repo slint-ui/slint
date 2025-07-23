@@ -23,7 +23,7 @@ use crate::object_tree::Document;
 use crate::CompilerConfiguration;
 use itertools::Either;
 use lyon_path::geom::euclid::approxeq::ApproxEq;
-use proc_macro2::{Ident, TokenStream};
+use proc_macro2::{Ident, TokenStream, TokenTree};
 use quote::{format_ident, quote};
 use smol_str::SmolStr;
 use std::collections::{BTreeMap, BTreeSet};
@@ -1091,8 +1091,8 @@ fn generate_sub_component(
         }
     }));
 
-    let layout_info_h = compile_expression(&component.layout_info_h.borrow(), &ctx);
-    let layout_info_v = compile_expression(&component.layout_info_v.borrow(), &ctx);
+    let layout_info_h = compile_expression_no_parenthesis(&component.layout_info_h.borrow(), &ctx);
+    let layout_info_v = compile_expression_no_parenthesis(&component.layout_info_v.borrow(), &ctx);
 
     // FIXME! this is only public because of the ComponentHandle::WeakInner. we should find another way
     let visibility = parent_ctx.is_none().then(|| quote!(pub));
@@ -2148,7 +2148,7 @@ fn follow_sub_component_path<'a>(
 
 fn access_window_adapter_field(ctx: &EvaluationContext) -> TokenStream {
     let global_access = &ctx.generator_state.global_access;
-    quote!((&#global_access.window_adapter_impl()))
+    quote!(&#global_access.window_adapter_impl())
 }
 
 /// Given a property reference to a native item (eg, the property name is empty)
@@ -2206,7 +2206,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             let f = compile_expression(from, ctx);
             match (from.ty(ctx), to) {
                 (Type::Float32, Type::Int32) => {
-                    quote!((#f as i32))
+                    quote!(((#f) as i32))
                 }
                 (from, Type::String) if from.as_unit_product().is_some() => {
                     quote!(sp::shared_string_from_number((#f) as f64))
@@ -2215,7 +2215,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                     quote!(sp::ModelRc::new(#f.max(::core::default::Default::default()) as usize))
                 }
                 (Type::Float32, Type::Color) => {
-                    quote!(sp::Color::from_argb_encoded(#f as u32))
+                    quote!(sp::Color::from_argb_encoded((#f) as u32))
                 }
                 (Type::Color, Type::Brush) => {
                     quote!(slint::Brush::SolidColor(#f))
@@ -2351,7 +2351,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             }})
         }
         Expression::CodeBlock(sub) => {
-            let map = sub.iter().map(|e| compile_expression(e, ctx));
+            let map = sub.iter().map(|e| compile_expression_no_parenthesis(e, ctx));
             quote!({ #(#map);* })
         }
         Expression::PropertyAssignment { property, value } => {
@@ -2394,8 +2394,8 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
         }
         Expression::BinaryExpression { lhs, rhs, op } => {
             let lhs_ty = lhs.ty(ctx);
-            let lhs = compile_expression(lhs, ctx);
-            let rhs = compile_expression(rhs, ctx);
+            let lhs = compile_expression_no_parenthesis(lhs, ctx);
+            let rhs = compile_expression_no_parenthesis(rhs, ctx);
 
             if lhs_ty.as_unit_product().is_some() && (*op == '=' || *op == '!') {
                 let maybe_negate = if *op == '!' { quote!(!) } else { quote!() };
@@ -2438,7 +2438,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                     ))
                     .into(),
                 };
-                quote!( ((#lhs #conv1 ) #op (#rhs #conv2)) )
+                quote!( (((#lhs) #conv1 ) #op ((#rhs) #conv2)) )
             }
         }
         Expression::UnaryOp { sub, op } => {
@@ -2479,9 +2479,9 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             }
         }
         Expression::Condition { condition, true_expr, false_expr } => {
-            let condition_code = compile_expression(condition, ctx);
+            let condition_code = compile_expression_no_parenthesis(condition, ctx);
             let true_code = compile_expression(true_expr, ctx);
-            let false_code = compile_expression(false_expr, ctx);
+            let false_code = compile_expression_no_parenthesis(false_expr, ctx);
             let semi = if false_expr.ty(ctx) == Type::Void { quote!(;) } else { quote!(as _) };
             quote!(
                 if #condition_code {
@@ -2531,7 +2531,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
         }
 
         Expression::StoreLocalVariable { name, value } => {
-            let value = compile_expression(value, ctx);
+            let value = compile_expression_no_parenthesis(value, ctx);
             let name = ident(name);
             quote!(let #name = #value;)
         }
@@ -2636,13 +2636,18 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             }
         }
         Expression::MinMax { ty, op, lhs, rhs } => {
+            let lhs = compile_expression(lhs, ctx);
             let t = rust_primitive_type(ty);
-            let wrap = |expr| match &t {
-                Some(t) => quote!((#expr as #t)),
-                None => expr,
+            let (lhs, rhs) = match t {
+                Some(t) => {
+                    let rhs = compile_expression(rhs, ctx);
+                    (quote!((#lhs as #t)), quote!(#rhs as #t))
+                },
+                None => {
+                    let rhs = compile_expression_no_parenthesis(rhs, ctx);
+                    (lhs, rhs)
+                }
             };
-            let lhs = wrap(compile_expression(lhs, ctx));
-            let rhs = wrap(compile_expression(rhs, ctx));
             match op {
                 MinMaxOp::Min => {
                     quote!(#lhs.min(#rhs))
@@ -3490,6 +3495,29 @@ pub fn generate_named_exports(exports: &crate::object_tree::Exports) -> Vec<Toke
             quote!(#type_id as #export_id)
         })
         .collect::<Vec<_>>()
+}
+
+fn compile_expression_no_parenthesis(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
+    fn extract_single_group(stream: &TokenStream) -> Option<TokenStream> {
+        let mut iter = stream.clone().into_iter();
+        let Some(elem) = iter.next() else { return None };
+        let TokenTree::Group(elem) = elem else { return None };
+        if elem.delimiter() != proc_macro2::Delimiter::Parenthesis {
+            return None;
+        }
+        if iter.next().is_some() {
+            return None;
+        }
+        Some(elem.stream())
+    }
+
+    let mut stream = compile_expression(expr, ctx);
+    if !matches!(expr, Expression::Struct { .. }) {
+        while let Some(s) = extract_single_group(&stream) {
+            stream = s;
+        }
+    }
+    stream
 }
 
 #[cfg(feature = "bundle-translations")]
