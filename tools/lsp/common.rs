@@ -548,9 +548,6 @@ pub struct PreviewComponent {
     /// The name of the component within that file.
     /// If None, then the last component is going to be shown.
     pub component: Option<String>,
-
-    /// The style name for the preview
-    pub style: String,
 }
 
 #[allow(unused)]
