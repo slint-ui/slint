@@ -2351,8 +2351,14 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             }})
         }
         Expression::CodeBlock(sub) => {
-            let map = sub.iter().map(|e| compile_expression_no_parenthesis(e, ctx));
-            quote!({ #(#map);* })
+            let mut body = TokenStream::new();
+            for (i, e) in sub.iter().enumerate() {
+                body.extend(compile_expression_no_parenthesis(e, ctx));
+                if i + 1 < sub.len() && !matches!(e, Expression::StoreLocalVariable{..}) {
+                    body.extend(quote!(;));
+                }
+            }
+            quote!({ #body })
         }
         Expression::PropertyAssignment { property, value } => {
             let value = compile_expression(value, ctx);
