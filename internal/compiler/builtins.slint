@@ -134,6 +134,7 @@ export component TouchArea {
 
 export component FocusScope {
     in property <bool> enabled: true;
+    in property <FocusPolicy> focus-policy;
     out property <bool> has-focus;
     callback key_pressed(event: KeyEvent) -> EventResult;
     callback key_released(event: KeyEvent) -> EventResult;

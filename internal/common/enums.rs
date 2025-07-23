@@ -146,6 +146,17 @@ macro_rules! for_each_enums {
                 WindowActivation,
             }
 
+            /// This enum describes the different focus policies for a FocusScope
+            #[non_exhaustive]
+            enum FocusPolicy {
+                /// The FocusScope accepts focus from both tab navigation and pointer clicks
+                TabAndClick,
+                /// The FocusScope only accepts focus from tab navigation
+                TabOnly,
+                /// The FocusScope only accepts focus from pointer clicks
+                ClickOnly,
+            }
+
             /// The enum reports what happened to the `PointerEventButton` in the event
             enum PointerEventKind {
                 /// The action was cancelled.

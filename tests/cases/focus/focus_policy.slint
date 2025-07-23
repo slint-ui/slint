@@ -1,0 +1,242 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Button, VerticalBox } from "std-widgets.slint";
+export component TestCase inherits Rectangle {
+    width: 400phx;
+    height: 400phx;
+
+    VerticalLayout {
+        fs1 := FocusScope {
+            focus-policy: FocusPolicy.tab-and-click;
+            Rectangle {
+                width: 100%;
+                height: 100%;
+                background: red;
+            }
+        }
+
+        fs2 := FocusScope {
+            focus-policy: FocusPolicy.tab-only;
+            Rectangle {
+                width: 100%;
+                height: 100%;
+                background: green;
+            }
+        }
+
+        fs3 := FocusScope {
+            focus-policy: FocusPolicy.click-only;
+            Rectangle {
+                width: 100%;
+                height: 100%;
+                background: blue;
+            }
+        }
+    }
+
+    popup := PopupWindow { }
+
+    public function show-popup() {
+        popup.show();
+    }
+
+    public function focus-fs1() {
+        fs1.focus();
+    }
+
+    public function focus-fs2() {
+        fs2.focus();
+    }
+
+    public function focus-fs3() {
+        fs3.focus();
+    }
+
+    out property <bool> fs1-has-focus: fs1.has-focus;
+    out property <bool> fs2-has-focus: fs2.has-focus;
+    out property <bool> fs3-has-focus: fs3.has-focus;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+
+// initial tab into fs1
+slint_testing::send_keyboard_string_sequence(&instance, "\t");
+assert!(instance.get_fs1_has_focus());
+assert!(!instance.get_fs2_has_focus());
+assert!(!instance.get_fs3_has_focus());
+
+// tab to fs2
+slint_testing::send_keyboard_string_sequence(&instance, "\t");
+assert!(!instance.get_fs1_has_focus());
+assert!(instance.get_fs2_has_focus());
+assert!(!instance.get_fs3_has_focus());
+
+// skip fs3 and tab back to fs1
+slint_testing::send_keyboard_string_sequence(&instance, "\t");
+assert!(instance.get_fs1_has_focus());
+assert!(!instance.get_fs2_has_focus());
+assert!(!instance.get_fs3_has_focus());
+
+// click to focus fs3
+slint_testing::send_mouse_click(&instance, 5., 300.);
+assert!(!instance.get_fs1_has_focus());
+assert!(!instance.get_fs2_has_focus());
+assert!(instance.get_fs3_has_focus());
+
+// click to focus fs1
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert!(instance.get_fs1_has_focus());
+assert!(!instance.get_fs2_has_focus());
+assert!(!instance.get_fs3_has_focus());
+
+// click shouldn't focus fs2
+slint_testing::send_mouse_click(&instance, 5., 200.);
+assert!(instance.get_fs1_has_focus());
+assert!(!instance.get_fs2_has_focus());
+assert!(!instance.get_fs3_has_focus());
+
+// opening a popup should still remove focus
+instance.invoke_show_popup();
+assert!(!instance.get_fs1_has_focus());
+assert!(!instance.get_fs2_has_focus());
+assert!(!instance.get_fs3_has_focus());
+
+// programmatic focus should still work too
+instance.invoke_focus_fs1();
+assert!(instance.get_fs1_has_focus());
+assert!(!instance.get_fs2_has_focus());
+assert!(!instance.get_fs3_has_focus());
+instance.invoke_focus_fs2();
+assert!(!instance.get_fs1_has_focus());
+assert!(instance.get_fs2_has_focus());
+assert!(!instance.get_fs3_has_focus());
+instance.invoke_focus_fs3();
+assert!(!instance.get_fs1_has_focus());
+assert!(!instance.get_fs2_has_focus());
+assert!(instance.get_fs3_has_focus());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+// initial tab into fs1
+slint_testing::send_keyboard_string_sequence(&instance, "\t");
+assert(instance.get_fs1_has_focus());
+assert(!instance.get_fs2_has_focus());
+assert(!instance.get_fs3_has_focus());
+
+// tab to fs2
+slint_testing::send_keyboard_string_sequence(&instance, "\t");
+assert(!instance.get_fs1_has_focus());
+assert(instance.get_fs2_has_focus());
+assert(!instance.get_fs3_has_focus());
+
+// skip fs3 and tab back to fs1
+slint_testing::send_keyboard_string_sequence(&instance, "\t");
+assert(instance.get_fs1_has_focus());
+assert(!instance.get_fs2_has_focus());
+assert(!instance.get_fs3_has_focus());
+
+// click to focus fs3
+slint_testing::send_mouse_click(&instance, 5., 300.);
+assert(!instance.get_fs1_has_focus());
+assert(!instance.get_fs2_has_focus());
+assert(instance.get_fs3_has_focus());
+
+// click to focus fs1
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert(instance.get_fs1_has_focus());
+assert(!instance.get_fs2_has_focus());
+assert(!instance.get_fs3_has_focus());
+
+// click shouldn't focus fs2
+slint_testing::send_mouse_click(&instance, 5., 200.);
+assert(instance.get_fs1_has_focus());
+assert(!instance.get_fs2_has_focus());
+assert(!instance.get_fs3_has_focus());
+
+// opening a popup should still remove focus
+instance.invoke_show_popup();
+assert(!instance.get_fs1_has_focus());
+assert(!instance.get_fs2_has_focus());
+assert(!instance.get_fs3_has_focus());
+
+// programmatic focus should still work too
+instance.invoke_focus_fs1();
+assert(instance.get_fs1_has_focus());
+assert(!instance.get_fs2_has_focus());
+assert(!instance.get_fs3_has_focus());
+instance.invoke_focus_fs2();
+assert(!instance.get_fs1_has_focus());
+assert(instance.get_fs2_has_focus());
+assert(!instance.get_fs3_has_focus());
+instance.invoke_focus_fs3();
+assert(!instance.get_fs1_has_focus());
+assert(!instance.get_fs2_has_focus());
+assert(instance.get_fs3_has_focus());
+```
+
+```js
+let instance = new slint.TestCase({});
+
+// initial tab into fs1
+slintlib.private_api.send_keyboard_string_sequence(instance, "\t");
+assert(instance.fs1_has_focus);
+assert(!instance.fs2_has_focus);
+assert(!instance.fs3_has_focus);
+
+// tab to fs2
+slintlib.private_api.send_keyboard_string_sequence(instance, "\t");
+assert(!instance.fs1_has_focus);
+assert(instance.fs2_has_focus);
+assert(!instance.fs3_has_focus);
+
+// skip fs3 and tab back to fs1
+slintlib.private_api.send_keyboard_string_sequence(instance, "\t");
+assert(instance.fs1_has_focus);
+assert(!instance.fs2_has_focus);
+assert(!instance.fs3_has_focus);
+
+// click to focus fs3
+slintlib.private_api.send_mouse_click(instance, 5., 300.);
+assert(!instance.fs1_has_focus);
+assert(!instance.fs2_has_focus);
+assert(instance.fs3_has_focus);
+
+// click to focus fs1
+slintlib.private_api.send_mouse_click(instance, 5., 5.);
+assert(instance.fs1_has_focus);
+assert(!instance.fs2_has_focus);
+assert(!instance.fs3_has_focus);
+
+// click shouldn't focus fs2
+slintlib.private_api.send_mouse_click(instance, 5., 200.);
+assert(instance.fs1_has_focus);
+assert(!instance.fs2_has_focus);
+assert(!instance.fs3_has_focus);
+
+// opening a popup should still remove focus
+instance.show_popup();
+assert(!instance.fs1_has_focus);
+assert(!instance.fs2_has_focus);
+assert(!instance.fs3_has_focus);
+
+// programmatic focus should still work too
+instance.focus_fs1();
+assert(instance.fs1_has_focus);
+assert(!instance.fs2_has_focus);
+assert(!instance.fs3_has_focus);
+instance.focus_fs2();
+assert(!instance.fs1_has_focus);
+assert(instance.fs2_has_focus);
+assert(!instance.fs3_has_focus);
+instance.focus_fs3();
+assert(!instance.fs1_has_focus);
+assert(!instance.fs2_has_focus);
+assert(instance.fs3_has_focus);
+```
+*/
