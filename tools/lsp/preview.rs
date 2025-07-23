@@ -152,12 +152,6 @@ impl PreviewState {
         self.current_previewed_component = Some(component);
     }
 
-    pub fn clear_style_of_component(&mut self) {
-        if let Some(pc) = &mut self.current_previewed_component {
-            pc.style = String::new();
-        }
-    }
-
     pub fn rename_current_component(&mut self, url: &Url, old_name: &str, new_name: &str) {
         if let Some(pc) = &mut self.current_previewed_component {
             if pc.url == *url && pc.component.as_deref() == Some(old_name) {
@@ -341,7 +335,6 @@ fn add_new_component() {
             preview_state.set_current_component(PreviewComponent {
                 url: preview_component.url.clone(),
                 component: Some(component_name.clone()),
-                style: preview_component.style.clone(),
             })
         });
 
@@ -667,7 +660,7 @@ fn show_preview_for(name: slint::SharedString, url: slint::SharedString) {
         return;
     };
 
-    let current = PreviewComponent { url, component: Some(name), style: String::new() };
+    let current = PreviewComponent { url, component: Some(name) };
 
     load_preview(current, LoadBehavior::Load);
 }
@@ -1087,19 +1080,22 @@ fn finish_parsing(preview_url: &Url, previewed_component: Option<String>, succes
 }
 
 fn config_changed(config: PreviewConfig) {
-    let Some((current, hide_ui)) = PREVIEW_STATE.with_borrow_mut(move |preview_state| {
+    let Some((current, config)) = PREVIEW_STATE.with_borrow_mut(move |preview_state| {
         (preview_state.config != config).then(|| {
             preview_state.config = config.clone();
 
-            (preview_state.current_component(), preview_state.config.hide_ui)
+            (preview_state.current_component(), preview_state.config.clone())
         })
     }) else {
         return;
     };
 
-    if let Some(hide_ui) = hide_ui {
+    if let Some(hide_ui) = config.hide_ui {
         set_show_preview_ui(!hide_ui);
     }
+
+    set_current_style(config.style);
+
     if let Some(current) = current {
         load_preview(current, LoadBehavior::Reload);
     }
@@ -1167,8 +1163,6 @@ async fn reload_timer_function() {
                 let behavior = preview_state.current_load_behavior.take()?;
                 let preview_component = preview_state.current_component()?;
 
-                preview_state.clear_style_of_component();
-
                 assert_eq!(preview_state.loading_state, PreviewFutureState::PreLoading);
 
                 preview_state.loading_state = PreviewFutureState::Loading;
@@ -1179,12 +1173,7 @@ async fn reload_timer_function() {
         else {
             return;
         };
-        let style = if preview_component.style.is_empty() {
-            get_current_style()
-        } else {
-            set_current_style(preview_component.style.clone());
-            preview_component.style.clone()
-        };
+        let style = get_current_style();
 
         match reload_preview_impl(preview_component, behavior, style, config).await {
             Ok(()) => {}

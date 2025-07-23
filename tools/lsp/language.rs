@@ -564,9 +564,6 @@ pub fn show_preview_command(
     params: &[serde_json::Value],
     ctx: &Rc<Context>,
 ) -> Result<(), LspError> {
-    let document_cache = &mut ctx.document_cache.borrow_mut();
-    let config = document_cache.compiler_configuration();
-
     let url: Url = extract_param(params, 0, "url")?;
 
     // Normalize the URL to make sure it is encoded the same way as what the preview expect from other URLs
@@ -581,11 +578,7 @@ pub fn show_preview_command(
     let component =
         params.get(1).and_then(|v| v.as_str()).filter(|v| !v.is_empty()).map(|v| v.to_string());
 
-    let c = common::PreviewComponent {
-        url,
-        component,
-        style: config.style.clone().unwrap_or_default(),
-    };
+    let c = common::PreviewComponent { url, component };
     ctx.to_show.replace(Some(c.clone()));
     ctx.to_preview.send(&common::LspToPreviewMessage::ShowPreview(c)).unwrap();
 
