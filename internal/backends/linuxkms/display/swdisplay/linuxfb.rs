@@ -70,7 +70,7 @@ impl LinuxFBDisplay {
                 || vinfo.green != RGB565_EXPECTED_GREEN_CHANNEL
                 || vinfo.blue != RGB565_EXPECTED_BLUE_CHANNEL
             {
-                return Err(format!("Error using linux framebuffer: 16-bpp framebuffer does not have expected 565 format. Found red:{}/{} green:{}/{} blue:{}/{}", 
+                return Err(format!("Error using linux framebuffer: 16-bpp framebuffer does not have expected 565 format. Found red:{}/{} green:{}/{} blue:{}/{}",
                     vinfo.red.offset, vinfo.red.length,
                     vinfo.green.offset, vinfo.green.length,
                     vinfo.blue.offset, vinfo.blue.length).into());
