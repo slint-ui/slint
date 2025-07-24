@@ -24,6 +24,7 @@ pub struct LinuxFBDisplay {
 impl LinuxFBDisplay {
     pub fn new(
         device_opener: &crate::DeviceOpener,
+        negotiation: &mut super::FormatNegotiation,
     ) -> Result<Arc<dyn super::SoftwareBufferDisplay>, PlatformError> {
         let mut fb_errors: Vec<String> = Vec::new();
 
@@ -31,6 +32,7 @@ impl LinuxFBDisplay {
             match Self::new_with_path(
                 device_opener,
                 std::path::Path::new(&format!("/dev/fb{fbnum}")),
+                negotiation,
             ) {
                 Ok(dsp) => return Ok(dsp),
                 Err(e) => fb_errors.push(format!("Error using /dev/fb{fbnum}: {}", e)),
@@ -46,6 +48,7 @@ impl LinuxFBDisplay {
     fn new_with_path(
         device_opener: &crate::DeviceOpener,
         path: &std::path::Path,
+        negotiation: &mut super::FormatNegotiation,
     ) -> Result<Arc<dyn super::SoftwareBufferDisplay>, PlatformError> {
         let fd = device_opener(path)?;
 
@@ -63,22 +66,59 @@ impl LinuxFBDisplay {
             finfo
         };
 
-        let format = if vinfo.bits_per_pixel == 32 {
-            drm::buffer::DrmFourcc::Xrgb8888
-        } else if vinfo.bits_per_pixel == 16 {
-            if vinfo.red != RGB565_EXPECTED_RED_CHANNEL
-                || vinfo.green != RGB565_EXPECTED_GREEN_CHANNEL
-                || vinfo.blue != RGB565_EXPECTED_BLUE_CHANNEL
-            {
-                return Err(format!("Error using linux framebuffer: 16-bpp framebuffer does not have expected 565 format. Found red:{}/{} green:{}/{} blue:{}/{}",
-                    vinfo.red.offset, vinfo.red.length,
-                    vinfo.green.offset, vinfo.green.length,
-                    vinfo.blue.offset, vinfo.blue.length).into());
+        // Determine available formats based on framebuffer capabilities
+        let mut available_formats = Vec::new();
+
+        if vinfo.bits_per_pixel == 32 {
+            // Check RGB layout to determine exact format
+            if vinfo.red.offset == 16 && vinfo.green.offset == 8 && vinfo.blue.offset == 0 {
+                available_formats.push(drm::buffer::DrmFourcc::Xrgb8888);
+                if vinfo.transp.length > 0 {
+                    available_formats.push(drm::buffer::DrmFourcc::Argb8888);
+                }
+            } else if vinfo.red.offset == 0 && vinfo.green.offset == 8 && vinfo.blue.offset == 16 {
+                available_formats.push(drm::buffer::DrmFourcc::Bgra8888);
+                available_formats.push(drm::buffer::DrmFourcc::Rgba8888);
             }
-            drm::buffer::DrmFourcc::Rgb565
-        } else {
-            return Err(format!("Error using linux framebuffer: Only 32- and 16-bpp framebuffers are supported right now, found {}", vinfo.bits_per_pixel).into());
-        };
+        } else if vinfo.bits_per_pixel == 16 {
+            if vinfo.red.offset == 11
+                && vinfo.red.length == 5
+                && vinfo.green.offset == 5
+                && vinfo.green.length == 6
+                && vinfo.blue.offset == 0
+                && vinfo.blue.length == 5
+            {
+                available_formats.push(drm::buffer::DrmFourcc::Rgb565);
+            } else if vinfo.red.offset == 0
+                && vinfo.red.length == 5
+                && vinfo.green.offset == 5
+                && vinfo.green.length == 6
+                && vinfo.blue.offset == 11
+                && vinfo.blue.length == 5
+            {
+                available_formats.push(drm::buffer::DrmFourcc::Bgr565);
+            }
+        }
+
+        if available_formats.is_empty() {
+            return Err(format!(
+                "Unsupported framebuffer format: {}-bpp with RGB layout r:{}/{} g:{}/{} b:{}/{}",
+                vinfo.bits_per_pixel,
+                vinfo.red.offset,
+                vinfo.red.length,
+                vinfo.green.offset,
+                vinfo.green.length,
+                vinfo.blue.offset,
+                vinfo.blue.length
+            )
+            .into());
+        }
+
+        negotiation.add_display_formats(&available_formats);
+        let format = negotiation.negotiate()
+                .ok_or_else(|| PlatformError::Other(
+                    format!("No compatible format found for LinuxFB. Renderer supports: {:?}, FB supports: {:?}",
+                            negotiation.renderer_formats, available_formats).into()))?;
 
         let bpp = vinfo.bits_per_pixel / 8;
 
@@ -249,15 +289,6 @@ struct vt_stat {
 nix::ioctl_read_bad!(kdgetmode, KDGETMODE, u32);
 nix::ioctl_write_int_bad!(kdsetmode, KDSETMODE);
 nix::ioctl_read_bad!(vt_getstate, VT_GETSTATE, vt_stat);
-
-const RGB565_EXPECTED_RED_CHANNEL: fb_bitfield =
-    fb_bitfield { offset: 11, length: 5, msb_right: 0 };
-
-const RGB565_EXPECTED_GREEN_CHANNEL: fb_bitfield =
-    fb_bitfield { offset: 5, length: 6, msb_right: 0 };
-
-const RGB565_EXPECTED_BLUE_CHANNEL: fb_bitfield =
-    fb_bitfield { offset: 0, length: 5, msb_right: 0 };
 
 const FBIOGET_VSCREENINFO: u32 = 0x4600;
 

@@ -4,6 +4,8 @@
 use std::cell::RefCell;
 use std::sync::Arc;
 
+use crate::display::swdisplay::FormatNegotiation;
+
 use crate::drmoutput::DrmOutput;
 use drm::control::Device;
 use i_slint_core::platform::PlatformError;
@@ -16,15 +18,24 @@ pub struct DumbBufferDisplay {
     back_buffer: RefCell<DumbBuffer>,
     /// Buffer currently on the way to the display, to become front_buffer
     in_flight_buffer: RefCell<DumbBuffer>,
+    #[allow(dead_code)]
+    format: drm::buffer::DrmFourcc,
 }
 
 impl DumbBufferDisplay {
     pub fn new(
         device_opener: &crate::DeviceOpener,
+        negotiation: &mut FormatNegotiation,
     ) -> Result<Arc<dyn super::SoftwareBufferDisplay>, PlatformError> {
         let drm_output = DrmOutput::new(device_opener)?;
+        // TODO: Need to automatically get the available formats
+        let available_formats = [drm::buffer::DrmFourcc::Xrgb8888, drm::buffer::DrmFourcc::Rgb565];
+        negotiation.add_display_formats(&available_formats);
 
-        //eprintln!("mode {}/{}", width, height);
+        let format = negotiation.negotiate()
+            .ok_or_else(|| PlatformError::Other(
+                    format!("No compatible format found for DumbBuffer. Renderer supports: {:?}, FB supports: {:?}",
+                            negotiation.renderer_formats, available_formats).into()))?;
 
         let front_buffer: RefCell<DumbBuffer> =
             DumbBuffer::allocate(&drm_output.drm_device, drm_output.size())?.into();
@@ -45,7 +56,7 @@ impl DumbBufferDisplay {
         )?
         .into();
 
-        Ok(Arc::new(Self { drm_output, front_buffer, back_buffer, in_flight_buffer }))
+        Ok(Arc::new(Self { drm_output, front_buffer, back_buffer, in_flight_buffer, format }))
     }
 }
 
