@@ -23,29 +23,29 @@ const SKIA_SUPPORTED_DRM_FOURCC_FORMATS: &[drm::buffer::DrmFourcc] = &[
     // drm::buffer::DrmFourcc::Argb8888,
     // drm::buffer::DrmFourcc::Bgra8888,
     // drm::buffer::DrmFourcc::Rgba8888,
-    
+
     // 16-bit formats
     drm::buffer::DrmFourcc::Rgb565,
     // drm::buffer::DrmFourcc::Bgr565,
-    
+
     // // 4444 formats
     // drm::buffer::DrmFourcc::Argb4444,
     // drm::buffer::DrmFourcc::Abgr4444,
     // drm::buffer::DrmFourcc::Rgba4444,
     // drm::buffer::DrmFourcc::Bgra4444,
-    
+
     // // Single channel formats
     // drm::buffer::DrmFourcc::Gray8,
     // drm::buffer::DrmFourcc::C8,
     // drm::buffer::DrmFourcc::R8,
     // drm::buffer::DrmFourcc::R16,
-    
+
     // // Dual channel formats
     // drm::buffer::DrmFourcc::Gr88,
     // drm::buffer::DrmFourcc::Rg88,
     // drm::buffer::DrmFourcc::Gr1616,
     // drm::buffer::DrmFourcc::Rg1616,
-    
+
     // // 10-bit formats
     // drm::buffer::DrmFourcc::Xrgb2101010,
     // drm::buffer::DrmFourcc::Argb2101010,
@@ -55,7 +55,6 @@ const SKIA_SUPPORTED_DRM_FOURCC_FORMATS: &[drm::buffer::DrmFourcc] = &[
     // drm::buffer::DrmFourcc::Rgbx1010102,
     // drm::buffer::DrmFourcc::Bgrx1010102,
 ];
-
 
 impl SkiaRendererAdapter {
     #[cfg(feature = "renderer-skia-vulkan")]
@@ -132,7 +131,8 @@ impl SkiaRendererAdapter {
     pub fn new_software(
         device_opener: &crate::DeviceOpener,
     ) -> Result<Box<dyn crate::fullscreenwindowadapter::FullscreenRenderer>, PlatformError> {
-        let display = crate::display::swdisplay::new(device_opener, SKIA_SUPPORTED_DRM_FOURCC_FORMATS)?;
+        let display =
+            crate::display::swdisplay::new(device_opener, SKIA_SUPPORTED_DRM_FOURCC_FORMATS)?;
 
         let skia_software_surface: i_slint_renderer_skia::software_surface::SoftwareSurface =
             DrmDumbBufferAccess { display: display.clone() }.into();
