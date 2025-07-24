@@ -7,7 +7,7 @@ mod wasm;
 pub use wasm::*;
 
 #[cfg(all(not(target_arch = "wasm32"), feature = "preview-builtin"))]
-mod native;
+pub mod native;
 #[cfg(all(not(target_arch = "wasm32"), feature = "preview-builtin"))]
 pub use native::*;
 

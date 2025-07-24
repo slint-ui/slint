@@ -34,6 +34,9 @@ pub fn create_ui(
     style: &str,
     experimental: bool,
 ) -> Result<PreviewUi, PlatformError> {
+    #[cfg(all(target_vendor = "apple", not(target_arch = "wasm32")))]
+    crate::preview::connector::native::init_apple_platform()?;
+
     let ui = PreviewUi::new()?;
 
     // styles:
