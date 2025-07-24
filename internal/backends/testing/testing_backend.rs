@@ -181,7 +181,7 @@ impl RendererSealed for TestingWindow {
         let pixel_size = font_request.pixel_size.unwrap_or(LogicalLength::new(10.));
         i_slint_core::items::FontMetrics {
             ascent: pixel_size.get() * 0.7,
-            descent: pixel_size.get() * 0.3,
+            descent: -pixel_size.get() * 0.3,
             x_height: 3.,
             cap_height: 7.,
         }
