@@ -2,6 +2,11 @@
 // SPDX-License-Identifier: MIT
 
 import { rgbToHex } from "./property-parsing";
+import { exportFigmaVariablesToJsonString } from "./export-json";
+
+// Configuration flag for including JSON export in zip
+// Set to true to include raw Figma JSON data for testing/debugging
+const INCLUDE_JSON_IN_ZIP = true;
 
 /**
  * Helper to get the appropriate Slint type for a Figma variable type
@@ -1001,9 +1006,6 @@ export async function exportFigmaVariablesToSeparateFiles(
                                 ) {
                                     value = varValue;
                                     foundModeId = varModeId;
-                                    console.log(
-                                        `Found mode name match: ${varModeId} -> ${modeName}`,
-                                    );
                                     break;
                                 }
                             }
@@ -1441,6 +1443,26 @@ export async function exportFigmaVariablesToSeparateFiles(
         } else {
             // Use individual files
             finalOutputFiles = generatedFiles;
+        }
+
+        // Add JSON export for testing/debugging (optional)
+        if (INCLUDE_JSON_IN_ZIP) {
+            try {
+                const jsonContent = await exportFigmaVariablesToJsonString(
+                    2,
+                    true,
+                );
+                finalOutputFiles.push({
+                    name: "figma-variables-debug.json",
+                    content: jsonContent,
+                });
+                console.log("JSON debug export included in zip");
+            } catch (jsonError) {
+                console.warn(
+                    "⚠️ Failed to include JSON debug export:",
+                    jsonError,
+                );
+            }
         }
 
         // Add README
