@@ -66,37 +66,50 @@ impl LinuxFBDisplay {
             finfo
         };
 
-        // Determine available formats based on framebuffer capabilities
         let mut available_formats = Vec::new();
 
         if vinfo.bits_per_pixel == 32 {
-            // Check RGB layout to determine exact format
-            if vinfo.red.offset == 16 && vinfo.green.offset == 8 && vinfo.blue.offset == 0 {
-                available_formats.push(drm::buffer::DrmFourcc::Xrgb8888);
-                if vinfo.transp.length > 0 {
-                    available_formats.push(drm::buffer::DrmFourcc::Argb8888);
+            match (vinfo.red.offset, vinfo.green.offset, vinfo.blue.offset, vinfo.transp.offset) {
+                // XRGB8888 / ARGB8888 - Red(16), Green(8), Blue(0)
+                (16, 8, 0, _) => {
+                    if vinfo.transp.length > 0 && vinfo.transp.offset == 24 {
+                        available_formats.push(drm::buffer::DrmFourcc::Argb8888);
+                    } else {
+                        available_formats.push(drm::buffer::DrmFourcc::Xrgb8888);
+                    }
                 }
-            } else if vinfo.red.offset == 0 && vinfo.green.offset == 8 && vinfo.blue.offset == 16 {
-                available_formats.push(drm::buffer::DrmFourcc::Bgra8888);
-                available_formats.push(drm::buffer::DrmFourcc::Rgba8888);
+                // BGRX8888 / BGRA8888 - Blue(16), Green(8), Red(0)
+                (0, 8, 16, _) => {
+                    if vinfo.transp.length > 0 && vinfo.transp.offset == 24 {
+                        available_formats.push(drm::buffer::DrmFourcc::Bgra8888);
+                    } else {
+                        available_formats.push(drm::buffer::DrmFourcc::Bgrx8888);
+                    }
+                }
+                // RGBA8888 - Red(24), Green(16), Blue(8), Alpha(0)
+                (24, 16, 8, 0) if vinfo.transp.length > 0 => {
+                    available_formats.push(drm::buffer::DrmFourcc::Rgba8888);
+                }
+                _ => {}
             }
         } else if vinfo.bits_per_pixel == 16 {
-            if vinfo.red.offset == 11
-                && vinfo.red.length == 5
-                && vinfo.green.offset == 5
-                && vinfo.green.length == 6
-                && vinfo.blue.offset == 0
-                && vinfo.blue.length == 5
-            {
-                available_formats.push(drm::buffer::DrmFourcc::Rgb565);
-            } else if vinfo.red.offset == 0
-                && vinfo.red.length == 5
-                && vinfo.green.offset == 5
-                && vinfo.green.length == 6
-                && vinfo.blue.offset == 11
-                && vinfo.blue.length == 5
-            {
-                available_formats.push(drm::buffer::DrmFourcc::Bgr565);
+            match (
+                vinfo.red.offset,
+                vinfo.red.length,
+                vinfo.green.offset,
+                vinfo.green.length,
+                vinfo.blue.offset,
+                vinfo.blue.length,
+            ) {
+                // RGB565: R(11-15)5, G(5-10)6, B(0-4)5
+                (11, 5, 5, 6, 0, 5) => {
+                    available_formats.push(drm::buffer::DrmFourcc::Rgb565);
+                }
+                // BGR565: B(11-15)5, G(5-10)6, R(0-4)5
+                (0, 5, 5, 6, 11, 5) => {
+                    available_formats.push(drm::buffer::DrmFourcc::Bgr565);
+                }
+                _ => {}
             }
         }
 
