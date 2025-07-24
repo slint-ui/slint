@@ -275,7 +275,7 @@ pub enum SceneCommand {
     RoundedRectangle {
         rectangle_index: u16,
     },
-    /// rectangle_index is an index in the [`SceneVectors::rounded_gradients`] array
+    /// gradient_index is an index in the [`SceneVectors::gradients`] array
     Gradient {
         gradient_index: u16,
     },
