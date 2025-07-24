@@ -19,7 +19,8 @@ pub struct SceneVectors {
     pub textures: Vec<SceneTexture<'static>>,
     pub rounded_rectangles: Vec<RoundedRectangle>,
     pub shared_buffers: Vec<SharedBufferCommand>,
-    pub gradients: Vec<GradientCommand>,
+    pub linear_gradients: Vec<LinearGradientCommand>,
+    pub radial_gradients: Vec<RadialGradientCommand>,
 }
 
 pub struct Scene {
@@ -275,9 +276,13 @@ pub enum SceneCommand {
     RoundedRectangle {
         rectangle_index: u16,
     },
-    /// gradient_index is an index in the [`SceneVectors::gradients`] array
-    Gradient {
-        gradient_index: u16,
+    /// linear_gradient_index is an index in the [`SceneVectors::linear_gradients`] array
+    LinearGradient {
+        linear_gradient_index: u16,
+    },
+    /// radial_gradient_index is an index in the [`SceneVectors::radial_gradients`] array
+    RadialGradient {
+        radial_gradient_index: u16,
     },
 }
 
@@ -501,7 +506,7 @@ pub struct RoundedRectangle {
 ///  - if false: on the left side, goes from `start` to 1, on the right side, goes from 0 to `1-start`
 ///  - if true: on the left side, goes from 0 to `1-start`, on the right side, goes from `start` to `1`
 #[derive(Debug)]
-pub struct GradientCommand {
+pub struct LinearGradientCommand {
     pub color1: PremultipliedRgbaColor,
     pub color2: PremultipliedRgbaColor,
     pub start: u8,
@@ -515,4 +520,18 @@ pub struct GradientCommand {
     pub right_clip: PhysicalLength,
     pub top_clip: PhysicalLength,
     pub bottom_clip: PhysicalLength,
+}
+
+/// Radial gradient that interpolates colors from the center outward
+///
+/// Unlike LinearGradientCommand, radial gradients don't have clipping fields
+/// because they radiate uniformly in all directions from the center point.
+/// The gradient is naturally clipped by the rectangle bounds during rendering.
+#[derive(Debug)]
+pub struct RadialGradientCommand {
+    /// The gradient stops (colors and positions)
+    pub stops: crate::SharedVector<crate::graphics::GradientStop>,
+    /// Center of the gradient relative to the item position
+    pub center_x: PhysicalLength,
+    pub center_y: PhysicalLength,
 }
