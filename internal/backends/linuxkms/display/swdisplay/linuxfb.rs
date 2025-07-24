@@ -131,10 +131,13 @@ impl LinuxFBDisplay {
         let ctl_fd = control.as_raw_fd();
 
         // Query active VT
-        let mut state: vt_stat = unsafe { std::mem::zeroed() };
-        if unsafe { nix::libc::ioctl(ctl_fd, VT_GETSTATE, &mut state) } < 0 {
-            return Err("VT_GETSTATE ioctl failed".into());
-        }
+        let state = unsafe {
+            let mut state: vt_stat = std::mem::zeroed();
+            vt_getstate(ctl_fd, &mut state as *mut _)
+                .map_err(|errno| format!("VT_GETSTATE ioctl failed: {errno}"))?;
+            state
+        };
+
         let tty_path = format!("/dev/tty{}", state.v_active);
 
         // Open VT device
@@ -145,14 +148,18 @@ impl LinuxFBDisplay {
             .map_err(|e| format!("Could not open {}: {e}", tty_path))?;
 
         // Save old mode
-        let mut old_mode: i32 = 0;
-        if unsafe { nix::libc::ioctl(tty.as_raw_fd(), KDGETMODE, &mut old_mode) } < 0 {
-            return Err("KDGETMODE ioctl failed".into());
-        }
+        let old_mode = unsafe {
+            let mut old_mode: u32 = 0;
+            kdgetmode(tty.as_raw_fd(), &mut old_mode as *mut _)
+                .map_err(|errno| format!("KDGETMODE ioctl failed: {errno}"))?;
+            old_mode as i32
+        };
 
         // Switch to graphics mode
-        if unsafe { nix::libc::ioctl(tty.as_raw_fd(), KDSETMODE, KD_GRAPHICS) } < 0 {
-            return Err("KDSETMODE KD_GRAPHICS ioctl failed".into());
+
+        unsafe {
+            kdsetmode(tty.as_raw_fd(), KD_GRAPHICS)
+                .map_err(|errno| format!("KDSETMODE KD_GRAPHICS ioctl failed: {errno}"))?;
         }
 
         // Hide cursor fallback
@@ -168,7 +175,7 @@ impl LinuxFBDisplay {
 
             if let Some(mode) = self.original_tty_mode {
                 unsafe {
-                    let _ = nix::libc::ioctl(tty.as_raw_fd(), KDSETMODE, mode);
+                    let _ = kdsetmode(tty.as_raw_fd(), mode);
                 }
             }
 
@@ -226,9 +233,9 @@ impl super::SoftwareBufferDisplay for LinuxFBDisplay {
 }
 
 const KD_GRAPHICS: i32 = 0x01;
-const VT_GETSTATE: u64 = 0x5603;
-const KDGETMODE: u64 = 0x4B3B;
-const KDSETMODE: u64 = 0x4B3A;
+const VT_GETSTATE: u32 = 0x5603;
+const KDGETMODE: u32 = 0x4B3B;
+const KDSETMODE: u32 = 0x4B3A;
 
 #[repr(C)]
 #[derive(Debug)]
@@ -238,6 +245,10 @@ struct vt_stat {
     v_signal: u16,
     v_state: u16,
 }
+
+nix::ioctl_read_bad!(kdgetmode, KDGETMODE, u32);
+nix::ioctl_write_int_bad!(kdsetmode, KDSETMODE);
+nix::ioctl_read_bad!(vt_getstate, VT_GETSTATE, vt_stat);
 
 const RGB565_EXPECTED_RED_CHANNEL: fb_bitfield =
     fb_bitfield { offset: 11, length: 5, msb_right: 0 };
