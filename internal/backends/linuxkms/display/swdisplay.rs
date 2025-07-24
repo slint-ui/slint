@@ -21,42 +21,25 @@ pub trait SoftwareBufferDisplay {
 mod dumbbuffer;
 mod linuxfb;
 
-#[derive(Debug, Clone)]
-pub struct FormatNegotiation {
-    /// Formats supported by the renderer, in order of preference (best first)
-    pub renderer_formats: Vec<drm::buffer::DrmFourcc>,
-    /// Formats supported by the display backend
-    pub display_formats: Vec<drm::buffer::DrmFourcc>,
-}
-
-impl FormatNegotiation {
-    pub fn new(renderer_formats: &[drm::buffer::DrmFourcc]) -> Self {
-        Self { renderer_formats: renderer_formats.to_vec(), display_formats: Vec::new() }
-    }
-
-    pub fn negotiate(&self) -> Option<drm::buffer::DrmFourcc> {
-        for renderer_format in &self.renderer_formats {
-            if self.display_formats.contains(renderer_format) {
-                return Some(*renderer_format);
-            }
+pub fn negotiate_format(
+    renderer_formats: &[drm::buffer::DrmFourcc],
+    display_formats: &[drm::buffer::DrmFourcc],
+) -> Option<drm::buffer::DrmFourcc> {
+    for &renderer_format in renderer_formats {
+        if display_formats.contains(&renderer_format) {
+            return Some(renderer_format);
         }
-        None
     }
-
-    pub fn add_display_formats(&mut self, formats: &[drm::buffer::DrmFourcc]) {
-        self.display_formats.extend_from_slice(formats);
-    }
+    None
 }
 
 pub fn new(
     device_opener: &crate::DeviceOpener,
     renderer_formats: &[drm::buffer::DrmFourcc],
 ) -> Result<Arc<dyn SoftwareBufferDisplay>, PlatformError> {
-    let mut negotiation = FormatNegotiation::new(renderer_formats);
-
     if std::env::var_os("SLINT_BACKEND_LINUXFB").is_some() {
-        return linuxfb::LinuxFBDisplay::new(device_opener, &mut negotiation);
+        return linuxfb::LinuxFBDisplay::new(device_opener, renderer_formats);
     }
-    dumbbuffer::DumbBufferDisplay::new(device_opener, &mut negotiation)
-        .or_else(|_| linuxfb::LinuxFBDisplay::new(device_opener, &mut negotiation))
+    dumbbuffer::DumbBufferDisplay::new(device_opener, renderer_formats)
+        .or_else(|_| linuxfb::LinuxFBDisplay::new(device_opener, renderer_formats))
 }
