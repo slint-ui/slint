@@ -196,7 +196,7 @@ inline Brush Brush::brighter(float factor) const
         }
         break;
     case Tag::RadialGradient:
-        for (std::size_t i = 0; i < data.linear_gradient._0.size(); ++i) {
+        for (std::size_t i = 0; i < data.radial_gradient._0.size(); ++i) {
             cbindgen_private::types::slint_color_brighter(&data.radial_gradient._0[i].color, factor,
                                                           &result.data.radial_gradient._0[i].color);
         }
@@ -220,7 +220,7 @@ inline Brush Brush::darker(float factor) const
         }
         break;
     case Tag::RadialGradient:
-        for (std::size_t i = 0; i < data.linear_gradient._0.size(); ++i) {
+        for (std::size_t i = 0; i < data.radial_gradient._0.size(); ++i) {
             cbindgen_private::types::slint_color_darker(&data.radial_gradient._0[i].color, factor,
                                                         &result.data.radial_gradient._0[i].color);
         }
@@ -245,7 +245,7 @@ inline Brush Brush::transparentize(float factor) const
         }
         break;
     case Tag::RadialGradient:
-        for (std::size_t i = 0; i < data.linear_gradient._0.size(); ++i) {
+        for (std::size_t i = 0; i < data.radial_gradient._0.size(); ++i) {
             cbindgen_private::types::slint_color_transparentize(
                     &data.radial_gradient._0[i].color, factor,
                     &result.data.radial_gradient._0[i].color);
@@ -271,7 +271,7 @@ inline Brush Brush::with_alpha(float alpha) const
         }
         break;
     case Tag::RadialGradient:
-        for (std::size_t i = 0; i < data.linear_gradient._0.size(); ++i) {
+        for (std::size_t i = 0; i < data.radial_gradient._0.size(); ++i) {
             cbindgen_private::types::slint_color_with_alpha(
                     &data.radial_gradient._0[i].color, alpha,
                     &result.data.radial_gradient._0[i].color);
