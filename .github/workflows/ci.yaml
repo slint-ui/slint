@@ -371,7 +371,7 @@ jobs:
               with:
                   node-version: 20
             - name: Install wasm-pack
-              run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+              run: curl https://alexcrichton.github.io/wasm-pack/installer/init.sh -sSf | sh
             - name: Fake slint-lsp build
               run: |
                   mkdir -p target/debug
