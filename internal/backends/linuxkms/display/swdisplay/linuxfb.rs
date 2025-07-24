@@ -24,7 +24,7 @@ pub struct LinuxFBDisplay {
 impl LinuxFBDisplay {
     pub fn new(
         device_opener: &crate::DeviceOpener,
-        negotiation: &mut super::FormatNegotiation,
+        renderer_formats: &[drm::buffer::DrmFourcc],
     ) -> Result<Arc<dyn super::SoftwareBufferDisplay>, PlatformError> {
         let mut fb_errors: Vec<String> = Vec::new();
 
@@ -32,7 +32,7 @@ impl LinuxFBDisplay {
             match Self::new_with_path(
                 device_opener,
                 std::path::Path::new(&format!("/dev/fb{fbnum}")),
-                negotiation,
+                renderer_formats,
             ) {
                 Ok(dsp) => return Ok(dsp),
                 Err(e) => fb_errors.push(format!("Error using /dev/fb{fbnum}: {}", e)),
@@ -48,7 +48,7 @@ impl LinuxFBDisplay {
     fn new_with_path(
         device_opener: &crate::DeviceOpener,
         path: &std::path::Path,
-        negotiation: &mut super::FormatNegotiation,
+        renderer_formats: &[drm::buffer::DrmFourcc],
     ) -> Result<Arc<dyn super::SoftwareBufferDisplay>, PlatformError> {
         let fd = device_opener(path)?;
 
@@ -114,11 +114,10 @@ impl LinuxFBDisplay {
             .into());
         }
 
-        negotiation.add_display_formats(&available_formats);
-        let format = negotiation.negotiate()
-                .ok_or_else(|| PlatformError::Other(
-                    format!("No compatible format found for LinuxFB. Renderer supports: {:?}, FB supports: {:?}",
-                            negotiation.renderer_formats, available_formats).into()))?;
+        let format = super::negotiate_format(renderer_formats, &available_formats)
+            .ok_or_else(|| PlatformError::Other(
+                format!("No compatible format found for LinuxFB. Renderer supports: {:?}, FB supports: {:?}",
+                        renderer_formats, available_formats).into()))?;
 
         let bpp = vinfo.bits_per_pixel / 8;
 
