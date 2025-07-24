@@ -27,7 +27,7 @@ let factory = slint::ComponentFactory::new(move |ctx| {
     let e = spin_on::spin_on(compiler.build_from_source(
         r#"export component Inner inherits Window {
                 default-font-size: 34px;
-                preferred-height: t.font-metrics.ascent + t.font-metrics.descent;
+                preferred-height: t.font-metrics.ascent - t.font-metrics.descent;
                 t := Text {
                     text: "Hello 🌍";
                 }
@@ -39,7 +39,7 @@ let factory = slint::ComponentFactory::new(move |ctx| {
                         text: "Ok 🌍";
                     }
                     init => {
-                        popup-text-size = popup-text.font-metrics.ascent + popup-text.font-metrics.descent;
+                        popup-text-size = popup-text.font-metrics.ascent - popup-text.font-metrics.descent;
                     }
                 }
 
