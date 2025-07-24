@@ -12,6 +12,8 @@ use crate::lengths::{PointLengths, SizeLengths};
 use crate::Color;
 use derive_more::{Add, Mul, Sub};
 use integer_sqrt::IntegerSquareRoot;
+#[allow(unused_imports)]
+use num_traits::Float;
 
 /// Draw one line of the texture in the line buffer
 ///
@@ -546,10 +548,10 @@ fn interpolate_color(
     }
 }
 
-pub(super) fn draw_gradient_line(
+pub(super) fn draw_linear_gradient(
     rect: &PhysicalRect,
     line: PhysicalLength,
-    g: &super::GradientCommand,
+    g: &super::LinearGradientCommand,
     mut buffer: &mut [impl TargetPixel],
     extra_left_clip: i16,
 ) {
@@ -651,6 +653,78 @@ pub(super) fn draw_gradient_line(
             b = b.wrapping_add(db as _);
             a = a.wrapping_add(da as _);
         }
+    }
+}
+
+/// Draw a radial gradient on a line
+pub(super) fn draw_radial_gradient(
+    rect: &PhysicalRect,
+    line: PhysicalLength,
+    g: &super::RadialGradientCommand,
+    buffer: &mut [impl TargetPixel],
+    extra_left_clip: i16,
+    _extra_right_clip: i16,
+) {
+    if g.stops.is_empty() {
+        return;
+    }
+
+    let center_x = (rect.min_x() + g.center_x.get()) as i32;
+    let center_y = (rect.min_y() + g.center_y.get()) as i32;
+
+    // Calculate the maximum radius (distance from center to corner)
+    let max_radius = {
+        let dx1 = ((rect.min_x() as i32) - center_x).abs();
+        let dx2 = ((rect.max_x() as i32) - center_x).abs();
+        let dy1 = ((rect.min_y() as i32) - center_y).abs();
+        let dy2 = ((rect.max_y() as i32) - center_y).abs();
+        let max_dx = dx1.max(dx2) as f32;
+        let max_dy = dy1.max(dy2) as f32;
+        (max_dx * max_dx + max_dy * max_dy).sqrt()
+    };
+
+    let start_x = rect.min_x() + extra_left_clip;
+    // Use the absolute line position for distance calculation
+    let dy = (line.get() as i32 - center_y) as f32;
+    let dy_squared = dy * dy;
+
+    for (i, pixel) in buffer.iter_mut().enumerate() {
+        let x = start_x + i as i16;
+        let dx = (x as i32 - center_x) as f32;
+        let distance = (dx * dx + dy_squared).sqrt();
+        let position = (distance / max_radius).clamp(0.0, 1.0);
+
+        // Find the two gradient stops to interpolate between
+        let mut color = g.stops.first().map(|s| s.color).unwrap_or_default();
+
+        for window in g.stops.windows(2) {
+            let stop1 = &window[0];
+            let stop2 = &window[1];
+
+            if position >= stop1.position && position <= stop2.position {
+                // Interpolate between the two stops
+                let t = if stop2.position == stop1.position {
+                    0.0
+                } else {
+                    (position - stop1.position) / (stop2.position - stop1.position)
+                };
+
+                let c1 = stop1.color.to_argb_u8();
+                let c2 = stop2.color.to_argb_u8();
+
+                let alpha = ((1.0 - t) * c1.alpha as f32 + t * c2.alpha as f32) as u8;
+                let red = ((1.0 - t) * c1.red as f32 + t * c2.red as f32) as u8;
+                let green = ((1.0 - t) * c1.green as f32 + t * c2.green as f32) as u8;
+                let blue = ((1.0 - t) * c1.blue as f32 + t * c2.blue as f32) as u8;
+
+                color = Color::from_argb_u8(alpha, red, green, blue);
+                break;
+            } else if position > stop2.position {
+                color = stop2.color;
+            }
+        }
+
+        pixel.blend(super::PremultipliedRgbaColor::from(color));
     }
 }
 
