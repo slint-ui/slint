@@ -16,8 +16,6 @@ pub struct DumbBufferDisplay {
     back_buffer: RefCell<DumbBuffer>,
     /// Buffer currently on the way to the display, to become front_buffer
     in_flight_buffer: RefCell<DumbBuffer>,
-    #[allow(dead_code)]
-    format: drm::buffer::DrmFourcc,
 }
 
 impl DumbBufferDisplay {
@@ -26,17 +24,28 @@ impl DumbBufferDisplay {
         renderer_formats: &[drm::buffer::DrmFourcc],
     ) -> Result<Arc<dyn super::SoftwareBufferDisplay>, PlatformError> {
         let drm_output = DrmOutput::new(device_opener)?;
-        // TODO: Need to automatically get the available formats
-        let available_formats = [drm::buffer::DrmFourcc::Xrgb8888, drm::buffer::DrmFourcc::Rgb565];
+
+        let available_formats = drm_output.get_supported_formats()?;
 
         let format = super::negotiate_format(renderer_formats, &available_formats)
             .ok_or_else(|| PlatformError::Other(
                 format!("No compatible format found for DumbBuffer. Renderer supports: {:?}, FB supports: {:?}",
                         renderer_formats, available_formats).into()))?;
 
-        let front_buffer: RefCell<DumbBuffer> =
-            DumbBuffer::allocate(&drm_output.drm_device, drm_output.size())?.into();
-        let back_buffer = DumbBuffer::allocate_with_format(
+        let (depth, bpp) = pixel_format_params(format)
+            .ok_or_else(|| format!("Cannot get depth and bpp for pixel format: {format:?}"))?;
+
+        let front_buffer: RefCell<DumbBuffer> = DumbBuffer::allocate(
+            &drm_output.drm_device,
+            drm_output.size(),
+            format,
+            depth,
+            bpp,
+        )
+        .map_err(|err| format!("Could not allocate drm dumb buffer: {err}"))?
+        .into();
+
+        let back_buffer = DumbBuffer::allocate(
             &drm_output.drm_device,
             drm_output.size(),
             front_buffer.borrow().format,
@@ -44,7 +53,7 @@ impl DumbBufferDisplay {
             front_buffer.borrow().bpp,
         )?
         .into();
-        let in_flight_buffer = DumbBuffer::allocate_with_format(
+        let in_flight_buffer = DumbBuffer::allocate(
             &drm_output.drm_device,
             drm_output.size(),
             front_buffer.borrow().format,
@@ -53,7 +62,7 @@ impl DumbBufferDisplay {
         )?
         .into();
 
-        Ok(Arc::new(Self { drm_output, front_buffer, back_buffer, in_flight_buffer, format }))
+        Ok(Arc::new(Self { drm_output, front_buffer, back_buffer, in_flight_buffer }))
     }
 }
 
@@ -118,25 +127,21 @@ struct DumbBuffer {
     bpp: u32,
 }
 
+/// Returns the pixel depth and bits-per-pixel values for a given DRM pixel format.
+fn pixel_format_params(format: drm::buffer::DrmFourcc) -> Option<(u32, u32)> {
+    match format {
+        drm::buffer::DrmFourcc::Xrgb8888 => Some((24, 32)),
+        drm::buffer::DrmFourcc::Argb8888 => Some((32, 32)),
+        drm::buffer::DrmFourcc::Rgb565 => Some((16, 16)),
+        drm::buffer::DrmFourcc::Xbgr8888 => Some((24, 32)),
+        drm::buffer::DrmFourcc::Abgr8888 => Some((32, 32)),
+        // TODO: Add more formats
+        _ => None,
+    }
+}
+
 impl DumbBuffer {
     fn allocate(
-        device: &impl drm::control::Device,
-        (width, height): (u32, u32),
-    ) -> Result<Self, PlatformError> {
-        let mut last_err = None;
-        for (format, depth, bpp) in
-            [(drm::buffer::DrmFourcc::Xrgb8888, 24, 32), (drm::buffer::DrmFourcc::Rgb565, 16, 16)]
-        {
-            match Self::allocate_with_format(device, (width, height), format, depth, bpp) {
-                Ok(buf) => return Ok(buf),
-                Err(err) => last_err = Some(err),
-            }
-        }
-
-        Err(last_err.unwrap_or_else(|| "Could not allocate drm dumb buffer".into()))
-    }
-
-    fn allocate_with_format(
         device: &impl drm::control::Device,
         (width, height): (u32, u32),
         format: drm::buffer::DrmFourcc,
