@@ -235,8 +235,7 @@ fn toggle_always_on_top() {
 // as the life-cycle of this process is determined by the editor. The returned menuitem must
 // be kept alive for the duration of the event loop, as otherwise muda crashes.
 #[cfg(target_vendor = "apple")]
-pub fn init_apple_platform(
-) -> Result<(muda::MenuItem, muda::CheckMenuItem), i_slint_core::api::PlatformError> {
+pub fn init_apple_platform() -> Result<(), i_slint_core::api::PlatformError> {
     use muda::{accelerator, CheckMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu};
 
     let backend = i_slint_backend_winit::Backend::builder().with_default_menu_bar(false).build()?;
@@ -294,5 +293,8 @@ pub fn init_apple_platform(
         });
     }));
 
-    Ok((reload_menu_item, keep_on_top_menu_item))
+    // Keep the menu items alive to prevent muda from crashing. The menu bar is a singleton, so this is an acceptable memory leak
+    let _ = Box::leak(Box::new((reload_menu_item, keep_on_top_menu_item)));
+
+    Ok(())
 }
