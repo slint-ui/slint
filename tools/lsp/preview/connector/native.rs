@@ -269,7 +269,7 @@ pub fn init_apple_platform() -> Result<(), i_slint_core::api::PlatformError> {
                 &PredefinedMenuItem::hide_others(None),
                 &PredefinedMenuItem::show_all(None),
                 &reload_menu_item,
-                &PredefinedMenuItem::quit(None),
+                &PredefinedMenuItem::quit(Some("Quit Slint Live-Preview")),
             ])
         })
         .and_then(|_| window_m.append_items(&[&keep_on_top_menu_item]))
