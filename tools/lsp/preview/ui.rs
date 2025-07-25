@@ -29,7 +29,14 @@ slint::include_modules!();
 
 pub type PropertyDeclarations = HashMap<SmolStr, PropertyDeclaration>;
 
-pub fn create_ui(style: String, experimental: bool) -> Result<PreviewUi, PlatformError> {
+pub fn create_ui(
+    to_lsp: &Rc<dyn common::PreviewToLsp>,
+    style: &str,
+    experimental: bool,
+) -> Result<PreviewUi, PlatformError> {
+    #[cfg(all(target_vendor = "apple", not(target_arch = "wasm32")))]
+    crate::preview::connector::native::init_apple_platform()?;
+
     let ui = PreviewUi::new()?;
 
     // styles:
@@ -39,8 +46,8 @@ pub fn create_ui(style: String, experimental: bool) -> Result<PreviewUi, Platfor
         .cloned()
         .sorted()
         .collect::<Vec<_>>();
-    let style = if known_styles.contains(&style.as_str()) {
-        style
+    let style = if known_styles.contains(&style) {
+        style.to_string()
     } else {
         known_styles
             .iter()
@@ -67,10 +74,12 @@ pub fn create_ui(style: String, experimental: bool) -> Result<PreviewUi, Platfor
     api.on_rename_component(super::rename_component);
     api.on_style_changed(super::change_style);
     api.on_show_component(super::show_component);
-    api.on_show_document(|file, line, column| {
+
+    let lsp = to_lsp.clone();
+    api.on_show_document(move |file, line, column| {
         use lsp_types::{Position, Range};
         let pos = Position::new((line as u32).saturating_sub(1), (column as u32).saturating_sub(1));
-        super::ask_editor_to_show_document(&file, Range::new(pos, pos), false)
+        lsp.ask_editor_to_show_document(&file, Range::new(pos, pos), false).unwrap();
     });
     api.on_show_document_offset_range(super::show_document_offset_range);
     api.on_show_preview_for(super::show_preview_for);
@@ -92,8 +101,16 @@ pub fn create_ui(style: String, experimental: bool) -> Result<PreviewUi, Platfor
         );
     });
     api.on_select_behind(super::element_selection::select_element_behind);
+    let lsp = to_lsp.clone();
     api.on_can_drop(super::can_drop_component);
-    api.on_drop(super::drop_component);
+    api.on_drop(move |component_index: i32, x: f32, y: f32| {
+        lsp.send_telemetry(&mut [(
+            "type".to_string(),
+            serde_json::to_value("component_dropped").unwrap(),
+        )])
+        .unwrap();
+        super::drop_component(component_index, x, y)
+    });
     api.on_selected_element_resize(super::resize_selected_element);
     api.on_selected_element_can_move_to(super::can_move_selected_element);
     api.on_selected_element_move(super::move_selected_element);
@@ -110,7 +127,17 @@ pub fn create_ui(style: String, experimental: bool) -> Result<PreviewUi, Platfor
     api.on_insert_row_into_value_table(insert_row_into_value_table);
     api.on_remove_row_from_value_table(remove_row_from_value_table);
 
-    api.on_set_json_preview_data(set_json_preview_data);
+    let lsp = to_lsp.clone();
+    api.on_set_json_preview_data(move |container, property_name, json_string, send_telemetry| {
+        if send_telemetry {
+            lsp.send_telemetry(&mut [(
+                "type".to_string(),
+                serde_json::to_value("data_json_changed").unwrap(),
+            )])
+            .unwrap();
+        }
+        set_json_preview_data(container, property_name, json_string)
+    });
 
     api.on_string_to_code(string_to_code);
 
@@ -1115,7 +1142,7 @@ fn set_property_value_table(
         return "Could not process input values".into();
     };
 
-    set_json_preview_data(container, property_name, json_string.into(), false)
+    set_json_preview_data(container, property_name, json_string.into())
 }
 
 fn default_property_value(source: &PropertyValue) -> PropertyValue {
@@ -1227,15 +1254,7 @@ fn set_json_preview_data(
     container: SharedString,
     property_name: SharedString,
     json_string: SharedString,
-    send_telemetry: bool,
 ) -> SharedString {
-    if send_telemetry {
-        crate::preview::send_telemetry(&mut [(
-            "type".to_string(),
-            serde_json::to_value("data_json_changed").unwrap(),
-        )]);
-    }
-
     let property_name = (!property_name.is_empty()).then_some(property_name.to_string());
 
     let json = match serde_json::from_str::<serde_json::Value>(json_string.as_ref()) {

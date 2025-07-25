@@ -6,7 +6,7 @@
 // cSpell: ignore codespace codespaces gnueabihf vsix
 
 import * as path from "node:path";
-import { existsSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, unlinkSync } from "node:fs";
 import * as vscode from "vscode";
 import { SlintTelemetrySender } from "./telemetry";
 import * as common from "./common";
@@ -85,6 +85,9 @@ function lspPlatform(): Platform | null {
     return null;
 }
 
+function lsp_panic_log_dir(context: vscode.ExtensionContext) {
+    return vscode.Uri.joinPath(context.logUri, "slint-lsp-panics/");
+}
 // Please add changes to the BaseLanguageClient via
 // `client.add_updater((cl: BaseLanguageClient | null): void)`
 //
@@ -146,11 +149,7 @@ function startClient(
         options.env["RUST_BACKTRACE"] = "1";
     }
 
-    const slint_lsp_panic_file = vscode.Uri.joinPath(
-        context.logUri,
-        "slint-lsp-panic.log",
-    );
-    options.env["SLINT_LSP_PANIC_LOG"] = slint_lsp_panic_file.fsPath;
+    options.env["SLINT_LSP_PANIC_LOG_DIR"] = lsp_panic_log_dir(context).fsPath;
 
     const args = vscode.workspace
         .getConfiguration("slint")
@@ -180,26 +179,6 @@ function startClient(
                 vscode.window.showErrorMessage(
                     "The Slint Language Server crashed! Please open a bug on the Slint bug tracker with the panic message.",
                 );
-                vscode.workspace.fs
-                    .readFile(slint_lsp_panic_file)
-                    .then((data) => {
-                        const contents = Buffer.from(data).toString("utf-8");
-                        const lines = contents.split("\n");
-                        const version = lines[0];
-                        // Location is trusted because it is a path within the LSP (as build on our CI)
-                        const location = new vscode.TelemetryTrustedValue(
-                            lines[1],
-                        );
-                        const backtrace = lines[2];
-                        const message = lines.slice(3).join("\n");
-                        telemetryLogger.logError("lsp-panic", {
-                            version: version,
-                            location: location,
-                            message: message,
-                            backtrace: backtrace,
-                        });
-                        vscode.workspace.fs.delete(slint_lsp_panic_file);
-                    });
             }
         });
 
@@ -265,6 +244,48 @@ export function activate(context: vscode.ExtensionContext) {
     );
 
     startTelemetryTimer(context, telemetryLogger);
+
+    // Create a file system watcher to watch for panic logs:
+    const panic_dir = lsp_panic_log_dir(context);
+    const ensureDirectoryExists = (dir: string) => {
+        if (!existsSync(dir)) {
+            mkdirSync(dir, { recursive: true });
+        } else {
+            readdirSync(dir).forEach((file) => {
+                unlinkSync(path.join(dir, file));
+            });
+        }
+    };
+
+    ensureDirectoryExists(panic_dir.fsPath);
+    const watcher = vscode.workspace.createFileSystemWatcher(
+        new vscode.RelativePattern(panic_dir, "slint_lsp_panic_*.log"),
+    );
+
+    watcher.onDidCreate((uri) => {
+        console.log("Creating telemetry event for LSP panic:", uri.fsPath);
+
+        vscode.workspace.fs.readFile(uri).then((data) => {
+            const contents = Buffer.from(data).toString("utf-8");
+            const lines = contents.split("\n");
+            const version = lines[0];
+            // Location is trusted because it is a path within the LSP (as build on our CI)
+            const location = new vscode.TelemetryTrustedValue(lines[1]);
+            const backtrace = lines[2];
+            const message = lines.slice(3).join("\n");
+            telemetryLogger.logError("lsp-panic", {
+                version: version,
+                location: location,
+                message: message,
+                backtrace: backtrace,
+            });
+            console.log("Removing file");
+            vscode.workspace.fs.delete(uri);
+        });
+    });
+
+    // Ensure the watcher is disposed of when the extension is deactivated
+    context.subscriptions.push(watcher);
 }
 
 export function deactivate(): Thenable<void> | undefined {

@@ -12,8 +12,7 @@ mod signature_help;
 #[cfg(test)]
 pub mod test;
 
-use crate::common;
-use crate::util;
+use crate::{common, util};
 
 #[cfg(target_arch = "wasm32")]
 use crate::wasm_prelude::*;
@@ -91,18 +90,22 @@ pub fn request_state(ctx: &std::rc::Rc<Context>) {
         }
         let version = document_cache.document_version(&url);
 
-        ctx.server_notifier.send_message_to_preview(common::LspToPreviewMessage::SetContents {
-            url: common::VersionedUrl::new(url, version),
-            contents: node.text().to_string(),
-        })
+        ctx.to_preview
+            .send(&common::LspToPreviewMessage::SetContents {
+                url: common::VersionedUrl::new(url, version),
+                contents: node.text().to_string(),
+            })
+            .unwrap();
     }
 
-    ctx.server_notifier.send_message_to_preview(common::LspToPreviewMessage::SetConfiguration {
-        config: ctx.preview_config.borrow().clone(),
-    });
+    ctx.to_preview
+        .send(&common::LspToPreviewMessage::SetConfiguration {
+            config: ctx.preview_config.borrow().clone(),
+        })
+        .unwrap();
 
     if let Some(c) = ctx.to_show.borrow().clone() {
-        ctx.server_notifier.send_message_to_preview(common::LspToPreviewMessage::ShowPreview(c))
+        ctx.to_preview.send(&common::LspToPreviewMessage::ShowPreview(c)).unwrap();
     }
 }
 
@@ -150,6 +153,7 @@ pub struct Context {
     pub to_show: RefCell<Option<common::PreviewComponent>>,
     /// File currently open in the editor
     pub open_urls: RefCell<HashSet<lsp_types::Url>>,
+    pub to_preview: Rc<dyn common::LspToPreview>,
 }
 
 /// An error from a LSP request
@@ -427,12 +431,12 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
             {
                 let element = gp.as_ref().unwrap().child_node(SyntaxKind::Element).unwrap();
 
-                ctx.server_notifier.send_message_to_preview(
-                    common::LspToPreviewMessage::HighlightFromEditor {
+                ctx.to_preview
+                    .send(&common::LspToPreviewMessage::HighlightFromEditor {
                         url: Some(uri),
                         offset: element.text_range().start().into(),
-                    },
-                );
+                    })
+                    .unwrap();
 
                 let range = util::node_to_lsp_range(&p);
                 return Ok(Some(vec![lsp_types::DocumentHighlight { range, kind: None }]));
@@ -450,20 +454,23 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
                     .as_ref()
                     .is_some_and(|n| n.kind() != SyntaxKind::Component)
                 {
-                    ctx.server_notifier.send_message_to_preview(
-                        common::LspToPreviewMessage::HighlightFromEditor {
+                    ctx.to_preview
+                        .send(&common::LspToPreviewMessage::HighlightFromEditor {
                             url: Some(uri),
                             offset: gp.unwrap().text_range().start().into(),
-                        },
-                    );
+                        })
+                        .unwrap();
                 }
                 return Ok(Some(vec![lsp_types::DocumentHighlight { range, kind: None }]));
             }
 
             if let Some(value) = find_element_id_for_highlight(&tk, &p) {
-                ctx.server_notifier.send_message_to_preview(
-                    common::LspToPreviewMessage::HighlightFromEditor { url: None, offset: 0 },
-                );
+                ctx.to_preview
+                    .send(&common::LspToPreviewMessage::HighlightFromEditor {
+                        url: None,
+                        offset: 0,
+                    })
+                    .unwrap();
                 return Ok(Some(
                     value
                         .into_iter()
@@ -475,9 +482,9 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
                 ));
             }
         }
-        ctx.server_notifier.send_message_to_preview(
-            common::LspToPreviewMessage::HighlightFromEditor { url: None, offset: 0 },
-        );
+        ctx.to_preview
+            .send(&common::LspToPreviewMessage::HighlightFromEditor { url: None, offset: 0 })
+            .unwrap();
         Ok(None)
     });
     rh.register::<Rename, _>(|params, ctx| async move {
@@ -557,9 +564,6 @@ pub fn show_preview_command(
     params: &[serde_json::Value],
     ctx: &Rc<Context>,
 ) -> Result<(), LspError> {
-    let document_cache = &mut ctx.document_cache.borrow_mut();
-    let config = document_cache.compiler_configuration();
-
     let url: Url = extract_param(params, 0, "url")?;
 
     // Normalize the URL to make sure it is encoded the same way as what the preview expect from other URLs
@@ -574,13 +578,9 @@ pub fn show_preview_command(
     let component =
         params.get(1).and_then(|v| v.as_str()).filter(|v| !v.is_empty()).map(|v| v.to_string());
 
-    let c = common::PreviewComponent {
-        url,
-        component,
-        style: config.style.clone().unwrap_or_default(),
-    };
+    let c = common::PreviewComponent { url, component };
     ctx.to_show.replace(Some(c.clone()));
-    ctx.server_notifier.send_message_to_preview(common::LspToPreviewMessage::ShowPreview(c));
+    ctx.to_preview.send(&common::LspToPreviewMessage::ShowPreview(c)).unwrap();
 
     Ok(())
 }
@@ -742,12 +742,12 @@ pub(crate) async fn reload_document_impl(
     let dependencies = match action {
         FileAction::ProcessContent(content) => {
             if let Some(ctx) = ctx {
-                ctx.server_notifier.send_message_to_preview(
-                    common::LspToPreviewMessage::SetContents {
+                ctx.to_preview
+                    .send(&common::LspToPreviewMessage::SetContents {
                         url: common::VersionedUrl::new(url.clone(), version),
                         contents: content.clone(),
-                    },
-                );
+                    })
+                    .unwrap();
             }
             let dependencies = document_cache.invalidate_url(&url);
             let _ = document_cache.load_url(&url, version, content, &mut diag).await;
@@ -756,9 +756,9 @@ pub(crate) async fn reload_document_impl(
         FileAction::IgnoreFile => return Default::default(),
         FileAction::InvalidateFile => {
             if let Some(ctx) = ctx {
-                ctx.server_notifier.send_message_to_preview(
-                    common::LspToPreviewMessage::ForgetFile { url: url.clone() },
-                );
+                ctx.to_preview
+                    .send(&common::LspToPreviewMessage::ForgetFile { url: url.clone() })
+                    .unwrap();
             }
             document_cache.invalidate_url(&url)
         }
@@ -854,17 +854,16 @@ fn send_diagnostics(
 
 pub async fn invalidate_document(ctx: &Rc<Context>, url: lsp_types::Url) -> common::Result<()> {
     // The preview cares about resources and slint files, so forward everything
-    ctx.server_notifier.send_message_to_preview(common::LspToPreviewMessage::InvalidateContents {
-        url: url.clone(),
-    });
+    ctx.to_preview
+        .send(&common::LspToPreviewMessage::InvalidateContents { url: url.clone() })
+        .unwrap();
 
     ctx.document_cache.borrow_mut().drop_document(&url)
 }
 
 pub async fn delete_document(ctx: &Rc<Context>, url: lsp_types::Url) -> common::Result<()> {
     // The preview cares about resources and slint files, so forward everything
-    ctx.server_notifier
-        .send_message_to_preview(common::LspToPreviewMessage::ForgetFile { url: url.clone() });
+    ctx.to_preview.send(&common::LspToPreviewMessage::ForgetFile { url: url.clone() }).unwrap();
 
     ctx.document_cache.borrow_mut().drop_document(&url)
 }
@@ -1516,8 +1515,7 @@ pub async fn load_configuration(ctx: &Context) -> common::Result<()> {
         document_cache.reload_cached_file(url, &mut diag).await;
     }
 
-    ctx.server_notifier
-        .send_message_to_preview(common::LspToPreviewMessage::SetConfiguration { config });
+    ctx.to_preview.send(&common::LspToPreviewMessage::SetConfiguration { config }).unwrap();
 
     send_diagnostics(
         &ctx.server_notifier,
