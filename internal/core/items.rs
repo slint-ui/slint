@@ -1166,7 +1166,12 @@ impl Item for WindowItem {
         self_rc: &ItemRc,
         size: LogicalSize,
     ) -> RenderingResult {
-        backend.draw_window_background(self, self_rc, size, &self.cached_rendering_data);
+        if self_rc.parent_item(crate::item_tree::ParentItemTraversalMode::StopAtPopups).is_none() {
+            backend.draw_window_background(self, self_rc, size, &self.cached_rendering_data);
+        } else {
+            // Dialogs and other nested Window items
+            backend.draw_rectangle(self, self_rc, size, &self.cached_rendering_data);
+        }
         RenderingResult::ContinueRenderingChildren
     }
 
