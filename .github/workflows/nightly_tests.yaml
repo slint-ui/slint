@@ -150,7 +150,7 @@ jobs:
                   scheme: "Energy Monitor"
                   bundle_id: dev.slint.demos.EnergyMonitor
                   device: iPhone 16
-        runs-on: macos-14
+        runs-on: macos-15
         steps:
             - uses: actions/checkout@v4
             - uses: ./.github/actions/setup-rust
