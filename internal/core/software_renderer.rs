@@ -1010,7 +1010,8 @@ fn render_window_frame_by_line(
                                 );
                             }
                             SceneCommand::LinearGradient { linear_gradient_index } => {
-                                let g = &scene.vectors.linear_gradients[linear_gradient_index as usize];
+                                let g =
+                                    &scene.vectors.linear_gradients[linear_gradient_index as usize];
 
                                 draw_functions::draw_linear_gradient(
                                     &PhysicalRect { origin: span.pos, size: span.size },
@@ -1021,7 +1022,8 @@ fn render_window_frame_by_line(
                                 );
                             }
                             SceneCommand::RadialGradient { radial_gradient_index } => {
-                                let g = &scene.vectors.radial_gradients[radial_gradient_index as usize];
+                                let g =
+                                    &scene.vectors.radial_gradients[radial_gradient_index as usize];
                                 draw_functions::draw_radial_gradient(
                                     &PhysicalRect { origin: span.pos, size: span.size },
                                     scene.current_line,
@@ -1263,11 +1265,14 @@ fn process_rectangle_impl(
         let center_y = PhysicalLength::new((absolute_center_y - clipped.min_y()) as i16);
 
         let radial_grad = RadialGradientCommand {
-            stops: g.stops().map(|s| {
-                let mut stop = *s;
-                stop.color = alpha_color(stop.color, args.alpha);
-                stop
-            }).collect(),
+            stops: g
+                .stops()
+                .map(|s| {
+                    let mut stop = *s;
+                    stop.color = alpha_color(stop.color, args.alpha);
+                    stop
+                })
+                .collect(),
             center_x,
             center_y,
         };
