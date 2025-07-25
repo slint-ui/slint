@@ -163,6 +163,11 @@
             }
           },
           "description": "Map of paths in which the `import` statement for `@mylibrary` imports are looked up. This is an object such as `{\"mylibrary\": \"/path/to/library\"}`. Relative paths are resolved against the workspace root."
+        },
+        "slint.lspBinaryPath": {
+          "type": "string",
+          "default": "",
+          "description": "The path to the slint-lsp. Leave empty to use the packaged LSP"
         }
       }
     },
