@@ -236,9 +236,7 @@ impl i_slint_renderer_skia::software_surface::RenderBuffer for DrmDumbBufferAcce
                 match format {
                     drm::buffer::DrmFourcc::Xrgb8888 => skia_safe::ColorType::BGRA8888,
 
-                    drm::buffer::DrmFourcc::Argb8888 => skia_safe::ColorType::RGBA8888,
-
-                    drm::buffer::DrmFourcc::Abgr8888 => skia_safe::ColorType::BGRA8888,
+                    drm::buffer::DrmFourcc::Argb8888 => skia_safe::ColorType::BGRA8888,
 
                     drm::buffer::DrmFourcc::Rgba8888 => skia_safe::ColorType::RGBA8888,
 
