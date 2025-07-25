@@ -9,12 +9,12 @@
 //! Most of the code for the resolving actually lies in the expression_tree module
 
 use crate::diagnostics::{BuildDiagnostics, Spanned};
-use crate::expression_tree::*;
 use crate::langtype::{ElementType, Struct, Type};
 use crate::lookup::{LookupCtx, LookupObject, LookupResult, LookupResultCallable};
 use crate::object_tree::*;
 use crate::parser::{identifier_text, syntax_nodes, NodeOrToken, SyntaxKind, SyntaxNode};
 use crate::typeregister::TypeRegister;
+use crate::{expression_tree::*, langtype};
 use core::num::IntErrorKind;
 use smol_str::{SmolStr, ToSmolStr};
 use std::collections::HashMap;
@@ -72,6 +72,9 @@ fn resolve_expression(
             SyntaxKind::TwoWayBinding => {
                 assert!(diag.has_errors(), "Two way binding should have been resolved already  (property: {property_name:?})");
                 Expression::Invalid
+            }
+            SyntaxKind::AtKeys => {
+                Expression::from_at_keys_node(node.clone().into(), &mut lookup_ctx)
             }
             _ => {
                 debug_assert!(diag.has_errors());
@@ -334,6 +337,7 @@ impl Expression {
                     SyntaxKind::AtImageUrl => Some(Self::from_at_image_url_node(node.into(), ctx)),
                     SyntaxKind::AtGradient => Some(Self::from_at_gradient(node.into(), ctx)),
                     SyntaxKind::AtTr => Some(Self::from_at_tr(node.into(), ctx)),
+                    SyntaxKind::AtKeys => Some(Self::from_at_keys_node(node.into(), ctx)),
                     SyntaxKind::QualifiedName => Some(Self::from_qualified_name_node(
                         node.clone().into(),
                         ctx,
@@ -809,6 +813,34 @@ impl Expression {
         }
     }
 
+    pub fn from_at_keys_node(node: syntax_nodes::AtKeys, _ctx: &mut LookupCtx) -> Self {
+        let mut shortcut = langtype::KeyboardShortcut::default();
+
+        for identifier in node
+            .children_with_tokens()
+            .filter(|n| matches!(n.kind(), SyntaxKind::Identifier))
+            // The first identifier is always `keys`
+            .skip(1)
+        {
+            match identifier.as_token().unwrap().text() {
+                "alt" => shortcut.modifiers.alt = true,
+                "shift" => shortcut.modifiers.shift = true,
+                "ctrl" | "control" => shortcut.modifiers.control = true,
+                "meta" => shortcut.modifiers.meta = true,
+                s if s.len() == 1 => shortcut.key = s.chars().next().unwrap(),
+                _ => {
+                    unreachable!("The parser has filtered this for us");
+                }
+            }
+        }
+
+        if shortcut.key != '\0' {
+            Expression::KeyboardShortcut(vec![shortcut])
+        } else {
+            Expression::KeyboardShortcut(vec![])
+        }
+    }
+
     /// Perform the lookup
     fn from_qualified_name_node(
         node: syntax_nodes::QualifiedName,
@@ -1051,7 +1083,7 @@ impl Expression {
             OperatorClass::ComparisonOp => {
                 let ty =
                     Self::common_target_type_for_type_list([lhs.ty(), rhs.ty()].iter().cloned());
-                if !matches!(op, '=' | '!') && !ty.as_unit_product().is_some() && ty != Type::String
+                if !matches!(op, '=' | '!') && ty.as_unit_product().is_none() && ty != Type::String
                 {
                     ctx.diag.push_error(format!("Values of type {ty} cannot be compared"), &node);
                 }

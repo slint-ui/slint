@@ -1,0 +1,37 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component SuperSimple {
+    property <keyboard-shortcut> k1: @keys();
+    property <keyboard-shortcut> k2: @keys(a);
+    property <keyboard-shortcut> k3: @keys(a, b);
+//                                          ^error{Expected 'alt', 'ctrl' (or 'control'), 'meta', 'shift, '+' or <CHAR>}
+
+    property <keyboard-shortcut> k4: @keys(alt + shift);
+//                                                    ^error{A keyboard shortcut must be empty or contain exactly one key}
+
+    property <keyboard-shortcut> k5: @keys(a + b);
+//                                             ^error{Duplicated key in keyboard shortcut}
+    property <keyboard-shortcut> k6: @keys(alt ++ a);
+//                                              ^error{Unexpected '+' in keyboard shortcut}
+
+    property <keyboard-shortcut> k7: @keys(alt + control + shift + meta + a);
+    property <keyboard-shortcut> k8: @keys(alt + ctrl + shift + meta + a);
+    property <keyboard-shortcut> k9: @keys(alt ctrl + shift + meta + a);
+//                                             ^error{Expected '+' to separate parts of a keyboard shortcut}
+    property <keyboard-shortcut> ka: @keys(alt + ctrl + shift + meta + alt + a);
+//                                                                     ^error{Duplicated modifier in keyboard shortcut}
+    property <keyboard-shortcut> kb: @keys(alt + ctrl + shift + meta + ctrl + a);
+//                                                                     ^error{Duplicated modifier in keyboard shortcut}
+    property <keyboard-shortcut> kc: @keys(alt + ctrl + shift + meta + control + a);
+//                                                                     ^error{Duplicated modifier in keyboard shortcut}
+    property <keyboard-shortcut> kd: @keys(alt + ctrl + shift + meta + shift + a);
+//                                                                     ^error{Duplicated modifier in keyboard shortcut}
+    property <keyboard-shortcut> ke: @keys(alt + ctrl + shift + meta + meta + a);
+//                                                                     ^error{Duplicated modifier in keyboard shortcut}
+    property <keyboard-shortcut> kf: @keys(alt + control + shift + meta + ctrl + a);
+//                                                                        ^error{Duplicated modifier in keyboard shortcut}
+    property <keyboard-shortcut> kg: @keys(alt + control + shift + meta + control + a);
+//                                                                        ^error{Duplicated modifier in keyboard shortcut}
+
+}
