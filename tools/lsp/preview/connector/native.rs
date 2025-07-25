@@ -235,7 +235,7 @@ fn toggle_always_on_top() {
 // as the life-cycle of this process is determined by the editor. The returned menuitem must
 // be kept alive for the duration of the event loop, as otherwise muda crashes.
 #[cfg(target_vendor = "apple")]
-fn init_apple_platform(
+pub fn init_apple_platform(
 ) -> Result<(muda::MenuItem, muda::CheckMenuItem), i_slint_core::api::PlatformError> {
     use muda::{accelerator, CheckMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu};
 
@@ -245,7 +245,6 @@ fn init_apple_platform(
         i_slint_core::api::PlatformError::from(set_platform_err.to_string())
     })?;
 
-    let process_name = objc2_foundation::NSProcessInfo::processInfo().processName().to_string();
     let reload_menu_item = MenuItem::new(
         format!("Reload"),
         true,
@@ -271,6 +270,7 @@ fn init_apple_platform(
                 &PredefinedMenuItem::hide_others(None),
                 &PredefinedMenuItem::show_all(None),
                 &reload_menu_item,
+                &PredefinedMenuItem::quit(None),
             ])
         })
         .and_then(|_| window_m.append_items(&[&keep_on_top_menu_item]))

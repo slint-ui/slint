@@ -37,7 +37,7 @@ pub fn create_ui(
     let ui = PreviewUi::new()?;
 
     #[cfg(all(target_vendor = "apple", not(target_arch = "wasm32")))]
-    crate::preview::connector::init_apple_platform()?;
+    crate::preview::connector::native::init_apple_platform()?;
 
     // styles:
     let known_styles = once(&"native")
