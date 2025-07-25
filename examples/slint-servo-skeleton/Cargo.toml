@@ -1,0 +1,8 @@
+[workspace]
+members = ["ui", "web"]
+resolver  = "3"
+exclude  = ["servo"]  
+
+[workspace.package]
+edition = "2024"
+

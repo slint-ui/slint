@@ -1,0 +1,19 @@
+export component AppWindow inherits Window {
+      in-out property <image> servo_image;
+        VerticalLayout {
+            width: 800px;
+            height: 600px;
+
+            Text {
+                text: "Hello, Servo Web!";
+                font-size: 24px;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+             Image {
+                source: servo_image;
+                width: 800px;
+                height: 550px;
+            }
+        }
+    }
