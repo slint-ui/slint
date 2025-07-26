@@ -35,15 +35,10 @@ impl DumbBufferDisplay {
         let (depth, bpp) = pixel_format_params(format)
             .ok_or_else(|| format!("Cannot get depth and bpp for pixel format: {format:?}"))?;
 
-        let front_buffer: RefCell<DumbBuffer> = DumbBuffer::allocate(
-            &drm_output.drm_device,
-            drm_output.size(),
-            format,
-            depth,
-            bpp,
-        )
-        .map_err(|err| format!("Could not allocate drm dumb buffer: {err}"))?
-        .into();
+        let front_buffer: RefCell<DumbBuffer> =
+            DumbBuffer::allocate(&drm_output.drm_device, drm_output.size(), format, depth, bpp)
+                .map_err(|err| format!("Could not allocate drm dumb buffer: {err}"))?
+                .into();
 
         let back_buffer = DumbBuffer::allocate(
             &drm_output.drm_device,

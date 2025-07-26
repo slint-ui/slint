@@ -274,7 +274,8 @@ impl DrmOutput {
             }
         }
 
-        Err(format!("No available formats found for current plane with CRTC {:?}", self.crtc).into())
+        Err(format!("No available formats found for current plane with CRTC {:?}", self.crtc)
+            .into())
     }
 
     pub fn size(&self) -> (u32, u32) {
