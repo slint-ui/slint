@@ -252,6 +252,32 @@ impl DrmOutput {
         }
     }
 
+    pub fn get_supported_formats(&self) -> Result<Vec<drm::buffer::DrmFourcc>, PlatformError> {
+        // Try to get formats from the plane associated with our CRTC
+        if let Ok(plane_handles) = self.drm_device.plane_handles() {
+            for &plane_handle in &plane_handles {
+                if let Ok(plane) = self.drm_device.get_plane(plane_handle) {
+                    if plane.crtc() == Some(self.crtc) {
+                        let formats: Vec<drm::buffer::DrmFourcc> = plane
+                            .formats()
+                            .iter()
+                            .filter_map(|&format_u32| {
+                                drm::buffer::DrmFourcc::try_from(format_u32).ok()
+                            })
+                            .collect();
+
+                        if !formats.is_empty() {
+                            return Ok(formats);
+                        }
+                    }
+                }
+            }
+        }
+
+        Err(format!("No available formats found for current plane with CRTC {:?}", self.crtc)
+            .into())
+    }
+
     pub fn size(&self) -> (u32, u32) {
         let (width, height) = self.mode.size();
         (width as u32, height as u32)

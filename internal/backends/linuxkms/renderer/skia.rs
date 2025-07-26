@@ -17,6 +17,45 @@ pub struct SkiaRendererAdapter {
     size: PhysicalWindowSize,
 }
 
+const SKIA_SUPPORTED_DRM_FOURCC_FORMATS: &[drm::buffer::DrmFourcc] = &[
+    // Preferred formats
+    drm::buffer::DrmFourcc::Xrgb8888,
+    // drm::buffer::DrmFourcc::Argb8888,
+    // drm::buffer::DrmFourcc::Bgra8888,
+    // drm::buffer::DrmFourcc::Rgba8888,
+
+    // 16-bit formats
+    drm::buffer::DrmFourcc::Rgb565,
+    // drm::buffer::DrmFourcc::Bgr565,
+
+    // // 4444 formats
+    // drm::buffer::DrmFourcc::Argb4444,
+    // drm::buffer::DrmFourcc::Abgr4444,
+    // drm::buffer::DrmFourcc::Rgba4444,
+    // drm::buffer::DrmFourcc::Bgra4444,
+
+    // // Single channel formats
+    // drm::buffer::DrmFourcc::Gray8,
+    // drm::buffer::DrmFourcc::C8,
+    // drm::buffer::DrmFourcc::R8,
+    // drm::buffer::DrmFourcc::R16,
+
+    // // Dual channel formats
+    // drm::buffer::DrmFourcc::Gr88,
+    // drm::buffer::DrmFourcc::Rg88,
+    // drm::buffer::DrmFourcc::Gr1616,
+    // drm::buffer::DrmFourcc::Rg1616,
+
+    // // 10-bit formats
+    // drm::buffer::DrmFourcc::Xrgb2101010,
+    // drm::buffer::DrmFourcc::Argb2101010,
+    // drm::buffer::DrmFourcc::Abgr2101010,
+    // drm::buffer::DrmFourcc::Rgba1010102,
+    // drm::buffer::DrmFourcc::Bgra1010102,
+    // drm::buffer::DrmFourcc::Rgbx1010102,
+    // drm::buffer::DrmFourcc::Bgrx1010102,
+];
+
 impl SkiaRendererAdapter {
     #[cfg(feature = "renderer-skia-vulkan")]
     pub fn new_vulkan(
@@ -92,7 +131,8 @@ impl SkiaRendererAdapter {
     pub fn new_software(
         device_opener: &crate::DeviceOpener,
     ) -> Result<Box<dyn crate::fullscreenwindowadapter::FullscreenRenderer>, PlatformError> {
-        let display = crate::display::swdisplay::new(device_opener)?;
+        let display =
+            crate::display::swdisplay::new(device_opener, SKIA_SUPPORTED_DRM_FOURCC_FORMATS)?;
 
         let skia_software_surface: i_slint_renderer_skia::software_surface::SoftwareSurface =
             DrmDumbBufferAccess { display: display.clone() }.into();
@@ -195,7 +235,52 @@ impl i_slint_renderer_skia::software_surface::RenderBuffer for DrmDumbBufferAcce
                 height,
                 match format {
                     drm::buffer::DrmFourcc::Xrgb8888 => skia_safe::ColorType::BGRA8888,
+
+                    drm::buffer::DrmFourcc::Argb8888 => skia_safe::ColorType::BGRA8888,
+
+                    drm::buffer::DrmFourcc::Rgba8888 => skia_safe::ColorType::RGBA8888,
+
+                    drm::buffer::DrmFourcc::Bgra8888 => skia_safe::ColorType::BGRA8888,
+
                     drm::buffer::DrmFourcc::Rgb565 => skia_safe::ColorType::RGB565,
+
+                    drm::buffer::DrmFourcc::Bgr565 => skia_safe::ColorType::RGB565,
+
+                    drm::buffer::DrmFourcc::Argb4444 => skia_safe::ColorType::ARGB4444,
+
+                    drm::buffer::DrmFourcc::Abgr4444 => skia_safe::ColorType::ARGB4444,
+
+                    drm::buffer::DrmFourcc::Rgba4444 => skia_safe::ColorType::ARGB4444,
+
+                    drm::buffer::DrmFourcc::Bgra4444 => skia_safe::ColorType::ARGB4444,
+
+                    drm::buffer::DrmFourcc::C8 => skia_safe::ColorType::Gray8,
+
+                    drm::buffer::DrmFourcc::R8 => skia_safe::ColorType::R8UNorm,
+
+                    drm::buffer::DrmFourcc::R16 => skia_safe::ColorType::Unknown,
+
+                    drm::buffer::DrmFourcc::Gr88 => skia_safe::ColorType::R8G8UNorm,
+
+                    drm::buffer::DrmFourcc::Rg88 => skia_safe::ColorType::R8G8UNorm,
+
+                    drm::buffer::DrmFourcc::Gr1616 => skia_safe::ColorType::R16G16UNorm,
+
+                    drm::buffer::DrmFourcc::Rg1616 => skia_safe::ColorType::R16G16UNorm,
+
+                    drm::buffer::DrmFourcc::Xrgb2101010 => skia_safe::ColorType::RGB101010x,
+
+                    drm::buffer::DrmFourcc::Argb2101010 => skia_safe::ColorType::RGBA1010102,
+
+                    drm::buffer::DrmFourcc::Abgr2101010 => skia_safe::ColorType::BGRA1010102,
+
+                    drm::buffer::DrmFourcc::Rgba1010102 => skia_safe::ColorType::RGBA1010102,
+
+                    drm::buffer::DrmFourcc::Bgra1010102 => skia_safe::ColorType::BGRA1010102,
+
+                    drm::buffer::DrmFourcc::Rgbx1010102 => skia_safe::ColorType::RGB101010x,
+
+                    drm::buffer::DrmFourcc::Bgrx1010102 => skia_safe::ColorType::BGR101010x,
                     _ => {
                         return Err(format!(
                         "Unsupported frame buffer format {format} used with skia software renderer"
