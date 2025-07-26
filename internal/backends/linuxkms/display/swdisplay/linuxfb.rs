@@ -260,19 +260,7 @@ impl super::SoftwareBufferDisplay for LinuxFBDisplay {
         let age = if self.first_frame.get() { 0 } else { 1 };
         self.first_frame.set(false);
 
-        match self.format {
-            drm::buffer::DrmFourcc::Xrgb8888 => {
-                // 32-bit format - no conversion needed
-                callback(self.back_buffer.borrow_mut().as_mut(), age, self.format)?;
-            }
-            drm::buffer::DrmFourcc::Rgb565 => {
-                // 16-bit format - ensure proper handling
-                callback(self.back_buffer.borrow_mut().as_mut(), age, self.format)?;
-            }
-            _ => {
-                return Err(PlatformError::Other("Unsupported pixel format".to_string()));
-            }
-        }
+        callback(self.back_buffer.borrow_mut().as_mut(), age, self.format)?;
 
         let mut fb = self.fb.borrow_mut();
         fb.as_mut().copy_from_slice(&self.back_buffer.borrow());
