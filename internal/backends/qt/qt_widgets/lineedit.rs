@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+use i_slint_core::graphics::{Image, Rgba8Pixel, SharedPixelBuffer};
 use i_slint_core::input::FocusEventResult;
 use i_slint_core::items::InputType;
 
@@ -18,8 +19,36 @@ pub struct NativeLineEdit {
     pub has_focus: Property<bool>,
     pub enabled: Property<bool>,
     pub input_type: Property<InputType>,
+    pub clear_icon: Property<Image>,
     widget_ptr: std::cell::Cell<SlintTypeErasedWidgetPtr>,
     animation_tracker: Property<i32>,
+}
+
+fn get_clear_icon(size: u32) -> Image {
+    let width = size;
+    let height = size;
+
+    let mut buffer = vec![0u8; (width * height * 4) as usize];
+    let ptr = buffer.as_mut_ptr();
+
+    cpp!(unsafe [
+        width as "uint32_t",
+        height as "uint32_t",
+        ptr as "uint8_t*"
+    ] {
+        QStyleOptionFrame option;
+        const QIcon icon = qApp->style()->standardIcon(QStyle::SP_LineEditClearButton, &option);
+        const QPixmap pixmap = icon.pixmap(width, height);
+        const QImage image = pixmap.toImage().convertToFormat(QImage::Format_RGBA8888);
+        for (uint32_t y = 0; y < height; ++y) {
+            memcpy(ptr + y * width * 4, image.scanLine(y), width * 4);
+        }
+    });
+
+    let pixel_buffer =
+        SharedPixelBuffer::<Rgba8Pixel>::clone_from_slice(&buffer[..], width, height);
+
+    Image::from_rgba8(pixel_buffer)
 }
 
 impl Item for NativeLineEdit {
@@ -70,6 +99,16 @@ impl Item for NativeLineEdit {
             let paddings = paddings;
             move || LogicalLength::new(paddings.as_ref().get().bottom as _)
         });
+
+        let icon_size = cpp!(unsafe [] -> u32 as "uint" {
+            #if QT_VERSION < QT_VERSION_CHECK(6, 2, 0)
+            return qApp->style()->pixelMetric(QStyle::PM_SmallIconSize, nullptr, nullptr);
+            #else
+            return qApp->style()->pixelMetric(QStyle::PM_LineEditIconSize, nullptr, nullptr);
+            #endif
+        });
+
+        self.clear_icon.set(get_clear_icon(icon_size));
     }
 
     fn layout_info(
