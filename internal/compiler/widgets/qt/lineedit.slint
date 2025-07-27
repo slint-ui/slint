@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { LineEditBase } from "../common/lineedit-base.slint";
+import { LineEditBase, LineEditClearIcon } from "../common/lineedit-base.slint";
 
 export component LineEdit {
     in property <length> font-size <=> inner.font-size;
@@ -73,5 +73,20 @@ export component LineEdit {
             enabled: root.enabled;
             margin: layout.padding-left + layout.padding-right;
         }
+
+        LineEditClearIcon {
+            text: inner.text;
+            input-type: inner.input-type;
+            source: native.clear-icon;
+            colorize: inner.text-color;
+            image-fit: preserve;
+            height: inner.min-height;
+            width: self.height;
+            clear => {
+                inner.text = "";
+                inner.focus();
+            }
+        }
+
     }
 }
