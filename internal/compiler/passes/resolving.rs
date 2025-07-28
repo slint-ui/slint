@@ -1292,10 +1292,18 @@ impl Expression {
         let arg_name = node.DeclaredIdentifier().to_smolstr();
 
         ctx.predicate_arguments.push(arg_name.clone());
-        let expression = Box::new(Expression::from_expression_node(node.Expression(), ctx));
+        let expression = Expression::from_expression_node(node.Expression(), ctx);
+        let ty = expression.ty();
+        if ty != Type::Bool {
+            ctx.diag.push_error(
+                format!("Predicate expression must be of type bool, but is {}", ty),
+                &node.Expression(),
+            );
+        }
+
         ctx.predicate_arguments.pop();
 
-        Expression::Predicate { arg_name, expression }
+        Expression::Predicate { arg_name, expression: Box::new(expression) }
     }
 
     fn from_string_template_node(

@@ -180,7 +180,7 @@ impl Display for Type {
             }
             Type::ElementReference => write!(f, "element ref"),
             Type::LayoutCache => write!(f, "layout cache"),
-            Type::Predicate => todo!(),
+            Type::Predicate => write!(f, "predicate"),
         }
     }
 }
