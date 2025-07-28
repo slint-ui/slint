@@ -412,8 +412,7 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
         Expression::Predicate { arg_name, expression } => {
             let arg_name = arg_name.clone();
             let expression = expression.clone();
-            let predicate: Rc<RefCell<dyn Fn(&mut EvalLocalContext<'_, '_>, &Value) -> Value + 'static>> =
-                Rc::new(RefCell::new(move |local_context: &mut EvalLocalContext<'_, '_>, value: &Value| {
+            let predicate =    Rc::new(RefCell::new(move |local_context: &mut EvalLocalContext<'_, '_>, value: &Value| {
                     local_context.local_variables.insert(arg_name.clone(), value.clone());
                     eval_expression(&expression, local_context)
                 }));
