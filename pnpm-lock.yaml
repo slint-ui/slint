@@ -85,8 +85,8 @@ importers:
         specifier: 0.9.0
         version: 0.9.0(astro@5.12.0(@types/node@20.16.10)(jiti@2.4.2)(lightningcss@1.29.2)(rollup@4.46.1)(typescript@5.8.3)(yaml@2.8.0))
       playwright-ctrf-json-reporter:
-        specifier: 0.0.21
-        version: 0.0.21
+        specifier: 0.0.22
+        version: 0.0.22
       rehype-external-links:
         specifier: 3.0.0
         version: 3.0.0
@@ -310,8 +310,8 @@ importers:
         specifier: 1.0.1
         version: 1.0.1
       playwright-ctrf-json-reporter:
-        specifier: 0.0.21
-        version: 0.0.21
+        specifier: 0.0.22
+        version: 0.0.22
       rimraf:
         specifier: 6.0.1
         version: 6.0.1
@@ -4486,8 +4486,8 @@ packages:
     engines: {node: '>=18'}
     hasBin: true
 
-  playwright-ctrf-json-reporter@0.0.21:
-    resolution: {integrity: sha512-oIR373q/WkyAw/VR2806UmYx/0ocsoD3C95FqRk5Edkw5nmnexl4TBsNKhhzsuY0lWFyZ4lilGJPsl2mpk4zvA==}
+  playwright-ctrf-json-reporter@0.0.22:
+    resolution: {integrity: sha512-mIxid2CCIsstnh56pSgVixCAlKTsf92VWjTKSs8oAdWUDIYDM7+/HQ/m8jo6T4LuUGb3DPUae5to3xzEfcWmTA==}
 
   playwright@1.54.1:
     resolution: {integrity: sha512-peWpSwIBmSLi6aW2auvrUtf2DqY16YYcCMO8rTVx486jKmDTJg7UAhyrraP98GB8BoPURZP8+nxO7TSd4cPr5g==}
@@ -10737,7 +10737,7 @@ snapshots:
 
   playwright-core@1.54.1: {}
 
-  playwright-ctrf-json-reporter@0.0.21: {}
+  playwright-ctrf-json-reporter@0.0.22: {}
 
   playwright@1.54.1:
     dependencies:
