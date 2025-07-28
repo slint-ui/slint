@@ -184,8 +184,12 @@ if (SLINT_BUILD_RUNTIME)
     add_library(Slint::Slint ALIAS Slint)
     target_link_libraries(Slint INTERFACE slint_cpp)
     target_compile_features(Slint INTERFACE cxx_std_20)
-    if (MSVC)
-        target_compile_options(Slint INTERFACE /bigobj)
+    if (WIN32)
+        target_compile_options(Slint INTERFACE
+            $<$<CXX_COMPILER_ID:MSVC>:/bigobj>
+            $<$<CXX_COMPILER_ID:Clang>:-Wa,-mbig-obj>
+            $<$<CXX_COMPILER_ID:GNU>:-Wa,-mbig-obj>
+        )
     endif()
 
     foreach(feature ${public_cmake_features})
