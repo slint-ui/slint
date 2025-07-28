@@ -1,12 +1,12 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { LineEditBase, LineEditClearIcon } from "../common/lineedit-base.slint";
+import { LineEditBase, LineEditClearIcon, LineEditPasswordIcon } from "../common/lineedit-base.slint";
 
 export component LineEdit {
     in property <length> font-size <=> inner.font-size;
     in property <string> placeholder-text <=> inner.placeholder-text;
-    in property input-type <=> inner.input-type;
+    in property <InputType> input-type;
     in property horizontal-alignment <=> inner.horizontal-alignment;
     in property read-only <=> inner.read-only;
     in property <bool> enabled: true;
@@ -68,6 +68,7 @@ export component LineEdit {
         padding-bottom: native.native-padding-bottom;
 
         inner := LineEditBase {
+            input-type: root.input-type;
             placeholder-color: self.enabled ? NativeStyleMetrics.placeholder-color : NativeStyleMetrics.placeholder-color-disabled;
             text-color: self.enabled ? NativeStyleMetrics.textedit-text-color : NativeStyleMetrics.textedit-text-color-disabled;
             enabled: root.enabled;
@@ -89,6 +90,20 @@ export component LineEdit {
                 }
             }
         }
+
+        if root.input-type == InputType.password: LineEditPasswordIcon {
+            width: self.source.width * 1px;
+            show-password-image: @image-url("_visibility.svg");
+            hide-password-image: @image-url("_visibility_off.svg");
+            colorize: inner.text-color;
+            height: inner.min-height;
+            image-fit: preserve;
+            show-password-changed(show) => {
+                inner.input-type = show ? InputType.text : root.input-type;
+                inner.focus();
+            }
+        }
+
 
     }
 }
