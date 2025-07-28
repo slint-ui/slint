@@ -451,6 +451,12 @@ impl WinitWindowAdapter {
             apply_scale_factor_to_logical_sizes_in_attributes(&mut window_attributes, sf as f64)
         }
 
+        // Work around issue with menu bar appearing translucent in fullscreen (#8793)
+        #[cfg(all(muda, target_os = "windows"))]
+        if self.menubar.borrow().is_some() {
+            window_attributes = window_attributes.with_transparent(false);
+        }
+
         let winit_window = self.renderer.resume(
             active_event_loop,
             window_attributes,
