@@ -143,7 +143,7 @@ impl LinuxFBDisplay {
         let min_line_length = width * bpp;
         if line_length < min_line_length {
             return Err(format!(
-                "Error using linux framebuffer: line length ({}) is less than minimum required ({})", 
+                "Error using linux framebuffer: line length ({}) is less than minimum required ({})",
                 line_length, min_line_length
             ).into());
         }
