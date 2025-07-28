@@ -14,6 +14,8 @@ pub struct LinuxFBDisplay {
     back_buffer: RefCell<Box<[u8]>>,
     width: u32,
     height: u32,
+    line_length: u32,
+    bpp: u32,
     presenter: Arc<crate::display::noop_presenter::NoopPresenter>,
     first_frame: Cell<bool>,
     format: drm::buffer::DrmFourcc,
@@ -136,16 +138,23 @@ impl LinuxFBDisplay {
 
         let width = vinfo.xres;
         let height = vinfo.yres;
+        let line_length = finfo.line_length;
 
-        if finfo.line_length != width * bpp {
-            return Err(format!("Error using linux framebuffer: padded lines are not supported yet (width: {}, bpp: {}, line length: {})", width, bpp, finfo.line_length).into());
+        let min_line_length = width * bpp;
+        if line_length < min_line_length {
+            return Err(format!(
+                "Error using linux framebuffer: line length ({}) is less than minimum required ({})",
+                line_length, min_line_length
+            ).into());
         }
 
-        let size_bytes = width as usize * height as usize * bpp as usize;
+        let fb_size_bytes = line_length as usize * height as usize;
+
+        let back_buffer_size_bytes = width as usize * height as usize * bpp as usize;
 
         let fb = unsafe {
             memmap2::MmapOptions::new()
-                .len(size_bytes)
+                .len(fb_size_bytes)
                 .map_mut(&fd)
                 .map_err(|err| format!("Error mmapping framebuffer: {err}"))?
         };
@@ -159,13 +168,15 @@ impl LinuxFBDisplay {
             }
         };
 
-        let back_buffer = RefCell::new(vec![0u8; size_bytes].into_boxed_slice());
+        let back_buffer = RefCell::new(vec![0u8; back_buffer_size_bytes].into_boxed_slice());
 
         Ok(Arc::new(Self {
             fb: RefCell::new(fb),
             back_buffer,
             width,
             height,
+            line_length,
+            bpp,
             presenter: crate::display::noop_presenter::NoopPresenter::new(),
             first_frame: Cell::new(true),
             format,
@@ -236,6 +247,29 @@ impl LinuxFBDisplay {
             let _ = tty_write.flush();
         }
     }
+
+    fn copy_to_framebuffer(&self) {
+        let back_buffer = self.back_buffer.borrow();
+        let mut fb = self.fb.borrow_mut();
+
+        let pixel_row_size = self.width as usize * self.bpp as usize;
+        let line_length = self.line_length as usize;
+
+        if line_length == pixel_row_size {
+            fb.as_mut().copy_from_slice(&back_buffer);
+        } else {
+            for y in 0..self.height as usize {
+                let back_buffer_offset = y * pixel_row_size;
+                let fb_offset = y * line_length;
+
+                let back_row =
+                    &back_buffer[back_buffer_offset..back_buffer_offset + pixel_row_size];
+                let fb_row = &mut fb.as_mut()[fb_offset..fb_offset + pixel_row_size];
+
+                fb_row.copy_from_slice(back_row);
+            }
+        }
+    }
 }
 
 impl Drop for LinuxFBDisplay {
@@ -262,8 +296,8 @@ impl super::SoftwareBufferDisplay for LinuxFBDisplay {
 
         callback(self.back_buffer.borrow_mut().as_mut(), age, self.format)?;
 
-        let mut fb = self.fb.borrow_mut();
-        fb.as_mut().copy_from_slice(&self.back_buffer.borrow());
+        self.copy_to_framebuffer();
+
         Ok(())
     }
 
