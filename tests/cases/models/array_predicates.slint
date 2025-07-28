@@ -19,21 +19,21 @@ export component TestCase {
     out property <bool> test: self.ints.all(
     
     
-    |x| x > 0) && !self.ints.all(
-    |x| x > 1) && !self.ints.any(
-    |x| x == 0) && self.ints.any(
-    |x| x == 5) && self.ints.any(
-    |x| x < 5) && self.strings.all(
-    |s| s.character-count > 0) && !self.strings.all(
-    |s| s.is-empty) && self.strings.any(
-    |s| s == "hello") && !self.strings.any(
-    |s| s == "test") && !self.strings.any(
-    |s| s.is-empty) && self.people.all(
-    |p| p.age > 20) && !self.people.all(
-    |p| p.age < 30) && self.people.any(
-    |p| p.name == "Alice") && !self.people.any(
-    |p| p.name == "Evan") && self.people.any(
-    |p| p.age < 30);
+    x => x > 0) && !self.ints.all(
+    x => x > 1) && !self.ints.any(
+    x => x == 0) && self.ints.any(
+    x => x == 5) && self.ints.any(
+    x => x < 5) && self.strings.all(
+    s => s.character-count > 0) && !self.strings.all(
+    s => s.is-empty) && self.strings.any(
+    s => s == "hello") && !self.strings.any(
+    s => s == "test") && !self.strings.any(
+    s => s.is-empty) && self.people.all(
+    p => p.age > 20) && !self.people.all(
+    p => p.age < 30) && self.people.any(
+    p => p.name == "Alice") && !self.people.any(
+    p => p.name == "Evan") && self.people.any(
+    p => p.age < 30);
 }
 
 /*
