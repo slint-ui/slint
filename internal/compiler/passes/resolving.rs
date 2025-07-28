@@ -884,13 +884,17 @@ impl Expression {
 
         let Some(function) = function else {
             // Check sub expressions anyway
-            // sub_expr.count();
+            sub_expr.for_each(|n| {
+                Self::from_expression_node(n.clone(), ctx);
+            });
             assert!(ctx.diag.has_errors());
             return Self::Invalid;
         };
         let LookupResult::Callable(function) = function else {
             // Check sub expressions anyway
-            // sub_expr.count();
+            sub_expr.for_each(|n| {
+                Self::from_expression_node(n.clone(), ctx);
+            });
             ctx.diag.push_error("The expression is not a function".into(), &node);
             return Self::Invalid;
         };
