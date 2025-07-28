@@ -21,7 +21,7 @@
         "@astrojs/check": "0.9.4",
         "@astrojs/starlight": "0.35.1",
         "@expressive-code/plugin-line-numbers": "0.41.3",
-        "@types/node": "24.0.13",
+        "@types/node": "24.1.0",
         "astro": "5.12.0",
         "astro-embed": "0.9.0",
         "rehype-external-links": "3.0.0",
