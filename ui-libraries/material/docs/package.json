@@ -40,7 +40,7 @@
         "@biomejs/biome": "2.1.2",
         "@expressive-code/core": "0.41.3",
         "@playwright/test": "1.54.1",
-        "cspell": "9.1.5",
+        "cspell": "9.2.0",
         "@astrojs/check": "0.9.4",
         "@astrojs/markdown-remark": "6.3.3",
         "@astrojs/mdx": "4.3.1",
