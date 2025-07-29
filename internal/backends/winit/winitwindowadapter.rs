@@ -1384,14 +1384,17 @@ impl WindowAdapterInternal for WinitWindowAdapter {
         {
             // On Windows, we must destroy the muda menu before re-creating a new one
             drop(context_menu_muda_adapter.borrow_mut().take());
-            context_menu_muda_adapter.replace(Some(crate::muda::MudaAdapter::show_context_menu(
+            if let Some(new_adapter) = crate::muda::MudaAdapter::show_context_menu(
                 self.context_menu.borrow().as_ref().unwrap(),
                 &self.winit_window().unwrap(),
                 position,
                 self.event_loop_proxy.clone(),
-            )));
+            ) {
+                context_menu_muda_adapter.replace(Some(new_adapter));
+                return true;
+            }
         }
-        true
+        false
     }
 
     #[cfg(enable_accesskit)]
