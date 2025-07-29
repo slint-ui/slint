@@ -2229,7 +2229,7 @@ export component MainWindow2 inherits Rectangle {
         );
     }
 
-        #[test]
+    #[test]
     fn nested_predicate() {
         assert_formatting(
             "component X { property <[[int]]> arr: [[1, 2, 3, 4, 5]]; function foo() { arr.any(x     =>   x.all(y   => y   ==  7     )      ); } }",
