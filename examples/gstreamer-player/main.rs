@@ -40,23 +40,35 @@ fn main() -> anyhow::Result<()> {
     // on the pipeline's bus in the egl_integration. To work around this, send messages from the
     // sync handler over an async channel, then receive them here.
     let (bus_sender, mut bus_receiver) = futures::channel::mpsc::unbounded::<gst::Message>();
-    slint::spawn_local(async move {
-        while let Some(msg) = bus_receiver.next().await {
-            match msg.view() {
-                MessageView::Eos(..) => {
-                    slint::quit_event_loop().unwrap();
-                    break;
+    slint::spawn_local({
+        let pipeline = pipeline.clone();
+        let app = app.as_weak();
+        async move {
+            while let Some(msg) = bus_receiver.next().await {
+                match msg.view() {
+                    // Only update the `playing` property of the GUI in response to GStreamer's state changing
+                    // rather than updating it from GUI callbacks. This ensures that the state of the GUI stays
+                    // in sync with GStreamer.
+                    MessageView::StateChanged(s) => {
+                        if *s.src().unwrap() == pipeline {
+                            app.unwrap().set_playing(s.current() == gst::State::Playing);
+                        }
+                    }
+                    MessageView::Eos(..) => {
+                        slint::quit_event_loop().unwrap();
+                        break;
+                    }
+                    MessageView::Error(err) => {
+                        eprintln!(
+                            "Error from {:?}: {} ({:?})",
+                            err.src().map(|s| s.path_string()),
+                            err.error(),
+                            err.debug()
+                        );
+                        break;
+                    }
+                    _ => (),
                 }
-                MessageView::Error(err) => {
-                    eprintln!(
-                        "Error from {:?}: {} ({:?})",
-                        err.src().map(|s| s.path_string()),
-                        err.error(),
-                        err.debug()
-                    );
-                    break;
-                }
-                _ => (),
             }
         }
     })
@@ -68,32 +80,17 @@ fn main() -> anyhow::Result<()> {
     egl_integration::init(&app, &pipeline, new_frame_callback, &bus_sender)?;
 
     let pipeline_weak_for_callback = pipeline.downgrade();
-    let app_weak = app.as_weak();
     app.on_toggle_pause_play(move || {
         if let Some(pipeline) = pipeline_weak_for_callback.upgrade() {
             let current_state = pipeline.state(gst::ClockTime::NONE).1;
-            let result;
             let new_state = match current_state {
-                gst::State::Playing => {
-                    result = false;
-                    gst::State::Paused
-                }
-                _ => {
-                    result = true;
-                    gst::State::Playing
-                }
+                gst::State::Playing => gst::State::Paused,
+                _ => gst::State::Playing,
             };
 
-            // Attempt to set the state of the pipeline
-            let state_result = pipeline.set_state(new_state);
-            match state_result {
-                Ok(_) => {
-                    app_weak.unwrap().set_playing(result);
-                }
-                Err(err) => {
-                    eprintln!("Failed to set pipeline state to {:?}: {}", new_state, err);
-                }
-            }
+            pipeline.set_state(new_state).unwrap_or_else(|err| {
+                panic!("Failed to set pipeline state to {:?}: {}", new_state, err)
+            });
         }
     });
 
