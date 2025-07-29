@@ -3,7 +3,8 @@
 
 slint::include_modules!();
 
-use gst::prelude::*;
+use futures::stream::StreamExt;
+use gst::{prelude::*, MessageView};
 
 #[cfg(slint_gstreamer_egl)]
 mod egl_integration;
@@ -31,10 +32,40 @@ fn main() -> anyhow::Result<()> {
         app.set_video_frame(new_frame);
     };
 
+    // Handle messages from the GStreamer pipeline bus.
+    // For most GStreamer objects with buses, you can use `while let Some(msg) = bus.next().await`
+    // inside an async closure passed to `slint::spawn_local` to read messages from the bus.
+    // However, that does not work for this pipeline's bus because gst::BusStream calls
+    // gst::Bus::set_sync_handler internally and gst::Bus::set_sync_handler also must be called
+    // on the pipeline's bus in the egl_integration. To work around this, send messages from the
+    // sync handler over an async channel, then receive them here.
+    let (bus_sender, mut bus_receiver) = futures::channel::mpsc::unbounded::<gst::Message>();
+    slint::spawn_local(async move {
+        while let Some(msg) = bus_receiver.next().await {
+            match msg.view() {
+                MessageView::Eos(..) => {
+                    slint::quit_event_loop().unwrap();
+                    break;
+                }
+                MessageView::Error(err) => {
+                    eprintln!(
+                        "Error from {:?}: {} ({:?})",
+                        err.src().map(|s| s.path_string()),
+                        err.error(),
+                        err.debug()
+                    );
+                    break;
+                }
+                _ => (),
+            }
+        }
+    })
+    .unwrap();
+
     #[cfg(not(slint_gstreamer_egl))]
-    software_rendering::init(&app, &pipeline, new_frame_callback)?;
+    software_rendering::init(&app, &pipeline, new_frame_callback, &bus_sender)?;
     #[cfg(slint_gstreamer_egl)]
-    egl_integration::init(&app, &pipeline, new_frame_callback)?;
+    egl_integration::init(&app, &pipeline, new_frame_callback, &bus_sender)?;
 
     let pipeline_weak_for_callback = pipeline.downgrade();
     let app_weak = app.as_weak();
