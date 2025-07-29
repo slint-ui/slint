@@ -382,7 +382,8 @@ fn main_loop(connection: Connection, init_param: InitializeParams, cli_args: Cli
     };
 
     let to_preview_clone = to_preview.clone();
-    let compiler_config = cli_args.into_compiler_config(move |m| to_preview_clone.send(&m).unwrap());
+    let compiler_config =
+        cli_args.into_compiler_config(move |m| to_preview_clone.send(&m).unwrap());
 
     let ctx = Rc::new(Context {
         document_cache: RefCell::new(crate::common::DocumentCache::new(compiler_config)),
