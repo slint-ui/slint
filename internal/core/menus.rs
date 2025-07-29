@@ -27,8 +27,6 @@ use vtable::{VRef, VRefMut};
 #[vtable::vtable]
 #[repr(C)]
 pub struct MenuVTable {
-    /// destructor
-    drop: extern "C" fn(VRefMut<MenuVTable>),
     /// Return the list of items for the sub menu (or the main menu of parent is None)
     sub_menu: extern "C" fn(VRef<MenuVTable>, Option<&MenuEntry>, &mut SharedVector<MenuEntry>),
     /// Handler when the menu entry is activated
@@ -243,9 +241,9 @@ pub mod ffi {
     #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_menus_create_wrapper(
         menu_tree: &ItemTreeRc,
-        result: *mut vtable::VBox<MenuVTable>,
+        result: *mut vtable::VRc<MenuVTable>,
     ) {
-        let b = vtable::VBox::<MenuVTable>::new(MenuFromItemTree::new(menu_tree.clone()));
-        core::ptr::write(result, b);
+        let vrc = vtable::VRc::into_dyn(vtable::VRc::new(MenuFromItemTree::new(menu_tree.clone())));
+        core::ptr::write(result, vrc);
     }
 }

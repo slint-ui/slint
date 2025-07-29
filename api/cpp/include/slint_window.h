@@ -17,6 +17,39 @@ namespace private_api {
 using ItemTreeRc = vtable::VRc<cbindgen_private::ItemTreeVTable>;
 using slint::LogicalPosition;
 
+template<typename Component, typename SubMenu, typename Activated>
+struct MenuWrapper
+{
+    Component component;
+    SubMenu submenu;
+    Activated activated;
+    static cbindgen_private::MenuVTable static_vtable;
+};
+
+template<typename Component, typename SubMenu, typename Activated>
+inline cbindgen_private::MenuVTable MenuWrapper<Component, SubMenu, Activated>::static_vtable {
+    .sub_menu =
+            [](auto data, const cbindgen_private::MenuEntry *entry,
+               slint::SharedVector<cbindgen_private::MenuEntry> *result) {
+                auto wrapper = reinterpret_cast<MenuWrapper *>(data.instance);
+                auto model = wrapper->submenu(wrapper->component, entry);
+                result->clear();
+                if (model) {
+                    auto count = model->row_count();
+                    for (size_t i = 0; i < count; ++i) {
+                        result->push_back(*model->row_data(i));
+                    }
+                }
+            },
+    .activate =
+            [](auto data, const cbindgen_private::MenuEntry *entry) {
+                auto wrapper = reinterpret_cast<MenuWrapper *>(data.instance);
+                wrapper->activated(wrapper->component, *entry);
+            },
+    .drop_in_place = vtable::drop_in_place<cbindgen_private::MenuVTable, MenuWrapper>,
+    .dealloc = vtable::dealloc<cbindgen_private::MenuVTable>,
+};
+
 class WindowAdapterRc
 {
 public:
@@ -62,35 +95,10 @@ public:
         if (!supports_native_menu_bar()) {
             return;
         }
-        struct MenuWrapper
-        {
-            Component component;
-            SubMenu submenu;
-            Activated activated;
-        };
-        static cbindgen_private::MenuVTable menu_vtable = {
-            .drop = [](auto data) { delete reinterpret_cast<MenuWrapper *>(data.instance); },
-            .sub_menu =
-                    [](auto data, const cbindgen_private::MenuEntry *entry,
-                       slint::SharedVector<cbindgen_private::MenuEntry> *result) {
-                        auto wrapper = reinterpret_cast<MenuWrapper *>(data.instance);
-                        auto model = wrapper->submenu(wrapper->component, entry);
-                        result->clear();
-                        if (model) {
-                            auto count = model->row_count();
-                            for (size_t i = 0; i < count; ++i) {
-                                result->push_back(*model->row_data(i));
-                            }
-                        }
-                    },
-            .activate =
-                    [](auto data, const cbindgen_private::MenuEntry *entry) {
-                        auto wrapper = reinterpret_cast<MenuWrapper *>(data.instance);
-                        wrapper->activated(wrapper->component, *entry);
-                    },
-        };
-        auto instance = new MenuWrapper { component, std::move(submenu), std::move(activated) };
-        cbindgen_private::slint_windowrc_setup_native_menu_bar(&inner, &menu_vtable, instance);
+        using Wrapper = MenuWrapper<Component, SubMenu, Activated>;
+        auto instance = vtable::VRc<cbindgen_private::MenuVTable, Wrapper>::make(
+                Wrapper { component, std::move(submenu), std::move(activated) });
+        cbindgen_private::slint_windowrc_setup_native_menu_bar(&inner, &instance.into_dyn());
     }
 
     bool text_input_focused() const { return slint_windowrc_get_text_input_focused(&inner); }

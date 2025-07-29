@@ -1505,7 +1505,6 @@ pub mod ffi {
     use crate::graphics::Size;
     use crate::graphics::{IntSize, Rgba8Pixel};
     use crate::SharedVector;
-    use core::ptr::NonNull;
 
     /// This enum describes a low-level access to specific graphics APIs used
     /// by the renderer.
@@ -1858,13 +1857,12 @@ pub mod ffi {
     #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_windowrc_setup_native_menu_bar(
         handle: *const WindowAdapterRcOpaque,
-        vtable: NonNull<MenuVTable>,
-        menu_instance: NonNull<c_void>,
+        menu_instance: &vtable::VRc<MenuVTable>,
     ) {
         let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
         window_adapter
             .internal(crate::InternalToken)
-            .map(|x| x.setup_menubar(vtable::VBox::from_raw(vtable, menu_instance.cast())));
+            .map(|x| x.setup_menubar(menu_instance.clone()));
     }
 
     /// Return the default-font-size property of the WindowItem
