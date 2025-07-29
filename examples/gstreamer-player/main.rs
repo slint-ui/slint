@@ -54,10 +54,8 @@ fn main() -> anyhow::Result<()> {
                             app.unwrap().set_playing(s.current() == gst::State::Playing);
                         }
                     }
-                    MessageView::Eos(..) => {
-                        slint::quit_event_loop().unwrap();
-                        break;
-                    }
+                    // When the file is finished playing, close the program.
+                    MessageView::Eos(..) => slint::quit_event_loop().unwrap(),
                     MessageView::Error(err) => {
                         eprintln!(
                             "Error from {:?}: {} ({:?})",
@@ -65,7 +63,7 @@ fn main() -> anyhow::Result<()> {
                             err.error(),
                             err.debug()
                         );
-                        break;
+                        slint::quit_event_loop().unwrap();
                     }
                     _ => (),
                 }
