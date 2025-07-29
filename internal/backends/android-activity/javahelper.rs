@@ -11,7 +11,7 @@ use i_slint_core::api::{PhysicalPosition, PhysicalSize};
 use i_slint_core::graphics::{Color, euclid};
 use i_slint_core::input::{InternalKeyEvent, KeyEvent, KeyEventType};
 use i_slint_core::item_rendering::HasFont;
-use i_slint_core::items::{ColorScheme, InputType};
+use i_slint_core::items::{CapitalizationMode, ColorScheme, InputType};
 use i_slint_core::lengths::{LogicalLength, PhysicalEdges};
 use i_slint_core::platform::WindowAdapter;
 use jni::objects::{JClass, JClassLoader, JString, LoaderContext};
@@ -216,6 +216,31 @@ bind_java_type! {
             sig = jint,
             get = TYPE_NUMBER_FLAG_DECIMAL,
         },
+        #[allow(non_snake_case)]
+        static TYPE_TEXT_FLAG_CAP_SENTENCES {
+            sig = jint,
+            get = TYPE_TEXT_FLAG_CAP_SENTENCES,
+        },
+        #[allow(non_snake_case)]
+        static TYPE_TEXT_FLAG_CAP_WORDS {
+            sig = jint,
+            get = TYPE_TEXT_FLAG_CAP_WORDS,
+        },
+        #[allow(non_snake_case)]
+        static TYPE_TEXT_FLAG_CAP_CHARACTERS {
+            sig = jint,
+            get = TYPE_TEXT_FLAG_CAP_CHARACTERS,
+        },
+        #[allow(non_snake_case)]
+        static TYPE_TEXT_FLAG_AUTO_CORRECT {
+            sig = jint,
+            get = TYPE_TEXT_FLAG_AUTO_CORRECT,
+        },
+        #[allow(non_snake_case)]
+        static TYPE_TEXT_FLAG_AUTO_COMPLETE {
+            sig = jint,
+            get = TYPE_TEXT_FLAG_AUTO_COMPLETE,
+        },
     }
 }
 
@@ -388,7 +413,36 @@ impl JavaHelper {
             let text = JString::new(env, text.as_str())?;
 
             let input_type = match data.input_type {
-                InputType::Text | InputType::Search => AndroidInputType::TYPE_CLASS_TEXT(env)?,
+                InputType::Text | InputType::Search => {
+                    let hints = &data.input_method_hints;
+                    let capitalization_flag = match hints.capitalization {
+                        CapitalizationMode::None => 0 as jint,
+                        CapitalizationMode::Sentences => {
+                            AndroidInputType::TYPE_TEXT_FLAG_CAP_SENTENCES(env)?
+                        }
+                        CapitalizationMode::Words => {
+                            AndroidInputType::TYPE_TEXT_FLAG_CAP_WORDS(env)?
+                        }
+                        CapitalizationMode::Characters => {
+                            AndroidInputType::TYPE_TEXT_FLAG_CAP_CHARACTERS(env)?
+                        }
+                        _ => 0 as jint,
+                    };
+                    let auto_correct_flag = if hints.auto_correct {
+                        AndroidInputType::TYPE_TEXT_FLAG_AUTO_CORRECT(env)?
+                    } else {
+                        0 as jint
+                    };
+                    let auto_complete_flag = if hints.auto_complete {
+                        AndroidInputType::TYPE_TEXT_FLAG_AUTO_COMPLETE(env)?
+                    } else {
+                        0 as jint
+                    };
+                    AndroidInputType::TYPE_CLASS_TEXT(env)?
+                        | capitalization_flag
+                        | auto_correct_flag
+                        | auto_complete_flag
+                }
                 InputType::Password => {
                     AndroidInputType::TYPE_TEXT_VARIATION_PASSWORD(env)?
                         | AndroidInputType::TYPE_CLASS_TEXT(env)?

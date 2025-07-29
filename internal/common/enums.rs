@@ -81,6 +81,20 @@ macro_rules! for_each_enums {
                 Center,
             }
 
+            /// This enum describes the auto-capitalization behavior that the input method
+            /// (e.g. a soft keyboard) should apply while text is entered in a `TextInput`.
+            #[non_exhaustive]
+            pub enum CapitalizationMode {
+                /// No auto-capitalization.
+                None,
+                /// Capitalize the first character of each sentence.
+                Sentences,
+                /// Capitalize the first character of each word.
+                Words,
+                /// Capitalize all characters.
+                Characters,
+            }
+
             /// This enum describes whether an event was rejected or accepted by an event handler.
             #[non_exhaustive]
             enum EventResult {

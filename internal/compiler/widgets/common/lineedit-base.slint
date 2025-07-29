@@ -15,6 +15,7 @@ export component LineEditBase implements LineEditInterface inherits Rectangle {
     in-out property <bool> password-revealed: false;
     horizontal-alignment <=> text-input.horizontal-alignment;
     read-only <=> text-input.read-only;
+    input-method-hints <=> text-input.input-method-hints;
 
     changed has-focus => {
         if !self.has-focus {
