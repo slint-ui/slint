@@ -6,10 +6,7 @@ slint::include_modules!();
 use futures::stream::StreamExt;
 use gst::{prelude::*, MessageView};
 
-#[cfg(slint_gstreamer_egl)]
-mod egl_integration;
-#[cfg(not(slint_gstreamer_egl))]
-mod software_rendering;
+mod slint_video_sink;
 
 fn main() -> anyhow::Result<()> {
     slint::BackendSelector::new()
@@ -27,10 +24,6 @@ fn main() -> anyhow::Result<()> {
         .build()?
         .downcast::<gst::Pipeline>()
         .unwrap();
-
-    let new_frame_callback = |app: App, new_frame| {
-        app.set_video_frame(new_frame);
-    };
 
     // Handle messages from the GStreamer pipeline bus.
     // For most GStreamer objects with buses, you can use `while let Some(msg) = bus.next().await`
@@ -73,10 +66,7 @@ fn main() -> anyhow::Result<()> {
     })
     .unwrap();
 
-    #[cfg(not(slint_gstreamer_egl))]
-    software_rendering::init(&app, &pipeline, new_frame_callback, bus_sender)?;
-    #[cfg(slint_gstreamer_egl)]
-    egl_integration::init(&app, &pipeline, new_frame_callback, bus_sender)?;
+    slint_video_sink::init(&app, &pipeline, bus_sender)?;
 
     let pipeline_weak_for_callback = pipeline.downgrade();
     app.on_toggle_pause_play(move || {
