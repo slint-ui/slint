@@ -46,6 +46,7 @@ fn main() -> anyhow::Result<()> {
         async move {
             while let Some(msg) = bus_receiver.next().await {
                 match msg.view() {
+                    MessageView::Buffering(b) => app.unwrap().set_buffering_percent(b.percent()),
                     // Only update the `playing` property of the GUI in response to GStreamer's state changing
                     // rather than updating it from GUI callbacks. This ensures that the state of the GUI stays
                     // in sync with GStreamer.
