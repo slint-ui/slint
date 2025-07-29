@@ -48,6 +48,7 @@ fn resolve_expression(
             local_variables: vec![],
             predicate_arguments: vec![],
             predicate_argument_types: vec![],
+            predicates_allowed: false,
         };
 
         let new_expr = match node.kind() {
@@ -882,42 +883,55 @@ impl Expression {
             return Self::Invalid;
         };
 
-        let Some(function) = function else {
-            // Check sub expressions anyway
-            sub_expr.for_each(|n| {
-                Self::from_expression_node(n.clone(), ctx);
-            });
-            assert!(ctx.diag.has_errors());
-            return Self::Invalid;
-        };
-        let LookupResult::Callable(function) = function else {
-            // Check sub expressions anyway
-            sub_expr.for_each(|n| {
-                Self::from_expression_node(n.clone(), ctx);
-            });
-            ctx.diag.push_error("The expression is not a function".into(), &node);
-            return Self::Invalid;
+        let (function, array_base_ty) = match function {
+            Some(LookupResult::Callable(function)) => {
+                let base = match &function {
+                    LookupResultCallable::MemberFunction { base, member, .. } => match **member {
+                        LookupResultCallable::Callable(Callable::Builtin(
+                            BuiltinFunction::ArrayAny | BuiltinFunction::ArrayAll,
+                        )) => match base.ty() {
+                            Type::Array(ty) => {
+                                // only set predicates to be allowed if we are in one of the hardcoded array member functions
+                                ctx.predicates_allowed = true;
+                                Some((*ty).clone())
+                            }
+                            _ => unreachable!(), // you won't have access to these member functions if the base is not an array
+                        },
+                        _ => None,
+                    },
+                    _ => None,
+                };
+
+                (function, base)
+            }
+            Some(_) => {
+                // Check sub expressions anyway
+                sub_expr.for_each(|n| {
+                    Self::from_expression_node(n.clone(), ctx);
+                });
+                ctx.diag.push_error("The expression is not a function".into(), &node);
+                ctx.predicates_allowed = false;
+                return Self::Invalid;
+            }
+            None => {
+                // Check sub expressions anyway
+                sub_expr.for_each(|n| {
+                    Self::from_expression_node(n.clone(), ctx);
+                });
+                assert!(ctx.diag.has_errors());
+                return Self::Invalid;
+            }
         };
 
         // dirty hack to supply the type of the predicate argument for array member functions,
         // we check if we are dealing with an array builtin, then we push the type to the context,
         // to be popped at the end of this function after all the predicate's expression is resolved
         let mut should_pop_predicate_args = false;
-        match &function {
-            LookupResultCallable::MemberFunction { base, member, .. } => match **member {
-                LookupResultCallable::Callable(Callable::Builtin(
-                    BuiltinFunction::ArrayAny | BuiltinFunction::ArrayAll,
-                )) => {
-                    let ty = match base.ty() {
-                        Type::Array(ty) => (*ty).clone(),
-                        _ => unreachable!(),
-                    };
-
-                    should_pop_predicate_args = true;
-                    ctx.predicate_argument_types.push(ty);
-                }
-                _ => (),
-            },
+        match (ctx.predicates_allowed, array_base_ty) {
+            (true, Some(ty)) => {
+                should_pop_predicate_args = true;
+                ctx.predicate_argument_types.push(ty);
+            }
             _ => (),
         }
 
@@ -990,9 +1004,12 @@ impl Expression {
             }
         };
 
+        // if we pushed the predicate argument type, we pop it now
         if should_pop_predicate_args {
             ctx.predicate_argument_types.pop();
         }
+
+        ctx.predicates_allowed = false;
 
         Expression::FunctionCall { function, arguments, source_location: Some(source_location) }
     }
@@ -1289,6 +1306,14 @@ impl Expression {
     }
 
     fn from_predicate_node(node: syntax_nodes::Predicate, ctx: &mut LookupCtx) -> Expression {
+        if !ctx.predicates_allowed {
+            ctx.diag.push_error(
+                "Predicate expressions are not permitted outside of array builtin function arguments".to_string(),
+                &node,
+            );
+            return Expression::Invalid;
+        }
+
         let arg_name = node.DeclaredIdentifier().to_smolstr();
 
         ctx.predicate_arguments.push(arg_name.clone());
@@ -1299,6 +1324,7 @@ impl Expression {
                 format!("Predicate expression must be of type bool, but is {}", ty),
                 &node.Expression(),
             );
+            return Expression::Invalid;
         }
 
         ctx.predicate_arguments.pop();
@@ -1746,6 +1772,7 @@ fn resolve_two_way_bindings(
                                 local_variables: vec![],
                                 predicate_arguments: vec![],
                                 predicate_argument_types: vec![],
+                                predicates_allowed: false,
                             };
 
                             binding.expression = Expression::Invalid;

@@ -59,6 +59,9 @@ pub struct LookupCtx<'a> {
     /// A stack of predicate arguments
     /// Theoretically a predicate could include another predicate, so this is a stack
     pub predicate_arguments: Vec<SmolStr>,
+
+    /// A flag that indicates if predicates are currently allowed (currently only inside a function argument)
+    pub predicates_allowed: bool,
 }
 
 impl<'a> LookupCtx<'a> {
@@ -76,6 +79,7 @@ impl<'a> LookupCtx<'a> {
             local_variables: Default::default(),
             predicate_arguments: Default::default(),
             predicate_argument_types: Default::default(),
+            predicates_allowed: false,
         }
     }
 
