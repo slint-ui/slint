@@ -276,7 +276,7 @@ impl WinitWindowOrNone {
 }
 
 #[derive(Default, PartialEq, Clone, Copy)]
-enum WindowVisibility {
+pub(crate) enum WindowVisibility {
     #[default]
     Hidden,
     /// This implies that we might resize the window the first time it's shown.
@@ -513,7 +513,7 @@ impl WinitWindowAdapter {
         Ok(winit_window)
     }
 
-    fn suspend(&self) -> Result<(), PlatformError> {
+    pub(crate) fn suspend(&self) -> Result<(), PlatformError> {
         let mut winit_window_or_none = self.winit_window_or_none.borrow_mut();
         match *winit_window_or_none {
             WinitWindowOrNone::HasWindow { ref window, .. } => {
@@ -936,6 +936,10 @@ impl WinitWindowAdapter {
             }*/
             Ok(())
         }
+    }
+
+    pub(crate) fn visibility(&self) -> WindowVisibility {
+        self.shown.get()
     }
 
     pub(crate) fn pending_redraw(&self) -> bool {
