@@ -428,8 +428,6 @@ struct WindowPinnedFields {
     active: Property<bool>,
     #[pin]
     text_input_focused: Property<bool>,
-    #[pin]
-    text_input_focused_type: Property<Option<InputType>>,
 }
 
 /// Inner datastructure for the [`crate::api::Window`]
@@ -511,10 +509,6 @@ impl WindowInner {
                 text_input_focused: Property::new_named(
                     false,
                     "i_slint_core::Window::text_input_focused",
-                ),
-                text_input_focused_type: Property::new_named(
-                    None,
-                    "i_slint_core::Window::text_input_focused_type",
                 ),
             }),
             maximized: Cell::new(false),
@@ -1349,16 +1343,6 @@ impl WindowInner {
     /// Sets the global property `TextInputInterface.text-input-focused`
     pub fn set_text_input_focused(&self, value: bool) {
         self.pinned_fields.text_input_focused.set(value)
-    }
-
-    /// Reads the global property `TextInputInterface.text-input-focused-type`
-    pub fn text_input_focused_type(&self) -> Option<InputType> {
-        self.pinned_fields.as_ref().project_ref().text_input_focused_type.get()
-    }
-
-    /// Sets the global property `TextInputInterface.text-input-focused-type`
-    pub fn set_text_input_focused_type(&self, value: Option<InputType>) {
-        self.pinned_fields.text_input_focused_type.set(value)
     }
 
     /// Returns true if the window is visible
