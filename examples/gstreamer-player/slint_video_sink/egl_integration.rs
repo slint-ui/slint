@@ -93,7 +93,7 @@ impl SlintOpenGLSink {
     }
 
     pub fn video_sink(&self) -> gst::Element {
-        self.glsink.clone().into()
+        self.glsink.clone()
     }
 
     pub fn connect(
