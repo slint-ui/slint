@@ -12,10 +12,10 @@ pub fn init<App: slint::ComponentHandle + 'static>(
     pipeline: &gst::Pipeline,
     new_frame_callback: fn(App, slint::Image),
     bus_sender: UnboundedSender<gst::Message>,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<gst::Element> {
     let mut slint_sink = SlintOpenGLSink::new();
-
-    pipeline.set_property("video-sink", slint_sink.video_sink());
+    let sink_element = slint_sink.element();
+    pipeline.set_property("video-sink", &sink_element);
 
     app.window().set_rendering_notifier({
         let pipeline = pipeline.clone();
@@ -52,7 +52,7 @@ pub fn init<App: slint::ComponentHandle + 'static>(
         }
     })?;
 
-    Ok(())
+    Ok(sink_element)
 }
 
 pub struct SlintOpenGLSink {
@@ -92,7 +92,7 @@ impl SlintOpenGLSink {
         }
     }
 
-    pub fn video_sink(&self) -> gst::Element {
+    pub fn element(&self) -> gst::Element {
         self.glsink.clone()
     }
 

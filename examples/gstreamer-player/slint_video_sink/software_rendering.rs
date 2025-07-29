@@ -11,7 +11,7 @@ pub fn init<App: slint::ComponentHandle + 'static>(
     pipeline: &gst::Pipeline,
     new_frame_callback: fn(App, slint::Image),
     bus_sender: UnboundedSender<gst::Message>,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<gst::Element> {
     pipeline.bus().unwrap().set_sync_handler(move |_, message| {
         let _ = bus_sender.unbounded_send(message.to_owned());
         gst::BusSyncReply::Drop
@@ -53,7 +53,7 @@ pub fn init<App: slint::ComponentHandle + 'static>(
         .set_state(gst::State::Playing)
         .expect("Unable to set the pipeline to the `Playing` state");
 
-    Ok(())
+    Ok(appsink.into())
 }
 
 fn try_gstreamer_video_frame_to_pixel_buffer(
