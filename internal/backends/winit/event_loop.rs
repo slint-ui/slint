@@ -8,6 +8,7 @@
     aspects of windows on the screen.
 */
 use crate::drag_resize_window::{handle_cursor_move_for_resize, handle_resize};
+use crate::winitwindowadapter::WindowVisibility;
 use crate::WinitWindowEventResult;
 use crate::{SharedBackendData, SlintEvent};
 use corelib::graphics::euclid;
@@ -87,6 +88,22 @@ impl EventLoopState {
             current_resize_direction: Default::default(),
             pumping_events_instantly: Default::default(),
             custom_application_handler,
+        }
+    }
+
+    /// Free graphics resources for any hidden windows. Called when quitting the event loop, to work
+    /// around #8795.
+    fn suspend_all_hidden_windows(&self) {
+        let windows_to_suspend = self
+            .shared_backend_data
+            .active_windows
+            .borrow()
+            .values()
+            .filter_map(|w| w.upgrade())
+            .filter(|w| matches!(w.visibility(), WindowVisibility::Hidden))
+            .collect::<Vec<_>>();
+        for window in windows_to_suspend.into_iter() {
+            let _ = window.suspend();
         }
     }
 }
@@ -407,7 +424,10 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
     fn user_event(&mut self, event_loop: &ActiveEventLoop, event: SlintEvent) {
         match event.0 {
             CustomEvent::UserEvent(user_callback) => user_callback(),
-            CustomEvent::Exit => event_loop.exit(),
+            CustomEvent::Exit => {
+                self.suspend_all_hidden_windows();
+                event_loop.exit()
+            }
             #[cfg(enable_accesskit)]
             CustomEvent::Accesskit(accesskit_winit::Event { window_id, window_event }) => {
                 if let Some(window) = self.shared_backend_data.window_by_id(window_id) {
