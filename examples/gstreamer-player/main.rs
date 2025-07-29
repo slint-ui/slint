@@ -35,6 +35,8 @@ fn main() {
     // sync handler over an async channel, then receive them here.
     let (bus_sender, mut bus_receiver) = futures::channel::mpsc::unbounded::<gst::Message>();
     slint::spawn_local({
+        // GStreamer Objects are GLib Objects, so they are reference counted. Cloning increments
+        // the reference count, like cloning a std::rc::Rc.
         let pipeline = pipeline.clone();
         let app = app.as_weak();
         async move {
