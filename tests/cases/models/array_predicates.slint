@@ -15,25 +15,39 @@ export component TestCase {
         { name: "Charlie", age: 35 },
         { name: "Diana", age: 28 }
     ];
+    property <[[Person]]> groups: [
+        [{ name: "Alice", age: 30 }, { name: "Bob", age: 25 }],
+        [{ name: "Charlie", age: 35 }, { name: "Diana", age: 28 }],
+        [{ name: "Evan", age: 22 }, { name: "Fiona", age: 27 }]
+    ];
 
     out property <bool> test: self.ints.all(
     
     
-    x => x > 0) && !self.ints.all(
-    x => x > 1) && !self.ints.any(
-    x => x == 0) && self.ints.any(
-    x => x == 5) && self.ints.any(
-    x => x < 5) && self.strings.all(
-    s => s.character-count > 0) && !self.strings.all(
-    s => s.is-empty) && self.strings.any(
-    s => s == "hello") && !self.strings.any(
-    s => s == "test") && !self.strings.any(
-    s => s.is-empty) && self.people.all(
-    p => p.age > 20) && !self.people.all(
-    p => p.age < 30) && self.people.any(
-    p => p.name == "Alice") && !self.people.any(
-    p => p.name == "Evan") && self.people.any(
-    p => p.age < 30);
+    x
+    => x > 0) && !self.ints.all(x => x > 1
+    ) && !self.ints.any(x => x == 0
+    ) && self.ints.any(x => x == 5
+    ) && self.ints.any(x => x < 5
+    ) && self.strings.all(s => s.character-count > 0
+    ) && !self.strings.all(s => s.is-empty
+    ) && self.strings.any(s => s == "hello"
+    ) && !self.strings.any(s => s == "test"
+    ) && !self.strings.any(s => s.is-empty
+    ) && self.people.all(p => p.age > 20
+    ) && !self.people.all(p => p.age < 30
+    ) && self.people.any(p => p.name == "Alice"
+    ) && !self.people.any(p => p.name == "Evan"
+    ) && self.people.any(p => p.age < 30
+    ) && self.groups.all(p => p.all(p
+    => p.age > 20)) && !self.groups.all(p => p.all(p
+    => p.age < 30)) && self.groups.all(p => p.any(p
+    => p.age >= 25)) && !self.groups.any(p => p.all(p
+    => p.name == "Alice")) && self.groups.any(p => p.all(p
+    => p.name.character-count > 4)) && self.groups.any(p => p.any(p
+    => p.name.character-count == 7));
+
+    // with the groups here we are also testing arg shadowing when nested predicate args have the same name
 }
 
 /*

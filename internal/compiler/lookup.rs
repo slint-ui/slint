@@ -283,7 +283,9 @@ impl LookupObject for PredicateArgumentsLookup {
         ctx: &LookupCtx,
         f: &mut impl FnMut(&SmolStr, LookupResult) -> Option<R>,
     ) -> Option<R> {
-        for (name, ty) in ctx.predicate_arguments.iter().zip(ctx.predicate_argument_types.iter()) {
+        // we reverse the types here so that the most recently added predicate argument is the first one for shadowing purposes
+        // this is done in case someone does `arr.any(x => x.any(x => x > 0))`... why anyone would do this is beyond me though
+        for (name, ty) in ctx.predicate_arguments.iter().zip(ctx.predicate_argument_types.iter().rev()) {
             if let Some(r) =
                 f(name, Expression::ReadLocalVariable { name: name.clone(), ty: ty.clone() }.into())
             {
