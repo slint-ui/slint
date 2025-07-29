@@ -69,9 +69,9 @@ fn main() {
 
     let _video_sink = slint_video_sink::init(&app, &pipeline, bus_sender);
 
-    let pipeline_weak_for_callback = pipeline.downgrade();
-    app.on_toggle_pause_play(move || {
-        if let Some(pipeline) = pipeline_weak_for_callback.upgrade() {
+    app.on_toggle_pause_play({
+        let pipeline = pipeline.clone();
+        move || {
             let current_state = pipeline.state(gst::ClockTime::NONE).1;
             let new_state = match current_state {
                 gst::State::Playing => gst::State::Paused,
