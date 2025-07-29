@@ -16,7 +16,6 @@ name = "gstreamer-player"
 
 [dependencies]
 slint = { path = "../../api/rs/slint" }
-anyhow = { version = "1.0" }
 futures = { version = "0.3.28" }
 
 gst = { package = "gstreamer", version = "0.23.0" }
