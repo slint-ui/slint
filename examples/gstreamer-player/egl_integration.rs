@@ -11,7 +11,7 @@ pub fn init<App: slint::ComponentHandle + 'static>(
     app: &App,
     pipeline: &gst::Pipeline,
     new_frame_callback: fn(App, slint::Image),
-    bus_sender: &UnboundedSender<gst::Message>,
+    bus_sender: UnboundedSender<gst::Message>,
 ) -> anyhow::Result<()> {
     let mut slint_sink = SlintOpenGLSink::new();
 
@@ -20,7 +20,6 @@ pub fn init<App: slint::ComponentHandle + 'static>(
     app.window().set_rendering_notifier({
         let pipeline = pipeline.clone();
         let app_weak = app.as_weak();
-        let bus_sender = bus_sender.clone();
 
         move |state, graphics_api| match state {
             slint::RenderingState::RenderingSetup => {
@@ -28,7 +27,7 @@ pub fn init<App: slint::ComponentHandle + 'static>(
                 slint_sink.connect(
                     graphics_api,
                     &pipeline.bus().unwrap(),
-                    &bus_sender,
+                    bus_sender.clone(),
                     Box::new(move || {
                         app_weak
                             .upgrade_in_event_loop(move |app| {
@@ -101,7 +100,7 @@ impl SlintOpenGLSink {
         &mut self,
         graphics_api: &slint::GraphicsAPI<'_>,
         bus: &gst::Bus,
-        bus_sender: &UnboundedSender<gst::Message>,
+        bus_sender: UnboundedSender<gst::Message>,
         next_frame_available_notifier: Box<dyn Fn() + Send>,
     ) {
         let egl = match graphics_api {
@@ -139,7 +138,6 @@ impl SlintOpenGLSink {
 
         bus.set_sync_handler({
             let gst_gl_context = gst_gl_context.clone();
-            let bus_sender = bus_sender.clone();
             move |_, msg| {
                 match msg.view() {
                     gst::MessageView::NeedContext(ctx) => {

@@ -10,14 +10,11 @@ pub fn init<App: slint::ComponentHandle + 'static>(
     app: &App,
     pipeline: &gst::Pipeline,
     new_frame_callback: fn(App, slint::Image),
-    bus_sender: &UnboundedSender<gst::Message>,
+    bus_sender: UnboundedSender<gst::Message>,
 ) -> anyhow::Result<()> {
-    pipeline.bus().unwrap().set_sync_handler({
-        let bus_sender = bus_sender.clone();
-        move |_, message| {
-            let _ = bus_sender.unbounded_send(message.to_owned());
-            gst::BusSyncReply::Drop
-        }
+    pipeline.bus().unwrap().set_sync_handler(move |_, message| {
+        let _ = bus_sender.unbounded_send(message.to_owned());
+        gst::BusSyncReply::Drop
     });
 
     let appsink = gst_app::AppSink::builder()
