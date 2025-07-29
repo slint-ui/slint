@@ -1,0 +1,114 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Use lowercase letters to avoid extra key events due to virtually pressing "Shift"
+
+import { VerticalBox, ListView } from "std-widgets.slint";
+
+export component TestCase inherits Window {
+  width: 500px;
+  height: 400px;
+
+  property <[string]> features : [ "f" ];
+  in-out property <string> result;
+
+  FocusScope {
+    focus-policy: click-only;
+    capture-key-pressed(event) => {
+      if (event.text == "x") {
+        result += "Or:";
+      }
+      return reject;
+    }
+
+    VerticalBox {
+      VerticalBox {
+        if true: ListView {
+          for f in features: FocusScope {
+            capture-key-pressed(event) => {
+              if (event.text == "x") {
+                result += "I1r:";
+              }
+              return reject;
+            }
+            key-pressed(event) => {
+                if (event.text == "x") {
+                    result += "1:";
+                    return accept;
+                }
+                return reject;
+            }
+          }
+        }
+        if false: Rectangle { }
+      }
+      FocusScope {
+        capture-key-pressed(event) => {
+          if (event.text == "x") {
+            result += "I2a:";
+            return accept;
+          }
+          return reject;
+        }
+        key-pressed(event) => {
+            if (event.text == "x") {
+                result += "2:";
+                return accept;
+            }
+            return reject;
+        }
+      }
+    }
+  }
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+
+slint_testing::send_keyboard_string_sequence(&instance, "x");
+assert_eq!(instance.get_result(), "");
+slint_testing::send_keyboard_string_sequence(&instance, "\t");
+slint_testing::send_keyboard_string_sequence(&instance, "x");
+assert_eq!(instance.get_result(), "Or:I1r:1:", "one tab");
+slint_testing::send_keyboard_string_sequence(&instance, "\t");
+slint_testing::send_keyboard_string_sequence(&instance, "x");
+assert_eq!(instance.get_result(), "Or:I1r:1:Or:I2a:", "two tab");
+slint_testing::send_keyboard_string_sequence(&instance, "\t");
+slint_testing::send_keyboard_string_sequence(&instance, "x");
+assert_eq!(instance.get_result(), "Or:I1r:1:Or:I2a:Or:I1r:1:", "three tab");
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+slint_testing::send_keyboard_string_sequence(&instance, "x");
+assert_eq(instance.get_result(), "");
+slint_testing::send_keyboard_string_sequence(&instance, "\t");
+slint_testing::send_keyboard_string_sequence(&instance, "x");
+assert_eq(instance.get_result(), "Or:I1r:1:");
+slint_testing::send_keyboard_string_sequence(&instance, "\t");
+slint_testing::send_keyboard_string_sequence(&instance, "x");
+assert_eq(instance.get_result(), "Or:I1r:1:Or:I2a:");
+slint_testing::send_keyboard_string_sequence(&instance, "\t");
+slint_testing::send_keyboard_string_sequence(&instance, "x");
+assert_eq(instance.get_result(), "Or:I1r:1:Or:I2a:Or:I1r:1:");
+```
+
+```js
+var instance = new slint.TestCase();
+
+slintlib.private_api.send_keyboard_string_sequence(instance, "x");
+assert.equal(instance.result, "");
+slintlib.private_api.send_keyboard_string_sequence(instance, "\t");
+slintlib.private_api.send_keyboard_string_sequence(instance, "x");
+assert.equal(instance.result, "Or:I1r:1:");
+slintlib.private_api.send_keyboard_string_sequence(instance, "\t");
+slintlib.private_api.send_keyboard_string_sequence(instance, "x");
+assert.equal(instance.result, "Or:I1r:1:Or:I2a:");
+slintlib.private_api.send_keyboard_string_sequence(instance, "\t");
+slintlib.private_api.send_keyboard_string_sequence(instance, "x");
+assert.equal(instance.result, "Or:I1r:1:Or:I2a:Or:I1r:1:");
+```
+*/

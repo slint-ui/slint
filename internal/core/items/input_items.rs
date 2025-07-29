@@ -211,6 +211,15 @@ impl Item for TouchArea {
         }
     }
 
+    fn capture_key_event(
+        self: Pin<&Self>,
+        _: &KeyEvent,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+    ) -> KeyEventResult {
+        KeyEventResult::EventIgnored
+    }
+
     fn key_event(
         self: Pin<&Self>,
         _: &KeyEvent,
@@ -270,6 +279,8 @@ pub struct FocusScope {
     pub focus_policy: Property<FocusPolicy>,
     pub key_pressed: Callback<KeyEventArg, EventResult>,
     pub key_released: Callback<KeyEventArg, EventResult>,
+    pub capture_key_pressed: Callback<KeyEventArg, EventResult>,
+    pub capture_key_released: Callback<KeyEventArg, EventResult>,
     pub focus_changed_event: Callback<FocusReasonArg>,
     pub focus_gained: Callback<FocusReasonArg>,
     pub focus_lost: Callback<FocusReasonArg>,
@@ -317,6 +328,29 @@ impl Item for FocusScope {
             InputEventResult::EventAccepted
         } else {
             InputEventResult::EventIgnored
+        }
+    }
+
+    fn capture_key_event(
+        self: Pin<&Self>,
+        event: &KeyEvent,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+    ) -> KeyEventResult {
+        let r = match event.event_type {
+            KeyEventType::KeyPressed => {
+                Self::FIELD_OFFSETS.capture_key_pressed.apply_pin(self).call(&(event.clone(),))
+            }
+            KeyEventType::KeyReleased => {
+                Self::FIELD_OFFSETS.capture_key_released.apply_pin(self).call(&(event.clone(),))
+            }
+            KeyEventType::UpdateComposition | KeyEventType::CommitComposition => {
+                EventResult::Reject
+            }
+        };
+        match r {
+            EventResult::Accept => KeyEventResult::EventAccepted,
+            EventResult::Reject => KeyEventResult::EventIgnored,
         }
     }
 
@@ -569,6 +603,15 @@ impl Item for SwipeGestureHandler {
             MouseEvent::Wheel { .. } => InputEventResult::EventIgnored,
             MouseEvent::DragMove(..) | MouseEvent::Drop(..) => InputEventResult::EventIgnored,
         }
+    }
+
+    fn capture_key_event(
+        self: Pin<&Self>,
+        _: &KeyEvent,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+    ) -> KeyEventResult {
+        KeyEventResult::EventIgnored
     }
 
     fn key_event(

@@ -151,6 +151,15 @@ impl Item for Flickable {
         self.data.handle_mouse(self, event, window_adapter, self_rc)
     }
 
+    fn capture_key_event(
+        self: Pin<&Self>,
+        _: &KeyEvent,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+    ) -> KeyEventResult {
+        KeyEventResult::EventIgnored
+    }
+
     fn key_event(
         self: Pin<&Self>,
         _: &KeyEvent,
