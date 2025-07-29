@@ -11,6 +11,7 @@ export interface EventTS {
         result: boolean;
     };
     exportedFiles: {
+        zipFilename: string;
         files: Array<{
             name: string;
             content: string;
@@ -25,6 +26,12 @@ export interface EventTS {
     generateSnippetRequest: { useVariables: boolean };
     nodeChanged;
     exportToFiles: { exportAsSingleFile: boolean };
+    getTestData: Record<string, never>;
+    createSlintExport: Record<string, never>;
+    saveTextFile: {
+        filename: string;
+        content: string;
+    };
 
     // Resize-related messages
     resizeWindow: { width: number; height: number };
