@@ -215,11 +215,11 @@ function startClient(
                 event.oldState === State.Running
             ) {
                 cl.outputChannel.appendLine(
-                    "The Slint Language Server crashed. This is a bug. Please open an issue on https://github.com/slint-ui/slint/issues",
+                    "The Slint Language Server crashed. This is a bug, Please open an issue on the [Slint bug tracker](https://github.com/slint-ui/slint/issues).",
                 );
                 cl.outputChannel.show();
                 vscode.window.showErrorMessage(
-                    "The Slint Language Server crashed! Please open a bug on the Slint bug tracker with the panic message.",
+                    "The Slint Language Server crashed. Please open a bug on the [Slint bug tracker](https://github.com/slint-ui/slint/issues) with the panic message.",
                 );
             }
         });

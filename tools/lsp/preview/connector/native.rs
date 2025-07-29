@@ -55,6 +55,8 @@ impl ChildProcessLspToPreview {
         let child = Arc::new(Mutex::new(child));
         let child_clone = child.clone();
 
+        let preview_to_lsp_channel = self.preview_to_lsp_channel.clone();
+
         let communication_handle = std::thread::spawn(move || -> Result<(), String> {
             let reader = std::io::BufReader::new(from_child);
             for line in reader.lines() {
@@ -64,7 +66,21 @@ impl ChildProcessLspToPreview {
                 }
             }
             let mut child = child_clone.lock().expect("This can be waited for...");
-            child.wait().map_err(|e| e.to_string())?;
+            let exit_status = child.wait().map_err(|e| e.to_string())?;
+
+            if !exit_status.success() {
+                let message =
+                    "The Slint live preview crashed! Please open a bug on the [Slint bug tracker](https://github.com/slint-ui/slint/issues)."
+                        .to_string();
+                eprintln!("{message}");
+
+                let _ = preview_to_lsp_channel.send(common::PreviewToLspMessage::SendShowMessage {
+                    message: lsp_types::ShowMessageParams {
+                        typ: lsp_types::MessageType::ERROR,
+                        message,
+                    },
+                });
+            }
             Ok(())
         });
 
