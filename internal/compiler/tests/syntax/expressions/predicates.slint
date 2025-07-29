@@ -3,7 +3,7 @@
 
 export component Test inherits Window {
     property <[int]> ints: [1, 2, 3, 4, 5];
-
+    
     if x => x > 0 : Rectangle {}
 //     ^error{Predicate expressions are not permitted outside of array builtin function arguments}
 

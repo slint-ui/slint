@@ -162,7 +162,9 @@ fn format_node(
         SyntaxKind::MemberAccess => {
             return format_member_access(node, writer, state);
         }
-
+        SyntaxKind::Predicate => {
+            return format_predicate(node, writer, state);
+        }
         _ => (),
     }
 
@@ -1320,6 +1322,26 @@ fn format_member_access(
     Ok(())
 }
 
+fn format_predicate(
+    node: &SyntaxNode,
+    writer: &mut impl TokenWriter,
+    state: &mut FormatState,
+) -> Result<(), std::io::Error> {
+    for s in node.children_with_tokens() {
+        state.skip_all_whitespace = true;
+        match s.kind() {
+            SyntaxKind::FatArrow => {
+                state.insert_whitespace(" ");
+                fold(s, writer, state)?;
+                state.insert_whitespace(" ");
+            }
+            _ => fold(s, writer, state)?,
+        }
+    }
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2187,6 +2209,34 @@ export component MainWindow2 inherits Rectangle {
             r#"component X {
     function foo() {
         let bar: int = 42;
+    }
+}
+"#,
+        );
+    }
+
+    #[test]
+    fn predicate() {
+        assert_formatting(
+            "component X { property <[int]> arr: [1, 2, 3, 4, 5]; function foo() { arr.any(x\n     =>   x         ==  1     ); } }",
+            r#"component X {
+    property <[int]> arr: [1, 2, 3, 4, 5];
+    function foo() {
+        arr.any(x => x == 1);
+    }
+}
+"#,
+        );
+    }
+
+        #[test]
+    fn nested_predicate() {
+        assert_formatting(
+            "component X { property <[[int]]> arr: [[1, 2, 3, 4, 5]]; function foo() { arr.any(x     =>   x.all(y   => y   ==  7     )      ); } }",
+            r#"component X {
+    property <[[int]]> arr: [[1, 2, 3, 4, 5]];
+    function foo() {
+        arr.any(x => x.all(y => y == 7));
     }
 }
 "#,
