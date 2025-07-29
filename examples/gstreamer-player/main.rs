@@ -73,9 +73,9 @@ fn main() -> anyhow::Result<()> {
     .unwrap();
 
     #[cfg(not(slint_gstreamer_egl))]
-    software_rendering::init(&app, &pipeline, new_frame_callback, &bus_sender)?;
+    software_rendering::init(&app, &pipeline, new_frame_callback, bus_sender)?;
     #[cfg(slint_gstreamer_egl)]
-    egl_integration::init(&app, &pipeline, new_frame_callback, &bus_sender)?;
+    egl_integration::init(&app, &pipeline, new_frame_callback, bus_sender)?;
 
     let pipeline_weak_for_callback = pipeline.downgrade();
     app.on_toggle_pause_play(move || {
