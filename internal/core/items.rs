@@ -2218,8 +2218,8 @@ i_slint_common::for_each_builtin_structs!(declare_builtin_structs);
 
 #[test]
 fn builtin_struct_field_defaults() {
-    // No builtin struct field declares a default value yet, so the macro-generated
-    // Default impls must match what derive(Default) used to produce
+    // Fields without a declared default value take the zero value of their type,
+    // like with derive(Default)
     let table_column = TableColumn::default();
     assert_eq!(table_column.sort_order, SortOrder::Unsorted);
     assert_eq!(table_column.min_width, 0 as Coord);
@@ -2227,6 +2227,12 @@ fn builtin_struct_field_defaults() {
     assert_eq!(table_column.title, SharedString::default());
     assert!(!KeyEvent::default().repeat);
     assert_eq!(PointerEvent::default().touch_finger_id, 0);
+
+    // Fields with a declared default value take it
+    let hints = InputMethodHints::default();
+    assert_eq!(hints.capitalization, CapitalizationMode::Sentences);
+    assert!(hints.auto_correct);
+    assert!(hints.auto_complete);
 }
 
 #[cfg(feature = "ffi")]

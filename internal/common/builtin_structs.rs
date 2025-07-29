@@ -162,6 +162,22 @@ macro_rules! for_each_builtin_structs {
                 cap_height: Coord,
             }
 
+            /// This structure holds the hints that a `TextInput` gives to the platform's input method
+            /// (e.g. a soft keyboard) about the expected input.
+            /// The input method may take these hints into account, but might also ignore them.
+            #[non_exhaustive]
+            pub struct InputMethodHints {
+                /// The auto-capitalization behavior that the input method should apply.
+                /// Defaults to sentences.
+                capitalization: CapitalizationMode = (CapitalizationMode::Sentences),
+                /// Hint that the input method may automatically correct spelling mistakes as the user types.
+                /// Defaults to true.
+                auto_correct: bool = true,
+                /// Hint that the input method may offer auto-completion suggestions for the entered text.
+                /// Defaults to true.
+                auto_complete: bool = true,
+            }
+
             /// An item in the menu of a menu bar or context menu
             struct MenuEntry {
                 /// The text of the menu entry

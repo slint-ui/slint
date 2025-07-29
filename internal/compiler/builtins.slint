@@ -1738,6 +1738,9 @@ export component TextInput {
     ///  Use this to configure `TextInput` for editing special input, such as password fields.
     /// \default text
     in property <InputType> input-type;
+    /// Hints for the platform's input method (such as a soft keyboard), for example to configure auto-capitalization.
+    /// The input method may take these hints into account, but might also ignore them.
+    in property <InputMethodHints> input-method-hints;
     // Internal, undocumented property, only exposed for tests.
     out property <int> cursor-position_byte-offset;
     // Internal, undocumented property, only exposed for tests.

@@ -9,10 +9,10 @@ When adding an item or a property, it needs to be kept in sync with different pl
 Lookup the [`crate::items`] module documentation.
 */
 use super::{
-    EventResult, FontMetrics, InputType, Item, ItemConsts, ItemRc, ItemRef, KeyEventArg,
-    KeyEventResult, KeyEventType, PointArg, PointerEventButton, RenderingResult, StringArg,
-    TextHorizontalAlignment, TextOverflow, TextStrokeStyle, TextVerticalAlignment, TextWrap,
-    VoidArg,
+    EventResult, FontMetrics, InputMethodHints, InputType, Item, ItemConsts, ItemRc, ItemRef,
+    KeyEventArg, KeyEventResult, KeyEventType, PointArg, PointerEventButton, RenderingResult,
+    StringArg, TextHorizontalAlignment, TextOverflow, TextStrokeStyle, TextVerticalAlignment,
+    TextWrap, VoidArg,
 };
 use crate::graphics::{Brush, Color, FontRequest};
 use crate::input::{
@@ -760,6 +760,7 @@ pub struct TextInput {
     pub vertical_alignment: Property<TextVerticalAlignment>,
     pub wrap: Property<TextWrap>,
     pub input_type: Property<InputType>,
+    pub input_method_hints: Property<InputMethodHints>,
     pub letter_spacing: Property<LogicalLength>,
     pub width: Property<LogicalLength>,
     pub height: Property<LogicalLength>,
@@ -1854,6 +1855,7 @@ impl TextInput {
             cursor_rect_size,
             anchor_point,
             input_type: self.input_type(),
+            input_method_hints: self.input_method_hints(),
             clip_rect,
         }
     }
