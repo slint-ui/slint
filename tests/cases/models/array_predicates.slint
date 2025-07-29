@@ -35,21 +35,21 @@ export component TestCase {
         ) && self.ints.any(x => x == 5
         ) && self.ints.any(x => x < 5
         );
-        
+
         let strings = self.strings.all(s => s.character-count > 0
         ) && !self.strings.all(s => s.is-empty
         ) && self.strings.any(s => s == "hello"
         ) && !self.strings.any(s => s == "test"
         ) && !self.strings.any(s => s.is-empty
         );
-        
+
         let people = self.people.all(p => p.age > 20
         ) && !self.people.all(p => p.age < 30
         ) && self.people.any(p => p.name == "Alice"
         ) && !self.people.any(p => p.name == "Evan"
         ) && self.people.any(p => p.age < 30
         );
-        
+
         let groups = self.groups.all(p => p.all(p
         => p.age > 20)) && !self.groups.all(p => p.all(p
         => p.age < 30)) && self.groups.all(p => p.any(p
@@ -57,7 +57,7 @@ export component TestCase {
         => p.name == "Alice")) && self.groups.any(p => p.all(p
         => p.name.character-count > 4)) && self.groups.any(p => p.any(p
         => p.name.character-count == 7));
-        
+
         let shadowing = x == "hello world" && s == 42 && p == 42px;
 
         ints && strings && people && groups && shadowing
