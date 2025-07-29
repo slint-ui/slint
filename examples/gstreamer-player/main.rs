@@ -78,7 +78,7 @@ fn main() -> anyhow::Result<()> {
             };
 
             pipeline.set_state(new_state).unwrap_or_else(|err| {
-                panic!("Failed to set pipeline state to {:?}: {}", new_state, err)
+                panic!("Failed to set pipeline state to {new_state:?}: {err}")
             });
         }
     });
