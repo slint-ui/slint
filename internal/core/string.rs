@@ -283,8 +283,10 @@ impl core::borrow::Borrow<str> for SharedString {
 
 impl Extend<char> for SharedString {
     fn extend<X: IntoIterator<Item = char>>(&mut self, iter: X) {
+        let iter = iter.into_iter();
+        self.inner.reserve(iter.size_hint().0);
         let mut buf = [0; 4];
-        for ch in iter.into_iter() {
+        for ch in iter {
             let utf8 = ch.encode_utf8(&mut buf);
             self.push_str(utf8);
         }

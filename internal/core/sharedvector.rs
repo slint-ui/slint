@@ -283,6 +283,11 @@ impl<T: Clone> SharedVector<T> {
             self.shrink(0)
         }
     }
+
+    /// Reserves capacity for at least `additional` bytes more than the current vector's length.
+    pub fn reserve(&mut self, additional: usize) {
+        self.detach((self.len() + additional).max(self.capacity()))
+    }
 }
 
 impl<T> Deref for SharedVector<T> {
@@ -672,4 +677,22 @@ fn test_serialize_deserialize_sharedvector() {
     let serialized = serde_json::to_string(&v).unwrap();
     let deserialized: SharedVector<i32> = serde_json::from_str(&serialized).unwrap();
     assert_eq!(v, deserialized);
+}
+
+#[test]
+fn test_reserve() {
+    let mut v = SharedVector::from([1, 2, 3]);
+    assert_eq!(v.capacity(), 3);
+    v.reserve(1);
+    assert_eq!(v.capacity(), 4);
+    assert_eq!(v.len(), 3);
+    v.push(4);
+    v.push(5);
+    assert_eq!(v.len(), 5);
+    assert_eq!(v.capacity(), 8);
+    v.reserve(1);
+    assert_eq!(v.capacity(), 8);
+    v.reserve(8);
+    assert_eq!(v.len(), 5);
+    assert_eq!(v.capacity(), 13);
 }
