@@ -9,6 +9,7 @@ export component LineEditBase inherits Rectangle {
     in property <bool> enabled <=> text-input.enabled;
     out property <bool> has-focus: text-input.has-focus;
     in property <InputType> input-type <=> text-input.input-type;
+    in property <CapsMode> caps-mode <=> text-input.caps-mode;
     in property <TextHorizontalAlignment> horizontal-alignment <=> text-input.horizontal-alignment;
     in property <bool> read-only <=> text-input.read-only;
     in property <int> font-weight <=> text-input.font-weight;

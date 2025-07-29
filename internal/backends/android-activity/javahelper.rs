@@ -4,7 +4,7 @@
 use super::*;
 use i_slint_core::api::{PhysicalPosition, PhysicalSize};
 use i_slint_core::graphics::{euclid, Color};
-use i_slint_core::items::{ColorScheme, InputType};
+use i_slint_core::items::{CapsMode, ColorScheme, InputType};
 use i_slint_core::platform::WindowAdapter;
 use i_slint_core::SharedString;
 use jni::objects::{JClass, JObject, JString, JValue};
@@ -178,7 +178,21 @@ impl JavaHelper {
 
             let class_it = env.find_class("android/text/InputType")?;
             let input_type = match data.input_type {
-                InputType::Text => env.get_static_field(&class_it, "TYPE_CLASS_TEXT", "I")?.i()?,
+                InputType::Text => {
+                    let caps_mode = match data.caps_mode {
+                        CapsMode::None => 0 as jint,
+                        CapsMode::Sentences => env
+                            .get_static_field(&class_it, "TYPE_TEXT_FLAG_CAP_SENTENCES", "I")?
+                            .i()?,
+                        CapsMode::Words => {
+                            env.get_static_field(&class_it, "TYPE_TEXT_FLAG_CAP_WORDS", "I")?.i()?
+                        }
+                        CapsMode::All => env
+                            .get_static_field(&class_it, "TYPE_TEXT_FLAG_CAP_CHARACTERS", "I")?
+                            .i()?,
+                    };
+                    env.get_static_field(&class_it, "TYPE_CLASS_TEXT", "I")?.i()? | caps_mode
+                }
                 InputType::Password => {
                     env.get_static_field(&class_it, "TYPE_TEXT_VARIATION_PASSWORD", "I")?.i()?
                         | env.get_static_field(&class_it, "TYPE_CLASS_TEXT", "I")?.i()?

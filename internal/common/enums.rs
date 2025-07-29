@@ -66,6 +66,19 @@ macro_rules! for_each_enums {
                 Center,
             }
 
+            /// This enum describes the how the soft-keyboard auto-capitalization should work for `TextInput`s.
+            /// Currently only supported on Android.
+            enum CapsMode {
+                /// No auto-capitalization
+                None,
+                /// Capitalize the first character of each sentence
+                Sentences,
+                /// capitalize the first character of each word
+                Words,
+                /// Capitalize all characters
+                All,
+            }
+
             /// This enum describes whether an event was rejected or accepted by an event handler.
             enum EventResult {
                 /// The event is rejected by this event handler and may then be handled by the parent item
