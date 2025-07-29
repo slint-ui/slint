@@ -66,7 +66,7 @@ fn main() -> anyhow::Result<()> {
     })
     .unwrap();
 
-    slint_video_sink::init(&app, &pipeline, bus_sender)?;
+    let _video_sink = slint_video_sink::init(&app, &pipeline, bus_sender)?;
 
     let pipeline_weak_for_callback = pipeline.downgrade();
     app.on_toggle_pause_play(move || {

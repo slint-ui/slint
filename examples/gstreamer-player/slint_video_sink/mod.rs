@@ -13,7 +13,7 @@ pub fn init(
     app: &App,
     pipeline: &gst::Pipeline,
     bus_sender: UnboundedSender<gst::Message>,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<gst::Element> {
     let new_frame_callback = |app: App, new_frame| {
         app.set_video_frame(new_frame);
     };
