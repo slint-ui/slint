@@ -183,6 +183,15 @@ impl crate::items::Item for MenuItem {
         Default::default()
     }
 
+    fn capture_key_event(
+        self: Pin<&Self>,
+        _: &crate::input::KeyEvent,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+    ) -> crate::input::KeyEventResult {
+        crate::input::KeyEventResult::EventIgnored
+    }
+
     fn key_event(
         self: Pin<&Self>,
         _: &crate::input::KeyEvent,

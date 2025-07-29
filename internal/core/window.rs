@@ -766,7 +766,6 @@ impl WindowInner {
     ///
     /// Arguments:
     /// * `event`: The key event received by the windowing system.
-    /// * `component`: The Slint compiled component that provides the tree of items.
     pub fn process_key_input(&self, mut event: KeyEvent) {
         if let Some(updated_modifier) = self
             .modifiers
@@ -787,6 +786,31 @@ impl WindowInner {
             item = None;
         }
 
+        let item_list = {
+            let mut tmp = Vec::new();
+            let mut item = item.clone();
+
+            while let Some(i) = item {
+                tmp.push(i.clone());
+                item = i.parent_item(ParentItemTraversalMode::StopAtPopups);
+            }
+
+            tmp
+        };
+
+        // Check capture_key_event (going from window to focused item):
+        for i in item_list.iter().rev() {
+            if i.borrow().as_ref().capture_key_event(&event, &self.window_adapter(), &i)
+                == crate::input::KeyEventResult::EventAccepted
+            {
+                crate::properties::ChangeTracker::run_change_handlers();
+                return;
+            }
+        }
+
+        drop(item_list);
+
+        // Deliver key_event (to focused item, going up towards the window):
         while let Some(focus_item) = item {
             if focus_item.borrow().as_ref().key_event(&event, &self.window_adapter(), &focus_item)
                 == crate::input::KeyEventResult::EventAccepted
@@ -814,7 +838,7 @@ impl WindowInner {
         } else if event.event_type == KeyEventType::KeyPressed
             && event.text.starts_with(key_codes::Escape)
         {
-            // Closes top most popup on esc key pressed when policy is not no-auto-close
+            // Closes top most popup on ESC key pressed when policy is not no-auto-close
 
             // Try to get the parent window in case `self` is the popup itself
             let mut adapter = self.window_adapter();
