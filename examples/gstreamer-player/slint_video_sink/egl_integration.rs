@@ -12,47 +12,49 @@ pub fn init<App: slint::ComponentHandle + 'static>(
     pipeline: &gst::Pipeline,
     new_frame_callback: fn(App, slint::Image),
     bus_sender: UnboundedSender<gst::Message>,
-) -> anyhow::Result<gst::Element> {
+) -> gst::Element {
     let mut slint_sink = SlintOpenGLSink::new();
     let sink_element = slint_sink.element();
     pipeline.set_property("video-sink", &sink_element);
 
-    app.window().set_rendering_notifier({
-        let pipeline = pipeline.clone();
-        let app_weak = app.as_weak();
+    app.window()
+        .set_rendering_notifier({
+            let pipeline = pipeline.clone();
+            let app_weak = app.as_weak();
 
-        move |state, graphics_api| match state {
-            slint::RenderingState::RenderingSetup => {
-                let app_weak = app_weak.clone();
-                slint_sink.connect(
-                    graphics_api,
-                    &pipeline.bus().unwrap(),
-                    bus_sender.clone(),
-                    Box::new(move || {
-                        app_weak
-                            .upgrade_in_event_loop(move |app| {
-                                app.window().request_redraw();
-                            })
-                            .ok();
-                    }),
-                );
-                pipeline
-                    .set_state(gst::State::Playing)
-                    .expect("Unable to set the pipeline to the `Playing` state");
-            }
-            slint::RenderingState::RenderingTeardown => {
-                slint_sink.deactivate_and_pause();
-            }
-            slint::RenderingState::BeforeRendering => {
-                if let Some(next_frame) = slint_sink.fetch_next_frame() {
-                    new_frame_callback(app_weak.unwrap(), next_frame)
+            move |state, graphics_api| match state {
+                slint::RenderingState::RenderingSetup => {
+                    let app_weak = app_weak.clone();
+                    slint_sink.connect(
+                        graphics_api,
+                        &pipeline.bus().unwrap(),
+                        bus_sender.clone(),
+                        Box::new(move || {
+                            app_weak
+                                .upgrade_in_event_loop(move |app| {
+                                    app.window().request_redraw();
+                                })
+                                .ok();
+                        }),
+                    );
+                    pipeline
+                        .set_state(gst::State::Playing)
+                        .expect("Unable to set the pipeline to the `Playing` state");
                 }
+                slint::RenderingState::RenderingTeardown => {
+                    slint_sink.deactivate_and_pause();
+                }
+                slint::RenderingState::BeforeRendering => {
+                    if let Some(next_frame) = slint_sink.fetch_next_frame() {
+                        new_frame_callback(app_weak.unwrap(), next_frame)
+                    }
+                }
+                _ => {}
             }
-            _ => {}
-        }
-    })?;
+        })
+        .unwrap();
 
-    Ok(sink_element)
+    sink_element
 }
 
 pub struct SlintOpenGLSink {

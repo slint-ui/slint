@@ -8,7 +8,7 @@ use gst::{prelude::*, MessageView};
 
 mod slint_video_sink;
 
-fn main() -> anyhow::Result<()> {
+fn main() {
     slint::BackendSelector::new()
         .backend_name("winit".into())
         .require_opengl_es()
@@ -21,7 +21,8 @@ fn main() -> anyhow::Result<()> {
 
     let pipeline = gst::ElementFactory::make("playbin")
         .property("uri", "https://gstreamer.freedesktop.org/data/media/sintel_trailer-480p.webm")
-        .build()?
+        .build()
+        .unwrap()
         .downcast::<gst::Pipeline>()
         .unwrap();
 
@@ -66,7 +67,7 @@ fn main() -> anyhow::Result<()> {
     })
     .unwrap();
 
-    let _video_sink = slint_video_sink::init(&app, &pipeline, bus_sender)?;
+    let _video_sink = slint_video_sink::init(&app, &pipeline, bus_sender);
 
     let pipeline_weak_for_callback = pipeline.downgrade();
     app.on_toggle_pause_play(move || {
@@ -86,6 +87,4 @@ fn main() -> anyhow::Result<()> {
     app.run().unwrap();
 
     let _ = pipeline.set_state(gst::State::Null);
-
-    Ok(())
 }
