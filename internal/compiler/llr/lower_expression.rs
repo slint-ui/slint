@@ -233,6 +233,12 @@ pub fn lower_expression(
                 .map(|(a, b)| (lower_expression(a, ctx), lower_expression(b, ctx)))
                 .collect::<_>(),
         },
+        tree_Expression::ConicGradient { stops } => llr_Expression::ConicGradient {
+            stops: stops
+                .iter()
+                .map(|(a, b)| (lower_expression(a, ctx), lower_expression(b, ctx)))
+                .collect::<_>(),
+        },
         tree_Expression::EnumerationValue(e) => llr_Expression::EnumerationValue(e.clone()),
         tree_Expression::ReturnStatement(..) => {
             panic!("The remove return pass should have removed all return")

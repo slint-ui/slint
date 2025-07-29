@@ -1033,6 +1033,18 @@ fn render_window_frame_by_line(
                                     extra_right_clip,
                                 );
                             }
+                            SceneCommand::ConicGradient { conic_gradient_index } => {
+                                let g =
+                                    &scene.vectors.conic_gradients[conic_gradient_index as usize];
+                                draw_functions::draw_conic_gradient(
+                                    &PhysicalRect { origin: span.pos, size: span.size },
+                                    scene.current_line,
+                                    g,
+                                    range_buffer,
+                                    extra_left_clip,
+                                    extra_right_clip,
+                                );
+                            }
                         }
                     }
                 },
@@ -1156,6 +1168,7 @@ trait ProcessScene {
     fn process_rounded_rectangle(&mut self, geometry: PhysicalRect, data: RoundedRectangle);
     fn process_linear_gradient(&mut self, geometry: PhysicalRect, gradient: LinearGradientCommand);
     fn process_radial_gradient(&mut self, geometry: PhysicalRect, gradient: RadialGradientCommand);
+    fn process_conic_gradient(&mut self, geometry: PhysicalRect, gradient: ConicGradientCommand);
 }
 
 fn process_rectangle_impl(
@@ -1278,6 +1291,20 @@ fn process_rectangle_impl(
         };
 
         processor.process_radial_gradient(clipped.cast(), radial_grad);
+        Color::default()
+    } else if let Brush::ConicGradient(g) = &args.background {
+        let conic_grad = ConicGradientCommand {
+            stops: g
+                .stops()
+                .map(|s| {
+                    let mut stop = *s;
+                    stop.color = alpha_color(stop.color, args.alpha);
+                    stop
+                })
+                .collect(),
+        };
+
+        processor.process_conic_gradient(clipped.cast(), conic_grad);
         Color::default()
     } else {
         alpha_color(args.background.color(), args.alpha)
@@ -1510,6 +1537,18 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> ProcessScene for RenderToBuffer<
             );
         });
     }
+    fn process_conic_gradient(&mut self, geometry: PhysicalRect, g: ConicGradientCommand) {
+        self.foreach_ranges(&geometry, |line, buffer, extra_left_clip, extra_right_clip| {
+            draw_functions::draw_conic_gradient(
+                &geometry,
+                PhysicalLength::new(line),
+                &g,
+                buffer,
+                extra_left_clip,
+                extra_right_clip,
+            );
+        });
+    }
 }
 
 #[derive(Default)]
@@ -1627,6 +1666,19 @@ impl ProcessScene for PrepareScene {
                 size,
                 z: self.items.len() as u16,
                 command: SceneCommand::RadialGradient { radial_gradient_index },
+            });
+        }
+    }
+    fn process_conic_gradient(&mut self, geometry: PhysicalRect, gradient: ConicGradientCommand) {
+        let size = geometry.size;
+        if !size.is_empty() {
+            let conic_gradient_index = self.vectors.conic_gradients.len() as u16;
+            self.vectors.conic_gradients.push(gradient);
+            self.items.push(SceneItem {
+                pos: geometry.origin,
+                size,
+                z: self.items.len() as u16,
+                command: SceneCommand::ConicGradient { conic_gradient_index },
             });
         }
     }

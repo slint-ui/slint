@@ -231,6 +231,7 @@ fn parse_expression_helper(p: &mut impl Parser, precedence: OperatorPrecedence) 
 /// ```test
 /// @image-url("/foo/bar.png")
 /// @linear-gradient(0deg, blue, red)
+/// @conic-gradient(blue 0deg, red 180deg)
 /// @tr("foo", bar)
 /// ```
 fn parse_at_keyword(p: &mut impl Parser) {
@@ -245,13 +246,16 @@ fn parse_at_keyword(p: &mut impl Parser) {
         "radial-gradient" | "radial_gradient" => {
             parse_gradient(p);
         }
+        "conic-gradient" | "conic_gradient" => {
+            parse_gradient(p);
+        }
         "tr" => {
             parse_tr(p);
         }
         _ => {
             p.consume();
             p.test(SyntaxKind::Identifier); // consume the identifier, so that autocomplete works
-            p.error("Expected 'image-url', 'tr', 'linear-gradient' or 'radial-gradient' after '@'");
+            p.error("Expected 'image-url', 'tr', 'linear-gradient', 'radial-gradient' or 'conic-gradient' after '@'");
         }
     }
 }
@@ -353,6 +357,10 @@ fn parse_template_string(p: &mut impl Parser) {
 /// @linear-gradient(217deg, rgba(255,0,0,0.8), rgba(255,0,0,0) 70.71%)
 /// @linear_gradient(217deg, rgba(255,0,0,0.8), rgba(255,0,0,0) 70.71%)
 /// @radial-gradient(circle, #e66465, blue 50%, #9198e5)
+/// @conic-gradient(#e66465 0deg, #9198e5 180deg, #e66465 360deg)
+/// @conic-gradient(red 0deg, green 120deg, blue 240deg, red 360deg)
+/// @conic-gradient(#fff 0turn, #000 0.5turn, #fff 1turn)
+/// @conic_gradient(red 0rad, blue 3.14159rad, red 6.28318rad)
 /// ```
 fn parse_gradient(p: &mut impl Parser) {
     let mut p = p.start_node(SyntaxKind::AtGradient);

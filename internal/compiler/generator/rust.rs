@@ -2590,6 +2590,16 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                 sp::RadialGradientBrush::new_circle([#(#stops),*])
             ))
         }
+        Expression::ConicGradient { stops } => {
+            let stops = stops.iter().map(|(color, stop)| {
+                let color = compile_expression(color, ctx);
+                let position = compile_expression(stop, ctx);
+                quote!(sp::GradientStop{ color: #color, position: #position as _ })
+            });
+            quote!(slint::Brush::ConicGradient(
+                sp::ConicGradientBrush::new([#(#stops),*])
+            ))
+        }
         Expression::EnumerationValue(value) => {
             let base_ident = ident(&value.enumeration.name);
             let value_ident = ident(&value.to_pascal_case());

@@ -331,6 +331,11 @@ impl<'a, T> Display for DisplayExpression<'a, T> {
                 "@radial-gradient(circle, {})",
                 stops.iter().map(|(e1, e2)| format!("{} {}", e(e1), e(e2))).join(", ")
             ),
+            Expression::ConicGradient { stops } => write!(
+                f,
+                "@conic-gradient({})",
+                stops.iter().map(|(e1, e2)| format!("{} {}", e(e1), e(e2))).join(", ")
+            ),
             Expression::EnumerationValue(x) => write!(f, "{x}"),
             Expression::LayoutCacheAccess { layout_cache_prop, index, repeater_index: None } => {
                 write!(f, "{}[{}]", DisplayPropertyRef(layout_cache_prop, ctx), index)
