@@ -69,6 +69,9 @@ fn main() {
     })
     .unwrap();
 
+    // If your application needs a GStreamer pipeline that is anything more complex
+    // than a single playbin element, you will need to link this gst::Element to some
+    // other gst::Element in your application code.
     let _video_sink = slint_video_sink::init(&app, &pipeline, bus_sender);
 
     app.on_toggle_pause_play({
