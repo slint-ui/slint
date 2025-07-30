@@ -1041,7 +1041,8 @@ impl<T: PartialEq + Clone + 'static> Property<T> {
         }
 
         #[cfg(slint_debug_property)]
-        let debug_name = alloc::format!("<{}<=>{}>", prop1.debug_name.borrow(), prop2.debug_name.borrow());
+        let debug_name =
+            alloc::format!("<{}<=>{}>", prop1.debug_name.borrow(), prop2.debug_name.borrow());
 
         let value = prop2.get_internal();
 

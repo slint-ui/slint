@@ -761,9 +761,7 @@ fn generate_sub_component(
             let elem_name = ident(&item.name);
             while let Some(ty) = it {
                 for (prop, info) in &ty.properties {
-                    if info.ty.is_property_type()
-                        && prop != "commands"
-                    {
+                    if info.ty.is_property_type() && prop != "commands" {
                         let name = format!("{}::{}.{}", component.name, item.name, prop);
                         let prop = ident(&prop);
                         init.push(
