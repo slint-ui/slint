@@ -762,7 +762,6 @@ fn generate_sub_component(
             while let Some(ty) = it {
                 for (prop, info) in &ty.properties {
                     if info.ty.is_property_type()
-                        && !prop.starts_with("viewport")
                         && prop != "commands"
                     {
                         let name = format!("{}::{}.{}", component.name, item.name, prop);
