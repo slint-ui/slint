@@ -1059,14 +1059,21 @@ pub fn create_drop_element_workspace_edit(
 ) -> Option<(lsp_types::WorkspaceEdit, DropData)> {
     let placeholder = if component.is_layout { placeholder() } else { String::new() };
 
+    let is_list_view = drop_info.target_element_node.with_element_node(|node| {
+        node.QualifiedName().is_some_and(|qn| qn.text().to_string().trim() == "ListView")
+    });
+    let for_loop = if is_list_view { "for _ in 3: " } else { "" };
+
     let new_text = if component.default_properties.is_empty() {
         format!(
-            "{}{} {{{placeholder} }}\n{}",
+            "{}{for_loop}{} {{{placeholder} }}\n{}",
             drop_info.insert_info.pre_indent, component.name, drop_info.insert_info.post_indent
         )
     } else {
-        let mut to_insert =
-            format!("{}{} {{{placeholder}\n", drop_info.insert_info.pre_indent, component.name);
+        let mut to_insert = format!(
+            "{}{for_loop}{} {{{placeholder}\n",
+            drop_info.insert_info.pre_indent, component.name
+        );
         for p in &component.default_properties {
             to_insert += &format!("{}    {}: {};\n", drop_info.insert_info.indent, p.name, p.value);
         }
