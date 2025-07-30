@@ -1555,7 +1555,9 @@ impl<'a> GLItemRenderer<'a> {
 
                 // Add an extra stop at 1.0 with the same color as the last stop
                 if let Some(last_stop) = stops.last().cloned() {
-                    stops.push((1.0, last_stop.1));
+                    if last_stop.0 != 1.0 {
+                        stops.push((1.0, last_stop.1));
+                    }
                 }
 
                 femtovg::Paint::linear_gradient_stops(start.x, start.y, end.x, end.y, stops)
@@ -1573,7 +1575,9 @@ impl<'a> GLItemRenderer<'a> {
 
                 // Add an extra stop at 1.0 with the same color as the last stop
                 if let Some(last_stop) = stops.last().cloned() {
-                    stops.push((1.0, last_stop.1));
+                    if last_stop.0 != 1.0 {
+                        stops.push((1.0, last_stop.1));
+                    }
                 }
 
                 femtovg::Paint::radial_gradient_stops(
