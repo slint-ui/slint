@@ -4,8 +4,8 @@
 
 This example application demonstrates a way to use GStreamer (with Rust bindings) to display a video stream in Slint and
 communicate state changes between Slint and GStreamer. On Linux, this can take advantage of hardware accelerated rendering
-and transfer the video to Slint via EGL without copying video frames to the CPU. On other platforms, the video gets copied
-to the CPU frame by frame.
+and transfer the video to Slint via EGL. On other platforms, the video gets transferred
+via CPU accessible buffers.
 
 Current Status:
 * The code has so far only been tested on Ubuntu and Windows.
