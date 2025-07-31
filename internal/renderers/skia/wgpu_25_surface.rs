@@ -4,6 +4,7 @@
 use i_slint_core::api::{GraphicsAPI, PhysicalSize as PhysicalWindowSize, Window};
 use i_slint_core::graphics::RequestedGraphicsAPI;
 use i_slint_core::item_rendering::DirtyRegion;
+use i_slint_core::platform::PlatformError;
 
 use std::cell::RefCell;
 use std::sync::Arc;
@@ -29,6 +30,7 @@ pub struct WGPUSurface {
     surface_config: RefCell<wgpu::SurfaceConfiguration>,
     surface: wgpu::Surface<'static>,
     textures_to_transition_for_sampling: RefCell<Vec<wgpu::Texture>>,
+    backend: Backend,
 }
 
 impl super::Surface for WGPUSurface {
@@ -38,7 +40,7 @@ impl super::Surface for WGPUSurface {
         display_handle: Arc<dyn raw_window_handle::HasDisplayHandle + Send + Sync>,
         size: PhysicalWindowSize,
         requested_graphics_api: Option<RequestedGraphicsAPI>,
-    ) -> Result<Self, i_slint_core::platform::PlatformError> {
+    ) -> Result<Self, PlatformError> {
         let (instance, adapter, device, queue, surface) =
             i_slint_core::graphics::wgpu_25::init_instance_adapter_device_queue_surface(
                 Box::new(WindowAndDisplayHandle(window_handle, display_handle)),
@@ -58,30 +60,23 @@ impl super::Surface for WGPUSurface {
         surface_config.format = swapchain_format;
         surface.configure(&device, &surface_config);
 
-        cfg_if::cfg_if! {
-            if #[cfg(target_vendor = "apple")] {
-                let gr_context = metal::make_metal_context(&device, &queue);
-            } else if #[cfg(target_family = "windows")] {
-                let gr_context = unsafe { dx12::make_dx12_context(&device, &queue) };
-            } else if #[cfg(all(target_family = "unix", not(target_vendor = "apple")))] {
-                let gr_context = vulkan::make_vulkan_context(&device, &queue);
-            } else {
-                let gr_context: Option<skia_safe::gpu::DirectContext> = None;
-            }
-        }
+        let backend: Backend = adapter.get_info().backend.try_into()?;
+
+        let gr_context = backend.make_context(&device, &queue);
 
         Ok(Self {
-            gr_context: RefCell::new(gr_context.ok_or_else(|| {
-                i_slint_core::platform::PlatformError::from(
-                    "Failed to create Skia context from WGPU",
-                )
-            })?),
+            gr_context: RefCell::new(
+                gr_context.ok_or_else(|| {
+                    PlatformError::from("Failed to create Skia context from WGPU")
+                })?,
+            ),
             instance,
             device,
             queue,
             surface_config: surface_config.into(),
             surface,
             textures_to_transition_for_sampling: RefCell::new(Vec::new()),
+            backend,
         })
     }
 
@@ -89,10 +84,7 @@ impl super::Surface for WGPUSurface {
         "wgpu"
     }
 
-    fn resize_event(
-        &self,
-        size: PhysicalWindowSize,
-    ) -> Result<(), i_slint_core::platform::PlatformError> {
+    fn resize_event(&self, size: PhysicalWindowSize) -> Result<(), PlatformError> {
         let mut surface_config = self.surface_config.borrow_mut();
 
         surface_config.width = size.width;
@@ -112,27 +104,16 @@ impl super::Surface for WGPUSurface {
             u8,
         ) -> Option<DirtyRegion>,
         pre_present_callback: &RefCell<Option<Box<dyn FnMut()>>>,
-    ) -> Result<(), i_slint_core::platform::PlatformError> {
+    ) -> Result<(), PlatformError> {
         let gr_context = &mut self.gr_context.borrow_mut();
 
         let frame =
             self.surface.get_current_texture().expect("unable to get next texture from swapchain");
 
-        cfg_if::cfg_if! {
-            if #[cfg(target_vendor = "apple")] {
-                let skia_surface = unsafe { metal::make_metal_surface(size, gr_context, &frame) };
-            } else if #[cfg(target_family = "windows")] {
-                let skia_surface = unsafe { dx12::make_dx12_surface(size, gr_context, &frame) };
-            } else if #[cfg(all(target_family = "unix", not(target_vendor = "apple")))] {
-                let skia_surface = unsafe { self.make_vulkan_surface(size, gr_context, &frame) };
-            } else {
-                let skia_surface: Option<skia_safe::Surface> = None;
-            }
-        }
+        let skia_surface = self.backend.make_surface(size, gr_context, &frame);
 
-        let mut skia_surface = skia_surface.ok_or_else(|| {
-            i_slint_core::platform::PlatformError::from("Failed to create Skia surface from WGPU")
-        })?;
+        let mut skia_surface = skia_surface
+            .ok_or_else(|| PlatformError::from("Failed to create Skia surface from WGPU"))?;
 
         callback(skia_surface.canvas(), Some(gr_context), 0);
 
@@ -164,7 +145,7 @@ impl super::Surface for WGPUSurface {
         Ok(())
     }
 
-    fn bits_per_pixel(&self) -> Result<u8, i_slint_core::platform::PlatformError> {
+    fn bits_per_pixel(&self) -> Result<u8, PlatformError> {
         Ok(match self.surface_config.borrow().format {
             wgpu_25::TextureFormat::Rgba8Unorm
             | wgpu_25::TextureFormat::Rgba8UnormSrgb
@@ -196,19 +177,7 @@ impl super::Surface for WGPUSurface {
         // submitting.
         self.textures_to_transition_for_sampling.borrow_mut().push(texture.clone());
 
-        cfg_if::cfg_if! {
-            if #[cfg(target_vendor = "apple")] {
-                let image = unsafe { metal::import_metal_texture(canvas, texture) };
-            } else if #[cfg(target_family = "windows")] {
-                let image = unsafe { dx12::import_dx12_texture(canvas, texture) };
-            } else if #[cfg(all(target_family = "unix", not(target_vendor = "apple")))] {
-                let image = unsafe { vulkan::import_vulkan_texture(canvas, texture) };
-            } else {
-                let image: Option<skia_safe::Image> = None;
-            }
-        }
-
-        image
+        self.backend.import_texture(canvas, texture)
     }
 }
 
@@ -230,5 +199,84 @@ impl raw_window_handle::HasDisplayHandle for WindowAndDisplayHandle {
         &self,
     ) -> Result<raw_window_handle::DisplayHandle<'_>, raw_window_handle::HandleError> {
         self.1.display_handle()
+    }
+}
+
+enum Backend {
+    #[cfg(target_vendor = "apple")]
+    Metal,
+    #[cfg(target_family = "windows")]
+    Dx12,
+    #[cfg(all(target_family = "unix", not(target_vendor = "apple")))]
+    Vulkan,
+}
+
+impl TryFrom<wgpu::Backend> for Backend {
+    type Error = PlatformError;
+
+    fn try_from(wgpu_backend: wgpu::Backend) -> Result<Self, Self::Error> {
+        match wgpu_backend {
+            wgpu_25::Backend::Noop => {
+                Err(PlatformError::from("Cannot use WGPU Noop backend with Skia"))
+            }
+            #[cfg(all(target_family = "unix", not(target_vendor = "apple")))]
+            wgpu_25::Backend::Vulkan => Ok(Self::Vulkan),
+            #[cfg(target_vendor = "apple")]
+            wgpu_25::Backend::Metal => Ok(Self::Metal),
+            #[cfg(target_family = "windows")]
+            wgpu_25::Backend::Dx12 => Ok(Self::Dx12),
+            other @ _ => Err(PlatformError::from(format!(
+                "Unsupported WGPU backend for use with Skia: {}",
+                other.to_string()
+            ))),
+        }
+    }
+}
+
+impl Backend {
+    fn make_context(
+        &self,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+    ) -> Option<skia_safe::gpu::DirectContext> {
+        match self {
+            #[cfg(target_vendor = "apple")]
+            Self::Metal => metal::make_metal_context(device, queue),
+            #[cfg(target_family = "windows")]
+            Self::Dx12 => unsafe { dx12::make_dx12_context(&device, &queue) },
+            #[cfg(all(target_family = "unix", not(target_vendor = "apple")))]
+            Self::Vulkan => unsafe { vulkan::make_vulkan_context(&device, &queue) },
+        }
+    }
+
+    fn make_surface(
+        &self,
+        size: PhysicalWindowSize,
+        gr_context: &mut skia_safe::gpu::DirectContext,
+        frame: &wgpu_25::SurfaceTexture,
+    ) -> Option<skia_safe::Surface> {
+        match self {
+            #[cfg(target_vendor = "apple")]
+            Self::Metal => unsafe { metal::make_metal_surface(size, gr_context, frame) },
+            #[cfg(target_family = "windows")]
+            Self::Dx12 => unsafe { dx12::make_dx12_surface(size, gr_context, frame) },
+            #[cfg(all(target_family = "unix", not(target_vendor = "apple")))]
+            Self::Vulkan => unsafe { vulkan::make_vulkan_surface(size, gr_context, frame) },
+        }
+    }
+
+    fn import_texture(
+        &self,
+        canvas: &skia_safe::Canvas,
+        texture: wgpu::Texture,
+    ) -> Option<skia_safe::Image> {
+        match self {
+            #[cfg(target_vendor = "apple")]
+            Self::Metal => unsafe { metal::import_metal_texture(canvas, texture) },
+            #[cfg(target_family = "windows")]
+            Self::Dx12 => unsafe { dx12::import_dx12_texture(canvas, texture) },
+            #[cfg(all(target_family = "unix", not(target_vendor = "apple")))]
+            Self::Vulkan => unsafe { vulkan::import_vulkan_texture(canvas, texture) },
+        }
     }
 }
