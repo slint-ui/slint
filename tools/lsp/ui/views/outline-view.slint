@@ -2,11 +2,39 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { Palette, VerticalBox, ListView }  from "std-widgets.slint";
+import { ConsoleStyles, EditorSizeSettings, Icons,  } from "../components/styling.slint";
 import { Api, OutlineTreeNode } from "../api.slint";
 
 export component OutlineView inherits VerticalLayout {
     property <[OutlineTreeNode]> outline-data <=> Api.outline;
     in property <bool> enabled <=> lv.enabled;
+    Rectangle {
+        height: ConsoleStyles.header-height;
+        background: ConsoleStyles.header-background;
+        Rectangle {
+            y: 0;
+            width: 100%;
+            height: 1px;
+            background: ConsoleStyles.divider-line;
+            opacity: 50%;
+        }
+
+        Rectangle {
+            y: parent.height - self.height;
+            width: 100%;
+            height: 1px;
+            background: ConsoleStyles.divider-line;
+        }
+
+        label := Text {
+            x: 10px;
+            horizontal-alignment: left;
+            color: ConsoleStyles.text-color;
+            font-family: "Inter";
+            font-size: 12px;
+            text: @tr("Outline");
+        }
+    }
 
     lv := ListView {
         for item[idx] in outline-data: DragArea {
@@ -98,7 +126,7 @@ export component OutlineView inherits VerticalLayout {
 
             bg := Rectangle {
                 background: {
-                    let bg-color = selected ? Palette.selection-background : mod(idx, 2) == 0 ? Palette.background : Palette.alternate-background;
+                    let bg-color = selected ? Palette.selection-background : Palette.background;
                     return ta-open.has-hover || ta.has-hover || drop-as-child.contains-drag ? bg-color.mix(Palette.selection-background, 50%) : bg-color;
                 }
                 animate background {
@@ -154,10 +182,12 @@ export component OutlineView inherits VerticalLayout {
                         width: 15px;
                     }
                 }
+
                 if !item.has-children: Rectangle {
                     width: 4px;
                 }
                 t := Text {
+                    font-family: "Inter";
                     text: item.name;
                     color: selected ? Palette.selection-foreground : Palette.foreground;
                     vertical-alignment: center;
