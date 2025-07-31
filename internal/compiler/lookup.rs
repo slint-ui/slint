@@ -632,7 +632,7 @@ impl ColorSpecific {
     }
 }
 
-struct KeysLookup;
+pub struct KeysLookup;
 
 macro_rules! special_keys_lookup {
     ($($char:literal # $name:ident # $($qt:ident)|* # $($winit:ident $(($_pos:ident))?)|* # $($_xkb:ident)|*;)*) => {
