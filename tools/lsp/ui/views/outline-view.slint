@@ -11,13 +11,10 @@ export component OutlineView inherits VerticalLayout {
     lv := ListView {
         for item[idx] in outline-data: DragArea {
             height: 30px;
-
             mime-type: "application/x-slint-component-move";
             data: item.uri + ":" + item.offset;
 
             property <bool> selected: item.uri == Api.current-element.source-uri && item.offset == Api.current-element.offset;
-            property <bool> hovered: false;
-            property <color> bg-color: mod(idx, 2) == 0 ? transparent.mix(Palette.foreground,0.98) : transparent;
 
             drop-as-child := DropArea {
                 enabled: (!item.has-children || !item.is-expended) && item.indent-level > 0;
@@ -100,63 +97,61 @@ export component OutlineView inherits VerticalLayout {
             }
 
             bg := Rectangle {
-                background: drop-as-child.contains-drag ? Palette.alternate-background : hovered ? selected ? Palette.selection-background.transparentize(0.5) : Palette.alternate-background : selected ? Palette.selection-background : bg-color;
+                background: {
+                    let bg-color = selected ? Palette.selection-background : mod(idx, 2) == 0 ? Palette.background : Palette.alternate-background;
+                    return ta-open.has-hover || ta.has-hover || drop-as-child.contains-drag ? bg-color.mix(Palette.selection-background, 50%) : bg-color;
+                }
                 animate background {
                     duration: 200ms;
                     easing: ease-out-quad;
                 }
-                TouchArea {
+                ta := TouchArea {
                     clicked => {
                         Api.outline-select-element(item.uri, item.offset);
                     }
-                    changed has-hover => {
-                        if self.has-hover {
-                            hovered = true;
-                        } else {
-                            hovered = false;
+                    double-clicked => {
+                        item.is-expended = !item.is-expended;
+                    }
+                    pointer-event(event) => {
+                        if event.kind == PointerEventKind.cancel {
+                            open-timer.running = false;
                         }
                     }
                 }
             }
 
             oi := HorizontalLayout {
+                padding-top: 6px;
+                padding-bottom: 6px;
                 alignment: start;
                 indentation := Rectangle {
                     width: item.indent-level * 15px;
                 }
 
-                if item.has-children: parent-chrome := HorizontalLayout {
+                Rectangle {
+                    visible: item.has-children;
+                    Image {
+                        height: t.preferred-height * 1.4;
+                        width: self.preferred-width * 1;
+
+                        source: @image-url("../assets/chevron-down.svg");
+                        rotation-angle: item.is-expended ? 0.0deg : -90.0deg;
+                        colorize: selected ? Palette.selection-foreground : Palette.foreground;
+                        vertical-alignment: center;
+                        animate rotation-angle {
+                            duration: 300ms;
+                            easing: ease-out-quad;
+                        }
+                    }
+
+                    ta-open := TouchArea {
+                        clicked => {
+                            item.is-expended = !item.is-expended;
+                        }
+                    }
+
                     Rectangle {
-                        Image {
-                            height: t.preferred-height * 1.4;
-                            width: self.preferred-width * 1;
-
-                            source: @image-url("../assets/chevron-down.svg");
-                            rotation-angle: item.is-expended ? 0.0deg : -90.0deg;
-                            colorize: selected ? Palette.selection-foreground : Palette.foreground;
-                            vertical-alignment: center;
-                            animate rotation-angle {
-                                duration: 300ms;
-                                easing: ease-out-quad;
-                            }
-                        }
-
-                        TouchArea {
-                            clicked => {
-                                item.is-expended = !item.is-expended;
-                            }
-                            changed has-hover => {
-                                if self.has-hover {
-                                    hovered = true;
-                                } else {
-                                    hovered = false;
-                                }
-                            }
-                        }
-
-                        Rectangle {
-                            width: 15px;
-                        }
+                        width: 15px;
                     }
                 }
                 if !item.has-children: Rectangle {
@@ -166,18 +161,6 @@ export component OutlineView inherits VerticalLayout {
                     text: item.name;
                     color: selected ? Palette.selection-foreground : Palette.foreground;
                     vertical-alignment: center;
-                    TouchArea {
-                        clicked => {
-                            Api.outline-select-element(item.uri, item.offset);
-                        }
-                        changed has-hover => {
-                            if self.has-hover {
-                                hovered = true;
-                            } else {
-                                hovered = false;
-                            }
-                        }
-                    }
                 }
             }
         }
