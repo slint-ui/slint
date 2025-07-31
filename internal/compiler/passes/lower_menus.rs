@@ -753,7 +753,7 @@ fn generate_menu_entries(
                 }
             }
         } else {
-            values.insert(SmolStr::new_static("is_separator"), Expression::BoolLiteral(true));
+            values.insert(SmolStr::new_static("is-separator"), Expression::BoolLiteral(true));
         }
 
         entries.push(mk_struct(state.menu_entry.clone(), values));
