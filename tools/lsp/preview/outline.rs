@@ -180,6 +180,9 @@ impl Tree for OutlineModel {
                             _ => return None,
                         };
                         let elem = se.Element();
+                        if crate::common::is_element_node_ignored(&elem) {
+                            return None;
+                        }
                         let base = elem
                             .QualifiedName()
                             .map(|x| x.text().to_shared_string())
@@ -229,7 +232,11 @@ fn create_node(
     name: SharedString,
 ) -> ui::OutlineTreeNode {
     ui::OutlineTreeNode {
-        has_children: element.SubElement().next().is_some(),
+        has_children: element
+            .SubElement()
+            .filter(|n| !crate::common::is_element_node_ignored(&n.Element()))
+            .next()
+            .is_some(),
         is_expended: true,
         indent_level,
         name,
