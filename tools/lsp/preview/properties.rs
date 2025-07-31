@@ -466,12 +466,24 @@ pub(super) fn get_properties(
                     group_priority: depth,
                 });
 
-                if b.name == "Image" {
+                if b.name == "Image" || b.name == "Text" {
                     result.extend(get_reserved_properties(
                         &b.name,
                         depth,
                         i_slint_compiler::typeregister::RESERVED_ROTATION_PROPERTIES
                             .iter()
+                            .cloned(),
+                    ));
+                }
+
+                if matches!(b.name.as_str(), "GridLayout" | "HorizontalLayout" | "VerticalLayout") {
+                    // Add the padding that is otherwise filtered out
+                    result.extend(get_reserved_properties(
+                        &b.name,
+                        depth,
+                        i_slint_compiler::typeregister::RESERVED_LAYOUT_PROPERTIES
+                            .iter()
+                            .filter(|x| x.0.starts_with("padding"))
                             .cloned(),
                     ));
                 }
@@ -506,14 +518,17 @@ pub(super) fn get_properties(
                 p
             }),
         );
+
         result.extend(
             get_reserved_properties(
                 "layout",
                 depth + 2000,
-                i_slint_compiler::typeregister::RESERVED_LAYOUT_PROPERTIES.iter().cloned(),
+                i_slint_compiler::typeregister::RESERVED_LAYOUT_PROPERTIES
+                    .iter()
+                    // padding for non-layout items is not yet implemented
+                    .filter(|x| !x.0.starts_with("padding"))
+                    .cloned(),
             )
-            // padding arbitrary items is not yet implemented
-            .filter(|x| !x.name.starts_with("padding"))
             .map(|mut p| {
                 match p.name.as_str() {
                     "min-width" => p.priority = 200,
@@ -1491,6 +1506,83 @@ component MainWindow inherits Window {
         assert_eq!(start_position.character, 20); // This should probably point to the start of
                                                   // `property<int> foo = 42`, not to the `<`
         assert_eq!(foo_property.group, "Base1");
+    }
+
+    #[test]
+    fn layout_padding() {
+        let (dc, url, _) = loaded_document_cache(
+            r#"import { LineEdit, Button, Slider, HorizontalBox, VerticalBox } from "std-widgets.slint";
+
+component CustomL inherits HorizontalLayout {
+    padding-left: 10px;
+    @children
+}
+
+component MainWindow inherits Window {
+    rect1 := Rectangle {
+        lay1 := CustomL {
+            Button { text: "Button"; }
+            err := Error {}
+            Rectangle {}
+            lay2 := VerticalLayout {
+                Slider { value: 0.5; }
+                Button { text: "Button"; }
+            }
+            lay3 := VerticalBox {
+                slider2 := Slider { value: 0.5; }
+                Rectangle {}
+            }
+        }
+    }
+}
+            "#.to_string());
+
+        let doc = dc.get_document(&url).unwrap();
+        let source = &doc.node.as_ref().unwrap().source_file;
+        let (l, c) = source.line_column(source.source().unwrap().find("lay1 :=").unwrap());
+        let (_, result) = properties_at_position_in_cache(l as u32, c as u32, &dc, &url).unwrap();
+        let property = find_property(&result, "padding").unwrap();
+        assert_eq!(property.ty, Type::LogicalLength);
+        let property = find_property(&result, "padding-left").unwrap();
+        assert_eq!(property.ty, Type::LogicalLength);
+        let property = find_property(&result, "padding-top").unwrap();
+        assert_eq!(property.ty, Type::LogicalLength);
+
+        let (l, c) = source.line_column(source.source().unwrap().find("lay2 :=").unwrap());
+        let (_, result) = properties_at_position_in_cache(l as u32, c as u32, &dc, &url).unwrap();
+        let property = find_property(&result, "padding").unwrap();
+        assert_eq!(property.ty, Type::LogicalLength);
+        let property = find_property(&result, "padding-left").unwrap();
+        assert_eq!(property.ty, Type::LogicalLength);
+        let property = find_property(&result, "padding-top").unwrap();
+        assert_eq!(property.ty, Type::LogicalLength);
+
+        let (l, c) = source.line_column(source.source().unwrap().find("lay3 :=").unwrap());
+        let (_, result) = properties_at_position_in_cache(l as u32, c as u32, &dc, &url).unwrap();
+        let property = find_property(&result, "padding").unwrap();
+        assert_eq!(property.ty, Type::LogicalLength);
+        let property = find_property(&result, "padding-left").unwrap();
+        assert_eq!(property.ty, Type::LogicalLength);
+        let property = find_property(&result, "padding-top").unwrap();
+        assert_eq!(property.ty, Type::LogicalLength);
+
+        let (l, c) = source.line_column(source.source().unwrap().find("rect1 :=").unwrap());
+        let (_, result) = properties_at_position_in_cache(l as u32, c as u32, &dc, &url).unwrap();
+        assert!(find_property(&result, "padding").is_none());
+        assert!(find_property(&result, "padding-left").is_none());
+        assert!(find_property(&result, "padding-top").is_none());
+
+        let (l, c) = source.line_column(source.source().unwrap().find("slider2 :=").unwrap());
+        let (_, result) = properties_at_position_in_cache(l as u32, c as u32, &dc, &url).unwrap();
+        assert!(find_property(&result, "padding").is_none());
+        assert!(find_property(&result, "padding-left").is_none());
+        assert!(find_property(&result, "padding-top").is_none());
+
+        let (l, c) = source.line_column(source.source().unwrap().find("err :=").unwrap());
+        let (_, result) = properties_at_position_in_cache(l as u32, c as u32, &dc, &url).unwrap();
+        assert!(dbg!(find_property(&result, "padding")).is_none());
+        assert!(find_property(&result, "padding-left").is_none());
+        assert!(find_property(&result, "padding-top").is_none());
     }
 
     #[test]
