@@ -2469,11 +2469,8 @@ impl<T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'_, T
             let source_rect = euclid::rect(0, 0, width as _, height as _);
 
             if let Some(clipped_src) = source_rect.intersection(&physical_clip) {
-                let geometry = clipped_src
-                    .translate(
-                        (self.current_state.offset.cast() * self.scale_factor).to_vector().cast(),
-                    )
-                    .round_in();
+                let offset = self.current_state.offset.cast() * self.scale_factor;
+                let geometry = clipped_src.translate(offset.to_vector().cast()).round_in();
 
                 let t = target_pixel_buffer::DrawTextureArgs {
                     data: target_pixel_buffer::TextureDataContainer::Shared {
@@ -2482,8 +2479,8 @@ impl<T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'_, T
                     },
                     colorize: None,
                     alpha: (self.current_state.alpha * 255.) as u8,
-                    dst_x: self.current_state.offset.x as _,
-                    dst_y: self.current_state.offset.y as _,
+                    dst_x: offset.x as _,
+                    dst_y: offset.y as _,
                     dst_width: width as _,
                     dst_height: height as _,
                     rotation: self.rotation.orientation,
