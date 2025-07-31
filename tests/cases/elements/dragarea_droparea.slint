@@ -6,6 +6,7 @@ export component TestCase inherits Window {
     height: 200px;
     in-out property <string> result;
     out property <bool> contains-drag <=> da.contains-drag;
+    out property <bool> inner_touch_area_has_hover <=> inner_touch_area.has-hover;
     VerticalLayout {
         Rectangle {
             background: inner_touch_area.has-hover ? yellow : red;
@@ -31,6 +32,8 @@ export component TestCase inherits Window {
                     result += "D[" + event.data + "];";
                     debug("dropped", event);
                 }
+
+                TouchArea {}
             }
         }
     }
@@ -65,22 +68,31 @@ slint_testing::mock_elapsed_time(20);
 assert_eq!(instance.get_result(), "D[Hello World];");
 assert_eq!(instance.get_contains_drag(), false);
 
+// Test a click on a touch area (without dragging)
 instance.set_result("".into());
+assert_eq!(instance.get_inner_touch_area_has_hover(), false);
 instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(51.0, 50.0), button: PointerEventButton::Left });
+assert!(instance.get_inner_touch_area_has_hover());
 slint_testing::mock_elapsed_time(20);
 assert_eq!(instance.get_contains_drag(), false);
 assert_eq!(instance.get_result(), "");
+assert_eq!(instance.get_inner_touch_area_has_hover(), true);
 instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(52.0, 50.0) });
+assert_eq!(instance.get_inner_touch_area_has_hover(), true);
 slint_testing::mock_elapsed_time(20);
 assert_eq!(instance.get_contains_drag(), false);
 assert_eq!(instance.get_result(), "");
+assert_eq!(instance.get_inner_touch_area_has_hover(), true);
 instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(52.0, 50.0), button: PointerEventButton::Left });
 slint_testing::mock_elapsed_time(20);
 assert_eq!(instance.get_result(), "InnerClicked;");
 assert_eq!(instance.get_contains_drag(), false);
+assert_eq!(instance.get_inner_touch_area_has_hover(), true);
 
+// Dragging from the touch area should not result in a click
 instance.set_result("".into());
 instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(51.0, 15.0), button: PointerEventButton::Left });
+assert_eq!(instance.get_inner_touch_area_has_hover(), true);
 slint_testing::mock_elapsed_time(20);
 assert_eq!(instance.get_contains_drag(), false);
 assert_eq!(instance.get_result(), "");
@@ -88,13 +100,43 @@ instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPo
 slint_testing::mock_elapsed_time(20);
 assert_eq!(instance.get_contains_drag(), false);
 assert_eq!(instance.get_result(), "");
+assert_eq!(instance.get_inner_touch_area_has_hover(), false);
 instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(58.0, 120.0) });
 assert_eq!(instance.get_contains_drag(), true);
 assert_eq!(instance.get_result(), "");
+assert_eq!(instance.get_inner_touch_area_has_hover(), false);
 instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(58.0, 20.0), button: PointerEventButton::Left });
+assert_eq!(instance.get_inner_touch_area_has_hover(), false); // FIXME: should be true without the need to make a move as well
+slint_testing::mock_elapsed_time(20);
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(58.0, 20.0) });
+assert_eq!(instance.get_inner_touch_area_has_hover(), true);
+assert_eq!(instance.get_contains_drag(), false);
+assert_eq!(instance.get_result(), "");
+
+
+// Dragging over the touch area shouldn't result in has-hover being true  (only after it is released)
+instance.set_result("".into());
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(11.0, 15.0) });
+assert_eq!(instance.get_inner_touch_area_has_hover(), false);
+assert_eq!(instance.get_contains_drag(), false);
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(11.0, 15.0), button: PointerEventButton::Left });
+assert_eq!(instance.get_inner_touch_area_has_hover(), false);
+assert_eq!(instance.get_contains_drag(), false);
+assert_eq!(instance.get_result(), "");
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(25.0, 35.0) });
 slint_testing::mock_elapsed_time(20);
 assert_eq!(instance.get_contains_drag(), false);
 assert_eq!(instance.get_result(), "");
+assert_eq!(instance.get_inner_touch_area_has_hover(), false);
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(125.0, 28.0) });
+assert_eq!(instance.get_contains_drag(), false);
+assert_eq!(instance.get_result(), "");
+assert_eq!(instance.get_inner_touch_area_has_hover(), false);
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(18.0, 20.0), button: PointerEventButton::Left });
+assert_eq!(instance.get_inner_touch_area_has_hover(), false);
+assert_eq!(instance.get_contains_drag(), false);
+assert_eq!(instance.get_result(), "");
+
 ```
 
 */

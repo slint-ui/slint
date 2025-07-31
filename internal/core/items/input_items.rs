@@ -84,6 +84,10 @@ impl Item for TouchArea {
             }
             return InputEventFilterResult::ForwardAndIgnore;
         }
+        if matches!(event, MouseEvent::DragMove(..) | MouseEvent::Drop(..)) {
+            // Someone else has the grab, don't handle hover
+            return InputEventFilterResult::ForwardAndIgnore;
+        }
         if let Some(pos) = event.position() {
             Self::FIELD_OFFSETS.mouse_x.apply_pin(self).set(pos.x_length());
             Self::FIELD_OFFSETS.mouse_y.apply_pin(self).set(pos.y_length());
