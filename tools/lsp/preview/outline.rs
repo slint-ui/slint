@@ -236,7 +236,9 @@ fn create_node(
             .SubElement()
             .filter(|n| !crate::common::is_element_node_ignored(&n.Element()))
             .next()
-            .is_some(),
+            .is_some()
+            || element.RepeatedElement().next().is_some()
+            || element.ConditionalElement().next().is_some(),
         is_expended: true,
         indent_level,
         name,
