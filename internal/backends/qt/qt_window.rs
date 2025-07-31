@@ -1398,8 +1398,11 @@ impl QtItemRenderer<'_> {
                     let colorize = image.colorize();
                     if !colorize.is_transparent() {
                         let pixmap_size = pixmap.size();
-                        let brush: qttypes::QBrush =
-                            into_qbrush(colorize, pixmap_size.width.into(), pixmap_size.height.into());
+                        let brush: qttypes::QBrush = into_qbrush(
+                            colorize,
+                            pixmap_size.width.into(),
+                            pixmap_size.height.into(),
+                        );
                         cpp!(unsafe [mut pixmap as "QPixmap", brush as "QBrush"] {
                             QPainter p(&pixmap);
                             p.setCompositionMode(QPainter::CompositionMode_SourceIn);
