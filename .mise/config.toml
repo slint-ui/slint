@@ -21,7 +21,7 @@ disable_backends = ["aqua"]
 node = "20"
 pnpm = "10.11.1"
 taplo = "0.9.3"
-"ubi:rustwasm/wasm-pack" = "0.13.1"
+"ubi:drager/wasm-pack" = "0.13.1"
 
 [task_config]
 includes = [".mise/tasks.toml", ".mise/tasks"]
