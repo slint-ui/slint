@@ -5,7 +5,7 @@ use crate::api::{SetPropertyError, Struct, Value};
 use crate::dynamic_item_tree::{CallbackHandler, InstanceRef};
 use core::pin::Pin;
 use corelib::graphics::{
-    ConicGradientBrush, GradientStop, LinearGradientBrush, PathElement, RadialGradientBrush
+    ConicGradientBrush, GradientStop, LinearGradientBrush, PathElement, RadialGradientBrush,
 };
 use corelib::items::{ColorScheme, ItemRef, MenuEntry, PropertyAnimation};
 use corelib::menus::{Menu, MenuFromItemTree, MenuVTable};

@@ -196,11 +196,7 @@ fn compare_images(
 
         // For non-rotated images, use base_threshold if set, otherwise use default 0.1
         if rotated == RenderingRotation::NoRotation {
-            let threshold = if options.base_threshold > 0.0 {
-                options.base_threshold
-            } else {
-                0.1
-            };
+            let threshold = if options.base_threshold > 0.0 { options.base_threshold } else { 0.1 };
             if max_color_difference < threshold {
                 return Ok(());
             }
