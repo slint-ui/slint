@@ -140,6 +140,7 @@ waveshare-esp32-s3-touch-amoled-1-8 = [
   "dep:static_cell",
   "dep:embedded-graphics-framebuf",
   "dep:sh8601-rs",
+  "dep:ft3x68-rs",
 ]
 stm32u5g9j-dk2 = [
   "embassy-stm32/stm32u5g9zj",
@@ -209,7 +210,7 @@ ft5336 = { version = "0.2", optional = true }
 # Updated ESP dependencies to match working Embassy project versions
 esp-hal = { version = "=1.0.0-rc.0", optional = true }
 esp-alloc = { version = "0.8.0", optional = true }
-esp-println = { version = "0.15.0", default-features = false, features = ["jtag-serial", "log-04"], optional = true }
+esp-println = { version = "0.15.0", default-features = false, features = ["auto", "log-04"], optional = true }
 esp-backtrace = { version = "0.17.0", optional = true, features = ["esp32s3", "exception-handler", "println"] }
 static_cell = { version = "2.1.0", optional = true, features = ["nightly"] }
 
@@ -230,7 +231,10 @@ embassy-sync = { version = "0.7.0", optional = true }
 esp-hal-embassy = { version = "0.9.0", optional = true, features = ["esp32s3"] }
 gt911 = { version = "0.3.0", optional = true }
 sitronix-touch = { version = "0.0.1", optional = true }
-sh8601-rs = { version = "0.1.4", features = ["waveshare_18_amoled"], optional = true }
+#sh8601-rs = { version = "0.1.6", features = ["waveshare_18_amoled"], optional = true }
+sh8601-rs = { git = "https://github.com/georgik/sh8601-rs.git", branch = "feature/i2c-bus-compatibility", features = ["waveshare_18_amoled"], optional = true }
+#ft3x68-rs = { version = "0.1.2", optional = true }
+ft3x68-rs = { git = "https://github.com/georgik/ft3x68-rs.git", branch = "feature/touchstate", optional = true }
 
 rand_core = { version = "0.6.3", optional = true }
 
