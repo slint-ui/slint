@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { Palette, VerticalBox, ListView }  from "std-widgets.slint";
-import { ConsoleStyles, EditorSizeSettings, Icons,  } from "../components/styling.slint";
+import { ConsoleStyles, EditorSizeSettings, Icons, EditorFontSettings,  } from "../components/styling.slint";
 import { Api, OutlineTreeNode, DropLocation } from "../api.slint";
 
 export component OutlineView inherits VerticalLayout {
@@ -38,7 +38,7 @@ export component OutlineView inherits VerticalLayout {
 
     lv := ListView {
         for item[idx] in outline-data: DragArea {
-            height: 30px;
+            height: 38px;
             mime-type: "application/x-slint-component-move";
             data: item.uri + ":" + item.offset;
 
@@ -124,73 +124,103 @@ export component OutlineView inherits VerticalLayout {
                 }
             }
 
-            bg := Rectangle {
-                background: {
-                    let bg-color = selected ? Palette.selection-background : Palette.background;
-                    return ta-open.has-hover || ta.has-hover || drop-as-child.contains-drag ? bg-color.mix(Palette.selection-background, 50%) : bg-color;
+            bg := VerticalLayout {
+                Rectangle {
+                    x: indentation.width;
+                    height: 1px;
+                    background: Palette.border.transparentize(0.5);
                 }
-                animate background {
-                    duration: 200ms;
-                    easing: ease-out-quad;
-                }
-                ta := TouchArea {
-                    clicked => {
-                        Api.outline-select-element(item.uri, item.offset);
+
+                Rectangle {
+                    background: {
+                        let bg-color = selected ? Palette.selection-background : Palette.background;
+                        return ta-open.has-hover || ta.has-hover || drop-as-child.contains-drag ? bg-color.mix(Palette.selection-background, 50%) : bg-color;
                     }
-                    double-clicked => {
-                        item.is-expanded = !item.is-expanded;
+                    animate background {
+                        duration: 200ms;
+                        easing: ease-out-quad;
                     }
-                    pointer-event(event) => {
-                        if event.kind == PointerEventKind.cancel {
-                            open-timer.running = false;
+                    ta := TouchArea {
+                        clicked => {
+                            Api.outline-select-element(item.uri, item.offset);
+                        }
+                        double-clicked => {
+                            item.is-expanded = !item.is-expanded;
+                        }
+                        pointer-event(event) => {
+                            if event.kind == PointerEventKind.cancel {
+                                open-timer.running = false;
+                            }
                         }
                     }
                 }
             }
 
-            oi := HorizontalLayout {
-                padding-top: 6px;
-                padding-bottom: 6px;
-                alignment: start;
-                indentation := Rectangle {
-                    width: item.indent-level * 15px;
+            hier-bg := Rectangle {
+                background: Palette.border.transparentize(0.7);
+                x: indentation.width;
+                height: 100%;
+            }
+
+            hier-markers := Rectangle {
+                for i in item.indent-level: Rectangle {
+                    x: i > 0 ? i * 8px : 0px;
+                    width: 1px;
+                    height: 100%;
+                    background: Palette.border.transparentize(0.4);
                 }
+            }
 
-                Rectangle {
-                    visible: item.has-children;
-                    Image {
-                        height: t.preferred-height * 1.4;
-                        width: self.preferred-width * 1;
-
-                        source: @image-url("../assets/chevron-down.svg");
-                        rotation-angle: item.is-expanded ? 0.0deg : -90.0deg;
-                        colorize: selected ? Palette.selection-foreground : Palette.foreground;
-                        vertical-alignment: center;
-                        animate rotation-angle {
-                            duration: 300ms;
-                            easing: ease-out-quad;
-                        }
-                    }
-
-                    ta-open := TouchArea {
-                        clicked => {
-                            item.is-expanded = !item.is-expanded;
-                        }
+            oi := VerticalLayout {
+                HorizontalLayout {
+                    alignment: start;
+                    spacing: 5px;
+                    indentation := Rectangle {
+                        width: item.indent-level * 8px;
                     }
 
                     Rectangle {
-                        width: 15px;
-                    }
-                }
+                        visible: item.has-children;
+                        Image {
+                            height: 10px;
+                            source: @image-url("../assets/chevron-down.svg");
+                            rotation-angle: item.is-expanded ? 0.0deg : -90.0deg;
+                            colorize: selected ? Palette.selection-foreground : Palette.foreground;
+                            vertical-alignment: center;
+                            animate rotation-angle {
+                                duration: 300ms;
+                                easing: ease-out-quad;
+                            }
+                        }
 
-                if !item.has-children: Rectangle {
-                    width: 4px;
-                }
-                t := Text {
-                    font-family: "Inter";
-                    text: item.element-id == "" ? item.element-type : (item.element-id + " := " + item.element-type);
-                    color: selected ? Palette.selection-foreground : Palette.foreground;
-                    vertical-alignment: center;
+                        ta-open := TouchArea {
+                            clicked => {
+                                item.is-expanded = !item.is-expanded;
+                            }
+                        }
+                    }
+
+                    t := Rectangle {
+                        VerticalLayout {
+                            alignment: center;
+                            if item.element-id != "": el-id := Text {
+                                font-family: "Inter";
+                                text: item.element-id;
+                                font-weight: EditorFontSettings.bold-font-weight;
+                                font-size: EditorFontSettings.label.font-size;
+                                color: selected ? Palette.selection-foreground : Palette.foreground;
+                                vertical-alignment: center;
+                            }
+
+                            el-type := Text {
+                                font-family: "Inter";
+                                font-size: EditorFontSettings.label-sub.font-size;
+                                text: item.element-type;
+                                color: selected ? Palette.selection-foreground : Palette.foreground;
+                                vertical-alignment: center;
+                            }
+                        }
+                    }
                 }
             }
         }
