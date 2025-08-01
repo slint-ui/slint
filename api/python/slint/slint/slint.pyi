@@ -10,7 +10,7 @@ import os
 import pathlib
 import typing
 from typing import Any, List
-from collections.abc import Callable
+from collections.abc import Callable, Buffer
 from enum import Enum, auto
 
 class RgbColor:
@@ -80,6 +80,49 @@ class Image:
         Creates a new image from a string that describes the image in SVG format.
         """
         ...
+
+    @staticmethod
+    def load_from_array(array: Buffer) -> Image:
+        r"""
+        Creates a new image from an array-like object that implements the [Buffer Protocol](https://docs.python.org/3/c-api/buffer.html).
+        Use this function to import images created by third-party modules such as matplotlib or Pillow.
+
+        The array must satisfy certain contraints to represent an image:
+
+         - The buffer's format needs to be `B` (unsigned char)
+         - The shape must be a tuple of (height, width, bytes-per-pixel)
+         - If a stride is defined, the row stride must be equal to width * bytes-per-pixel, and the column stride must equal the bytes-per-pixel.
+         - A value of 3 for bytes-per-pixel is interpreted as RGB image, a value of 4 means RGBA.
+
+        Example of importing a matplot figure into an image:
+        ```python
+        import slint
+        import matplotlib
+
+        from matplotlib.backends.backend_agg import FigureCanvasAgg
+        from matplotlib.figure import Figure
+
+        fig = Figure(figsize=(5, 4), dpi=100)
+        canvas = FigureCanvasAgg(fig)
+        ax = fig.add_subplot()
+        ax.plot([1, 2, 3])
+        canvas.draw()
+
+        buffer = canvas.buffer_rgba()
+        img = slint.Image.load_from_array(buffer)
+        ```
+
+        Example of loading an image with Pillow:
+        ```python
+        import slint
+        from PIL import Image
+        import numpy as np
+
+        pil_img = Image.open("hello.jpeg")
+        array = np.array(pil_img)
+        img = slint.Image.load_from_array(array)
+        ```
+        """
 
 class TimerMode(Enum):
     SingleShot = auto()
