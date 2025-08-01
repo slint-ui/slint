@@ -101,6 +101,7 @@ pub fn create_ui(
         );
     });
     api.on_select_behind(super::element_selection::select_element_behind);
+    api.on_highlight_positions(super::element_selection::highlight_positions);
     let lsp = to_lsp.clone();
     api.on_can_drop(super::can_drop_component);
     api.on_drop(move |component_index: i32, x: f32, y: f32| {
