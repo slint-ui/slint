@@ -119,6 +119,7 @@ jobs:
                 taplo get -f Cargo.toml features.default
 
             - run: |
+                export GIT_LFS_SKIP_SMUDGE=1
                 git clone https://github.com/beeware/mobile-forge.git
                 cd mobile-forge
                 source ./setup-iOS.sh 3.13

@@ -252,7 +252,7 @@ impl Document {
             if !local_compo.used.get() {
                 diag.push_warning(
                     "Component is neither used nor exported".into(),
-                    &local_compo.node,
+                    &local_compo.node.as_ref().map(|n| n.to_source_location()),
                 )
             }
         }
@@ -376,7 +376,7 @@ impl InitCode {
 /// Or is materialized for repeated expression.
 #[derive(Default, Debug)]
 pub struct Component {
-    pub node: Option<SyntaxNode>,
+    pub node: Option<syntax_nodes::Component>,
     pub id: SmolStr,
     pub root_element: ElementRc,
 
@@ -424,7 +424,7 @@ impl Component {
         let mut child_insertion_point = None;
         let is_legacy_syntax = node.child_token(SyntaxKind::ColonEqual).is_some();
         let c = Component {
-            node: Some(node.clone().into()),
+            node: Some(node.clone()),
             id: parser::identifier_text(&node.DeclaredIdentifier()).unwrap_or_default(),
             root_element: Element::from_node(
                 node.Element(),
@@ -2724,7 +2724,7 @@ impl Exports {
             let name = last_compo.id.clone();
             if last_compo.is_global() {
                 if sorted_deduped_exports.is_empty() {
-                    diag.push_warning("Global singleton is implicitly marked for export. This is deprecated and it should be explicitly exported".into(), &last_compo.node);
+                    diag.push_warning("Global singleton is implicitly marked for export. This is deprecated and it should be explicitly exported".into(), &last_compo.node.as_ref().map(|n| n.to_source_location()));
                     sorted_deduped_exports.push((
                         ExportedName { name, name_ident: doc.clone().into() },
                         Either::Left(last_compo.clone()),
@@ -2734,7 +2734,7 @@ impl Exports {
                 .iter()
                 .any(|e| e.1.as_ref().left().is_some_and(|c| !c.is_global()))
             {
-                diag.push_warning("Component is implicitly marked for export. This is deprecated and it should be explicitly exported".into(), &last_compo.node);
+                diag.push_warning("Component is implicitly marked for export. This is deprecated and it should be explicitly exported".into(), &last_compo.node.as_ref().map(|n| n.to_source_location()));
                 let insert_pos = sorted_deduped_exports
                     .partition_point(|(existing_export, _)| existing_export.name <= name);
                 sorted_deduped_exports.insert(

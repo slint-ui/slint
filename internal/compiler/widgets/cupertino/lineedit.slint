@@ -89,6 +89,7 @@ export component LineEdit {
             padding-right: 7px;
 
             base := LineEditBase {
+                input-type: root.input-type;
                 font-size: CupertinoFontSettings.body.font-size;
                 font-weight: CupertinoFontSettings.body.font-weight;
                 selection-background-color: CupertinoPalette.selection-background;
@@ -100,8 +101,9 @@ export component LineEdit {
             }
 
             LineEditClearIcon {
+                width: self.source.width * 1px;
                 text: base.text;
-                input-type: root.input-type;
+                visible: !root.text.is-empty && root.input-type != InputType.password && root.enabled && !root.read-only;
                 source: @image-url("_clear.svg");
                 colorize: base.text-color;
                 clear => {
@@ -111,6 +113,7 @@ export component LineEdit {
             }
 
             if root.input-type == InputType.password: LineEditPasswordIcon {
+                width: self.source.width * 1px;
                 show-password-image: @image-url("_visibility.svg");
                 hide-password-image: @image-url("_visibility_off.svg");
                 colorize: base.text-color;

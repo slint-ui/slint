@@ -761,10 +761,7 @@ fn generate_sub_component(
             let elem_name = ident(&item.name);
             while let Some(ty) = it {
                 for (prop, info) in &ty.properties {
-                    if info.ty.is_property_type()
-                        && !prop.starts_with("viewport")
-                        && prop != "commands"
-                    {
+                    if info.ty.is_property_type() && prop != "commands" {
                         let name = format!("{}::{}.{}", component.name, item.name, prop);
                         let prop = ident(&prop);
                         init.push(
@@ -2838,29 +2835,34 @@ fn compile_builtin_function_call(
                     &ctx.compilation_unit.sub_components
                         [current_sub_component.menu_item_trees[*tree_index as usize].root],
                 );
-                quote!({
+                quote! {
                     let menu_item_tree_instance = #item_tree_id::new(_self.self_weak.get().unwrap().clone()).unwrap();
-                    let context_menu_item_tree = sp::Rc::new(sp::MenuFromItemTree::new(sp::VRc::into_dyn(menu_item_tree_instance)));
-                    let mut entries = sp::SharedVector::default();
-                    sp::Menu::sub_menu(&*context_menu_item_tree, sp::Option::None, &mut entries);
-                    let _self = popup_instance_vrc.as_pin_ref();
-                    #access_entries.set(sp::ModelRc::new(sp::SharedVectorModel::from(entries)));
+                    let context_menu_item_tree = sp::VRc::new(sp::MenuFromItemTree::new(sp::VRc::into_dyn(menu_item_tree_instance)));
                     let context_menu_item_tree_ = context_menu_item_tree.clone();
-                    #access_sub_menu.set_handler(move |entry| {
+                    {
                         let mut entries = sp::SharedVector::default();
-                        sp::Menu::sub_menu(&*context_menu_item_tree_, sp::Option::Some(&entry.0), &mut entries);
-                        sp::ModelRc::new(sp::SharedVectorModel::from(entries))
-                    });
-                    #access_activated.set_handler(move |entry| {
-                        sp::Menu::activate(&*context_menu_item_tree, &entry.0);
-                    });
-                    let self_weak = parent_weak.clone();
-                    #access_close.set_handler(move |()| {
-                        let Some(self_rc) = self_weak.upgrade() else { return };
-                        let _self = self_rc.as_pin_ref();
-                        #close_popup
-                    });
-                })
+                        sp::Menu::sub_menu(&*context_menu_item_tree, sp::Option::None, &mut entries);
+                        let _self = popup_instance_vrc.as_pin_ref();
+                        #access_entries.set(sp::ModelRc::new(sp::SharedVectorModel::from(entries)));
+                        let context_menu_item_tree = context_menu_item_tree_.clone();
+                        #access_sub_menu.set_handler(move |entry| {
+                            let mut entries = sp::SharedVector::default();
+                            sp::Menu::sub_menu(&*context_menu_item_tree, sp::Option::Some(&entry.0), &mut entries);
+                            sp::ModelRc::new(sp::SharedVectorModel::from(entries))
+                        });
+                        let context_menu_item_tree = context_menu_item_tree_.clone();
+                        #access_activated.set_handler(move |entry| {
+                            sp::Menu::activate(&*context_menu_item_tree_, &entry.0);
+                        });
+                        let self_weak = parent_weak.clone();
+                        #access_close.set_handler(move |()| {
+                            let Some(self_rc) = self_weak.upgrade() else { return };
+                            let _self = self_rc.as_pin_ref();
+                            #close_popup
+                        });
+                    }
+                    let context_menu_item_tree = sp::VRc::into_dyn(context_menu_item_tree);
+                }
             } else {
                 // entries should be an expression of type array of MenuEntry
                 debug_assert!(
@@ -2881,13 +2883,39 @@ fn compile_builtin_function_call(
                         });
                     )
                 };
-                let fw_sub_menu = forward_callback(access_sub_menu, quote!(sub_menu));
-                let fw_activated = forward_callback(access_activated, quote!(activated));
+                let fw_sub_menu = forward_callback(access_sub_menu.clone(), quote!(sub_menu));
+                let fw_activated = forward_callback(access_activated.clone(), quote!(activated));
                 quote! {
                     let entries = #entries;
+
+                    // May seem overkill to have an instance of the struct for each call, but there should only be one call per component anyway
+                    struct ContextMenuWrapper(sp::VRc<sp::ItemTreeVTable, #popup_id>, sp::ModelRc<sp::MenuEntry>);
+                    const _ : () = {
+                        use slint::private_unstable_api::re_exports::*;
+                        MenuVTable_static!(static VT for ContextMenuWrapper);
+                    };
+                    impl sp::Menu for ContextMenuWrapper {
+                        fn sub_menu(&self, parent: sp::Option<&sp::MenuEntry>, result: &mut sp::SharedVector<sp::MenuEntry>) {
+                            let self_rc = self.0.clone();
+                            let _self = self_rc.as_pin_ref();
+                            let model = match parent {
+                                None => self.1.clone(),
+                                Some(parent) => #access_sub_menu.call(&(parent.clone(),))
+                            };
+                            *result = model.iter().map(|v| v.try_into().unwrap()).collect();
+                        }
+                        fn activate(&self, entry: &sp::MenuEntry) {
+                            let self_rc = self.0.clone();
+                            let _self = self_rc.as_pin_ref();
+                            #access_activated.call(&(entry.clone(),));
+                        }
+                    }
+                    let context_menu_item_tree = sp::VRc::new(ContextMenuWrapper(popup_instance.clone(), entries.clone()));
+                    let context_menu_item_tree = sp::VRc::into_dyn(context_menu_item_tree);
+
                     {
                         let _self = popup_instance_vrc.as_pin_ref();
-                        #access_entries.set(entries);
+                        #access_entries.set(entries.clone());
                         #fw_sub_menu
                         #fw_activated
                         let self_weak = parent_weak.clone();
@@ -2900,22 +2928,28 @@ fn compile_builtin_function_call(
                 }
             };
             let context_menu = context_menu.unwrap();
+
             quote!({
                 let position = #position;
                 let popup_instance = #popup_id::new(_self.globals.get().unwrap().clone()).unwrap();
                 let popup_instance_vrc = sp::VRc::map(popup_instance.clone(), |x| x);
-                let parent_weak = _self.self_weak.get().unwrap().clone();
-                #init_popup
-                #close_popup
-                let id = sp::WindowInner::from_pub(#window_adapter_tokens.window()).show_popup(
-                    &sp::VRc::into_dyn(popup_instance.into()),
-                    position,
-                    sp::PopupClosePolicy::CloseOnClickOutside,
-                    #context_menu_rc,
-                    true, // is_menu
-                );
-                #context_menu.popup_id.set(Some(id));
-                #popup_id::user_init(popup_instance_vrc);
+                {
+                    let parent_weak = _self.self_weak.get().unwrap().clone();
+                    #init_popup
+
+                    if !sp::WindowInner::from_pub(#window_adapter_tokens.window()).show_native_popup_menu(context_menu_item_tree, #position) {
+                        #close_popup
+                        let id = sp::WindowInner::from_pub(#window_adapter_tokens.window()).show_popup(
+                            &sp::VRc::into_dyn(popup_instance.into()),
+                            position,
+                            sp::PopupClosePolicy::CloseOnClickOutside,
+                            #context_menu_rc,
+                            true, // is_menu
+                        );
+                        #context_menu.popup_id.set(Some(id));
+                        #popup_id::user_init(popup_instance_vrc);
+                    }
+                }
             })
         }
         BuiltinFunction::SetSelectionOffsets => {
@@ -3134,12 +3168,14 @@ fn compile_builtin_function_call(
                     quote!()
                 } else {
                     quote!(if sp::WindowInner::from_pub(#window_adapter_tokens.window()).supports_native_menu_bar() {
-                        sp::WindowInner::from_pub(#window_adapter_tokens.window()).setup_menubar(sp::VBox::new(menu_item_tree));
+                        let menu_item_tree = sp::VRc::new(menu_item_tree);
+                        let menu_item_tree = sp::VRc::into_dyn(menu_item_tree);
+                        sp::WindowInner::from_pub(#window_adapter_tokens.window()).setup_menubar(menu_item_tree);
                     } else)
                 };
 
                 quote!({
-                    let menu_item_tree_instance = #item_tree_id::new(_self.self_weak.get().unwrap().clone()).unwrap();
+                    let menu_item_tree_instance = #item_tree_id::new(_self.self_weak.get().unwrap().clone()).unwrap(); // BLGAG
                     let menu_item_tree = sp::MenuFromItemTree::new(sp::VRc::into_dyn(menu_item_tree_instance));
                     #native_impl
                     /*else*/ {
@@ -3193,7 +3229,9 @@ fn compile_builtin_function_call(
                                 #activated.call(&(entry.clone(),))
                             }
                         }
-                        sp::WindowInner::from_pub(#window_adapter_tokens.window()).setup_menubar(sp::VBox::new(MenuBarWrapper(_self.self_weak.get().unwrap().clone())));
+                        let menubar = sp::VRc::new(MenuBarWrapper(_self.self_weak.get().unwrap().clone()));
+                        let menubar = sp::VRc::into_dyn(menubar);
+                        sp::WindowInner::from_pub(#window_adapter_tokens.window()).setup_menubar(menubar);
                     }
                 }
             } else {

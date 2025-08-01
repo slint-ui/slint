@@ -3743,12 +3743,10 @@ fn compile_builtin_function_call(
                         if ({window}.supports_native_menu_bar()) {{
                             auto item_tree = {item_tree_id}::create(self);
                             auto item_tree_dyn = item_tree.into_dyn();
-                            vtable::VBox<slint::cbindgen_private::MenuVTable> box{{}};
-                            slint::cbindgen_private::slint_menus_create_wrapper(&item_tree_dyn, &box);
-                            slint::cbindgen_private::slint_windowrc_setup_native_menu_bar(&{window}.handle(), const_cast<slint::cbindgen_private::MenuVTable*>(box.vtable), box.instance);
-                            // The ownership of the VBox is transferred to slint_windowrc_setup_native_menu_bar
-                            box.instance = nullptr;
-                            box.vtable = nullptr;
+                            slint::private_api::MaybeUninitialized<vtable::VRc<slint::cbindgen_private::MenuVTable>> maybe;
+                            slint::cbindgen_private::slint_menus_create_wrapper(&item_tree_dyn, &maybe.value);
+                            auto vrc = maybe.take();
+                            slint::cbindgen_private::slint_windowrc_setup_native_menu_bar(&{window}.handle(), &vrc);
                         }} else {{
                             auto item_tree = {item_tree_id}::create(self);
                             auto item_tree_dyn = item_tree.into_dyn();

@@ -101,6 +101,7 @@ pub fn create_ui(
         );
     });
     api.on_select_behind(super::element_selection::select_element_behind);
+    api.on_highlight_positions(super::element_selection::highlight_positions);
     let lsp = to_lsp.clone();
     api.on_can_drop(super::can_drop_component);
     api.on_drop(move |component_index: i32, x: f32, y: f32| {
@@ -145,6 +146,7 @@ pub fn create_ui(
     log_messages::setup(&ui);
     palette::setup(&ui);
     recent_colors::setup(&ui);
+    super::outline::setup(&ui);
 
     #[cfg(target_vendor = "apple")]
     api.set_control_key_name("command".into());
@@ -363,7 +365,7 @@ fn is_equal_element(c: &ElementInformation, n: &ElementInformation) -> bool {
     c.id == n.id
         && c.type_name == n.type_name
         && c.source_uri == n.source_uri
-        && c.range.start == n.range.start
+        && c.offset == n.offset
 }
 
 pub type PropertyGroupModel = ModelRc<PropertyGroup>;
@@ -1316,7 +1318,7 @@ pub fn ui_set_properties(
                 type_name: "".into(),
                 source_uri: "".into(),
                 source_version: 0,
-                range: Range { start: 0, end: 0 },
+                offset: 0,
             },
             HashMap::new(),
             Rc::new(VecModel::from(Vec::<PropertyGroup>::new())).into(),

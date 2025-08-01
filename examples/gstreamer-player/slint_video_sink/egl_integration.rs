@@ -3,6 +3,7 @@
 
 use std::sync::{Arc, Mutex};
 
+use futures::channel::mpsc::UnboundedSender;
 use gst::prelude::*;
 use gst_gl::prelude::*;
 
@@ -10,46 +11,50 @@ pub fn init<App: slint::ComponentHandle + 'static>(
     app: &App,
     pipeline: &gst::Pipeline,
     new_frame_callback: fn(App, slint::Image),
-) -> anyhow::Result<()> {
+    bus_sender: UnboundedSender<gst::Message>,
+) -> gst::Element {
     let mut slint_sink = SlintOpenGLSink::new();
+    let sink_element = slint_sink.element();
+    pipeline.set_property("video-sink", &sink_element);
 
-    pipeline.set_property("video-sink", slint_sink.video_sink());
+    app.window()
+        .set_rendering_notifier({
+            let pipeline = pipeline.clone();
+            let app_weak = app.as_weak();
 
-    app.window().set_rendering_notifier({
-        let pipeline = pipeline.clone();
-        let app_weak = app.as_weak();
-
-        move |state, graphics_api| match state {
-            slint::RenderingState::RenderingSetup => {
-                let app_weak = app_weak.clone();
-                slint_sink.connect(
-                    graphics_api,
-                    &pipeline.bus().unwrap(),
-                    Box::new(move || {
-                        app_weak
-                            .upgrade_in_event_loop(move |app| {
-                                app.window().request_redraw();
-                            })
-                            .ok();
-                    }),
-                );
-                pipeline
-                    .set_state(gst::State::Playing)
-                    .expect("Unable to set the pipeline to the `Playing` state");
-            }
-            slint::RenderingState::RenderingTeardown => {
-                slint_sink.deactivate_and_pause();
-            }
-            slint::RenderingState::BeforeRendering => {
-                if let Some(next_frame) = slint_sink.fetch_next_frame() {
-                    new_frame_callback(app_weak.unwrap(), next_frame)
+            move |state, graphics_api| match state {
+                slint::RenderingState::RenderingSetup => {
+                    let app_weak = app_weak.clone();
+                    slint_sink.connect(
+                        graphics_api,
+                        &pipeline.bus().unwrap(),
+                        bus_sender.clone(),
+                        Box::new(move || {
+                            app_weak
+                                .upgrade_in_event_loop(move |app| {
+                                    app.window().request_redraw();
+                                })
+                                .ok();
+                        }),
+                    );
+                    pipeline
+                        .set_state(gst::State::Playing)
+                        .expect("Unable to set the pipeline to the `Playing` state");
                 }
+                slint::RenderingState::RenderingTeardown => {
+                    slint_sink.deactivate_and_pause();
+                }
+                slint::RenderingState::BeforeRendering => {
+                    if let Some(next_frame) = slint_sink.fetch_next_frame() {
+                        new_frame_callback(app_weak.unwrap(), next_frame)
+                    }
+                }
+                _ => {}
             }
-            _ => {}
-        }
-    })?;
+        })
+        .unwrap();
 
-    Ok(())
+    sink_element
 }
 
 pub struct SlintOpenGLSink {
@@ -89,14 +94,15 @@ impl SlintOpenGLSink {
         }
     }
 
-    pub fn video_sink(&self) -> gst::Element {
-        self.glsink.clone().into()
+    pub fn element(&self) -> gst::Element {
+        self.glsink.clone()
     }
 
     pub fn connect(
         &mut self,
         graphics_api: &slint::GraphicsAPI<'_>,
         bus: &gst::Bus,
+        bus_sender: UnboundedSender<gst::Message>,
         next_frame_available_notifier: Box<dyn Fn() + Send>,
     ) {
         let egl = match graphics_api {
@@ -160,7 +166,9 @@ impl SlintOpenGLSink {
                             }
                         }
                     }
-                    _ => (),
+                    _ => {
+                        let _ = bus_sender.unbounded_send(msg.to_owned());
+                    }
                 }
 
                 gst::BusSyncReply::Drop

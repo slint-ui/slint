@@ -254,7 +254,7 @@ impl ElementRcNode {
     /// Run with all the debug information on the node
     pub fn with_element_debug<R>(
         &self,
-        func: impl Fn(&i_slint_compiler::object_tree::ElementDebugInfo) -> R,
+        func: impl FnOnce(&i_slint_compiler::object_tree::ElementDebugInfo) -> R,
     ) -> R {
         let elem = self.element.borrow();
         let d = elem.debug.get(self.debug_index).unwrap();
@@ -264,14 +264,14 @@ impl ElementRcNode {
     /// Run with the `Element` node
     pub fn with_element_node<R>(
         &self,
-        func: impl Fn(&i_slint_compiler::parser::syntax_nodes::Element) -> R,
+        func: impl FnOnce(&i_slint_compiler::parser::syntax_nodes::Element) -> R,
     ) -> R {
         let elem = self.element.borrow();
         func(&elem.debug.get(self.debug_index).unwrap().node)
     }
 
     /// Run with the SyntaxNode incl. any id, condition, etc.
-    pub fn with_decorated_node<R>(&self, func: impl Fn(SyntaxNode) -> R) -> R {
+    pub fn with_decorated_node<R>(&self, func: impl FnOnce(SyntaxNode) -> R) -> R {
         let elem = self.element.borrow();
         func(find_element_with_decoration(&elem.debug.get(self.debug_index).unwrap().node))
     }
@@ -606,7 +606,7 @@ pub enum PreviewToLspMessage {
     SendWorkspaceEdit { label: Option<String>, edit: lsp_types::WorkspaceEdit },
     /// Pass a `ShowMessage` notification on to the editor
     SendShowMessage { message: lsp_types::ShowMessageParams },
-    /// Senf a telemetry event
+    /// Send a telemetry event
     TelemetryEvent(serde_json::Map<String, serde_json::Value>),
 }
 

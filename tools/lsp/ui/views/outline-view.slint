@@ -1,0 +1,198 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Palette, VerticalBox, ListView }  from "std-widgets.slint";
+import { ConsoleStyles, EditorSizeSettings, Icons,  } from "../components/styling.slint";
+import { Api, OutlineTreeNode, DropLocation } from "../api.slint";
+
+export component OutlineView inherits VerticalLayout {
+    property <[OutlineTreeNode]> outline-data <=> Api.outline;
+    in property <bool> enabled <=> lv.enabled;
+    Rectangle {
+        height: ConsoleStyles.header-height;
+        background: ConsoleStyles.header-background;
+        Rectangle {
+            y: 0;
+            width: 100%;
+            height: 1px;
+            background: ConsoleStyles.divider-line;
+            opacity: 50%;
+        }
+
+        Rectangle {
+            y: parent.height - self.height;
+            width: 100%;
+            height: 1px;
+            background: ConsoleStyles.divider-line;
+        }
+
+        label := Text {
+            x: 10px;
+            horizontal-alignment: left;
+            color: ConsoleStyles.text-color;
+            font-family: "Inter";
+            font-size: 12px;
+            text: @tr("Outline");
+        }
+    }
+
+    lv := ListView {
+        for item[idx] in outline-data: DragArea {
+            height: 30px;
+            mime-type: "application/x-slint-component-move";
+            data: item.uri + ":" + item.offset;
+
+            property <bool> selected: item.uri == Api.current-element.source-uri && item.offset == Api.current-element.offset;
+
+            drop-as-child := DropArea {
+                enabled: (!item.has-children || !item.is-expanded) && item.indent-level > 0;
+
+                can-drop(event) => {
+                    if event.mime-type != "application/x-slint-component" && event.mime-type != "application/x-slint-component-move" {
+                        return false;
+                    }
+                    if !item.is-expanded && item.has-children {
+                        if !open-timer.running {
+                            open-timer.running = true;
+                        }
+                        return false;
+                    }
+                    //return Api.outline-can-drop(event.data, item.uri, item.offset, DropLocation.Onto);
+                    true;
+                }
+                dropped(event) => {
+                    Api.outline-drop(event.data, item.uri, item.offset, DropLocation.onto);
+                }
+            }
+
+            drop-before := DropArea {
+                enabled: item.indent-level > 0;
+                height: parent.height / 3;
+
+                y: -self.height / 2;
+                x: indentation.width;
+                width: parent.width - self.x;
+
+                can-drop(event) => {
+                    if event.mime-type != "application/x-slint-component" && event.mime-type != "application/x-slint-component-move" {
+                        return false;
+                    }
+                    //return Api.outline-can-drop(event.data, item.uri, item.offset, -1);
+                    true;
+                }
+                dropped(event) => {
+                    Api.outline-drop(event.data, item.uri, item.offset, DropLocation.before);
+                }
+                Rectangle {
+                    height: 1px;
+                    background: Palette.foreground;
+                    visible: parent.contains-drag;
+                }
+            }
+
+            drop-after := DropArea {
+                y: parent.height - self.height / 2;
+                x: indentation.width;
+                height: parent.height / 3;
+                width: parent.width - self.x;
+
+                enabled: item.indent-level > 0;
+
+                can-drop(event) => {
+                    if event.mime-type != "application/x-slint-component" && event.mime-type != "application/x-slint-component-move" {
+                        return false;
+                    }
+                    //return Api.outline-can-drop(event.data, item.uri, item.offset, 1);
+                    true;
+                }
+                dropped(event) => {
+                    Api.outline-drop(event.data, item.uri, item.offset, DropLocation.after);
+                }
+                Rectangle {
+                    height: 1px;
+                    background: Palette.foreground;
+                    visible: parent.contains-drag;
+                }
+            }
+
+            open-timer := Timer {
+                running: false;
+                interval: 0.5s;
+                triggered => {
+                    item.is-expanded = true;
+                    open-timer.running = false;
+                }
+            }
+
+            bg := Rectangle {
+                background: {
+                    let bg-color = selected ? Palette.selection-background : Palette.background;
+                    return ta-open.has-hover || ta.has-hover || drop-as-child.contains-drag ? bg-color.mix(Palette.selection-background, 50%) : bg-color;
+                }
+                animate background {
+                    duration: 200ms;
+                    easing: ease-out-quad;
+                }
+                ta := TouchArea {
+                    clicked => {
+                        Api.outline-select-element(item.uri, item.offset);
+                    }
+                    double-clicked => {
+                        item.is-expanded = !item.is-expanded;
+                    }
+                    pointer-event(event) => {
+                        if event.kind == PointerEventKind.cancel {
+                            open-timer.running = false;
+                        }
+                    }
+                }
+            }
+
+            oi := HorizontalLayout {
+                padding-top: 6px;
+                padding-bottom: 6px;
+                alignment: start;
+                indentation := Rectangle {
+                    width: item.indent-level * 15px;
+                }
+
+                Rectangle {
+                    visible: item.has-children;
+                    Image {
+                        height: t.preferred-height * 1.4;
+                        width: self.preferred-width * 1;
+
+                        source: @image-url("../assets/chevron-down.svg");
+                        rotation-angle: item.is-expanded ? 0.0deg : -90.0deg;
+                        colorize: selected ? Palette.selection-foreground : Palette.foreground;
+                        vertical-alignment: center;
+                        animate rotation-angle {
+                            duration: 300ms;
+                            easing: ease-out-quad;
+                        }
+                    }
+
+                    ta-open := TouchArea {
+                        clicked => {
+                            item.is-expanded = !item.is-expanded;
+                        }
+                    }
+
+                    Rectangle {
+                        width: 15px;
+                    }
+                }
+
+                if !item.has-children: Rectangle {
+                    width: 4px;
+                }
+                t := Text {
+                    font-family: "Inter";
+                    text: item.element-id == "" ? item.element-type : (item.element-id + " := " + item.element-type);
+                    color: selected ? Palette.selection-foreground : Palette.foreground;
+                    vertical-alignment: center;
+                }
+            }
+        }
+    }
+}

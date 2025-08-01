@@ -37,10 +37,18 @@ Changelog = "https://github.com/slint-ui/slint/blob/master/CHANGELOG.md"
 Tracker = "https://github.com/slint-ui/slint/issues"
 
 [project.optional-dependencies]
-dev = ["pytest"]
+dev = ["pytest", "numpy>=2.3.2", "pillow>=11.3.0"]
 
 [dependency-groups]
-dev = ["mypy>=1.15.0", "nox>=2024.10.9", "pdoc>=15.0.1", "pytest>=8.3.4", "ruff>=0.9.6"]
+dev = [
+  "mypy>=1.15.0",
+  "nox>=2024.10.9",
+  "pdoc>=15.0.1",
+  "pytest>=8.3.4",
+  "ruff>=0.9.6",
+  "pillow>=11.3.0",
+  "numpy>=2.3.2",
+]
 
 [tool.uv]
 # Rebuild package when any rust files change

@@ -37,7 +37,7 @@ export enum LayoutKind {
 }
 
 /// A rectangular region that is selected
-struct SelectionRectangle {
+export struct SelectionRectangle {
     x: length,
     y: length,
     width: length,
@@ -46,10 +46,9 @@ struct SelectionRectangle {
 
 /// A `Selection`
 export struct Selection {
-    geometry: SelectionRectangle,
+    highlight-index: int,
     layout-data: LayoutKind,
     is-interactive: bool,
-    is-primary: bool,
     is-moveable: bool,
     is-resizable: bool,
 }
@@ -215,7 +214,8 @@ export struct ElementInformation {
     type-name: string,
     source-uri: string,
     source-version: int,
-    range: Range,
+    /// The offset within source-uri
+    offset: int,
 }
 
 export struct PaletteEntry {
@@ -235,6 +235,24 @@ export struct LogMessage {
     column: int,
     message: string,
     level: LogMessageLevel,
+}
+
+/// A node in the outline tree
+export struct OutlineTreeNode {
+    has-children: bool,
+    is-expanded: bool,
+    indent-level: int,
+    element-type: string,
+    element-id: string,
+    uri: string,
+    offset: int,
+    is-last-child: bool,
+}
+
+export enum DropLocation {
+    onto,
+    before,
+    after,
 }
 
 export global Api {
@@ -270,10 +288,12 @@ export global Api {
 
     // ## Log Output
     in-out property <[LogMessage]> log-output;
+    in-out property <bool> auto-clear-console: true;
 
     // ## Drawing Area
     // Borders around things
-    in property <[Selection]> selections;
+    pure callback highlight-positions(source-uri: string, offset: int) -> [SelectionRectangle];
+    in-out property <Selection> selection;
     in-out property <DropMark> drop-mark;
     // The actual preview
     in-out property <component-factory> preview-area;
@@ -475,6 +495,12 @@ export global Api {
 
     ];
 
+    // ## Outline
+    in-out property <[OutlineTreeNode]> outline;
+    callback outline-select-element(uri: string, offset: int);
+    // Data is either a "file:offset" for an element to move, or just a component index.
+    callback outline-drop(data: string, uri: string, offset: int, location: DropLocation);
+
     // ## preview data
 
     in-out property <[PropertyContainer]> preview-data;
@@ -575,5 +601,4 @@ export global Api {
     // Console / LogMessages
     pure callback filter-log-messages(messages: [LogMessage], pattern: string) -> [LogMessage];
     callback clear-log-messages();
-    in-out property <bool> auto-clear-console: true;
 }

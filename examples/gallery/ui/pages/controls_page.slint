@@ -90,36 +90,49 @@ export component ControlsPage inherits Page {
     GroupBox {
         title: @tr("LineEdit - SpinBox - TimePickerPopup - DatePickerPopup");
         vertical-stretch: 0;
+        VerticalBox {
+            HorizontalBox {
+                alignment: start;
+                padding: 0px;
 
-        HorizontalBox {
-            alignment: start;
-            padding: 0px;
+                LineEdit {
+                    placeholder-text: @tr("Enter some text");
+                    enabled: GallerySettings.widgets-enabled;
+                    read-only: GallerySettings.widgets-read-only;
+                }
 
-            LineEdit {
-                placeholder-text: @tr("Enter some text");
-                enabled: GallerySettings.widgets-enabled;
-                read-only: GallerySettings.widgets-read-only;
-            }
+                LineEdit {
+                    placeholder-text: @tr("Password");
+                    enabled: GallerySettings.widgets-enabled;
+                    read-only: GallerySettings.widgets-read-only;
+                    input-type: InputType.password;
+                }
 
-            SpinBox {
-                vertical-stretch: 0;
-                value: 42;
-                enabled: GallerySettings.widgets-enabled;
-            }
-
-            time-picker-button := Button {
-                text: @tr("Open TimePickerPopup");
-                enabled: GallerySettings.widgets-enabled;
-                clicked => {
-                    time-picker.show();
+                SpinBox {
+                    vertical-stretch: 0;
+                    value: 42;
+                    enabled: GallerySettings.widgets-enabled;
                 }
             }
 
-            Button {
-                text: @tr("Open DatePickerPopup");
-                enabled: GallerySettings.widgets-enabled;
-                clicked => {
-                    date-picker.show();
+            HorizontalBox {
+                alignment: start;
+                padding: 0px;
+
+                time-picker-button := Button {
+                    text: @tr("Open TimePickerPopup");
+                    enabled: GallerySettings.widgets-enabled;
+                    clicked => {
+                        time-picker.show();
+                    }
+                }
+
+                Button {
+                    text: @tr("Open DatePickerPopup");
+                    enabled: GallerySettings.widgets-enabled;
+                    clicked => {
+                        date-picker.show();
+                    }
                 }
             }
         }

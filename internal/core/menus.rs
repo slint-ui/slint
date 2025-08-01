@@ -27,12 +27,14 @@ use vtable::{VRef, VRefMut};
 #[vtable::vtable]
 #[repr(C)]
 pub struct MenuVTable {
-    /// destructor
-    drop: extern "C" fn(VRefMut<MenuVTable>),
     /// Return the list of items for the sub menu (or the main menu of parent is None)
     sub_menu: extern "C" fn(VRef<MenuVTable>, Option<&MenuEntry>, &mut SharedVector<MenuEntry>),
     /// Handler when the menu entry is activated
     activate: extern "C" fn(VRef<MenuVTable>, &MenuEntry),
+    /// drop_in_place handler
+    drop_in_place: extern "C" fn(VRefMut<MenuVTable>) -> Layout,
+    /// dealloc handler
+    dealloc: extern "C" fn(&MenuVTable, ptr: *mut u8, layout: Layout),
 }
 
 struct ShadowTreeNode {
@@ -181,6 +183,15 @@ impl crate::items::Item for MenuItem {
         Default::default()
     }
 
+    fn capture_key_event(
+        self: Pin<&Self>,
+        _: &crate::input::KeyEvent,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+    ) -> crate::input::KeyEventResult {
+        crate::input::KeyEventResult::EventIgnored
+    }
+
     fn key_event(
         self: Pin<&Self>,
         _: &crate::input::KeyEvent,
@@ -239,9 +250,9 @@ pub mod ffi {
     #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_menus_create_wrapper(
         menu_tree: &ItemTreeRc,
-        result: *mut vtable::VBox<MenuVTable>,
+        result: *mut vtable::VRc<MenuVTable>,
     ) {
-        let b = vtable::VBox::<MenuVTable>::new(MenuFromItemTree::new(menu_tree.clone()));
-        core::ptr::write(result, b);
+        let vrc = vtable::VRc::into_dyn(vtable::VRc::new(MenuFromItemTree::new(menu_tree.clone())));
+        core::ptr::write(result, vrc);
     }
 }

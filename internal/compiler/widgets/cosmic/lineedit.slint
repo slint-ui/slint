@@ -84,8 +84,9 @@ export component LineEdit {
             }
 
             LineEditClearIcon {
+                width: self.source.width * 1px;
                 text: base.text;
-                input-type: root.input-type;
+                visible: !root.text.is-empty && root.input-type != InputType.password && root.enabled && !root.read-only;
                 source: @image-url("_edit_clear_symbolic.svg");
                 colorize: base.text-color;
                 clear => {
@@ -95,6 +96,7 @@ export component LineEdit {
             }
 
             if root.input-type == InputType.password: LineEditPasswordIcon {
+                width: self.source.width * 1px;
                 show-password-image: @image-url("_view_reveal.svg");
                 hide-password-image: @image-url("_view_conceal.svg");
                 colorize: base.text-color;

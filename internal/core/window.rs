@@ -215,7 +215,15 @@ pub trait WindowAdapterInternal {
         false
     }
 
-    fn setup_menubar(&self, _menubar: vtable::VBox<MenuVTable>) {}
+    fn setup_menubar(&self, _menubar: vtable::VRc<MenuVTable>) {}
+
+    fn show_native_popup_menu(
+        &self,
+        _context_menu_item: vtable::VRc<MenuVTable>,
+        _position: LogicalPosition,
+    ) -> bool {
+        false
+    }
 
     /// Re-implement this to support exposing raw window handles (version 0.6).
     #[cfg(all(feature = "std", feature = "raw-window-handle-06"))]
@@ -758,7 +766,6 @@ impl WindowInner {
     ///
     /// Arguments:
     /// * `event`: The key event received by the windowing system.
-    /// * `component`: The Slint compiled component that provides the tree of items.
     pub fn process_key_input(&self, mut event: KeyEvent) {
         if let Some(updated_modifier) = self
             .modifiers
@@ -779,6 +786,31 @@ impl WindowInner {
             item = None;
         }
 
+        let item_list = {
+            let mut tmp = Vec::new();
+            let mut item = item.clone();
+
+            while let Some(i) = item {
+                tmp.push(i.clone());
+                item = i.parent_item(ParentItemTraversalMode::StopAtPopups);
+            }
+
+            tmp
+        };
+
+        // Check capture_key_event (going from window to focused item):
+        for i in item_list.iter().rev() {
+            if i.borrow().as_ref().capture_key_event(&event, &self.window_adapter(), &i)
+                == crate::input::KeyEventResult::EventAccepted
+            {
+                crate::properties::ChangeTracker::run_change_handlers();
+                return;
+            }
+        }
+
+        drop(item_list);
+
+        // Deliver key_event (to focused item, going up towards the window):
         while let Some(focus_item) = item {
             if focus_item.borrow().as_ref().key_event(&event, &self.window_adapter(), &focus_item)
                 == crate::input::KeyEventResult::EventAccepted
@@ -806,7 +838,7 @@ impl WindowInner {
         } else if event.event_type == KeyEventType::KeyPressed
             && event.text.starts_with(key_codes::Escape)
         {
-            // Closes top most popup on esc key pressed when policy is not no-auto-close
+            // Closes top most popup on ESC key pressed when policy is not no-auto-close
 
             // Try to get the parent window in case `self` is the popup itself
             let mut adapter = self.window_adapter();
@@ -1133,7 +1165,7 @@ impl WindowInner {
     }
 
     /// Setup the native menu bar
-    pub fn setup_menubar(&self, menubar: vtable::VBox<MenuVTable>) {
+    pub fn setup_menubar(&self, menubar: vtable::VRc<MenuVTable>) {
         if let Some(x) = self.window_adapter().internal(crate::InternalToken) {
             x.setup_menubar(menubar);
         }
@@ -1266,11 +1298,14 @@ impl WindowInner {
     /// Returns false if the native platform doesn't support it
     pub fn show_native_popup_menu(
         &self,
-        _context_menu_item: &ItemRc,
-        _position: LogicalPosition,
+        context_menu_item: vtable::VRc<MenuVTable>,
+        position: LogicalPosition,
     ) -> bool {
-        // TODO
-        false
+        if let Some(x) = self.window_adapter().internal(crate::InternalToken) {
+            x.show_native_popup_menu(context_menu_item, position)
+        } else {
+            false
+        }
     }
 
     // Close the popup associated with the given popup window.
@@ -1483,7 +1518,6 @@ pub mod ffi {
     use crate::graphics::Size;
     use crate::graphics::{IntSize, Rgba8Pixel};
     use crate::SharedVector;
-    use core::ptr::NonNull;
 
     /// This enum describes a low-level access to specific graphics APIs used
     /// by the renderer.
@@ -1836,13 +1870,12 @@ pub mod ffi {
     #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_windowrc_setup_native_menu_bar(
         handle: *const WindowAdapterRcOpaque,
-        vtable: NonNull<MenuVTable>,
-        menu_instance: NonNull<c_void>,
+        menu_instance: &vtable::VRc<MenuVTable>,
     ) {
         let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
         window_adapter
             .internal(crate::InternalToken)
-            .map(|x| x.setup_menubar(vtable::VBox::from_raw(vtable, menu_instance.cast())));
+            .map(|x| x.setup_menubar(menu_instance.clone()));
     }
 
     /// Return the default-font-size property of the WindowItem

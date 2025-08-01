@@ -5,35 +5,42 @@ import { VerticalBox, Palette } from "std-widgets.slint";
 
 export component App inherits Window {
     in property <image> video-frame <=> image.source;
+    in property <int> buffering-percent;
     in property <bool> playing;
 
     pure callback toggle-pause-play();
 
-    preferred-width: 500px;
-    preferred-height: 300px;
-    min-width: 500px;
-    min-height: 300px;
+    preferred-width: 854px;
+    preferred-height: 480px;
+    min-width: 854px;
+    min-height: 480px;
     title: "Slint GStreamer Video Playback Example";
     background: #000000;
     icon: @image-url("../../logo/slint-logo-small-light.png");
 
     states [
-        shown when area.has-hover || animation-tick() < 5s : {
-            controls.opacity: 1;
-            in {
-                animate controls.opacity {
-                    duration: 50ms;
+        buffering when buffering-percent < 100: {
+            controls.opacity: 0;
+            buffering-indicator.opacity: 1;
+            // Without this, the last percentage shown will be < 100%
+            out {
+                animate buffering-indicator.opacity {
+                    duration: 100ms;
                 }
             }
         }
-        hidden when !area.has-hover: {
-            controls.opacity: 0;
+        shown when (!playing || controls-area.has-hover) && buffering-percent == 100: {
+            controls.opacity: 1;
+            buffering-indicator.opacity: 0;
             in {
                 animate controls.opacity {
-                    delay: 3s;
                     duration: 500ms;
                 }
             }
+        }
+        hidden when playing && buffering-percent == 100: {
+            controls.opacity: 0;
+            buffering-indicator.opacity: 0;
         }
     ]
 
@@ -42,20 +49,28 @@ export component App inherits Window {
     }
 
     area := TouchArea {
-        width: 50%;
-        height: self.preferred-height;
-        y: root.height - self.height - 40px;
+        width: 100%;
+        height: 100%;
+        clicked => {
+            root.toggle-pause-play();
+        }
+        buffering-indicator := Text {
+            text: "Buffering... \{buffering-percent}%";
+        }
         controls := Rectangle {
+            width: 50%;
+            height: self.preferred-height;
+            y: root.height - self.height - 40px;
             border-radius: 4px;
             background: Palette.color-scheme == ColorScheme.dark ? #3737378c : #ffffff82;
 
-            Image {
+            play-pause := Image {
                 width: 64px;
                 height: 64px;
                 source: root.playing ? @image-url("pause.svg") : @image-url("play.svg");
             }
 
-            TouchArea {
+            controls-area := TouchArea {
                 clicked => {
                     root.toggle-pause-play();
                 }

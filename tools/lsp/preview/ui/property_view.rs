@@ -271,7 +271,7 @@ pub fn map_properties_to_ui(
             type_name: element.type_name.as_str().into(),
             source_uri,
             source_version,
-            range: ui::to_ui_range(element.range)?,
+            offset: u32::from(element.offset) as i32,
         },
         declarations,
         Rc::new(VecModel::from(

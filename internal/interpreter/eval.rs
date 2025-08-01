@@ -708,12 +708,14 @@ fn call_builtin_function(
             let description = enclosing_component.description;
             let item_info = &description.items[elem.borrow().id.as_str()];
             let item_comp = enclosing_component.self_weak().get().unwrap().upgrade().unwrap();
-            let item_rc = corelib::items::ItemRc::new(
-                vtable::VRc::into_dyn(item_comp),
-                item_info.item_index(),
-            );
+            let item_tree = vtable::VRc::into_dyn(item_comp);
+            let item_rc = corelib::items::ItemRc::new(item_tree.clone(), item_info.item_index());
 
-            if component.access_window(|window| window.show_native_popup_menu(&item_rc, position)) {
+            let context_menu_item = vtable::VRc::new(MenuFromItemTree::new(item_tree));
+            let context_menu_item = vtable::VRc::into_dyn(context_menu_item);
+            if component
+                .access_window(|window| window.show_native_popup_menu(context_menu_item, position))
+            {
                 return Value::Void;
             }
 
@@ -1160,7 +1162,9 @@ fn call_builtin_function(
 
                 if let Some(w) = component.window_adapter().internal(i_slint_core::InternalToken) {
                     if !no_native && w.supports_native_menu_bar() {
-                        w.setup_menubar(vtable::VBox::new(menu_item_tree));
+                        let menubar = vtable::VRc::new(menu_item_tree);
+                        let menubar = vtable::VRc::into_dyn(menubar);
+                        w.setup_menubar(menubar);
                         return Value::Void;
                     }
                 }
@@ -1192,12 +1196,14 @@ fn call_builtin_function(
             };
             if let Some(w) = component.window_adapter().internal(i_slint_core::InternalToken) {
                 if w.supports_native_menu_bar() {
-                    w.setup_menubar(vtable::VBox::new(MenuWrapper {
+                    let menubar = vtable::VRc::new(MenuWrapper {
                         entries: entries.clone(),
                         sub_menu: sub_menu.clone(),
                         activated: activated.clone(),
                         item_tree: component.self_weak().get().unwrap().clone(),
-                    }));
+                    });
+                    let menubar = vtable::VRc::into_dyn(menubar);
+                    w.setup_menubar(menubar);
                 }
             }
             Value::Void

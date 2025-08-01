@@ -40,6 +40,7 @@ pub mod eval;
 mod ext;
 mod preview_data;
 use ext::ElementRcNodeExt;
+mod outline;
 mod properties;
 pub mod ui;
 
@@ -1064,6 +1065,13 @@ fn finish_parsing(preview_url: &Url, previewed_component: Option<String>, succes
                 ui::palette::set_palette(ui, palettes);
                 ui::ui_set_uses_widgets(ui, uses_widgets);
                 ui::ui_set_known_components(ui, &preview_state.known_components, index);
+                let component = document_cache.get_document(preview_url).and_then(|doc| {
+                    match previewed_component.as_ref() {
+                        Some(c_id) => doc.inner_components.iter().find(|c| c.id == c_id).cloned(),
+                        None => doc.last_exported_component(),
+                    }
+                });
+                outline::reset_outline(ui, component);
                 ui::ui_set_preview_data(ui, preview_data, previewed_component);
             }
         });
@@ -1539,47 +1547,6 @@ fn convert_diagnostics(
     result
 }
 
-fn reset_selections(ui: &ui::PreviewUi) {
-    let model = Rc::new(slint::VecModel::from(Vec::new()));
-    let api = ui.global::<ui::Api>();
-    api.set_selections(slint::ModelRc::from(model));
-}
-
-fn set_selections(
-    ui: Option<&ui::PreviewUi>,
-    main_index: usize,
-    layout_kind: ui::LayoutKind,
-    is_interactive: bool,
-    is_moveable: bool,
-    is_resizable: bool,
-    positions: &[i_slint_core::lengths::LogicalRect],
-) {
-    let Some(ui) = ui else {
-        return;
-    };
-
-    let values = positions
-        .iter()
-        .enumerate()
-        .map(|(i, g)| ui::Selection {
-            geometry: ui::SelectionRectangle {
-                width: g.size.width,
-                height: g.size.height,
-                x: g.origin.x,
-                y: g.origin.y,
-            },
-            layout_data: layout_kind,
-            is_primary: i == main_index,
-            is_interactive,
-            is_moveable,
-            is_resizable,
-        })
-        .collect::<Vec<_>>();
-    let model = Rc::new(slint::VecModel::from(values));
-    let api = ui.global::<ui::Api>();
-    api.set_selections(slint::ModelRc::from(model));
-}
-
 fn set_drop_mark(mark: &Option<drop_location::DropMark>) {
     PREVIEW_STATE.with_borrow(move |preview_state| {
         let Some(ui) = &preview_state.ui else {
@@ -1609,7 +1576,6 @@ pub enum SelectionNotification {
 
 fn set_selected_element(
     selection: Option<element_selection::ElementSelection>,
-    positions: &[i_slint_core::lengths::LogicalRect],
     editor_notification: SelectionNotification,
 ) {
     let (layout_kind, parent_layout_kind, type_name) = {
@@ -1651,17 +1617,16 @@ fn set_selected_element(
                 .unwrap_or_default()
         };
 
-        set_selections(
-            preview_state.ui.as_ref(),
-            selection.as_ref().map(|s| s.instance_index).unwrap_or_default(),
-            layout_kind,
-            is_interactive,
-            true,
-            !is_in_layout && !is_layout,
-            positions,
-        );
-
         if let Some(ui) = &preview_state.ui {
+            let api = ui.global::<ui::Api>();
+            api.set_selection(ui::Selection {
+                highlight_index: selection.as_ref().map(|s| s.instance_index as i32).unwrap_or(-1),
+                layout_data: layout_kind,
+                is_interactive,
+                is_moveable: true,
+                is_resizable: !is_in_layout && !is_layout,
+            });
+
             if let Some(document_cache) = document_cache_from(preview_state) {
                 if let Some((uri, version, selection)) = selection
                     .clone()
@@ -1819,6 +1784,7 @@ fn update_preview_area(
         if let Some(compiled) = compiled {
             let api = ui.global::<ui::Api>();
             api.set_focus_previewed_element(behavior == LoadBehavior::BringWindowToFront);
+            api.set_current_element(Default::default());
 
             set_preview_factory(
                 ui,
@@ -1838,7 +1804,6 @@ fn update_preview_area(
                 }),
                 behavior,
             );
-            reset_selections(ui);
         }
 
         ui.show().and_then(|_| {

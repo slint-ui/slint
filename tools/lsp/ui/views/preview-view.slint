@@ -4,7 +4,7 @@
 // cSpell: ignore resizer
 
 import { Button, ComboBox, HorizontalBox, LineEdit, ListView, Palette, ScrollView, VerticalBox } from "std-widgets.slint";
-import { Api, ComponentItem, DiagnosticSummary, DropMark, LayoutKind, Selection } from "../api.slint";
+import { Api, ComponentItem, DiagnosticSummary, DropMark, LayoutKind, Selection, SelectionRectangle } from "../api.slint";
 import { Resizer } from "../components/resizer.slint";
 import { Group, GroupHeader } from "../components/group.slint";
 import { SelectionPopup } from "../components/selection-popup.slint";
@@ -30,23 +30,24 @@ export enum DrawAreaMode {
 
 component SelectionFrame {
     in property <Selection> selection;
+    in property <bool> is-primary;
     in property <bool> interactive: true;
 
     function pick-selection-color(selection: Selection) -> color {
         if selection.layout-data != LayoutKind.None {
-            if selection.is-primary {
+            if is-primary {
                 return EditorPalette.layout-element-selection-primary;
             } else {
                 return EditorPalette.layout-element-selection-secondary;
             }
         } else if selection.is-interactive {
-            if selection.is-primary {
+            if is-primary {
                 return EditorPalette.interactive-element-selection-primary;
             } else {
                 return EditorPalette.interactive-element-selection-secondary;
             }
         } else {
-            if selection.is-primary {
+            if is-primary {
                 return EditorPalette.general-element-selection-primary;
             } else {
                 return EditorPalette.general-element-selection-secondary;
@@ -56,10 +57,6 @@ component SelectionFrame {
 
     private property <color> selection-color: pick-selection-color(root.selection);
 
-    x: root.selection.geometry.x;
-    y: root.selection.geometry.y;
-    width: root.selection.geometry.width;
-    height: root.selection.geometry.height;
 
     property <bool> had-drag-distance: false;
 
@@ -70,20 +67,20 @@ component SelectionFrame {
     callback selection-stack-at(x: length, y: length);
     callback selected-element-delete();
 
-    if !root.interactive || !selection.is-primary: Rectangle {
+    if !root.interactive || !is-primary: Rectangle {
         x: 0;
         y: 0;
         border-color: root.selection-color;
         border-width: 1px;
     }
 
-    if root.interactive && selection.is-primary: Resizer {
+    if root.interactive && is-primary: Resizer {
         clicked(x, y, modifiers) => {
             key-handler.focus();
         }
 
         double-clicked(x, y, modifiers) => {
-            root.select-through(root.selection.geometry.x + x, root.selection.geometry.y + y, modifiers.control, modifiers.shift);
+            root.select-through(root.x + x, root.y + y, modifiers.control, modifiers.shift);
         }
 
         changed has-hover => {
@@ -96,7 +93,7 @@ component SelectionFrame {
 
         pointer-event(x, y, event) => {
             if event.button == PointerEventButton.right && event.kind == PointerEventKind.down {
-                root.selection-stack-at(root.selection.geometry.x + x, root.selection.geometry.y + y);
+                root.selection-stack-at(root.x + x, root.y + y);
             }
         }
 
@@ -169,7 +166,7 @@ component SelectionFrame {
     }
 
     // Size label:
-    if selection.is-resizable && root.selection.is-primary && interactive: Rectangle {
+    if selection.is-resizable && is-primary && interactive: Rectangle {
         x: (root.width - label.width) * 0.5;
         y: root.height + 3px;
         width: label.width;
@@ -188,7 +185,7 @@ component SelectionFrame {
 }
 
 export component PreviewView {
-    property <[Selection]> selections <=> Api.selections;
+    property <[SelectionRectangle]> selections: Api.highlight-positions(Api.current-element.source-uri, Api.current-element.offset);
     in property <ComponentItem> visible-component;
     property <DiagnosticSummary> diagnostic-summary <=> Api.diagnostic-summary;
     out property <bool> preview-is-current: self.diagnostic-summary != DiagnosticSummary.Errors;
@@ -424,9 +421,14 @@ export component PreviewView {
                 }
 
                 selection-display-area := Rectangle {
-                    for s in root.selections: SelectionFrame {
+                    for s[idx] in root.selections: SelectionFrame {
+                        x: s.x;
+                        y: s.y;
+                        width: s.width;
+                        height: s.height;
                         interactive: root.mode == DrawAreaMode.selecting;
-                        selection: s;
+                        selection: Api.selection;
+                        is-primary: self.selection.highlight-index == idx;
                         resize(x, y, w, h) => {
                             Api.selected-element-resize(x, y, w, h);
                         }
