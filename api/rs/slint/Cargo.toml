@@ -215,6 +215,20 @@ unstable-wgpu-26 = ["i-slint-core/unstable-wgpu-26", "i-slint-backend-selector/u
 ## ```
 unstable-winit-030 = ["backend-winit", "dep:i-slint-backend-winit", "i-slint-backend-selector/unstable-winit-030"]
 
+
+## Enable support for exposing [libinput](https://docs.rs/input/latest/input/index.html) related APIs in the LinuxKMS backend.
+##
+## APIs guarded with this feature are *NOT* subject to the usual Slint API stability guarantees. This feature as well as the APIs changed or removed
+## in future minor releases of Slint, likely to be replaced by a feature with a similar name but the input version suffix being bumped.
+##
+## To avoid unintended compilation failures, we recommend to use the [tilde requirement](https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html#tilde-requirements)
+## in your `Cargo.toml` when enabling this feature:
+##
+## ```toml
+## slint = { version = "~1.13", features = ["unstable-input-09"] }
+## ```
+unstable-input-09 = ["i-slint-backend-selector/unstable-input-09"]
+
 [dependencies]
 i-slint-core = { workspace = true }
 slint-macros = { workspace = true }
@@ -273,5 +287,6 @@ features = [
   "raw-window-handle-06",
   "unstable-wgpu-26",
   "unstable-winit-030",
+  "unstable-input-09",
 ]
 rustdoc-args = ["--generate-link-to-definition"]
