@@ -37,7 +37,7 @@ export enum LayoutKind {
 }
 
 /// A rectangular region that is selected
-struct SelectionRectangle {
+export struct SelectionRectangle {
     x: length,
     y: length,
     width: length,
@@ -46,10 +46,9 @@ struct SelectionRectangle {
 
 /// A `Selection`
 export struct Selection {
-    geometry: SelectionRectangle,
+    highlight-index: int,
     layout-data: LayoutKind,
     is-interactive: bool,
-    is-primary: bool,
     is-moveable: bool,
     is-resizable: bool,
 }
@@ -292,7 +291,8 @@ export global Api {
 
     // ## Drawing Area
     // Borders around things
-    in property <[Selection]> selections;
+    pure callback highlight-positions(source-uri: string, offset: int) -> [SelectionRectangle];
+    in-out property <Selection> selection;
     in-out property <DropMark> drop-mark;
     // The actual preview
     in-out property <component-factory> preview-area;

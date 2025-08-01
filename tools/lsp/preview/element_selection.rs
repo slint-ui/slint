@@ -91,7 +91,7 @@ fn element_covers_point(
 }
 
 pub fn unselect_element() {
-    super::set_selected_element(None, &[], SelectionNotification::Never);
+    super::set_selected_element(None, SelectionNotification::Never);
 }
 
 pub fn select_element_at_source_code_position(
@@ -127,9 +127,32 @@ fn select_element_at_source_code_position_impl(
 
     super::set_selected_element(
         Some(ElementSelection { path, offset, instance_index }),
-        &positions,
         editor_notification,
     );
+}
+
+pub fn highlight_positions(
+    source_uri: slint::SharedString,
+    offset: i32,
+) -> slint::ModelRc<ui::SelectionRectangle> {
+    let Some(component_instance) = super::component_instance() else {
+        return Default::default();
+    };
+
+    let Some(path) =
+        crate::Url::parse(source_uri.as_str()).ok().and_then(|u| crate::common::uri_to_file(&u))
+    else {
+        return Default::default();
+    };
+    let offset = TextSize::new(offset as u32);
+    let positions = component_instance.component_positions(&path, offset.into());
+    let model = slint::VecModel::from_iter(positions.iter().map(|g| ui::SelectionRectangle {
+        width: g.size.width,
+        height: g.size.height,
+        x: g.origin.x,
+        y: g.origin.y,
+    }));
+    slint::ModelRc::new(model)
 }
 
 fn select_element_node(
@@ -559,18 +582,8 @@ pub fn select_element_behind(x: f32, y: f32, enter_component: bool, reverse: boo
     select_element_node(&component_instance, &en, Some(position));
 }
 
-// Called from UI thread!
 pub fn reselect_element() {
-    let Some(selected) = super::selected_element() else {
-        super::set_selected_element(None, &[], SelectionNotification::Never);
-        return;
-    };
-    let Some(component_instance) = super::component_instance() else {
-        return;
-    };
-    let positions = component_instance.component_positions(&selected.path, selected.offset.into());
-
-    super::set_selected_element(Some(selected), &positions, SelectionNotification::Never);
+    super::set_selected_element(super::selected_element(), SelectionNotification::Never);
 }
 
 #[cfg(test)]
