@@ -46,7 +46,7 @@ i-slint-backend-selector = { workspace = true }
 i-slint-core = { workspace = true }
 slint-interpreter = { workspace = true, features = ["default", "display-diagnostics", "internal"] }
 i-slint-compiler = { workspace = true }
-pyo3 = { version = "0.25", features = ["extension-module", "indexmap", "chrono", "abi3-py310"] }
+pyo3 = { version = "0.25", features = ["extension-module", "indexmap", "chrono", "abi3-py311"] }
 indexmap = { version = "2.1.0" }
 chrono = "0.4"
 spin_on = { workspace = true }
