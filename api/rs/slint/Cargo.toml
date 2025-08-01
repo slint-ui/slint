@@ -287,5 +287,6 @@ features = [
   "raw-window-handle-06",
   "unstable-wgpu-25",
   "unstable-winit-030",
+  "unstable-input-09",
 ]
 rustdoc-args = ["--generate-link-to-definition"]
