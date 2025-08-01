@@ -102,7 +102,7 @@ export component LineEdit {
             LineEditClearIcon {
                 width: self.source.width * 1px;
                 text: base.text;
-                input-type: root.input-type;
+                visible: !root.text.is-empty && root.input-type != InputType.password && root.enabled && !root.read-only;
                 source: @image-url("_clear.svg");
                 colorize: base.text-color;
                 clear => {
