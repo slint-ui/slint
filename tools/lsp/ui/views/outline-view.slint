@@ -45,13 +45,13 @@ export component OutlineView inherits VerticalLayout {
             property <bool> selected: item.uri == Api.current-element.source-uri && item.offset == Api.current-element.offset;
 
             drop-as-child := DropArea {
-                enabled: (!item.has-children || !item.is-expended) && item.indent-level > 0;
+                enabled: (!item.has-children || !item.is-expanded) && item.indent-level > 0;
 
                 can-drop(event) => {
                     if event.mime-type != "application/x-slint-component" && event.mime-type != "application/x-slint-component-move" {
                         return false;
                     }
-                    if !item.is-expended && item.has-children {
+                    if !item.is-expanded && item.has-children {
                         if !open-timer.running {
                             open-timer.running = true;
                         }
@@ -119,7 +119,7 @@ export component OutlineView inherits VerticalLayout {
                 running: false;
                 interval: 0.5s;
                 triggered => {
-                    item.is-expended = true;
+                    item.is-expanded = true;
                     open-timer.running = false;
                 }
             }
@@ -138,7 +138,7 @@ export component OutlineView inherits VerticalLayout {
                         Api.outline-select-element(item.uri, item.offset);
                     }
                     double-clicked => {
-                        item.is-expended = !item.is-expended;
+                        item.is-expanded = !item.is-expanded;
                     }
                     pointer-event(event) => {
                         if event.kind == PointerEventKind.cancel {
@@ -163,7 +163,7 @@ export component OutlineView inherits VerticalLayout {
                         width: self.preferred-width * 1;
 
                         source: @image-url("../assets/chevron-down.svg");
-                        rotation-angle: item.is-expended ? 0.0deg : -90.0deg;
+                        rotation-angle: item.is-expanded ? 0.0deg : -90.0deg;
                         colorize: selected ? Palette.selection-foreground : Palette.foreground;
                         vertical-alignment: center;
                         animate rotation-angle {
@@ -174,7 +174,7 @@ export component OutlineView inherits VerticalLayout {
 
                     ta-open := TouchArea {
                         clicked => {
-                            item.is-expended = !item.is-expended;
+                            item.is-expanded = !item.is-expanded;
                         }
                     }
 

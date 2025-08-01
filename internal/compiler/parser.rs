@@ -375,7 +375,7 @@ declare_syntax! {
                        ?ConditionalExpression, ?QualifiedName, ?BinaryExpression, ?Array, ?ObjectLiteral,
                        ?UnaryOpExpression, ?CodeBlock, ?StringTemplate, ?AtImageUrl, ?AtGradient, ?AtTr,
                        ?MemberAccess ],
-        /// Concatenate the Expressions to make a string (usually expended from a template string)
+        /// Concatenate the Expressions to make a string (usually expanded from a template string)
         StringTemplate -> [*Expression],
         /// `@image-url("foo.png")`
         AtImageUrl -> [],

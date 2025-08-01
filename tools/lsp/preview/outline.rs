@@ -210,9 +210,9 @@ impl Tree for OutlineModel {
     }
 
     fn update_data(&self, id: &mut Self::Id, data: Self::Data) -> TreeNodeChange {
-        let r = if id.1.is_expended == data.is_expended {
+        let r = if id.1.is_expanded == data.is_expanded {
             TreeNodeChange::None
-        } else if data.is_expended {
+        } else if data.is_expanded {
             TreeNodeChange::Expand
         } else {
             TreeNodeChange::Collapse
@@ -222,7 +222,7 @@ impl Tree for OutlineModel {
     }
 
     fn is_expanded(&self, id: &Self::Id) -> bool {
-        id.1.is_expended
+        id.1.is_expanded
     }
 }
 
@@ -239,7 +239,7 @@ fn create_node(
             .is_some()
             || element.RepeatedElement().next().is_some()
             || element.ConditionalElement().next().is_some(),
-        is_expended: true,
+        is_expanded: true,
         indent_level,
         name,
         uri: crate::common::file_to_uri(element.source_file.path()).unwrap().to_shared_string(),
