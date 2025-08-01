@@ -25,30 +25,49 @@ export component PreviewDataView inherits ScrollView {
             vertical-alignment: center;
             vertical-stretch: 1;
         }
-        for ep in root.preview-data: ExpandableGroup {
-            enabled: root.enabled;
+        for ep in root.preview-data: VerticalLayout {
+            Rectangle {
+                height: EditorSpaceSettings.default-padding;
+            }
 
-            text: ep.container-name;
-            panel-width: root.width;
+            ExpandableGroup {
+                enabled: root.enabled;
 
-            open: ep.properties.length != 0;
+                text: ep.container-name;
+                panel-width: root.width;
+
+                open: ep.properties.length != 0;
+
+                VerticalLayout {
+                    spacing: EditorSpaceSettings.property-spacing;
+                    padding: EditorSpaceSettings.default-padding;
+
+                    if ep.properties.length == 0 && root.element-loaded: Text {
+                        width: 100%;
+                        horizontal-alignment: center;
+
+                        text: @tr("No \"in\", \"in-out\", or \"out\" property declared.");
+                    }
+                    for p in ep.properties: PreviewDataPropertyValueWidget {
+                        preview-data: p;
+                        property-container-id: ep.container-id;
+                        edit-in-table-editor(property-group-id, data) => {
+                            WindowManager.show-floating-table-editor(property-group-id, data);
+                        }
+                    }
+                }
+            }
 
             VerticalLayout {
-                spacing: EditorSpaceSettings.property-spacing;
-                padding: EditorSpaceSettings.default-padding;
 
-                if ep.properties.length == 0 && root.element-loaded: Text {
-                    width: 100%;
-                    horizontal-alignment: center;
-
-                    text: @tr("No \"in\", \"in-out\", or \"out\" property declared.");
+                Rectangle {
+                    height: EditorSpaceSettings.default-padding;
                 }
-                for p in ep.properties: PreviewDataPropertyValueWidget {
-                    preview-data: p;
-                    property-container-id: ep.container-id;
-                    edit-in-table-editor(property-group-id, data) => {
-                         WindowManager.show-floating-table-editor(property-group-id, data);
-                    }
+
+                Rectangle {
+                    height: 1px;
+                    background: Palette.border;
+                    width: 100%;
                 }
             }
         }
@@ -60,4 +79,3 @@ export component PreviewDataView inherits ScrollView {
         background: Palette.border;
     }
 }
-

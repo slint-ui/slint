@@ -53,7 +53,6 @@ export component StringWidget inherits GridLayout {
 
         apply-value();
     }
-
     private property <bool> child-focus: false;
     private property <bool> has-focus: text_rle.has-focus || self.child-focus;
 
@@ -68,8 +67,6 @@ export component StringWidget inherits GridLayout {
             apply-value();
         }
     }
-
-    spacing-vertical: EditorSpaceSettings.default-spacing;
 
     Row {
         NameLabel {
@@ -117,7 +114,6 @@ export component StringWidget inherits GridLayout {
             reset-action => {
                 root.reset-action();
             }
-
             VerticalLayout {
                 spacing: EditorSpaceSettings.default-spacing;
                 tr-cb := CheckBox {
@@ -159,4 +155,3 @@ export component StringWidget inherits GridLayout {
         }
     }
 }
-

@@ -17,8 +17,6 @@ export component MultiValueWidget inherits GridLayout {
 
     callback edit-in-table-editor(property-group-id: string, data: PreviewData);
 
-    spacing-vertical: EditorSpaceSettings.default-spacing;
-
     Row {
         NameLabel {
             col: 1;
@@ -27,6 +25,7 @@ export component MultiValueWidget inherits GridLayout {
             property-value: root.property-value;
         }
     }
+
     Row {
         ChildIndicator {
             horizontal-stretch: 0;
@@ -41,4 +40,3 @@ export component MultiValueWidget inherits GridLayout {
         }
     }
 }
-

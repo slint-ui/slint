@@ -16,8 +16,6 @@ export component IntegerWidget inherits GridLayout {
     callback test-integer-binding(text: string) -> bool;
     callback set-integer-binding(text: string);
 
-    spacing-vertical: EditorSpaceSettings.default-spacing;
-
     Row {
         NameLabel {
             col: 1;
@@ -43,7 +41,6 @@ export component IntegerWidget inherits GridLayout {
             edited(text) => {
                 self.can-compile = test-integer-binding(text);
             }
-
             accepted(text) => {
                 root.update-display-string(text);
                 root.set-integer-binding(text);
@@ -51,4 +48,3 @@ export component IntegerWidget inherits GridLayout {
         }
     }
 }
-
