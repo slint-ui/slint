@@ -32,7 +32,7 @@ fn create_winit_backend() -> Result<Box<dyn Platform + 'static>, PlatformError> 
 
 #[cfg(all(feature = "i-slint-backend-linuxkms", target_os = "linux"))]
 fn create_linuxkms_backend() -> Result<Box<dyn Platform + 'static>, PlatformError> {
-    Ok(Box::new(i_slint_backend_linuxkms::Backend::new()?))
+    Ok(Box::new(i_slint_backend_linuxkms::BackendBuilder::default().build()?))
 }
 
 cfg_if::cfg_if! {
@@ -101,7 +101,13 @@ cfg_if::cfg_if! {
                 #[cfg(feature = "i-slint-backend-winit")]
                 "winit" => return i_slint_backend_winit::Backend::new_with_renderer_by_name((!_renderer.is_empty()).then_some(_renderer)).map(|b| Box::new(b) as Box<dyn Platform + 'static>),
                 #[cfg(all(feature = "i-slint-backend-linuxkms", target_os = "linux"))]
-                "linuxkms" => return i_slint_backend_linuxkms::Backend::new_with_renderer_by_name((!_renderer.is_empty()).then(|| _renderer)).map(|b| Box::new(b) as Box<dyn Platform + 'static>),
+                "linuxkms" => {
+                    let mut builder = i_slint_backend_linuxkms::BackendBuilder::default();
+                    if !_renderer.is_empty() {
+                        builder = builder.with_renderer_name(_renderer.into());
+                    }
+                    return builder.build().map(|b| Box::new(b) as Box<dyn Platform + 'static>)
+                },
                 _ => {},
             }
 

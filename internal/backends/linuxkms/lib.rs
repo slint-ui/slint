@@ -80,12 +80,37 @@ mod renderer {
 mod calloop_backend;
 
 #[cfg(target_os = "linux")]
-pub use calloop_backend::*;
+use calloop_backend::*;
 
 #[cfg(not(target_os = "linux"))]
 mod noop_backend;
+use i_slint_core::api::PlatformError;
 #[cfg(not(target_os = "linux"))]
-pub use noop_backend::*;
+use noop_backend::*;
+
+#[derive(Default)]
+pub struct BackendBuilder {
+    pub(crate) renderer_name: Option<String>,
+    #[cfg(target_os = "linux")]
+    pub(crate) input_event_hook: Option<Box<dyn Fn(&input::Event) -> bool>>,
+}
+
+impl BackendBuilder {
+    pub fn with_renderer_name(mut self, name: String) -> Self {
+        self.renderer_name = Some(name);
+        self
+    }
+
+    #[cfg(target_os = "linux")]
+    pub fn with_input_event_hook(mut self, event_hook: Box<dyn Fn(&input::Event) -> bool>) -> Self {
+        self.input_event_hook = Some(event_hook);
+        self
+    }
+
+    pub fn build(self) -> Result<Backend, PlatformError> {
+        Backend::build(self)
+    }
+}
 
 #[doc(hidden)]
 pub type NativeWidgets = ();
