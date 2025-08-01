@@ -278,14 +278,14 @@ fn drop_edit(
     data: SharedString,
     target_uri: SharedString,
     target_offset: i32,
-    location: i32,
+    location: ui::DropLocation,
 ) -> Option<lsp_types::WorkspaceEdit> {
     let document_cache = super::document_cache()?;
     let url = Url::parse(target_uri.as_str()).ok()?;
     let target_elem =
         document_cache.element_at_offset(&url, TextSize::new(target_offset as u32))?;
 
-    let drop_info = if location == 0 {
+    let drop_info = if location == ui::DropLocation::Onto {
         preview::drop_location::DropInformation {
             insert_info: preview::drop_location::insert_position_at_end(&target_elem)?,
             target_element_node: target_elem,
@@ -296,7 +296,7 @@ fn drop_edit(
         let parent = target_elem.parent()?;
         let children = parent.children();
         let index = children.iter().position(|c| c == &target_elem)?;
-        if location < 0 {
+        if location == ui::DropLocation::Before {
             preview::drop_location::DropInformation {
                 insert_info: preview::drop_location::insert_position_before_child(&parent, index)?,
                 target_element_node: parent,

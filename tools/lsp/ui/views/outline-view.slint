@@ -3,7 +3,7 @@
 
 import { Palette, VerticalBox, ListView }  from "std-widgets.slint";
 import { ConsoleStyles, EditorSizeSettings, Icons,  } from "../components/styling.slint";
-import { Api, OutlineTreeNode } from "../api.slint";
+import { Api, OutlineTreeNode, DropLocation } from "../api.slint";
 
 export component OutlineView inherits VerticalLayout {
     property <[OutlineTreeNode]> outline-data <=> Api.outline;
@@ -57,11 +57,11 @@ export component OutlineView inherits VerticalLayout {
                         }
                         return false;
                     }
-                    //return Api.outline-can-drop(event.data, item.uri, item.offset, 0);
+                    //return Api.outline-can-drop(event.data, item.uri, item.offset, DropLocation.Onto);
                     true;
                 }
                 dropped(event) => {
-                    Api.outline-drop(event.data, item.uri, item.offset, 0);
+                    Api.outline-drop(event.data, item.uri, item.offset, DropLocation.onto);
                 }
             }
 
@@ -81,7 +81,7 @@ export component OutlineView inherits VerticalLayout {
                     true;
                 }
                 dropped(event) => {
-                    Api.outline-drop(event.data, item.uri, item.offset, -1);
+                    Api.outline-drop(event.data, item.uri, item.offset, DropLocation.before);
                 }
                 Rectangle {
                     height: 1px;
@@ -106,7 +106,7 @@ export component OutlineView inherits VerticalLayout {
                     true;
                 }
                 dropped(event) => {
-                    Api.outline-drop(event.data, item.uri, item.offset, 1);
+                    Api.outline-drop(event.data, item.uri, item.offset, DropLocation.after);
                 }
                 Rectangle {
                     height: 1px;
