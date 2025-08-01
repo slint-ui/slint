@@ -144,11 +144,9 @@ export component LineEditBase inherits Rectangle {
 
 export component LineEditClearIcon inherits Image {
     in-out property <string> text;
-    in-out property <InputType> input-type;
     callback clear();
 
     vertical-alignment: center;
-    visible: !text.is-empty && input-type != InputType.password;
     TouchArea {
         clicked => { root.clear(); }
     }

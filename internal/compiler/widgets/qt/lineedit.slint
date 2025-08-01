@@ -76,7 +76,7 @@ export component LineEdit {
 
         LineEditClearIcon {
             text: inner.text;
-            input-type: inner.input-type;
+            visible: !root.text.is-empty && root.input-type != InputType.password && root.enabled && !root.read-only;
             source: native.clear-icon;
             colorize: inner.text-color;
             image-fit: preserve;
