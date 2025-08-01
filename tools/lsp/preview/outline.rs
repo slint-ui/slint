@@ -158,7 +158,7 @@ impl Tree for OutlineModel {
                             base.text()
                         ),
                     };
-                    let data = create_node(&elem, 0, name);
+                    let data = create_node(&elem, 0, name, Default::default());
                     (elem, data)
                 });
                 itertools::Either::Left(root.into_iter())
@@ -187,11 +187,11 @@ impl Tree for OutlineModel {
                             .QualifiedName()
                             .map(|x| x.text().to_shared_string())
                             .unwrap_or_default();
-                        let name = match se.child_text(parser::SyntaxKind::Identifier) {
-                            None => base,
-                            Some(id) => slint::format!("{id} := {base}"),
-                        };
-                        let node = create_node(&elem, indent_level, name);
+                        let id = se
+                            .child_text(parser::SyntaxKind::Identifier)
+                            .map(|x| x.to_shared_string())
+                            .unwrap_or_default();
+                        let node = create_node(&elem, indent_level, base, id);
                         Some((elem, node))
                     })
                     .peekable();
@@ -229,7 +229,8 @@ impl Tree for OutlineModel {
 fn create_node(
     element: &syntax_nodes::Element,
     indent_level: i32,
-    name: SharedString,
+    element_type: SharedString,
+    element_id: SharedString,
 ) -> ui::OutlineTreeNode {
     ui::OutlineTreeNode {
         has_children: element
@@ -241,7 +242,8 @@ fn create_node(
             || element.ConditionalElement().next().is_some(),
         is_expanded: true,
         indent_level,
-        name,
+        element_type,
+        element_id,
         uri: crate::common::file_to_uri(element.source_file.path()).unwrap().to_shared_string(),
         offset: usize::from(element.text_range().start()) as i32,
         is_last_child: true,

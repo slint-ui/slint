@@ -188,7 +188,7 @@ export component OutlineView inherits VerticalLayout {
                 }
                 t := Text {
                     font-family: "Inter";
-                    text: item.name;
+                    text: item.element-id == "" ? item.element-type : (item.element-id + " := " + item.element-type);
                     color: selected ? Palette.selection-foreground : Palette.foreground;
                     vertical-alignment: center;
                 }
