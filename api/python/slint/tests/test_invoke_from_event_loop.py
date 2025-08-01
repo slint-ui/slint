@@ -29,4 +29,4 @@ def test_threads() -> None:
     native.run_event_loop()
     thr.join()
     fallback_timer.stop()
-    assert was_here == True
+    assert was_here
