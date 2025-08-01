@@ -48,7 +48,7 @@ pub struct BackendSelector {
     winit_custom_application_handler:
         Option<Box<dyn i_slint_backend_winit::CustomApplicationHandler>>,
     #[cfg(all(target_os = "linux", feature = "unstable-input-09"))]
-    input_090_event_hook: Option<Box<dyn Fn(input::Event) -> input::Event>>,
+    input_090_event_hook: Option<Box<dyn Fn(&input::Event) -> bool>>,
 }
 
 impl BackendSelector {
@@ -200,13 +200,16 @@ impl BackendSelector {
     /// Configures this builder to use the specified libinput event filter hook when the LinuxKMS backend
     /// is selected.
     ///
+    /// The provided hook is invoked for every event received. If the function returns true, the event is
+    /// not dispatched further.
+    ///
     /// *Note*: This function is behind the [`unstable-input-09` feature flag](slint:rust:slint/docs/cargo_features/#backends)
     ///         and may be removed or changed in future minor releases, as new major Winit releases become available.
     #[must_use]
     #[cfg(all(target_os = "linux", feature = "unstable-input-09"))]
     pub fn with_input_090_event_hook(
         mut self,
-        event_hook: impl Fn(input::Event) -> input::Event + 'static,
+        event_hook: impl Fn(&input::Event) -> bool + 'static,
     ) -> Self {
         self.input_090_event_hook = Some(Box::new(event_hook));
         self
@@ -280,6 +283,11 @@ impl BackendSelector {
 
                 if let Some(renderer_name) = self.renderer.as_ref() {
                     builder = builder.with_renderer_name(renderer_name.into());
+                }
+
+                #[cfg(all(target_os = "linux", feature = "unstable-input-09"))]
+                if let Some(event_hook) = self.input_090_event_hook.take() {
+                    builder = builder.with_input_event_hook(event_hook);
                 }
 
                 Box::new(builder.build()?)

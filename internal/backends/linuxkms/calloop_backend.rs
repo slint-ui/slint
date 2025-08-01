@@ -77,7 +77,7 @@ pub struct Backend {
     >,
     sel_clipboard: RefCell<Option<String>>,
     clipboard: RefCell<Option<String>>,
-    input_event_hook: Option<Box<dyn Fn(::input::Event) -> ::input::Event>>,
+    input_event_hook: Option<Box<dyn Fn(&::input::Event) -> bool>>,
 }
 
 impl Backend {
