@@ -8,7 +8,6 @@
     aspects of windows on the screen.
 */
 use crate::drag_resize_window::{handle_cursor_move_for_resize, handle_resize};
-use crate::muda::MudaType;
 use crate::winitwindowadapter::WindowVisibility;
 use crate::WinitWindowEventResult;
 use crate::{SharedBackendData, SlintEvent};
@@ -457,7 +456,7 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
                                 winit::window::WindowId::from(w.parse::<u64>().ok()?),
                             )?,
                             e.parse::<usize>().ok()?,
-                            muda_type.parse::<MudaType>().ok()?,
+                            muda_type.parse::<crate::muda::MudaType>().ok()?,
                         ))
                     })
                 {
