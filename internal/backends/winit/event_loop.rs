@@ -8,6 +8,7 @@
     aspects of windows on the screen.
 */
 use crate::drag_resize_window::{handle_cursor_move_for_resize, handle_resize};
+use crate::muda::MudaType;
 use crate::winitwindowadapter::WindowVisibility;
 use crate::WinitWindowEventResult;
 use crate::{SharedBackendData, SlintEvent};
@@ -40,7 +41,7 @@ pub enum CustomEvent {
     #[cfg(enable_accesskit)]
     Accesskit(accesskit_winit::Event),
     #[cfg(muda)]
-    Muda(muda::MenuEvent, crate::muda::MudaType),
+    Muda(muda::MenuEvent),
 }
 
 impl std::fmt::Debug for CustomEvent {
@@ -53,7 +54,7 @@ impl std::fmt::Debug for CustomEvent {
             #[cfg(enable_accesskit)]
             Self::Accesskit(a) => write!(f, "AccessKit({a:?})"),
             #[cfg(muda)]
-            Self::Muda(e, mt) => write!(f, "Muda({e:?},{mt:?})"),
+            Self::Muda(e) => write!(f, "Muda({e:?})"),
         }
     }
 }
@@ -447,14 +448,19 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
                 event_loop.set_control_flow(ControlFlow::Poll);
             }
             #[cfg(muda)]
-            CustomEvent::Muda(event, muda_type) => {
-                if let Some((window, eid)) = event.id().0.split_once('|').and_then(|(w, e)| {
-                    Some((
-                        self.shared_backend_data
-                            .window_by_id(winit::window::WindowId::from(w.parse::<u64>().ok()?))?,
-                        e.parse::<usize>().ok()?,
-                    ))
-                }) {
+            CustomEvent::Muda(event) => {
+                if let Some((window, eid, muda_type)) =
+                    event.id().0.split_once('|').and_then(|(w, e)| {
+                        let (e, muda_type) = e.split_once('|')?;
+                        Some((
+                            self.shared_backend_data.window_by_id(
+                                winit::window::WindowId::from(w.parse::<u64>().ok()?),
+                            )?,
+                            e.parse::<usize>().ok()?,
+                            muda_type.parse::<MudaType>().ok()?,
+                        ))
+                    })
+                {
                     window.muda_event(eid, muda_type);
                 };
             }

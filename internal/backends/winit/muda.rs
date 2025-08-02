@@ -11,6 +11,8 @@ use i_slint_core::menus::MenuVTable;
 use i_slint_core::properties::{PropertyDirtyHandler, PropertyTracker};
 use muda::ContextMenu;
 use std::rc::Weak;
+use std::sync::atomic::AtomicBool;
+use std::sync::atomic::Ordering;
 use winit::event_loop::EventLoopProxy;
 use winit::raw_window_handle::{HasWindowHandle, RawWindowHandle};
 use winit::window::Window;
@@ -21,11 +23,13 @@ pub struct MudaAdapter {
     menu: muda::Menu,
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, strum::EnumString, strum::Display)]
 pub enum MudaType {
     Menubar,
     Context,
 }
+
+static MUDA_SET_EVENT_HANDLER_INSTALLED: AtomicBool = AtomicBool::new(false);
 
 struct MudaPropertyTracker {
     window_adapter_weak: Weak<WinitWindowAdapter>,
@@ -50,10 +54,7 @@ impl MudaAdapter {
         window_adapter_weak: Weak<WinitWindowAdapter>,
     ) -> Self {
         let menu = muda::Menu::new();
-
-        muda::MenuEvent::set_event_handler(Some(move |e| {
-            let _ = proxy.send_event(SlintEvent(CustomEvent::Muda(e, MudaType::Menubar)));
-        }));
+        install_event_handler_if_necessary(proxy);
 
         #[cfg(target_os = "windows")]
         if let RawWindowHandle::Win32(handle) = winit_window.window_handle().unwrap().as_raw() {
@@ -71,7 +72,7 @@ impl MudaAdapter {
             })));
 
         let mut s = Self { entries: Default::default(), tracker, menu };
-        s.rebuild_menu(winit_window, Some(menubar));
+        s.rebuild_menu(winit_window, Some(menubar), MudaType::Menubar);
         s
     }
 
@@ -87,13 +88,11 @@ impl MudaAdapter {
         }
 
         let menu = muda::Menu::new();
+        install_event_handler_if_necessary(proxy);
 
-        muda::MenuEvent::set_event_handler(Some(move |e| {
-            let _ = proxy.send_event(SlintEvent(CustomEvent::Muda(e, MudaType::Context)));
-        }));
-
+        #[cfg(target_os = "windows")]
         let mut s = Self { entries: Default::default(), tracker: None, menu };
-        s.rebuild_menu(winit_window, Some(context_menu));
+        s.rebuild_menu(winit_window, Some(context_menu), MudaType::Context);
 
         let position = i_slint_core::api::WindowPosition::Logical(position);
         let position = Some(crate::winitwindowadapter::position_to_winit(&position));
@@ -119,6 +118,7 @@ impl MudaAdapter {
         &mut self,
         winit_window: &Window,
         menubar: Option<&vtable::VRc<MenuVTable>>,
+        muda_type: MudaType,
     ) {
         // clear the menu
         while self.menu.remove_at(0).is_some() {}
@@ -130,8 +130,9 @@ impl MudaAdapter {
             depth: usize,
             map: &mut Vec<MenuEntry>,
             window_id: &str,
+            muda_type: MudaType,
         ) -> Box<dyn muda::IsMenuItem> {
-            let id = muda::MenuId(format!("{window_id}|{}", map.len()));
+            let id = muda::MenuId(format!("{window_id}|{}|{}", map.len(), muda_type));
             map.push(entry.clone());
             if entry.is_separator {
                 Box::new(muda::PredefinedMenuItem::separator())
@@ -159,7 +160,14 @@ impl MudaAdapter {
                     menu.sub_menu(Some(entry), &mut sub_entries);
                     for e in sub_entries {
                         sub_menu
-                            .append(&*generate_menu_entry(menu, &e, depth + 1, map, window_id))
+                            .append(&*generate_menu_entry(
+                                menu,
+                                &e,
+                                depth + 1,
+                                map,
+                                window_id,
+                                muda_type,
+                            ))
                             .unwrap();
                     }
                 } else {
@@ -193,6 +201,7 @@ impl MudaAdapter {
                             0,
                             &mut self.entries,
                             &window_id,
+                            muda_type,
                         ))
                         .unwrap();
                 }
@@ -226,6 +235,21 @@ impl MudaAdapter {
         } else {
             self.menu.remove_for_nsapp();
         }
+    }
+}
+
+fn install_event_handler_if_necessary(proxy: EventLoopProxy<SlintEvent>) {
+    // `MenuEvent::set_event_handler()` in `muda` seems to use `OnceCell`, which is an
+    // can only be set a single time.  Therefore, we need to take care to only call this
+    // a single time
+    //
+    // Arguably, `set_event_handler()` is unsafe
+    if !MUDA_SET_EVENT_HANDLER_INSTALLED.load(Ordering::Relaxed) {
+        muda::MenuEvent::set_event_handler(Some(move |e| {
+            let _ = proxy.send_event(SlintEvent(CustomEvent::Muda(e)));
+        }));
+
+        MUDA_SET_EVENT_HANDLER_INSTALLED.store(true, Ordering::Relaxed);
     }
 }
 
