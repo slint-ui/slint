@@ -728,6 +728,82 @@ pub(super) fn draw_radial_gradient(
     }
 }
 
+/// Draw a conic gradient on a line
+pub(super) fn draw_conic_gradient(
+    rect: &PhysicalRect,
+    line: PhysicalLength,
+    g: &super::ConicGradientCommand,
+    buffer: &mut [impl TargetPixel],
+    extra_left_clip: i16,
+    _extra_right_clip: i16,
+) {
+    if g.stops.is_empty() {
+        return;
+    }
+
+    // Center is always the center of the rectangle
+    let center_x = (rect.min_x() + rect.width() / 2) as f32;
+    let center_y = (rect.min_y() + rect.height() / 2) as f32;
+
+    let start_x = rect.min_x() + extra_left_clip;
+    let y = line.get() as f32;
+
+    for (i, pixel) in buffer.iter_mut().enumerate() {
+        let x = (start_x + i as i16) as f32;
+
+        // Calculate angle from center to current pixel
+        let dx = x - center_x;
+        let dy = y - center_y;
+
+        // atan2 returns angle in radians from -π to π
+        // For 0deg at north (12 o'clock), we need to rotate by -90 degrees
+        let mut angle = dy.atan2(dx) + core::f32::consts::FRAC_PI_2;
+
+        // Normalize angle to [0, 2π]
+        while angle < 0.0 {
+            angle += 2.0 * core::f32::consts::PI;
+        }
+        while angle >= 2.0 * core::f32::consts::PI {
+            angle -= 2.0 * core::f32::consts::PI;
+        }
+
+        // Convert to position in [0, 1]
+        let position = angle / (2.0 * core::f32::consts::PI);
+
+        // Find the two gradient stops to interpolate between
+        let mut color = g.stops.first().map(|s| s.color).unwrap_or_default();
+
+        for window in g.stops.windows(2) {
+            let stop1 = &window[0];
+            let stop2 = &window[1];
+
+            if position >= stop1.position && position <= stop2.position {
+                // Interpolate between the two stops
+                let t = if stop2.position == stop1.position {
+                    0.0
+                } else {
+                    (position - stop1.position) / (stop2.position - stop1.position)
+                };
+
+                let c1 = stop1.color.to_argb_u8();
+                let c2 = stop2.color.to_argb_u8();
+
+                let alpha = ((1.0 - t) * c1.alpha as f32 + t * c2.alpha as f32) as u8;
+                let red = ((1.0 - t) * c1.red as f32 + t * c2.red as f32) as u8;
+                let green = ((1.0 - t) * c1.green as f32 + t * c2.green as f32) as u8;
+                let blue = ((1.0 - t) * c1.blue as f32 + t * c2.blue as f32) as u8;
+
+                color = Color::from_argb_u8(alpha, red, green, blue);
+                break;
+            } else if position > stop2.position {
+                color = stop2.color;
+            }
+        }
+
+        pixel.blend(super::PremultipliedRgbaColor::from(color));
+    }
+}
+
 /// A color whose component have been pre-multiplied by alpha
 ///
 /// The renderer operates faster on pre-multiplied color since it

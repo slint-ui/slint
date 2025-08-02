@@ -117,6 +117,9 @@ fn color_difference(lhs: &Rgb8Pixel, rhs: &Rgb8Pixel) -> f32 {
 
 #[derive(Default, Clone)]
 pub struct TestCaseOptions {
+    /// How much we allow the maximum pixel difference to be for the base (non-rotated) case
+    pub base_threshold: f32,
+
     /// How much we allow the maximum pixel difference to be when operating a screen rotation
     pub rotation_threshold: f32,
 
@@ -189,14 +192,19 @@ fn compare_images(
                 .zip(screenshot.as_slice().iter())
                 .fold((0usize, 0.0f32), fold_pixel)
         };
-        if max_color_difference < 0.1 {
-            return Ok(());
-        }
         let percentage_different = failed_pixel_count * 100 / reference.as_slice().len();
-        if rotated != RenderingRotation::NoRotation
-            && (percentage_different < 1 || max_color_difference < options.rotation_threshold)
-        {
-            return Ok(());
+
+        // For non-rotated images, use base_threshold if set, otherwise use default 0.1
+        if rotated == RenderingRotation::NoRotation {
+            let threshold = if options.base_threshold > 0.0 { options.base_threshold } else { 0.1 };
+            if max_color_difference < threshold {
+                return Ok(());
+            }
+        } else {
+            // For rotated images, use rotation_threshold
+            if percentage_different < 1 || max_color_difference < options.rotation_threshold {
+                return Ok(());
+            }
         }
 
         for y in 0..screenshot.height() {

@@ -21,6 +21,7 @@ pub struct SceneVectors {
     pub shared_buffers: Vec<SharedBufferCommand>,
     pub linear_gradients: Vec<LinearGradientCommand>,
     pub radial_gradients: Vec<RadialGradientCommand>,
+    pub conic_gradients: Vec<ConicGradientCommand>,
 }
 
 pub struct Scene {
@@ -284,6 +285,10 @@ pub enum SceneCommand {
     RadialGradient {
         radial_gradient_index: u16,
     },
+    /// conic_gradient_index is an index in the [`SceneVectors::conic_gradients`] array
+    ConicGradient {
+        conic_gradient_index: u16,
+    },
 }
 
 pub struct SceneTexture<'a> {
@@ -534,4 +539,17 @@ pub struct RadialGradientCommand {
     /// Center of the gradient relative to the item position
     pub center_x: PhysicalLength,
     pub center_y: PhysicalLength,
+}
+
+/// Conic gradient that interpolates colors around a center point
+///
+/// The gradient creates a color transition that rotates around the center of the
+/// rectangle being drawn. The angle positions are specified in the gradient stops,
+/// where 0 = 0 degrees (north) and 1 = 360 degrees. Colors are interpolated based
+/// on the angle from north, going clockwise.
+#[derive(Debug)]
+pub struct ConicGradientCommand {
+    /// The gradient stops (colors and normalized angle positions)
+    /// Position 0 = 0 degrees (north), 1 = 360 degrees
+    pub stops: crate::SharedVector<crate::graphics::GradientStop>,
 }

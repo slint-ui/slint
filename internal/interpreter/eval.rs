@@ -4,7 +4,9 @@
 use crate::api::{SetPropertyError, Struct, Value};
 use crate::dynamic_item_tree::{CallbackHandler, InstanceRef};
 use core::pin::Pin;
-use corelib::graphics::{GradientStop, LinearGradientBrush, PathElement, RadialGradientBrush};
+use corelib::graphics::{
+    ConicGradientBrush, GradientStop, LinearGradientBrush, PathElement, RadialGradientBrush,
+};
 use corelib::items::{ColorScheme, ItemRef, MenuEntry, PropertyAnimation};
 use corelib::menus::{Menu, MenuFromItemTree, MenuVTable};
 use corelib::model::{Model, ModelExt, ModelRc, VecModel};
@@ -364,6 +366,13 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
         }
         Expression::RadialGradient{stops} => {
             Value::Brush(Brush::RadialGradient(RadialGradientBrush::new_circle(stops.iter().map(|(color, stop)| {
+                let color = eval_expression(color, local_context).try_into().unwrap();
+                let position = eval_expression(stop, local_context).try_into().unwrap();
+                GradientStop{ color, position }
+            }))))
+        }
+        Expression::ConicGradient{stops} => {
+            Value::Brush(Brush::ConicGradient(ConicGradientBrush::new(stops.iter().map(|(color, stop)| {
                 let color = eval_expression(color, local_context).try_into().unwrap();
                 let position = eval_expression(stop, local_context).try_into().unwrap();
                 GradientStop{ color, position }

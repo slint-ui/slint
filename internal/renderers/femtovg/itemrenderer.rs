@@ -1599,6 +1599,16 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
                     stops,
                 )
             }
+            Brush::ConicGradient(gradient) => {
+                // FemtoVG doesn't support conic gradients natively
+                // Fallback to a solid color (using first stop color)
+                if let Some(first_stop) = gradient.stops().next() {
+                    femtovg::Paint::color(to_femtovg_color(&first_stop.color))
+                } else {
+                    // No stops, use transparent
+                    femtovg::Paint::color(femtovg::Color::rgba(0, 0, 0, 0))
+                }
+            }
             _ => return None,
         })
     }

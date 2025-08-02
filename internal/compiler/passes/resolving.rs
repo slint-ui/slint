@@ -489,6 +489,7 @@ impl Expression {
         enum GradKind {
             Linear { angle: Box<Expression> },
             Radial,
+            Conic,
         }
 
         let mut subs = node
@@ -542,8 +543,10 @@ impl Expression {
                 return Expression::Invalid;
             }
             GradKind::Radial
+        } else if grad_text.starts_with("conic") {
+            GradKind::Conic
         } else {
-            // Parser should have ensured we have one of the linear or radial gradient
+            // Parser should have ensured we have one of the linear, radial or conic gradient
             panic!("Not a gradient {grad_text:?}");
         };
 
@@ -589,7 +592,11 @@ impl Expression {
                         break;
                     }
                     Stop::Color(col) => {
-                        stops.push((col, e.maybe_convert_to(Type::Float32, &n, ctx.diag)))
+                        let stop_type = match &grad_kind {
+                            GradKind::Conic => Type::Angle,
+                            _ => Type::Float32,
+                        };
+                        stops.push((col, e.maybe_convert_to(stop_type, &n, ctx.diag)))
                     }
                 }
             }
@@ -649,6 +656,29 @@ impl Expression {
         match grad_kind {
             GradKind::Linear { angle } => Expression::LinearGradient { angle, stops },
             GradKind::Radial => Expression::RadialGradient { stops },
+            GradKind::Conic => {
+                // For conic gradients, we need to:
+                // 1. Ensure angle expressions are converted to Type::Angle
+                // 2. Normalize to 0-1 range for internal representation
+                let normalized_stops = stops
+                    .into_iter()
+                    .map(|(color, angle_expr)| {
+                        // First ensure the angle expression is properly typed as Angle
+                        let angle_typed =
+                            angle_expr.maybe_convert_to(Type::Angle, &node, &mut ctx.diag);
+
+                        // Convert angle to 0-1 range by dividing by 360deg
+                        // This ensures all angle units (deg, rad, turn) are normalized
+                        let normalized_pos = Expression::BinaryExpression {
+                            lhs: Box::new(angle_typed),
+                            rhs: Box::new(Expression::NumberLiteral(360., Unit::Deg)),
+                            op: '/',
+                        };
+                        (color, normalized_pos)
+                    })
+                    .collect();
+                Expression::ConicGradient { stops: normalized_stops }
+            }
         }
     }
 

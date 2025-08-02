@@ -721,6 +721,11 @@ pub enum Expression {
         stops: Vec<(Expression, Expression)>,
     },
 
+    ConicGradient {
+        /// First expression in the tuple is a color, second expression is the stop angle
+        stops: Vec<(Expression, Expression)>,
+    },
+
     EnumerationValue(EnumerationValue),
 
     ReturnStatement(Option<Box<Expression>>),
@@ -862,6 +867,7 @@ impl Expression {
             Expression::EasingCurve(_) => Type::Easing,
             Expression::LinearGradient { .. } => Type::Brush,
             Expression::RadialGradient { .. } => Type::Brush,
+            Expression::ConicGradient { .. } => Type::Brush,
             Expression::EnumerationValue(value) => Type::Enumeration(value.enumeration.clone()),
             // invalid because the expression is unreachable
             Expression::ReturnStatement(_) => Type::Invalid,
@@ -946,6 +952,12 @@ impl Expression {
                 }
             }
             Expression::RadialGradient { stops } => {
+                for (c, s) in stops {
+                    visitor(c);
+                    visitor(s);
+                }
+            }
+            Expression::ConicGradient { stops } => {
                 for (c, s) in stops {
                     visitor(c);
                     visitor(s);
@@ -1048,6 +1060,12 @@ impl Expression {
                     visitor(s);
                 }
             }
+            Expression::ConicGradient { stops } => {
+                for (c, s) in stops {
+                    visitor(c);
+                    visitor(s);
+                }
+            }
             Expression::EnumerationValue(_) => {}
             Expression::ReturnStatement(expr) => {
                 expr.as_deref_mut().map(visitor);
@@ -1134,6 +1152,9 @@ impl Expression {
             Expression::RadialGradient { stops } => {
                 stops.iter().all(|(c, s)| c.is_constant() && s.is_constant())
             }
+            Expression::ConicGradient { stops } => {
+                stops.iter().all(|(c, s)| c.is_constant() && s.is_constant())
+            }
             Expression::EnumerationValue(_) => true,
             Expression::ReturnStatement(expr) => {
                 expr.as_ref().map_or(true, |expr| expr.is_constant())
@@ -1166,7 +1187,9 @@ impl Expression {
         } else if ty.can_convert(&target_type) {
             let from = match (ty, &target_type) {
                 (Type::Brush, Type::Color) => match self {
-                    Expression::LinearGradient { .. } | Expression::RadialGradient { .. } => {
+                    Expression::LinearGradient { .. }
+                    | Expression::RadialGradient { .. }
+                    | Expression::ConicGradient { .. } => {
                         let message = format!("Narrowing conversion from {0} to {1}. This can lead to unexpected behavior because the {0} is a gradient", Type::Brush, Type::Color);
                         diag.push_warning(message, node);
                         self
@@ -1749,6 +1772,20 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
                 write!(f, ", ")?;
                 pretty_print(f, c)?;
                 write!(f, "  ")?;
+                pretty_print(f, s)?;
+            }
+            write!(f, ")")
+        }
+        Expression::ConicGradient { stops } => {
+            write!(f, "@conic-gradient(")?;
+            let mut first = true;
+            for (c, s) in stops {
+                if !first {
+                    write!(f, ", ")?;
+                }
+                first = false;
+                pretty_print(f, c)?;
+                write!(f, " ")?;
                 pretty_print(f, s)?;
             }
             write!(f, ")")

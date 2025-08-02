@@ -91,6 +91,15 @@ fn main() -> std::io::Result<()> {
             scale_factor
         });
 
+        let needle = "BASE_THRESHOLD=";
+        let base_threshold = source.find(needle).map_or(0., |p| {
+            source[p + needle.len()..]
+                .find(char::is_whitespace)
+                .and_then(|end| source[p + needle.len()..][..end].parse().ok())
+                .unwrap_or_else(|| {
+                    panic!("Cannot parse {needle} for {}", testcase.relative_path.display())
+                })
+        });
         let needle = "ROTATION_THRESHOLD=";
         let rotation_threshold = source.find(needle).map_or(0., |p| {
             source[p + needle.len()..]
@@ -135,7 +144,7 @@ fn main() -> std::io::Result<()> {
     let window = testing::init_swr();
     window.set_size(slint::PhysicalSize::new({size_w}, {size_h}));
     let screenshot = {reference_path};
-    let options = testing::TestCaseOptions {{ rotation_threshold: {rotation_threshold}f32, skip_clipping: {skip_clipping} }};
+    let options = testing::TestCaseOptions {{ base_threshold: {base_threshold}f32, rotation_threshold: {rotation_threshold}f32, skip_clipping: {skip_clipping} }};
 
     let instance = TestCase::new().unwrap();
     instance.show().unwrap();

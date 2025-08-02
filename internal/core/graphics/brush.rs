@@ -29,6 +29,9 @@ pub enum Brush {
     /// The radial gradient variant of a brush describes a circle variant centered
     /// in the middle
     RadialGradient(RadialGradientBrush),
+    /// The conical gradient variant of a brush describes a gradient that rotates around
+    /// a center point, like the hands of a clock
+    ConicGradient(ConicGradientBrush),
 }
 
 /// Construct a brush with transparent color
@@ -50,6 +53,9 @@ impl Brush {
             Brush::RadialGradient(gradient) => {
                 gradient.stops().next().map(|stop| stop.color).unwrap_or_default()
             }
+            Brush::ConicGradient(gradient) => {
+                gradient.stops().next().map(|stop| stop.color).unwrap_or_default()
+            }
         }
     }
 
@@ -66,6 +72,7 @@ impl Brush {
             Brush::SolidColor(c) => c.alpha() == 0,
             Brush::LinearGradient(_) => false,
             Brush::RadialGradient(_) => false,
+            Brush::ConicGradient(_) => false,
         }
     }
 
@@ -82,6 +89,7 @@ impl Brush {
             Brush::SolidColor(c) => c.alpha() == 255,
             Brush::LinearGradient(g) => g.stops().all(|s| s.color.alpha() == 255),
             Brush::RadialGradient(g) => g.stops().all(|s| s.color.alpha() == 255),
+            Brush::ConicGradient(g) => g.stops().all(|s| s.color.alpha() == 255),
         }
     }
 
@@ -104,6 +112,12 @@ impl Brush {
                     GradientStop { color: s.color.brighter(factor), position: s.position }
                 })))
             }
+            Brush::ConicGradient(g) => {
+                Brush::ConicGradient(ConicGradientBrush::new(g.stops().map(|s| GradientStop {
+                    color: s.color.brighter(factor),
+                    position: s.position,
+                })))
+            }
         }
     }
 
@@ -120,6 +134,10 @@ impl Brush {
                     .map(|s| GradientStop { color: s.color.darker(factor), position: s.position }),
             )),
             Brush::RadialGradient(g) => Brush::RadialGradient(RadialGradientBrush::new_circle(
+                g.stops()
+                    .map(|s| GradientStop { color: s.color.darker(factor), position: s.position }),
+            )),
+            Brush::ConicGradient(g) => Brush::ConicGradient(ConicGradientBrush::new(
                 g.stops()
                     .map(|s| GradientStop { color: s.color.darker(factor), position: s.position }),
             )),
@@ -147,6 +165,12 @@ impl Brush {
                     GradientStop { color: s.color.transparentize(amount), position: s.position }
                 })))
             }
+            Brush::ConicGradient(g) => {
+                Brush::ConicGradient(ConicGradientBrush::new(g.stops().map(|s| GradientStop {
+                    color: s.color.transparentize(amount),
+                    position: s.position,
+                })))
+            }
         }
     }
 
@@ -166,6 +190,12 @@ impl Brush {
             Brush::RadialGradient(g) => {
                 Brush::RadialGradient(RadialGradientBrush::new_circle(g.stops().map(|s| {
                     GradientStop { color: s.color.with_alpha(alpha), position: s.position }
+                })))
+            }
+            Brush::ConicGradient(g) => {
+                Brush::ConicGradient(ConicGradientBrush::new(g.stops().map(|s| GradientStop {
+                    color: s.color.with_alpha(alpha),
+                    position: s.position,
                 })))
             }
         }
@@ -216,6 +246,26 @@ impl RadialGradientBrush {
         Self(stops.into_iter().collect())
     }
     /// Returns the color stops of the linear gradient.
+    pub fn stops(&self) -> impl Iterator<Item = &GradientStop> {
+        self.0.iter()
+    }
+}
+
+/// The ConicGradientBrush describes a way of filling a shape with a gradient
+/// that rotates around a center point
+#[derive(Clone, PartialEq, Debug)]
+#[repr(transparent)]
+pub struct ConicGradientBrush(SharedVector<GradientStop>);
+
+impl ConicGradientBrush {
+    /// Creates a new conic gradient with the provided color stops.
+    /// The stops should have angle positions in the range 0.0 to 1.0,
+    /// where 0.0 is 0 degrees (north) and 1.0 is 360 degrees.
+    pub fn new(stops: impl IntoIterator<Item = GradientStop>) -> Self {
+        Self(stops.into_iter().collect())
+    }
+
+    /// Returns the color stops of the conic gradient.
     pub fn stops(&self) -> impl Iterator<Item = &GradientStop> {
         self.0.iter()
     }
@@ -330,8 +380,39 @@ impl InterpolatedPropertyValue for Brush {
                     Brush::RadialGradient(new_grad)
                 }
             }
+            (Brush::SolidColor(col), Brush::ConicGradient(grad)) => {
+                let mut new_grad = grad.clone();
+                for x in new_grad.0.make_mut_slice().iter_mut() {
+                    x.color = col.interpolate(&x.color, t);
+                }
+                Brush::ConicGradient(new_grad)
+            }
+            (a @ Brush::ConicGradient(_), b @ Brush::SolidColor(_)) => {
+                Self::interpolate(b, a, 1. - t)
+            }
+            (Brush::ConicGradient(lhs), Brush::ConicGradient(rhs)) => {
+                if lhs.0.len() < rhs.0.len() {
+                    Self::interpolate(target_value, self, 1. - t)
+                } else {
+                    let mut new_grad = lhs.clone();
+                    let mut iter = new_grad.0.make_mut_slice().iter_mut();
+                    for s2 in rhs.stops() {
+                        let s1 = iter.next().unwrap();
+                        s1.color = s1.color.interpolate(&s2.color, t);
+                        s1.position = s1.position.interpolate(&s2.position, t);
+                    }
+                    for x in iter {
+                        x.position = x.position.interpolate(&1.0, t);
+                    }
+                    Brush::ConicGradient(new_grad)
+                }
+            }
             (a @ Brush::LinearGradient(_), b @ Brush::RadialGradient(_))
-            | (a @ Brush::RadialGradient(_), b @ Brush::LinearGradient(_)) => {
+            | (a @ Brush::RadialGradient(_), b @ Brush::LinearGradient(_))
+            | (a @ Brush::LinearGradient(_), b @ Brush::ConicGradient(_))
+            | (a @ Brush::ConicGradient(_), b @ Brush::LinearGradient(_))
+            | (a @ Brush::RadialGradient(_), b @ Brush::ConicGradient(_))
+            | (a @ Brush::ConicGradient(_), b @ Brush::RadialGradient(_)) => {
                 // Just go to an intermediate color.
                 let color = Color::interpolate(&b.color(), &a.color(), t);
                 if t < 0.5 {
