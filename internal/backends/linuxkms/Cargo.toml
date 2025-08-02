@@ -33,7 +33,7 @@ i-slint-renderer-skia = { workspace = true, features = ["default", "kms"], optio
 i-slint-renderer-femtovg = { workspace = true, features = ["default"], optional = true }
 
 [target.'cfg(target_os = "linux")'.dependencies]
-input = { version = "0.9.0" }
+input = { workspace = true, default-features = true }
 xkbcommon = { version = "0.8.0" }
 calloop = { version = "0.14.1" }
 libseat = { version = "0.2.1", optional = true, default-features = false }

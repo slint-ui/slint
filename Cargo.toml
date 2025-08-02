@@ -167,6 +167,7 @@ unicode-segmentation = { version = "1.12.0" }
 glow = { version = "0.16" }
 tikv-jemallocator = { version = "0.6" }
 wgpu-25 = { package = "wgpu", version = "25", default-features = false }
+input = { version = "0.9.0", default-features = false }
 
 [profile.release]
 lto = true

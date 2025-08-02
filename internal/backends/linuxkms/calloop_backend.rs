@@ -17,6 +17,7 @@ use calloop::EventLoop;
 use i_slint_core::platform::PlatformError;
 
 use crate::fullscreenwindowadapter::FullscreenWindowAdapter;
+use crate::BackendBuilder;
 
 #[cfg(not(any(target_family = "windows", target_vendor = "apple", target_arch = "wasm32")))]
 mod input;
@@ -76,16 +77,14 @@ pub struct Backend {
     >,
     sel_clipboard: RefCell<Option<String>>,
     clipboard: RefCell<Option<String>>,
+    input_event_hook: Option<Box<dyn Fn(&::input::Event) -> bool>>,
 }
 
 impl Backend {
-    pub fn new() -> Result<Self, PlatformError> {
-        Self::new_with_renderer_by_name(None)
-    }
-    pub fn new_with_renderer_by_name(renderer_name: Option<&str>) -> Result<Self, PlatformError> {
+    pub fn build(builder: BackendBuilder) -> Result<Self, PlatformError> {
         let (user_event_sender, user_event_receiver) = calloop::channel::channel();
 
-        let renderer_factory = match renderer_name {
+        let renderer_factory = match builder.renderer_name.as_deref() {
             #[cfg(feature = "renderer-skia-vulkan")]
             Some("skia-vulkan") => crate::renderer::skia::SkiaRendererAdapter::new_vulkan,
             #[cfg(feature = "renderer-skia-opengl")]
@@ -143,6 +142,7 @@ impl Backend {
             renderer_factory,
             sel_clipboard: Default::default(),
             clipboard: Default::default(),
+            input_event_hook: builder.input_event_hook,
         })
     }
 }
@@ -216,6 +216,7 @@ impl i_slint_core::platform::Platform for Backend {
             &event_loop.handle(),
             #[cfg(feature = "libseat")]
             &self.seat,
+            &self.input_event_hook,
         )?;
 
         let Some(user_event_receiver) = self.user_event_receiver.borrow_mut().take() else {
@@ -296,5 +297,3 @@ impl i_slint_core::platform::Platform for Backend {
 
 #[derive(Default)]
 pub struct LoopData {}
-
-pub type EventLoopHandle<'a> = calloop::LoopHandle<'a, LoopData>;

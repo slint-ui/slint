@@ -44,6 +44,11 @@ pub struct BackendSelector {
     >,
     #[cfg(feature = "unstable-winit-030")]
     winit_event_loop_builder: Option<i_slint_backend_winit::EventLoopBuilder>,
+    #[cfg(feature = "unstable-winit-030")]
+    winit_custom_application_handler:
+        Option<Box<dyn i_slint_backend_winit::CustomApplicationHandler>>,
+    #[cfg(all(target_os = "linux", feature = "unstable-input-09"))]
+    input_090_event_hook: Option<Box<dyn Fn(&input::Event) -> bool>>,
 }
 
 impl BackendSelector {
@@ -173,6 +178,43 @@ impl BackendSelector {
         self
     }
 
+    #[i_slint_core_macros::slint_doc]
+    /// Configures this builder to invoke the functions on the supplied application handler whenever winit wakes up the
+    /// event loop.
+    ///
+    /// *Note*: This function is behind the [`unstable-winit-030` feature flag](slint:rust:slint/docs/cargo_features/#backends)
+    ///         and may be removed or changed in future minor releases, as new major Winit releases become available.
+    ///
+    /// See also the [`slint::winit_030`](slint:rust:slint/winit_030) module
+    #[must_use]
+    #[cfg(feature = "unstable-winit-030")]
+    pub fn with_winit_custom_application_handler(
+        mut self,
+        custom_application_handler: impl i_slint_backend_winit::CustomApplicationHandler + 'static,
+    ) -> Self {
+        self.winit_custom_application_handler = Some(Box::new(custom_application_handler));
+        self
+    }
+
+    #[i_slint_core_macros::slint_doc]
+    /// Configures this builder to use the specified libinput event filter hook when the LinuxKMS backend
+    /// is selected.
+    ///
+    /// The provided hook is invoked for every event received. If the function returns true, the event is
+    /// not dispatched further.
+    ///
+    /// *Note*: This function is behind the [`unstable-input-09` feature flag](slint:rust:slint/docs/cargo_features/#backends)
+    ///         and may be removed or changed in future minor releases, as new major Winit releases become available.
+    #[must_use]
+    #[cfg(all(target_os = "linux", feature = "unstable-input-09"))]
+    pub fn with_input_090_event_hook(
+        mut self,
+        event_hook: impl Fn(&input::Event) -> bool + 'static,
+    ) -> Self {
+        self.input_090_event_hook = Some(Box::new(event_hook));
+        self
+    }
+
     /// Adds the requirement that the selected renderer must match the given name. This is
     /// equivalent to setting the `SLINT_BACKEND=name` environment variable and requires
     /// that the corresponding renderer feature is enabled. For example, to select the Skia renderer,
@@ -237,9 +279,18 @@ impl BackendSelector {
                     return Err("The linuxkms backend does not implement renderer selection by graphics API".into());
                 }
 
-                Box::new(i_slint_backend_linuxkms::Backend::new_with_renderer_by_name(
-                    self.renderer.as_deref(),
-                )?)
+                let mut builder = i_slint_backend_linuxkms::BackendBuilder::default();
+
+                if let Some(renderer_name) = self.renderer.as_ref() {
+                    builder = builder.with_renderer_name(renderer_name.into());
+                }
+
+                #[cfg(all(target_os = "linux", feature = "unstable-input-09"))]
+                if let Some(event_hook) = self.input_090_event_hook.take() {
+                    builder = builder.with_input_event_hook(event_hook);
+                }
+
+                Box::new(builder.build()?)
             }
             #[cfg(feature = "i-slint-backend-winit")]
             "winit" => {
@@ -264,6 +315,14 @@ impl BackendSelector {
                 #[cfg(feature = "unstable-winit-030")]
                 let builder = match self.winit_event_loop_builder.take() {
                     Some(event_loop_builder) => builder.with_event_loop_builder(event_loop_builder),
+                    None => builder,
+                };
+
+                #[cfg(feature = "unstable-winit-030")]
+                let builder = match self.winit_custom_application_handler.take() {
+                    Some(custom_application_handler) => {
+                        builder.with_custom_application_handler(custom_application_handler)
+                    }
                     None => builder,
                 };
 

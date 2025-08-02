@@ -329,9 +329,9 @@ impl BackendBuilder {
     #[must_use]
     pub fn with_custom_application_handler(
         mut self,
-        handler: impl CustomApplicationHandler + 'static,
+        handler: Box<dyn CustomApplicationHandler + 'static>,
     ) -> Self {
-        self.custom_application_handler = Some(Box::new(handler));
+        self.custom_application_handler = Some(handler);
         self
     }
 
