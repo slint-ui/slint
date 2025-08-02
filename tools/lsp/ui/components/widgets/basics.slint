@@ -25,10 +25,10 @@ export component NameLabel inherits HorizontalLayout {
         min-width: EditorSizeSettings.min-prefix-text-width;
         height: root.property-name != "" ? self.preferred-height : 0;
         text: root.property-name;
-
         font-size: 1rem;
-        font-weight: root.property-value.code != "" ? EditorFontSettings.bold-font-weight : EditorFontSettings.light-font-weight;
+        font-weight: root.property-value.code != "" ? EditorFontSettings.regular-font-weight : EditorFontSettings.light-font-weight;
         font-italic: root.property-value.code == "";
+        opacity: root.property-value.code != "" ? 1.0 : 0.5;
 
         overflow: elide;
     }
@@ -167,4 +167,3 @@ export component SecondaryContent inherits Rectangle {
         }
     }
 }
-

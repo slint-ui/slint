@@ -29,27 +29,43 @@ export component PropertyView inherits ScrollView {
         }
         if root.element-loaded: groups := VerticalLayout {
             alignment: start;
+            spacing: EditorSpaceSettings.default-spacing;
+            padding-top: EditorSpaceSettings.default-padding;
+            for group in root.properties: VerticalLayout {
 
-            for group in root.properties: eg := ExpandableGroup {
-                property <[PropertyInformation]> properties: group.properties;
+                eg := ExpandableGroup {
+                    property <[PropertyInformation]> properties: group.properties;
 
-                enabled: root.enabled;
+                    enabled: root.enabled;
 
-                text: group.group-name;
-                panel-width: root.width;
+                    text: group.group-name;
+                    panel-width: root.width;
+
+                    VerticalLayout {
+                        spacing: EditorSpaceSettings.property-spacing;
+                        padding: EditorSpaceSettings.default-padding;
+
+                        for property in eg.properties: PropertyInformationWidget {
+                            enabled: root.enabled;
+                            element-information <=> root.element-information;
+                            property-information: property;
+                        }
+                    }
+                }
 
                 VerticalLayout {
-                    spacing: EditorSpaceSettings.property-spacing;
-                    padding: EditorSpaceSettings.default-padding;
 
-                    for property in eg.properties: PropertyInformationWidget {
-                        enabled: root.enabled;
-                        element-information <=> root.element-information;
-                        property-information: property;
+                    Rectangle {
+                        height: EditorSpaceSettings.default-padding;
+                    }
+
+                    Rectangle {
+                        height: 1px;
+                        background: Palette.border;
+                        width: 100%;
                     }
                 }
             }
         }
     }
 }
-

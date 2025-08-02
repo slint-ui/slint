@@ -306,7 +306,6 @@ export component InlineBrushWidget inherits VerticalLayout {
     private property <bool> has-focus;
 
     padding-left: 16px;
-    spacing: EditorSpaceSettings.default-spacing;
 
     callback update-display-string(value: string);
 
@@ -336,7 +335,6 @@ export component InlineBrushWidget inherits VerticalLayout {
         apply-value();
         update-brush();
     }
-
     changed has-focus => {
         if !self.has-focus {
             apply-value();
@@ -377,7 +375,6 @@ export component InlineBrushWidget inherits VerticalLayout {
         indicator-clicked() => {
             root.update-floating-editor();
         }
-
         set-color-binding(text) => {
             root.set-color-binding(text);
         }
