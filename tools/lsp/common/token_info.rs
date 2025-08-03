@@ -8,7 +8,7 @@ use i_slint_compiler::langtype::{ElementType, EnumerationValue, Type};
 use i_slint_compiler::lookup::{LookupObject, LookupResult, LookupResultCallable};
 use i_slint_compiler::namedreference::NamedReference;
 use i_slint_compiler::object_tree::ElementRc;
-use i_slint_compiler::parser::{syntax_nodes, SyntaxKind, SyntaxToken};
+use i_slint_compiler::parser::{syntax_nodes, SyntaxKind, SyntaxNode, SyntaxToken};
 use i_slint_compiler::pathutils::clean_path;
 use smol_str::{SmolStr, ToSmolStr};
 use std::path::Path;
@@ -28,6 +28,64 @@ pub enum TokenInfo {
     /// This is like a NamedReference, but the element doesn't have an ElementRc because
     /// its enclosing component might not have been properly parsed
     IncompleteNamedReference(ElementType, SmolStr),
+}
+
+impl TokenInfo {
+    /// Returns the node to the declaration of what the token represents, if it exists
+    pub fn declaration(&self) -> Option<SyntaxNode> {
+        match self {
+            TokenInfo::Type(ty) => match ty {
+                Type::Struct(s) if s.node.is_some() => s.node.as_ref().unwrap().parent().clone(),
+                Type::Enumeration(e) => e.node.as_deref().cloned(),
+                _ => None,
+            },
+
+            TokenInfo::ElementType(el) => {
+                if let ElementType::Component(c) = el {
+                    Some(c.root_element.borrow().debug.first()?.node.clone().into())
+                } else {
+                    None
+                }
+            }
+            TokenInfo::ElementRc(el) => Some(el.borrow().debug.first()?.node.clone().into()),
+            TokenInfo::NamedReference(nr) => {
+                let mut el = nr.element();
+                loop {
+                    if let Some(x) = el.borrow().property_declarations.get(nr.name()) {
+                        return x.node.clone();
+                    }
+                    let base = el.borrow().base_type.clone();
+                    if let ElementType::Component(c) = base {
+                        el = c.root_element.clone();
+                    } else {
+                        return None;
+                    }
+                }
+            }
+
+            TokenInfo::EnumerationValue(v) => {
+                let enum_node = v.enumeration.node.as_ref()?;
+                enum_node.EnumValue().nth(v.value).map(|x| x.clone().into())
+            }
+
+            TokenInfo::FileName(_) | TokenInfo::Image(_) => None,
+
+            TokenInfo::LocalProperty(x) => Some(x.clone().into()),
+            TokenInfo::LocalCallback(x) => Some(x.clone().into()),
+            TokenInfo::LocalFunction(x) => Some(x.clone().into()),
+            TokenInfo::IncompleteNamedReference(element_type, prop_name) => {
+                let mut element_type = element_type.clone();
+                while let ElementType::Component(com) = element_type {
+                    if let Some(p) = com.root_element.borrow().property_declarations.get(prop_name)
+                    {
+                        return p.node.clone();
+                    }
+                    element_type = com.root_element.borrow().base_type.clone();
+                }
+                None
+            }
+        }
+    }
 }
 
 pub fn token_info(document_cache: &common::DocumentCache, token: SyntaxToken) -> Option<TokenInfo> {
