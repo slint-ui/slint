@@ -90,12 +90,21 @@ impl MenuFromItemTree {
                     let children = self.update_shadow_tree_recursive(&item);
                     let has_sub_menu = !children.is_empty();
                     let enabled = menu_item.enabled();
+                    let checked = menu_item.checked();
                     let icon = menu_item.icon();
                     self.item_cache.borrow_mut().insert(
                         id.clone(),
                         ShadowTreeNode { item: ItemRc::downgrade(&item), children },
                     );
-                    result.push(MenuEntry { title, id, has_sub_menu, is_separator, enabled, icon });
+                    result.push(MenuEntry {
+                        title,
+                        id,
+                        has_sub_menu,
+                        is_separator,
+                        enabled,
+                        checked,
+                        icon,
+                    });
                 }
                 VisitChildrenResult::CONTINUE
             };
@@ -150,6 +159,7 @@ pub struct MenuItem {
     pub title: Property<SharedString>,
     pub activated: Callback<VoidArg>,
     pub enabled: Property<bool>,
+    pub checked: Property<bool>,
     pub icon: Property<Image>,
 }
 

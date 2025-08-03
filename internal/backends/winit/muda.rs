@@ -137,21 +137,29 @@ impl MudaAdapter {
                 Box::new(muda::PredefinedMenuItem::separator())
             } else if !entry.has_sub_menu {
                 // the top level always has a sub menu regardless of entry.has_sub_menu
-                let icon = entry
-                    .icon
-                    .to_rgba8()
-                    .map(|rgba| {
-                        muda::Icon::from_rgba(rgba.as_bytes().to_vec(), rgba.width(), rgba.height())
-                            .ok()
-                    })
-                    .flatten();
-                Box::new(muda::IconMenuItem::with_id(
-                    id.clone(),
-                    &entry.title,
-                    entry.enabled,
-                    icon,
-                    None,
-                ))
+                if let Some(rgba) = entry.icon.to_rgba8() {
+                    let icon = muda::Icon::from_rgba(
+                        rgba.as_bytes().to_vec(),
+                        rgba.width(),
+                        rgba.height(),
+                    )
+                    .ok();
+                    Box::new(muda::IconMenuItem::with_id(
+                        id.clone(),
+                        &entry.title,
+                        entry.enabled,
+                        icon,
+                        None,
+                    ))
+                } else {
+                    Box::new(muda::CheckMenuItem::with_id(
+                        id.clone(),
+                        &entry.title,
+                        entry.enabled,
+                        entry.checked,
+                        None,
+                    ))
+                }
             } else {
                 let sub_menu = muda::Submenu::with_id(id.clone(), &entry.title, entry.enabled);
                 if depth < 15 {
