@@ -10,7 +10,7 @@ All notable changes to this project are documented in this file.
  - winit: Fixed the maximize window not being disabled for fixed-size windows
  - winit: Added support for timer based frame throttling (#8826)
  - Fixed Windows native menu bar in fullscreen mode
- - Switched from WGPU24 to WGPU25
+ - Switched from WGPU24 to WGPU26
  - Qt: Fixed default-font-size not working with PopupWindow
  - LinuxKMS: Added support for overriding the default framebuffer interface selection
  - LinuxKMS: Added support for a wide range of framebuffer formats
@@ -42,8 +42,8 @@ All notable changes to this project are documented in this file.
 ### Rust
 
  - Minimum Supported Rust Version (MSRV) is 1.85
- - Upgraded WGPU dependency to version 25: The `unstable-wgpu-25` Cargo feature replaces the old `unstable-wgpu-24` feature,
-   and the `slint::wgpu_25` module replaces the `slint::wgpu_24` module. There were no further changes to the API.
+ - Upgraded WGPU dependency to version 26: The `unstable-wgpu-26` Cargo feature replaces the old `unstable-wgpu-24` feature,
+   and the `slint::wgpu_26` module replaces the `slint::wgpu_24` module. There were no further changes to the API.
  - Fixed compilation of generated code if the slint code declares a type named `core`
  - Support for live-reload with the `slint/live-reload` feature and `SLINT_LIVE_RELOAD` env variable
  - winit: Added API to await for the existence of the winit window

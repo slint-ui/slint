@@ -110,17 +110,17 @@ impl BackendSelector {
     /// Adds the requirement to the selector that the backend must render using [WGPU](http://wgpu.rs).
     /// Use this when you integrate other WGPU-based renderers with a Slint UI.
     ///
-    /// *Note*: This function is behind the [`unstable-wgpu-25` feature flag](slint:rust:slint/docs/cargo_features/#backends)
+    /// *Note*: This function is behind the [`unstable-wgpu-26` feature flag](slint:rust:slint/docs/cargo_features/#backends)
     ///         and may be removed or changed in future minor releases, as new major WGPU releases become available.
     ///
-    /// See also the [`slint::wgpu_25`](slint:rust:slint/wgpu_25) module.
-    #[cfg(feature = "unstable-wgpu-25")]
+    /// See also the [`slint::wgpu_26`](slint:rust:slint/wgpu_26) module.
+    #[cfg(feature = "unstable-wgpu-26")]
     #[must_use]
-    pub fn require_wgpu_25(
+    pub fn require_wgpu_26(
         mut self,
-        configuration: i_slint_core::graphics::wgpu_25::api::WGPUConfiguration,
+        configuration: i_slint_core::graphics::wgpu_26::api::WGPUConfiguration,
     ) -> Self {
-        self.requested_graphics_api = Some(RequestedGraphicsAPI::WGPU25(configuration));
+        self.requested_graphics_api = Some(RequestedGraphicsAPI::WGPU26(configuration));
         self
     }
 
