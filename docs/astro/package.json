@@ -29,7 +29,7 @@
     "sharp": "0.34.3",
     "starlight-links-validator": "0.17.0",
     "starlight-sidebar-topics": "0.6.0",
-    "typescript": "5.8.3",
+    "typescript": "5.9.2",
     "@slint/common-files": "workspace:*"
   },
   "devDependencies": {
