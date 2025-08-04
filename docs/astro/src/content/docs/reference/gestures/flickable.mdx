@@ -59,6 +59,9 @@ interacting with `TouchArea` elements:
    a `TouchArea`, then `Flickable` will flick immediately on pointer move events when the euclidean distance
    to the coordinates of the press event exceeds 8 logical pixels.
 
+All pointer and mouse events that occur within the bounds of a `Flickable` are intercepted by the `Flickable`
+itself and are not propagated to any elements underneath it.
+
 ## Wheel/Scroll Event Interaction
 
 The `Flickable` also supports scrolling with the mouse wheel and touchpad scroll gestures.
