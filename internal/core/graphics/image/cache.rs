@@ -28,7 +28,7 @@ impl clru::WeightScale<ImageCacheKey, ImageInner> for ImageWeightInBytes {
             #[cfg(not(target_arch = "wasm32"))]
             ImageInner::BorrowedOpenGLTexture(..) => 0, // Assume storage in GPU memory
             ImageInner::NineSlice(nine) => self.weight(_key, &nine.0),
-            #[cfg(feature = "unstable-wgpu-25")]
+            #[cfg(feature = "unstable-wgpu-26")]
             ImageInner::WGPUTexture(..) => 0, // The texture is imported from the application and will never reside in our cache.
         }
     }

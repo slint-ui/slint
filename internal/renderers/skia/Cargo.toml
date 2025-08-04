@@ -24,7 +24,7 @@ x11 = ["glutin/x11", "glutin/glx", "softbuffer/x11", "softbuffer/x11-dlopen"]
 opengl = []
 vulkan = ["skia-safe/vulkan", "ash", "vulkano"]
 kms = ["softbuffer/kms"]
-unstable-wgpu-25 = ["i-slint-core/unstable-wgpu-25"]
+unstable-wgpu-26 = ["i-slint-core/unstable-wgpu-26"]
 default = []
 
 [dependencies]

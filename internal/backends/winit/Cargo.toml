@@ -54,11 +54,11 @@ renderer-software = [
 ]
 accessibility = ["dep:accesskit", "dep:accesskit_winit"]
 raw-window-handle-06 = ["i-slint-core/raw-window-handle-06"]
-unstable-wgpu-25 = [
-  "i-slint-core/unstable-wgpu-25",
+unstable-wgpu-26 = [
+  "i-slint-core/unstable-wgpu-26",
   "renderer-femtovg-wgpu",
-  "i-slint-renderer-femtovg/unstable-wgpu-25",
-  "i-slint-renderer-skia?/unstable-wgpu-25",
+  "i-slint-renderer-femtovg/unstable-wgpu-26",
+  "i-slint-renderer-skia?/unstable-wgpu-26",
 ]
 default = []
 

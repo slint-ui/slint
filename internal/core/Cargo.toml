@@ -63,7 +63,7 @@ raw-window-handle-06 = ["dep:raw-window-handle-06"]
 
 experimental = []
 
-unstable-wgpu-25 = ["dep:wgpu-25"]
+unstable-wgpu-26 = ["dep:wgpu-26"]
 
 default = ["std", "unicode"]
 
@@ -116,7 +116,7 @@ chrono = { version = "0.4", default-features = false, features = ["alloc"] }
 rustybuzz = { workspace = true, optional = true }
 fontdue = { workspace = true, optional = true }
 
-wgpu-25 = { workspace = true, optional = true }
+wgpu-26 = { workspace = true, optional = true }
 
 rustversion = { version = "1.0", optional = true }
 
