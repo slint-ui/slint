@@ -61,6 +61,12 @@ to orange when `ta.pressed` is true, or white when it isn't.
 
 Similarly the 2 text items are updating by tracking the rectangle's `x` and `y` position.
 
+## Overwritten Bindings
+
+Bindings in Slint are only active as long as the property is assigned using a binding expression (`x: other.value`) or a two-way binding (`<=>`).
+If a property's value is later changed using an imperative assignment in code (e.g. `foo.bar = 42;`), the original binding is broken.
+From that point on, the property will no longer react to changes in the values it was previously bound to.
+If needed, the property can still be updated again later through another assignment, but the automatic reactivity is lost.
 
 ## Performance
 
