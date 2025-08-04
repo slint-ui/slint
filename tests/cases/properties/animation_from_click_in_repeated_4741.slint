@@ -21,6 +21,12 @@ export component TestCase inherits Rectangle {
         duration: 1200ms;
     }
 
+    out property <int> animated_issue_9051;
+    in property <duration> animated_issue_9051_duration: 2400ms;
+    animate animated_issue_9051 {
+        duration: animated_issue_9051_duration;
+    }
+
     in property <bool> c: true;
     if c : TouchArea {
         clicked => {
@@ -28,6 +34,7 @@ export component TestCase inherits Rectangle {
             root.hello = 60;
             root.condition = false;
             unset_property = 100;
+            animated_issue_9051 = 4000;
             debug("DONE");
         }
     }
@@ -40,17 +47,20 @@ let instance = TestCase::new().unwrap();
 assert_eq!(instance.get_hello(), 40);
 assert_eq!(instance.get_binding_dep(), 100);
 assert_eq!(instance.get_unset_property(), 0);
+assert_eq!(instance.get_animated_issue_9051(), 0);
 slint_testing::send_mouse_click(&instance, 5., 5.);
 // no time has elapsed yet
 assert_eq!(instance.get_hello(), 40);
 assert_eq!(instance.get_binding_dep(), 100);
 assert_eq!(instance.get_unset_property(), 0);
+assert_eq!(instance.get_animated_issue_9051(), 0);
 
 // Half the animation
 slint_testing::mock_elapsed_time(600);
 assert_eq!(instance.get_hello(), 50);
 assert_eq!(instance.get_binding_dep(), 125);
 assert_eq!(instance.get_unset_property(), 50);
+assert_eq!(instance.get_animated_issue_9051(), 1000);
 
 
 
@@ -59,6 +69,7 @@ slint_testing::mock_elapsed_time(600);
 assert_eq!(instance.get_hello(), 60);
 assert_eq!(instance.get_binding_dep(), 150);
 assert_eq!(instance.get_unset_property(), 100);
+assert_eq!(instance.get_animated_issue_9051(), 2000);
 
 slint_testing::mock_elapsed_time(100);
 assert_eq!(instance.get_hello(), 60);
@@ -74,24 +85,27 @@ const TestCase &instance = *handle;
 assert_eq(instance.get_hello(), 40);
 assert_eq(instance.get_binding_dep(), 100);
 assert_eq(instance.get_unset_property(), 0);
+assert_eq(instance.get_animated_issue_9051(), 0);
 slint_testing::send_mouse_click(&instance, 5., 5.);
 // no time has elapsed yet
 assert_eq(instance.get_hello(), 40);
 assert_eq(instance.get_binding_dep(), 100);
 assert_eq(instance.get_unset_property(), 0);
+assert_eq(instance.get_animated_issue_9051(), 0);
 
 // Half the animation
 slint_testing::mock_elapsed_time(600);
 assert_eq(instance.get_hello(), 50);
 assert_eq(instance.get_binding_dep(), 125);
 assert_eq(instance.get_unset_property(), 50);
-
+assert_eq(instance.get_animated_issue_9051(), 1000);
 
 // Remaining half
 slint_testing::mock_elapsed_time(600);
 assert_eq(instance.get_hello(), 60);
 assert_eq(instance.get_binding_dep(), 150);
 assert_eq(instance.get_unset_property(), 100);
+assert_eq(instance.get_animated_issue_9051(), 2000);
 
 slint_testing::mock_elapsed_time(100);
 assert_eq(instance.get_hello(), 60);
@@ -104,22 +118,26 @@ var instance = new slint.TestCase({});
 assert.equal(instance.hello, 40);
 assert.equal(instance.binding_dep, 100);
 assert.equal(instance.unset_property, 0);
+assert.equal(instance.animated_issue_9051, 0);
 slintlib.private_api.send_mouse_click(instance, 5., 5.);
 // no time has elapsed yet
 assert.equal(instance.hello, 40);
 assert.equal(instance.binding_dep, 100);
 assert.equal(instance.unset_property, 0);
+assert.equal(instance.animated_issue_9051, 0);
 
 // Half the animation
 slintlib.private_api.mock_elapsed_time(600);
 assert.equal(instance.hello, 50);
 assert.equal(instance.binding_dep, 125);
 assert.equal(instance.unset_property, 50);
+assert.equal(instance.animated_issue_9051, 1000);
 // Remaining half
 slintlib.private_api.mock_elapsed_time(600);
 assert.equal(instance.hello, 60);
 assert.equal(instance.binding_dep, 150);
 assert.equal(instance.unset_property, 100);
+assert.equal(instance.animated_issue_9051, 2000);
 slintlib.private_api.mock_elapsed_time(100);
 assert.equal(instance.hello, 60);
 assert.equal(instance.binding_dep, 150);
