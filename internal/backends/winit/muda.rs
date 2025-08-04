@@ -90,7 +90,6 @@ impl MudaAdapter {
         let menu = muda::Menu::new();
         install_event_handler_if_necessary(proxy);
 
-        #[cfg(target_os = "windows")]
         let mut s = Self { entries: Default::default(), tracker: None, menu };
         s.rebuild_menu(winit_window, Some(context_menu), MudaType::Context);
 
