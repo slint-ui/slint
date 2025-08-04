@@ -17,22 +17,22 @@ pub fn get_tooltip(
     token: SyntaxToken,
 ) -> Option<Hover> {
     let token_info = token_info(document_cache, token.clone())?;
-    let doc = token_info.declaration().and_then(|x| extract_documentation(&x));
-    let doc = doc.as_deref();
+    let documentation = token_info.declaration().and_then(|x| extract_documentation(&x));
+    let documentation = documentation.as_deref();
     let contents = match token_info {
         TokenInfo::Type(ty) => match ty {
-            Type::Enumeration(e) => from_slint_code(&format!("enum {}", e.name), doc),
+            Type::Enumeration(e) => from_slint_code(&format!("enum {}", e.name), documentation),
             Type::Struct(s) if s.name.is_some() => {
-                from_slint_code(&format!("struct {}", s.name.as_ref().unwrap()), doc)
+                from_slint_code(&format!("struct {}", s.name.as_ref().unwrap()), documentation)
             }
             _ => from_plain_text(ty.to_string()),
         },
         TokenInfo::ElementType(e) => match e {
             ElementType::Component(c) => {
                 if c.is_global() {
-                    from_slint_code(&format!("global {}", c.id), doc)
+                    from_slint_code(&format!("global {}", c.id), documentation)
                 } else {
-                    from_slint_code(&format!("component {}", c.id), doc)
+                    from_slint_code(&format!("component {}", c.id), documentation)
                 }
             }
             ElementType::Builtin(b) => from_plain_text(format!("{} (builtin)", b.name)),
@@ -42,16 +42,21 @@ pub fn get_tooltip(
             let e = e.borrow();
             let component = &e.enclosing_component.upgrade().unwrap();
             if component.is_global() {
-                from_slint_code(&format!("global {}", component.id), doc)
+                from_slint_code(&format!("global {}", component.id), documentation)
             } else if e.id.is_empty() {
-                from_slint_code(&format!("{} {{ /*...*/ }}", e.base_type), doc)
+                from_slint_code(&format!("{} {{ /*...*/ }}", e.base_type), documentation)
             } else {
-                from_slint_code(&format!("{} := {} {{ /*...*/ }}", e.id, e.base_type), doc)
+                from_slint_code(
+                    &format!("{} := {} {{ /*...*/ }}", e.id, e.base_type),
+                    documentation,
+                )
             }
         }
-        TokenInfo::NamedReference(nr) => from_property_in_element(&nr.element(), nr.name(), doc)?,
+        TokenInfo::NamedReference(nr) => {
+            from_property_in_element(&nr.element(), nr.name(), documentation)?
+        }
         TokenInfo::EnumerationValue(v) => {
-            from_slint_code(&format!("{}.{}", v.enumeration.name, v), doc)
+            from_slint_code(&format!("{}.{}", v.enumeration.name, v), documentation)
         }
         TokenInfo::FileName(path) => MarkupContent {
             kind: lsp_types::MarkupKind::Markdown,
@@ -65,7 +70,9 @@ pub fn get_tooltip(
         TokenInfo::LocalProperty(_) | TokenInfo::LocalCallback(_) | TokenInfo::LocalFunction(_) => {
             return None
         }
-        TokenInfo::IncompleteNamedReference(el, name) => from_property_in_type(&el, &name, doc)?,
+        TokenInfo::IncompleteNamedReference(el, name) => {
+            from_property_in_type(&el, &name, documentation)?
+        }
     };
 
     Some(Hover {
@@ -138,40 +145,50 @@ fn extract_documentation(declaration: &SyntaxNode) -> Option<String> {
 fn from_property_in_element(
     element: &ElementRc,
     name: &str,
-    doc: Option<&str>,
+    documentation: Option<&str>,
 ) -> Option<MarkupContent> {
     if let Some(decl) = element.borrow().property_declarations.get(name) {
-        return property_tooltip(&decl.property_type, name, decl.pure.unwrap_or(false), doc);
+        return property_tooltip(
+            &decl.property_type,
+            name,
+            decl.pure.unwrap_or(false),
+            documentation,
+        );
     }
-    from_property_in_type(&element.borrow().base_type, name, doc)
+    from_property_in_type(&element.borrow().base_type, name, documentation)
 }
 
 fn from_property_in_type(
     base: &ElementType,
     name: &str,
-    doc: Option<&str>,
+    documentation: Option<&str>,
 ) -> Option<MarkupContent> {
     match base {
-        ElementType::Component(c) => from_property_in_element(&c.root_element, name, doc),
+        ElementType::Component(c) => from_property_in_element(&c.root_element, name, documentation),
         ElementType::Builtin(b) => {
             let resolved_name = b.native_class.lookup_alias(name).unwrap_or(name);
             let info = b.properties.get(resolved_name)?;
-            property_tooltip(&info.ty, name, false, doc)
+            property_tooltip(&info.ty, name, false, documentation)
         }
         _ => None,
     }
 }
 
-fn property_tooltip(ty: &Type, name: &str, pure: bool, doc: Option<&str>) -> Option<MarkupContent> {
+fn property_tooltip(
+    ty: &Type,
+    name: &str,
+    pure: bool,
+    documentation: Option<&str>,
+) -> Option<MarkupContent> {
     let pure = if pure { "pure " } else { "" };
     if let Type::Callback(callback) = ty {
         let sig = signature_from_function_ty(callback);
-        Some(from_slint_code(&format!("{pure}callback {name}{sig}"), doc))
+        Some(from_slint_code(&format!("{pure}callback {name}{sig}"), documentation))
     } else if let Type::Function(function) = &ty {
         let sig = signature_from_function_ty(function);
-        Some(from_slint_code(&format!("{pure}function {name}{sig}"), doc))
+        Some(from_slint_code(&format!("{pure}function {name}{sig}"), documentation))
     } else if ty.is_property_type() {
-        Some(from_slint_code(&format!("property <{ty}> {name}"), doc))
+        Some(from_slint_code(&format!("property <{ty}> {name}"), documentation))
     } else {
         None
     }
@@ -197,11 +214,11 @@ fn from_plain_text(value: String) -> MarkupContent {
     MarkupContent { kind: lsp_types::MarkupKind::PlainText, value }
 }
 
-fn from_slint_code(value: &str, doc: Option<&str>) -> MarkupContent {
-    let doc = doc.unwrap_or("");
+fn from_slint_code(value: &str, documentation: Option<&str>) -> MarkupContent {
+    let documentation = documentation.unwrap_or("");
     MarkupContent {
         kind: lsp_types::MarkupKind::Markdown,
-        value: format!("```slint\n{doc}{value}\n```"),
+        value: format!("```slint\n{documentation}{value}\n```"),
     }
 }
 
@@ -271,11 +288,11 @@ export component Test { // not docs
   }
 }"#;
         let (mut dc, uri, _) = crate::language::test::loaded_document_cache(source.into());
-        let doc = dc.get_document(&uri).unwrap().node.clone().unwrap();
+        let documentation = dc.get_document(&uri).unwrap().node.clone().unwrap();
 
         let find_tk = |needle: &str, offset: TextSize| {
             crate::language::token_at_offset(
-                &doc,
+                &documentation,
                 TextSize::new(
                     source.find(needle).unwrap_or_else(|| panic!("'{needle}' not found")) as u32,
                 ) + offset,
