@@ -30,6 +30,22 @@ export component HeaderView {
                 spacing: EditorSpaceSettings.default-spacing / 2;
 
                 Button {
+                    text: "↩️";
+                    enabled: Api.undo-enabled;
+                    clicked => {
+                        Api.undo();
+                    }
+                }
+                Button {
+                    text: "↪️";
+                    enabled: Api.redo-enabled;
+                    clicked => {
+                        Api.redo();
+                    }
+                }
+
+
+                Button {
                     icon: Icons.sync;
                     colorize-icon: true;
                     clicked => {

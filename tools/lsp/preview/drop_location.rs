@@ -806,10 +806,16 @@ pub fn workspace_edit_compiles(
     document_cache: &common::DocumentCache,
     workspace_edit: &lsp_types::WorkspaceEdit,
 ) -> preview::CompilationResult {
-    let Ok(mut result) = text_edit::apply_workspace_edit(document_cache, workspace_edit) else {
+    let Ok(result) = text_edit::apply_workspace_edit(document_cache, workspace_edit) else {
         return preview::CompilationResult::ChangeFails;
     };
+    edited_text_compiles(document_cache, result)
+}
 
+pub fn edited_text_compiles(
+    document_cache: &common::DocumentCache,
+    mut result: Vec<text_edit::EditedText>,
+) -> preview::CompilationResult {
     if result.is_empty() {
         return preview::CompilationResult::NoChange;
     }
