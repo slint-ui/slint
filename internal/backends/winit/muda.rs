@@ -137,7 +137,16 @@ impl MudaAdapter {
                 Box::new(muda::PredefinedMenuItem::separator())
             } else if !entry.has_sub_menu {
                 // the top level always has a sub menu regardless of entry.has_sub_menu
-                if let Some(rgba) = entry.icon.to_rgba8() {
+                if entry.checkable {
+                    Box::new(muda::CheckMenuItem::with_id(
+                        id.clone(),
+                        &entry.title,
+                        entry.enabled,
+                        entry.checked,
+                        None,
+                    ))
+                }
+                else if let Some(rgba) = entry.icon.to_rgba8() {
                     let icon = muda::Icon::from_rgba(
                         rgba.as_bytes().to_vec(),
                         rgba.width(),
@@ -151,12 +160,12 @@ impl MudaAdapter {
                         icon,
                         None,
                     ))
-                } else {
-                    Box::new(muda::CheckMenuItem::with_id(
+                } 
+                else {
+                    Box::new(muda::MenuItem::with_id(
                         id.clone(),
                         &entry.title,
                         entry.enabled,
-                        entry.checked,
                         None,
                     ))
                 }

@@ -90,6 +90,7 @@ impl MenuFromItemTree {
                     let children = self.update_shadow_tree_recursive(&item);
                     let has_sub_menu = !children.is_empty();
                     let enabled = menu_item.enabled();
+                    let checkable = menu_item.checkable();
                     let checked = menu_item.checked();
                     let icon = menu_item.icon();
                     self.item_cache.borrow_mut().insert(
@@ -102,6 +103,7 @@ impl MenuFromItemTree {
                         has_sub_menu,
                         is_separator,
                         enabled,
+                        checkable,
                         checked,
                         icon,
                     });
@@ -159,6 +161,7 @@ pub struct MenuItem {
     pub title: Property<SharedString>,
     pub activated: Callback<VoidArg>,
     pub enabled: Property<bool>,
+    pub checkable: Property<bool>,
     pub checked: Property<bool>,
     pub icon: Property<Image>,
 }
