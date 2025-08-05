@@ -9,7 +9,7 @@
 //! the case of `native` runs in a separate thread at this time.
 
 use crate::common::{
-    self, component_catalog, rename_component, ComponentInformation, ElementRcNode,
+    self, component_catalog, rename_component, text_edit, ComponentInformation, ElementRcNode,
     PreviewComponent, PreviewConfig, PreviewToLspMessage, SourceFileVersion,
 };
 use crate::preview::element_selection::ElementSelection;
@@ -43,6 +43,7 @@ use ext::ElementRcNodeExt;
 mod outline;
 mod properties;
 pub mod ui;
+mod undo_redo;
 
 #[cfg(not(target_arch = "wasm32"))]
 pub fn run(config: &crate::LivePreview) -> std::result::Result<(), slint::PlatformError> {
@@ -128,6 +129,7 @@ pub struct PreviewState {
     preview_loading_delay_timer: Option<slint::Timer>,
     initial_live_data: preview_data::PreviewDataMap,
     current_live_data: preview_data::PreviewDataMap,
+    undo_redo_stack: undo_redo::UndoRedoStack,
 
     source_code: SourceCodeCache,
     resources: HashSet<Url>,
@@ -235,6 +237,10 @@ fn apply_live_preview_data() {
 
 fn set_contents(url: &common::VersionedUrl, content: String) {
     if let Some(current) = PREVIEW_STATE.with_borrow_mut(|preview_state| {
+        if !preview_state.undo_redo_stack.check_set_contents_valid(url.url(), &content) {
+            undo_redo::set_undo_redo_enabled(preview_state);
+        }
+
         let old = preview_state.source_code.insert(
             url.url().clone(),
             SourceCodeCacheEntry { version: *url.version(), code: content.clone() },
@@ -909,16 +915,17 @@ enum CompilationResult {
     NoChange,
 }
 
-fn test_workspace_edit(edit: &lsp_types::WorkspaceEdit) -> CompilationResult {
-    let Some(document_cache) = document_cache() else {
-        return CompilationResult::ChangeFails;
-    };
-    drop_location::workspace_edit_compiles(&document_cache, edit)
-}
-
 fn send_workspace_edit(label: String, edit: lsp_types::WorkspaceEdit, test_edit: bool) -> bool {
+    let Some(document_cache) = document_cache() else {
+        return false;
+    };
+    let Ok(result) = text_edit::apply_workspace_edit(&document_cache, &edit) else {
+        return false;
+    };
+    let file_hashes = undo_redo::compute_file_hashes(&result);
+
     if test_edit {
-        let test_result = test_workspace_edit(&edit);
+        let test_result = drop_location::edited_text_compiles(&document_cache, result);
         match test_result {
             CompilationResult::ChangeCompiles => {}
             CompilationResult::ChangeFails => return false,
@@ -926,18 +933,23 @@ fn send_workspace_edit(label: String, edit: lsp_types::WorkspaceEdit, test_edit:
         }
     }
 
-    let workspace_edit_sent = PREVIEW_STATE.with_borrow_mut(|preview_state| {
-        let result = preview_state.workspace_edit_sent;
-        preview_state.workspace_edit_sent = true;
-        result
-    });
+    let reverse_edit = text_edit::reversed_edit(&document_cache, &edit);
 
-    if !workspace_edit_sent {
-        let lsp = PREVIEW_STATE.with_borrow(|ps| ps.to_lsp.borrow().clone().unwrap());
-        lsp.send(&PreviewToLspMessage::SendWorkspaceEdit { label: Some(label), edit }).unwrap();
-        return true;
-    }
-    false
+    PREVIEW_STATE.with_borrow_mut(|preview_state| {
+        if std::mem::replace(&mut preview_state.workspace_edit_sent, true) {
+            return false;
+        }
+        preview_state.undo_redo_stack.push(label.clone(), reverse_edit, file_hashes);
+        undo_redo::set_undo_redo_enabled(preview_state);
+        preview_state
+            .to_lsp
+            .borrow()
+            .as_ref()
+            .unwrap()
+            .send(&PreviewToLspMessage::SendWorkspaceEdit { label: Some(label), edit })
+            .unwrap();
+        true
+    })
 }
 
 fn change_style() {

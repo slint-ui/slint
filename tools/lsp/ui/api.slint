@@ -598,7 +598,13 @@ export global Api {
     callback add-recent-color(color);
     pure callback is-css-color(code: string) -> bool;
 
-    // Console / LogMessages
+    // ## Console / LogMessages
     pure callback filter-log-messages(messages: [LogMessage], pattern: string) -> [LogMessage];
     callback clear-log-messages();
+
+    // ## Undo/Redo
+    callback undo();
+    callback redo();
+    in-out property <bool> undo-enabled: false;
+    in-out property <bool> redo-enabled: false;
 }
