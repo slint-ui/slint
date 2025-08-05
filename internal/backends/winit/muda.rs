@@ -145,8 +145,7 @@ impl MudaAdapter {
                         entry.checked,
                         None,
                     ))
-                }
-                else if let Some(rgba) = entry.icon.to_rgba8() {
+                } else if let Some(rgba) = entry.icon.to_rgba8() {
                     let icon = muda::Icon::from_rgba(
                         rgba.as_bytes().to_vec(),
                         rgba.width(),
@@ -160,14 +159,8 @@ impl MudaAdapter {
                         icon,
                         None,
                     ))
-                } 
-                else {
-                    Box::new(muda::MenuItem::with_id(
-                        id.clone(),
-                        &entry.title,
-                        entry.enabled,
-                        None,
-                    ))
+                } else {
+                    Box::new(muda::MenuItem::with_id(id.clone(), &entry.title, entry.enabled, None))
                 }
             } else {
                 let sub_menu = muda::Submenu::with_id(id.clone(), &entry.title, entry.enabled);
