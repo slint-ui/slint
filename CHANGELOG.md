@@ -3,6 +3,10 @@
 # Changelog
 All notable changes to this project are documented in this file.
 
+## [1.14.0] - TBD
+
+ - Python: Added support for asyncio by making the Slint event loop act as asyncio event loop.
+
 ## [1.13.1] - 2025-09-11
 
  - Windows: Fixed flickering when updating the menu bar.

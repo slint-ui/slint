@@ -177,6 +177,7 @@ jobs:
             CARGO_PROFILE_DEV_DEBUG: 0
             CARGO_INCREMENTAL: false
             RUST_BACKTRACE: full
+            SLINT_BACKEND: winit
         strategy:
             matrix:
                 os: [ubuntu-22.04, macos-14, windows-2022]

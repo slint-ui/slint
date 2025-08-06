@@ -439,10 +439,6 @@ impl ComponentInstance {
         Ok(self.instance.hide()?)
     }
 
-    fn run(&self) -> Result<(), PyPlatformError> {
-        Ok(self.instance.run()?)
-    }
-
     fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
         self.callbacks.__traverse__(&visit)?;
         for global_callbacks in self.global_callbacks.values() {
