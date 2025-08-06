@@ -22,7 +22,7 @@ in detail.
 
 ## Installation
 
-Slint can be installed with `uv` or `pip` from the [Python Package Index](https://pypi.org):
+Install Slint with `uv` or `pip` from the [Python Package Index](https://pypi.org):
 
 ```bash
 uv add slint
@@ -325,6 +325,22 @@ main_window = slint.loader.app.MainWindow()
 value = slint.loader.app.MyOption.Variant2
 main_window.data = value
 ```
+
+## Asynchronous I/O
+
+Use Python's [asyncio](https://docs.python.org/3/library/asyncio.html) library to write concurrent Python code with the `async`/`await` syntax.
+
+Slint's event loop is a full-featured [asyncio event loop](https://docs.python.org/3/library/asyncio-eventloop.html#asyncio-event-loop). While
+the event loop is running, [`asyncio.get_event_loop()`](https://docs.python.org/3/library/asyncio-eventloop.html#asyncio.get_running_loop) returns
+a valid loop. To run an async function when starting the loop, pass a coroutine to `slint.run_event_loop()`.
+
+For the common use case of interacting with REST APIs, we recommend the [`aiohttp` library](https://docs.aiohttp.org/en/stable/).
+
+### Known Limitations
+
+- Pipes and sub-processes are only supported on Unix-like platforms.
+- Exceptions thrown in the coroutine passed to `slint.run_event_loop()` don't cause the loop to terminate. This behaviour may
+  change in a future release.
 
 ## Third-Party Licenses
 

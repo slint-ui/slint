@@ -10,7 +10,7 @@ import os
 import pathlib
 import typing
 from typing import Any, List
-from collections.abc import Callable, Buffer
+from collections.abc import Callable, Buffer, Coroutine
 from enum import Enum, auto
 
 class RgbColor:
@@ -182,7 +182,6 @@ class PyDiagnostic:
 class ComponentInstance:
     def show(self) -> None: ...
     def hide(self) -> None: ...
-    def run(self) -> None: ...
     def invoke(self, callback_name: str, *args: Any) -> Any: ...
     def invoke_global(
         self, global_name: str, callback_name: str, *args: Any
@@ -229,3 +228,11 @@ class Compiler:
     def build_from_source(
         self, source: str, path: os.PathLike[Any] | pathlib.Path
     ) -> CompilationResult: ...
+
+class AsyncAdapter:
+    def __new__(
+        cls,
+        fd: int,
+    ) -> "AsyncAdapter": ...
+    def wait_for_readable(self, callback: typing.Callable[[int], None]) -> None: ...
+    def wait_for_writable(self, callback: typing.Callable[[int], None]) -> None: ...

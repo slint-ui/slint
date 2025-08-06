@@ -11,6 +11,7 @@ use interpreter::{
     CompilationResult, Compiler, ComponentDefinition, ComponentInstance, PyDiagnostic,
     PyDiagnosticLevel, PyValueType,
 };
+mod async_adapter;
 mod brush;
 mod errors;
 mod models;
@@ -42,10 +43,11 @@ thread_local! {
 
 #[gen_stub_pyfunction]
 #[pyfunction]
-fn run_event_loop() -> Result<(), PyErr> {
+fn run_event_loop(py: Python<'_>) -> Result<(), PyErr> {
     EVENT_LOOP_EXCEPTION.replace(None);
     EVENT_LOOP_RUNNING.set(true);
-    let result = slint_interpreter::run_event_loop();
+    // Release the GIL while running the event loop, so that other Python threads can run.
+    let result = py.detach(|| slint_interpreter::run_event_loop());
     EVENT_LOOP_RUNNING.set(false);
     result.map_err(|e| errors::PyPlatformError::from(e))?;
     EVENT_LOOP_EXCEPTION.take().map_or(Ok(()), |err| Err(err))
@@ -100,6 +102,7 @@ fn slint(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<brush::PyBrush>()?;
     m.add_class::<models::PyModelBase>()?;
     m.add_class::<value::PyStruct>()?;
+    m.add_class::<async_adapter::AsyncAdapter>()?;
     m.add_function(wrap_pyfunction!(run_event_loop, m)?)?;
     m.add_function(wrap_pyfunction!(quit_event_loop, m)?)?;
     m.add_function(wrap_pyfunction!(set_xdg_app_id, m)?)?;
