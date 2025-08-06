@@ -16,10 +16,14 @@ from typing import Any
 import pathlib
 from .models import ListModel, Model
 from .slint import Image, Color, Brush, Timer, TimerMode
+from .loop import SlintEventLoop
 from pathlib import Path
+from collections.abc import Coroutine
+import asyncio
 
 Struct = native.PyStruct
 
+Loop = SlintEventLoop
 
 class CompileError(Exception):
     message: str
@@ -50,9 +54,13 @@ class Component:
 
         self.__instance__.hide()
 
-    def run(self) -> None:
+    def run(
+        self, main_coro: typing.Optional[Coroutine[None, None, None]] = None
+    ) -> None:
         """Shows the window, runs the event loop, hides it when the loop is quit, and returns."""
-        self.__instance__.run()
+        self.show()
+        run_event_loop(main_coro)
+        self.hide()
 
 
 def _normalize_prop(name: str) -> str:
@@ -426,6 +434,31 @@ def set_xdg_app_id(app_id: str) -> None:
     native.set_xdg_app_id(app_id)
 
 
+quit_event = asyncio.Event()
+
+
+def run_event_loop(
+    main_coro: typing.Optional[Coroutine[None, None, None]] = None,
+) -> None:
+    """Runs the main Slint event loop. The optionally specified coroutine is run in paralle."""
+
+    async def run_inner():
+        global quit_event
+        loop = typing.cast(SlintEventLoop, asyncio.get_event_loop())
+        main_task = None
+        if main_coro:
+            main_task = loop.create_task(main_coro)
+
+        await quit_event.wait()
+
+    asyncio.run(run_inner(), debug=True, loop_factory=SlintEventLoop)
+
+
+def quit_event_loop() -> None:
+    global quit_event
+    quit_event.set()
+
+
 __all__ = [
     "CompileError",
     "Component",
@@ -440,4 +473,5 @@ __all__ = [
     "TimerMode",
     "set_xdg_app_id",
     "callback",
+    "run_event_loop",
 ]
