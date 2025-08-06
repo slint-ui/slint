@@ -38,7 +38,7 @@ For a step-by-step walkthrough, check out the last chapter of the <Link type="qu
 
 Below is a summary of the main steps:
 
-In your `Cargo.toml`, set the crate type to `"cdylib"` and add [`wasm-bindgen`](https://rustwasm.github.io/wasm-bindgen/) as a dependency for the "wasm" target:
+In your `Cargo.toml`, set the crate type to `"cdylib"` and add [`wasm-bindgen`](https://wasm-bindgen.github.io/wasm-bindgen/) as a dependency for the "wasm" target:
 
 ```toml
 [lib]
@@ -66,7 +66,7 @@ pub fn main() {
 }
 ```
 
-Build the application using [wasm-pack](https://rustwasm.github.io/wasm-pack/).
+Build the application using [wasm-pack](https://drager.github.io/wasm-pack/).
 
 ```bash
 wasm-pack build --release --target web
@@ -101,4 +101,4 @@ Because the clipboard API in `web-sys` is still unstable, you need to opt in by 
 RUSTFLAGS=--cfg=web_sys_unstable_apis
 ```
 
-You can read more in the [`web-sys` unstable APIs documentation](https://rustwasm.github.io/docs/wasm-bindgen/web-sys/unstable-apis.html).
+You can read more in the [`web-sys` unstable APIs documentation](https://wasm-bindgen.github.io/wasm-bindgen/web-sys/unstable-apis.html).

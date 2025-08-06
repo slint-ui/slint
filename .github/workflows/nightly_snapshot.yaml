@@ -293,7 +293,7 @@ jobs:
               working-directory: editors/vscode
               run: pnpm install --frozen-lockfile
             - name: Install wasm-pack
-              run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+              run: curl https://drager.github.io/wasm-pack/installer/init.sh -sSf | sh
             - name: Build package and optionally publish to Visual Studio Marketplace
               id: publishToVSCM
               uses: HaaLeo/publish-vscode-extension@v2
