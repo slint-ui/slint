@@ -1300,7 +1300,7 @@ impl WindowInner {
         &self,
         context_menu_item: vtable::VRc<MenuVTable>,
         position: LogicalPosition,
-        parent_item: &ItemRc
+        parent_item: &ItemRc,
     ) -> bool {
         if let Some(x) = self.window_adapter().internal(crate::InternalToken) {
             let position = parent_item
