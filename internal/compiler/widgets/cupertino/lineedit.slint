@@ -82,50 +82,31 @@ export component LineEdit {
         border-color: CupertinoPalette.border;
         border-width: 1px;
         opacity: root.enabled ? 1 : 0.5;
-        ta := TouchArea {
-            layout := HorizontalLayout {
-                padding-left: 7px;
-                padding-right: 7px;
-                spacing: 3px;
+        layout := HorizontalLayout {
+            padding-left: 7px;
+            padding-right: 7px;
+            spacing: 3px;
 
-                base := LineEditBase {
-                    input-type: root.input-type;
-                    font-size: CupertinoFontSettings.body.font-size;
-                    font-weight: CupertinoFontSettings.body.font-weight;
-                    selection-background-color: CupertinoPalette.selection-background;
-                    selection-foreground-color: CupertinoPalette.selection-foreground;
-                    text-color: CupertinoPalette.foreground;
-                    margin: layout.padding-left + layout.padding-right;
-                    placeholder-color: CupertinoPalette.foreground-secondary;
-                    horizontal-stretch: 1;
-                }
+            base := LineEditBase {
+                input-type: root.input-type;
+                font-size: CupertinoFontSettings.body.font-size;
+                font-weight: CupertinoFontSettings.body.font-weight;
+                selection-background-color: CupertinoPalette.selection-background;
+                selection-foreground-color: CupertinoPalette.selection-foreground;
+                text-color: CupertinoPalette.foreground;
+                margin: layout.padding-left + layout.padding-right;
+                placeholder-color: CupertinoPalette.foreground-secondary;
+                horizontal-stretch: 1;
+            }
 
-                ci := LineEditClearIcon {
-                    visible: !root.text.is-empty && root.input-type != InputType.password && root.enabled && !root.read-only && ta.has-hover;
-
-                    width: ta.has-hover ? self.source.width * 0.5 * 1px : 0px;
-                    text: base.text;
-                    source: @image-url("_clear.svg");
-                    colorize: base.text-color.transparentize(0.5);
-                    clear => {
-                        base.text = "";
-                        base.focus();
-                    }
-                    animate width {
-                        duration: 100ms;
-                        easing: ease-in-out-bounce;
-                    }
-                }
-
-                if root.input-type == InputType.password: LineEditPasswordIcon {
-                    width: self.source.width * 1px;
-                    show-password-image: @image-url("_visibility.svg");
-                    hide-password-image: @image-url("_visibility_off.svg");
-                    colorize: base.text-color;
-                    show-password-changed(show) => {
-                        base.input-type = show ? InputType.text : root.input-type;
-                        base.focus();
-                    }
+            if root.input-type == InputType.password: LineEditPasswordIcon {
+                width: self.source.width * 1px;
+                show-password-image: @image-url("_visibility.svg");
+                hide-password-image: @image-url("_visibility_off.svg");
+                colorize: base.text-color;
+                show-password-changed(show) => {
+                    base.input-type = show ? InputType.text : root.input-type;
+                    base.focus();
                 }
             }
         }
