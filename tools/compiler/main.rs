@@ -198,12 +198,10 @@ fn main() -> std::io::Result<()> {
     if args.output == std::path::Path::new("-") {
         generator::generate(format, &mut std::io::stdout(), &doc, &loader.compiler_config)?;
     } else {
-        generator::generate(
-            format,
-            &mut BufWriter::new(std::fs::File::create(&args.output)?),
-            &doc,
-            &loader.compiler_config,
-        )?;
+        let mut file =
+            BufWriter::new(atomic_write_file::AtomicWriteFile::options().open(&args.output)?);
+        generator::generate(format, &mut file, &doc, &loader.compiler_config)?;
+        file.into_inner()?.commit()?;
     }
 
     if let Some(depfile) = args.depfile {
