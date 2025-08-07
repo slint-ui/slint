@@ -237,80 +237,16 @@ impl common::PreviewToLsp for RemoteControlledPreviewToLsp {
     }
 }
 
-#[cfg(target_vendor = "apple")]
-fn toggle_always_on_top() {
-    use slint::ComponentHandle;
-    preview::PREVIEW_STATE.with_borrow_mut(move |preview_state| {
-        let Some(ui) = preview_state.ui.as_ref() else { return };
-        let api = ui.global::<crate::preview::ui::Api>();
-        api.set_always_on_top(!api.get_always_on_top());
-    });
-}
-
 // This function overrides the default app menu and makes the "Quit" item merely hide the UI,
 // as the life-cycle of this process is determined by the editor. The returned menuitem must
 // be kept alive for the duration of the event loop, as otherwise muda crashes.
 #[cfg(target_vendor = "apple")]
 pub fn init_apple_platform() -> Result<(), i_slint_core::api::PlatformError> {
-    use muda::{accelerator, CheckMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu};
-
     let backend = i_slint_backend_winit::Backend::builder().with_default_menu_bar(false).build()?;
 
     slint::platform::set_platform(Box::new(backend)).map_err(|set_platform_err| {
         i_slint_core::api::PlatformError::from(set_platform_err.to_string())
     })?;
-
-    let reload_menu_item = MenuItem::new(
-        format!("Reload"),
-        true,
-        Some(accelerator::Accelerator::new(
-            Some(accelerator::Modifiers::META),
-            accelerator::Code::KeyR,
-        )),
-    );
-    let keep_on_top_menu_item = CheckMenuItem::new(format!("Keep on Top"), true, false, None);
-
-    let menu_bar = Menu::new();
-    menu_bar.init_for_nsapp();
-    let app_m = Submenu::new("App", true);
-    let window_m = Submenu::new("&Window", true);
-    menu_bar
-        .append(&app_m)
-        .and_then(|_| menu_bar.append(&window_m))
-        .and_then(|_| {
-            app_m.append_items(&[
-                &PredefinedMenuItem::services(None),
-                &PredefinedMenuItem::separator(),
-                &PredefinedMenuItem::hide(None),
-                &PredefinedMenuItem::hide_others(None),
-                &PredefinedMenuItem::show_all(None),
-                &reload_menu_item,
-                &PredefinedMenuItem::quit(Some("Quit Slint Live-Preview")),
-            ])
-        })
-        .and_then(|_| window_m.append_items(&[&keep_on_top_menu_item]))
-        .map_err(|menu_bar_err| {
-            i_slint_core::api::PlatformError::Other(menu_bar_err.to_string())
-        })?;
-
-    let reload_id = reload_menu_item.id().clone();
-    let keep_on_top_id = keep_on_top_menu_item.id().clone();
-
-    muda::MenuEvent::set_event_handler(Some(move |menu_event: muda::MenuEvent| {
-        let reload_id = reload_id.clone();
-        let keep_on_top_id = keep_on_top_id.clone();
-
-        let _ = slint::invoke_from_event_loop(move || {
-            if menu_event.id == reload_id {
-                preview::reload_preview();
-            } else if menu_event.id == keep_on_top_id {
-                toggle_always_on_top();
-            }
-        });
-    }));
-
-    // Keep the menu items alive to prevent muda from crashing. The menu bar is a singleton, so this is an acceptable memory leak
-    let _ = Box::leak(Box::new((reload_menu_item, keep_on_top_menu_item)));
 
     Ok(())
 }
