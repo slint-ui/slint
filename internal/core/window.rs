@@ -973,7 +973,7 @@ impl WindowInner {
         let mut visited = Vec::new();
 
         loop {
-            if current_item.is_visible()
+            if (current_item.is_visible() || reason == FocusReason::Programmatic)
                 && self.publish_focus_item(&Some(current_item.clone()), reason)
                     == crate::input::FocusEventResult::FocusAccepted
             {
