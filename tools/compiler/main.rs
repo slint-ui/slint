@@ -198,12 +198,9 @@ fn main() -> std::io::Result<()> {
     if args.output == std::path::Path::new("-") {
         generator::generate(format, &mut std::io::stdout(), &doc, &loader.compiler_config)?;
     } else {
-        generator::generate(
-            format,
-            &mut BufWriter::new(std::fs::File::create(&args.output)?),
-            &doc,
-            &loader.compiler_config,
-        )?;
+        let mut file_writer = BufWriter::new(std::fs::File::create(&args.output)?);
+        generator::generate(format, &mut file_writer, &doc, &loader.compiler_config)?;
+        file_writer.flush()?;
     }
 
     if let Some(depfile) = args.depfile {
@@ -223,6 +220,7 @@ fn main() -> std::io::Result<()> {
         }
 
         writeln!(f)?;
+        f.flush()?;
     }
     diag.print_warnings_and_exit_on_error();
     Ok(())

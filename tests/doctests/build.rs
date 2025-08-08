@@ -86,6 +86,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("cargo:rerun-if-changed={}", path.display());
     }
 
+    tests_file.flush()?;
+
     println!("cargo:rustc-env=TEST_FUNCTIONS={}", tests_file_path.to_string_lossy());
     println!("cargo:rustc-env=SLINT_ENABLE_EXPERIMENTAL_FEATURES=1");
 

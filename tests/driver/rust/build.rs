@@ -66,7 +66,11 @@ fn main() -> std::io::Result<()> {
                 x.source.replace('\n', "\n    ")
             )?;
         }
+
+        output.flush()?;
     }
+
+    generated_file.flush()?;
 
     // By default resources are embedded. The WASM example builds provide test coverage for that. This switch
     // provides test coverage for the non-embedding case, compiling tests without embedding the images.

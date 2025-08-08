@@ -28,7 +28,7 @@ pub fn run(files: &[std::path::PathBuf], inplace: bool) -> std::io::Result<()> {
 
         if inplace {
             let file = BufWriter::new(std::fs::File::create(&path)?);
-            process_file(source, path, file)?
+            process_file(source, path, file)?;
         } else {
             process_file(source, path, std::io::stdout())?
         }
@@ -53,7 +53,8 @@ fn process_rust_file(source: String, mut file: impl Write) -> std::io::Result<()
             diag.print();
         }
     }
-    file.write_all(&source.as_bytes()[last..])
+    file.write_all(&source.as_bytes()[last..])?;
+    file.flush()
 }
 
 /// FIXME! this is duplicated with the updater

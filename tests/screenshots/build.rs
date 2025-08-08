@@ -156,7 +156,11 @@ fn main() -> std::io::Result<()> {
     Ok(())
     }}",
         )?;
+
+        output.flush()?;
     }
+
+    generated_file.flush()?;
 
     //Make sure to use a consistent style
     println!("cargo:rustc-env=SLINT_STYLE=fluent");
