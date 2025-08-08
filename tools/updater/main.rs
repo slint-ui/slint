@@ -133,6 +133,7 @@ fn process_file(
         file.write_all(&source.as_bytes()[len..])?;
         diag.print();
     }
+    file.flush()?;
     Ok(())
 }
 

@@ -99,6 +99,8 @@ namespace slint::platform::key_codes {{
     i_slint_common::for_each_special_keys!(print_key_codes);
     writeln!(enums_pub, "}}")?;
 
+    enums_priv.flush()?;
+    enums_pub.flush()?;
     Ok(())
 }
 
@@ -184,6 +186,8 @@ fn builtin_structs(path: &Path) -> anyhow::Result<()> {
     i_slint_common::for_each_builtin_structs!(print_structs);
     writeln!(structs_priv, "}}")?;
     writeln!(structs_pub, "}}")?;
+    structs_priv.flush()?;
+    structs_pub.flush()?;
     Ok(())
 }
 
