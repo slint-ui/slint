@@ -522,6 +522,8 @@ pub fn compile_with_output_path(
         }
     }
 
+    code_formatter.sink.flush().map_err(CompileError::SaveError)?;
+
     Ok(dependencies)
 }
 

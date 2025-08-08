@@ -52,7 +52,9 @@ pub fn generate(
     let cpp_files = file.split_off_cpp_files(config.header_include, config.cpp_files.len());
     for (cpp_file_name, cpp_file) in config.cpp_files.iter().zip(cpp_files) {
         use std::io::Write;
-        write!(&mut BufWriter::new(std::fs::File::create(&cpp_file_name)?), "{cpp_file}")?;
+        let mut cpp_writer = BufWriter::new(std::fs::File::create(&cpp_file_name)?);
+        write!(&mut cpp_writer, "{cpp_file}")?;
+        cpp_writer.flush()?;
     }
 
     Ok(file)
