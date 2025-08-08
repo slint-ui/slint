@@ -19,6 +19,7 @@ use crate::input::{
     KeyEvent, KeyboardModifiers, MouseEvent, StandardShortcut, TextShortcut,
 };
 use crate::item_rendering::{CachedRenderingData, ItemRenderer, RenderText};
+use crate::items::FocusPolicy;
 use crate::layout::{LayoutInfo, Orientation};
 use crate::lengths::{
     LogicalLength, LogicalPoint, LogicalRect, LogicalSize, ScaleFactor, SizeLengths,
@@ -520,6 +521,7 @@ pub struct TextInput {
     pub single_line: Property<bool>,
     pub read_only: Property<bool>,
     pub preedit_text: Property<SharedString>,
+    pub focus_policy: Property<FocusPolicy>,
     /// A selection within the preedit (cursor and anchor)
     preedit_selection: Property<PreEditSelection>,
     pub cached_rendering_data: CachedRenderingData,
@@ -610,6 +612,11 @@ impl Item for TextInput {
         }
         match event {
             MouseEvent::Pressed { position, button: PointerEventButton::Left, click_count } => {
+                #[cfg(not(target_os = "android"))]
+                if !self.ensure_click_focus_and_ime(window_adapter, self_rc) {
+                    return InputEventResult::EventIgnored;
+                }
+
                 let clicked_offset =
                     self.byte_offset_for_position(*position, window_adapter, self_rc) as i32;
                 self.as_ref().pressed.set((click_count % 3) + 1);
@@ -617,9 +624,6 @@ impl Item for TextInput {
                 if !window_adapter.window().0.modifiers.get().shift() {
                     self.as_ref().anchor_position_byte_offset.set(clicked_offset);
                 }
-
-                #[cfg(not(target_os = "android"))]
-                self.ensure_focus_and_ime(window_adapter, self_rc);
 
                 match click_count % 3 {
                     0 => self.set_cursor_position(
@@ -638,13 +642,17 @@ impl Item for TextInput {
             }
             MouseEvent::Pressed { button: PointerEventButton::Middle, .. } => {
                 #[cfg(not(target_os = "android"))]
-                self.ensure_focus_and_ime(window_adapter, self_rc);
+                if !self.ensure_click_focus_and_ime(window_adapter, self_rc) {
+                    return InputEventResult::EventIgnored;
+                }
             }
             MouseEvent::Released { button: PointerEventButton::Left, .. } => {
                 self.as_ref().pressed.set(0);
                 self.copy_clipboard(window_adapter, Clipboard::SelectionClipboard);
                 #[cfg(target_os = "android")]
-                self.ensure_focus_and_ime(window_adapter, self_rc);
+                if !self.ensure_click_focus_and_ime(window_adapter, self_rc) {
+                    return InputEventResult::EventIgnored;
+                }
             }
             MouseEvent::Released { position, button: PointerEventButton::Middle, .. } => {
                 let clicked_offset =
@@ -936,6 +944,20 @@ impl Item for TextInput {
         window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &ItemRc,
     ) -> FocusEventResult {
+        let reason = match event {
+            FocusEvent::FocusIn(reason) | FocusEvent::FocusOut(reason) => *reason,
+        };
+
+        match (reason, self.focus_policy()) {
+            (FocusReason::TabNavigation, FocusPolicy::ClickOnly) => {
+                return FocusEventResult::FocusIgnored
+            }
+            (FocusReason::PointerClick, FocusPolicy::TabOnly) => {
+                return FocusEventResult::FocusIgnored
+            }
+            _ => (),
+        }
+
         match event {
             FocusEvent::FocusIn(_reason) => {
                 if !self.enabled() {
@@ -1827,12 +1849,16 @@ impl TextInput {
 
     /// When pressing the mouse (or releasing the finger, on android) we should take the focus if we don't have it already.
     /// Setting the focus will show the virtual keyboard, otherwise we should make sure that the keyboard is shown if it was hidden by the user
-    fn ensure_focus_and_ime(
+    /// Returns true if the focus was set, false if the focus policy is configured to not focus on click.
+    fn ensure_click_focus_and_ime(
         self: Pin<&Self>,
         window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &ItemRc,
-    ) {
+    ) -> bool {
         if !self.has_focus() {
+            if self.focus_policy() == FocusPolicy::TabOnly {
+                return false;
+            }
             WindowInner::from_pub(window_adapter.window()).set_focus_item(
                 self_rc,
                 true,
@@ -1845,6 +1871,7 @@ impl TextInput {
                 ));
             }
         }
+        true
     }
 
     fn add_undo_item(self: Pin<&Self>, item: UndoItem) {
