@@ -11,8 +11,6 @@ use std::rc::Rc;
 use std::rc::Weak;
 use std::sync::Arc;
 
-use euclid::approxeq::ApproxEq;
-
 #[cfg(muda)]
 use i_slint_core::api::LogicalPosition;
 use i_slint_core::lengths::{PhysicalPx, ScaleFactor};
@@ -81,20 +79,6 @@ fn logical_size_to_winit(s: i_slint_core::api::LogicalSize) -> winit::dpi::Logic
 
 fn physical_size_to_winit(size: PhysicalSize) -> winit::dpi::PhysicalSize<u32> {
     winit::dpi::PhysicalSize::new(size.width, size.height)
-}
-
-fn filter_out_zero_width_or_height(
-    size: winit::dpi::LogicalSize<f64>,
-) -> winit::dpi::LogicalSize<f64> {
-    fn filter(v: f64) -> f64 {
-        if v.approx_eq(&0.) {
-            // Some width or height is better than zero
-            10.
-        } else {
-            v
-        }
-    }
-    winit::dpi::LogicalSize { width: filter(size.width), height: filter(size.height) }
 }
 
 fn apply_scale_factor_to_logical_sizes_in_attributes(
@@ -1213,13 +1197,9 @@ impl WindowAdapter for WinitWindowAdapter {
         let resizable = window_is_resizable(new_constraints.min, new_constraints.max);
         // we must call set_resizable before setting the min and max size otherwise setting the min and max size don't work on X11
         winit_window_or_none.set_resizable(resizable);
-        // Important: Filter out (temporary?) zero width/heights, to avoid attempting to create a zero surface. For example, with wayland
-        // the client-side rendering ends up passing a zero width/height to the renderer.
-        let winit_min_inner =
-            new_constraints.min.map(logical_size_to_winit).map(filter_out_zero_width_or_height);
+        let winit_min_inner = new_constraints.min.map(logical_size_to_winit);
         winit_window_or_none.set_min_inner_size(winit_min_inner, sf as f64);
-        let winit_max_inner =
-            new_constraints.max.map(logical_size_to_winit).map(filter_out_zero_width_or_height);
+        let winit_max_inner = new_constraints.max.map(logical_size_to_winit);
         winit_window_or_none.set_max_inner_size(winit_max_inner, sf as f64);
 
         // On ios, etc. apps are fullscreen and need to be responsive.
