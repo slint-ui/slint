@@ -133,6 +133,7 @@ impl FemtoVGRenderer<WGPUBackend> {
             i_slint_core::graphics::wgpu_26::init_instance_adapter_device_queue_surface(
                 window_handle,
                 requested_graphics_api,
+                None,
             )?;
 
         let mut surface_config =
