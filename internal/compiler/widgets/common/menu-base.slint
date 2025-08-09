@@ -128,11 +128,18 @@ export component MenuItemBase {
 
                 spacing: 10px;
 
-                Image {
+                Rectangle {
                     width: root.icon-size;
                     y: (parent.height - self.height) / 2;
-                    source: entry.icon;
-                    accessible-role: none;
+
+                    if entry.checked: Text {
+                        text: "✓";
+                    }
+
+                    Image {
+                        source: entry.icon;
+                        accessible-role: none;
+                    }
                 }
 
                 label := Text {
