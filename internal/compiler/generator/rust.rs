@@ -2940,7 +2940,7 @@ fn compile_builtin_function_call(
                     let parent_weak = _self.self_weak.get().unwrap().clone();
                     #init_popup
 
-                    if !sp::WindowInner::from_pub(#window_adapter_tokens.window()).show_native_popup_menu(context_menu_item_tree, #position) {
+                    if !sp::WindowInner::from_pub(#window_adapter_tokens.window()).show_native_popup_menu(context_menu_item_tree, #position, #context_menu_rc) {
                         #close_popup
                         let id = sp::WindowInner::from_pub(#window_adapter_tokens.window()).show_popup(
                             &sp::VRc::into_dyn(popup_instance.into()),
