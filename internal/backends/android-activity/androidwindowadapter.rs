@@ -218,7 +218,7 @@ impl AndroidWindowAdapter {
 
                     self.renderer.set_window_handle(
                         Arc::new(w),
-                        Arc::new(raw_window_handle::DisplayHandle::android()),
+                        Arc::new(DummyDisplayHandle),
                         size,
                         None,
                     )?;
@@ -824,5 +824,14 @@ fn map_key_code(code: android_activity::input::Keycode) -> Option<SharedString> 
         Keycode::ThumbsDown => None,
         Keycode::ProfileSwitch => None,
         _ => None,
+    }
+}
+
+struct DummyDisplayHandle;
+impl raw_window_handle::HasDisplayHandle for DummyDisplayHandle {
+    fn display_handle(
+        &self,
+    ) -> Result<raw_window_handle::DisplayHandle<'_>, raw_window_handle::HandleError> {
+        Ok(raw_window_handle::DisplayHandle::android())
     }
 }
