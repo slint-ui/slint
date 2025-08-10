@@ -45,7 +45,12 @@ impl super::Surface for WGPUSurface {
             i_slint_core::graphics::wgpu_26::init_instance_adapter_device_queue_surface(
                 Box::new(WindowAndDisplayHandle(window_handle, display_handle)),
                 requested_graphics_api,
-                if cfg!(target_os = "windows") { Some(wgpu::Backends::VULKAN) } else { None },
+                wgpu::Backends::GL /* we're not mapping that to skia because we can't save/restore state */
+                    .union(if cfg!(target_os = "windows") {
+                        wgpu::Backends::VULKAN
+                    } else {
+                        wgpu::Backends::empty()
+                    }),
             )?;
 
         let mut surface_config =
