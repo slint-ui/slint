@@ -210,7 +210,7 @@ pub fn any_wgpu26_adapters_with_gpu(requested_graphics_api: Option<RequestedGrap
 pub fn init_instance_adapter_device_queue_surface(
     window_handle: Box<dyn wgpu::WindowHandle + 'static>,
     requested_graphics_api: Option<RequestedGraphicsAPI>,
-    backends_to_avoid: Option<wgpu::Backends>,
+    backends_to_avoid: wgpu::Backends,
 ) -> Result<
     (
         wgpu_26::Instance,
@@ -232,16 +232,11 @@ pub fn init_instance_adapter_device_queue_surface(
             (instance, adapter, device, queue, surface)
         }
         Some(RequestedGraphicsAPI::WGPU26(api::WGPUConfiguration::Automatic(wgpu26_settings))) => {
-            let mut backends = wgpu26_settings.backends;
-            if let Some(backends_to_avoid) = backends_to_avoid {
-                backends.remove(backends_to_avoid);
-            }
-
             // wgpu uses async here, but the returned future is ready on first poll on all platforms except WASM,
             // which we don't support right now.
             let instance = poll_once(async {
                 wgpu::util::new_instance_with_webgpu_detection(&wgpu::InstanceDescriptor {
-                    backends,
+                    backends: wgpu26_settings.backends & !backends_to_avoid,
                     flags: wgpu26_settings.instance_flags,
                     backend_options: wgpu26_settings.backend_options,
                     memory_budget_thresholds: wgpu26_settings.instance_memory_budget_thresholds,
@@ -291,11 +286,7 @@ pub fn init_instance_adapter_device_queue_surface(
             (instance, adapter, device, queue, surface)
         }
         None => {
-            let mut backends = wgpu::Backends::from_env().unwrap_or_default();
-            if let Some(backends_to_avoid) = backends_to_avoid {
-                backends.remove(backends_to_avoid);
-            }
-
+            let backends = wgpu::Backends::from_env().unwrap_or_default() & !backends_to_avoid;
             let dx12_shader_compiler = wgpu::Dx12Compiler::from_env().unwrap_or_default();
             let gles_minor_version = wgpu::Gles3MinorVersion::from_env().unwrap_or_default();
 
