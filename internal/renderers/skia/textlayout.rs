@@ -6,7 +6,7 @@ use std::collections::HashMap;
 
 use i_slint_core::graphics::euclid::num::Zero;
 use i_slint_core::graphics::FontRequest;
-use i_slint_core::items::{TextHorizontalAlignment, TextVerticalAlignment};
+use i_slint_core::items::{TextHorizontalAlignment, TextVerticalAlignment, TextWrap};
 use i_slint_core::lengths::{LogicalLength, ScaleFactor};
 use i_slint_core::{items, Color};
 
@@ -99,13 +99,9 @@ pub fn create_layout(
 
     let mut style = skia_safe::textlayout::ParagraphStyle::new();
 
-    if overflow == items::TextOverflow::Elide {
+    if overflow == items::TextOverflow::Elide && wrap == items::TextWrap::NoWrap {
         style.set_ellipsis("…");
-        if wrap != items::TextWrap::NoWrap {
-            let metrics = text_style.font_metrics();
-            let line_height = metrics.descent - metrics.ascent + metrics.leading;
-            style.set_max_lines((max_height.get() / line_height).floor() as usize);
-        }
+        style.set_max_lines(0);
     }
 
     style.set_text_align(match h_align {
@@ -116,9 +112,78 @@ pub fn create_layout(
 
     style.set_text_style(&text_style);
 
+    let mut paragraph = build_layout(
+        text,
+        &style,
+        &text_style,
+        max_width,
+        h_align,
+        wrap,
+        overflow,
+        selection.clone(),
+    );
+
+    // When wrapping is enabled with overflow: elide, compute the correct max lines and re-layout to ensure that
+    // the elipsis is shown on the last line.
+    if overflow == items::TextOverflow::Elide
+        && wrap != items::TextWrap::NoWrap
+        && max_width.is_some()
+    {
+        let line_metrics = paragraph.get_line_metrics();
+        let mut max_lines = 0;
+        let mut height = 0.0;
+        while height < max_height.get() && max_lines < line_metrics.len() {
+            height += line_metrics[max_lines].height as f32;
+            max_lines += 1;
+        }
+        style.set_max_lines(max_lines);
+        style.set_ellipsis("…");
+        paragraph =
+            build_layout(text, &style, &text_style, max_width, h_align, wrap, overflow, selection);
+    }
+
+    let layout_height = PhysicalLength::new(paragraph.height());
+
+    let layout_top_y = match v_align {
+        i_slint_core::items::TextVerticalAlignment::Top => PhysicalLength::zero(),
+        i_slint_core::items::TextVerticalAlignment::Center => (max_height - layout_height) / 2.,
+        i_slint_core::items::TextVerticalAlignment::Bottom => max_height - layout_height,
+    };
+
+    let layout_top_x = if wrap == TextWrap::NoWrap {
+        // With no wrapping, the alignment is done against the layout width that's larger than the available width. Compensate for that
+        // by shifting rendering.
+        match h_align {
+            TextHorizontalAlignment::Left => PhysicalLength::zero(),
+            TextHorizontalAlignment::Center => {
+                let available_width = max_width.unwrap_or(PhysicalLength::new(f32::MAX));
+                (PhysicalLength::new(-paragraph.max_width()) + available_width) / 2.
+            }
+            TextHorizontalAlignment::Right => {
+                let available_width = max_width.unwrap_or(PhysicalLength::new(f32::MAX));
+                PhysicalLength::new(-paragraph.max_width()) + available_width
+            }
+        }
+    } else {
+        PhysicalLength::zero()
+    };
+
+    (paragraph, PhysicalPoint::from_lengths(layout_top_x, layout_top_y))
+}
+
+fn build_layout(
+    text: &str,
+    paragraph_style: &skia_safe::textlayout::ParagraphStyle,
+    text_style: &skia_safe::textlayout::TextStyle,
+    max_width: Option<PhysicalLength>,
+    h_align: items::TextHorizontalAlignment,
+    wrap: items::TextWrap,
+    overflow: items::TextOverflow,
+    selection: Option<&Selection>,
+) -> skia_safe::textlayout::Paragraph {
     let mut builder = FONT_CACHE.with(|font_cache| {
         skia_safe::textlayout::ParagraphBuilder::new(
-            &style,
+            &paragraph_style,
             font_cache.font_collection.borrow().clone(),
         )
     });
@@ -159,48 +224,22 @@ pub fn create_layout(
         builder.add_text(text);
     }
 
-    let no_wrap = wrap == items::TextWrap::NoWrap || overflow == items::TextOverflow::Elide;
-
     let mut paragraph = builder.build();
     paragraph.layout(
-        max_width.filter(|_| !no_wrap).map_or(f32::MAX, |physical_width| physical_width.get()),
+        max_width
+            .filter(|_| wrap != items::TextWrap::NoWrap || overflow == items::TextOverflow::Elide)
+            .map_or(f32::MAX, |physical_width| physical_width.get()),
     );
 
     // Layouting out with f32::max when wrapping is disabled, causes an overflow and breaks alignment compensation. Lay out again just wide enough
     // to fit the largest unwrapped line.
-    if no_wrap
+    if wrap == items::TextWrap::NoWrap
         && matches!(h_align, TextHorizontalAlignment::Right | TextHorizontalAlignment::Center)
     {
         paragraph.layout(paragraph.longest_line() + 1.);
     }
 
-    let layout_height = PhysicalLength::new(paragraph.height());
-
-    let layout_top_y = match v_align {
-        i_slint_core::items::TextVerticalAlignment::Top => PhysicalLength::zero(),
-        i_slint_core::items::TextVerticalAlignment::Center => (max_height - layout_height) / 2.,
-        i_slint_core::items::TextVerticalAlignment::Bottom => max_height - layout_height,
-    };
-
-    let layout_top_x = if no_wrap {
-        // With no wrapping, the alignment is done against the layout width that's larger than the available width. Compensate for that
-        // by shifting rendering.
-        match h_align {
-            TextHorizontalAlignment::Left => PhysicalLength::zero(),
-            TextHorizontalAlignment::Center => {
-                let available_width = max_width.unwrap_or(PhysicalLength::new(f32::MAX));
-                (PhysicalLength::new(-paragraph.max_width()) + available_width) / 2.
-            }
-            TextHorizontalAlignment::Right => {
-                let available_width = max_width.unwrap_or(PhysicalLength::new(f32::MAX));
-                PhysicalLength::new(-paragraph.max_width()) + available_width
-            }
-        }
-    } else {
-        PhysicalLength::zero()
-    };
-
-    (paragraph, PhysicalPoint::from_lengths(layout_top_x, layout_top_y))
+    paragraph
 }
 
 pub fn font_metrics(
