@@ -19,7 +19,7 @@ disable_backends = ["aqua"]
 "ubi:sharkdp/fd" = "10.2.0"
 "rust" = { version = "stable", profile = "default" }
 node = "20"
-pnpm = "10.11.1"
+pnpm = "10.14.0"
 taplo = "0.9.3"
 "ubi:drager/wasm-pack" = "0.13.1"
 
