@@ -31,7 +31,7 @@
     "jszip": "3.10.1",
     "shiki": "3.9.2",
     "typescript": "5.9.2",
-    "vite": "7.0.6",
+    "vite": "7.1.1",
     "vite-figma-plugin": "0.0.24",
     "vite-plugin-singlefile": "2.3.0",
     "vitest": "3.2.4"
