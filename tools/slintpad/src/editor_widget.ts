@@ -43,7 +43,7 @@ export function initialize(): Promise<void> {
         try {
             registerCustomProvider("slintpad", FILESYSTEM_PROVIDER);
 
-            initializeMonacoServices(
+            return initializeMonacoServices(
                 {
                     ...getConfigurationServiceOverride(),
                     ...getEditorServiceOverride(
@@ -174,7 +174,7 @@ export function initialize(): Promise<void> {
                 });
 
                 resolve();
-            });
+            }).catch(reject);
         } catch (e) {
             reject(e);
         }
