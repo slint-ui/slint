@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-//! Passe that collects the code from init callbacks from elements and moves it into the component's init_code.
+//! This pass collects the code from init callbacks from elements and moves it into the component's init_code.
 
 use std::rc::Rc;
 

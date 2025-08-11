@@ -3,10 +3,10 @@
 
 // cSpell: ignore tabwidget
 
-//! Passe lower the TabWidget to create the tabbar.
+//! This pass lowers the TabWidget to create the tabbar.
 //!
 //! Must be done before inlining and many other passes because the lowered code must
-//! be further inlined as it may expends to native widget that needs inlining
+//! be further inlined as it may expand to a native widget that needs inlining
 
 use crate::diagnostics::BuildDiagnostics;
 use crate::expression_tree::{BindingExpression, Expression, MinMaxOp, NamedReference, Unit};

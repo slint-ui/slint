@@ -869,7 +869,7 @@ pub struct LengthConversionPowers {
     pub px_to_phx_power: i8,
 }
 
-/// If the `Type::UnitProduct(a)` can be converted to `Type::UnitProduct(a)` by multiplying
+/// If the `Type::UnitProduct(a)` can be converted to `Type::UnitProduct(b)` by multiplying
 /// by the scale factor, return that scale factor, otherwise, return None
 pub fn unit_product_length_conversion(
     a: &[(Unit, i8)],
