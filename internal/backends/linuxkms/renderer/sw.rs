@@ -21,7 +21,7 @@ pub struct SoftwareRendererAdapter {
 const SOFTWARE_RENDER_SUPPORTED_DRM_FOURCC_FORMATS: &[drm::buffer::DrmFourcc] = &[
     // Preferred formats
     drm::buffer::DrmFourcc::Xrgb8888,
-    // drm::buffer::DrmFourcc::Argb8888,
+    drm::buffer::DrmFourcc::Argb8888,
     // drm::buffer::DrmFourcc::Bgra8888,
     // drm::buffer::DrmFourcc::Rgba8888,
 
@@ -160,7 +160,7 @@ impl crate::fullscreenwindowadapter::FullscreenRenderer for SoftwareRendererAdap
             });
 
             match format {
-                drm::buffer::DrmFourcc::Xrgb8888 => {
+                drm::buffer::DrmFourcc::Xrgb8888 | drm::buffer::DrmFourcc::Argb8888 => {
                     let buffer: &mut [DumbBufferPixelXrgb888] =
                         bytemuck::cast_slice_mut(pixels.as_mut());
                     self.renderer.render(buffer, self.size.width as usize);
