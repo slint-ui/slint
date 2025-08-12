@@ -10,7 +10,7 @@ import { WindowManager } from "../windowglobal.slint";
 
 
 export component ConsolePanel inherits SimpleColumn {
-    property <bool> panel-expanded: false;
+    in-out property <bool> panel-expanded: false;
 
     Rectangle {
         height: ConsoleStyles.header-height;
@@ -22,6 +22,7 @@ export component ConsolePanel inherits SimpleColumn {
             background: ConsoleStyles.divider-line;
             opacity: 50%;
         }
+
         Rectangle {
             y: parent.height - self.height;
             width: 100%;
@@ -55,6 +56,7 @@ export component ConsolePanel inherits SimpleColumn {
                     panel-expanded = true;
                 }
             }
+
             Rectangle {
                 x: 0;
                 y: parent.height - self.height;
@@ -62,7 +64,6 @@ export component ConsolePanel inherits SimpleColumn {
                 height: 1px;
                 background: ConsoleStyles.slint-blue;
                 opacity: lm-ta.has-hover ? 0.8 : 0;
-
             }
         }
 
@@ -144,6 +145,7 @@ export component ConsolePanel inherits SimpleColumn {
             }
         }
     }
+
     if panel-expanded: Rectangle {
         width: 100%;
         height: ConsoleStyles.header-height;
@@ -163,6 +165,7 @@ export component ConsolePanel inherits SimpleColumn {
                     }
                 }
             }
+
             Rectangle {
                 x: parent.width - self.width;
                 width: 1px;
@@ -181,12 +184,15 @@ export component ConsolePanel inherits SimpleColumn {
                 color: ConsoleStyles.text-color;
                 vertical-alignment: center;
             }
+
             Rectangle {
                 width: 6px;
             }
+
             Switch {
                 checked <=> Api.auto-clear-console;
             }
+
             Rectangle {
                 width: 10px;
             }
@@ -206,7 +212,7 @@ export component ConsolePanel inherits SimpleColumn {
 
         // Scroll to end workaround while this feature is missing from ScrollView
         property <int> timer-clicked: 0;
-        function scroll-to-bottom(){
+        function scroll-to-bottom() {
             lv.viewport-y = -100000px;
             timer-clicked = 0;
             scroll-timer.running = true;
@@ -246,6 +252,7 @@ export component ConsolePanel inherits SimpleColumn {
                     wrap: message.wrap;
                     visible: false;
                 }
+
                 message := TextInput {
                     x: 10px;
                     width: parent.width - 80px;

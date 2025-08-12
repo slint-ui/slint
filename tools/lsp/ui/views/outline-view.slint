@@ -2,12 +2,14 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { Palette, VerticalBox, ListView }  from "std-widgets.slint";
-import { ConsoleStyles, EditorSizeSettings, Icons, EditorFontSettings,  } from "../components/styling.slint";
+import { ConsoleStyles, EditorSizeSettings, Icons, EditorFontSettings, EditorSpaceSettings,  } from "../components/styling.slint";
 import { Api, OutlineTreeNode, DropLocation } from "../api.slint";
+import { IconButton } from "../components/icon-button.slint";
 
 export component OutlineView inherits VerticalLayout {
     property <[OutlineTreeNode]> outline-data <=> Api.outline;
     in property <bool> enabled <=> lv.enabled;
+    in-out property <bool> outline: false;
     Rectangle {
         height: ConsoleStyles.header-height;
         background: ConsoleStyles.header-background;
@@ -26,13 +28,25 @@ export component OutlineView inherits VerticalLayout {
             background: ConsoleStyles.divider-line;
         }
 
-        label := Text {
-            x: 10px;
-            horizontal-alignment: left;
-            color: ConsoleStyles.text-color;
-            font-family: "Inter";
-            font-size: 12px;
-            text: @tr("Outline");
+        HorizontalLayout {
+            alignment: space-between;
+            padding-left: EditorSpaceSettings.default-padding;
+            padding-right: EditorSpaceSettings.default-padding;
+            label := Text {
+                horizontal-alignment: left;
+                vertical-alignment: center;
+                color: ConsoleStyles.text-color;
+                font-family: "Inter";
+                font-size: 12px;
+                text: @tr("Outline");
+            }
+
+            IconButton {
+                icon: Icons.close;
+                clicked => {
+                    root.outline = false;
+                }
+            }
         }
     }
 

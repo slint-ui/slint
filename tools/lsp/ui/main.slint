@@ -3,7 +3,7 @@
 
 // cSpell: ignore Heade
 
-import { Button, TabWidget, Palette } from "std-widgets.slint";
+import { Button, TabWidget, Palette, Switch } from "std-widgets.slint";
 import { Api, ComponentItem, DiagnosticSummary } from "api.slint";
 
 import { EditorSizeSettings, EditorSpaceSettings, Icons, PickerStyles } from "./components/styling.slint";
@@ -39,6 +39,9 @@ export component PreviewUi inherits Window {
     property <bool> show-floating-table-editor <=> WindowManager.showing-table-editor;
     property <bool> show-color-stop-picker <=> WindowManager.showing-color-stop-picker;
     property <length> initial-floating-x;
+    in-out property <bool> panel-expanded: false;
+    property <bool> properties: true;
+    property <bool> outline: true;
 
     title: @tr("Slint Live-Preview");
     icon: @image-url("assets/slint-logo-small-light.png");
@@ -99,6 +102,48 @@ export component PreviewUi inherits Window {
         }
 
         if !Api.runs-in-slintpad: Menu {
+            title: @tr("View");
+
+            MenuItem {
+                title: @tr("Library");
+                activated => {
+                    root.show-left-sidebar = !root.show-left-sidebar;
+                }
+            }
+
+            MenuItem {
+                title: @tr("Properties");
+                activated => {
+                    root.show-right-sidebar = !root.show-right-sidebar;
+                    root.properties = true;
+                }
+            }
+
+            MenuItem {
+                title: @tr("Outline");
+                activated => {
+                    root.show-right-sidebar = true;
+                    root.outline = true;
+                }
+            }
+
+            MenuItem {
+                title: @tr("Data");
+                activated => {
+                    root.show-right-sidebar = !root.show-right-sidebar;
+                    root.properties = false;
+                }
+            }
+
+            MenuItem {
+                title: @tr("Console");
+                activated => {
+                    root.panel-expanded = !root.panel-expanded;
+                }
+            }
+        }
+
+        Menu {
             title: @tr("Window");
             MenuItem {
                 title: Api.always-on-top ? @tr("Remove from Top") : @tr("Keep on Top");
@@ -193,21 +238,43 @@ export component PreviewUi inherits Window {
                         }
 
                         VerticalLayout {
-                            tw := TabWidget {
+                            Rectangle {
+                                background: Palette.alternate-background;
+                                HorizontalLayout {
+                                    padding: EditorSpaceSettings.default-padding;
+                                    alignment: center;
+                                    spacing: EditorSpaceSettings.default-spacing;
+                                    Text {
+                                        text: "Current Component";
+                                    }
+
+                                    sw := Switch {
+                                        checked: !root.properties;
+                                        toggled => {
+                                            root.properties = !root.properties;
+                                        }
+                                    }
+
+                                    Text {
+                                        text: "Simulation Data";
+                                    }
+                                }
+                            }
+
+                            tw := Rectangle {
                                 width: EditorSizeSettings.property-bar-width - (EditorSpaceSettings.default-padding * 2);
-                                current-index: 0;
-                                Tab {
-                                    title: @tr("Properties");
-                                    if tw.current-index == 0: Rectangle {
-                                        property <float> ratio: 50%;
+                                Rectangle {
+                                    if root.properties: Rectangle {
+                                        property <float> ratio: 0.5;
                                         w1 := PropertyView {
                                             y: 0;
-                                            height: (parent.height - splitter.height) * ratio;
+                                            height: root.outline ? (parent.height - splitter.height) * ratio : parent.height;
                                             opacity: preview.preview-is-current ? 1.0 : 0.3;
                                             enabled: preview.preview-is-current;
                                         }
 
                                         splitter := TouchArea {
+                                            visible: root.outline;
                                             y: w1.height;
                                             height: 3px;
                                             moved => {
@@ -220,18 +287,18 @@ export component PreviewUi inherits Window {
                                             }
                                         }
 
-                                        w2 := OutlineView {
+                                        if root.outline:w2 := OutlineView {
                                             y: splitter.y + splitter.height;
                                             height: parent.height - self.y;
                                             opacity: preview.preview-is-current ? 1.0 : 0.3;
                                             enabled: preview.preview-is-current;
+                                            outline <=> root.outline;
                                         }
                                     }
                                 }
 
-                                preview_data_tab := Tab {
-                                    title: @tr("Data");
-                                    if tw.current-index == 1: PreviewDataView {
+                                Rectangle {
+                                    if !root.properties: PreviewDataView {
                                         opacity: preview.preview-is-current ? 1.0 : 0.3;
                                         enabled: preview.preview-is-current;
                                     }
@@ -241,7 +308,9 @@ export component PreviewUi inherits Window {
                     }
                 }
 
-                ConsolePanel { }
+                ConsolePanel {
+                    panel-expanded: root.panel-expanded;
+                }
 
                 StatusLine { }
             }
