@@ -875,6 +875,11 @@ pub fn unit_product_length_conversion(
     a: &[(Unit, i8)],
     b: &[(Unit, i8)],
 ) -> Option<LengthConversionPowers> {
+    // e.g. float to int conversion, no units
+    if a.is_empty() && b.is_empty() {
+        return Some(LengthConversionPowers { rem_to_px_power: 0, px_to_phx_power: 0 });
+    }
+
     let mut units = [0i8; 16];
     for (u, count) in a {
         units[*u as usize] += count;
@@ -910,6 +915,10 @@ pub fn unit_product_length_conversion(
 fn unit_product_length_conversion_test() {
     use Option::None;
     use Unit::*;
+    assert_eq!(
+        unit_product_length_conversion(&[], &[]),
+        Some(LengthConversionPowers { rem_to_px_power: 0, px_to_phx_power: 0 })
+    );
     assert_eq!(
         unit_product_length_conversion(&[(Px, 1)], &[(Phx, 1)]),
         Some(LengthConversionPowers { rem_to_px_power: 0, px_to_phx_power: -1 })
