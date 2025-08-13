@@ -3,6 +3,29 @@
 
 component TestPath inherits Path { }
 
+export component Triangle inherits Rectangle {
+    width: 200px;
+    height: 200px;
+    background: #333333;
+
+    property <bool> Expanded;
+
+    states [
+        DownArrow when Expanded: {
+            Arrow.commands: "M0,0.75L141.73,0L71.32,85.04L0,0.75z";
+        }
+        LeftArrow when !Expanded: {
+            Arrow.commands: "M84.29,0l0.75,141.73L0,71.32L84.29,0z";
+        }
+    ]
+
+    Arrow := Path {
+        width: 100px;
+        fill: #ffffff;
+        commands: "M0,0.75L141.73,0L71.32,85.04L0,0.75z";
+    }
+}
+
 export component TestCase inherits Window {
     TestPath {
         x: 0phx;
@@ -13,4 +36,6 @@ export component TestCase inherits Window {
         stroke: red;
         stroke_width: 2px;
     }
+
+    Triangle { }
 }
