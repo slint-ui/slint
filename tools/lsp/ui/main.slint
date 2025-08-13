@@ -40,7 +40,8 @@ export component PreviewUi inherits Window {
     property <bool> show-color-stop-picker <=> WindowManager.showing-color-stop-picker;
     property <length> initial-floating-x;
     in-out property <bool> panel-expanded: false;
-    property <bool> properties: true;
+    property <bool> properties-widget: false;
+    property <bool> data-widget: false;
     property <bool> outline: true;
 
     title: @tr("Slint Live-Preview");
@@ -102,6 +103,7 @@ export component PreviewUi inherits Window {
         }
 
         if !Api.runs-in-slintpad: Menu {
+        Menu {
             title: @tr("View");
 
             MenuItem {
@@ -114,24 +116,21 @@ export component PreviewUi inherits Window {
             MenuItem {
                 title: @tr("Properties");
                 activated => {
-                    root.show-right-sidebar = !root.show-right-sidebar;
-                    root.properties = true;
+                    root.properties-widget = !root.properties-widget;
                 }
             }
 
             MenuItem {
                 title: @tr("Outline");
                 activated => {
-                    root.show-right-sidebar = true;
-                    root.outline = true;
+                    root.outline = !root.outline;
                 }
             }
 
             MenuItem {
                 title: @tr("Data");
                 activated => {
-                    root.show-right-sidebar = !root.show-right-sidebar;
-                    root.properties = false;
+                    root.data-widget = !root.data-widget;
                 }
             }
 
@@ -164,14 +163,6 @@ export component PreviewUi inherits Window {
         }
     }
 
-    Button {
-        icon: Icons.sync;
-        colorize-icon: true;
-        clicked => {
-            Api.reload-preview();
-        }
-    }
-
     init => {
         WindowGlobal.window-width = self.width;
         WindowGlobal.window-height = self.height;
@@ -194,8 +185,18 @@ export component PreviewUi inherits Window {
             }
         }
         if Api.show-preview-ui: Rectangle {
+            Button {
+                icon: Icons.sync;
+                colorize-icon: true;
+                clicked => {
+                    Api.reload-preview();
+                }
+            }
+
             VerticalLayout {
                 header-view := HeaderView {
+                    vertical-stretch: 0;
+                    height: self.preferred-height;
                     show-left-sidebar <=> root.show-left-sidebar;
                     show-right-sidebar <=> root.show-right-sidebar;
 
@@ -216,6 +217,9 @@ export component PreviewUi inherits Window {
                 }
 
                 HorizontalLayout {
+                    vertical-stretch: 1;
+                    alignment: stretch;
+                    spacing: 0px;
                     if  root.show-left-sidebar: LibraryView {
                         known-components: Api.known-components;
 
@@ -228,10 +232,14 @@ export component PreviewUi inherits Window {
                     }
 
                     preview := PreviewView {
+                        // height: self.preferred-height;
                         visible-component <=> root.visible-component;
                     }
 
-                    if  root.show-right-sidebar: HorizontalLayout {
+                    tw := HorizontalLayout {
+                        spacing: 0px;
+                        property <float> ratio: 0.5;
+                        // width: EditorSizeSettings.property-bar-width - (EditorSpaceSettings.default-padding * 2);
                         Rectangle {
                             width: 4px;
                             background: @linear-gradient(90deg, #0000, #0002);
@@ -303,12 +311,60 @@ export component PreviewUi inherits Window {
                                         enabled: preview.preview-is-current;
                                     }
                                 }
+                            width: 3px;
+                            background: Palette.border;
+                        }
+
+                        if root.properties-widget:Rectangle {
+                            background: Palette.alternate-background;
+                            width: EditorSizeSettings.property-bar-width;
+
+                            w1 := PropertyView {
+                                y: 0;
+                                height: root.outline ? (parent.height - splitter.height) * ratio : parent.height;
+                                opacity: preview.preview-is-current ? 1.0 : 0.3;
+                                enabled: preview.preview-is-current;
+                            }
+
+                            splitter := TouchArea {
+                                visible: root.outline;
+                                y: w1.height;
+                                height: 3px;
+                                moved => {
+                                    ratio = Math.clamp((self.y + self.mouse-y - self.pressed-y) / (parent.height - splitter.height), 0, 1);
+                                }
+                                mouse-cursor: ns-resize;
+
+                                Rectangle {
+                                    background: Palette.border;
+                                }
+                            }
+
+                            if root.outline:w2 := OutlineView {
+                                width: EditorSizeSettings.property-bar-width;
+
+                                y: splitter.y + splitter.height;
+                                height: parent.height - self.y;
+                                opacity: preview.preview-is-current ? 1.0 : 0.3;
+                                enabled: preview.preview-is-current;
+                                outline <=> root.outline;
+                            }
+                        }
+
+                        if root.data-widget: Rectangle {
+                            background: Palette.alternate-background;
+                            width: EditorSizeSettings.property-bar-width;
+                            PreviewDataView {
+                                opacity: preview.preview-is-current ? 1.0 : 0.3;
+                                enabled: preview.preview-is-current;
                             }
                         }
                     }
                 }
 
                 ConsolePanel {
+                    vertical-stretch: 0;
+
                     panel-expanded: root.panel-expanded;
                 }
 
