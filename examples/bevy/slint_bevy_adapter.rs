@@ -147,7 +147,7 @@ pub async fn run_bevy_app_with_slint(
                     ..Default::default()
                 });
                 let texture_view_handle =
-                    bevy::render::camera::ManualTextureViewHandle(next_texture_view_id);
+                    bevy::camera::ManualTextureViewHandle(next_texture_view_id);
                 next_texture_view_id += 1;
                 {
                     let world = app.world_mut();
@@ -169,8 +169,7 @@ pub async fn run_bevy_app_with_slint(
                     );
                     let mut cameras = world.query::<&mut Camera>();
                     if let Some(mut c) = cameras.iter_mut(world).next() {
-                        c.target =
-                            bevy::render::camera::RenderTarget::TextureView(texture_view_handle);
+                        c.target = bevy::camera::RenderTarget::TextureView(texture_view_handle);
                     }
                 }
 

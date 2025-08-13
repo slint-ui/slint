@@ -21,8 +21,8 @@ path = "main.rs"
 [dependencies]
 slint = { path = "../../api/rs/slint", features = ["unstable-wgpu-26"] }
 spin_on = { version = "0.1" }
-bevy = { git = "https://github.com/bevyengine/bevy.git", rev = "e11a9e1167764235819b1803f629b40f9ac5131c", version = "0.17.0-dev", default-features = false, features = ["bevy_core_pipeline", "bevy_pbr", "bevy_window", "bevy_scene", "bevy_gltf", "bevy_log", "jpeg", "png", "tonemapping_luts", "multi_threaded"] }
-bevy_image = { git = "https://github.com/bevyengine/bevy.git", rev = "e11a9e1167764235819b1803f629b40f9ac5131c", version = "0.17.0-dev", features = ["zstd_rust"] }
+bevy = { git = "https://github.com/bevyengine/bevy.git", rev = "7fa4f740db158a4cda5fce96447ba7887f7f2884", version = "0.17.0-dev", default-features = false, features = ["bevy_core_pipeline", "bevy_pbr", "bevy_window", "bevy_scene", "bevy_gltf", "bevy_log", "jpeg", "png", "tonemapping_luts", "multi_threaded", "reflect_auto_register", "debug"] }
+bevy_image = { git = "https://github.com/bevyengine/bevy.git", rev = "7fa4f740db158a4cda5fce96447ba7887f7f2884", version = "0.17.0-dev", features = ["zstd_rust"] }
 smol = { version = "2.0.0" }
 async-compat = { version = "0.2.4" }
 reqwest = { version = "0.12", features = ["stream"] }
