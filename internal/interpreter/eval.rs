@@ -711,9 +711,9 @@ fn call_builtin_function(
 
             let context_menu_item = vtable::VRc::new(MenuFromItemTree::new(item_tree));
             let context_menu_item = vtable::VRc::into_dyn(context_menu_item);
-            if component
-                .access_window(|window| window.show_native_popup_menu(context_menu_item, position))
-            {
+            if component.access_window(|window| {
+                window.show_native_popup_menu(context_menu_item, position, &item_rc)
+            }) {
                 return Value::Void;
             }
 
