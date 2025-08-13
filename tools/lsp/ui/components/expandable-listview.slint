@@ -31,7 +31,7 @@ component HeaderItemTemplate {
         pressed: touch-area.pressed;
     }
 
-    content-layer := HorizontalBox {
+    content-layer := HorizontalLayout {
         icon-image := Image {
             width: EditorSizeSettings.default-icon-width;
             colorize: Palette.foreground;
@@ -49,7 +49,7 @@ component HeaderItemTemplate {
 
         BodyText {
             text: root.text;
-            opacity: 0.7;
+            opacity: 0.5;
         }
     }
 
@@ -137,7 +137,6 @@ export component ExpandableListView inherits ScrollView {
                     text: ci.name;
                     offset: header-item.offset;
                     height: self.min-height;
-
 
                     init() => {
                         root.visible-component = ci;

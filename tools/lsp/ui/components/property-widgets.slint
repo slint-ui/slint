@@ -6,6 +6,7 @@ import { StatusLineApi } from "../components/status-line.slint";
 import { EditorSpaceSettings } from "../components/styling.slint";
 
 import { BooleanWidget } from "./widgets/boolean-widget.slint";
+import { ConsoleStyles } from "./styling.slint";
 import { CodeWidget } from "./widgets/code-widget.slint";
 import { EnumWidget } from "./widgets/enum-widget.slint";
 import { FloatWidget } from "./widgets/float-widget.slint";
@@ -58,7 +59,6 @@ export component PropertyValueWidget inherits VerticalLayout {
         set-bool-binding(value) => {
             root.set-bool-binding(value);
         }
-
         update-display-string(value) => {
             root.update-display-string-impl(value);
         }
@@ -74,39 +74,33 @@ export component PropertyValueWidget inherits VerticalLayout {
         update-floating-editor() => {
             return root.set-current-item();
         }
-
         test-color-binding(text) => {
             return (root.test-color-binding(text));
         }
         set-color-binding(text) => {
             root.set-color-binding(text);
         }
-
         test-brush-binding(kind, angle, color, stops) => {
             return root.test-brush-binding(kind, angle, color, stops);
         }
         set-brush-binding(kind, angle, color, stops) => {
             root.set-brush-binding(kind, angle, color, stops);
         }
-
         update-display-string(value) => {
             root.update-display-string-impl(value);
         }
-
         reset-action() => {
             root.reset-action();
         }
         code-action() => {
             root.code-action();
         }
-
         init => {
             // Floating editors need to know the current property details. Call the update if something changes.
             if WindowManager.showing-color-picker && WindowManager.current-property-information.name == root.property-name {
                 self.update-floating-editor();
             }
         }
-
     }
 
     if root.property-value.kind == PropertyValueKind.code: CodeWidget {
@@ -117,7 +111,6 @@ export component PropertyValueWidget inherits VerticalLayout {
         update-display-string(value) => {
             root.update-display-string-impl(value);
         }
-
         reset-action() => {
             root.reset-action();
         }
@@ -134,7 +127,6 @@ export component PropertyValueWidget inherits VerticalLayout {
         set-enum-binding(text) => {
             root.set-enum-binding(text);
         }
-
         update-display-string(value) => {
             root.update-display-string-impl(value);
         }
@@ -151,7 +143,6 @@ export component PropertyValueWidget inherits VerticalLayout {
         set-float-binding(text, unit) => {
             root.set-float-binding(text, unit);
         }
-
         update-display-string(value) => {
             root.update-display-string-impl(value);
         }
@@ -168,7 +159,6 @@ export component PropertyValueWidget inherits VerticalLayout {
         set-integer-binding(text) => {
             root.set-code-binding(text);
         }
-
         update-display-string(value) => {
             root.update-display-string-impl(value);
         }
@@ -189,11 +179,9 @@ export component PropertyValueWidget inherits VerticalLayout {
         set-string-binding(text, is_translated) => {
             root.set-string-binding(text, is_translated);
         }
-
         update-display-string(value) => {
             root.update-display-string-impl(value);
         }
-
         reset-action() => {
             root.reset-action();
         }
@@ -219,7 +207,6 @@ export component PropertyInformationWidget inherits VerticalLayout {
         set-current-item() => {
             WindowManager.show-floating-widget(property-information, element-information);
         }
-
         set-bool-binding(value) => {
             self.set-code-binding(value ? "true" : "false");
         }
@@ -244,7 +231,6 @@ export component PropertyInformationWidget inherits VerticalLayout {
         set-float-binding(text, unit) => {
             self.set-code-binding(text + unit);
         }
-
         set-code-binding(text) => {
             Api.set-code-binding(
                 element-information.source-uri,
@@ -279,7 +265,6 @@ export component PropertyInformationWidget inherits VerticalLayout {
                 root.property-information.name,
                 text));
         }
-
         reset-action() => {
             Api.set-code-binding(
                 element-information.source-uri,

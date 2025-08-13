@@ -42,7 +42,9 @@ export component PreviewUi inherits Window {
     in-out property <bool> panel-expanded: false;
     property <bool> properties-widget: false;
     property <bool> data-widget: false;
-    property <bool> outline: true;
+    property <bool> outline-widget: false;
+    property <bool> library-widget: false;
+    in-out property <bool> select-mode: false;
 
     title: @tr("Slint Live-Preview");
     icon: @image-url("assets/slint-logo-small-light.png");
@@ -109,7 +111,7 @@ export component PreviewUi inherits Window {
             MenuItem {
                 title: @tr("Library");
                 activated => {
-                    root.show-left-sidebar = !root.show-left-sidebar;
+                    root.library-widget = !root.library-widget;
                 }
             }
 
@@ -123,12 +125,12 @@ export component PreviewUi inherits Window {
             MenuItem {
                 title: @tr("Outline");
                 activated => {
-                    root.outline = !root.outline;
+                    root.outline-widget = !root.outline-widget;
                 }
             }
 
             MenuItem {
-                title: @tr("Data");
+                title: @tr("Simulation Data");
                 activated => {
                     root.data-widget = !root.data-widget;
                 }
@@ -197,8 +199,6 @@ export component PreviewUi inherits Window {
                 header-view := HeaderView {
                     vertical-stretch: 0;
                     height: self.preferred-height;
-                    show-left-sidebar <=> root.show-left-sidebar;
-                    show-right-sidebar <=> root.show-right-sidebar;
 
                     current-style <=> Api.current-style;
                     known-styles <=> Api.known-styles;
@@ -220,8 +220,9 @@ export component PreviewUi inherits Window {
                     vertical-stretch: 1;
                     alignment: stretch;
                     spacing: 0px;
-                    if  root.show-left-sidebar: LibraryView {
+                    if  root.library-widget: LibraryView {
                         known-components: Api.known-components;
+                        library-visible <=> root.library-widget;
 
                         preview-area-is-current: preview.preview-is-current;
                         visible-component: root.visible-component;
@@ -315,19 +316,20 @@ export component PreviewUi inherits Window {
                             background: Palette.border;
                         }
 
-                        if root.properties-widget:Rectangle {
+                        if root.properties-widget || root.outline-widget: Rectangle {
                             background: Palette.alternate-background;
                             width: EditorSizeSettings.property-bar-width;
 
                             w1 := PropertyView {
                                 y: 0;
-                                height: root.outline ? (parent.height - splitter.height) * ratio : parent.height;
+                                height: root.outline-widget && root.properties-widget ? (parent.height - splitter.height) * ratio : root.outline-widget ? 0 : parent.height;
                                 opacity: preview.preview-is-current ? 1.0 : 0.3;
                                 enabled: preview.preview-is-current;
+                                properties-visible <=> root.properties-widget;
                             }
 
                             splitter := TouchArea {
-                                visible: root.outline;
+                                visible: root.properties-widget && root.outline-widget;
                                 y: w1.height;
                                 height: 3px;
                                 moved => {
@@ -340,14 +342,14 @@ export component PreviewUi inherits Window {
                                 }
                             }
 
-                            if root.outline:w2 := OutlineView {
+                            if root.outline-widget:w2 := OutlineView {
                                 width: EditorSizeSettings.property-bar-width;
 
                                 y: splitter.y + splitter.height;
                                 height: parent.height - self.y;
                                 opacity: preview.preview-is-current ? 1.0 : 0.3;
                                 enabled: preview.preview-is-current;
-                                outline <=> root.outline;
+                                outline <=> root.outline-widget;
                             }
                         }
 
@@ -355,6 +357,7 @@ export component PreviewUi inherits Window {
                             background: Palette.alternate-background;
                             width: EditorSizeSettings.property-bar-width;
                             PreviewDataView {
+                                data-visible <=> root.data-widget;
                                 opacity: preview.preview-is-current ? 1.0 : 0.3;
                                 enabled: preview.preview-is-current;
                             }
