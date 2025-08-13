@@ -6,9 +6,9 @@ use std::sync::Arc;
 
 use i_slint_core::renderer::Renderer;
 use i_slint_core::{graphics::RequestedGraphicsAPI, platform::PlatformError};
-use i_slint_renderer_femtovg::{
-    opengl, FemtoVGOpenGLRendererExt, FemtoVGRenderer, FemtoVGRendererExt,
-};
+#[cfg(supports_opengl)]
+use i_slint_renderer_femtovg::{opengl, FemtoVGOpenGLRendererExt};
+use i_slint_renderer_femtovg::{FemtoVGRenderer, FemtoVGRendererExt};
 
 use winit::event_loop::ActiveEventLoop;
 #[cfg(target_arch = "wasm32")]
@@ -16,13 +16,15 @@ use winit::platform::web::WindowExtWebSys;
 
 use super::WinitCompatibleRenderer;
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(supports_opengl, not(target_arch = "wasm32")))]
 mod glcontext;
 
+#[cfg(supports_opengl)]
 pub struct GlutinFemtoVGRenderer {
     renderer: FemtoVGRenderer<opengl::OpenGLBackend>,
 }
 
+#[cfg(supports_opengl)]
 impl GlutinFemtoVGRenderer {
     pub fn new_suspended(
         _shared_backend_data: &Rc<crate::SharedBackendData>,
@@ -31,6 +33,7 @@ impl GlutinFemtoVGRenderer {
     }
 }
 
+#[cfg(supports_opengl)]
 impl super::WinitCompatibleRenderer for GlutinFemtoVGRenderer {
     fn render(&self, _window: &i_slint_core::api::Window) -> Result<(), PlatformError> {
         self.renderer.render()
@@ -105,7 +108,7 @@ impl WinitCompatibleRenderer for WGPUFemtoVGRenderer {
         self.renderer.render()
     }
 
-    fn as_core_renderer(&self) -> &dyn i_slint_core::renderer::Renderer {
+    fn as_core_renderer(&self) -> &dyn Renderer {
         &self.renderer
     }
 
