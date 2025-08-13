@@ -101,14 +101,6 @@ pub async fn run_passes(
         keep_raw.then(|| crate::typeloader::snapshot_with_extra_doc(type_loader, doc).unwrap());
 
     collect_subcomponents::collect_subcomponents(doc);
-    doc.visit_all_used_components(|component| {
-        compile_paths::compile_paths(
-            component,
-            &doc.local_registry,
-            type_loader.compiler_config.embed_resources,
-            diag,
-        );
-    });
     lower_tabwidget::lower_tabwidget(doc, type_loader, diag).await;
     lower_menus::lower_menus(doc, type_loader, diag).await;
     lower_component_container::lower_component_container(doc, type_loader, diag);
@@ -123,6 +115,12 @@ pub async fn run_passes(
         );
         lower_states::lower_states(component, &doc.local_registry, diag);
         lower_text_input_interface::lower_text_input_interface(component);
+        compile_paths::compile_paths(
+            component,
+            &doc.local_registry,
+            type_loader.compiler_config.embed_resources,
+            diag,
+        );
         repeater_component::process_repeater_components(component);
         lower_popups::lower_popups(component, &doc.local_registry, diag);
         collect_init_code::collect_init_code(component);
