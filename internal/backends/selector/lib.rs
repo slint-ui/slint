@@ -117,7 +117,7 @@ cfg_if::cfg_if! {
             create_default_backend()
         }
         pub use default_backend::{
-            native_widgets, Backend, NativeGlobals, NativeWidgets, HAS_NATIVE_STYLE,
+            native_widgets, NativeGlobals, NativeWidgets, HAS_NATIVE_STYLE,
         };
     } else {
         pub fn create_backend() -> Result<Box<dyn Platform + 'static>, PlatformError> {
