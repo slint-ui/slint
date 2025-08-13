@@ -109,9 +109,14 @@ export component PreviewUi inherits Window {
             title: @tr("View");
 
             MenuItem {
-                title: @tr("Library");
+                title: @tr("Show Library");
                 activated => {
                     root.library-widget = !root.library-widget;
+                    if root.library-widget {
+                        self.title = @tr("Hide Library");
+                    } else {
+                        self.title = @tr("Show Library");
+                    }
                 }
             }
 
@@ -119,6 +124,11 @@ export component PreviewUi inherits Window {
                 title: @tr("Properties");
                 activated => {
                     root.properties-widget = !root.properties-widget;
+                    if root.properties-widget {
+                        self.title = @tr("Hide Properties");
+                    } else {
+                        self.title = @tr("Show Properties");
+                    }
                 }
             }
 
@@ -126,6 +136,11 @@ export component PreviewUi inherits Window {
                 title: @tr("Outline");
                 activated => {
                     root.outline-widget = !root.outline-widget;
+                    if root.outline-widget {
+                        self.title = @tr("Hide Outline");
+                    } else {
+                        self.title = @tr("Show Outline");
+                    }
                 }
             }
 
@@ -133,6 +148,11 @@ export component PreviewUi inherits Window {
                 title: @tr("Simulation Data");
                 activated => {
                     root.data-widget = !root.data-widget;
+                    if root.data-widget {
+                        self.title = @tr("Hide Simulation Data");
+                    } else {
+                        self.title = @tr("Show Simulation Data");
+                    }
                 }
             }
 
@@ -140,6 +160,11 @@ export component PreviewUi inherits Window {
                 title: @tr("Console");
                 activated => {
                     root.panel-expanded = !root.panel-expanded;
+                    if root.panel-expanded {
+                        self.title = @tr("Hide Console");
+                    } else {
+                        self.title = @tr("Show Console");
+                    }
                 }
             }
         }
