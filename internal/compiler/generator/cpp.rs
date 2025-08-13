@@ -3220,16 +3220,20 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                             unreachable!()
                         }
                     }.collect::<Vec<_>>();
-                    format!(
-                        r#"[&](){{
-                            slint::private_api::PathElement elements[{}] = {{
-                                {}
-                            }};
-                            return slint::private_api::PathData(&elements[0], std::size(elements));
-                        }}()"#,
-                        path_elements.len(),
-                        path_elements.join(",")
-                    )
+                    if !path_elements.is_empty() {
+                        format!(
+                            r#"[&](){{
+                                slint::private_api::PathElement elements[{}] = {{
+                                    {}
+                                }};
+                                return slint::private_api::PathData(&elements[0], std::size(elements));
+                            }}()"#,
+                            path_elements.len(),
+                            path_elements.join(",")
+                        )
+                    } else {
+                        "slint::private_api::PathData()".into()
+                    }
                 }
                 (Type::Struct { .. }, Type::PathData)
                     if matches!(
