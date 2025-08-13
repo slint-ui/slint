@@ -109,13 +109,13 @@ export component PreviewUi inherits Window {
             title: @tr("View");
 
             MenuItem {
-                title: @tr("Show Library");
+                title: @tr("Library");
                 activated => {
                     root.library-widget = !root.library-widget;
                     if root.library-widget {
                         self.title = @tr("Hide Library");
                     } else {
-                        self.title = @tr("Show Library");
+                        self.title = @tr("Library");
                     }
                 }
             }
@@ -127,7 +127,7 @@ export component PreviewUi inherits Window {
                     if root.properties-widget {
                         self.title = @tr("Hide Properties");
                     } else {
-                        self.title = @tr("Show Properties");
+                        self.title = @tr("Properties");
                     }
                 }
             }
@@ -139,7 +139,7 @@ export component PreviewUi inherits Window {
                     if root.outline-widget {
                         self.title = @tr("Hide Outline");
                     } else {
-                        self.title = @tr("Show Outline");
+                        self.title = @tr("Outline");
                     }
                 }
             }
@@ -151,7 +151,7 @@ export component PreviewUi inherits Window {
                     if root.data-widget {
                         self.title = @tr("Hide Simulation Data");
                     } else {
-                        self.title = @tr("Show Simulation Data");
+                        self.title = @tr("Simulation Data");
                     }
                 }
             }
