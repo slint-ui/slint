@@ -17,6 +17,7 @@ path = "lib.rs"
 
 [features]
 default = []
+opengl = []
 wgpu = ["wgpu-26"]
 wgpu-26 = ["dep:wgpu-26", "femtovg/wgpu", "i-slint-core/unstable-wgpu-26"]
 unstable-wgpu-26 = ["wgpu-26"]

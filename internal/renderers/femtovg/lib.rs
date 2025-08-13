@@ -36,6 +36,7 @@ use self::itemrenderer::CanvasRc;
 mod fonts;
 mod images;
 mod itemrenderer;
+#[cfg(feature = "opengl")]
 pub mod opengl;
 #[cfg(feature = "wgpu-26")]
 pub mod wgpu;
@@ -514,6 +515,7 @@ pub trait FemtoVGRendererExt {
 /// The purpose of this trait is to add internal API specific to the OpenGL renderer that's accessed from the winit
 /// backend. In this case, the ability to resume a suspended OpenGL renderer by providing a new context.
 #[doc(hidden)]
+#[cfg(feature = "opengl")]
 pub trait FemtoVGOpenGLRendererExt {
     fn set_opengl_context(
         &self,
@@ -585,6 +587,7 @@ impl<B: GraphicsBackend> FemtoVGRendererExt for FemtoVGRenderer<B> {
     }
 }
 
+#[cfg(feature = "opengl")]
 impl FemtoVGOpenGLRendererExt for FemtoVGRenderer<opengl::OpenGLBackend> {
     fn set_opengl_context(
         &self,
@@ -601,4 +604,5 @@ impl FemtoVGOpenGLRendererExt for FemtoVGRenderer<opengl::OpenGLBackend> {
     }
 }
 
+#[cfg(feature = "opengl")]
 pub type FemtoVGOpenGLRenderer = FemtoVGRenderer<opengl::OpenGLBackend>;

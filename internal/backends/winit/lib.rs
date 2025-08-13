@@ -101,7 +101,7 @@ mod xdg_color_scheme;
 pub(crate) mod wasm_input_helper;
 
 cfg_if::cfg_if! {
-    if #[cfg(feature = "renderer-femtovg")] {
+    if #[cfg(enable_femtovg_renderer)] {
         const DEFAULT_RENDERER_NAME: &str = "FemtoVG";
     } else if #[cfg(enable_skia_renderer)] {
         const DEFAULT_RENDERER_NAME: &'static str = "Skia";
@@ -143,6 +143,8 @@ fn try_create_window_with_fallback_renderer(
             feature = "renderer-skia-vulkan"
         ))]
         renderer::skia::WinitSkiaRenderer::new_suspended,
+        #[cfg(feature = "renderer-femtovg-wgpu")]
+        renderer::femtovg::WGPUFemtoVGRenderer::new_suspended,
         #[cfg(all(feature = "renderer-femtovg", supports_opengl))]
         renderer::femtovg::GlutinFemtoVGRenderer::new_suspended,
         #[cfg(feature = "renderer-software")]
@@ -368,10 +370,7 @@ impl BackendBuilder {
             self.renderer_name.as_deref(),
             self.requested_graphics_api.as_ref(),
         ) {
-            #[cfg(any(
-                all(feature = "renderer-femtovg", supports_opengl),
-                feature = "renderer-femtovg-wgpu"
-            ))]
+            #[cfg(all(feature = "renderer-femtovg", supports_opengl))]
             (Some("gl"), maybe_graphics_api) | (Some("femtovg"), maybe_graphics_api) => {
                 // If a graphics API was requested, double check that it's GL. FemtoVG doesn't support Metal, etc.
                 if let Some(api) = maybe_graphics_api {
