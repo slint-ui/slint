@@ -109,62 +109,37 @@ export component PreviewUi inherits Window {
             title: @tr("View");
 
             MenuItem {
-                title: @tr("Library");
+                title: root.library-widget ? @tr("Hide Library") : @tr("Library");
                 activated => {
                     root.library-widget = !root.library-widget;
-                    if root.library-widget {
-                        self.title = @tr("Hide Library");
-                    } else {
-                        self.title = @tr("Library");
-                    }
                 }
             }
 
             MenuItem {
-                title: @tr("Properties");
+                title: root.properties-widget ? @tr("Hide Properties") : @tr("Properties");
                 activated => {
                     root.properties-widget = !root.properties-widget;
-                    if root.properties-widget {
-                        self.title = @tr("Hide Properties");
-                    } else {
-                        self.title = @tr("Properties");
-                    }
                 }
             }
 
             MenuItem {
-                title: @tr("Outline");
+                title: root.outline-widget ? @tr("Hide Outline") : @tr("Outline");
                 activated => {
                     root.outline-widget = !root.outline-widget;
-                    if root.outline-widget {
-                        self.title = @tr("Hide Outline");
-                    } else {
-                        self.title = @tr("Outline");
-                    }
                 }
             }
 
             MenuItem {
-                title: @tr("Simulation Data");
+                title: root.data-widget ? @tr("Hide Simulation Data") : @tr("Simulation Data");
                 activated => {
                     root.data-widget = !root.data-widget;
-                    if root.data-widget {
-                        self.title = @tr("Hide Simulation Data");
-                    } else {
-                        self.title = @tr("Simulation Data");
-                    }
                 }
             }
 
             MenuItem {
-                title: @tr("Console");
+                title: root.panel-expanded ? @tr("Collapse Console") : @tr("Expand Console");
                 activated => {
                     root.panel-expanded = !root.panel-expanded;
-                    if root.panel-expanded {
-                        self.title = @tr("Hide Console");
-                    } else {
-                        self.title = @tr("Show Console");
-                    }
                 }
             }
         }
