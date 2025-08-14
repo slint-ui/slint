@@ -47,10 +47,34 @@ export component PreviewUi inherits Window {
     MenuBar {
         Menu {
             title: @tr("File");
+
+            if Api.runs-in-slintpad: Menu {
+                title: @tr("Open Demo");
+                for demo in Api.demos: MenuItem {
+                    title: demo.title;
+                    activated => {
+                        Api.load-demo(demo.url);
+                    }
+                }
+            }
+
+            MenuSeparator { }
+
             MenuItem {
                 title: @tr("Reload");
                 activated => {
                     Api.reload-preview();
+                }
+            }
+
+            if Api.runs-in-slintpad: Menu {
+                title: @tr("Share");
+
+                MenuItem {
+                    title: @tr("Copy Permalink to Clipboard");
+                    activated => {
+                        Api.share-permalink-to-clipboard();
+                    }
                 }
             }
         }
