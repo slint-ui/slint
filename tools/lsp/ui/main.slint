@@ -59,6 +59,7 @@ export component PreviewUi inherits Window {
             title: @tr("Edit");
             MenuItem {
                 title: @tr("Undo");
+                enabled: Api.undo-enabled;
                 activated => {
                     Api.undo();
                 }
@@ -66,6 +67,7 @@ export component PreviewUi inherits Window {
 
             MenuItem {
                 title: @tr("Redo");
+                enabled: Api.redo-enabled;
                 activated => {
                     Api.redo();
                 }
@@ -74,15 +76,10 @@ export component PreviewUi inherits Window {
 
         Menu {
             title: @tr("Window");
-            kot := MenuItem {
-                title: @tr("Keep on Top");
+            MenuItem {
+                title: Api.always-on-top ? @tr("Remove from Top") : @tr("Keep on Top");
                 activated => {
                     Api.always-on-top = !Api.always-on-top;
-                    if Api.always-on-top {
-                        kot.title = @tr("Remove from Top");
-                    } else {
-                        kot.title = @tr("Keep on Top");
-                    }
                 }
             }
         }
