@@ -96,7 +96,7 @@ export component PreviewUi inherits Window {
             }
         }
 
-        Menu {
+        if !Api.runs-in-slintpad: Menu {
             title: @tr("Window");
             kot := MenuItem {
                 title: @tr("Keep on Top");
