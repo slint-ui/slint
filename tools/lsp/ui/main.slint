@@ -107,6 +107,16 @@ export component PreviewUi inherits Window {
                 }
             }
         }
+
+        if Api.runs-in-slintpad: Menu {
+            title: @tr("Help");
+            MenuItem {
+                title: @tr("About");
+                activated => {
+                    Api.show-about-slint();
+                }
+            }
+        }
     }
 
     Button {

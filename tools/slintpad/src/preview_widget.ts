@@ -10,7 +10,7 @@ import type {
     Previewer,
     Lsp,
     ResourceUrlMapperFunction,
-    OpenDemoUrlFunction,
+    InvokeSlintpadCallback,
 } from "./lsp";
 
 const canvas_id = "canvas";
@@ -39,7 +39,7 @@ export class PreviewWidget extends Widget {
         lsp: Lsp,
         resource_url_mapper: ResourceUrlMapperFunction,
         style: string,
-        demo_url_opener: OpenDemoUrlFunction,
+        slintpad_callback: InvokeSlintpadCallback,
     ) {
         super({ node: PreviewWidget.createNode() });
 
@@ -51,7 +51,7 @@ export class PreviewWidget extends Widget {
         this.title.closable = true;
 
         void lsp
-            .previewer(resource_url_mapper, style, demo_url_opener)
+            .previewer(resource_url_mapper, style, slintpad_callback)
             .then((p) => {
                 this.#previewer = p;
 

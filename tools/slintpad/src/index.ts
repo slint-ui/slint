@@ -23,6 +23,8 @@ import {
 import { CommandRegistry } from "@lumino/commands";
 import { Menu, MenuBar, SplitPanel, Widget } from "@lumino/widgets";
 
+import { type InvokeSlintpadCallback, SlintPadCallbackFunction } from "./lsp";
+
 const lsp_waiter = new LspWaiter();
 
 const commands = new CommandRegistry();
@@ -36,8 +38,12 @@ function setup(lsp: Lsp) {
         lsp,
         (url: string) => editor.map_url(url),
         url_style ?? "",
-        (demo_url) => {
-            void editor.set_demo(demo_url);
+        (func_type, args) => {
+            if (func_type === SlintPadCallbackFunction.OpenDemoUrl) {
+                void editor.set_demo(args as string);
+            } else if (func_type === SlintPadCallbackFunction.ShowAbout) {
+                about_dialog();
+            }
         },
     );
 
