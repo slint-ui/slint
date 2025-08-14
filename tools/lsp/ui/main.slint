@@ -49,7 +49,18 @@ export component PreviewUi inherits Window {
     title: @tr("Slint Live-Preview");
     icon: @image-url("assets/slint-logo-small-light.png");
     always-on-top <=> Api.always-on-top;
-
+    init => {
+        WindowGlobal.window-width = self.width;
+        WindowGlobal.window-height = self.height;
+        initial-floating-x = (self.width - PickerStyles.picker-width - 350px).max(0);
+    }
+    changed width => {
+        WindowGlobal.window-width = self.width;
+        initial-floating-x = (self.width - PickerStyles.picker-width - 350px).max(0);
+    }
+    changed height => {
+        WindowGlobal.window-height = self.height;
+    }
     MenuBar {
         Menu {
             title: @tr("File");
@@ -72,15 +83,15 @@ export component PreviewUi inherits Window {
                     Api.reload-preview();
                 }
             }
+        }
 
-            if Api.runs-in-slintpad: Menu {
-                title: @tr("Share");
+        if Api.runs-in-slintpad: Menu {
+            title: @tr("Share");
 
-                MenuItem {
-                    title: @tr("Copy Permalink to Clipboard");
-                    activated => {
-                        Api.share-permalink-to-clipboard();
-                    }
+            MenuItem {
+                title: @tr("Copy Permalink to Clipboard");
+                activated => {
+                    Api.share-permalink-to-clipboard();
                 }
             }
         }
@@ -104,7 +115,6 @@ export component PreviewUi inherits Window {
             }
         }
 
-        if !Api.runs-in-slintpad: Menu {
         Menu {
             title: @tr("View");
 
@@ -144,7 +154,7 @@ export component PreviewUi inherits Window {
             }
         }
 
-        Menu {
+        if !Api.runs-in-slintpad: Menu {
             title: @tr("Window");
             MenuItem {
                 title: Api.always-on-top ? @tr("Remove from Top") : @tr("Keep on Top");
@@ -165,240 +175,138 @@ export component PreviewUi inherits Window {
         }
     }
 
-    init => {
-        WindowGlobal.window-width = self.width;
-        WindowGlobal.window-height = self.height;
-        initial-floating-x = (self.width - PickerStyles.picker-width - 350px).max(0);
-    }
-    changed width => {
-        WindowGlobal.window-width = self.width;
-        initial-floating-x = (self.width - PickerStyles.picker-width - 350px).max(0);
-    }
-    changed height => {
-        WindowGlobal.window-height = self.height;
-    }
-
     VerticalLayout {
-        if !Api.show-preview-ui: no-ui-drawing-rect := Rectangle {
-            VerticalLayout {
-                ComponentContainer {
-                    component-factory: Api.preview-area;
-                }
+        header-view := HeaderView {
+            vertical-stretch: 0;
+            height: self.preferred-height;
+
+            current-style <=> Api.current-style;
+            known-styles <=> Api.known-styles;
+            library-widget <=> root.library-widget;
+            properties-widget <=> root.properties-widget;
+            outline-widget <=> root.outline-widget;
+            data-widget <=> root.data-widget;
+
+            style-selected => {
+                Api.style-changed();
+            }
+            library-toggled(val) => {
+                root.library-widget = val;
+            }
+            outline-toggled(val) => {
+                root.outline-widget = val;
+            }
+            properties-toggled(val) => {
+                root.properties-widget = val;
+            }
+            simulator-toggled(val) => {
+                root.data-widget = val;
+            }
+            edit := Button {
+                icon: Icons.inspect;
+                colorize-icon: preview.select-mode ? false : true;
+                checkable: true;
+                checked <=> preview.select-mode;
+                primary: preview.select-mode;
+                enabled: preview.preview-is-current;
             }
         }
-        if Api.show-preview-ui: Rectangle {
-            Button {
-                icon: Icons.sync;
-                colorize-icon: true;
-                clicked => {
-                    Api.reload-preview();
+
+        HorizontalLayout {
+            vertical-stretch: 1;
+            spacing: 0px;
+            if  root.library-widget: LibraryView {
+                known-components: Api.known-components;
+                library-visible <=> root.library-widget;
+
+                preview-area-is-current: preview.preview-is-current;
+                visible-component: root.visible-component;
+
+                show-preview-for(name, defined-at) => {
+                    Api.show-preview-for(name, defined-at);
                 }
             }
 
-            VerticalLayout {
-                header-view := HeaderView {
-                    vertical-stretch: 0;
-                    height: self.preferred-height;
+            preview := PreviewView {
+                vertical-stretch: 1;
+                height: self.preferred-height;
+                visible-component <=> root.visible-component;
+            }
 
-                    current-style <=> Api.current-style;
-                    known-styles <=> Api.known-styles;
-                    library-widget <=> root.library-widget;
-                    properties-widget <=> root.properties-widget;
-                    outline-widget <=> root.outline-widget;
-                    data-widget <=> root.data-widget;
+            tw := HorizontalLayout {
+                spacing: 0px;
+                property <float> ratio: 0.5;
+                Rectangle {
+                    width: 2px;
+                    background: Palette.border;
+                }
 
-                    style-selected => {
-                        Api.style-changed();
+                property-outline := VerticalLayout {
+                    if root.properties-widget || root.outline-widget: Rectangle {
+                        background: Palette.alternate-background;
+                        width: EditorSizeSettings.property-bar-width;
+
+                        w1 := PropertyView {
+                            y: 0;
+                            height: root.outline-widget && root.properties-widget ? (parent.height - splitter.height) * ratio : root.outline-widget ? 0 : parent.height;
+                            opacity: preview.preview-is-current ? 1.0 : 0.3;
+                            enabled: preview.preview-is-current;
+                            properties-visible <=> root.properties-widget;
+                        }
+
+                        splitter := TouchArea {
+                            visible: root.properties-widget && root.outline-widget;
+                            y: w1.height;
+                            height: 3px;
+                            moved => {
+                                ratio = Math.clamp((self.y + self.mouse-y - self.pressed-y) / (parent.height - splitter.height), 0, 1);
+                            }
+                            mouse-cursor: ns-resize;
+
+                            Rectangle {
+                                background: Palette.border;
+                            }
+                        }
+
+                        if root.outline-widget:w2 := OutlineView {
+                            width: EditorSizeSettings.property-bar-width;
+
+                            y: splitter.y + splitter.height;
+                            height: parent.height - self.y;
+                            opacity: preview.preview-is-current ? 1.0 : 0.3;
+                            enabled: preview.preview-is-current;
+                            outline <=> root.outline-widget;
+                        }
                     }
-                    library-toggled(val) => {
-                        root.library-widget = val;
-                    }
-                    outline-toggled(val) => {
-                        root.outline-widget = val;
-                    }
-                    properties-toggled(val) => {
-                        root.properties-widget = val;
-                    }
-                    simulator-toggled(val) => {
-                        root.data-widget = val;
-                    }
-                    edit := Button {
-                        icon: Icons.inspect;
-                        colorize-icon: preview.select-mode ? false : true;
-                        checkable: true;
-                        checked <=> preview.select-mode;
-                        primary: preview.select-mode;
+                }
+
+                if root.data-widget: Rectangle {
+                    background: Palette.alternate-background;
+                    width: EditorSizeSettings.property-bar-width;
+
+                    PreviewDataView {
+                        data-visible <=> root.data-widget;
+                        opacity: preview.preview-is-current ? 1.0 : 0.3;
                         enabled: preview.preview-is-current;
                     }
-                }
 
-                HorizontalLayout {
-                    vertical-stretch: 1;
-                    alignment: stretch;
-                    spacing: 0px;
-                    if  root.library-widget: LibraryView {
-                        known-components: Api.known-components;
-                        library-visible <=> root.library-widget;
-
-                        preview-area-is-current: preview.preview-is-current;
-                        visible-component: root.visible-component;
-
-                        show-preview-for(name, defined-at) => {
-                            Api.show-preview-for(name, defined-at);
-                        }
-                    }
-
-                    preview := PreviewView {
-                        // height: self.preferred-height;
-                        visible-component <=> root.visible-component;
-                    }
-
-                    tw := HorizontalLayout {
-                        spacing: 0px;
-                        property <float> ratio: 0.5;
-                        // width: EditorSizeSettings.property-bar-width - (EditorSpaceSettings.default-padding * 2);
-                        Rectangle {
-                            width: 4px;
-                            background: @linear-gradient(90deg, #0000, #0002);
-                        }
-
-                        VerticalLayout {
-                            Rectangle {
-                                background: Palette.alternate-background;
-                                HorizontalLayout {
-                                    padding: EditorSpaceSettings.default-padding;
-                                    alignment: center;
-                                    spacing: EditorSpaceSettings.default-spacing;
-                                    Text {
-                                        text: "Current Component";
-                                    }
-
-                                    sw := Switch {
-                                        checked: !root.properties;
-                                        toggled => {
-                                            root.properties = !root.properties;
-                                        }
-                                    }
-
-                                    Text {
-                                        text: "Simulation Data";
-                                    }
-                                }
-                            }
-
-                            tw := Rectangle {
-                                width: EditorSizeSettings.property-bar-width - (EditorSpaceSettings.default-padding * 2);
-                                Rectangle {
-                                    if root.properties: Rectangle {
-                                        property <float> ratio: 0.5;
-                                        w1 := PropertyView {
-                                            y: 0;
-                                            height: root.outline ? (parent.height - splitter.height) * ratio : parent.height;
-                                            opacity: preview.preview-is-current ? 1.0 : 0.3;
-                                            enabled: preview.preview-is-current;
-                                        }
-
-                                        splitter := TouchArea {
-                                            visible: root.outline;
-                                            y: w1.height;
-                                            height: 3px;
-                                            moved => {
-                                                ratio = Math.clamp((self.y + self.mouse-y - self.pressed-y) / (parent.height - splitter.height), 0, 1);
-                                            }
-                                            mouse-cursor: ns-resize;
-
-                                            Rectangle {
-                                                background: Palette.border;
-                                            }
-                                        }
-
-                                        if root.outline:w2 := OutlineView {
-                                            y: splitter.y + splitter.height;
-                                            height: parent.height - self.y;
-                                            opacity: preview.preview-is-current ? 1.0 : 0.3;
-                                            enabled: preview.preview-is-current;
-                                            outline <=> root.outline;
-                                        }
-                                    }
-                                }
-
-                                Rectangle {
-                                    if !root.properties: PreviewDataView {
-                                        opacity: preview.preview-is-current ? 1.0 : 0.3;
-                                        enabled: preview.preview-is-current;
-                                    }
-                                }
-                            width: 3px;
-                            width: 2px;
-                            background: Palette.border;
-                        }
-
-                        if root.properties-widget || root.outline-widget: Rectangle {
-                            background: Palette.alternate-background;
-                            width: EditorSizeSettings.property-bar-width;
-
-                            w1 := PropertyView {
-                                y: 0;
-                                height: root.outline-widget && root.properties-widget ? (parent.height - splitter.height) * ratio : root.outline-widget ? 0 : parent.height;
-                                opacity: preview.preview-is-current ? 1.0 : 0.3;
-                                enabled: preview.preview-is-current;
-                                properties-visible <=> root.properties-widget;
-                            }
-
-                            splitter := TouchArea {
-                                visible: root.properties-widget && root.outline-widget;
-                                y: w1.height;
-                                height: 3px;
-                                moved => {
-                                    ratio = Math.clamp((self.y + self.mouse-y - self.pressed-y) / (parent.height - splitter.height), 0, 1);
-                                }
-                                mouse-cursor: ns-resize;
-
-                                Rectangle {
-                                    background: Palette.border;
-                                }
-                            }
-
-                            if root.outline-widget:w2 := OutlineView {
-                                width: EditorSizeSettings.property-bar-width;
-
-                                y: splitter.y + splitter.height;
-                                height: parent.height - self.y;
-                                opacity: preview.preview-is-current ? 1.0 : 0.3;
-                                enabled: preview.preview-is-current;
-                                outline <=> root.outline-widget;
-                            }
-                        }
-
-                        if root.data-widget: Rectangle {
-                            background: Palette.alternate-background;
-                            width: EditorSizeSettings.property-bar-width;
-
-                            PreviewDataView {
-                                data-visible <=> root.data-widget;
-                                opacity: preview.preview-is-current ? 1.0 : 0.3;
-                                enabled: preview.preview-is-current;
-                            }
-
-                            if root.properties-widget || root.outline-widget:     Rectangle {
-                                height: parent.height;
-                                width: 1px;
-                                background: Palette.border.transparentize(0.5);
-                                x: 0;
-                            }
-                        }
+                    if root.properties-widget || root.outline-widget:     Rectangle {
+                        height: parent.height;
+                        width: 1px;
+                        background: Palette.border.transparentize(0.5);
+                        x: 0;
                     }
                 }
-
-                ConsolePanel {
-                    vertical-stretch: 0;
-
-                    panel-expanded: root.panel-expanded;
-                }
-
-                StatusLine { }
             }
         }
+
+        ConsolePanel {
+            vertical-stretch: 0;
+
+            panel-expanded: root.panel-expanded;
+        }
+
+        StatusLine { }
     }
 
     if Api.diagnostic-summary == DiagnosticSummary.Errors: OutOfDateBox {
