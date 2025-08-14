@@ -9,7 +9,7 @@ Some convention used in the generated code:
  - `_self` is of type `Pin<&ComponentType>`  where ComponentType is the type of the generated sub component,
    this is existing for any evaluation of a binding
  - `self_rc` is of type `VRc<ItemTreeVTable, ComponentType>` or `Rc<ComponentType>` for globals
-   this is usually a local variable to the init code that shouldn't rbe relied upon by the binding code.
+   this is usually a local variable to the init code that shouldn't be relied upon by the binding code.
 */
 
 use crate::expression_tree::{BuiltinFunction, EasingCurve, MinMaxOp, OperatorClass};
@@ -1537,8 +1537,16 @@ fn generate_item_tree(
     };
 
     let parent_item_expression = parent_ctx.and_then(|parent| {
-        parent.repeater_index.map(|idx| {
-            let sub_component_offset = parent.ctx.current_sub_component().unwrap().repeated[idx].index_in_tree;
+        Some(parent.repeater_index.map_or_else(|| {
+            // No repeater index, this could be a PopupWindow
+            quote!(if let Some(parent_rc) = self.parent.clone().upgrade() {
+                       let parent_origin = sp::VRcMapped::origin(&parent_rc);
+                       // TODO: store popup index in ctx and set it here instead of 0?
+                       *_result = sp::ItemRc::new(parent_origin, 0).downgrade();
+                   })
+        }, |idx| {
+            let current_sub_component = parent.ctx.current_sub_component().unwrap();
+            let sub_component_offset = current_sub_component.repeated[idx].index_in_tree;
 
             quote!(if let Some((parent_component, parent_index)) = self
                 .parent
@@ -1549,7 +1557,7 @@ fn generate_item_tree(
                 *_result = sp::ItemRc::new(parent_component, parent_index + #sub_component_offset - 1)
                     .downgrade();
             })
-        })
+        }))
     });
     let mut item_tree_array = vec![];
     let mut item_array = vec![];
