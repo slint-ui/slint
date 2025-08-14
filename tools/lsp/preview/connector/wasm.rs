@@ -18,6 +18,7 @@ use wasm_bindgen::prelude::*;
 const CALLBACK_FUNCTION_SECTION: &'static str = r#"
 export type ResourceUrlMapperFunction = (url: string) => Promise<string | undefined>;
 export type SignalLspFunction = (data: any) => void;
+export type OpenDemoUrlFunction = (url: string) => void | undefined;
 "#;
 
 #[wasm_bindgen]
@@ -29,6 +30,9 @@ extern "C" {
 
     #[wasm_bindgen(typescript_type = "Promise<PreviewConnector>")]
     pub type PreviewConnectorPromise;
+
+    #[wasm_bindgen(typescript_type = "OpenDemoUrlFunction")]
+    pub type OpenDemoUrlFunction;
 }
 
 // We have conceptually two threads: The UI thread and the JS runtime, even though
@@ -38,6 +42,7 @@ extern "C" {
 struct WasmCallbacks {
     lsp_notifier: SignalLspFunction,
     resource_url_mapper: ResourceUrlMapperFunction,
+    demo_opener: OpenDemoUrlFunction,
 }
 thread_local! {static WASM_CALLBACKS: RefCell<Option<WasmCallbacks>> = Default::default();}
 
@@ -74,10 +79,11 @@ impl PreviewConnector {
         resource_url_mapper: ResourceUrlMapperFunction,
         style: String,
         experimental: bool,
+        demo_opener: OpenDemoUrlFunction,
     ) -> Result<PreviewConnectorPromise, JsValue> {
         console_error_panic_hook::set_once();
 
-        WASM_CALLBACKS.set(Some(WasmCallbacks { lsp_notifier, resource_url_mapper }));
+        WASM_CALLBACKS.set(Some(WasmCallbacks { lsp_notifier, resource_url_mapper, demo_opener }));
 
         Ok(JsValue::from(js_sys::Promise::new(&mut move |resolve, reject| {
             let resolve = send_wrapper::SendWrapper::new(resolve);
@@ -93,6 +99,16 @@ impl PreviewConnector {
                     } else {
                         match ui::create_ui(&to_lsp, &style, experimental) {
                             Ok(ui) => {
+                                let api = ui.global::<crate::preview::ui::Api>();
+
+                                api.set_runs_in_slintpad(true);
+                                api.on_share_permalink_to_clipboard(|| {
+                                    share_url_to_clipboard();
+                                });
+                                api.on_load_demo(move |url| {
+                                    open_demo_url(&url);
+                                });
+
                                 preview_state.borrow_mut().ui = Some(ui);
                                 *preview_state.borrow().to_lsp.borrow_mut() = Some(to_lsp);
 
@@ -249,4 +265,43 @@ impl common::PreviewToLsp for WasmPreviewToLsp {
             Ok(())
         })
     }
+}
+
+fn share_url_to_clipboard() {
+    let window = web_sys::window().unwrap();
+
+    let contents = preview::PREVIEW_STATE
+        .with_borrow(|preview_state| {
+            preview_state
+                .current_previewed_component
+                .as_ref()
+                .map(|component| component.url.clone())
+        })
+        .map(|url| crate::preview::get_url_from_cache(&url).1)
+        .unwrap_or_default();
+
+    let params = web_sys::UrlSearchParams::new().unwrap();
+    params.set("snippet", &contents);
+    params.set("style", &crate::preview::get_current_style());
+
+    let this_url =
+        web_sys::Url::new(&window.location().to_string().as_string().unwrap_or_default()).unwrap();
+    this_url.set_search(&params.to_string().as_string().unwrap_or_default());
+
+    let navigator = window.navigator();
+    let clipboard = navigator.clipboard();
+    let _ = clipboard.write_text(&this_url.to_string().as_string().unwrap_or_default());
+}
+
+fn open_demo_url(url: &str) {
+    WASM_CALLBACKS.with_borrow(|callbacks| {
+        let maybe_opener = wasm_bindgen::JsValue::from(
+            callbacks.as_ref().expect("Callbacks were set up earlier").demo_opener.clone(),
+        );
+        if !maybe_opener.is_function() {
+            return;
+        }
+        let opener = js_sys::Function::from(maybe_opener);
+        let _ = opener.call1(&JsValue::UNDEFINED, &wasm_bindgen::JsValue::from_str(&url));
+    });
 }
