@@ -101,14 +101,7 @@ impl PreviewConnector {
                             Ok(ui) => {
                                 let api = ui.global::<crate::preview::ui::Api>();
 
-                                api.set_runs_in_slintpad(true);
-                                api.on_share_permalink_to_clipboard(|| {
-                                    share_url_to_clipboard();
-                                });
-                                api.on_load_demo(move |url| {
-                                    open_demo_url(&url);
-                                });
-
+                                init_slintpad_specific_ui(&api);
                                 preview_state.borrow_mut().ui = Some(ui);
                                 *preview_state.borrow().to_lsp.borrow_mut() = Some(to_lsp);
 
@@ -265,6 +258,22 @@ impl common::PreviewToLsp for WasmPreviewToLsp {
             Ok(())
         })
     }
+}
+
+fn init_slintpad_specific_ui(api: &crate::preview::ui::Api) {
+    if !WASM_CALLBACKS.with_borrow(|callbacks| {
+        callbacks.as_ref().map_or(false, |cb| cb.demo_opener.is_function())
+    }) {
+        return;
+    }
+
+    api.set_runs_in_slintpad(true);
+    api.on_share_permalink_to_clipboard(|| {
+        share_url_to_clipboard();
+    });
+    api.on_load_demo(move |url| {
+        open_demo_url(&url);
+    });
 }
 
 fn share_url_to_clipboard() {
