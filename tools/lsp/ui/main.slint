@@ -329,6 +329,7 @@ export component PreviewUi inherits Window {
                                     }
                                 }
                             width: 3px;
+                            width: 2px;
                             background: Palette.border;
                         }
 
@@ -387,56 +388,57 @@ export component PreviewUi inherits Window {
                             }
                         }
                     }
-
-                    ConsolePanel {
-                        vertical-stretch: 0;
-
-                        panel-expanded: root.panel-expanded;
-                    }
-
-                    StatusLine { }
                 }
-            }
-        }
 
-        if Api.diagnostic-summary == DiagnosticSummary.Errors: OutOfDateBox {
-            x: (parent.width - self.width) / 2;
-            y: (parent.height / 10);
-        }
+                ConsolePanel {
+                    vertical-stretch: 0;
 
-        if show-floating-table-editor || show-color-stop-picker || show-floating-widget: TouchArea {
-            changed pressed => {
-                WindowManager.hide-floating-widget();
-            }
-        }
+                    panel-expanded: root.panel-expanded;
+                }
 
-        if show-floating-table-editor: TableEditorView {
-            init => {
-                self.initial-x = root.initial-floating-x;
-                self.initial-y = 50px;
-            }
-        }
-
-        if show-floating-widget: ColorPickerView {
-            init => {
-                self.initial-x = root.initial-floating-x;
-                self.initial-y = 50px;
-            }
-            close => {
-                WindowManager.hide-floating-color-widget();
-            }
-        }
-
-        if show-color-stop-picker: ColorPickerView {
-
-            color-stop-mode: true;
-
-            init => {
-                self.initial-x = root.initial-floating-x - 240px;
-                self.initial-y = 50px;
-            }
-            close => {
-                WindowManager.hide-color-stop-picker();
+                StatusLine { }
             }
         }
     }
+
+    if Api.diagnostic-summary == DiagnosticSummary.Errors: OutOfDateBox {
+        x: (parent.width - self.width) / 2;
+        y: (parent.height / 10);
+    }
+
+    if show-floating-table-editor || show-color-stop-picker || show-floating-widget: TouchArea {
+        changed pressed => {
+            WindowManager.hide-floating-widget();
+        }
+    }
+
+    if show-floating-table-editor: TableEditorView {
+        init => {
+            self.initial-x = root.initial-floating-x;
+            self.initial-y = 50px;
+        }
+    }
+
+    if show-floating-widget: ColorPickerView {
+        init => {
+            self.initial-x = root.initial-floating-x;
+            self.initial-y = 50px;
+        }
+        close => {
+            WindowManager.hide-floating-color-widget();
+        }
+    }
+
+    if show-color-stop-picker: ColorPickerView {
+
+        color-stop-mode: true;
+
+        init => {
+            self.initial-x = root.initial-floating-x - 240px;
+            self.initial-y = 50px;
+        }
+        close => {
+            WindowManager.hide-color-stop-picker();
+        }
+    }
+}
