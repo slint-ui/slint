@@ -1325,7 +1325,7 @@ impl WindowItem {
         }
     }
 
-    pub fn resolve_font_property<T>(
+    fn resolve_font_property<T>(
         self_rc: &ItemRc,
         property_fn: impl Fn(Pin<&Self>) -> Option<T>,
     ) -> Option<T> {
@@ -1366,7 +1366,7 @@ impl WindowItem {
                 if !local_font_family.is_empty() {
                     Some(local_font_family)
                 } else {
-                    crate::items::WindowItem::resolve_font_property(
+                    Self::resolve_font_property(
                         &window_item_rc,
                         crate::items::WindowItem::font_family,
                     )
@@ -1374,7 +1374,7 @@ impl WindowItem {
             },
             weight: {
                 if local_font_weight == 0 {
-                    crate::items::WindowItem::resolve_font_property(
+                    Self::resolve_font_property(
                         &window_item_rc,
                         crate::items::WindowItem::font_weight,
                     )
@@ -1384,7 +1384,7 @@ impl WindowItem {
             },
             pixel_size: {
                 if local_font_size.get() == 0 as Coord {
-                    crate::items::WindowItem::resolve_font_property(
+                    Self::resolve_font_property(
                         &window_item_rc,
                         crate::items::WindowItem::font_size,
                     )
