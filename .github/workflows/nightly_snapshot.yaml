@@ -602,7 +602,7 @@ jobs:
                   args: zip -r artifacts/slint-viewer-windows-x86_64-pc-windows-msvc.zip slint-viewer
             - uses: montudor/action-zip@v1
               with:
-                  args: zip -r artifacts/slint-lsp-windowsx86_64-pc-windows-msvc.zip slint-lsp
+                  args: zip -r artifacts/slint-lsp-windows-x86_64-pc-windows-msvc.zip slint-lsp
             - uses: actions/checkout@v4
               with:
                 path: "slint-src"
