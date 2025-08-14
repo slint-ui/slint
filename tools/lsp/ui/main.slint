@@ -202,9 +202,25 @@ export component PreviewUi inherits Window {
 
                     current-style <=> Api.current-style;
                     known-styles <=> Api.known-styles;
+                    library-widget <=> root.library-widget;
+                    properties-widget <=> root.properties-widget;
+                    outline-widget <=> root.outline-widget;
+                    data-widget <=> root.data-widget;
 
                     style-selected => {
                         Api.style-changed();
+                    }
+                    library-toggled(val) => {
+                        root.library-widget = val;
+                    }
+                    outline-toggled(val) => {
+                        root.outline-widget = val;
+                    }
+                    properties-toggled(val) => {
+                        root.properties-widget = val;
+                    }
+                    simulator-toggled(val) => {
+                        root.data-widget = val;
                     }
                     edit := Button {
                         icon: Icons.inspect;
@@ -356,64 +372,71 @@ export component PreviewUi inherits Window {
                         if root.data-widget: Rectangle {
                             background: Palette.alternate-background;
                             width: EditorSizeSettings.property-bar-width;
+
                             PreviewDataView {
                                 data-visible <=> root.data-widget;
                                 opacity: preview.preview-is-current ? 1.0 : 0.3;
                                 enabled: preview.preview-is-current;
                             }
+
+                            if root.properties-widget || root.outline-widget:     Rectangle {
+                                height: parent.height;
+                                width: 1px;
+                                background: Palette.border.transparentize(0.5);
+                                x: 0;
+                            }
                         }
                     }
+
+                    ConsolePanel {
+                        vertical-stretch: 0;
+
+                        panel-expanded: root.panel-expanded;
+                    }
+
+                    StatusLine { }
                 }
+            }
+        }
 
-                ConsolePanel {
-                    vertical-stretch: 0;
+        if Api.diagnostic-summary == DiagnosticSummary.Errors: OutOfDateBox {
+            x: (parent.width - self.width) / 2;
+            y: (parent.height / 10);
+        }
 
-                    panel-expanded: root.panel-expanded;
-                }
+        if show-floating-table-editor || show-color-stop-picker || show-floating-widget: TouchArea {
+            changed pressed => {
+                WindowManager.hide-floating-widget();
+            }
+        }
 
-                StatusLine { }
+        if show-floating-table-editor: TableEditorView {
+            init => {
+                self.initial-x = root.initial-floating-x;
+                self.initial-y = 50px;
+            }
+        }
+
+        if show-floating-widget: ColorPickerView {
+            init => {
+                self.initial-x = root.initial-floating-x;
+                self.initial-y = 50px;
+            }
+            close => {
+                WindowManager.hide-floating-color-widget();
+            }
+        }
+
+        if show-color-stop-picker: ColorPickerView {
+
+            color-stop-mode: true;
+
+            init => {
+                self.initial-x = root.initial-floating-x - 240px;
+                self.initial-y = 50px;
+            }
+            close => {
+                WindowManager.hide-color-stop-picker();
             }
         }
     }
-
-    if Api.diagnostic-summary == DiagnosticSummary.Errors: OutOfDateBox {
-        x: (parent.width - self.width) / 2;
-        y: (parent.height / 10);
-    }
-
-    if show-floating-table-editor || show-color-stop-picker || show-floating-widget: TouchArea {
-        changed pressed => {
-            WindowManager.hide-floating-widget();
-        }
-    }
-
-    if show-floating-table-editor: TableEditorView {
-        init => {
-            self.initial-x = root.initial-floating-x;
-            self.initial-y = 50px;
-        }
-    }
-
-    if show-floating-widget: ColorPickerView {
-        init => {
-            self.initial-x = root.initial-floating-x;
-            self.initial-y = 50px;
-        }
-        close => {
-            WindowManager.hide-floating-color-widget();
-        }
-    }
-
-    if show-color-stop-picker: ColorPickerView {
-
-        color-stop-mode: true;
-
-        init => {
-            self.initial-x = root.initial-floating-x - 240px;
-            self.initial-y = 50px;
-        }
-        close => {
-            WindowManager.hide-color-stop-picker();
-        }
-    }
-}

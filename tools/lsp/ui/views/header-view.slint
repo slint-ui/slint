@@ -12,9 +12,17 @@ export component HeaderView {
     in-out property <bool> edit-mode <=> interaction-switch.checked;
     in-out property <string> current-style <=> style-combobox.current-value;
     in property <[string]> known-styles <=> style-combobox.model;
+    in-out property <bool> library-widget <=> shortcut-library.checked;
+    in-out property <bool> properties-widget <=> shortcut-properties.checked;
+    in-out property <bool> outline-widget <=> shortcut-outline.checked;
+    in-out property <bool> data-widget <=> shortcut-simulator-data.checked;
 
     callback style-selected();
     callback edit-mode-toggled();
+    callback library-toggled(bool);
+    callback properties-toggled(bool);
+    callback outline-toggled(bool);
+    callback simulator-toggled(bool);
 
     background-layer := Rectangle {
         background: Palette.alternate-background;
@@ -71,6 +79,51 @@ export component HeaderView {
                 }
 
                 @children
+                HorizontalLayout {
+                    shortcut-library := Button {
+                        horizontal-stretch: 0;
+                        checkable: true;
+                        icon: Icons.library;
+                        colorize-icon: true;
+                        clicked => {
+                            root.library-toggled(self.checked);
+                            library-widget = self.checked;
+                        }
+                    }
+
+                    shortcut-properties := Button {
+                        horizontal-stretch: 0;
+                        checkable: true;
+                        icon: Icons.properties;
+                        colorize-icon: true;
+                        clicked => {
+                            root.properties-toggled(self.checked);
+                            properties-widget = self.checked;
+                        }
+                    }
+
+                    shortcut-outline := Button {
+                        horizontal-stretch: 0;
+                        checkable: true;
+                        icon: Icons.outline;
+                        colorize-icon: true;
+                        clicked => {
+                            root.outline-toggled(self.checked);
+                            outline-widget = self.checked;
+                        }
+                    }
+
+                    shortcut-simulator-data := Button {
+                        horizontal-stretch: 0;
+                        checkable: true;
+                        icon: Icons.simulator;
+                        colorize-icon: true;
+                        clicked => {
+                            root.simulator-toggled(self.checked);
+                            data-widget = self.checked;
+                        }
+                    }
+                }
             }
 
             HorizontalLayout {

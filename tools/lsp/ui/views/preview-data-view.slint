@@ -17,8 +17,9 @@ export component PreviewDataView inherits Rectangle {
     in-out property <bool> data-visible: true;
     in-out property <bool> enabled <=> sv.enabled;
     clip: true;
+
     sv := ScrollView {
-        x: - 2px;
+        x: - 3px;
         content-layer := VerticalLayout {
             alignment: start;
             padding: 0px;
@@ -121,12 +122,6 @@ export component PreviewDataView inherits Rectangle {
                     }
                 }
             }
-        }
-
-        Rectangle {
-            x: 0;
-            width: 1px;
-            background: Palette.border;
         }
     }
 }
