@@ -591,18 +591,14 @@ jobs:
                   mv slint-viewer-armv7-unknown-linux-gnueabihf.tar.gz artifacts/
                   mv slint-viewer-aarch64-unknown-linux-gnu.tar.gz artifacts/
                   mv slint-viewer-macos.tar.gz artifacts/
+                  mv slint-viewer-windows*.zip artifacts/
                   mv slint-lsp-linux.tar.gz artifacts/
                   mv slint-lsp-armv7-unknown-linux-gnueabihf.tar.gz artifacts/
                   mv slint-lsp-aarch64-unknown-linux-gnu.tar.gz artifacts/
                   mv slint-lsp-macos.tar.gz artifacts/
+                  mv slint-lsp-windows*.zip artifacts/
                   mv slint-compiler-*.tar.gz artifacts/
                   mv figma-plugin.zip artifacts/
-            - uses: montudor/action-zip@v1
-              with:
-                  args: zip -r artifacts/slint-viewer-windows-x86_64-pc-windows-msvc.zip slint-viewer
-            - uses: montudor/action-zip@v1
-              with:
-                  args: zip -r artifacts/slint-lsp-windowsx86_64-pc-windows-msvc.zip slint-lsp
             - uses: actions/checkout@v4
               with:
                 path: "slint-src"
