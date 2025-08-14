@@ -68,6 +68,13 @@ If a property's value is later changed using an imperative assignment in code (e
 From that point on, the property will no longer react to changes in the values it was previously bound to.
 If needed, the property can still be updated again later through another assignment, but the automatic reactivity is lost.
 
+This behavior also applies to most built-in `in-out` properties, such as the `text` property of a `TextInput`.
+When the user interacts with the widget, for example by typing into the input,
+this is considered an imperative assignment that will break any existing binding to that property.
+
+To maintain reactivity in such cases, you can use a two-way binding (`<=>`),
+or you can make use of the `changed` callback to track and respond to property updates.
+
 ## Performance
 
 From a performance perspective, Slint works out what properties are changed. It then finds all the expressions
