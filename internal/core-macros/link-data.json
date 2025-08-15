@@ -47,6 +47,9 @@
     "EnumType": {
         "href": "reference/global-structs-enums/"
     },
+    "EventResult": {
+        "href": "reference/global-structs-enums/#eventresult"
+    },
     "Expressions": {
         "href": "guide/language/coding/expressions-and-statements/"
     },
