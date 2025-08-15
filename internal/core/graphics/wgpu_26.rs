@@ -149,7 +149,63 @@ pub mod api {
 
 use super::RequestedGraphicsAPI;
 
-/// Internal help function to initialize the wgpu instance/adapter/device/queue from either scratch or
+/// Internal helper function see if there are any GPU adapters for hardware accelerated rendering.
+/// This is used to determine if we should fall back to software rendering (instead of using WGPU
+/// software rendering, such as DX12's Warp adapter)
+pub fn any_wgpu26_adapters_with_gpu(requested_graphics_api: Option<RequestedGraphicsAPI>) -> bool {
+    let (instance, backends) = match requested_graphics_api {
+        Some(RequestedGraphicsAPI::WGPU26(api::WGPUConfiguration::Manual { instance, .. })) => {
+            (instance, wgpu::Backends::all())
+        }
+        Some(RequestedGraphicsAPI::WGPU26(api::WGPUConfiguration::Automatic(wgpu26_settings))) => {
+            if cfg!(target_family = "wasm") {
+                return true;
+            }
+            (
+                wgpu::Instance::new(&wgpu::InstanceDescriptor {
+                    backends: wgpu26_settings.backends,
+                    flags: wgpu26_settings.instance_flags,
+                    backend_options: wgpu26_settings.backend_options,
+                    memory_budget_thresholds: wgpu26_settings.instance_memory_budget_thresholds,
+                }),
+                wgpu26_settings.backends,
+            )
+        }
+        None => {
+            if cfg!(target_family = "wasm") {
+                return true;
+            }
+
+            let backends = wgpu::Backends::from_env().unwrap_or_default();
+            let dx12_shader_compiler = wgpu::Dx12Compiler::from_env().unwrap_or_default();
+            let gles_minor_version = wgpu::Gles3MinorVersion::from_env().unwrap_or_default();
+
+            (
+                wgpu::Instance::new(&wgpu::InstanceDescriptor {
+                    backends,
+                    flags: wgpu::InstanceFlags::from_build_config().with_env(),
+                    backend_options: wgpu::BackendOptions {
+                        dx12: wgpu::Dx12BackendOptions { shader_compiler: dx12_shader_compiler },
+                        gl: wgpu::GlBackendOptions {
+                            gles_minor_version,
+                            fence_behavior: wgpu::GlFenceBehavior::default(),
+                        },
+                        noop: wgpu::NoopBackendOptions::default(),
+                    },
+                    memory_budget_thresholds: wgpu::MemoryBudgetThresholds::default(),
+                }),
+                backends,
+            )
+        }
+        Some(_) => return false,
+    };
+    instance
+        .enumerate_adapters(backends)
+        .into_iter()
+        .any(|adapter| adapter.get_info().device_type != wgpu::DeviceType::Cpu)
+}
+
+/// Internal helper function to initialize the wgpu instance/adapter/device/queue from either scratch or
 /// developer-provided config. This is called by any renderer intending to support WGPU.
 pub fn init_instance_adapter_device_queue_surface(
     window_handle: Box<dyn wgpu::WindowHandle + 'static>,

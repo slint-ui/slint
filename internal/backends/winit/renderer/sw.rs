@@ -5,10 +5,10 @@
 
 use core::num::NonZeroU32;
 use core::ops::DerefMut;
+use i_slint_core::graphics::Rgb8Pixel;
 use i_slint_core::platform::PlatformError;
 pub use i_slint_core::software_renderer::SoftwareRenderer;
 use i_slint_core::software_renderer::{PremultipliedRgbaColor, RepaintBufferType, TargetPixel};
-use i_slint_core::{graphics::RequestedGraphicsAPI, graphics::Rgb8Pixel};
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -180,7 +180,6 @@ impl super::WinitCompatibleRenderer for WinitSoftwareRenderer {
         &self,
         active_event_loop: &ActiveEventLoop,
         window_attributes: winit::window::WindowAttributes,
-        _requested_graphics_api: Option<RequestedGraphicsAPI>,
     ) -> Result<Arc<winit::window::Window>, PlatformError> {
         let winit_window =
             active_event_loop.create_window(window_attributes).map_err(|winit_os_error| {

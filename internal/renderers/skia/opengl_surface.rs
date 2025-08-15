@@ -39,7 +39,7 @@ impl super::Surface for OpenGLSurface {
             window_handle,
             display_handle,
             size,
-            requested_graphics_api.map(TryInto::try_into).transpose()?,
+            requested_graphics_api.as_ref().map(TryInto::try_into).transpose()?,
             glutin::config::ConfigTemplateBuilder::new(),
             None,
         )
