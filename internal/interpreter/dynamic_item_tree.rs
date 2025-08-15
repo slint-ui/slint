@@ -2462,7 +2462,7 @@ pub fn close_popup(
 pub fn make_menu_item_tree(
     menu_item_tree: &Rc<object_tree::Component>,
     enclosing_component: &InstanceRef,
-) -> MenuFromItemTree {
+) -> vtable::VRc<i_slint_core::menus::MenuVTable, MenuFromItemTree> {
     generativity::make_guard!(guard);
     let mit_compiled = generate_item_tree(
         menu_item_tree,
@@ -2479,7 +2479,7 @@ pub fn make_menu_item_tree(
         Default::default(),
     );
     mit_inst.run_setup_code();
-    MenuFromItemTree::new(vtable::VRc::into_dyn(mit_inst))
+    vtable::VRc::new(MenuFromItemTree::new(vtable::VRc::into_dyn(mit_inst)))
 }
 
 pub fn update_timers(instance: InstanceRef) {

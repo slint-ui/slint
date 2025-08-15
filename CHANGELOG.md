@@ -9,9 +9,16 @@ All notable changes to this project are documented in this file.
 
  - winit: Fixed the maximize window not being disabled for fixed-size windows
  - winit: Added support for timer based frame throttling (#8826)
- - Switched from WGPU24 to WGPU25
+ - Fixed Windows native menu bar in fullscreen mode
+ - Switched from WGPU24 to WGPU26
  - Qt: Fixed default-font-size not working with PopupWindow
  - LinuxKMS: Added support for overriding the default framebuffer interface selection
+ - LinuxKMS: Added support for a wide range of framebuffer formats
+ - Skia: Fixed no-wrap still wrapping text (#7080)
+ - software renderer: Add radial gradient support (#8980)
+ - software renderer: Fix rendering of the Qt style (#9006)
+ - Native context menu on Windows
+ - Fixed gradient rendering bugs (#9030, #7909)
 
 ### Slint Language
 
@@ -19,16 +26,29 @@ All notable changes to this project are documented in this file.
  - Added local variable with `let` (#2752)
  - Added icon property to MenuItem and Menu
  - Flickable forward wheel event in a orthogonal direction to their parent
- - Add a compiler warning when using `padding` outside of layout (#6288)
+ - Added a compiler warning when using `padding` outside of layout (#6288)
+ - Added stop(), start(), and restart() methods to Timer (#8821)
+ - Added `focus-policy` property to `FocusScope` (#8940)
+ - `Dialog` and `Window` that aren't top-level now draw their background
+ - Fixed menu separator not always being visible
+ - `FocusScope`: Added `capture_key_pressed` and `capture_key_released` callbacks
+ - Added support for `@conic-gradient` (#9021)
+
+### Widgets
+
+ - LineEdits now show a clear icon (when not empty)
+ - LineEdits with "input-type: password" now feature an icon to toggle password visibility
 
 ### Rust
 
  - Minimum Supported Rust Version (MSRV) is 1.85
- - Upgraded WGPU dependency to version 25: The `unstable-wgpu-25` Cargo feature replaces the old `unstable-wgpu-24` feature,
-   and the `slint::wgpu_25` module replaces the `slint::wgpu_24` module. There were no further changes to the API.
+ - Upgraded WGPU dependency to version 26: The `unstable-wgpu-26` Cargo feature replaces the old `unstable-wgpu-24` feature,
+   and the `slint::wgpu_26` module replaces the `slint::wgpu_24` module. There were no further changes to the API.
  - Fixed compilation of generated code if the slint code declares a type named `core`
  - Support for live-reload with the `slint/live-reload` feature and `SLINT_LIVE_RELOAD` env variable
-
+ - winit: Added API to await for the existence of the winit window
+ - Added `FromIterator<char>` and `Extend<char>` for `SharedString`
+ - Added `SharedVector::reserve()`
 
 ### C++
 
@@ -43,14 +63,17 @@ All notable changes to this project are documented in this file.
 ### Python
 
  - Added support for automatically mapping exported Slint enums to property Python `enum.Enum` subclasses.
+ - Add support for creating slint.Image objects from arrays (#9014)
  - ...
 
 ### Tooling
 
  - lsp: allow to rename functions and callbacks
+ - live-preview: Move the preview in a separate process
+ - live-preview: allow dropping in a `ListView` by adding a `for` loop
+ - live-preview: Added an "Outline" panel
+ - live-preview: Fixed highlighted elements not following items
  - slint-compiler: Guess default output format from file extension
-
-
 
 ## [1.12.1] - 2025-06-25
 

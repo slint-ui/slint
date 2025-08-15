@@ -89,13 +89,17 @@ jobs:
                   cd ..
                   cd tools\${{ github.event.inputs.program || inputs.program }}
                   bash -x ../../scripts/prepare_binary_package.sh ..\..\pkg\slint-${{ github.event.inputs.program || inputs.program }}
-
+            - name: Create archive
+              shell: powershell
+              run: |
+                  cd pkg
+                  Compress-Archive -Path slint-${{ github.event.inputs.program || inputs.program }}\* -Destination ..\slint-${{ github.event.inputs.program || inputs.program }}-windows-${{ matrix.package_suffix }}.zip
             - name: Upload artifact
               uses: actions/upload-artifact@v4
               with:
                   name: slint-${{ github.event.inputs.program || inputs.program }}-windows-${{ matrix.package_suffix }}
                   path: |
-                      pkg
+                      slint-${{ github.event.inputs.program || inputs.program }}-windows-${{ matrix.package_suffix }}.zip
 
     build_linux:
         runs-on: ubuntu-22.04

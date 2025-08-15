@@ -171,10 +171,10 @@ jobs:
             - uses: actions/checkout@v4
               with:
                   path: "src"
-            - uses: actions/download-artifact@v4
+            - uses: actions/download-artifact@v5
               with:
                   name: vscode-lsp-binary-x86_64-apple-darwin
-            - uses: actions/download-artifact@v4
+            - uses: actions/download-artifact@v5
               with:
                   name: vscode-lsp-binary-aarch64-apple-darwin
                   path: bin
@@ -242,33 +242,33 @@ jobs:
             - uses: actions/checkout@v4
             - uses: pnpm/action-setup@v4.1.0
               with:
-                version: 10.11.0
+                version: 10.14.0
             - name: Install GNU Sed
               run: brew install gnu-sed
             - uses: actions/setup-node@v4
               with:
                   node-version: 20
-            - uses: actions/download-artifact@v4
+            - uses: actions/download-artifact@v5
               with:
                   name: vscode-lsp-binary-x86_64-unknown-linux-gnu
                   path: editors/vscode/bin
-            - uses: actions/download-artifact@v4
+            - uses: actions/download-artifact@v5
               with:
                   name: vscode-lsp-binary-x86_64-pc-windows-msvc
                   path: editors/vscode/bin
-            - uses: actions/download-artifact@v4
+            - uses: actions/download-artifact@v5
               with:
                   name: vscode-lsp-binary-aarch64-pc-windows-msvc
                   path: editors/vscode/bin
-            - uses: actions/download-artifact@v4
+            - uses: actions/download-artifact@v5
               with:
                   name: vscode-lsp-binary-darwin
                   path: editors/vscode/bin
-            - uses: actions/download-artifact@v4
+            - uses: actions/download-artifact@v5
               with:
                   name: vscode-lsp-binary-armv7-unknown-linux-gnueabihf
                   path: editors/vscode/bin
-            - uses: actions/download-artifact@v4
+            - uses: actions/download-artifact@v5
               with:
                   name: vscode-lsp-binary-aarch64-unknown-linux-gnu
                   path: editors/vscode/bin
@@ -328,7 +328,7 @@ jobs:
               id: node-install
             - uses: pnpm/action-setup@v4.1.0
               with:
-                version: 10.11.0
+                version: 10.14.0
             - name: Run pnpm install
               working-directory: tools/figma-inspector
               run: pnpm install --frozen-lockfile
@@ -363,20 +363,20 @@ jobs:
         needs: [docs, wasm_demo, wasm, check-for-secrets, android]
         runs-on: ubuntu-22.04
         steps:
-            - uses: actions/download-artifact@v4
+            - uses: actions/download-artifact@v5
               with:
                   name: docs
-            - uses: actions/download-artifact@v4
+            - uses: actions/download-artifact@v5
               with:
                   name: slintpad
                   path: slintpad
-            - uses: actions/download-artifact@v4
+            - uses: actions/download-artifact@v5
               with:
                   name: wasm
-            - uses: actions/download-artifact@v4
+            - uses: actions/download-artifact@v5
               with:
                   name: wasm_demo
-            - uses: actions/download-artifact@v4
+            - uses: actions/download-artifact@v5
               with:
                   name: android-demo
                   path: android
@@ -558,27 +558,27 @@ jobs:
         permissions:
             contents: write
         steps:
-            - uses: actions/download-artifact@v4
+            - uses: actions/download-artifact@v5
               with:
                   pattern: cpp_bin-*
                   merge-multiple: true
-            - uses: actions/download-artifact@v4
+            - uses: actions/download-artifact@v5
               with:
                   pattern: cpp_mcu_bin-*
                   merge-multiple: true
-            - uses: actions/download-artifact@v4
+            - uses: actions/download-artifact@v5
               with:
                   pattern: slint-compiler-bin-*
                   merge-multiple: true
-            - uses: actions/download-artifact@v4
+            - uses: actions/download-artifact@v5
               with:
                   pattern: slint-viewer-*
                   merge-multiple: true
-            - uses: actions/download-artifact@v4
+            - uses: actions/download-artifact@v5
               with:
                   pattern: slint-lsp-*
                   merge-multiple: true
-            - uses: actions/download-artifact@v4
+            - uses: actions/download-artifact@v5
               with:
                   name: figma-plugin
             - name: Extract files
@@ -591,18 +591,14 @@ jobs:
                   mv slint-viewer-armv7-unknown-linux-gnueabihf.tar.gz artifacts/
                   mv slint-viewer-aarch64-unknown-linux-gnu.tar.gz artifacts/
                   mv slint-viewer-macos.tar.gz artifacts/
+                  mv slint-viewer-windows*.zip artifacts/
                   mv slint-lsp-linux.tar.gz artifacts/
                   mv slint-lsp-armv7-unknown-linux-gnueabihf.tar.gz artifacts/
                   mv slint-lsp-aarch64-unknown-linux-gnu.tar.gz artifacts/
                   mv slint-lsp-macos.tar.gz artifacts/
+                  mv slint-lsp-windows*.zip artifacts/
                   mv slint-compiler-*.tar.gz artifacts/
                   mv figma-plugin.zip artifacts/
-            - uses: montudor/action-zip@v1
-              with:
-                  args: zip -r artifacts/slint-viewer-windows-x86_64-pc-windows-msvc.zip slint-viewer
-            - uses: montudor/action-zip@v1
-              with:
-                  args: zip -r artifacts/slint-lsp-windowsx86_64-pc-windows-msvc.zip slint-lsp
             - uses: actions/checkout@v4
               with:
                 path: "slint-src"

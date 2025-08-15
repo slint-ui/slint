@@ -44,12 +44,94 @@ export component PreviewUi inherits Window {
     icon: @image-url("assets/slint-logo-small-light.png");
     always-on-top <=> Api.always-on-top;
 
+    MenuBar {
+        Menu {
+            title: @tr("File");
+
+            if Api.runs-in-slintpad: Menu {
+                title: @tr("Open Demo");
+                for demo in Api.demos: MenuItem {
+                    title: demo.title;
+                    activated => {
+                        Api.load-demo(demo.url);
+                    }
+                }
+            }
+
+            MenuSeparator { }
+
+            MenuItem {
+                title: @tr("Reload");
+                activated => {
+                    Api.reload-preview();
+                }
+            }
+
+            if Api.runs-in-slintpad: Menu {
+                title: @tr("Share");
+
+                MenuItem {
+                    title: @tr("Copy Permalink to Clipboard");
+                    activated => {
+                        Api.share-permalink-to-clipboard();
+                    }
+                }
+            }
+        }
+
+        Menu {
+            title: @tr("Edit");
+            MenuItem {
+                title: @tr("Undo");
+                enabled: Api.undo-enabled;
+                activated => {
+                    Api.undo();
+                }
+            }
+
+            MenuItem {
+                title: @tr("Redo");
+                enabled: Api.redo-enabled;
+                activated => {
+                    Api.redo();
+                }
+            }
+        }
+
+        if !Api.runs-in-slintpad: Menu {
+            title: @tr("Window");
+            MenuItem {
+                title: Api.always-on-top ? @tr("Remove from Top") : @tr("Keep on Top");
+                activated => {
+                    Api.always-on-top = !Api.always-on-top;
+                }
+            }
+        }
+
+        if Api.runs-in-slintpad: Menu {
+            title: @tr("Help");
+            MenuItem {
+                title: @tr("About");
+                activated => {
+                    Api.show-about-slint();
+                }
+            }
+        }
+    }
+
+    Button {
+        icon: Icons.sync;
+        colorize-icon: true;
+        clicked => {
+            Api.reload-preview();
+        }
+    }
+
     init => {
         WindowGlobal.window-width = self.width;
         WindowGlobal.window-height = self.height;
         initial-floating-x = (self.width - PickerStyles.picker-width - 350px).max(0);
     }
-
     changed width => {
         WindowGlobal.window-width = self.width;
         initial-floating-x = (self.width - PickerStyles.picker-width - 350px).max(0);
@@ -78,7 +160,6 @@ export component PreviewUi inherits Window {
                     style-selected => {
                         Api.style-changed();
                     }
-
                     edit := Button {
                         icon: Icons.inspect;
                         colorize-icon: preview.select-mode ? false : true;
@@ -110,9 +191,10 @@ export component PreviewUi inherits Window {
                             width: 4px;
                             background: @linear-gradient(90deg, #0000, #0002);
                         }
+
                         VerticalLayout {
                             tw := TabWidget {
-                                width: EditorSizeSettings.property-bar-width - (EditorSpaceSettings.default-padding*2);
+                                width: EditorSizeSettings.property-bar-width - (EditorSpaceSettings.default-padding * 2);
                                 current-index: 0;
                                 Tab {
                                     title: @tr("Properties");
@@ -154,13 +236,11 @@ export component PreviewUi inherits Window {
                                         enabled: preview.preview-is-current;
                                     }
                                 }
-
-
                             }
                         }
                     }
-
                 }
+
                 ConsolePanel { }
 
                 StatusLine { }
@@ -186,7 +266,6 @@ export component PreviewUi inherits Window {
         }
     }
 
-
     if show-floating-widget: ColorPickerView {
         init => {
             self.initial-x = root.initial-floating-x;
@@ -209,5 +288,4 @@ export component PreviewUi inherits Window {
             WindowManager.hide-color-stop-picker();
         }
     }
-
 }

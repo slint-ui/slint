@@ -83,10 +83,9 @@ export component LineEdit {
                 horizontal-stretch: 1;
             }
 
-            LineEditClearIcon {
+            if !root.text.is-empty && root.input-type != InputType.password && root.enabled && !root.read-only: LineEditClearIcon {
                 width: self.source.width * 1px;
                 text: base.text;
-                visible: !root.text.is-empty && root.input-type != InputType.password && root.enabled && !root.read-only;
                 source: @image-url("_edit_clear_symbolic.svg");
                 colorize: base.text-color;
                 clear => {

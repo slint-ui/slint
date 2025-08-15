@@ -446,9 +446,9 @@ mod compile_fail_tests;
 #[cfg(doc)]
 pub mod docs;
 
-#[cfg(feature = "unstable-wgpu-25")]
-pub mod wgpu_25 {
-    //! WGPU 25.x specific types and re-exports.
+#[cfg(feature = "unstable-wgpu-26")]
+pub mod wgpu_26 {
+    //! WGPU 26.x specific types and re-exports.
     //!
     //! *Note*: This module is behind a feature flag and may be removed or changed in future minor releases,
     //!         as new major WGPU releases become available.
@@ -456,12 +456,12 @@ pub mod wgpu_25 {
     //! Use the types in this module in combination with other APIs to integrate external, WGPU-based rendering engines
     //! into a UI with Slint.
     //!
-    //! First, ensure that WGPU is used for rendering with Slint by using [`slint::BackendSelector::require_wgpu_25()`](i_slint_backend_selector::api::BackendSelector::require_wgpu_25()).
+    //! First, ensure that WGPU is used for rendering with Slint by using [`slint::BackendSelector::require_wgpu_26()`](i_slint_backend_selector::api::BackendSelector::require_wgpu_26()).
     //! This function accepts a pre-configured WGPU setup or configuration hints such as required features or memory limits.
     //!
     //! For rendering, it's crucial that you're using the same [`wgpu::Device`] and [`wgpu::Queue`] for allocating textures or submitting commands as Slint. Obtain the same queue
     //! by either using [`WGPUConfiguration::Manual`] to make Slint use an existing WGPU configuration, or use [`slint::Window::set_rendering_notifier()`](i_slint_core::api::Window::set_rendering_notifier())
-    //! to let Slint invoke a callback that provides access device, queue, etc. in [`slint::GraphicsAPI::WGPU25`](i_slint_core::api::GraphicsAPI::WGPU25).
+    //! to let Slint invoke a callback that provides access device, queue, etc. in [`slint::GraphicsAPI::WGPU26`](i_slint_core::api::GraphicsAPI::WGPU26).
     //!
     //! To integrate rendering content into a scene shared with a Slint UI, use either [`slint::Window::set_rendering_notifier()`](i_slint_core::api::Window::set_rendering_notifier()) to render an underlay
     //! or overlay, or integrate externally produced [`wgpu::Texture`]s using [`slint::Image::try_from<wgpu::Texture>()`](i_slint_core::graphics::Image::try_from).
@@ -470,13 +470,13 @@ pub mod wgpu_25 {
     //!
     //! `Cargo.toml`:
     //! ```toml
-    //! slint = { version = "~1.13", features = ["unstable-wgpu-25"] }
+    //! slint = { version = "~1.13", features = ["unstable-wgpu-26"] }
     //! ```
     //!
     //! `main.rs`:
     //!```rust,no_run
     //!
-    //! use slint::wgpu_25::wgpu;
+    //! use slint::wgpu_26::wgpu;
     //! use wgpu::util::DeviceExt;
     //!
     //!slint::slint!{
@@ -495,14 +495,14 @@ pub mod wgpu_25 {
     //!}
     //!fn main() -> Result<(), Box<dyn std::error::Error>> {
     //!    slint::BackendSelector::new()
-    //!        .require_wgpu_25(slint::wgpu_25::WGPUConfiguration::default())
+    //!        .require_wgpu_26(slint::wgpu_26::WGPUConfiguration::default())
     //!        .select()?;
     //!    let app = HelloWorld::new()?;
     //!
     //!    let app_weak = app.as_weak();
     //!
     //!    app.window().set_rendering_notifier(move |state, graphics_api| {
-    //!        let (Some(app), slint::RenderingState::RenderingSetup, slint::GraphicsAPI::WGPU25{ device, queue, ..}) = (app_weak.upgrade(), state, graphics_api) else {
+    //!        let (Some(app), slint::RenderingState::RenderingSetup, slint::GraphicsAPI::WGPU26{ device, queue, ..}) = (app_weak.upgrade(), state, graphics_api) else {
     //!            return;
     //!        };
     //!
@@ -540,7 +540,7 @@ pub mod wgpu_25 {
     //!}
     //!```
     //!
-    pub use i_slint_core::graphics::wgpu_25::*;
+    pub use i_slint_core::graphics::wgpu_26::api::*;
 }
 
 #[cfg(feature = "unstable-winit-030")]
@@ -604,6 +604,7 @@ pub mod winit_030 {
     //! and [`BackendSelector::with_winit_window_attributes_hook()`](crate::BackendSelector::with_winit_window_attributes_hook()).
 
     pub use i_slint_backend_winit::{
-        winit, EventLoopBuilder, SlintEvent, WinitWindowAccessor, WinitWindowEventResult,
+        winit, CustomApplicationHandler, EventLoopBuilder, SlintEvent, WinitWindowAccessor,
+        WinitWindowEventResult,
     };
 }

@@ -147,6 +147,7 @@ pub fn create_ui(
     palette::setup(&ui);
     recent_colors::setup(&ui);
     super::outline::setup(&ui);
+    super::undo_redo::setup(&ui);
 
     #[cfg(target_vendor = "apple")]
     api.set_control_key_name("command".into());

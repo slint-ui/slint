@@ -199,9 +199,9 @@ backend-android-activity-05 = [
 ## in your `Cargo.toml` when enabling this feature:
 ##
 ## ```toml
-## slint = { version = "~1.13", features = ["unstable-wgpu-25"] }
+## slint = { version = "~1.13", features = ["unstable-wgpu-26"] }
 ## ```
-unstable-wgpu-25 = ["i-slint-core/unstable-wgpu-25", "i-slint-backend-selector/unstable-wgpu-25", "dep:wgpu-25"]
+unstable-wgpu-26 = ["i-slint-core/unstable-wgpu-26", "i-slint-backend-selector/unstable-wgpu-26", "dep:wgpu-26"]
 
 ## APIs guarded with this feature are *NOT* subject to the usual Slint API stability guarantees, because winit releases new major
 ## versions more frequently than Slint. This feature as well as the APIs changed or removed in future minor releases of Slint, likely to be replaced
@@ -214,6 +214,20 @@ unstable-wgpu-25 = ["i-slint-core/unstable-wgpu-25", "i-slint-backend-selector/u
 ## slint = { version = "~1.12", features = ["unstable-winit-030"] }
 ## ```
 unstable-winit-030 = ["backend-winit", "dep:i-slint-backend-winit", "i-slint-backend-selector/unstable-winit-030"]
+
+
+## Enable support for exposing [libinput](https://docs.rs/input/latest/input/index.html) related APIs in the LinuxKMS backend.
+##
+## APIs guarded with this feature are *NOT* subject to the usual Slint API stability guarantees. This feature as well as the APIs changed or removed
+## in future minor releases of Slint, likely to be replaced by a feature with a similar name but the input version suffix being bumped.
+##
+## To avoid unintended compilation failures, we recommend to use the [tilde requirement](https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html#tilde-requirements)
+## in your `Cargo.toml` when enabling this feature:
+##
+## ```toml
+## slint = { version = "~1.13", features = ["unstable-input-09"] }
+## ```
+unstable-input-09 = ["i-slint-backend-selector/unstable-input-09"]
 
 [dependencies]
 i-slint-core = { workspace = true }
@@ -236,7 +250,7 @@ raw-window-handle-06 = { workspace = true, optional = true }
 
 unicode-segmentation = { workspace = true }
 
-wgpu-25 = { workspace = true, optional = true }
+wgpu-26 = { workspace = true, optional = true }
 
 i-slint-backend-winit = { workspace = true, optional = true }
 
@@ -271,7 +285,8 @@ features = [
   "renderer-software",
   "renderer-femtovg",
   "raw-window-handle-06",
-  "unstable-wgpu-25",
+  "unstable-wgpu-26",
   "unstable-winit-030",
+  "unstable-input-09",
 ]
 rustdoc-args = ["--generate-link-to-definition"]

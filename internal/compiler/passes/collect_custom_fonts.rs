@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-//! Passes that fills the root component used_global
+//! This pass extends the init code with font registration
 
 use crate::{
     expression_tree::{BuiltinFunction, Expression, Unit},
@@ -10,7 +10,6 @@ use crate::{
 use smol_str::SmolStr;
 use std::collections::BTreeSet;
 
-/// Fill the root_component's used_globals
 pub fn collect_custom_fonts<'a>(
     doc: &Document,
     all_docs: impl Iterator<Item = &'a Document> + 'a,

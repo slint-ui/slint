@@ -237,20 +237,20 @@
     "clean": "shx rm -rf out bin LICENSE.txt slint-*.vsix"
   },
   "dependencies": {
-    "fs-extra": "11.3.0",
+    "fs-extra": "11.3.1",
     "simple-git": "3.28.0",
     "vscode-languageclient": "9.0.1",
     "vscode-languageserver": "9.0.1"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.1.2",
+    "@biomejs/biome": "2.1.4",
     "@rauschma/env-var": "1.0.1",
     "@types/fs-extra": "11.0.4",
     "@types/node": "18.11.9",
     "@types/vscode": "1.82.0",
     "esbuild": "0.25.8",
     "shx": "0.4.0",
-    "typescript": "5.8.3",
+    "typescript": "5.9.2",
     "vscode-tmgrammar-test": "0.1.3"
   }
 }

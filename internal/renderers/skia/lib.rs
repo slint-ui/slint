@@ -761,7 +761,7 @@ impl i_slint_core::renderer::RendererSealed for SkiaRenderer {
             Default::default(),
             Default::default(),
             Default::default(),
-            Default::default(),
+            TextWrap::WordWrap,
             Default::default(),
             None,
         );

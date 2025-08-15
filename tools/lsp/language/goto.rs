@@ -6,7 +6,6 @@ use crate::common::{
     token_info::{token_info, TokenInfo},
 };
 use crate::util;
-use i_slint_compiler::langtype::{ElementType, Type};
 use i_slint_compiler::parser::{SyntaxNode, SyntaxToken};
 use lsp_types::{GotoDefinitionResponse, LocationLink, Position, Range};
 
@@ -18,34 +17,10 @@ pub fn goto_definition(
     token: SyntaxToken,
 ) -> Option<GotoDefinitionResponse> {
     let token_info = token_info(document_cache, token.clone())?;
+    if let Some(node) = token_info.declaration() {
+        return goto_node(&node);
+    }
     match token_info {
-        TokenInfo::Type(ty) => goto_type(&ty),
-        TokenInfo::ElementType(el) => {
-            if let ElementType::Component(c) = el {
-                goto_node(&c.root_element.borrow().debug.first()?.node)
-            } else {
-                None
-            }
-        }
-        TokenInfo::ElementRc(el) => goto_node(&el.borrow().debug.first()?.node),
-        TokenInfo::NamedReference(nr) => {
-            let mut el = nr.element();
-            loop {
-                if let Some(x) = el.borrow().property_declarations.get(nr.name()) {
-                    return goto_node(x.node.as_ref()?);
-                }
-                let base = el.borrow().base_type.clone();
-                if let ElementType::Component(c) = base {
-                    el = c.root_element.clone();
-                } else {
-                    return None;
-                }
-            }
-        }
-        TokenInfo::EnumerationValue(v) => {
-            // FIXME: this goes to the enum definition instead of the value definition.
-            goto_node(v.enumeration.node.as_ref()?)
-        }
         TokenInfo::FileName(f) | TokenInfo::Image(f) => {
             if let Some(doc) = document_cache.get_document_by_path(&f) {
                 let doc_node = doc.node.clone()?;
@@ -62,27 +37,6 @@ pub fn goto_definition(
                 None
             }
         }
-        TokenInfo::LocalProperty(x) => goto_node(&x),
-        TokenInfo::LocalCallback(x) => goto_node(&x),
-        TokenInfo::LocalFunction(x) => goto_node(&x),
-        TokenInfo::IncompleteNamedReference(mut element_type, prop_name) => {
-            while let ElementType::Component(com) = element_type {
-                if let Some(p) = com.root_element.borrow().property_declarations.get(&prop_name) {
-                    return goto_node(p.node.as_ref()?);
-                }
-                element_type = com.root_element.borrow().base_type.clone();
-            }
-            None
-        }
-    }
-}
-
-fn goto_type(ty: &Type) -> Option<GotoDefinitionResponse> {
-    match ty {
-        Type::Struct(s) if s.node.is_some() => {
-            goto_node(s.node.as_ref().unwrap().parent().as_ref()?)
-        }
-        Type::Enumeration(e) => goto_node(e.node.as_ref()?),
         _ => None,
     }
 }

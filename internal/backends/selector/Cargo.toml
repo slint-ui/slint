@@ -50,13 +50,15 @@ raw-window-handle-06 = ["i-slint-core/raw-window-handle-06", "i-slint-backend-wi
 
 system-testing = ["i-slint-backend-testing/system-testing"]
 
-unstable-wgpu-25 = [
-  "i-slint-core/unstable-wgpu-25",
-  "i-slint-renderer-skia?/unstable-wgpu-25",
-  "i-slint-backend-winit?/unstable-wgpu-25",
+unstable-wgpu-26 = [
+  "i-slint-core/unstable-wgpu-26",
+  "i-slint-renderer-skia?/unstable-wgpu-26",
+  "i-slint-backend-winit?/unstable-wgpu-26",
 ]
 
 unstable-winit-030 = ["i-slint-backend-winit"]
+
+unstable-input-09 = ["dep:input"]
 
 # note that default enable the i-slint-backend-qt, but not its enable feature
 default = ["i-slint-backend-qt", "backend-winit"]
@@ -76,6 +78,7 @@ i-slint-backend-qt = { workspace = true, optional = true }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 i-slint-backend-linuxkms = { workspace = true, features = ["default"], optional = true }
+input = { workspace = true, optional = true }
 
 [build-dependencies]
 i-slint-common = { workspace = true }

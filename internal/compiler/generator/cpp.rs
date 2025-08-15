@@ -3220,16 +3220,20 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                             unreachable!()
                         }
                     }.collect::<Vec<_>>();
-                    format!(
-                        r#"[&](){{
-                            slint::private_api::PathElement elements[{}] = {{
-                                {}
-                            }};
-                            return slint::private_api::PathData(&elements[0], std::size(elements));
-                        }}()"#,
-                        path_elements.len(),
-                        path_elements.join(",")
-                    )
+                    if !path_elements.is_empty() {
+                        format!(
+                            r#"[&](){{
+                                slint::private_api::PathElement elements[{}] = {{
+                                    {}
+                                }};
+                                return slint::private_api::PathData(&elements[0], std::size(elements));
+                            }}()"#,
+                            path_elements.len(),
+                            path_elements.join(",")
+                        )
+                    } else {
+                        "slint::private_api::PathData()".into()
+                    }
                 }
                 (Type::Struct { .. }, Type::PathData)
                     if matches!(
@@ -3729,44 +3733,38 @@ fn compile_builtin_function_call(
         BuiltinFunction::SupportsNativeMenuBar => {
             format!("{}.supports_native_menu_bar()", access_window_field(ctx))
         }
-        BuiltinFunction::SetupNativeMenuBar => {
+        BuiltinFunction::SetupMenuBar => {
             let window = access_window_field(ctx);
-            if let [llr::Expression::PropertyReference(entries_r), llr::Expression::PropertyReference(sub_menu_r), llr::Expression::PropertyReference(activated_r), llr::Expression::NumberLiteral(tree_index), llr::Expression::BoolLiteral(no_native)] = arguments {
-                let current_sub_component = ctx.current_sub_component().unwrap();
-                let item_tree_id = ident(&ctx.compilation_unit.sub_components[current_sub_component.menu_item_trees[*tree_index as usize].root].name);
-                let access_entries = access_member(entries_r, ctx);
-                let access_sub_menu = access_member(sub_menu_r, ctx);
-                let access_activated = access_member(activated_r, ctx);
-                if *no_native {
-                    format!(r"{{
+            let [llr::Expression::PropertyReference(entries_r), llr::Expression::PropertyReference(sub_menu_r), llr::Expression::PropertyReference(activated_r), llr::Expression::NumberLiteral(tree_index), llr::Expression::BoolLiteral(no_native)] = arguments
+            else {
+                panic!("internal error: incorrect argument count to SetupMenuBar")
+            };
+
+            let current_sub_component = ctx.current_sub_component().unwrap();
+            let item_tree_id = ident(&ctx.compilation_unit.sub_components[current_sub_component.menu_item_trees[*tree_index as usize].root].name);
+            let access_entries = access_member(entries_r, ctx);
+            let access_sub_menu = access_member(sub_menu_r, ctx);
+            let access_activated = access_member(activated_r, ctx);
+            if *no_native {
+                format!(r"{{
+                    auto item_tree = {item_tree_id}::create(self);
+                    auto item_tree_dyn = item_tree.into_dyn();
+                    slint::private_api::setup_popup_menu_from_menu_item_tree(item_tree_dyn, {access_entries}, {access_sub_menu}, {access_activated});
+                }}")
+            } else {
+                format!(r"
+                    if ({window}.supports_native_menu_bar()) {{
+                        auto item_tree = {item_tree_id}::create(self);
+                        auto item_tree_dyn = item_tree.into_dyn();
+                        slint::private_api::MaybeUninitialized<vtable::VRc<slint::cbindgen_private::MenuVTable>> maybe;
+                        slint::cbindgen_private::slint_menus_create_wrapper(&item_tree_dyn, &maybe.value);
+                        auto vrc = maybe.take();
+                        slint::cbindgen_private::slint_windowrc_setup_native_menu_bar(&{window}.handle(), &vrc);
+                    }} else {{
                         auto item_tree = {item_tree_id}::create(self);
                         auto item_tree_dyn = item_tree.into_dyn();
                         slint::private_api::setup_popup_menu_from_menu_item_tree(item_tree_dyn, {access_entries}, {access_sub_menu}, {access_activated});
                     }}")
-                } else {
-                    format!(r"
-                        if ({window}.supports_native_menu_bar()) {{
-                            auto item_tree = {item_tree_id}::create(self);
-                            auto item_tree_dyn = item_tree.into_dyn();
-                            slint::private_api::MaybeUninitialized<vtable::VRc<slint::cbindgen_private::MenuVTable>> maybe;
-                            slint::cbindgen_private::slint_menus_create_wrapper(&item_tree_dyn, &maybe.value);
-                            auto vrc = maybe.take();
-                            slint::cbindgen_private::slint_windowrc_setup_native_menu_bar(&{window}.handle(), &vrc);
-                        }} else {{
-                            auto item_tree = {item_tree_id}::create(self);
-                            auto item_tree_dyn = item_tree.into_dyn();
-                            slint::private_api::setup_popup_menu_from_menu_item_tree(item_tree_dyn, {access_entries}, {access_sub_menu}, {access_activated});
-                        }}")
-                }
-            } else if let [entries, llr::Expression::PropertyReference(sub_menu), llr::Expression::PropertyReference(activated)] = arguments {
-                let entries = compile_expression(entries, ctx);
-                let sub_menu = access_member(sub_menu, ctx);
-                let activated = access_member(activated, ctx);
-                format!("{window}.setup_native_menu_bar(self,
-                    [](auto &self, const slint::cbindgen_private::MenuEntry *parent){{ return parent ? {sub_menu}.call(*parent) : {entries}; }},
-                    [](auto &self, const slint::cbindgen_private::MenuEntry &entry){{ {activated}.call(entry); }})")
-            } else {
-                panic!("internal error: incorrect arguments to SetupNativeMenuBar")
             }
         }
         BuiltinFunction::Use24HourFormat => {
@@ -3857,7 +3855,7 @@ fn compile_builtin_function_call(
             }
         }
 
-        BuiltinFunction::ShowPopupMenu => {
+        BuiltinFunction::ShowPopupMenu | BuiltinFunction::ShowPopupMenuInternal => {
             let [llr::Expression::PropertyReference(context_menu_ref), entries, position] = arguments
             else {
                 panic!("internal error: invalid args to ShowPopupMenu {arguments:?}")

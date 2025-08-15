@@ -598,7 +598,34 @@ export global Api {
     callback add-recent-color(color);
     pure callback is-css-color(code: string) -> bool;
 
-    // Console / LogMessages
+    // ## Console / LogMessages
     pure callback filter-log-messages(messages: [LogMessage], pattern: string) -> [LogMessage];
     callback clear-log-messages();
+
+    // ## Undo/Redo
+    callback undo();
+    callback redo();
+    in-out property <bool> undo-enabled: false;
+    in-out property <bool> redo-enabled: false;
+
+    // ## SlintPad related APIs
+    in-out property <bool> runs-in-slintpad;
+    in-out property <[{title: string, url: string}]> demos: [
+            { url: "", title: "Hello World!"},
+            { url: "examples/gallery/gallery.slint", title: "Gallery" },
+            { url: "demos/home-automation/ui/demo-debug.slint", title: "Home Automation" },
+            { url: "demos/usecases/ui/app.slint", title: "Use Cases Demo" },
+            { url: "demos/printerdemo/ui/printerdemo.slint", title: "Printer Demo" },
+            { url: "demos/energy-monitor/ui/desktop_window.slint", title: "Energy Monitor" },
+            { url: "examples/todo/ui/todo.slint", title: "Todo Demo" },
+            { url: "examples/iot-dashboard/main.slint", title: "IOT Dashboard" },
+            { url: "examples/fancy-switches/demo.slint", title: "Fancy Switches" },
+            { url: "examples/dial/dial.slint", title: "Fanncy Dial" },
+            { url: "examples/orbit-animation/demo.slint", title: "Fancy Animations" },
+            { url: "examples/repeater/demo.slint", title: "Fancy Repeater" },
+            { url: "examples/sprite-sheet/demo.slint", title: "Spritesheet Demo" },
+    ];
+    callback share-permalink-to-clipboard();
+    callback load-demo(url: string);
+    callback show-about-slint();
 }

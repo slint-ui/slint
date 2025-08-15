@@ -667,17 +667,23 @@ impl<'a, T> EvaluationContext<'a, T> {
                     ctx = ctx.parent.as_ref().unwrap().ctx;
                 }
                 let mut ret = ctx.property_info(parent_reference);
-                match &mut ret.binding {
-                    Some((_, m @ ContextMap::Identity)) => {
+                let map_mapping = |m: &mut ContextMap| match m {
+                    ContextMap::Identity => {
                         *m = ContextMap::InSubElement {
                             path: Default::default(),
                             parent: level.get(),
-                        };
+                        }
                     }
-                    Some((_, ContextMap::InSubElement { parent, .. })) => {
+                    ContextMap::InSubElement { parent, .. } => {
                         *parent += level.get();
                     }
-                    _ => {}
+                    _ => (),
+                };
+                if let Some(b) = &mut ret.binding {
+                    map_mapping(&mut b.1);
+                }
+                if let Some(a) = &mut ret.animation {
+                    map_mapping(&mut a.1);
                 }
                 ret
             }

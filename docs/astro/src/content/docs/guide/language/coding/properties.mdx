@@ -7,8 +7,11 @@ description: Properties
 import Link from '@slint/common-files/src/components/Link.astro';
 
 All elements have properties. Built-in elements come with common properties such
-as color or dimensional properties. You can assign values or entire
-<Link type="Expressions" /> to them:
+as color or dimensional properties.
+
+## Assigning bindings
+
+You can assign values or entire <Link type="Expressions" /> to them:
 
 ```slint
 export component Example inherits Window {
@@ -19,8 +22,30 @@ export component Example inherits Window {
 }
 ```
 
+Properties in Slint can be assigned using either a simple **expression**, which ends with a semicolon (`;`),
+or a **code block**, enclosed in `{ ... }`, which does not require a semicolon.
+These two forms are interchangeable for simple values, but a block is useful when you need multiple statements.
+
+For example, these two bindings are equivalent:
+
+```slint no-test
+background: touch-area.is-pressed ? red : blue;
+
+background: {
+    if (touch-area.is-pressed) {
+        return red;
+    } else {
+        return blue;
+    }
+}
+```
+
+Both forms are reactive, and Slint will automatically track dependencies used within the expression or block.
+
 The default value of a property is the default value of the type.
 For example a boolean property defaults to `false`, an `int` property to zero, etc.
+
+## Declaring Properties
 
 In addition to the existing properties, define extra properties by specifying the
 type, the name, and optionally a default value:
@@ -63,10 +88,6 @@ export component Button {
 
 All properties declared at the top level of a component that aren't `private` are accessible from the outside when using a component as an element, or via the
 language bindings from the business logic.
-
-
-
-
 
 ## Change Callbacks
 

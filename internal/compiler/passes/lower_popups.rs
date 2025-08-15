@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-//! Passe that transform the PopupWindow element into a component
+//! This pass transforms the PopupWindow element into a component
 
 use crate::diagnostics::{BuildDiagnostics, SourceLocation};
 use crate::expression_tree::{BindingExpression, Expression, NamedReference};

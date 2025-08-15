@@ -6,7 +6,12 @@
 import type { Message } from "@lumino/messaging";
 import { Widget } from "@lumino/widgets";
 
-import type { Previewer, Lsp, ResourceUrlMapperFunction } from "./lsp";
+import type {
+    Previewer,
+    Lsp,
+    ResourceUrlMapperFunction,
+    InvokeSlintpadCallback,
+} from "./lsp";
 
 const canvas_id = "canvas";
 
@@ -34,6 +39,7 @@ export class PreviewWidget extends Widget {
         lsp: Lsp,
         resource_url_mapper: ResourceUrlMapperFunction,
         style: string,
+        slintpad_callback: InvokeSlintpadCallback,
     ) {
         super({ node: PreviewWidget.createNode() });
 
@@ -44,20 +50,22 @@ export class PreviewWidget extends Widget {
         this.title.caption = "Slint Viewer";
         this.title.closable = true;
 
-        void lsp.previewer(resource_url_mapper, style).then((p) => {
-            this.#previewer = p;
+        void lsp
+            .previewer(resource_url_mapper, style, slintpad_callback)
+            .then((p) => {
+                this.#previewer = p;
 
-            // Give the UI some time to wire up the canvas so it can be found
-            // when searching the document.
-            this.#previewer.show_ui().then(() => {
-                console.info("SlintPad: started");
-                const canvas = document.getElementById(
-                    canvas_id,
-                ) as HTMLElement;
-                canvas.style.width = "100%";
-                canvas.style.height = "100%";
+                // Give the UI some time to wire up the canvas so it can be found
+                // when searching the document.
+                this.#previewer.show_ui().then(() => {
+                    console.info("SlintPad: started");
+                    const canvas = document.getElementById(
+                        canvas_id,
+                    ) as HTMLElement;
+                    canvas.style.width = "100%";
+                    canvas.style.height = "100%";
+                });
             });
-        });
     }
 
     public current_style(): string {

@@ -20,7 +20,7 @@ pub struct SkiaRendererAdapter {
 const SKIA_SUPPORTED_DRM_FOURCC_FORMATS: &[drm::buffer::DrmFourcc] = &[
     // Preferred formats
     drm::buffer::DrmFourcc::Xrgb8888,
-    // drm::buffer::DrmFourcc::Argb8888,
+    drm::buffer::DrmFourcc::Argb8888,
     // drm::buffer::DrmFourcc::Bgra8888,
     // drm::buffer::DrmFourcc::Rgba8888,
 
@@ -236,6 +236,8 @@ impl i_slint_renderer_skia::software_surface::RenderBuffer for DrmDumbBufferAcce
                 match format {
                     drm::buffer::DrmFourcc::Xrgb8888 => skia_safe::ColorType::BGRA8888,
 
+                    // Note: We use AlphaType::Opaque in software_surface. Might need fixing if
+                    // we want to support Argb8888 proper.
                     drm::buffer::DrmFourcc::Argb8888 => skia_safe::ColorType::BGRA8888,
 
                     drm::buffer::DrmFourcc::Rgba8888 => skia_safe::ColorType::RGBA8888,

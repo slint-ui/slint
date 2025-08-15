@@ -174,32 +174,32 @@ jobs:
               run: |
                   npx napi create-npm-dir -t . -c ./binaries.json
             - name: Download artifacts
-              uses: actions/download-artifact@v4
+              uses: actions/download-artifact@v5
               with:
                   name: binaries-x86_64-unknown-linux-gnu
                   path: api/node/
             - name: Download artifacts
-              uses: actions/download-artifact@v4
+              uses: actions/download-artifact@v5
               with:
                   name: binaries-aarch64-unknown-linux-gnu
                   path: api/node/
             - name: Download artifacts
-              uses: actions/download-artifact@v4
+              uses: actions/download-artifact@v5
               with:
                   name: binaries-x86_64-apple-darwin
                   path: api/node/
             - name: Download artifacts
-              uses: actions/download-artifact@v4
+              uses: actions/download-artifact@v5
               with:
                   name: binaries-aarch64-apple-darwin
                   path: api/node/
             - name: Download artifacts
-              uses: actions/download-artifact@v4
+              uses: actions/download-artifact@v5
               with:
                   name: binaries-x86_64-pc-windows-msvc
                   path: api/node/
             - name: Download artifacts
-              uses: actions/download-artifact@v4
+              uses: actions/download-artifact@v5
               with:
                   name: binaries-aarch64-pc-windows-msvc
                   path: api/node/

@@ -146,7 +146,8 @@ function getPreviewHtml(
             vscode.postMessage({ command: "map_url", url: url });
         })},
         "${default_style}",
-        ${experimental ? "true" : "false"}
+        ${experimental ? "true" : "false"},
+        undefined
     );
 
     window.addEventListener('message', async message => {

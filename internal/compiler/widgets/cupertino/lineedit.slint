@@ -28,7 +28,6 @@ export component LineEdit {
         text = v;
         edited(v);
     }
-
     public function set-selection-offsets(start: int, end: int) {
         base.set-selection-offsets(start, end);
     }
@@ -83,10 +82,10 @@ export component LineEdit {
         border-color: CupertinoPalette.border;
         border-width: 1px;
         opacity: root.enabled ? 1 : 0.5;
-
         layout := HorizontalLayout {
             padding-left: 7px;
             padding-right: 7px;
+            spacing: 3px;
 
             base := LineEditBase {
                 input-type: root.input-type;
@@ -98,18 +97,6 @@ export component LineEdit {
                 margin: layout.padding-left + layout.padding-right;
                 placeholder-color: CupertinoPalette.foreground-secondary;
                 horizontal-stretch: 1;
-            }
-
-            LineEditClearIcon {
-                width: self.source.width * 1px;
-                text: base.text;
-                visible: !root.text.is-empty && root.input-type != InputType.password && root.enabled && !root.read-only;
-                source: @image-url("_clear.svg");
-                colorize: base.text-color;
-                clear => {
-                    base.text = "";
-                    base.focus();
-                }
             }
 
             if root.input-type == InputType.password: LineEditPasswordIcon {

@@ -329,9 +329,9 @@ impl BackendBuilder {
     #[must_use]
     pub fn with_custom_application_handler(
         mut self,
-        handler: impl CustomApplicationHandler + 'static,
+        handler: Box<dyn CustomApplicationHandler + 'static>,
     ) -> Self {
-        self.custom_application_handler = Some(Box::new(handler));
+        self.custom_application_handler = Some(handler);
         self
     }
 
@@ -382,14 +382,14 @@ impl BackendBuilder {
             #[cfg(feature = "renderer-femtovg-wgpu")]
             (Some("femtovg-wgpu"), maybe_graphics_api) => {
                 if !maybe_graphics_api.is_some_and(|_api| {
-                    #[cfg(feature = "unstable-wgpu-25")]
-                    if matches!(_api, RequestedGraphicsAPI::WGPU25(..)) {
+                    #[cfg(feature = "unstable-wgpu-26")]
+                    if matches!(_api, RequestedGraphicsAPI::WGPU26(..)) {
                         return true;
                     }
                     false
                 }) {
                     return Err(
-                        "The FemtoVG WGPU renderer only supports the WGPU25 graphics API selection"
+                        "The FemtoVG WGPU renderer only supports the WGPU26 graphics API selection"
                             .into(),
                     );
                 }
@@ -426,8 +426,8 @@ impl BackendBuilder {
                     return Err(PlatformError::NoPlatform);
                 }
             }
-            #[cfg(feature = "unstable-wgpu-25")]
-            (None, Some(RequestedGraphicsAPI::WGPU25(..))) => {
+            #[cfg(feature = "unstable-wgpu-26")]
+            (None, Some(RequestedGraphicsAPI::WGPU26(..))) => {
                 renderer::femtovg::WGPUFemtoVGRenderer::new_suspended
             }
             (None, Some(_requested_graphics_api)) => {

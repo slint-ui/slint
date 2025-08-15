@@ -43,7 +43,7 @@ export function initialize(): Promise<void> {
         try {
             registerCustomProvider("slintpad", FILESYSTEM_PROVIDER);
 
-            initializeMonacoServices(
+            return initializeMonacoServices(
                 {
                     ...getConfigurationServiceOverride(),
                     ...getEditorServiceOverride(
@@ -66,115 +66,117 @@ export function initialize(): Promise<void> {
                         open: (_) => Promise.resolve(false),
                     },
                 },
-            ).then(() => {
-                monaco.languages.register({
-                    id: "slint",
-                    extensions: [".slint"],
-                    aliases: ["Slint", "slint"],
-                    mimetypes: ["application/slint"],
-                });
-                monaco.languages.setLanguageConfiguration("slint", {
-                    comments: {
-                        lineComment: "//",
-                        blockComment: ["/*", "*/"],
-                    },
-                    brackets: [
-                        ["{", "}"],
-                        ["[", "]"],
-                        ["(", ")"],
-                    ],
-                    autoClosingPairs: [
-                        {
-                            open: "{",
-                            close: "}",
+            )
+                .then(() => {
+                    monaco.languages.register({
+                        id: "slint",
+                        extensions: [".slint"],
+                        aliases: ["Slint", "slint"],
+                        mimetypes: ["application/slint"],
+                    });
+                    monaco.languages.setLanguageConfiguration("slint", {
+                        comments: {
+                            lineComment: "//",
+                            blockComment: ["/*", "*/"],
                         },
-                        {
-                            open: "[",
-                            close: "]",
+                        brackets: [
+                            ["{", "}"],
+                            ["[", "]"],
+                            ["(", ")"],
+                        ],
+                        autoClosingPairs: [
+                            {
+                                open: "{",
+                                close: "}",
+                            },
+                            {
+                                open: "[",
+                                close: "]",
+                            },
+                            {
+                                open: "(",
+                                close: ")",
+                            },
+                            {
+                                open: "'",
+                                close: "'",
+                                notIn: ["string", "comment"],
+                            },
+                            {
+                                open: '"',
+                                close: '"',
+                                notIn: ["string"],
+                            },
+                            {
+                                open: "`",
+                                close: "`",
+                                notIn: ["string", "comment"],
+                            },
+                            {
+                                open: "/**",
+                                close: " */",
+                                notIn: ["string"],
+                            },
+                        ],
+                        autoCloseBefore: ";:.,=}])>` \n\t",
+                        surroundingPairs: [
+                            {
+                                open: "{",
+                                close: "}",
+                            },
+                            {
+                                open: "[",
+                                close: "]",
+                            },
+                            {
+                                open: "(",
+                                close: ")",
+                            },
+                            {
+                                open: "'",
+                                close: "'",
+                            },
+                            {
+                                open: '"',
+                                close: '"',
+                            },
+                            {
+                                open: "`",
+                                close: "`",
+                            },
+                            {
+                                open: "/**",
+                                close: " */",
+                            },
+                        ],
+                        folding: {
+                            markers: {
+                                start: new RegExp("^\\s*//\\s*#?region\\b"),
+                                end: new RegExp("^\\s*//\\s*#?endregion\\b"),
+                            },
                         },
-                        {
-                            open: "(",
-                            close: ")",
-                        },
-                        {
-                            open: "'",
-                            close: "'",
-                            notIn: ["string", "comment"],
-                        },
-                        {
-                            open: '"',
-                            close: '"',
-                            notIn: ["string"],
-                        },
-                        {
-                            open: "`",
-                            close: "`",
-                            notIn: ["string", "comment"],
-                        },
-                        {
-                            open: "/**",
-                            close: " */",
-                            notIn: ["string"],
-                        },
-                    ],
-                    autoCloseBefore: ";:.,=}])>` \n\t",
-                    surroundingPairs: [
-                        {
-                            open: "{",
-                            close: "}",
-                        },
-                        {
-                            open: "[",
-                            close: "]",
-                        },
-                        {
-                            open: "(",
-                            close: ")",
-                        },
-                        {
-                            open: "'",
-                            close: "'",
-                        },
-                        {
-                            open: '"',
-                            close: '"',
-                        },
-                        {
-                            open: "`",
-                            close: "`",
-                        },
-                        {
-                            open: "/**",
-                            close: " */",
-                        },
-                    ],
-                    folding: {
-                        markers: {
-                            start: new RegExp("^\\s*//\\s*#?region\\b"),
-                            end: new RegExp("^\\s*//\\s*#?endregion\\b"),
-                        },
-                    },
-                    wordPattern: new RegExp(
-                        "(-?\\d*\\.\\d\\w*)|([^\\`\\~\\!\\@\\#\\%\\^\\&\\*\\(\\)\\=\\+\\[\\{\\]\\}\\\\\\|\\;\\:\\'\\\"\\,\\.\\<\\>\\/\\?\\s]+)",
-                    ),
-                    indentationRules: {
-                        increaseIndentPattern: new RegExp(
-                            "^((?!\\/\\/).)*(\\{[^}\"'`]*|\\([^)\"'`]*|\\[[^\\]\"'`]*)$",
+                        wordPattern: new RegExp(
+                            "(-?\\d*\\.\\d\\w*)|([^\\`\\~\\!\\@\\#\\%\\^\\&\\*\\(\\)\\=\\+\\[\\{\\]\\}\\\\\\|\\;\\:\\'\\\"\\,\\.\\<\\>\\/\\?\\s]+)",
                         ),
-                        decreaseIndentPattern: new RegExp(
-                            "^((?!.*?\\/\\*).*\\*/)?\\s*[\\}\\]].*$",
-                        ),
-                    },
-                });
-                monaco.languages.onLanguage("slint", () => {
-                    monaco.languages.setMonarchTokensProvider(
-                        "slint",
-                        slint_language,
-                    );
-                });
+                        indentationRules: {
+                            increaseIndentPattern: new RegExp(
+                                "^((?!\\/\\/).)*(\\{[^}\"'`]*|\\([^)\"'`]*|\\[[^\\]\"'`]*)$",
+                            ),
+                            decreaseIndentPattern: new RegExp(
+                                "^((?!.*?\\/\\*).*\\*/)?\\s*[\\}\\]].*$",
+                            ),
+                        },
+                    });
+                    monaco.languages.onLanguage("slint", () => {
+                        monaco.languages.setMonarchTokensProvider(
+                            "slint",
+                            slint_language,
+                        );
+                    });
 
-                resolve();
-            });
+                    resolve();
+                })
+                .catch(reject);
         } catch (e) {
             reject(e);
         }
@@ -551,24 +553,6 @@ export class EditorWidget extends Widget {
             internal_file_uri(file_name ?? output_url.path),
             true,
         );
-    }
-
-    public known_demos(): [string, string][] {
-        return [
-            ["", "Hello World!"],
-            ["examples/gallery/gallery.slint", "Gallery"],
-            ["demos/home-automation/ui/demo-debug.slint", "Home Automation"],
-            ["demos/usecases/ui/app.slint", "Use Cases Demo"],
-            ["demos/printerdemo/ui/printerdemo.slint", "Printer Demo"],
-            ["demos/energy-monitor/ui/desktop_window.slint", "Energy Monitor"],
-            ["examples/todo/ui/todo.slint", "Todo Demo"],
-            ["examples/iot-dashboard/main.slint", "IOT Dashboard"],
-            ["examples/fancy-switches/demo.slint", "Fancy Switches"],
-            ["examples/dial/dial.slint", "Fanncy Dial"],
-            ["examples/orbit-animation/demo.slint", "Fancy Animations"],
-            ["examples/repeater/demo.slint", "Fancy Repeater"],
-            ["examples/sprite-sheet/demo.slint", "Spritesheet Demo"],
-        ];
     }
 
     public add_empty_file_to_project(name: string) {

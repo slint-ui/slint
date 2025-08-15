@@ -56,8 +56,8 @@ pub mod boxshadowcache;
 pub mod border_radius;
 pub use border_radius::*;
 
-#[cfg(feature = "unstable-wgpu-25")]
-pub mod wgpu_25;
+#[cfg(feature = "unstable-wgpu-26")]
+pub mod wgpu_26;
 
 /// CachedGraphicsData allows the graphics backend to store an arbitrary piece of data associated with
 /// an item, which is typically computed by accessing properties. The dependency_tracker is used to allow
@@ -190,9 +190,9 @@ pub enum RequestedGraphicsAPI {
     Vulkan,
     /// Direct 3D
     Direct3D,
-    #[cfg(feature = "unstable-wgpu-25")]
-    /// WGPU 25.x
-    WGPU25(wgpu_25::WGPUConfiguration),
+    #[cfg(feature = "unstable-wgpu-26")]
+    /// WGPU 26.x
+    WGPU26(wgpu_26::api::WGPUConfiguration),
 }
 
 impl TryFrom<RequestedGraphicsAPI> for RequestedOpenGLVersion {
@@ -210,9 +210,9 @@ impl TryFrom<RequestedGraphicsAPI> for RequestedOpenGLVersion {
             RequestedGraphicsAPI::Direct3D => {
                 Err("Direct3D rendering is not supported with an OpenGL renderer".into())
             }
-            #[cfg(feature = "unstable-wgpu-25")]
-            RequestedGraphicsAPI::WGPU25(..) => {
-                Err("WGPU 25.x rendering is not supported with an OpenGL renderer".into())
+            #[cfg(feature = "unstable-wgpu-26")]
+            RequestedGraphicsAPI::WGPU26(..) => {
+                Err("WGPU 26.x rendering is not supported with an OpenGL renderer".into())
             }
         }
     }
@@ -226,13 +226,13 @@ impl From<RequestedOpenGLVersion> for RequestedGraphicsAPI {
 
 /// Private API exposed to just the renderers to create GraphicsAPI instance with
 /// non-exhaustive enum variant.
-#[cfg(feature = "unstable-wgpu-25")]
-pub fn create_graphics_api_wgpu_25(
-    instance: wgpu_25::wgpu::Instance,
-    device: wgpu_25::wgpu::Device,
-    queue: wgpu_25::wgpu::Queue,
+#[cfg(feature = "unstable-wgpu-26")]
+pub fn create_graphics_api_wgpu_26(
+    instance: wgpu_26::wgpu::Instance,
+    device: wgpu_26::wgpu::Device,
+    queue: wgpu_26::wgpu::Queue,
 ) -> crate::api::GraphicsAPI<'static> {
-    crate::api::GraphicsAPI::WGPU25 { instance, device, queue }
+    crate::api::GraphicsAPI::WGPU26 { instance, device, queue }
 }
 
 /// Internal module for use by cbindgen and the C++ platform API layer.

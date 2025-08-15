@@ -32,10 +32,13 @@ export component TextExample inherits Window {
 
 A `Text` element for displaying text.
 
-If the `width` and `height` properties are not set, the text will
-be expand in a single line. If the `wrap` property is set along with
-a `width` and `height`, the text will be wrapped into multiple lines
-of text.
+By default, the `min-width`, `min-height`, `preferred-width`, and `preferred-height`
+of a `Text` element are set to fit the full text as if it were displayed on a single line
+(unless the text contains explicit line breaks).
+However, if the `wrap` property is set to `word-wrap`, and/or if the `overflow` property is set to `elide`,
+the `min-width` is reduced to zero, allowing the text to wrap or be elided,
+while the `preferred-width` and `preferred-height` remain unchanged.
+
 ## Properties
 
 ### color

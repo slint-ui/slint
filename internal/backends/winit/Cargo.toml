@@ -54,11 +54,11 @@ renderer-software = [
 ]
 accessibility = ["dep:accesskit", "dep:accesskit_winit"]
 raw-window-handle-06 = ["i-slint-core/raw-window-handle-06"]
-unstable-wgpu-25 = [
-  "i-slint-core/unstable-wgpu-25",
+unstable-wgpu-26 = [
+  "i-slint-core/unstable-wgpu-26",
   "renderer-femtovg-wgpu",
-  "i-slint-renderer-femtovg/unstable-wgpu-25",
-  "i-slint-renderer-skia?/unstable-wgpu-25",
+  "i-slint-renderer-femtovg/unstable-wgpu-26",
+  "i-slint-renderer-skia?/unstable-wgpu-26",
 ]
 default = []
 
@@ -72,6 +72,7 @@ derive_more = { workspace = true }
 lyon_path = "1.0"
 pin-weak = "1"
 scoped-tls-hkt = "0.1"
+strum = { workspace = true }
 winit = { version = "0.30.2", default-features = false, features = ["rwh_06"] }
 raw-window-handle = { version = "0.6", features = ["alloc"] }
 scopeguard = { version = "1.1.0", default-features = false }

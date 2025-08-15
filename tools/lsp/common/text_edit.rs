@@ -3,7 +3,7 @@
 
 use std::collections::HashMap;
 
-use i_slint_compiler::parser::TextSize;
+use i_slint_compiler::parser::{TextRange, TextSize};
 
 use crate::common;
 
@@ -75,6 +75,10 @@ impl TextOffsetAdjustments {
             .iter()
             .fold(0_i64, |acc, a| acc + i64::from(u32::from(a.adjust(input))) - input_);
         ((input_ + total_adjustment) as u32).into()
+    }
+
+    pub fn adjust_range(&self, range: TextRange) -> TextRange {
+        TextRange::new(self.adjust(range.start()), self.adjust(range.end()))
     }
 
     pub fn is_empty(&self) -> bool {
@@ -192,32 +196,21 @@ impl TextEditor {
     }
 
     pub fn apply(&mut self, text_edit: &lsp_types::TextEdit) -> crate::Result<()> {
-        let current_offset = {
-            let start_range = &text_edit.range.start;
-            let end_range = &text_edit.range.end;
-            let start_offset = self
-                .source_file
-                .offset(start_range.line as usize + 1, start_range.character as usize + 1);
-            let end_offset = self
-                .source_file
-                .offset(end_range.line as usize + 1, end_range.character as usize + 1);
-            (start_offset, end_offset)
-        };
+        let current_range =
+            crate::util::lsp_range_to_text_range(&self.source_file, text_edit.range);
+        let adjusted_range = self.adjustments.adjust_range(current_range);
 
-        let adjusted_offset = (
-            usize::from(self.adjustments.adjust((current_offset.0 as u32).into())),
-            usize::from(self.adjustments.adjust((current_offset.1 as u32).into())),
-        );
-
-        if self.contents.len() < adjusted_offset.1 {
+        if self.contents.len() < adjusted_range.end().into() {
             return Err("Text edit range is out of bounds".into());
         }
 
         // Book keeping:
-        self.original_offset_range.0 = self.original_offset_range.0.min(current_offset.0);
-        self.original_offset_range.1 = self.original_offset_range.1.max(current_offset.1);
+        self.original_offset_range.0 =
+            self.original_offset_range.0.min(current_range.start().into());
+        self.original_offset_range.1 = self.original_offset_range.1.max(current_range.end().into());
 
-        self.contents.replace_range((adjusted_offset.0)..(adjusted_offset.1), &text_edit.new_text);
+        let r: std::ops::Range<usize> = adjusted_range.start().into()..adjusted_range.end().into();
+        self.contents.replace_range(r, &text_edit.new_text);
 
         self.adjustments.add_adjustment(TextOffsetAdjustment::new(text_edit, &self.source_file));
 
@@ -237,6 +230,7 @@ impl TextEditor {
     }
 }
 
+#[derive(PartialEq, Debug)]
 pub struct EditedText {
     pub url: lsp_types::Url,
     pub contents: String,
@@ -271,6 +265,108 @@ pub fn apply_workspace_edit(
             Some(EditedText { url, contents: edit_result.0 })
         })
         .collect())
+}
+
+/// Given a WorkspaceEdit, return a reversed version of it (that undoes it)
+/// Returns none if it cannot be reverted (eg, if it deletes files)
+pub fn reversed_edit(
+    document_cache: &common::DocumentCache,
+    edit: &lsp_types::WorkspaceEdit,
+) -> Option<lsp_types::WorkspaceEdit> {
+    struct UndoHelper {
+        source_file: i_slint_compiler::diagnostics::SourceFile,
+        /// (Range in the original, original string, new length)
+        edits: Vec<lsp_types::TextEdit>,
+    }
+
+    let mut processing = HashMap::new();
+
+    for (doc, edit) in EditIterator::new(edit) {
+        if !processing.contains_key(&doc.uri) {
+            let Some(document) = document_cache.get_document(&doc.uri) else {
+                return None;
+            };
+            let Some(document_node) = &document.node else {
+                return None;
+            };
+            let helper =
+                UndoHelper { source_file: document_node.source_file.clone(), edits: Vec::new() };
+            processing.insert(doc.uri.clone(), helper);
+        }
+
+        let helper = processing.get_mut(&doc.uri).unwrap();
+        helper.edits.push(edit.clone());
+    }
+
+    let mut tde = Vec::new();
+    for (uri, mut helper) in processing {
+        let source = helper.source_file.source()?;
+        helper.edits.sort_by_key(|e| e.range.start);
+        let mut adjust_line = 0i32;
+        let mut current_line = 0;
+        let mut adjust_column = 0i32;
+        let edits = helper
+            .edits
+            .into_iter()
+            .map(|e| {
+                let orig_range =
+                    crate::util::lsp_range_to_text_range(&helper.source_file, dbg!(e.range));
+                let orig_string = source[orig_range].to_string();
+
+                // Count the number of \n in the original string and the replaced string
+                let orig_lines = orig_string.chars().filter(|c| *c == '\n').count() as i32;
+                let new_lines = e.new_text.chars().filter(|c| *c == '\n').count() as i32;
+
+                let adjust_pos = |pos: lsp_types::Position| {
+                    let line = pos.line.saturating_add_signed(adjust_line);
+                    if pos.line == current_line {
+                        lsp_types::Position::new(
+                            line,
+                            pos.character.saturating_add_signed(adjust_column),
+                        )
+                    } else {
+                        lsp_types::Position::new(line, pos.character)
+                    }
+                };
+
+                let adjusted_start = adjust_pos(e.range.start);
+
+                let new_range = lsp_types::Range::new(
+                    adjusted_start,
+                    lsp_types::Position::new(
+                        adjusted_start.line.saturating_add_signed(new_lines),
+                        if new_lines == 0 {
+                            adjusted_start.character + e.new_text.len() as u32
+                        } else {
+                            e.new_text.bytes().rev().take_while(|b| *b != b'\n').count() as u32
+                        },
+                    ),
+                );
+
+                adjust_line += new_lines - orig_lines;
+                current_line = e.range.end.line;
+                adjust_column = new_range.end.character as i32 - e.range.end.character as i32;
+
+                lsp_types::OneOf::Left(lsp_types::TextEdit {
+                    range: new_range,
+                    new_text: orig_string,
+                })
+            })
+            .collect();
+
+        tde.push(lsp_types::TextDocumentEdit {
+            text_document: lsp_types::OptionalVersionedTextDocumentIdentifier {
+                uri,
+                version: None,
+            },
+            edits,
+        });
+    }
+
+    Some(lsp_types::WorkspaceEdit {
+        document_changes: Some(lsp_types::DocumentChanges::Edits(tde)),
+        ..Default::default()
+    })
 }
 
 #[test]
@@ -946,4 +1042,80 @@ geh"#
     assert_eq!(result.1.adjust(42.into()), 42.into());
     assert_eq!(result.2 .0, 0);
     assert_eq!(result.2 .1, 3 * 3 + 2);
+}
+
+#[cfg(test)]
+mod test_apply_reversed_edit {
+    use super::*;
+
+    fn check_apply_and_reversed_edit(
+        document_cache: &mut common::DocumentCache,
+        edit: &lsp_types::WorkspaceEdit,
+    ) {
+        let edits = apply_workspace_edit(document_cache, edit).unwrap();
+        let reversed = reversed_edit(document_cache, edit).unwrap();
+
+        let snapshot = document_cache.snapshot().unwrap();
+
+        for e in &edits {
+            common::poll_once(document_cache.load_url(
+                &e.url,
+                None,
+                e.contents.clone(),
+                &mut Default::default(),
+            ));
+        }
+
+        let reversed_edits = apply_workspace_edit(document_cache, &reversed).unwrap();
+        assert_eq!(edits.len(), reversed_edits.len());
+        for e in reversed_edits {
+            let doc = snapshot.get_document(&e.url).unwrap();
+            assert_eq!(doc.node.as_ref().unwrap().source_file.source().unwrap(), e.contents);
+        }
+        let reversed_twice = reversed_edit(document_cache, &reversed).unwrap();
+        assert_eq!(edits, apply_workspace_edit(&snapshot, &reversed_twice).unwrap());
+    }
+
+    #[test]
+    fn test_multi_line_edit() {
+        let url = lsp_types::Url::from_file_path(common::test::main_test_file_name()).unwrap();
+        let code = HashMap::from([(url.clone(), "component Foo { /*..*/ }\n".to_string())]);
+        let mut document_cache =
+            crate::common::test::compile_test_with_sources("fluent", code, true);
+
+        check_apply_and_reversed_edit(
+            &mut document_cache,
+            &lsp_types::WorkspaceEdit::new(std::collections::HashMap::from([(
+                url.clone(),
+                vec![
+                    lsp_types::TextEdit {
+                        range: lsp_types::Range::new(
+                            lsp_types::Position::new(0, 0),
+                            lsp_types::Position::new(0, 0),
+                        ),
+                        new_text: "import { AboutSlint } from \"std-widgets.slint\";\n".to_string(),
+                    },
+                    lsp_types::TextEdit {
+                        range: lsp_types::Range::new(
+                            lsp_types::Position::new(0, 15),
+                            lsp_types::Position::new(0, 23),
+                        ),
+                        new_text: "\n    AboutSlint {}\n".to_string(),
+                    },
+                    lsp_types::TextEdit {
+                        range: lsp_types::Range::new(
+                            lsp_types::Position::new(0, 24),
+                            lsp_types::Position::new(0, 24),
+                        ),
+                        new_text: "\n//comment\n".to_string(),
+                    },
+                ],
+            )])),
+        );
+
+        assert_eq!(
+            document_cache.get_document(&url).unwrap().node.as_ref().unwrap().source_file.source().unwrap(),
+            "import { AboutSlint } from \"std-widgets.slint\";\ncomponent Foo {\n    AboutSlint {}\n}\n//comment\n\n"
+        );
+    }
 }

@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-//! Pass lower the access to the global Platform to constants and builtin function calls.
+//! This pass lowers the access to the global Platform to constants and builtin function calls.
 
 use crate::expression_tree::{BuiltinFunction, Expression};
 use crate::object_tree::{visit_all_expressions, Component};

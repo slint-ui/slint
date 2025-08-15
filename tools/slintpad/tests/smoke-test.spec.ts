@@ -4,6 +4,5 @@ import { test, expect } from "@playwright/test";
 
 test("smoke test", async ({ page }) => {
     await page.goto("http://localhost:3000/");
-    await expect(page.getByRole("menubar")).toContainText("Project");
     await expect(page.locator("#tab-key-1-0")).toContainText("main.slint");
 });

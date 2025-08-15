@@ -166,7 +166,8 @@ raw-window-handle-06 = { package = "raw-window-handle", version = "0.6", feature
 unicode-segmentation = { version = "1.12.0" }
 glow = { version = "0.16" }
 tikv-jemallocator = { version = "0.6" }
-wgpu-25 = { package = "wgpu", version = "25", default-features = false }
+wgpu-26 = { package = "wgpu", version = "26", default-features = false }
+input = { version = "0.9.0", default-features = false }
 
 [profile.release]
 lto = true

@@ -1,0 +1,41 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+component TestPath inherits Path { }
+
+export component Triangle inherits Rectangle {
+    width: 200px;
+    height: 200px;
+    background: #333333;
+
+    property <bool> Expanded;
+
+    states [
+        DownArrow when Expanded: {
+            Arrow.commands: "M0,0.75L141.73,0L71.32,85.04L0,0.75z";
+        }
+        LeftArrow when !Expanded: {
+            Arrow.commands: "M84.29,0l0.75,141.73L0,71.32L84.29,0z";
+        }
+    ]
+
+    Arrow := Path {
+        width: 100px;
+        fill: #ffffff;
+        commands: "M0,0.75L141.73,0L71.32,85.04L0,0.75z";
+    }
+}
+
+export component TestCase inherits Window {
+    TestPath {
+        x: 0phx;
+        y: 0phx;
+        width: 100%;
+        height: 100%;
+        commands: "M 100 300 Q 150 50 1100 400 Q 1450 500 750 500 Q 1000 600 950 600 C 325 575 350 450 150 550 Q 0 600 100 800 C 250 850 300 600 550 850 C 800 850 850 650 2000 700 ";
+        stroke: red;
+        stroke_width: 2px;
+    }
+
+    Triangle { }
+}

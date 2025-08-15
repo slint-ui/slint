@@ -145,7 +145,7 @@ jobs:
               id: node-install
             - uses: pnpm/action-setup@v4.1.0
               with:
-                version: 10.11.0
+                version: 10.14.0
             - uses: ./.github/actions/setup-rust
               with:
                   key: x-napi-v2-${{ steps.node-install.outputs.node-version }} # the cache key consists of a manually bumpable version and the node version, as the cached rustc artifacts contain linking information where to find node.lib, which is in a versioned directory.
@@ -335,7 +335,7 @@ jobs:
               with:
                   version: 6.5.1
                   cache: true
-            - uses: actions/download-artifact@v4
+            - uses: actions/download-artifact@v5
               with:
                   name: cpp_bin-ubuntu-22.04
                   path: cpp-package
@@ -362,7 +362,7 @@ jobs:
             - uses: actions/checkout@v4
             - uses: pnpm/action-setup@v4.1.0
               with:
-                version: 10.11.0
+                version: 10.14.0
             - uses: Swatinem/rust-cache@v2
               with:
                 key: "vsce_1" # increment this to bust the cache if needed
@@ -690,7 +690,7 @@ jobs:
               id: node-install
             - uses: pnpm/action-setup@v4.1.0
               with:
-                version: 10.11.0
+                version: 10.14.0
             - name: Run pnpm install
               working-directory: tools/figma-inspector
               run: pnpm install --frozen-lockfile
