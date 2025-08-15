@@ -54,7 +54,7 @@ export component HeaderView {
             }
 
             HorizontalLayout {
-                alignment: end;
+                alignment: center;
                 spacing: EditorSpaceSettings.default-spacing;
 
                 HorizontalLayout {
@@ -80,6 +80,7 @@ export component HeaderView {
 
                 @children
                 HorizontalLayout {
+                    spacing: EditorSpaceSettings.default-spacing / 2;
                     shortcut-library := Button {
                         horizontal-stretch: 0;
                         checkable: true;

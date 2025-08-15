@@ -230,7 +230,6 @@ export component PreviewUi inherits Window {
             }
 
             preview := PreviewView {
-                min-height: self.preferred-height;
                 visible-component <=> root.visible-component;
             }
 
@@ -243,42 +242,40 @@ export component PreviewUi inherits Window {
                         background: Palette.border;
                     }
 
-                    property-outline := VerticalLayout {
-                        if root.properties-widget || root.outline-widget: Rectangle {
-                            background: Palette.alternate-background;
+                    if root.properties-widget || root.outline-widget: Rectangle {
+                        background: Palette.alternate-background;
+                        width: EditorSizeSettings.property-bar-width;
+
+                        w1 := PropertyView {
+                            y: 0;
+                            height: root.outline-widget && root.properties-widget ? (parent.height - splitter.height) * ratio : root.outline-widget ? 0 : parent.height;
+                            opacity: preview.preview-is-current ? 1.0 : 0.3;
+                            enabled: preview.preview-is-current;
+                            properties-visible <=> root.properties-widget;
+                        }
+
+                        splitter := TouchArea {
+                            visible: root.properties-widget && root.outline-widget;
+                            y: w1.height;
+                            height: 3px;
+                            moved => {
+                                ratio = Math.clamp((self.y + self.mouse-y - self.pressed-y) / (parent.height - splitter.height), 0, 1);
+                            }
+                            mouse-cursor: ns-resize;
+
+                            Rectangle {
+                                background: Palette.border;
+                            }
+                        }
+
+                        if root.outline-widget:w2 := OutlineView {
                             width: EditorSizeSettings.property-bar-width;
 
-                            w1 := PropertyView {
-                                y: 0;
-                                height: root.outline-widget && root.properties-widget ? (parent.height - splitter.height) * ratio : root.outline-widget ? 0 : parent.height;
-                                opacity: preview.preview-is-current ? 1.0 : 0.3;
-                                enabled: preview.preview-is-current;
-                                properties-visible <=> root.properties-widget;
-                            }
-
-                            splitter := TouchArea {
-                                visible: root.properties-widget && root.outline-widget;
-                                y: w1.height;
-                                height: 3px;
-                                moved => {
-                                    ratio = Math.clamp((self.y + self.mouse-y - self.pressed-y) / (parent.height - splitter.height), 0, 1);
-                                }
-                                mouse-cursor: ns-resize;
-
-                                Rectangle {
-                                    background: Palette.border;
-                                }
-                            }
-
-                            if root.outline-widget:w2 := OutlineView {
-                                width: EditorSizeSettings.property-bar-width;
-
-                                y: splitter.y + splitter.height;
-                                height: parent.height - self.y;
-                                opacity: preview.preview-is-current ? 1.0 : 0.3;
-                                enabled: preview.preview-is-current;
-                                outline <=> root.outline-widget;
-                            }
+                            y: splitter.y + splitter.height;
+                            height: parent.height - self.y;
+                            opacity: preview.preview-is-current ? 1.0 : 0.3;
+                            enabled: preview.preview-is-current;
+                            outline <=> root.outline-widget;
                         }
                     }
 
