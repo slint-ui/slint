@@ -201,6 +201,14 @@ fn inline_element(
             .map(|p| duplicate_popup(p, &mut mapping, priority_delta)),
     );
 
+    root_component.menu_item_tree.borrow_mut().extend(
+        inlined_component
+            .menu_item_tree
+            .borrow()
+            .iter()
+            .map(|it| duplicate_sub_component(it, elem, &mut mapping, priority_delta)),
+    );
+
     root_component.timers.borrow_mut().extend(inlined_component.timers.borrow().iter().map(|t| {
         let inlined_element = mapping.get(&element_key(t.element.upgrade().unwrap())).unwrap();
 
