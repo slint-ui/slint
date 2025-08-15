@@ -48,6 +48,7 @@ pub struct MenuFromItemTree {
     root: RefCell<SharedVector<MenuEntry>>,
     next_id: Cell<usize>,
     tracker: Pin<Box<PropertyTracker>>,
+    condition: Option<Pin<Box<Property<bool>>>>,
 }
 
 impl MenuFromItemTree {
@@ -58,14 +59,39 @@ impl MenuFromItemTree {
             root: Default::default(),
             tracker: Box::pin(PropertyTracker::default()),
             next_id: 0.into(),
+            condition: None,
+        }
+    }
+
+    pub fn new_with_condition(
+        item_tree: ItemTreeRc,
+        condition: impl Fn() -> bool + 'static,
+    ) -> Self {
+        let cond_prop = Box::pin(Property::new_named(true, "MenuFromItemTree::condition"));
+        cond_prop.as_ref().set_binding(condition);
+
+        Self {
+            item_tree,
+            item_cache: Default::default(),
+            root: Default::default(),
+            tracker: Box::pin(PropertyTracker::default()),
+            next_id: 0.into(),
+            condition: Some(cond_prop),
         }
     }
 
     fn update_shadow_tree(&self) {
         self.tracker.as_ref().evaluate_if_dirty(|| {
             self.item_cache.replace(Default::default());
-            self.root
-                .replace(self.update_shadow_tree_recursive(&ItemRc::new(self.item_tree.clone(), 0)))
+            if let Some(condition) = &self.condition {
+                if !condition.as_ref().get() {
+                    self.root.replace(SharedVector::default());
+                    return;
+                }
+            }
+            self.root.replace(
+                self.update_shadow_tree_recursive(&ItemRc::new(self.item_tree.clone(), 0)),
+            );
         });
     }
 
@@ -244,15 +270,27 @@ impl crate::items::ItemConsts for MenuItem {
 pub mod ffi {
     use super::*;
 
-    /// Create a `VBox::<MenuVTable>`` that wraps the [`ItemTreeRc`]
+    /// Create a `VRc::<MenuVTable>`` that wraps the [`ItemTreeRc`]
     ///
-    /// Put the created VBox into the result pointer with std::ptr::write
+    /// Put the created VRc into the result pointer with std::ptr::write
     #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_menus_create_wrapper(
         menu_tree: &ItemTreeRc,
         result: *mut vtable::VRc<MenuVTable>,
+        condition: Option<extern "C" fn(menu_tree: &ItemTreeRc) -> bool>,
     ) {
-        let vrc = vtable::VRc::into_dyn(vtable::VRc::new(MenuFromItemTree::new(menu_tree.clone())));
+        let menu = match condition {
+            Some(condition) => {
+                let menu_weak = ItemTreeRc::downgrade(menu_tree);
+                MenuFromItemTree::new_with_condition(menu_tree.clone(), move || {
+                    let Some(menu_rc) = menu_weak.upgrade() else { return false };
+                    condition(&menu_rc)
+                })
+            }
+            None => MenuFromItemTree::new(menu_tree.clone()),
+        };
+
+        let vrc = vtable::VRc::into_dyn(vtable::VRc::new(menu));
         core::ptr::write(result, vrc);
     }
 }

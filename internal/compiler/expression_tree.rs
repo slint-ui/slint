@@ -86,9 +86,10 @@ pub enum BuiltinFunction {
     SupportsNativeMenuBar,
     /// Setup the menu bar
     ///
-    /// arguments are: `(ref entries, ref sub-menu, ref activated, item_tree_root, no_native_menu_bar)`
-    /// `item_tree_root` is a reference to the MenuItem tree root (just like in the [`Self::ShowPopupMenu`] call),
-    /// and `no_native_menu_bar` is a boolean literal that is true when we shouldn't try to setup the native menu bar.
+    /// arguments are: `(ref entries, ref sub-menu, ref activated, item_tree_root, no_native_menu_bar, <condition>)`
+    /// `item_tree_root` is a reference to the MenuItem tree root (just like in the [`Self::ShowPopupMenu`] call).
+    /// `no_native_menu_bar` is a boolean literal that is true when we shouldn't try to setup the native menu bar.
+    /// `condition` is an optional expression that is the expression to `if condition : MenuBar { ... }` for optional menu
     SetupMenuBar,
     Use24HourFormat,
     MonthDayCount,

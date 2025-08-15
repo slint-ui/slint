@@ -2466,6 +2466,7 @@ pub fn close_popup(
 pub fn make_menu_item_tree(
     menu_item_tree: &Rc<object_tree::Component>,
     enclosing_component: &InstanceRef,
+    condition: Option<&Expression>,
 ) -> vtable::VRc<i_slint_core::menus::MenuVTable, MenuFromItemTree> {
     generativity::make_guard!(guard);
     let mit_compiled = generate_item_tree(
@@ -2475,15 +2476,24 @@ pub fn make_menu_item_tree(
         false,
         guard,
     );
+    let enclosing_component_weak = enclosing_component.self_weak().get().unwrap();
     let mit_inst = instantiate(
         mit_compiled.clone(),
-        Some(enclosing_component.self_weak().get().unwrap().clone()),
+        Some(enclosing_component_weak.clone()),
         None,
         None,
         Default::default(),
     );
     mit_inst.run_setup_code();
-    vtable::VRc::new(MenuFromItemTree::new(vtable::VRc::into_dyn(mit_inst)))
+    let item_tree = vtable::VRc::into_dyn(mit_inst);
+    let menu = match condition {
+        Some(condition) => {
+            let binding = make_binding_eval_closure(condition.clone(), enclosing_component_weak);
+            MenuFromItemTree::new_with_condition(item_tree, move || binding().try_into().unwrap())
+        }
+        None => MenuFromItemTree::new(item_tree),
+    };
+    vtable::VRc::new(menu)
 }
 
 pub fn update_timers(instance: InstanceRef) {

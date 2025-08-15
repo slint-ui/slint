@@ -3744,7 +3744,7 @@ fn compile_builtin_function_call(
         }
         BuiltinFunction::SetupMenuBar => {
             let window = access_window_field(ctx);
-            let [llr::Expression::PropertyReference(entries_r), llr::Expression::PropertyReference(sub_menu_r), llr::Expression::PropertyReference(activated_r), llr::Expression::NumberLiteral(tree_index), llr::Expression::BoolLiteral(no_native)] = arguments
+            let [llr::Expression::PropertyReference(entries_r), llr::Expression::PropertyReference(sub_menu_r), llr::Expression::PropertyReference(activated_r), llr::Expression::NumberLiteral(tree_index), llr::Expression::BoolLiteral(no_native), rest @ ..] = arguments
             else {
                 panic!("internal error: incorrect argument count to SetupMenuBar")
             };
@@ -3761,12 +3761,23 @@ fn compile_builtin_function_call(
                     slint::private_api::setup_popup_menu_from_menu_item_tree(item_tree_dyn, {access_entries}, {access_sub_menu}, {access_activated});
                 }}")
             } else {
+                let condition = if let [condition] = &rest {
+                    let condition = compile_expression(condition, ctx);
+                    format!(r"[](auto menu_tree) {{
+                                auto self_mapped = reinterpret_cast<const {item_tree_id} *>(menu_tree->operator->())->parent.lock();
+                                [[maybe_unused]] auto self = &**self_mapped;
+                                return {condition};
+                            }}")
+                } else {
+                    "nullptr".to_string()
+                };
+
                 format!(r"
                     if ({window}.supports_native_menu_bar()) {{
                         auto item_tree = {item_tree_id}::create(self);
                         auto item_tree_dyn = item_tree.into_dyn();
                         slint::private_api::MaybeUninitialized<vtable::VRc<slint::cbindgen_private::MenuVTable>> maybe;
-                        slint::cbindgen_private::slint_menus_create_wrapper(&item_tree_dyn, &maybe.value);
+                        slint::cbindgen_private::slint_menus_create_wrapper(&item_tree_dyn, &maybe.value, {condition});
                         auto vrc = maybe.take();
                         slint::cbindgen_private::slint_windowrc_setup_native_menu_bar(&{window}.handle(), &vrc);
                     }} else {{

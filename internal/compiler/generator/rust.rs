@@ -3141,7 +3141,7 @@ fn compile_builtin_function_call(
         }
         BuiltinFunction::SetupMenuBar => {
             let window_adapter_tokens = access_window_adapter_field(ctx);
-            let [Expression::PropertyReference(entries_r), Expression::PropertyReference(sub_menu_r), Expression::PropertyReference(activated_r), Expression::NumberLiteral(tree_index), Expression::BoolLiteral(no_native)] =
+            let [Expression::PropertyReference(entries_r), Expression::PropertyReference(sub_menu_r), Expression::PropertyReference(activated_r), Expression::NumberLiteral(tree_index), Expression::BoolLiteral(no_native), rest @ ..] =
                 arguments
             else {
                 panic!("internal error: incorrect arguments to SetupMenuBar")
@@ -3159,18 +3159,33 @@ fn compile_builtin_function_call(
             let access_activated = access_member(activated_r, ctx).unwrap();
 
             let native_impl = if *no_native {
-                quote!()
+                quote!(let menu_item_tree = sp::MenuFromItemTree::new(sp::VRc::into_dyn(menu_item_tree_instance));)
             } else {
-                quote!(if sp::WindowInner::from_pub(#window_adapter_tokens.window()).supports_native_menu_bar() {
+                let menu_from_item_tree = if let Some(condition) = &rest.first() {
+                    let binding = compile_expression(condition, ctx);
+                    quote!(sp::MenuFromItemTree::new_with_condition(sp::VRc::into_dyn(menu_item_tree_instance), {
+                        let self_weak = _self.self_weak.get().unwrap().clone();
+                        move || {
+                            let Some(self_rc) = self_weak.upgrade() else { return false };
+                            let _self = self_rc.as_pin_ref();
+                            #binding
+                        }
+                    }))
+                } else {
+                    quote!(sp::MenuFromItemTree::new(sp::VRc::into_dyn(menu_item_tree_instance)))
+                };
+                quote! {
+                    let menu_item_tree = #menu_from_item_tree;
+                    if sp::WindowInner::from_pub(#window_adapter_tokens.window()).supports_native_menu_bar() {
                         let menu_item_tree = sp::VRc::new(menu_item_tree);
                         let menu_item_tree = sp::VRc::into_dyn(menu_item_tree);
                         sp::WindowInner::from_pub(#window_adapter_tokens.window()).setup_menubar(menu_item_tree);
-                    } else)
+                    } else
+                }
             };
 
             quote!({
-                let menu_item_tree_instance = #item_tree_id::new(_self.self_weak.get().unwrap().clone()).unwrap(); // BLGAG
-                let menu_item_tree = sp::MenuFromItemTree::new(sp::VRc::into_dyn(menu_item_tree_instance));
+                let menu_item_tree_instance = #item_tree_id::new(_self.self_weak.get().unwrap().clone()).unwrap();
                 #native_impl
                 /*else*/ {
                     let menu_item_tree = sp::Rc::new(menu_item_tree);

@@ -729,6 +729,7 @@ fn call_builtin_function(
                 let menu_item_tree = crate::dynamic_item_tree::make_menu_item_tree(
                     &menu_item_tree,
                     &enclosing_component,
+                    None,
                 );
 
                 if component.access_window(|window| {
@@ -1149,7 +1150,7 @@ fn call_builtin_function(
             .into(),
         BuiltinFunction::SetupMenuBar => {
             let component = local_context.component_instance;
-            let [Expression::PropertyReference(entries_nr), Expression::PropertyReference(sub_menu_nr), Expression::PropertyReference(activated_nr), Expression::ElementReference(item_tree_root), Expression::BoolLiteral(no_native)] =
+            let [Expression::PropertyReference(entries_nr), Expression::PropertyReference(sub_menu_nr), Expression::PropertyReference(activated_nr), Expression::ElementReference(item_tree_root), Expression::BoolLiteral(no_native), rest @ ..] =
                 arguments
             else {
                 panic!("internal error: incorrect argument count to SetupMenuBar")
@@ -1157,8 +1158,11 @@ fn call_builtin_function(
 
             let menu_item_tree =
                 item_tree_root.upgrade().unwrap().borrow().enclosing_component.upgrade().unwrap();
-            let menu_item_tree =
-                crate::dynamic_item_tree::make_menu_item_tree(&menu_item_tree, &component);
+            let menu_item_tree = crate::dynamic_item_tree::make_menu_item_tree(
+                &menu_item_tree,
+                &component,
+                rest.first(),
+            );
 
             if let Some(w) = component.window_adapter().internal(i_slint_core::InternalToken) {
                 if !no_native && w.supports_native_menu_bar() {
