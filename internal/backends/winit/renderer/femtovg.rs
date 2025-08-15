@@ -28,8 +28,8 @@ pub struct GlutinFemtoVGRenderer {
 impl GlutinFemtoVGRenderer {
     pub fn new_suspended(
         _shared_backend_data: &Rc<crate::SharedBackendData>,
-    ) -> Box<dyn WinitCompatibleRenderer> {
-        Box::new(Self { renderer: FemtoVGRenderer::new_suspended() })
+    ) -> Result<Box<dyn WinitCompatibleRenderer>, PlatformError> {
+        Ok(Box::new(Self { renderer: FemtoVGRenderer::new_suspended() }))
     }
 }
 
@@ -94,11 +94,11 @@ pub struct WGPUFemtoVGRenderer {
 impl WGPUFemtoVGRenderer {
     pub fn new_suspended(
         _shared_backend_data: &Rc<crate::SharedBackendData>,
-    ) -> Box<dyn WinitCompatibleRenderer> {
-        Box::new(Self {
+    ) -> Result<Box<dyn WinitCompatibleRenderer>, PlatformError> {
+        Ok(Box::new(Self {
             renderer: FemtoVGRenderer::<i_slint_renderer_femtovg::wgpu::WGPUBackend>::new_suspended(
             ),
-        })
+        }))
     }
 }
 

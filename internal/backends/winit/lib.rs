@@ -114,7 +114,7 @@ cfg_if::cfg_if! {
 
 fn default_renderer_factory(
     shared_backend_data: &Rc<SharedBackendData>,
-) -> Box<dyn WinitCompatibleRenderer> {
+) -> Result<Box<dyn WinitCompatibleRenderer>, PlatformError> {
     cfg_if::cfg_if! {
         if #[cfg(enable_skia_renderer)] {
             renderer::skia::WinitSkiaRenderer::new_suspended(shared_backend_data)
@@ -152,17 +152,16 @@ fn try_create_window_with_fallback_renderer(
     ]
     .into_iter()
     .find_map(|renderer_factory| {
-        WinitWindowAdapter::new(
+        Some(WinitWindowAdapter::new(
             shared_backend_data.clone(),
-            renderer_factory(&shared_backend_data),
+            renderer_factory(&shared_backend_data).ok()?,
             attrs.clone(),
             None,
             #[cfg(any(enable_accesskit, muda))]
             _proxy.clone(),
             #[cfg(all(muda, target_os = "macos"))]
             muda_enable_default_menu_bar,
-        )
-        .ok()
+        ))
     })
 }
 
@@ -591,7 +590,8 @@ impl SharedBackendData {
 /// ```
 pub struct Backend {
     requested_graphics_api: Option<RequestedGraphicsAPI>,
-    renderer_factory_fn: fn(&Rc<SharedBackendData>) -> Box<dyn WinitCompatibleRenderer>,
+    renderer_factory_fn:
+        fn(&Rc<SharedBackendData>) -> Result<Box<dyn WinitCompatibleRenderer>, PlatformError>,
     event_loop_state: RefCell<Option<crate::event_loop::EventLoopState>>,
     shared_data: Rc<SharedBackendData>,
     custom_application_handler: RefCell<Option<Box<dyn crate::CustomApplicationHandler>>>,
@@ -668,26 +668,30 @@ impl i_slint_core::platform::Platform for Backend {
             attrs = hook(attrs);
         }
 
-        let adapter = WinitWindowAdapter::new(
-            self.shared_data.clone(),
-            (self.renderer_factory_fn)(&self.shared_data),
-            attrs.clone(),
-            self.requested_graphics_api.clone(),
-            #[cfg(any(enable_accesskit, muda))]
-            self.shared_data.event_loop_proxy.clone(),
-            #[cfg(all(muda, target_os = "macos"))]
-            self.muda_enable_default_menu_bar_bar,
-        )
-        .or_else(|e| {
-            try_create_window_with_fallback_renderer(
-                &self.shared_data,
-                attrs,
-                &self.shared_data.event_loop_proxy.clone(),
-                #[cfg(all(muda, target_os = "macos"))]
-                self.muda_enable_default_menu_bar_bar,
-            )
-            .ok_or_else(|| format!("Winit backend failed to find a suitable renderer: {e}"))
-        })?;
+        let adapter = (self.renderer_factory_fn)(&self.shared_data).map_or_else(
+            |e| {
+                try_create_window_with_fallback_renderer(
+                    &self.shared_data,
+                    attrs.clone(),
+                    &self.shared_data.event_loop_proxy.clone(),
+                    #[cfg(all(muda, target_os = "macos"))]
+                    self.muda_enable_default_menu_bar_bar,
+                )
+                .ok_or_else(|| format!("Winit backend failed to find a suitable renderer: {e}"))
+            },
+            |renderer| {
+                Ok(WinitWindowAdapter::new(
+                    self.shared_data.clone(),
+                    renderer,
+                    attrs.clone(),
+                    self.requested_graphics_api.clone(),
+                    #[cfg(any(enable_accesskit, muda))]
+                    self.shared_data.event_loop_proxy.clone(),
+                    #[cfg(all(muda, target_os = "macos"))]
+                    self.muda_enable_default_menu_bar_bar,
+                ))
+            },
+        )?;
         Ok(adapter)
     }
 
