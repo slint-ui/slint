@@ -175,13 +175,13 @@ export component OutlineView inherits VerticalLayout {
 
             hier-bg := Rectangle {
                 background: Palette.border.transparentize(0.7);
-                x: indentation.width;
+                x: indentation.width + 8px;
                 height: 100%;
             }
 
             hier-markers := Rectangle {
                 for i in item.indent-level: Rectangle {
-                    x: i > 0 ? i * 9px : 0px;
+                    x: i > 0 ? i * 10px + 8px : 0px;
                     width: 1px;
                     height: 100%;
                     background: Palette.border.transparentize(0.4);
@@ -192,10 +192,6 @@ export component OutlineView inherits VerticalLayout {
                 HorizontalLayout {
                     alignment: start;
                     spacing: 3px;
-                    indentation := Rectangle {
-                        width: item.indent-level * 9px;
-                    }
-
                     ta-open := TouchArea {
                         Image {
                             visible: item.has-children;
@@ -204,7 +200,9 @@ export component OutlineView inherits VerticalLayout {
                             rotation-angle: item.is-expanded ? 0.0deg : -90.0deg;
                             colorize: selected ? Palette.selection-foreground : Palette.foreground;
                             vertical-alignment: center;
-                            animate rotation-angle {
+                            opacity: ta-open.has-hover || ta.has-hover ? 1 : 0;
+
+                            animate rotation-angle, opacity {
                                 duration: 300ms;
                                 easing: ease-out-quad;
                             }
@@ -213,6 +211,10 @@ export component OutlineView inherits VerticalLayout {
                         clicked => {
                             item.is-expanded = !item.is-expanded;
                         }
+                    }
+
+                    indentation := Rectangle {
+                        width: item.indent-level * 10px;
                     }
 
                     t := Rectangle {

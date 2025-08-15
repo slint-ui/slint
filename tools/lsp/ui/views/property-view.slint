@@ -20,7 +20,7 @@ export component PropertyView inherits VerticalLayout {
     property <bool> element-loaded: root.properties.length > 0;
     in-out property <bool> enabled <=> sv.enabled;
     visible: root.properties-visible;
-    Rectangle {
+    header := Rectangle {
         height: ConsoleStyles.header-height;
         background: ConsoleStyles.header-background;
         Rectangle {
