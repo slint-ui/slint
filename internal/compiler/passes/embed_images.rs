@@ -143,6 +143,44 @@ fn embed_image(
                 // Really do nothing with the image!
                 e.insert(EmbeddedResources { id: maybe_id, kind: EmbeddedResourcesKind::ListOnly });
                 return ImageReference::None;
+            } else if path.starts_with("data:") {
+                // Handle data URLs by validating and decoding them at compile time
+                if let Ok(data_url) = dataurl::DataUrl::parse(path) {
+                    let media_type = data_url.get_media_type();
+                    if !media_type.starts_with("image/") {
+                        // Non-image data URLs should cause compilation errors
+                        diag.push_error(format!("Data URL with unsupported media type '{}'. Only image/* data URLs are supported", media_type), source_location);
+                        return ImageReference::None;
+                    }
+
+                    let extension = media_type.split('/').nth(1).unwrap_or("").to_string();
+                    let decoded_data = if data_url.get_is_base64_encoded() {
+                        data_url.get_data().to_vec()
+                    } else {
+                        data_url.get_text().as_bytes().to_vec()
+                    };
+
+                    // Check for oversized data URLs (> 1 MiB)
+                    const MAX_DATA_URL_SIZE: usize = 1024 * 1024; // 1 MiB
+                    if decoded_data.len() > MAX_DATA_URL_SIZE {
+                        diag.push_error(
+                            format!(
+                                "Data URL is too large ({} bytes > {} bytes). Consider using a file reference instead.",
+                                decoded_data.len(),
+                                MAX_DATA_URL_SIZE
+                            ),
+                            source_location,
+                        );
+                        return ImageReference::None;
+                    }
+
+                    // For data URLs, store the decoded data with its extension
+                    let kind = EmbeddedResourcesKind::DecodedData(decoded_data, extension);
+                    e.insert(EmbeddedResources { id: maybe_id, kind })
+                } else {
+                    diag.push_error(format!("Invalid data URL format: {}", path), source_location);
+                    return ImageReference::None;
+                }
             } else if let Some(_file) = crate::fileaccess::load_file(std::path::Path::new(path)) {
                 #[allow(unused_mut)]
                 let mut kind = EmbeddedResourcesKind::RawData;
@@ -173,10 +211,13 @@ fn embed_image(
         }
     };
 
-    match e.kind {
+    match &e.kind {
         #[cfg(feature = "software-renderer")]
         EmbeddedResourcesKind::TextureData { .. } => {
             ImageReference::EmbeddedTexture { resource_id: e.id }
+        }
+        EmbeddedResourcesKind::DecodedData(_, extension) => {
+            ImageReference::EmbeddedData { resource_id: e.id, extension: extension.clone() }
         }
         _ => ImageReference::EmbeddedData {
             resource_id: e.id,
