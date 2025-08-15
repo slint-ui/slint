@@ -4,7 +4,6 @@
 import { Palette, VerticalBox, ListView }  from "std-widgets.slint";
 import { ConsoleStyles, EditorSizeSettings, Icons, EditorFontSettings, EditorSpaceSettings,  } from "../components/styling.slint";
 import { Api, OutlineTreeNode, DropLocation } from "../api.slint";
-import { IconButton } from "../components/icon-button.slint";
 
 export component OutlineView inherits VerticalLayout {
     property <[OutlineTreeNode]> outline-data <=> Api.outline;
