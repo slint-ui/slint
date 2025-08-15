@@ -93,7 +93,7 @@ jobs:
               shell: powershell
               run: |
                   cd pkg
-                  Compress-Archive -Path * -Destination ..\slint-${{ github.event.inputs.program || inputs.program }}-windows-${{ matrix.package_suffix }}.zip
+                  Compress-Archive -Path slint-${{ github.event.inputs.program || inputs.program }}\* -Destination ..\slint-${{ github.event.inputs.program || inputs.program }}-windows-${{ matrix.package_suffix }}.zip
             - name: Upload artifact
               uses: actions/upload-artifact@v4
               with:
