@@ -309,8 +309,7 @@ pub fn reversed_edit(
             .edits
             .into_iter()
             .map(|e| {
-                let orig_range =
-                    crate::util::lsp_range_to_text_range(&helper.source_file, dbg!(e.range));
+                let orig_range = crate::util::lsp_range_to_text_range(&helper.source_file, e.range);
                 let orig_string = source[orig_range].to_string();
 
                 // Count the number of \n in the original string and the replaced string
