@@ -76,19 +76,19 @@ Call this function to remove keyboard focus from this `FocusScope` if it current
 ## Callbacks
 
 ### capture-key-pressed(KeyEvent) -> EventResult
-This function is called during key event handling, *before* `key-pressed` is called. Use this to intercept key press events. The returned `EventResult`
+This function is called during key event handling, *before* `key-pressed` is called. Use this to intercept key press events. The returned <Link type="EventResult" />
 indicates whether to accept or reject the event. Rejected events are forwarded to the parent element.
 
 ### capture-key-released(KeyEvent) -> EventResult
-This function is called during key event handling, *before* `key-released` is called. Use this to intercept key release events. The returned `EventResult`
+This function is called during key event handling, *before* `key-released` is called. Use this to intercept key release events. The returned <Link type="EventResult" />
 indicates whether to accept or reject the event. Rejected events are forwarded to the parent element.
 
 ### key-pressed(KeyEvent) -> EventResult
-Invoked when a key is pressed, the argument is a <Link type="KeyEvent" /> struct. The returned `EventResult`
+Invoked when a key is pressed, the argument is a <Link type="KeyEvent" /> struct. The returned <Link type="EventResult" />
 indicates whether to accept or reject the event. Rejected events are forwarded to the parent element.
 
 ### key-released(KeyEvent) -> EventResult
-Invoked when a key is released, the argument is a <Link type="KeyEvent" /> struct. The returned `EventResult`
+Invoked when a key is released, the argument is a <Link type="KeyEvent" /> struct. The returned <Link type="EventResult" />
 indicates whether to accept or reject the event. Rejected events are forwarded to the parent element.
 
 ### focus-changed-event(FocusReason)
