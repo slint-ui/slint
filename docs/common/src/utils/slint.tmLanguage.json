@@ -561,7 +561,17 @@
                     "patterns": [
                         {
                             "name": "constant.character.escape.untitled.slint",
-                            "match": "\\\\(n|\\\\|u\\{\\d+\\}|\\{[^\\}]+\\})"
+                            "match": "\\\\(n|\\\\|u\\{\\d+\\})"
+                        },
+                        {
+                            "name": "constant.character.escape.untitled.slint",
+                            "begin": "\\\\\\{",
+                            "end": "\\}",
+                            "patterns": [
+                                {
+                                    "include": "#expression"
+                                }
+                            ]
                         }
                     ]
                 }
