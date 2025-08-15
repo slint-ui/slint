@@ -72,12 +72,12 @@ impl TargetPixel for SoftBufferPixel {
 impl WinitSoftwareRenderer {
     pub fn new_suspended(
         _shared_backend_data: &Rc<crate::SharedBackendData>,
-    ) -> Box<dyn WinitCompatibleRenderer> {
-        Box::new(Self {
+    ) -> Result<Box<dyn WinitCompatibleRenderer>, PlatformError> {
+        Ok(Box::new(Self {
             renderer: SoftwareRenderer::new(),
             _context: RefCell::new(None),
             surface: RefCell::new(None),
-        })
+        }))
     }
 }
 

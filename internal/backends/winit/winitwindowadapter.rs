@@ -385,7 +385,7 @@ impl WinitWindowAdapter {
         requested_graphics_api: Option<RequestedGraphicsAPI>,
         #[cfg(any(enable_accesskit, muda))] proxy: EventLoopProxy<SlintEvent>,
         #[cfg(all(muda, target_os = "macos"))] muda_enable_default_menu_bar: bool,
-    ) -> Result<Rc<Self>, PlatformError> {
+    ) -> Rc<Self> {
         let self_rc = Rc::new_cyclic(|self_weak| Self {
             shared_backend_data: shared_backend_data.clone(),
             window: OnceCell::from(corelib::api::Window::new(self_weak.clone() as _)),
@@ -428,7 +428,7 @@ impl WinitWindowAdapter {
 
         self_rc.shared_backend_data.register_inactive_window((self_rc.clone()) as _);
 
-        Ok(self_rc)
+        self_rc
     }
 
     fn renderer(&self) -> &dyn WinitCompatibleRenderer {

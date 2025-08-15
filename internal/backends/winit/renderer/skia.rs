@@ -16,8 +16,8 @@ pub struct WinitSkiaRenderer {
 impl WinitSkiaRenderer {
     pub fn new_suspended(
         shared_backend_data: &Rc<crate::SharedBackendData>,
-    ) -> Box<dyn super::WinitCompatibleRenderer> {
-        Box::new(Self { renderer: SkiaRenderer::default(&shared_backend_data.skia_context) })
+    ) -> Result<Box<dyn super::WinitCompatibleRenderer>, PlatformError> {
+        Ok(Box::new(Self { renderer: SkiaRenderer::default(&shared_backend_data.skia_context) }))
     }
 
     #[cfg(not(target_os = "android"))]
