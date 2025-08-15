@@ -264,6 +264,32 @@ impl AndroidWindowAdapter {
         Ok(ControlFlow::Continue(()))
     }
 
+    fn try_dispatch_key_event(&self, ev: WindowEvent) -> i_slint_core::input::KeyEventResult {
+        match ev {
+            WindowEvent::KeyPressed { text } => WindowInner::from_pub(&self.window)
+                .process_key_input(i_slint_core::input::KeyEvent {
+                    text,
+                    repeat: false,
+                    event_type: i_slint_core::input::KeyEventType::KeyPressed,
+                    ..Default::default()
+                }),
+            WindowEvent::KeyPressRepeated { text } => WindowInner::from_pub(&self.window)
+                .process_key_input(i_slint_core::input::KeyEvent {
+                    text,
+                    repeat: true,
+                    event_type: i_slint_core::input::KeyEventType::KeyPressed,
+                    ..Default::default()
+                }),
+            WindowEvent::KeyReleased { text } => WindowInner::from_pub(&self.window)
+                .process_key_input(i_slint_core::input::KeyEvent {
+                    text,
+                    event_type: i_slint_core::input::KeyEventType::KeyReleased,
+                    ..Default::default()
+                }),
+            _ => i_slint_core::input::KeyEventResult::EventIgnored,
+        }
+    }
+
     fn process_inputs(&self) -> Result<(), PlatformError> {
         let mut iter =
             self.app.input_events_iter().map_err(|e| PlatformError::Other(e.to_string()))?;
@@ -272,8 +298,13 @@ impl AndroidWindowAdapter {
             let read_input = iter.next(|event| match event {
                 InputEvent::KeyEvent(key_event) => match map_key_event(key_event) {
                     Some(ev) => {
-                        result = self.window.try_dispatch_event(ev);
-                        InputStatus::Handled
+                        if self.try_dispatch_key_event(ev)
+                            == i_slint_core::input::KeyEventResult::EventAccepted
+                        {
+                            InputStatus::Handled
+                        } else {
+                            InputStatus::Unhandled
+                        }
                     }
                     None => InputStatus::Unhandled,
                 },
@@ -322,7 +353,7 @@ impl AndroidWindowAdapter {
                                     .to_logical(self.window.scale_factor()),
                                 button: PointerEventButton::Left,
                             })
-                            .and_then(|()| {
+                            .and_then(|_| {
                                 // Also send exit to avoid remaining hover state
                                 self.window.try_dispatch_event(WindowEvent::PointerExited)
                             });
@@ -538,7 +569,7 @@ fn map_key_code(code: android_activity::input::Keycode) -> Option<SharedString> 
         Keycode::SoftLeft => None,
         Keycode::SoftRight => None,
         Keycode::Home => None,
-        Keycode::Back => None,
+        Keycode::Back => Some(Key::Back.into()),
         Keycode::Call => None,
         Keycode::Endcall => None,
         Keycode::Keycode0 => Some("0".into()),
