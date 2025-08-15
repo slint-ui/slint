@@ -1,0 +1,123 @@
+
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { AboutSlint, Button } from "std-widgets.slint";
+export component TestCase inherits Window {
+
+    in-out property <string> app_title: "Application";
+
+    in-out property <string> result;
+    in-out property <bool> show-menubar: true;
+
+    if show-menubar: MenuBar {
+        Menu {
+            title: "File";
+            MenuItem {
+                title: "New";
+                activated => { result += self.title; debug("New"); }
+            }
+            MenuItem {
+                title: "Open";
+                activated => { debug("Open"); }
+            }
+        }
+        Menu {
+            title: "Edit";
+            MenuItem {
+                title: "Copy";
+                activated => { debug("Copy"); }
+            }
+            MenuSeparator {}
+            MenuItem {
+                title: "Paste";
+                activated => { result += "Paste"; debug("Paste"); }
+            }
+        }
+    }
+    vl := VerticalLayout {
+        AboutSlint {}
+        Button { text: "Hello"; clicked => { show-menubar = !show-menubar; } }
+    }
+
+    if true: Text { text: win-height / 1px; }
+
+    out property <bool> check-geometry: vl.x == 0 && vl.y == 0 && vl.width == root.width && vl.height == root.height;
+    out property <length> win-height: root.height;
+    out property <bool> test: check-geometry;
+}
+
+/*
+```rust
+use slint::{SharedString, platform::{Key}};
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+// click on the file menu
+slint_testing::send_mouse_click(&instance, 10., 10.);
+// navigate using the keys to the "New" menu item
+slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::DownArrow));
+slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::Return));
+assert_eq!(instance.get_result(), "New");
+let height_with_menubar = instance.get_win_height();
+
+// The same, but this time there is no menu bar
+instance.set_result("".into());
+instance.set_show_menubar(false);
+
+assert!(instance.get_test());
+assert_ne!(instance.get_win_height(), height_with_menubar);
+assert!(instance.get_win_height() > height_with_menubar);
+
+slint_testing::send_mouse_click(&instance, 10., 10.);
+slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::DownArrow));
+slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::Return));
+assert_eq!(instance.get_result(), "");
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+// click on the file menu
+slint_testing::send_mouse_click(&instance, 10., 10.);
+// navigate using the keys to the "New" menu item
+slint_testing::send_keyboard_string_sequence(&instance, slint::platform::key_codes::DownArrow);
+slint_testing::send_keyboard_string_sequence(&instance, slint::platform::key_codes::Return);
+assert_eq(instance.get_result(), "New");
+auto height_with_menubar = instance.get_win_height();
+
+// The same, but this time there is no menu bar
+instance.set_result("");
+instance.set_show_menubar(false);
+
+assert(instance.get_test());
+assert(instance.get_win_height() > height_with_menubar);
+
+slint_testing::send_mouse_click(&instance, 10., 10.);
+slint_testing::send_keyboard_string_sequence(&instance, slint::platform::key_codes::DownArrow);
+slint_testing::send_keyboard_string_sequence(&instance, "\n");
+assert_eq(instance.get_result(), "");
+```
+
+```js
+var instance = new slint.TestCase();
+assert(instance.test);
+// click on the file menu
+slintlib.private_api.send_mouse_click(instance, 10., 10.);
+// navigate using the keys to the "New" menu item
+slintlib.private_api.send_keyboard_string_sequence(instance, "\u{F701}");
+slintlib.private_api.send_keyboard_string_sequence(instance, "\n");
+assert.equal(instance.result, "New");
+
+// The same, but this time there is no menu bar
+instance.result = "";
+instance.show_menubar = false;
+
+assert(instance.test);
+assert(instance.win_height > height_with_menubar);
+
+slintlib.private_api.send_mouse_click(instance, 10., 10.);
+slintlib.private_api.send_keyboard_string_sequence(instance, "\u{F701}");
+slintlib.private_api.send_keyboard_string_sequence(instance, "\n");
+assert.equal(instance.result, "");
+*/
