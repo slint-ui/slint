@@ -65,6 +65,8 @@ description: {0} content
                 v.key, v.description
             )?;
         }
+
+        file.flush()?;
     }
     Ok(())
 }
@@ -260,6 +262,8 @@ description: {0} content
                 f.key, f.type_name, f.description
             )?;
         }
+
+        file.flush()?;
     }
 
     Ok(())

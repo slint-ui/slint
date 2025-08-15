@@ -38,6 +38,7 @@ fn widget_library() -> &'static [(&'static str, &'static BuiltinDirectory<'stati
     }
 
     writeln!(file, "]\n}}")?;
+    file.flush()?;
 
     println!("cargo:rustc-env=SLINT_WIDGETS_LIBRARY={}", output_file_path.display());
 
