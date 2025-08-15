@@ -111,7 +111,8 @@ fn builtin_function_cost(function: &BuiltinFunction) -> isize {
         BuiltinFunction::SetFocusItem | BuiltinFunction::ClearFocusItem => isize::MAX,
         BuiltinFunction::ShowPopupWindow
         | BuiltinFunction::ClosePopupWindow
-        | BuiltinFunction::ShowPopupMenu => isize::MAX,
+        | BuiltinFunction::ShowPopupMenu
+        | BuiltinFunction::ShowPopupMenuInternal => isize::MAX,
         BuiltinFunction::SetSelectionOffsets => isize::MAX,
         BuiltinFunction::ItemFontMetrics => PROPERTY_ACCESS_COST,
         BuiltinFunction::StringToFloat => 50,
@@ -138,7 +139,7 @@ fn builtin_function_cost(function: &BuiltinFunction) -> isize {
         BuiltinFunction::RegisterBitmapFont => isize::MAX,
         BuiltinFunction::ColorScheme => PROPERTY_ACCESS_COST,
         BuiltinFunction::SupportsNativeMenuBar => 10,
-        BuiltinFunction::SetupNativeMenuBar => isize::MAX,
+        BuiltinFunction::SetupMenuBar => isize::MAX,
         BuiltinFunction::MonthDayCount => isize::MAX,
         BuiltinFunction::MonthOffset => isize::MAX,
         BuiltinFunction::FormatDate => isize::MAX,

@@ -49,12 +49,16 @@ pub enum BuiltinFunction {
     ShowPopupWindow,
     ClosePopupWindow,
     /// Show a context popup menu.
-    /// Arguments are `(parent, entries, position)`
+    /// Arguments are `(parent, menu_tree, position)`
     ///
-    /// The first argument (parent) is a reference to the `ContectMenu` native item
-    /// The second argument (entries) can either be of type Array of MenuEntry, or a reference to a MenuItem tree.
-    /// When it is a menu item tree, it is a ElementReference to the root of the tree, and in the LLR, a NumberLiteral to an index in  [`crate::llr::SubComponent::menu_item_trees`]
+    /// The first argument (parent) is a reference to the `ContextMenu` native item
+    /// The second argument (menu_tree) is a ElementReference to the root of the tree,
+    /// and in the LLR, a NumberLiteral to an index in  [`crate::llr::SubComponent::menu_item_trees`]
     ShowPopupMenu,
+    /// Show a context popup menu from a list of entries.
+    /// Arguments are `(parent, entries, position)`
+    /// The entries argument is an array of MenuEntry
+    ShowPopupMenuInternal,
     SetSelectionOffsets,
     ItemFontMetrics,
     /// the "42".to_float()
@@ -80,13 +84,12 @@ pub enum BuiltinFunction {
     Hsv,
     ColorScheme,
     SupportsNativeMenuBar,
-    /// Setup the native menu bar, or the item-tree based menu bar
-    /// arguments are: `(ref entries, ref sub-menu, ref activated, item_tree_root?, no_native_menu_bar?)`
-    /// The two last arguments are only set if the menu is an item tree, in which case, `item_tree_root` is a reference
-    /// to the MenuItem tree root (just like the entries in the [`Self::ShowPopupMenu`] call), and `native_menu_bar` is
-    /// is a boolean literal that is true when we shouldn't try to setup the native menu bar.
-    /// If we have an item_tree_root, the code will assign the callback handler and properties on the non-native menubar as well
-    SetupNativeMenuBar,
+    /// Setup the menu bar
+    ///
+    /// arguments are: `(ref entries, ref sub-menu, ref activated, item_tree_root, no_native_menu_bar)`
+    /// `item_tree_root` is a reference to the MenuItem tree root (just like in the [`Self::ShowPopupMenu`] call),
+    /// and `no_native_menu_bar` is a boolean literal that is true when we shouldn't try to setup the native menu bar.
+    SetupMenuBar,
     Use24HourFormat,
     MonthDayCount,
     MonthOffset,
@@ -189,7 +192,8 @@ declare_builtin_function_types!(
     ClearFocusItem: (Type::ElementReference) -> Type::Void,
     ShowPopupWindow: (Type::ElementReference) -> Type::Void,
     ClosePopupWindow: (Type::ElementReference) -> Type::Void,
-    ShowPopupMenu: (Type::ElementReference, Type::Model, typeregister::logical_point_type()) -> Type::Void,
+    ShowPopupMenu: (Type::ElementReference, Type::ElementReference, typeregister::logical_point_type()) -> Type::Void,
+    ShowPopupMenuInternal: (Type::ElementReference, Type::Model, typeregister::logical_point_type()) -> Type::Void,
     SetSelectionOffsets: (Type::ElementReference, Type::Int32, Type::Int32) -> Type::Void,
     ItemFontMetrics: (Type::ElementReference) -> typeregister::font_metrics_type(),
     StringToFloat: (Type::String) -> Type::Float32,
@@ -246,7 +250,7 @@ declare_builtin_function_types!(
     ),
     SupportsNativeMenuBar: () -> Type::Bool,
     // entries, sub-menu, activate. But the types here are not accurate.
-    SetupNativeMenuBar: (Type::Model, typeregister::noarg_callback_type(), typeregister::noarg_callback_type()) -> Type::Void,
+    SetupMenuBar: (Type::Model, typeregister::noarg_callback_type(), typeregister::noarg_callback_type()) -> Type::Void,
     MonthDayCount: (Type::Int32, Type::Int32) -> Type::Int32,
     MonthOffset: (Type::Int32, Type::Int32) -> Type::Int32,
     FormatDate: (Type::String, Type::Int32, Type::Int32, Type::Int32) -> Type::String,
@@ -287,7 +291,7 @@ impl BuiltinFunction {
             BuiltinFunction::AnimationTick => false,
             BuiltinFunction::ColorScheme => false,
             BuiltinFunction::SupportsNativeMenuBar => false,
-            BuiltinFunction::SetupNativeMenuBar => false,
+            BuiltinFunction::SetupMenuBar => false,
             BuiltinFunction::MonthDayCount => false,
             BuiltinFunction::MonthOffset => false,
             BuiltinFunction::FormatDate => false,
@@ -318,7 +322,8 @@ impl BuiltinFunction {
             BuiltinFunction::SetFocusItem | BuiltinFunction::ClearFocusItem => false,
             BuiltinFunction::ShowPopupWindow
             | BuiltinFunction::ClosePopupWindow
-            | BuiltinFunction::ShowPopupMenu => false,
+            | BuiltinFunction::ShowPopupMenu
+            | BuiltinFunction::ShowPopupMenuInternal => false,
             BuiltinFunction::SetSelectionOffsets => false,
             BuiltinFunction::ItemFontMetrics => false, // depends also on Window's font properties
             BuiltinFunction::StringToFloat
@@ -370,7 +375,7 @@ impl BuiltinFunction {
             BuiltinFunction::AnimationTick => true,
             BuiltinFunction::ColorScheme => true,
             BuiltinFunction::SupportsNativeMenuBar => true,
-            BuiltinFunction::SetupNativeMenuBar => false,
+            BuiltinFunction::SetupMenuBar => false,
             BuiltinFunction::MonthDayCount => true,
             BuiltinFunction::MonthOffset => true,
             BuiltinFunction::FormatDate => true,
@@ -401,7 +406,8 @@ impl BuiltinFunction {
             BuiltinFunction::SetFocusItem | BuiltinFunction::ClearFocusItem => false,
             BuiltinFunction::ShowPopupWindow
             | BuiltinFunction::ClosePopupWindow
-            | BuiltinFunction::ShowPopupMenu => false,
+            | BuiltinFunction::ShowPopupMenu
+            | BuiltinFunction::ShowPopupMenuInternal => false,
             BuiltinFunction::SetSelectionOffsets => false,
             BuiltinFunction::ItemFontMetrics => true,
             BuiltinFunction::StringToFloat
