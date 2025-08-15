@@ -46,8 +46,8 @@ pub(super) fn draw_texture_line(
         let mut delta = dx;
         let row = off_y + dy * y;
         // The position where to start in the image array for a this row
-        let mut init =
-            Fixed::from_integer(row.truncate() % source_size.height) * pixel_stride as i32;
+        let row_offset = (row.truncate() % source_size.height) as usize * pixel_stride as usize;
+        let mut tile_start = 0;
 
         // the size of the tile in physical pixels in the target
         let tile_len = (Fixed::from_integer(source_size.width) / delta) as usize;
@@ -62,8 +62,8 @@ pub(super) fn draw_texture_line(
         if rotation.mirror_height() {
             let o = (off_x + (delta * (extra_clip_end as i32 + len as i32 - 1)))
                 % Fixed::from_integer(source_size.width);
-            pos = init + o;
-            init += Fixed::from_integer(source_size.width);
+            pos = o;
+            tile_start = source_size.width as i32;
             end = (o / delta) as usize + 1;
             acc_err = -delta + o % delta;
             delta = -delta;
@@ -71,7 +71,7 @@ pub(super) fn draw_texture_line(
         } else {
             let o =
                 (off_x + delta * extra_clip_begin as i32) % Fixed::from_integer(source_size.width);
-            pos = init + o;
+            pos = o;
             end = ((Fixed::from_integer(source_size.width) - o) / delta) as usize;
             acc_err = (Fixed::from_integer(source_size.width) - o) % delta;
             if acc_err != Fixed::default() {
@@ -92,15 +92,14 @@ pub(super) fn draw_texture_line(
                 (pixel_stride as usize, dy),
                 #[inline(always)]
                 |bpp| {
-                    let p = (pos.truncate() as usize * bpp, pos.fract(), row_fract);
+                    let p = ((row_offset + pos.truncate() as usize) * bpp, pos.fract(), row_fract);
                     pos += delta;
                     p
                 },
             );
             begin = end;
             end += tile_len;
-            pos = init;
-            pos += acc_err;
+            pos = acc_err + Fixed::from_integer(tile_start);
             if remainder != Fixed::from_integer(0) {
                 acc_err -= remainder;
                 let wrap = if rotation.mirror_height() {
