@@ -11,58 +11,75 @@ use i_slint_renderer_skia::SkiaRenderer;
 
 pub struct WinitSkiaRenderer {
     renderer: SkiaRenderer,
+    requested_graphics_api: Option<RequestedGraphicsAPI>,
 }
 
 impl WinitSkiaRenderer {
     pub fn new_suspended(
         shared_backend_data: &Rc<crate::SharedBackendData>,
     ) -> Result<Box<dyn super::WinitCompatibleRenderer>, PlatformError> {
-        Ok(Box::new(Self { renderer: SkiaRenderer::default(&shared_backend_data.skia_context) }))
+        Ok(Box::new(Self {
+            renderer: SkiaRenderer::default(&shared_backend_data.skia_context),
+            requested_graphics_api: shared_backend_data.requested_graphics_api.clone(),
+        }))
     }
 
     #[cfg(not(target_os = "android"))]
     pub fn new_software_suspended(
         shared_backend_data: &Rc<crate::SharedBackendData>,
-    ) -> Box<dyn super::WinitCompatibleRenderer> {
-        Box::new(Self {
+    ) -> Result<Box<dyn super::WinitCompatibleRenderer>, PlatformError> {
+        Ok(Box::new(Self {
             renderer: SkiaRenderer::default_software(&shared_backend_data.skia_context),
-        })
+            requested_graphics_api: shared_backend_data.requested_graphics_api.clone(),
+        }))
     }
 
     #[cfg(not(ios_and_friends))]
     pub fn new_opengl_suspended(
         shared_backend_data: &Rc<crate::SharedBackendData>,
-    ) -> Box<dyn super::WinitCompatibleRenderer> {
-        Box::new(Self { renderer: SkiaRenderer::default_opengl(&shared_backend_data.skia_context) })
+    ) -> Result<Box<dyn super::WinitCompatibleRenderer>, PlatformError> {
+        Ok(Box::new(Self {
+            renderer: SkiaRenderer::default_opengl(&shared_backend_data.skia_context),
+            requested_graphics_api: shared_backend_data.requested_graphics_api.clone(),
+        }))
     }
 
     #[cfg(target_vendor = "apple")]
     pub fn new_metal_suspended(
         shared_backend_data: &Rc<crate::SharedBackendData>,
-    ) -> Box<dyn super::WinitCompatibleRenderer> {
-        Box::new(Self { renderer: SkiaRenderer::default_metal(&shared_backend_data.skia_context) })
+    ) -> Result<Box<dyn super::WinitCompatibleRenderer>, PlatformError> {
+        Ok(Box::new(Self {
+            renderer: SkiaRenderer::default_metal(&shared_backend_data.skia_context),
+            requested_graphics_api: shared_backend_data.requested_graphics_api.clone(),
+        }))
     }
 
     #[cfg(feature = "renderer-skia-vulkan")]
     pub fn new_vulkan_suspended(
         shared_backend_data: &Rc<crate::SharedBackendData>,
-    ) -> Box<dyn super::WinitCompatibleRenderer> {
-        Box::new(Self { renderer: SkiaRenderer::default_vulkan(&shared_backend_data.skia_context) })
+    ) -> Result<Box<dyn super::WinitCompatibleRenderer>, PlatformError> {
+        Ok(Box::new(Self {
+            renderer: SkiaRenderer::default_vulkan(&shared_backend_data.skia_context),
+            requested_graphics_api: shared_backend_data.requested_graphics_api.clone(),
+        }))
     }
 
     #[cfg(target_family = "windows")]
     pub fn new_direct3d_suspended(
         shared_backend_data: &Rc<crate::SharedBackendData>,
-    ) -> Box<dyn super::WinitCompatibleRenderer> {
-        Box::new(Self {
+    ) -> Result<Box<dyn super::WinitCompatibleRenderer>, PlatformError> {
+        Ok(Box::new(Self {
             renderer: SkiaRenderer::default_direct3d(&shared_backend_data.skia_context),
-        })
+            requested_graphics_api: shared_backend_data.requested_graphics_api.clone(),
+        }))
     }
 
     pub fn factory_for_graphics_api(
         requested_graphics_api: Option<&RequestedGraphicsAPI>,
     ) -> Result<
-        fn(&Rc<crate::SharedBackendData>) -> Box<dyn crate::WinitCompatibleRenderer>,
+        fn(
+            &Rc<crate::SharedBackendData>,
+        ) -> Result<Box<dyn crate::WinitCompatibleRenderer>, PlatformError>,
         PlatformError,
     > {
         match requested_graphics_api {
@@ -130,7 +147,6 @@ impl super::WinitCompatibleRenderer for WinitSkiaRenderer {
         &self,
         active_event_loop: &winit::event_loop::ActiveEventLoop,
         window_attributes: winit::window::WindowAttributes,
-        requested_graphics_api: Option<RequestedGraphicsAPI>,
     ) -> Result<Arc<winit::window::Window>, PlatformError> {
         let winit_window = Arc::new(active_event_loop.create_window(window_attributes).map_err(
             |winit_os_error| {
@@ -147,7 +163,7 @@ impl super::WinitCompatibleRenderer for WinitSkiaRenderer {
             winit_window.clone(),
             winit_window.clone(),
             physical_size_to_slint(&size),
-            requested_graphics_api,
+            self.requested_graphics_api.clone(),
         )?;
 
         self.renderer.set_pre_present_callback(Some(Box::new({
