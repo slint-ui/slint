@@ -2687,6 +2687,13 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
 
             }
         },
+        Expression::Predicate { arg_name, expression } => {
+            let arg_name = ident(arg_name);
+            let expression = compile_expression(expression, ctx);
+            quote! {
+                |#arg_name| {#expression}
+            }
+        },
     }
 }
 
@@ -3247,6 +3254,28 @@ fn compile_builtin_function_call(
                 quote!(_self.#ident.restart())
             } else {
                 panic!("internal error: invalid args to RetartTimer {arguments:?}")
+            }
+        }
+        BuiltinFunction::ArrayAny => {
+            if let [_, Expression::Predicate { .. }] = arguments {
+                let arr_expression = a.next().unwrap();
+                let predicate_expression = a.next().unwrap();
+                quote!(match #arr_expression { x => {
+                    x.iter().any(#predicate_expression)
+                }})
+            } else {
+                panic!("internal error: invalid args to ArrayAny {arguments:?}")
+            }
+        }
+        BuiltinFunction::ArrayAll => {
+            if let [_, Expression::Predicate { .. }] = arguments {
+                let arr_expression = a.next().unwrap();
+                let predicate_expression = a.next().unwrap();
+                quote!(match #arr_expression { x => {
+                    x.iter().all(#predicate_expression)
+                }})
+            } else {
+                panic!("internal error: invalid args to ArrayAll {arguments:?}")
             }
         }
     }

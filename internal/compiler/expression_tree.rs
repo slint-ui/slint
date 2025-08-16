@@ -80,6 +80,8 @@ pub enum BuiltinFunction {
     ColorWithAlpha,
     ImageSize,
     ArrayLength,
+    ArrayAny,
+    ArrayAll,
     Rgb,
     Hsv,
     ColorScheme,
@@ -243,6 +245,8 @@ declare_builtin_function_types!(
         rust_attributes: None,
     })),
     ArrayLength: (Type::Model) -> Type::Int32,
+    ArrayAny: (Type::Model, Type::Predicate) -> Type::Bool,
+    ArrayAll: (Type::Model, Type::Predicate) -> Type::Bool,
     Rgb: (Type::Int32, Type::Int32, Type::Int32, Type::Float32) -> Type::Color,
     Hsv: (Type::Float32, Type::Float32, Type::Float32, Type::Float32) -> Type::Color,
     ColorScheme: () -> Type::Enumeration(
@@ -364,6 +368,8 @@ impl BuiltinFunction {
             BuiltinFunction::StartTimer => false,
             BuiltinFunction::StopTimer => false,
             BuiltinFunction::RestartTimer => false,
+            BuiltinFunction::ArrayAny => true,
+            BuiltinFunction::ArrayAll => true,
         }
     }
 
@@ -441,6 +447,8 @@ impl BuiltinFunction {
             BuiltinFunction::StartTimer => false,
             BuiltinFunction::StopTimer => false,
             BuiltinFunction::RestartTimer => false,
+            BuiltinFunction::ArrayAny => true,
+            BuiltinFunction::ArrayAll => true,
         }
     }
 }
@@ -761,6 +769,11 @@ pub enum Expression {
     },
 
     EmptyComponentFactory,
+
+    Predicate {
+        arg_name: SmolStr,
+        expression: Box<Expression>,
+    },
 }
 
 impl Expression {
@@ -883,6 +896,7 @@ impl Expression {
             Expression::MinMax { ty, .. } => ty.clone(),
             Expression::EmptyComponentFactory => Type::ComponentFactory,
             Expression::DebugHook { expression, .. } => expression.ty(),
+            Expression::Predicate { .. } => Type::Predicate,
         }
     }
 
@@ -984,6 +998,7 @@ impl Expression {
             }
             Expression::EmptyComponentFactory => {}
             Expression::DebugHook { expression, .. } => visitor(expression),
+            Expression::Predicate { expression, .. } => visitor(expression),
         }
     }
 
@@ -1087,6 +1102,7 @@ impl Expression {
             }
             Expression::EmptyComponentFactory => {}
             Expression::DebugHook { expression, .. } => visitor(expression),
+            Expression::Predicate { expression, .. } => visitor(expression),
         }
     }
 
@@ -1172,6 +1188,7 @@ impl Expression {
             Expression::MinMax { lhs, rhs, .. } => lhs.is_constant() && rhs.is_constant(),
             Expression::EmptyComponentFactory => true,
             Expression::DebugHook { .. } => false,
+            Expression::Predicate { expression, .. } => expression.is_constant(),
         }
     }
 
@@ -1407,6 +1424,7 @@ impl Expression {
                 Expression::EnumerationValue(enumeration.clone().default_value())
             }
             Type::ComponentFactory => Expression::EmptyComponentFactory,
+            Type::Predicate => Expression::Invalid,
         }
     }
 
@@ -1831,5 +1849,6 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
             pretty_print(f, expression)?;
             write!(f, "\"{id}\")")
         }
+        Expression::Predicate { .. } => todo!(),
     }
 }
