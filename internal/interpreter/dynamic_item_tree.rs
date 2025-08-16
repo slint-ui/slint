@@ -2412,6 +2412,8 @@ pub fn show_popup(
     parent_item: &ItemRc,
 ) {
     generativity::make_guard!(guard);
+    let debug_handler = instance.description.debug_handler.borrow().clone();
+
     // FIXME: we should compile once and keep the cached compiled component
     let compiled = generate_item_tree(
         &popup.component,
@@ -2420,6 +2422,8 @@ pub fn show_popup(
         false,
         guard,
     );
+    compiled.recursively_set_debug_handler(debug_handler);
+
     let inst = instantiate(
         compiled,
         Some(parent_comp),
