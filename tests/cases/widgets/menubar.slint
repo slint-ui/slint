@@ -41,6 +41,11 @@ export component TestCase inherits Window {
                     activated => { open-recent("Recent 3"); }
                 }
             }
+            MenuItem {
+                title: "Checkable";
+                checkable: true;
+                checked <=> checkable-menu-item-checked;
+            }
             MenuSeparator {}
             MenuSeparator {}
             MenuItem {
@@ -71,6 +76,8 @@ export component TestCase inherits Window {
     out property <bool> check-geometry: vl.x == 0 && vl.y == 0 && vl.width == root.width && vl.height == root.height;
 
     out property <bool> test: check-geometry;
+
+    out property <bool> checkable-menu-item-checked;
 }
 
 /*
@@ -109,6 +116,19 @@ slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key:
 assert_eq!(instance.get_result(), "");
 slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from("\n"));
 assert_eq!(instance.get_result(), "Save");
+
+// verify that the checked menu item is not checked
+assert!(!instance.get_checkable_menu_item_checked());
+// click on the file menu
+slint_testing::send_mouse_click(&instance, 10., 16.);
+// navigate using the keys to the "Checked" menu item and toggle it
+slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::DownArrow));
+slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::DownArrow));
+slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::DownArrow));
+slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::DownArrow));
+slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from("\n"));
+// verify that the checked menu item is not checked
+assert!(!instance.get_checkable_menu_item_checked());
 ```
 
 ```cpp
