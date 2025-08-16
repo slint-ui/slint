@@ -632,7 +632,7 @@ impl Window {
                     repeat: false,
                     event_type: KeyEventType::KeyPressed,
                     ..Default::default()
-                })
+                });
             }
             crate::platform::WindowEvent::KeyPressRepeated { text } => {
                 self.0.process_key_input(crate::input::KeyEvent {
@@ -640,14 +640,14 @@ impl Window {
                     repeat: true,
                     event_type: KeyEventType::KeyPressed,
                     ..Default::default()
-                })
+                });
             }
             crate::platform::WindowEvent::KeyReleased { text } => {
                 self.0.process_key_input(crate::input::KeyEvent {
                     text,
                     event_type: KeyEventType::KeyReleased,
                     ..Default::default()
-                })
+                });
             }
             crate::platform::WindowEvent::ScaleFactorChanged { scale_factor } => {
                 self.0.set_scale_factor(scale_factor);
