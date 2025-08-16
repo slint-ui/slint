@@ -144,6 +144,10 @@ impl Menu for MenuFromItemTree {
             self.item_cache.borrow().get(entry.id.as_str()).and_then(|e| e.item.upgrade())
         {
             if let Some(menu_item) = menu_item.downcast::<MenuItem>() {
+                if menu_item.checkable.get_internal() {
+                    menu_item.checked.set(!menu_item.checked.get_internal());
+                }
+
                 menu_item.activated.call(&());
             }
         }
