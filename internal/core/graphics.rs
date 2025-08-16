@@ -195,12 +195,14 @@ pub enum RequestedGraphicsAPI {
     WGPU26(wgpu_26::api::WGPUConfiguration),
 }
 
-impl TryFrom<RequestedGraphicsAPI> for RequestedOpenGLVersion {
+impl TryFrom<&RequestedGraphicsAPI> for RequestedOpenGLVersion {
     type Error = PlatformError;
 
-    fn try_from(requested_graphics_api: RequestedGraphicsAPI) -> Result<Self, Self::Error> {
+    fn try_from(requested_graphics_api: &RequestedGraphicsAPI) -> Result<Self, Self::Error> {
         match requested_graphics_api {
-            RequestedGraphicsAPI::OpenGL(requested_open_glversion) => Ok(requested_open_glversion),
+            RequestedGraphicsAPI::OpenGL(requested_open_glversion) => {
+                Ok(requested_open_glversion.clone())
+            }
             RequestedGraphicsAPI::Metal => {
                 Err("Metal rendering is not supported with an OpenGL renderer".into())
             }
