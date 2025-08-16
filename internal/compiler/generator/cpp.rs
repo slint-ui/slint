@@ -1526,15 +1526,24 @@ fn generate_item_tree(
 
     let parent_item_from_parent_component = parent_ctx.as_ref()
         .and_then(|parent| {
-            parent
-                .repeater_index
-                .map(|idx| parent.ctx.current_sub_component().unwrap().repeated[idx].index_in_tree)
-        }).map(|parent_index|
-            vec![
-                format!("auto self = reinterpret_cast<const {item_tree_class_name}*>(component.instance);"),
-                format!("auto parent = self->parent.lock().value();"),
-                format!("*result = {{ parent->self_weak, parent->tree_index_of_first_child + {} }};", parent_index - 1),
-            ])
+            Some(parent.repeater_index.map_or_else(|| {
+                // No repeater index, this could be a PopupWindow
+                vec![
+                    format!("auto self = reinterpret_cast<const {item_tree_class_name}*>(component.instance);"),
+                    format!("auto parent = self->parent.lock().value();"),
+                    // TODO: store popup index in ctx and set it here instead of 0?
+                    format!("*result = {{ parent->self_weak, 0 }};"),
+                    ]
+                }, |idx| {
+                let current_sub_component = parent.ctx.current_sub_component().unwrap();
+                let parent_index = current_sub_component.repeated[idx].index_in_tree;
+                vec![
+                    format!("auto self = reinterpret_cast<const {item_tree_class_name}*>(component.instance);"),
+                    format!("auto parent = self->parent.lock().value();"),
+                    format!("*result = {{ parent->self_weak, parent->tree_index_of_first_child + {} }};", parent_index - 1),
+                ]
+            }))
+        })
         .unwrap_or_default();
     target_struct.members.push((
         Access::Private,

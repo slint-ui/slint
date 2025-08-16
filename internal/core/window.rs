@@ -447,7 +447,7 @@ pub struct WindowInner {
     mouse_input_state: Cell<MouseInputState>,
     pub(crate) modifiers: Cell<InternalKeyboardModifierState>,
 
-    /// ItemRC that currently have the focus. (possibly a, instance of TextInput)
+    /// ItemRC that currently have the focus (possibly an instance of TextInput)
     pub focus_item: RefCell<crate::item_tree::ItemWeak>,
     /// The last text that was sent to the input method
     pub(crate) last_ime_text: RefCell<SharedString>,
@@ -569,7 +569,7 @@ impl WindowInner {
         self.component.borrow().upgrade()
     }
 
-    /// Returns a slice of the active poppups.
+    /// Returns a slice of the active popups.
     pub fn active_popups(&self) -> core::cell::Ref<'_, [PopupWindow]> {
         core::cell::Ref::map(self.active_popups.borrow(), |v| v.as_slice())
     }
