@@ -3,9 +3,10 @@
 
 import { Group, GroupHeader } from "../components/group.slint";
 import { ExpandableListView } from "../components/expandable-listview.slint";
-import { Icons, EditorSizeSettings } from "../components/styling.slint";
+import { Icons, EditorSizeSettings, ConsoleStyles, EditorSpaceSettings } from "../components/styling.slint";
 import { Api, ComponentListItem, ComponentItem, DiagnosticSummary } from "../api.slint";
 import { IconButton } from "../components/icon-button.slint";
+import { Palette } from "std-widgets.slint";
 
 export component LibraryView {
     in property <[ComponentListItem]> known-components <=> component-list-view.known-components;
@@ -14,18 +15,58 @@ export component LibraryView {
 
     in-out property <ComponentItem> visible-component <=> component-list-view.visible-component;
 
+    in-out property <bool> library-visible: false;
+
     callback show-preview-for <=> component-list-view.show-preview-for;
 
     width: EditorSizeSettings.side-bar-width;
     min-height: side-bar.min-height;
-
     side-bar := Group {
         width: 100%;
         height: 100%;
         opacity: root.preview-area-is-current ? 1 : 0.3;
 
-        GroupHeader {
-            title: @tr("Library");
+        Rectangle {
+            height: ConsoleStyles.header-height;
+            background: ConsoleStyles.header-background;
+            Rectangle {
+                y: 0;
+                width: 100%;
+                height: 1px;
+                background: ConsoleStyles.divider-line;
+                opacity: 50%;
+            }
+
+            Rectangle {
+                y: parent.height - self.height;
+                width: 100%;
+                height: 1px;
+                background: ConsoleStyles.divider-line;
+            }
+
+            HorizontalLayout {
+                alignment: space-between;
+                padding-left: EditorSpaceSettings.default-padding;
+                padding-right: EditorSpaceSettings.default-padding;
+                label := Text {
+                    horizontal-alignment: left;
+                    vertical-alignment: center;
+                    color: ConsoleStyles.text-color;
+                    font-family: "Inter";
+                    font-size: 12px;
+                    text: @tr("Library");
+                }
+
+                Image {
+                    source: Icons.close;
+                    colorize: ita.has-hover ? Palette.foreground : Palette.foreground.transparentize(0.5);
+                    ita := TouchArea {
+                        clicked => {
+                            root.library-visible = false;
+                        }
+                    }
+                }
+            }
         }
 
         component-list-view := ExpandableListView {

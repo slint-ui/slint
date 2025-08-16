@@ -19,11 +19,12 @@ export component GroupHeader {
 
         @children
     }
+
     Rectangle {
         height: 1px;
         background: Palette.foreground.transparentize(0.9);
         width: 100%;
-        y:parent.height + self.height;
+        y: parent.height + self.height;
     }
 }
 
@@ -41,7 +42,7 @@ export component Group {
 
     Rectangle {
         x: root.width - self.width;
-        width: 1px;
+        width: 2px;
         background: Palette.border;
     }
 }
