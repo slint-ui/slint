@@ -112,6 +112,7 @@ slint_testing::send_mouse_click(&instance, 10., 16.);
 slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::DownArrow)); // New
 slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::DownArrow)); // Open
 slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::DownArrow)); // Open Recent
+slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::DownArrow)); // Checkable
 slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::DownArrow)); // Save (skipped the separator)
 assert_eq!(instance.get_result(), "");
 slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from("\n"));
@@ -127,8 +128,8 @@ slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key:
 slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::DownArrow));
 slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::DownArrow));
 slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from("\n"));
-// verify that the checked menu item is not checked
-assert!(!instance.get_checkable_menu_item_checked());
+// verify that the checked menu item is checked
+assert!(instance.get_checkable_menu_item_checked());
 ```
 
 ```cpp
