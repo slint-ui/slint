@@ -195,7 +195,7 @@ inline void setup_popup_menu_from_menu_item_tree(
     using cbindgen_private::MenuEntry;
     using cbindgen_private::MenuVTable;
     MaybeUninitialized<vtable::VRc<MenuVTable>> maybe;
-    cbindgen_private::slint_menus_create_wrapper(&menu_item_tree, &maybe.value);
+    cbindgen_private::slint_menus_create_wrapper(&menu_item_tree, &maybe.value, nullptr);
     auto shared = maybe.take();
     entries.set_binding([shared] {
         SharedVector<MenuEntry> entries_sv;

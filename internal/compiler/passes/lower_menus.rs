@@ -359,32 +359,49 @@ fn process_window(
     let Some(menu_bar) = menu_bar else {
         return false;
     };
-    if menu_bar.borrow().repeated.is_some() {
-        diag.push_error(
-            "MenuBar cannot be in a conditional or repeated element".into(),
-            &*menu_bar.borrow(),
-        );
-    }
+    let repeated = menu_bar.borrow_mut().repeated.take();
+    let mut condition = repeated.map(|repeated| {
+        if !repeated.is_conditional_element {
+            diag.push_error("MenuBar cannot be in a repeated element".into(), &*menu_bar.borrow());
+        }
+        repeated.model
+    });
+    let original_cond = condition.clone();
 
     // Lower MenuItem's into a tree root
     let children = std::mem::take(&mut menu_bar.borrow_mut().children);
     let c = lower_menu_items(&menu_bar, children, components);
     let item_tree_root = Expression::ElementReference(Rc::downgrade(&c.root_element));
 
+    if !no_native_menu {
+        let supportes_native_menu_bar = Expression::UnaryOp {
+            op: '!',
+            sub: Expression::FunctionCall {
+                function: BuiltinFunction::SupportsNativeMenuBar.into(),
+                arguments: vec![],
+                source_location: None,
+            }
+            .into(),
+        };
+        condition = match condition {
+            Some(condition) => Some(
+                Expression::BinaryExpression {
+                    lhs: condition.into(),
+                    rhs: supportes_native_menu_bar.into(),
+                    op: '&',
+                }
+                .into(),
+            ),
+            None => Some(supportes_native_menu_bar.into()),
+        };
+    }
+
     let menubar_impl = Element {
         id: format_smolstr!("{}-menulayout", window.id),
         base_type: components.menubar_impl.clone(),
         enclosing_component: window.enclosing_component.clone(),
-        repeated: (!no_native_menu).then(|| crate::object_tree::RepeatedElementInfo {
-            model: Expression::UnaryOp {
-                op: '!',
-                sub: Expression::FunctionCall {
-                    function: BuiltinFunction::SupportsNativeMenuBar.into(),
-                    arguments: vec![],
-                    source_location: None,
-                }
-                .into(),
-            },
+        repeated: condition.clone().map(|condition| crate::object_tree::RepeatedElementInfo {
+            model: condition,
             model_data_id: SmolStr::default(),
             index_id: SmolStr::default(),
             is_conditional_element: true,
@@ -478,10 +495,13 @@ fn process_window(
             &menu_bar,
             SmolStr::new_static(ACTIVATED),
         )),
+        item_tree_root.into(),
+        Expression::BoolLiteral(no_native_menu),
     ];
 
-    arguments.push(item_tree_root.into());
-    arguments.push(Expression::BoolLiteral(no_native_menu));
+    if let Some(condition) = original_cond {
+        arguments.push(condition);
+    }
 
     let setup_menubar = Expression::FunctionCall {
         function: BuiltinFunction::SetupMenuBar.into(),
