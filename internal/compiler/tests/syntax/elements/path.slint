@@ -11,7 +11,7 @@ component Arc inherits Path {
 export component Foo inherits Rectangle {
     Arc { } // OK!
     Arc {
-//   ^error{The Path was already populated in the base type and it can't be re-populated again}
+//  ^error{The Path was already populated in the base type and it can't be re-populated again}
         LineTo {
             x: 1;
             y: 1;
