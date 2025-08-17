@@ -118,10 +118,29 @@ pub fn compile_paths(
                     elem.children.push(child);
                 }
             }
+
+            if elem.is_binding_set("elements", false) {
+                if path_data.is_empty() {
+                    // Just Path subclass that had elements declared earlier, since path_data is empty we should retain the
+                    // existing elements
+                    return;
+                } else {
+                    diag.push_error(
+                        "The Path was already populated in the base type and it can't be re-populated again"
+                            .into(),
+                        &*elem,
+                    );
+                    return;
+                }
+            }
+
             Expression::PathData(crate::expression_tree::Path::Elements(path_data)).into()
         };
 
-        elem_.borrow_mut().bindings.insert("elements".into(), RefCell::new(path_data_binding));
+        elem_
+            .borrow_mut()
+            .bindings
+            .insert(SmolStr::new_static("elements"), RefCell::new(path_data_binding));
     });
 }
 
