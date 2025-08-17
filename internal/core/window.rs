@@ -1195,6 +1195,7 @@ impl WindowInner {
                 Some(x) => item_tree = x.item_tree().clone(),
             }
         };
+
         let parent_root_item_tree = root_of(parent_item.item_tree().clone());
         let (parent_window_adapter, position) = if let Some(parent_popup) = self
             .active_popups
@@ -1250,6 +1251,14 @@ impl WindowInner {
 
         let popup_id = self.next_popup_id.get();
         self.next_popup_id.set(self.next_popup_id.get().checked_add(1).unwrap());
+
+        // Close active popups before creating a new one.
+        let active_popups: Vec<_> =
+            self.active_popups.borrow().iter().map(|popup| popup.popup_id).collect();
+
+        for active_popup_id in active_popups {
+            self.close_popup(active_popup_id);
+        }
 
         let location = match parent_window_adapter
             .internal(crate::InternalToken)
