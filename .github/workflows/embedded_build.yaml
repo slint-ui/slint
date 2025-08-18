@@ -23,7 +23,7 @@ jobs:
             SLINT_NO_QT: 1
             SLINT_STYLE: fluent
         steps:
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@v5
             - name: Set up Docker Buildx
               uses: docker/setup-buildx-action@v3
             - name: Login to GitHub Container Registry
@@ -59,7 +59,7 @@ jobs:
                     - aarch64-unknown-linux-gnu
                     - x86_64-unknown-linux-gnu
         steps:
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@v5
             - uses: ./.github/actions/setup-rust
               with:
                   target: ${{ matrix.target }}

@@ -26,7 +26,7 @@ jobs:
         outputs:
             PKG_VERSION: ${{ steps.mkversion.outputs.PKG_VERSION }}
         steps:
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@v5
             # Setup .npmrc file to publish to npm
             - uses: actions/setup-node@v4
               with:
@@ -77,7 +77,7 @@ jobs:
         needs: determine_version
         runs-on: ${{ matrix.os }}
         steps:
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@v5
             - uses: ./.github/actions/install-linux-dependencies
               with:
                   old-ubuntu: true
@@ -144,7 +144,7 @@ jobs:
             PKG_VERSION: ${{ needs.determine_version.outputs.PKG_VERSION }}
             RELEASE_INPUT: ${{ github.event.inputs.release }}
         steps:
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@v5
             - uses: ./.github/actions/install-linux-dependencies
             - uses: ./.github/actions/setup-rust
             # Setup .npmrc file to publish to npm
