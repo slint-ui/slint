@@ -80,6 +80,13 @@ component NavigationItemTempalte inherits BaseNavigationItemTemplate {
             clicked => {
                 root.clicked();
             }
+
+            pointer_event(event) => {
+                root.pointer_event(event, {
+                    x: self.mouse_x,
+                    y: self.mouse_y,
+                });
+            }
         }
 
         animate background { duration: Animations.opacity_duration; easing: Animations.opacity_easing; }
@@ -102,6 +109,7 @@ component NavigationGroupTemplate {
     in property <bool> has_divider;
 
     callback select(index: int);
+    callback item_pointer_event(index: int, event: PointerEvent, position: Point);
 
     VerticalLayout {
         alignment: start;
@@ -121,6 +129,12 @@ component NavigationGroupTemplate {
             clicked => {
                 root.select(index);
             }
+            pointer_event(event, position) => {
+                root.item_pointer_event(index, event, {
+                    x: self.x + position.x,
+                    y: self.y + position.y,
+                });
+            }
         }
 
         if root.has_divider : HorizontalDivider {}
@@ -128,6 +142,8 @@ component NavigationGroupTemplate {
 }
 
 export component NavigationDrawer inherits Drawer {
+    callback selected(group-index: int, item_index: int);
+    callback item_pointer_event(group_index: int, item_index: int, event: PointerEvent, position: Point);
     in property <[NavigationGroup]> groups;
     in_out property <int> current_group;
     in_out property <int> current_item;
@@ -146,6 +162,9 @@ export component NavigationDrawer inherits Drawer {
         select(index) => {
             root.select(group_index, index);
         }
+        item_pointer_event(index, event, position) => {
+            root.item_pointer_event(group_index, index, event, { x: self.x + position.x, y: self.y + position.y });
+        }
     }
 
     function select(group_index: int, item_index: int) {
@@ -155,6 +174,7 @@ export component NavigationDrawer inherits Drawer {
 
         root.current_group = group_index;
         root.current_item = item_index;
+        root.selected(group_index, item_index);
     }
 }
 

@@ -13,6 +13,7 @@ export component BaseNavigationItemTemplate {
     in property <string> badge;
 
     callback clicked;
+    callback pointer_event(event: PointerEvent, position: Point);
 
     accessible-role: tab;
     accessible-label: root.text;
