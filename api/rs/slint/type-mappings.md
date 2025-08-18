@@ -11,6 +11,7 @@ The follow table summarizes the entire mapping:
 | `bool` | `bool` | |
 | `brush` | [`Brush`] | |
 | `color` | [`Color`] | |
+| `easing` | [`EasingCurve`] | |
 | `duration` | `i64` | At run-time, durations are always represented as signed 64-bit integers with millisecond precision. |
 | `float` | `f32` | |
 | `image` | [`Image`] | |
