@@ -269,7 +269,6 @@ impl Type {
             | (Type::LogicalLength, Type::Rem)
             | (Type::PhysicalLength, Type::Rem)
             | (Type::Percent, Type::Float32)
-            | (Type::KeyboardShortcut, Type::String)
             | (Type::Brush, Type::Color)
             | (Type::Color, Type::Brush) => true,
             (Type::Array(a), Type::Model) if a.is_property_type() => true,
@@ -867,9 +866,9 @@ impl PartialEq for KeyboardShortcut {
 
 impl std::fmt::Display for KeyboardShortcut {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let alt = if self.modifiers.alt { "alt+" } else { "" };
-        let ctrl = if self.modifiers.control { "ctrl+" } else { "" };
-        let meta = if self.modifiers.meta { "meta+" } else { "" };
+        let alt = if self.modifiers.alt { "Alt+" } else { "" };
+        let ctrl = if self.modifiers.control { "Control+" } else { "" };
+        let meta = if self.modifiers.meta { "Meta+" } else { "" };
         let shift = if self.modifiers.shift { "shift+" } else { "" };
         write!(f, "{alt}{ctrl}{meta}{shift}{}", self.key)
     }

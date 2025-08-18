@@ -1808,11 +1808,7 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
             None => write!(f, "{}.{}", e.enumeration.name, e.value),
         },
         Expression::KeyboardShortcut(ks) => {
-            if ks.is_empty() {
-                write!(f, "@keys()")
-            } else {
-                todo!()
-            }
+            write!(f, "@keys({})", crate::langtype::keyboard_shortcuts_to_string(ks))
         }
         Expression::ReturnStatement(e) => {
             write!(f, "return ")?;
