@@ -183,6 +183,31 @@ pub extern "C" fn slint_interpreter_value_to_image(val: &Value) -> Option<&Image
     }
 }
 
+#[unsafe(no_mangle)]
+pub extern "C" fn slint_interpreter_value_enum_to_string(
+    val: &Value,
+    result: &mut SharedString,
+) -> bool {
+    match val {
+        Value::EnumerationValue(_, value) => {
+            *result = SharedString::from(value);
+            true
+        }
+        _ => false,
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn slint_interpreter_value_new_enum(
+    name: Slice<u8>,
+    value: Slice<u8>,
+) -> Box<Value> {
+    Box::new(Value::EnumerationValue(
+        std::str::from_utf8(&name).unwrap().to_string(),
+        std::str::from_utf8(&value).unwrap().to_string(),
+    ))
+}
+
 #[repr(C)]
 #[cfg(target_pointer_width = "64")]
 pub struct StructOpaque([usize; 6]);

@@ -219,6 +219,19 @@ public:
         cbindgen_private::slint_live_reload_window(inner, &win_ptr);
         return const_cast<slint::Window &>(*reinterpret_cast<const slint::Window *>(win_ptr));
     }
+
+    // Helper function that abuse the friend on Value
+    static slint::interpreter::Value value_from_enum(std::string_view name, std::string_view value)
+    {
+        return slint::interpreter::Value(cbindgen_private::slint_interpreter_value_new_enum(
+                string_to_slice(name), string_to_slice(value)));
+    }
+    static slint::SharedString get_enum_value(const slint::interpreter::Value &value)
+    {
+        slint::SharedString result;
+        slint::cbindgen_private::slint_interpreter_value_enum_to_string(value.inner, &result);
+        return result;
+    }
 };
 
 class LiveReloadModelWrapperBase : public private_api::ModelChangeListener
