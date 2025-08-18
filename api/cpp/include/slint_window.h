@@ -230,9 +230,9 @@ public:
         cbindgen_private::slint_register_bitmap_font(&inner, &font);
     }
 
-    inline float default_font_size() const
+    inline float resolved_default_font_size() const
     {
-        return cbindgen_private::slint_windowrc_default_font_size(&inner);
+        return cbindgen_private::slint_windowrc_resolved_default_font_size(&inner);
     }
 
     /// \private

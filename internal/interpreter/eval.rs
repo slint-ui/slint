@@ -22,7 +22,7 @@ use i_slint_compiler::namedreference::NamedReference;
 use i_slint_compiler::object_tree::ElementRc;
 use i_slint_core as corelib;
 use i_slint_core::input::FocusReason;
-use i_slint_core::items::ItemRc;
+use i_slint_core::items::{ItemRc, WindowItem};
 use smol_str::SmolStr;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -432,7 +432,7 @@ fn call_builtin_function(
         ),
         BuiltinFunction::GetWindowDefaultFontSize => {
             Value::Number(local_context.component_instance.access_window(|window| {
-                window.window_item().unwrap().as_pin_ref().default_font_size().get()
+                WindowItem::resolved_default_font_size(&window.window_item_rc().unwrap()).get()
             }) as _)
         }
         BuiltinFunction::AnimationTick => {
