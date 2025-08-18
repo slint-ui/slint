@@ -12,6 +12,8 @@ export component Slider {
     in property <float> divisions: 0;
     in property <float> maximum: 100;
 
+    callback released(value: float);
+
     property <float> steps: root.divisions > 0 ? (root.maximum - root.minimum) / root.divisions : 1;
 
     min_height: 20px;
@@ -75,6 +77,12 @@ export component Slider {
 
                     moved => {
                         root.set_value(root.length_to_value(state_layer.x + self.x + self.mouse_x, track.width));
+                    }
+
+                    pointer-event(event) => {
+                        if event.kind == PointerEventKind.up {
+                            root.released(root.value);
+                        }
                     }
                 }
             }
