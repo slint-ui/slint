@@ -24,7 +24,7 @@
     "@types/node": "20.16.10",
     "astro": "5.13.2",
     "astro-embed": "0.9.0",
-    "playwright-ctrf-json-reporter": "0.0.22",
+    "playwright-ctrf-json-reporter": "0.0.23",
     "rehype-external-links": "3.0.0",
     "sharp": "0.34.3",
     "starlight-links-validator": "0.17.1",
