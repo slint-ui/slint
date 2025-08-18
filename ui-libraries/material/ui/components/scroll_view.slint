@@ -136,8 +136,8 @@ export component ScrollView {
         y: 0;
         viewport_y <=> vertical_bar.value;
         viewport_x <=> horizontal_bar.value;
-        width: root.width - root.scroll_bar_size - 2 * root.scroll_bar_padding;
-        height: root.height - root.scroll_bar_size;
+        width: root.width - (root.vertical_scrollbar_policy != ScrollBarPolicy.always_off ? root.scroll_bar_size - 2 * root.scroll_bar_padding : 0);
+        height: root.height - (root.horizontal_scrollbar_policy != ScrollBarPolicy.always_off ? root.scroll_bar_size : 0);
 
         @children
     }
@@ -146,17 +146,17 @@ export component ScrollView {
         enabled: root.enabled;
         x: flickable.width + root.scroll_bar_padding;
         y: 0;
-        width: root.scroll_bar_size;
-        height: horizontal_bar.visible ? parent.height - horizontal_bar.height : parent.height;
+        width: root.visible ? root.scroll_bar_size : 0;
+        height: root.vertical_scrollbar_policy != ScrollBarPolicy.always_off ? parent.height - horizontal_bar.height : parent.height;
         horizontal: false;
         maximum:  flickable.viewport_height - flickable.height;
         page-size:  flickable.height;
     }
 
-    horizontal-bar := ScrollBar {
+    horizontal_bar := ScrollBar {
         enabled: root.enabled;
         width: vertical_bar.visible ? parent.width - vertical_bar.width : parent.width;
-        height: root.scroll_bar_size;
+        height: root.horizontal_scrollbar_policy != ScrollBarPolicy.always_off ? root.scroll_bar_size : 0;
         x: 0;
         y: flickable.height + root.scroll_bar_padding;
         horizontal: true;
