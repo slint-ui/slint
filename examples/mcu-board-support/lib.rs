@@ -57,6 +57,13 @@ pub use esp_hal::main as entry;
 #[cfg(feature = "waveshare-esp32-s3-touch-amoled-1-8")]
 pub use waveshare_esp32_s3_touch_amoled_1_8::*;
 
+#[cfg(feature = "m5stack-cores3")]
+mod m5stack_cores3;
+#[cfg(feature = "m5stack-cores3")]
+pub use esp_hal::main as entry;
+#[cfg(feature = "m5stack-cores3")]
+pub use m5stack_cores3::*;
+
 #[cfg(not(any(
     feature = "pico-st7789",
     feature = "pico2-st7789",
@@ -65,7 +72,8 @@ pub use waveshare_esp32_s3_touch_amoled_1_8::*;
     feature = "esp32-s3-box-3",
     feature = "esp32-s3-lcd-ev-board",
     feature = "esope-sld-c-w-s3",
-    feature = "waveshare-esp32-s3-touch-amoled-1-8"
+    feature = "waveshare-esp32-s3-touch-amoled-1-8",
+    feature = "m5stack-cores3"
 )))]
 pub use i_slint_core_macros::identity as entry;
 
@@ -77,7 +85,8 @@ pub use i_slint_core_macros::identity as entry;
     feature = "esp32-s3-box-3",
     feature = "esp32-s3-lcd-ev-board",
     feature = "esope-sld-c-w-s3",
-    feature = "waveshare-esp32-s3-touch-amoled-1-8"
+    feature = "waveshare-esp32-s3-touch-amoled-1-8",
+    feature = "m5stack-cores3"
 )))]
 pub fn init() {}
 
@@ -89,7 +98,8 @@ pub mod prelude {
         feature = "esp32-s3-box-3",
         feature = "esp32-s3-lcd-ev-board",
         feature = "esope-sld-c-w-s3",
-        feature = "waveshare-esp32-s3-touch-amoled-1-8"
+        feature = "waveshare-esp32-s3-touch-amoled-1-8",
+        feature = "m5stack-cores3"
     ))]
     pub use esp_hal;
 }
