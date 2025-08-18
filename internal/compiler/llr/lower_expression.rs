@@ -248,7 +248,7 @@ pub fn lower_expression(
         },
         tree_Expression::EnumerationValue(e) => llr_Expression::EnumerationValue(e.clone()),
         tree_Expression::KeyboardShortcut(ks) => {
-            llr_Expression::StringLiteral(SmolStr::from(langtype::keyboard_shortcuts_to_string(ks)))
+            llr_Expression::KeyboardShortcutLiteral(ks.clone())
         }
         tree_Expression::ReturnStatement(..) => {
             panic!("The remove return pass should have removed all return")

@@ -410,7 +410,7 @@ fn to_debug_string(
         | Type::Easing
         | Type::StyledText
         | Type::Array(_)
-        | Type::KeyboardShortcut => {
+        | Type::KeyboardShortcutType => {
             Expression::StringLiteral("<debug-of-this-type-not-yet-implemented>".into())
         }
         Type::Duration

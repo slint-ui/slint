@@ -529,7 +529,7 @@ impl CppType for Type {
             Type::Void => Some("void".into()),
             Type::Float32 => Some("float".into()),
             Type::Int32 => Some("int".into()),
-            Type::String | Type::KeyboardShortcut => Some("slint::SharedString".into()),
+            Type::String | Type::KeyboardShortcutType => Some("slint::SharedString".into()),
             Type::Color => Some("slint::Color".into()),
             Type::Duration => Some("std::int64_t".into()),
             Type::Angle => Some("float".into()),
@@ -3325,6 +3325,12 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             }
         }
         Expression::BoolLiteral(b) => b.to_string(),
+        Expression::KeyboardShortcutLiteral(ks) => {
+            format!(
+                "slint::private_api::KeyboardShortcut {{ .key = {}, .modifiers = {{{}, {}, {}, {}}} }}",
+                ks.key, ks.modifiers.alt, ks.modifiers.control, ks.modifiers.shift, ks.modifiers.meta
+            )
+        }
         Expression::PropertyReference(nr) => access_member(nr, ctx).get_property(),
         Expression::BuiltinFunctionCall { function, arguments } => {
             compile_builtin_function_call(function.clone(), arguments, ctx)

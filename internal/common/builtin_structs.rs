@@ -54,6 +54,19 @@ macro_rules! for_each_builtin_structs {
                 }
             }
 
+            /// A `KeyboardShortcut` for use in `MenuItem` and other places
+            struct KeyboardShortcut {
+                @name = "slint::private_api::KeyboardShortcut"
+                export {
+                    /// The `key` used to trigger the shortcut
+                    key: SharedString,
+                    /// `KeyboardModifier`s that need to be pressed for the shortcut to fire
+                    modifiers: KeyboardModifiers,
+                }
+                private {
+                }
+            }
+
             /// Represents a Pointer event sent by the windowing system.
             /// This structure is passed to the `pointer-event` callback of the `TouchArea` element.
             struct PointerEvent {
