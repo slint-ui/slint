@@ -11,17 +11,49 @@ import { WindowManager } from "../windowglobal.slint";
 
 export component ConsolePanel inherits SimpleColumn {
     property <bool> panel-expanded: false;
+    property <length> panel-height: ConsoleStyles.log-height;
 
     Rectangle {
         height: ConsoleStyles.header-height;
         background: ConsoleStyles.header-background;
+        main-resize-handle := TouchArea {
+            y: 0;
+            height: 4px;
+            mouse-cursor: ns-resize;
+            moved => {
+                if !panel-expanded && self.mouse-y < self.pressed-y {
+                    panel-expanded = true;
+                    panel-height = Math.max(30px, -(self.mouse-y - self.pressed-y));
+                } else if panel-expanded {
+                    // Resizing panel during drag
+                    panel-height = Math.max(-30px, panel-height - (self.mouse-y - self.pressed-y));
+                }
+            }
+            pointer-event(event) => {
+                // Make close decision on release
+                if event.kind == PointerEventKind.up && panel-expanded && panel-height <= 30px {
+                    panel-expanded = false;
+                    panel-height = ConsoleStyles.log-height; // Reset for next open
+                }
+            }
+        }
+
         Rectangle {
             y: 0;
+            width: 100%;
+            height: 2px;
+            background: ConsoleStyles.divider-line;
+            opacity: main-resize-handle.has-hover ? 1.0 : 0.3;
+        }
+
+        Rectangle {
+            y: parent.height - self.height;
             width: 100%;
             height: 1px;
             background: ConsoleStyles.divider-line;
             opacity: 50%;
         }
+
         Rectangle {
             y: parent.height - self.height;
             width: 100%;
@@ -55,24 +87,6 @@ export component ConsolePanel inherits SimpleColumn {
                     panel-expanded = true;
                 }
             }
-            Rectangle {
-                x: 0;
-                y: parent.height - self.height;
-                width: min(last-message.preferred-width, last-message.width) - 4px;
-                height: 1px;
-                background: ConsoleStyles.slint-blue;
-                opacity: lm-ta.has-hover ? 0.8 : 0;
-
-            }
-        }
-
-        Rectangle {
-            x: 0;
-            y: parent.height - self.height;
-            width: label.width + label.x * 2;
-            height: 2px;
-            background: ConsoleStyles.slint-blue;
-            visible: panel-expanded;
         }
 
         HorizontalLayout {
@@ -144,10 +158,12 @@ export component ConsolePanel inherits SimpleColumn {
             }
         }
     }
+
     if panel-expanded: Rectangle {
         width: 100%;
         height: ConsoleStyles.header-height;
         background: ConsoleStyles.toolbar-background;
+
         Rectangle {
             x: 0;
             width: 36px;
@@ -163,6 +179,7 @@ export component ConsolePanel inherits SimpleColumn {
                     }
                 }
             }
+
             Rectangle {
                 x: parent.width - self.width;
                 width: 1px;
@@ -181,12 +198,15 @@ export component ConsolePanel inherits SimpleColumn {
                 color: ConsoleStyles.text-color;
                 vertical-alignment: center;
             }
+
             Rectangle {
                 width: 6px;
             }
+
             Switch {
                 checked <=> Api.auto-clear-console;
             }
+
             Rectangle {
                 width: 10px;
             }
@@ -201,12 +221,12 @@ export component ConsolePanel inherits SimpleColumn {
     }
 
     if panel-expanded: Rectangle {
-        height: ConsoleStyles.log-height;
+        height: panel-height;
         background: ConsoleStyles.log-background;
 
         // Scroll to end workaround while this feature is missing from ScrollView
         property <int> timer-clicked: 0;
-        function scroll-to-bottom(){
+        function scroll-to-bottom() {
             lv.viewport-y = -100000px;
             timer-clicked = 0;
             scroll-timer.running = true;
@@ -246,6 +266,7 @@ export component ConsolePanel inherits SimpleColumn {
                     wrap: message.wrap;
                     visible: false;
                 }
+
                 message := TextInput {
                     x: 10px;
                     width: parent.width - 80px;
