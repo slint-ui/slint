@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use super::cpp::{concatenate_ident, cpp_ast::*, ident, Config};
-use crate::langtype::Type;
+use crate::langtype::{EnumerationValue, Type};
 use crate::llr;
 use crate::object_tree::Document;
 use crate::CompilerConfiguration;
@@ -515,8 +515,44 @@ fn generate_value_conversions(file: &mut File, structs_and_enums: &[Type]) {
                     ..Function::default()
                 }));
             }
-            Type::Enumeration(_) => {
-                // todo;
+            Type::Enumeration(e) => {
+                let mut from_statements = vec![
+                    "auto value_str = slint::private_api::live_reload::LiveReloadingComponent::get_enum_value(val);".to_string(),
+                ];
+                let mut to_statements = vec!["switch (self) {".to_string()];
+                let name = ident(&e.name);
+
+                for value in 0..e.values.len() {
+                    let value = EnumerationValue { value, enumeration: e.clone() };
+                    let variant_name = ident(&value.to_pascal_case());
+
+                    from_statements.push(format!(
+                        "if (value_str == \"{value}\") return {name}::{variant_name};"
+                    ));
+                    to_statements.push(format!("case {name}::{variant_name}: return slint::private_api::live_reload::LiveReloadingComponent::value_from_enum(\"{}\", \"{value}\");", e.name));
+                }
+                from_statements.push("return {};".to_string());
+                to_statements.push("}".to_string());
+                to_statements.push("return {};".to_string());
+
+                file.declarations.push(Declaration::Function(Function {
+                    name: "into_slint_value".into(),
+                    signature: format!(
+                        "([[maybe_unused]] const {name} &self) -> slint::interpreter::Value"
+                    ),
+                    statements: Some(to_statements),
+                    is_inline: true,
+                    ..Function::default()
+                }));
+                file.declarations.push(Declaration::Function(Function {
+                    name: "from_slint_value".into(),
+                    signature: format!(
+                        "(const slint::interpreter::Value &val, const {name} *) -> {name}"
+                    ),
+                    statements: Some(from_statements),
+                    is_inline: true,
+                    ..Function::default()
+                }));
             }
             _ => (),
         }
