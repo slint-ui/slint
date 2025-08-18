@@ -58,7 +58,7 @@ jobs:
                       rust_version: "beta"
                       extra_args: "--exclude ffmpeg --exclude gstreamer-player"
                     - os: ubuntu-22.04
-                      rust_version: "nightly"
+                      rust_version: "nightly-2025-08-15" # Pinned because of a bug
                     # Bevy requires 1.86, won't compile with 1.85
                     - rust_version: "1.85"
                       maybe_exclude_bevy: "--exclude bevy-example"
