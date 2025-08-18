@@ -734,7 +734,7 @@ pub enum Expression {
 
     EnumerationValue(EnumerationValue),
 
-    KeyboardShortcut(Vec<KeyboardShortcut>),
+    KeyboardShortcut(KeyboardShortcut),
 
     ReturnStatement(Option<Box<Expression>>),
 
@@ -877,7 +877,7 @@ impl Expression {
             Expression::RadialGradient { .. } => Type::Brush,
             Expression::ConicGradient { .. } => Type::Brush,
             Expression::EnumerationValue(value) => Type::Enumeration(value.enumeration.clone()),
-            Expression::KeyboardShortcut(_) => Type::KeyboardShortcut,
+            Expression::KeyboardShortcut(_) => Type::KeyboardShortcutType,
             // invalid because the expression is unreachable
             Expression::ReturnStatement(_) => Type::Invalid,
             Expression::LayoutCacheAccess { .. } => Type::LogicalLength,
@@ -1412,7 +1412,7 @@ impl Expression {
             Type::Enumeration(enumeration) => {
                 Expression::EnumerationValue(enumeration.clone().default_value())
             }
-            Type::KeyboardShortcut => Expression::KeyboardShortcut(vec![]),
+            Type::KeyboardShortcutType => Expression::KeyboardShortcut(KeyboardShortcut::default()),
             Type::ComponentFactory => Expression::EmptyComponentFactory,
         }
     }
@@ -1808,7 +1808,7 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
             None => write!(f, "{}.{}", e.enumeration.name, e.value),
         },
         Expression::KeyboardShortcut(ks) => {
-            write!(f, "@keys({})", crate::langtype::keyboard_shortcuts_to_string(ks))
+            write!(f, "@keys({})", ks.to_string())
         }
         Expression::ReturnStatement(e) => {
             write!(f, "return ")?;

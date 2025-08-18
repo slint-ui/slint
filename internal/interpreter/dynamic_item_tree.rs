@@ -1249,7 +1249,7 @@ pub(crate) fn generate_item_tree<'id>(
                     i_slint_common::for_each_enums!(match_enum_type)
                 }
             }
-            Type::KeyboardShortcut => property_info::<SharedString>(),
+            Type::KeyboardShortcutType => property_info::<SharedString>(),
             Type::LayoutCache => property_info::<SharedVector<f32>>(),
             Type::Function { .. } | Type::Callback { .. } => return None,
 

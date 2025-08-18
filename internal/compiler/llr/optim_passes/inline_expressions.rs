@@ -24,6 +24,7 @@ fn expression_cost(exp: &Expression, ctx: &EvaluationContext) -> isize {
         Expression::StringLiteral(_) => ALLOC_COST,
         Expression::NumberLiteral(_) => 0,
         Expression::BoolLiteral(_) => 0,
+        Expression::KeyboardShortcutLiteral(_) => 0,
         Expression::PropertyReference(_) => PROPERTY_ACCESS_COST,
         Expression::FunctionParameterReference { .. } => return isize::MAX,
         Expression::StoreLocalVariable { .. } => 0,

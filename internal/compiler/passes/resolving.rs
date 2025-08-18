@@ -9,7 +9,7 @@
 //! Most of the code for the resolving actually lies in the expression_tree module
 
 use crate::diagnostics::{BuildDiagnostics, Spanned};
-use crate::langtype::{ElementType, Struct, Type};
+use crate::langtype::{ElementType, KeyboardModifiers, Struct, Type};
 use crate::lookup::{LookupCtx, LookupObject, LookupResult, LookupResultCallable};
 use crate::object_tree::*;
 use crate::parser::{identifier_text, syntax_nodes, NodeOrToken, SyntaxKind, SyntaxNode};
@@ -865,6 +865,7 @@ impl Expression {
                             format!("'{s}' is not a member of the `Keys` namespace"),
                             &identifier,
                         );
+                        shortcut.modifiers = KeyboardModifiers::default();
                         break;
                     } else {
                         shortcut.key = s.to_string();
@@ -873,11 +874,7 @@ impl Expression {
             }
         }
 
-        if shortcut.key.is_empty() {
-            Expression::KeyboardShortcut(vec![])
-        } else {
-            Expression::KeyboardShortcut(vec![shortcut])
-        }
+        Expression::KeyboardShortcut(shortcut)
     }
 
     /// Perform the lookup

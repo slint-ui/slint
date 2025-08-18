@@ -1,0 +1,44 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase {
+    in-out property <keyboard-shortcut> shortcut: @keys(Control + Alt + Escape);
+}
+
+
+/*
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+const auto shortcut = instance.get_shortcut();
+assert(shortcut.modifiers.alt);
+assert(shortcut.modifiers.control);
+assert(!shortcut.modifiers.meta);
+assert(!shortcut.modifiers.shift);
+assert_eq(shortcut.key, "Escape");
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+let shortcut = instance.get_shortcut();
+assert!(shortcut.modifiers.alt);
+assert!(shortcut.modifiers.control);
+assert!(!shortcut.modifiers.meta);
+assert!(!shortcut.modifiers.shift);
+assert_eq!(shortcut.key, "Escape");
+```
+
+```js
+var instance = new slint.TestCase({});
+
+var shortcut = instance.shortcut;
+assert.equal(shortcut.modifiers.alt, True);
+assert.equal(shortcut.modifiers.control, True);
+assert.equal(shortcut.modifiers.meta, False);
+assert.equal(shortcut.modifiers.shift, False);
+assert.equal(shortcut.key, "Escape");
+```
+
+*/

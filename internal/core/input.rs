@@ -9,7 +9,7 @@ use crate::item_tree::ItemTreeRc;
 use crate::item_tree::{ItemRc, ItemWeak, VisitChildrenResult};
 pub use crate::items::PointerEventButton;
 use crate::items::{DropEvent, ItemRef, TextCursorDirection};
-pub use crate::items::{FocusReason, KeyEvent, KeyboardModifiers};
+pub use crate::items::{FocusReason, KeyEvent, KeyboardModifiers, KeyboardShortcut};
 use crate::lengths::{LogicalPoint, LogicalVector};
 use crate::timers::Timer;
 use crate::window::{WindowAdapter, WindowInner};
@@ -18,6 +18,7 @@ use alloc::rc::Rc;
 use alloc::vec::Vec;
 use const_field_offset::FieldOffsets;
 use core::cell::Cell;
+use core::fmt::Display;
 use core::pin::Pin;
 use core::time::Duration;
 
@@ -274,6 +275,31 @@ impl From<InternalKeyboardModifierState> for KeyboardModifiers {
             control: internal_state.control(),
             meta: internal_state.meta(),
             shift: internal_state.shift(),
+        }
+    }
+}
+
+impl KeyboardShortcut {
+    /// Check whether a `KeyboardShortcut` can be triggered by the given `KeyEvent`
+    pub fn matches(&self, _key_event: KeyEvent) -> bool {
+        todo!();
+    }
+}
+
+impl Display for KeyboardShortcut {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        if self.key.is_empty() {
+            write!(f, "")
+        } else {
+            write!(
+                f,
+                "{}{}{}{}{}",
+                if self.modifiers.alt { "Alt+" } else { "" },
+                if self.modifiers.control { "Control+" } else { "" },
+                if self.modifiers.shift { "Shift+" } else { "" },
+                if self.modifiers.meta { "Meta+" } else { "" },
+                self.key,
+            )
         }
     }
 }

@@ -251,6 +251,17 @@ impl<'a, T> Display for DisplayExpression<'a, T> {
             Expression::StringLiteral(x) => write!(f, "{x:?}"),
             Expression::NumberLiteral(x) => write!(f, "{x:?}"),
             Expression::BoolLiteral(x) => write!(f, "{x:?}"),
+            Expression::KeyboardShortcutLiteral(ks) => {
+                write!(
+                    f,
+                    "@keys({}{}{}{}{})",
+                    if ks.modifiers.alt { "Alt+" } else { "" },
+                    if ks.modifiers.control { "Control+" } else { "" },
+                    if ks.modifiers.shift { "Shift+" } else { "" },
+                    if ks.modifiers.meta { "Meta+" } else { "" },
+                    ks.key
+                )
+            }
             Expression::PropertyReference(x) => write!(f, "{}", DisplayPropertyRef(x, ctx)),
             Expression::FunctionParameterReference { index } => write!(f, "arg_{index}"),
             Expression::StoreLocalVariable { name, value } => {
