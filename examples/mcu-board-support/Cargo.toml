@@ -154,13 +154,13 @@ m5stack-cores3 = [
   "esp-backtrace/esp32s3",
   "dep:mipidsi",
   "embedded-graphics-core",
-  "embedded-graphics",  # Add for Rgb565 color support
+  "embedded-graphics",              # Add for Rgb565 color support
   "slint/libm",
   "dep:static_cell",
   "dep:embedded-graphics-framebuf",
   "dep:axp2101",
-  "dep:ft3x68-rs",  # FT6336U touch controller (compatible with FT3x68)
-  "dep:aw9523",     # GPIO expander for touch reset/interrupt
+  "dep:ft3x68-rs",                  # FT6336U touch controller (compatible with FT3x68)
+  "dep:aw9523",                     # GPIO expander for touch reset/interrupt
 ]
 stm32u5g9j-dk2 = [
   "embassy-stm32/stm32u5g9zj",
