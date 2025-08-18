@@ -1882,6 +1882,22 @@ pub mod ffi {
             .map(|x| x.setup_menubar(menu_instance.clone()));
     }
 
+    /// Show a native context menu
+    #[unsafe(no_mangle)]
+    pub unsafe extern "C" fn slint_windowrc_show_native_popup_menu(
+        handle: *const WindowAdapterRcOpaque,
+        context_menu: &vtable::VRc<MenuVTable>,
+        position: LogicalPosition,
+        parent_item: &ItemRc,
+    ) -> bool {
+        let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
+        WindowInner::from_pub(window_adapter.window()).show_native_popup_menu(
+            context_menu.clone(),
+            position,
+            parent_item,
+        )
+    }
+
     /// Return the default-font-size property of the WindowItem
     #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_windowrc_default_font_size(

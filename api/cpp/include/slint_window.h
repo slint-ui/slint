@@ -105,10 +105,17 @@ public:
     }
 
     template<typename Component, typename SharedGlobals, typename InitFn>
-    uint32_t show_popup_menu(SharedGlobals *globals, LogicalPosition pos,
-                             cbindgen_private::ItemRc context_menu_rc, InitFn init) const
+    uint32_t show_popup_menu(
+            SharedGlobals *globals, LogicalPosition pos, cbindgen_private::ItemRc context_menu_rc,
+            InitFn init,
+            std::optional<vtable::VRc<cbindgen_private::MenuVTable>> menu = std::nullopt) const
     {
-        // if (cbindgen_private::slint_windowrc_show_native_context_menu(....)) { return }
+        if (menu) {
+            if (cbindgen_private::slint_windowrc_show_native_popup_menu(&inner, &menu.value(), pos,
+                                                                        &context_menu_rc)) {
+                return 0;
+            }
+        }
 
         auto popup = Component::create(globals);
         init(&*popup);
