@@ -1325,6 +1325,11 @@ impl WindowItem {
         }
     }
 
+    pub fn resolved_default_font_size(self_rc: &ItemRc) -> LogicalLength {
+        Self::resolve_font_property(&self_rc, Self::font_size)
+            .unwrap_or_else(|| self_rc.window_adapter().unwrap().renderer().default_font_size())
+    }
+
     fn resolve_font_property<T>(
         self_rc: &ItemRc,
         property_fn: impl Fn(Pin<&Self>) -> Option<T>,

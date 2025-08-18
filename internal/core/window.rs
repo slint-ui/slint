@@ -1521,6 +1521,7 @@ pub mod ffi {
     use crate::api::{RenderingNotifier, RenderingState, SetRenderingNotifierError};
     use crate::graphics::Size;
     use crate::graphics::{IntSize, Rgba8Pixel};
+    use crate::items::WindowItem;
     use crate::SharedVector;
 
     /// This enum describes a low-level access to specific graphics APIs used
@@ -1900,11 +1901,12 @@ pub mod ffi {
 
     /// Return the default-font-size property of the WindowItem
     #[unsafe(no_mangle)]
-    pub unsafe extern "C" fn slint_windowrc_default_font_size(
+    pub unsafe extern "C" fn slint_windowrc_resolved_default_font_size(
         handle: *const WindowAdapterRcOpaque,
     ) -> f32 {
         let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
-        window_adapter.window().0.window_item().unwrap().as_pin_ref().default_font_size().get()
+        WindowItem::resolved_default_font_size(&window_adapter.window().0.window_item_rc().unwrap())
+            .get()
     }
 
     /// Dispatch a key pressed or release event

@@ -428,6 +428,10 @@ impl<B: GraphicsBackend> RendererSealed for FemtoVGRenderer<B> {
         sharedfontdb::register_font_from_path(path)
     }
 
+    fn default_font_size(&self) -> LogicalLength {
+        self::fonts::DEFAULT_FONT_SIZE
+    }
+
     fn set_rendering_notifier(
         &self,
         callback: Box<dyn i_slint_core::api::RenderingNotifier>,
