@@ -3758,7 +3758,7 @@ fn compile_builtin_function_call(
                 format!(r"{{
                     auto item_tree = {item_tree_id}::create(self);
                     auto item_tree_dyn = item_tree.into_dyn();
-                    slint::private_api::setup_popup_menu_from_menu_item_tree(item_tree_dyn, {access_entries}, {access_sub_menu}, {access_activated});
+                    slint::private_api::setup_popup_menu_from_menu_item_tree(slint::private_api::create_menu_wrapper(item_tree_dyn), {access_entries}, {access_sub_menu}, {access_activated});
                 }}")
             } else {
                 let condition = if let [condition] = &rest {
@@ -3772,19 +3772,16 @@ fn compile_builtin_function_call(
                     "nullptr".to_string()
                 };
 
-                format!(r"
+                format!(r"{{
+                    auto item_tree = {item_tree_id}::create(self);
+                    auto item_tree_dyn = item_tree.into_dyn();
                     if ({window}.supports_native_menu_bar()) {{
-                        auto item_tree = {item_tree_id}::create(self);
-                        auto item_tree_dyn = item_tree.into_dyn();
-                        slint::private_api::MaybeUninitialized<vtable::VRc<slint::cbindgen_private::MenuVTable>> maybe;
-                        slint::cbindgen_private::slint_menus_create_wrapper(&item_tree_dyn, &maybe.value, {condition});
-                        auto vrc = maybe.take();
-                        slint::cbindgen_private::slint_windowrc_setup_native_menu_bar(&{window}.handle(), &vrc);
+                        auto menu_wrapper = slint::private_api::create_menu_wrapper(item_tree_dyn, {condition});
+                        slint::cbindgen_private::slint_windowrc_setup_native_menu_bar(&{window}.handle(), &menu_wrapper);
                     }} else {{
-                        auto item_tree = {item_tree_id}::create(self);
-                        auto item_tree_dyn = item_tree.into_dyn();
-                        slint::private_api::setup_popup_menu_from_menu_item_tree(item_tree_dyn, {access_entries}, {access_sub_menu}, {access_activated});
-                    }}")
+                        slint::private_api::setup_popup_menu_from_menu_item_tree(slint::private_api::create_menu_wrapper(item_tree_dyn), {access_entries}, {access_sub_menu}, {access_activated});
+                    }}
+                }}")
             }
         }
         BuiltinFunction::Use24HourFormat => {
@@ -3902,18 +3899,25 @@ fn compile_builtin_function_call(
             let access_sub_menu = access_member(&popup.sub_menu, &popup_ctx);
             let access_activated = access_member(&popup.activated, &popup_ctx);
             let access_close = access_member(&popup.close, &popup_ctx);
-            let init = if let llr::Expression::NumberLiteral(tree_index) = entries {
+            if let llr::Expression::NumberLiteral(tree_index) = entries {
                 // We have an MenuItem tree
                 let current_sub_component = ctx.current_sub_component().unwrap();
                 let item_tree_id = ident(&ctx.compilation_unit.sub_components[current_sub_component.menu_item_trees[*tree_index as usize].root].name);
-                format!(r"
+                format!(r"{{
                     auto item_tree = {item_tree_id}::create(self);
                     auto item_tree_dyn = item_tree.into_dyn();
-                    auto self = popup_menu;
-                    slint::private_api::setup_popup_menu_from_menu_item_tree(item_tree_dyn, {access_entries}, {access_sub_menu}, {access_activated});
-                ")
-
+                    auto menu_wrapper = slint::private_api::create_menu_wrapper(item_tree_dyn);
+                    {window}.close_popup({context_menu}.popup_id);
+                    {context_menu}.popup_id = {window}.template show_popup_menu<{popup_id}>({globals}, {position}, {{ {context_menu_rc} }}, [self, &menu_wrapper](auto popup_menu) {{
+                        auto parent_weak = self->self_weak;
+                        auto self_ = self;
+                        auto self = popup_menu;
+                        slint::private_api::setup_popup_menu_from_menu_item_tree(menu_wrapper, {access_entries}, {access_sub_menu}, {access_activated});
+                        {access_close}.set_handler([parent_weak,self = self_] {{ if(auto lock = parent_weak.lock()) {{ {window}.close_popup({context_menu}.popup_id); }} }});
+                    }}, menu_wrapper);
+                }}", globals = ctx.generator_state.global_access)
             } else {
+                // ShowPopupMenuInternal
                 let forward_callback = |access, cb, default| {
                     format!("{access}.set_handler(
                         [context_menu, parent_weak](const auto &entry) {{
@@ -3928,22 +3932,19 @@ fn compile_builtin_function_call(
                 let fw_activated = forward_callback(access_activated, "activated", "");
                 let entries = compile_expression(entries, ctx);
                 format!(r"
-                    auto entries = {entries};
-                    const slint::cbindgen_private::ContextMenu *context_menu = &({context_menu});
-                    auto self = popup_menu;
-                    {access_entries}.set(std::move(entries));
-                    {fw_sub_menu}
-                    {fw_activated}
-                ")
-            };
-            format!(r"
-                {window}.close_popup({context_menu}.popup_id);
-                {context_menu}.popup_id = {window}.template show_popup_menu<{popup_id}>({globals}, {position}, {{ {context_menu_rc} }}, [self](auto popup_menu) {{
-                    auto parent_weak = self->self_weak;
-                    auto self_ = self;
-                    {init}
-                    {access_close}.set_handler([parent_weak,self = self_] {{ if(auto lock = parent_weak.lock()) {{ {window}.close_popup({context_menu}.popup_id); }} }});
-                }})", globals = ctx.generator_state.global_access)
+                    {window}.close_popup({context_menu}.popup_id);
+                    {context_menu}.popup_id = {window}.template show_popup_menu<{popup_id}>({globals}, {position}, {{ {context_menu_rc} }}, [self](auto popup_menu) {{
+                        auto parent_weak = self->self_weak;
+                        auto self_ = self;
+                        auto entries = {entries};
+                        const slint::cbindgen_private::ContextMenu *context_menu = &({context_menu});
+                        auto self = popup_menu;
+                        {access_entries}.set(std::move(entries));
+                        {fw_sub_menu}
+                        {fw_activated}
+                        {access_close}.set_handler([parent_weak,self = self_] {{ if(auto lock = parent_weak.lock()) {{ {window}.close_popup({context_menu}.popup_id); }} }});
+                    }});", globals = ctx.generator_state.global_access)
+            }
         }
         BuiltinFunction::SetSelectionOffsets => {
             if let [llr::Expression::PropertyReference(pr), from, to] = arguments {

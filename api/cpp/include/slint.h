@@ -185,18 +185,23 @@ union MaybeUninitialized {
     }
 };
 
+inline vtable::VRc<cbindgen_private::MenuVTable>
+create_menu_wrapper(const ItemTreeRc &menu_item_tree,
+                    bool (*condition)(const ItemTreeRc *menu_tree) = nullptr)
+{
+    MaybeUninitialized<vtable::VRc<cbindgen_private::MenuVTable>> maybe;
+    cbindgen_private::slint_menus_create_wrapper(&menu_item_tree, &maybe.value, condition);
+    return maybe.take();
+}
+
 inline void setup_popup_menu_from_menu_item_tree(
-        const ItemTreeRc &menu_item_tree,
+        const vtable::VRc<cbindgen_private::MenuVTable> &shared,
         Property<std::shared_ptr<Model<cbindgen_private::MenuEntry>>> &entries,
         Callback<std::shared_ptr<Model<cbindgen_private::MenuEntry>>(cbindgen_private::MenuEntry)>
                 &sub_menu,
         Callback<void(cbindgen_private::MenuEntry)> &activated)
 {
     using cbindgen_private::MenuEntry;
-    using cbindgen_private::MenuVTable;
-    MaybeUninitialized<vtable::VRc<MenuVTable>> maybe;
-    cbindgen_private::slint_menus_create_wrapper(&menu_item_tree, &maybe.value, nullptr);
-    auto shared = maybe.take();
     entries.set_binding([shared] {
         SharedVector<MenuEntry> entries_sv;
         shared.vtable()->sub_menu(shared.borrow(), nullptr, &entries_sv);
