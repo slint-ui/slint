@@ -44,7 +44,7 @@ export component PreviewUi inherits Window {
     icon: @image-url("assets/slint-logo-small-light.png");
     always-on-top <=> Api.always-on-top;
 
-    MenuBar {
+    if Api.show-preview-ui : MenuBar {
         Menu {
             title: @tr("File");
 
@@ -116,14 +116,6 @@ export component PreviewUi inherits Window {
                     Api.show-about-slint();
                 }
             }
-        }
-    }
-
-    Button {
-        icon: Icons.sync;
-        colorize-icon: true;
-        clicked => {
-            Api.reload-preview();
         }
     }
 
