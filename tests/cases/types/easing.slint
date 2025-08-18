@@ -1,0 +1,27 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export struct Animation {
+    duration: duration,
+    easing: easing,
+}
+
+export component Test inherits Rectangle {
+    in-out property <Animation> animation: {
+        duration: 500ms,
+        easing: Easing.linear,
+    };
+}
+
+/*
+```rust
+use slint::EasingCurve;
+let t = Test::new().unwrap();
+assert_eq!(t.get_animation().duration, 500);
+assert_eq!(t.get_animation().easing, EasingCurve::Linear);
+
+t.set_animation(Animation { duration: 200, easing: EasingCurve::EaseInElastic });
+assert_eq!(t.get_animation().duration, 200);
+assert_eq!(t.get_animation().easing, EasingCurve::EaseInElastic);
+```
+*/
