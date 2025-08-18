@@ -37,6 +37,9 @@ updates:
       - dependency-name: "@codingame/monaco-vscode-storage-service-override"
       - dependency-name: "@codingame/monaco-vscode-api"
       - dependency-name: "@codingame/monaco-vscode-editor-api"
+      - dependency-name: "@napi-rs/cli"
+      - dependency-name: "monaco-editor-wrapper"
+      - dependency-name: "monaco-languageclient"
 
     groups:
       vscode:
