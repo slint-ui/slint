@@ -79,8 +79,8 @@ importers:
         specifier: 0.41.3
         version: 0.41.3
       '@iconify-json/flat-color-icons':
-        specifier: 1.2.1
-        version: 1.2.1
+        specifier: 1.2.3
+        version: 1.2.3
       '@iconify-json/tabler':
         specifier: 1.2.22
         version: 1.2.22
@@ -765,8 +765,8 @@ packages:
   '@fontsource-variable/inter@5.2.6':
     resolution: {integrity: sha512-jks/bficUPQ9nn7GvXvHtlQIPudW7Wx8CrlZoY8bhxgeobNxlQan8DclUJuYF2loYRrGpfrhCIZZspXYysiVGg==}
 
-  '@iconify-json/flat-color-icons@1.2.1':
-    resolution: {integrity: sha512-iv1NQai4ThVJf5RGB2UBY/EYG4P5KpdnRTUM1hqLweD6OmWxZUyNJkqLzwns6/t+VBYM0H5gS/ckSWyxxEIYmQ==}
+  '@iconify-json/flat-color-icons@1.2.3':
+    resolution: {integrity: sha512-KcmJ7CY0TKFv5GuBjiS4/v++jEcNXna1jfY+yq014tnw/MN/jMI2oYpoMHGuIpYtUqDu7eove+WySnOYO8nS3w==}
 
   '@iconify-json/tabler@1.2.22':
     resolution: {integrity: sha512-KmCtTzZyz7dtszdQGJ5wbWqko6exhI38e4aCQqWZE1Z2wGUqBsMXrRWawXkAp6/XNBebt54h0lcxFCaTYBwFJg==}
@@ -4402,7 +4402,7 @@ snapshots:
 
   '@fontsource-variable/inter@5.2.6': {}
 
-  '@iconify-json/flat-color-icons@1.2.1':
+  '@iconify-json/flat-color-icons@1.2.3':
     dependencies:
       '@iconify/types': 2.0.0
 
