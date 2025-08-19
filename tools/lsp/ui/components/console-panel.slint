@@ -15,7 +15,18 @@ export component ConsolePanel inherits SimpleColumn {
     property <length> panel-height: ConsoleStyles.log-height;
     property <length> drag-start-height; // Track height at start of drag
     property <length> previous-height: 300px; // Track previous panel height for restoration
+    property <bool> animate-panel: false; // Control animation state
+    property <bool> drag-started: false;
 
+    animate panel-height {
+        duration: animate-panel ? 200ms : 0ms;
+        easing: ease-out-quad;
+    }
+    changed panel-height => {
+        if !dragging-up && panel-height <= -28px {
+            panel-expanded = false;
+        }
+    }
     Rectangle {
         height: ConsoleStyles.header-height;
         background: ConsoleStyles.header-background;
@@ -23,7 +34,6 @@ export component ConsolePanel inherits SimpleColumn {
             y: 0;
             height: 4px;
             mouse-cursor: ns-resize;
-            property <bool> drag-started: false;
             moved => {
                 if !panel-expanded && self.mouse-y < self.pressed-y {
                     panel-expanded = true;
@@ -46,23 +56,26 @@ export component ConsolePanel inherits SimpleColumn {
             pointer-event(event) => {
                 if event.kind == PointerEventKind.down {
                     drag-started = false;
+                    animate-panel = false; // Disable animation during drag
                 }
-                
+                if event.kind == PointerEventKind.up {
+                    animate-panel = true;
+                }
                 // Make close decision on release
                 if event.kind == PointerEventKind.up && panel-expanded {
+
                     if !dragging-up && panel-height <= 5px {
                         // Store current height before closing (if it's a reasonable size)
                         if panel-height > 50px {
                             previous-height = panel-height;
                         }
-                        panel-expanded = false;
-                        panel-height = ConsoleStyles.log-height; // Reset for next open
+                        panel-height = -28px;
                     }
                     if dragging-up && panel-height <= 30px {
                         panel-height = previous-height; // Restore previous height
-                    }
+                    } 
                     // Also update previous-height when panel is at a good size
-                    else if panel-height > 50px {
+                    if panel-height > 50px {
                         previous-height = panel-height;
                     }
                     // Reset drag tracking
@@ -176,7 +189,14 @@ export component ConsolePanel inherits SimpleColumn {
                 chevron-ta := TouchArea {
                     mouse-cursor: MouseCursor.pointer;
                     clicked => {
-                        panel-expanded = !panel-expanded;
+                        if panel-expanded {
+                            animate-panel = true;
+                            panel-height = -28px;
+                        } else {
+                            panel-height = previous-height;
+                            panel-expanded = true;
+                            animate-panel = true;
+                        }
                     }
                 }
 
