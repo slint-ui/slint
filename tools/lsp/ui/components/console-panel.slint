@@ -11,7 +11,10 @@ import { WindowManager, WindowGlobal } from "../windowglobal.slint";
 
 export component ConsolePanel inherits SimpleColumn {
     property <bool> panel-expanded: false;
+    property <bool> dragging-up: false;  // Track if currently dragging upward
     property <length> panel-height: ConsoleStyles.log-height;
+    property <length> drag-start-height; // Track height at start of drag
+    property <length> previous-height: 300px; // Track previous panel height for restoration
 
     Rectangle {
         height: ConsoleStyles.header-height;
@@ -20,21 +23,51 @@ export component ConsolePanel inherits SimpleColumn {
             y: 0;
             height: 4px;
             mouse-cursor: ns-resize;
+            property <bool> drag-started: false;
             moved => {
                 if !panel-expanded && self.mouse-y < self.pressed-y {
                     panel-expanded = true;
+                    dragging-up = true;
+                    drag-started = true;
                     panel-height = Math.max(30px, -(self.mouse-y - self.pressed-y));
                 } else if panel-expanded {
+                    // Only update direction if we're actively moving
+                    if !drag-started {
+                        drag-started = true;
+                        dragging-up = self.mouse-y < self.pressed-y;
+                    }
+                    
                     // Resizing panel during drag
                     let max-height = WindowGlobal.window-height * 0.75;
-                    panel-height = Math.max(-28px, Math.min(max-height, panel-height - (self.mouse-y - self.pressed-y)));
+                    let new-height = panel-height - (self.mouse-y - self.pressed-y);
+                    panel-height = Math.max(-28px, Math.min(max-height, new-height));
                 }
             }
             pointer-event(event) => {
+                if event.kind == PointerEventKind.down {
+                    drag-started = false;
+                }
+                
                 // Make close decision on release
-                if event.kind == PointerEventKind.up && panel-expanded && panel-height <= 1px {
-                    panel-expanded = false;
-                    panel-height = ConsoleStyles.log-height; // Reset for next open
+                if event.kind == PointerEventKind.up && panel-expanded {
+                    if !dragging-up && panel-height <= 5px {
+                        // Store current height before closing (if it's a reasonable size)
+                        if panel-height > 50px {
+                            previous-height = panel-height;
+                        }
+                        panel-expanded = false;
+                        panel-height = ConsoleStyles.log-height; // Reset for next open
+                    }
+                    if dragging-up && panel-height <= 30px {
+                        panel-height = previous-height; // Restore previous height
+                    }
+                    // Also update previous-height when panel is at a good size
+                    else if panel-height > 50px {
+                        previous-height = panel-height;
+                    }
+                    // Reset drag tracking
+                    dragging-up = false;
+                    drag-started = false;
                 }
             }
         }
