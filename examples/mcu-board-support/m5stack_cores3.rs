@@ -146,26 +146,44 @@ pub fn init() {
     .expect("backend already initialized");
 }
 
-/// Initialize the AXP2101 power management unit for M5Stack CoreS3
-fn init_axp2101_power(i2c: I2c<esp_hal::Blocking>) -> Result<I2c<esp_hal::Blocking>, ()> {
-    use axp2101::{Axp2101, I2CPowerManagementInterface};
+/// Initialize the AXP2101 power management unit for M5Stack CoreS3 using shared I2C
+/// This implements the exact same sequence as the working custom implementation
+fn init_axp2101_power<I2C>(mut i2c_device: I2C) -> Result<(), ()>
+where
+    I2C: embedded_hal::i2c::I2c,
+{
+    const AXP2101_ADDRESS: u8 = 0x34;
 
-    info!("Initializing AXP2101 power management...");
-    let axp_interface = I2CPowerManagementInterface::new(i2c);
-    let mut axp = Axp2101::new(axp_interface);
+    info!("Initializing AXP2101 power management with M5Stack CoreS3 sequence...");
 
-    // Initialize the AXP2101
-    match axp.init() {
-        Ok(_) => {
-            info!("AXP2101 power management initialized");
-            // Return the I2C interface for reuse
-            Ok(axp.release_i2c())
-        }
-        Err(_) => {
-            error!("Failed to initialize AXP2101");
-            Err(())
-        }
+    // This sequence matches exactly the working custom implementation:
+    // 1. CHG_LED register (0x69) <- 0x35 (0b00110101)
+    // 2. ALDO_ENABLE register (0x90) <- 0xBF
+    // 3. ALDO4 register (0x95) <- 0x1C (0b00011100)
+
+    // Step 1: Configure charge LED (register 0x69 = 105 decimal)
+    if i2c_device.write(AXP2101_ADDRESS, &[0x69, 0x35]).is_err() {
+        error!("Failed to write to CHG_LED register (0x69)");
+        return Err(());
     }
+    info!("AXP2101: CHG_LED configured (0x69 <- 0x35)");
+
+    // Step 2: Enable ALDO outputs (register 0x90 = 144 decimal)
+    if i2c_device.write(AXP2101_ADDRESS, &[0x90, 0xBF]).is_err() {
+        error!("Failed to write to ALDO_ENABLE register (0x90)");
+        return Err(());
+    }
+    info!("AXP2101: ALDO outputs enabled (0x90 <- 0xBF)");
+
+    // Step 3: Configure ALDO4 voltage (register 0x95 = 149 decimal)
+    if i2c_device.write(AXP2101_ADDRESS, &[0x95, 0x1C]).is_err() {
+        error!("Failed to write to ALDO4 register (0x95)");
+        return Err(());
+    }
+    info!("AXP2101: ALDO4 voltage configured (0x95 <- 0x1C)");
+
+    info!("AXP2101 power management initialized successfully with M5Stack CoreS3 sequence");
+    Ok(())
 }
 
 impl EspBackend {
@@ -174,8 +192,7 @@ impl EspBackend {
         let peripherals = self.peripherals.borrow_mut().take().expect("Peripherals already taken");
         let mut delay = Delay::new();
 
-        // --- Begin AXP2101 Power Management Initialization ---
-        // Initialize I2C for AXP2101 power management
+        // --- Initialize I2C bus for all I2C devices (AXP2101, AW9523, touch controller) ---
         let power_i2c = I2c::new(
             peripherals.I2C0,
             esp_hal::i2c::master::Config::default().with_frequency(Rate::from_khz(400)),
@@ -184,11 +201,15 @@ impl EspBackend {
         .with_sda(peripherals.GPIO12) // AXP2101 SDA
         .with_scl(peripherals.GPIO11); // AXP2101 SCL
 
-        // Initialize power management - critical for M5Stack CoreS3
-        let i2c_bus = match init_axp2101_power(power_i2c) {
-            Ok(returned_i2c) => {
+        // --- Use StaticCell to create a shared I2C bus for all I2C devices ---
+        static I2C_BUS: StaticCell<RefCell<I2c<'static, esp_hal::Blocking>>> = StaticCell::new();
+        let i2c_bus = I2C_BUS.init(RefCell::new(power_i2c));
+
+        // --- Begin AXP2101 Power Management Initialization ---
+        // Initialize power management using shared I2C bus - critical for M5Stack CoreS3
+        match init_axp2101_power(RefCellDevice::new(i2c_bus)) {
+            Ok(_) => {
                 info!("Power management initialized successfully");
-                returned_i2c
             }
             Err(_) => {
                 error!("Failed to initialize AXP2101 power management");
@@ -199,10 +220,6 @@ impl EspBackend {
 
         // Small delay to let power rails stabilize
         delay.delay_ms(100);
-
-        // --- Use StaticCell to create a shared I2C bus for both AW9523 and touch controller ---
-        static I2C_BUS: StaticCell<RefCell<I2c<'static, esp_hal::Blocking>>> = StaticCell::new();
-        let i2c_bus = I2C_BUS.init(RefCell::new(i2c_bus));
 
         // --- Begin AW9523 GPIO Expander Initialization ---
         info!("Initializing AW9523 GPIO expander...");

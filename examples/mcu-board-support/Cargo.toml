@@ -158,7 +158,6 @@ m5stack-cores3 = [
   "slint/libm",
   "dep:static_cell",
   "dep:embedded-graphics-framebuf",
-  "dep:axp2101",
   "dep:ft3x68-rs",                  # FT6336U touch controller (compatible with FT3x68)
   "dep:aw9523",                     # GPIO expander for touch reset/interrupt
 ]
@@ -253,7 +252,6 @@ gt911 = { version = "0.3.0", optional = true }
 sitronix-touch = { version = "0.0.1", optional = true }
 sh8601-rs = { version = "0.1.6", features = ["waveshare_18_amoled"], optional = true }
 ft3x68-rs = { version = "0.1.2", optional = true }
-axp2101 = { git = "https://github.com/georgik/axp2101-rs.git", tag = "v0.2.0", optional = true }
 aw9523 = { git = "https://github.com/georgik/aw9523-rs.git", tag = "v0.2.0", optional = true }
 
 rand_core = { version = "0.6.3", optional = true }
