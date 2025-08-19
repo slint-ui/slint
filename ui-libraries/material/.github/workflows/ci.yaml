@@ -33,7 +33,7 @@ jobs:
           CARGO_INCREMENTAL: false
       runs-on: ubuntu-latest
       steps:
-          - uses: actions/checkout@v4
+          - uses: actions/checkout@v5
           - name: Install Linux dependencies
             if: runner.os == 'Linux'
             run: |
@@ -60,7 +60,7 @@ jobs:
         working-directory: docs
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Install Linux dependencies
         run: |
           sudo apt-get update

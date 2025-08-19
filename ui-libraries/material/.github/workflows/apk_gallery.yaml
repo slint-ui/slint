@@ -21,7 +21,7 @@ jobs:
             CARGO_APK_RELEASE_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
         runs-on: ubuntu-latest
         steps:
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@v5
             - name: Cache APK build
               id: cache-apk
               uses: actions/cache@v4
