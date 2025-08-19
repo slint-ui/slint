@@ -1,0 +1,99 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { MaterialStyleMetrics } from "../styling/material_style_metrics.slint";
+import { MaterialPalette } from "../styling/material_palette.slint";
+import { Animations } from "../styling/animations.slint";
+import { StateLayerArea } from "./state_layer.slint";
+import { ListTile } from "./list.slint";
+import { ListView } from "./list_view.slint";
+
+export component RadioButton {
+    in property <bool> checked;
+    in property <bool> enabled;
+
+    callback clicked();
+
+    min_width: MaterialStyleMetrics.size_40;
+    min_height: self.min_width;
+    accessible-enabled: root.enabled;
+    accessible-checkable: true;
+    accessible-checked <=> root.checked;
+    accessible-role: checkbox;
+    accessible-action-default => { state_area.clicked(); }
+    forward_focus: state_area;
+
+    state_area := StateLayerArea {
+        width: 100%;
+        height: 100%;
+        border_radius: max(self.width, self.height) / 2;
+        color: MaterialPalette.on_surface;
+
+        border := Rectangle {
+            width: MaterialStyleMetrics.size_20;
+            height: self.width;
+            border_radius: max(self.width, self.height) / 2;
+            border_color: MaterialPalette.on_surface_variant;
+            border_width: MaterialStyleMetrics.size_2;
+
+            indicator := Rectangle {
+                width: parent.width / 2;
+                height: self.width;
+                border_radius: max(self.width, self.height) / 2;
+                background: MaterialPalette.primary;
+                opacity: !root.checked ? 0 : 1;
+
+                animate opacity {
+                    duration: Animations.opacity_duration;
+                    easing: Animations.opacity_easing;
+                }
+            }
+
+            animate border_color {
+                duration: Animations.opacity_duration;
+                easing: Animations.opacity_easing;
+            }
+        }
+
+        clicked => {
+            root.clicked();
+        }
+    }
+
+    states [
+        disabled when !root.enabled : {
+            border.border_color: MaterialPalette.on_surface;
+            border.opacity: MaterialPalette.disable_opacity;
+            indicator.background: MaterialPalette.on_surface;
+            indicator.opacity: root.checked ? MaterialPalette.disable_opacity : 0;
+        }
+        highlighted when !root.checked && (state_area.pressed || state_area.has_focus || state_area.has_hover) : {
+            border.border_color: MaterialPalette.on_surface;
+        }
+        checked when root.checked : {
+            border.border_color: MaterialPalette.primary;
+        }
+    ]
+}
+
+export component RadioButtonTile inherits ListTile {
+    in_out property <bool> checked <=> radio_button.checked;
+
+    callback radio_button_clicked();
+
+    Rectangle {
+        horizontal_stretch: 0;
+
+        radio_button := RadioButton {
+            enabled: root.enabled;
+
+            clicked => {
+                root.radio_button_clicked();
+            }
+        }
+    }
+
+    clicked => {
+        radio_button.clicked();
+    }
+}

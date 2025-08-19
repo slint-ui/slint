@@ -29,7 +29,8 @@ import {
     TimePicker,
     Switch,
     Slider,
-    TextField
+    TextField,
+    RadioButtonTile
 } from "../../../../material.slint";
 
 import { Group } from "../components/group.slint";
@@ -40,8 +41,10 @@ import { FilledIcons, OutlinedIcons } from "../icons.slint";
 
 export global NavigationViewAdapter {
     in_out property <[ListItem]> search_items;
+    in property <[bool]> radio_buttons: [ true, false, false ];
 
     callback search(text: string);
+    callback radio_button_clicked(index: int);
 }
 
 export component NavigationView {
@@ -323,6 +326,44 @@ export component NavigationView {
                         text: "Option 4";
                         enabled: false;
                         check_state: CheckState.checked;
+                    }
+                }
+            }
+
+            ComponentCard {
+                title: "RadioButtons";
+
+                Vertical {
+                    RadioButtonTile {
+                        text: "Option 1";
+                        checked: NavigationViewAdapter.radio_buttons[0];
+
+                        radio_button_clicked => {
+                            NavigationViewAdapter.radio_button_clicked(0);
+                        }
+                    }
+
+                    RadioButtonTile {
+                        text: "Option 2";
+                        checked: NavigationViewAdapter.radio_buttons[1];
+
+                        radio_button_clicked => {
+                            NavigationViewAdapter.radio_button_clicked(1);
+                        }
+                    }
+
+                    RadioButtonTile {
+                        text: "Option 3";
+                        checked: NavigationViewAdapter.radio_buttons[2];
+
+                        radio_button_clicked => {
+                            NavigationViewAdapter.radio_button_clicked(2);
+                        }
+                    }
+
+                    RadioButtonTile {
+                        text: "Option 4";
+                        enabled: false;
                     }
                 }
             }

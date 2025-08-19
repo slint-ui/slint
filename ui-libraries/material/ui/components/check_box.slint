@@ -29,6 +29,7 @@ export component CheckBox {
     accessible-checked <=> root.checked;
     accessible-role: checkbox;
     accessible-action-default => { state_area.clicked(); }
+    forward_focus: state_area;
 
     state_area := StateLayerArea {
         width: 100%;

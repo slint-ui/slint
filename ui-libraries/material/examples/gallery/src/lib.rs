@@ -3,7 +3,7 @@
 
 use std::rc::Rc;
 
-use slint::{Color, ModelExt, VecModel};
+use slint::{Color, Model, ModelExt, VecModel};
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 
@@ -66,6 +66,25 @@ fn navigation_view(ui: &MainWindow) {
             );
         }
     });
+
+    let radio_buttons = VecModel::from_slice(&[true, false, false]);
+
+    adapter.on_radio_button_clicked({
+        let radio_buttons = radio_buttons.clone();
+
+        move |index| {
+            for r in 0..radio_buttons.row_count() {
+                if r == index as usize {
+                    radio_buttons.set_row_data(r, true);
+                    continue;
+                }
+
+                radio_buttons.set_row_data(r, false);
+            }
+        }
+    });
+
+    adapter.set_radio_buttons(radio_buttons.into());
 }
 
 fn color_item(name: &str, red: u8, green: u8, blue: u8, ui: &MainWindow) -> ListItem {
