@@ -1902,11 +1902,9 @@ pub mod ffi {
     /// Return the default-font-size property of the WindowItem
     #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_windowrc_resolved_default_font_size(
-        handle: *const WindowAdapterRcOpaque,
+        item_tree: &ItemTreeRc,
     ) -> f32 {
-        let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
-        WindowItem::resolved_default_font_size(&window_adapter.window().0.window_item_rc().unwrap())
-            .get()
+        WindowItem::resolved_default_font_size(item_tree.clone()).get()
     }
 
     /// Dispatch a key pressed or release event

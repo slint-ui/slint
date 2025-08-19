@@ -27,6 +27,7 @@ use crate::input::{
     KeyEventType, MouseEvent,
 };
 use crate::item_rendering::{CachedRenderingData, RenderBorderRectangle, RenderRectangle};
+use crate::item_tree::ItemTreeRc;
 pub use crate::item_tree::{ItemRc, ItemTreeVTable};
 use crate::layout::LayoutInfo;
 use crate::lengths::{
@@ -1325,9 +1326,11 @@ impl WindowItem {
         }
     }
 
-    pub fn resolved_default_font_size(self_rc: &ItemRc) -> LogicalLength {
-        Self::resolve_font_property(&self_rc, Self::font_size)
-            .unwrap_or_else(|| self_rc.window_adapter().unwrap().renderer().default_font_size())
+    pub fn resolved_default_font_size(item_tree: ItemTreeRc) -> LogicalLength {
+        let first_item = ItemRc::new(item_tree, 0);
+        let window_item = next_window_item(&first_item).unwrap();
+        Self::resolve_font_property(&window_item, Self::font_size)
+            .unwrap_or_else(|| first_item.window_adapter().unwrap().renderer().default_font_size())
     }
 
     fn resolve_font_property<T>(

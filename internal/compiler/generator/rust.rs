@@ -3020,8 +3020,10 @@ fn compile_builtin_function_call(
             quote!(sp::WindowInner::from_pub(#window_adapter_tokens.window()).scale_factor())
         }
         BuiltinFunction::GetWindowDefaultFontSize => {
-            let window_adapter_tokens = access_window_adapter_field(ctx);
-            quote!(sp::WindowItem::resolved_default_font_size(&sp::WindowInner::from_pub(#window_adapter_tokens.window()).window_item_rc().unwrap()).get())
+            quote!(sp::WindowItem::resolved_default_font_size(sp::VRcMapped::origin(
+                &_self.self_weak.get().unwrap().upgrade().unwrap()
+            ))
+            .get())
         }
         BuiltinFunction::AnimationTick => {
             quote!(sp::animation_tick())
