@@ -430,11 +430,11 @@ fn call_builtin_function(
         BuiltinFunction::GetWindowScaleFactor => Value::Number(
             local_context.component_instance.access_window(|window| window.scale_factor()) as _,
         ),
-        BuiltinFunction::GetWindowDefaultFontSize => {
-            Value::Number(local_context.component_instance.access_window(|window| {
-                WindowItem::resolved_default_font_size(&window.window_item_rc().unwrap()).get()
-            }) as _)
-        }
+        BuiltinFunction::GetWindowDefaultFontSize => Value::Number({
+            let component = local_context.component_instance;
+            let item_comp = component.self_weak().get().unwrap().upgrade().unwrap();
+            WindowItem::resolved_default_font_size(vtable::VRc::into_dyn(item_comp)).get() as _
+        }),
         BuiltinFunction::AnimationTick => {
             Value::Number(i_slint_core::animations::animation_tick() as f64)
         }
