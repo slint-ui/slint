@@ -1,0 +1,66 @@
+---
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+title: Divider
+description: Divider API.
+---
+
+import CodeSnippetMD from '/src/components/CodeSnippetMD.astro';
+import SlintProperty from '/src/components/SlintProperty.astro';
+
+<CodeSnippetMD imagePath="" noScreenShot scale="3" imageWidth="300" imageHeight="200" imageAlt="">
+```slint
+import { VerticalDivider, HorizontalDivider, TextButton } from "material.slint";
+export component Example inherits Window {
+    width: 200px;
+    height: 100px;
+
+    VerticalLayout {
+        spacing: 8px;
+        TextButton { text: "Section 1"; }
+        HorizontalDivider {}
+        TextButton { text: "Section 2"; }
+        HorizontalDivider {}
+        TextButton { text: "Section 3"; }
+    }
+}
+```
+</CodeSnippetMD>
+
+A `Divider` is a thin line that groups content in lists and layouts. It provides visual separation between different sections or items in your interface.
+
+## Components
+
+### HorizontalDivider
+A horizontal line divider that spans the full width of its container. Perfect for separating content vertically in lists, forms, and other layouts.
+
+### VerticalDivider
+A vertical line divider that spans the full height of its container. Ideal for separating content horizontally in side-by-side layouts or navigation components.
+
+## Usage
+
+Dividers are commonly used to:
+- Separate sections in lists and forms
+- Group related content in navigation components
+- Provide visual hierarchy in complex layouts
+- Create clear boundaries between different interface areas
+
+The color of the divider is set via the "MaterialPalette.outline_variant" color.
+
+## Properties
+
+Both `HorizontalDivider` and `VerticalDivider` inherit from `BaseDivider` and have the following properties:
+
+
+
+### width
+<SlintProperty propName="width" typeName="length" defaultValue="100%">
+The width of the divider. For `HorizontalDivider`, this controls the line length. For `VerticalDivider`, this is fixed at 1px.
+</SlintProperty>
+
+### height
+<SlintProperty propName="height" typeName="length" defaultValue="100%">
+The height of the divider. For `VerticalDivider`, this controls the line length. For `HorizontalDivider`, this is fixed at 1px.
+</SlintProperty>
+
+
+
