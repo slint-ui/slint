@@ -95,10 +95,7 @@ public:
     static SharedVector<ElementHandle> find_by_accessible_label(const ComponentHandle<T> &component,
                                                                 std::string_view label)
     {
-        cbindgen_private::Slice<uint8_t> label_view {
-            const_cast<unsigned char *>(reinterpret_cast<const unsigned char *>(label.data())),
-            label.size()
-        };
+        cbindgen_private::Slice<uint8_t> label_view = private_api::string_to_slice(label);
         auto vrc = component.into_dyn();
         SharedVector<ElementHandle> result;
         cbindgen_private::slint_testing_element_find_by_accessible_label(
@@ -112,10 +109,7 @@ public:
     static SharedVector<ElementHandle> find_by_element_id(const ComponentHandle<T> &component,
                                                           std::string_view element_id)
     {
-        cbindgen_private::Slice<uint8_t> element_id_view {
-            const_cast<unsigned char *>(reinterpret_cast<const unsigned char *>(element_id.data())),
-            element_id.size()
-        };
+        cbindgen_private::Slice<uint8_t> element_id_view = private_api::string_to_slice(element_id);
         auto vrc = component.into_dyn();
         SharedVector<ElementHandle> result;
         cbindgen_private::slint_testing_element_find_by_element_id(
@@ -129,10 +123,8 @@ public:
     static SharedVector<ElementHandle>
     find_by_element_type_name(const ComponentHandle<T> &component, std::string_view type_name)
     {
-        cbindgen_private::Slice<uint8_t> element_type_name_view {
-            const_cast<unsigned char *>(reinterpret_cast<const unsigned char *>(type_name.data())),
-            type_name.size()
-        };
+        cbindgen_private::Slice<uint8_t> element_type_name_view =
+                private_api::string_to_slice(type_name);
         auto vrc = component.into_dyn();
         SharedVector<ElementHandle> result;
         cbindgen_private::slint_testing_element_find_by_element_type_name(

@@ -991,12 +991,14 @@ fn embed_resource(
                 )),
                 ..Default::default()
             }));
-            let init = format!("slint::cbindgen_private::types::StaticTextures {{
+            let init = format!(
+                "slint::cbindgen_private::types::StaticTextures {{
                         .size = {{ {width}, {height} }},
                         .original_size = {{ {unscaled_width}, {unscaled_height} }},
-                        .data = slint::cbindgen_private::Slice<uint8_t>{{  {data_name} , {count} }},
-                        .textures = slint::cbindgen_private::Slice<slint::cbindgen_private::types::StaticTexture>{{ &{texture_name}, 1 }}
-                    }}");
+                        .data = slint::private_api::make_slice({data_name} , {count} ),
+                        .textures = slint::private_api::make_slice(&{texture_name}, 1)
+                    }}"
+            );
             declarations.push(Declaration::Var(Var {
                 ty: "const slint::cbindgen_private::types::StaticTextures".into(),
                 name: format_smolstr!("slint_embedded_resource_{}", resource.id),
@@ -1078,7 +1080,7 @@ fn embed_resource(
                     name: format_smolstr!("slint_embedded_resource_{}_glyphset_{}", resource.id, glyphset_index),
                     array_size: Some(glyphset.glyph_data.len()),
                     init: Some(format!("{{ {} }}", glyphset.glyph_data.iter().enumerate().map(|(glyph_index, glyph)| {
-                        format!("{{ .x = {}, .y = {}, .width = {}, .height = {}, .x_advance = {}, .data = slint::cbindgen_private::Slice<uint8_t>{{ {}, {} }} }}",
+                        format!("{{ .x = {}, .y = {}, .width = {}, .height = {}, .x_advance = {}, .data = slint::private_api::make_slice({}, {}) }}",
                         glyph.x, glyph.y, glyph.width, glyph.height, glyph.x_advance,
                         format!("slint_embedded_resource_{}_gs_{}_gd_{}", resource.id, glyphset_index, glyph_index),
                         glyph.data.len()
@@ -1101,10 +1103,7 @@ fn embed_resource(
                         .iter()
                         .enumerate()
                         .map(|(glyphset_index, glyphset)| format!(
-                            "{{ .pixel_size = {}, .glyph_data = slint::cbindgen_private::Slice<slint::cbindgen_private::BitmapGlyph>{{
-                                    {}, {}
-                                }}
-                                 }}",
+                            "{{ .pixel_size = {}, .glyph_data = slint::private_api::make_slice({}, {}) }}",
                             glyphset.pixel_size, format!("slint_embedded_resource_{}_glyphset_{}", resource.id, glyphset_index), glyphset.glyph_data.len()
                         ))
                         .join(", \n")
@@ -1114,14 +1113,14 @@ fn embed_resource(
 
             let init = format!(
                 "slint::cbindgen_private::BitmapFont {{
-                        .family_name = slint::cbindgen_private::Slice<uint8_t>{{ {family_name_var} , {family_name_size} }},
-                        .character_map = slint::cbindgen_private::Slice<slint::cbindgen_private::CharacterMapEntry>{{ {charmap_var}, {charmap_size} }},
+                        .family_name = slint::private_api::make_slice({family_name_var} , {family_name_size}),
+                        .character_map = slint::private_api::make_slice({charmap_var}, {charmap_size}),
                         .units_per_em = {units_per_em},
                         .ascent = {ascent},
                         .descent = {descent},
                         .x_height = {x_height},
                         .cap_height = {cap_height},
-                        .glyphs = slint::cbindgen_private::Slice<slint::cbindgen_private::BitmapGlyphs>{{ {glyphsets_var}, {glyphsets_size} }},
+                        .glyphs = slint::private_api::make_slice({glyphsets_var}, {glyphsets_size}),
                         .weight = {weight},
                         .italic = {italic},
                         .sdf = {sdf},
@@ -1584,13 +1583,13 @@ fn generate_item_tree(
         Access::Private,
         Declaration::Function(Function {
             name: "item_tree".into(),
-            signature: "() -> slint::cbindgen_private::Slice<slint::private_api::ItemTreeNode>".into(),
+            signature: "() -> slint::cbindgen_private::Slice<slint::private_api::ItemTreeNode>"
+                .into(),
             is_static: true,
             statements: Some(vec![
                 "static const slint::private_api::ItemTreeNode children[] {".to_owned(),
                 format!("    {} }};", item_tree_array.join(", \n")),
-                "return { const_cast<slint::private_api::ItemTreeNode*>(children), std::size(children) };"
-                    .to_owned(),
+                "return slint::private_api::make_slice(std::span(children));".to_owned(),
             ]),
             ..Default::default()
         }),
@@ -1605,8 +1604,7 @@ fn generate_item_tree(
             statements: Some(vec![
                 "static const slint::private_api::ItemArrayEntry items[] {".to_owned(),
                 format!("    {} }};", item_array.join(", \n")),
-                "return { const_cast<slint::private_api::ItemArrayEntry*>(items), std::size(items) };"
-                    .to_owned(),
+                "return slint::private_api::make_slice(std::span(items));".to_owned(),
             ]),
             ..Default::default()
         }),
@@ -1803,7 +1801,7 @@ fn generate_item_tree(
                     .map(|l| format!("slint::private_api::string_to_slice({l:?})"))
                     .join(", ")
             ));
-            create_code.push(format!("slint::cbindgen_private::slint_translate_set_bundled_languages({{ languages.data(), {lang_len} }});"));
+            create_code.push(format!("slint::cbindgen_private::slint_translate_set_bundled_languages(slint::private_api::make_slice(std::span(languages)));"));
         }
 
         create_code.push("self->globals = &self->m_globals;".into());
@@ -3397,7 +3395,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                 )
             } else {
                 format!(
-                    "slint::cbindgen_private::Slice<{ty}>{{ std::array<{ty}, {count}>{{ {val} }}.data(), {count} }}",
+                    "slint::private_api::make_slice<{ty}>(std::array<{ty}, {count}>{{ {val} }}.data(), {count})",
                     count = values.len(),
                     ty = ty,
                     val = val.join(", ")
@@ -3511,7 +3509,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             };
             format!("slint::cbindgen_private::GridLayoutCellData {cv}_array [] = {{ {c} }};\
                     slint::cbindgen_private::slint_reorder_dialog_button_layout({cv}_array, {r});\
-                    slint::cbindgen_private::Slice<slint::cbindgen_private::GridLayoutCellData> {cv} {{ std::data({cv}_array), std::size({cv}_array) }}",
+                    slint::cbindgen_private::Slice<slint::cbindgen_private::GridLayoutCellData> {cv} = slint::private_api::make_slice(std::span({cv}_array))",
                     r = compile_expression(roles, ctx),
                     cv = cells_variable,
                     c = cells.join(", "),
@@ -4098,13 +4096,13 @@ fn box_layout_function(
     let ri = repeated_indices.as_ref().map_or(String::new(), |ri| {
         write!(
             push_code,
-            "slint::cbindgen_private::Slice<int> {ri}{{ {ri}_array.data(), {ri}_array.size() }};"
+            "slint::cbindgen_private::Slice<int> {ri} = slint::private_api::make_slice(std::span({ri}_array));"
         )
         .unwrap();
         format!("std::array<int, {}> {}_array;", 2 * repeater_idx, ri)
     });
     format!(
-        "[&]{{ {} {} slint::cbindgen_private::Slice<slint::cbindgen_private::BoxLayoutCellData>{}{{cells_vector.data(), cells_vector.size()}}; return {}; }}()",
+        "[&]{{ {} {} slint::cbindgen_private::Slice<slint::cbindgen_private::BoxLayoutCellData>{} = slint::private_api::make_slice(std::span(cells_vector)); return {}; }}()",
         ri,
         push_code,
         ident(cells_variable),

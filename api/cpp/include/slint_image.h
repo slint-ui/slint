@@ -284,12 +284,7 @@ inline Image load_image_from_embedded_data(std::span<const uint8_t> data,
 {
     cbindgen_private::types::Image img(cbindgen_private::types::Image::ImageInner_None());
     cbindgen_private::types::slint_image_load_from_embedded_data(
-            slint::cbindgen_private::Slice<uint8_t> { const_cast<uint8_t *>(data.data()),
-                                                      data.size() },
-            slint::cbindgen_private::Slice<uint8_t> {
-                    const_cast<uint8_t *>(reinterpret_cast<const uint8_t *>(extension.data())),
-                    extension.size() },
-            &img);
+            make_slice(data.data(), data.size()), string_to_slice(extension), &img);
     return Image(img);
 }
 

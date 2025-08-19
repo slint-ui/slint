@@ -500,10 +500,7 @@ inline Struct::Struct(std::initializer_list<std::pair<std::string_view, Value>> 
 inline std::optional<Value> Struct::get_field(std::string_view name) const
 {
     using namespace cbindgen_private;
-    cbindgen_private::Slice<uint8_t> name_view {
-        const_cast<unsigned char *>(reinterpret_cast<const unsigned char *>(name.data())),
-        name.size()
-    };
+    cbindgen_private::Slice<uint8_t> name_view = slint::private_api::string_to_slice(name);
     if (cbindgen_private::Value *field_val =
                 cbindgen_private::slint_interpreter_struct_get_field(&inner, name_view)) {
         return Value(std::move(field_val));
@@ -513,10 +510,7 @@ inline std::optional<Value> Struct::get_field(std::string_view name) const
 }
 inline void Struct::set_field(std::string_view name, const Value &value)
 {
-    cbindgen_private::Slice<uint8_t> name_view {
-        const_cast<unsigned char *>(reinterpret_cast<const unsigned char *>(name.data())),
-        name.size()
-    };
+    cbindgen_private::Slice<uint8_t> name_view = slint::private_api::string_to_slice(name);
     cbindgen_private::slint_interpreter_struct_set_field(&inner, name_view, value.inner);
 }
 
@@ -661,11 +655,8 @@ public:
     std::optional<Value> invoke(std::string_view name, std::span<const Value> args) const
     {
         using namespace cbindgen_private;
-        Slice<Box<cbindgen_private::Value>> args_view {
-            const_cast<Box<cbindgen_private::Value> *>(
-                    reinterpret_cast<const Box<cbindgen_private::Value> *>(args.data())),
-            args.size()
-        };
+        Slice<Box<cbindgen_private::Value>> args_view = slint::private_api::make_slice(
+                reinterpret_cast<const Box<cbindgen_private::Value> *>(args.data()), args.size());
         if (cbindgen_private::Value *rval_inner = slint_interpreter_component_instance_invoke(
                     inner(), slint::private_api::string_to_slice(name), args_view)) {
             return Value(std::move(rval_inner));
@@ -796,12 +787,11 @@ public:
                                        std::span<const Value> args) const
     {
         using namespace cbindgen_private;
-        Slice<cbindgen_private::Box<cbindgen_private::Value>> args_view {
-            const_cast<cbindgen_private::Box<cbindgen_private::Value> *>(
-                    reinterpret_cast<const cbindgen_private::Box<cbindgen_private::Value> *>(
-                            args.data())),
-            args.size()
-        };
+        Slice<cbindgen_private::Box<cbindgen_private::Value>> args_view =
+                slint::private_api::make_slice(
+                        reinterpret_cast<const cbindgen_private::Box<cbindgen_private::Value> *>(
+                                args.data()),
+                        args.size());
         if (cbindgen_private::Value *rval_inner =
                     slint_interpreter_component_instance_invoke_global(
                             inner(), slint::private_api::string_to_slice(global),
