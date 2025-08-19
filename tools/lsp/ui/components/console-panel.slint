@@ -6,7 +6,7 @@ import { Api, LogMessage, LogMessageLevel } from "../api.slint";
 import { RecentColorPicker } from "widgets/floating-brush-sections/palettes.slint";
 import { SimpleColumn } from "layout-helpers.slint";
 import { ConsoleStyles, EditorSizeSettings, Icons,  } from "styling.slint";
-import { WindowManager, WindowGlobal } from "../windowglobal.slint";
+import {WindowGlobal } from "../windowglobal.slint";
 
 
 export component ConsolePanel inherits SimpleColumn {
@@ -23,7 +23,7 @@ export component ConsolePanel inherits SimpleColumn {
         easing: ease-out-quad;
     }
     changed panel-height => {
-        if !dragging-up && panel-height <= -28px {
+        if !dragging-up && panel-height <= (-ConsoleStyles.header-height) {
             panel-expanded = false;
         }
     }
@@ -48,9 +48,9 @@ export component ConsolePanel inherits SimpleColumn {
                     }
 
                     // Resizing panel during drag
-                    let max-height = WindowGlobal.window-height * 0.75;
+                    let max-height = WindowGlobal.window-height - 200px;
                     let new-height = panel-height - (self.mouse-y - self.pressed-y);
-                    panel-height = Math.max(-28px, Math.min(max-height, new-height));
+                    panel-height = Math.max((-ConsoleStyles.header-height), Math.min(max-height, new-height));
                 }
             }
             pointer-event(event) => {
@@ -69,7 +69,7 @@ export component ConsolePanel inherits SimpleColumn {
                         if panel-height > 50px {
                             previous-height = panel-height;
                         }
-                        panel-height = -28px;
+                        panel-height = (-ConsoleStyles.header-height);
                     }
                     if dragging-up && panel-height <= 30px {
                         panel-height = previous-height; // Restore previous height
@@ -133,7 +133,7 @@ export component ConsolePanel inherits SimpleColumn {
                 clicked => {
                     if panel-expanded {
                         animate-panel = true;
-                        panel-height = -28px;
+                        panel-height = (-ConsoleStyles.header-height);
                     } else {
                         panel-height = previous-height;
                         panel-expanded = true;
@@ -198,7 +198,7 @@ export component ConsolePanel inherits SimpleColumn {
                     clicked => {
                         if panel-expanded {
                             animate-panel = true;
-                            panel-height = -28px;
+                            panel-height = (-ConsoleStyles.header-height);
                         } else {
                             panel-height = previous-height;
                             panel-expanded = true;
@@ -282,7 +282,9 @@ export component ConsolePanel inherits SimpleColumn {
     }
 
     if panel-expanded: Rectangle {
-        height: panel-height;
+        preferred-height: Math.min(panel-height, (WindowGlobal.window-height - 200px));
+        min-height: (-ConsoleStyles.header-height);
+
         background: ConsoleStyles.log-background;
 
         // Scroll to end workaround while this feature is missing from ScrollView
