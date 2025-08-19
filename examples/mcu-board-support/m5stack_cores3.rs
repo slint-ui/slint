@@ -34,7 +34,6 @@ use log::{error, info};
 use mipidsi::options::{ColorInversion, ColorOrder};
 
 // Touch support imports
-use aw9523::{Aw9523, I2CGpioExpanderInterface};
 use embedded_hal_bus::i2c::RefCellDevice;
 use ft3x68_rs::{Ft3x68Driver, ResetInterface};
 use slint::platform::{PointerEventButton, WindowEvent};
@@ -148,6 +147,8 @@ pub fn init() {
 
 /// Initialize the AXP2101 power management unit for M5Stack CoreS3 using shared I2C
 /// This implements the exact same sequence as the working custom implementation
+/// Based on https://github.com/tuupola/axp192
+/// and https://github.com/m5stack/M5CoreS3/blob/main/src/AXP2101.cpp
 fn init_axp2101_power<I2C>(mut i2c_device: I2C) -> Result<(), ()>
 where
     I2C: embedded_hal::i2c::I2c,
@@ -183,6 +184,61 @@ where
     info!("AXP2101: ALDO4 voltage configured (0x95 <- 0x1C)");
 
     info!("AXP2101 power management initialized successfully with M5Stack CoreS3 sequence");
+    Ok(())
+}
+
+/// Initialize the AW9523 GPIO expander for M5Stack CoreS3 using shared I2C
+/// This implements the exact same sequence as the working custom implementation
+/// Based on: https://github.com/m5stack/M5CoreS3/blob/main/src/AXP2101.cpp
+fn init_aw9523_gpio_expander<I2C>(mut i2c_device: I2C) -> Result<(), ()>
+where
+    I2C: embedded_hal::i2c::I2c,
+{
+    info!("Initializing AW9523 GPIO expander with M5Stack CoreS3 sequence...");
+
+    // Step 1: Configure Port 0 Configuration (register 0x02) <- 0b00000101 (0x05)
+    if i2c_device.write(AW9523_I2C_ADDRESS, &[0x02, 0b00000101]).is_err() {
+        error!("Failed to write to AW9523 Port 0 Configuration register (0x02)");
+        return Err(());
+    }
+    info!("AW9523: Port 0 Configuration set (0x02 <- 0x05)");
+
+    // Step 2: Configure Port 1 Configuration (register 0x03) <- 0b00000011 (0x03)
+    if i2c_device.write(AW9523_I2C_ADDRESS, &[0x03, 0b00000011]).is_err() {
+        error!("Failed to write to AW9523 Port 1 Configuration register (0x03)");
+        return Err(());
+    }
+    info!("AW9523: Port 1 Configuration set (0x03 <- 0x03)");
+
+    // Step 3: Configure Port 0 Output (register 0x04) <- 0b00011000 (0x18)
+    if i2c_device.write(AW9523_I2C_ADDRESS, &[0x04, 0b00011000]).is_err() {
+        error!("Failed to write to AW9523 Port 0 Output register (0x04)");
+        return Err(());
+    }
+    info!("AW9523: Port 0 Output set (0x04 <- 0x18)");
+
+    // Step 4: Configure Port 1 Output (register 0x05) <- 0b00001100 (0x0C)
+    if i2c_device.write(AW9523_I2C_ADDRESS, &[0x05, 0b00001100]).is_err() {
+        error!("Failed to write to AW9523 Port 1 Output register (0x05)");
+        return Err(());
+    }
+    info!("AW9523: Port 1 Output set (0x05 <- 0x0C)");
+
+    // Step 5: Configure register 0x11 <- 0b00010000 (0x10)
+    if i2c_device.write(AW9523_I2C_ADDRESS, &[0x11, 0b00010000]).is_err() {
+        error!("Failed to write to AW9523 register (0x11)");
+        return Err(());
+    }
+    info!("AW9523: Register 0x11 configured (0x11 <- 0x10)");
+
+    // Step 6: Configure register 0x13 <- 0b11111111 (0xFF)
+    if i2c_device.write(AW9523_I2C_ADDRESS, &[0x13, 0b11111111]).is_err() {
+        error!("Failed to write to AW9523 register (0x13)");
+        return Err(());
+    }
+    info!("AW9523: Register 0x13 configured (0x13 <- 0xFF)");
+
+    info!("AW9523 GPIO expander initialized successfully with M5Stack CoreS3 sequence");
     Ok(())
 }
 
@@ -222,14 +278,17 @@ impl EspBackend {
         delay.delay_ms(100);
 
         // --- Begin AW9523 GPIO Expander Initialization ---
-        info!("Initializing AW9523 GPIO expander...");
-        let aw_interface = I2CGpioExpanderInterface::new(RefCellDevice::new(i2c_bus));
-        let mut aw9523 = Aw9523::new(aw_interface);
-        aw9523
-            .init()
-            .map_err(|_| slint::PlatformError::Other("AW9523 initialization failed".into()))?;
-
-        info!("AW9523 GPIO expander initialized successfully");
+        // Initialize AW9523 GPIO expander using M5Stack CoreS3 specific sequence
+        match init_aw9523_gpio_expander(RefCellDevice::new(i2c_bus)) {
+            Ok(_) => {
+                info!("AW9523 GPIO expander initialized successfully");
+            }
+            Err(_) => {
+                error!("Failed to initialize AW9523 GPIO expander");
+                // Return error since GPIO expander is needed for touch
+                return Err(slint::PlatformError::Other("AW9523 initialization failed".into()));
+            }
+        };
         // --- End AW9523 Initialization ---
 
         // --- Begin SPI and Display Initialization ---
