@@ -47,7 +47,7 @@
         "@astrojs/partytown": "2.1.4",
         "@astrojs/tailwind": "6.0.2",
         "@iconify-json/flat-color-icons": "1.2.1",
-        "@iconify-json/tabler": "1.2.20",
+        "@iconify-json/tabler": "1.2.22",
         "@tailwindcss/typography": "0.5.16",
         "@types/js-yaml": "4.0.9",
         "@types/lodash.merge": "4.6.9",
