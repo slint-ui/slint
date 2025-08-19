@@ -131,7 +131,14 @@ export component ConsolePanel inherits SimpleColumn {
             lm-ta := TouchArea {
                 mouse-cursor: MouseCursor.pointer;
                 clicked => {
-                    panel-expanded = true;
+                    if panel-expanded {
+                        animate-panel = true;
+                        panel-height = -28px;
+                    } else {
+                        panel-height = previous-height;
+                        panel-expanded = true;
+                        animate-panel = true;
+                    }
                 }
             }
         }
