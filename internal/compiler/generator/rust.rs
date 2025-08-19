@@ -114,6 +114,7 @@ pub fn rust_primitive_type(ty: &Type) -> Option<proc_macro2::TokenStream> {
                 Some(quote!(sp::#i))
             }
         }
+        Type::KeyboardShortcutType => Some(quote!(sp::KeyboardShortcut)),
         Type::Brush => Some(quote!(slint::Brush)),
         Type::LayoutCache => Some(quote!(
             sp::SharedVector<
@@ -2204,6 +2205,15 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             let s = s.as_str();
             quote!(sp::SharedString::from(#s))
         }
+        Expression::KeyboardShortcutLiteral(shortcut) => {
+                let key = shortcut.key.clone();
+                let alt = shortcut.modifiers.alt;
+                let control = shortcut.modifiers.control;
+                let shift = shortcut.modifiers.shift;
+                let meta = shortcut.modifiers.meta;
+
+                quote!(sp::KeyboardShortcut { key: #key.into(), modifiers: sp::KeyboardModifiers { alt: #alt, control: #control, shift: #shift, meta: #meta } })
+        },
         Expression::NumberLiteral(n) if n.is_finite() => quote!(#n),
         Expression::NumberLiteral(_) => quote!(0.),
         Expression::BoolLiteral(b) => quote!(#b),
@@ -3269,7 +3279,7 @@ fn compile_builtin_function_call(
                 let ident = format_ident!("timer{}", *timer_index as usize);
                 quote!(_self.#ident.restart())
             } else {
-                panic!("internal error: invalid args to RetartTimer {arguments:?}")
+                panic!("internal error: invalid args to RestartTimer {arguments:?}")
             }
         }
     }

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use crate::diagnostics::{BuildDiagnostics, SourceLocation, Spanned};
-use crate::langtype::{BuiltinElement, EnumerationValue, Function, Struct, Type};
+use crate::langtype::{BuiltinElement, EnumerationValue, Function, KeyboardShortcut, Struct, Type};
 use crate::layout::Orientation;
 use crate::lookup::LookupCtx;
 use crate::object_tree::*;
@@ -735,6 +735,8 @@ pub enum Expression {
 
     EnumerationValue(EnumerationValue),
 
+    KeyboardShortcut(KeyboardShortcut),
+
     ReturnStatement(Option<Box<Expression>>),
 
     LayoutCacheAccess {
@@ -876,6 +878,7 @@ impl Expression {
             Expression::RadialGradient { .. } => Type::Brush,
             Expression::ConicGradient { .. } => Type::Brush,
             Expression::EnumerationValue(value) => Type::Enumeration(value.enumeration.clone()),
+            Expression::KeyboardShortcut(_) => Type::KeyboardShortcutType,
             // invalid because the expression is unreachable
             Expression::ReturnStatement(_) => Type::Invalid,
             Expression::LayoutCacheAccess { .. } => Type::LogicalLength,
@@ -971,6 +974,7 @@ impl Expression {
                 }
             }
             Expression::EnumerationValue(_) => {}
+            Expression::KeyboardShortcut(_) => {}
             Expression::ReturnStatement(expr) => {
                 expr.as_deref().map(visitor);
             }
@@ -1074,6 +1078,7 @@ impl Expression {
                 }
             }
             Expression::EnumerationValue(_) => {}
+            Expression::KeyboardShortcut(_) => {}
             Expression::ReturnStatement(expr) => {
                 expr.as_deref_mut().map(visitor);
             }
@@ -1163,6 +1168,7 @@ impl Expression {
                 stops.iter().all(|(c, s)| c.is_constant() && s.is_constant())
             }
             Expression::EnumerationValue(_) => true,
+            Expression::KeyboardShortcut(_) => true,
             Expression::ReturnStatement(expr) => {
                 expr.as_ref().map_or(true, |expr| expr.is_constant())
             }
@@ -1407,6 +1413,7 @@ impl Expression {
             Type::Enumeration(enumeration) => {
                 Expression::EnumerationValue(enumeration.clone().default_value())
             }
+            Type::KeyboardShortcutType => Expression::KeyboardShortcut(KeyboardShortcut::default()),
             Type::ComponentFactory => Expression::EmptyComponentFactory,
         }
     }
@@ -1801,6 +1808,9 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
             Some(val) => write!(f, "{}.{}", e.enumeration.name, val),
             None => write!(f, "{}.{}", e.enumeration.name, e.value),
         },
+        Expression::KeyboardShortcut(ks) => {
+            write!(f, "@keys({})", ks.to_string())
+        }
         Expression::ReturnStatement(e) => {
             write!(f, "return ")?;
             e.as_ref().map(|e| pretty_print(f, e)).unwrap_or(Ok(()))
