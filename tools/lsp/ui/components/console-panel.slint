@@ -46,7 +46,7 @@ export component ConsolePanel inherits SimpleColumn {
                         drag-started = true;
                         dragging-up = self.mouse-y < self.pressed-y;
                     }
-                    
+
                     // Resizing panel during drag
                     let max-height = WindowGlobal.window-height * 0.75;
                     let new-height = panel-height - (self.mouse-y - self.pressed-y);
@@ -73,7 +73,7 @@ export component ConsolePanel inherits SimpleColumn {
                     }
                     if dragging-up && panel-height <= 30px {
                         panel-height = previous-height; // Restore previous height
-                    } 
+                    }
                     // Also update previous-height when panel is at a good size
                     if panel-height > 50px {
                         previous-height = panel-height;
