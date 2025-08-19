@@ -30,7 +30,7 @@ Alternatively, you can download one of our pre-built binaries for Linux or Windo
 1. Open <https://github.com/slint-ui/slint/releases>
 2. Click on the latest release
 3. From "Assets" download either `slint-lsp-linux.tar.gz` for a Linux x86-64 binary
-   or `slint-lsp-windows.zip` for a Windows x86-64 binary.
+   or `slint-lsp-windows-x86_64.zip` for a Windows x86-64 binary.
 4. Uncompress the downloaded archive into a location of your choice.
 
 As the next step, configure your editor to use the binary, no arguments are required

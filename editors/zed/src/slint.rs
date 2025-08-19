@@ -58,10 +58,9 @@ impl SlintExtension {
 
         let target_name = match target {
             (Os::Mac, _) => "slint-lsp-macos",
-            (Os::Windows, Architecture::X86) | (Os::Windows, Architecture::X8664) => {
-                "slint-lsp-windows"
-            }
-            (Os::Linux, Architecture::X86) | (Os::Linux, Architecture::X8664) => "slint-lsp-linux",
+            (Os::Windows, Architecture::X8664) => "slint-lsp-windows-x86_64",
+            (Os::Windows, Architecture::Aarch64) => "slint-lsp-windows-arm64",
+            (Os::Linux, Architecture::X8664) => "slint-lsp-linux",
             (Os::Linux, Architecture::Aarch64) => "slint-lsp-aarch64-unknown-linux-gnu",
             (_, _) => return Err("platform or architecture not supported".to_string()),
         };
