@@ -3560,7 +3560,7 @@ fn compile_builtin_function_call(
             format!("{}.scale_factor()", access_window_field(ctx))
         }
         BuiltinFunction::GetWindowDefaultFontSize => {
-            format!("slint::cbindgen_private::slint_windowrc_resolved_default_font_size((*self_weak.lock()).into_dyn())")
+            format!("slint::private_api::get_resolved_default_font_size(*this)")
         }
         BuiltinFunction::AnimationTick => "slint::cbindgen_private::slint_animation_tick()".into(),
         BuiltinFunction::Debug => {
