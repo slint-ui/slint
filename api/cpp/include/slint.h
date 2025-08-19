@@ -256,6 +256,13 @@ translate_from_bundle_with_plural(std::span<const char8_t *const> strs,
     return result;
 }
 
+template<typename Component>
+inline float get_resolved_default_font_size(const Component &component)
+{
+    ItemTreeRc item_tree_rc = (*component.self_weak.lock()).into_dyn();
+    return slint::cbindgen_private::slint_windowrc_resolved_default_font_size(&item_tree_rc);
+}
+
 } // namespace private_api
 
 #ifdef SLINT_FEATURE_GETTEXT
