@@ -6,7 +6,7 @@ import { Api, LogMessage, LogMessageLevel } from "../api.slint";
 import { RecentColorPicker } from "widgets/floating-brush-sections/palettes.slint";
 import { SimpleColumn } from "layout-helpers.slint";
 import { ConsoleStyles, EditorSizeSettings, Icons,  } from "styling.slint";
-import { WindowManager } from "../windowglobal.slint";
+import { WindowManager, WindowGlobal } from "../windowglobal.slint";
 
 
 export component ConsolePanel inherits SimpleColumn {
@@ -26,12 +26,13 @@ export component ConsolePanel inherits SimpleColumn {
                     panel-height = Math.max(30px, -(self.mouse-y - self.pressed-y));
                 } else if panel-expanded {
                     // Resizing panel during drag
-                    panel-height = Math.max(-28px, panel-height - (self.mouse-y - self.pressed-y));
+                    let max-height = WindowGlobal.window-height * 0.75;
+                    panel-height = Math.max(-28px, Math.min(max-height, panel-height - (self.mouse-y - self.pressed-y)));
                 }
             }
             pointer-event(event) => {
                 // Make close decision on release
-                if event.kind == PointerEventKind.up && panel-expanded && panel-height <= 30px {
+                if event.kind == PointerEventKind.up && panel-expanded && panel-height <= 1px {
                     panel-expanded = false;
                     panel-height = ConsoleStyles.log-height; // Reset for next open
                 }
