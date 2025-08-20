@@ -767,9 +767,6 @@ impl WindowInner {
     /// Arguments:
     /// * `event`: The key event received by the windowing system.
     pub fn process_key_input(&self, mut event: KeyEvent) -> crate::input::KeyEventResult {
-        scopeguard::defer! {
-            crate::properties::ChangeTracker::run_change_handlers();
-        }
         if let Some(updated_modifier) = self
             .modifiers
             .get()
@@ -806,6 +803,7 @@ impl WindowInner {
             if i.borrow().as_ref().capture_key_event(&event, &self.window_adapter(), &i)
                 == crate::input::KeyEventResult::EventAccepted
             {
+                crate::properties::ChangeTracker::run_change_handlers();
                 return crate::input::KeyEventResult::EventAccepted;
             }
         }
@@ -817,6 +815,7 @@ impl WindowInner {
             if focus_item.borrow().as_ref().key_event(&event, &self.window_adapter(), &focus_item)
                 == crate::input::KeyEventResult::EventAccepted
             {
+                crate::properties::ChangeTracker::run_change_handlers();
                 return crate::input::KeyEventResult::EventAccepted;
             }
             item = focus_item.parent_item(ParentItemTraversalMode::StopAtPopups);
@@ -830,6 +829,7 @@ impl WindowInner {
             && event.event_type == KeyEventType::KeyPressed
         {
             self.focus_next_item();
+            crate::properties::ChangeTracker::run_change_handlers();
             return crate::input::KeyEventResult::EventAccepted;
         } else if (event.text.starts_with(key_codes::Backtab)
             || (event.text.starts_with(key_codes::Tab) && event.modifiers.shift))
@@ -837,6 +837,7 @@ impl WindowInner {
             && !extra_mod
         {
             self.focus_previous_item();
+            crate::properties::ChangeTracker::run_change_handlers();
             return crate::input::KeyEventResult::EventAccepted;
         } else if event.event_type == KeyEventType::KeyPressed
             && event.text.starts_with(key_codes::Escape)
@@ -863,8 +864,10 @@ impl WindowInner {
             if close_on_escape {
                 window.close_top_popup();
             }
+            crate::properties::ChangeTracker::run_change_handlers();
             return crate::input::KeyEventResult::EventAccepted;
         }
+        crate::properties::ChangeTracker::run_change_handlers();
         crate::input::KeyEventResult::EventIgnored
     }
 
