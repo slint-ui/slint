@@ -1,0 +1,44 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export struct PatternInstrumentData {  notes: [int], }
+
+
+export component TestCase inherits Window {
+
+    in-out property<PatternInstrumentData> sequencer_pattern_instruments: { notes: [1] };
+    in-out property<PatternInstrumentData> instruments_left: false ? sequencer_pattern_instruments : { notes: [3.0, 4.0] };
+    in-out property<PatternInstrumentData> instruments_right: true ? { notes: [5.0, 6.0]} : sequencer_pattern_instruments;
+
+    //FIXME #9209: this is not working yet
+    //in-out property<[PatternInstrumentData]> list_of_lists: [instruments_left, instruments_right, {notes: [7.0, 8.0]}];
+    in-out property<[PatternInstrumentData]> list_of_lists: [];
+
+    in-out property<[PatternInstrumentData]> list_of_lists2: false ? list_of_lists : [ {notes: [9.0, 10.0]} ];
+
+
+    in property <{xxx: [string], pattern: PatternInstrumentData}> complex: false ?
+        { xxx: [1, 2, 3], pattern: sequencer_pattern_instruments } : { xxx: ["4", "5", "6"], pattern: { notes: [11.0, 12.0] } };
+    in property <{xxx: [string], pattern: PatternInstrumentData}> complex2: true ?
+        complex : { xxx: [4, 5, 6], pattern: { notes: [] } };
+
+
+    out property <bool> test: instruments_left.notes[1] == 4 && instruments_right.notes[1] == 6
+       //&& list_of_lists[2].notes[1] == 8
+       && list_of_lists2[0].notes[1] == 10
+       && complex2.pattern.notes[1] == 12;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+
+*/
