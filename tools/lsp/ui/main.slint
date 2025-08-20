@@ -132,7 +132,7 @@ export component PreviewUi inherits Window {
         WindowGlobal.window-height = self.height;
     }
 
-    VerticalLayout {
+    ap := VerticalLayout {
         if !Api.show-preview-ui: no-ui-drawing-rect := Rectangle {
             VerticalLayout {
                 ComponentContainer {
@@ -142,6 +142,7 @@ export component PreviewUi inherits Window {
         }
         if Api.show-preview-ui: Rectangle {
             VerticalLayout {
+                padding-bottom: 0px;
                 header-view := HeaderView {
                     show-left-sidebar <=> root.show-left-sidebar;
                     show-right-sidebar <=> root.show-right-sidebar;
@@ -233,9 +234,16 @@ export component PreviewUi inherits Window {
                     }
                 }
 
-                ConsolePanel { }
+                Rectangle {
+                    height: cp.height;
+                }
 
-                StatusLine { }
+                // StatusLine { }
+            }
+
+            cp := ConsolePanel {
+                y: parent.height - self.height - 1px;
+                width: parent.width;
             }
         }
     }
