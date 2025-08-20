@@ -9,13 +9,21 @@ export component TestCase inherits Window {
     }
 
     out property <length> popup-text-size: 0px;
+    out property <length> rem-popup-text-size: 0px;
 
     popup := PopupWindow {
         popup-text := Text {
             text: "Ok 🌍";
         }
+
+        rem-popup-text := Text {
+            text: "Ok REM";
+            font-size: 2rem;
+        }
+
         init => {
             popup-text-size = popup-text.font-metrics.ascent - popup-text.font-metrics.descent;
+            rem-popup-text-size = rem-popup-text.font-metrics.ascent - rem-popup-text.font-metrics.descent;
         }
     }
 
@@ -31,9 +39,11 @@ export component TestCase inherits Window {
 let instance = TestCase::new().unwrap();
 let popup_text_size = instance.get_popup_text_size();
 assert_eq!(popup_text_size, 0.);
+assert_eq!(instance.get_rem_popup_text_size(), 0.);
 slint_testing::send_mouse_click(&instance, 5., 5.);
 let popup_text_size = instance.get_popup_text_size();
 assert_eq!(popup_text_size, 34.);
+assert_eq!(instance.get_rem_popup_text_size(), 2. * 34.);
 ```
 
 ```cpp
@@ -41,8 +51,10 @@ auto handle = TestCase::create();
 const TestCase &instance = *handle;
 auto popup_text_size = instance.get_popup_text_size();
 assert_eq(popup_text_size, 0.);
+assert_eq(instance.get_rem_popup_text_size(), 0.);
 slint_testing::send_mouse_click(&instance, 5., 5.);
 popup_text_size = instance.get_popup_text_size();
 assert_eq(popup_text_size, 34.);
+assert_eq(instance.get_rem_popup_text_size(), 2. * 34.);
 ```
 */
