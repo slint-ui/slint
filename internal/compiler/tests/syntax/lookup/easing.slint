@@ -1,0 +1,31 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+struct Animation {
+    easing: easing,
+}
+
+export component Test inherits Rectangle {
+    property <Animation> animation1: {
+        easing: Easing.linear,
+    };
+
+    property <Animation> animation2: {
+        easing: Easing.some-curve,
+//                     ^error{'some-curve' is not a member of the namespace Easing}
+    };
+
+    property <Animation> animation3: {
+        easing: Easing,
+//              ^error{Cannot take reference to a namespace}
+    };
+
+    property <Animation> animation4: {
+        easing: Easing.cubic-bezier(0.05, 07, 0.1, 1.0)
+    };
+
+    property <Animation> animation5: {
+        easing: Easing.cubic-bezier(0.05, 07)
+//                     ^error{Not enough arguments}
+    };
+}
