@@ -35,7 +35,6 @@ pub struct NativeStyleMetrics {
     pub text_cursor_width: Property<LogicalLength>,
     pub window_background: Property<Color>,
     pub default_text_color: Property<Color>,
-    pub default_font_size: Property<LogicalLength>,
     pub textedit_background: Property<Color>,
     pub textedit_text_color: Property<Color>,
     pub textedit_background_disabled: Property<Color>,
@@ -68,7 +67,6 @@ impl NativeStyleMetrics {
             text_cursor_width: Default::default(),
             window_background: Default::default(),
             default_text_color: Default::default(),
-            default_font_size: Default::default(),
             textedit_background: Default::default(),
             textedit_text_color: Default::default(),
             textedit_background_disabled: Default::default(),
@@ -127,10 +125,6 @@ impl NativeStyleMetrics {
             return qApp->palette().color(QPalette::WindowText).rgba();
         });
         self.default_text_color.set(Color::from_argb_encoded(default_text_color));
-        let default_font_size = cpp!(unsafe[] -> i32 as "int" {
-            return QFontInfo(qApp->font()).pixelSize();
-        });
-        self.default_font_size.set(LogicalLength::new(default_font_size as f32));
         let textedit_text_color = cpp!(unsafe[] -> u32 as "QRgb" {
             return qApp->palette().color(QPalette::Text).rgba();
         });

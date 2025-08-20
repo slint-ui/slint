@@ -102,7 +102,6 @@ pub fn apply_default_properties_from_style(
                         }
                     };
 
-                    bind_style_property_if_exists("default-font-size", Type::LogicalLength);
                     bind_style_property_if_exists("default-font-family", Type::String);
                 }
 
