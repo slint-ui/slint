@@ -22,21 +22,19 @@ export component MyComponent {
     myRect := Rectangle {
         x: ta.mouse-x;
         y: ta.mouse-y;
-        width: 40px;
-        height: 40px;
-        background: ta.pressed ? orange : white;
-    }
-
-    Text {
-        x: 5px; y: 5px;
-        text: "x: " + myRect.x / 1px;
-        color: white;
-    }
-
-    Text {
-        x: 5px; y: 15px;
-        text: "y: " + myRect.y / 1px;
-        color: white;
+        width: 60px;
+        height: 60px;
+        background: ta.pressed ? orange : skyblue;
+        Text {
+            x: 5px; y: 5px;
+            text: "x: " + myRect.x / 1px;
+            color: white;
+        }
+        Text {
+            x: 5px; y: 20px;
+            text: "y: " + myRect.y / 1px;
+            color: white;
+        }
     }
 }
 ```
@@ -124,18 +122,19 @@ export component MyComponent {
     myRect := Rectangle {
         x: ta.mouse-x;
         y: ta.mouse-y;
-        width: 40px;
-        height: 40px;
-        background: ta.pressed ? orange : white;
-    }
-
-    Text {
-        x: 5px; y: 5px;
-        text: "x: " + lengthToInt(myRect.x);
-    }
-    Text {
-        x: 5px; y: 15px;
-        text: "y: " + lengthToInt(myRect.y);
+        width: 60px;
+        height: 60px;
+        background: ta.pressed ? orange : skyblue;
+        Text {
+            x: 5px; y: 5px;
+            text: "x: " + lengthToInt(myRect.x);
+            color: white;
+        }
+        Text {
+            x: 5px; y: 20px;
+            text: "y: " + lengthToInt(myRect.y);
+            color: white;
+        }
     }
 }
 ```
