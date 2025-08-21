@@ -79,7 +79,7 @@ export component Slider {
                         root.set_value(root.length_to_value(state_layer.x + self.x + self.mouse_x, track.width));
                     }
 
-                    pointer-event(event) => {
+                    pointer_event(event) => {
                         if event.kind == PointerEventKind.up {
                             root.released(root.value);
                         }
@@ -90,6 +90,9 @@ export component Slider {
             pointer_event(event) => {
                 if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
                     root.set_value(root.length_to_value(self.mouse_x, track.width));
+                }
+                if event.kind == PointerEventKind.up {
+                    root.released(root.value);
                 }
             }
         }
