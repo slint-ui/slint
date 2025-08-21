@@ -8,6 +8,7 @@ import { EditorSizeSettings, EditorAnimationSettings, Icons } from "./styling.sl
 import { BodyText } from "./body-text.slint";
 import { BodyStrongText } from "./body-strong-text.slint";
 import { StatusLineApi } from "status-line.slint";
+import { EditorSpaceSettings } from "styling.slint";
 
 component HeaderItemTemplate {
     in property <bool> enabled: true;
@@ -31,9 +32,11 @@ component HeaderItemTemplate {
         pressed: touch-area.pressed;
     }
 
-    content-layer := HorizontalBox {
+    content-layer := HorizontalLayout {
+        spacing: EditorSpaceSettings.default-spacing / 2;
+        padding-left: EditorSpaceSettings.default-padding / 2;
         icon-image := Image {
-            width: EditorSizeSettings.default-icon-width;
+            width: 10px;
             colorize: Palette.foreground;
             source: Icons.chevron-down;
             rotation-origin-x: self.width / 2;
@@ -49,7 +52,7 @@ component HeaderItemTemplate {
 
         BodyText {
             text: root.text;
-            opacity: 0.7;
+            opacity: 0.5;
         }
     }
 
@@ -93,9 +96,13 @@ component ItemTemplate {
         pressed: touch-area.pressed;
     }
 
-    content-layer := HorizontalBox {
-        padding-left: self.padding + root.offset;
+    content-layer := HorizontalLayout {
+        padding-left: EditorSpaceSettings.default-padding / 2 + root.offset;
+        padding-top: EditorSpaceSettings.default-padding;
+        padding-bottom: EditorSpaceSettings.default-padding;
         BodyText {
+            wrap: no-wrap;
+            overflow: elide;
             text: root.text;
         }
     }
@@ -122,7 +129,7 @@ export component ExpandableListView inherits ScrollView {
     callback show-preview-for(name: string, defined-at: string);
 
     property <length> list-spacing: 10px;
-
+    horizontal-scrollbar-policy: ScrollBarPolicy.always-off;
     VerticalLayout {
         alignment: start;
         for cli[index] in root.known-components: VerticalLayout {

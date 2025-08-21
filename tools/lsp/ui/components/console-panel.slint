@@ -10,7 +10,7 @@ import {WindowGlobal } from "../windowglobal.slint";
 
 
 export component ConsolePanel inherits SimpleColumn {
-    property <bool> panel-expanded: false;
+    in-out property <bool> panel-expanded: false;
     property <bool> dragging-up: false;  // Track if currently dragging upward
     property <length> panel-height: ConsoleStyles.log-height;
     property <length> drag-start-height; // Track height at start of drag

@@ -6,63 +6,112 @@ import { Palette, ScrollView }  from "std-widgets.slint";
 import { ExpandableGroup } from "../components/expandable-group.slint";
 
 import { Api, ElementInformation, PropertyGroup, PropertyInformation } from "../api.slint";
-import { EditorSpaceSettings, EditorSizeSettings } from "../components/styling.slint";
+import { EditorSpaceSettings, EditorSizeSettings, ConsoleStyles, Icons } from "../components/styling.slint";
 
 import { PropertyInformationWidget } from "../components/property-widgets.slint";
 
-export component PropertyView inherits ScrollView {
+export component PropertyView inherits VerticalLayout {
 
     property <ElementInformation> element-information <=> Api.current-element;
     property <[PropertyGroup]> properties <=> Api.properties;
+    in-out property <bool> properties-visible: false;
 
     property <length> key-width: self.width / 2.5;
     property <bool> element-loaded: root.properties.length > 0;
-
-    vertical-scrollbar-policy: ScrollBarPolicy.always-on;
-
-    content-layer := VerticalLayout {
-        if !root.element-loaded: Text {
-            text: @tr("Select an Element");
-            horizontal-alignment: center;
-            vertical-alignment: center;
-            vertical-stretch: 1;
+    in-out property <bool> enabled <=> sv.enabled;
+    visible: root.properties-visible;
+    header := Rectangle {
+        height: ConsoleStyles.header-height;
+        background: ConsoleStyles.header-background;
+        Rectangle {
+            y: 0;
+            width: 100%;
+            height: 1px;
+            background: ConsoleStyles.divider-line;
+            opacity: 50%;
         }
-        if root.element-loaded: groups := VerticalLayout {
-            alignment: start;
-            spacing: EditorSpaceSettings.default-spacing;
-            padding-top: EditorSpaceSettings.default-padding;
-            for group in root.properties: VerticalLayout {
 
-                eg := ExpandableGroup {
-                    property <[PropertyInformation]> properties: group.properties;
+        Rectangle {
+            y: parent.height - self.height;
+            width: 100%;
+            height: 1px;
+            background: ConsoleStyles.divider-line;
+        }
 
-                    enabled: root.enabled;
+        HorizontalLayout {
+            alignment: space-between;
+            padding-left: EditorSpaceSettings.default-padding;
+            padding-right: EditorSpaceSettings.default-padding;
+            label := Text {
+                horizontal-alignment: left;
+                vertical-alignment: center;
+                color: ConsoleStyles.text-color;
+                font-family: "Inter";
+                font-size: 12px;
+                text: @tr("Properties");
+            }
 
-                    text: group.group-name;
-                    panel-width: root.width;
-
-                    VerticalLayout {
-                        spacing: EditorSpaceSettings.property-spacing;
-                        padding: EditorSpaceSettings.default-padding;
-
-                        for property in eg.properties: PropertyInformationWidget {
-                            enabled: root.enabled;
-                            element-information <=> root.element-information;
-                            property-information: property;
-                        }
+            Image {
+                source: Icons.close;
+                colorize: ita.has-hover ? Palette.foreground : Palette.foreground.transparentize(0.5);
+                ita := TouchArea {
+                    clicked => {
+                        root.properties-visible = false;
                     }
                 }
+            }
+        }
+    }
 
-                VerticalLayout {
+    sv := ScrollView {
+        vertical-scrollbar-policy: ScrollBarPolicy.always-on;
+        horizontal-scrollbar-policy: ScrollBarPolicy.always-off;
 
-                    Rectangle {
-                        height: EditorSpaceSettings.default-padding;
+        content-layer := VerticalLayout {
+
+            if !root.element-loaded: Text {
+                text: @tr("Select an Element");
+                horizontal-alignment: center;
+                vertical-alignment: center;
+                vertical-stretch: 1;
+            }
+            if root.element-loaded: groups := VerticalLayout {
+                alignment: start;
+                spacing: EditorSpaceSettings.default-spacing;
+                padding-top: EditorSpaceSettings.default-padding;
+                for group in root.properties: VerticalLayout {
+
+                    eg := ExpandableGroup {
+                        property <[PropertyInformation]> properties: group.properties;
+
+                        enabled: sv.enabled;
+
+                        text: group.group-name;
+                        panel-width: root.width;
+
+                        VerticalLayout {
+                            spacing: EditorSpaceSettings.property-spacing;
+                            padding: EditorSpaceSettings.default-padding;
+
+                            for property in eg.properties: PropertyInformationWidget {
+                                enabled: sv.enabled;
+                                element-information <=> root.element-information;
+                                property-information: property;
+                            }
+                        }
                     }
 
-                    Rectangle {
-                        height: 1px;
-                        background: Palette.border;
-                        width: 100%;
+                    VerticalLayout {
+
+                        Rectangle {
+                            height: EditorSpaceSettings.default-padding;
+                        }
+
+                        Rectangle {
+                            height: 1px;
+                            background: Palette.border;
+                            width: 100%;
+                        }
                     }
                 }
             }

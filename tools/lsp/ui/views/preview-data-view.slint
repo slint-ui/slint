@@ -6,76 +6,122 @@ import { Palette, ScrollView, VerticalBox }  from "std-widgets.slint";
 import { Api, PropertyContainer, PreviewData } from "../api.slint";
 import { ExpandableGroup } from "../components/expandable-group.slint";
 import { PreviewDataPropertyValueWidget } from "../components/property-widgets.slint";
-import { EditorSpaceSettings } from "../components/styling.slint";
+import { EditorSpaceSettings, ConsoleStyles, Icons } from "../components/styling.slint";
 import { WindowManager } from "../windowglobal.slint";
 
-export component PreviewDataView inherits ScrollView {
+export component PreviewDataView inherits Rectangle {
 
     property <[PropertyContainer]> preview-data <=> Api.preview-data;
-
     property <length> key-width: self.width / 2.5;
     property <bool> element-loaded: root.preview-data.length > 0;
+    in-out property <bool> data-visible: true;
+    in-out property <bool> enabled <=> sv.enabled;
+    clip: true;
 
-    content-layer := VerticalLayout {
-        alignment: start;
-
-        if !root.element-loaded: Text {
-            text: @tr("Waiting for preview to load");
-            horizontal-alignment: center;
-            vertical-alignment: center;
-            vertical-stretch: 1;
-        }
-        for ep in root.preview-data: VerticalLayout {
+    sv := ScrollView {
+        x: - 3px;
+        content-layer := VerticalLayout {
+            alignment: start;
+            padding: 0px;
             Rectangle {
-                height: EditorSpaceSettings.default-padding;
-            }
+                height: ConsoleStyles.header-height;
+                background: ConsoleStyles.header-background;
+                Rectangle {
+                    y: 0;
+                    width: 100%;
+                    height: 1px;
+                    background: ConsoleStyles.divider-line;
+                    opacity: 50%;
+                }
 
-            ExpandableGroup {
-                enabled: root.enabled;
+                Rectangle {
+                    y: parent.height - self.height;
+                    width: 100%;
+                    height: 1px;
+                    background: ConsoleStyles.divider-line;
+                }
 
-                text: ep.container-name;
-                panel-width: root.width;
-
-                open: ep.properties.length != 0;
-
-                VerticalLayout {
-                    spacing: EditorSpaceSettings.property-spacing;
-                    padding: EditorSpaceSettings.default-padding;
-
-                    if ep.properties.length == 0 && root.element-loaded: Text {
-                        width: 100%;
-                        horizontal-alignment: center;
-
-                        text: @tr("No \"in\", \"in-out\", or \"out\" property declared.");
+                HorizontalLayout {
+                    alignment: space-between;
+                    padding-left: EditorSpaceSettings.default-padding;
+                    padding-right: EditorSpaceSettings.default-padding;
+                    label := Text {
+                        horizontal-alignment: left;
+                        vertical-alignment: center;
+                        color: ConsoleStyles.text-color;
+                        font-family: "Inter";
+                        font-size: 12px;
+                        text: @tr("Simulation Data");
                     }
-                    for p in ep.properties: PreviewDataPropertyValueWidget {
-                        preview-data: p;
-                        property-container-id: ep.container-id;
-                        edit-in-table-editor(property-group-id, data) => {
-                            WindowManager.show-floating-table-editor(property-group-id, data);
+
+                    Image {
+                        source: Icons.close;
+                        colorize: ita.has-hover ? Palette.foreground : Palette.foreground.transparentize(0.5);
+                        ita := TouchArea {
+                            clicked => {
+                                root.data-visible = false;
+                            }
                         }
                     }
                 }
             }
 
-            VerticalLayout {
+            if !root.element-loaded: VerticalLayout {
+                padding-top: EditorSpaceSettings.default-padding;
+                Text {
+                    text: @tr("Waiting for preview to load");
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                    vertical-stretch: 1;
+                }
+            }
 
+            for ep in root.preview-data: VerticalLayout {
                 Rectangle {
                     height: EditorSpaceSettings.default-padding;
                 }
 
-                Rectangle {
-                    height: 1px;
-                    background: Palette.border;
-                    width: 100%;
+                ExpandableGroup {
+                    enabled: sv.enabled;
+
+                    text: ep.container-name;
+                    panel-width: root.width;
+
+                    open: ep.properties.length != 0;
+
+                    VerticalLayout {
+                        spacing: EditorSpaceSettings.property-spacing;
+                        padding: EditorSpaceSettings.default-padding;
+
+                        if ep.properties.length == 0 && root.element-loaded: Text {
+                            width: 100%;
+                            horizontal-alignment: center;
+
+                            text: @tr("No \"in\", \"in-out\", or \"out\" property declared.");
+                        }
+                        for p in ep.properties: PreviewDataPropertyValueWidget {
+                            preview-data: p;
+                            property-container-id: ep.container-id;
+                            edit-in-table-editor(property-group-id, data) => {
+                                WindowManager.show-floating-table-editor(property-group-id, data);
+                            }
+                        }
+                    }
+                }
+
+                VerticalLayout {
+
+                    Rectangle {
+                        height: EditorSpaceSettings.default-padding;
+                    }
+
+                    Rectangle {
+                        height: 1px;
+                        background: Palette.border;
+                        width: 100%;
+                    }
                 }
             }
         }
-    }
-
-    Rectangle {
-        x: 0;
-        width: 1px;
-        background: Palette.border;
     }
 }
