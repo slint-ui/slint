@@ -30,6 +30,7 @@ export component App inherits Window {
             }
             MenuSeparator {}
             MenuItem { title: @tr("MenuBar" => "MenuItem with Icon"); icon: @image-url("thumbsup.png"); }
+            MenuItem { title: @tr("MenuBar" => "MenuItem with Checkmark"); checkable: true; checked: true; }
         }
         Menu {
             title: @tr("MenuBar" => "Edit");
