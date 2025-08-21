@@ -766,7 +766,7 @@ impl WindowInner {
     ///
     /// Arguments:
     /// * `event`: The key event received by the windowing system.
-    pub fn process_key_input(&self, mut event: KeyEvent) {
+    pub fn process_key_input(&self, mut event: KeyEvent) -> crate::input::KeyEventResult {
         if let Some(updated_modifier) = self
             .modifiers
             .get()
@@ -804,7 +804,7 @@ impl WindowInner {
                 == crate::input::KeyEventResult::EventAccepted
             {
                 crate::properties::ChangeTracker::run_change_handlers();
-                return;
+                return crate::input::KeyEventResult::EventAccepted;
             }
         }
 
@@ -816,7 +816,7 @@ impl WindowInner {
                 == crate::input::KeyEventResult::EventAccepted
             {
                 crate::properties::ChangeTracker::run_change_handlers();
-                return;
+                return crate::input::KeyEventResult::EventAccepted;
             }
             item = focus_item.parent_item(ParentItemTraversalMode::StopAtPopups);
         }
@@ -829,12 +829,16 @@ impl WindowInner {
             && event.event_type == KeyEventType::KeyPressed
         {
             self.focus_next_item();
+            crate::properties::ChangeTracker::run_change_handlers();
+            return crate::input::KeyEventResult::EventAccepted;
         } else if (event.text.starts_with(key_codes::Backtab)
             || (event.text.starts_with(key_codes::Tab) && event.modifiers.shift))
             && event.event_type == KeyEventType::KeyPressed
             && !extra_mod
         {
             self.focus_previous_item();
+            crate::properties::ChangeTracker::run_change_handlers();
+            return crate::input::KeyEventResult::EventAccepted;
         } else if event.event_type == KeyEventType::KeyPressed
             && event.text.starts_with(key_codes::Escape)
         {
@@ -860,8 +864,11 @@ impl WindowInner {
             if close_on_escape {
                 window.close_top_popup();
             }
+            crate::properties::ChangeTracker::run_change_handlers();
+            return crate::input::KeyEventResult::EventAccepted;
         }
         crate::properties::ChangeTracker::run_change_handlers();
+        crate::input::KeyEventResult::EventIgnored
     }
 
     /// Installs a binding on the specified property that's toggled whenever the text cursor is supposed to be visible or not.
