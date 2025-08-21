@@ -45,8 +45,6 @@ export component OutlineView inherits VerticalLayout {
             property <bool> selected: item.uri == Api.current-element.source-uri && item.offset == Api.current-element.offset;
 
             drop-as-child := DropArea {
-                enabled: (!item.has-children || !item.is-expanded) && item.indent-level > 0;
-
                 can-drop(event) => {
                     if event.mime-type != "application/x-slint-component" && event.mime-type != "application/x-slint-component-move" {
                         return false;
@@ -57,8 +55,7 @@ export component OutlineView inherits VerticalLayout {
                         }
                         return false;
                     }
-                    //return Api.outline-can-drop(event.data, item.uri, item.offset, DropLocation.Onto);
-                    true;
+                    return Api.outline-can-drop(event.data, item.uri, item.offset, DropLocation.onto);
                 }
                 dropped(event) => {
                     Api.outline-drop(event.data, item.uri, item.offset, DropLocation.onto);

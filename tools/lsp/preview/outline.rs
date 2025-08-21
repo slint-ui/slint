@@ -1,9 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use crate::common::uri_to_file;
 use crate::preview::{self, ui};
 use core::cell::RefCell;
+use core::num::NonZeroUsize;
 use i_slint_compiler::object_tree;
 use i_slint_compiler::parser::{self, syntax_nodes, TextSize};
 use lsp_types::Url;
@@ -262,7 +262,7 @@ pub fn setup(ui: &ui::PreviewUi) {
     let api = ui.global::<ui::Api>();
     api.on_outline_select_element(|uri, offset| {
         super::element_selection::select_element_at_source_code_position(
-            uri_to_file(&Url::parse(uri.as_str()).unwrap()).unwrap(),
+            crate::common::uri_to_file(&Url::parse(uri.as_str()).unwrap()).unwrap(),
             TextSize::new(offset as u32),
             None,
             super::SelectionNotification::Now,
@@ -273,6 +273,9 @@ pub fn setup(ui: &ui::PreviewUi) {
             return;
         };
         preview::send_workspace_edit("Drop element".to_string(), edit, true);
+    });
+    api.on_outline_can_drop(|data, target_uri, target_offset, location| {
+        can_drop(data, target_uri, target_offset, location)
     });
 }
 
@@ -354,4 +357,46 @@ fn drop_edit(
     };
 
     Some(workspace_edit.0)
+}
+
+fn can_drop(
+    data: SharedString,
+    target_uri: SharedString,
+    target_offset: i32,
+    location: ui::DropLocation,
+) -> bool {
+    #[derive(Clone, Debug, Hash, Eq, PartialEq)]
+    struct CacheEntry {
+        data: SharedString,
+        target_uri: SharedString,
+        target_offset: i32,
+        location: bool,
+    }
+    thread_local!(static CACHE: RefCell<clru::CLruCache<CacheEntry, bool>> = RefCell::new(clru::CLruCache::new(NonZeroUsize::new(10).unwrap())));
+    let cache_entry = CacheEntry {
+        data,
+        target_uri,
+        target_offset,
+        location: location == ui::DropLocation::Onto,
+    };
+    let Some(document_cache) = super::document_cache() else { return false };
+    CACHE.with_borrow_mut(|cache| {
+        if let Some(does_compile) = cache.get(&cache_entry) {
+            *does_compile
+        } else {
+            let does_compile = if let Some(edit) = drop_edit(
+                cache_entry.data.clone(),
+                cache_entry.target_uri.clone(),
+                target_offset,
+                location,
+            ) {
+                preview::drop_location::workspace_edit_compiles(&document_cache, &edit)
+                    == preview::CompilationResult::ChangeCompiles
+            } else {
+                false
+            };
+            cache.put(cache_entry, does_compile);
+            does_compile
+        }
+    })
 }

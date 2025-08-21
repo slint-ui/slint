@@ -239,14 +239,15 @@ export struct LogMessage {
 
 /// A node in the outline tree
 export struct OutlineTreeNode {
+    indent-level: int,
     has-children: bool,
     is-expanded: bool,
-    indent-level: int,
+    is-last-child: bool,
     element-type: string,
     element-id: string,
     uri: string,
     offset: int,
-    is-last-child: bool,
+
 }
 
 export enum DropLocation {
@@ -500,6 +501,7 @@ export global Api {
     callback outline-select-element(uri: string, offset: int);
     // Data is either a "file:offset" for an element to move, or just a component index.
     callback outline-drop(data: string, uri: string, offset: int, location: DropLocation);
+    callback outline-can-drop(data: string, uri: string, offset: int, location: DropLocation) -> bool;
 
     // ## preview data
 
