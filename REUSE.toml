@@ -172,6 +172,10 @@ path = [
   "tools/lsp/ui/assets/plus.svg",
   "tools/lsp/ui/assets/info.svg",
   "tools/lsp/ui/assets/clear.svg",
+  "tools/lsp/ui/assets/beaker.svg",
+  "tools/lsp/ui/assets/library.svg",
+  "tools/lsp/ui/assets/list-tree.svg",
+  "tools/lsp/ui/assets/settings.svg",
 ]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Codicon Icons <https://github.com/microsoft/vscode-codicons/>"
