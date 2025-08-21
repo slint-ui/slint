@@ -84,15 +84,15 @@ export component PreviewUi inherits Window {
                     Api.reload-preview();
                 }
             }
-        }
 
-        if Api.runs-in-slintpad: Menu {
-            title: @tr("Share");
+            if Api.runs-in-slintpad: Menu {
+                title: @tr("Share");
 
-            MenuItem {
-                title: @tr("Copy Permalink to Clipboard");
-                activated => {
-                    Api.share-permalink-to-clipboard();
+                MenuItem {
+                    title: @tr("Copy Permalink to Clipboard");
+                    activated => {
+                        Api.share-permalink-to-clipboard();
+                    }
                 }
             }
         }
@@ -174,158 +174,169 @@ export component PreviewUi inherits Window {
         }
     }
 
-    ui := VerticalLayout {
-        alignment: stretch;
-        header-view := HeaderView {
-            vertical-stretch: 0;
-            height: self.preferred-height;
-
-            current-style <=> Api.current-style;
-            known-styles <=> Api.known-styles;
-            library-widget <=> root.library-widget;
-            properties-widget <=> root.properties-widget;
-            outline-widget <=> root.outline-widget;
-            data-widget <=> root.data-widget;
-
-            style-selected => {
-                Api.style-changed();
-            }
-            library-toggled(val) => {
-                root.library-widget = val;
-            }
-            outline-toggled(val) => {
-                root.outline-widget = val;
-            }
-            properties-toggled(val) => {
-                root.properties-widget = val;
-            }
-            simulator-toggled(val) => {
-                root.data-widget = val;
-            }
-            edit := Button {
-                icon: Icons.inspect;
-                colorize-icon: preview.select-mode ? false : true;
-                checkable: true;
-                checked <=> preview.select-mode;
-                primary: preview.select-mode;
-                enabled: preview.preview-is-current;
-            }
-        }
-
-        HorizontalLayout {
-            spacing: 0px;
-
-            if  root.library-widget: LibraryView {
-                known-components: Api.known-components;
-                library-visible <=> root.library-widget;
-
-                preview-area-is-current: preview.preview-is-current;
-                visible-component: root.visible-component;
-
-                show-preview-for(name, defined-at) => {
-                    Api.show-preview-for(name, defined-at);
+    ap := VerticalLayout {
+        if !Api.show-preview-ui: no-ui-drawing-rect := Rectangle {
+            VerticalLayout {
+                ComponentContainer {
+                    component-factory: Api.preview-area;
                 }
             }
+        }
+        if Api.show-preview-ui: Rectangle {
+            VerticalLayout {
+                header-view := HeaderView {
+                    vertical-stretch: 0;
+                    height: self.preferred-height;
 
-            preview := PreviewView {
-                visible-component <=> root.visible-component;
-            }
+                    current-style <=> Api.current-style;
+                    known-styles <=> Api.known-styles;
+                    library-widget <=> root.library-widget;
+                    properties-widget <=> root.properties-widget;
+                    outline-widget <=> root.outline-widget;
+                    data-widget <=> root.data-widget;
 
-            Rectangle {
+                    style-selected => {
+                        Api.style-changed();
+                    }
+                    library-toggled(val) => {
+                        root.library-widget = val;
+                    }
+                    outline-toggled(val) => {
+                        root.outline-widget = val;
+                    }
+                    properties-toggled(val) => {
+                        root.properties-widget = val;
+                    }
+                    simulator-toggled(val) => {
+                        root.data-widget = val;
+                    }
+                    edit := Button {
+                        icon: Icons.inspect;
+                        colorize-icon: preview.select-mode ? false : true;
+                        checkable: true;
+                        checked <=> preview.select-mode;
+                        primary: preview.select-mode;
+                        enabled: preview.preview-is-current;
+                    }
+                }
+
                 HorizontalLayout {
                     spacing: 0px;
-                    Rectangle {
-                        width: 2px;
-                        background: Palette.border;
+
+                    if  root.library-widget: LibraryView {
+                        known-components: Api.known-components;
+                        library-visible <=> root.library-widget;
+
+                        preview-area-is-current: preview.preview-is-current;
+                        visible-component: root.visible-component;
+
+                        show-preview-for(name, defined-at) => {
+                            Api.show-preview-for(name, defined-at);
+                        }
                     }
 
-                    property <float> ratio1: 0.33;
-                    property <float> ratio2: 0.33;
-                    property <bool> properties-widget <=> root.properties-widget;
-                    property <bool> outline-widget <=> root.outline-widget;
-                    property <bool> data-widget <=> root.data-widget;
+                    preview := PreviewView {
+                        visible-component <=> root.visible-component;
+                    }
 
-                    // Calculate effective ratios based on visible panels
-                    property <float> effective-ratio1: properties-widget ? (outline-widget ? ratio1 : (data-widget ? ratio1 : 1.0)) : 0.0;
-                    property <float> effective-ratio-middle: outline-widget ? (data-widget ? (1.0 - effective-ratio1 - effective-ratio2) : (1.0 - effective-ratio1)) : 0.0;
-                    property <float> effective-ratio2: data-widget ? (outline-widget ? ratio2 : (1.0 - effective-ratio1)) : 0.0;
-                    if properties-widget || outline-widget || data-widget:container := Rectangle {
-                        width: EditorSizeSettings.property-bar-width;
-                        VerticalLayout {
-                            height: 100%;
-                            y: 0;
-                            alignment: stretch;
-                            if properties-widget: c1 := VerticalLayout {
-                                vertical-stretch: effective-ratio1;
+                    Rectangle {
+                        HorizontalLayout {
+                            spacing: 0px;
+                            Rectangle {
+                                width: 2px;
+                                background: Palette.border;
+                            }
+
+                            property <float> ratio1: 0.33;
+                            property <float> ratio2: 0.33;
+                            property <bool> properties-widget <=> root.properties-widget;
+                            property <bool> outline-widget <=> root.outline-widget;
+                            property <bool> data-widget <=> root.data-widget;
+
+                            // Calculate effective ratios based on visible panels
+                            property <float> effective-ratio1: properties-widget ? (outline-widget ? ratio1 : (data-widget ? ratio1 : 1.0)) : 0.0;
+                            property <float> effective-ratio-middle: outline-widget ? (data-widget ? (1.0 - effective-ratio1 - effective-ratio2) : (1.0 - effective-ratio1)) : 0.0;
+                            property <float> effective-ratio2: data-widget ? (outline-widget ? ratio2 : (1.0 - effective-ratio1)) : 0.0;
+                            if properties-widget || outline-widget || data-widget:container := Rectangle {
                                 width: EditorSizeSettings.property-bar-width;
-                                PropertyView {
+                                VerticalLayout {
                                     height: 100%;
-                                    opacity: preview.preview-is-current ? 1.0 : 0.3;
-                                    enabled: preview.preview-is-current;
-                                    properties-visible <=> root.properties-widget;
-                                }
-                            }
+                                    y: 0;
+                                    alignment: stretch;
+                                    if properties-widget: c1 := VerticalLayout {
+                                        vertical-stretch: effective-ratio1;
+                                        width: EditorSizeSettings.property-bar-width;
+                                        PropertyView {
+                                            height: 100%;
+                                            opacity: preview.preview-is-current ? 1.0 : 0.3;
+                                            enabled: preview.preview-is-current;
+                                            properties-visible <=> root.properties-widget;
+                                        }
+                                    }
 
-                            if properties-widget && (outline-widget || data-widget): t1 := TouchArea {
-                                height: 3px;
-                                moved => {
-                                    ratio1 = Math.clamp((self.y + self.mouse-y - self.pressed-y) / container.height, 0, data-widget ? (outline-widget ? (1.0 - ratio2) : 1.0) : 1.0);
-                                }
-                                mouse-cursor: ns-resize;
-                                Rectangle {
-                                    background: Palette.border;
-                                }
-                            }
+                                    if properties-widget && (outline-widget || data-widget): t1 := TouchArea {
+                                        height: 3px;
+                                        moved => {
+                                            ratio1 = Math.clamp((self.y + self.mouse-y - self.pressed-y) / container.height, 0, data-widget ? (outline-widget ? (1.0 - ratio2) : 1.0) : 1.0);
+                                        }
+                                        mouse-cursor: ns-resize;
+                                        Rectangle {
+                                            background: Palette.border;
+                                        }
+                                    }
 
-                            if outline-widget: c2 := VerticalLayout {
-                                width: EditorSizeSettings.property-bar-width;
-                                vertical-stretch: effective-ratio-middle;
-                                OutlineView {
-                                    height: 100%;
-                                    width: EditorSizeSettings.property-bar-width;
-                                    opacity: preview.preview-is-current ? 1.0 : 0.3;
-                                    enabled: preview.preview-is-current;
-                                    outline <=> root.outline-widget;
-                                }
-                            }
+                                    if outline-widget: c2 := VerticalLayout {
+                                        width: EditorSizeSettings.property-bar-width;
+                                        vertical-stretch: effective-ratio-middle;
+                                        OutlineView {
+                                            height: 100%;
+                                            width: EditorSizeSettings.property-bar-width;
+                                            opacity: preview.preview-is-current ? 1.0 : 0.3;
+                                            enabled: preview.preview-is-current;
+                                            outline <=> root.outline-widget;
+                                        }
+                                    }
 
-                            if outline-widget && data-widget: t2 := TouchArea {
-                                height: 3px;
-                                moved => {
-                                    ratio2 = Math.clamp((container.height - (self.y + self.mouse-y - self.pressed-y)) / container.height, 0, 1 - (outline-widget ? effective-ratio1 : 0));
-                                }
-                                mouse-cursor: ns-resize;
-                                Rectangle {
-                                    background: Palette.border;
-                                }
-                            }
+                                    if outline-widget && data-widget: t2 := TouchArea {
+                                        height: 3px;
+                                        moved => {
+                                            ratio2 = Math.clamp((container.height - (self.y + self.mouse-y - self.pressed-y)) / container.height, 0, 1 - (outline-widget ? effective-ratio1 : 0));
+                                        }
+                                        mouse-cursor: ns-resize;
+                                        Rectangle {
+                                            background: Palette.border;
+                                        }
+                                    }
 
-                            if data-widget: c3 := VerticalLayout {
-                                width: EditorSizeSettings.property-bar-width;
-                                vertical-stretch: effective-ratio2;
-                                PreviewDataView {
-                                    height: 100%;
-                                    width: EditorSizeSettings.property-bar-width;
+                                    if data-widget: c3 := VerticalLayout {
+                                        width: EditorSizeSettings.property-bar-width;
+                                        vertical-stretch: effective-ratio2;
+                                        PreviewDataView {
+                                            height: 100%;
+                                            width: EditorSizeSettings.property-bar-width;
 
-                                    data-visible <=> root.data-widget;
-                                    opacity: preview.preview-is-current ? 1.0 : 0.3;
-                                    enabled: preview.preview-is-current;
+                                            data-visible <=> root.data-widget;
+                                            opacity: preview.preview-is-current ? 1.0 : 0.3;
+                                            enabled: preview.preview-is-current;
+                                        }
+                                    }
                                 }
                             }
                         }
                     }
                 }
+
+                Rectangle {
+                    height: cp.height;
+                }
+
+                // StatusLine { }
             }
-        }
-
-        ConsolePanel {
-            vertical-stretch: 0;
-
-            panel-expanded: root.panel-expanded;
-        }
-
-        StatusLine {
-            vertical-stretch: 0;
+            cp := ConsolePanel {
+                y: parent.height - self.height - 1px;
+                width: parent.width;
+                panel-expanded: root.panel-expanded;
+            }
         }
     }
 
