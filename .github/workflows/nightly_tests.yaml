@@ -13,8 +13,7 @@ jobs:
         strategy:
           matrix:
             esp-idf-target:
-              - release-v5.2
-              - latest
+              - release-v5.5
         runs-on: ubuntu-22.04
         container: espressif/idf:${{ matrix.esp-idf-target }}
         steps:
