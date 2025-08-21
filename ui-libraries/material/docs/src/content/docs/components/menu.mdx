@@ -1,0 +1,42 @@
+---
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+title: Menu
+description: Menu API.
+---
+
+import CodeSnippetMD from '/src/components/CodeSnippetMD.astro';
+import SlintProperty from '/src/components/SlintProperty.astro';
+
+<CodeSnippetMD imagePath="/src/assets/generated/menu.png" scale="3" imageWidth="300" imageHeight="200" imageAlt="">
+```slint
+import { Menu } from "material.slint";
+export component Example inherits Window {
+    width: 400px;
+    height: 300px;
+    background: transparent;
+    Menu {
+        width: 280px;
+        height: parent.height;
+        items: [
+          { text: "Copy" },
+          { text: "Cut" },
+          { text: "Paste" },
+        ];
+    }
+}
+```
+</CodeSnippetMD>
+
+A `Menu` display a list of choices on a temporary surface.
+
+## Properties
+
+### items
+<SlintProperty propName="items" typeName="[struct]" structName="MenuItem">
+An array of menu items, each containing an icon, a text, and a trailing text.
+</SlintProperty>
+
+## Callbacks
+
+### item_clicked(index: int)
+Invoked when a menu item is clicked
