@@ -118,6 +118,7 @@ pub enum LookupResultCallable {
 #[derive(Debug, derive_more::Display)]
 pub enum BuiltinNamespace {
     Colors,
+    Easing,
     Math,
     Key,
     SlintInternal,
@@ -196,6 +197,9 @@ impl LookupObject for LookupResult {
             LookupResult::Namespace(BuiltinNamespace::Colors) => {
                 (ColorSpecific, ColorFunctions).for_each_entry(ctx, f)
             }
+            LookupResult::Namespace(BuiltinNamespace::Easing) => {
+                EasingSpecific.for_each_entry(ctx, f)
+            }
             LookupResult::Namespace(BuiltinNamespace::Math) => MathFunctions.for_each_entry(ctx, f),
             LookupResult::Namespace(BuiltinNamespace::Key) => KeysLookup.for_each_entry(ctx, f),
             LookupResult::Namespace(BuiltinNamespace::SlintInternal) => {
@@ -212,6 +216,7 @@ impl LookupObject for LookupResult {
             LookupResult::Namespace(BuiltinNamespace::Colors) => {
                 (ColorSpecific, ColorFunctions).lookup(ctx, name)
             }
+            LookupResult::Namespace(BuiltinNamespace::Easing) => EasingSpecific.lookup(ctx, name),
             LookupResult::Namespace(BuiltinNamespace::Math) => MathFunctions.lookup(ctx, name),
             LookupResult::Namespace(BuiltinNamespace::Key) => KeysLookup.lookup(ctx, name),
             LookupResult::Namespace(BuiltinNamespace::SlintInternal) => {
@@ -842,6 +847,7 @@ impl LookupObject for BuiltinNamespaceLookup {
     ) -> Option<R> {
         let mut f = |s, res| f(&SmolStr::new_static(s), res);
         None.or_else(|| f("Colors", LookupResult::Namespace(BuiltinNamespace::Colors)))
+            .or_else(|| f("Easing", LookupResult::Namespace(BuiltinNamespace::Easing)))
             .or_else(|| f("Math", LookupResult::Namespace(BuiltinNamespace::Math)))
             .or_else(|| f("Key", LookupResult::Namespace(BuiltinNamespace::Key)))
             .or_else(|| {

@@ -229,8 +229,9 @@ See also the <Link type="Image" label="Image element"/>.
 ## Animation
 ### easing
 <SlintProperty propName="easing" typeName="easing" defaultValue='linear'>
-Property animation allow specifying an easing curve.
-`easing`: can be any of the following. See [`easings.net`](https://easings.net/) for a visual reference:
+The `easing` type allows defining an easing curve for animations.
+
+To specify an easing curve, use the values from the `Easing` namespace. For example you can use `Easing.ease-out` or `Easing.ease-in-quad`. The namespace consists of the following names (see [`easings.net`](https://easings.net/) for a visual reference):
 
     -   `linear`
     -   `ease-in-quad`
@@ -265,6 +266,26 @@ Property animation allow specifying an easing curve.
     -   `ease-out-bounce`
     -   `ease-in-out-bounce`
     -   `cubic-bezier(a, b, c, d)` as in CSS
+
+Additionally, in expressions of type `easing`, those names are available directly.
+
+```slint
+struct AnimationData {
+    curve: easing,
+}
+
+component Custom inherits Rectangle {
+    property<AnimationData> animation: {
+        // Using the Easing namespace.
+        curve: Easing.ease-in-circ,
+    };
+
+	animate x {
+    	// In easing expressions the names are available via global scope.
+    	easing: ease-out-bounce;
+	}
+}
+```
 </SlintProperty>
 
 
