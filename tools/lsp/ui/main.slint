@@ -6,7 +6,7 @@
 import { Button, TabWidget, Palette, Switch, ScrollView} from "std-widgets.slint";
 import { Api, ComponentItem, DiagnosticSummary } from "api.slint";
 
-import { EditorSizeSettings, EditorSpaceSettings, Icons, PickerStyles } from "./components/styling.slint";
+import { EditorSizeSettings, EditorSpaceSettings, Icons, PickerStyles, ConsoleStyles } from "./components/styling.slint";
 import { StatusLine } from "./components/status-line.slint";
 import { HeaderView } from "./views/header-view.slint";
 import { LibraryView } from "./views/library-view.slint";
@@ -39,7 +39,7 @@ export component PreviewUi inherits Window {
     property <bool> show-floating-table-editor <=> WindowManager.showing-table-editor;
     property <bool> show-color-stop-picker <=> WindowManager.showing-color-stop-picker;
     property <length> initial-floating-x;
-    in-out property <bool> panel-expanded: false;
+    property <bool> console-panel-expanded: false;
     property <bool> properties-widget: false;
     property <bool> data-widget: false;
     property <bool> outline-widget: false;
@@ -120,38 +120,33 @@ export component PreviewUi inherits Window {
             title: @tr("View");
 
             MenuItem {
-                title: root.library-widget ? @tr("Hide Library") : @tr("Library");
-                activated => {
-                    root.library-widget = !root.library-widget;
-                }
+                title: @tr("Library");
+                checkable: true;
+                checked <=> root.library-widget;
             }
 
             MenuItem {
-                title: root.properties-widget ? @tr("Hide Properties") : @tr("Properties");
-                activated => {
-                    root.properties-widget = !root.properties-widget;
-                }
+                title: @tr("Properties");
+                checkable: true;
+                checked <=> root.properties-widget;
             }
 
             MenuItem {
-                title: root.outline-widget ? @tr("Hide Outline") : @tr("Outline");
-                activated => {
-                    root.outline-widget = !root.outline-widget;
-                }
+                title: @tr("Outline");
+                checkable: true;
+                checked <=> root.outline-widget;
             }
 
             MenuItem {
-                title: root.data-widget ? @tr("Hide Simulation Data") : @tr("Simulation Data");
-                activated => {
-                    root.data-widget = !root.data-widget;
-                }
+                title: @tr("Simulation Data");
+                checkable: true;
+                checked <=> root.data-widget;
             }
 
             MenuItem {
-                title: root.panel-expanded ? @tr("Collapse Console") : @tr("Expand Console");
-                activated => {
-                    root.panel-expanded = !root.panel-expanded;
-                }
+                title: @tr("Console");
+                checkable: true;
+                checked <=> root.console-panel-expanded;
             }
         }
         if !Api.runs-in-slintpad: Menu {
@@ -239,89 +234,83 @@ export component PreviewUi inherits Window {
                         visible-component <=> root.visible-component;
                     }
 
-                    Rectangle {
-                        HorizontalLayout {
-                            spacing: 0px;
+                    if properties-widget || outline-widget || data-widget : right-panel := Rectangle {
+                        width: EditorSizeSettings.property-bar-width + right-panel-border.width;
+
+                        right-panel-border := Rectangle {
+                            x: 0px;
+                            width: 2px;
+                            background: Palette.border;
+                        }
+
+                        property <float> ratio1: 0.5;
+                        property <float> ratio2: 0.5;
+
+                        property <int> widget-count: (properties-widget ? 1 : 0) + (outline-widget ? 1 : 0) + (data-widget ? 1 : 0);
+                        property <length> splitter-height: 3px;
+                        property <length> usable-height: self.height - (widget-count - 1) * splitter-height;
+                        property <float> min-ratio: 3 * ConsoleStyles.header-height / usable-height;
+                        property <float> effective-ratio1: ratio1.max(min-ratio).min(1 - (widget-count - 1) * min-ratio).max(0);
+                        property <float> effective-ratio2: ratio2.max(min-ratio).min(1 - (properties-widget ? effective-ratio1 : 0) - min-ratio).max(0);
+
+                        if properties-widget: PropertyView {
+                            y: 0;
+                            height: widget-count > 1 ? usable-height * effective-ratio1 : parent.height;
+                            x: right-panel-border.width;
+                            width: EditorSizeSettings.property-bar-width;
+                            opacity: preview.preview-is-current ? 1.0 : 0.3;
+                            enabled: preview.preview-is-current;
+                            properties-visible <=> root.properties-widget;
+                        }
+
+                        if properties-widget && widget-count > 1: TouchArea {
+                            y: usable-height * effective-ratio1;
+                            height: splitter-height;
+                            x: right-panel-border.width;
+                            width: EditorSizeSettings.property-bar-width;
+
+                            moved => {
+                                ratio1 = Math.clamp((self.y + self.mouse-y - self.pressed-y) / usable-height, 0, 1);
+                            }
+                            mouse-cursor: ns-resize;
                             Rectangle {
-                                width: 2px;
                                 background: Palette.border;
                             }
+                        }
 
-                            property <float> ratio1: 0.33;
-                            property <float> ratio2: 0.33;
-                            property <bool> properties-widget <=> root.properties-widget;
-                            property <bool> outline-widget <=> root.outline-widget;
-                            property <bool> data-widget <=> root.data-widget;
+                        if outline-widget:  OutlineView {
+                            y: properties-widget ? usable-height * effective-ratio1 + splitter-height : 0;
+                            height: usable-height * (1 - (properties-widget ? effective-ratio1 : 0) - (data-widget ? effective-ratio2 : 0));
+                            x: right-panel-border.width;
+                            width: EditorSizeSettings.property-bar-width;
+                            opacity: preview.preview-is-current ? 1.0 : 0.3;
+                            enabled: preview.preview-is-current;
+                            outline <=> root.outline-widget;
+                        }
 
-                            // Calculate effective ratios based on visible panels
-                            property <float> effective-ratio1: properties-widget ? (outline-widget ? ratio1 : (data-widget ? ratio1 : 1.0)) : 0.0;
-                            property <float> effective-ratio-middle: outline-widget ? (data-widget ? (1.0 - effective-ratio1 - effective-ratio2) : (1.0 - effective-ratio1)) : 0.0;
-                            property <float> effective-ratio2: data-widget ? (outline-widget ? ratio2 : (1.0 - effective-ratio1)) : 0.0;
-                            if properties-widget || outline-widget || data-widget:container := Rectangle {
-                                width: EditorSizeSettings.property-bar-width;
-                                VerticalLayout {
-                                    height: 100%;
-                                    y: 0;
-                                    alignment: stretch;
-                                    if properties-widget: c1 := VerticalLayout {
-                                        vertical-stretch: effective-ratio1;
-                                        width: EditorSizeSettings.property-bar-width;
-                                        PropertyView {
-                                            height: 100%;
-                                            opacity: preview.preview-is-current ? 1.0 : 0.3;
-                                            enabled: preview.preview-is-current;
-                                            properties-visible <=> root.properties-widget;
-                                        }
-                                    }
-
-                                    if properties-widget && (outline-widget || data-widget): t1 := TouchArea {
-                                        height: 3px;
-                                        moved => {
-                                            ratio1 = Math.clamp((self.y + self.mouse-y - self.pressed-y) / container.height, 0, data-widget ? (outline-widget ? (1.0 - ratio2) : 1.0) : 1.0);
-                                        }
-                                        mouse-cursor: ns-resize;
-                                        Rectangle {
-                                            background: Palette.border;
-                                        }
-                                    }
-
-                                    if outline-widget: c2 := VerticalLayout {
-                                        width: EditorSizeSettings.property-bar-width;
-                                        vertical-stretch: effective-ratio-middle;
-                                        OutlineView {
-                                            height: 100%;
-                                            width: EditorSizeSettings.property-bar-width;
-                                            opacity: preview.preview-is-current ? 1.0 : 0.3;
-                                            enabled: preview.preview-is-current;
-                                            outline <=> root.outline-widget;
-                                        }
-                                    }
-
-                                    if outline-widget && data-widget: t2 := TouchArea {
-                                        height: 3px;
-                                        moved => {
-                                            ratio2 = Math.clamp((container.height - (self.y + self.mouse-y - self.pressed-y)) / container.height, 0, 1 - (outline-widget ? effective-ratio1 : 0));
-                                        }
-                                        mouse-cursor: ns-resize;
-                                        Rectangle {
-                                            background: Palette.border;
-                                        }
-                                    }
-
-                                    if data-widget: c3 := VerticalLayout {
-                                        width: EditorSizeSettings.property-bar-width;
-                                        vertical-stretch: effective-ratio2;
-                                        PreviewDataView {
-                                            height: 100%;
-                                            width: EditorSizeSettings.property-bar-width;
-
-                                            data-visible <=> root.data-widget;
-                                            opacity: preview.preview-is-current ? 1.0 : 0.3;
-                                            enabled: preview.preview-is-current;
-                                        }
-                                    }
-                                }
+                        if data-widget && outline-widget: TouchArea {
+                            y: parent.height - self.height - usable-height * effective-ratio2;
+                            height: splitter-height;
+                            x: right-panel-border.width;
+                            width: EditorSizeSettings.property-bar-width;
+                            moved => {
+                                ratio2 = 1 - Math.clamp((self.y + self.mouse-y - self.pressed-y) / usable-height, 0, 1);
                             }
+                            mouse-cursor: ns-resize;
+                            Rectangle {
+                                background: Palette.border;
+                            }
+                        }
+
+                        if data-widget: PreviewDataView {
+                            y: parent.height - self.height;
+                            height: usable-height * (outline-widget ? effective-ratio2 : properties-widget ? (1 - effective-ratio1) : 1);
+                            x: right-panel-border.width;
+                            width: EditorSizeSettings.property-bar-width;
+
+                            data-visible <=> root.data-widget;
+                            opacity: preview.preview-is-current ? 1.0 : 0.3;
+                            enabled: preview.preview-is-current;
                         }
                     }
                 }
@@ -335,7 +324,7 @@ export component PreviewUi inherits Window {
             cp := ConsolePanel {
                 y: parent.height - self.height - 1px;
                 width: parent.width;
-                panel-expanded: root.panel-expanded;
+                panel-expanded <=> root.console-panel-expanded;
             }
         }
     }
