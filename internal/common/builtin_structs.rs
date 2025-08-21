@@ -211,6 +211,10 @@ macro_rules! for_each_builtin_structs {
                     // keyboard_shortcut: KeySequence,
                     /// whether the menu entry is enabled
                     enabled: bool,
+                    /// whether the menu entry is checkable
+                    checkable: bool,
+                    /// whether the menu entry is checked
+                    checked: bool,
                     /// Sub menu
                     has_sub_menu: bool,
                     /// The menu entry is a separator
