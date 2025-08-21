@@ -168,7 +168,7 @@ fn analyze_element(
     }
     for cb in elem.borrow().change_callbacks.values() {
         for e in cb.borrow().iter() {
-            recurse_expression(e, &mut |prop, r| {
+            recurse_expression(elem, e, &mut |prop, r| {
                 process_property(prop, r, context, reverse_aliases, diag);
             });
         }
@@ -187,7 +187,7 @@ fn analyze_element(
     if let Some(component) = elem.borrow().enclosing_component.upgrade() {
         if Rc::ptr_eq(&component.root_element, elem) {
             for e in component.init_code.borrow().iter() {
-                recurse_expression(e, &mut |prop, r| {
+                recurse_expression(elem, e, &mut |prop, r| {
                     process_property(prop, r, context, reverse_aliases, diag);
                 });
             }
@@ -207,7 +207,7 @@ fn analyze_element(
     }
 
     if let Some(repeated) = &elem.borrow().repeated {
-        recurse_expression(&repeated.model, &mut |prop, r| {
+        recurse_expression(elem, &repeated.model, &mut |prop, r| {
             process_property(prop, r, context, reverse_aliases, diag);
         });
         if let Some(lv) = &repeated.is_listview {
@@ -334,7 +334,7 @@ fn analyze_binding(
         }
     };
 
-    recurse_expression(&b.expression, &mut process_prop);
+    recurse_expression(&current.prop.element(), &b.expression, &mut process_prop);
 
     let mut is_const =
         b.expression.is_constant() && b.two_way_bindings.iter().all(|n| n.is_constant());
@@ -355,7 +355,7 @@ fn analyze_binding(
     match &binding.borrow().animation {
         Some(PropertyAnimation::Static(e)) => analyze_element(e, context, reverse_aliases, diag),
         Some(PropertyAnimation::Transition { animations, state_ref }) => {
-            recurse_expression(state_ref, &mut process_prop);
+            recurse_expression(&current.prop.element(), state_ref, &mut process_prop);
             for a in animations {
                 analyze_element(&a.animation, context, reverse_aliases, diag);
             }
@@ -440,9 +440,13 @@ fn process_property(
 }
 
 // Same as in crate::visit_all_named_references_in_element, but not mut
-fn recurse_expression(expr: &Expression, vis: &mut impl FnMut(&PropertyPath, ReadType)) {
+fn recurse_expression(
+    elem: &ElementRc,
+    expr: &Expression,
+    vis: &mut impl FnMut(&PropertyPath, ReadType),
+) {
     const P: ReadType = ReadType::PropertyRead;
-    expr.visit(|sub| recurse_expression(sub, vis));
+    expr.visit(|sub| recurse_expression(elem, sub, vis));
     match expr {
         Expression::PropertyReference(r) => vis(&r.clone().into(), P),
         Expression::LayoutCacheAccess { layout_cache_prop, .. } => {
@@ -519,6 +523,17 @@ fn recurse_expression(expr: &Expression, vis: &mut impl FnMut(&PropertyPath, Rea
                     );
                 }
             }
+            BuiltinFunction::GetWindowDefaultFontSize => {
+                let root =
+                    elem.borrow().enclosing_component.upgrade().unwrap().root_element.clone();
+                if root.borrow().builtin_type().is_some_and(|bt| bt.name == "Window") {
+                    vis(
+                        &NamedReference::new(&root, SmolStr::new_static("default-font-size"))
+                            .into(),
+                        ReadType::PropertyRead,
+                    );
+                }
+            }
             _ => {}
         },
         _ => {}
@@ -532,7 +547,13 @@ fn visit_layout_items_dependencies<'a>(
 ) {
     for it in items {
         let mut element = it.element.clone();
-        if element.borrow().repeated.as_ref().map(|r| recurse_expression(&r.model, vis)).is_some() {
+        if element
+            .borrow()
+            .repeated
+            .as_ref()
+            .map(|r| recurse_expression(&element, &r.model, vis))
+            .is_some()
+        {
             element = it.element.borrow().base_type.as_component().root_element.clone();
         }
 

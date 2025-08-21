@@ -1,7 +1,21 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-export component Test {
+global G {
+    in-out property <relative-font-size> size: 5rem;
+}
+
+component OkButton inherits Text {
+    font-size: G.size;  // use rem without access to Window
+}
+
+
+component KoButton inherits Text {
+    font-size: G.size;  // use rem without access to Window
+//             ^error{The binding for the property 'font-size' is part of a binding loop (b.font-size -> root.default-font-size)}
+}
+
+export component Test inherits Window {
     Text { font-size: self.font-metrics.ascent; }
 //  ^error{The binding for the property 'font-metrics' is part of a binding loop (font-metrics -> font-size)}
 //                    ^^error{The binding for the property 'font-size' is part of a binding loop (font-metrics -> font-size)}
@@ -13,4 +27,13 @@ export component Test {
 //        ^error{The binding for the property 'font-metrics' is part of a binding loop (t2.font-metrics -> t1.font-italic -> t1.font-metrics -> t2.font-weight)}
 //                            ^^error{The binding for the property 'font-weight' is part of a binding loop (t2.font-metrics -> t1.font-italic -> t1.font-metrics -> t2.font-weight)}
 
+    OkButton {}
+
+    b := KoButton {}
+    default-font-size: b.font-size;
+//                     ^error{The binding for the property 'default-font-size' is part of a binding loop (b.font-size -> root.default-font-size)}
+
+    dialog1 := Window {
+        default-font-size: 2rem;
+    }
 }
