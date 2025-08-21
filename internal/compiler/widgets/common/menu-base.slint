@@ -139,6 +139,9 @@ export component MenuItemBase {
                     Image {
                         source: entry.icon;
                         accessible-role: none;
+                        image-fit: contain;
+                        width: 100%;
+                        height: label.font-metrics.ascent - label.font-metrics.descent;
                     }
                 }
 
