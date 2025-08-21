@@ -101,10 +101,9 @@ export component PreviewUi inherits Window {
         if !Api.runs-in-slintpad: Menu {
             title: @tr("Window");
             MenuItem {
-                title: Api.always-on-top ? @tr("Remove from Top") : @tr("Keep on Top");
-                activated => {
-                    Api.always-on-top = !Api.always-on-top;
-                }
+                title: @tr("Keep on Top");
+                checkable: true;
+                checked <=> Api.always-on-top;
             }
         }
 
