@@ -184,7 +184,7 @@ component SelectionFrame {
     }
 }
 
-export component PreviewView {
+export component PreviewView inherits Rectangle {
     property <[SelectionRectangle]> selections: Api.highlight-positions(Api.current-element.source-uri, Api.current-element.offset);
     in property <ComponentItem> visible-component;
     property <DiagnosticSummary> diagnostic-summary <=> Api.diagnostic-summary;
@@ -211,258 +211,250 @@ export component PreviewView {
         }
     }
 
-    scroll-view := ScrollView {
-        out property <length> border: 30px;
+    Rectangle {
+        scroll-view := ScrollView {
+            out property <length> border: 30px;
 
-        width: 100%;
-        height: 100%;
-        viewport-width: drawing-rect.width;
-        viewport-height: drawing-rect.height;
+            width: 100%;
+            height: 100%;
+            viewport-width: drawing-rect.width;
+            viewport-height: drawing-rect.height;
 
-        drawing-rect := Rectangle {
-            width: max(scroll-view.visible-width, main-resizer.width + scroll-view.border);
-            height: max(scroll-view.visible-height, main-resizer.height + scroll-view.border);
-            background: Palette.background;
-            Image {
-                width: 100%;
-                height: 100%;
-                source: @image-url("../assets/background.svg");
-                vertical-tiling: repeat;
-                horizontal-tiling: repeat;
-                vertical-alignment: top;
-                horizontal-alignment: left;
-                colorize: Palette.alternate-background;
-            }
-
-            unselect-area := TouchArea {
-                clicked => {
-                    Api.unselect();
-                    StatusLineApi.help-text = "";
-                }
-                mouse-cursor: root.mode == DrawAreaMode.selecting ? MouseCursor.crosshair : MouseCursor.default;
-
-                changed has-hover => {
-                    if self.has-hover && root.selections.length > 0 {
-                        StatusLineApi.help-text = "<click> unselect";
-                    } else {
-                         StatusLineApi.help-text = "";
-                    }
-                }
-            }
-
-            unselect-area-blocker:= TouchArea {
-                x: content-border.x;
-                y: content-border.y;
-                width: content-border.width;
-                height: content-border.height;
-
-                mouse-cursor: root.mode == DrawAreaMode.selecting ? MouseCursor.crosshair : MouseCursor.default;
-            }
-
-            content-border := Rectangle {
-                x: main-resizer.x + (main-resizer.width - self.width) / 2;
-                y: main-resizer.y + (main-resizer.height - self.height) / 2;
-                width: main-resizer.width + 2 * self.border-width;
-                height: main-resizer.height + 2 * self.border-width;
-                border-width: 1px;
-                border-color: Palette.border;
-            }
-
-            main-resizer := Resizer {
-                private property <component-factory> component-factory <=> preview-area-container.component-factory;
-                private property <length> target-width;
-                private property <length> target-height;
-
-                color: root.select-mode ? Colors.black : Colors.transparent;
-                fill-color: root.select-mode ? Colors.white : Colors.transparent;
-
-                is-moveable: false;
-                is-resizable <=> preview-area-container.is-resizable;
-
-                x-position: parent.x;
-                y-position: parent.y;
-
-                resize(_, _, w, h) => {
-                    resize-to-preview-constraints(w, h);
+            drawing-rect := Rectangle {
+                width: max(scroll-view.visible-width, main-resizer.width + scroll-view.border);
+                height: max(scroll-view.visible-height, main-resizer.height + scroll-view.border);
+                background: Palette.background;
+                Image {
+                    width: 100%;
+                    height: 100%;
+                    source: @image-url("../assets/background.svg");
+                    vertical-tiling: repeat;
+                    horizontal-tiling: repeat;
+                    vertical-alignment: top;
+                    horizontal-alignment: left;
+                    colorize: Palette.alternate-background;
                 }
 
-                width: preview-area-container.width;
-                height: preview-area-container.height;
-
-                changed component-factory => {
-                    if Api.resize-to-preferred-size {
-                        self.target-width = preview-area-container.preferred-width.abs() < 0.5px ? drawing-rect.width - scroll-view.border : preview-area-container.preferred-width;
-                        self.target-height = preview-area-container.preferred-height.abs() < 0.5px ? drawing-rect.height - scroll-view.border : preview-area-container.preferred-height;
-
-                        resize-to-preview-constraints(self.target-width, self.target-height);
-                    } else {
-                        resize-to-preview-constraints(preview-area-container.width, preview-area-container.height);
-                    }
-
-                    Api.resize-to-preferred-size = false;
-
-                    if Api.focus-previewed-element {
-                        preview-area-container.focus();
-                    }
-
-                    Api.focus-previewed-element = false;
-                }
-
-                function resize-to-preview-constraints(width: length, height: length) {
-                    preview-area-container.width = clamp(width, max(preview-area-container.min-width, PreviewState.minimum-preview-size), max(preview-area-container.max-width, PreviewState.minimum-preview-size));
-                    preview-area-container.height = clamp(height, max(preview-area-container.min-height, PreviewState.minimum-preview-size),  max(preview-area-container.max-height, PreviewState.minimum-preview-size));
-                }
-
-                Rectangle {
-                    clip: true;
-
-                    HorizontalLayout {
-                        preview-area-container := ComponentContainer {
-                            property <bool> is-resizable: (self.min-width != self.max-width || self.min-height != self.max-height) && self.has-component;
-
-                            component-factory: root.preview-area;
-
-                            // The width and the height can't depend on the layout info of the inner item otherwise this would
-                            // cause a recursion if this happens (#3989)
-                            // Instead, we use a init function to initialize
-                            width: 0px;
-                            height: 0px;
-
-                            init => {
-                                self.width = max(self.preferred-width, self.min-width);
-                                self.height = max(self.preferred-height, self.min-height);
-                            }
-
-                            changed min-width => {
-                                main-resizer.resize-to-preview-constraints(self.width, self.height);
-                            }
-
-                            changed max-width => {
-                                main-resizer.resize-to-preview-constraints(self.width, self.height);
-                            }
-
-                            changed width => {
-                                Api.reselect();
-                            }
-
-                            changed height => {
-                                Api.reselect();
-                            }
-                        }
-                    }
-                }
-
-                selection-area := TouchArea {
-                    private property <length> selection-x: 0px;
-                    private property <length> selection-y: 0px;
-                    private property <SelectionKind> selection-kind: SelectionKind.none;
-
+                unselect-area := TouchArea {
                     clicked => {
-                        self.selection-x = self.pressed-x;
-                        self.selection-y = self.pressed-y;
-                        self.selection-kind = SelectionKind.select-at;
+                        Api.unselect();
+                        StatusLineApi.help-text = "";
                     }
-                    double-clicked => {
-                        self.selection-x = self.pressed-x;
-                        self.selection-y = self.pressed-y;
-                        self.selection-kind = SelectionKind.select-up-or-down;
-                    }
-
-                    pointer-event(event) => {
-                        // This needs to fire AFTER clicked and double-clicked to work :-/
-                        if (event.kind == PointerEventKind.up && event.button == PointerEventButton.left) {
-                            if (self.selection-kind == SelectionKind.select_up_or_down) {
-                                Api.select-behind(self.selection-x, self.selection-y, event.modifiers.control, event.modifiers.shift);
-                            } else if (self.selection-kind == SelectionKind.select-at) {
-                                Api.select-at(self.selection-x, self.selection-y, event.modifiers.control);
-                            }
-                        } else if (event.kind == PointerEventKind.down && event.button == PointerEventButton.right) {
-                            self.selection-x = self.mouse-x;
-                            self.selection-y = self.mouse-y;
-                            self.selection-kind = SelectionKind.select-at;
-
-                            selection-popup.show-selection-stack(self.selection-x, self.selection-y);
-                        } else if (event.kind == PointerEventKind.up && event.button == PointerEventButton.right) {
-                            self.selection-kind = SelectionKind.none;
-                        }
-                        self.selection-kind = SelectionKind.none;
-                    }
-
-                    mouse-cursor: crosshair;
-                    enabled: root.mode == DrawAreaMode.selecting;
+                    mouse-cursor: root.mode == DrawAreaMode.selecting ? MouseCursor.crosshair : MouseCursor.default;
 
                     changed has-hover => {
-                        if self.has-hover && self.enabled {
-                            StatusLineApi.help-text = @tr("<click> select element in current component, <right-click> to select interactively, <{}-click> to select an element in any component", Api.control-key-name);
+                        if self.has-hover && root.selections.length > 0 {
+                            StatusLineApi.help-text = "<click> unselect";
                         } else {
                             StatusLineApi.help-text = "";
                         }
                     }
                 }
 
-                DropArea {
-                    can-drop(event) => {
-                        if event.mime-type != "application/x-slint-component" {
-                            return false;
-                        }
-                        return Api.can-drop(event.data.to-float(), event.position.x, event.position.y, true);
-                    }
-                    dropped(event) => {
-                        Api.drop(event.data.to-float(), event.position.x, event.position.y);
-                    }
+                unselect-area-blocker := TouchArea {
+                    x: content-border.x;
+                    y: content-border.y;
+                    width: content-border.width;
+                    height: content-border.height;
+
+                    mouse-cursor: root.mode == DrawAreaMode.selecting ? MouseCursor.crosshair : MouseCursor.default;
                 }
 
-                selection-popup := SelectionPopup {
-                    preview-width: preview-area-container.width;
-                    preview-height: preview-area-container.height;
-                    x: 0px;
-                    y: 0px;
-                    max-popup-height: root.height * 0.9;
+                content-border := Rectangle {
+                    x: main-resizer.x + (main-resizer.width - self.width) / 2;
+                    y: main-resizer.y + (main-resizer.height - self.height) / 2;
+                    width: main-resizer.width + 2 * self.border-width;
+                    height: main-resizer.height + 2 * self.border-width;
+                    border-width: 1px;
+                    border-color: Palette.border;
                 }
 
-                selection-display-area := Rectangle {
-                    for s[idx] in root.selections: SelectionFrame {
-                        x: s.x;
-                        y: s.y;
-                        width: s.width;
-                        height: s.height;
-                        interactive: root.mode == DrawAreaMode.selecting;
-                        selection: Api.selection;
-                        is-primary: self.selection.highlight-index == idx;
-                        resize(x, y, w, h) => {
-                            Api.selected-element-resize(x, y, w, h);
+                main-resizer := Resizer {
+                    private property <component-factory> component-factory <=> preview-area-container.component-factory;
+                    private property <length> target-width;
+                    private property <length> target-height;
+
+                    color: root.select-mode ? Colors.black : Colors.transparent;
+                    fill-color: root.select-mode ? Colors.white : Colors.transparent;
+
+                    is-moveable: false;
+                    is-resizable <=> preview-area-container.is-resizable;
+
+                    x-position: parent.x;
+                    y-position: parent.y;
+
+                    resize(_, _, w, h) => {
+                        resize-to-preview-constraints(w, h);
+                    }
+                    width: preview-area-container.width;
+                    height: preview-area-container.height;
+
+                    changed component-factory => {
+                        if Api.resize-to-preferred-size {
+                            self.target-width = preview-area-container.preferred-width.abs() < 0.5px ? drawing-rect.width - scroll-view.border : preview-area-container.preferred-width;
+                            self.target-height = preview-area-container.preferred-height.abs() < 0.5px ? drawing-rect.height - scroll-view.border : preview-area-container.preferred-height;
+
+                            resize-to-preview-constraints(self.target-width, self.target-height);
+                        } else {
+                            resize-to-preview-constraints(preview-area-container.width, preview-area-container.height);
                         }
 
-                        can-move-to(x, y, mx, my) => {
-                            Api.selected-element-can-move-to(x, y, mx, my);
-                        }
+                        Api.resize-to-preferred-size = false;
 
-                        move-to(x, y, mx, my) => {
-                            Api.selected-element-move(x, y, mx, my);
+                        if Api.focus-previewed-element {
+                            preview-area-container.focus();
                         }
+                        Api.focus-previewed-element = false;
+                    }
 
-                        selected-element-delete() => {
-                            Api.selected-element-delete();
-                        }
+                    function resize-to-preview-constraints(width: length, height: length) {
+                        preview-area-container.width = clamp(width, max(preview-area-container.min-width, PreviewState.minimum-preview-size), max(preview-area-container.max-width, PreviewState.minimum-preview-size));
+                        preview-area-container.height = clamp(height, max(preview-area-container.min-height, PreviewState.minimum-preview-size),  max(preview-area-container.max-height, PreviewState.minimum-preview-size));
+                    }
 
-                        select-through(x, y, c, f) => {
-                            Api.select-behind(x, y, c, f);
-                        }
+                    Rectangle {
+                        clip: true;
 
-                        selection-stack-at(x, y) => {
-                            selection-popup.show-selection-stack(x, y);
+                        HorizontalLayout {
+                            preview-area-container := ComponentContainer {
+                                property <bool> is-resizable: (self.min-width != self.max-width || self.min-height != self.max-height) && self.has-component;
+
+                                component-factory: root.preview-area;
+
+                            // The width and the height can't depend on the layout info of the inner item otherwise this would
+                            // cause a recursion if this happens (#3989)
+                            // Instead, we use a init function to initialize
+                            width: 0px;
+                                height: 0px;
+
+                                init => {
+                                    self.width = max(self.preferred-width, self.min-width);
+                                    self.height = max(self.preferred-height, self.min-height);
+                                }
+                                changed min-width => {
+                                    main-resizer.resize-to-preview-constraints(self.width, self.height);
+                                }
+
+                                changed max-width => {
+                                    main-resizer.resize-to-preview-constraints(self.width, self.height);
+                                }
+
+                                changed width => {
+                                    Api.reselect();
+                                }
+
+                                changed height => {
+                                    Api.reselect();
+                                }
+                            }
                         }
                     }
-                }
 
-                if drop-mark.x1 >= 0.0 || drop-mark.y1 >= 0.0 || drop-mark.x2 >= 0.0 || drop-mark.y2 >= 0.0: Rectangle {
-                    x: drop-mark.x1;
-                    y: drop-mark.y1;
-                    width: drop-mark.x2 - drop-mark.x1;
-                    height: drop-mark.y2 - drop-mark.y1;
+                    selection-area := TouchArea {
+                        private property <length> selection-x: 0px;
+                        private property <length> selection-y: 0px;
+                        private property <SelectionKind> selection-kind: SelectionKind.none;
 
-                    border-color: EditorPalette.drop-mark-foreground;
-                    background: EditorPalette.drop-mark-background;
+                        clicked => {
+                            self.selection-x = self.pressed-x;
+                            self.selection-y = self.pressed-y;
+                            self.selection-kind = SelectionKind.select-at;
+                        }
+                        double-clicked => {
+                            self.selection-x = self.pressed-x;
+                            self.selection-y = self.pressed-y;
+                            self.selection-kind = SelectionKind.select-up-or-down;
+                        }
+                        pointer-event(event) => {
+                        // This needs to fire AFTER clicked and double-clicked to work :-/
+                        if (event.kind == PointerEventKind.up && event.button == PointerEventButton.left) {
+                                if (self.selection-kind == SelectionKind.select_up_or_down) {
+                                    Api.select-behind(self.selection-x, self.selection-y, event.modifiers.control, event.modifiers.shift);
+                                } else if (self.selection-kind == SelectionKind.select-at) {
+                                    Api.select-at(self.selection-x, self.selection-y, event.modifiers.control);
+                                }
+                            } else if (event.kind == PointerEventKind.down && event.button == PointerEventButton.right) {
+                                self.selection-x = self.mouse-x;
+                                self.selection-y = self.mouse-y;
+                                self.selection-kind = SelectionKind.select-at;
+
+                                selection-popup.show-selection-stack(self.selection-x, self.selection-y);
+                            } else if (event.kind == PointerEventKind.up && event.button == PointerEventButton.right) {
+                                self.selection-kind = SelectionKind.none;
+                            }
+                            self.selection-kind = SelectionKind.none;
+                        }
+                        mouse-cursor: crosshair;
+                        enabled: root.mode == DrawAreaMode.selecting;
+
+                        changed has-hover => {
+                            if self.has-hover && self.enabled {
+                                StatusLineApi.help-text = @tr("<click> select element in current component, <right-click> to select interactively, <{}-click> to select an element in any component", Api.control-key-name);
+                            } else {
+                                StatusLineApi.help-text = "";
+                            }
+                        }
+                    }
+
+                    DropArea {
+                        can-drop(event) => {
+                            if event.mime-type != "application/x-slint-component" {
+                                return false;
+                            }
+                            return Api.can-drop(event.data.to-float(), event.position.x, event.position.y, true);
+                        }
+                        dropped(event) => {
+                            Api.drop(event.data.to-float(), event.position.x, event.position.y);
+                        }
+                    }
+
+                    selection-popup := SelectionPopup {
+                        preview-width: preview-area-container.width;
+                        preview-height: preview-area-container.height;
+                        x: 0px;
+                        y: 0px;
+                        max-popup-height: root.height * 0.9;
+                    }
+
+                    selection-display-area := Rectangle {
+                        for s[idx] in root.selections: SelectionFrame {
+                            x: s.x;
+                            y: s.y;
+                            width: s.width;
+                            height: s.height;
+                            interactive: root.mode == DrawAreaMode.selecting;
+                            selection: Api.selection;
+                            is-primary: self.selection.highlight-index == idx;
+                            resize(x, y, w, h) => {
+                                Api.selected-element-resize(x, y, w, h);
+                            }
+                            can-move-to(x, y, mx, my) => {
+                                Api.selected-element-can-move-to(x, y, mx, my);
+                            }
+                            move-to(x, y, mx, my) => {
+                                Api.selected-element-move(x, y, mx, my);
+                            }
+                            selected-element-delete() => {
+                                Api.selected-element-delete();
+                            }
+                            select-through(x, y, c, f) => {
+                                Api.select-behind(x, y, c, f);
+                            }
+                            selection-stack-at(x, y) => {
+                                selection-popup.show-selection-stack(x, y);
+                            }
+                        }
+                    }
+
+                    if drop-mark.x1 >= 0.0 || drop-mark.y1 >= 0.0 || drop-mark.x2 >= 0.0 || drop-mark.y2 >= 0.0: Rectangle {
+                        x: drop-mark.x1;
+                        y: drop-mark.y1;
+                        width: drop-mark.x2 - drop-mark.x1;
+                        height: drop-mark.y2 - drop-mark.y1;
+
+                        border-color: EditorPalette.drop-mark-foreground;
+                        background: EditorPalette.drop-mark-background;
+                    }
                 }
             }
         }

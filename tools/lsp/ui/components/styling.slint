@@ -23,6 +23,10 @@ export global Icons {
     out property <image> minus: @image-url("../assets/minus.svg");
     out property <image> info: @image-url("../assets/info.svg");
     out property <image> clear: @image-url("../assets/clear.svg");
+    out property <image> library: @image-url("../assets/library.svg");
+    out property <image> outline: @image-url("../assets/list-tree.svg");
+    out property <image> properties: @image-url("../assets/settings.svg");
+    out property <image> simulator: @image-url("../assets/beaker.svg");
 }
 
 export struct TextStyle {
@@ -39,7 +43,7 @@ export global EditorFontSettings {
     out property <TextStyle> header: { font-size: 18 * 0.0769rem, font-weight: root.semibold-font-weight };
 
     out property <TextStyle> body: { font-size: 14 * 0.0769rem, font-weight: root.regular-font-weight };
-    out property <TextStyle> label: { font-size: 14 * 0.0769rem, font-weight: root.regular-font-weight };
+    out property <TextStyle> label: { font-size: 12 * 0.0769rem, font-weight: root.bold-font-weight };
     out property <TextStyle> label-sub: { font-size: 14 * 0.0769rem, font-weight: root.light-font-weight };
 
     out property <TextStyle> body-strong: { font-size: 16 * 0.0769rem, font-weight: root.bold-font-weight };
@@ -61,7 +65,7 @@ export global EditorSizeSettings {
     in property <length> item-height: 24px;
     in property <length> length-combo: 70px;
     in property <length> min-prefix-text-width: 120px;
-    in property <length> property-bar-width: 360px;
+    in property <length> property-bar-width: 280px;
     in property <length> radius: 5px;
     in property <length> side-bar-width: 280px;
     out property <length> standard-margin: 16px;
@@ -105,8 +109,8 @@ export global EditorPalette {
     out property <brush> layout-element-selection-secondary: #ff8af9;
     out property <brush> shadow-gradient: @linear-gradient(0deg, Palette.foreground.transparentize(1), Palette.foreground.transparentize(0.75));
 
-    out property <brush> state-hovered: dark-scheme ? #ffffff.with-alpha(0.1) : #000000.with-alpha(0.1);
-    out property <brush> state-pressed: dark-scheme ? #ffffff.with-alpha(0.2) : #000000.with-alpha(0.2);
+    out property <brush> state-hovered: dark-scheme ? Palette.selection-background.with-alpha(0.18) : Palette.selection-background.with-alpha(0.25);
+    out property <brush> state-pressed: dark-scheme ? Palette.selection-background.with-alpha(0.5) : Palette.selection-background.with-alpha(0.5);
     out property <color> text-color: dark-scheme ? white : #383838;
     out property <color> section-color: dark-scheme ? #3f3f3f : #e6e6e6;
     out property <color> divider-color: dark-scheme ? #444444 : #e6e6e6;

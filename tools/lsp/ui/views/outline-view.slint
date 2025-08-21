@@ -2,12 +2,13 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { Palette, VerticalBox, ListView }  from "std-widgets.slint";
-import { ConsoleStyles, EditorSizeSettings, Icons, EditorFontSettings,  } from "../components/styling.slint";
+import { ConsoleStyles, EditorSizeSettings, Icons, EditorFontSettings, EditorSpaceSettings,  } from "../components/styling.slint";
 import { Api, OutlineTreeNode, DropLocation } from "../api.slint";
 
 export component OutlineView inherits VerticalLayout {
     property <[OutlineTreeNode]> outline-data <=> Api.outline;
     in property <bool> enabled <=> lv.enabled;
+    in-out property <bool> outline: false;
     Rectangle {
         height: ConsoleStyles.header-height;
         background: ConsoleStyles.header-background;
@@ -26,13 +27,28 @@ export component OutlineView inherits VerticalLayout {
             background: ConsoleStyles.divider-line;
         }
 
-        label := Text {
-            x: 10px;
-            horizontal-alignment: left;
-            color: ConsoleStyles.text-color;
-            font-family: "Inter";
-            font-size: 12px;
-            text: @tr("Outline");
+        HorizontalLayout {
+            alignment: space-between;
+            padding-left: EditorSpaceSettings.default-padding;
+            padding-right: EditorSpaceSettings.default-padding;
+            label := Text {
+                horizontal-alignment: left;
+                vertical-alignment: center;
+                color: ConsoleStyles.text-color;
+                font-family: "Inter";
+                font-size: 12px;
+                text: @tr("Outline");
+            }
+
+            Image {
+                source: Icons.close;
+                colorize: ita.has-hover ? Palette.foreground : Palette.foreground.transparentize(0.5);
+                ita := TouchArea {
+                    clicked => {
+                        root.outline = false;
+                    }
+                }
+            }
         }
     }
 
@@ -155,13 +171,13 @@ export component OutlineView inherits VerticalLayout {
 
             hier-bg := Rectangle {
                 background: Palette.border.transparentize(0.7);
-                x: indentation.width;
+                x: indentation.width + 8px;
                 height: 100%;
             }
 
             hier-markers := Rectangle {
                 for i in item.indent-level: Rectangle {
-                    x: i > 0 ? i * 8px : 0px;
+                    x: i > 0 ? i * 10px + 8px : 0px;
                     width: 1px;
                     height: 100%;
                     background: Palette.border.transparentize(0.4);
@@ -171,30 +187,30 @@ export component OutlineView inherits VerticalLayout {
             oi := VerticalLayout {
                 HorizontalLayout {
                     alignment: start;
-                    spacing: 5px;
-                    indentation := Rectangle {
-                        width: item.indent-level * 8px;
-                    }
-
-                    Rectangle {
-                        visible: item.has-children;
+                    spacing: 3px;
+                    ta-open := TouchArea {
                         Image {
+                            visible: item.has-children;
                             height: 10px;
                             source: @image-url("../assets/chevron-down.svg");
                             rotation-angle: item.is-expanded ? 0.0deg : -90.0deg;
                             colorize: selected ? Palette.selection-foreground : Palette.foreground;
                             vertical-alignment: center;
-                            animate rotation-angle {
+                            opacity: ta-open.has-hover || ta.has-hover ? 1 : 0;
+
+                            animate rotation-angle, opacity {
                                 duration: 300ms;
                                 easing: ease-out-quad;
                             }
                         }
 
-                        ta-open := TouchArea {
-                            clicked => {
-                                item.is-expanded = !item.is-expanded;
-                            }
+                        clicked => {
+                            item.is-expanded = !item.is-expanded;
                         }
+                    }
+
+                    indentation := Rectangle {
+                        width: item.indent-level * 10px;
                     }
 
                     t := Rectangle {
@@ -203,7 +219,7 @@ export component OutlineView inherits VerticalLayout {
                             if item.element-id != "": el-id := Text {
                                 font-family: "Inter";
                                 text: item.element-id;
-                                font-weight: EditorFontSettings.bold-font-weight;
+                                font-weight: EditorFontSettings.label.font-weight;
                                 font-size: EditorFontSettings.label.font-size;
                                 color: selected ? Palette.selection-foreground : Palette.foreground;
                                 vertical-alignment: center;
