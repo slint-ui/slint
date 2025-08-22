@@ -30,6 +30,13 @@ export component TestCase inherits Window {
         image-fit: contain;
     }
 
+    // one color, no colorize should preserve the original color
+    Image {
+        x: 45px; y: 45px;
+        source: @image-url("image-add.png");
+        width: 23px;
+    }
+
     // Just an image with extreme width and height (shouldn't crash)
     Image {
         x: 10px; y: 10px;
