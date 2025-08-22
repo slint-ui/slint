@@ -480,7 +480,7 @@ impl BackendBuilder {
 }
 
 pub(crate) struct SharedBackendData {
-    requested_graphics_api: Option<RequestedGraphicsAPI>,
+    _requested_graphics_api: Option<RequestedGraphicsAPI>,
     #[cfg(enable_skia_renderer)]
     skia_context: i_slint_renderer_skia::SkiaSharedContext,
     active_windows: RefCell<HashMap<winit::window::WindowId, Weak<WinitWindowAdapter>>>,
@@ -551,7 +551,7 @@ impl SharedBackendData {
                 .map_err(|display_err| PlatformError::OtherError(display_err.into()))?,
         );
         Ok(Self {
-            requested_graphics_api,
+            _requested_graphics_api: requested_graphics_api,
             #[cfg(enable_skia_renderer)]
             skia_context: i_slint_renderer_skia::SkiaSharedContext::default(),
             active_windows: Default::default(),
