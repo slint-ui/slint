@@ -1253,8 +1253,17 @@ impl WindowInner {
         self.next_popup_id.set(self.next_popup_id.get().checked_add(1).unwrap());
 
         // Close active popups before creating a new one.
-        let parent_window = WindowInner::from_pub(parent_window_adapter.window());
-        parent_window.close_all_popups();
+        let siblings: Vec<_> = self
+            .active_popups
+            .borrow()
+            .iter()
+            .filter(|p| p.parent_item == parent_item.downgrade())
+            .map(|p| p.popup_id)
+            .collect();
+
+        for sibling in siblings {
+            self.close_popup(sibling);
+        }
 
         let location = match parent_window_adapter
             .internal(crate::InternalToken)
