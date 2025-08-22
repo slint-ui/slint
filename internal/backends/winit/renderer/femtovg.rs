@@ -22,7 +22,7 @@ mod glcontext;
 #[cfg(supports_opengl)]
 pub struct GlutinFemtoVGRenderer {
     renderer: FemtoVGRenderer<opengl::OpenGLBackend>,
-    requested_graphics_api: Option<RequestedGraphicsAPI>,
+    _requested_graphics_api: Option<RequestedGraphicsAPI>,
 }
 
 #[cfg(supports_opengl)]
@@ -32,7 +32,7 @@ impl GlutinFemtoVGRenderer {
     ) -> Result<Box<dyn WinitCompatibleRenderer>, PlatformError> {
         Ok(Box::new(Self {
             renderer: FemtoVGRenderer::new_suspended(),
-            requested_graphics_api: shared_backend_data.requested_graphics_api.clone(),
+            _requested_graphics_api: shared_backend_data._requested_graphics_api.clone(),
         }))
     }
 }
@@ -56,7 +56,7 @@ impl super::WinitCompatibleRenderer for GlutinFemtoVGRenderer {
         let (winit_window, opengl_context) = glcontext::OpenGLContext::new_context(
             window_attributes,
             active_event_loop,
-            self.requested_graphics_api.as_ref().map(TryInto::try_into).transpose()?,
+            self._requested_graphics_api.as_ref().map(TryInto::try_into).transpose()?,
         )?;
 
         #[cfg(target_arch = "wasm32")]
@@ -98,14 +98,14 @@ impl WGPUFemtoVGRenderer {
         shared_backend_data: &Rc<crate::SharedBackendData>,
     ) -> Result<Box<dyn WinitCompatibleRenderer>, PlatformError> {
         if !i_slint_core::graphics::wgpu_26::any_wgpu26_adapters_with_gpu(
-            shared_backend_data.requested_graphics_api.clone(),
+            shared_backend_data._requested_graphics_api.clone(),
         ) {
             return Err(PlatformError::from("WGPU: No GPU adapters found"));
         }
         Ok(Box::new(Self {
             renderer: FemtoVGRenderer::<i_slint_renderer_femtovg::wgpu::WGPUBackend>::new_suspended(
             ),
-            requested_graphics_api: shared_backend_data.requested_graphics_api.clone(),
+            requested_graphics_api: shared_backend_data._requested_graphics_api.clone(),
         }))
     }
 }

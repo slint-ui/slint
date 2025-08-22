@@ -20,7 +20,7 @@ impl WinitSkiaRenderer {
     ) -> Result<Box<dyn super::WinitCompatibleRenderer>, PlatformError> {
         Ok(Box::new(Self {
             renderer: SkiaRenderer::default(&shared_backend_data.skia_context),
-            requested_graphics_api: shared_backend_data.requested_graphics_api.clone(),
+            requested_graphics_api: shared_backend_data._requested_graphics_api.clone(),
         }))
     }
 
@@ -30,7 +30,7 @@ impl WinitSkiaRenderer {
     ) -> Result<Box<dyn super::WinitCompatibleRenderer>, PlatformError> {
         Ok(Box::new(Self {
             renderer: SkiaRenderer::default_software(&shared_backend_data.skia_context),
-            requested_graphics_api: shared_backend_data.requested_graphics_api.clone(),
+            requested_graphics_api: shared_backend_data._requested_graphics_api.clone(),
         }))
     }
 
@@ -40,7 +40,7 @@ impl WinitSkiaRenderer {
     ) -> Result<Box<dyn super::WinitCompatibleRenderer>, PlatformError> {
         Ok(Box::new(Self {
             renderer: SkiaRenderer::default_opengl(&shared_backend_data.skia_context),
-            requested_graphics_api: shared_backend_data.requested_graphics_api.clone(),
+            requested_graphics_api: shared_backend_data._requested_graphics_api.clone(),
         }))
     }
 
@@ -50,7 +50,7 @@ impl WinitSkiaRenderer {
     ) -> Result<Box<dyn super::WinitCompatibleRenderer>, PlatformError> {
         Ok(Box::new(Self {
             renderer: SkiaRenderer::default_metal(&shared_backend_data.skia_context),
-            requested_graphics_api: shared_backend_data.requested_graphics_api.clone(),
+            requested_graphics_api: shared_backend_data._requested_graphics_api.clone(),
         }))
     }
 
@@ -60,7 +60,7 @@ impl WinitSkiaRenderer {
     ) -> Result<Box<dyn super::WinitCompatibleRenderer>, PlatformError> {
         Ok(Box::new(Self {
             renderer: SkiaRenderer::default_vulkan(&shared_backend_data.skia_context),
-            requested_graphics_api: shared_backend_data.requested_graphics_api.clone(),
+            requested_graphics_api: shared_backend_data._requested_graphics_api.clone(),
         }))
     }
 
@@ -70,7 +70,7 @@ impl WinitSkiaRenderer {
     ) -> Result<Box<dyn super::WinitCompatibleRenderer>, PlatformError> {
         Ok(Box::new(Self {
             renderer: SkiaRenderer::default_direct3d(&shared_backend_data.skia_context),
-            requested_graphics_api: shared_backend_data.requested_graphics_api.clone(),
+            requested_graphics_api: shared_backend_data._requested_graphics_api.clone(),
         }))
     }
 
@@ -80,7 +80,7 @@ impl WinitSkiaRenderer {
     ) -> Result<Box<dyn super::WinitCompatibleRenderer>, PlatformError> {
         Ok(Box::new(Self {
             renderer: SkiaRenderer::default_wgpu_26(&shared_backend_data.skia_context),
-            requested_graphics_api: shared_backend_data.requested_graphics_api.clone(),
+            requested_graphics_api: shared_backend_data._requested_graphics_api.clone(),
         }))
     }
 
