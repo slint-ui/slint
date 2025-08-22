@@ -98,8 +98,13 @@ component SearchTextInput  {
             key_released(event) => {
                 root.key_released(event)
             }
-        }
 
+            init => {
+                if root.text.character_count > 0 {
+                    self.set_selection_offsets(root.text.character_count, root.text.character_count);
+                }
+            }
+        }
         if root.text == "" && root.placeholder != "" : MaterialText {
             width: 100%;
             height: 100%;
