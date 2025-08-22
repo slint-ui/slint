@@ -157,7 +157,7 @@ serde_json = { version = "1.0.96" }
 softbuffer = { version = "0.4.4", default-features = false }
 spin_on = { version = "0.1" }
 strum = { version = "0.27.1", default-features = false, features = ["derive"] }
-toml_edit = { version = "0.22.7" }
+toml_edit = { version = "0.23.0" }
 ttf-parser = { version = "0.25" }
 web-sys = { version = "0.3.72", default-features = false }
 smol_str = { version = "0.3.1" }
