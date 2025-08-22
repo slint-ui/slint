@@ -104,6 +104,7 @@ export component LineEdit {
                 show-password-image: @image-url("_visibility.svg");
                 hide-password-image: @image-url("_visibility_off.svg");
                 colorize: base.text-color;
+                show-password: base.input-type != InputType.password;
                 show-password-changed(show) => {
                     base.input-type = show ? InputType.text : root.input-type;
                     base.focus();
