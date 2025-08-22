@@ -2,8 +2,6 @@
 // SPDX-License-Identifier: MIT
 //! Board support for ESoPe-SLD-C-W-S3 board with display and touch controller support.
 
-#![no_std]
-
 extern crate alloc;
 
 // Import embedded_graphics_core types
@@ -75,6 +73,8 @@ const LCD_V_RES: u16 = 240;
 // Full-screen DMA constants
 const MAX_FRAME_BYTES: usize = 320 * 240 * 2;
 const MAX_NUM_DMA_DESC: usize = (MAX_FRAME_BYTES + CHUNK_SIZE - 1) / CHUNK_SIZE;
+
+esp_bootloader_esp_idf::esp_app_desc!();
 
 #[unsafe(link_section = ".dma")]
 static mut TX_DESCRIPTORS: [DmaDescriptor; MAX_NUM_DMA_DESC] =
