@@ -272,3 +272,15 @@ To compile and run the demo:
 ```sh
 CARGO_PROFILE_RELEASE_OPT_LEVEL=s cargo +esp run -p printerdemo_mcu --target xtensa-esp32s3-none-elf --no-default-features --features=mcu-board-support/m5stack-cores3 --release --config examples/mcu-board-support/m5stack_cores3/cargo-config.toml
 ```
+
+#### ESoPe SLD_C_W_S3
+
+The [ESoPE SLD_C_W_S3](https://esope.de/de/produkte/esope-plattform?view=article&id=95:pr-sld-c-w-s3-de&catid=11) PCB features an ESP32 S3,
+for use in combination with [Smartwin displays](https://shop.schukat.com/de/de/EUR/c/ESOP) from Schukat.
+
+To compile and run the demo:
+
+```sh
+CARGO_PROFILE_RELEASE_OPT_LEVEL=s cargo +esp run -p printerdemo_mcu --target xtensa-esp32s3-none-elf --no-default-features --features=mcu-board-support/esope-sld-c-w-s3 --release --config examples/mcu-board-support/esope_sld_c_w_s3/cargo-config.toml
+```
+
