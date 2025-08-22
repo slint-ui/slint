@@ -604,7 +604,10 @@ pub mod winit_030 {
     //! and [`BackendSelector::with_winit_window_attributes_hook()`](crate::BackendSelector::with_winit_window_attributes_hook()).
 
     pub use i_slint_backend_winit::{
-        winit, CustomApplicationHandler, EventLoopBuilder, SlintEvent, WinitWindowAccessor,
-        WinitWindowEventResult,
+        winit, CustomApplicationHandler, EventLoopBuilder, EventResult, SlintEvent,
+        WinitWindowAccessor,
     };
+
+    #[deprecated(note = "Renamed to `EventResult`")]
+    pub type WinitWindowEventResult = EventResult;
 }
