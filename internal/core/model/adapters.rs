@@ -6,95 +6,127 @@
 use super::*;
 
 #[cfg(test)]
-#[derive(Default)]
-struct TestView {
-    // Track the parameters reported by the model (row counts, indices, etc.).
-    // The last field in the tuple is the row size the model reports at the time
-    // of callback
-    changed_rows: RefCell<Vec<usize>>,
-    added_rows: RefCell<Vec<(usize, usize)>>,
-    removed_rows: RefCell<Vec<(usize, usize)>>,
-    reset: RefCell<usize>,
-}
+mod tests_helper {
+    use super::*;
 
-#[cfg(test)]
-impl TestView {
-    fn clear(&self) {
-        self.changed_rows.borrow_mut().clear();
-        self.added_rows.borrow_mut().clear();
-        self.removed_rows.borrow_mut().clear();
-    }
-}
-
-#[cfg(test)]
-impl ModelChangeListener for TestView {
-    fn row_changed(self: Pin<&Self>, row: usize) {
-        self.changed_rows.borrow_mut().push(row);
+    #[derive(Default)]
+    pub struct TestView {
+        // Track the parameters reported by the model (row counts, indices, etc.).
+        // The last field in the tuple is the row size the model reports at the time
+        // of callback
+        pub changed_rows: RefCell<Vec<usize>>,
+        pub added_rows: RefCell<Vec<(usize, usize)>>,
+        pub removed_rows: RefCell<Vec<(usize, usize)>>,
+        pub reset: RefCell<usize>,
     }
 
-    fn row_added(self: Pin<&Self>, index: usize, count: usize) {
-        self.added_rows.borrow_mut().push((index, count));
-    }
-
-    fn row_removed(self: Pin<&Self>, index: usize, count: usize) {
-        self.removed_rows.borrow_mut().push((index, count));
-    }
-    fn reset(self: Pin<&Self>) {
-        *self.reset.borrow_mut() += 1;
-    }
-}
-
-#[cfg(test)]
-struct ModelChecker<Data: PartialEq + core::fmt::Debug + 'static> {
-    model: Rc<dyn Model<Data = Data>>,
-    rows_copy: RefCell<Vec<Data>>,
-}
-
-#[cfg(test)]
-impl<Data: PartialEq + core::fmt::Debug + 'static> ModelChangeListener for ModelChecker<Data> {
-    fn row_changed(self: Pin<&Self>, row: usize) {
-        self.rows_copy.borrow_mut()[row] = self.model.row_data(row).unwrap();
-    }
-
-    fn row_added(self: Pin<&Self>, index: usize, count: usize) {
-        let mut copy = self.rows_copy.borrow_mut();
-        for row in index..index + count {
-            copy.insert(row, self.model.row_data(row).unwrap());
+    impl TestView {
+        pub fn clear(&self) {
+            self.changed_rows.borrow_mut().clear();
+            self.added_rows.borrow_mut().clear();
+            self.removed_rows.borrow_mut().clear();
         }
     }
 
-    fn row_removed(self: Pin<&Self>, index: usize, count: usize) {
-        self.rows_copy.borrow_mut().drain(index..index + count);
-    }
-    fn reset(self: Pin<&Self>) {
-        *self.rows_copy.borrow_mut() = ModelRc::from(self.model.clone()).iter().collect()
-    }
-}
+    impl ModelChangeListener for TestView {
+        fn row_changed(self: Pin<&Self>, row: usize) {
+            self.changed_rows.borrow_mut().push(row);
+        }
 
-#[cfg(test)]
-impl<Data: PartialEq + core::fmt::Debug + 'static> ModelChecker<Data> {
-    pub fn new(
-        model: Rc<impl Model<Data = Data> + 'static>,
-    ) -> Pin<Box<ModelChangeListenerContainer<Self>>> {
-        let s = Self { rows_copy: RefCell::new(model.iter().collect()), model: model.clone() };
-        let s = Box::pin(ModelChangeListenerContainer::new(s));
-        model.model_tracker().attach_peer(s.as_ref().model_peer());
-        s
+        fn row_added(self: Pin<&Self>, index: usize, count: usize) {
+            self.added_rows.borrow_mut().push((index, count));
+        }
+
+        fn row_removed(self: Pin<&Self>, index: usize, count: usize) {
+            self.removed_rows.borrow_mut().push((index, count));
+        }
+        fn reset(self: Pin<&Self>) {
+            *self.reset.borrow_mut() += 1;
+        }
     }
 
-    #[track_caller]
-    pub fn check(&self) {
-        assert_eq!(
-            *self.rows_copy.borrow(),
-            ModelRc::from(self.model.clone()).iter().collect::<Vec<_>>()
-        );
+    pub struct ModelChecker<Data: PartialEq + core::fmt::Debug + 'static> {
+        pub model: Rc<dyn Model<Data = Data>>,
+        pub rows_copy: RefCell<Vec<Data>>,
     }
-}
 
-#[cfg(test)]
-impl<Data: PartialEq + core::fmt::Debug + 'static> Drop for ModelChecker<Data> {
-    fn drop(&mut self) {
-        self.check();
+    impl<Data: PartialEq + core::fmt::Debug + 'static> ModelChangeListener for ModelChecker<Data> {
+        fn row_changed(self: Pin<&Self>, row: usize) {
+            self.rows_copy.borrow_mut()[row] = self.model.row_data(row).unwrap();
+        }
+
+        fn row_added(self: Pin<&Self>, index: usize, count: usize) {
+            let mut copy = self.rows_copy.borrow_mut();
+            for row in index..index + count {
+                copy.insert(row, self.model.row_data(row).unwrap());
+            }
+        }
+
+        fn row_removed(self: Pin<&Self>, index: usize, count: usize) {
+            self.rows_copy.borrow_mut().drain(index..index + count);
+        }
+        fn reset(self: Pin<&Self>) {
+            *self.rows_copy.borrow_mut() = ModelRc::from(self.model.clone()).iter().collect()
+        }
+    }
+
+    impl<Data: PartialEq + core::fmt::Debug + 'static> ModelChecker<Data> {
+        pub fn new(
+            model: Rc<impl Model<Data = Data> + 'static>,
+        ) -> Pin<Box<ModelChangeListenerContainer<Self>>> {
+            let s = Self { rows_copy: RefCell::new(model.iter().collect()), model: model.clone() };
+            let s = Box::pin(ModelChangeListenerContainer::new(s));
+            model.model_tracker().attach_peer(s.as_ref().model_peer());
+            s
+        }
+
+        #[track_caller]
+        pub fn check(&self) {
+            assert_eq!(
+                *self.rows_copy.borrow(),
+                ModelRc::from(self.model.clone()).iter().collect::<Vec<_>>()
+            );
+        }
+    }
+
+    impl<Data: PartialEq + core::fmt::Debug + 'static> Drop for ModelChecker<Data> {
+        fn drop(&mut self) {
+            self.check();
+        }
+    }
+
+    #[derive(Default)]
+    pub struct BrokenModel<T> {
+        pub data: RefCell<Vec<Option<T>>>,
+        pub notify: ModelNotify,
+    }
+
+    #[cfg(test)]
+    impl<T: Clone> Model for BrokenModel<T> {
+        type Data = T;
+
+        fn row_count(&self) -> usize {
+            self.data.borrow().len()
+        }
+
+        fn row_data(&self, row: usize) -> Option<Self::Data> {
+            self.data.borrow().get(row).and_then(|x| x.clone())
+        }
+
+        fn set_row_data(&self, row: usize, data: Self::Data) {
+            self.data.borrow_mut()[row] = Some(data);
+            self.notify.row_changed(row);
+        }
+
+        fn model_tracker(&self) -> &dyn ModelTracker {
+            &self.notify
+        }
+    }
+
+    impl<T> BrokenModel<T> {
+        pub fn new(data: Vec<Option<T>>) -> Rc<Self> {
+            Rc::new(Self { data: RefCell::new(data), notify: Default::default() })
+        }
     }
 }
 
@@ -263,11 +295,10 @@ where
 {
     fn build_mapping_vec(&self) {
         let mut mapping = self.mapping.borrow_mut();
-        *mapping = self
-            .wrapped_model
-            .iter()
-            .enumerate()
-            .filter_map(|(i, e)| (self.filter_function)(&e).then_some(i))
+        *mapping = (0..self.wrapped_model.row_count())
+            .filter_map(|i| {
+                self.wrapped_model.row_data(i).and_then(|e| (self.filter_function)(&e).then_some(i))
+            })
             .collect();
     }
 }
@@ -286,7 +317,7 @@ where
         };
 
         let should_be_contained =
-            (self.filter_function)(&self.wrapped_model.row_data(row).unwrap());
+            self.wrapped_model.row_data(row).is_some_and(|data| (self.filter_function)(&data));
 
         if is_contained && should_be_contained {
             drop(mapping);
@@ -495,6 +526,7 @@ where
 
 #[test]
 fn test_filter_model() {
+    use tests_helper::*;
     let wrapped_rc = Rc::new(VecModel::from(std::vec![1, 2, 3, 4, 5, 6]));
     let filter = Rc::new(FilterModel::new(wrapped_rc.clone(), |x| x % 2 == 0));
 
@@ -535,6 +567,7 @@ fn test_filter_model() {
 
 #[test]
 fn test_filter_model_source_model() {
+    use tests_helper::*;
     let wrapped_rc = Rc::new(VecModel::from(std::vec![1, 2, 3, 4]));
     let model = Rc::new(FilterModel::new(wrapped_rc.clone(), |x| x % 2 == 0));
 
@@ -551,6 +584,28 @@ fn test_filter_model_source_model() {
     for (i, v) in expected.iter().enumerate() {
         assert_eq!(model.row_data(i), Some(*v), "Expected {v} at index {i}");
     }
+}
+
+#[test]
+fn test_filter_model_broken_model() {
+    use tests_helper::*;
+    let wrapped_rc = BrokenModel::new(std::vec![Some(1), Some(2), None, Some(3), None, Some(4)]);
+    let model = Rc::new(FilterModel::new(wrapped_rc.clone(), |x| x % 2 == 0));
+
+    assert_eq!(model.row_count(), 2);
+    assert_eq!(model.row_data(0), Some(2));
+    assert_eq!(model.row_data(1), Some(4));
+
+    wrapped_rc.notify.row_removed(1, 2);
+    wrapped_rc.notify.row_added(1, 2);
+    wrapped_rc.data.borrow_mut()[1] = None;
+    wrapped_rc.data.borrow_mut()[2] = Some(8);
+    wrapped_rc.notify.row_changed(1);
+    wrapped_rc.notify.row_changed(2);
+
+    assert_eq!(model.row_count(), 2);
+    assert_eq!(model.row_data(0), Some(8));
+    assert_eq!(model.row_data(1), Some(4));
 }
 
 pub trait SortHelper<D> {
@@ -605,10 +660,13 @@ where
         mapping.clear();
         mapping.extend(0..self.wrapped_model.row_count());
         mapping.sort_by(|lhs, rhs| {
-            self.sort_helper.borrow_mut().cmp(
-                &self.wrapped_model.row_data(*lhs).unwrap(),
-                &self.wrapped_model.row_data(*rhs).unwrap(),
-            )
+            let Some(lhs) = self.wrapped_model.row_data(*lhs) else {
+                return core::cmp::Ordering::Greater;
+            };
+            let Some(rhs) = self.wrapped_model.row_data(*rhs) else {
+                return core::cmp::Ordering::Less;
+            };
+            self.sort_helper.borrow_mut().cmp(&lhs, &rhs)
         });
 
         self.sorted_rows_dirty.set(false);
@@ -630,13 +688,16 @@ where
         let removed_index = mapping.iter().position(|r| *r == row).unwrap();
         mapping.remove(removed_index);
 
-        let changed_data = self.wrapped_model.row_data(row).unwrap();
-        let insertion_index = mapping.partition_point(|existing_row| {
-            self.sort_helper
-                .borrow_mut()
-                .cmp(&self.wrapped_model.row_data(*existing_row).unwrap(), &changed_data)
-                == core::cmp::Ordering::Less
-        });
+        let insertion_index = if let Some(changed_data) = self.wrapped_model.row_data(row) {
+            mapping.partition_point(|existing_row| {
+                self.wrapped_model.row_data(*existing_row).is_some_and(|existing| {
+                    self.sort_helper.borrow_mut().cmp(&existing, &changed_data)
+                        == core::cmp::Ordering::Less
+                })
+            })
+        } else {
+            mapping.len()
+        };
 
         mapping.insert(insertion_index, row);
 
@@ -668,14 +729,16 @@ where
         }
 
         for row in index..(index + count) {
-            let added_data = self.wrapped_model.row_data(row).unwrap();
-            let insertion_index = self.mapping.borrow().partition_point(|existing_row| {
-                self.sort_helper
-                    .borrow_mut()
-                    .cmp(&self.wrapped_model.row_data(*existing_row).unwrap(), &added_data)
-                    == core::cmp::Ordering::Less
-            });
-
+            let insertion_index = if let Some(added_data) = self.wrapped_model.row_data(row) {
+                self.mapping.borrow().partition_point(|existing_row| {
+                    self.wrapped_model.row_data(*existing_row).is_some_and(|existing| {
+                        self.sort_helper.borrow_mut().cmp(&existing, &added_data)
+                            == core::cmp::Ordering::Less
+                    })
+                })
+            } else {
+                self.mapping.borrow().len()
+            };
             self.mapping.borrow_mut().insert(insertion_index, row);
             self.notify.row_added(insertion_index, 1)
         }
@@ -934,6 +997,7 @@ where
 mod sort_tests {
     use super::*;
     use std::vec;
+    use tests_helper::*;
 
     #[test]
     fn test_sorted_model_insert() {
@@ -1067,6 +1131,48 @@ mod sort_tests {
         for (i, v) in expected.iter().enumerate() {
             assert_eq!(model.row_data(i), Some(*v), "Expected {v} at index {i}");
         }
+    }
+
+    #[test]
+    fn test_sorted_broken_model() {
+        let wrapped_rc = BrokenModel::new(std::vec![
+            Some("1"),
+            Some("2"),
+            None,
+            Some("4"),
+            None,
+            Some("3"),
+            Some("0"),
+            Some("5")
+        ]);
+        let model = Rc::new(SortModel::new_ascending(wrapped_rc.clone()));
+
+        assert_eq!(model.row_count(), 8);
+        assert_eq!(model.row_data(0), Some("0"));
+        assert_eq!(model.row_data(1), Some("1"));
+        assert_eq!(model.row_data(2), Some("2"));
+        assert_eq!(model.row_data(3), Some("3"));
+        assert_eq!(model.row_data(4), Some("4"));
+        assert_eq!(model.row_data(5), Some("5"));
+        assert_eq!(model.row_data(6), None);
+        assert_eq!(model.row_data(7), None);
+
+        wrapped_rc.notify.row_removed(2, 2);
+        wrapped_rc.notify.row_added(2, 2);
+        wrapped_rc.data.borrow_mut()[1] = None;
+        wrapped_rc.notify.row_changed(1);
+        wrapped_rc.data.borrow_mut()[2] = Some("a");
+        wrapped_rc.notify.row_changed(2);
+
+        assert_eq!(model.row_count(), 8);
+        assert_eq!(model.row_data(0), Some("0"));
+        assert_eq!(model.row_data(1), Some("1"));
+        assert_eq!(model.row_data(2), Some("3"));
+        assert_eq!(model.row_data(3), Some("4"));
+        assert_eq!(model.row_data(4), Some("5"));
+        assert_eq!(model.row_data(5), Some("a"));
+        assert_eq!(model.row_data(6), None);
+        assert_eq!(model.row_data(7), None);
     }
 }
 
@@ -1221,6 +1327,7 @@ where
 mod reversed_tests {
     use super::*;
     use std::vec;
+    use tests_helper::*;
 
     #[track_caller]
     fn check_content(model: &ReverseModel<Rc<VecModel<i32>>>, expected: &[i32]) {
@@ -1332,11 +1439,26 @@ mod reversed_tests {
 
         check_content(&model, &[5, 4, 3, 2, 1]);
     }
+
+    #[test]
+    fn test_reversed_broken_model() {
+        let wrapped_rc = BrokenModel::new(std::vec![Some("1"), Some("2"), None, Some("4")]);
+        let model = Rc::new(ReverseModel::new(wrapped_rc.clone()));
+
+        wrapped_rc.notify.row_added(1, 3);
+
+        assert_eq!(model.row_count(), 4);
+        assert_eq!(model.row_data(0), Some("4"));
+        assert_eq!(model.row_data(1), None);
+        assert_eq!(model.row_data(2), Some("2"));
+        assert_eq!(model.row_data(3), Some("1"));
+    }
 }
 
 #[test]
 fn test_long_chain_integrity() {
     use alloc::string::ToString;
+    use tests_helper::*;
     let origin_model = Rc::new(VecModel::from((0..100).collect::<Vec<_>>()));
     let checker1 = ModelChecker::new(origin_model.clone());
     let fizzbuzz = Rc::new(MapModel::new(origin_model.clone(), |number| {
