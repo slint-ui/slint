@@ -20,7 +20,7 @@ name = "test-driver-nodejs"
 test_driver_lib = { path = "../driverlib" }
 # Require `artifact`  dependencies tracked by rust RFC 3028
 #slint-node = { path = "../../../api/node", artifact = ["cdylib"] }
-which = "7.0"
+which = "8.0"
 tempfile = "3.2"
 
 [build-dependencies]
