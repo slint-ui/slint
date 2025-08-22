@@ -609,5 +609,6 @@ pub mod winit_030 {
     };
 
     #[deprecated(note = "Renamed to `EventResult`")]
+    /// Deprecated alias to [`EventResult`]
     pub type WinitWindowEventResult = EventResult;
 }
