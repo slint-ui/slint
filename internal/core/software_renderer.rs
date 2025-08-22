@@ -1832,7 +1832,7 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                                 src_rect.size().cast(),
                             ),
                         ),
-                        colorize: (colorize.alpha() > 0).then_some(colorize),
+                        colorize: (color.alpha() > 0).then_some(color),
                         alpha,
                         dst_x: target_rect.origin.x as _,
                         dst_y: target_rect.origin.y as _,
