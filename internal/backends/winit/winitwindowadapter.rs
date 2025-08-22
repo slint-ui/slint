@@ -555,6 +555,9 @@ impl WinitWindowAdapter {
                 *winit_window_or_none = WinitWindowOrNone::None(attributes.into());
 
                 if let Some(last_instance) = Arc::into_inner(last_window_rc) {
+                    // Note: Don't register the window in inactive_windows for re-creation later, as creating the window
+                    // on wayland implies making it visible. Unfortunately, winit won't allow creating a window on wayland
+                    // that's not visible.
                     self.shared_backend_data.unregister_window(Some(last_instance.id()));
                     drop(last_instance);
                 } else {
@@ -881,8 +884,11 @@ impl WinitWindowAdapter {
             let recreating_window = matches!(visibility, WindowVisibility::Shown);
 
             let Some(winit_window) = self.winit_window() else {
-                // Can't really show it on the screen, safe it in the attributes and try again later.
+                // Can't really show it on the screen, safe it in the attributes and try again later
+                // by registering it for activation when we can.
                 self.winit_window_or_none.borrow().set_visible(true);
+                self.shared_backend_data
+                    .register_inactive_window((self.self_weak.upgrade().unwrap()) as _);
                 return Ok(());
             };
 
@@ -964,6 +970,9 @@ impl WinitWindowAdapter {
                 }) || std::env::var_os("SLINT_DESTROY_WINDOW_ON_HIDE").is_some()
             }) {
                 self.suspend()?;
+                // Note: Don't register the window in inactive_windows for re-creation later, as creating the window
+                // on wayland implies making it visible. Unfortunately, winit won't allow creating a window on wayland
+                // that's not visible.
             } else {
                 self.winit_window_or_none.borrow().set_visible(false);
             }
