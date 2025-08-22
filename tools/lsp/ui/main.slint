@@ -177,7 +177,19 @@ export component PreviewUi inherits Window {
                 }
             }
         }
-        if Api.show-preview-ui: Rectangle {
+        if Api.show-preview-ui: FocusScope {
+            key-pressed(event) => {
+                if  Api.undo-enabled && event.modifiers.control && event.text == "z" {
+                    Api.undo();
+                    return accept;
+                } else if Api.redo-enabled && event.modifiers.control &&
+                    ((Platform.os != OperatingSystemType.windows && event.text == "Z") || (Platform.os == OperatingSystemType.windows && event.text == "y")) {
+                    Api.redo();
+                    return accept;
+                }
+                reject
+            }
+
             VerticalLayout {
                 header-view := HeaderView {
                     vertical-stretch: 0;
