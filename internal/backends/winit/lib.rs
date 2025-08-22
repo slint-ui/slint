@@ -554,7 +554,7 @@ impl SharedBackendData {
     pub fn register_inactive_window(&self, window: Rc<WinitWindowAdapter>) {
         let window = Rc::downgrade(&window);
         let mut inactive_windows = self.inactive_windows.borrow_mut();
-        if inactive_windows.iter().position(|w| Weak::ptr_eq(w, &window)).is_none() {
+        if !inactive_windows.iter().any(|w| Weak::ptr_eq(w, &window)) {
             inactive_windows.push(window);
         }
     }
