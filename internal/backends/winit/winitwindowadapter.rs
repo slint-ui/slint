@@ -35,7 +35,7 @@ use corelib::items::{ItemRc, ItemRef};
 
 #[cfg(any(enable_accesskit, muda))]
 use crate::SlintEvent;
-use crate::{SharedBackendData, WinitWindowEventResult};
+use crate::{EventResult, SharedBackendData};
 use corelib::api::PhysicalSize;
 use corelib::layout::Orientation;
 use corelib::lengths::LogicalLength;
@@ -343,14 +343,7 @@ pub struct WinitWindowAdapter {
     event_loop_proxy: EventLoopProxy<SlintEvent>,
 
     pub(crate) window_event_filter: Cell<
-        Option<
-            Box<
-                dyn FnMut(
-                    &corelib::api::Window,
-                    &winit::event::WindowEvent,
-                ) -> WinitWindowEventResult,
-            >,
-        >,
+        Option<Box<dyn FnMut(&corelib::api::Window, &winit::event::WindowEvent) -> EventResult>>,
     >,
 
     winit_window_or_none: RefCell<WinitWindowOrNone>,

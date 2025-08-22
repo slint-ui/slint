@@ -47,7 +47,7 @@ pub type EventLoopBuilder = winit::event_loop::EventLoopBuilder<SlintEvent>;
 
 /// Returned by callbacks passed to [`Window::on_winit_window_event`](WinitWindowAccessor::on_winit_window_event)
 /// to determine if winit events should propagate to the Slint event loop.
-pub enum WinitWindowEventResult {
+pub enum EventResult {
     /// The winit event should propagate normally.
     Propagate,
     /// The winit event shouldn't be processed further.
@@ -179,15 +179,15 @@ pub mod native_widgets {}
 /// Use this trait to intercept events from winit.
 ///
 /// It imitates [`winit::application::ApplicationHandler`] with two changes:
-///   - All functions are invoked before Slint sees them. Use the [`WinitWindowEventResult`] return value to
+///   - All functions are invoked before Slint sees them. Use the [`EventResult`] return value to
 ///     optionally prevent Slint from seeing the event.
 ///   - The [`Self::window_event()`] function has additional parameters to provide access to the Slint Window and
 ///     Winit window, if applicable.
 #[allow(unused_variables)]
 pub trait CustomApplicationHandler {
     /// Re-implement to intercept the [`ApplicationHandler::resumed()`](winit::application::ApplicationHandler::resumed()) event.
-    fn resumed(&mut self, _event_loop: &ActiveEventLoop) -> WinitWindowEventResult {
-        WinitWindowEventResult::Propagate
+    fn resumed(&mut self, _event_loop: &ActiveEventLoop) -> EventResult {
+        EventResult::Propagate
     }
 
     /// Re-implement to intercept the [`ApplicationHandler::window_event()`](winit::application::ApplicationHandler::window_event()) event.
@@ -198,8 +198,8 @@ pub trait CustomApplicationHandler {
         winit_window: Option<&winit::window::Window>,
         slint_window: Option<&i_slint_core::api::Window>,
         event: &winit::event::WindowEvent,
-    ) -> WinitWindowEventResult {
-        WinitWindowEventResult::Propagate
+    ) -> EventResult {
+        EventResult::Propagate
     }
 
     /// Re-implement to intercept the [`ApplicationHandler::new_events()`](winit::application::ApplicationHandler::new_events()) event.
@@ -207,8 +207,8 @@ pub trait CustomApplicationHandler {
         &mut self,
         event_loop: &ActiveEventLoop,
         cause: winit::event::StartCause,
-    ) -> WinitWindowEventResult {
-        WinitWindowEventResult::Propagate
+    ) -> EventResult {
+        EventResult::Propagate
     }
 
     /// Re-implement to intercept the [`ApplicationHandler::device_event()`](winit::application::ApplicationHandler::device_event()) event.
@@ -217,28 +217,28 @@ pub trait CustomApplicationHandler {
         event_loop: &ActiveEventLoop,
         device_id: winit::event::DeviceId,
         event: winit::event::DeviceEvent,
-    ) -> WinitWindowEventResult {
-        WinitWindowEventResult::Propagate
+    ) -> EventResult {
+        EventResult::Propagate
     }
 
     /// Re-implement to intercept the [`ApplicationHandler::about_to_wait()`](winit::application::ApplicationHandler::about_to_wait()) event.
-    fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) -> WinitWindowEventResult {
-        WinitWindowEventResult::Propagate
+    fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) -> EventResult {
+        EventResult::Propagate
     }
 
     /// Re-implement to intercept the [`ApplicationHandler::suspended()`](winit::application::ApplicationHandler::suspended()) event.
-    fn suspended(&mut self, event_loop: &ActiveEventLoop) -> WinitWindowEventResult {
-        WinitWindowEventResult::Propagate
+    fn suspended(&mut self, event_loop: &ActiveEventLoop) -> EventResult {
+        EventResult::Propagate
     }
 
     /// Re-implement to intercept the [`ApplicationHandler::exiting()`](winit::application::ApplicationHandler::exiting()) event.
-    fn exiting(&mut self, event_loop: &ActiveEventLoop) -> WinitWindowEventResult {
-        WinitWindowEventResult::Propagate
+    fn exiting(&mut self, event_loop: &ActiveEventLoop) -> EventResult {
+        EventResult::Propagate
     }
 
     /// Re-implement to intercept the [`ApplicationHandler::memory_warning()`](winit::application::ApplicationHandler::memory_warning()) event.
-    fn memory_warning(&mut self, event_loop: &ActiveEventLoop) -> WinitWindowEventResult {
-        WinitWindowEventResult::Propagate
+    fn memory_warning(&mut self, event_loop: &ActiveEventLoop) -> EventResult {
+        EventResult::Propagate
     }
 }
 
@@ -857,7 +857,7 @@ pub trait WinitWindowAccessor: private::WinitWindowAccessorSealed {
     /// If this window [is not backed by winit](WinitWindowAccessor::has_winit_window), this function is a no-op.
     fn on_winit_window_event(
         &self,
-        callback: impl FnMut(&i_slint_core::api::Window, &winit::event::WindowEvent) -> WinitWindowEventResult
+        callback: impl FnMut(&i_slint_core::api::Window, &winit::event::WindowEvent) -> EventResult
             + 'static,
     );
 
@@ -948,7 +948,7 @@ impl WinitWindowAccessor for i_slint_core::api::Window {
 
     fn on_winit_window_event(
         &self,
-        mut callback: impl FnMut(&i_slint_core::api::Window, &winit::event::WindowEvent) -> WinitWindowEventResult
+        mut callback: impl FnMut(&i_slint_core::api::Window, &winit::event::WindowEvent) -> EventResult
             + 'static,
     ) {
         if let Some(adapter) = i_slint_core::window::WindowInner::from_pub(self)
