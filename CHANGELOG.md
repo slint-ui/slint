@@ -10,6 +10,7 @@ All notable changes to this project are documented in this file.
  - winit: Fixed the maximize window not being disabled for fixed-size windows
  - winit: Added support for timer based frame throttling (#8826)
  - winit: Added support for custom event hook (`with_winit_custom_application_handler`)
+ - winit: Fall back to software rendering if there are no GPU-backed WGPU adapters (#9164)
  - Fixed Windows native menu bar in fullscreen mode
  - Switched from WGPU24 to WGPU26
  - Fixed default-font-size not working with PopupWindow
@@ -26,18 +27,21 @@ All notable changes to this project are documented in this file.
 
  - Callbacks handler no longer need curly-braces. Extra semi-colon is no longer an error. (#8401)
  - Added local variable with `let` (#2752)
- - Added icon property to MenuItem and Menu
+ - Added `icon`, `checkable`, and `checked` properties to MenuItem
+ - `MenuBar` can now be hidden by placing it in a `if`
+ - Fixed menu separator not always being visible
  - Flickable forward wheel event in a orthogonal direction to their parent
  - Added a compiler warning when using `padding` outside of layout (#6288)
  - Added stop(), start(), and restart() methods to Timer (#8821)
  - Added `focus-policy` property to `FocusScope` (#8940)
  - `Dialog` and `Window` that aren't top-level now draw their background
- - Fixed menu separator not always being visible
  - `FocusScope`: Added `capture_key_pressed` and `capture_key_released` callbacks
  - Added support for `@conic-gradient` (#9021)
  - Path: Fixed changing `commands` or path sub-elements in a component that inherit from `Path`
  - Path: Fix settings `commands` from states (#4080)
- - `MenuBar` can now be hidden by placing it in a `if`
+ - Added `Key.Back` for the back key on android.
+ - Added an `Easing` namespace to reference easing curve outside of `easing` properties.
+ - `focus()` can now be called on invisible items.
 
 ### Widgets
 
@@ -61,6 +65,7 @@ All notable changes to this project are documented in this file.
  - Support for live-reload with the `SLINT_FEATURE_LIVE_RELOAD` feature and `SLINT_LIVE_RELOAD` env variable
  - `SLINT_FEATURE_RENDERER_FEMTOVG_WGPU` is no longer enabled by default
  - esp-idf: `slint::invoke_from_event_loop` can now be invoked before starting the event loop.
+ - Fixed Windows AArch64 support
 
 ### Node.js API
 
