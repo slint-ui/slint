@@ -157,6 +157,7 @@ jobs:
                   target: aarch64-apple-ios-sim
             - run: brew install xcodegen
             - run: xcodegen -s ios-project.yml
+            - run: sudo xcode-select --switch /Applications/Xcode_16.4.app/Contents/Developer            
               working-directory: ${{ matrix.demo }}
             - name: "Boot Simulator (to ensure also that xcodebuild -destination works)"
               run: |
