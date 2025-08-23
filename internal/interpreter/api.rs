@@ -11,6 +11,7 @@ use i_slint_core::model::{Model, ModelExt, ModelRc};
 use i_slint_core::window::WindowInner;
 use i_slint_core::{PathData, SharedVector};
 use smol_str::SmolStr;
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::future::Future;
 use std::path::{Path, PathBuf};
@@ -28,6 +29,7 @@ pub use i_slint_core::graphics::{
 use i_slint_core::items::*;
 
 use crate::dynamic_item_tree::{ErasedItemTreeBox, WindowOptions};
+use crate::eval::EvalLocalContext;
 
 /// This enum represents the different public variants of the [`Value`] enum, without
 /// the contained values.
@@ -128,6 +130,8 @@ pub enum Value {
     #[doc(hidden)]
     /// Correspond to the `component-factory` type in .slint
     ComponentFactory(ComponentFactory) = 12,
+    /// A predicate
+    Predicate(Rc<RefCell<dyn FnMut(&mut EvalLocalContext, &Value) -> Value>>) = 13,
 }
 
 impl Value {
@@ -173,6 +177,7 @@ impl PartialEq for Value {
             Value::ComponentFactory(lhs) => {
                 matches!(other, Value::ComponentFactory(rhs) if lhs == rhs)
             }
+            Value::Predicate(p) => matches!(other, Value::Predicate(q) if Rc::ptr_eq(p, q)),
         }
     }
 }
@@ -197,6 +202,7 @@ impl std::fmt::Debug for Value {
             Value::EnumerationValue(n, v) => write!(f, "Value::EnumerationValue({n:?}, {v:?})"),
             Value::LayoutCache(v) => write!(f, "Value::LayoutCache({v:?})"),
             Value::ComponentFactory(factory) => write!(f, "Value::ComponentFactory({factory:?})"),
+            Value::Predicate(_) => write!(f, "Value::Predicate(...)"),
         }
     }
 }
@@ -239,6 +245,7 @@ declare_value_conversion!(PathData => [PathData]);
 declare_value_conversion!(EasingCurve => [i_slint_core::animations::EasingCurve]);
 declare_value_conversion!(LayoutCache => [SharedVector<f32>] );
 declare_value_conversion!(ComponentFactory => [ComponentFactory] );
+declare_value_conversion!(Predicate => [Rc<RefCell<dyn FnMut(&mut EvalLocalContext, &Value) -> Value>>]);
 
 /// Implement From / TryFrom for Value that convert a `struct` to/from `Value::Struct`
 macro_rules! declare_value_struct_conversion {
