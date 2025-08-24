@@ -33,6 +33,18 @@ export component TestCase inherits Rectangle {
                 background: blue;
             }
         }
+
+        ti1 := TextInput {
+            focus-policy: FocusPolicy.tab-and-click;
+        }
+
+        ti2 := TextInput {
+            focus-policy: FocusPolicy.tab-only;
+        }
+
+        ti3 := TextInput {
+            focus-policy: FocusPolicy.click-only;
+        }
     }
 
     popup := PopupWindow { }
@@ -53,9 +65,30 @@ export component TestCase inherits Rectangle {
         fs3.focus();
     }
 
+    public function focus-ti1() {
+        ti1.focus();
+    }
+
+    public function focus-ti2() {
+        ti2.focus()
+    }
+
+    public function focus-ti3() {
+        ti3.focus()
+    }
+
     out property <bool> fs1-has-focus: fs1.has-focus;
     out property <bool> fs2-has-focus: fs2.has-focus;
     out property <bool> fs3-has-focus: fs3.has-focus;
+    out property <bool> ti1-has-focus: ti1.has-focus;
+    out property <bool> ti2-has-focus: ti2.has-focus;
+    out property <bool> ti3-has-focus: ti3.has-focus;
+    out property <length> fs1-y: fs1.absolute-position.y;
+    out property <length> fs2-y: fs2.absolute-position.y;
+    out property <length> fs3-y: fs3.absolute-position.y;
+    out property <length> ti1-y: ti1.absolute-position.y;
+    out property <length> ti2-y: ti2.absolute-position.y;
+    out property <length> ti3-y: ti3.absolute-position.y;
 }
 
 /*
@@ -67,42 +100,108 @@ slint_testing::send_keyboard_string_sequence(&instance, "\t");
 assert!(instance.get_fs1_has_focus());
 assert!(!instance.get_fs2_has_focus());
 assert!(!instance.get_fs3_has_focus());
+assert!(!instance.get_ti1_has_focus());
+assert!(!instance.get_ti2_has_focus());
+assert!(!instance.get_ti3_has_focus());
 
 // tab to fs2
 slint_testing::send_keyboard_string_sequence(&instance, "\t");
 assert!(!instance.get_fs1_has_focus());
 assert!(instance.get_fs2_has_focus());
 assert!(!instance.get_fs3_has_focus());
+assert!(!instance.get_ti1_has_focus());
+assert!(!instance.get_ti2_has_focus());
+assert!(!instance.get_ti3_has_focus());
 
-// skip fs3 and tab back to fs1
+// skip fs3 and tab to ti1
+slint_testing::send_keyboard_string_sequence(&instance, "\t");
+assert!(!instance.get_fs1_has_focus());
+assert!(!instance.get_fs2_has_focus());
+assert!(!instance.get_fs3_has_focus());
+assert!(instance.get_ti1_has_focus());
+assert!(!instance.get_ti2_has_focus());
+assert!(!instance.get_ti3_has_focus());
+
+// tab to ti2
+slint_testing::send_keyboard_string_sequence(&instance, "\t");
+assert!(!instance.get_fs1_has_focus());
+assert!(!instance.get_fs2_has_focus());
+assert!(!instance.get_fs3_has_focus());
+assert!(!instance.get_ti1_has_focus());
+assert!(instance.get_ti2_has_focus());
+assert!(!instance.get_ti3_has_focus());
+
+// skip ti3 and tab to fs1
 slint_testing::send_keyboard_string_sequence(&instance, "\t");
 assert!(instance.get_fs1_has_focus());
 assert!(!instance.get_fs2_has_focus());
 assert!(!instance.get_fs3_has_focus());
+assert!(!instance.get_ti1_has_focus());
+assert!(!instance.get_ti2_has_focus());
+assert!(!instance.get_ti3_has_focus());
 
 // click to focus fs3
-slint_testing::send_mouse_click(&instance, 5., 300.);
+slint_testing::send_mouse_click(&instance, 5., instance.get_fs3_y() + 5.);
 assert!(!instance.get_fs1_has_focus());
 assert!(!instance.get_fs2_has_focus());
 assert!(instance.get_fs3_has_focus());
+assert!(!instance.get_ti1_has_focus());
+assert!(!instance.get_ti2_has_focus());
+assert!(!instance.get_ti3_has_focus());
 
 // click to focus fs1
-slint_testing::send_mouse_click(&instance, 5., 5.);
+slint_testing::send_mouse_click(&instance, 5., instance.get_fs1_y() + 5.);
 assert!(instance.get_fs1_has_focus());
 assert!(!instance.get_fs2_has_focus());
 assert!(!instance.get_fs3_has_focus());
+assert!(!instance.get_ti1_has_focus());
+assert!(!instance.get_ti2_has_focus());
+assert!(!instance.get_ti3_has_focus());
 
 // click shouldn't focus fs2
-slint_testing::send_mouse_click(&instance, 5., 200.);
+slint_testing::send_mouse_click(&instance, 5., instance.get_fs2_y() + 5.);
 assert!(instance.get_fs1_has_focus());
 assert!(!instance.get_fs2_has_focus());
 assert!(!instance.get_fs3_has_focus());
+assert!(!instance.get_ti1_has_focus());
+assert!(!instance.get_ti2_has_focus());
+assert!(!instance.get_ti3_has_focus());
+
+// click to focus ti3
+slint_testing::send_mouse_click(&instance, 5., instance.get_ti3_y() + 5.);
+assert!(!instance.get_fs1_has_focus());
+assert!(!instance.get_fs2_has_focus());
+assert!(!instance.get_fs3_has_focus());
+assert!(!instance.get_ti1_has_focus());
+assert!(!instance.get_ti2_has_focus());
+assert!(instance.get_ti3_has_focus());
+
+// click to focus ti1
+slint_testing::send_mouse_click(&instance, 5., instance.get_ti1_y() + 5.);
+assert!(!instance.get_fs1_has_focus());
+assert!(!instance.get_fs2_has_focus());
+assert!(!instance.get_fs3_has_focus());
+assert!(instance.get_ti1_has_focus());
+assert!(!instance.get_ti2_has_focus());
+assert!(!instance.get_ti3_has_focus());
+
+// click shouldn't focus ti2
+slint_testing::send_mouse_click(&instance, 5., instance.get_ti2_y() + 5.);
+assert!(!instance.get_fs1_has_focus());
+assert!(!instance.get_fs2_has_focus());
+assert!(!instance.get_fs3_has_focus());
+assert!(instance.get_ti1_has_focus());
+assert!(!instance.get_ti2_has_focus());
+assert!(!instance.get_ti3_has_focus());
 
 // opening a popup should still remove focus
 instance.invoke_show_popup();
 assert!(!instance.get_fs1_has_focus());
 assert!(!instance.get_fs2_has_focus());
 assert!(!instance.get_fs3_has_focus());
+assert!(!instance.get_ti1_has_focus());
+assert!(!instance.get_ti2_has_focus());
+assert!(!instance.get_ti3_has_focus());
 
 // programmatic focus should still work too
 instance.invoke_focus_fs1();
@@ -128,42 +227,108 @@ slint_testing::send_keyboard_string_sequence(&instance, "\t");
 assert(instance.get_fs1_has_focus());
 assert(!instance.get_fs2_has_focus());
 assert(!instance.get_fs3_has_focus());
+assert(!instance.get_ti1_has_focus());
+assert(!instance.get_ti2_has_focus());
+assert(!instance.get_ti3_has_focus());
 
 // tab to fs2
 slint_testing::send_keyboard_string_sequence(&instance, "\t");
 assert(!instance.get_fs1_has_focus());
 assert(instance.get_fs2_has_focus());
 assert(!instance.get_fs3_has_focus());
+assert(!instance.get_ti1_has_focus());
+assert(!instance.get_ti2_has_focus());
+assert(!instance.get_ti3_has_focus());
 
-// skip fs3 and tab back to fs1
+// skip fs3 and tab to ti1
+slint_testing::send_keyboard_string_sequence(&instance, "\t");
+assert(!instance.get_fs1_has_focus());
+assert(!instance.get_fs2_has_focus());
+assert(!instance.get_fs3_has_focus());
+assert(instance.get_ti1_has_focus());
+assert(!instance.get_ti2_has_focus());
+assert(!instance.get_ti3_has_focus());
+
+// tab to ti2
+slint_testing::send_keyboard_string_sequence(&instance, "\t");
+assert(!instance.get_fs1_has_focus());
+assert(!instance.get_fs2_has_focus());
+assert(!instance.get_fs3_has_focus());
+assert(!instance.get_ti1_has_focus());
+assert(instance.get_ti2_has_focus());
+assert(!instance.get_ti3_has_focus());
+
+// skip ti3 and tab to fs1
 slint_testing::send_keyboard_string_sequence(&instance, "\t");
 assert(instance.get_fs1_has_focus());
 assert(!instance.get_fs2_has_focus());
 assert(!instance.get_fs3_has_focus());
+assert(!instance.get_ti1_has_focus());
+assert(!instance.get_ti2_has_focus());
+assert(!instance.get_ti3_has_focus());
 
 // click to focus fs3
-slint_testing::send_mouse_click(&instance, 5., 300.);
+slint_testing::send_mouse_click(&instance, 5., instance.get_fs3_y() + 5.);
 assert(!instance.get_fs1_has_focus());
 assert(!instance.get_fs2_has_focus());
 assert(instance.get_fs3_has_focus());
+assert(!instance.get_ti1_has_focus());
+assert(!instance.get_ti2_has_focus());
+assert(!instance.get_ti3_has_focus());
 
 // click to focus fs1
-slint_testing::send_mouse_click(&instance, 5., 5.);
+slint_testing::send_mouse_click(&instance, 5., instance.get_fs1_y() + 5.);
 assert(instance.get_fs1_has_focus());
 assert(!instance.get_fs2_has_focus());
 assert(!instance.get_fs3_has_focus());
+assert(!instance.get_ti1_has_focus());
+assert(!instance.get_ti2_has_focus());
+assert(!instance.get_ti3_has_focus());
 
 // click shouldn't focus fs2
-slint_testing::send_mouse_click(&instance, 5., 200.);
+slint_testing::send_mouse_click(&instance, 5., instance.get_fs2_y() + 5.);
 assert(instance.get_fs1_has_focus());
 assert(!instance.get_fs2_has_focus());
 assert(!instance.get_fs3_has_focus());
+assert(!instance.get_ti1_has_focus());
+assert(!instance.get_ti2_has_focus());
+assert(!instance.get_ti3_has_focus());
+
+// click to focus ti3
+slint_testing::send_mouse_click(&instance, 5., instance.get_ti3_y() + 5.);
+assert(!instance.get_fs1_has_focus());
+assert(!instance.get_fs2_has_focus());
+assert(!instance.get_fs3_has_focus());
+assert(!instance.get_ti1_has_focus());
+assert(!instance.get_ti2_has_focus());
+assert(instance.get_ti3_has_focus());
+
+// click to focus ti1
+slint_testing::send_mouse_click(&instance, 5., instance.get_ti1_y() + 5.);
+assert(!instance.get_fs1_has_focus());
+assert(!instance.get_fs2_has_focus());
+assert(!instance.get_fs3_has_focus());
+assert(instance.get_ti1_has_focus());
+assert(!instance.get_ti2_has_focus());
+assert(!instance.get_ti3_has_focus());
+
+// click shouldn't focus ti2
+slint_testing::send_mouse_click(&instance, 5., instance.get_ti2_y() + 5.);
+assert(!instance.get_fs1_has_focus());
+assert(!instance.get_fs2_has_focus());
+assert(!instance.get_fs3_has_focus());
+assert(instance.get_ti1_has_focus());
+assert(!instance.get_ti2_has_focus());
+assert(!instance.get_ti3_has_focus());
 
 // opening a popup should still remove focus
 instance.invoke_show_popup();
 assert(!instance.get_fs1_has_focus());
 assert(!instance.get_fs2_has_focus());
 assert(!instance.get_fs3_has_focus());
+assert(!instance.get_ti1_has_focus());
+assert(!instance.get_ti2_has_focus());
+assert(!instance.get_ti3_has_focus());
 
 // programmatic focus should still work too
 instance.invoke_focus_fs1();
@@ -188,42 +353,108 @@ slintlib.private_api.send_keyboard_string_sequence(instance, "\t");
 assert(instance.fs1_has_focus);
 assert(!instance.fs2_has_focus);
 assert(!instance.fs3_has_focus);
+assert(!instance.ti1_has_focus);
+assert(!instance.ti2_has_focus);
+assert(!instance.ti3_has_focus);
 
 // tab to fs2
 slintlib.private_api.send_keyboard_string_sequence(instance, "\t");
 assert(!instance.fs1_has_focus);
 assert(instance.fs2_has_focus);
 assert(!instance.fs3_has_focus);
+assert(!instance.ti1_has_focus);
+assert(!instance.ti2_has_focus);
+assert(!instance.ti3_has_focus);
 
-// skip fs3 and tab back to fs1
+// skip fs3 and tab back to ti1
+slintlib.private_api.send_keyboard_string_sequence(instance, "\t");
+assert(!instance.fs1_has_focus);
+assert(!instance.fs2_has_focus);
+assert(!instance.fs3_has_focus);
+assert(instance.ti1_has_focus);
+assert(!instance.ti2_has_focus);
+assert(!instance.ti3_has_focus);
+
+// tab to ti2
+slintlib.private_api.send_keyboard_string_sequence(instance, "\t");
+assert(!instance.fs1_has_focus);
+assert(!instance.fs2_has_focus);
+assert(!instance.fs3_has_focus);
+assert(!instance.ti1_has_focus);
+assert(instance.ti2_has_focus);
+assert(!instance.ti3_has_focus);
+
+// skip ti3 and tab back to fs1
 slintlib.private_api.send_keyboard_string_sequence(instance, "\t");
 assert(instance.fs1_has_focus);
 assert(!instance.fs2_has_focus);
 assert(!instance.fs3_has_focus);
+assert(!instance.ti1_has_focus);
+assert(!instance.ti2_has_focus);
+assert(!instance.ti3_has_focus);
 
 // click to focus fs3
-slintlib.private_api.send_mouse_click(instance, 5., 300.);
+slintlib.private_api.send_mouse_click(instance, 5., instance.fs3_y + 5.);
 assert(!instance.fs1_has_focus);
 assert(!instance.fs2_has_focus);
 assert(instance.fs3_has_focus);
+assert(!instance.ti1_has_focus);
+assert(!instance.ti2_has_focus);
+assert(!instance.ti3_has_focus);
 
 // click to focus fs1
-slintlib.private_api.send_mouse_click(instance, 5., 5.);
+slintlib.private_api.send_mouse_click(instance, 5., instance.fs1_y + 5.);
 assert(instance.fs1_has_focus);
 assert(!instance.fs2_has_focus);
 assert(!instance.fs3_has_focus);
+assert(!instance.ti1_has_focus);
+assert(!instance.ti2_has_focus);
+assert(!instance.ti3_has_focus);
 
 // click shouldn't focus fs2
-slintlib.private_api.send_mouse_click(instance, 5., 200.);
+slintlib.private_api.send_mouse_click(instance, 5., instance.fs2_y + 5.);
 assert(instance.fs1_has_focus);
 assert(!instance.fs2_has_focus);
 assert(!instance.fs3_has_focus);
+assert(!instance.ti1_has_focus);
+assert(!instance.ti2_has_focus);
+assert(!instance.ti3_has_focus);
+
+// click to focus ti3
+slintlib.private_api.send_mouse_click(instance, 5., instance.ti3_y + 5.);
+assert(!instance.fs1_has_focus);
+assert(!instance.fs2_has_focus);
+assert(!instance.fs3_has_focus);
+assert(!instance.ti1_has_focus);
+assert(!instance.ti2_has_focus);
+assert(instance.ti3_has_focus);
+
+// click to focus ti1
+slintlib.private_api.send_mouse_click(instance, 5., instance.ti1_y + 5.);
+assert(!instance.fs1_has_focus);
+assert(!instance.fs2_has_focus);
+assert(!instance.fs3_has_focus);
+assert(instance.ti1_has_focus);
+assert(!instance.ti2_has_focus);
+assert(!instance.ti3_has_focus);
+
+// click shouldn't focus ti2
+slintlib.private_api.send_mouse_click(instance, 5., instance.ti2_y + 5.);
+assert(!instance.fs1_has_focus);
+assert(!instance.fs2_has_focus);
+assert(!instance.fs3_has_focus);
+assert(instance.ti1_has_focus);
+assert(!instance.ti2_has_focus);
+assert(!instance.ti3_has_focus);
 
 // opening a popup should still remove focus
 instance.show_popup();
 assert(!instance.fs1_has_focus);
 assert(!instance.fs2_has_focus);
 assert(!instance.fs3_has_focus);
+assert(!instance.ti1_has_focus);
+assert(!instance.ti2_has_focus);
+assert(!instance.ti3_has_focus);
 
 // programmatic focus should still work too
 instance.focus_fs1();
