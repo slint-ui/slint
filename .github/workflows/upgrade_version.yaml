@@ -14,7 +14,7 @@ jobs:
     upgrade_version_number:
         runs-on: ubuntu-latest
         steps:
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@v5
             - name: Do replacements
               run: |
                   # Each Cargo.toml need to have the version updated
@@ -72,7 +72,7 @@ jobs:
                 private-key: ${{ secrets.READ_WRITE_PRIVATE_KEY }}
                 repositories: www-releases
             - name: Clone www-releases directory
-              uses: actions/checkout@v4
+              uses: actions/checkout@v5
               with:
                 repository: slint-ui/www-releases
                 sparse-checkout: |

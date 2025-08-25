@@ -26,8 +26,8 @@ jobs:
         runs-on: ubuntu-24.04
         timeout-minutes: 15
         steps:
-            - uses: actions/checkout@v4
-            - uses: jdx/mise-action@v2
+            - uses: actions/checkout@v5
+            - uses: jdx/mise-action@v3
               with:
                 version: 2025.7.12
                 log_level: debug
@@ -40,8 +40,8 @@ jobs:
         runs-on: ubuntu-24.04
         timeout-minutes: 15
         steps:
-            - uses: actions/checkout@v4
-            - uses: jdx/mise-action@v2
+            - uses: actions/checkout@v5
+            - uses: jdx/mise-action@v3
               with:
                 version: 2025.7.12
                 log_level: debug

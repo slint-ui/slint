@@ -27,7 +27,7 @@ jobs:
         slint: ${{ steps.filter.outputs.slint }}
         figma_inspector : ${{ steps.filter.outputs.figma_inspector }}
       steps:
-        - uses: actions/checkout@v4
+        - uses: actions/checkout@v5
         - uses: dorny/paths-filter@v3
           id: filter
           with:
@@ -72,7 +72,7 @@ jobs:
         runs-on: ${{ matrix.os }}
 
         steps:
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@v5
             - uses: ./.github/actions/install-linux-dependencies
             - uses: ./.github/actions/install-skia-dependencies
             - uses: ilammy/msvc-dev-cmd@v1
@@ -134,7 +134,7 @@ jobs:
         runs-on: ${{ matrix.os }}
 
         steps:
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@v5
             - uses: ./.github/actions/install-linux-dependencies
             - uses: ./.github/actions/install-skia-dependencies
             - name: Setup headless display
@@ -183,7 +183,7 @@ jobs:
         runs-on: ${{ matrix.os }}
 
         steps:
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@v5
             - uses: ./.github/actions/install-linux-dependencies
             - name: Install Qt
               if: runner.os == 'Linux'
@@ -235,7 +235,7 @@ jobs:
         runs-on: ${{ matrix.os }}
 
         steps:
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@v5
             - uses: ./.github/actions/install-linux-dependencies
               with:
                   force-gcc-10: true
@@ -278,7 +278,7 @@ jobs:
                       rust_version: "stable"
         runs-on: ${{ matrix.os }}
         steps:
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@v5
             - uses: ./.github/actions/install-linux-dependencies
               with:
                   force-gcc-10: true
@@ -326,7 +326,7 @@ jobs:
             CARGO_INCREMENTAL: false
             CARGO_PROFILE_DEV_DEBUG: 0
         steps:
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@v5
             - uses: ./.github/actions/install-linux-dependencies
               with:
                   force-gcc-10: true
@@ -359,7 +359,7 @@ jobs:
         if: needs.files-changed.outputs.slint == 'true'
         runs-on: ubuntu-22.04
         steps:
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@v5
             - uses: pnpm/action-setup@v4.1.0
               with:
                 version: 10.14.0
@@ -412,7 +412,7 @@ jobs:
                     - feature: stm32h735g
                       target: thumbv7em-none-eabihf
         steps:
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@v5
             - uses: ./.github/actions/setup-rust
               with:
                   target: ${{matrix.target}}
@@ -430,7 +430,7 @@ jobs:
             CARGO_PROFILE_RELEASE_OPT_LEVEL: s
         runs-on: ubuntu-22.04
         steps:
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@v5
             - uses: ./.github/actions/setup-rust
               with:
                   target: thumbv8m.main-none-eabihf
@@ -443,7 +443,7 @@ jobs:
 #            RUSTFLAGS: -D warnings
 #        runs-on: ubuntu-22.04
 #        steps:
-#            - uses: actions/checkout@v4
+#            - uses: actions/checkout@v5
 #            - uses: dtolnay/rust-toolchain@stable
 #            - uses: esp-rs/xtensa-toolchain@v1.6
 #              with:
@@ -461,7 +461,7 @@ jobs:
         if: needs.files-changed.outputs.slint == 'true'
         runs-on: ubuntu-22.04
         steps:
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@v5
             - uses: ./.github/actions/setup-rust
               with:
                   target: armv7-unknown-linux-gnueabihf
@@ -515,7 +515,7 @@ jobs:
                 from_version: ["0.3.0"]
         runs-on: ubuntu-22.04
         steps:
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@v5
               with:
                   fetch-depth: 0
             - uses: ./.github/actions/install-linux-dependencies
@@ -584,7 +584,7 @@ jobs:
             RUSTFLAGS: -D warnings
         runs-on: ubuntu-latest
         steps:
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@v5
             - uses: ./.github/actions/install-linux-dependencies
             - uses: ./.github/actions/setup-rust
             - name: run the formatter
@@ -612,7 +612,7 @@ jobs:
         runs-on: ubuntu-22.04
         container: espressif/idf:release-v5.2
         steps:
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@v5
             - uses: dtolnay/rust-toolchain@stable
             - uses: esp-rs/xtensa-toolchain@v1.6
               with:
@@ -632,7 +632,7 @@ jobs:
         if: needs.files-changed.outputs.slint == 'true'
         runs-on: ubuntu-latest
         steps:
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@v5
             - name: Install Android API level 30
               run: ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-30"
             - name: Cache cargo-apk
@@ -669,7 +669,7 @@ jobs:
         if: needs.files-changed.outputs.slint == 'true'
         runs-on: ubuntu-latest
         steps:
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@v5
             - uses: ./.github/actions/setup-rust
               with:
                   toolchain: nightly
@@ -683,7 +683,7 @@ jobs:
         if: needs.files-changed.outputs.figma_inspector == 'true'
         runs-on: ubuntu-latest
         steps:
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@v5
             - uses: actions/setup-node@v4
               with:
                 node-version: 20

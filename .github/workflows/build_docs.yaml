@@ -28,7 +28,7 @@ jobs:
             CARGO_INCREMENTAL: false
             RELEASE_INPUT: ${{ inputs.release }}
         steps:
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@v5
             - uses: pnpm/action-setup@v4.1.0
               with:
                 version: 10.14.0
@@ -158,7 +158,7 @@ jobs:
 
             - name: Clone website directory
               if: ${{ github.ref == 'refs/heads/master' }}
-              uses: actions/checkout@v4
+              uses: actions/checkout@v5
               with:
                 repository: slint-ui/website
                 ref: prod
