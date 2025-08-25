@@ -23,6 +23,7 @@ i-slint-renderer-skia = { workspace = true, features = ["default", "wayland"] }
 clap = { workspace = true }
 itertools = { workspace = true }
 spin_on = { workspace = true }
+termcolor = { version = "1.4.1" }
 walkdir = { version = "2.5" }
 
 # Enable image-rs' default features to make all image formats available for preview
