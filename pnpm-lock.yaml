@@ -207,8 +207,8 @@ importers:
         specifier: 10.5.2
         version: 10.5.2(react-dom@19.1.1(react@19.1.1))(react@19.1.1)
       zustand:
-        specifier: 5.0.7
-        version: 5.0.7(@types/react@19.1.10)(react@19.1.1)
+        specifier: 5.0.8
+        version: 5.0.8(@types/react@19.1.10)(react@19.1.1)
     devDependencies:
       '@figma/plugin-typings':
         specifier: 1.117.0
@@ -5785,8 +5785,8 @@ packages:
   zod@3.25.76:
     resolution: {integrity: sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==}
 
-  zustand@5.0.7:
-    resolution: {integrity: sha512-Ot6uqHDW/O2VdYsKLLU8GQu8sCOM1LcoE8RwvLv9uuRT9s6SOHCKs0ZEOhxg+I1Ld+A1Q5lwx+UlKXXUoCZITg==}
+  zustand@5.0.8:
+    resolution: {integrity: sha512-gyPKpIaxY9XcO2vSMrLbiER7QMAMGOQZVRdJ6Zi782jkbzZygq5GI9nG8g+sMgitRtndwaBSl7uiqC49o1SSiw==}
     engines: {node: '>=12.20.0'}
     peerDependencies:
       '@types/react': '>=18.0.0'
@@ -12148,7 +12148,7 @@ snapshots:
 
   zod@3.25.76: {}
 
-  zustand@5.0.7(@types/react@19.1.10)(react@19.1.1):
+  zustand@5.0.8(@types/react@19.1.10)(react@19.1.1):
     optionalDependencies:
       '@types/react': 19.1.10
       react: 19.1.1
