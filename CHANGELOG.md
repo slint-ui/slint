@@ -16,7 +16,7 @@ All notable changes to this project are documented in this file.
  - Fixed default-font-size not working with PopupWindow
  - LinuxKMS: Added support for overriding the default framebuffer interface selection
  - LinuxKMS: Added support for a wide range of framebuffer formats
- - LinuxKMS: Added support for libinput event hooks (behind unstable-input-09 feature flag)
+ - LinuxKMS: Added support for libinput event hooks (behind unstable-libinput-09 feature flag)
  - Skia: Fixed no-wrap still wrapping text (#7080)
  - software renderer: Add radial gradient support (#8980)
  - software renderer: Fix rendering of the Qt style (#9006)

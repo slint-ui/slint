@@ -92,7 +92,7 @@ use noop_backend::*;
 pub struct BackendBuilder {
     pub(crate) renderer_name: Option<String>,
     #[cfg(target_os = "linux")]
-    pub(crate) input_event_hook: Option<Box<dyn Fn(&input::Event) -> bool>>,
+    pub(crate) libinput_event_hook: Option<Box<dyn Fn(&input::Event) -> bool>>,
 }
 
 impl BackendBuilder {
@@ -102,8 +102,11 @@ impl BackendBuilder {
     }
 
     #[cfg(target_os = "linux")]
-    pub fn with_input_event_hook(mut self, event_hook: Box<dyn Fn(&input::Event) -> bool>) -> Self {
-        self.input_event_hook = Some(event_hook);
+    pub fn with_libinput_event_hook(
+        mut self,
+        event_hook: Box<dyn Fn(&input::Event) -> bool>,
+    ) -> Self {
+        self.libinput_event_hook = Some(event_hook);
         self
     }
 

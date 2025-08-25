@@ -77,7 +77,7 @@ pub struct Backend {
     >,
     sel_clipboard: RefCell<Option<String>>,
     clipboard: RefCell<Option<String>>,
-    input_event_hook: Option<Box<dyn Fn(&::input::Event) -> bool>>,
+    libinput_event_hook: Option<Box<dyn Fn(&::input::Event) -> bool>>,
 }
 
 impl Backend {
@@ -142,7 +142,7 @@ impl Backend {
             renderer_factory,
             sel_clipboard: Default::default(),
             clipboard: Default::default(),
-            input_event_hook: builder.input_event_hook,
+            libinput_event_hook: builder.libinput_event_hook,
         })
     }
 }
@@ -216,7 +216,7 @@ impl i_slint_core::platform::Platform for Backend {
             &event_loop.handle(),
             #[cfg(feature = "libseat")]
             &self.seat,
-            &self.input_event_hook,
+            &self.libinput_event_hook,
         )?;
 
         let Some(user_event_receiver) = self.user_event_receiver.borrow_mut().take() else {
