@@ -21,6 +21,12 @@ export component TestCase inherits Window {
         }
     }
 
+    if false : Rectangle {
+        test-no-loop := ComboBox {
+            width: 10 * self.height; // Test that there is no height for width dependency (loop)
+        }
+    }
+
     public function unfocus() {
         box.clear-focus();
     }
