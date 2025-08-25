@@ -58,7 +58,7 @@ unstable-wgpu-26 = [
 
 unstable-winit-030 = ["i-slint-backend-winit"]
 
-unstable-input-09 = ["dep:input"]
+unstable-libinput-09 = ["dep:input"]
 
 # note that default enable the i-slint-backend-qt, but not its enable feature
 default = ["i-slint-backend-qt", "backend-winit"]

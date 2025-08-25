@@ -225,9 +225,9 @@ unstable-winit-030 = ["backend-winit", "dep:i-slint-backend-winit", "i-slint-bac
 ## in your `Cargo.toml` when enabling this feature:
 ##
 ## ```toml
-## slint = { version = "~1.13", features = ["unstable-input-09"] }
+## slint = { version = "~1.13", features = ["unstable-libinput-09"] }
 ## ```
-unstable-input-09 = ["i-slint-backend-selector/unstable-input-09"]
+unstable-libinput-09 = ["i-slint-backend-selector/unstable-libinput-09"]
 
 [dependencies]
 i-slint-core = { workspace = true }
@@ -287,6 +287,6 @@ features = [
   "raw-window-handle-06",
   "unstable-wgpu-26",
   "unstable-winit-030",
-  "unstable-input-09",
+  "unstable-libinput-09",
 ]
 rustdoc-args = ["--generate-link-to-definition"]

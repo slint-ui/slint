@@ -119,7 +119,7 @@ pub struct LibInputHandler<'a> {
     last_touch_pos: LogicalPosition,
     window: &'a RefCell<Option<Rc<FullscreenWindowAdapter>>>,
     keystate: Option<xkb::State>,
-    input_event_hook: &'a Option<Box<dyn Fn(&::input::Event) -> bool>>,
+    libinput_event_hook: &'a Option<Box<dyn Fn(&::input::Event) -> bool>>,
 }
 
 impl<'a> LibInputHandler<'a> {
@@ -127,7 +127,7 @@ impl<'a> LibInputHandler<'a> {
         window: &'a RefCell<Option<Rc<FullscreenWindowAdapter>>>,
         event_loop_handle: &calloop::LoopHandle<'a, T>,
         #[cfg(feature = "libseat")] seat: &'a Rc<RefCell<libseat::Seat>>,
-        input_event_hook: &'a Option<Box<dyn Fn(&::input::Event) -> bool>>,
+        libinput_event_hook: &'a Option<Box<dyn Fn(&::input::Event) -> bool>>,
     ) -> Result<Pin<Rc<Property<Option<LogicalPosition>>>>, PlatformError> {
         #[cfg(feature = "libseat")]
         let libinput = SeatWrap::new(seat);
@@ -143,7 +143,7 @@ impl<'a> LibInputHandler<'a> {
             last_touch_pos: Default::default(),
             window,
             keystate: Default::default(),
-            input_event_hook,
+            libinput_event_hook,
         };
 
         event_loop_handle
@@ -182,7 +182,7 @@ impl<'a> calloop::EventSource for LibInputHandler<'a> {
         let screen_size = window.size().to_logical(window.scale_factor());
 
         for event in &mut self.libinput {
-            if self.input_event_hook.as_ref().map_or(false, |hook| hook(&event)) {
+            if self.libinput_event_hook.as_ref().map_or(false, |hook| hook(&event)) {
                 continue;
             };
             match event {
