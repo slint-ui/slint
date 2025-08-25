@@ -3,7 +3,7 @@
 
 use std::rc::Rc;
 
-use slint::{Color, Model, ModelExt, VecModel};
+use slint::{Color, Image, Model, ModelExt, SharedString, VecModel};
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 
@@ -56,9 +56,10 @@ fn navigation_view(ui: &MainWindow) {
     ]);
 
     adapter.on_search({
+        let ui_weak = ui_weak.clone();
         move |text| {
-            let colors = colors.clone();
             let text = text.to_lowercase();
+            let colors = colors.clone();
 
             let ui = ui_weak.unwrap();
             NavigationViewAdapter::get(&ui).set_search_items(
@@ -92,6 +93,15 @@ fn color_item(name: &str, red: u8, green: u8, blue: u8, ui: &MainWindow) -> List
         text: name.into(),
         avatar_background: Color::from_rgb_u8(red, green, blue),
         action_icon: OutlinedIcons::get(&ui).get_share(),
+        ..Default::default()
+    }
+}
+
+fn menu_item(icon: Image, text: SharedString) -> MenuItem {
+    MenuItem {
+        enabled: true,
+        icon,
+        text,
         ..Default::default()
     }
 }

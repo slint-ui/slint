@@ -30,6 +30,7 @@ path = [
   "docs/**.json",
   "docs/src/assets/styles/**.css",
   "docs/src/assets/**.svg",
+  "docs/src/content/docs/components/icons/**.svg",
   "docs/src/assets/**.webp",
   ".gitignore",
   "docs/pnpm-lock.yaml",

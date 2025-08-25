@@ -9,13 +9,13 @@ import SlintProperty from '/src/components/SlintProperty.astro';
 
 <CodeSnippetMD imagePath="" noScreenShot scale="3" imageWidth="300" imageHeight="200" imageAlt="">
 ```slint
-import { FloatingActionButton, FABStyle } from "material.slint";
+import { FloatingActionButton, FABStyle } from "./material.slint";
 export component Example inherits Window {
     width: 120px;
     height: 120px;
     background: transparent;
     FloatingActionButton {
-        icon: @image-url("icons/add.svg");
+        icon: @image-url("../icons/add.svg");
         tooltip: "Add";
         style: FABStyle.standard;
     }

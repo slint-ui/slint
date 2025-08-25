@@ -17,6 +17,7 @@ export component TextField {
     in property <image> leading_icon;
     in property <image> trailing_icon;
     in property <bool> enabled: true;
+    in property <bool> read_only <=> input.read_only;
     out property <bool> has_focus: input.has_focus;
     in_out property <string> text <=> input.text;
 
@@ -72,7 +73,6 @@ export component TextField {
                         horizontal_stretch: 1;
                         clip: true;
                         min_height: input.min_height;
-
 
                         input := TextInput {
                             x: min(0px, max(parent.width - self.width - self.text_cursor_width, root.computed_x));

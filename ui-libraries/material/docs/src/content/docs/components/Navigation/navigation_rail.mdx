@@ -9,7 +9,7 @@ import SlintProperty from '/src/components/SlintProperty.astro';
 
 <CodeSnippetMD imagePath="/src/assets/generated/navigationrail.png" scale="3" imageWidth="300" imageHeight="200" imageAlt="">
 ```slint
-import { NavigationRail } from "material.slint";
+import { NavigationRail } from "./material.slint";
 export component Example inherits Window {
     width: 400px;
     height: 300px;
@@ -18,8 +18,8 @@ export component Example inherits Window {
         width: 80px;
         height: parent.height;
         items: [
-            { icon: @image-url("icons/home.svg"), text: "Home" },
-            { icon: @image-url("icons/search.svg"), text: "Search" }
+            { icon: @image-url("../icons/share.svg"), text: "Home" },
+            { icon: @image-url("../icons/search.svg"), text: "Search" }
         ];
     }
 }

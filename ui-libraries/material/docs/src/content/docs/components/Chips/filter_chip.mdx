@@ -9,14 +9,14 @@ import SlintProperty from '/src/components/SlintProperty.astro';
 
 <CodeSnippetMD imagePath="" noScreenShot scale="3" imageWidth="300" imageHeight="200" imageAlt="">
 ```slint
-import { FilterChip } from "material.slint";
+import { FilterChip } from "./material.slint";
 export component Example inherits Window {
     width: 200px;
     height: 100px;
     background: transparent;
     FilterChip {
         text: "Filter";
-        icon: @image-url("icons/filter.svg");
+        icon: @image-url("../icons/filter.svg");
         width: 100px;
         height: 32px;
     }

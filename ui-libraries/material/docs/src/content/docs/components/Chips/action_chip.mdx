@@ -9,14 +9,14 @@ import SlintProperty from '/src/components/SlintProperty.astro';
 
 <CodeSnippetMD imagePath="" noScreenShot scale="3" imageWidth="300" imageHeight="200" imageAlt="">
 ```slint
-import { ActionChip } from "material.slint";
+import { ActionChip } from "./material.slint";
 export component Example inherits Window {
     width: 200px;
     height: 100px;
     background: transparent;
     ActionChip {
         text: "Action";
-        icon: @image-url("icons/add.svg");
+        icon: @image-url("../icons/add.svg");
         width: 100px;
         height: 32px;
     }

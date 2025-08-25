@@ -31,7 +31,9 @@ import {
     Slider,
     TextField,
     RadioButtonTile,
-    Menu
+    Menu,
+    DropDownMenu,
+    MenuItem
 } from "../../../../material.slint";
 
 import { Group } from "../components/group.slint";
@@ -45,6 +47,7 @@ export global NavigationViewAdapter {
     in property <[bool]> radio_buttons: [ true, false, false ];
 
     callback search(text: string);
+    callback filter_icons(text: string);
     callback radio_button_clicked(index: int);
 }
 
@@ -461,6 +464,24 @@ export component NavigationView {
                         clicked => {
                             time_picker.show();
                         }
+                    }
+                }
+            }
+
+            ComponentCard {
+                title: "DropDown menu";
+
+                Horizontal {
+                    DropDownMenu {
+                        label: "Icon";
+                        leading_icon: OutlinedIcons.search;
+                        items:
+                        [
+                            { icon: OutlinedIcons.bookmark, text: "Bookmark", enabled: true },
+                            { icon: OutlinedIcons.explore, text: "Explore", enabled: true },
+                            { icon: OutlinedIcons.chat_bubble, text: "Chat", enabled: true },
+                            { icon: OutlinedIcons.favorite, text: "Favorite", enabled: true },
+                        ];
                     }
                 }
             }

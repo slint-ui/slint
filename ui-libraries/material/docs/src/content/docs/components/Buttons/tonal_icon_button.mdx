@@ -9,13 +9,13 @@ import SlintProperty from '/src/components/SlintProperty.astro';
 
 <CodeSnippetMD imagePath="" noScreenShot scale="3" imageWidth="300" imageHeight="200" imageAlt="">
 ```slint
-import { TonalIconButton } from "material.slint";
+import { TonalIconButton } from "./material.slint";
 export component Example inherits Window {
     width: 100px;
     height: 100px;
     background: transparent;
     TonalIconButton {
-        icon: @image-url("icons/music_note.svg");
+        icon: @image-url("../icons/music_note.svg");
         tooltip: "Music";
     }
 }

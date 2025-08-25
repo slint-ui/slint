@@ -16,6 +16,7 @@ component MenuItemTemplate {
     in property <string> text;
     in property <string> trailing_text;
     in property <bool> enabled <=> state_area.enabled;
+    in property <bool> selected;
 
     callback clicked();
 
@@ -25,43 +26,45 @@ component MenuItemTemplate {
 
     min_height: max(MaterialStyleMetrics.size_56, layout.min_height);
 
-    state_area := StateLayerArea {
-        color: root.color;
+    background_layer := Rectangle {
+        state_area := StateLayerArea {
+            color: root.color;
 
-        layout := HorizontalLayout {
-            padding_left: MaterialStyleMetrics.padding_12;
-            padding_right: self.padding_left;
-            padding_top: MaterialStyleMetrics.padding_8;
-            padding_bottom: self.padding_top;
-            spacing: MaterialStyleMetrics.spacing_12;
+            layout := HorizontalLayout {
+                padding_left: MaterialStyleMetrics.padding_12;
+                padding_right: self.padding_left;
+                padding_top: MaterialStyleMetrics.padding_8;
+                padding_bottom: self.padding_top;
+                spacing: MaterialStyleMetrics.spacing_12;
 
-            if root.has_icon : VerticalLayout {
-                alignment: center;
+                if root.has_icon : VerticalLayout {
+                    alignment: center;
 
-                Icon {
-                    source: root.icon;
-                    colorize: root.color;
+                    Icon {
+                        source: root.icon;
+                        colorize: root.color;
+                    }
+                }
+
+                MaterialText {
+                    horizontal_stretch: 1;
+                    text: root.text;
+                    style: Typography.body_large;
+                    color: root.color;
+                    vertical_alignment: center;
+                }
+
+                if root.trailing_text != "" : MaterialText {
+                    text: root.trailing_text;
+                    style: Typography.body_large;
+                    color: root.color_variant;
+                    vertical_alignment: center;
                 }
             }
 
-            MaterialText {
-                horizontal_stretch: 1;
-                text: root.text;
-                style: Typography.body_large;
-                color: root.color;
-                vertical_alignment: center;
+            clicked => {
+                root.clicked();
             }
-
-            if root.trailing_text != "" : MaterialText {
-                text: root.trailing_text;
-                style: Typography.body_large;
-                color: root.color_variant;
-                vertical_alignment: center;
-            }
-        }
-
-        clicked => {
-            root.clicked();
         }
     }
 
@@ -69,7 +72,46 @@ component MenuItemTemplate {
         disabled when !root.enabled : {
             state_area.opacity: MaterialPalette.disable_opacity;
         }
+        selected when root.selected : {
+            background_layer.background: MaterialPalette.surface_container_highest;
+        }
     ]
+}
+
+export component MenuInner {
+    in property <[MenuItem]> items;
+    in_out property <int> current_index: -1;
+
+    callback item_clicked(index: int);
+
+    // used to fix clipping of shadows
+    out property <int> elevation: 2;
+
+    menu := Elevation {
+        width: 100%;
+        level: root.elevation;
+        height: layout.min_height + root.elevation * 1px;
+        border_radius: MaterialStyleMetrics.border_radius_4;
+        background: MaterialPalette.surface_container;
+
+        layout := VerticalLayout {
+            width: root.width;
+            padding_top: MaterialStyleMetrics.padding_8;
+            padding_bottom: self.padding_top;
+
+            for item[index] in root.items : MenuItemTemplate {
+                icon: item.icon;
+                text: item.text;
+                trailing_text: item.trailing_text;
+                enabled: item.enabled;
+                selected: index == root.current_index;
+
+                clicked => {
+                    root.item_clicked(index);
+                }
+            }
+        }
+    }
 }
 
 export component Menu inherits PopupWindow {
@@ -77,36 +119,17 @@ export component Menu inherits PopupWindow {
 
     callback item_clicked(index: int);
 
-    // used to fix clipping of shadows
-    property <int> elevation: 2;
-
     width: MaterialStyleMetrics.size_200;
     close_policy: close_on_click_outside;
 
-    wrapper := VerticalLayout {
-        padding: root.elevation * 1px;
+    VerticalLayout {
+        padding: inner.elevation * 1px;
 
-        menu := Elevation {
-            level: root.elevation;
-            height: layout.min_height + root.elevation * 1px;
-            border_radius: MaterialStyleMetrics.border_radius_4;
-            background: MaterialPalette.surface_container;
+        inner := MenuInner {
+            items: root.items;
 
-            layout := VerticalLayout {
-                width: root.width;
-                padding_top: MaterialStyleMetrics.padding_8;
-                padding_bottom: self.padding_top;
-
-                for item[index] in root.items : MenuItemTemplate {
-                    icon: item.icon;
-                    text: item.text;
-                    trailing_text: item.trailing_text;
-                    enabled: item.enabled;
-
-                    clicked => {
-                        root.item_clicked(index);
-                    }
-                }
+            item_clicked(index) => {
+                root.item_clicked(index);
             }
         }
     }

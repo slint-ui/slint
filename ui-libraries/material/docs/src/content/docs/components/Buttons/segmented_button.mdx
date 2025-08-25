@@ -9,15 +9,15 @@ import SlintProperty from '/src/components/SlintProperty.astro';
 
 <CodeSnippetMD imagePath="/src/assets/generated/segmentedbutton.png" scale="3" imageWidth="300" imageHeight="200" imageAlt="">
 ```slint
-import { SegmentedButton } from "material.slint";
+import { SegmentedButton } from "./material.slint";
 export component Example inherits Window {
     width: 300px;
     height: 100px;
     background: transparent;
     SegmentedButton {
         model: [
-            { icon: @image-url("icons/list.svg"), text: "List" },
-            { icon: @image-url("icons/grid.svg"), text: "Grid" }
+            { icon: @image-url("../icons/share.svg"), text: "Share" },
+            { icon: @image-url("../icons/music_note.svg"), text: "Music" }
         ];
         current-item: 0;
     }
