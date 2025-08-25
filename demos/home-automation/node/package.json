@@ -4,7 +4,7 @@
     "main": "main.js",
     "type": "module",
     "dependencies": {
-        "@biomejs/biome": "2.2.0",
+        "@biomejs/biome": "2.2.2",
         "slint-ui": "workspace:*"
     },
     "scripts": {
