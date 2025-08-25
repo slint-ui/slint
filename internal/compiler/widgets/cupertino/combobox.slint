@@ -105,13 +105,16 @@ export component ComboBox {
             accessible-role: none;
         }
 
-        VerticalLayout {
-            alignment: center;
+        Rectangle {
+            min-width: 16px;
+            preferred-width: button-layout.preferred-width;
+            min-height: 16px;
+            horizontal-stretch: 0;
 
             Rectangle {
-                horizontal-stretch: 0;
-                min-width: 16px;
-                min-height: max(self.min-width, button-layout.min-height);
+                x: 0px;
+                width: 100%;
+                y: (parent.height - self.height) / 2;
 
                 if root.enabled : Rectangle {
                     width: 100%;
