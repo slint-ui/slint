@@ -27,7 +27,7 @@ jobs:
         timeout-minutes: 15
         steps:
             - uses: actions/checkout@v5
-            - uses: jdx/mise-action@v2
+            - uses: jdx/mise-action@v3
               with:
                 log_level: debug
             - name: Run fixes
