@@ -47,6 +47,7 @@ pub trait LspToPreview {
 }
 
 #[derive(Default, Clone)]
+#[allow(dead_code)]
 pub struct DummyLspToPreview {}
 
 impl LspToPreview for DummyLspToPreview {
