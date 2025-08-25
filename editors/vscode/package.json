@@ -243,7 +243,7 @@
     "vscode-languageserver": "9.0.1"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.2.0",
+    "@biomejs/biome": "2.2.2",
     "@rauschma/env-var": "1.0.1",
     "@types/fs-extra": "11.0.4",
     "@types/node": "18.11.9",
