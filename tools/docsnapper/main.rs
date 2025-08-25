@@ -14,6 +14,7 @@ use itertools::Itertools;
 use std::{
     collections::HashMap,
     ffi::OsString,
+    io::{IsTerminal, Write},
     path::{Path, PathBuf},
 };
 
@@ -65,12 +66,36 @@ struct Cli {
     component: Option<String>,
 }
 
+fn print_error(stream: &mut termcolor::StandardStream, msg: &str) {
+    use termcolor::WriteColor;
+
+    let _ = write!(stream, "    ");
+    let _ = stream.set_color(termcolor::ColorSpec::new().set_fg(Some(termcolor::Color::Red)));
+    let _ = write!(stream, "[error]");
+    let _ = stream.set_color(&termcolor::ColorSpec::new());
+    let _ = writeln!(stream, ": {msg}");
+}
+
 fn main() -> Result<()> {
     let args = Cli::parse();
 
-    let project_root = find_project_root(&args.docs_folder)?;
+    let choice = if std::io::stderr().is_terminal() {
+        termcolor::ColorChoice::Auto
+    } else {
+        termcolor::ColorChoice::Never
+    };
 
-    eprintln!("project_root is {project_root:?}");
+    let mut stderr = termcolor::StandardStream::stderr(choice);
+
+    let project_root = match find_project_root(&args.docs_folder) {
+        Ok(project_path) => project_path,
+        Err(e) => {
+            print_error(&mut stderr, &format!("{e:?}"));
+            std::process::exit(1);
+        }
+    };
+
+    let _ = writeln!(&mut stderr, "project_root is {project_root:?}");
 
     headless::init();
 
@@ -79,7 +104,7 @@ fn main() -> Result<()> {
     for entry in walkdir::WalkDir::new(args.docs_folder.clone()).sort_by_file_name().into_iter() {
         match &entry {
             Err(err) => {
-                eprintln!("    File Error: {err:?}");
+                print_error(&mut stderr, &format!("    [error]: File error {err:?}"));
                 error_count += 1;
             }
             Ok(entry) => {
@@ -88,7 +113,7 @@ fn main() -> Result<()> {
 
                 if ext == Some(&OsString::from("md")) || ext == Some(&OsString::from("mdx")) {
                     if let Err(e) = process_doc_file(path, &project_root, &args) {
-                        eprintln!("    Error: {e:?}");
+                        print_error(&mut stderr, &format!("{e:?}"));
                         error_count += 1;
                     }
                 }
@@ -173,14 +198,12 @@ fn parse_attribute(attributes: &str) -> Result<HashMap<String, String>> {
                 value = String::new();
                 quote = None;
             }
+        } else if next_is_quote {
+            return Err("whitespace after = in attributes of CodeSnippetMd tag".into());
+        } else if quote.is_some() {
+            value.push(c);
         } else {
-            if next_is_quote {
-                return Err("whitespace after = in attributes of CodeSnippetMd tag".into());
-            } else if quote.is_some() {
-                value.push(c);
-            } else {
-                key.push(c);
-            }
+            key.push(c);
         }
     }
 
@@ -331,8 +354,8 @@ fn process_tag(
         return Ok(());
     };
 
-    let screenshot_path = if path.starts_with('/') {
-        project_root.join(&path[1..]).to_path_buf()
+    let screenshot_path = if let Some(p) = path.strip_prefix('/') {
+        project_root.join(p).to_path_buf()
     } else {
         let Some(current_dir) = file_path.parent() else {
             return Err(format!("Could not find directory containing {file_path:?}").into());
@@ -456,7 +479,7 @@ fn build_and_snapshot(
     };
 
     let scale_factor = component.window().scale_factor();
-    let scale_str = if scale_factor >= 0.99 && scale_factor <= 1.01 {
+    let scale_str = if (0.99..=1.01).contains(&scale_factor) {
         String::new()
     } else {
         format!("@{scale_factor}x")
