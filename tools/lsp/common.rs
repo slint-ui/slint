@@ -655,7 +655,7 @@ impl ComponentInformation {
 
 /// Poll a future once and return its result if it was `Ready` afterwards
 /// or `None` otherwise.
-#[cfg(feature = "preview-engine")]
+#[cfg(any(test, feature = "preview-engine"))]
 pub fn poll_once<F: std::future::Future>(future: F) -> Option<F::Output> {
     struct DummyWaker();
     impl std::task::Wake for DummyWaker {
