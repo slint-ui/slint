@@ -3194,13 +3194,28 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                 (Type::Brush, Type::Color) => {
                     format!("{f}.color()")
                 }
-                (Type::Struct (_), Type::Struct(s)) if s.name.is_some() => {
-                    format!(
-                        "[&](const auto &o){{ {struct_name} s; {fields} return s; }}({obj})",
-                        struct_name = to.cpp_type().unwrap(),
-                        fields = s.fields.keys().enumerate().map(|(i, n)| format!("s.{} = std::get<{}>(o); ", ident(n), i)).join(""),
-                        obj = f,
-                    )
+                (Type::Struct(lhs), Type::Struct(rhs)) => {
+                    debug_assert_eq!(lhs.fields, rhs.fields, "cast of struct with deferent fields should be handled before llr");
+                    match (&lhs.name, &rhs.name) {
+                        (None, Some(_)) => {
+                            // Convert from an anonymous struct to a named one
+                            format!(
+                                "[&](const auto &o){{ {struct_name} s; {fields} return s; }}({obj})",
+                                struct_name = to.cpp_type().unwrap(),
+                                fields = lhs.fields.keys().enumerate().map(|(i, n)| format!("s.{} = std::get<{}>(o); ", ident(n), i)).join(""),
+                                obj = f,
+                            )
+                        }
+                        (Some(_), None) => {
+                            // Convert from a named struct to an anonymous one
+                            format!(
+                                "[&](const auto &o){{ return std::make_tuple({}); }}({f})",
+                                rhs.fields.keys().map(|n| format!("o.{}", ident(n))).join(", ")
+                            )
+                        }
+                        _ => f,
+                    }
+
                 }
                 (Type::Array(..), Type::PathData)
                     if matches!(
