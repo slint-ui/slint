@@ -12,7 +12,6 @@ use crate::input::{
     KeyEventResult, KeyEventType, MouseEvent,
 };
 use crate::item_rendering::CachedRenderingData;
-use crate::items::FocusPolicy;
 use crate::layout::{LayoutInfo, Orientation};
 use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize, PointLengths};
 #[cfg(feature = "rtti")]
@@ -276,7 +275,8 @@ impl ItemConsts for TouchArea {
 pub struct FocusScope {
     pub enabled: Property<bool>,
     pub has_focus: Property<bool>,
-    pub focus_policy: Property<FocusPolicy>,
+    pub focus_on_click: Property<bool>,
+    pub focus_on_tab_navigation: Property<bool>,
     pub key_pressed: Callback<KeyEventArg, EventResult>,
     pub key_released: Callback<KeyEventArg, EventResult>,
     pub capture_key_pressed: Callback<KeyEventArg, EventResult>,
@@ -316,7 +316,7 @@ impl Item for FocusScope {
         self_rc: &ItemRc,
     ) -> InputEventResult {
         if self.enabled()
-            && self.focus_policy() != FocusPolicy::TabOnly
+            && self.focus_on_click()
             && matches!(event, MouseEvent::Pressed { .. })
             && !self.has_focus()
         {
@@ -387,30 +387,26 @@ impl Item for FocusScope {
             return FocusEventResult::FocusIgnored;
         }
 
-        let reason = match event {
-            FocusEvent::FocusIn(reason) | FocusEvent::FocusOut(reason) => *reason,
-        };
-
-        match (reason, self.focus_policy()) {
-            (FocusReason::TabNavigation, FocusPolicy::ClickOnly) => {
-                return FocusEventResult::FocusIgnored
-            }
-            (FocusReason::PointerClick, FocusPolicy::TabOnly) => {
-                return FocusEventResult::FocusIgnored
-            }
-            _ => (),
-        }
-
         match event {
-            FocusEvent::FocusIn(_) => {
+            FocusEvent::FocusIn(reason) => {
+                match reason {
+                    FocusReason::TabNavigation if !self.focus_on_tab_navigation() => {
+                        return FocusEventResult::FocusIgnored
+                    }
+                    FocusReason::PointerClick if !self.focus_on_click() => {
+                        return FocusEventResult::FocusIgnored
+                    }
+                    _ => (),
+                };
+
                 self.has_focus.set(true);
-                Self::FIELD_OFFSETS.focus_changed_event.apply_pin(self).call(&((reason,)));
-                Self::FIELD_OFFSETS.focus_gained.apply_pin(self).call(&((reason,)));
+                Self::FIELD_OFFSETS.focus_changed_event.apply_pin(self).call(&((*reason,)));
+                Self::FIELD_OFFSETS.focus_gained.apply_pin(self).call(&((*reason,)));
             }
-            FocusEvent::FocusOut(_) => {
+            FocusEvent::FocusOut(reason) => {
                 self.has_focus.set(false);
-                Self::FIELD_OFFSETS.focus_changed_event.apply_pin(self).call(&((reason,)));
-                Self::FIELD_OFFSETS.focus_lost.apply_pin(self).call(&((reason,)));
+                Self::FIELD_OFFSETS.focus_changed_event.apply_pin(self).call(&((*reason,)));
+                Self::FIELD_OFFSETS.focus_lost.apply_pin(self).call(&((*reason,)));
             }
         }
         FocusEventResult::FocusAccepted
