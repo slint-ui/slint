@@ -1723,7 +1723,7 @@ pub fn instantiate(
             repeater.set_model_binding(move || {
                 let m = model_binding_closure();
                 if let Value::Model(m) = m {
-                    m.clone()
+                    m
                 } else {
                     ModelRc::new(crate::value_model::ValueModel::new(m))
                 }
