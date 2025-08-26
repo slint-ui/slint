@@ -70,7 +70,7 @@ jobs:
                     #- "https://github.com/zzoe/liando" # compile error in zstd-safe https://github.com/gyscos/zstd-rs/issues/270
                     - "https://github.com/Knowit-Objectnet/infoskjerm-trondheim"
                     - "https://github.com/CaleGlisson/Zelda_pattern_rust"
-                    - "https://github.com/dweiss96/rf2_league_mod_tool"
+                    - "https://codeberg.org/dweiss96/rf2_league_mod_tool"
                     - "https://github.com/Badless/slint-editor"
                     - "https://github.com/IvanB101/hamming-huffman"
                     - "https://github.com/izuku0550/Custom-Note-Builder"
@@ -139,34 +139,28 @@ jobs:
                     - "https://github.com/TsaoLun/always-blue"
                     - "https://github.com/kevinquillen/sysinfo"
                     - "https://github.com/home-cooked-firmware/hcui"
-                    - "https://github.com/zloisupport/vanctrl"
                     - "https://github.com/EinsPhoenix/MineSweeper-Rust"
                     - "https://github.com/jturcotte/beskope"
                     - "https://github.com/themkoi/Cosmic-Wanderer"
                     - "https://github.com/Danila-Bain/wav-wav"
-                    - "https://github.com/EmiPatoR/mivi-image-consumer"
                     - "https://github.com/xcrong/slint_data_processer"
                     - "https://github.com/Newlifer/peditor"
                     - "https://github.com/mackler/Lodge-Musician"
                     - "https://github.com/spineda2019/tRust"
-                    - "https://github.com/AaronGulman/Rusty-CryptoMonitor"
                     - "https://github.com/franckKyete/tools-desktop"
-                    - "https://github.com/GRX005/McModManager-rs"
-                    - "https://github.com/un4ckn0wl3z/title-randomizer-rs"
                     - "https://github.com/zys60233/secret-box"
                     - "https://github.com/xjy12345654/css_parser"
                     - "https://github.com/zuyzz/app_flock"
-                    - "https://github.com/interstellarfrog/OG3-Pack-Updater"
+                    #- "https://github.com/interstellarfrog/OG3-Pack-Updater" #zip2.6 is yanked
                     - "https://github.com/balicz3k/FileGuard"
                     - "https://github.com/ravioni-encoder/ravioni"
                     - "https://github.com/konmenel/tzimpouki"
-                    - "https://github.com/guimath/GeoQuiz"
-
 
                     # Missing images
                     # - "https://github.com/rurishigeo/Probe-Downloader"
                     # - "https://github.com/Tricked-dev/stardew-mod-manager"
                     # - "https://github.com/Erik7354/slint_minesweeper"
+                    # - "https://github.com/guimath/GeoQuiz"
 
 
                     # Use our private API (eg: backend winit)
@@ -183,9 +177,14 @@ jobs:
                     # - "https://github.com/nununoisy/gb-presenter-rs"
                     # - "https://github.com/nununoisy/nsf-presenter-rs"
                     # - "https://github.com/bombless/slint-tree"
+                    # "https://github.com/AaronGulman/Rusty-CryptoMonitor"  (lua54)
 
                     #- "https://github.com/link9c/media_backup"  #(windows only (failed to resolve: use of undeclared crate or module `winres`))
                     #- "https://github.com/Vadoola/ignition_npp_tools" #windows only
+                    #- "https://github.com/zloisupport/vanctrl" #windows only
+                    #- "https://github.com/GRX005/McModManager-rs"
+                    #- "https://github.com/un4ckn0wl3z/title-randomizer-rs"
+
 
                     # Not updated to Slint 1.0
                     #- "https://github.com/jannes/han-cihui"
@@ -259,7 +258,7 @@ jobs:
                       sub_path: "apps/native-node"
                     - git_url: "https://github.com/larus-breeze/sw_frontend_rs"
                       sub_path: "device/sim"
-                    - git_url: "https://github.dev/gramistella/cornerstone"
+                    - git_url: "https://github.com/gramistella/cornerstone"
                       sub_path: "frontend_slint"
                     - git_url: "https://github.com/dilo145/password_generator"
                       sub_path: "password_generator_gui"
@@ -276,7 +275,7 @@ jobs:
             - uses: ./.github/actions/install-linux-dependencies
               if: runner.os == 'Linux'
               with:
-                  extra-packages: libpango1.0-dev libatk1.0-dev libgtk-3-dev alsa-utils libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libjack-jackd2-dev autoconf libxcb-xrm0 libxcb-xrm-dev automake  libxcb-keysyms1-dev libxcb-util0-dev libxcb-icccm4-dev libyajl-dev libstartup-notification0-dev libxcb-randr0-dev libev-dev libxcb-cursor-dev libxcb-xinerama0-dev libxcb-xkb-dev libxkbcommon-dev libxkbcommon-x11-dev libudev-dev clang libavcodec-dev libavformat-dev libavutil-dev libavfilter-dev libavdevice-dev libasound2-dev pkg-config nasm libsoup2.4-dev libfuse3-dev libx11-xcb-dev libarchive-dev libsoup-3.0-dev libjavascriptcoregtk-4.1-dev
+                  extra-packages: libpango1.0-dev libatk1.0-dev libgtk-3-dev alsa-utils libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libjack-jackd2-dev autoconf libxcb-xrm0 libxcb-xrm-dev automake  libxcb-keysyms1-dev libxcb-util0-dev libxcb-icccm4-dev libyajl-dev libstartup-notification0-dev libxcb-randr0-dev libev-dev libxcb-cursor-dev libxcb-xinerama0-dev libxcb-xkb-dev libxkbcommon-dev libxkbcommon-x11-dev libudev-dev clang libavcodec-dev libavformat-dev libavutil-dev libavfilter-dev libavdevice-dev libasound2-dev pkg-config nasm libsoup2.4-dev libfuse3-dev libx11-xcb-dev libarchive-dev libsoup-3.0-dev libjavascriptcoregtk-4.1-dev libpipewire-0.3-dev
             # Don't use the cache because we don't run this job often, and it would cache the .cargo/config.toml with extra keys
             - uses: dtolnay/rust-toolchain@master
               with:
@@ -289,6 +288,7 @@ jobs:
                   echo slint-build = { path = \"$GITHUB_WORKSPACE/api/rs/build\" }  >> ~/.cargo/config.toml
                   echo slint-interpreter = { path = \"$GITHUB_WORKSPACE/internal/interpreter\" }  >> ~/.cargo/config.toml
                   echo i-slint-backend-winit = { path = \"$GITHUB_WORKSPACE/internal/backends/winit\" }  >> ~/.cargo/config.toml
+                  echo i-slint-core = { path = \"$GITHUB_WORKSPACE/internal/core\" }  >> ~/.cargo/config.toml
             - name: Checkout the repo
               run: |
                   cd $HOME
