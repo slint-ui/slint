@@ -14,6 +14,7 @@ pub mod component_catalog;
 pub mod document_cache;
 pub use document_cache::{DocumentCache, SourceFileVersion};
 pub mod rename_component;
+pub mod rename_element_id;
 #[cfg(test)]
 pub mod test;
 #[cfg(any(test, feature = "preview-engine"))]
