@@ -13,7 +13,7 @@ export component TestCase inherits Window {
   in-out property <string> result;
 
   FocusScope {
-    focus-policy: click-only;
+    focus-on-tab-navigation: false;
     capture-key-pressed(event) => {
       if (event.text == "x") {
         result += "Or:";

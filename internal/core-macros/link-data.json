@@ -56,9 +56,6 @@
     "float": {
         "href": "reference/primitive-types/#float"
     },
-    "FocusPolicy": {
-        "href": "reference/global-structs-enums/#focuspolicy"
-    },
     "FocusReason": {
         "href": "reference/global-structs-enums/#focusreason"
     },

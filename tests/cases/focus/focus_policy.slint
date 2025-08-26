@@ -6,31 +6,65 @@ export component TestCase inherits Rectangle {
     width: 400phx;
     height: 400phx;
 
+    function reason-str(reason: FocusReason) -> string {
+        if reason == FocusReason.tab-navigation {
+            return "Tab";
+        } else if reason == FocusReason.pointer-click {
+            return "Click";
+        } else if reason == FocusReason.popup-activation {
+            return "Popup";
+        } else if reason == FocusReason.window-activation {
+            return "Window";
+        } else if reason == FocusReason.programmatic {
+            return "Programmatic";
+        } else {
+            return "Unknown";
+        }
+    }
+
+
     VerticalLayout {
         fs1 := FocusScope {
-            focus-policy: FocusPolicy.tab-and-click;
+            focus-on-click: true;
+            focus-on-tab-navigation: true;
             Rectangle {
                 width: 100%;
                 height: 100%;
                 background: red;
             }
+
+            focus-gained(reason) => { events += "1 In " + reason-str(reason) + "\n"; }
+            focus-lost(reason) => { events += "1 Out " + reason-str(reason) + "\n"; }
         }
 
+        // tab only
         fs2 := FocusScope {
-            focus-policy: FocusPolicy.tab-only;
+            focus-on-click: false;
             Rectangle {
                 width: 100%;
                 height: 100%;
                 background: green;
             }
+
+            focus-gained(reason) => { events += "2 In " + reason-str(reason) + "\n"; }
+            focus-lost(reason) => { events += "2 Out " + reason-str(reason) + "\n"; }
         }
 
+        // click only
         fs3 := FocusScope {
-            focus-policy: FocusPolicy.click-only;
+            focus-on-tab-navigation: false;
             Rectangle {
                 width: 100%;
                 height: 100%;
                 background: blue;
+            }
+
+            focus-changed-event(reason) => {
+                if self.has-focus {
+                    events += "3 In " + reason-str(reason) + "\n";
+                } else {
+                    events += "3 Out " + reason-str(reason) + "\n";
+                }
             }
         }
     }
@@ -56,6 +90,7 @@ export component TestCase inherits Rectangle {
     out property <bool> fs1-has-focus: fs1.has-focus;
     out property <bool> fs2-has-focus: fs2.has-focus;
     out property <bool> fs3-has-focus: fs3.has-focus;
+    in-out property <string> events;
 }
 
 /*
@@ -67,56 +102,74 @@ slint_testing::send_keyboard_string_sequence(&instance, "\t");
 assert!(instance.get_fs1_has_focus());
 assert!(!instance.get_fs2_has_focus());
 assert!(!instance.get_fs3_has_focus());
+assert_eq!(instance.get_events(), "1 In Tab\n");
+instance.set_events(Default::default());
 
 // tab to fs2
 slint_testing::send_keyboard_string_sequence(&instance, "\t");
 assert!(!instance.get_fs1_has_focus());
 assert!(instance.get_fs2_has_focus());
 assert!(!instance.get_fs3_has_focus());
+assert_eq!(instance.get_events(), "1 Out Tab\n2 In Tab\n");
+instance.set_events(Default::default());
 
 // skip fs3 and tab back to fs1
 slint_testing::send_keyboard_string_sequence(&instance, "\t");
 assert!(instance.get_fs1_has_focus());
 assert!(!instance.get_fs2_has_focus());
 assert!(!instance.get_fs3_has_focus());
+assert_eq!(instance.get_events(), "2 Out Tab\n1 In Tab\n");
+instance.set_events(Default::default());
 
 // click to focus fs3
 slint_testing::send_mouse_click(&instance, 5., 300.);
 assert!(!instance.get_fs1_has_focus());
 assert!(!instance.get_fs2_has_focus());
 assert!(instance.get_fs3_has_focus());
+assert_eq!(instance.get_events(), "1 Out Click\n3 In Click\n");
+instance.set_events(Default::default());
 
 // click to focus fs1
 slint_testing::send_mouse_click(&instance, 5., 5.);
 assert!(instance.get_fs1_has_focus());
 assert!(!instance.get_fs2_has_focus());
 assert!(!instance.get_fs3_has_focus());
+assert_eq!(instance.get_events(), "3 Out Click\n1 In Click\n");
+instance.set_events(Default::default());
 
 // click shouldn't focus fs2
 slint_testing::send_mouse_click(&instance, 5., 200.);
 assert!(instance.get_fs1_has_focus());
 assert!(!instance.get_fs2_has_focus());
 assert!(!instance.get_fs3_has_focus());
+assert_eq!(instance.get_events(), "");
 
 // opening a popup should still remove focus
 instance.invoke_show_popup();
 assert!(!instance.get_fs1_has_focus());
 assert!(!instance.get_fs2_has_focus());
 assert!(!instance.get_fs3_has_focus());
+assert_eq!(instance.get_events(), "1 Out Popup\n");
+instance.set_events(Default::default());
 
 // programmatic focus should still work too
 instance.invoke_focus_fs1();
 assert!(instance.get_fs1_has_focus());
 assert!(!instance.get_fs2_has_focus());
 assert!(!instance.get_fs3_has_focus());
+assert_eq!(instance.get_events(), "1 In Programmatic\n");
+instance.set_events(Default::default());
 instance.invoke_focus_fs2();
 assert!(!instance.get_fs1_has_focus());
 assert!(instance.get_fs2_has_focus());
 assert!(!instance.get_fs3_has_focus());
+assert_eq!(instance.get_events(), "1 Out Programmatic\n2 In Programmatic\n");
+instance.set_events(Default::default());
 instance.invoke_focus_fs3();
 assert!(!instance.get_fs1_has_focus());
 assert!(!instance.get_fs2_has_focus());
 assert!(instance.get_fs3_has_focus());
+assert_eq!(instance.get_events(), "2 Out Programmatic\n3 In Programmatic\n");
 ```
 
 ```cpp
@@ -128,56 +181,74 @@ slint_testing::send_keyboard_string_sequence(&instance, "\t");
 assert(instance.get_fs1_has_focus());
 assert(!instance.get_fs2_has_focus());
 assert(!instance.get_fs3_has_focus());
+assert_eq(instance.get_events(), "1 In Tab\n");
+instance.set_events("");
 
 // tab to fs2
 slint_testing::send_keyboard_string_sequence(&instance, "\t");
 assert(!instance.get_fs1_has_focus());
 assert(instance.get_fs2_has_focus());
 assert(!instance.get_fs3_has_focus());
+assert_eq(instance.get_events(), "1 Out Tab\n2 In Tab\n");
+instance.set_events("");
 
 // skip fs3 and tab back to fs1
 slint_testing::send_keyboard_string_sequence(&instance, "\t");
 assert(instance.get_fs1_has_focus());
 assert(!instance.get_fs2_has_focus());
 assert(!instance.get_fs3_has_focus());
+assert_eq(instance.get_events(), "2 Out Tab\n1 In Tab\n");
+instance.set_events("");
 
 // click to focus fs3
 slint_testing::send_mouse_click(&instance, 5., 300.);
 assert(!instance.get_fs1_has_focus());
 assert(!instance.get_fs2_has_focus());
 assert(instance.get_fs3_has_focus());
+assert_eq(instance.get_events(), "1 Out Click\n3 In Click\n");
+instance.set_events("");
 
 // click to focus fs1
 slint_testing::send_mouse_click(&instance, 5., 5.);
 assert(instance.get_fs1_has_focus());
 assert(!instance.get_fs2_has_focus());
 assert(!instance.get_fs3_has_focus());
+assert_eq(instance.get_events(), "3 Out Click\n1 In Click\n");
+instance.set_events("");
 
 // click shouldn't focus fs2
 slint_testing::send_mouse_click(&instance, 5., 200.);
 assert(instance.get_fs1_has_focus());
 assert(!instance.get_fs2_has_focus());
 assert(!instance.get_fs3_has_focus());
+assert_eq(instance.get_events(), "");
 
 // opening a popup should still remove focus
 instance.invoke_show_popup();
 assert(!instance.get_fs1_has_focus());
 assert(!instance.get_fs2_has_focus());
 assert(!instance.get_fs3_has_focus());
+assert_eq(instance.get_events(), "1 Out Popup\n");
+instance.set_events("");
 
 // programmatic focus should still work too
 instance.invoke_focus_fs1();
 assert(instance.get_fs1_has_focus());
 assert(!instance.get_fs2_has_focus());
 assert(!instance.get_fs3_has_focus());
+assert_eq(instance.get_events(), "1 In Programmatic\n");
+instance.set_events("");
 instance.invoke_focus_fs2();
 assert(!instance.get_fs1_has_focus());
 assert(instance.get_fs2_has_focus());
 assert(!instance.get_fs3_has_focus());
+assert_eq(instance.get_events(), "1 Out Programmatic\n2 In Programmatic\n");
+instance.set_events("");
 instance.invoke_focus_fs3();
 assert(!instance.get_fs1_has_focus());
 assert(!instance.get_fs2_has_focus());
 assert(instance.get_fs3_has_focus());
+assert_eq(instance.get_events(), "2 Out Programmatic\n3 In Programmatic\n");
 ```
 
 ```js
@@ -188,55 +259,74 @@ slintlib.private_api.send_keyboard_string_sequence(instance, "\t");
 assert(instance.fs1_has_focus);
 assert(!instance.fs2_has_focus);
 assert(!instance.fs3_has_focus);
+assert.equal(instance.events, "1 In Tab\n");
+instance.events = "";
 
 // tab to fs2
 slintlib.private_api.send_keyboard_string_sequence(instance, "\t");
 assert(!instance.fs1_has_focus);
 assert(instance.fs2_has_focus);
 assert(!instance.fs3_has_focus);
+assert.equal(instance.events, "1 Out Tab\n2 In Tab\n");
+instance.events = "";
 
 // skip fs3 and tab back to fs1
 slintlib.private_api.send_keyboard_string_sequence(instance, "\t");
 assert(instance.fs1_has_focus);
 assert(!instance.fs2_has_focus);
 assert(!instance.fs3_has_focus);
+assert.equal(instance.events, "2 Out Tab\n1 In Tab\n");
+instance.events = "";
 
 // click to focus fs3
 slintlib.private_api.send_mouse_click(instance, 5., 300.);
 assert(!instance.fs1_has_focus);
 assert(!instance.fs2_has_focus);
 assert(instance.fs3_has_focus);
+assert.equal(instance.events, "1 Out Click\n3 In Click\n");
+instance.events = "";
 
 // click to focus fs1
 slintlib.private_api.send_mouse_click(instance, 5., 5.);
 assert(instance.fs1_has_focus);
 assert(!instance.fs2_has_focus);
 assert(!instance.fs3_has_focus);
+assert.equal(instance.events, "3 Out Click\n1 In Click\n");
+instance.events = "";
 
 // click shouldn't focus fs2
 slintlib.private_api.send_mouse_click(instance, 5., 200.);
 assert(instance.fs1_has_focus);
 assert(!instance.fs2_has_focus);
 assert(!instance.fs3_has_focus);
+assert.equal(instance.events, "");
+instance.events = "";
 
 // opening a popup should still remove focus
 instance.show_popup();
 assert(!instance.fs1_has_focus);
 assert(!instance.fs2_has_focus);
 assert(!instance.fs3_has_focus);
+assert.equal(instance.events, "1 Out Popup\n");
+instance.events = "";
 
 // programmatic focus should still work too
 instance.focus_fs1();
 assert(instance.fs1_has_focus);
 assert(!instance.fs2_has_focus);
 assert(!instance.fs3_has_focus);
+assert.equal(instance.events, "1 In Programmatic\n");
+instance.events = "";
 instance.focus_fs2();
 assert(!instance.fs1_has_focus);
 assert(instance.fs2_has_focus);
 assert(!instance.fs3_has_focus);
+assert.equal(instance.events, "1 Out Programmatic\n2 In Programmatic\n");
+instance.events = "";
 instance.focus_fs3();
 assert(!instance.fs1_has_focus);
 assert(!instance.fs2_has_focus);
 assert(instance.fs3_has_focus);
+assert.equal(instance.events, "2 Out Programmatic\n3 In Programmatic\n");
 ```
 */

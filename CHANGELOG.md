@@ -33,7 +33,7 @@ All notable changes to this project are documented in this file.
  - Flickable forward wheel event in a orthogonal direction to their parent
  - Added a compiler warning when using `padding` outside of layout (#6288)
  - Added stop(), start(), and restart() methods to Timer (#8821)
- - Added `focus-policy` property to `FocusScope` (#8940)
+ - Added `focus-on-click` and `focus-on-tab-navigation` property to `FocusScope`
  - `Dialog` and `Window` that aren't top-level now draw their background
  - `FocusScope`: Added `capture_key_pressed` and `capture_key_released` callbacks
  - Added support for `@conic-gradient` (#9021)

@@ -134,7 +134,8 @@ export component TouchArea {
 
 export component FocusScope {
     in property <bool> enabled: true;
-    in property <FocusPolicy> focus-policy;
+    in property <bool> focus-on-click: true;
+    in property <bool> focus-on-tab-navigation: true;
     out property <bool> has-focus;
     callback capture_key_pressed(event: KeyEvent) -> EventResult;
     callback capture_key_released(event: KeyEvent) -> EventResult;
