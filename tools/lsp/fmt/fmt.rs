@@ -338,10 +338,21 @@ fn format_element(
     let mut inserted_newline = false;
 
     for n in sub {
-        if n.kind() == SyntaxKind::Whitespace {
+        if n.kind() != SyntaxKind::Comment {
+            if let Some(last_removed_whitespace) = state.last_removed_whitespace.take() {
+                let is_empty_line = last_removed_whitespace.contains("\n\n");
+                if is_empty_line && !inserted_newline {
+                    state.new_line();
+                }
+            }
+        }
+        if n.kind() == SyntaxKind::Whitespace && !state.after_comment {
             let is_empty_line = n.as_token().map(|n| n.text().contains("\n\n")).unwrap_or(false);
-            if is_empty_line && !inserted_newline {
-                state.new_line();
+            if is_empty_line {
+                if !inserted_newline {
+                    state.new_line();
+                }
+                continue;
             }
         }
         inserted_newline = false;
@@ -2116,6 +2127,32 @@ export component MainWindow2 inherits Rectangle {
 }
 "#,
         );
+    }
+
+    #[test]
+    fn callback_connection() {
+        assert_formatting(
+            "export component Foobar{ init=>{  debug (1 );} \n\nfoo=>{}  clicked =>   debug(2) ; TouchArea { clicked => root.clicked(); moved=>{debug(3)};\n\n//some comment\n        bar=>{} }  }",
+            r#"export component Foobar {
+    init => {
+        debug(1);
+    }
+
+    foo => {
+    }
+    clicked => debug(2);
+    TouchArea {
+        clicked => root.clicked();
+        moved => {
+            debug(3)
+        };
+
+        //some comment
+        bar => {
+        }
+    }
+}
+"# );
     }
 
     #[test]
