@@ -56,11 +56,11 @@ jobs:
                     - "https://github.com/Decodetalkers/launchre"
                     - "https://github.com/Decodetalkers/haruhishot"
                     - "https://github.com/smalltext/trace-slint/"
-                    - "https://github.com/danrauch/thermocam"
+                    # - "https://github.com/danrauch/thermocam" #  error: failed to run custom build command for `v4l2-sys-mit v0.2.0`
                     - "https://github.com/saturn77/magnet"
                     - "https://github.com/Heng30/chatbox"
 
-                    - "https://github.com/zzq0097/mmm_rs"
+                    # - "https://github.com/zzq0097/mmm_rs" # could not compile `netease-cloud-music-api` (lib)
                     - "https://github.com/CMahaff/lasim" # many stars
                     #- "https://github.com/spades9/image-tools"  # compile error
                     - "https://github.com/studylessshape/calculator-by-rs"
@@ -88,6 +88,7 @@ jobs:
                     #- "https://github.com/Heng30/bitbox" #pinned slint-build version
                     - "https://github.com/Heng30/solana-wallet-sollet"
                     - "https://github.com/Heng30/vtbox"
+                    - "https://github.com/heng30/flymoon"
                     - "https://github.com/Risuleia/Tranquilo"
                     #- "https://github.com/hambooooo/hamboo-rs" #uses nightly rust
                     # - "https://github.com/hambooooo/hamboo-embassy" #uses nightly rust
@@ -112,7 +113,6 @@ jobs:
                     - "https://github.com/BounceU/car_thang"
                     - "https://github.com/sloganking/codevis-gui"
                     - "https://github.com/R3alCl0ud/Rust4Diva"
-                    - "https://github.com/ontley/amuseing"
                     - "https://github.com/CzNorbi/tic_tac_toe_ui"
                     - "https://github.com/remy2019/smtbr_gui"
                     - "https://github.com/mrandal/PDFer"
@@ -121,13 +121,46 @@ jobs:
                     # - "https://github.com/SUP2Ak/Lur-Slint" # repo gone?
                     # - "https://github.com/foxboxpdx/melonstt" # repo gone?
                     - "https://github.com/sanyexieai/me_chat"
-                    - "https://github.com/oreo3494/rockpaper.git"
+                    #- "https://github.com/oreo3494/rockpaper.git" # error because of `rand`
                     - "https://github.com/laycookie/record"
                     - "https://github.com/padangpanda/password-generator-desktop"
                     - "https://github.com/RealAdarsh/slint-guess-game"
                     - "https://github.com/DASPRiD/vrc-osc-manager"
                     - "https://github.com/beac0n/ruroco"
                     - "https://github.com/Enn3Developer/n_music"
+
+                    - "https://github.com/SergioRibera/Simplemoji"
+                    - "https://github.com/Ashintosh/NoPass"
+                    - "https://github.com/Gremious/stickerbox"
+                    - "https://github.com/BiliRumble/Cloubit"
+                    - "https://github.com/aenriii/rimgv"
+                    - "https://github.com/Brayan-724/amosd"
+                    - "https://github.com/gopher64/gopher64"
+                    - "https://github.com/TsaoLun/always-blue"
+                    - "https://github.com/kevinquillen/sysinfo"
+                    - "https://github.com/home-cooked-firmware/hcui"
+                    - "https://github.com/zloisupport/vanctrl"
+                    - "https://github.com/EinsPhoenix/MineSweeper-Rust"
+                    - "https://github.com/jturcotte/beskope"
+                    - "https://github.com/themkoi/Cosmic-Wanderer"
+                    - "https://github.com/Danila-Bain/wav-wav"
+                    - "https://github.com/EmiPatoR/mivi-image-consumer"
+                    - "https://github.com/xcrong/slint_data_processer"
+                    - "https://github.com/Newlifer/peditor"
+                    - "https://github.com/mackler/Lodge-Musician"
+                    - "https://github.com/spineda2019/tRust"
+                    - "https://github.com/AaronGulman/Rusty-CryptoMonitor"
+                    - "https://github.com/franckKyete/tools-desktop"
+                    - "https://github.com/GRX005/McModManager-rs"
+                    - "https://github.com/un4ckn0wl3z/title-randomizer-rs"
+                    - "https://github.com/zys60233/secret-box"
+                    - "https://github.com/xjy12345654/css_parser"
+                    - "https://github.com/zuyzz/app_flock"
+                    - "https://github.com/interstellarfrog/OG3-Pack-Updater"
+                    - "https://github.com/balicz3k/FileGuard"
+                    - "https://github.com/ravioni-encoder/ravioni"
+                    - "https://github.com/konmenel/tzimpouki"
+                    - "https://github.com/guimath/GeoQuiz"
 
 
                     # Missing images
@@ -167,8 +200,6 @@ jobs:
                 include:
                     - git_url: "https://github.com/griccardos/rusl"
                       sub_path: "slint"
-                    - git_url: "https://github.com/Berrysoft/tunet-rust"
-                      sub_path: "tunet-gui"
                     #- git_url: "https://github.com/DanielMadmon/tasker"  # needs "themis dep"
                     #  sub_path: "bin/tasker_gui"
                     # - git_url: "https://github.com/Kllngii/Wetterstation" # can't check submodules
@@ -185,8 +216,8 @@ jobs:
                     #- git_url: "https://github.com/planet0104/satellite_wallpaper"
                     #  sub_path: "."
                     #  os: windows-latest
-                    - git_url: "https://github.com/colelawrence/here-now"
-                      sub_path: "hn-desktop-ui"
+                    #- git_url: "https://github.com/colelawrence/here-now" # Compile error
+                    #  sub_path: "hn-desktop-ui"
                     - git_url: "https://github.com/MunyaradziMagura/Pomodoro"
                       sub_path: "pomodoro"
                     - git_url: "https://github.com/flukejones/asusctl"
@@ -219,9 +250,25 @@ jobs:
                       sub_path: "gui"
                     - git_url: "https://github.com/jaymedavis/romboy"
                       sub_path: "romboy"
-                    - git_url: "https://github.com/somantics/retrodungeon"
-                      sub_path: "."
-                      extra_args: "--features=femtovg"
+                    #- git_url: "https://github.com/somantics/retrodungeon"  # compile error
+                    #  sub_path: "."
+                    #  extra_args: "--features=femtovg"
+                    - git_url: "https://github.com/jonfast565/runinator"
+                      sub_path: "command-center"
+                    - git_url: "https://github.com/stars-labs/mpc-wallet"
+                      sub_path: "apps/native-node"
+                    - git_url: "https://github.com/larus-breeze/sw_frontend_rs"
+                      sub_path: "device/sim"
+                    - git_url: "https://github.dev/gramistella/cornerstone"
+                      sub_path: "frontend_slint"
+                    - git_url: "https://github.com/dilo145/password_generator"
+                      sub_path: "password_generator_gui"
+                    - git_url: "https://github.com/DiD92/map-generator"
+                      sub_path: "generator-ui"
+                    - git_url: "https://github.com/Szybet/snake-slint"
+                      sub_path: "snake_bin_std"
+
+
 
         runs-on: "ubuntu-latest"
         steps:
