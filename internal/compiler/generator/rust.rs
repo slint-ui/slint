@@ -2229,14 +2229,26 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                 (Type::Brush, Type::Color) => {
                     quote!(#f.color())
                 }
-                (Type::Struct (lhs), Type::Struct (rhs)) if rhs.name.is_some() => {
-                    let fields = lhs.fields.iter().enumerate().map(|(index, (name, _))| {
-                        let index = proc_macro2::Literal::usize_unsuffixed(index);
-                        let name = ident(name);
-                        quote!(the_struct.#name =  obj.#index as _;)
-                    });
-                    let id = struct_name_to_tokens(rhs.name.as_ref().unwrap());
-                    quote!({ let obj = #f; let mut the_struct = #id::default(); #(#fields)* the_struct })
+                (Type::Struct (lhs), Type::Struct (rhs)) => {
+                    debug_assert_eq!(lhs.fields, rhs.fields, "cast of struct with deferent fields should be handled before llr");
+                    match (&lhs.name, &rhs.name) {
+                        (None, Some(struct_name)) => {
+                            // Convert from an anonymous struct to a named one
+                            let fields = lhs.fields.iter().enumerate().map(|(index, (name, _))| {
+                                let index = proc_macro2::Literal::usize_unsuffixed(index);
+                                let name = ident(name);
+                                quote!(the_struct.#name =  obj.#index as _;)
+                            });
+                            let id = struct_name_to_tokens(struct_name);
+                            quote!({ let obj = #f; let mut the_struct = #id::default(); #(#fields)* the_struct })
+                        }
+                        (Some(_), None) => {
+                            // Convert from a named struct to an anonymous one
+                            let fields = lhs.fields.keys().map(|name| ident(name));
+                            quote!({ let obj = #f; (#(obj.#fields,)*) })
+                        }
+                        _ => f,
+                    }
                 }
                 (Type::Array(..), Type::PathData)
                     if matches!(
