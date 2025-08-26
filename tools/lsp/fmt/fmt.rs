@@ -346,7 +346,7 @@ fn format_element(
                 }
             }
         }
-        if n.kind() == SyntaxKind::Whitespace {
+        if n.kind() == SyntaxKind::Whitespace && !state.after_comment {
             let is_empty_line = n.as_token().map(|n| n.text().contains("\n\n")).unwrap_or(false);
             if is_empty_line {
                 if !inserted_newline {
