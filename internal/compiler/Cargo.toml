@@ -56,6 +56,7 @@ itertools = { workspace = true }
 url = "2.2.1"
 linked_hash_set = "0.1.4"
 typed-index-collections = "3.2"
+dataurl = "0.1.2"
 
 # for processing and embedding the rendered image (texture)
 image = { workspace = true, optional = true, features = ["default"] }
