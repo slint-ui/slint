@@ -299,7 +299,7 @@ slintlib.private_api.send_mouse_click(instance, 5., 200.);
 assert(instance.fs1_has_focus);
 assert(!instance.fs2_has_focus);
 assert(!instance.fs3_has_focus);
-assert.equal(instance.events, "1 Out Click\n3 In Click\n");
+assert.equal(instance.events, "");
 instance.events = "";
 
 // opening a popup should still remove focus
