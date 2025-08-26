@@ -118,7 +118,8 @@ pub(crate) struct RepeaterWithinItemTree<'par_id, 'sub_id> {
     pub(crate) model: Expression,
     /// Offset of the `Repeater`
     offset: FieldOffset<Instance<'par_id>, Repeater<ErasedItemTreeBox>>,
-    /// Whether this is a `if` or a `for`
+    /// When true, it is representing a `if`, instead of a `for`.
+    /// Based on [`i_slint_compiler::object_tree::RepeatedElementInfo::is_conditional_element`]
     is_conditional: bool,
 }
 
