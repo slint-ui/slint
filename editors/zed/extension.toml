@@ -4,7 +4,7 @@
 id = "slint"
 name = "Slint"
 description = "Slint support for Zed"
-version = "0.1.0"
+version = "0.1.1"
 schema_version = 1
 authors = ["Luke. D Jones <luke@ljones.dev>"]
 repository = "https://github.com/slint-ui/slint"
