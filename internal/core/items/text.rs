@@ -1927,6 +1927,7 @@ impl TextInput {
         let mut redo = self.redo_items.take();
         redo.push(last);
         self.redo_items.set(redo);
+        Self::FIELD_OFFSETS.edited.apply_pin(self).call(&());
     }
 
     fn redo(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>, self_rc: &ItemRc) {
@@ -1972,6 +1973,7 @@ impl TextInput {
         let mut undo_items = self.undo_items.take();
         undo_items.push(last);
         self.undo_items.set(undo_items);
+        Self::FIELD_OFFSETS.edited.apply_pin(self).call(&());
     }
 
     pub fn font_metrics(
