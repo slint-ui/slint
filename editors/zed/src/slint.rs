@@ -45,7 +45,7 @@ impl SlintExtension {
             &zed::LanguageServerInstallationStatus::CheckingForUpdate,
         );
 
-        let dev_mode = worktree.shell_env().iter().any(|(k, _)| k == "SLINT_DEV_MODE");
+        let dev_mode = worktree.shell_env().iter().any(|(k, v)| k == "SLINT_DEV_MODE" && v == "1");
         let release_tag =
             if dev_mode { "nightly" } else { concat!("v", env!("CARGO_PKG_VERSION")) };
         let release = zed::github_release_by_tag_name("slint-ui/slint", release_tag)
