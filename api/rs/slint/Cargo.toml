@@ -83,18 +83,18 @@ raw-window-handle-06 = ["dep:raw-window-handle-06", "i-slint-backend-selector/ra
 ## AVIF, BMP, DDS, Farbfeld, GIF, HDR, ICO, JPEG, EXR, PNG, PNM, QOI, TGA, TIFF, WebP.
 image-default-formats = ["i-slint-core/image-default-formats"]
 
-## Enable the live reload feature
+## Enable the live preview feature
 ##
 ## Enable this feature to reload the .slint files at runtime and reload it whenever the files are modified on disk.
-## For this feature to work, it's also required to set the `SLINT_LIVE_RELOAD` environment variable during
+## For this feature to work, it's also required to set the `SLINT_LIVE_PREVIEW` environment variable during
 ## application compilation.
 ##
 ## This is a feature for debugging and development. It's not recommended to add this feature to your Cargo.toml.
 ## Instead, use the `--features` command line argument like so when building your app:
 ## ```bash
-## SLINT_LIVE_RELOAD=1 cargo build --features slint/live-reload
+## SLINT_LIVE_PREVIEW=1 cargo build --features slint/live-preview
 ## ```
-live-reload = ["dep:slint-interpreter"]
+live-preview = ["dep:slint-interpreter"]
 
 #! ### Backends
 
@@ -234,7 +234,7 @@ i-slint-core = { workspace = true }
 slint-macros = { workspace = true }
 i-slint-backend-selector = { workspace = true }
 i-slint-core-macros = { workspace = true }
-slint-interpreter = { workspace = true, optional = true, default-features = false, features = ["display-diagnostics", "compat-1-2", "internal-live-reload"] }
+slint-interpreter = { workspace = true, optional = true, default-features = false, features = ["display-diagnostics", "compat-1-2", "internal-live-preview"] }
 
 const-field-offset = { version = "0.1.2", path = "../../../helper_crates/const-field-offset" }
 document-features = { version = "0.2.0", optional = true }

@@ -986,7 +986,7 @@ macro_rules! declare_features {
 
 declare_features! {
     interpreter
-    live_reload
+    live_preview
     testing
     backend_qt
     backend_winit

@@ -131,7 +131,7 @@ internal-highlight = []
 internal-json = ["dep:serde_json"]
 
 # (internal)
-internal-live-reload = ["dep:notify", "display-diagnostics"]
+internal-live-preview = ["dep:notify", "display-diagnostics"]
 
 
 [dependencies]

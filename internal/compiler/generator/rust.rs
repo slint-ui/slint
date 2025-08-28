@@ -156,8 +156,8 @@ pub fn generate(
     doc: &Document,
     compiler_config: &CompilerConfiguration,
 ) -> std::io::Result<TokenStream> {
-    if std::env::var("SLINT_LIVE_RELOAD").is_ok() {
-        return super::rust_live_reload::generate(doc, compiler_config);
+    if std::env::var("SLINT_LIVE_PREVIEW").is_ok() {
+        return super::rust_live_preview::generate(doc, compiler_config);
     }
 
     let (structs_and_enums_ids, inner_module) =

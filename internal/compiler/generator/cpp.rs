@@ -681,8 +681,8 @@ pub fn generate(
     config: Config,
     compiler_config: &CompilerConfiguration,
 ) -> std::io::Result<impl std::fmt::Display> {
-    if std::env::var("SLINT_LIVE_RELOAD").is_ok() {
-        return super::cpp_live_reload::generate(doc, config, compiler_config);
+    if std::env::var("SLINT_LIVE_PREVIEW").is_ok() {
+        return super::cpp_live_preview::generate(doc, config, compiler_config);
     }
 
     let mut file = generate_types(&doc.used_types.borrow().structs_and_enums, &config);

@@ -92,7 +92,7 @@ define_renderer_winit_compat_option(skia-vulkan)
 define_renderer_winit_compat_option(software)
 
 define_cargo_dependent_feature(interpreter "Enable support for the Slint interpreter to load .slint files at run-time" ON "NOT SLINT_FEATURE_FREESTANDING")
-define_cargo_dependent_feature(live-reload "Enable support for the Slint live-reload to re-load changed .slint files at run-time" OFF "SLINT_FEATURE_INTERPRETER")
+define_cargo_dependent_feature(live-preview "Enable support for the Slint live-preview to re-load changed .slint files at run-time" OFF "SLINT_FEATURE_INTERPRETER")
 
 define_cargo_dependent_feature(backend-winit "Enable support for the winit crate to interaction with all windowing systems." ON "NOT SLINT_FEATURE_FREESTANDING")
 define_cargo_dependent_feature(backend-winit-x11 "Enable support for the winit create to interact only with the X11 windowing system on Unix. Enable this option and turn off SLINT_FEATURE_BACKEND_WINIT for a smaller build with just X11 support on Unix." OFF "NOT SLINT_FEATURE_FREESTANDING")

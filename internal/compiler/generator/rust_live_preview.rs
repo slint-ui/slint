@@ -168,15 +168,15 @@ fn generate_public_component(
     let style = compiler_config.style.iter();
 
     quote!(
-        pub struct #public_component_id(sp::Rc<::core::cell::RefCell<sp::live_reload::LiveReloadingComponent>>, sp::Rc<dyn sp::WindowAdapter>);
+        pub struct #public_component_id(sp::Rc<::core::cell::RefCell<sp::live_preview::LiveReloadingComponent>>, sp::Rc<dyn sp::WindowAdapter>);
 
         impl #public_component_id {
             pub fn new() -> sp::Result<Self, slint::PlatformError> {
-                let mut compiler = sp::live_reload::Compiler::default();
+                let mut compiler = sp::live_preview::Compiler::default();
                 compiler.set_include_paths([#(#include_paths.into()),*].into_iter().collect());
                 compiler.set_library_paths([#(#library_paths.into()),*].into_iter().collect());
                 #(compiler.set_style(#style.to_string());)*
-                let instance = sp::live_reload::LiveReloadingComponent::new(compiler, #main_file.into(), #component_name.into())?;
+                let instance = sp::live_preview::LiveReloadingComponent::new(compiler, #main_file.into(), #component_name.into())?;
                 let window_adapter = sp::WindowInner::from_pub(slint::ComponentHandle::window(instance.borrow().instance())).window_adapter();
                 sp::Ok(Self(instance, window_adapter))
             }
@@ -185,7 +185,7 @@ fn generate_public_component(
         }
 
         impl slint::ComponentHandle for #public_component_id {
-            type WeakInner = sp::Weak<::core::cell::RefCell<sp::live_reload::LiveReloadingComponent>>;
+            type WeakInner = sp::Weak<::core::cell::RefCell<sp::live_preview::LiveReloadingComponent>>;
             fn as_weak(&self) -> slint::Weak<Self> {
                 slint::Weak::new(sp::Rc::downgrade(&self.0))
             }
@@ -224,7 +224,7 @@ fn generate_public_component(
 
         /// This is needed for the the internal tests  (eg `slint_testing::send_keyboard_string_sequence`)
         impl<X> ::core::convert::From<#public_component_id> for sp::VRc<sp::ItemTreeVTable, X>
-            where Self : ::core::convert::From<sp::live_reload::ComponentInstance>
+            where Self : ::core::convert::From<sp::live_preview::ComponentInstance>
         {
             fn from(value: #public_component_id) -> Self {
                 Self::from(slint::ComponentHandle::clone_strong(value.0.borrow().instance()))
@@ -328,7 +328,7 @@ fn generate_global(global: &llr::GlobalComponent, root: &llr::CompilationUnit) -
 
     quote!(
         #[allow(unused)]
-        pub struct #public_component_id<'a>(&'a ::core::cell::RefCell<sp::live_reload::LiveReloadingComponent>);
+        pub struct #public_component_id<'a>(&'a ::core::cell::RefCell<sp::live_preview::LiveReloadingComponent>);
 
         impl<'a> #public_component_id<'a> {
             #(#property_and_callback_accessors)*
@@ -347,13 +347,13 @@ fn convert_to_value_fn(ty: &Type) -> TokenStream {
             let names = s.fields.keys().map(|k| k.as_str()).collect::<Vec<_>>();
             let fields = names.iter().map(|k| ident(k)).collect::<Vec<_>>();
             quote!((|(#(#fields,)*)| {
-                sp::live_reload::Value::Struct([#((#names.to_string(), sp::live_reload::Value::from(#fields)),)*].into_iter().collect())
+                sp::live_preview::Value::Struct([#((#names.to_string(), sp::live_preview::Value::from(#fields)),)*].into_iter().collect())
             }))
         }
         Type::Array(a) if matches!(a.as_ref(), Type::Struct(s) if s.name.is_none()) => {
             let conf_fn = convert_to_value_fn(a.as_ref());
-            quote!((|model: sp::ModelRc<_>| -> sp::live_reload::Value {
-                sp::live_reload::Value::Model(sp::ModelRc::new(model.map(#conf_fn)))
+            quote!((|model: sp::ModelRc<_>| -> sp::live_preview::Value {
+                sp::live_preview::Value::Model(sp::ModelRc::new(model.map(#conf_fn)))
             }))
         }
         _ => quote!(::core::convert::From::from),
@@ -367,15 +367,15 @@ fn convert_from_value_fn(ty: &Type) -> TokenStream {
         Type::Struct(s) if s.name.is_none() => {
             let names = s.fields.keys().map(|k| k.as_str()).collect::<Vec<_>>();
             // anonymous struct is mapped to a tuple
-            quote!((|v: sp::live_reload::Value| -> sp::Result<_, ()> {
-                let sp::live_reload::Value::Struct(s) = v else { return sp::Err(()) };
+            quote!((|v: sp::live_preview::Value| -> sp::Result<_, ()> {
+                let sp::live_preview::Value::Struct(s) = v else { return sp::Err(()) };
                 sp::Ok((#(s.get_field(#names).ok_or(())?.clone().try_into().map_err(|_|())?,)*))
             }))
         }
         Type::Array(a) if matches!(a.as_ref(), Type::Struct(s) if s.name.is_none()) => {
             let conf_fn = convert_from_value_fn(a.as_ref());
-            quote!((|v: sp::live_reload::Value| -> sp::Result<_, ()> {
-                let sp::live_reload::Value::Model(model) = v else { return sp::Err(()) };
+            quote!((|v: sp::live_preview::Value| -> sp::Result<_, ()> {
+                let sp::live_preview::Value::Model(model) = v else { return sp::Err(()) };
                 sp::Ok(sp::ModelRc::new(model.map(|x| #conf_fn(x).unwrap_or_default())))
             }))
         }
@@ -395,16 +395,16 @@ fn generate_value_conversions(used_types: &[Type]) -> TokenStream {
                     let field_names = fields.keys().map(|k| k.as_str()).collect::<Vec<_>>();
                     let fields = field_names.iter().map(|k| ident(k)).collect::<Vec<_>>();
                     Some(quote!{
-                        impl From<#ty> for sp::live_reload::Value {
+                        impl From<#ty> for sp::live_preview::Value {
                             fn from(_value: #ty) -> Self {
                                 Self::Struct([#((#field_names.to_string(), #convert_to_value(_value.#fields)),)*].into_iter().collect())
                             }
                         }
-                        impl TryFrom<sp::live_reload::Value> for #ty {
+                        impl TryFrom<sp::live_preview::Value> for #ty {
                             type Error = ();
-                            fn try_from(v: sp::live_reload::Value) -> sp::Result<Self, ()> {
+                            fn try_from(v: sp::live_preview::Value) -> sp::Result<Self, ()> {
                                 match v {
-                                    sp::live_reload::Value::Struct(_x) => {
+                                    sp::live_preview::Value::Struct(_x) => {
                                         sp::Ok(Self {
                                             #(#fields: #convert_from_value(_x.get_field(#field_names).ok_or(())?.clone()).map_err(|_|())?,)*
                                         })
@@ -424,7 +424,7 @@ fn generate_value_conversions(used_types: &[Type]) -> TokenStream {
                 let val_names = en.values.iter().map(|v| v.as_str()).collect::<Vec<_>>();
 
                 Some(quote!{
-                    impl From<#ty> for sp::live_reload::Value {
+                    impl From<#ty> for sp::live_preview::Value {
                         fn from(v: #ty) -> Self {
                             fn to_string(v: #ty) -> String {
                                 match v {
@@ -434,11 +434,11 @@ fn generate_value_conversions(used_types: &[Type]) -> TokenStream {
                             Self::EnumerationValue(#name.to_owned(), to_string(v))
                         }
                     }
-                    impl TryFrom<sp::live_reload::Value> for #ty {
+                    impl TryFrom<sp::live_preview::Value> for #ty {
                         type Error = ();
-                        fn try_from(v: sp::live_reload::Value) -> sp::Result<Self, ()> {
+                        fn try_from(v: sp::live_preview::Value) -> sp::Result<Self, ()> {
                             match v {
-                                sp::live_reload::Value::EnumerationValue(enumeration, value) => {
+                                sp::live_preview::Value::EnumerationValue(enumeration, value) => {
                                     if enumeration != #name {
                                         return sp::Err(());
                                     }
