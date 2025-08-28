@@ -85,7 +85,7 @@ pub fn generate(show_warnings: bool, experimental: bool) -> Result<(), Box<dyn s
     let generated_headers_dir = docs_build_dir.join("generated_include");
     let enabled_features = cbindgen::EnabledFeatures {
         interpreter: true,
-        live_reload: false,
+        live_preview: false,
         testing: true,
         backend_qt: true,
         backend_winit: true,

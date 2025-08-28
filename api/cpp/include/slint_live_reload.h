@@ -5,14 +5,14 @@
 
 #include "slint.h"
 
-#ifndef SLINT_FEATURE_LIVE_RELOAD
-#    error SLINT_FEATURE_LIVE_RELOAD must be activated
+#ifndef SLINT_FEATURE_LIVE_PREVIEW
+#    error SLINT_FEATURE_LIVE_PREVIEW must be activated
 #else
 
 #    include "slint-interpreter.h"
 
-/// Internal API to support the live-reload generated code
-namespace slint::private_api::live_reload {
+/// Internal API to support the live-preview generated code
+namespace slint::private_api::live_preview {
 
 template<typename T>
     requires(std::convertible_to<T, slint::interpreter::Value>)
@@ -137,7 +137,7 @@ public:
                            std::string_view style)
     {
         assert_main_thread();
-        inner = cbindgen_private::slint_live_reload_new(
+        inner = cbindgen_private::slint_live_preview_new(
                 string_to_slice(file_name), string_to_slice(component_name), &include_paths,
                 &libraries, string_to_slice(style));
     }
@@ -145,36 +145,36 @@ public:
     LiveReloadingComponent(const LiveReloadingComponent &other) : inner(other.inner)
     {
         assert_main_thread();
-        cbindgen_private::slint_live_reload_clone(other.inner);
+        cbindgen_private::slint_live_preview_clone(other.inner);
     }
     LiveReloadingComponent &operator=(const LiveReloadingComponent &other)
     {
         assert_main_thread();
         if (this == &other)
             return *this;
-        cbindgen_private::slint_live_reload_drop(inner);
+        cbindgen_private::slint_live_preview_drop(inner);
         inner = other.inner;
-        cbindgen_private::slint_live_reload_clone(inner);
+        cbindgen_private::slint_live_preview_clone(inner);
         return *this;
     }
     ~LiveReloadingComponent()
     {
         assert_main_thread();
-        cbindgen_private::slint_live_reload_drop(inner);
+        cbindgen_private::slint_live_preview_drop(inner);
     }
 
     void set_property(std::string_view name, const interpreter::Value &value) const
     {
         assert_main_thread();
-        return cbindgen_private::slint_live_reload_set_property(inner, string_to_slice(name),
-                                                                value.inner);
+        return cbindgen_private::slint_live_preview_set_property(inner, string_to_slice(name),
+                                                                 value.inner);
     }
 
     interpreter::Value get_property(std::string_view name) const
     {
         assert_main_thread();
         auto val = slint::interpreter::Value(
-                cbindgen_private::slint_live_reload_get_property(inner, string_to_slice(name)));
+                cbindgen_private::slint_live_preview_get_property(inner, string_to_slice(name)));
         return val;
     }
 
@@ -186,7 +186,7 @@ public:
         cbindgen_private::Slice<cbindgen_private::Value *> args_slice {
             reinterpret_cast<cbindgen_private::Value **>(args_values.data()), args_values.size()
         };
-        interpreter::Value val(cbindgen_private::slint_live_reload_invoke(
+        interpreter::Value val(cbindgen_private::slint_live_preview_invoke(
                 inner, string_to_slice(name), args_slice));
         return val;
     }
@@ -208,7 +208,7 @@ public:
                     r.inner = cbindgen_private::slint_interpreter_value_new();
                     return inner;
                 };
-        return cbindgen_private::slint_live_reload_set_callback(
+        return cbindgen_private::slint_live_preview_set_callback(
                 inner, slint::private_api::string_to_slice(name), actual_cb,
                 new F(std::move(callback)), [](void *data) { delete reinterpret_cast<F *>(data); });
     }
@@ -216,7 +216,7 @@ public:
     slint::Window &window() const
     {
         const cbindgen_private::WindowAdapterRcOpaque *win_ptr = nullptr;
-        cbindgen_private::slint_live_reload_window(inner, &win_ptr);
+        cbindgen_private::slint_live_preview_window(inner, &win_ptr);
         return const_cast<slint::Window &>(*reinterpret_cast<const slint::Window *>(win_ptr));
     }
 
@@ -376,6 +376,6 @@ from_slint_value(const slint::interpreter::Value &value,
     return {};
 }
 
-} // namespace slint::private_api::live_reload
+} // namespace slint::private_api::live_preview
 
-#endif // SLINT_FEATURE_LIVE_RELOAD
+#endif // SLINT_FEATURE_LIVE_PREVIEW

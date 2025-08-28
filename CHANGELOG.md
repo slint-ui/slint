@@ -53,7 +53,7 @@ All notable changes to this project are documented in this file.
  - Upgraded WGPU dependency to version 26: The `unstable-wgpu-26` Cargo feature replaces the old `unstable-wgpu-24` feature,
    and the `slint::wgpu_26` module replaces the `slint::wgpu_24` module. There were no further changes to the API.
  - Fixed compilation of generated code if the slint code declares a type named `core`.
- - Support for live-reload with the `slint/live-reload` feature and `SLINT_LIVE_RELOAD` env variable
+ - Support for live-preview with the `slint/live-preview` feature and `SLINT_LIVE_PREVIEW` env variable
  - winit: Added API to await for the existence of the winit window
  - Added `FromIterator<char>` and `Extend<char>` for `SharedString`
  - Added `SharedVector::reserve()`
@@ -61,7 +61,7 @@ All notable changes to this project are documented in this file.
 ### C++
 
  - Added `SharedString::clear()`.
- - Support for live-reload with the `SLINT_FEATURE_LIVE_RELOAD` feature and `SLINT_LIVE_RELOAD` env variable
+ - Support for live-preview with the `SLINT_FEATURE_LIVE_PREVIEW` feature and `SLINT_LIVE_PREVIEW` env variable
  - `SLINT_FEATURE_RENDERER_FEMTOVG_WGPU` is no longer enabled by default
  - esp-idf: `slint::invoke_from_event_loop` can now be invoked before starting the event loop.
  - Fixed Windows AArch64 support

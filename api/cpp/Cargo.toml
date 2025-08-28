@@ -26,7 +26,7 @@ name = "slint_cpp"
 # the C++ crate's CMakeLists.txt as well as cbindgen.rs
 [features]
 interpreter = ["slint-interpreter", "std"]
-live-reload = ["interpreter", "slint-interpreter/internal-live-reload"]
+live-preview = ["interpreter", "slint-interpreter/internal-live-preview"]
 # Enable some function used by the integration tests
 testing = ["dep:i-slint-backend-testing"]
 

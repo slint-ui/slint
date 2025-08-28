@@ -22,11 +22,11 @@ use crate::CompilerConfiguration;
 #[cfg(feature = "cpp")]
 pub mod cpp;
 #[cfg(feature = "cpp")]
-pub mod cpp_live_reload;
+pub mod cpp_live_preview;
 #[cfg(feature = "rust")]
 pub mod rust;
 #[cfg(feature = "rust")]
-pub mod rust_live_reload;
+pub mod rust_live_preview;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum OutputFormat {

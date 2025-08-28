@@ -314,7 +314,7 @@ mod ffi {
 
     #[unsafe(no_mangle)]
     /// LibraryPath is an array of string that have in the form `lib=...`
-    pub extern "C" fn slint_live_reload_new(
+    pub extern "C" fn slint_live_preview_new(
         file_name: Slice<u8>,
         component_name: Slice<u8>,
         include_paths: &SharedVector<SharedString>,
@@ -346,19 +346,21 @@ mod ffi {
     }
 
     #[unsafe(no_mangle)]
-    pub unsafe extern "C" fn slint_live_reload_clone(
+    pub unsafe extern "C" fn slint_live_preview_clone(
         component: *const LiveReloadingComponentInner,
     ) {
         Rc::increment_strong_count(component);
     }
 
     #[unsafe(no_mangle)]
-    pub unsafe extern "C" fn slint_live_reload_drop(component: *const LiveReloadingComponentInner) {
+    pub unsafe extern "C" fn slint_live_preview_drop(
+        component: *const LiveReloadingComponentInner,
+    ) {
         Rc::decrement_strong_count(component);
     }
 
     #[unsafe(no_mangle)]
-    pub extern "C" fn slint_live_reload_set_property(
+    pub extern "C" fn slint_live_preview_set_property(
         component: &LiveReloadingComponentInner,
         property: Slice<u8>,
         value: &Value,
@@ -372,7 +374,7 @@ mod ffi {
     }
 
     #[unsafe(no_mangle)]
-    pub extern "C" fn slint_live_reload_get_property(
+    pub extern "C" fn slint_live_preview_get_property(
         component: &LiveReloadingComponentInner,
         property: Slice<u8>,
     ) -> *mut Value {
@@ -386,7 +388,7 @@ mod ffi {
     }
 
     #[unsafe(no_mangle)]
-    pub extern "C" fn slint_live_reload_invoke(
+    pub extern "C" fn slint_live_preview_invoke(
         component: &LiveReloadingComponentInner,
         callback: Slice<u8>,
         args: Slice<Box<Value>>,
@@ -402,7 +404,7 @@ mod ffi {
     }
 
     #[unsafe(no_mangle)]
-    pub unsafe extern "C" fn slint_live_reload_set_callback(
+    pub unsafe extern "C" fn slint_live_preview_set_callback(
         component: &LiveReloadingComponentInner,
         callback: Slice<u8>,
         callback_handler: extern "C" fn(
@@ -424,7 +426,7 @@ mod ffi {
 
     /// Same precondition as slint_interpreter_component_instance_window
     #[unsafe(no_mangle)]
-    pub unsafe extern "C" fn slint_live_reload_window(
+    pub unsafe extern "C" fn slint_live_preview_window(
         component: &LiveReloadingComponentInner,
         out: *mut *const i_slint_core::window::ffi::WindowAdapterRcOpaque,
     ) {

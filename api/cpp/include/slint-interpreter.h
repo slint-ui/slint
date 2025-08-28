@@ -26,7 +26,7 @@ struct ErasedItemTreeBox : vtable::Dyn
     ErasedItemTreeBox(ErasedItemTreeBox &) = delete;
 };
 }
-namespace slint::private_api::live_reload {
+namespace slint::private_api::live_preview {
 class LiveReloadingComponent;
 class LiveReloadModelWrapperBase;
 }
@@ -400,8 +400,8 @@ private:
     slint::cbindgen_private::Value *inner;
     friend struct Struct;
     friend class ComponentInstance;
-    friend class slint::private_api::live_reload::LiveReloadingComponent;
-    friend class slint::private_api::live_reload::LiveReloadModelWrapperBase;
+    friend class slint::private_api::live_preview::LiveReloadingComponent;
+    friend class slint::private_api::live_preview::LiveReloadModelWrapperBase;
     // Internal constructor that takes ownership of the value
     explicit Value(slint::cbindgen_private::Value *&&inner) : inner(inner) { }
 };

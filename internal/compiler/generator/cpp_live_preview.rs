@@ -17,7 +17,7 @@ pub fn generate(
 ) -> std::io::Result<File> {
     let mut file = super::cpp::generate_types(&doc.used_types.borrow().structs_and_enums, &config);
 
-    file.includes.push("<slint_live_reload.h>".into());
+    file.includes.push("<slint_live_preview.h>".into());
 
     generate_value_conversions(&mut file, &doc.used_types.borrow().structs_and_enums);
 
@@ -74,8 +74,8 @@ fn generate_public_component(
     component_struct.members.push((
         Access::Private,
         Declaration::Var(Var {
-            ty: "slint::private_api::live_reload::LiveReloadingComponent".into(),
-            name: "live_reload".into(),
+            ty: "slint::private_api::live_preview::LiveReloadingComponent".into(),
+            name: "live_preview".into(),
             ..Default::default()
         }),
     ));
@@ -83,7 +83,7 @@ fn generate_public_component(
     let mut global_accessor_function_body = Vec::new();
     for glob in unit.globals.iter().filter(|glob| glob.exported && glob.must_generate()) {
         let accessor_statement = format!(
-            "{0}if constexpr(std::is_same_v<T, {1}>) {{ return T(live_reload); }}",
+            "{0}if constexpr(std::is_same_v<T, {1}>) {{ return T(live_preview); }}",
             if global_accessor_function_body.is_empty() { "" } else { "else " },
             concatenate_ident(&glob.name),
         );
@@ -138,8 +138,8 @@ fn generate_public_component(
     let create_code = vec![
         format!("slint::SharedVector<slint::SharedString> include_paths{{ {} }};", compiler_config.include_paths.iter().map(|p| format!("\"{}\"", escape_string(&p.to_string_lossy()))).join(", ")),
         format!("slint::SharedVector<slint::SharedString> library_paths{{ {} }};", compiler_config.library_paths.iter().map(|(l, p)| format!("\"{l}={}\"", p.to_string_lossy())).join(", ")),
-        format!("auto live_reload = slint::private_api::live_reload::LiveReloadingComponent({main_file:?}, {:?}, include_paths, library_paths, \"{}\");", component.name, compiler_config.style.as_ref().unwrap_or(&String::new())),
-        format!("auto self_rc = vtable::VRc<slint::private_api::ItemTreeVTable, {component_id}>::make(std::move(live_reload));"),
+        format!("auto live_preview = slint::private_api::live_preview::LiveReloadingComponent({main_file:?}, {:?}, include_paths, library_paths, \"{}\");", component.name, compiler_config.style.as_ref().unwrap_or(&String::new())),
+        format!("auto self_rc = vtable::VRc<slint::private_api::ItemTreeVTable, {component_id}>::make(std::move(live_preview));"),
         format!("return slint::ComponentHandle<{component_id}>(self_rc);"),
     ];
 
@@ -159,9 +159,9 @@ fn generate_public_component(
         Declaration::Function(Function {
             is_constructor_or_destructor: true,
             name: ident(&component_struct.name),
-            signature: "(slint::private_api::live_reload::LiveReloadingComponent live_reload)"
+            signature: "(slint::private_api::live_preview::LiveReloadingComponent live_preview)"
                 .into(),
-            constructor_member_initializers: vec!["live_reload(std::move(live_reload))".into()],
+            constructor_member_initializers: vec!["live_preview(std::move(live_preview))".into()],
             statements: Some(vec![]),
             ..Default::default()
         }),
@@ -192,7 +192,7 @@ fn generate_public_component(
         Declaration::Function(Function {
             name: "window".into(),
             signature: "() const -> slint::Window&".into(),
-            statements: Some(vec!["return live_reload.window();".into()]),
+            statements: Some(vec!["return live_preview.window();".into()]),
             ..Default::default()
         }),
     ));
@@ -221,8 +221,8 @@ fn generate_global(file: &mut File, global: &llr::GlobalComponent) {
     global_struct.members.push((
         Access::Private,
         Declaration::Var(Var {
-            ty: "const slint::private_api::live_reload::LiveReloadingComponent&".into(),
-            name: "live_reload".into(),
+            ty: "const slint::private_api::live_preview::LiveReloadingComponent&".into(),
+            name: "live_preview".into(),
             ..Default::default()
         }),
     ));
@@ -233,9 +233,9 @@ fn generate_global(file: &mut File, global: &llr::GlobalComponent) {
             is_constructor_or_destructor: true,
             name: ident(&global.name),
             signature:
-                "(const slint::private_api::live_reload::LiveReloadingComponent &live_reload)"
+                "(const slint::private_api::live_preview::LiveReloadingComponent &live_preview)"
                     .into(),
-            constructor_member_initializers: vec!["live_reload(live_reload)".into()],
+            constructor_member_initializers: vec!["live_preview(live_preview)".into()],
             statements: Some(vec![]),
             ..Default::default()
         }),
@@ -267,7 +267,7 @@ fn generate_public_api_for_properties(
             let param_types =
                 callback.args.iter().map(|t| t.cpp_type().unwrap()).collect::<Vec<_>>();
             let callback_emitter = vec![format!(
-                "return {}(live_reload.invoke(\"{prefix}{prop_name}\" {}));",
+                "return {}(live_preview.invoke(\"{prefix}{prop_name}\" {}));",
                 convert_from_value_fn(&callback.return_type),
                 (0..callback.args.len()).map(|i| format!(", arg_{i}")).join(""),
             )];
@@ -311,9 +311,9 @@ fn generate_public_api_for_properties(
                     )),
                     signature: "(Functor && callback_handler) const".into(),
                     statements: Some(vec![
-                        "using slint::private_api::live_reload::into_slint_value;".into(),
+                        "using slint::private_api::live_preview::into_slint_value;".into(),
                         format!(
-                            "live_reload.set_callback(\"{prefix}{prop_name}\", [callback_handler]([[maybe_unused]] auto args) {{ {return_statement} }});",
+                            "live_preview.set_callback(\"{prefix}{prop_name}\", [callback_handler]([[maybe_unused]] auto args) {{ {return_statement} }});",
                         ),
                     ]),
                     ..Default::default()
@@ -324,7 +324,7 @@ fn generate_public_api_for_properties(
                 function.args.iter().map(|t| t.cpp_type().unwrap()).collect::<Vec<_>>();
             let ret = function.return_type.cpp_type().unwrap();
             let call_code = vec![format!(
-                "return {}(live_reload.invoke(\"{prefix}{prop_name}\"{}));",
+                "return {}(live_preview.invoke(\"{prefix}{prop_name}\"{}));",
                 convert_from_value_fn(&function.return_type),
                 (0..function.args.len()).map(|i| format!(", arg_{i}")).join("")
             )];
@@ -347,7 +347,7 @@ fn generate_public_api_for_properties(
         } else {
             let cpp_property_type = p.ty.cpp_type().expect("Invalid type in public properties");
             let prop_getter: Vec<String> = vec![format!(
-                "return {}(live_reload.get_property(\"{prefix}{prop_name}\"));",
+                "return {}(live_preview.get_property(\"{prefix}{prop_name}\"));",
                 convert_from_value_fn(&p.ty)
             )];
             declarations.push((
@@ -362,9 +362,9 @@ fn generate_public_api_for_properties(
 
             if !p.read_only {
                 let prop_setter: Vec<String> = vec![
-                    "using slint::private_api::live_reload::into_slint_value;".into(),
+                    "using slint::private_api::live_preview::into_slint_value;".into(),
                     format!(
-                        "live_reload.set_property(\"{prefix}{prop_name}\", {}(value));",
+                        "live_preview.set_property(\"{prefix}{prop_name}\", {}(value));",
                         convert_to_value_fn(&p.ty)
                     ),
                 ];
@@ -457,7 +457,7 @@ fn convert_from_value_fn(ty: &Type) -> String {
     match ty {
         Type::Struct(s) if s.name.is_none() => {
             let mut init = s.fields.iter().map(|(name, ty)| {
-                format!("slint::private_api::live_reload::from_slint_value<{}>(s.get_field(\"{name}\").value())", ty.cpp_type().unwrap())
+                format!("slint::private_api::live_preview::from_slint_value<{}>(s.get_field(\"{name}\").value())", ty.cpp_type().unwrap())
             });
             format!(
                 "([](const slint::interpreter::Value &v) {{ auto s = v.to_struct().value(); return std::make_tuple({}); }})",
@@ -465,7 +465,7 @@ fn convert_from_value_fn(ty: &Type) -> String {
             )
         }
         _ => format!(
-            "slint::private_api::live_reload::from_slint_value<{}>",
+            "slint::private_api::live_preview::from_slint_value<{}>",
             ty.cpp_type().unwrap_or_default()
         ),
     }
@@ -477,11 +477,11 @@ fn generate_value_conversions(file: &mut File, structs_and_enums: &[Type]) {
             Type::Struct(s) if s.name.is_some() && s.node.is_some() => {
                 let name = ident(&s.name.as_ref().unwrap());
                 let mut to_statements = vec![
-                    "using slint::private_api::live_reload::into_slint_value;".into(),
+                    "using slint::private_api::live_preview::into_slint_value;".into(),
                     "slint::interpreter::Struct s;".into(),
                 ];
                 let mut from_statements = vec![
-                    "using slint::private_api::live_reload::from_slint_value;".into(),
+                    "using slint::private_api::live_preview::from_slint_value;".into(),
                     "slint::interpreter::Struct s = val.to_struct().value();".into(),
                     format!("{name} self;"),
                 ];
@@ -491,7 +491,7 @@ fn generate_value_conversions(file: &mut File, structs_and_enums: &[Type]) {
                         ident(f)
                     ));
                     from_statements.push(format!(
-                        "self.{} = slint::private_api::live_reload::from_slint_value<{}>(s.get_field(\"{f}\").value());",
+                        "self.{} = slint::private_api::live_preview::from_slint_value<{}>(s.get_field(\"{f}\").value());",
                         ident(f),
                         t.cpp_type().unwrap()
                     ));
@@ -519,7 +519,7 @@ fn generate_value_conversions(file: &mut File, structs_and_enums: &[Type]) {
             }
             Type::Enumeration(e) => {
                 let mut from_statements = vec![
-                    "auto value_str = slint::private_api::live_reload::LiveReloadingComponent::get_enum_value(val);".to_string(),
+                    "auto value_str = slint::private_api::live_preview::LiveReloadingComponent::get_enum_value(val);".to_string(),
                 ];
                 let mut to_statements = vec!["switch (self) {".to_string()];
                 let name = ident(&e.name);
@@ -531,7 +531,7 @@ fn generate_value_conversions(file: &mut File, structs_and_enums: &[Type]) {
                     from_statements.push(format!(
                         "if (value_str == \"{value}\") return {name}::{variant_name};"
                     ));
-                    to_statements.push(format!("case {name}::{variant_name}: return slint::private_api::live_reload::LiveReloadingComponent::value_from_enum(\"{}\", \"{value}\");", e.name));
+                    to_statements.push(format!("case {name}::{variant_name}: return slint::private_api::live_preview::LiveReloadingComponent::value_from_enum(\"{}\", \"{value}\");", e.name));
                 }
                 from_statements.push("return {};".to_string());
                 to_statements.push("}".to_string());
