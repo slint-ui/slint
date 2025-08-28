@@ -7,53 +7,52 @@ All notable changes to this project are documented in this file.
 
 ### General
 
- - winit: Fixed the maximize window not being disabled for fixed-size windows
- - winit: Added support for timer based frame throttling (#8826)
- - winit: Added support for custom event hook (`with_winit_custom_application_handler`)
- - winit: Fall back to software rendering if there are no GPU-backed WGPU adapters (#9164)
- - Fixed Windows native menu bar in fullscreen mode
- - Switched from WGPU24 to WGPU26
- - Fixed default-font-size not working with PopupWindow
- - LinuxKMS: Added support for overriding the default framebuffer interface selection
- - LinuxKMS: Added support for a wide range of framebuffer formats
- - LinuxKMS: Added support for libinput event hooks (behind unstable-libinput-09 feature flag)
- - Skia: Fixed no-wrap still wrapping text (#7080)
- - software renderer: Add radial gradient support (#8980)
- - software renderer: Fix rendering of the Qt style (#9006)
- - Native context menu on Windows
- - Fixed gradient rendering bugs (#9030, #7909)
+ - winit: Fixed the maximize window not being disabled for fixed-size windows.
+ - winit: Added support for timer based frame throttling (#8826).
+ - winit: Added support for custom event hooks (`with_winit_custom_application_handler`).
+ - winit: Fall back to software rendering if there are no GPU-backed WGPU adapters (#9164).
+ - LinuxKMS: Added support for overriding the default framebuffer interface selection/
+ - LinuxKMS: Added support for a padded legacy linux framebuffers.
+ - LinuxKMS: Added support for libinput event hooks (behind `unstable-libinput-09` feature flag)
+ - Skia: Fixed `no-wrap` still wrapping text (#7080)
+ - Software renderer: Add radial gradient support (#8980)
+ - Software renderer: Fix rendering of the Qt style (#9006)
+ - Windows: Fixed menu bar in fullscreen mode
+ - Windows: Context menus are now using native look and feel.
+ - Fixed gradient rendering bugs in Qt and FemtoVG renderers (#9030, #7909)
 
 ### Slint Language
 
- - Callbacks handler no longer need curly-braces. Extra semi-colon is no longer an error. (#8401)
- - Added local variable with `let` (#2752)
- - Added `icon`, `checkable`, and `checked` properties to MenuItem
- - `MenuBar` can now be hidden by placing it in a `if`
- - Fixed menu separator not always being visible
- - Flickable forward wheel event in a orthogonal direction to their parent
- - Added a compiler warning when using `padding` outside of layout (#6288)
- - Added stop(), start(), and restart() methods to Timer (#8821)
- - Added `focus-on-click` and `focus-on-tab-navigation` property to `FocusScope`
- - `Dialog` and `Window` that aren't top-level now draw their background
+ - Callback handlers no longer need curly-braces. Extra semi-colon is no longer an error. (#8401)
+ - Added support for local variable with `let` (#2752)
+ - `MenuItem`: Added `icon`, `checkable`, and `checked` properties.
+ - `MenuBar` can now be hidden by placing it in a `if`.
+ - Fixed `MenuSeparator` not always being visible.
+ - `Flickable`: Forward wheel events in a orthogonal direction to their parent.
+ - Added a compiler warning when using `padding` outside of layouts (#6288).
+ - `Timer`: Added `stop()`, `start()`, and `restart()` functions (#8821).
+ - `FocusScope`: Added `focus-on-click` and `focus-on-tab-navigation` properties.
  - `FocusScope`: Added `capture_key_pressed` and `capture_key_released` callbacks
+ - `Dialog` and `Window` that aren't top-level now draw their background.
  - Added support for `@conic-gradient` (#9021)
- - Path: Fixed changing `commands` or path sub-elements in a component that inherit from `Path`
- - Path: Fix settings `commands` from states (#4080)
+ - `Path`: Fixed changing `commands` or path sub-elements in a component that inherit from `Path`.
+ - `Path`: Fix settings `commands` from states (#4080)
  - Added `Key.Back` for the back key on android.
  - Added an `Easing` namespace to reference easing curve outside of `easing` properties.
  - `focus()` can now be called on invisible items.
+ - `Window`: Fixed `default-font-size` not propagating into `PopupWindow`.
 
 ### Widgets
 
- - LineEdits now show a clear icon (when not empty)
- - LineEdits with "input-type: password" now feature an icon to toggle password visibility
+ - `LineEdit`: Show a clear icon when not empty.
+ - `LineEdit`: Users can toggle password visibility via an icon when `input-type` is set to `password`.
 
 ### Rust
 
  - Minimum Supported Rust Version (MSRV) is 1.85
  - Upgraded WGPU dependency to version 26: The `unstable-wgpu-26` Cargo feature replaces the old `unstable-wgpu-24` feature,
    and the `slint::wgpu_26` module replaces the `slint::wgpu_24` module. There were no further changes to the API.
- - Fixed compilation of generated code if the slint code declares a type named `core`
+ - Fixed compilation of generated code if the slint code declares a type named `core`.
  - Support for live-reload with the `slint/live-reload` feature and `SLINT_LIVE_RELOAD` env variable
  - winit: Added API to await for the existence of the winit window
  - Added `FromIterator<char>` and `Extend<char>` for `SharedString`
@@ -61,7 +60,7 @@ All notable changes to this project are documented in this file.
 
 ### C++
 
- - Added `SharedString::clear()`
+ - Added `SharedString::clear()`.
  - Support for live-reload with the `SLINT_FEATURE_LIVE_RELOAD` feature and `SLINT_LIVE_RELOAD` env variable
  - `SLINT_FEATURE_RENDERER_FEMTOVG_WGPU` is no longer enabled by default
  - esp-idf: `slint::invoke_from_event_loop` can now be invoked before starting the event loop.
@@ -75,7 +74,6 @@ All notable changes to this project are documented in this file.
 
  - Added support for automatically mapping exported Slint enums to property Python `enum.Enum` subclasses.
  - Add support for creating slint.Image objects from arrays (#9014)
- - ...
 
 ### Tooling
 
