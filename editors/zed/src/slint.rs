@@ -45,20 +45,11 @@ impl SlintExtension {
             &zed::LanguageServerInstallationStatus::CheckingForUpdate,
         );
 
-        let release_tag = concat!("v", env!("CARGO_PKG_VERSION"));
-        let release = match zed::github_release_by_tag_name("slint-ui/slint", release_tag) {
-            Ok(release) => release,
-            Err(e) => {
-                // The release don't exist? Maybe hasn't been released yet and we can try the nightly version
-                let Ok(release) = zed::github_release_by_tag_name("slint-ui/slint", "nightly")
-                else {
-                    return Err(format!(
-                        "Failed to get Slint release {release_tag} from GitHub: {e}"
-                    ));
-                };
-                release
-            }
-        };
+        let dev_mode = option_env!("SLINT_DEV_MODE").is_some();
+        let release_tag =
+            if dev_mode { "nightly" } else { concat!("v", env!("CARGO_PKG_VERSION")) };
+        let release = zed::github_release_by_tag_name("slint-ui/slint", release_tag)
+            .map_err(|e| format!("Failed to get Slint release {release_tag} from GitHub: {e}",))?;
 
         let target = zed::current_platform();
 
