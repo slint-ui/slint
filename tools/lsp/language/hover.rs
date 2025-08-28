@@ -288,11 +288,11 @@ export component Test { // not docs
   }
 }"#;
         let (mut dc, uri, _) = crate::language::test::loaded_document_cache(source.into());
-        let documentation = dc.get_document(&uri).unwrap().node.clone().unwrap();
+        let doc = dc.get_document(&uri).unwrap().node.clone().unwrap();
 
         let find_tk = |needle: &str, offset: TextSize| {
             crate::language::token_at_offset(
-                &documentation,
+                &doc,
                 TextSize::new(
                     source.find(needle).unwrap_or_else(|| panic!("'{needle}' not found")) as u32,
                 ) + offset,
