@@ -4,6 +4,7 @@
 // cSpell: ignore qstyle unshade
 
 use super::*;
+use i_slint_core::graphics::euclid;
 
 #[allow(nonstandard_style)]
 #[allow(unused)]
@@ -107,6 +108,7 @@ type ActualStandardButtonKind = Option<StandardButtonKind>;
 pub struct NativeButton {
     pub text: Property<SharedString>,
     pub icon: Property<i_slint_core::graphics::Image>,
+    pub icon_size: Property<LogicalLength>,
     pub pressed: Property<bool>,
     pub has_hover: Property<bool>,
     pub checkable: Property<bool>,
@@ -166,7 +168,9 @@ impl NativeButton {
             Some(StandardButtonKind::Retry) => QStyle_StandardPixmap_SP_DialogRetryButton,
             Some(StandardButtonKind::Ignore) => QStyle_StandardPixmap_SP_DialogIgnoreButton,
             None => {
-                return crate::qt_window::image_to_pixmap((&self.icon()).into(), None)
+                let icon_size = self.icon_size().get().round() as u32;
+                let source_size = Some(euclid::Size2D::new(icon_size, icon_size));
+                return crate::qt_window::image_to_pixmap((&self.icon()).into(), source_size)
                     .unwrap_or_default();
             }
         };
@@ -195,7 +199,19 @@ impl Item for NativeButton {
         let animation_tracker_property_ptr = Self::FIELD_OFFSETS.animation_tracker.apply_pin(self);
         self.widget_ptr.set(cpp! { unsafe [animation_tracker_property_ptr as "void*"] -> SlintTypeErasedWidgetPtr as "std::unique_ptr<SlintTypeErasedWidget>" {
             return make_unique_animated_widget<QPushButton>(animation_tracker_property_ptr);
-        }})
+        }});
+        let widget_ptr: NonNull<()> = SlintTypeErasedWidgetPtr::qwidget_ptr(&self.widget_ptr);
+        let icon_size = unsafe {
+            cpp!([widget_ptr as "QWidget*" ] -> i32 as "int"
+            {
+                ensure_initialized();
+                return qApp->style()->pixelMetric(QStyle::PM_ButtonIconSize, 0, widget_ptr);
+            })
+        };
+        Self::FIELD_OFFSETS
+            .icon_size
+            .apply_pin(self)
+            .set(LogicalLength::new(icon_size as i_slint_core::Coord));
     }
 
     fn layout_info(
@@ -207,10 +223,12 @@ impl Item for NativeButton {
         let standard_button_kind = self.actual_standard_button_kind();
         let mut text: qttypes::QString = self.actual_text(standard_button_kind);
         let icon: qttypes::QPixmap = self.actual_icon(standard_button_kind);
+        let icon_size = self.icon_size().get() as i32;
         let widget_ptr: NonNull<()> = SlintTypeErasedWidgetPtr::qwidget_ptr(&self.widget_ptr);
         let size = cpp!(unsafe [
             mut text as "QString",
             icon as "QPixmap",
+            icon_size as "int",
             widget_ptr as "QWidget*"
         ] -> qttypes::QSize as "QSize" {
             ensure_initialized();
@@ -220,11 +238,10 @@ impl Item for NativeButton {
             option.rect = option.fontMetrics.boundingRect(text);
             option.text = std::move(text);
             option.icon = icon;
-            auto iconSize = qApp->style()->pixelMetric(QStyle::PM_ButtonIconSize, 0, widget_ptr);
-            option.iconSize = QSize(iconSize, iconSize);
+            option.iconSize = QSize(icon_size, icon_size);
             if (!icon.isNull()) {
-                option.rect.setHeight(qMax(option.rect.height(), iconSize));
-                option.rect.setWidth(option.rect.width() + 4 + iconSize);
+                option.rect.setHeight(qMax(option.rect.height(), icon_size));
+                option.rect.setWidth(option.rect.width() + 4 + icon_size);
             }
             return qApp->style()->sizeFromContents(QStyle::CT_PushButton, &option, option.rect.size(), widget_ptr);
         });
@@ -348,6 +365,7 @@ impl Item for NativeButton {
         let has_focus = this.has_focus();
         let has_hover = this.has_hover();
         let primary = this.primary();
+        let icon_size = this.icon_size().get().round() as i32;
         let colorize_icon = this.colorize_icon();
 
         cpp!(unsafe [
@@ -362,6 +380,7 @@ impl Item for NativeButton {
             has_focus as "bool",
             has_hover as "bool",
             primary as "bool",
+            icon_size as "int",
             colorize_icon as "bool",
             dpr as "float",
             initial_state as "int"
@@ -429,8 +448,7 @@ impl Item for NativeButton {
             } else {
                 option.icon = icon;
             }
-            auto iconSize = qApp->style()->pixelMetric(QStyle::PM_ButtonIconSize, 0, nullptr);
-            option.iconSize = QSize(iconSize, iconSize);
+            option.iconSize = QSize(icon_size, icon_size);
             option.rect = QRect(QPoint(), size / dpr);
 
             qApp->style()->drawControl(QStyle::CE_PushButton, &option, painter->get(), widget);
