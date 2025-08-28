@@ -80,14 +80,14 @@ impl SlintExtension {
             release.version,
             if dev_mode {
                 // Add a timestamp to the extension directory to invalidate the cache every day
-                &(std::time::SystemTime::now()
+                (std::time::SystemTime::now()
                     .duration_since(std::time::UNIX_EPOCH)
                     .unwrap()
                     .as_secs()
                     / (60 * 60 * 24))
                     .to_string()
             } else {
-                ""
+                String::new()
             }
         );
         // The directory in the tarball is usually named "slint-lsp", but it is different for the slint-lsp-*-linux-*
