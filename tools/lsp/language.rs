@@ -949,7 +949,9 @@ fn get_code_actions(
                 .and_then(syntax_nodes::Element::new)
                 .and_then(|n| n.parent())
                 .and_then(syntax_nodes::Component::new)
-        });
+        })
+        .or_else(|| syntax_nodes::ExportsList::new(node.clone()).and_then(|n| n.Component()))
+        .filter(|c| c.child_text(SyntaxKind::Identifier).is_none_or(|t| t != "global"));
 
     #[cfg(any(feature = "preview-builtin", feature = "preview-external"))]
     {
@@ -1322,11 +1324,16 @@ fn get_code_lenses(
 
         // Handle preview lens
         result.extend(inner_components.iter().filter(|c| !c.is_global()).filter_map(|c| {
-            Some(CodeLens {
-                range: util::node_to_lsp_range(&c.root_element.borrow().debug.first()?.node),
-                command: Some(create_show_preview_command(true, &text_document.uri, c.id.as_str())),
-                data: None,
-            })
+            let component_node = c.root_element.borrow().debug.first()?.node.parent()?;
+            let range = match component_node.parent() {
+                Some(parent) if parent.kind() == SyntaxKind::ExportsList => {
+                    util::node_to_lsp_range(&parent)
+                }
+                _ => util::node_to_lsp_range(&component_node),
+            };
+            let command =
+                Some(create_show_preview_command(true, &text_document.uri, c.id.as_str()));
+            Some(CodeLens { range, command, data: None })
         }));
     }
 
@@ -1830,7 +1837,10 @@ export component TestWindow inherits Window {
             }
         }
     }
-}"#
+}
+export struct NoPreviewForStruct { x: int }
+export global NoPreviewForGlobal {}
+"#
             .into(),
         );
         let mut capabilities = ClientCapabilities::default();
@@ -2072,6 +2082,37 @@ export component TestWindow inherits Window {
                 ..Default::default()
             }),])
         );
+
+        #[cfg(any(feature = "preview-builtin", feature = "preview-external"))]
+        for col in [
+            0,  // "export"
+            8,  // "component"
+            22, // "TestWindow"
+            42, // "Window"
+        ] {
+            let pos = Position::new(2, col);
+            assert_eq!(
+                token_descr(&mut dc, &url, &pos).and_then(|(token, _)| get_code_actions(
+                    &mut dc,
+                    token,
+                    &capabilities
+                )),
+                Some(vec![CodeActionOrCommand::Command(Command::new(
+                    "Show Preview".into(),
+                    SHOW_PREVIEW_COMMAND.into(),
+                    Some(vec![url.as_str().into(), "TestWindow".into()]),
+                ))]),
+                "show preview missing {pos:?}"
+            );
+        }
+
+        // Test that we don't get a show preview action for struct and globals
+        for line in [27, 28] {
+            let pos = Position::new(line, 15);
+            let token = token_descr(&mut dc, &url, &pos).unwrap().0;
+            assert!(token.text().starts_with("NoPreviewFor"));
+            assert_eq!(get_code_actions(&mut dc, token, &capabilities), None);
+        }
     }
 
     #[test]
@@ -2190,8 +2231,11 @@ export component MainWindow inherits Window {
 component Internal { }
 
 export component Test {
-
+   FooBar := Rectangle {}
 }
+
+global Xyz {}
+export { Global }
 "#
             .into(),
         );
@@ -2201,7 +2245,7 @@ export component Test {
             Some(vec![
                 lsp_types::CodeLens {
                     range: lsp_types::Range::new(
-                        lsp_types::Position::new(1, 19),
+                        lsp_types::Position::new(1, 0),
                         lsp_types::Position::new(1, 22)
                     ),
                     command: Some(lsp_types::Command {
@@ -2216,7 +2260,7 @@ export component Test {
                 },
                 lsp_types::CodeLens {
                     range: lsp_types::Range::new(
-                        lsp_types::Position::new(3, 22),
+                        lsp_types::Position::new(3, 0),
                         lsp_types::Position::new(5, 1)
                     ),
                     command: Some(lsp_types::Command {
