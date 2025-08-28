@@ -79,7 +79,7 @@ pub fn find_element_ids(token: &SyntaxToken, parent: &SyntaxNode) -> Option<Vec<
     None
 }
 
-#[cfg(any(test, feature = "preview-engine"))]
+#[allow(unused)]
 pub fn rename_element_id(
     element: syntax_nodes::SubElement,
     new_name: &str,

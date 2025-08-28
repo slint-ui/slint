@@ -565,6 +565,7 @@ export global Api {
     pure callback test-code-binding(element-url: string, element-version: int, element-offset: int, property-name: string, property-value: string) -> bool;
     pure callback set-code-binding(element-url: string, element-version: int, element-offset: int, property-name: string, property-value: string);
     pure callback set-color-binding(element-url: string, element-version: int, element-offset: int, property-name: string, property-value: color);
+    callback set-element-id(element-url: string, element-version: int, element-offset: int, new-id: string);
 
     pure callback string-to-code(value: string, is_translatable: bool, tr_context: string, tr_plural: string, tr_plural_expression: string) -> string;
 
