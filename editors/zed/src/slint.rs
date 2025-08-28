@@ -45,7 +45,7 @@ impl SlintExtension {
             &zed::LanguageServerInstallationStatus::CheckingForUpdate,
         );
 
-        let dev_mode = option_env!("SLINT_DEV_MODE").is_some();
+        let dev_mode = worktree.shell_env().iter().any(|(k, _)| k == "SLINT_DEV_MODE");
         let release_tag =
             if dev_mode { "nightly" } else { concat!("v", env!("CARGO_PKG_VERSION")) };
         let release = zed::github_release_by_tag_name("slint-ui/slint", release_tag)
@@ -75,7 +75,21 @@ impl SlintExtension {
             .find(|asset| asset.name == asset_name)
             .ok_or_else(|| format!("no asset found matching {:?}", asset_name))?;
 
-        let extension_dir = format!("slint-lsp-{}", release.version);
+        let extension_dir = format!(
+            "slint-lsp-{}{}",
+            release.version,
+            if dev_mode {
+                // Add a timestamp to the extension directory to invalidate the cache every day
+                &(std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_secs()
+                    / (60 * 60 * 24))
+                    .to_string()
+            } else {
+                ""
+            }
+        );
         // The directory in the tarball is usually named "slint-lsp", but it is different for the slint-lsp-*-linux-*
         let subdir = if target_name == "slint-lsp-aarch64-unknown-linux-gnu" {
             target_name
