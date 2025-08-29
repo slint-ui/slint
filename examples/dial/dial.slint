@@ -70,7 +70,6 @@ export component AppWindow inherits Window {
         property <length> relativeX;
         property <length> relativeY;
         property <angle> lastAngle;
-        property <angle> newAngle;
         property <angle> nextAngle;
         property <bool> hovering: Math.pow(relativeX / 1px, 2) + Math.pow(relativeY / 1px, 2) < metalKnob.width / 2px * metalKnob.height / 2px;
         property <bool> touching: false;
@@ -82,7 +81,7 @@ export component AppWindow inherits Window {
         pointer-event(event) => {
             relativeX = ta.mouse-x - centerX;
             relativeY = ta.mouse-y - centerY;
-            newAngle = AppState.normalizeAngle(atan2(relativeY / 1px, relativeX / 1px));
+            let newAngle = AppState.normalizeAngle(atan2(relativeY / 1px, relativeX / 1px));
             if event.kind == PointerEventKind.down {
                 if hovering {
                     touching = true;
