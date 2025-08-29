@@ -355,7 +355,7 @@ declare_syntax! {
         /// QualifiedName are the properties name
         PropertyAnimation-> [ *QualifiedName, *Binding ],
         /// `changed xxx => {...}`  where `xxx` is the DeclaredIdentifier
-        PropertyChangedCallback-> [ DeclaredIdentifier, CodeBlock ],
+        PropertyChangedCallback-> [ DeclaredIdentifier, ?CodeBlock, ?Expression ],
         /// wraps Identifiers, like `Rectangle` or `SomeModule.SomeType`
         QualifiedName-> [],
         /// Wraps single identifier (to disambiguate when there are other identifier in the production)

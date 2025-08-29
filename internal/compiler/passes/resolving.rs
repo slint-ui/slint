@@ -65,10 +65,17 @@ fn resolve_expression(
             SyntaxKind::BindingExpression => {
                 Expression::from_binding_expression_node(node.clone(), &mut lookup_ctx)
             }
-            SyntaxKind::PropertyChangedCallback => Expression::from_codeblock_node(
-                syntax_nodes::PropertyChangedCallback::from(node.clone()).CodeBlock(),
-                &mut lookup_ctx,
-            ),
+            SyntaxKind::PropertyChangedCallback => {
+                let node = syntax_nodes::PropertyChangedCallback::from(node.clone());
+                if let Some(code_block_node) = node.CodeBlock() {
+                    Expression::from_codeblock_node(code_block_node, &mut lookup_ctx)
+                } else if let Some(expr_node) = node.Expression() {
+                    Expression::from_expression_node(expr_node, &mut lookup_ctx)
+                } else {
+                    assert!(diag.has_errors());
+                    Expression::Invalid
+                }
+            }
             SyntaxKind::TwoWayBinding => {
                 assert!(diag.has_errors(), "Two way binding should have been resolved already  (property: {property_name:?})");
                 Expression::Invalid
