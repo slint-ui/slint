@@ -15,6 +15,8 @@ Slint C++ documentation
 
    First Steps <getting_started.md>
 
+   live_preview.md
+
 .. toctree::
    :maxdepth: 2
    :hidden:
