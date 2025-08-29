@@ -81,7 +81,9 @@ fn generate_public_component(
 
     let main_file = if main_file.ends_with("Cargo.toml") {
         // We couldn't get the actual .rs file from a slint! macro, so use file!() which will expand to the actual file name
-        quote!(file!())
+        let current_dir = std::env::current_dir().unwrap_or_default();
+        let current_dir = current_dir.to_string_lossy();
+        quote!(std::path::Path::new(#current_dir).join(file!()))
     } else {
         quote!(#main_file)
     };
