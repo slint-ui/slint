@@ -15,6 +15,7 @@ All notable changes to this project are documented in this file.
  - LinuxKMS: Added support for a padded legacy linux framebuffers.
  - LinuxKMS: Added support for libinput event hooks (behind `unstable-libinput-09` feature flag)
  - Skia: Fixed `no-wrap` still wrapping text (#7080)
+ - Skia: Added support for importing WGPU textures, via `unstable-wgpu-26` when Skia is enabled.
  - Software renderer: Add radial gradient support (#8980)
  - Software renderer: Fix rendering of the Qt style (#9006)
  - Windows: Fixed menu bar in fullscreen mode
