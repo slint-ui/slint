@@ -5,6 +5,7 @@ description: Colors Namespaces
 ---
 
 import Link from '@slint/common-files/src/components/Link.astro';
+import CodeSnippetMD from "@slint/common-files/src/components/CodeSnippetMD.astro";
 
 Color literals follow the syntax of CSS:
 
@@ -124,6 +125,7 @@ reach at the specified percentage along the axis of the gradient.
 The following example shows a rectangle that's filled with a linear gradient that starts with a light blue
 color, interpolates to a very light shade in the center and finishes with an orange tone:
 
+<CodeSnippetMD imagePath="/src/assets/generated/gradients-linear.png" scale="3" imageWidth="200" imageHeight="200" imageAlt='Conic Gradient Example'>
 ```slint
 export component Example inherits Window {
     preferred-width: 100px;
@@ -134,6 +136,7 @@ export component Example inherits Window {
     }
 }
 ```
+</CodeSnippetMD>
 
 ## Radial Gradients
 
@@ -147,6 +150,7 @@ The syntax is otherwise based on the CSS `radial-gradient` function.
 
 Example:
 
+<CodeSnippetMD imagePath="/src/assets/generated/gradients-radial.png" scale="3" imageWidth="200" imageHeight="200" imageAlt='Conic Gradient Example'>
 ```slint
 export component Example inherits Window {
     preferred-width: 100px;
@@ -156,6 +160,7 @@ export component Example inherits Window {
     }
 }
 ```
+</CodeSnippetMD>
 
 ## Conic Gradients
 
@@ -170,6 +175,7 @@ Colors are interpolated between the stops along the circular path.
 
 Example:
 
+<CodeSnippetMD imagePath="/src/assets/generated/gradients-conic.png" scale="3" imageWidth="200" imageHeight="200" imageAlt='Conic Gradient Example'>
 ```slint
 export component Example inherits Window {
     preferred-width: 100px;
@@ -179,6 +185,7 @@ export component Example inherits Window {
     }
 }
 ```
+</CodeSnippetMD>
 
 This creates a color wheel effect with red at the top (0deg/360deg), green at 120 degrees, and blue at 240 degrees.
 
