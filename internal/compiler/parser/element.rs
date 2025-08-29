@@ -483,6 +483,8 @@ fn parse_property_animation(p: &mut impl Parser) {
 #[cfg_attr(test, parser_test)]
 /// ```test,PropertyChangedCallback
 /// changed the-property => { x = y; }
+/// changed foo => debug(13);
+/// changed xyz => { foo() };
 /// ```
 fn parse_changed_callback(p: &mut impl Parser) {
     debug_assert_eq!(p.peek().as_str(), "changed");
@@ -493,7 +495,15 @@ fn parse_changed_callback(p: &mut impl Parser) {
         p.expect(SyntaxKind::Identifier);
     }
     p.expect(SyntaxKind::FatArrow);
-    parse_code_block(&mut *p);
+
+    if p.nth(0).kind() == SyntaxKind::LBrace && p.nth(2).kind() != SyntaxKind::Colon {
+        parse_code_block(&mut *p);
+        p.test(SyntaxKind::Semicolon);
+    } else if parse_expression(&mut *p) {
+        p.expect(SyntaxKind::Semicolon);
+    } else {
+        p.test(SyntaxKind::Semicolon);
+    }
 }
 
 #[cfg_attr(test, parser_test)]
