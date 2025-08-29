@@ -10,5 +10,6 @@ The example can be run on desktop platforms.
 
 On a desktop system, run the demo with the following command:
 ```sh
-cargo run -p bevy-example
+cd examples/bevy
+cargo run
 ```
