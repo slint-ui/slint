@@ -120,6 +120,7 @@ pub fn create_ui(
     api.on_test_code_binding(super::test_code_binding);
     api.on_set_code_binding(super::set_code_binding);
     api.on_set_color_binding(super::set_color_binding);
+    api.on_set_element_id(super::set_element_id);
     api.on_property_declaration_ranges(super::property_declaration_ranges);
 
     api.on_get_property_value(get_property_value);
