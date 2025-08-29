@@ -14,12 +14,25 @@ import {
     NavigationRail,
     NavigationItem,
     NavigationBar,
-    SmallAppBar
-
+    SmallAppBar,
+    Menu,
+    MenuItem,
+    MaterialStyleMetrics
 } from "../../../../material.slint";
 
 export enum Views {
     components
+}
+
+export global MainViewAdapter {
+    in_out property <[MenuItem]> palettes: [
+        { text: "Slint", enabled: true },
+        { text: "Purple", enabled: true },
+        { text: "Green", enabled: true },
+        { text: "Red", enabled: true },
+    ];
+
+    callback load_palette(index: int);
 }
 
 export component MainView {
@@ -33,18 +46,39 @@ export component MainView {
     ];
 
     VerticalLayout {
-        SmallAppBar {
+        app_bar := SmallAppBar {
             title: "Material 3";
-            trailing_icons: [{ icon: Palette.color_scheme == ColorScheme.light ? OutlinedIcons.dark_mode : OutlinedIcons.light_mode, enabled: true }];
+            trailing_icons: [
+                { icon: OutlinedIcons.palette, enabled: true },
+                { icon: Palette.color_scheme == ColorScheme.light ? OutlinedIcons.dark_mode : OutlinedIcons.light_mode, enabled: true }
+            ];
             container_background: MainWindowAdapter.container_background;
 
             trailing_clicked(index) => {
-                if Palette.color_scheme == ColorScheme.light {
-                    Palette.color_scheme = ColorScheme.dark;
-                    return;
+                if index == 0 {
+                    color_menu.show();
                 }
 
-                Palette.color_scheme = ColorScheme.light;
+                if index == 1 {
+
+                    if Palette.color_scheme == ColorScheme.light {
+                        Palette.color_scheme = ColorScheme.dark;
+                        return;
+                    }
+
+                    Palette.color_scheme = ColorScheme.light;
+                }
+            }
+        }
+
+        color_menu := Menu {
+            x: root.width - MaterialStyleMetrics.size_200 - MaterialStyleMetrics.padding_16;
+            y: app_bar.height / 2;
+            items: MainViewAdapter.palettes;
+
+            item_clicked(index) => {
+                MainViewAdapter.load_palette(index);
+                color_menu.close();
             }
         }
 

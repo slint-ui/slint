@@ -40,6 +40,7 @@ path = [
   "docs/src/assets/images/material-award.jpg",
   "docs/src/assets/images/material-design.jpg",
   "docs/src/config.yaml",
+  "examples/gallery/ui/themes/**.json"
 ]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"

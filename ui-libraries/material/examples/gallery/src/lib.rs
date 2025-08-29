@@ -13,6 +13,7 @@ fn ui() -> MainWindow {
     let ui = MainWindow::new().unwrap();
     navigation_view(&ui);
     date_picker::init(&ui);
+    theme::init(&ui);
     ui
 }
 
@@ -185,5 +186,198 @@ mod date_picker {
     fn date_now() -> [i32; 3] {
         let now = Local::now().date_naive();
         [now.day() as i32, now.month() as i32, now.year()]
+    }
+}
+
+#[allow(non_snake_case)]
+mod theme {
+    use crate::{MainViewAdapter, MainWindow, MaterialPalette, MenuItem};
+    use serde::{Deserialize, Serialize};
+    use slint::{Color, ComponentHandle, Global, VecModel};
+
+    const SLINT_THEME: &str = include_str!("../ui/themes/material_slint_theme.json");
+    const PURPLE_THEME: &str = include_str!("../ui/themes/material_purple_theme.json");
+    const RED_THEME: &str = include_str!("../ui/themes/material_red_theme.json");
+    const GREEN_THEME: &str = include_str!("../ui/themes/material_green_theme.json");
+
+    #[derive(Serialize, Deserialize, Debug)]
+    struct MaterialScheme {
+        pub primary: String,
+        pub surfaceTint: String,
+        pub onPrimary: String,
+        pub primaryContainer: String,
+        pub onPrimaryContainer: String,
+        pub secondary: String,
+        pub onSecondary: String,
+        pub secondaryContainer: String,
+        pub onSecondaryContainer: String,
+        pub tertiary: String,
+        pub onTertiary: String,
+        pub tertiaryContainer: String,
+        pub onTertiaryContainer: String,
+        pub error: String,
+        pub onError: String,
+        pub errorContainer: String,
+        pub onErrorContainer: String,
+        pub background: String,
+        pub onBackground: String,
+        pub surface: String,
+        pub onSurface: String,
+        pub surfaceVariant: String,
+        pub onSurfaceVariant: String,
+        pub outline: String,
+        pub outlineVariant: String,
+        pub shadow: String,
+        pub scrim: String,
+        pub inverseSurface: String,
+        pub inverseOnSurface: String,
+        pub inversePrimary: String,
+        pub primaryFixed: String,
+        pub onPrimaryFixed: String,
+        pub primaryFixedDim: String,
+        pub onPrimaryFixedVariant: String,
+        pub secondaryFixed: String,
+        pub onSecondaryFixed: String,
+        pub secondaryFixedDim: String,
+        pub onSecondaryFixedVariant: String,
+        pub tertiaryFixed: String,
+        pub onTertiaryFixed: String,
+        pub tertiaryFixedDim: String,
+        pub onTertiaryFixedVariant: String,
+        pub surfaceDim: String,
+        pub surfaceBright: String,
+        pub surfaceContainerLowest: String,
+        pub surfaceContainerLow: String,
+        pub surfaceContainer: String,
+        pub surfaceContainerHigh: String,
+        pub surfaceContainerHighest: String,
+    }
+
+    impl Into<crate::MaterialScheme> for MaterialScheme {
+        fn into(self) -> crate::MaterialScheme {
+            crate::MaterialScheme {
+                background: string_to_color(self.background),
+                error: string_to_color(self.error),
+                errorContainer: string_to_color(self.errorContainer),
+                inverseOnSurface: string_to_color(self.inverseOnSurface),
+                inversePrimary: string_to_color(self.inversePrimary),
+                inverseSurface: string_to_color(self.inverseSurface),
+                onBackground: string_to_color(self.onBackground),
+                onError: string_to_color(self.onError),
+                onErrorContainer: string_to_color(self.onErrorContainer),
+                onPrimary: string_to_color(self.onPrimary),
+                onPrimaryContainer: string_to_color(self.onPrimaryContainer),
+                onPrimaryFixed: string_to_color(self.onPrimaryFixed),
+                onPrimaryFixedVariant: string_to_color(self.onPrimaryFixedVariant),
+                onSecondary: string_to_color(self.onSecondary),
+                onSecondaryContainer: string_to_color(self.onSecondaryContainer),
+                onSecondaryFixed: string_to_color(self.onSecondaryFixed),
+                onSecondaryFixedVariant: string_to_color(self.onSecondaryFixedVariant),
+                onSurface: string_to_color(self.onSurface),
+                onSurfaceVariant: string_to_color(self.onSurfaceVariant),
+                onTertiary: string_to_color(self.onTertiary),
+                onTertiaryContainer: string_to_color(self.onTertiaryContainer),
+                onTertiaryFixed: string_to_color(self.onTertiaryFixed),
+                onTertiaryFixedVariant: string_to_color(self.onTertiaryFixedVariant),
+                outline: string_to_color(self.outline),
+                outlineVariant: string_to_color(self.outlineVariant),
+                primary: string_to_color(self.primary),
+                primaryContainer: string_to_color(self.primaryContainer),
+                primaryFixed: string_to_color(self.primaryFixed),
+                primaryFixedDim: string_to_color(self.primaryFixedDim),
+                scrim: string_to_color(self.scrim),
+                secondary: string_to_color(self.secondary),
+                secondaryContainer: string_to_color(self.secondaryContainer),
+                secondaryFixed: string_to_color(self.secondaryFixed),
+                secondaryFixedDim: string_to_color(self.secondaryFixedDim),
+                shadow: string_to_color(self.shadow),
+                surface: string_to_color(self.surface),
+                surfaceBright: string_to_color(self.surfaceBright),
+                surfaceContainer: string_to_color(self.surfaceContainer),
+                surfaceContainerHigh: string_to_color(self.surfaceContainerHigh),
+                surfaceContainerHighest: string_to_color(self.surfaceContainerHighest),
+                surfaceContainerLow: string_to_color(self.surfaceContainerLow),
+                surfaceContainerLowest: string_to_color(self.surfaceContainerLowest),
+                surfaceDim: string_to_color(self.surfaceDim),
+                surfaceTint: string_to_color(self.surfaceTint),
+                surfaceVariant: string_to_color(self.surfaceVariant),
+                tertiary: string_to_color(self.tertiary),
+                tertiaryContainer: string_to_color(self.tertiaryContainer),
+                tertiaryFixed: string_to_color(self.tertiaryFixed),
+                tertiaryFixedDim: string_to_color(self.tertiaryFixedDim),
+            }
+        }
+    }
+
+    fn string_to_color(color: String) -> Color {
+        let c = color.parse::<css_color_parser2::Color>().unwrap();
+        Color::from_argb_u8((c.a * 255.) as u8, c.r, c.g, c.b)
+    }
+
+    #[derive(Serialize, Deserialize, Debug)]
+    struct MaterialSchemes {
+        pub dark: MaterialScheme,
+        pub light: MaterialScheme,
+    }
+
+    impl Into<crate::MaterialSchemes> for MaterialSchemes {
+        fn into(self) -> crate::MaterialSchemes {
+            crate::MaterialSchemes {
+                dark: self.dark.into(),
+                light: self.light.into(),
+            }
+        }
+    }
+
+    #[derive(Serialize, Deserialize, Debug)]
+    struct MaterialTheme {
+        pub schemes: MaterialSchemes,
+    }
+
+    pub fn init(ui: &MainWindow) {
+        let adapter = MainViewAdapter::get(ui);
+        adapter.set_palettes(VecModel::from_slice(&[
+            MenuItem {
+                text: "Slint".into(),
+                enabled: true,
+                ..Default::default()
+            },
+            MenuItem {
+                text: "Purple".into(),
+                enabled: true,
+                ..Default::default()
+            },
+            MenuItem {
+                text: "Red".into(),
+                enabled: true,
+                ..Default::default()
+            },
+            MenuItem {
+                text: "Green".into(),
+                enabled: true,
+                ..Default::default()
+            },
+        ]));
+
+        adapter.on_load_palette({
+            let ui_weak = ui.as_weak();
+
+            move |index| {
+                let ui = ui_weak.unwrap();
+                load_theme(index as usize, &ui);
+            }
+        })
+    }
+
+    fn load_theme(index: usize, ui: &MainWindow) {
+        let theme: MaterialTheme = serde_json::from_str(match index {
+            1 => PURPLE_THEME,
+            2 => RED_THEME,
+            3 => GREEN_THEME,
+            _ => SLINT_THEME,
+        })
+        .unwrap();
+
+        MaterialPalette::get(ui).set_schemes(theme.schemes.into());
     }
 }
