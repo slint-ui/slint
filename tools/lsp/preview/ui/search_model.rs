@@ -26,7 +26,6 @@ where
     F: Fn(&M::Data) -> bool + 'static,
 {
     fn set_search_text(&self, text: SharedString) {
-        eprintln!("Searching for {text:?} in a model");
         self.filter_text.replace(text);
         self.model.reset();
     }
