@@ -1,0 +1,94 @@
+---
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+title: DatePickerPopup
+description: DatePickerPopup api.
+---
+
+import CodeSnippetMD from '/src/components/CodeSnippetMD.astro';
+import SlintProperty from '/src/components/SlintProperty.astro';
+
+Use a date picker to let the user select a date.
+
+```slint playground
+import { DatePickerPopup, FilledButton } from "./material.slint";
+export component Example inherits Window {
+    width: 400px;
+    height: 600px;
+
+    date_picker_button := FilledButton {
+        text: @tr("Open Date Picker");
+
+        clicked => {
+            date_picker.show();
+        }
+    }
+
+    date_picker := DatePickerPopup {
+        x: (root.width - self.width) / 2;
+        y: (root.height - self.height ) / 2;
+        close_policy: PopupClosePolicy.no_auto_close;
+
+        accepted(date) => {
+            date_picker.close();
+        }
+        canceled => {
+            date_picker.close();
+        }
+    }
+}
+```
+
+## Properties
+
+### title
+<SlintProperty propName="title" typeName="string">
+The text that is displayed at the top of the picker.
+</SlintProperty>
+
+### date
+<SlintProperty propName="date" typeName="struct" structName="Date">
+Set the initial displayed date.
+```slint "date: { year: 2024, month: 11 };" no-test
+DatePickerPopup {
+    date: { year: 2024, month: 11 };
+}
+```
+
+### close-policy
+<SlintProperty propName="close_policy" typeName="enum" enumName="PopupClosePolicy" defaultValue="close_on_click" />
+By default, a DatePickerPopup closes when the user clicks. Set this to false to prevent that behavior and close it manually using the `close()` function.
+
+</SlintProperty>
+
+## Callbacks
+
+### canceled()
+Invoked when the cancel button is clicked.
+
+```slint no-test
+date_picker := DatePickerPopup {
+    canceled() => {
+        date_picker.close();
+    }
+}
+```
+
+### accepted(Date)
+Invoked when the ok button is clicked.
+
+```slint no-test
+date_picker := DatePickerPopup {
+    accepted(date) => {
+        debug("Selected date: ", date);
+        date_picker.close();
+    }
+}
+```
+
+## Functions
+
+### show()
+Show the popup on the screen.
+
+### close()
+Closes the popup. Use this if you set the `close_policy` property to `no_auto_close`.

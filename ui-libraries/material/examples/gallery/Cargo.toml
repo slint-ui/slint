@@ -20,6 +20,8 @@ name = "material_gallery"
 
 [dependencies]
 slint = { version = "1.12", features = ["backend-android-activity-06"] }
+# chrono is used to display data on the DatePicker
+chrono = { version = "0.4", default-features = false, features = ["std", "alloc"] }
 
 [target.'cfg(target_family = "wasm")'.dependencies]
 wasm-bindgen = { version = "0.2" }

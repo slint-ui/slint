@@ -3,7 +3,7 @@
 
 use std::rc::Rc;
 
-use slint::{Color, Image, Model, ModelExt, SharedString, VecModel};
+use slint::{Color, Model, ModelExt, VecModel};
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 
@@ -12,6 +12,7 @@ slint::include_modules!();
 fn ui() -> MainWindow {
     let ui = MainWindow::new().unwrap();
     navigation_view(&ui);
+    date_picker::init(&ui);
     ui
 }
 
@@ -97,11 +98,92 @@ fn color_item(name: &str, red: u8, green: u8, blue: u8, ui: &MainWindow) -> List
     }
 }
 
-fn menu_item(icon: Image, text: SharedString) -> MenuItem {
-    MenuItem {
-        enabled: true,
-        icon,
-        text,
-        ..Default::default()
+mod date_picker {
+    use super::{DatePickerAdapter, MainWindow};
+    use chrono::Local;
+    use chrono::{Datelike, NaiveDate};
+    use slint::{Global, SharedString, VecModel};
+
+    // initializes the DatePickerAdapter
+    pub fn init(ui: &MainWindow) {
+        let adapter = DatePickerAdapter::get(ui);
+
+        adapter.on_month_day_count(|month, year| {
+            month_day_count(month as u32, year).unwrap_or_default() as i32
+        });
+        adapter.on_month_offset(|month, year| month_offset(month as u32, year) as i32);
+        adapter.on_format_date(|format, day, month, year| {
+            format_date(format.as_str(), day as u32, month as u32, year)
+        });
+        adapter.on_parse_date(|date, format| {
+            VecModel::from_slice(&parse_date(date.as_str(), format.as_str()).unwrap_or([0, 0, 0]))
+        });
+        adapter.on_valid_date(|date, format| valid_date(date.as_str(), format.as_str()));
+        adapter.on_date_now(|| VecModel::from_slice(&date_now()));
+    }
+
+    // returns the number of days for the given month in the given year.
+    fn month_day_count(month: u32, year: i32) -> Option<i32> {
+        Some(
+            NaiveDate::from_ymd_opt(
+                match month {
+                    12 => year + 1,
+                    _ => year,
+                },
+                match month {
+                    12 => 1,
+                    _ => month + 1,
+                },
+                1,
+            )?
+            .signed_duration_since(NaiveDate::from_ymd_opt(year, month, 1)?)
+            .num_days() as i32,
+        )
+    }
+
+    // return the numbers of day to the first monday of the month.
+    fn month_offset(month: u32, year: i32) -> i32 {
+        if let Some(date) = NaiveDate::from_ymd_opt(year, month, 1) {
+            let offset = date.weekday().number_from_monday() as i32;
+
+            // sunday
+            if offset >= 7 {
+                return 0;
+            }
+
+            return offset;
+        }
+
+        // The result is only None if month == 0, it should not happen because the function is only
+        // used internal and not directly by the user. So it is ok to return 0 on a None result
+        0
+    }
+
+    // used to format a date that is defined by day month and year.
+    fn format_date(format: &str, day: u32, month: u32, year: i32) -> SharedString {
+        if let Some(date) = NaiveDate::from_ymd_opt(year, month, day) {
+            return slint::format!("{}", date.format(format));
+        }
+
+        // Don't panic, this function is used only internal
+        SharedString::default()
+    }
+
+    // parses the given date string and returns a list of day, month and year.
+    fn parse_date(date: &str, format: &str) -> Option<[i32; 3]> {
+        NaiveDate::parse_from_str(date, format)
+            .ok()
+            .map(|date| [date.day() as i32, date.month() as i32, date.year()])
+    }
+
+    // returns true if the given date is valid.
+    fn valid_date(date: &str, format: &str) -> bool {
+        return parse_date(date, format).is_some();
+    }
+
+    // returns the current date as list of day, month and year.
+    fn date_now() -> [i32; 3] {
+        let now = Local::now().date_naive();
+        [now.day() as i32, now.month() as i32, now.year()]
     }
 }

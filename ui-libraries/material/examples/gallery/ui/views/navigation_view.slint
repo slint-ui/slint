@@ -33,7 +33,8 @@ import {
     RadioButtonTile,
     Menu,
     DropDownMenu,
-    MenuItem
+    MenuItem,
+    DatePickerPopup
 } from "../../../../material.slint";
 
 import { Group } from "../components/group.slint";
@@ -469,6 +470,23 @@ export component NavigationView {
             }
 
             ComponentCard {
+                title: "Date picker";
+
+                Horizontal {
+                    alignment: center;
+
+                    TextButton {
+                        icon: OutlinedIcons.calendar_month;
+                        text: "Show date picker";
+
+                        clicked => {
+                            date_picker.show();
+                        }
+                    }
+                }
+            }
+
+            ComponentCard {
                 title: "DropDown menu";
 
                 Horizontal {
@@ -654,9 +672,19 @@ export component NavigationView {
         y: -root.absolute_position.y;
         width: MainWindowAdapter.width;
         height: MainWindowAdapter.height;
+        title: @tr("Select time");
 
         ok => {
             time_picker.close();
         }
+    }
+
+    date_picker := DatePickerPopup {
+        // this is used to place the popup on 0,0 of the window and also to fill the window
+        x: -root.absolute_position.x;
+        y: -root.absolute_position.y;
+        width: MainWindowAdapter.width;
+        height: MainWindowAdapter.height;
+        title: @tr("Select date");
     }
 }

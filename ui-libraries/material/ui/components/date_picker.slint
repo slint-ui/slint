@@ -1,0 +1,568 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { BaseDialog } from "./dialog.slint";
+import { MaterialStyleMetrics } from "../styling/material_style_metrics.slint";
+import { Icons } from "../icons/icons.slint";
+import { MaterialText } from "./material_text.slint";
+import { StateLayer } from "./state_layer.slint";
+import { ScrollView } from "./scroll_view.slint";
+import { IconButton } from "./icon_button.slint";
+import { TextField } from "./text_field.slint";
+import { Typography } from "../styling/typography.slint";
+import { MaterialPalette } from "../styling/material_palette.slint";
+import { ExtendedTouchArea } from "./extended_touch_area.slint";
+
+// defines the interface to get the data for the DatePicker from native code.
+export global DatePickerAdapter {
+    // returns the number of days for the given month in the given year.
+    pure callback month_day_count(month: int, year: int) -> int;
+
+    // return the numbers of day to the first monday of the month.
+    pure callback month_offset(month: int, year: int) -> int;
+
+    // used to format a date that is defined by day month and year.
+    pure callback format_date(format: string, day: int, month: int, year: int) -> string;
+
+    // parses the given date string and returns a list of day, month and year.
+    pure callback parse_date(date: string, format: string) -> [int];
+
+    // returns true if the given date is valid.
+    pure callback valid_date(date: string, format: string) -> bool;
+
+    // returns the current date as list of day, month and year.
+    pure callback date_now() -> [int];
+}
+
+export struct Date {
+    year: int,
+    month: int,
+    day: int,
+}
+
+component CalendarHeaderDelegate {
+    in property <string> text <=> text_label.text;
+
+    min_width: max(MaterialStyleMetrics.size_40, content_layer.min_width);
+    min_height: max(MaterialStyleMetrics.size_40, content_layer.min_height);
+
+    content_layer := VerticalLayout {
+        text_label := MaterialText {
+            vertical_alignment: center;
+            horizontal_alignment: center;
+            style: Typography.body_large;
+            color: MaterialPalette.on_surface;
+        }
+    }
+}
+
+component CalendarDelegate {
+    in property <bool> selected;
+    in property <bool> today;
+    in property <string> text <=> text_label.text;
+    in property <bool> enabled: true;
+
+    callback clicked <=> touch_area.clicked;
+
+    min_width: max(MaterialStyleMetrics.size_40, content_layer.min_width);
+    min_height: max(MaterialStyleMetrics.size_40, content_layer.min_height);
+    forward_focus: focus_scope;
+
+    accessible_role: button;
+    accessible_checkable: true;
+    accessible_checked: root.selected;
+    accessible_label: root.text;
+    accessible_action_default => { touch_area.clicked(); }
+
+    touch_area := TouchArea {
+        enabled: root.enabled;
+    }
+
+    focus_scope := FocusScope {
+        width: 0px;
+        enabled: root.enabled;
+
+        key_pressed(event) => {
+            if (event.text == " " || event.text == "\n") {
+                touch_area.clicked();
+                 return accept;
+            }
+
+            return reject;
+        }
+    }
+
+    background_layer := Rectangle {
+        border_radius: self.height / 2;
+    }
+
+    content_layer := HorizontalLayout {
+        text_label := MaterialText {
+            vertical_alignment: center;
+            horizontal_alignment: center;
+            style: Typography.body_large;
+            color: MaterialPalette.on_surface;
+        }
+    }
+
+    state_layer := StateLayer {
+        enabled: root.enabled;
+        border_radius: background_layer.border_radius;
+        pressed: touch_area.pressed;
+        has_hover: touch_area.has_hover;
+        has_focus: focus_scope.has_focus;
+    }
+
+    states [
+        // FIXME: states
+        disabled when !root.enabled : {
+            root.opacity: 0.38;
+        }
+        selected when root.selected : {
+            background_layer.background: MaterialPalette.primary;
+            text_label.color: MaterialPalette.on_primary;
+        }
+        today when root.today : {
+            background_layer.border_width: 1px;
+            background_layer.border_color: MaterialPalette.primary;
+        }
+    ]
+}
+
+export component Calendar {
+    in property <int> column_count;
+    in property <int> row_count;
+    in property <length> delegate_size;
+    in property <int> start_column;
+    in property <[string]> header_model;
+    in property <int> month_count;
+    in property <Date> today;
+    in property <Date> selected_date;
+    in property <int> display_month;
+    in property <int> display_year;
+
+    callback select_date(date: Date);
+
+    // header
+    for day[index] in root.header_model : CalendarHeaderDelegate {
+        x: root.delegate_x(index);
+        y: root.delegate_y(index);
+        text: day;
+    }
+
+    // items
+    for index in root.month_count : CalendarDelegate {
+        property <Date> d: { day: index + 1, month: root.display_month, year: root.display_year };
+
+        x: root.delegate_x(root.index_on_calendar(index));
+        y: root.delegate_y(root.index_on_calendar(index));
+        width: root.delegate_size;
+        height: root.delegate_size;
+        text: index + 1;
+        selected: root.selected_date == self.d;
+        today: root.today == self.d;
+
+        clicked => {
+            root.select_date(self.d);
+        }
+    }
+
+    function index_on_calendar(index: int) -> int {
+        // add column count because items starts after header row
+        root.column_count + root.start_column + index
+    }
+
+    function row_for_index(index: int) -> int {
+        floor(index / root.column_count)
+    }
+
+    function column_for_index(index: int) -> int {
+        mod(index, root.column_count)
+    }
+
+    function delegate_x(index: int) -> length {
+        root.column_for_index(index) * root.delegate_size + root.column_for_index(index) * 1px /* * root.style.spacing */
+    }
+
+    function delegate_y(index: int) -> length {
+        root.row_for_index(index) * root.delegate_size + root.row_for_index(index) * 1px /* * root.style.spacing */
+    }
+}
+
+component YearSelection {
+    in property <[int]> model;
+    in property <length> spacing;
+    in property <int> visible_row_count;
+    in property <int> column_count;
+    in property <length> delegate_width;
+    in property <length> delegate_height;
+    in property <int> selected_year;
+    in property <int> today_year;
+
+    callback select_year(year: int);
+
+    property <length> row_height: root.height / root.visible_row_count;
+    property <int> row_count: root.model.length / root.column_count;
+    property <length> viewport_height: root.row_count * root.row_height;
+    property <length> start_x: root.width / (root.column_count + 1);
+    property <length> start_y: root.height / (root.visible_row_count + 1);
+
+    ScrollView {
+        width: 100%;
+        height: 100%;
+        viewport_width: root.width;
+        viewport_height: root.viewport_height;
+
+        for year[index] in root.model: CalendarDelegate {
+            x: root.delegate_center_x(index) - self.width / 2;
+            y: root.delegate_center_y(index) - self.height / 2;
+            width: root.delegate_width;
+            height: root.delegate_height;
+            text: year;
+            selected: year == root.selected_year;
+            today: year == root.today_year;
+
+            clicked => {
+                root.select_year(year);
+            }
+        }
+    }
+
+    function delegate_center_x(index: int) -> length {
+        root.start_x * (root.column_for_index(index) + 1)
+    }
+
+    function delegate_center_y(index: int) -> length {
+        root.start_y * (root.row_for_index(index) + 1)
+    }
+
+    function row_for_index(index: int) -> int {
+        floor(index / root.column_count)
+    }
+
+    function column_for_index(index: int) -> int {
+        mod(index, root.column_count)
+    }
+}
+
+export component SelectionButton {
+    in property <string> text <=> text-label.text;
+    in property <image> icon <=> icon-image.source;
+    in property <bool> enabled: true;
+    in-out property <bool> checked;
+
+    callback clicked();
+
+    min-width: content-layer.min-width;
+    min-height: max(40px, content-layer.min-height);
+    accessible-label: root.text;
+    accessible-role: button;
+    accessible-checkable: true;
+    accessible-checked: root.checked;
+    accessible-action-default => { touch-area.clicked(); }
+    forward-focus: touch-area;
+
+    touch-area := ExtendedTouchArea {
+        width: 100%;
+        height: 100%;
+        enabled: root.enabled;
+
+        clicked => {
+            root.checked = !root.checked;
+            root.clicked();
+        }
+    }
+
+    state-layer := StateLayer {
+        enabled: root.enabled;
+        pressed: touch-area.pressed;
+        has-hover: touch-area.has-hover;
+        has-focus: touch-area.has-focus;
+        background: text_label.color;
+    }
+
+    content-layer := HorizontalLayout {
+        alignment: center;
+        padding-left: 8px;
+        padding-right: 8px;
+        spacing: 8px;
+
+        text-label := MaterialText {
+            vertical-alignment: center;
+            color: MaterialPalette.on_surface_variant;
+            style: Typography.label_large;
+        }
+
+        icon-image := Image {
+            y: (parent.height - self.height) / 2;
+            width: MaterialStyleMetrics.size_18;
+            colorize: MaterialPalette.on_surface_variant;
+            rotation-angle: root.checked ? 180deg : 0;
+            rotation-origin-x: self.width / 2;
+            rotation-origin-y: self.height / 2;
+
+            animate rotation-angle { duration: 250ms; }
+        }
+    }
+
+    states [
+        disabled when !root.enabled : {
+            root.opacity: 0.38;
+        }
+    ]
+}
+
+
+export component DatePickerPopup inherits PopupWindow {
+    in property <string> title;
+    in property <Date> date : { day: today[0], month: today[1], year: today[2] };
+
+    callback canceled();
+    callback accepted(date: Date);
+
+    // this is used for the navigation between months
+    property <string> input_title: @tr("Enter date");
+    property <string> input_placeholder_text: "mm/dd/yyyy";
+    property <string> input_format: "%m/%d/%Y";
+    property <string> cancel_text: @tr("Cancel");
+    property <string> ok_text: @tr("Ok");
+    property <Date> display_date: root.date;
+    property <Date> current_date: root.date;
+    property <length> delegate_size: 40px;
+    property <length> year_delegate_width: 72px;
+    property <int> calendar_column_count: 7;
+    property <int> calendar_row_count: 6;
+    property <length> calendar_min_width: root.delegate_size * root.calendar_column_count + (root.calendar_column_count - 1) * 1px;
+    property <length> calendar_min_height: root.delegate_size *(root.calendar_row_count + 1) + (root.calendar_row_count - 1) * 1px;
+    property <int> year_selection_column_count: 3;
+    property <int> year_selection_row_count: 5;
+    property <bool> year_selection;
+    property <bool> selection_mode: true;
+    property <string> current_input;
+
+    property <int> calendar_month_count: DatePickerAdapter.month_day_count(root.display_date.month, root.display_date.year);
+    property <[string]> calendar_header_model: [
+        @tr("One-letter abbrev for Sunday" => "S"),
+        @tr("One-letter abbrev for Monday" => "M"),
+        @tr("One-letter abbrev for Tuesday" => "T"),
+        @tr("One-letter abbrev for Wednesday" => "W"),
+        @tr("One-letter abbrev for Thursday" => "T"),
+        @tr("One-letter abbrev for Friday" => "F"),
+        @tr("One-letter abbrev for Saturday" => "S"),
+    ];
+    property <[int]> today: DatePickerAdapter.date_now();
+    property <int> start_column: DatePickerAdapter.month_offset(root.display_date.month, root.display_date.year);
+    property <string> current_month: DatePickerAdapter.format_date("%B %Y", root.display_date.day, root.display_date.month, root.display_date.year);
+    property <[int]> year_model: [2024, 2025, 2026, 2027, 2028, 2029, 2031, 2032, 2033, 2034, 2035, 2036, 2037, 2038, 2039, 2040, 2041, 2042, 2043];
+    property <int> selected_year: root.display_date.year;
+    property <int> today_year: root.today[2];
+    property <string> current_day: DatePickerAdapter.format_date("%a, %b %d", root.current_date.day, root.current_date.month, root.current_date.year);
+    property <[int]> input_formatted: DatePickerAdapter.parse_date(root.current_input, root.input_format);
+
+    close_policy: no_auto_close;
+    forward_focus: base;
+
+    base := BaseDialog {
+        width: 100%;
+        height: 100%;
+        title: root.title;
+        actions: [
+            root.cancel_text,
+            root.ok_text
+        ];
+
+        content_layer := VerticalLayout {
+            spacing: MaterialStyleMetrics.spacing_12;
+
+            header := HorizontalLayout {
+                MaterialText {
+                    text: root.selection_mode ? root.current_day : root.input_title;
+                    horizontal_alignment: left;
+                    vertical_alignment: center;
+                    style: Typography.headline_large;
+                }
+
+                if root.selection_mode : IconButton {
+                    icon: Icons.edit;
+                    accessible_label: "Toggle selection mode";
+
+                    clicked => {
+                        root.toggle_selection_mode();
+                    }
+                }
+            }
+
+            Rectangle {
+                height: 1px;
+                background: MaterialPalette.outline;
+            }
+
+            if root.selection_mode : HorizontalLayout {
+                // FIXME: spacing
+
+                VerticalLayout {
+                    horizontal_stretch: 0;
+                    alignment: center;
+
+                    SelectionButton {
+                        text: root.current_month;
+                        icon: Icons.arrow_drop_down;
+                        checked <=> root.year_selection;
+                    }
+                }
+
+                Rectangle {}
+
+                IconButton {
+                    icon: Icons.chevron_backward;
+                    accessible_label: "Previous month";
+
+                    clicked => {
+                        root.show_previous();
+                    }
+                }
+
+                IconButton {
+                    icon: Icons.chevron_forward;
+                    accessible_label: "Next month";
+
+                    clicked => {
+                        root.show_next();
+                    }
+                }
+            }
+
+            if root.selection_mode : VerticalLayout {
+                if !root.year_selection : Calendar {
+                    min_width: root.calendar_min_width;
+                    min_height: root.calendar_min_height;
+                    column_count: root.calendar_column_count;
+                    row_count: root.calendar_row_count;
+                    delegate_size: root.delegate_size;
+                    header_model: root.calendar_header_model;
+                    month_count: root.calendar_month_count;
+                    today: { day: root.today[0], month: root.today[1], year: root.today[2] };
+                    selected_date <=> root.current_date;
+                    start_column: root.start_column;
+                    display_month: root.display_date.month;
+                    display_year: root.display_date.year;
+
+                    select_date(date) => {
+                        root.select_date(date);
+                    }
+                }
+
+                if root.year_selection : YearSelection {
+                    min_width: root.calendar_min_width;
+                    min_height: root.calendar_min_height;
+                    column_count: root.year_selection_column_count;
+                    visible_row_count: root.year_selection_row_count;
+                    delegate_width: root.year_delegate_width;
+                    delegate_height: root.delegate_size;
+                    model: root.year_model;
+                    selected_year: root.selected_year;
+                    today_year: root.today_year;
+
+                    select_year(year) => {
+                        root.select_year(year);
+                    }
+                }
+            }
+
+            Rectangle {
+                height: 1px;
+                visible: root.year_selection;
+                background: MaterialPalette.outline;
+            }
+
+            if !root.selection_mode : TextField {
+                text <=> root.current_input;
+                placeholder: root.input_placeholder_text;
+                trailing_icon: Icons.calendar_today;
+
+                trailing_icon_clicked => {
+                    root.toggle_selection_mode();
+                }
+            }
+        }
+
+        action(index) => {
+            // cancel
+            if index == 0 {
+                root.close();
+                root.canceled();
+            } else if index == 1 {
+                root.accepted(root.date);
+            }
+        }
+
+        close => {
+            root.close();
+        }
+    }
+
+    changed date => {
+        root.display_date = root.date;
+        root.current_date = root.date;
+    }
+
+    changed selection_mode => {
+        // check switch from input mode if input is valid
+        if root.selection_mode && root.current_input_valid() {
+            root.current_date = root.input_as_date();
+            root.display_date = root.current_date;
+        }
+    }
+
+    pure public function ok_enabled() -> bool {
+        root.selection_mode || root.current_input_valid()
+    }
+
+    public function get_current_date() -> Date {
+        if root.selection_mode {
+            return root.current_date;
+        }
+
+        root.input_as_date()
+    }
+
+    pure function current_input_valid() -> bool {
+        DatePickerAdapter.valid_date(root.current_input, root.input_format)
+    }
+
+    pure function input_as_date() -> Date {
+        { day: root.input_formatted[0], month: root.input_formatted[1], year: root.input_formatted[2] }
+    }
+
+    function select_date(date: Date) {
+        root.current_date = date;
+    }
+
+    function select_year(year: int) {
+        root.current_date = { day: 1, month: 1, year: year };
+        root.display_date = root.current_date;
+        root.year_selection = false;
+    }
+
+    function show_next() {
+        if root.display_date.month >= 12 {
+            root.display_date = { day: 1, month: 1, year: root.display_date.year + 1 };
+            return;
+        }
+
+        root.display_date = { day: 1, month: root.display_date.month + 1, year: root.display_date.year };
+    }
+
+    function show_previous() {
+        if root.display_date.month <= 1 {
+            root.display_date = { day: 1, month: 12, year: root.display_date.year - 1 };
+            return;
+        }
+
+        root.display_date = { day: 1, month: root.display_date.month - 1, year: root.display_date.year };
+    }
+
+    function toggle_selection_mode() {
+        root.selection_mode = !root.selection_mode;
+    }
+}
