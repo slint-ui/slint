@@ -7,6 +7,7 @@ import { FocusBorder } from "components.slint";
 export component Button {
     in property <string> text;
     in property <image> icon;
+    in property <length> icon-size: 20px;
     in property <bool> primary;
     in property <bool> enabled <=> i-touch-area.enabled;
     in property <bool> checkable;
@@ -76,7 +77,8 @@ export component Button {
             if (root.icon.width > 0 && root.icon.height > 0) : Image {
                 y: (parent.height - self.height) / 2;
                 source <=> root.icon;
-                width: 20px;
+                width: root.icon-size;
+                min-height: root.icon-size;
                 colorize: root.colorize-icon ? root.text-color : transparent;
             }
 
