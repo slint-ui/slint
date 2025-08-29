@@ -6,7 +6,7 @@ import { ExpandableListView } from "../components/expandable-listview.slint";
 import { Icons, EditorSizeSettings, ConsoleStyles, EditorSpaceSettings } from "../components/styling.slint";
 import { Api, ComponentListItem, ComponentItem, DiagnosticSummary } from "../api.slint";
 import { IconButton } from "../components/icon-button.slint";
-import { Palette } from "std-widgets.slint";
+import { Palette, LineEdit } from "std-widgets.slint";
 
 export component LibraryView {
     in property <[ComponentListItem]> known-components <=> component-list-view.known-components;
@@ -55,6 +55,13 @@ export component LibraryView {
                     font-family: "Inter";
                     font-size: 12px;
                     text: @tr("Library");
+                }
+
+                LineEdit {
+                    placeholder-text: "Search";
+                    edited(text) => {
+                        Api.library-search(text);
+                    }
                 }
 
                 Image {

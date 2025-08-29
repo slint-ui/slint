@@ -24,6 +24,7 @@ pub mod log_messages;
 pub mod palette;
 mod property_view;
 mod recent_colors;
+pub mod search_model;
 
 slint::include_modules!();
 
@@ -263,12 +264,19 @@ pub fn ui_set_known_components(
         }
     }
 
+    type ComponentModel = search_model::SearchModel<ComponentItem>;
+    fn make_component_model(vec: Vec<ComponentItem>) -> ComponentModel {
+        ComponentModel::new(VecModel::from(vec), |i, search_str| {
+            search_model::contains(i.name.as_str(), search_str)
+        })
+    }
+
     fn sort_subset(mut input: HashMap<String, Vec<ComponentItem>>) -> Vec<ComponentListItem> {
         let mut output = input
             .drain()
             .map(|(k, mut v)| {
                 v.sort_by_key(|i| i.name.clone());
-                let model = Rc::new(VecModel::from(v));
+                let model = Rc::new(make_component_model(v));
                 ComponentListItem {
                     category: k.into(),
                     file_url: SharedString::new(),
@@ -283,11 +291,12 @@ pub fn ui_set_known_components(
     let builtin_components = sort_subset(builtins_map);
     let std_widgets_components = sort_subset(std_widgets_map);
     let library_components = sort_subset(library_map);
+
     let mut file_components = path_map
         .drain()
         .map(|(p, (file_url, mut v))| {
             v.sort_by_key(|i| i.name.clone());
-            let model = Rc::new(VecModel::from(v));
+            let model = Rc::new(make_component_model(v));
             let name = if p == longest_path_prefix {
                 p.file_name().unwrap_or_default().to_string_lossy().to_string()
             } else {
@@ -306,9 +315,23 @@ pub fn ui_set_known_components(
     all_components.extend_from_slice(&library_components[..]);
     all_components.extend_from_slice(&file_components[..]);
 
-    let result = Rc::new(VecModel::from(all_components));
+    let result = Rc::new(search_model::SearchModel::new(
+        VecModel::from(all_components),
+        |category, search_str| {
+            let mut yes = search_str.is_empty();
+            if let Some(sub_filter) = category.components.as_any().downcast_ref::<ComponentModel>()
+            {
+                sub_filter.set_search_text(search_str.clone());
+                yes = yes || sub_filter.row_count() > 0;
+            }
+            yes
+        },
+    ));
     let api = ui.global::<Api>();
-    api.set_known_components(result.into());
+    api.set_known_components(result.clone().into());
+    api.on_library_search(move |term| {
+        result.set_search_text(term.into());
+    });
 }
 
 fn to_ui_range(r: TextRange) -> Option<Range> {
