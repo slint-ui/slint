@@ -7,8 +7,6 @@
 //! bevy [`App`] in a thread separate from the main thread and supply textures of the rendered
 //! scenes via channels.
 
-use std::sync::Arc;
-
 use slint::wgpu_26::wgpu;
 
 use bevy::{
@@ -50,36 +48,23 @@ pub async fn run_bevy_app_with_slint(
     slint::PlatformError,
 > {
     let backends = wgpu::Backends::from_env().unwrap_or_default();
-    let dx12_shader_compiler = wgpu::Dx12Compiler::from_env().unwrap_or_default();
-    let gles_minor_version = wgpu::Gles3MinorVersion::from_env().unwrap_or_default();
 
-    let instance = wgpu::util::new_instance_with_webgpu_detection(&wgpu::InstanceDescriptor {
+    let bevy::render::settings::RenderResources(
+        render_device,
+        render_queue,
+        adapter_info,
+        adapter,
+        instance,
+    ) = bevy::render::renderer::initialize_renderer(
         backends,
-        flags: wgpu::InstanceFlags::from_build_config().with_env(),
-        backend_options: wgpu::BackendOptions {
-            dx12: wgpu::Dx12BackendOptions { shader_compiler: dx12_shader_compiler },
-            gl: wgpu::GlBackendOptions {
-                gles_minor_version,
-                fence_behavior: wgpu::GlFenceBehavior::default(),
-            },
-            noop: wgpu::NoopBackendOptions::default(),
-        },
-        memory_budget_thresholds: wgpu::MemoryBudgetThresholds::default(),
-    })
+        None,
+        &bevy::render::settings::WgpuSettings::default(),
+    )
     .await;
-
-    let (render_device, render_queue, adapter_info, adapter) =
-        bevy::render::renderer::initialize_renderer(
-            &instance,
-            &bevy::render::settings::WgpuSettings::default(),
-            &wgpu::RequestAdapterOptions::default(),
-            None,
-        )
-        .await;
 
     let selector =
         slint::BackendSelector::new().require_wgpu_26(slint::wgpu_26::WGPUConfiguration::Manual {
-            instance: instance.clone(),
+            instance: (**instance.0).clone(),
             adapter: (**adapter.0).clone(),
             device: render_device.wgpu_device().clone(),
             queue: (**render_queue.0).clone(),
@@ -190,9 +175,7 @@ pub async fn run_bevy_app_with_slint(
                     render_queue,
                     adapter_info,
                     adapter,
-                    bevy::render::renderer::RenderInstance(Arc::new(
-                        bevy::render::WgpuWrapper::new(instance),
-                    )),
+                    instance,
                 ),
                 ..default()
             }), //.disable::<bevy::winit::WinitPlugin>(),
