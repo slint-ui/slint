@@ -118,6 +118,10 @@ objc2-app-kit = { version = "0.3.0" }
 # Enable Skia by default on Apple platforms with iOS, etc. (but not macOS). See also enable_skia_renderer in build.rs
 i-slint-renderer-skia = { workspace = true, features = ["default"] }
 
+[target.'cfg(target_os = "windows")'.dependencies.windows]
+version = "0.61.1"
+features = ["Win32"]
+
 [build-dependencies]
 cfg_aliases = { workspace = true }
 
