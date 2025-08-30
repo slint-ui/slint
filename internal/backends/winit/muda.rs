@@ -119,6 +119,8 @@ impl MudaAdapter {
         menubar: Option<&vtable::VRc<MenuVTable>>,
         muda_type: MudaType,
     ) {
+        win32_set_window_redraw(winit_window, false);
+
         // clear the menu
         while self.menu.remove_at(0).is_some() {}
         self.entries.clear();
@@ -222,6 +224,8 @@ impl MudaAdapter {
                 build_menu()
             }
         }
+
+        win32_set_window_redraw(winit_window, true);
     }
 
     pub fn invoke(&self, menubar: &vtable::VRc<MenuVTable>, entry_id: usize) {
@@ -284,4 +288,27 @@ fn create_default_app_menu(menu_bar: &muda::Menu) -> Result<(), i_slint_core::ap
             i_slint_core::api::PlatformError::Other(menu_bar_err.to_string())
         })?;
     Ok(())
+}
+
+/// On Windows, we need to disable window redraw while rebuilding the menu, otherwise
+/// we might see flickering
+#[allow(unused_variables)]
+fn win32_set_window_redraw(winit_window: &Window, redraw: bool) {
+    #[cfg(target_os = "windows")]
+    if let RawWindowHandle::Win32(handle) = winit_window.window_handle().unwrap().as_raw() {
+        use std::os::raw::c_void;
+        use windows::Win32::Foundation::HWND;
+        use windows::Win32::Foundation::WPARAM;
+        use windows::Win32::UI::WindowsAndMessaging::SendMessageW;
+        use windows::Win32::UI::WindowsAndMessaging::WM_SETREDRAW;
+
+        unsafe {
+            SendMessageW(
+                HWND(handle.hwnd.get() as *mut c_void),
+                WM_SETREDRAW,
+                Some(WPARAM(redraw as usize)),
+                None,
+            );
+        }
+    }
 }
