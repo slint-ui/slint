@@ -28,6 +28,11 @@ impl writer::TokenWriter for StringWriter {
         self.text += token.text();
         Ok(())
     }
+
+    fn insert_content(&mut self, contents: &str) -> std::io::Result<()> {
+        self.text += contents;
+        Ok(())
+    }
 }
 
 pub fn format_document(

@@ -162,7 +162,9 @@ fn format_node(
         SyntaxKind::MemberAccess => {
             return format_member_access(node, writer, state);
         }
-
+        SyntaxKind::ImportIdentifierList => {
+            return format_import_identifier(node, writer, state);
+        }
         _ => (),
     }
 
@@ -1331,6 +1333,107 @@ fn format_member_access(
     Ok(())
 }
 
+/// Format import
+///
+/// For a single import without a comma, it only guarantees spaces surrounding the import identifier.
+///
+/// For a single import with comma or multiple imports, it formats them in new lines with trailing comma.
+/// This is to be git friendly and reduce the git diff noise.
+fn format_import_identifier(
+    node: &SyntaxNode,
+    writer: &mut impl TokenWriter,
+    state: &mut FormatState,
+) -> Result<(), std::io::Error> {
+    let count_commas = node
+        .children_with_tokens()
+        .filter(|child_token| child_token.kind() == SyntaxKind::Comma)
+        .count();
+    let mut count_import_identifiers = node
+        .children_with_tokens()
+        .filter(|child_token| child_token.kind() == SyntaxKind::ImportIdentifier)
+        .count();
+    let has_trailing_comma = count_commas == count_import_identifiers;
+
+    let sub = node.children_with_tokens();
+
+    // single comaless example: { Foo }
+    let is_single_comaless = count_import_identifiers == 1 && !has_trailing_comma;
+    let indentation_level = if is_single_comaless { 0 } else { 1 };
+    for n in sub {
+        state.skip_all_whitespace = true;
+        match n.kind() {
+            SyntaxKind::Whitespace => {
+                fold(n, writer, state)?;
+            }
+            SyntaxKind::LBrace => {
+                state.indentation_level += indentation_level;
+                fold(n, writer, state)?;
+            }
+            SyntaxKind::ImportIdentifier => {
+                count_import_identifiers -= 1;
+                let is_last_import = count_import_identifiers == 0;
+                if let Some(children) = n.as_node() {
+                    let has_internal_name = children
+                        .children_with_tokens()
+                        .any(|child| child.kind() == SyntaxKind::InternalName);
+                    for nn in children.children_with_tokens() {
+                        state.skip_all_whitespace = true;
+                        match nn.kind() {
+                            SyntaxKind::Whitespace => {
+                                fold(nn, writer, state)?;
+                            }
+                            SyntaxKind::ExternalName => {
+                                if is_single_comaless {
+                                    state.insert_whitespace(" ".into());
+                                } else {
+                                    state.new_line();
+                                }
+                                fold(nn, writer, state)?;
+
+                                // We don't want to add a comma after the
+                                // external name if there is an internal name
+                                if has_internal_name {
+                                    continue;
+                                }
+                                if !is_single_comaless && !has_trailing_comma && is_last_import {
+                                    writer.insert_content(",")?;
+                                }
+                            }
+                            // Internal name is optional, and, if present,
+                            // we are sure we want to add a comma after it
+                            SyntaxKind::InternalName => {
+                                state.whitespace_to_add = Some(" ".into());
+                                fold(nn, writer, state)?;
+                                if !is_single_comaless && !has_trailing_comma && is_last_import {
+                                    writer.insert_content(",")?;
+                                }
+                            }
+                            _ => {
+                                state.whitespace_to_add = Some(" ".into());
+                                fold(nn, writer, state)?;
+                            }
+                        }
+                    }
+                }
+            }
+            SyntaxKind::RBrace => {
+                state.indentation_level -= indentation_level;
+                if !is_single_comaless {
+                    state.new_line();
+                } else {
+                    state.insert_whitespace(" ");
+                }
+                fold(n, writer, state)?;
+            }
+            _ => {
+                state.skip_all_whitespace = true;
+                fold(n, writer, state)?;
+            }
+        }
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2227,6 +2330,214 @@ export component MainWindow2 inherits Rectangle {
     }
 }
 "#,
+        );
+    }
+
+    #[ignore]
+    #[test]
+    fn comment_in_nest() {
+        assert_formatting(
+            r#"component X {
+    // function foo() {
+    // }
+    }
+"#,
+            r#"component X {
+    // function foo() {
+    // }
+}
+"#,
+        );
+    }
+
+    #[test]
+    /// format_import_identifier
+    fn single_import_space() {
+        assert_formatting(
+            r#"import {Foo} from "./here.slint";"#,
+            r#"import { Foo } from "./here.slint";"#,
+        );
+
+        assert_formatting(
+            r#"import { Foo} from "./here.slint";"#,
+            r#"import { Foo } from "./here.slint";"#,
+        );
+
+        assert_formatting(
+            r#"import {Foo } from "./here.slint";"#,
+            r#"import { Foo } from "./here.slint";"#,
+        );
+
+        assert_formatting(
+            r#"import {     Foo     } from "./here.slint";"#,
+            r#"import { Foo } from "./here.slint";"#,
+        );
+
+        assert_formatting(
+            r#"import {Foo as FooBar } from "./here.slint";"#,
+            r#"import { Foo as FooBar } from "./here.slint";"#,
+        );
+
+        assert_formatting(
+            r#"import {Foo as FooBar} from "./here.slint";"#,
+            r#"import { Foo as FooBar } from "./here.slint";"#,
+        );
+    }
+
+    #[test]
+    /// format_import_identifier
+    fn import_comma_new_line() {
+        // when user adds a trail comma, it goes to a new line automatically, good for git from the get go
+        assert_formatting(
+            r#"import {Foo,} from "./here.slint";"#,
+            r#"import {
+    Foo,
+} from "./here.slint";"#,
+        );
+
+        assert_formatting(
+            r#"import {  Foo,} from "./here.slint";"#,
+            r#"import {
+    Foo,
+} from "./here.slint";"#,
+        );
+
+        assert_formatting(
+            r#"import {Foo,  } from "./here.slint";"#,
+            r#"import {
+    Foo,
+} from "./here.slint";"#,
+        );
+
+        assert_formatting(
+            r#"import {Foo as Fur,  } from "./here.slint";"#,
+            r#"import {
+    Foo as Fur,
+} from "./here.slint";"#,
+        );
+    }
+
+    #[test]
+    /// format_import_identifier
+    fn multiple_import_new_line() {
+        assert_formatting(
+            r#"import {Foo, Bar} from "./here.slint";"#,
+            r#"import {
+    Foo,
+    Bar,
+} from "./here.slint";"#,
+        );
+
+        assert_formatting(
+            r#"import {Foo,Bar,} from "./here.slint";"#,
+            r#"import {
+    Foo,
+    Bar,
+} from "./here.slint";"#,
+        );
+
+        assert_formatting(
+            r#"import {Foo,Bar  } from "./here.slint";"#,
+            r#"import {
+    Foo,
+    Bar,
+} from "./here.slint";"#,
+        );
+
+        assert_formatting(
+            r#"import {Foo,Bar as BarBer } from "./here.slint";"#,
+            r#"import {
+    Foo,
+    Bar as BarBer,
+} from "./here.slint";"#,
+        );
+
+        assert_formatting(
+            r#"import { Foo,  Bar} from "./here.slint";"#,
+            r#"import {
+    Foo,
+    Bar,
+} from "./here.slint";"#,
+        );
+
+        assert_formatting(
+            r#"import {
+    Foo,
+    Bar
+} from "./here.slint";"#,
+            r#"import {
+    Foo,
+    Bar,
+} from "./here.slint";"#,
+        );
+
+        assert_formatting(
+            r#"import {
+    Foo as Fur,
+    Bar
+} from "./here.slint";"#,
+            r#"import {
+    Foo as Fur,
+    Bar,
+} from "./here.slint";"#,
+        );
+    }
+
+    #[test]
+    fn import_new_line_with_comments() {
+        assert_formatting(
+            r#"import {
+    Foo, // comment foo
+    Bar   // comment bar
+} from "./here.slint";"#,
+            r#"import {
+    Foo, // comment foo
+    Bar,   // comment bar
+} from "./here.slint";"#,
+        );
+
+        assert_formatting(
+            r#"import {
+    Foo, // comment foo
+    Bar,   // comment bar
+} from "./here.slint";"#,
+            r#"import {
+    Foo, // comment foo
+    Bar,   // comment bar
+} from "./here.slint";"#,
+        );
+
+        assert_formatting(
+            r#"import {
+    Foo, // comment foo
+    Bar as BarBer   // comment bar
+} from "./here.slint";"#,
+            r#"import {
+    Foo, // comment foo
+    Bar as BarBer,   // comment bar
+} from "./here.slint";"#,
+        );
+    }
+
+    #[test]
+    fn import_many() {
+        assert_formatting(
+            r#"import {
+            Baz, Quz,
+    Foo, // comment foo
+    Bar as BarBer,   // comment bar
+    Snaf,Tar, // comment
+    Jar
+} from "./here.slint";"#,
+            r#"import {
+    Baz,
+    Quz,
+    Foo, // comment foo
+    Bar as BarBer,   // comment bar
+    Snaf,
+    Tar, // comment
+    Jar,
+} from "./here.slint";"#,
         );
     }
 }
