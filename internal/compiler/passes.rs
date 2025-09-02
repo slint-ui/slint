@@ -11,6 +11,7 @@ mod clip;
 mod collect_custom_fonts;
 mod collect_globals;
 mod collect_init_code;
+mod collect_libraries;
 mod collect_structs_and_enums;
 mod collect_subcomponents;
 mod compile_paths;
@@ -100,6 +101,7 @@ pub async fn run_passes(
     let raw_type_loader =
         keep_raw.then(|| crate::typeloader::snapshot_with_extra_doc(type_loader, doc).unwrap());
 
+    collect_libraries::collect_libraries(doc);
     collect_subcomponents::collect_subcomponents(doc);
     lower_tabwidget::lower_tabwidget(doc, type_loader, diag).await;
     lower_menus::lower_menus(doc, type_loader, diag).await;
@@ -206,6 +208,7 @@ pub async fn run_passes(
     }
 
     binding_analysis::binding_analysis(doc, &type_loader.compiler_config, diag);
+    collect_globals::mark_library_globals(doc);
     unique_id::assign_unique_id(doc);
 
     doc.visit_all_used_components(|component| {

@@ -19,6 +19,7 @@ path = "lib.rs"
 
 [features]
 default = []
+experimental-module-builds = ["i-slint-compiler/experimental-library-module"]
 sdf-fonts = ["i-slint-compiler/sdf-fonts"]
 
 [dependencies]
