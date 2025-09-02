@@ -108,6 +108,9 @@ pub trait Platform {
         core::time::Duration::from_millis(500)
     }
 
+    /// Returns the current rate at which the text cursor should flash or blink.
+    ///
+    /// The text cursor should display for this duration, then be hidden for the same duration.
     fn cursor_blink_rate(&self) -> core::time::Duration {
         core::time::Duration::from_millis(500)
     }
