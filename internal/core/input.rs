@@ -900,15 +900,17 @@ fn send_mouse_event_to_item(
 pub(crate) struct TextCursorBlinker {
     cursor_visible: Property<bool>,
     cursor_blink_timer: crate::timers::Timer,
+    interval: Duration
 }
 
 impl TextCursorBlinker {
     /// Creates a new instance, wrapped in a Pin<Rc<_>> because the boolean property
     /// the blinker properties uses the property system that requires pinning.
-    pub fn new() -> Pin<Rc<Self>> {
+    pub fn new(interval: Duration) -> Pin<Rc<Self>> {
         Rc::pin(Self {
             cursor_visible: Property::new(true),
             cursor_blink_timer: Default::default(),
+            interval
         })
     }
 
@@ -943,7 +945,7 @@ impl TextCursorBlinker {
             };
             self.cursor_blink_timer.start(
                 crate::timers::TimerMode::Repeated,
-                Duration::from_millis(500),
+                self.interval,
                 toggle_cursor,
             );
         }

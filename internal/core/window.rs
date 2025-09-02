@@ -876,7 +876,7 @@ impl WindowInner {
         let existing_blinker = self.cursor_blinker.borrow().clone();
 
         let blinker = existing_blinker.upgrade().unwrap_or_else(|| {
-            let new_blinker = TextCursorBlinker::new();
+            let new_blinker = TextCursorBlinker::new(self.ctx.platform().cursor_blink_rate());
             *self.cursor_blinker.borrow_mut() =
                 pin_weak::rc::PinWeak::downgrade(new_blinker.clone());
             new_blinker

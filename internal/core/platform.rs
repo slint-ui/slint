@@ -108,6 +108,10 @@ pub trait Platform {
         core::time::Duration::from_millis(500)
     }
 
+    fn cursor_blink_rate(&self) -> core::time::Duration {
+        core::time::Duration::from_millis(500)
+    }
+
     /// Sends the given text into the system clipboard.
     ///
     /// If the platform doesn't support the specified clipboard, this function should do nothing
