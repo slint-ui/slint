@@ -154,7 +154,7 @@ impl<B: GraphicsBackend> FemtoVGRenderer<B> {
                     // We pass an integer that is greater than or equal to the scale factor as
                     // dpi / device pixel ratio as the anti-alias of femtovg needs that to draw text clearly.
                     // We need to care about that `ceil()` when calculating metrics.
-                    femtovg_canvas.set_size(surface_size.width, surface_size.height, scale);
+                    femtovg_canvas.set_size(surface_size.width, surface_size.height, 1.0);
 
                     // Clear with window background if it is a solid color otherwise it will drawn as gradient
                     if let Some(Brush::SolidColor(clear_color)) = window_background_brush {
@@ -184,7 +184,7 @@ impl<B: GraphicsBackend> FemtoVGRenderer<B> {
                     let commands = femtovg_canvas.flush_to_surface(surface.render_surface());
                     self.graphics_backend.submit_commands(commands);
 
-                    femtovg_canvas.set_size(width.get(), height.get(), scale);
+                    femtovg_canvas.set_size(width.get(), height.get(), 1.0);
                     drop(femtovg_canvas);
 
                     self.with_graphics_api(|api| {
