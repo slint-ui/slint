@@ -53,6 +53,8 @@ fn rename_globals(doc: &Document, mut count: u32) {
             root.id.clone_from(&g.id);
         } else if let Some(s) = g.exported_global_names.borrow().first() {
             root.id = s.to_smolstr();
+        } else if g.from_library.get() {
+            root.id = format_smolstr!("{}", g.id);
         } else {
             root.id = format_smolstr!("{}-{}", g.id, count);
         }

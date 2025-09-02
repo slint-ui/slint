@@ -18,7 +18,7 @@ use crate::layout::{LayoutConstraints, Orientation};
 use crate::namedreference::NamedReference;
 use crate::parser;
 use crate::parser::{syntax_nodes, SyntaxKind, SyntaxNode};
-use crate::typeloader::{ImportKind, ImportedTypes};
+use crate::typeloader::{ImportKind, ImportedTypes, LibraryInfo};
 use crate::typeregister::TypeRegister;
 use itertools::Either;
 use smol_str::{format_smolstr, SmolStr, ToSmolStr};
@@ -53,6 +53,7 @@ pub struct Document {
     pub custom_fonts: Vec<(SmolStr, crate::parser::SyntaxToken)>,
     pub exports: Exports,
     pub imports: Vec<ImportedTypes>,
+    pub library_exports: HashMap<String, LibraryInfo>,
 
     /// Map of resources that should be embedded in the generated code, indexed by their absolute path on
     /// disk on the build system
@@ -265,6 +266,7 @@ impl Document {
             custom_fonts,
             imports,
             exports,
+            library_exports: Default::default(),
             embedded_file_resources: Default::default(),
             #[cfg(feature = "bundle-translations")]
             translation_builder: None,
@@ -339,6 +341,12 @@ pub struct UsedSubTypes {
     /// All the sub components use by this components and its children,
     /// and the amount of time it is used
     pub sub_components: Vec<Rc<Component>>,
+    /// All types, structs, enums, that orignates from an
+    /// external library
+    pub library_types_imports: Vec<(SmolStr, LibraryInfo)>,
+    /// All global components that originates from an
+    /// external library
+    pub library_global_imports: Vec<(SmolStr, LibraryInfo)>,
 }
 
 #[derive(Debug, Default, Clone)]
@@ -413,6 +421,9 @@ pub struct Component {
     /// The list of properties (name and type) declared as private in the component.
     /// This is used to issue better error in the generated code if the property is used.
     pub private_properties: RefCell<Vec<(SmolStr, Type)>>,
+
+    /// True if this component is imported from an external library.
+    pub from_library: Cell<bool>,
 }
 
 impl Component {

@@ -42,7 +42,7 @@ pub fn check_public_api(
                     if is_last {
                         diag.push_warning(format!("Exported component '{}' doesn't inherit Window. No code will be generated for it", export.0.name), &export.0.name_ident);
                         return false;
-                    } else {
+                    } else if config.library_name.is_none () {
                         diag.push_warning(format!("Exported component '{}' doesn't inherit Window. This is deprecated", export.0.name), &export.0.name_ident);
                     }
                 }

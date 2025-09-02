@@ -23,11 +23,18 @@ pub fn collect_structs_and_enums(doc: &Document) {
     doc.visit_all_used_components(|component| collect_types_in_component(component, &mut hash));
 
     let mut used_types = doc.used_types.borrow_mut();
-    let used_struct_and_enums = &mut used_types.structs_and_enums;
-    *used_struct_and_enums = Vec::with_capacity(hash.len());
+    used_types.structs_and_enums = Vec::with_capacity(hash.len());
     while let Some(next) = hash.iter().next() {
-        // Here, using BTreeMap::pop_first would be great when it is stable
         let key = next.0.clone();
+        if let Some(library_info) = doc.library_exports.get(key.as_str()) {
+            // This is a type imported from an external library, just skip it for code generation
+            hash.remove(&key);
+            used_types.library_types_imports.push((key, library_info.clone()));
+            continue;
+        }
+
+        // Here, using BTreeMap::pop_first would be great when it is stable
+        let used_struct_and_enums = &mut used_types.structs_and_enums;
         sort_types(&mut hash, used_struct_and_enums, &key);
     }
 }

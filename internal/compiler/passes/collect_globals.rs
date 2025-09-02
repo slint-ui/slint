@@ -4,6 +4,7 @@
 //! This pass fills the root component used_types.globals
 
 use by_address::ByAddress;
+use smol_str::format_smolstr;
 
 use crate::diagnostics::BuildDiagnostics;
 use crate::expression_tree::NamedReference;
@@ -29,6 +30,19 @@ pub fn collect_globals(doc: &Document, _diag: &mut BuildDiagnostics) {
     });
 
     doc.used_types.borrow_mut().globals = sorted_globals;
+}
+
+pub fn mark_library_globals(doc: &Document) {
+    let mut used_types = doc.used_types.borrow_mut();
+    used_types.globals.clone().iter().for_each(|component| {
+        if let Some(library_info) = doc.library_exports.get(component.id.as_str()) {
+            component.from_library.set(true);
+            used_types.library_types_imports.push((component.id.clone(), library_info.clone()));
+            used_types
+                .library_types_imports
+                .push((format_smolstr!("Inner{}", component.id.clone()), library_info.clone()));
+        }
+    });
 }
 
 fn collect_in_component(

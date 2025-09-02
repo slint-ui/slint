@@ -1,0 +1,123 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+export struct CrankData {
+    magic-number: int,
+    cranks: [string]
+}
+
+export global BLogicBAPI {
+    in property <bool> initialized: false;
+
+    in property <color> color1: #6c839a;
+    in property <color> color2: #4b5c72;
+    in property <color> color3: #185151;
+    in property <color> color4: #464969;
+    in property <color> color5: #1b1143;
+    in property <color> color6: #203158;
+
+    in-out property <string> crank1: "1";
+    in-out property <string> crank2: "2";
+    in-out property <string> crank3: "3";
+    in-out property <string> crank4: "5";
+    in-out property <string> crank5: "7";
+    in-out property <string> crank6: "11";
+
+    out property <string> status;
+
+    public function crank-it(crank-data:CrankData) {
+        if (crank-data.magic-number == 42) {
+            self.status = "The answer to life, the universe and everything";
+        } else {
+            self.status = "Just a number";
+        }
+
+        if (crank-data.cranks.length >= 6) {
+            self.crank1 = crank-data.cranks[0];
+            self.crank2 = crank-data.cranks[1];
+            self.crank3 = crank-data.cranks[2];
+            self.crank4 = crank-data.cranks[3];
+            self.crank5 = crank-data.cranks[4];
+            self.crank6 = crank-data.cranks[5];
+        }
+    }
+}
+
+export component BLogicB {
+    private property <bool> api-initialized <=> BLogicBAPI.initialized;
+    width: 600px; height: 240px;
+    GridLayout {
+        Row {
+            Rectangle {
+                background: BLogicBAPI.color1;
+                Text {
+                    text <=> BLogicBAPI.crank1;
+                    color: white;
+                    font-size: 24px;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+            }
+            Rectangle {
+                background: BLogicBAPI.color2;
+                Text {
+                    text <=> BLogicBAPI.crank2;
+                    color: white;
+                    font-size: 24px;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+            }
+        }
+        Row {
+            Rectangle {
+                background: BLogicBAPI.color3;
+                Text {
+                    text <=> BLogicBAPI.crank3;
+                    color: white;
+                    font-size: 24px;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+            }
+            Rectangle {
+                background: BLogicBAPI.color4;
+                Text {
+                    text <=> BLogicBAPI.crank4;
+                    color: white;
+                    font-size: 24px;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+            }
+        }
+        Row {
+            Rectangle {
+                background: BLogicBAPI.color5;
+                Text {
+                    text <=> BLogicBAPI.crank5;
+                    color: white;
+                    font-size: 24px;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+            }
+            Rectangle {
+                background: BLogicBAPI.color6;
+                Text {
+                    text <=> BLogicBAPI.crank6;
+                    color: white;
+                    font-size: 24px;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+            }
+        }
+    }
+
+    changed api-initialized => {
+        if (self.api-initialized) {
+            debug("BLogicBAPI initialized");
+        }
+    }
+}

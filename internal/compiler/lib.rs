@@ -163,6 +163,12 @@ pub struct CompilerConfiguration {
 
     #[cfg(feature = "software-renderer")]
     pub font_cache: FontCache,
+
+    /// The name of the library when compiling as a library.
+    pub library_name: Option<String>,
+
+    /// Specify the Rust module to place the generated code in.
+    pub rust_module: Option<String>,
 }
 
 impl CompilerConfiguration {
@@ -249,6 +255,8 @@ impl CompilerConfiguration {
             translation_path_bundle: std::env::var("SLINT_BUNDLE_TRANSLATIONS")
                 .ok()
                 .map(|x| x.into()),
+            library_name: None,
+            rust_module: None,
         }
     }
 
