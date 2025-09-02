@@ -227,6 +227,8 @@ fn property_reference_within_sub_component(
 fn component_id(component: &Rc<Component>) -> SmolStr {
     if component.is_global() {
         component.root_element.borrow().id.clone()
+    } else if component.from_library.get() {
+        component.id.clone()
     } else if component.id.is_empty() {
         format_smolstr!("Component_{}", component.root_element.borrow().id)
     } else {
@@ -833,6 +835,7 @@ fn lower_global(
         exported: !global.exported_global_names.borrow().is_empty(),
         aliases: global.global_aliases(),
         is_builtin,
+        from_library: global.from_library.get(),
         prop_analysis,
     }
 }
