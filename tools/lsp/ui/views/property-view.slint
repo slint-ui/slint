@@ -1,14 +1,15 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Palette, ScrollView }  from "std-widgets.slint";
+import { Palette, ScrollView, LineEdit }  from "std-widgets.slint";
 
 import { ExpandableGroup } from "../components/expandable-group.slint";
 
 import { Api, ElementInformation, PropertyGroup, PropertyInformation } from "../api.slint";
-import { EditorSpaceSettings, EditorSizeSettings, ConsoleStyles, Icons } from "../components/styling.slint";
-
+import { EditorSpaceSettings, EditorFontSettings, EditorSizeSettings, ConsoleStyles, Icons } from "../components/styling.slint";
+import { StringWidget } from "../components/widgets/string-widget.slint";
 import { PropertyInformationWidget } from "../components/property-widgets.slint";
+import { NameLabel } from "../components/widgets/basics.slint";
 
 export component PropertyView inherits VerticalLayout {
 
@@ -79,6 +80,32 @@ export component PropertyView inherits VerticalLayout {
                 alignment: start;
                 spacing: EditorSpaceSettings.default-spacing;
                 padding-top: EditorSpaceSettings.default-padding;
+                VerticalLayout {
+                padding: EditorSpaceSettings.default-padding;
+                spacing: EditorSpaceSettings.default-spacing/4;
+                Text {
+                    text: "id";
+                    font-size: 1rem;
+                    font-weight: element-information.id != "" ? EditorFontSettings.regular-font-weight : EditorFontSettings.light-font-weight ;
+                    font-italic: element-information.id != "" ? false : true;
+                    opacity: element-information.id != "" ? 1.0 : 0.5;
+                }
+                    LineEdit {
+                        enabled: sv.enabled;
+                        property <string> id: element-information.id;
+                        changed id => { self.text = id; }
+                        text: id;
+                        accepted(text) => {
+                            Api.set-element-id(
+                                element-information.source-uri,
+                                element-information.source-version,
+                                element-information.offset,
+                                text,
+                            );
+                            self.text = id; // Resets so that when we reompile the element, we get it
+                        }
+                    }
+                }
                 for group in root.properties: VerticalLayout {
 
                     eg := ExpandableGroup {
