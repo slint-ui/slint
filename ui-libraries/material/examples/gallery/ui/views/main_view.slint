@@ -52,7 +52,7 @@ export component MainView {
                 { icon: OutlinedIcons.palette, enabled: true },
                 { icon: Palette.color_scheme == ColorScheme.light ? OutlinedIcons.dark_mode : OutlinedIcons.light_mode, enabled: true }
             ];
-            container_background: MainWindowAdapter.container_background;
+            show_background: MainWindowAdapter.show_background;
 
             trailing_clicked(index) => {
                 if index == 0 {

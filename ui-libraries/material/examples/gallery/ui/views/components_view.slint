@@ -51,7 +51,7 @@ export component ComponentsView {
             }
 
             changed viewport_y => {
-                MainWindowAdapter.container_background = self.viewport_y != 0;
+                MainWindowAdapter.show_background = self.viewport_y != 0;
             }
         }
 
@@ -63,7 +63,7 @@ export component ComponentsView {
             }
 
             changed viewport_y => {
-                MainWindowAdapter.container_background = self.viewport_y != 0;
+                MainWindowAdapter.show_background = self.viewport_y != 0;
             }
         }
     }
@@ -78,7 +78,7 @@ export component ComponentsView {
         }
 
         changed viewport_y => {
-            MainWindowAdapter.container_background = self.viewport_y != 0;
+            MainWindowAdapter.show_background = self.viewport_y != 0;
         }
     }
 }

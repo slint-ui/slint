@@ -11,7 +11,7 @@ import { IconButtonItem } from "./bottom_app_bar.slint";
 component BaseAppBar {
     in property <string> title;
     in property <IconButtonItem> leading_icon;
-    in property <bool> container_background;
+    in property <bool> show_background;
     in property <[IconButtonItem]> trailing_icons;
     in property <TextHorizontalAlignment> horizontal_alignment;
     in property <length> spacing;
@@ -27,7 +27,7 @@ component BaseAppBar {
     min_height: layout.min_height;
 
     Rectangle {
-        background: root.container_background ? MaterialPalette.surface_container :  MaterialPalette.surface;
+        background: root.show_background ? MaterialPalette.surface_container :  MaterialPalette.surface;
 
         layout := VerticalLayout {
             padding_top: root.padding_top;
@@ -108,7 +108,7 @@ export component AppBar {
     in property <string> title;
     in property <IconButtonItem> leading_icon;
     in property <IconButtonItem> trailing_icon;
-    in property <bool> container_background;
+    in property <bool> show_background;
 
     callback leading_clicked();
     callback trailing_clicked();
@@ -121,7 +121,7 @@ export component AppBar {
             horizontal_alignment: center;
             leading_icon: root.leading_icon;
             trailing_icons: [root.trailing_icon];
-            container_background: root.container_background;
+            show_background: root.show_background;
             padding_left: MaterialStyleMetrics.padding_4;
             padding_right: self.padding_left;
             padding_top: MaterialStyleMetrics.padding_8;
@@ -144,7 +144,7 @@ export component SmallAppBar {
     in property <string> title;
     in property <IconButtonItem> leading_icon;
     in property <[IconButtonItem]> trailing_icons;
-    in property <bool> container_background;
+    in property <bool> show_background;
 
     callback leading_clicked();
     callback trailing_clicked(index: int);
@@ -157,7 +157,7 @@ export component SmallAppBar {
             horizontal_alignment: left;
             leading_icon: root.leading_icon;
             trailing_icons: root.trailing_icons;
-            container_background: root.container_background;
+            show_background: root.show_background;
             padding_left: MaterialStyleMetrics.padding_4;
             padding_right: self.padding_left;
             padding_top: MaterialStyleMetrics.padding_8;
@@ -180,7 +180,7 @@ export component MediumAppBar {
     in property <string> title;
     in property <IconButtonItem> leading_icon;
     in property <[IconButtonItem]> trailing_icons;
-    in property <bool> container_background;
+    in property <bool> show_background;
 
     callback leading_clicked();
     callback trailing_clicked(index: int);
@@ -193,7 +193,7 @@ export component MediumAppBar {
             horizontal_alignment: left;
             leading_icon: root.leading_icon;
             trailing_icons: root.trailing_icons;
-            container_background: root.container_background;
+            show_background: root.show_background;
             padding_left: MaterialStyleMetrics.padding_4;
             padding_right: self.padding_left;
             padding_top: MaterialStyleMetrics.padding_8;
@@ -219,7 +219,7 @@ export component LargeAppBar {
     in property <string> title;
     in property <IconButtonItem> leading_icon;
     in property <[IconButtonItem]> trailing_icons;
-    in property <bool> container_background;
+    in property <bool> show_background;
 
     callback leading_clicked();
     callback trailing_clicked(index: int);
@@ -232,7 +232,7 @@ export component LargeAppBar {
             horizontal_alignment: left;
             leading_icon: root.leading_icon;
             trailing_icons: root.trailing_icons;
-            container_background: root.container_background;
+            show_background: root.show_background;
             padding_left: MaterialStyleMetrics.padding_4;
             padding_right: self.padding_left;
             padding_top: MaterialStyleMetrics.padding_8;
