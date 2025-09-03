@@ -74,16 +74,19 @@ export component LineEdit {
             margin: layout.padding-left + layout.padding-right;
         }
 
-        if !root.text.is-empty && root.input-type != InputType.password && root.enabled && !root.read-only: LineEditClearIcon {
-            text: inner.text;
-            source: native.clear-icon;
-            colorize: inner.text-color;
-            image-fit: preserve;
-            height: inner.min-height;
-            width: self.height;
-            clear => {
-                inner.text = "";
-                inner.focus();
+        if !root.text.is-empty && root.input-type != InputType.password && root.enabled && !root.read-only: Rectangle {
+            width: inner.min-height;
+            LineEditClearIcon {
+                width: 100%;
+                height: self.width;
+                image-fit: ImageFit.contain;
+                text: inner.text;
+                source: native.clear-icon;
+                colorize: inner.text-color;
+                clear => {
+                    inner.text = "";
+                    inner.focus();
+                }
             }
         }
 
