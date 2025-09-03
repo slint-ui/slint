@@ -698,7 +698,7 @@ pub(crate) fn send_exit_events(
         if let Some(p) = pos.as_mut() {
             *p -= g.origin.to_vector();
             if let Some(inverse_transform) = item.inverse_children_transform() {
-                *p = inverse_transform.transform_point(*p);
+                *p = inverse_transform.transform_point(p.cast()).cast();
             }
         }
         if !contains || clipped {
