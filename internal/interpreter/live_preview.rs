@@ -301,10 +301,20 @@ impl Watcher {
         locked.files.insert(path.into());
         // Don't call the notify api while holding the mutex
         drop(locked);
-        notify::Watcher::watch(&mut watcher, parent, notify::RecursiveMode::NonRecursive)
-            .unwrap_or_else(|err| {
-                eprintln!("Warning: error while watching {}: {:?}", path.display(), err)
-            });
+        notify::Watcher::watch(
+            &mut watcher,
+            parent,
+            // on macOS, notify only delivers us events for changes within a directory when using
+            // the recursive mode. On the upside, fsevents works already recursively anyway.
+            if cfg!(target_vendor = "apple") {
+                notify::RecursiveMode::Recursive
+            } else {
+                notify::RecursiveMode::NonRecursive
+            },
+        )
+        .unwrap_or_else(|err| {
+            eprintln!("Warning: error while watching {}: {:?}", path.display(), err)
+        });
         self_.lock().unwrap().watcher = Some(watcher);
     }
 }
