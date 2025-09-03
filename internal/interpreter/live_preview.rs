@@ -39,10 +39,10 @@ impl LiveReloadingComponent {
             if watcher.lock().unwrap().watcher.is_some() {
                 let watcher_clone = watcher.clone();
                 compiler.set_file_loader(move |path| {
-                    watcher_clone.lock().unwrap().watch(path);
+                    Watcher::watch(&watcher_clone, path);
                     Box::pin(async { None })
                 });
-                watcher.lock().unwrap().watch(&file_name);
+                Watcher::watch(&watcher, &file_name);
             }
             RefCell::new(Self {
                 instance: None,
@@ -274,10 +274,10 @@ impl Watcher {
         let watcher_weak = Arc::downgrade(&arc);
         arc.lock().unwrap().watcher =
             notify::recommended_watcher(move |event: notify::Result<notify::Event>| {
-                use notify::{event::ModifyKind, EventKind as K};
+                use notify::{event::ModifyKind as M, EventKind as K};
                 let Ok(event) = event else { return };
                 let Some(watcher) = watcher_weak.upgrade() else { return };
-                if matches!(event.kind, K::Modify(ModifyKind::Data(_)) | K::Create(_))
+                if matches!(event.kind, K::Modify(M::Data(_) | M::Any) | K::Create(_))
                     && watcher.lock().is_ok_and(|w| event.paths.iter().any(|p| w.files.contains(p)))
                 {
                     if let WatcherState::Waiting(waker) =
@@ -293,14 +293,19 @@ impl Watcher {
         arc
     }
 
-    fn watch(&mut self, path: &Path) {
-        let Some(watcher) = self.watcher.as_mut() else { return };
+    fn watch(self_: &Mutex<Self>, path: &Path) {
         let Some(parent) = path.parent() else { return };
-        notify::Watcher::watch(watcher, parent, notify::RecursiveMode::NonRecursive)
+
+        let mut locked = self_.lock().unwrap();
+        let Some(mut watcher) = locked.watcher.take() else { return };
+        locked.files.insert(path.into());
+        // Don't call the notify api while holding the mutex
+        drop(locked);
+        notify::Watcher::watch(&mut watcher, parent, notify::RecursiveMode::NonRecursive)
             .unwrap_or_else(|err| {
                 eprintln!("Warning: error while watching {}: {:?}", path.display(), err)
             });
-        self.files.insert(path.into());
+        self_.lock().unwrap().watcher = Some(watcher);
     }
 }
 
