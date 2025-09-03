@@ -900,7 +900,7 @@ fn send_mouse_event_to_item(
 pub(crate) struct TextCursorBlinker {
     cursor_visible: Property<bool>,
     cursor_blink_timer: crate::timers::Timer,
-    interval: Duration
+    interval: Duration,
 }
 
 impl TextCursorBlinker {
@@ -910,7 +910,7 @@ impl TextCursorBlinker {
         Rc::pin(Self {
             cursor_visible: Property::new(true),
             cursor_blink_timer: Default::default(),
-            interval
+            interval,
         })
     }
 
