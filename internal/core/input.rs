@@ -90,6 +90,24 @@ impl MouseEvent {
             *pos += vec;
         }
     }
+    
+    pub fn rotate(&mut self, angle_in_degrees: f32) {
+        let rotation = euclid::Rotation2D::new(euclid::Angle::degrees(angle_in_degrees));
+        let pos = match self {
+            MouseEvent::Pressed { position, .. } => Some(position),
+            MouseEvent::Released { position, .. } => Some(position),
+            MouseEvent::Moved { position } => Some(position),
+            MouseEvent::Wheel { position, .. } => Some(position),
+            MouseEvent::DragMove(e) | MouseEvent::Drop(e) => {
+                e.position = crate::api::LogicalPosition::from_euclid(rotation.transform_point(crate::lengths::logical_point_from_api(e.position)));
+                None
+            }
+            MouseEvent::Exit => None,
+        };
+        if let Some(pos) = pos {
+            *pos = rotation.transform_point(*pos);
+        }
+    }
 
     /// Set the click count of the pressed or released event
     fn set_click_count(&mut self, count: u8) {
@@ -783,8 +801,18 @@ fn send_mouse_event_to_item(
     let geom = item_rc.geometry();
     // translated in our coordinate
     let mut event_for_children = mouse_event.clone();
+    // Unapply the translation to go from 'world' space to local space
     event_for_children.translate(-geom.origin.to_vector());
-
+    if let Some(rotation) =  item_rc
+        .downcast::<crate::items::Rotate>() {
+            let rotation_angle = rotation.rotation_angle.get_internal();
+            let rotation_origin = LogicalVector::from_lengths(rotation.rotation_origin_x.get_internal(), rotation.rotation_origin_y.get_internal());
+            // Temporarily apply the rotation origin in order to unapply the rotation.
+            event_for_children.translate(rotation_origin);
+            event_for_children.rotate(-rotation_angle);
+            event_for_children.translate(-rotation_origin);   
+        }
+    
     let filter_result = if mouse_event.position().is_some_and(|p| geom.contains(p))
         || item.as_ref().clips_children()
     {
