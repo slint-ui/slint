@@ -263,7 +263,8 @@ impl SlintAccessibleItemData {
 }
 
 cpp! {{
-    #include <QtWidgets/QtWidgets>
+    #include <QtGui/QAccessible>
+    #include <QtWidgets/QWidget>
 
     #include <memory>
 

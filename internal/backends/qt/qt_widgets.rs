@@ -151,6 +151,7 @@ cpp! {{
     #include <QtWidgets/QStyleFactory>
     #include <QtGui/QPainter>
     #include <QtGui/QClipboard>
+    #include <QtGui/QPaintEngine>
     #include <QtCore/QMimeData>
     #include <QtCore/QDebug>
     #include <QtCore/QScopeGuard>
