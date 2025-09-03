@@ -48,7 +48,7 @@ export component MainView {
     VerticalLayout {
         app_bar := SmallAppBar {
             title: "Material 3";
-            trailing_icons: [
+            trailing_buttons: [
                 { icon: OutlinedIcons.palette, enabled: true },
                 { icon: Palette.color_scheme == ColorScheme.light ? OutlinedIcons.dark_mode : OutlinedIcons.light_mode, enabled: true }
             ];

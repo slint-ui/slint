@@ -1,7 +1,7 @@
 ---
 <!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
-title: SmallAppBar
-description: SmallAppBar API.
+title: LargeAppBar
+description: LargeAppBar API.
 ---
 
 import CodeSnippetMD from '/src/components/CodeSnippetMD.astro';
@@ -9,12 +9,12 @@ import SlintProperty from '/src/components/SlintProperty.astro';
 
 <CodeSnippetMD imagePath="" noScreenShot scale="3" imageWidth="300" imageHeight="200" imageAlt="">
 ```slint
-import { SmallAppBar } from "./material.slint";
+import { LargeAppBar } from "./material.slint";
 export component Example inherits Window {
     width: 400px;
     height: 200px;
     background: transparent;
-    SmallAppBar {
+    LargeAppBar {
         title: "My App";
         width: parent.width;
         height: parent.height;
@@ -23,7 +23,7 @@ export component Example inherits Window {
 ```
 </CodeSnippetMD>
 
-A `SmallAppBar` is a compact version of the app bar that displays the app title and optional action buttons in a smaller, more condensed layout.
+A `LargeAppBar` is a large version of the app bar that displays the app title and optional action buttons in a smaller, more condensed layout.
 
 ## Properties
 
@@ -49,8 +49,8 @@ An array of icon button items displayed at the end of the app bar, typically use
 
 ## Callbacks
 
-### leading-clicked()
+### leading-button-clicked()
 Invoked when the leading icon is clicked.
 
-### trailing-clicked(index: int)
+### trailing-button-clicked(index: int)
 Invoked when a trailing icon is clicked, with the index of the clicked icon.
