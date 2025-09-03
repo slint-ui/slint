@@ -314,9 +314,13 @@ impl i_slint_core::platform::Platform for Backend {
     #[cfg(not(no_qt))]
     fn cursor_flash_cycle(&self) -> core::time::Duration {
         let duration_ms = unsafe {
-            cpp::cpp! {[] -> u32 as "int" { return qApp->cursorFlashTime(); }}
+            cpp::cpp! {[] -> i32 as "int" { return qApp->cursorFlashTime(); }}
         };
-        core::time::Duration::from_millis(duration_ms as u64)
+        if duration_ms > 0 {
+            core::time::Duration::from_millis(duration_ms as u64)
+        } else {
+            core::time::Duration::ZERO
+        }
     }
 }
 

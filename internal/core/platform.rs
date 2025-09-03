@@ -112,6 +112,8 @@ pub trait Platform {
     ///
     /// This is the length of the entire visible-hidden-visible cycle, so for a duration of 1000ms
     /// it is visible for 500ms then hidden for 500ms, then visible again.
+    ///
+    /// If this value is `Duration::ZERO` then the cycle is disabled.
     fn cursor_flash_cycle(&self) -> core::time::Duration {
         core::time::Duration::from_millis(1000)
     }

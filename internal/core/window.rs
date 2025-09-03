@@ -882,7 +882,7 @@ impl WindowInner {
             new_blinker
         });
 
-        TextCursorBlinker::set_binding(blinker, prop);
+        TextCursorBlinker::set_binding(blinker, prop, self.ctx.platform().cursor_flash_cycle());
     }
 
     /// Sets the focus to the item pointed to by item_ptr. This will remove the focus from any
