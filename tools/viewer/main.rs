@@ -97,6 +97,16 @@ struct Cli {
     /// Translation directory where the translation files are searched for
     #[arg(long = "translation-dir", action)]
     translation_dir: Option<std::path::PathBuf>,
+
+    #[cfg(feature = "custom-translations")]
+    /// Path to the i18n directory containing JSON translation files
+    #[arg(long = "i18n-dir", value_name = "path", action)]
+    i18n_dir: Option<std::path::PathBuf>,
+
+    #[cfg(feature = "custom-translations")]
+    /// Set the locale for custom translations (e.g., "en", "es")
+    #[arg(long = "locale", value_name = "locale", action)]
+    locale: Option<String>,
 }
 
 thread_local! {static CURRENT_INSTANCE: std::cell::RefCell<Option<ComponentInstance>> = Default::default();}
@@ -144,6 +154,24 @@ fn main() -> Result<()> {
 
     let component = c.create()?;
     init_dialog(&component);
+
+    #[cfg(feature = "custom-translations")]
+    if let (Some(i18n_dir), Some(locale)) = (&args.i18n_dir, &args.locale) {
+        match custom_translations::load_translations(i18n_dir) {
+            Ok(translations) => {
+                if let Err(e) = custom_translations::setup_custom_translations(
+                    &component,
+                    translations,
+                    locale.clone(),
+                ) {
+                    eprintln!("Warning: Failed to set up custom translations: {}", e);
+                }
+            }
+            Err(e) => {
+                eprintln!("Warning: Failed to load custom translations: {}", e);
+            }
+        }
+    }
 
     if let Some(data_path) = args.load_data {
         load_data(&c, &component, &data_path)?;
@@ -307,10 +335,34 @@ async fn reload(args: Cli, fswatcher: Arc<Mutex<notify::RecommendedWatcher>>) {
                 let window = handle.window();
                 let new_handle = c.create_with_existing_window(window).unwrap();
                 init_dialog(&new_handle);
+
+                #[cfg(feature = "custom-translations")]
+                if let (Some(i18n_dir), Some(locale)) = (&args.i18n_dir, &args.locale) {
+                    if let Ok(translations) = custom_translations::load_translations(i18n_dir) {
+                        let _ = custom_translations::setup_custom_translations(
+                            &new_handle,
+                            translations,
+                            locale.clone(),
+                        );
+                    }
+                }
+
                 current.replace(new_handle);
             } else {
                 let handle = c.create().unwrap();
                 init_dialog(&handle);
+
+                #[cfg(feature = "custom-translations")]
+                if let (Some(i18n_dir), Some(locale)) = (&args.i18n_dir, &args.locale) {
+                    if let Ok(translations) = custom_translations::load_translations(i18n_dir) {
+                        let _ = custom_translations::setup_custom_translations(
+                            &handle,
+                            translations,
+                            locale.clone(),
+                        );
+                    }
+                }
+
                 handle.show().unwrap();
                 current.replace(handle);
             }
@@ -420,4 +472,182 @@ fn execute_cmd(cmd: &str, callback_args: &[Value]) -> Result<()> {
     }
     command.spawn()?;
     Ok(())
+}
+
+#[cfg(feature = "custom-translations")]
+mod custom_translations {
+    use i_slint_core::model::{Model, ModelRc};
+    use serde_json::Value;
+    use slint_interpreter::{ComponentInstance, SharedString};
+    use std::collections::HashMap;
+    use std::fs;
+    use std::path::Path;
+
+    pub type TranslationMap = HashMap<String, HashMap<String, String>>;
+
+    /// Load all translation files from the i18n directory
+    pub fn load_translations(
+        i18n_dir: &Path,
+    ) -> Result<TranslationMap, Box<dyn std::error::Error>> {
+        if !i18n_dir.exists() {
+            return Err(
+                format!("Translation directory {} does not exist", i18n_dir.display()).into()
+            );
+        }
+
+        let mut all_translations = HashMap::new();
+
+        // Find all JSON files in the directory
+        let entries = fs::read_dir(i18n_dir)?;
+        for entry in entries {
+            let entry = entry?;
+            let path = entry.path();
+            if path.extension().and_then(|s| s.to_str()) == Some("json") {
+                if let Some(lang) = path.file_stem().and_then(|s| s.to_str()) {
+                    let content = fs::read_to_string(&path)
+                        .map_err(|e| format!("Failed to read {}: {}", path.display(), e))?;
+
+                    let json: Value = serde_json::from_str(&content)
+                        .map_err(|e| format!("Failed to parse {}: {}", path.display(), e))?;
+
+                    let mut translations = HashMap::new();
+                    if let Value::Object(obj) = json {
+                        extract_translations(&mut translations, "", &Value::Object(obj));
+                    }
+
+                    all_translations.insert(lang.to_string(), translations);
+                }
+            }
+        }
+
+        if all_translations.is_empty() {
+            return Err(format!("No translation files found in {}", i18n_dir.display()).into());
+        }
+
+        Ok(all_translations)
+    }
+
+    /// Extract translations from nested JSON object into flat key-value pairs
+    fn extract_translations(
+        translations: &mut HashMap<String, String>,
+        prefix: &str,
+        json: &Value,
+    ) {
+        match json {
+            Value::String(s) => {
+                translations.insert(prefix.to_string(), s.clone());
+            }
+            Value::Object(obj) => {
+                for (key, value) in obj {
+                    let full_key =
+                        if prefix.is_empty() { key.clone() } else { format!("{}.{}", prefix, key) };
+                    extract_translations(translations, &full_key, value);
+                }
+            }
+            _ => {
+                // Ignore other types (null, bool, number, array)
+            }
+        }
+    }
+
+    /// Replace placeholders {0}, {1}, etc. with provided arguments
+    pub fn replace_placeholders(template: &str, args: &[SharedString]) -> String {
+        let mut result = template.to_string();
+        for (i, arg) in args.iter().enumerate() {
+            let placeholder = format!("{{{}}}", i);
+            result = result.replace(&placeholder, arg.as_str());
+        }
+        result
+    }
+
+    /// Setup custom translation callbacks for TR global
+    pub fn setup_custom_translations(
+        component: &ComponentInstance,
+        translations: TranslationMap,
+        locale: String,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        eprintln!(
+            "Setting up custom translations for locale '{}' with {} languages loaded",
+            locale,
+            translations.len()
+        );
+
+        // Get the translations for the current locale, fallback to empty map if not found
+        let current_translations = translations.get(&locale).cloned().unwrap_or_default();
+
+        let translation_count = current_translations.len();
+
+        // Try to set up TR callbacks - if TR global doesn't exist, the callback setup will fail
+        // but we'll handle that gracefully
+
+        // Try to setup lookup callback
+        let lookup_translations = current_translations.clone();
+        let lookup_result = component.set_global_callback(
+            "TR",
+            "lookup",
+            move |args: &[slint_interpreter::Value]| -> slint_interpreter::Value {
+                if let Some(key_arg) = args.first() {
+                    if let Ok(key) = key_arg.clone().try_into() {
+                        let key: slint_interpreter::SharedString = key;
+                        if let Some(translation) = lookup_translations.get(key.as_str()) {
+                            return slint_interpreter::Value::String(translation.clone().into());
+                        }
+                    }
+                }
+                // Return the original key if no translation found or invalid arguments
+                args.first().cloned().unwrap_or(slint_interpreter::Value::String("".into()))
+            },
+        );
+
+        if lookup_result.is_err() {
+            return Err("TR global not found in component. The .slint file must define or import a TR global for custom translations to work.".into());
+        }
+
+        // Try to setup format callback
+        let format_translations = current_translations;
+        let _format_result = component.set_global_callback(
+            "TR",
+            "format",
+            move |args: &[slint_interpreter::Value]| -> slint_interpreter::Value {
+                if let (Some(key_arg), Some(format_args)) = (args.first(), args.get(1)) {
+                    if let (Ok(key), Ok(format_args_model)) =
+                        (key_arg.clone().try_into(), format_args.clone().try_into())
+                    {
+                        let key: slint_interpreter::SharedString = key;
+                        let format_args_model: ModelRc<slint_interpreter::Value> =
+                            format_args_model;
+
+                        // Get translation for the key, fallback to key itself
+                        let template = format_translations
+                            .get(key.as_str())
+                            .map(|s| s.as_str())
+                            .unwrap_or(key.as_str());
+
+                        // Extract format arguments from the model
+                        let mut format_args_vec = Vec::new();
+                        for i in 0..format_args_model.row_count() {
+                            if let Some(value) = format_args_model.row_data(i) {
+                                if let Ok(string_value) = value.try_into() {
+                                    let string_value: slint_interpreter::SharedString =
+                                        string_value;
+                                    format_args_vec.push(string_value);
+                                }
+                            }
+                        }
+
+                        let result = replace_placeholders(template, &format_args_vec);
+                        return slint_interpreter::Value::String(result.into());
+                    }
+                }
+                // Return empty string if invalid arguments
+                slint_interpreter::Value::String("".into())
+            },
+        );
+
+        eprintln!(
+            "Successfully set up TR global callbacks for {} translation keys",
+            translation_count
+        );
+        Ok(())
+    }
 }

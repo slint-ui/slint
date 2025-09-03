@@ -2097,7 +2097,8 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
         let (w, h) = (max_size.width as u32, max_size.height as u32);
 
         let mut alpha_map = SharedPixelBuffer::<AlphaOnly>::new(w, h);
-        let mut buffer = TargetPixelSlice { data: alpha_map.make_mut_slice(), pixel_stride: w as _ };
+        let mut buffer =
+            TargetPixelSlice { data: alpha_map.make_mut_slice(), pixel_stride: w as _ };
 
         let mut off_renderer = SceneBuilder::new(
             euclid::size2(w as i16, h as i16),
