@@ -10,7 +10,7 @@ use crate::item_tree::{ItemRc, ItemWeak, VisitChildrenResult};
 pub use crate::items::PointerEventButton;
 use crate::items::{DropEvent, ItemRef, TextCursorDirection};
 pub use crate::items::{FocusReason, KeyEvent, KeyboardModifiers};
-use crate::lengths::{LogicalPoint, LogicalVector};
+use crate::lengths::{LogicalPoint, LogicalVector, ItemTransform};
 use crate::timers::Timer;
 use crate::window::{WindowAdapter, WindowInner};
 use crate::{Coord, Property, SharedString};
@@ -91,8 +91,8 @@ impl MouseEvent {
         }
     }
 
-    pub fn rotate(&mut self, angle_in_degrees: f32) {
-        let rotation = euclid::Rotation2D::new(euclid::Angle::degrees(angle_in_degrees));
+    /// Transform the position by the given item transform.
+    pub fn transform(&mut self, transform: ItemTransform) {
         let pos = match self {
             MouseEvent::Pressed { position, .. } => Some(position),
             MouseEvent::Released { position, .. } => Some(position),
@@ -100,14 +100,14 @@ impl MouseEvent {
             MouseEvent::Wheel { position, .. } => Some(position),
             MouseEvent::DragMove(e) | MouseEvent::Drop(e) => {
                 e.position = crate::api::LogicalPosition::from_euclid(
-                    rotation.transform_point(crate::lengths::logical_point_from_api(e.position)),
+                    transform.transform_point(crate::lengths::logical_point_from_api(e.position)),
                 );
                 None
             }
             MouseEvent::Exit => None,
         };
         if let Some(pos) = pos {
-            *pos = rotation.transform_point(*pos);
+            *pos = transform.transform_point(*pos);
         }
     }
 
@@ -805,16 +805,11 @@ fn send_mouse_event_to_item(
     let mut event_for_children = mouse_event.clone();
     // Unapply the translation to go from 'world' space to local space
     event_for_children.translate(-geom.origin.to_vector());
-    if let Some(rotation) = item_rc.downcast::<crate::items::Rotate>() {
-        let rotation_angle = rotation.rotation_angle.get_internal();
-        let rotation_origin = LogicalVector::from_lengths(
-            rotation.rotation_origin_x.get_internal(),
-            rotation.rotation_origin_y.get_internal(),
-        );
-        // Temporarily apply the rotation origin in order to unapply the rotation.
-        event_for_children.translate(rotation_origin);
-        event_for_children.rotate(-rotation_angle);
-        event_for_children.translate(-rotation_origin);
+    // Unapply other transforms.
+    if let Some(inverse_transform) = item_rc.children_transform()
+            // Should practically always be possible.
+        .and_then(|child_transform| child_transform.inverse()) {
+        event_for_children.transform(inverse_transform);
     }
 
     let filter_result = if mouse_event.position().is_some_and(|p| geom.contains(p))
