@@ -14,26 +14,7 @@ pub fn check_rotation(doc: &crate::object_tree::Document, diag: &mut BuildDiagno
             if crate::typeregister::RESERVED_ROTATION_PROPERTIES
                 .iter()
                 .any(|(property_name, _)| is_property_set(&e, property_name))
-            {
-                if !e.builtin_type().is_some_and(|b| matches!(b.name.as_str(), "Image" | "Text")) {
-                    let span = e
-                        .bindings
-                        .get("rotation-angle")
-                        .and_then(|e| e.borrow().span.clone())
-                        .unwrap_or_else(|| e.to_source_location());
-
-                    diag.push_error_with_span(
-                        "rotation properties can only be applied to the Image or Text element"
-                            .into(),
-                        span,
-                    );
-                } else if has_any_children(&e) {
-                    diag.push_error_with_span(
-                        "Elements with rotation properties cannot have children elements".into(),
-                        e.to_source_location(),
-                    );
-                }
-            }
+            {}
         });
     }
 }
