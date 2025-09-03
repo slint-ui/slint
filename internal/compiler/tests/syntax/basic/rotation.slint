@@ -6,11 +6,9 @@ export Ex1 := Rectangle {
     Rectangle {
         rotation-origin-x: width / 2;
         rotation-angle: 45deg;
-//                      ^error{rotation properties can only be applied to the Image or Text element}
         rotation-origin-y: width / 2;
     }
     Rectangle {
-//  ^error{rotation properties can only be applied to the Image or Text element}
         rotation-origin-x: width / 2;
         rotation-origin-y: width / 2;
     }
@@ -36,20 +34,16 @@ ImageWithChild := Image {
 export Ex2 := Rectangle {
 //         ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     Image {
-//  ^error{Elements with rotation properties cannot have children elements}
         rotation-angle: 45deg;
         Rectangle {}
     }
     RotImg {
-//  ^error{Elements with rotation properties cannot have children elements}
         Rectangle {}
     }
     ImageWithChild {
-//  ^error{Elements with rotation properties cannot have children elements}
         rotation-origin-x: 45px;
     }
     JustAnImage {
-//  ^error{Elements with rotation properties cannot have children elements}
         rotation-angle: 45deg;
         Rectangle {}
     }
@@ -59,11 +53,9 @@ export Ex2 := Rectangle {
 export Ex3 := Rectangle {
 //         ^warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     i1 := Image {
-//        ^error{Elements with rotation properties cannot have children elements}
         Rectangle {}
     }
     i2 := Rectangle {}
-//        ^error{rotation properties can only be applied to the Image or Text element}
 
     TouchArea {
         clicked => {
@@ -77,5 +69,4 @@ export component Ex4  {
     in property rot <=> rect . rotation-angle;
 
     rect := Rectangle {}
-//          ^error{rotation properties can only be applied to the Image or Text element}
 }
