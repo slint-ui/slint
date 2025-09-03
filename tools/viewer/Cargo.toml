@@ -51,7 +51,7 @@ gettext = ["i-slint-core/gettext-rs"]
 
 ## Enable custom JSON-based translation system
 ##
-## This allows loading translations from JSON files at runtime using --translations
+## This allows loading translations from JSON files at runtime using --i18n-dir
 ## and --locale command line arguments.
 custom-translations = []
 
