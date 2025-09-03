@@ -100,14 +100,16 @@ impl MouseEvent {
             MouseEvent::Wheel { position, .. } => Some(position),
             MouseEvent::DragMove(e) | MouseEvent::Drop(e) => {
                 e.position = crate::api::LogicalPosition::from_euclid(
-                    transform.transform_point(crate::lengths::logical_point_from_api(e.position)),
+                    transform
+                        .transform_point(crate::lengths::logical_point_from_api(e.position).cast())
+                        .cast(),
                 );
                 None
             }
             MouseEvent::Exit => None,
         };
         if let Some(pos) = pos {
-            *pos = transform.transform_point(*pos);
+            *pos = transform.transform_point(pos.cast()).cast();
         }
     }
 
