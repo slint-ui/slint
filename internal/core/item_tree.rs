@@ -821,6 +821,16 @@ impl ItemRc {
                 .then_translate(origin)
         })
     }
+
+    /// Returns the inverse of the children transform.
+    ///
+    /// None if children_transform is None or in the case of
+    /// non-invertible transforms (which should be extremely rare).
+    pub fn inverse_children_transform(&self) -> Option<ItemTransform> {
+        self.children_transform()
+            // Should practically always be possible.
+            .and_then(|child_transform| child_transform.inverse())
+    }
 }
 
 impl PartialEq for ItemRc {

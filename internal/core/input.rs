@@ -697,6 +697,9 @@ pub(crate) fn send_exit_events(
         let contains = pos.is_some_and(|p| g.contains(p));
         if let Some(p) = pos.as_mut() {
             *p -= g.origin.to_vector();
+            if let Some(inverse_transform) = item.inverse_children_transform() {
+                *p = inverse_transform.transform_point(*p);
+            }
         }
         if !contains || clipped {
             if item.borrow().as_ref().clips_children() {
@@ -808,11 +811,7 @@ fn send_mouse_event_to_item(
     // Unapply the translation to go from 'world' space to local space
     event_for_children.translate(-geom.origin.to_vector());
     // Unapply other transforms.
-    if let Some(inverse_transform) = item_rc
-        .children_transform()
-        // Should practically always be possible.
-        .and_then(|child_transform| child_transform.inverse())
-    {
+    if let Some(inverse_transform) = item_rc.inverse_children_transform() {
         event_for_children.transform(inverse_transform);
     }
 
