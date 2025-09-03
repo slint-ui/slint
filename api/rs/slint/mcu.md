@@ -72,7 +72,7 @@ version = "1.12"
 default-features = false
 features = ["compat-1-2", "unsafe-single-threaded", "libm", "renderer-software"]
 [build-dependencies]
-slint-build = "1.12"
+slint-build = "1.13"
 ```
 
 ## Changes to `build.rs`
