@@ -20,8 +20,8 @@ component BaseAppBar {
     in property <TextStyle> text_style;
     in property <length> text_padding;
 
-    callback leading_clicked();
-    callback trailing_clicked(index: int);
+    callback leading_button_clicked();
+    callback trailing_button_clicked(index: int);
 
     min_width: layout.min_width;
     min_height: layout.min_height;
@@ -49,7 +49,7 @@ component BaseAppBar {
                         tooltip: root.leading_button.tooltip;
 
                         clicked => {
-                            root.leading_clicked();
+                            root.leading_button_clicked();
                         }
                     }
                 }
@@ -81,7 +81,7 @@ component BaseAppBar {
                             tooltip: item.tooltip;
 
                             clicked => {
-                                root.trailing_clicked(index);
+                                root.trailing_button_clicked(index);
                             }
                         }
                     }
@@ -110,8 +110,8 @@ export component AppBar {
     in property <IconButtonItem> trailing_button;
     in property <bool> show_background;
 
-    callback leading_clicked();
-    callback trailing_clicked();
+    callback leading_button_clicked();
+    callback trailing_button_clicked();
 
     min_height: max(MaterialStyleMetrics.size_64, base.min_height);
 
@@ -131,12 +131,12 @@ export component AppBar {
             spacing: MaterialStyleMetrics.spacing_6;
             text_style: Typography.title_large;
 
-            leading_clicked => {
-                root.leading_clicked();
+            leading_button_clicked => {
+                root.leading_button_clicked();
             }
 
-            trailing_clicked(index) => {
-                root.trailing_clicked();
+            trailing_button_clicked(index) => {
+                root.trailing_button_clicked();
             }
         }
     }
@@ -148,8 +148,8 @@ export component SmallAppBar {
     in property <[IconButtonItem]> trailing_buttons;
     in property <bool> show_background;
 
-    callback leading_clicked();
-    callback trailing_clicked(index: int);
+    callback leading_button_clicked();
+    callback trailing_button_clicked(index: int);
 
     min_height: max(MaterialStyleMetrics.size_64, base.min_height);
 
@@ -167,12 +167,12 @@ export component SmallAppBar {
             spacing: MaterialStyleMetrics.spacing_4;
             text_style: Typography.title_large;
 
-            leading_clicked => {
-                root.leading_clicked();
+            leading_button_clicked => {
+                root.leading_button_clicked();
             }
 
-            trailing_clicked(index) => {
-                root.trailing_clicked(index);
+            trailing_button_clicked(index) => {
+                root.trailing_button_clicked(index);
             }
         }
     }
@@ -184,8 +184,8 @@ export component MediumAppBar {
     in property <[IconButtonItem]> trailing_buttons;
     in property <bool> show_background;
 
-    callback leading_clicked();
-    callback trailing_clicked(index: int);
+    callback leading_button_clicked();
+    callback trailing_button_clicked(index: int);
 
     min_height: max(MaterialStyleMetrics.size_64, base.min_height);
 
@@ -206,12 +206,12 @@ export component MediumAppBar {
             text_style: Typography.headline_small;
             text_padding: MaterialStyleMetrics.padding_16;
 
-            leading_clicked => {
-                root.leading_clicked();
+            leading_button_clicked => {
+                root.leading_button_clicked();
             }
 
-            trailing_clicked(index) => {
-                root.trailing_clicked(index);
+            trailing_button_clicked(index) => {
+                root.trailing_button_clicked(index);
             }
         }
     }
@@ -223,8 +223,8 @@ export component LargeAppBar {
     in property <[IconButtonItem]> trailing_buttons;
     in property <bool> show_background;
 
-    callback leading_clicked();
-    callback trailing_clicked(index: int);
+    callback leading_button_clicked();
+    callback trailing_button_clicked(index: int);
 
     min_height: max(MaterialStyleMetrics.size_64, base.min_height);
 
@@ -245,12 +245,12 @@ export component LargeAppBar {
             text_style: Typography.headline_medium;
             text_padding: MaterialStyleMetrics.padding_16;
 
-            leading_clicked => {
-                root.leading_clicked();
+            leading_button_clicked => {
+                root.leading_button_clicked();
             }
 
-            trailing_clicked(index) => {
-                root.trailing_clicked(index);
+            trailing_button_clicked(index) => {
+                root.trailing_button_clicked(index);
             }
         }
     }
