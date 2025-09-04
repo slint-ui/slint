@@ -5,6 +5,7 @@ import { Group, GroupHeader } from "../components/group.slint";
 import { ExpandableListView } from "../components/expandable-listview.slint";
 import { Icons, EditorSizeSettings, ConsoleStyles, EditorSpaceSettings } from "../components/styling.slint";
 import { Api, ComponentListItem, ComponentItem, DiagnosticSummary } from "../api.slint";
+import { ViewHeader } from "../components/widgets/basics.slint";
 import { IconButton } from "../components/icon-button.slint";
 import { Palette, LineEdit } from "std-widgets.slint";
 
@@ -26,53 +27,14 @@ export component LibraryView {
         height: 100%;
         opacity: root.preview-area-is-current ? 1 : 0.3;
 
-        Rectangle {
-            height: ConsoleStyles.header-height;
-            background: ConsoleStyles.header-background;
-            Rectangle {
-                y: 0;
-                width: 100%;
-                height: 1px;
-                background: ConsoleStyles.divider-line;
-                opacity: 50%;
+        ViewHeader {
+            header-text: @tr("Library");
+            hide-parent() => {
+                root.library-visible = false;
+                Api.library-search("");
             }
-
-            Rectangle {
-                y: parent.height - self.height;
-                width: 100%;
-                height: 1px;
-                background: ConsoleStyles.divider-line;
-            }
-
-            HorizontalLayout {
-                alignment: space-between;
-                padding-left: EditorSpaceSettings.default-padding;
-                padding-right: EditorSpaceSettings.default-padding;
-                label := Text {
-                    horizontal-alignment: left;
-                    vertical-alignment: center;
-                    color: ConsoleStyles.text-color;
-                    font-family: "Inter";
-                    font-size: 12px;
-                    text: @tr("Library");
-                }
-
-                LineEdit {
-                    placeholder-text: "Search";
-                    edited(text) => {
-                        Api.library-search(text);
-                    }
-                }
-
-                Image {
-                    source: Icons.close;
-                    colorize: ita.has-hover ? Palette.foreground : Palette.foreground.transparentize(0.5);
-                    ita := TouchArea {
-                        clicked => {
-                            root.library-visible = false;
-                        }
-                    }
-                }
+            edited(text) => {
+                Api.library-search(text);
             }
         }
 
