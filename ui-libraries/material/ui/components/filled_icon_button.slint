@@ -9,7 +9,7 @@ import { MaterialStyleMetrics } from "../styling/material_style_metrics.slint";
 
 export component FilledIconButton {
     in property <image> icon;
-    in property <image> icon_checked: root.icon;
+    in property <image> checked_icon: root.icon;
     in property <bool> checkable;
     in_out property <bool> checked;
     in property <string> tooltip <=> base.tooltip;
@@ -33,7 +33,7 @@ export component FilledIconButton {
     }
 
     base := BaseButton {
-        icon: root.checked ? root.icon_checked : root.icon;
+        icon: root.checked ? root.checked_icon : root.icon;
         border_radius: self.height / 2;
         color: !root.enabled ? MaterialPalette.on_surface_variant : root.checkable ? MaterialPalette.primary : MaterialPalette.on_primary;
         horizontal_padding: 0;
