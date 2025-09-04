@@ -13,7 +13,6 @@ export component BaseNavigationItemTemplate {
     in property <string> badge;
 
     callback clicked;
-    callback index_changed(index: int);
     callback pointer_event(event: PointerEvent, position: Point);
 
     accessible-role: tab;
@@ -25,14 +24,13 @@ export component BaseNavigationItemTemplate {
 
     @children
 
-    changed index => {
-        root.index_changed(root.index);
-    }
 }
 
 export component BaseNavigation {
     in property <[NavigationItem]> items;
     in_out property <int> current_index;
+
+    callback index_changed(index: int);
 
     accessible-role: tab-list;
     // accessible-delegate-focus: root.current-focused >= 0 ? root.current-focused : root.current-index;
@@ -47,5 +45,7 @@ export component BaseNavigation {
         }
 
         root.current_index = index;
+        root.index_changed(index);
     }
+
 }
