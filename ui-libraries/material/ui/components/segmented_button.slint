@@ -63,6 +63,8 @@ export component SegmentedButton {
     in property <[SegmentedItem]> model;
     in_out property <int> current_index;
 
+    callback index_changed(index: int);
+
     min_width: max(2 * MaterialStyleMetrics.size_40, layout.min_width);
     min_height: max(MaterialStyleMetrics.size_40, layout.min_height);
 
@@ -96,5 +98,6 @@ export component SegmentedButton {
         }
 
         root.current_index = index;
+        root.index_changed(index);
     }
 }
