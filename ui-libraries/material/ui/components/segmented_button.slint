@@ -61,7 +61,7 @@ component SegmentedItemTemplate {
 
 export component SegmentedButton {
     in property <[SegmentedItem]> model;
-    in_out property <int> current_item;
+    in_out property <int> current_index;
 
     min_width: max(2 * MaterialStyleMetrics.size_40, layout.min_width);
     min_height: max(MaterialStyleMetrics.size_40, layout.min_height);
@@ -81,7 +81,7 @@ export component SegmentedButton {
                 text: item.text;
                 index: index;
                 last: index == root.model.length - 1;
-                selected: index == root.current_item;
+                selected: index == root.current_index;
 
                 clicked => {
                     root.select(index);
@@ -95,6 +95,6 @@ export component SegmentedButton {
             return;
         }
 
-        root.current_item = index;
+        root.current_index = index;
     }
 }

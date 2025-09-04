@@ -42,10 +42,10 @@ component Clock {
     in property <[int]> model;
     in property <bool> two_columns;
     in property <int> total;
-    in_out property <int> current_item;
+    in_out property <int> current_index;
     in property <int> current_value;
 
-    callback current_item_changed(index: int);
+    callback current_index_changed(index: int);
 
     property <length> radius: max(root.width, root.height) / 2;
     property <length> picker_ditameter: MaterialStyleMetrics.size_48;
@@ -68,7 +68,7 @@ component Clock {
         border_radius: max(self.width, self.height) / 2;
         background: MaterialPalette.surface_container_highest;
 
-        if root.current_item >= 0 || root.current_item < root.model.length: Path {
+        if root.current_index >= 0 || root.current_index < root.model.length: Path {
             stroke: MaterialPalette.primary;
             stroke_width: 2px;
             viewbox_width: self.width / 1px;
@@ -92,7 +92,7 @@ component Clock {
             border_radius: self.width / 2;
         }
 
-        if root.current_item < root.model.length: Rectangle {
+        if root.current_index < root.model.length: Rectangle {
             x: root.current_x;
             y: root.current_y;
             width: root.picker_ditameter;
@@ -100,7 +100,7 @@ component Clock {
             border_radius: root.picker_ditameter / 2;
                 background: MaterialPalette.primary;
 
-            if root.current_item < 0: Rectangle {
+            if root.current_index < 0: Rectangle {
                 width: MaterialStyleMetrics.size_4;
                 height: self.width;
                 border_radius: self.width / 2;
@@ -114,7 +114,7 @@ component Clock {
             width: root.picker_ditameter;
             height: root.picker_ditameter;
             value: val;
-            selected: index == root.current_item;
+            selected: index == root.current_index;
             accessible_role: button;
             accessible_label: @tr("{} Hours or minutes of {}", val, root.total);
             accessible_action_default => {
@@ -122,7 +122,7 @@ component Clock {
             }
 
             clicked => {
-                root.set_current_item(index);
+                root.set_current_index(index);
             }
         }
     }
@@ -162,8 +162,8 @@ component Clock {
         root.center + (root.radius_outer / 1px * sin(root.value_to_angle(value))) * 1px
     }
 
-    function set_current_item(index: int) {
-        root.current_item_changed(index);
+    function set_current_index(index: int) {
+        root.current_index_changed(index);
     }
 }
 
@@ -404,7 +404,7 @@ export component TimePicker inherits PopupWindow {
     ];
     property <[int]> minute_model: [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55];
     property <[int]> current_model: root.get_current_model();
-    property <int> current_item: root.minutes_selected ? root.index_of_minute(root.current_time.minute) : root.index_of_hour(root.current_time.hour);
+    property <int> current_index: root.minutes_selected ? root.index_of_minute(root.current_time.minute) : root.index_of_hour(root.current_time.hour);
     property <Time> current_time: root.time;
     property <int> time_picker_hour: hour_time_picker.text.to_float();
     property <int> time_picker_minute:  minute_time_picker.text.to_float();
@@ -521,11 +521,11 @@ export component TimePicker inherits PopupWindow {
             if root.horizontal && !root.keyboard_mode : Clock {
                 model: root.current_model;
                 two_columns: !root.minutes_selected && root.use-24_hour_format;
-                current_item: root.current_item;
+                current_index: root.current_index;
                 total: root.minutes_selected ? 60 : root.use-24_hour_format ? 24 : 12;
                 current_value: root.minutes_selected ? root.current_time.minute : root.current_time.hour;
 
-                current_item_changed(index) => {
+                current_index_changed(index) => {
                     root.update_time_by_item(index);
 
                     if !root.minutes_selected {
@@ -543,12 +543,12 @@ export component TimePicker inherits PopupWindow {
         if !root.horizontal && !root.keyboard_mode : Clock {
             model: root.current_model;
             two_columns: !root.minutes_selected && root.use-24_hour_format;
-            current_item: root.current_item;
+            current_index: root.current_index;
             total: root.minutes_selected ? 60 : root.use-24_hour_format ? 24 : 12;
             current_value: root.minutes_selected ? root.current_time.minute : root.current_time.hour;
             height: self.width;
 
-            current_item_changed(index) => {
+            current_index_changed(index) => {
                 root.update_time_by_item(index);
 
                 if !root.minutes_selected {

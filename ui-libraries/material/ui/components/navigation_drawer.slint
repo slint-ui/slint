@@ -105,7 +105,7 @@ component NavigationItemTempalte inherits BaseNavigationItemTemplate {
 component NavigationGroupTemplate {
     in property <string> title;
     in property <[NavigationItem]> items;
-    in property <int> current_item: -1;
+    in property <int> current_index: -1;
     in property <bool> has_divider;
 
     callback select(index: int);
@@ -123,7 +123,7 @@ component NavigationGroupTemplate {
             icon_selected: item.icon_selected;
             text: item.text;
             badge: item.badge;
-            selected: index == root.current_item;
+            selected: index == root.current_index;
             index: index;
 
             clicked => {
@@ -146,17 +146,17 @@ export component NavigationDrawer inherits Drawer {
     callback item_pointer_event(group_index: int, item_index: int, event: PointerEvent, position: Point);
     in property <[NavigationGroup]> groups;
     in_out property <int> current_group;
-    in_out property <int> current_item;
+    in_out property <int> current_index;
 
     accessible-role: tab-list;
-    // accessible-delegate-focus: root.current-focused >= 0 ? root.current-focused : root.current-item;
+    // accessible-delegate-focus: root.current-focused >= 0 ? root.current-focused : root.current-index;
     // accessible-label: root.title;
     accessible-item-count: root.groups.length;
 
     for group[group_index] in root.groups : NavigationGroupTemplate {
         title: group.title;
         items: group.items;
-        current_item: group_index == root.current_group ? root.current_item : -1;
+        current_index: group_index == root.current_group ? root.current_index : -1;
         has_divider: root.groups.length > 1 && group_index < root.groups.length - 1;
 
         select(index) => {
@@ -173,7 +173,7 @@ export component NavigationDrawer inherits Drawer {
         }
 
         root.current_group = group_index;
-        root.current_item = item_index;
+        root.current_index = item_index;
         root.selected(group_index, item_index);
     }
 }
@@ -181,17 +181,17 @@ export component NavigationDrawer inherits Drawer {
 export component ModalNavigationDrawer inherits ModalDrawer {
     in property <[NavigationGroup]> groups;
     in_out property <int> current_group;
-    in_out property <int> current_item;
+    in_out property <int> current_index;
 
     accessible-role: tab-list;
-    // accessible-delegate-focus: root.current-focused >= 0 ? root.current-focused : root.current-item;
+    // accessible-delegate-focus: root.current-focused >= 0 ? root.current-focused : root.current-index;
     // accessible-label: root.title;
     accessible-item-count: root.groups.length;
 
     for group[group_index] in root.groups : NavigationGroupTemplate {
         title: group.title;
         items: group.items;
-        current_item: group_index == root.current_group ? root.current_item : -1;
+        current_index: group_index == root.current_group ? root.current_index : -1;
         has_divider: root.groups.length > 1 && group_index < root.groups.length - 1;
 
         select(index) => {
@@ -205,7 +205,7 @@ export component ModalNavigationDrawer inherits ModalDrawer {
         }
 
         root.current_group = group_index;
-        root.current_item = item_index;
+        root.current_index = item_index;
         root.close();
     }
 }

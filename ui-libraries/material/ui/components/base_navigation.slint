@@ -27,10 +27,10 @@ export component BaseNavigationItemTemplate {
 
 export component BaseNavigation {
     in property <[NavigationItem]> items;
-    in_out property <int> current_item;
+    in_out property <int> current_index;
 
     accessible-role: tab-list;
-    // accessible-delegate-focus: root.current-focused >= 0 ? root.current-focused : root.current-item;
+    // accessible-delegate-focus: root.current-focused >= 0 ? root.current-focused : root.current-index;
     // accessible-label: root.title;
     accessible-item-count: root.items.length;
 
@@ -41,6 +41,6 @@ export component BaseNavigation {
             return;
         }
 
-        root.current_item = index;
+        root.current_index = index;
     }
 }

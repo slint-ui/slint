@@ -111,7 +111,7 @@ component SecondaryTabItemTemplate inherits BaseNavigationItemTemplate {
 export component TabBar inherits BaseNavigation {
     property <length> indicator_width;
     property <length> item_width: root.width / root.items.length;
-    property <length> current_x: root.item_width * self.current_item;
+    property <length> current_x: root.item_width * self.current_index;
 
     min_height: max(MaterialStyleMetrics.size_49, layout.min_height);
 
@@ -124,7 +124,7 @@ export component TabBar inherits BaseNavigation {
                 icon_selected: item.icon_selected;
                 text: item.text;
                 index: index;
-                selected: index == root.current_item;
+                selected: index == root.current_index;
                 empty_badge: item.empty_badge;
                 badge: item.badge;
 
@@ -161,7 +161,7 @@ export component TabBar inherits BaseNavigation {
     }
 
     function set_indicator_width(index: int, width: length) {
-        if index != root.current_item {
+        if index != root.current_index {
             return;
         }
 
@@ -171,7 +171,7 @@ export component TabBar inherits BaseNavigation {
 
 export component SecondaryTabBar inherits BaseNavigation {
     property <length> item_width: root.width / root.items.length;
-    property <length> current_x: root.item_width * self.current_item;
+    property <length> current_x: root.item_width * self.current_index;
 
     min_height: max(MaterialStyleMetrics.size_49, layout.min_height);
 
@@ -184,7 +184,7 @@ export component SecondaryTabBar inherits BaseNavigation {
                 icon_selected: item.icon_selected;
                 text: item.text;
                 index: index;
-                selected: index == root.current_item;
+                selected: index == root.current_index;
                 empty_badge: item.empty_badge;
                 badge: item.badge;
 
