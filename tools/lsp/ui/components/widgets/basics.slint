@@ -3,10 +3,9 @@
 
 import { Button, LineEdit, Palette } from "std-widgets.slint";
 
-import { PropertyValue } from "../../api.slint";
+import { Api, PropertyValue } from "../../api.slint";
 import { BodyText } from "../../components/body-text.slint";
-import { EditorAnimationSettings, EditorFontSettings, EditorSizeSettings, EditorSpaceSettings, Icons } from "../../components/styling.slint";
-
+import { EditorAnimationSettings, EditorFontSettings, EditorSizeSettings, EditorSpaceSettings, ConsoleStyles, Icons } from "../../components/styling.slint";
 export component CodeButton inherits Button {
     text: @tr("Code");
 }
@@ -35,7 +34,7 @@ export component NameLabel inherits HorizontalLayout {
 }
 
 export component ResettingLineEdit {
-    in property <string> default-text;
+    in property <string> default-text: "";
     in-out property <bool> can-compile: true;
 
     in property <bool> enabled;
@@ -88,6 +87,80 @@ export component ResettingLineEdit {
         border-radius: root.border;
     }
 }
+export component SearchLineEdit inherits Rectangle{
+
+    in property <string> default-text: "";
+    in property <bool> enabled: true;
+    in property <InputType> input-type <=> ti.input-type;
+    in property <TextHorizontalAlignment> horizontal-alignment <=> ti.horizontal-alignment;
+    out property <bool> has-focus <=> ti.has-focus;
+    in-out property <string> text <=> ti.text;
+
+    property <length> border: 3px;
+
+    callback accepted <=> ti.accepted;
+    callback edited(text: string);
+
+    changed default-text => {
+        if !ti.has-focus {
+            ti.text = root.default-text;
+        }
+    }
+    HorizontalLayout {
+    alignment: space-between;
+
+    sb := Rectangle {
+    min-width: 150px;
+    preferred-width: 400px;
+        border-radius: self.preferred-height/2;
+        background: Colors.white;
+        clip: true;
+        HorizontalLayout {
+            padding-left: EditorSpaceSettings.default-padding/2;
+            spacing: EditorSpaceSettings.default-spacing;
+            alignment: start;
+            VerticalLayout {
+                alignment: center;
+                Image {
+                    colorize: Palette.alternate-background;
+                    source: Icons.search;
+                    width: 20px;
+                    height: 20px;
+                }
+            }
+            Rectangle {
+            if !ti.has-focus:
+            VerticalLayout {
+            alignment: center;
+            Text {
+                text: "Search Term";
+                font-italic: true;
+                font-size: 1rem;
+                width: 100%;
+                color: Palette.alternate-foreground.transparentize(0.5);
+            }}
+                VerticalLayout {
+                    width: 100%;
+                    alignment: center;
+                    padding: EditorSpaceSettings.default-padding/2;
+                    ti := TextInput {
+                        changed text => {
+                            root.edited(text);
+                        }
+                        width: 100%;
+                        selection-background-color: #00000000;
+                        enabled: root.enabled;
+                        text: root.default-text;
+                        font-size: 1rem;
+
+                        }
+                    }
+                }
+
+            }
+        }
+    }
+}
 
 export component ChildIndicator inherits Rectangle {
     out property <bool> open: false;
@@ -114,6 +187,59 @@ export component ChildIndicator inherits Rectangle {
     }
 }
 
+export component ViewHeader inherits Rectangle {
+    in property <string> header-text: "Header Text";
+    in-out property <bool> parent-visible: true;
+    height: ConsoleStyles.header-height;
+    background: ConsoleStyles.header-background;
+    callback hide-parent();
+    Rectangle {
+        y: 0;
+        width: 100%;
+        height: 1px;
+        background: ConsoleStyles.divider-line;
+        opacity: 50%;
+    }
+
+    Rectangle {
+        y: parent.height - self.height;
+        width: 100%;
+        height: 1px;
+        background: ConsoleStyles.divider-line;
+    }
+
+    HorizontalLayout {
+        spacing: EditorSpaceSettings.default-spacing;
+        height: 80%;
+        alignment: space-between;
+        padding-left: EditorSpaceSettings.default-padding;
+        padding-right: EditorSpaceSettings.default-padding;
+        label := Text {
+            horizontal-alignment: left;
+            vertical-alignment: center;
+            color: ConsoleStyles.text-color;
+            font-family: "Inter";
+            font-size: 12px;
+            text: header-text;
+        }
+        SearchLineEdit {
+            horizontal-stretch: 1;
+            edited(text) => {
+                Api.library-search(text);
+            }
+        }
+
+        Image {
+            source: Icons.close;
+            colorize: ita.has-hover ? Palette.foreground : Palette.foreground.transparentize(0.5);
+            ita := TouchArea {
+                clicked => {
+                    hide-parent();
+                }
+            }
+        }
+    }
+}
 export component SecondaryContent inherits Rectangle {
     in property <bool> enabled;
     in property <bool> open: false;
