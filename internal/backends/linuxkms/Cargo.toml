@@ -19,7 +19,7 @@ path = "lib.rs"
 renderer-skia = ["renderer-skia-opengl"]
 renderer-skia-vulkan = ["i-slint-renderer-skia/vulkan", "vulkano", "drm", "dep:memmap2"]
 renderer-skia-opengl = ["i-slint-renderer-skia/opengl", "drm", "gbm", "glutin", "raw-window-handle", "dep:memmap2"]
-renderer-femtovg = ["i-slint-renderer-femtovg", "drm", "gbm", "glutin", "raw-window-handle"]
+renderer-femtovg = ["i-slint-renderer-femtovg/opengl", "drm", "gbm", "glutin", "raw-window-handle"]
 renderer-software = ["i-slint-core/software-renderer-systemfonts", "drm", "dep:bytemuck", "dep:memmap2"]
 libseat = ["dep:libseat"]
 
