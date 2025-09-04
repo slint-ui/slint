@@ -14,7 +14,7 @@ import { BaseNavigationItemTemplate, BaseNavigation } from "./base_navigation.sl
 
 export component NavigationItemTemplate inherits BaseNavigationItemTemplate {
     property <bool> has_icon: root.icon.width > 0 && root.icon.height > 0;
-    property <bool> has_icon_selected: root.icon_selected.width > 0 || root.icon_selected.height > 0;
+    property <bool> has_selected_icon: root.selected_icon.width > 0 || root.selected_icon.height > 0;
     property <color> color: MaterialPalette.on_surface;
 
     padding_top: MaterialStyleMetrics.padding_12;
@@ -69,20 +69,20 @@ export component NavigationItemTemplate inherits BaseNavigationItemTemplate {
                                 VerticalLayout {
                                     alignment: center;
 
-                                    if !root.has_icon && !root.has_icon_selected : Rectangle {
+                                    if !root.has_icon && !root.has_selected_icon : Rectangle {
                                         width: 12px;
                                         height: self.width;
                                         border_radius: self.width / 2;
                                         background: root.color;
                                     }
 
-                                    if root.has_icon || root.has_icon_selected : Icon {
+                                    if root.has_icon || root.has_selected_icon : Icon {
                                         source: root.icon;
                                         colorize: root.color;
 
                                         states [
-                                            selected when root.selected && root.has_icon_selected : {
-                                                source: root.icon_selected;
+                                            selected when root.selected && root.has_selected_icon : {
+                                                source: root.selected_icon;
                                             }
                                         ]
                                     }
@@ -134,7 +134,7 @@ export component NavigationBar inherits BaseNavigation {
 
             for item[index] in root.items : NavigationItemTemplate {
                 icon: item.icon;
-                icon_selected: item.icon_selected;
+                selected_icon: item.selected_icon;
                 text: item.text;
                 index: index;
                 selected: index == root.current_index;

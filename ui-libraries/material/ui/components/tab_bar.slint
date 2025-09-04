@@ -14,7 +14,7 @@ import { Icon } from "./icon.slint";
 component TabItemTemplate inherits BaseNavigationItemTemplate {
     out property <length> label_width: label.width;
 
-    property <bool> has_icon_selected: root.icon_selected.width > 0 || root.icon_selected.height > 0;
+    property <bool> has_selected_icon: root.selected_icon.width > 0 || root.selected_icon.height > 0;
 
     StateLayerArea {
         color: MaterialPalette.primary;
@@ -32,8 +32,8 @@ component TabItemTemplate inherits BaseNavigationItemTemplate {
                     colorize: label.color;
 
                     states [
-                        selected when root.selected && root.has_icon_selected : {
-                            source: root.icon_selected;
+                        selected when root.selected && root.has_selected_icon : {
+                            source: root.selected_icon;
                         }
                     ]
                 }
@@ -63,7 +63,7 @@ component TabItemTemplate inherits BaseNavigationItemTemplate {
 }
 
 component SecondaryTabItemTemplate inherits BaseNavigationItemTemplate {
-    property <bool> has_icon_selected: root.icon_selected.width > 0 || root.icon_selected.height > 0;
+    property <bool> has_selected_icon: root.selected_icon.width > 0 || root.selected_icon.height > 0;
 
     StateLayerArea {
         color: label.color;
@@ -80,8 +80,8 @@ component SecondaryTabItemTemplate inherits BaseNavigationItemTemplate {
                     colorize: label.color;
 
                     states [
-                        selected when root.selected && root.has_icon_selected : {
-                            source: root.icon_selected;
+                        selected when root.selected && root.has_selected_icon : {
+                            source: root.selected_icon;
                         }
                     ]
                 }
@@ -121,7 +121,7 @@ export component TabBar inherits BaseNavigation {
         layout := HorizontalLayout {
             for item[index] in root.items : tab_item := TabItemTemplate {
                 icon: item.icon;
-                icon_selected: item.icon_selected;
+                selected_icon: item.selected_icon;
                 text: item.text;
                 index: index;
                 selected: index == root.current_index;
@@ -181,7 +181,7 @@ export component SecondaryTabBar inherits BaseNavigation {
         layout := HorizontalLayout {
             for item[index] in root.items : SecondaryTabItemTemplate {
                 icon: item.icon;
-                icon_selected: item.icon_selected;
+                selected_icon: item.selected_icon;
                 text: item.text;
                 index: index;
                 selected: index == root.current_index;
