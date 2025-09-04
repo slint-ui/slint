@@ -18,13 +18,13 @@ import { Animations } from "../styling/animations.slint";
 component SearchListTile inherits ListTile {
     in property <image> action_icon;
 
-    callback action();
+    callback action_button_clicked();
 
     if root.action_icon.width > 0 && root.action_icon.height > 0 : IconButton {
         icon: root.action_icon;
 
         clicked => {
-            root.action();
+            root.action_button_clicked();
         }
     }
 }
@@ -129,7 +129,7 @@ export component SearchBar {
 
     callback accepted(text: string);
     callback edited(text: string);
-    callback action(index: int);
+    callback action_button_clicked(index: int);
     callback key_pressed(event: KeyEvent) -> EventResult;
     callback key_released(event: KeyEvent) -> EventResult;
 
@@ -292,8 +292,8 @@ export component SearchBar {
                             popup.close();
                         }
 
-                        action => {
-                            root.action(index);
+                        action_button_clicked => {
+                            root.action_button_clicked(index);
                         }
                     }
                 }
