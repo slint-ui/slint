@@ -10,7 +10,7 @@ use crate::item_tree::{ItemRc, ItemWeak, VisitChildrenResult};
 pub use crate::items::PointerEventButton;
 use crate::items::{DropEvent, ItemRef, TextCursorDirection};
 pub use crate::items::{FocusReason, KeyEvent, KeyboardModifiers};
-use crate::lengths::{LogicalPoint, LogicalVector, ItemTransform};
+use crate::lengths::{ItemTransform, LogicalPoint, LogicalVector};
 use crate::timers::Timer;
 use crate::window::{WindowAdapter, WindowInner};
 use crate::{Coord, Property, SharedString};
@@ -806,9 +806,11 @@ fn send_mouse_event_to_item(
     // Unapply the translation to go from 'world' space to local space
     event_for_children.translate(-geom.origin.to_vector());
     // Unapply other transforms.
-    if let Some(inverse_transform) = item_rc.children_transform()
-            // Should practically always be possible.
-        .and_then(|child_transform| child_transform.inverse()) {
+    if let Some(inverse_transform) = item_rc
+        .children_transform()
+        // Should practically always be possible.
+        .and_then(|child_transform| child_transform.inverse())
+    {
         event_for_children.transform(inverse_transform);
     }
 
