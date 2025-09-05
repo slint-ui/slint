@@ -42,8 +42,8 @@ The text for the primary action button (typically "OK" or "Confirm").
 An optional icon displayed at the top of the dialog.
 </SlintProperty>
 
-### icon-actions
-<SlintProperty propName="icon-actions" typeName="[image]">
+### action-button-icons
+<SlintProperty propName="action-button-icons" typeName="[image]">
 An array of icon buttons displayed in the dialog's action area.
 </SlintProperty>
 
@@ -54,14 +54,14 @@ The title text displayed at the top of the dialog.
 
 ## Callbacks
 
-### action(index: int)
+### action-clicked(index: int)
 Invoked when a secondary action button is clicked.
 
-### close()
+### closed()
 Invoked when the dialog is closed (e.g., by clicking outside or pressing Escape).
 
-### default-action()
+### default-action-clicked()
 Invoked when the default action button is clicked or when Enter is pressed.
 
-### icon-action(index: int)
+### action-button-clicked(index: int)
 Invoked when an icon action button is clicked.

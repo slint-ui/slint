@@ -17,7 +17,7 @@ export component FullscreenDialog inherits PopupWindow {
     in property <string> title;
     in property <[string]> actions;
 
-    callback action(index: int);
+    callback action_clicked(index: int);
 
     close_policy: no_auto_close;
     forward_focus: focus_scope;
@@ -69,7 +69,7 @@ export component FullscreenDialog inherits PopupWindow {
                     text: action;
 
                     clicked => {
-                        root.action(index);
+                        root.action_clicked(index);
                     }
                 }
             }
@@ -92,15 +92,15 @@ export component FullscreenDialog inherits PopupWindow {
 export component BaseDialog {
     in property <string> title;
     in property <image> icon;
-    in property <[image]> icon_actions;
+    in property <[image]> action_button_icons;
     in property <string> default_action_text;
     in property <[string]> actions;
 
     property <bool> has_icon: root.icon.width > 0 && root.icon.height > 0;
 
-    callback default_action();
-    callback icon_action(index: int);
-    callback action(index: int);
+    callback default_action_clicked();
+    callback action_button_clicked(index: int);
+    callback action_clicked(index: int);
     callback close();
 
     forward_focus: focus_scope;
@@ -111,7 +111,7 @@ export component BaseDialog {
 
         key_pressed(event) => {
             if event.text == Key.Return && root.default_action_text != ""  {
-                root.default_action();
+                root.default_action_clicked();
                 return accept;
             }
 
@@ -160,11 +160,11 @@ export component BaseDialog {
                     HorizontalLayout {
                         spacing: MaterialStyleMetrics.spacing_8;
 
-                        for icon_action[index] in root.icon_actions : IconButton {
-                            icon: icon_action;
+                        for action_button[index] in root.action_button_icons : IconButton {
+                            icon: action_button;
 
                             clicked => {
-                                root.icon_action(index);
+                                root.action_button_clicked(index);
                             }
                         }
 
@@ -175,7 +175,7 @@ export component BaseDialog {
                             text: action;
 
                             clicked => {
-                                root.action(index);
+                                root.action_clicked(index);
                             }
                         }
 
@@ -183,7 +183,7 @@ export component BaseDialog {
                             text: root.default_action_text;
 
                             clicked => {
-                                root.default_action();
+                                root.default_action_clicked();
                             }
                         }
                     }
@@ -214,8 +214,8 @@ export component Dialog inherits PopupWindow {
     in property <string> default_action_text <=> base.default_action_text;
     in property <[string]> actions <=> base.actions;
 
-    callback default_action <=> base.default_action;
-    callback action <=> base.action;
+    callback default_action_clicked <=> base.default_action_clicked;
+    callback action_clicked <=> base.action_clicked;
 
     close_policy: no_auto_close;
     forward_focus: base;

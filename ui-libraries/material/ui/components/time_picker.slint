@@ -375,7 +375,7 @@ export component TimePicker inherits PopupWindow {
     property <bool> keyboard_mode;
     property <bool> minutes_selected;
     property <bool> am_selected: true;
-    property <[int]> twelf_hour_model: [12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+    property <[int]> twelfth_hour_model: [12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
     property <[int]> use-24_hour_format_model: [
         12,
         1,
@@ -419,7 +419,7 @@ export component TimePicker inherits PopupWindow {
         width: 100%;
         height: 100%;
         title: root.title;
-        icon_actions: [
+        action_button_icons: [
             root.keyboard_mode ? Icons.schedule : Icons.keyboard
         ];
         actions: [
@@ -557,13 +557,13 @@ export component TimePicker inherits PopupWindow {
             }
         }
 
-        icon_action(index) => {
+        action_button_clicked(index) => {
             if index == 0 {
                 root.keyboard_mode = !root.keyboard_mode;
             }
         }
 
-        action(index) => {
+        action_clicked(index) => {
             // cancel
             if index == 0 {
                 root.close();
@@ -669,6 +669,6 @@ export component TimePicker inherits PopupWindow {
             return root.use-24_hour_format_model;
         }
 
-        root.twelf_hour_model
+        root.twelfth_hour_model
     }
 }

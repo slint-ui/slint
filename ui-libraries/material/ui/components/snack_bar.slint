@@ -18,7 +18,7 @@ export component SnackBar inherits PopupWindow {
 
     close_policy: no_auto_close;
 
-    callback action();
+    callback action_clicked();
 
     snack_bar := Elevation {
         x: (parent.width - self.width) / 2;
@@ -82,7 +82,7 @@ export component SnackBar inherits PopupWindow {
     }
 
     function raise_action() {
-        root.action();
+        root.action_clicked();
         root.close();
     }
 }

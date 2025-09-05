@@ -580,11 +580,11 @@ export component ActionsView {
             wrap: word_wrap;
         }
 
-        action(index) => {
+        action_clicked(index) => {
             dialog.close();
         }
 
-        default_action => {
+        default_action_clicked => {
             dialog.close();
         }
      }
@@ -599,7 +599,7 @@ export component ActionsView {
 
         Rectangle {}
 
-        action => {
+        action_clicked() => {
             fullscreen_dialog.close();
         }
      }

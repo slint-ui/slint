@@ -486,13 +486,13 @@ export component DatePickerPopup inherits PopupWindow {
             }
         }
 
-        action(index) => {
+        action_clicked(index) => {
             // cancel
             if index == 0 {
                 root.close();
                 root.canceled();
             } else if index == 1 {
-                root.accepted(root.date);
+            root.accepted(root.date);
             }
         }
 
