@@ -28,6 +28,7 @@ use crate::platform::Clipboard;
 use crate::rtti::*;
 use crate::window::{InputMethodProperties, InputMethodRequest, WindowAdapter, WindowInner};
 use crate::{Callback, Coord, Property, SharedString, SharedVector};
+use crate::items::MouseCursor;
 use alloc::rc::Rc;
 use alloc::string::String;
 use const_field_offset::FieldOffsets;
@@ -661,15 +662,11 @@ impl Item for TextInput {
                 self.paste_clipboard(window_adapter, self_rc, Clipboard::SelectionClipboard);
             }
             MouseEvent::Exit => {
-                if let Some(x) = window_adapter.internal(crate::InternalToken) {
-                    x.set_mouse_cursor(super::MouseCursor::Default);
-                }
+                window_adapter.set_mouse_cursor(MouseCursor::Default);
                 self.as_ref().pressed.set(0)
             }
             MouseEvent::Moved { position } => {
-                if let Some(x) = window_adapter.internal(crate::InternalToken) {
-                    x.set_mouse_cursor(super::MouseCursor::Text);
-                }
+                window_adapter.set_mouse_cursor(MouseCursor::Text);
                 let pressed = self.as_ref().pressed.get();
                 if pressed > 0 {
                     let clicked_offset =

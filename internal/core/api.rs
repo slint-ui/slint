@@ -9,6 +9,7 @@ This module contains types that are public and re-exported in the slint-rs as we
 
 #[cfg(target_has_atomic = "ptr")]
 pub use crate::future::*;
+pub use crate::items::MouseCursor;
 use crate::graphics::{Rgba8Pixel, SharedPixelBuffer};
 use crate::input::{KeyEventType, MouseEvent};
 use crate::window::{WindowAdapter, WindowInner};
@@ -705,6 +706,11 @@ impl Window {
     /// Note that this function may be slow to call as it may need to re-render the scene.
     pub fn take_snapshot(&self) -> Result<SharedPixelBuffer<Rgba8Pixel>, PlatformError> {
         self.0.window_adapter().renderer().take_snapshot()
+    }
+
+    /// Sets the mouse cursor for this window.
+    pub fn set_mouse_cursor(&self, cursor: crate::items::MouseCursor) {
+        self.0.window_adapter().set_mouse_cursor(cursor);
     }
 }
 

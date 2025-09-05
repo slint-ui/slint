@@ -2,8 +2,9 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use super::{
-    DropEvent, Item, ItemConsts, ItemRc, MouseCursor, PointerEventButton, RenderingResult,
+    DropEvent, Item, ItemConsts, ItemRc, PointerEventButton, RenderingResult,
 };
+use crate::items::MouseCursor;
 use crate::input::{
     FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, KeyEvent,
     KeyEventResult, MouseEvent,
@@ -249,9 +250,7 @@ impl Item for DropArea {
                 let r = Self::FIELD_OFFSETS.can_drop.apply_pin(self).call(&(event.clone(),));
                 if r {
                     self.contains_drag.set(true);
-                    if let Some(window_adapter) = window_adapter.internal(crate::InternalToken) {
-                        window_adapter.set_mouse_cursor(MouseCursor::Copy);
-                    }
+                    window_adapter.set_mouse_cursor(MouseCursor::Copy);
                     InputEventResult::EventAccepted
                 } else {
                     self.contains_drag.set(false);

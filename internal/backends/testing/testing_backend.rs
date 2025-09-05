@@ -120,9 +120,6 @@ impl WindowAdapterInternal for TestingWindow {
         self.ime_requests.borrow_mut().push(request)
     }
 
-    fn set_mouse_cursor(&self, cursor: i_slint_core::items::MouseCursor) {
-        self.mouse_cursor.set(cursor);
-    }
 }
 
 impl WindowAdapter for TestingWindow {
@@ -158,6 +155,10 @@ impl WindowAdapter for TestingWindow {
 
     fn internal(&self, _: i_slint_core::InternalToken) -> Option<&dyn WindowAdapterInternal> {
         Some(self)
+    }
+
+    fn set_mouse_cursor(&self, cursor: i_slint_core::items::MouseCursor) {
+        self.mouse_cursor.set(cursor);
     }
 }
 

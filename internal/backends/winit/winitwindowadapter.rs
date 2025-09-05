@@ -1244,9 +1244,7 @@ impl WindowAdapter for WinitWindowAdapter {
     fn internal(&self, _: corelib::InternalToken) -> Option<&dyn WindowAdapterInternal> {
         Some(self)
     }
-}
 
-impl WindowAdapterInternal for WinitWindowAdapter {
     fn set_mouse_cursor(&self, cursor: MouseCursor) {
         let winit_cursor = match cursor {
             MouseCursor::Default => winit::window::CursorIcon::Default,
@@ -1284,6 +1282,9 @@ impl WindowAdapterInternal for WinitWindowAdapter {
             winit_window.set_cursor(winit_cursor);
         }
     }
+}
+
+impl WindowAdapterInternal for WinitWindowAdapter {
 
     fn input_method_request(&self, request: corelib::window::InputMethodRequest) {
         #[cfg(not(target_arch = "wasm32"))]
