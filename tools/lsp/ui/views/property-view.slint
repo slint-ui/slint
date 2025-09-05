@@ -80,16 +80,15 @@ export component PropertyView inherits VerticalLayout {
                 alignment: start;
                 spacing: EditorSpaceSettings.default-spacing;
                 padding-top: EditorSpaceSettings.default-padding;
-                VerticalLayout {
-                padding: EditorSpaceSettings.default-padding;
-                spacing: EditorSpaceSettings.default-spacing/4;
-                Text {
-                    text: "id";
-                    font-size: 1rem;
-                    font-weight: element-information.id != "" ? EditorFontSettings.regular-font-weight : EditorFontSettings.light-font-weight ;
-                    font-italic: element-information.id != "" ? false : true;
-                    opacity: element-information.id != "" ? 1.0 : 0.5;
-                }
+                if element-information.id != "root": VerticalLayout {
+                    padding: EditorSpaceSettings.default-padding;
+                    spacing: EditorSpaceSettings.default-spacing/4;
+                    Text {
+                        text: "id";
+                        font-weight: element-information.id != "" ? EditorFontSettings.regular-font-weight : EditorFontSettings.light-font-weight ;
+                        font-italic: element-information.id != "" ? false : true;
+                        opacity: element-information.id != "" ? 1.0 : 0.5;
+                    }
                     LineEdit {
                         enabled: sv.enabled;
                         property <string> id: element-information.id;
@@ -102,7 +101,8 @@ export component PropertyView inherits VerticalLayout {
                                 element-information.offset,
                                 text,
                             );
-                            self.text = id; // Resets so that when we reompile the element, we get it
+                            // Resets to the original, and the updated name will be updated after we recompiled
+                            self.text = id;
                         }
                     }
                 }
