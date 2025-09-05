@@ -16,12 +16,12 @@ import { ListView } from "./list_view.slint";
 import { Animations } from "../styling/animations.slint";
 
 component SearchListTile inherits ListTile {
-    in property <image> action_icon;
+    in property <image> action_button_icon;
 
     callback action_button_clicked();
 
-    if root.action_icon.width > 0 && root.action_icon.height > 0 : IconButton {
-        icon: root.action_icon;
+    if root.action_button_icon.width > 0 && root.action_button_icon.height > 0 : IconButton {
+        icon: root.action_button_icon;
 
         clicked => {
             root.action_button_clicked();
@@ -285,7 +285,7 @@ export component SearchBar {
                         avatar_text: item.avatar_text;
                         avatar_background: item.avatar_background;
                         avatar_foreground: item.avatar_foreground;
-                        action_icon: item.action_icon;
+                        action_button_icon: item.action_button_icon;
 
                         clicked => {
                             root.text = self.text;

@@ -94,7 +94,7 @@ fn color_item(name: &str, red: u8, green: u8, blue: u8, ui: &MainWindow) -> List
     ListItem {
         text: name.into(),
         avatar_background: Color::from_rgb_u8(red, green, blue),
-        action_icon: OutlinedIcons::get(&ui).get_share(),
+        action_button_icon: OutlinedIcons::get(&ui).get_share(),
         ..Default::default()
     }
 }
