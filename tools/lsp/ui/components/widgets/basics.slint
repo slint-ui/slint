@@ -91,7 +91,6 @@ export component ResettingLineEdit {
 component SearchBar {
     height: 20px;
     out property text <=> ti.text;
-    x: EditorSizeSettings.standard-margin;
     callback edited(text: string);
 
     Rectangle {
@@ -278,6 +277,7 @@ export component ViewHeader inherits Rectangle {
     height: ConsoleStyles.header-height;
     background: ConsoleStyles.header-background;
     callback hide-parent();
+    callback edited(text: string);
 
     Rectangle {
         y: 0;
@@ -297,34 +297,44 @@ export component ViewHeader inherits Rectangle {
     HorizontalLayout {
         spacing: EditorSpaceSettings.default-spacing;
         height: 80%;
-        alignment: space-between;
+        width: 100%;
+        alignment: stretch;
         padding-left: EditorSpaceSettings.default-padding;
-        padding-right: EditorSpaceSettings.default-padding;
         label := Text {
+            horizontal-stretch: 0;
+            width: self.preferred-width;
             horizontal-alignment: left;
             vertical-alignment: center;
             color: ConsoleStyles.text-color;
             font-family: "Inter";
             font-size: 12px;
-            text: header-text;
+            text: "Library";
         }
 
-        VerticalLayout {
-            alignment: center;
+        vl := Rectangle {
+            horizontal-stretch: 1;
+            min-width: 80px;
             SearchBar {
-                width: 60%;
+                width: 100%;
                 edited(text) => {
-                    Api.library-search(text);
+                    root.edited(text)
                 }
             }
         }
 
-        Image {
-            source: Icons.close;
-            colorize: ita.has-hover ? Palette.foreground : Palette.foreground.transparentize(0.5);
-            ita := TouchArea {
-                clicked => {
-                    hide-parent();
+        Rectangle {
+            horizontal-stretch: 0.1;
+            HorizontalLayout {
+                alignment: end;
+                Image {
+                    horizontal-alignment: right;
+                    source: Icons.close;
+                    colorize: ita.has-hover ? Palette.foreground : Palette.foreground.transparentize(0.5);
+                    ita := TouchArea {
+                        clicked => {
+                            hide-parent();
+                        }
+                    }
                 }
             }
         }

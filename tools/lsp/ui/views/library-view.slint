@@ -4,7 +4,7 @@
 import { Group, GroupHeader } from "../components/group.slint";
 import { ExpandableListView } from "../components/expandable-listview.slint";
 import { Icons, EditorSizeSettings, ConsoleStyles, EditorSpaceSettings } from "../components/styling.slint";
-import { ComponentListItem, ComponentItem, DiagnosticSummary } from "../api.slint";
+import { Api, ComponentListItem, ComponentItem, DiagnosticSummary } from "../api.slint";
 import { ViewHeader } from "../components/widgets/basics.slint";
 import { IconButton } from "../components/icon-button.slint";
 import { Palette, LineEdit } from "std-widgets.slint";
@@ -31,6 +31,10 @@ export component LibraryView {
             header-text: @tr("Library");
             hide-parent() => {
                 root.library-visible = false;
+                Api.library-search("");
+            }
+            edited(text) => {
+                Api.library-search(text);
             }
         }
 
