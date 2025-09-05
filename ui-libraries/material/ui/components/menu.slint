@@ -82,7 +82,7 @@ export component MenuInner {
     in property <[MenuItem]> items;
     in_out property <int> current_index: -1;
 
-    callback item_clicked(index: int);
+    callback activated(index: int);
 
     // used to fix clipping of shadows
     out property <int> elevation: 2;
@@ -107,17 +107,17 @@ export component MenuInner {
                 selected: index == root.current_index;
 
                 clicked => {
-                    root.item_clicked(index);
+                    root.activated(index);
                 }
             }
         }
     }
 }
 
-export component Menu inherits PopupWindow {
+export component PopupMenu inherits PopupWindow {
     in property <[MenuItem]> items;
 
-    callback item_clicked(index: int);
+    callback activated(index: int);
 
     width: MaterialStyleMetrics.size_200;
     close_policy: close_on_click_outside;
@@ -128,8 +128,8 @@ export component Menu inherits PopupWindow {
         inner := MenuInner {
             items: root.items;
 
-            item_clicked(index) => {
-                root.item_clicked(index);
+            activated(index) => {
+                root.activated(index);
             }
         }
     }

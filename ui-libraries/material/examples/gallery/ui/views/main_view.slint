@@ -15,7 +15,7 @@ import {
     NavigationItem,
     NavigationBar,
     SmallAppBar,
-    Menu,
+    PopupMenu,
     MenuItem,
     MaterialStyleMetrics
 } from "../../../../material.slint";
@@ -71,12 +71,12 @@ export component MainView {
             }
         }
 
-        color_menu := Menu {
+        color_menu := PopupMenu {
             x: root.width - MaterialStyleMetrics.size_200 - MaterialStyleMetrics.padding_16;
             y: app_bar.height / 2;
             items: MainViewAdapter.palettes;
 
-            item_clicked(index) => {
+            activated(index) => {
                 MainViewAdapter.load_palette(index);
                 color_menu.close();
             }
