@@ -406,11 +406,9 @@ export class EditorWidget extends Widget {
     private open_default_content() {
         const params = new URLSearchParams(window.location.search);
         const compressed = params.get("s");
-        let code;
+        let code = params.get("snippet");
         if (compressed) {
             code = decompress(compressed);
-        } else {
-            code = params.get("snippet");
         }
         const load_url = params.get("load_url");
         const load_demo = params.get("load_demo");
