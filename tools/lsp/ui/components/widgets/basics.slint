@@ -5,7 +5,7 @@ import { Button, LineEdit, Palette } from "std-widgets.slint";
 
 import { Api, PropertyValue } from "../../api.slint";
 import { BodyText } from "../../components/body-text.slint";
-import { EditorAnimationSettings, EditorFontSettings, EditorSizeSettings, EditorSpaceSettings, ConsoleStyles, Icons } from "../../components/styling.slint";
+import { EditorAnimationSettings, EditorFontSettings, EditorSizeSettings, EditorSpaceSettings, EditorPalette, ConsoleStyles, Icons } from "../styling.slint";
 export component CodeButton inherits Button {
     text: @tr("Code");
 }
@@ -87,7 +87,92 @@ export component ResettingLineEdit {
         border-radius: root.border;
     }
 }
-export component SearchLineEdit inherits Rectangle{
+
+component SearchBar {
+    height: 20px;
+    out property text <=> ti.text;
+    x: EditorSizeSettings.standard-margin;
+    callback edited(text: string);
+
+    Rectangle {
+        height: 24px;
+        width: 100%;
+        border-width: 1px;
+        border-color: EditorPalette.text-color.with-alpha(0.1);
+        border-radius: self.height / 2;
+        HorizontalLayout {
+            padding-right: 3px;
+            padding-left: 5px;
+            alignment: stretch;
+            spacing: 5px;
+            si := Rectangle {
+                horizontal-stretch: 0;
+                width: 14px;
+                opacity: 0.4;
+                Image {
+                    width: 14px;
+                    source: Icons.search;
+                    colorize: EditorPalette.text-color;
+                }
+            }
+
+            Rectangle {
+                ti := TextInput {
+                    horizontal-stretch: 1;
+                    vertical-alignment: center;
+                    horizontal-alignment: left;
+                    font-family: "Inter";
+                    font-size: 12px;
+                    color: EditorPalette.text-color;
+                    text-cursor-width: 2px;
+                    selection-background-color: #3984ec;
+                    single-line: true;
+                    wrap: no-wrap;
+                    changed text => {
+                        root.edited(text);
+                    }
+                }
+
+                Text {
+                    x: ti.x;
+                    text: "Search";
+                    horizontal-alignment: left;
+                    font-family: "Inter";
+                    font-size: 12px;
+                    color: EditorPalette.text-color;
+                    opacity: 0.4;
+                    visible: ti.text == "";
+                }
+            }
+
+            Rectangle {
+                width: 18px;
+                opacity: ti.text != "" ? 1 : 0;
+                animate opacity { duration: 70ms; }
+
+                Image {
+                    width: 15px;
+                    source: Icons.close;
+                    colorize: EditorPalette.text-color;
+                }
+
+                Rectangle {
+                    width: 18px;
+                    height: self.width;
+                    background: EditorPalette.text-color.with-alpha(0.1);
+                    border-radius: self.height / 2;
+                    TouchArea {
+                        clicked => {
+                            ti.text = "";
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+export component SearchLineEdit inherits Rectangle {
 
     in property <string> default-text: "";
     in property <bool> enabled: true;
@@ -107,56 +192,56 @@ export component SearchLineEdit inherits Rectangle{
         }
     }
     HorizontalLayout {
-    alignment: space-between;
+        alignment: space-between;
 
-    sb := Rectangle {
-    min-width: 150px;
-    preferred-width: 400px;
-        border-radius: self.preferred-height/2;
-        background: Colors.white;
-        clip: true;
-        HorizontalLayout {
-            padding-left: EditorSpaceSettings.default-padding/2;
-            spacing: EditorSpaceSettings.default-spacing;
-            alignment: start;
-            VerticalLayout {
-                alignment: center;
-                Image {
-                    colorize: Palette.alternate-background;
-                    source: Icons.search;
-                    width: 20px;
-                    height: 20px;
-                }
-            }
-            Rectangle {
-            if !ti.has-focus:
-            VerticalLayout {
-            alignment: center;
-            Text {
-                text: "Search Term";
-                font-italic: true;
-                font-size: 1rem;
-                width: 100%;
-                color: Palette.alternate-foreground.transparentize(0.5);
-            }}
+        sb := Rectangle {
+            min-width: 150px;
+            preferred-width: 400px;
+            border-radius: self.preferred-height / 2;
+            background: Colors.white;
+            clip: true;
+            HorizontalLayout {
+                padding-left: EditorSpaceSettings.default-padding / 2;
+                spacing: EditorSpaceSettings.default-spacing;
+                alignment: start;
                 VerticalLayout {
-                    width: 100%;
                     alignment: center;
-                    padding: EditorSpaceSettings.default-padding/2;
-                    ti := TextInput {
-                        changed text => {
-                            root.edited(text);
-                        }
-                        width: 100%;
-                        selection-background-color: #00000000;
-                        enabled: root.enabled;
-                        text: root.default-text;
-                        font-size: 1rem;
-
-                        }
+                    Image {
+                        colorize: Palette.alternate-background;
+                        source: Icons.search;
+                        width: 20px;
+                        height: 20px;
                     }
                 }
 
+                Rectangle {
+                    if !ti.has-focus && ti.text == "":
+            VerticalLayout {
+                        alignment: center;
+                        Text {
+                            text: "Search Term";
+                            font-italic: true;
+                            font-size: 1rem;
+                            width: 100%;
+                            color: Palette.alternate-foreground.transparentize(0.5);
+                        }
+                    }
+                    VerticalLayout {
+                        width: 100%;
+                        alignment: center;
+                        padding: EditorSpaceSettings.default-padding / 2;
+                        ti := TextInput {
+                            changed text => {
+                                root.edited(text);
+                            }
+                            width: 100%;
+                            selection-background-color: #00000000;
+                            enabled: root.enabled;
+                            text: root.default-text;
+                            font-size: 1rem;
+                        }
+                    }
+                }
             }
         }
     }
@@ -193,6 +278,7 @@ export component ViewHeader inherits Rectangle {
     height: ConsoleStyles.header-height;
     background: ConsoleStyles.header-background;
     callback hide-parent();
+
     Rectangle {
         y: 0;
         width: 100%;
@@ -222,10 +308,14 @@ export component ViewHeader inherits Rectangle {
             font-size: 12px;
             text: header-text;
         }
-        SearchLineEdit {
-            horizontal-stretch: 1;
-            edited(text) => {
-                Api.library-search(text);
+
+        VerticalLayout {
+            alignment: center;
+            SearchBar {
+                width: 60%;
+                edited(text) => {
+                    Api.library-search(text);
+                }
             }
         }
 
@@ -240,6 +330,7 @@ export component ViewHeader inherits Rectangle {
         }
     }
 }
+
 export component SecondaryContent inherits Rectangle {
     in property <bool> enabled;
     in property <bool> open: false;
