@@ -6,33 +6,44 @@ import { ScrollView, Button, CheckBox, SpinBox, Slider, GroupBox, LineEdit, Stan
 
 export component App inherits Window {
     in-out property <bool> rotation-enabled <=> apply-rotation.checked;
-
-    preferred-width: 500px;
-    preferred-height: 600px;
+    preferred-width: 1280px;
+    preferred-height: 720px;
     title: "Slint OpenGL Underlay Example";
     icon: @image-url("../../logo/slint-logo-small-light.png");
-
-
-    VerticalBox {
-        Rectangle {
-            background: #ffffff92;
-
-            HorizontalBox {
-                Text {
-                    text: "This text is rendered using Slint. The animation below is rendered using OpenGL code.";
-                    wrap: word-wrap;
-                }
-
-                VerticalLayout {
-                    alignment: start;
-                    apply-rotation := CheckBox {
-                        checked: true;
-                        text: "Rotate the OpenGL underlay";
-                    }
+    Rectangle {
+        x: 0;
+        width: 33%;
+        background: #1B1B1Fcc;
+        VerticalBox {
+            padding-top: 55px;
+            y: 0;
+            padding: 37px;
+            alignment: start;
+            spacing: 15px;
+            Rectangle {
+                height: 65px;
+                Image {
+                    x: 0;
+                    width: 131px;
+                    source: @image-url("../../logo/slint-logo-simple-dark.png");
                 }
             }
-        }
 
-        Rectangle {}
+            Text {
+                text: "Slint OpenGL Underlay Example";
+                wrap: word-wrap;
+                font-size: 23px;
+            }
+
+            Text {
+                text: "The animation below is rendered using an OpenGL shader";
+                wrap: word-wrap;
+            }
+
+            apply-rotation := CheckBox {
+                checked: true;
+                text: "Enable shader rotation";
+            }
+        }
     }
 }

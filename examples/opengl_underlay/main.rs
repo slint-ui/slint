@@ -40,22 +40,42 @@ impl EGLUnderlay {
             varying vec2 frag_position;
             uniform float effect_time;
             uniform float rotation_time;
-
-            float roundRectDistance(vec2 pos, vec2 rect_size, float radius)
-            {
-                vec2 q = abs(pos) - rect_size + radius;
-                return min(max(q.x, q.y), 0.0) + length(max(q, 0.0)) - radius;
+            const vec3 COLOR_BG_DARK   = vec3(0.106, 0.106, 0.118);
+            const vec3 COLOR_DIAMOND   = vec3(0.137, 0.149, 0.184);
+            const vec3 COLOR_ACCENT    = vec3(0.12, 0.35, 0.75);
+            mat2 rotate(float angle) {
+                float s = sin(angle);
+                float c = cos(angle);
+                return mat2(c, -s, s, c);
             }
-
             void main() {
-                vec2 size = vec2(0.4, 0.5) + 0.2 * cos(effect_time / 500. + vec2(0.3, 0.2));
-                float radius = 0.5 * sin(effect_time / 300.);
-                float a = rotation_time / 800.0;
-                float d = roundRectDistance(mat2(cos(a), -sin(a), sin(a), cos(a)) * frag_position, size, radius);
-                vec3 col = (d > 0.0) ? vec3(sin(d * 0.2), 0.4 * cos(effect_time / 1000.0 + d * 0.8), sin(d * 1.2)) : vec3(0.2 * cos(d * 0.1), 0.17 * sin(d * 0.4), 0.96 * abs(sin(effect_time / 500. - d * 0.9)));
-                col *= 0.8 + 0.5 * sin(50.0 * d);
-                col = mix(col, vec3(0.9), 1.0 - smoothstep(0.0, 0.03, abs(d) ));
-                gl_FragColor = vec4(col, 1.0);
+                vec2 p_coords = frag_position;
+                float perspective_strength = 0.09;
+                float divisor = 1.0 + (-p_coords.y + 1.0) * perspective_strength;
+                p_coords /= divisor;
+                p_coords.y *= (1.0 + perspective_strength * 1.5);
+                const float MAX_ANGLE_DEGREES = 10.0;
+                float max_angle_rad = radians(MAX_ANGLE_DEGREES);
+                float oscillating_factor = sin(rotation_time / 1700.0);
+                float angle = oscillating_factor * max_angle_rad;
+                mat2 rotation_matrix = rotate(angle);
+                vec2 uv = rotation_matrix * p_coords * 6.0;
+                vec2 grid_id = floor(uv);
+                vec2 grid_uv = fract(uv) - 0.5;
+                float manhattan_dist = abs(grid_uv.x) + abs(grid_uv.y);
+                float wave_time = effect_time / 300.0;
+                float wave_offset = grid_id.x * 0.5 + grid_id.y * 0.15;
+                float accent_alpha = 0.5 + 0.5 * sin(wave_time + wave_offset);
+                accent_alpha = pow(accent_alpha, 2.0);
+                float diamond_size = 0.5;
+                float border_thickness = 0.03;
+                float diamond_fill_mask = 1.0 - smoothstep(diamond_size, diamond_size, manhattan_dist);
+                float border_glow_mask = smoothstep(diamond_size - border_thickness, diamond_size, manhattan_dist) -
+                                        smoothstep(diamond_size, diamond_size + border_thickness, manhattan_dist);
+                vec3 final_color = COLOR_BG_DARK;
+                final_color = mix(final_color, COLOR_DIAMOND, diamond_fill_mask);
+                final_color = mix(final_color, COLOR_ACCENT, border_glow_mask * accent_alpha);
+                gl_FragColor = vec4(final_color, 1.0);
             }"#,
             );
 
