@@ -3,7 +3,7 @@
 
 use i_slint_core::graphics::{Image, Rgba8Pixel, SharedPixelBuffer};
 use i_slint_core::input::FocusEventResult;
-use i_slint_core::items::InputType;
+use i_slint_core::items::{CapsMode, InputType};
 
 use super::*;
 
@@ -20,6 +20,7 @@ pub struct NativeLineEdit {
     pub enabled: Property<bool>,
     pub input_type: Property<InputType>,
     pub clear_icon: Property<Image>,
+    pub caps_mode: Property<CapsMode>,
     widget_ptr: std::cell::Cell<SlintTypeErasedWidgetPtr>,
     animation_tracker: Property<i32>,
 }
