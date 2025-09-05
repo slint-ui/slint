@@ -49,6 +49,12 @@ renderer-winit-software = ["renderer-software"]
 ## so that the viewer can find the translation
 gettext = ["i-slint-core/gettext-rs"]
 
+## Enable custom JSON-based translation system
+##
+## This allows loading translations from JSON files at runtime using --i18n-dir
+## and --locale command line arguments.
+custom-translations = []
+
 default = ["backend-default", "renderer-femtovg", "renderer-software"]
 
 [dependencies]
