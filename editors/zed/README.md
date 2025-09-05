@@ -13,8 +13,11 @@ Normally you won't need to configure anything. Unless you are using a developmen
 {
   "lsp": {
     "slint": {
-      "binary": "slint-lsp",
-      "args": []
+      "binary": {
+        "path": "/path/to/slint-lsp",
+        "arguments": [],
+        "env": {}
+      },
     }
   }
 }
