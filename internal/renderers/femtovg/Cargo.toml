@@ -34,7 +34,7 @@ derive_more = { workspace = true }
 lyon_path = "1.0"
 pin-weak = "1"
 scoped-tls-hkt = "0.1"
-femtovg = { version = "0.16.0" }
+femtovg = { version = "0.17.0" }
 ttf-parser = { workspace = true }
 unicode-script = { version = "0.5.4" } # Use the same version was femtovg's rustybuzz, to avoid duplicate crates
 imgref = { version = "1.6.1" }
