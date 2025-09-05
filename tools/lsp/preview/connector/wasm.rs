@@ -18,6 +18,7 @@ use wasm_bindgen::prelude::*;
 pub enum SlintPadCallbackFunction {
     OpenDemoUrl,
     ShowAbout,
+    CopyPermalink,
 }
 
 #[wasm_bindgen(typescript_custom_section)]
@@ -288,29 +289,24 @@ fn init_slintpad_specific_ui(api: &crate::preview::ui::Api) {
 }
 
 fn share_url_to_clipboard() {
-    let window = web_sys::window().unwrap();
-
-    let contents = preview::PREVIEW_STATE
-        .with_borrow(|preview_state| {
-            preview_state
-                .current_previewed_component
+    WASM_CALLBACKS.with_borrow(|callbacks| {
+        let maybe_callback = wasm_bindgen::JsValue::from(
+            callbacks
                 .as_ref()
-                .map(|component| component.url.clone())
-        })
-        .map(|url| crate::preview::get_url_from_cache(&url).1)
-        .unwrap_or_default();
-
-    let params = web_sys::UrlSearchParams::new().unwrap();
-    params.set("snippet", &contents);
-    params.set("style", &crate::preview::get_current_style());
-
-    let this_url =
-        web_sys::Url::new(&window.location().to_string().as_string().unwrap_or_default()).unwrap();
-    this_url.set_search(&params.to_string().as_string().unwrap_or_default());
-
-    let navigator = window.navigator();
-    let clipboard = navigator.clipboard();
-    let _ = clipboard.write_text(&this_url.to_string().as_string().unwrap_or_default());
+                .expect("Callbacks were set up earlier")
+                .invoke_slintpad_callback
+                .clone(),
+        );
+        if !maybe_callback.is_function() {
+            return;
+        }
+        let opener = js_sys::Function::from(maybe_callback);
+        let _ = opener.call2(
+            &JsValue::UNDEFINED,
+            &wasm_bindgen::JsValue::from(SlintPadCallbackFunction::CopyPermalink),
+            &wasm_bindgen::JsValue::undefined(),
+        );
+    });
 }
 
 fn open_demo_url(url: &str) {

@@ -297,6 +297,9 @@ importers:
       '@types/vscode':
         specifier: 1.92.0
         version: 1.92.0
+      fflate:
+        specifier: 0.8.2
+        version: 0.8.2
       monaco-editor:
         specifier: npm:@codingame/monaco-vscode-editor-api@8.0.4
         version: '@codingame/monaco-vscode-editor-api@8.0.4'
@@ -3352,6 +3355,9 @@ packages:
     peerDependenciesMeta:
       picomatch:
         optional: true
+
+  fflate@0.8.2:
+    resolution: {integrity: sha512-cPJU47OaAoCbg0pBvzsgpTPhmhqI5eJjh/JIu8tPj5q+T7iLvW/JAYUqmE7KOB4R1ZyEhzBaIQpQpardBF5z8A==}
 
   figma-kit@1.0.0-beta.19:
     resolution: {integrity: sha512-GDaywjzD+rJndQmHM0cnwxf6lg4ge6REUByPHs4UysbExJQGdkCgfW2rvSR1Z/g+mSC7yYdNCjgHZkp1m6KGjg==}
@@ -9207,6 +9213,8 @@ snapshots:
   fdir@6.5.0(picomatch@4.0.3):
     optionalDependencies:
       picomatch: 4.0.3
+
+  fflate@0.8.2: {}
 
   figma-kit@1.0.0-beta.19(@types/react-dom@19.1.9(@types/react@19.1.12))(@types/react@19.1.12)(react-dom@19.1.1(react@19.1.1))(react@19.1.1):
     dependencies:

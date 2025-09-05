@@ -33,6 +33,8 @@ import "vscode/localExtensionHost";
 import type { IStandaloneCodeEditor } from "vscode/vscode/vs/editor/standalone/browser/standaloneCodeEditor";
 import type { ITextEditorModel } from "vscode/vscode/vs/editor/common/services/resolverService";
 
+import * as fflate from "fflate";
+
 let EDITOR_WIDGET: EditorWidget | null = null;
 
 const FILESYSTEM_PROVIDER: RegisteredFileSystemProvider =
@@ -403,7 +405,13 @@ export class EditorWidget extends Widget {
 
     private open_default_content() {
         const params = new URLSearchParams(window.location.search);
-        const code = params.get("snippet");
+        const compressed = params.get("s");
+        let code;
+        if (compressed) {
+            code = decompress(compressed);
+        } else {
+            code = params.get("snippet");
+        }
         const load_url = params.get("load_url");
         const load_demo = params.get("load_demo");
 
@@ -667,4 +675,32 @@ export class EditorWidget extends Widget {
 
         return [internal_uri, doc];
     }
+
+    public copy_permalink_to_clipboard() {
+        const params = new URLSearchParams();
+        params.set("s", compress(this.current_editor_content));
+        const url = new URL(window.location.href);
+        url.search = params.toString();
+        navigator.clipboard.writeText(url.toString());
+    }
+}
+
+// Return an URL-compatible base64 encoded string
+function compress(text: string): string {
+    const buf = fflate.strToU8(text);
+    const compressed = fflate.gzipSync(buf)
+    const binary = Array.from(compressed, byte => String.fromCharCode(byte)).join('');
+    const b64 = btoa(binary);
+    return b64.replace(/\+/g, "-").replace(/\//g, "_");
+}
+
+function decompress(b64: string): string {
+    const base64 = b64.replace(/-/g, "+").replace(/_/g, "/");
+    const binary = atob(base64);
+    const compressed = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+        compressed[i] = binary.charCodeAt(i);
+    }
+    const decompressed = fflate.gunzipSync(compressed);
+    return fflate.strFromU8(decompressed);
 }
