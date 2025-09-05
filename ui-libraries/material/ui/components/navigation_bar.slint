@@ -90,7 +90,7 @@ export component NavigationItemTemplate inherits BaseNavigationItemTemplate {
                              }
                         }
 
-                        if root.empty_badge || root.badge != "" : Badge {
+                        if root.show_badge || root.badge != "" : Badge {
                             x: parent.width / 2;
                             y: 0;
                             text: root.badge;
@@ -138,7 +138,7 @@ export component NavigationBar inherits BaseNavigation {
                 text: item.text;
                 index: index;
                 selected: index == root.current_index;
-                empty_badge: item.empty_badge;
+                show_badge: item.show_badge;
                 badge: item.badge;
 
                 clicked => {

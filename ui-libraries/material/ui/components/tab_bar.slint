@@ -125,7 +125,7 @@ export component TabBar inherits BaseNavigation {
                 text: item.text;
                 index: index;
                 selected: index == root.current_index;
-                empty_badge: item.empty_badge;
+                show_badge: item.show_badge;
                 badge: item.badge;
 
                 clicked => {
@@ -185,7 +185,7 @@ export component SecondaryTabBar inherits BaseNavigation {
                 text: item.text;
                 index: index;
                 selected: index == root.current_index;
-                empty_badge: item.empty_badge;
+                show_badge: item.show_badge;
                 badge: item.badge;
 
                 clicked => {

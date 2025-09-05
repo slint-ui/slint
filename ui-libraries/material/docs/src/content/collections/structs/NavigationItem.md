@@ -11,5 +11,5 @@ This structure represents a NavigationItem with an icon, text, badge, and empty 
 - **`icon`** (_image_): The icon to display in the item.
 - **`selected-icon`** (_image_): The icon to display in the item when selected.
 - **`text`** (_string_): The text to display in the item.
-- **`empty-badge`** (_bool_): Whether the badge is empty.
+- **`show-badge`** (_bool_): Whether the badge is empty.
 - **`badge`** (_string_): The badge to display in the item.
