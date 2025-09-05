@@ -119,7 +119,7 @@ component SearchTextInput  {
 export component SearchBar {
     in property <image> leading_icon: Icons.menu;
     in property <image> trailing_icon;
-    in property <image> avatar;
+    in property <image> avatar_icon;
     in property <color> avatar_background: #00000000;
     in property <string> placeholder;
     in property <string> empty_text;
@@ -176,11 +176,11 @@ export component SearchBar {
                     color: root.color;
                 }
 
-                if (root.avatar.width > 0 && root.avatar.height > 0) || root.avatar_background != #00000000 : VerticalLayout {
+                if (root.avatar_icon.width > 0 && root.avatar_icon.height > 0) || root.avatar_background != #00000000 : VerticalLayout {
                     alignment: center;
 
                     Avatar  {
-                        image: root.avatar;
+                        image: root.avatar_icon;
                         background: root.avatar_background;
                     }
                 }

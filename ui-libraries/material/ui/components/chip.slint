@@ -14,7 +14,7 @@ export component ActionChip {
     in property <string> text <=> base.text;
     in property <bool> enabled <=> base.enabled;
     in property <string> tooltip <=> base.tooltip;
-    in property <image> avatar <=> base.avatar;
+    in property <image> avatar_icon <=> base.avatar-icon;
     in property <color> avatar_background <=> base.avatar_background;
 
     callback clicked <=> base.clicked;
@@ -117,7 +117,7 @@ export component FilterChip {
 export component InputChip {
     in property <image> leading_icon <=> base.icon;
     in property <image> trailing_icon;
-    in property <image> avatar <=> base.avatar;
+    in property <image> avatar <=> base.avatar-icon;
     in property <color> avatar_background <=> base.avatar_background;
     in property <string> text <=> base.text;
     in property <bool> enabled <=> base.enabled;
