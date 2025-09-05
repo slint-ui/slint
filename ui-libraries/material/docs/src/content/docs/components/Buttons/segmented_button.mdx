@@ -15,7 +15,7 @@ export component Example inherits Window {
     height: 100px;
     background: transparent;
     SegmentedButton {
-        model: [
+        items: [
             { icon: @image-url("../icons/share.svg"), text: "Share" },
             { icon: @image-url("../icons/music_note.svg"), text: "Music" }
         ];
@@ -34,8 +34,8 @@ A `SegmentedButton` displays a group of related options as a single control, whe
 The index of the currently selected item.
 </SlintProperty>
 
-### model
-<SlintProperty propName="model" typeName="[struct]" structName="SegmentedItem">
+### items
+<SlintProperty propName="items" typeName="[struct]" structName="SegmentedItem">
 An array of segmented items, each containing an icon and text.
 </SlintProperty>
 

@@ -60,7 +60,7 @@ component SegmentedItemTemplate {
 }
 
 export component SegmentedButton {
-    in property <[SegmentedItem]> model;
+    in property <[SegmentedItem]> items;
     in_out property <int> current_index;
 
     callback index_changed(index: int);
@@ -69,7 +69,7 @@ export component SegmentedButton {
     min_height: max(MaterialStyleMetrics.size_40, layout.min_height);
 
     accessible-role: list;
-    accessible-item-count: root.model.length;
+    accessible-item-count: root.items.length;
 
     Rectangle {
         clip: true;
@@ -78,11 +78,11 @@ export component SegmentedButton {
         border_color: MaterialPalette.outline;
 
         layout := HorizontalLayout {
-            for item[index] in root.model : SegmentedItemTemplate {
+            for item[index] in root.items : SegmentedItemTemplate {
                 icon: item.icon;
                 text: item.text;
                 index: index;
-                last: index == root.model.length - 1;
+                last: index == root.items.length - 1;
                 selected: index == root.current_index;
 
                 clicked => {
@@ -93,7 +93,7 @@ export component SegmentedButton {
     }
 
     function select(index: int) {
-        if index < 0 || index >= root.model.length {
+        if index < 0 || index >= root.items.length {
             return;
         }
 
