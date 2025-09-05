@@ -521,20 +521,10 @@ impl Item for SwipeGestureHandler {
                     InputEventFilterResult::Intercept
                 } else if !self.pressed.get() {
                     InputEventFilterResult::ForwardEvent
+                } else if self.is_over_threshold(position) {
+                    InputEventFilterResult::Intercept
                 } else {
-                    let pressed_pos = self.pressed_position();
-                    let dx = position.x - pressed_pos.x as Coord;
-                    let dy = position.y - pressed_pos.y as Coord;
-                    let threshold = super::flickable::DISTANCE_THRESHOLD.get();
-                    if (self.handle_swipe_down() && dy > threshold)
-                        || (self.handle_swipe_up() && dy < -threshold)
-                        || (self.handle_swipe_left() && dx < -threshold)
-                        || (self.handle_swipe_right() && dx > threshold)
-                    {
-                        InputEventFilterResult::Intercept
-                    } else {
-                        InputEventFilterResult::ForwardAndInterceptGrab
-                    }
+                    InputEventFilterResult::ForwardAndInterceptGrab
                 }
             }
             MouseEvent::Wheel { .. } => InputEventFilterResult::ForwardAndIgnore,
@@ -576,25 +566,20 @@ impl Item for SwipeGestureHandler {
             }
             MouseEvent::Moved { position } => {
                 if !self.pressed.get() {
-                    return InputEventResult::EventIgnored;
+                    return InputEventResult::EventAccepted;
                 }
                 self.current_position.set(crate::lengths::logical_position_to_api(*position));
-                if !self.swiping() {
-                    let pressed_pos = self.pressed_position();
-                    let dx = position.x - pressed_pos.x as Coord;
-                    let dy = position.y - pressed_pos.y as Coord;
-                    let threshold = super::flickable::DISTANCE_THRESHOLD.get();
-                    let start_swipe = (self.handle_swipe_down() && dy > threshold)
-                        || (self.handle_swipe_up() && dy < -threshold)
-                        || (self.handle_swipe_left() && dx < -threshold)
-                        || (self.handle_swipe_right() && dx > threshold);
-
-                    if start_swipe {
-                        Self::FIELD_OFFSETS.swiping.apply_pin(self).set(true);
-                    }
+                let mut swiping = self.swiping();
+                if !swiping && self.is_over_threshold(position) {
+                    Self::FIELD_OFFSETS.swiping.apply_pin(self).set(true);
+                    swiping = true;
                 }
                 Self::FIELD_OFFSETS.moved.apply_pin(self).call(&());
-                InputEventResult::GrabMouse
+                if swiping {
+                    InputEventResult::GrabMouse
+                } else {
+                    InputEventResult::EventAccepted
+                }
             }
             MouseEvent::Wheel { .. } => InputEventResult::EventIgnored,
             MouseEvent::DragMove(..) | MouseEvent::Drop(..) => InputEventResult::EventIgnored,
@@ -671,6 +656,17 @@ impl SwipeGestureHandler {
             Self::FIELD_OFFSETS.swiping.apply_pin(self).set(false);
             Self::FIELD_OFFSETS.cancelled.apply_pin(self).call(&());
         }
+    }
+
+    fn is_over_threshold(self: Pin<&Self>, position: &LogicalPoint) -> bool {
+        let pressed_pos = self.pressed_position();
+        let dx = position.x - pressed_pos.x as Coord;
+        let dy = position.y - pressed_pos.y as Coord;
+        let threshold = super::flickable::DISTANCE_THRESHOLD.get();
+        (self.handle_swipe_down() && dy > threshold && dy > dx.abs() / 2 as Coord)
+            || (self.handle_swipe_up() && dy < -threshold && dy < -dx.abs() / 2 as Coord)
+            || (self.handle_swipe_left() && dx < -threshold && dx < -dy.abs() / 2 as Coord)
+            || (self.handle_swipe_right() && dx > threshold && dx > dy.abs() / 2 as Coord)
     }
 }
 
