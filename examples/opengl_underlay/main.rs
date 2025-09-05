@@ -32,7 +32,11 @@ impl EGLUnderlay {
                 gl_Position = vec4(position, 0.0, 1.0);
             }"#,
                 r#"#version 100
-            precision highp float;
+            #ifdef GL_FRAGMENT_PRECISION_HIGH
+                precision highp float;
+            #else
+                precision mediump float;
+            #endif
             varying vec2 frag_position;
             uniform float effect_time;
             uniform float rotation_time;
