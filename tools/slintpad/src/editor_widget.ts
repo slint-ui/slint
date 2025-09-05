@@ -686,8 +686,10 @@ export class EditorWidget extends Widget {
 // Return an URL-compatible base64 encoded string
 function compress(text: string): string {
     const buf = fflate.strToU8(text);
-    const compressed = fflate.gzipSync(buf)
-    const binary = Array.from(compressed, byte => String.fromCharCode(byte)).join('');
+    const compressed = fflate.gzipSync(buf);
+    const binary = Array.from(compressed, (byte) =>
+        String.fromCharCode(byte),
+    ).join("");
     const b64 = btoa(binary);
     return b64.replace(/\+/g, "-").replace(/\//g, "_");
 }
