@@ -2066,43 +2066,6 @@ impl WindowAdapter for QtWindow {
     fn internal(&self, _: i_slint_core::InternalToken) -> Option<&dyn WindowAdapterInternal> {
         Some(self)
     }
-}
-
-fn into_qsize(logical_size: i_slint_core::api::LogicalSize) -> qttypes::QSize {
-    qttypes::QSize {
-        width: logical_size.width.round() as _,
-        height: logical_size.height.round() as _,
-    }
-}
-
-impl WindowAdapterInternal for QtWindow {
-    fn register_item_tree(&self) {
-        self.tree_structure_changed.replace(true);
-    }
-
-    fn unregister_item_tree(
-        &self,
-        _component: ItemTreeRef,
-        _: &mut dyn Iterator<Item = Pin<ItemRef<'_>>>,
-    ) {
-        self.tree_structure_changed.replace(true);
-    }
-
-    fn create_popup(&self, geometry: LogicalRect) -> Option<Rc<dyn WindowAdapter>> {
-        let popup_window = QtWindow::new();
-
-        let size = qttypes::QSize { width: geometry.width() as _, height: geometry.height() as _ };
-
-        let popup_ptr = popup_window.widget_ptr();
-        let pos = qttypes::QPoint { x: geometry.origin.x as _, y: geometry.origin.y as _ };
-        let widget_ptr = self.widget_ptr();
-        cpp! {unsafe [widget_ptr as "QWidget*", popup_ptr as "QWidget*", pos as "QPoint", size as "QSize"] {
-            popup_ptr->setParent(widget_ptr, Qt::Popup);
-            popup_ptr->setGeometry(QRect(pos + widget_ptr->mapToGlobal(QPoint(0,0)), size));
-            popup_ptr->show();
-        }};
-        Some(popup_window as _)
-    }
 
     fn set_mouse_cursor(&self, cursor: MouseCursor) {
         let widget_ptr = self.widget_ptr();
@@ -2142,6 +2105,44 @@ impl WindowAdapterInternal for QtWindow {
             widget_ptr->setCursor(QCursor{cursor_shape});
         }};
     }
+}
+
+fn into_qsize(logical_size: i_slint_core::api::LogicalSize) -> qttypes::QSize {
+    qttypes::QSize {
+        width: logical_size.width.round() as _,
+        height: logical_size.height.round() as _,
+    }
+}
+
+impl WindowAdapterInternal for QtWindow {
+    fn register_item_tree(&self) {
+        self.tree_structure_changed.replace(true);
+    }
+
+    fn unregister_item_tree(
+        &self,
+        _component: ItemTreeRef,
+        _: &mut dyn Iterator<Item = Pin<ItemRef<'_>>>,
+    ) {
+        self.tree_structure_changed.replace(true);
+    }
+
+    fn create_popup(&self, geometry: LogicalRect) -> Option<Rc<dyn WindowAdapter>> {
+        let popup_window = QtWindow::new();
+
+        let size = qttypes::QSize { width: geometry.width() as _, height: geometry.height() as _ };
+
+        let popup_ptr = popup_window.widget_ptr();
+        let pos = qttypes::QPoint { x: geometry.origin.x as _, y: geometry.origin.y as _ };
+        let widget_ptr = self.widget_ptr();
+        cpp! {unsafe [widget_ptr as "QWidget*", popup_ptr as "QWidget*", pos as "QPoint", size as "QSize"] {
+            popup_ptr->setParent(widget_ptr, Qt::Popup);
+            popup_ptr->setGeometry(QRect(pos + widget_ptr->mapToGlobal(QPoint(0,0)), size));
+            popup_ptr->show();
+        }};
+        Some(popup_window as _)
+    }
+
 
     fn input_method_request(&self, request: i_slint_core::window::InputMethodRequest) {
         let widget_ptr = self.widget_ptr();
