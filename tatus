@@ -1,0 +1,5 @@
+[33m79fa8741d[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mfeature/public-mouse-cursor[m[33m, [m[1;31morigin/feature/public-mouse-cursor[m[33m)[m fix: move set_mouse_cursor to WindowAdapter trait in remaining backends
+[33m067b9b880[m [autofix.ci] apply automated fixes
+[33meb0131c4c[m feat(api): expose MouseCursor and set_mouse_cursor in public API
+[33m186dd4525[m[33m ([m[1;31morigin/master[m[33m, [m[1;31morigin/HEAD[m[33m, [m[1;32mmaster[m[33m)[m QT: Hook up `cursorFlashTime` and pass the value to `TextCursorBlinker` (#9311)
+[33m51041a213[m doc: fix cargo features link
