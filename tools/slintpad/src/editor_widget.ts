@@ -705,6 +705,8 @@ async function decompress(b64: string): Promise<string> {
         .stream()
         .pipeThrough(new DecompressionStream("gzip"));
 
-    const decompressedBuffer = await new Response(decompressedStream).arrayBuffer();
+    const decompressedBuffer = await new Response(
+        decompressedStream,
+    ).arrayBuffer();
     return new TextDecoder().decode(decompressedBuffer);
 }
