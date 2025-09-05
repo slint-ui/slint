@@ -46,7 +46,7 @@ jobs:
                   sudo apt-get install ttf-mscorefonts-installer -y
             - uses: ./.github/actions/setup-rust
               with:
-                  toolchain: nightly
+                  toolchain: nightly-2025-09-01 # Pinnded because faillure to build cargo-about
                   components: rustfmt
                   target: aarch64-linux-android
             - name: Install apt dependencies
