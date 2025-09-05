@@ -177,8 +177,6 @@ macro_rules! for_each_enums {
                 Forward,
             }
 
-          
-
             /// This enum defines how the source image shall fit into an `Image` element.
             enum ImageFit {
                 /// Scales and stretches the source image to fit the width and height of the `Image` element.

@@ -1,15 +1,13 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use super::{
-    DropEvent, Item, ItemConsts, ItemRc, PointerEventButton, RenderingResult,
-};
-use crate::items::MouseCursor;
+use super::{DropEvent, Item, ItemConsts, ItemRc, PointerEventButton, RenderingResult};
 use crate::input::{
     FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, KeyEvent,
     KeyEventResult, MouseEvent,
 };
 use crate::item_rendering::{CachedRenderingData, ItemRenderer};
+use crate::items::MouseCursor;
 use crate::layout::{LayoutInfo, Orientation};
 use crate::lengths::{LogicalPoint, LogicalRect, LogicalSize};
 #[cfg(feature = "rtti")]

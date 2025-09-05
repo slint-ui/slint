@@ -119,7 +119,6 @@ impl WindowAdapterInternal for TestingWindow {
     fn input_method_request(&self, request: i_slint_core::window::InputMethodRequest) {
         self.ime_requests.borrow_mut().push(request)
     }
-
 }
 
 impl WindowAdapter for TestingWindow {

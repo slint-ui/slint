@@ -134,16 +134,16 @@ mod tests {
         let default_cursor = MouseCursor::Default;
         let pointer_cursor = MouseCursor::Pointer;
         let text_cursor = MouseCursor::Text;
-        
+
         // Test that Default trait works
         let default = MouseCursor::default();
         assert_eq!(default, MouseCursor::Default);
-        
+
         // Test that we can compare cursors
         assert_eq!(default_cursor, MouseCursor::Default);
         assert_ne!(default_cursor, pointer_cursor);
         assert_ne!(pointer_cursor, text_cursor);
-        
+
         // Test that we can clone and copy
         let cloned = default_cursor;
         assert_eq!(cloned, default_cursor);

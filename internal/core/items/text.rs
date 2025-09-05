@@ -19,6 +19,7 @@ use crate::input::{
     KeyEvent, KeyboardModifiers, MouseEvent, StandardShortcut, TextShortcut,
 };
 use crate::item_rendering::{CachedRenderingData, ItemRenderer, RenderText};
+use crate::items::MouseCursor;
 use crate::layout::{LayoutInfo, Orientation};
 use crate::lengths::{
     LogicalLength, LogicalPoint, LogicalRect, LogicalSize, ScaleFactor, SizeLengths,
@@ -28,7 +29,6 @@ use crate::platform::Clipboard;
 use crate::rtti::*;
 use crate::window::{InputMethodProperties, InputMethodRequest, WindowAdapter, WindowInner};
 use crate::{Callback, Coord, Property, SharedString, SharedVector};
-use crate::items::MouseCursor;
 use alloc::rc::Rc;
 use alloc::string::String;
 use const_field_offset::FieldOffsets;
