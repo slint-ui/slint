@@ -403,12 +403,12 @@ export class EditorWidget extends Widget {
         this.#tab_panel!.currentWidget = pane;
     }
 
-    private open_default_content() {
+    private async open_default_content() {
         const params = new URLSearchParams(window.location.search);
         const compressed = params.get("s");
         let code = params.get("snippet");
         if (compressed) {
-            code = decompress(compressed);
+            code = await decompress(compressed);
         }
         const load_url = params.get("load_url");
         const load_demo = params.get("load_demo");
@@ -674,9 +674,9 @@ export class EditorWidget extends Widget {
         return [internal_uri, doc];
     }
 
-    public copy_permalink_to_clipboard() {
+    public async copy_permalink_to_clipboard() {
         const params = new URLSearchParams();
-        params.set("s", compress(this.current_editor_content));
+        params.set("s", await compress(this.current_editor_content));
         const url = new URL(window.location.href);
         url.search = params.toString();
         navigator.clipboard.writeText(url.toString());
@@ -684,23 +684,27 @@ export class EditorWidget extends Widget {
 }
 
 // Return an URL-compatible base64 encoded string
-function compress(text: string): string {
-    const buf = fflate.strToU8(text);
-    const compressed = fflate.gzipSync(buf);
-    const binary = Array.from(compressed, (byte) =>
-        String.fromCharCode(byte),
-    ).join("");
+async function compress(text: string): Promise<string> {
+    const input = new TextEncoder().encode(text);
+    const compressedStream = new Blob([input])
+        .stream()
+        .pipeThrough(new CompressionStream("gzip"));
+
+    const compressedBuffer = await new Response(compressedStream).arrayBuffer();
+    const binary = String.fromCharCode(...new Uint8Array(compressedBuffer));
     const b64 = btoa(binary);
     return b64.replace(/\+/g, "-").replace(/\//g, "_");
 }
 
-function decompress(b64: string): string {
+async function decompress(b64: string): Promise<string> {
     const base64 = b64.replace(/-/g, "+").replace(/_/g, "/");
     const binary = atob(base64);
-    const compressed = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i++) {
-        compressed[i] = binary.charCodeAt(i);
-    }
-    const decompressed = fflate.gunzipSync(compressed);
-    return fflate.strFromU8(decompressed);
+    const compressed = Uint8Array.from(binary, (c) => c.charCodeAt(0));
+
+    const decompressedStream = new Blob([compressed])
+        .stream()
+        .pipeThrough(new DecompressionStream("gzip"));
+
+    const decompressedBuffer = await new Response(decompressedStream).arrayBuffer();
+    return new TextDecoder().decode(decompressedBuffer);
 }

@@ -41,7 +41,6 @@
         "@playwright/test": "1.55.0",
         "@types/node": "20.16.10",
         "@types/vscode": "1.92.0",
-        "fflate": "0.8.2",
         "monaco-editor": "npm:@codingame/monaco-vscode-editor-api@8.0.4",
         "monaco-editor-wrapper": "~5.5.3",
         "monaco-languageclient": "~8.8.3",

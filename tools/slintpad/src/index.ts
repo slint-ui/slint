@@ -44,7 +44,7 @@ function setup(lsp: Lsp) {
             } else if (func_type === SlintPadCallbackFunction.ShowAbout) {
                 about_dialog();
             } else if (func_type === SlintPadCallbackFunction.CopyPermalink) {
-                editor.copy_permalink_to_clipboard();
+                void editor.copy_permalink_to_clipboard();
             }
         },
     );
