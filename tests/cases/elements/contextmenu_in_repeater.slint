@@ -9,9 +9,26 @@ export global The_Global {
     in-out property <string> filename: "foo.txt";
 }
 
+component Issue9319 inherits Rectangle {
+    callback activated(string);
+    i9319 := ContextMenuArea {
+        Menu {
+            MenuItem {
+                title: "Issue8319";
+                activated => root.activated(self.title);
+            }
+        }
+    }
+}
+
+
+
 export component TestCase inherits Window {
     in-out property <string> app_title: "Application";
-    width: 700px;
+
+    in property <bool> condition: true;
+
+    width: 875px;
     height: 700px;
     HorizontalLayout {
         for model in 4 : Rectangle {
@@ -46,6 +63,11 @@ export component TestCase inherits Window {
                 }
             }
         }
+        if condition: Issue9319 {
+            activated(title) => {
+                app_title = title;
+            }
+        }
     }
 
     out property <bool> test: true;
@@ -67,6 +89,14 @@ slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key:
 slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::DownArrow));
 slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::Return));
 assert_eq!(instance.get_app_title(), "Exited 2");
+
+// Test for Issue8319
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(750.0, 100.0), button: PointerEventButton::Right });
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(751.0, 200.0), button: PointerEventButton::Right });
+slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::DownArrow));
+slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::Return));
+assert_eq!(instance.get_app_title(), "Issue8319");
+
 ```
 
 ```cpp
@@ -84,5 +114,13 @@ slint_testing::send_keyboard_string_sequence(&instance, slint::platform::key_cod
 slint_testing::send_keyboard_string_sequence(&instance, slint::platform::key_codes::DownArrow);
 slint_testing::send_keyboard_string_sequence(&instance, slint::platform::key_codes::Return);
 assert_eq(instance.get_app_title(), "Exited 2");
+
+// Test for Issue8319
+instance.window().dispatch_pointer_press_event(slint::LogicalPosition({750.0, 100.0}), slint::PointerEventButton::Right);
+instance.window().dispatch_pointer_release_event(slint::LogicalPosition({751.0, 200.0}), slint::PointerEventButton::Right);
+slint_testing::send_keyboard_string_sequence(&instance, slint::platform::key_codes::DownArrow);
+slint_testing::send_keyboard_string_sequence(&instance, slint::platform::key_codes::Return);
+assert_eq(instance.get_app_title(), "Issue8319");
+
 ```
 */

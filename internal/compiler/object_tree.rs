@@ -2245,7 +2245,12 @@ pub fn recurse_elem_including_sub_components_no_borrow<State>(
     recurse_elem_no_borrow(&component.root_element, state, &mut |elem, state| {
         let base = if elem.borrow().repeated.is_some() {
             if let ElementType::Component(base) = &elem.borrow().base_type {
-                Some(base.clone())
+                if base.parent_element.upgrade().is_some() {
+                    Some(base.clone())
+                } else {
+                    // The process_repeater_components pass was not run yet
+                    None
+                }
             } else {
                 None
             }
