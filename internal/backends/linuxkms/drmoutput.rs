@@ -8,6 +8,7 @@ use std::rc::Rc;
 use crate::DeviceOpener;
 use drm::buffer::Buffer;
 use drm::control::Device;
+use drm::Device as DrmDevice;
 use i_slint_core::platform::PlatformError;
 
 // Wrapped needed because gbm::Device<T> wants T to be sized.
@@ -19,7 +20,7 @@ impl AsFd for SharedFd {
     }
 }
 
-impl drm::Device for SharedFd {}
+impl DrmDevice for SharedFd {}
 
 impl drm::control::Device for SharedFd {}
 
@@ -253,6 +254,9 @@ impl DrmOutput {
     }
 
     pub fn get_supported_formats(&self) -> Result<Vec<drm::buffer::DrmFourcc>, PlatformError> {
+        // Try to set universal planes client capability if possible
+        let _ = self.drm_device.set_client_capability(drm::ClientCapability::UniversalPlanes, true);
+        
         // Try to get formats from the plane associated with our CRTC
         if let Ok(plane_handles) = self.drm_device.plane_handles() {
             for &plane_handle in &plane_handles {
