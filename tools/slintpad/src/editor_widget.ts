@@ -33,6 +33,8 @@ import "vscode/localExtensionHost";
 import type { IStandaloneCodeEditor } from "vscode/vscode/vs/editor/standalone/browser/standaloneCodeEditor";
 import type { ITextEditorModel } from "vscode/vscode/vs/editor/common/services/resolverService";
 
+import * as fflate from "fflate";
+
 let EDITOR_WIDGET: EditorWidget | null = null;
 
 const FILESYSTEM_PROVIDER: RegisteredFileSystemProvider =
@@ -401,9 +403,13 @@ export class EditorWidget extends Widget {
         this.#tab_panel!.currentWidget = pane;
     }
 
-    private open_default_content() {
+    private async open_default_content() {
         const params = new URLSearchParams(window.location.search);
-        const code = params.get("snippet");
+        const compressed = params.get("s");
+        let code = params.get("snippet");
+        if (compressed) {
+            code = await decompress(compressed);
+        }
         const load_url = params.get("load_url");
         const load_demo = params.get("load_demo");
 
@@ -667,4 +673,40 @@ export class EditorWidget extends Widget {
 
         return [internal_uri, doc];
     }
+
+    public async copy_permalink_to_clipboard() {
+        const params = new URLSearchParams();
+        params.set("s", await compress(this.current_editor_content));
+        const url = new URL(window.location.href);
+        url.search = params.toString();
+        navigator.clipboard.writeText(url.toString());
+    }
+}
+
+// Return an URL-compatible base64 encoded string
+async function compress(text: string): Promise<string> {
+    const input = new TextEncoder().encode(text);
+    const compressedStream = new Blob([input])
+        .stream()
+        .pipeThrough(new CompressionStream("gzip"));
+
+    const compressedBuffer = await new Response(compressedStream).arrayBuffer();
+    const binary = String.fromCharCode(...new Uint8Array(compressedBuffer));
+    const b64 = btoa(binary);
+    return b64.replace(/\+/g, "-").replace(/\//g, "_");
+}
+
+async function decompress(b64: string): Promise<string> {
+    const base64 = b64.replace(/-/g, "+").replace(/_/g, "/");
+    const binary = atob(base64);
+    const compressed = Uint8Array.from(binary, (c) => c.charCodeAt(0));
+
+    const decompressedStream = new Blob([compressed])
+        .stream()
+        .pipeThrough(new DecompressionStream("gzip"));
+
+    const decompressedBuffer = await new Response(
+        decompressedStream,
+    ).arrayBuffer();
+    return new TextDecoder().decode(decompressedBuffer);
 }
