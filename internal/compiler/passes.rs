@@ -6,7 +6,6 @@ mod binding_analysis;
 mod border_radius;
 mod check_expressions;
 mod check_public_api;
-mod check_rotation;
 mod clip;
 mod collect_custom_fonts;
 mod collect_globals;
@@ -331,6 +330,5 @@ pub fn run_import_passes(
     purity_check::purity_check(doc, diag);
     focus_handling::replace_forward_focus_bindings_with_focus_functions(doc, diag);
     check_expressions::check_expressions(doc, diag);
-    check_rotation::check_rotation(doc, diag);
     unique_id::check_unique_id(doc, diag);
 }
