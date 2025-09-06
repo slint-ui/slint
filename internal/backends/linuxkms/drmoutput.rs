@@ -274,8 +274,9 @@ impl DrmOutput {
             }
         }
 
-        Err(format!("No available formats found for current plane with CRTC {:?}", self.crtc)
-            .into())
+        eprintln!("No available formats found for any plane with CRTC {:?}. Falling back to XRGB8888 format", self.crtc);
+
+        Ok(vec![drm::buffer::DrmFourcc::Xrgb8888])
     }
 
     pub fn size(&self) -> (u32, u32) {
