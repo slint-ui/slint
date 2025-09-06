@@ -274,7 +274,7 @@ impl DrmOutput {
                 }
             }
         }
-        
+
         if all_formats.is_empty() {
             eprintln!("No available formats found for any plane with CRTC {:?}. Falling back to XRGB8888 format", self.crtc);
 
