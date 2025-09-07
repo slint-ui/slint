@@ -86,8 +86,6 @@ pub struct FemtoVGRenderer<B: GraphicsBackend> {
     rendering_first_time: Cell<bool>,
     // Last field, so that it's dropped last and for example the OpenGL context exists and is current when destroying the FemtoVG canvas
     graphics_backend: B,
-    #[cfg(target_arch = "wasm32")]
-    canvas_id: RefCell<String>,
 }
 
 impl<B: GraphicsBackend> FemtoVGRenderer<B> {
@@ -260,27 +258,11 @@ impl<B: GraphicsBackend> FemtoVGRenderer<B> {
         Ok(())
     }
 
-    #[cfg(not(target_arch = "wasm32"))]
     fn with_graphics_api(
         &self,
         callback: impl FnOnce(i_slint_core::api::GraphicsAPI<'_>),
     ) -> Result<(), PlatformError> {
         self.graphics_backend.with_graphics_api(|api| callback(api.unwrap()))
-    }
-
-    #[cfg(target_arch = "wasm32")]
-    fn with_graphics_api(
-        &self,
-        callback: impl FnOnce(i_slint_core::api::GraphicsAPI<'_>),
-    ) -> Result<(), PlatformError> {
-        use i_slint_core::api::GraphicsAPI;
-
-        let canvas_id = self.canvas_id.borrow();
-
-        let api =
-            GraphicsAPI::WebGL { canvas_element_id: canvas_id.as_str(), context_type: "webgl2" };
-        callback(api);
-        Ok(())
     }
 
     fn window_adapter(&self) -> Result<Rc<dyn WindowAdapter>, PlatformError> {
@@ -542,8 +524,6 @@ impl<B: GraphicsBackend> FemtoVGRendererExt for FemtoVGRenderer<B> {
             rendering_metrics_collector: Default::default(),
             rendering_first_time: Cell::new(true),
             graphics_backend: B::new_suspended(),
-            #[cfg(target_arch = "wasm32")]
-            canvas_id: Default::default(),
         }
     }
 
