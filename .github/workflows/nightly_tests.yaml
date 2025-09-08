@@ -110,7 +110,7 @@ jobs:
                 components: rust-src
                 target: ${{matrix.target}}
           - name: Setup Zephyr project
-            uses: zephyrproject-rtos/action-zephyr-setup@v1.0.7
+            uses: zephyrproject-rtos/action-zephyr-setup@v1.0.8
             with:
                 app-path: slint
                 manifest-file-name: demos/printerdemo/zephyr/west.yaml

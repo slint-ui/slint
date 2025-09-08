@@ -245,7 +245,7 @@ jobs:
                 version: 10.14.0
             - name: Install GNU Sed
               run: brew install gnu-sed
-            - uses: actions/setup-node@v4
+            - uses: actions/setup-node@v5
               with:
                   node-version: 20
             - uses: actions/download-artifact@v5
@@ -322,7 +322,7 @@ jobs:
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v5
-            - uses: actions/setup-node@v4
+            - uses: actions/setup-node@v5
               with:
                 node-version: 20
               id: node-install
