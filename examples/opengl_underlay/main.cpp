@@ -166,11 +166,18 @@ private:
         auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
                 std::chrono::steady_clock::now() - start_time);
         glUniform1f(effect_time_location, elapsed.count());
+
+        // Handle the rotation and freezing of rotation via the UI toggle.
         if (enable_rotation) {
-            glUniform1f(rotation_time_location, elapsed.count());
-        } else {
-            glUniform1f(rotation_time_location, 0.0);
+            if (!last_rotation_enabled) {
+                rotation_pause_offset = elapsed.count() - rotation_time;
+            }
+            rotation_time = elapsed.count() - rotation_pause_offset;
         }
+
+        glUniform1f(rotation_time_location, rotation_time);
+
+        last_rotation_enabled = enable_rotation;
 
         glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
         glUseProgram(0);
@@ -185,6 +192,9 @@ private:
     GLuint rotation_time_location = 0;
     std::chrono::time_point<std::chrono::steady_clock> start_time =
             std::chrono::steady_clock::now();
+    double rotation_time = 0.0;
+    bool last_rotation_enabled = true;
+    double rotation_pause_offset = 0.0;
 };
 
 int main()
