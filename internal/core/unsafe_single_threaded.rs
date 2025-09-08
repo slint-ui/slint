@@ -55,7 +55,7 @@ impl<T> FakeThreadStorage<T> {
         f(self.0.get_or_init(self.1))
     }
     pub fn try_with<R>(&self, f: impl FnOnce(&T) -> R) -> Result<R, ()> {
-        Ok(f(self.0.get().ok_or(())?))
+        Ok(self.with(f))
     }
 }
 // Safety: the unsafe_single_threaded feature means we will only be called from a single thread
