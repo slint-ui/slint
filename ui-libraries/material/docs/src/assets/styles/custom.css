@@ -129,7 +129,12 @@ span {
 }
 
 .icon-gradient {
-    background: linear-gradient(to right, #3b82f6, #a21caf, #ec4899); /* blue-500, purple-700, pink-500 */
+    background: linear-gradient(
+        to right,
+        #3b82f6,
+        #a21caf,
+        #ec4899
+    ); /* blue-500, purple-700, pink-500 */
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -138,7 +143,12 @@ span {
 
 .icon-gradient-mask {
     display: inline-block;
-    background: linear-gradient(to right, #3b82f6, #a21caf, #ec4899); /* blue-500, purple-700, pink-500 */
+    background: linear-gradient(
+        to right,
+        #3b82f6,
+        #a21caf,
+        #ec4899
+    ); /* blue-500, purple-700, pink-500 */
     -webkit-mask-repeat: no-repeat;
     mask-repeat: no-repeat;
     -webkit-mask-size: cover;
