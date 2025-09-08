@@ -928,6 +928,10 @@ impl RendererSealed for SoftwareRenderer {
         }
         Ok(target_buffer_with_alpha)
     }
+
+    fn supports_transformations(&self) -> bool {
+        false
+    }
 }
 
 fn render_window_frame_by_line(

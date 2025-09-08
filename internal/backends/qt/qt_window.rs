@@ -2445,6 +2445,10 @@ impl i_slint_core::renderer::RendererSealed for QtWindow {
         );
         Ok(buffer)
     }
+    
+    fn supports_transformations(&self) -> bool {
+        true
+    }
 }
 
 fn accessible_item(item: Option<ItemRc>) -> Option<ItemRc> {
