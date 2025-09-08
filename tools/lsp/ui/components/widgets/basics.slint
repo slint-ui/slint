@@ -274,10 +274,11 @@ export component ChildIndicator inherits Rectangle {
 export component ViewHeader inherits Rectangle {
     in property <string> header-text: "Header Text";
     in-out property <bool> parent-visible: true;
+    in property <bool> has-search: true;
     height: ConsoleStyles.header-height;
     background: ConsoleStyles.header-background;
     callback hide-parent();
-    callback edited(text: string);
+    callback search-edited(text: string);
 
     Rectangle {
         y: 0;
@@ -308,16 +309,16 @@ export component ViewHeader inherits Rectangle {
             color: ConsoleStyles.text-color;
             font-family: "Inter";
             font-size: 12px;
-            text: "Library";
+            text: header-text;
         }
 
-        vl := Rectangle {
+        if has-search :Rectangle {
             horizontal-stretch: 1;
             min-width: 80px;
             SearchBar {
                 width: 100%;
                 edited(text) => {
-                    root.edited(text)
+                    root.search-edited(text)
                 }
             }
         }
