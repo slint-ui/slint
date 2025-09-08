@@ -3,6 +3,19 @@
 # Changelog
 All notable changes to this project are documented in this file.
 
+## [1.13.1] - Unreleased
+
+ - Windows: Fixed flickering when updating the MenuBar
+ - LinuxKMS: Fixed build with just renderer-femtovg
+ - LinuxKMS: Addded fallback when no DRM plane formats found
+ - Qt: use the cursor flash time from the config
+ - Fixed spurious Slint compiler error when using ContextMenuArea in component within a `if` or `for`
+ - C++: fixed the live preview feature missing the `slint_live_preview.h` header (#9335)
+ - FemtoVG: added support for conical gradients (#9334)
+ - FemtoVG: Fixed panic when used with WebGL
+ - SwipeGestureHandler: improved thresholds and destection of move when embedded in another SwipeGestureHandler
+ - LSP: fix renaming elements id that have a `-` or `_` mismatch.
+
 ## [1.13.0] - 2025-09-03
 
 ### General
