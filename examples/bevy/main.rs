@@ -92,7 +92,7 @@ export component AppWindow inherits Window {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Temporary : Force WGPU_BACKEND to dx12 until vulkan is supported on windows
+    // Temporary : Force WGPU_BACKEND to dx12 until vulkan works with the flag renderer-skia on Windows
     unsafe {
         std::env::set_var("WGPU_BACKEND", "dx12");
     }
