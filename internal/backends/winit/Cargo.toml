@@ -119,7 +119,7 @@ objc2-app-kit = { version = "0.3.0" }
 i-slint-renderer-skia = { workspace = true, features = ["default"] }
 
 [target.'cfg(target_os = "windows")'.dependencies.windows]
-version = "0.61.1"
+version = "1.13.1"
 features = ["Win32_UI_WindowsAndMessaging"]
 
 [build-dependencies]

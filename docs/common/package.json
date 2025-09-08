@@ -1,6 +1,6 @@
 {
   "name": "@slint/common-files",
-  "version": "0.1.0",
+  "version": "1.13.1",
   "type": "module",
   "scripts": {
     "format": "biome format",
