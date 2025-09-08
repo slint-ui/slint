@@ -1340,6 +1340,7 @@ pub fn ui_set_properties(
         property_view::map_properties_to_ui(document_cache, properties, &win).unwrap_or((
             ElementInformation {
                 id: "".into(),
+                component_name: "".into(),
                 type_name: "".into(),
                 source_uri: "".into(),
                 source_version: 0,

@@ -80,6 +80,7 @@ pub struct PropertyInformation {
 #[derive(Clone, Debug)]
 pub struct ElementInformation {
     pub id: SmolStr,
+    pub component_name: SmolStr,
     pub type_name: SmolStr,
     pub offset: TextSize,
 }
@@ -591,12 +592,19 @@ fn find_block_range(element: &common::ElementRcNode) -> Option<TextRange> {
 fn get_element_information(element: &common::ElementRcNode) -> ElementInformation {
     let offset = element.with_element_node(|n| n.text_range().start());
     let e = element.element.borrow();
+    let component_name = element.with_element_node(|n| {
+        if let Some(c) = n.parent().and_then(|p| syntax_nodes::Component::new(p.clone())) {
+            c.DeclaredIdentifier().text().to_smolstr()
+        } else {
+            SmolStr::default()
+        }
+    });
     let type_name = if matches!(&e.base_type, ElementType::Builtin(b) if b.name == "Empty") {
         SmolStr::default()
     } else {
         e.base_type.to_smolstr()
     };
-    ElementInformation { id: e.id.clone(), type_name, offset }
+    ElementInformation { id: e.id.clone(), component_name, type_name, offset }
 }
 
 pub(crate) fn query_properties(
