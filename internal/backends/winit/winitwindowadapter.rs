@@ -906,18 +906,17 @@ impl WinitWindowAdapter {
             );
 
             #[cfg(target_arch = "wasm32")]
-            if let Some(html_canvas) =
-                winit_window.canvas().filter(|html_canvas| !is_preferred_sized_canvas(html_canvas))
-            {
-                let existing_canvas_size = winit::dpi::LogicalSize::new(
-                    html_canvas.client_width() as f32,
-                    html_canvas.client_height() as f32,
-                );
+            if let Some(html_canvas) = winit_window.canvas() {
                 // Try to maintain the existing size of the canvas element, if any
-                if existing_canvas_size.width > 0. {
+                if !is_preferred_sized_canvas(&html_canvas)
+                    && !canvas_has_explicit_size_set(&html_canvas)
+                {
+                    let existing_canvas_size = winit::dpi::LogicalSize::new(
+                        html_canvas.client_width() as f32,
+                        html_canvas.client_height() as f32,
+                    );
                     preferred_size.width = existing_canvas_size.width;
-                }
-                if existing_canvas_size.height > 0. {
+
                     preferred_size.height = existing_canvas_size.height;
                 }
             }
@@ -1525,4 +1524,24 @@ fn is_preferred_sized_canvas(canvas: &web_sys::HtmlCanvasElement) -> bool {
         .get("slintAutoResizeToPreferred")
         .and_then(|val_str| val_str.parse::<bool>().ok())
         .unwrap_or_default()
+}
+
+#[cfg(target_family = "wasm")]
+fn canvas_has_explicit_size_set(canvas: &web_sys::HtmlCanvasElement) -> bool {
+    let style = canvas.style();
+    if !style.get_property_value("width").unwrap_or_default().is_empty()
+        || !style.get_property_value("height").unwrap_or_default().is_empty()
+    {
+        return true;
+    }
+
+    let Some(window) = web_sys::window() else {
+        return false;
+    };
+    let Some(computed_style) = window.get_computed_style(&canvas).ok().flatten() else {
+        return false;
+    };
+
+    computed_style.get_property_value("width").ok().as_deref() != Some("auto")
+        || computed_style.get_property_value("height").ok().as_deref() != Some("auto")
 }
