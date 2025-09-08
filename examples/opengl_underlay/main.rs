@@ -16,6 +16,9 @@ struct EGLUnderlay {
     vbo: glow::Buffer,
     vao: glow::VertexArray,
     start_time: web_time::Instant,
+    rotation_time: f32,
+    last_rotation_enabled: bool,
+    rotation_pause_offset: f32,
 }
 
 impl EGLUnderlay {
@@ -134,6 +137,9 @@ impl EGLUnderlay {
                 vbo,
                 vao,
                 start_time: web_time::Instant::now(),
+                rotation_time: 0.0,
+                last_rotation_enabled: true,
+                rotation_pause_offset: 0.0,
             }
         }
     }
@@ -179,10 +185,18 @@ impl EGLUnderlay {
 
             let elapsed = self.start_time.elapsed().as_millis() as f32;
             gl.uniform_1_f32(Some(&self.effect_time_location), elapsed);
-            gl.uniform_1_f32(
-                Some(&self.rotation_time_location),
-                if rotation_enabled { elapsed } else { 0.0 },
-            );
+
+            // Handle the rotation and freezing of rotation via the UI toggle.
+            if rotation_enabled {
+                if !self.last_rotation_enabled {
+                    self.rotation_pause_offset = elapsed - self.rotation_time;
+                }
+                self.rotation_time = elapsed - self.rotation_pause_offset;
+            }
+
+            gl.uniform_1_f32(Some(&self.rotation_time_location), self.rotation_time);
+
+            self.last_rotation_enabled = rotation_enabled;
 
             gl.draw_arrays(glow::TRIANGLE_STRIP, 0, 4);
 
