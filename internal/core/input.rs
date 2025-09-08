@@ -631,6 +631,9 @@ pub(crate) fn handle_mouse_grab(
         }
         let g = item.geometry();
         event.translate(-g.origin.to_vector());
+        if let Some(inverse_transform) = item.inverse_children_transform() {
+            event.transform(inverse_transform);
+        }
 
         let interested = matches!(
             it.1,

@@ -69,6 +69,10 @@ export component TestCase  {
             }
         }
     }
+    Text {
+        y: 0phx;
+        text: touch1;
+    }
 }
 
 /*
@@ -78,12 +82,18 @@ use slint::private_unstable_api::re_exports::MouseCursor;
 let instance = TestCase::new().unwrap();
 assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.get()), MouseCursor::Default);
 
-// can click on center
-
-for i in 1 .. 100 {
-dbg!(i);
-slint_testing::send_mouse_click(&instance, i as f32, i as f32);
-assert_eq!(instance.get_touch1(), i);
+// Clicks along the diagonal are picked up.
+for i in 1 ..= 100 {
+    slint_testing::send_mouse_click(&instance, i as f32, i as f32);
+    assert_eq!(instance.get_touch1(), i);
 }
+
+// Clicks elsewhere are not picked up.
+
+slint_testing::send_mouse_click(&instance, 50., 5.);
+assert_eq!(instance.get_touch1(), 100);
+
+slint_testing::send_mouse_click(&instance, 5., 50.);
+assert_eq!(instance.get_touch1(), 100);
 ```
 */
