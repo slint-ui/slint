@@ -631,8 +631,10 @@ pub(crate) fn handle_mouse_grab(
         }
         let g = item.geometry();
         event.translate(-g.origin.to_vector());
-        if let Some(inverse_transform) = item.inverse_children_transform() {
-            event.transform(inverse_transform);
+        if window_adapter.renderer().supports_transformations() {
+            if let Some(inverse_transform) = item.inverse_children_transform() {
+                event.transform(inverse_transform);
+            }
         }
 
         let interested = matches!(
@@ -700,8 +702,10 @@ pub(crate) fn send_exit_events(
         let contains = pos.is_some_and(|p| g.contains(p));
         if let Some(p) = pos.as_mut() {
             *p -= g.origin.to_vector();
-            if let Some(inverse_transform) = item.inverse_children_transform() {
-                *p = inverse_transform.transform_point(p.cast()).cast();
+            if window_adapter.renderer().supports_transformations() {
+                if let Some(inverse_transform) = item.inverse_children_transform() {
+                    *p = inverse_transform.transform_point(p.cast()).cast();
+                }
             }
         }
         if !contains || clipped {
@@ -813,9 +817,11 @@ fn send_mouse_event_to_item(
     let mut event_for_children = mouse_event.clone();
     // Unapply the translation to go from 'world' space to local space
     event_for_children.translate(-geom.origin.to_vector());
-    // Unapply other transforms.
-    if let Some(inverse_transform) = item_rc.inverse_children_transform() {
-        event_for_children.transform(inverse_transform);
+    if window_adapter.renderer().supports_transformations() {
+        // Unapply other transforms.
+        if let Some(inverse_transform) = item_rc.inverse_children_transform() {
+            event_for_children.transform(inverse_transform);
+        }
     }
 
     let filter_result = if mouse_event.position().is_some_and(|p| geom.contains(p))
