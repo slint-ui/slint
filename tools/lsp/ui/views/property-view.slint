@@ -49,17 +49,20 @@ export component PropertyView inherits VerticalLayout {
                 padding-top: EditorSpaceSettings.default-padding;
                 if element-information.id != "root": VerticalLayout {
                     padding: EditorSpaceSettings.default-padding;
-                    spacing: EditorSpaceSettings.default-spacing/4;
+                    spacing: EditorSpaceSettings.default-spacing / 4;
                     Text {
                         text: "id";
-                        font-weight: element-information.id != "" ? EditorFontSettings.regular-font-weight : EditorFontSettings.light-font-weight ;
+                        font-weight: element-information.id != "" ? EditorFontSettings.regular-font-weight : EditorFontSettings.light-font-weight;
                         font-italic: element-information.id != "" ? false : true;
                         opacity: element-information.id != "" ? 1.0 : 0.5;
                     }
+
                     LineEdit {
                         enabled: sv.enabled;
                         property <string> id: element-information.id;
-                        changed id => { self.text = id; }
+                        changed id => {
+                            self.text = id;
+                        }
                         text: id;
                         accepted(text) => {
                             Api.set-element-id(
@@ -80,7 +83,7 @@ export component PropertyView inherits VerticalLayout {
 
                         enabled: sv.enabled;
 
-                        text: group.group-name;
+                        text: group.group-name != "" ? group.group-name : root.element-information.component-name;
                         panel-width: root.width;
 
                         VerticalLayout {

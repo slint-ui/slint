@@ -268,6 +268,7 @@ pub fn map_properties_to_ui(
     Some((
         ui::ElementInformation {
             id: element.id.as_str().into(),
+            component_name: element.component_name.as_str().into(),
             type_name: element.type_name.as_str().into(),
             source_uri,
             source_version,

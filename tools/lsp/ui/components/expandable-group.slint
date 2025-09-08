@@ -17,7 +17,7 @@ export component ExpandableGroup {
 
     group-layer := Rectangle {
         content-layer := VerticalLayout {
-            if text != "": Rectangle {
+            Rectangle {
                 touch-area := TouchArea {
                     clicked => {
                         root.open = !root.open;
@@ -52,7 +52,7 @@ export component ExpandableGroup {
                     }
 
                     t := BodyStrongText {
-                        text: root.text;
+                        text: root.text != "" ? root.text : @tr("User Properties");
                     }
                 }
             }
