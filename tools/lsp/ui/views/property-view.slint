@@ -21,14 +21,14 @@ export component PropertyView inherits VerticalLayout {
     in-out property <bool> enabled <=> sv.enabled;
     visible: root.properties-visible;
     ViewHeader {
-    header-text: @tr("Properties");
-    hide-parent() => {
-        root.properties-visible = false;
-    }
-    edited(text) => {
-        // Api.library-search(text);
-    }
-
+        header-text: @tr("Properties");
+        hide-parent() => {
+            root.properties-visible = false;
+        }
+        search-edited(text) => {
+            // Api.library-search(text);
+        }
+        has-search: false;
     }
     sv := ScrollView {
         vertical-scrollbar-policy: ScrollBarPolicy.always-on;

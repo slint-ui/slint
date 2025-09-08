@@ -33,7 +33,7 @@ export component LibraryView {
                 root.library-visible = false;
                 Api.library-search("");
             }
-            edited(text) => {
+            search-edited(text) => {
                 Api.library-search(text);
             }
         }
