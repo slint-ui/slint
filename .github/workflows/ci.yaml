@@ -142,6 +142,7 @@ jobs:
             - uses: actions/setup-node@v5
               with:
                 node-version: 20
+                package-manager-cache: false
               id: node-install
             - uses: pnpm/action-setup@v4.1.0
               with:
@@ -370,6 +371,7 @@ jobs:
             - uses: actions/setup-node@v5
               with:
                   node-version: 20
+                  package-manager-cache: false
             - name: Install wasm-pack
               run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
             - name: Fake slint-lsp build
@@ -687,6 +689,7 @@ jobs:
             - uses: actions/setup-node@v5
               with:
                 node-version: 20
+                package-manager-cache: false
               id: node-install
             - uses: pnpm/action-setup@v4.1.0
               with:

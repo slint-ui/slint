@@ -248,6 +248,7 @@ jobs:
             - uses: actions/setup-node@v5
               with:
                   node-version: 20
+                  package-manager-cache: false
             - uses: actions/download-artifact@v5
               with:
                   name: vscode-lsp-binary-x86_64-unknown-linux-gnu
@@ -325,6 +326,7 @@ jobs:
             - uses: actions/setup-node@v5
               with:
                 node-version: 20
+                package-manager-cache: false
               id: node-install
             - uses: pnpm/action-setup@v4.1.0
               with:

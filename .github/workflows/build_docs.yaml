@@ -39,6 +39,7 @@ jobs:
             - uses: actions/setup-node@v5
               with:
                 node-version: 20
+                package-manager-cache: false
             - uses: ./.github/actions/install-linux-dependencies
             - name: Install MS fonts for comic sans needed by one of the screenshots in the docs
               run: |

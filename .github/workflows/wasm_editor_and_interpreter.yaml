@@ -27,6 +27,7 @@ jobs:
             - uses: actions/setup-node@v5
               with:
                 node-version: 20
+                package-manager-cache: false
             - uses: ./.github/actions/setup-rust
               with:
                   target: wasm32-unknown-unknown
@@ -59,6 +60,7 @@ jobs:
             - uses: actions/setup-node@v5
               with:
                 node-version: 20
+                package-manager-cache: false
             - uses: pnpm/action-setup@v4.1.0
               with:
                 version: 10.14.0
