@@ -92,11 +92,6 @@ export component AppWindow inherits Window {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Temporary : Force WGPU_BACKEND to dx12 until vulkan works with the flag renderer-skia on Windows
-    unsafe {
-        std::env::set_var("WGPU_BACKEND", "dx12");
-    }
-
     let (model_selector_sender, model_selector_receiver) = smol::channel::bounded::<GLTFModel>(1);
 
     let (download_progress_sender, download_progress_receiver) =
