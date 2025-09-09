@@ -230,8 +230,10 @@ void EspPlatform<PixelType>::run_event_loop()
 #endif
                     auto region = m_window->m_renderer.render_by_line<PixelType>(
                             [this, &stride](std::size_t line_y, std::size_t line_start,
-                                              std::size_t line_end, auto &&render_fn) {
-                                std::span<PixelType> view { buffer1->data() + line_y*stride + line_start, line_end - line_start };
+                                            std::size_t line_end, auto &&render_fn) {
+                                std::span<PixelType> view { buffer1->data() + line_y * stride
+                                                                    + line_start,
+                                                            line_end - line_start };
                                 render_fn(view);
                                 if (byte_swap) {
                                     // Swap endianness to big endian
@@ -240,10 +242,9 @@ void EspPlatform<PixelType>::run_event_loop()
                                 }
                                 esp_lcd_panel_draw_bitmap(panel_handle, line_start, line_y,
                                                           line_end, line_y + 1, buffer1->data());
-
                             });
 
-                    if(buffer2) {
+                    if (buffer2) {
                         auto s = region.bounding_box_size();
                         if (s.width > 0 && s.height > 0) {
                             std::swap(buffer1, buffer2);
