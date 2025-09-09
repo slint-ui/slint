@@ -5,7 +5,7 @@ import { MaterialStyleMetrics } from "../styling/material_style_metrics.slint";
 import { MaterialPalette } from "../styling/material_palette.slint";
 
 export component LinearProgressIndicator {
-    in property <float> value;
+    in property <float> progress;
     in property <bool> indeterminate;
 
     height: MaterialStyleMetrics.size_4;
@@ -20,7 +20,7 @@ export component LinearProgressIndicator {
         track := Rectangle {
             x: 0;
             y: 0;
-            width: parent.width * root.value;
+            width: parent.width * root.progress;
             height: 100%;
             border_radius: parent.border_radius;
             background: MaterialPalette.primary;
@@ -29,7 +29,7 @@ export component LinearProgressIndicator {
 }
 
 export component CircularProgressIndicator {
-    in property <float> value;
+    in property <float> progress;
     in property <bool> indeterminate;
 
     property <length> bar_height: MaterialStyleMetrics.size_4;
@@ -41,7 +41,7 @@ export component CircularProgressIndicator {
         width: root.width;
         height: root.height;
         border_width: root.bar_height;
-        border_color: root.value == 1 ? MaterialPalette.primary : MaterialPalette.primary_container;
+        border_color: root.progress == 1 ? MaterialPalette.primary : MaterialPalette.primary_container;
         border_radius: max(self.width, self.height) / 2;
     }
 
@@ -51,7 +51,7 @@ export component CircularProgressIndicator {
         property <float> start_y: self.viewbox_height / 2;
         property <float> inner_radius: self.radius - (root.bar_height * (self.viewbox_height / self.height));
         property <float> start: !root.indeterminate ? 0 : 1 * mod(animation-tick(), 1.5s) / 1.5s;
-        property <float> progress: !root.indeterminate ? root.value : 0.5;
+        property <float> progress: !root.indeterminate ? root.progress : 0.5;
 
         x: background_layer.x;
         y: background_layer.y;
