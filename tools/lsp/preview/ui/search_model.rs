@@ -85,6 +85,10 @@ impl<Data: 'static> SearchModel<Data> {
     pub fn set_search_text(&self, text: SharedString) {
         self.inner.set_search_text(text);
     }
+
+    pub fn search_text(&self) -> SharedString {
+        self.inner.search_text()
+    }
 }
 
 /// Return true if the given data contains the search text, case insensitive search

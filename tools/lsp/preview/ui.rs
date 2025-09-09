@@ -329,6 +329,17 @@ pub fn ui_set_known_components(
         },
     ));
     let api = ui.global::<Api>();
+
+    let old_search_text = api
+        .get_known_components()
+        .as_any()
+        .downcast_ref::<search_model::SearchModel<ComponentListItem>>()
+        .map(|x| x.search_text())
+        .filter(|x| !x.is_empty());
+    if let Some(search_text) = old_search_text {
+        result.set_search_text(search_text.clone());
+    }
+
     api.set_known_components(result.clone().into());
     api.on_library_search(move |term| {
         result.set_search_text(term.into());
