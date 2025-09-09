@@ -6,6 +6,8 @@ export component TestCase  {
     in-out property <int> touch_double1;
     in-out property <int> touch2;
 
+    out property area3-absolute-position <=> area3.absolute-position;
+
     in-out property <string> pointer-event-test;
 
     in property <bool> enabled1 <=> area1.enabled;
@@ -78,6 +80,14 @@ export component TestCase  {
                     }
                     pointer-event-test += ":";
             }
+        }
+        Rectangle {
+            x: 200phx;
+            y: 0phx;
+            width: 5phx;
+            height: 5phx;
+            background: black;
+            area3 := TouchArea {}
         }
     }
     Rectangle {
@@ -155,6 +165,14 @@ export component TestCase  {
         y: 10phx;
         text: touch2;
     }
+    Text {
+        y: 20phx;
+        text: area3.absolute-position.x / 1px;
+    }
+    Text {
+        y: 30phx;
+        text: area3.absolute-position.y / 1px;
+    }
 }
 
 /*
@@ -164,6 +182,8 @@ use slint::LogicalPosition;
 use slint::private_unstable_api::re_exports::MouseCursor;
 
 let instance = TestCase::new().unwrap();
+
+assert_eq!(instance.get_area3_absolute_position(), LogicalPosition { x: 144.9569, y: 137.88582 });
 
 let double_click = |x, y| {
     slint_testing::send_mouse_click(&instance, x, y);

@@ -464,6 +464,15 @@ impl ItemRc {
         let mut result = p;
         while let Some(parent) = current.parent_item(ParentItemTraversalMode::StopAtPopups) {
             let geometry = parent.geometry();
+            if self
+                .window_adapter()
+                .map(|adapter| adapter.renderer().supports_transformations())
+                .unwrap_or(true)
+            {
+                if let Some(transform) = parent.children_transform() {
+                    result = transform.transform_point(result);
+                }
+            }
             result += geometry.origin.to_vector();
             current = parent.clone();
         }
