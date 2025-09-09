@@ -245,9 +245,10 @@ jobs:
                 version: 10.14.0
             - name: Install GNU Sed
               run: brew install gnu-sed
-            - uses: actions/setup-node@v4
+            - uses: actions/setup-node@v5
               with:
                   node-version: 20
+                  package-manager-cache: false
             - uses: actions/download-artifact@v5
               with:
                   name: vscode-lsp-binary-x86_64-unknown-linux-gnu
@@ -322,9 +323,10 @@ jobs:
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v5
-            - uses: actions/setup-node@v4
+            - uses: actions/setup-node@v5
               with:
                 node-version: 20
+                package-manager-cache: false
               id: node-install
             - uses: pnpm/action-setup@v4.1.0
               with:

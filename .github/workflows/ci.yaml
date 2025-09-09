@@ -76,7 +76,7 @@ jobs:
             - uses: ./.github/actions/install-linux-dependencies
             - uses: ./.github/actions/install-skia-dependencies
             - uses: ilammy/msvc-dev-cmd@v1
-            - uses: actions/setup-python@v5
+            - uses: actions/setup-python@v6
               with:
                 python-version: '3.10'
             - name: Install Qt
@@ -139,9 +139,10 @@ jobs:
             - uses: ./.github/actions/install-skia-dependencies
             - name: Setup headless display
               uses: pyvista/setup-headless-display-action@v4
-            - uses: actions/setup-node@v4
+            - uses: actions/setup-node@v5
               with:
                 node-version: 20
+                package-manager-cache: false
               id: node-install
             - uses: pnpm/action-setup@v4.1.0
               with:
@@ -197,7 +198,7 @@ jobs:
             - uses: ./.github/actions/setup-rust
               with:
                   key: x-napi-v2-${{ steps.node-install.outputs.node-version }} # the cache key consists of a manually bumpable version and the node version, as the cached rustc artifacts contain linking information where to find node.lib, which is in a versioned directory.
-            - uses: actions/setup-python@v5
+            - uses: actions/setup-python@v6
               with:
                   python-version: "3.12"
             - name: Install uv
@@ -367,9 +368,10 @@ jobs:
               with:
                 key: "vsce_1" # increment this to bust the cache if needed
             - uses: ./.github/actions/install-linux-dependencies
-            - uses: actions/setup-node@v4
+            - uses: actions/setup-node@v5
               with:
                   node-version: 20
+                  package-manager-cache: false
             - name: Install wasm-pack
               run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
             - name: Fake slint-lsp build
@@ -684,9 +686,10 @@ jobs:
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v5
-            - uses: actions/setup-node@v4
+            - uses: actions/setup-node@v5
               with:
                 node-version: 20
+                package-manager-cache: false
               id: node-install
             - uses: pnpm/action-setup@v4.1.0
               with:

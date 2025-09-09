@@ -36,9 +36,10 @@ jobs:
               run: |
                   rgb_version=`grep 'rgb = '  internal/core/Cargo.toml | sed 's/^.*"\(.*\)"/\1/'`
                   echo "RUSTDOCFLAGS=$RUSTDOCFLAGS --extern-html-root-url rgb=https://docs.rs/rgb/$rgb_version/ --extern-html-root-url android_activity=https://docs.rs/android-activity/0.5/ --extern-html-root-url raw_window_handle=https://docs.rs/raw_window_handle/0.6 --extern-html-root-url winit=https://docs.rs/winit/0.30 --extern-html-root-url wgpu=https://docs.rs/wgpu/26 --extern-html-root-url input=https://docs.rs/input/0.9" >> $GITHUB_ENV
-            - uses: actions/setup-node@v4
+            - uses: actions/setup-node@v5
               with:
                 node-version: 20
+                package-manager-cache: false
             - uses: ./.github/actions/install-linux-dependencies
             - name: Install MS fonts for comic sans needed by one of the screenshots in the docs
               run: |

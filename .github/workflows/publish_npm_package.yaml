@@ -28,7 +28,7 @@ jobs:
         steps:
             - uses: actions/checkout@v5
             # Setup .npmrc file to publish to npm
-            - uses: actions/setup-node@v4
+            - uses: actions/setup-node@v5
               with:
                   node-version: "20.x"
                   registry-url: "https://registry.npmjs.org"
@@ -90,7 +90,7 @@ jobs:
               with:
                   target: ${{ matrix.rust-target }}
             # Setup .npmrc file to publish to npm
-            - uses: actions/setup-node@v4
+            - uses: actions/setup-node@v5
               with:
                   node-version: "20.x"
                   registry-url: "https://registry.npmjs.org"
@@ -148,7 +148,7 @@ jobs:
             - uses: ./.github/actions/install-linux-dependencies
             - uses: ./.github/actions/setup-rust
             # Setup .npmrc file to publish to npm
-            - uses: actions/setup-node@v4
+            - uses: actions/setup-node@v5
               with:
                   node-version: "20.x"
                   registry-url: "https://registry.npmjs.org"
