@@ -228,36 +228,25 @@ void EspPlatform<PixelType>::run_event_loop()
                         xSemaphoreTake(sem_vsync_end, portMAX_DELAY);
                     }
 #endif
-                    auto region = m_window->m_renderer.render(buffer1.value(), stride);
-
-                    if (byte_swap) {
-                        for (auto [o, s] : region.rectangles()) {
-                            for (int y = o.y; y < o.y + s.height; y++) {
-                                for (int x = o.x; x < o.x + s.width; x++) {
-                                    byte_swap_color(&buffer1.value()[y * stride + x]);
+                    auto region = m_window->m_renderer.render_by_line<PixelType>(
+                            [this, &stride](std::size_t line_y, std::size_t line_start,
+                                              std::size_t line_end, auto &&render_fn) {
+                                std::span<PixelType> view { buffer1->data() + line_y*stride + line_start, line_end - line_start };
+                                render_fn(view);
+                                if (byte_swap) {
+                                    // Swap endianness to big endian
+                                    std::for_each(view.begin(), view.end(),
+                                                  [](auto &rgbpix) { byte_swap_color(&rgbpix); });
                                 }
-                            }
-                        }
-                    }
+                                esp_lcd_panel_draw_bitmap(panel_handle, line_start, line_y,
+                                                          line_end, line_y + 1, buffer1->data());
 
-                    if (buffer2) {
+                            });
+
+                    if(buffer2) {
                         auto s = region.bounding_box_size();
                         if (s.width > 0 && s.height > 0) {
-                            // Assuming that using double buffer means that the buffer comes from
-                            // the driver and we need to pass the exact pointer.
-                            // https://github.com/espressif/esp-idf/blob/53ff7d43dbff642d831a937b066ea0735a6aca24/components/esp_lcd/src/esp_lcd_panel_rgb.c#L681
-                            esp_lcd_panel_draw_bitmap(panel_handle, 0, 0, size.width, size.height,
-                                                      buffer1->data());
-
                             std::swap(buffer1, buffer2);
-                        }
-                    } else {
-                        for (auto [o, s] : region.rectangles()) {
-                            for (int y = o.y; y < o.y + s.height; y++) {
-                                esp_lcd_panel_draw_bitmap(panel_handle, o.x, y, o.x + s.width,
-                                                          y + 1,
-                                                          buffer1->data() + y * stride + o.x);
-                            }
                         }
                     }
                 } else {
