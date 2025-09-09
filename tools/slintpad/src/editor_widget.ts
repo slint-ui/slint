@@ -33,8 +33,6 @@ import "vscode/localExtensionHost";
 import type { IStandaloneCodeEditor } from "vscode/vscode/vs/editor/standalone/browser/standaloneCodeEditor";
 import type { ITextEditorModel } from "vscode/vscode/vs/editor/common/services/resolverService";
 
-import * as fflate from "fflate";
-
 let EDITOR_WIDGET: EditorWidget | null = null;
 
 const FILESYSTEM_PROVIDER: RegisteredFileSystemProvider =
