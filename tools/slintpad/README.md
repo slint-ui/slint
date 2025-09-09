@@ -41,8 +41,7 @@ The `preview.html` page contains only the preview and the code must be given via
     -   https://slint.dev/editor?load_url=https://raw.githubusercontent.com/slint-ui/slint/master/demos/printerdemo/ui/printerdemo.slint
     -   https://slint.dev/editor/preview.html?load_url=https://raw.githubusercontent.com/slint-ui/slint/master/demos/printerdemo/ui/printerdemo.slint
 
--   `?snippet=` query argument, followed by the URL-encoded slint code, will simply load this code
-    this is what is used tor the permalink feature
+-   `?snippet=` query argument, followed by the URL-encoded slint code, will simply load this code.
 
     Example: a simple code with "Hello Slint"
 
@@ -55,3 +54,5 @@ The `preview.html` page contains only the preview and the code must be given via
 
     -   https://slint.dev/editor/?snippet=_+%3A%3D+Text+%7B+text%3A+%22Hello+Slint%22%3B+%7D?style=fluent-dark
     -   https://slint.dev/editor/preview.html?snippet=_+%3A%3D+Text+%7B+text%3A+%22Hello+Slint%22%3B+%7D?style=material
+
+-   `?gz=` Like `?snippet=` but compressed with gzip and base64 encoded.

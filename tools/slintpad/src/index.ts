@@ -43,6 +43,8 @@ function setup(lsp: Lsp) {
                 void editor.set_demo(args as string);
             } else if (func_type === SlintPadCallbackFunction.ShowAbout) {
                 about_dialog();
+            } else if (func_type === SlintPadCallbackFunction.CopyPermalink) {
+                void editor.copy_permalink_to_clipboard();
             }
         },
     );
