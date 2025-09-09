@@ -55,4 +55,4 @@ The `preview.html` page contains only the preview and the code must be given via
     -   https://slint.dev/editor/?snippet=_+%3A%3D+Text+%7B+text%3A+%22Hello+Slint%22%3B+%7D?style=fluent-dark
     -   https://slint.dev/editor/preview.html?snippet=_+%3A%3D+Text+%7B+text%3A+%22Hello+Slint%22%3B+%7D?style=material
 
--   `?s=` Like `?snippet=` but compressed with gzip and base64 encoded.
+-   `?gz=` Like `?snippet=` but compressed with gzip and base64 encoded.

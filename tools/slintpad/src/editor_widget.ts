@@ -403,7 +403,7 @@ export class EditorWidget extends Widget {
 
     private async open_default_content() {
         const params = new URLSearchParams(window.location.search);
-        const compressed = params.get("s");
+        const compressed = params.get("gz");
         let code = params.get("snippet");
         if (compressed) {
             code = await decompress(compressed);
@@ -674,7 +674,7 @@ export class EditorWidget extends Widget {
 
     public async copy_permalink_to_clipboard() {
         const params = new URLSearchParams();
-        params.set("s", await compress(this.current_editor_content));
+        params.set("gz", await compress(this.current_editor_content));
         const url = new URL(window.location.href);
         url.search = params.toString();
         navigator.clipboard.writeText(url.toString());
