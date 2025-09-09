@@ -87,8 +87,19 @@ export component TestCase  {
             width: 5phx;
             height: 5phx;
             background: black;
-            area3 := TouchArea {}
+            area3 := TouchArea {
+                accessible-role: text;
+                accessible-label: "area3";
+            }
         }
+        Rectangle {
+            x: area1.mouse-x;
+            y: area1.mouse-y;
+            width: 5px;
+            height: 5px;
+            background: maroon;
+        }
+       
     }
     Rectangle {
         x: 50phx;
@@ -182,6 +193,10 @@ use slint::LogicalPosition;
 use slint::private_unstable_api::re_exports::MouseCursor;
 
 let instance = TestCase::new().unwrap();
+
+let area3 = slint_testing::ElementHandle::find_by_accessible_label(&instance, "area3").next().unwrap();
+
+assert_eq!(area3.absolute_position(), LogicalPosition { x: 144.9569, y: 137.88582 });
 
 assert_eq!(instance.get_area3_absolute_position(), LogicalPosition { x: 144.9569, y: 137.88582 });
 
