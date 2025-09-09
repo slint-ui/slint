@@ -470,7 +470,7 @@ impl ItemRc {
                 .unwrap_or(true)
             {
                 if let Some(transform) = parent.children_transform() {
-                    result = transform.transform_point(result);
+                    result = transform.transform_point(result.cast()).cast();
                 }
             }
             result += geometry.origin.to_vector();
