@@ -13,23 +13,14 @@ export global CupertinoFontSettings {
     out property <int> regular-font-weight: 400;
     out property <int> semibold-font-weight: 600;
 
-    out property <TextStyle> body: {
-        font-size: 13 * 0.0769rem,
-        font-weight: regular-font-weight
-    };
+    out property <TextStyle> body: { font-size: 13 * 0.0769rem, font-weight: regular-font-weight };
 
-
-    out property <TextStyle> title: {
-        font-size: 28 * 0.0769rem,
-        font-weight: light-font-weight
-    };
+    out property <TextStyle> title: { font-size: 28 * 0.0769rem, font-weight: light-font-weight };
 
     // needed?
-    out property <TextStyle> body-strong: {
-        font-size: 14 * 0.0769rem,
-        font-weight: semibold-font-weight
-    };
+    out property <TextStyle> body-strong: { font-size: 14 * 0.0769rem, font-weight: semibold-font-weight };
 }
+
 export global CupertinoColors {
     out property <color> systemGray: #8E8E93;
     out property <color> systemGray2: #AEAEB2;
@@ -63,6 +54,7 @@ export global CupertinoColors {
 
     out property <brush> selection-color: self.blue;
 }
+
 export global CupertinoPalette {
     in-out property <ColorScheme> color-scheme: ColorSchemeSelector.color-scheme;
     property <bool> dark-color-scheme: {
@@ -73,11 +65,11 @@ export global CupertinoPalette {
     }
 
     // base palette
-    out property <brush> background: dark-color-scheme ? CupertinoColors.systemGray55-dark: CupertinoColors.systemGray55;
+    out property <brush> background: dark-color-scheme ? CupertinoColors.systemGray55-dark : CupertinoColors.systemGray55;
     out property <brush> foreground: dark-color-scheme ? CupertinoColors.systemGray6 : CupertinoColors.systemGray6-dark;
     out property <brush> alternate-background: dark-color-scheme ? CupertinoColors.systemGray5-dark : CupertinoColors.systemGray5;
     out property <brush> alternate-foreground: dark-color-scheme ? CupertinoColors.systemGray5 : CupertinoColors.systemGray5-dark;
-    out property <brush> control-background: dark-color-scheme ? CupertinoColors.systemGray2-dark : CupertinoColors.systemGray6;
+    out property <brush> control-background: dark-color-scheme ? CupertinoColors.systemGray2-dark : CupertinoColors.white;
     out property <brush> control-foreground: dark-color-scheme ? CupertinoColors.systemGray4 : CupertinoColors.systemGray5-dark;
     out property <brush> accent-background: dark-color-scheme ? CupertinoColors.selection-color : CupertinoColors.selection-color;
     out property <brush> accent-foreground: CupertinoColors.systemGray5;
@@ -92,7 +84,7 @@ export global CupertinoPalette {
     out property <brush> tertiary-accent-background: dark-color-scheme ? CupertinoColors.blue : CupertinoColors.blue;
     out property <brush> foreground-neg: dark-color-scheme ? CupertinoColors.systemGray6-dark : CupertinoColors.systemGray6;
     out property <brush> foreground-secondary: dark-color-scheme ? CupertinoColors.systemGray6.transparentize(0.4) : CupertinoColors.systemGray6-dark.transparentize(0.4);
-    out property <brush> secondary-control-background: dark-color-scheme ? CupertinoColors.systemGray : CupertinoColors.systemGray;
+    out property <brush> secondary-control-background: dark-color-scheme ? CupertinoColors.systemGray : CupertinoColors.systemGray55;
     out property <brush> tertiary-control-background: dark-color-scheme ? CupertinoColors.systemGray5-dark : CupertinoColors.systemGray5;
     out property <brush> quaternary-control-background: dark-color-scheme ? CupertinoColors.systemGray2-dark : CupertinoColors.systemGray6;
     out property <brush> alternate-control-background: dark-color-scheme ? CupertinoColors.systemGray3-dark : CupertinoColors.systemGray3;
@@ -104,7 +96,7 @@ export global CupertinoPalette {
     out property <brush> separator: dark-color-scheme ? CupertinoColors.systemGray6-dark : CupertinoColors.systemGray4;
     out property <brush> bar-background: dark-color-scheme ? CupertinoColors.systemGray4-dark : CupertinoColors.systemGray4;
     out property <brush> bar-border: dark-color-scheme ? @linear-gradient(180deg, CupertinoColors.systemGray4-dark 0%, CupertinoColors.systemGray3-dark 80%, CupertinoColors.systemGray2-dark 100%) : CupertinoColors.systemGray5;
-    out property <brush> inner-border: dark-color-scheme ? CupertinoColors.systemGray5-dark: CupertinoColors.systemGray4;
+    out property <brush> inner-border: dark-color-scheme ? CupertinoColors.systemGray5-dark : CupertinoColors.systemGray4;
     out property <brush> inner-shadow: dark-color-scheme ? CupertinoColors.systemGray5-dark : CupertinoColors.systemGray6;
 
     out property <brush> state: dark-color-scheme ? CupertinoColors.systemGray6 : CupertinoColors.systemGray6-dark;

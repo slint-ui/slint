@@ -31,19 +31,20 @@ export component Button {
     accessible-checkable: root.checkable;
     accessible-checked: root.checked;
     accessible-label: root.text;
-    accessible-action-default => { i-touch-area.clicked(); }
-
+    accessible-action-default => {
+        i-touch-area.clicked();
+    }
 
     states [
-        disabled when !i-touch-area.enabled : {
+        disabled when !i-touch-area.enabled: {
             root.text-color: CupertinoPalette.foreground-secondary;
             root.background: CupertinoPalette.quaternary-control-background;
         }
-        pressed when root.pressed : {
+        pressed when root.pressed: {
             root.background: root.primary ? CupertinoPalette.secondary-accent-background : CupertinoPalette.secondary-control-background;
         }
-        checked when root.checked : {
-            root.text-color: CupertinoPalette.secondary-accent-background;
+        checked when root.checked: {
+            root.text-color: CupertinoPalette.accent-foreground;
         }
     ]
 
@@ -58,7 +59,7 @@ export component Button {
         has-focus: root.has-focus;
     }
 
-    if (root.primary && root.enabled) : Rectangle {
+    if (root.primary && root.enabled): Rectangle {
         drop-shadow-blur: 3px;
         drop-shadow-color: #00000066;
         drop-shadow-offset-y: 0.5px;
@@ -88,7 +89,7 @@ export component Button {
         }
     }
 
-    if (!root.primary || !root.enabled) : Rectangle {
+    if (!root.primary || !root.enabled): Rectangle {
         drop-shadow-blur: 0.25px;
         drop-shadow-color: #00000066;
         drop-shadow-offset-y: 0.25px;
@@ -115,7 +116,7 @@ export component Button {
         spacing: 4px;
         alignment: center;
 
-        if (root.icon.width > 0 && root.icon.height > 0) : Image {
+        if (root.icon.width > 0 && root.icon.height > 0): Image {
             y: (parent.height - self.height) / 2;
             source <=> root.icon;
             width: 13px;
@@ -123,7 +124,7 @@ export component Button {
             colorize: root.colorize-icon ? root.text-color : transparent;
         }
 
-        if (root.text != "") : Text {
+        if (root.text != ""): Text {
             opacity: root.enabled ? 1 : 0.5;
             font-size: CupertinoFontSettings.body.font-size;
             font-weight: CupertinoFontSettings.body.font-weight;
@@ -153,9 +154,8 @@ export component Button {
         key-pressed(event) => {
             if (event.text == " " || event.text == "\n") {
                 i-touch-area.clicked();
-                 return accept;
+                return accept;
             }
-
             return reject;
         }
     }
