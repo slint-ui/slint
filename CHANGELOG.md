@@ -3,7 +3,7 @@
 # Changelog
 All notable changes to this project are documented in this file.
 
-## [1.13.1] - Unreleased
+## [1.13.1] - 2025-09-10
 
  - Windows: Fixed flickering when updating the menu bar.
  - LinuxKMS: Fixed build with just renderer-femtovg
@@ -14,7 +14,12 @@ All notable changes to this project are documented in this file.
  - FemtoVG: added support for conical gradients (#9334)
  - FemtoVG: Fixed panic when using rendering notifiers in Wasm with WebGL.
  - `SwipeGestureHandler`: improved thresholds and destection of move when embedded in another `SwipeGestureHandler`
+ - MCU: fix timer not starting if started before first call to `update_timers_and_animations`
+ - wasm: Fix sizing of the window based on the canvas size or the preferred size
  - LSP: fix renaming elements id that have a `-` or `_` mismatch.
+ - live-preivew: allow to edit element id
+ - live-preview: search line edit for the library
+ - Slintpad: compress the snippet in the URL
 
 ## [1.13.0] - 2025-09-03
 
