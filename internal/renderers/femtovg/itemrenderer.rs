@@ -1100,6 +1100,11 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
         *clip = LogicalRect::new(origin, (end - origin).into());
     }
 
+    fn scale(&mut self, x_factor: f32, y_factor: f32) {
+        // TODO: adjust clip
+        self.canvas.borrow_mut().scale(x_factor, y_factor);
+    }
+
     fn apply_opacity(&mut self, opacity: f32) {
         let state = &mut self.state.last_mut().unwrap().global_alpha;
         *state *= opacity;
