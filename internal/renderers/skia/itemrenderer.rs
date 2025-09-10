@@ -922,7 +922,7 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
     }
 
     fn scale(&mut self, x_factor: f32, y_factor: f32) {
-        todo!()//self.canvas.rotate(angle_in_degrees, None);
+        self.canvas.scale((x_factor, y_factor));
     }
 
     fn apply_opacity(&mut self, opacity: f32) {

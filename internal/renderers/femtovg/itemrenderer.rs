@@ -1101,7 +1101,8 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
     }
 
     fn scale(&mut self, x_factor: f32, y_factor: f32) {
-        todo!()
+        // TODO: adjust clip
+        self.canvas.borrow_mut().scale(x_factor, y_factor);
     }
 
     fn apply_opacity(&mut self, opacity: f32) {
