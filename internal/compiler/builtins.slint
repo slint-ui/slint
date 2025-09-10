@@ -89,6 +89,15 @@ export component Rotate inherits Empty {
     //-is_internal
 }
 
+export component Scale inherits Empty {
+    in property <float> scale-x;
+    in property <float> scale-y;
+    in property <length> scale-origin-x;
+    in property <length> scale-origin-y;
+    //-default_size_binding:expands_to_parent_geometry
+}
+
+
 component SimpleText inherits Empty {
     in property <length> width;
     in property <length> height;

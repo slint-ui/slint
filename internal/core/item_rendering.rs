@@ -470,6 +470,7 @@ pub trait ItemRenderer {
         unimplemented!()
     }
     fn rotate(&mut self, angle_in_degrees: f32);
+    fn scale(&mut self, scale_x_factor: f32, scale_y_factor: f32);
     /// Apply the opacity (between 0 and 1) for all following items until the next call to restore_state.
     fn apply_opacity(&mut self, opacity: f32);
 
@@ -1083,6 +1084,9 @@ impl<T: ItemRenderer + ItemRendererFeatures> ItemRenderer for PartialRenderer<'_
 
     fn rotate(&mut self, angle_in_degrees: f32) {
         self.actual_renderer.rotate(angle_in_degrees)
+    }
+    fn scale(&mut self, x_factor: f32, y_factor: f32) {
+        self.actual_renderer.scale(x_factor, y_factor)
     }
 
     fn apply_opacity(&mut self, opacity: f32) {

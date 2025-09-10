@@ -996,6 +996,7 @@ fn generate_rtti() -> HashMap<&'static str, Rc<ItemRTTI>> {
             rtti_for::<Clip>(),
             rtti_for::<BoxShadow>(),
             rtti_for::<Rotate>(),
+            rtti_for::<Scale>(),
             rtti_for::<Opacity>(),
             rtti_for::<Layer>(),
             rtti_for::<DragArea>(),
