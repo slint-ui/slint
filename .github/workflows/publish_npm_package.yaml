@@ -22,7 +22,7 @@ on:
 
 jobs:
     determine_version:
-        runs-on: ubuntu-22.04
+        runs-on: ubuntu-latest
         outputs:
             PKG_VERSION: ${{ steps.mkversion.outputs.PKG_VERSION }}
         steps:
