@@ -31,6 +31,7 @@ jobs:
               with:
                 version: 10.14.0
             - uses: actions/setup-node@v5
+              package-manager-cache: false
             - name: Determine version
               id: mkversion
               env:
@@ -96,6 +97,7 @@ jobs:
               with:
                   node-version: "20.x"
                   registry-url: "https://registry.npmjs.org"
+                  package-manager-cache: false
             - name: Set version
               working-directory: api/node
               shell: bash
@@ -157,6 +159,7 @@ jobs:
               with:
                   node-version: "20.x"
                   registry-url: "https://registry.npmjs.org"
+                  package-manager-cache: false
             - name: Set version
               working-directory: api/node
               run: |
