@@ -2493,7 +2493,7 @@ impl<T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'_, T
     fn rotate(&mut self, _angle_in_degrees: f32) {
         // TODO (#6068)
     }
-    fn scale(&mut self, x_factor: f32, y_factor: f32) {
+    fn scale(&mut self, _x_factor: f32, _y_factor: f32) {
         // TODO
     }
 
