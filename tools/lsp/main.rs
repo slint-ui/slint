@@ -342,14 +342,12 @@ fn main_loop(connection: Connection, init_param: InitializeParams, cli_args: Cli
                 let contents = std::fs::read_to_string(&path);
                 if let Ok(url) = Url::from_file_path(&path) {
                     if let Ok(contents) = &contents {
-                        to_preview
-                            .send(&common::LspToPreviewMessage::SetContents {
-                                url: common::VersionedUrl::new(url, None),
-                                contents: contents.clone(),
-                            })
-                            .unwrap();
+                        to_preview.send(&common::LspToPreviewMessage::SetContents {
+                            url: common::VersionedUrl::new(url, None),
+                            contents: contents.clone(),
+                        });
                     } else {
-                        to_preview.send(&common::LspToPreviewMessage::ForgetFile { url }).unwrap();
+                        to_preview.send(&common::LspToPreviewMessage::ForgetFile { url });
                     }
                 }
                 Some(contents.map(|c| (None, c)))

@@ -240,8 +240,9 @@ impl WasmLspToPreview {
 }
 
 impl common::LspToPreview for WasmLspToPreview {
-    fn send(&self, message: &common::LspToPreviewMessage) -> common::Result<()> {
-        self.server_notifier.send_notification::<common::LspToPreviewMessage>(message.clone())
+    fn send(&self, message: &common::LspToPreviewMessage) {
+        let _ =
+            self.server_notifier.send_notification::<common::LspToPreviewMessage>(message.clone());
     }
 
     fn preview_target(&self) -> common::PreviewTarget {
