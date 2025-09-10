@@ -9,12 +9,13 @@ export component Slider {
     in property <bool> enabled;
     in_out property <float> value;
     in property <float> minimum;
-    in property <float> divisions: 0;
+    in property <int> stop_count: 0;
     in property <float> maximum: 100;
 
     callback released(value: float);
+    callback value_changed(value: float);
 
-    property <float> steps: root.divisions > 0 ? (root.maximum - root.minimum) / root.divisions : 1;
+    property <int> steps: root.stop_count > 0 ? (root.maximum - root.minimum) / root.stop_count : 1;
 
     min_height: 20px;
     accessible-role: slider;
@@ -29,24 +30,27 @@ export component Slider {
         touch_area := TouchArea {
             track := Rectangle {
                 x: 0;
-                height: MaterialStyleMetrics.size_4;
+                height: MaterialStyleMetrics.size_16;
                 background: MaterialPalette.surface_container_highest;
                 border_radius: self.height / 2;
 
                 Rectangle {
                     x: 0;
-                    width: root.value_to_length(track.width, root.value);
-                    border_radius: track.border_radius;
+                    width: state_layer.x - MaterialStyleMetrics.size_6;
+                    border-top-left-radius: track.border_radius;
+                    border-bottom-left-radius: track.border_radius;
+                    border-top-right-radius: MaterialStyleMetrics.size_1;
+                    border-bottom-right-radius: MaterialStyleMetrics.size_1;
                     background: thumb.background;
                 }
 
-                if root.divisions > 0 : Rectangle {
+                if root.stop_count > 0: Rectangle {
                     width: 100%;
                     height: 100%;
 
-                    for i in (root.maximum - root.minimum) / root.steps : Rectangle {
+                    for i in (root.maximum - root.minimum) / root.steps: Rectangle {
                         x: root.value_to_length(track.width, (i + 1) * root.steps) - self.width / 2;
-                        height: parent.height / 2;
+                        height: MaterialStyleMetrics.size_4;
                         width: self.height;
                         border_radius: self.height / 2;
                         background: MaterialPalette.outline;
@@ -54,34 +58,38 @@ export component Slider {
                 }
             }
 
-            state_layer := StateLayer {
-                x: root.value_to_length(track.width - thumb_area.width, root.value) - (self.width - thumb_area.width) / 2;
-                height: root.height + MaterialStyleMetrics.size_24;
-                width: self.height;
-                border_radius: self.height / 2;
-                pressed: touch_area.pressed;
-                has_hover: touch_area.has_hover;
-                has_focus: focus_scope.has_focus;
-                enabled: root.enabled;
-                background: thumb.background;
-                display_background: thumb_area.pressed || thumb_area.has_hover || focus_scope.has_focus;
+            state_layer := Rectangle {
+                x: root.value_to_length(track.width, root.value) - (self.width) / 2;
+                width: 0;
+                height: track.height + (MaterialStyleMetrics.size_14 * 2);
+                StateLayer {
+                    height: track.height + (MaterialStyleMetrics.size_16 * 2);
+                    width: thumb.width + (MaterialStyleMetrics.size_2 * 2);
+                    border_radius: self.width / 2;
+                    pressed: touch_area.pressed;
+                    has_hover: touch_area.has_hover;
+                    has_focus: focus_scope.has_focus;
+                    enabled: root.enabled;
+                    background: thumb.background;
+                    display_background: thumb_area.pressed || thumb_area.has_hover || focus_scope.has_focus;
 
-                thumb_area := TouchArea {
-                    height: root.height;
-                    width: self.height;
+                    thumb_area := TouchArea {
+                        height: track.height + (MaterialStyleMetrics.size_14 * 2);
+                        width: self.height;
+                        thumb := Rectangle {
+                            width: MaterialStyleMetrics.size_4;
+                            border_radius: self.width / 2;
+                            background: MaterialPalette.primary;
+                        }
 
-                    thumb := Rectangle {
-                        border_radius: self.height / 2;
-                        background: MaterialPalette.primary;
-                    }
+                        moved => {
+                            root.set_value(root.length_to_value(state_layer.x + self.mouse_x, track.width));
+                        }
 
-                    moved => {
-                        root.set_value(root.length_to_value(state_layer.x + self.x + self.mouse_x, track.width));
-                    }
-
-                    pointer_event(event) => {
-                        if event.kind == PointerEventKind.up {
-                            root.released(root.value);
+                        pointer_event(event) => {
+                            if event.kind == PointerEventKind.up {
+                                root.released(root.value);
+                            }
                         }
                     }
                 }
@@ -102,14 +110,16 @@ export component Slider {
                 root.set_value(root.value - root.steps);
                 return accept;
             }
-
             if event.text == Key.RightArrow {
                 root.set_value(root.value + root.steps);
                 return accept;
             }
-
             reject
         }
+    }
+
+    changed value => {
+        root.value_changed(root.value);
     }
 
     pure function value_to_length(width: length, value: float) -> length {

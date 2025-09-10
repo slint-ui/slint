@@ -16,8 +16,8 @@ export component Example inherits Window {
     background: transparent;
     Slider {
         x: 5px;
+        value: 50;
         width: parent.width;
-        height: parent.height;
     }
 }
 ```
@@ -28,8 +28,8 @@ Use a `Slider` to allow the user to select a value from a range by moving a thum
 
 ## Properties
 
-### divisions
-<SlintProperty propName="divisions" typeName="float" defaultValue="0">
+### stop-count
+<SlintProperty propName="stop-count" typeName="float" defaultValue="0">
 The number of discrete divisions in the slider range. If greater than 0, the slider will snap to these divisions.
 </SlintProperty>
 
@@ -57,3 +57,6 @@ The current value of the slider.
 
 ### released(value: float)
 Invoked when the slider is released.
+
+### value_changed(value: float)
+Invoked when the slider value changes.
