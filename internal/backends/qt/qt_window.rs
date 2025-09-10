@@ -2100,6 +2100,7 @@ impl WindowAdapter for QtWindow {
             MouseCursor::NsResize => key_generated::Qt_CursorShape_SizeVerCursor,
             MouseCursor::NeswResize => key_generated::Qt_CursorShape_SizeBDiagCursor,
             MouseCursor::NwseResize => key_generated::Qt_CursorShape_SizeFDiagCursor,
+            _ => key_generated::Qt_CursorShape_ArrowCursor,
         };
         cpp! {unsafe [widget_ptr as "QWidget*", cursor_shape as "Qt::CursorShape"] {
             widget_ptr->setCursor(QCursor{cursor_shape});
