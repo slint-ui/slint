@@ -42,7 +42,7 @@ pub enum PreviewTarget {
 
 #[allow(dead_code)]
 pub trait LspToPreview {
-    fn send(&self, message: &LspToPreviewMessage) -> Result<()>;
+    fn send(&self, message: &LspToPreviewMessage);
     fn set_preview_target(&self, target: PreviewTarget) -> Result<()>;
     fn preview_target(&self) -> PreviewTarget;
 }
@@ -52,9 +52,7 @@ pub trait LspToPreview {
 pub struct DummyLspToPreview {}
 
 impl LspToPreview for DummyLspToPreview {
-    fn send(&self, _message: &LspToPreviewMessage) -> Result<()> {
-        Ok(())
-    }
+    fn send(&self, _message: &LspToPreviewMessage) {}
 
     fn preview_target(&self) -> PreviewTarget {
         PreviewTarget::Dummy

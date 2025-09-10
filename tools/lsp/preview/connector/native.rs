@@ -105,16 +105,17 @@ impl Drop for ChildProcessLspToPreview {
 }
 
 impl common::LspToPreview for ChildProcessLspToPreview {
-    fn send(&self, message: &common::LspToPreviewMessage) -> common::Result<()> {
+    fn send(&self, message: &common::LspToPreviewMessage) {
         if self.preview_is_running() {
             let mut inner = self.inner.borrow_mut();
             let inner = inner.as_mut().unwrap();
-            let message = serde_json::to_string(message).map_err(|e| e.to_string())?;
-            writeln!(inner.to_child, "{message}")?;
+            let Ok(message) = serde_json::to_string(message) else {
+                return;
+            };
+            let _ = writeln!(inner.to_child, "{message}");
         } else if let common::LspToPreviewMessage::ShowPreview(_) = message {
             self.start_preview().unwrap();
         }
-        Ok(())
     }
 
     fn preview_target(&self) -> common::PreviewTarget {
@@ -137,8 +138,9 @@ impl EmbeddedLspToPreview {
 }
 
 impl common::LspToPreview for EmbeddedLspToPreview {
-    fn send(&self, message: &common::LspToPreviewMessage) -> common::Result<()> {
-        self.server_notifier.send_notification::<common::LspToPreviewMessage>(message.clone())
+    fn send(&self, message: &common::LspToPreviewMessage) {
+        let _ =
+            self.server_notifier.send_notification::<common::LspToPreviewMessage>(message.clone());
     }
 
     fn preview_target(&self) -> common::PreviewTarget {
@@ -169,8 +171,8 @@ impl SwitchableLspToPreview {
 }
 
 impl common::LspToPreview for SwitchableLspToPreview {
-    fn send(&self, message: &common::LspToPreviewMessage) -> common::Result<()> {
-        self.lsp_to_previews.get(&self.current_target.borrow()).unwrap().send(message)
+    fn send(&self, message: &common::LspToPreviewMessage) {
+        let _ = self.lsp_to_previews.get(&self.current_target.borrow()).unwrap().send(message);
     }
 
     fn preview_target(&self) -> common::PreviewTarget {

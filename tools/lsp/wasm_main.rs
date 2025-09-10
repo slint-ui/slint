@@ -202,12 +202,10 @@ pub fn create(
                 return Some(contents.map(|c| (None, c)));
             };
             if let Ok(contents) = &contents {
-                to_preview
-                    .send(&LspToPreviewMessage::SetContents {
-                        url: VersionedUrl::new(url, None),
-                        contents: contents.clone(),
-                    })
-                    .unwrap()
+                to_preview.send(&LspToPreviewMessage::SetContents {
+                    url: VersionedUrl::new(url, None),
+                    contents: contents.clone(),
+                });
             }
             Some(contents.map(|c| (None, c)))
         })
