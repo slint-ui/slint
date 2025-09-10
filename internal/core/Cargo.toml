@@ -48,7 +48,7 @@ unsafe-single-threaded = []
 
 unicode = ["unicode-script", "unicode-linebreak"]
 
-software-renderer-systemfonts = ["shared-fontdb", "rustybuzz", "fontdue", "software-renderer"]
+software-renderer-systemfonts = ["shared-fontdb", "shared-fontique", "rustybuzz", "fontdue", "software-renderer"]
 software-renderer = ["bytemuck"]
 
 image-decoders = ["dep:image", "dep:clru"]
@@ -58,6 +58,7 @@ svg = ["dep:resvg", "shared-fontdb"]
 box-shadow-cache = []
 
 shared-fontdb = ["i-slint-common/shared-fontdb"]
+shared-fontique = ["i-slint-common/shared-fontique"]
 
 raw-window-handle-06 = ["dep:raw-window-handle-06"]
 
