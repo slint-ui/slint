@@ -1125,7 +1125,7 @@ impl ItemConsts for Scale {
 }
 
 declare_item_vtable! {
-    fn slint_get_RotateVTable() -> ScaleVTable for Scale
+    fn slint_get_ScaleVTable() -> ScaleVTable for Scale
 }
 
 #[repr(C)]
