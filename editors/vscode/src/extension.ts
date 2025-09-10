@@ -325,24 +325,24 @@ export function activate(context: vscode.ExtensionContext) {
 
     const version_extension = custom_lsp ? " [CUSTOM BINARY]" : "";
 
-    watcher.onDidCreate((uri) => {
-        vscode.workspace.fs.readFile(uri).then((data) => {
-            const contents = Buffer.from(data).toString("utf-8");
-            const lines = contents.split("\n");
-            const version = lines[0] + version_extension;
-            // Location is trusted because it is a path within the LSP (as build on our CI)
-            const location = new vscode.TelemetryTrustedValue(lines[1]);
-            const backtrace = lines[2];
-            const message = lines.slice(3).join("\n");
-            telemetryLogger.logError("lsp-panic", {
-                version: version,
-                location: location,
-                message: message,
-                backtrace: backtrace,
-            });
-            console.log("Removing file");
-            vscode.workspace.fs.delete(uri);
+    watcher.onDidCreate(async (uri) => {
+        // wait a bit to make sure the file is fully written
+        await new Promise((resolve) => setTimeout(resolve, 300));
+
+        const contents = await vscode.workspace.fs.readFile(uri);
+        const lines = contents.toString().split("\n");
+        const version = lines[0] + version_extension;
+        // Location is trusted because it is a path within the LSP (as build on our CI)
+        const location = new vscode.TelemetryTrustedValue(lines[1]);
+        const backtrace = lines[2];
+        const message = lines.slice(3).join("\n");
+        telemetryLogger.logError("lsp-panic", {
+            version: version,
+            location: location,
+            message: message,
+            backtrace: backtrace,
         });
+        vscode.workspace.fs.delete(uri);
     });
 
     // Ensure the watcher is disposed of when the extension is deactivated
