@@ -31,7 +31,8 @@ jobs:
               with:
                 version: 10.14.0
             - uses: actions/setup-node@v5
-              package-manager-cache: false
+              with:
+                package-manager-cache: false
             - name: Determine version
               id: mkversion
               env:
