@@ -27,18 +27,14 @@ jobs:
             PKG_VERSION: ${{ steps.mkversion.outputs.PKG_VERSION }}
         steps:
             - uses: actions/checkout@v5
-            # Setup .npmrc file to publish to npm
             - uses: actions/setup-node@v5
-              with:
-                  node-version: "20.x"
-                  registry-url: "https://registry.npmjs.org"
             - name: Determine version
               id: mkversion
               env:
                   RELEASE_INPUT: ${{ github.event.inputs.release }}
               working-directory: api/node
               run: |
-                  version=`npm pkg get version | jq -r`
+                  version=`pnpm pkg get version | jq -r`
                   if [ "$RELEASE_INPUT" != "true" ]; then
                       nightly_version_suffix=`git log -1 --format=%cd --date="format:%Y%m%d%H"`
                       version="$version-nightly.$nightly_version_suffix"
