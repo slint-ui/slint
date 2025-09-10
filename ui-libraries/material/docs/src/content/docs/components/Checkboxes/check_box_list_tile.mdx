@@ -1,26 +1,28 @@
 ---
 <!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
-title: CheckBox
-description: CheckBox API.
+title: CheckBoxListTile
+description: CheckBoxListTile API.
 ---
 
 import CodeSnippetMD from '/src/components/CodeSnippetMD.astro';
 import SlintProperty from '/src/components/SlintProperty.astro';
 
-<CodeSnippetMD imagePath="/src/assets/generated/checkbox.png" scale="3" imageWidth="300" imageHeight="200" imageAlt="" needsBackground="true">
+<CodeSnippetMD imagePath="/src/assets/generated/checkboxlisttile.png" scale="3" imageWidth="140" imageHeight="100" imageAlt="">
 ```slint
-import { CheckBox, CheckState } from "./material.slint";
+import { CheckBoxListTile, CheckState } from "./material.slint";
 export component Example inherits Window {
-    width: 200px;
+    width: 140px;
     height: 100px;
-    CheckBox {
+    background: transparent;
+    CheckBoxListTile {
+        text: "Option 1";
         check-state: CheckState.checked;
     }
 }
 ```
 </CodeSnippetMD>
 
-A `CheckBox` is a control that allows users to select one or more options from a set. It can be in three states: unchecked, checked, or partially checked (when `tristate` is enabled).
+A `CheckBoxListTile` is a control that combines a text label with a `CheckBox`. See [CheckBox](/components/checkboxes/check_box/) and [ListTile](/components/list_tile/) for more information.
 
 ## Properties
 
@@ -35,19 +37,20 @@ CheckBox {
 ```
 </SlintProperty>
 
-### checked
-<SlintProperty propName="checked" typeName="bool" propertyVisibility="out">
-Whether the checkbox is checked (either fully or partially).
-</SlintProperty>
 
 ### enabled
 <SlintProperty propName="enabled" typeName="bool" defaultValue="true">
 Whether the checkbox is enabled and can be interacted with.
 </SlintProperty>
 
-### error
-<SlintProperty propName="error" typeName="bool">
+### has-error
+<SlintProperty propName="has-error" typeName="bool">
 Whether the checkbox should display an error state.
+</SlintProperty>
+
+### text
+<SlintProperty propName="text" typeName="string">
+The primary text displayed in the list tile.
 </SlintProperty>
 
 ### tristate
@@ -55,7 +58,15 @@ Whether the checkbox should display an error state.
 Whether the checkbox supports three states (unchecked, partially checked, checked).
 </SlintProperty>
 
+## Callbacks
+
+### checked-state-changed(check-state: CheckState)
+Invoked when the checkbox state changes.
+
 ## Functions
 
 ### toggle()
 Toggles the checkbox state. In tristate mode, cycles through unchecked → partially checked → checked → unchecked.
+
+### set-check-state(check-state: CheckState)
+Sets the checkbox state. If the state is `partially-checked`, the tristate property is set to true.

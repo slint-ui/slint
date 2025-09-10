@@ -1,0 +1,66 @@
+---
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+title: CheckBox
+description: CheckBox API.
+---
+
+import CodeSnippetMD from '/src/components/CodeSnippetMD.astro';
+import SlintProperty from '/src/components/SlintProperty.astro';
+
+<CodeSnippetMD imagePath="/src/assets/generated/checkbox.png" scale="3" imageWidth="100" imageHeight="100" imageAlt="">
+```slint
+import { CheckBox, CheckState } from "./material.slint";
+export component Example inherits Window {
+    width: 100px;
+    height: 100px;
+    background: transparent;
+    CheckBox {
+        check-state: CheckState.checked;
+    }
+}
+```
+</CodeSnippetMD>
+
+A `CheckBox` is a control that allows users to select one or more options from a set. It can be in three states: unchecked, checked, or partially checked (when `tristate` is enabled).
+
+## Properties
+
+### check-state
+<SlintProperty propName="check-state" typeName="enum" enumName="CheckState" propertyVisibility="in-out">
+The current state of the checkbox. Can be `unchecked`, `partially-checked`, or `checked`.
+
+```slint "check-state: CheckState.checked;"
+CheckBox {
+    check-state: CheckState.checked;
+}
+```
+</SlintProperty>
+
+
+### enabled
+<SlintProperty propName="enabled" typeName="bool" defaultValue="true">
+Whether the checkbox is enabled and can be interacted with.
+</SlintProperty>
+
+### has-error
+<SlintProperty propName="has-error" typeName="bool">
+Whether the checkbox should display an error state.
+</SlintProperty>
+
+### tristate
+<SlintProperty propName="tristate" typeName="bool">
+Whether the checkbox supports three states (unchecked, partially checked, checked).
+</SlintProperty>
+
+## Callbacks
+
+### checked-state-changed(check-state: CheckState)
+Invoked when the checkbox state changes.
+
+## Functions
+
+### toggle()
+Toggles the checkbox state. In tristate mode, cycles through unchecked → partially checked → checked → unchecked.
+
+### set-check-state(check-state: CheckState)
+Sets the checkbox state. If the state is `partially-checked`, the tristate property is set to true.

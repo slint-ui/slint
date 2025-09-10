@@ -16,11 +16,15 @@ export enum CheckState {
 }
 
 export component CheckBox {
+
     in_out property <CheckState> check_state;
-    out property <bool> checked: root.check_state == CheckState.checked || root.check_state == CheckState.partially_checked;
-    in property <bool> tristate;
-    in property <bool> error;
+    in_out property <bool> tristate;
+    in property <bool> has_error;
     in property <bool> enabled <=> state_area.enabled;
+
+    property <bool> checked: root.check_state == CheckState.checked || root.check_state == CheckState.partially_checked;
+
+    callback checked_state_changed(check_state: CheckState);
 
     min_width: MaterialStyleMetrics.size_48;
     min_height: self.min_width;
@@ -42,7 +46,7 @@ export component CheckBox {
             height: self.width;
             border_radius: MaterialStyleMetrics.border_radius_2;
             border_width: root.checked ? 0 : 2px;
-            border_color: root.error ? MaterialPalette.error : MaterialPalette.on_surface_variant;
+            border_color: root.has_error ? MaterialPalette.error : MaterialPalette.on_surface_variant;
 
             if root.checked : Icon {
                 colorize: MaterialPalette.on_primary;
@@ -66,6 +70,10 @@ export component CheckBox {
         }
     }
 
+    changed check_state => {
+        root.checked_state_changed(root.check_state);
+    }
+
     public function toggle() {
         if !root.tristate {
             root.check_state = root.check_state != CheckState.checked ? CheckState.checked : CheckState.unchecked;
@@ -76,6 +84,13 @@ export component CheckBox {
             root.check_state == CheckState.partially_checked ? CheckState.unchecked : CheckState.checked;
     }
 
+    public function set_check_state(check_state: CheckState) {
+        if check_state == CheckState.partially-checked {
+            root.tristate = true;
+        }
+        root.check_state = check_state;
+    }
+
     states [
         disabled when !root.enabled : {
            state_area.display_background: false;
@@ -84,7 +99,7 @@ export component CheckBox {
         }
         checked when root.checked : {
             background_layer.border_width: 0;
-            background_layer.background: root.error ? MaterialPalette.error :  MaterialPalette.primary;
+            background_layer.background: root.has_error ? MaterialPalette.error :  MaterialPalette.primary;
             state_area.color: background_layer.background;
         }
     ]
@@ -92,9 +107,10 @@ export component CheckBox {
 
 export component CheckBoxListTile inherits ListTile {
     in_out property <CheckState> check_state <=> check_box.check_state;
-    out property <bool> checked <=> check_box.checked;
-    in property <bool> tristate <=> check_box.tristate;
-    in property <bool> error <=> check_box.error;
+    in_out property <bool> tristate <=> check_box.tristate;
+    in property <bool> has_error <=> check_box.has_error;
+
+    callback checked_state_changed <=> check_box.checked_state_changed;
 
     Rectangle {
         horizontal-stretch: 0;
@@ -106,5 +122,9 @@ export component CheckBoxListTile inherits ListTile {
 
     clicked => {
         check_box.toggle();
+    }
+
+    public function set_check_state(check-state: CheckState) {
+        check_box.set_check_state(check_state);
     }
 }
