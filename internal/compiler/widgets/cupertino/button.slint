@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { CupertinoFontSettings, CupertinoPalette } from "styling.slint";
+import { CupertinoFontSettings, CupertinoPalette, CupertinoColors } from "styling.slint";
 import { FocusBorder } from "components.slint";
 
 export component Button {
@@ -44,7 +44,7 @@ export component Button {
             root.background: root.primary ? CupertinoPalette.secondary-accent-background : CupertinoPalette.secondary-control-background;
         }
         checked when root.checked: {
-            root.text-color: CupertinoPalette.accent-foreground;
+            root.text-color: root.primary ? CupertinoColors.white : CupertinoPalette.secondary-accent-background;
         }
     ]
 

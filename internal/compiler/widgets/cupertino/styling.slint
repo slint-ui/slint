@@ -45,7 +45,7 @@ export global CupertinoColors {
     out property <color> mint: #00C7BE;
     out property <color> teal: #59ADC4;
     out property <color> cyan: #55BEF0;
-    out property <color> blue: #326CCF;
+    out property <color> blue: #4585F2;
     out property <color> indigo: #5856D6;
     out property <color> purple: #AF52DE;
     out property <color> pink: #FF2D55;
@@ -69,7 +69,7 @@ export global CupertinoPalette {
     out property <brush> foreground: dark-color-scheme ? CupertinoColors.systemGray6 : CupertinoColors.systemGray6-dark;
     out property <brush> alternate-background: dark-color-scheme ? CupertinoColors.systemGray5-dark : CupertinoColors.systemGray5;
     out property <brush> alternate-foreground: dark-color-scheme ? CupertinoColors.systemGray5 : CupertinoColors.systemGray5-dark;
-    out property <brush> control-background: dark-color-scheme ? CupertinoColors.systemGray2-dark : CupertinoColors.white;
+    out property <brush> control-background: dark-color-scheme ? CupertinoColors.systemGray3-dark : CupertinoColors.white;
     out property <brush> control-foreground: dark-color-scheme ? CupertinoColors.systemGray4 : CupertinoColors.systemGray5-dark;
     out property <brush> accent-background: dark-color-scheme ? CupertinoColors.selection-color : CupertinoColors.selection-color;
     out property <brush> accent-foreground: CupertinoColors.systemGray5;
@@ -103,7 +103,7 @@ export global CupertinoPalette {
     out property <brush> state-secondary: dark-color-scheme ? CupertinoColors.systemGray6-dark : CupertinoColors.systemGray6;
 
     // FIXME: dark color
-    out property <brush> dimmer: @linear-gradient(180deg, CupertinoColors.white 100%, CupertinoColors.black 0%);
+    out property <brush> dimmer: @linear-gradient(180deg, CupertinoColors.white.transparentize(0.9) 100%, CupertinoColors.black 0%);
 }
 
 export global Icons {

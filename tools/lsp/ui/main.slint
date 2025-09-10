@@ -62,7 +62,7 @@ export component PreviewUi inherits Window {
         WindowGlobal.window-height = self.height;
     }
 
-    if Api.show-preview-ui : MenuBar {
+    if Api.show-preview-ui: MenuBar {
         Menu {
             title: @tr("File");
 
@@ -149,6 +149,7 @@ export component PreviewUi inherits Window {
                 checked <=> root.console-panel-expanded;
             }
         }
+
         if !Api.runs-in-slintpad: Menu {
             title: @tr("Window");
             MenuItem {
@@ -179,11 +180,10 @@ export component PreviewUi inherits Window {
         }
         if Api.show-preview-ui: FocusScope {
             key-pressed(event) => {
-                if  Api.undo-enabled && event.modifiers.control && event.text == "z" {
+                if Api.undo-enabled && event.modifiers.control && event.text == "z" {
                     Api.undo();
                     return accept;
-                } else if Api.redo-enabled && event.modifiers.control &&
-                    ((Platform.os != OperatingSystemType.windows && event.text == "Z") || (Platform.os == OperatingSystemType.windows && event.text == "y")) {
+                } else if Api.redo-enabled && event.modifiers.control && ((Platform.os != OperatingSystemType.windows && event.text == "Z") || (Platform.os == OperatingSystemType.windows && event.text == "y")) {
                     Api.redo();
                     return accept;
                 }
@@ -246,7 +246,7 @@ export component PreviewUi inherits Window {
                         visible-component <=> root.visible-component;
                     }
 
-                    if properties-widget || outline-widget || data-widget : right-panel := Rectangle {
+                    if properties-widget || outline-widget || data-widget: right-panel := Rectangle {
                         width: EditorSizeSettings.property-bar-width + right-panel-border.width;
 
                         right-panel-border := Rectangle {
@@ -333,6 +333,7 @@ export component PreviewUi inherits Window {
 
                 // StatusLine { }
             }
+
             cp := ConsolePanel {
                 y: parent.height - self.height - 1px;
                 width: parent.width;
