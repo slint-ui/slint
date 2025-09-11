@@ -2048,3 +2048,5 @@ as well as the [Rust migration guide for the `sixtyfps` crate](api/rs/slint/migr
 [1.11.0]: https://github.com/slint-ui/slint/releases/tag/v1.11.0
 [1.12.0]: https://github.com/slint-ui/slint/releases/tag/v1.12.0
 [1.12.1]: https://github.com/slint-ui/slint/releases/tag/v1.12.1
+[1.13.0]: https://github.com/slint-ui/slint/releases/tag/v1.13.0
+[1.13.1]: https://github.com/slint-ui/slint/releases/tag/v1.13.1
