@@ -3,7 +3,7 @@
 
 [project]
 name = "slint-compiler"
-version = "1.13.1b1"
+version = "1.14.0b1"
 description = "Python wrapper around the Slint compiler for Python"
 authors = [{ name = "Slint Team", email = "info@slint.dev" }]
 readme = "README.md"

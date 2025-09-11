@@ -3,7 +3,7 @@
 
 [package]
 name = "mcu-embassy"
-version = "1.13.1"
+version = "1.14.0"
 edition = "2021"
 authors = ["David Haig <david@ninjametal.com>"]
 readme = "README.md"
