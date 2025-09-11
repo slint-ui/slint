@@ -47,6 +47,7 @@ pub async fn run_bevy_app_with_slint(
     (smol::channel::Receiver<wgpu::Texture>, smol::channel::Sender<ControlMessage>),
     slint::PlatformError,
 > {
+    #[allow(unused_mut)]
     let mut backends = wgpu::Backends::from_env().unwrap_or_default();
 
     // Skia’s Vulkan backend is currently broken on Windows.
