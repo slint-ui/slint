@@ -8,8 +8,8 @@
         "jimp": "1.6.0"
     },
     "devDependencies": {
-        "@types/node": "20.16.10",
-        "typescript": "5.9.2"
+        "@types/node": "catalog:",
+        "typescript": "catalog:"
     },
     "scripts": {
         "start": "tsc --build && node ./main.js",
