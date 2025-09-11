@@ -817,15 +817,15 @@ impl ItemRc {
     /// Returns the transform to apply to children to map them into the local coordinate space of this item.
     /// Typically this is None, but rotation for example may return Some.
     pub fn children_transform(&self) -> Option<ItemTransform> {
-        self.downcast::<crate::items::Rotate>().map(|rotate_item| {
+        self.downcast::<crate::items::Transform>().map(|transform_item| {
             let origin = euclid::Vector2D::<f32, crate::lengths::LogicalPx>::from_lengths(
-                rotate_item.as_pin_ref().rotation_origin_x().cast(),
-                rotate_item.as_pin_ref().rotation_origin_y().cast(),
+                transform_item.as_pin_ref().rotation_origin_x().cast(),
+                transform_item.as_pin_ref().rotation_origin_y().cast(),
             );
             ItemTransform::translation(-origin.x, -origin.y)
                 .cast()
                 .then_rotate(euclid::Angle {
-                    radians: rotate_item.as_pin_ref().rotation_angle().to_radians(),
+                    radians: transform_item.as_pin_ref().rotation_angle().to_radians(),
                 })
                 .then_translate(origin)
         })

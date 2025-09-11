@@ -184,7 +184,7 @@ pub async fn run_passes(
                 op: '/',
                 rhs: Expression::NumberLiteral(2., Default::default()).into(),
             }),
-            &SmolStr::new_static("Rotate"),
+            &SmolStr::new_static("Transform"),
             &global_type_registry.borrow(),
             diag,
         );
