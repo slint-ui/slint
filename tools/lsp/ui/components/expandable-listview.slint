@@ -70,11 +70,13 @@ component ItemTemplate {
     in property <bool> can-drop-here;
     in property <length> offset;
     out property <bool> pressed <=> touch-area.pressed;
+    in property <bool> is-user-defined;
 
-    callback clicked <=> touch-area.clicked;
+    callback show-preview;
 
     min-width: content-layer.min-width;
     min-height: max(EditorSizeSettings.item-height, content-layer.min-height);
+
 
     DragArea {
         mime-type: "application/x-slint-component";
@@ -104,6 +106,17 @@ component ItemTemplate {
             wrap: no-wrap;
             overflow: elide;
             text: root.text;
+        }
+    }
+
+    if is_user_defined: ContextMenuArea {
+        Menu {
+            MenuItem {
+                title: @tr("Show Preview");
+                activated => {
+                    root.show-preview();
+                }
+            }
         }
     }
 
@@ -144,10 +157,15 @@ export component ExpandableListView inherits ScrollView {
                     text: ci.name;
                     offset: header-item.offset;
                     height: self.min-height;
-
+                    is-user-defined: ci.is_user_defined;
 
                     init() => {
                         root.visible-component = ci;
+                    }
+                    show-preview => {
+                        if ci.is_user_defined && !ci.is_currently_shown {
+                            root.show-preview-for(self.data.name, self.data.defined_at)
+                        }
                     }
                 }
             }
