@@ -204,7 +204,7 @@ pub mod re_exports {
         visit_item_tree, ItemTreeNode, ItemVisitorRefMut, ItemVisitorVTable, ItemWeak,
         TraversalOrder, VisitChildrenResult,
     };
-    pub use i_slint_core::items::*;
+    pub use i_slint_core::items::{Transform, *};
     pub use i_slint_core::layout::*;
     pub use i_slint_core::lengths::{
         logical_position_to_api, LogicalLength, LogicalPoint, LogicalRect,
