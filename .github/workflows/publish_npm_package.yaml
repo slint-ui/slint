@@ -236,7 +236,7 @@ jobs:
                   mkdir /tmp/nodetest
                   cd /tmp/nodetest
                   pnpm init
-                  pnpm install --verbose $GITHUB_WORKSPACE/api/node/slint-ui-$PKG_VERSION.tgz
+                  pnpm install --dangerously-allow-all-builds --verbose $GITHUB_WORKSPACE/api/node/slint-ui-$PKG_VERSION.tgz
             - name: Build and publish packages
               if: ${{ github.event.inputs.private != 'true' && (github.ref == 'refs/heads/master' || github.event.inputs.release == 'true') }}
               run: |
