@@ -596,8 +596,10 @@ impl CachedItemBoundingBoxAndTransform {
             item_rc.bounding_rect(&geometry, window_adapter)
         });
 
-        if let Some(complex_child_transform) =
-            T::SUPPORTS_TRANSFORMATIONS.then(|| item_rc.children_transform()).flatten()
+        if let Some(complex_child_transform) = (T::SUPPORTS_TRANSFORMATIONS
+            && window_adapter.renderer().supports_transformations())
+        .then(|| item_rc.children_transform())
+        .flatten()
         {
             Self::ItemWithTransform {
                 bounding_rect,

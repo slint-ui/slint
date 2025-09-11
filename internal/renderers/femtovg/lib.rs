@@ -475,6 +475,10 @@ impl<B: GraphicsBackend> RendererSealed for FemtoVGRenderer<B> {
             ))
         })?
     }
+
+    fn supports_transformations(&self) -> bool {
+        true
+    }
 }
 
 impl<B: GraphicsBackend> Drop for FemtoVGRenderer<B> {

@@ -242,6 +242,10 @@ impl RendererSealed for TestingWindow {
     fn set_window_adapter(&self, _window_adapter: &Rc<dyn WindowAdapter>) {
         // No-op since TestingWindow is also the WindowAdapter
     }
+
+    fn supports_transformations(&self) -> bool {
+        true
+    }
 }
 
 enum Event {

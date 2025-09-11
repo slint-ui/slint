@@ -10,7 +10,7 @@ use crate::item_tree::{ItemRc, ItemWeak, VisitChildrenResult};
 pub use crate::items::PointerEventButton;
 use crate::items::{DropEvent, ItemRef, TextCursorDirection};
 pub use crate::items::{FocusReason, KeyEvent, KeyboardModifiers};
-use crate::lengths::{LogicalPoint, LogicalVector};
+use crate::lengths::{ItemTransform, LogicalPoint, LogicalVector};
 use crate::timers::Timer;
 use crate::window::{WindowAdapter, WindowInner};
 use crate::{Coord, Property, SharedString};
@@ -88,6 +88,28 @@ impl MouseEvent {
         };
         if let Some(pos) = pos {
             *pos += vec;
+        }
+    }
+
+    /// Transform the position by the given item transform.
+    pub fn transform(&mut self, transform: ItemTransform) {
+        let pos = match self {
+            MouseEvent::Pressed { position, .. } => Some(position),
+            MouseEvent::Released { position, .. } => Some(position),
+            MouseEvent::Moved { position } => Some(position),
+            MouseEvent::Wheel { position, .. } => Some(position),
+            MouseEvent::DragMove(e) | MouseEvent::Drop(e) => {
+                e.position = crate::api::LogicalPosition::from_euclid(
+                    transform
+                        .transform_point(crate::lengths::logical_point_from_api(e.position).cast())
+                        .cast(),
+                );
+                None
+            }
+            MouseEvent::Exit => None,
+        };
+        if let Some(pos) = pos {
+            *pos = transform.transform_point(pos.cast()).cast();
         }
     }
 
@@ -609,6 +631,11 @@ pub(crate) fn handle_mouse_grab(
         }
         let g = item.geometry();
         event.translate(-g.origin.to_vector());
+        if window_adapter.renderer().supports_transformations() {
+            if let Some(inverse_transform) = item.inverse_children_transform() {
+                event.transform(inverse_transform);
+            }
+        }
 
         let interested = matches!(
             it.1,
@@ -675,6 +702,11 @@ pub(crate) fn send_exit_events(
         let contains = pos.is_some_and(|p| g.contains(p));
         if let Some(p) = pos.as_mut() {
             *p -= g.origin.to_vector();
+            if window_adapter.renderer().supports_transformations() {
+                if let Some(inverse_transform) = item.inverse_children_transform() {
+                    *p = inverse_transform.transform_point(p.cast()).cast();
+                }
+            }
         }
         if !contains || clipped {
             if item.borrow().as_ref().clips_children() {
@@ -783,7 +815,14 @@ fn send_mouse_event_to_item(
     let geom = item_rc.geometry();
     // translated in our coordinate
     let mut event_for_children = mouse_event.clone();
+    // Unapply the translation to go from 'world' space to local space
     event_for_children.translate(-geom.origin.to_vector());
+    if window_adapter.renderer().supports_transformations() {
+        // Unapply other transforms.
+        if let Some(inverse_transform) = item_rc.inverse_children_transform() {
+            event_for_children.transform(inverse_transform);
+        }
+    }
 
     let filter_result = if mouse_event.position().is_some_and(|p| geom.contains(p))
         || item.as_ref().clips_children()

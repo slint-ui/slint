@@ -1001,6 +1001,10 @@ impl i_slint_core::renderer::RendererSealed for SkiaRenderer {
             partial_rendering_state.mark_dirty_region(region);
         }
     }
+
+    fn supports_transformations(&self) -> bool {
+        true
+    }
 }
 
 impl Drop for SkiaRenderer {

@@ -129,4 +129,7 @@ pub trait RendererSealed {
     fn take_snapshot(&self) -> Result<SharedPixelBuffer<Rgba8Pixel>, PlatformError> {
         Err("WindowAdapter::take_snapshot is not implemented by the platform".into())
     }
+
+    /// Whether the renderer supports transformations such as rotations and scaling or not.
+    fn supports_transformations(&self) -> bool;
 }

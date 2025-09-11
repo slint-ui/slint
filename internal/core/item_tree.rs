@@ -464,6 +464,15 @@ impl ItemRc {
         let mut result = p;
         while let Some(parent) = current.parent_item(ParentItemTraversalMode::StopAtPopups) {
             let geometry = parent.geometry();
+            if self
+                .window_adapter()
+                .map(|adapter| adapter.renderer().supports_transformations())
+                .unwrap_or(true)
+            {
+                if let Some(transform) = parent.children_transform() {
+                    result = transform.transform_point(result.cast()).cast();
+                }
+            }
             result += geometry.origin.to_vector();
             current = parent.clone();
         }
@@ -820,6 +829,16 @@ impl ItemRc {
                 })
                 .then_translate(origin)
         })
+    }
+
+    /// Returns the inverse of the children transform.
+    ///
+    /// None if children_transform is None or in the case of
+    /// non-invertible transforms (which should be extremely rare).
+    pub fn inverse_children_transform(&self) -> Option<ItemTransform> {
+        self.children_transform()
+            // Should practically always be possible.
+            .and_then(|child_transform| child_transform.inverse())
     }
 }
 
