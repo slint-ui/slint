@@ -704,7 +704,6 @@ impl WindowInner {
             let root = match menubar_item {
                 None => item_tree.map(|item_tree| ItemRc::new(item_tree.clone(), 0)),
                 Some(menubar_item) => {
-                    assert_ne!(menubar_item.index(), 0, "ContextMenuInternal cannot be root");
                     event.translate(
                         menubar_item
                             .map_to_item_tree(Default::default(), &self.component())

@@ -11,14 +11,34 @@ export global The_Global {
 
 export component TestCase inherits Window {
     in-out property <string> app_title: "Application";
+    in property <bool> condition: true;
+    in-out property <string> result;
+
     width: 700px;
     height: 700px;
-    //if true :
-     ContextMenuArea {
+
+    TouchArea {
+        function button-str(btn: PointerEventButton) -> string {
+            if btn == PointerEventButton.left { "Left" }
+            else if btn == PointerEventButton.right { "Right" }
+            else if btn == PointerEventButton.middle { "Middle" }
+            else { "Unknown" }
+        }
+        pointer-event(event) => {
+            if event.kind == PointerEventKind.down {
+                result += "Down" + button-str(event.button);
+            } else if event.kind == PointerEventKind.up {
+                result += "Up" + button-str(event.button);
+            }
+        }
+    }
+
+    if condition :
+    ContextMenuArea {
         Menu {
             MenuItem {
                 title: "Entry1";
-                activated => { debug("Entry1"); }
+                activated => { debug("Entry1"); result += "Entry1"; }
             }
             Menu {
                 title: "Entry2";
@@ -63,9 +83,6 @@ export component TestCase inherits Window {
                 }
             }
         }
-
-        // When this focus scope has the focus, the ContextMenu can handle the Menu key
-        fs := FocusScope {}
     }
 
     xxx := PopupWindow {
@@ -78,8 +95,28 @@ export component TestCase inherits Window {
 
 /*
 ```rust
+use slint::{platform::WindowEvent, platform::PointerEventButton, LogicalPosition};
+
 let instance = TestCase::new().unwrap();
 assert!(instance.get_test());
+
+// right click to open the menu
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(15.0, 15.0), button: PointerEventButton::Right });
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(15.0, 15.0), button: PointerEventButton::Right });
+// press on entry1
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(25.0, 25.0), button: PointerEventButton::Left });
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(25.0, 25.0), button: PointerEventButton::Left });
+assert_eq!(instance.get_result(), "Entry1");
+
+instance.set_result("".into());
+
+// right click to open the menu
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(15.0, 15.0), button: PointerEventButton::Right });
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(15.0, 15.0), button: PointerEventButton::Right });
+// press outside the menu should close it
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(0.0, 0.0), button: PointerEventButton::Left });
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(0.0, 0.0), button: PointerEventButton::Left });
+assert_eq!(instance.get_result(), "DownLeftUpLeft");
 ```
 
 ```cpp
