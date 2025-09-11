@@ -91,6 +91,13 @@ impl super::Surface for WGPUSurface {
     }
 
     fn resize_event(&self, size: PhysicalWindowSize) -> Result<(), PlatformError> {
+        {
+            let gr_context = &mut self.gr_context.borrow_mut();
+            // This is brute force, but for the lack of access to the fences this seems to work: Avoid any pending work so that
+            // IDXGISwapChain::ResizeBuffers doesn't complain that the surface is still in use.
+            gr_context.flush_submit_and_sync_cpu();
+        }
+
         let mut surface_config = self.surface_config.borrow_mut();
 
         surface_config.width = size.width;
