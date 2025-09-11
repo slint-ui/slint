@@ -27,9 +27,8 @@ export component PropertyView inherits VerticalLayout {
             root.properties-visible = false;
         }
         search-edited(text) => {
-            // Api.library-search(text);
+            Api.properties-search(text);
         }
-        has-search: false;
     }
     sv := ScrollView {
         vertical-scrollbar-policy: ScrollBarPolicy.always-on;
