@@ -177,6 +177,8 @@ pub const RESERVED_DROP_SHADOW_PROPERTIES: &[(&str, Type)] = &[
 
 pub const RESERVED_ROTATION_PROPERTIES: &[(&str, Type)] = &[
     ("rotation-angle", Type::Angle),
+    ("scale-x", Type::Percent),
+    ("scale-y", Type::Percent),
     ("rotation-origin-x", Type::LogicalLength),
     ("rotation-origin-y", Type::LogicalLength),
 ];
