@@ -3,7 +3,7 @@
 # Changelog
 All notable changes to this project are documented in this file.
 
-## [1.13.1] - 2025-09-10
+## [1.13.1] - 2025-09-11
 
  - Windows: Fixed flickering when updating the menu bar.
  - LinuxKMS: Fixed build with just renderer-femtovg
