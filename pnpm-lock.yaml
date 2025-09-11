@@ -4,6 +4,21 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+catalogs:
+  default:
+    '@biomejs/biome':
+      specifier: 2.2.3
+      version: 2.2.3
+    '@types/node':
+      specifier: 20.16.10
+      version: 20.16.10
+    typescript:
+      specifier: 5.9.2
+      version: 5.9.2
+    vite:
+      specifier: 7.1.5
+      version: 7.1.5
+
 importers:
 
   .: {}
@@ -18,13 +33,13 @@ importers:
         specifier: 6.0.0
         version: 6.0.0
       '@biomejs/biome':
-        specifier: 2.2.3
+        specifier: 'catalog:'
         version: 2.2.3
       '@types/capture-console':
         specifier: 1.0.5
         version: 1.0.5
       '@types/node':
-        specifier: 20.16.10
+        specifier: 'catalog:'
         version: 20.16.10
       ava:
         specifier: 6.4.1
@@ -39,13 +54,13 @@ importers:
         specifier: 0.28.12
         version: 0.28.12(typescript@5.9.2)
       typescript:
-        specifier: 5.9.2
+        specifier: 'catalog:'
         version: 5.9.2
 
   demos/home-automation/node:
     dependencies:
       '@biomejs/biome':
-        specifier: 2.2.3
+        specifier: 'catalog:'
         version: 2.2.3
       slint-ui:
         specifier: workspace:*
@@ -72,7 +87,7 @@ importers:
         specifier: workspace:*
         version: link:../common
       '@types/node':
-        specifier: 20.16.10
+        specifier: 'catalog:'
         version: 20.16.10
       astro:
         specifier: 5.13.7
@@ -96,7 +111,7 @@ importers:
         specifier: 0.6.0
         version: 0.6.0(@astrojs/starlight@0.35.2(astro@5.13.7(@types/node@20.16.10)(jiti@2.4.2)(lightningcss@1.29.2)(rollup@4.50.1)(typescript@5.9.2)(yaml@2.8.1)))
       typescript:
-        specifier: 5.9.2
+        specifier: 'catalog:'
         version: 5.9.2
     devDependencies:
       '@playwright/test':
@@ -124,7 +139,7 @@ importers:
         version: 9.0.1
     devDependencies:
       '@biomejs/biome':
-        specifier: 2.2.3
+        specifier: 'catalog:'
         version: 2.2.3
       '@rauschma/env-var':
         specifier: 1.0.1
@@ -133,8 +148,8 @@ importers:
         specifier: 11.0.4
         version: 11.0.4
       '@types/node':
-        specifier: 18.11.9
-        version: 18.11.9
+        specifier: 'catalog:'
+        version: 20.16.10
       '@types/vscode':
         specifier: 1.82.0
         version: 1.82.0
@@ -145,7 +160,7 @@ importers:
         specifier: 0.4.0
         version: 0.4.0
       typescript:
-        specifier: 5.9.2
+        specifier: 'catalog:'
         version: 5.9.2
       vscode-tmgrammar-test:
         specifier: 0.1.3
@@ -167,10 +182,10 @@ importers:
         version: link:../../../api/node
     devDependencies:
       '@types/node':
-        specifier: 20.16.10
+        specifier: 'catalog:'
         version: 20.16.10
       typescript:
-        specifier: 5.9.2
+        specifier: 'catalog:'
         version: 5.9.2
 
   examples/memory:
@@ -213,7 +228,7 @@ importers:
         specifier: 3.4.1
         version: 3.4.1
       '@types/node':
-        specifier: 20.16.10
+        specifier: 'catalog:'
         version: 20.16.10
       '@types/react':
         specifier: 19.1.12
@@ -234,10 +249,10 @@ importers:
         specifier: 3.12.2
         version: 3.12.2
       typescript:
-        specifier: 5.9.2
+        specifier: 'catalog:'
         version: 5.9.2
       vite:
-        specifier: 7.1.5
+        specifier: 'catalog:'
         version: 7.1.5(@types/node@20.16.10)(jiti@2.4.2)(lightningcss@1.29.2)(yaml@2.8.1)
       vite-figma-plugin:
         specifier: 0.0.24
@@ -252,7 +267,7 @@ importers:
   tools/slintpad:
     devDependencies:
       '@biomejs/biome':
-        specifier: 2.2.3
+        specifier: 'catalog:'
         version: 2.2.3
       '@codingame/monaco-vscode-api':
         specifier: ~8.0.4
@@ -288,7 +303,7 @@ importers:
         specifier: 1.55.0
         version: 1.55.0
       '@types/node':
-        specifier: 20.16.10
+        specifier: 'catalog:'
         version: 20.16.10
       '@types/vscode':
         specifier: 1.92.0
@@ -312,10 +327,10 @@ importers:
         specifier: 6.0.1
         version: 6.0.1
       typescript:
-        specifier: 5.9.2
+        specifier: 'catalog:'
         version: 5.9.2
       vite:
-        specifier: 7.1.5
+        specifier: 'catalog:'
         version: 7.1.5(@types/node@20.16.10)(jiti@2.4.2)(lightningcss@1.29.2)(yaml@2.8.1)
       vscode:
         specifier: npm:@codingame/monaco-vscode-api@8.0.4

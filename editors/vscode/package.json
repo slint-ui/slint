@@ -243,14 +243,14 @@
     "vscode-languageserver": "9.0.1"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.2.3",
+    "@biomejs/biome": "catalog:",
     "@rauschma/env-var": "1.0.1",
     "@types/fs-extra": "11.0.4",
-    "@types/node": "18.11.9",
+    "@types/node": "catalog:",
     "@types/vscode": "1.82.0",
     "esbuild": "0.25.9",
     "shx": "0.4.0",
-    "typescript": "5.9.2",
+    "typescript": "catalog:",
     "vscode-tmgrammar-test": "0.1.3"
   }
 }
