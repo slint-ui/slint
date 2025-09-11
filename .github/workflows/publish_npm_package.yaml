@@ -235,6 +235,7 @@ jobs:
               run: |
                   mkdir /tmp/nodetest
                   cd /tmp/nodetest
+                  echo "neverBuiltDependencies: []" > npm-workspace.yaml
                   pnpm init
                   pnpm install --dangerously-allow-all-builds --verbose $GITHUB_WORKSPACE/api/node/slint-ui-$PKG_VERSION.tgz
             - name: Build and publish packages
