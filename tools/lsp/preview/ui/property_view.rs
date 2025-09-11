@@ -12,7 +12,7 @@ use i_slint_compiler::{
     parser::{syntax_nodes, SyntaxKind, TextRange},
 };
 
-use slint::{SharedString, VecModel};
+use slint::{Model as _, SharedString, VecModel};
 
 use crate::{
     common,
@@ -207,7 +207,7 @@ pub fn map_properties_to_ui(
 ) -> Option<(
     ui::ElementInformation,
     HashMap<SmolStr, ui::PropertyDeclaration>,
-    ui::PropertyGroupModel,
+    Rc<ui::search_model::SearchModel<ui::PropertyGroup>>,
 )> {
     use std::cmp::Ordering;
 
@@ -265,6 +265,8 @@ pub fn map_properties_to_ui(
         .cloned()
         .collect::<Vec<_>>();
 
+    type InnerGroupModel = ui::search_model::SearchModel<ui::PropertyInformation>;
+
     Some((
         ui::ElementInformation {
             id: element.id.as_str().into(),
@@ -275,24 +277,45 @@ pub fn map_properties_to_ui(
             offset: u32::from(element.offset) as i32,
         },
         declarations,
-        Rc::new(VecModel::from(
-            keys.iter()
-                .map(|k| ui::PropertyGroup {
-                    group_name: k.0.as_str().into(),
-                    properties: Rc::new(VecModel::from({
-                        let mut v = property_groups.remove(k).unwrap();
-                        v.sort_by(|a, b| match a.display_priority.cmp(&b.display_priority) {
-                            Ordering::Less => Ordering::Less,
-                            Ordering::Equal => a.name.cmp(&b.name),
-                            Ordering::Greater => Ordering::Greater,
-                        });
-                        v
-                    }))
-                    .into(),
-                })
-                .collect::<Vec<_>>(),
-        ))
-        .into(),
+        Rc::new(ui::search_model::SearchModel::new(
+            VecModel::from(
+                keys.iter()
+                    .map(|k| ui::PropertyGroup {
+                        group_name: k.0.as_str().into(),
+                        properties: Rc::new(InnerGroupModel::new(
+                            VecModel::from({
+                                let mut v = property_groups.remove(k).unwrap();
+                                v.sort_by(|a, b| {
+                                    match a.display_priority.cmp(&b.display_priority) {
+                                        Ordering::Less => Ordering::Less,
+                                        Ordering::Equal => a.name.cmp(&b.name),
+                                        Ordering::Greater => Ordering::Greater,
+                                    }
+                                });
+                                v
+                            }),
+                            |i, search_str| ui::search_model::contains(&i.name, search_str),
+                        ))
+                        .into(),
+                    })
+                    .collect::<Vec<_>>(),
+            ),
+            |group, search_str| {
+                let yes = search_str.is_empty()
+                    || ui::search_model::contains(&group.group_name, search_str);
+                if let Some(sub_filter) =
+                    group.properties.as_any().downcast_ref::<InnerGroupModel>()
+                {
+                    if yes {
+                        sub_filter.set_search_text(Default::default());
+                    } else {
+                        sub_filter.set_search_text(search_str.clone());
+                        return sub_filter.row_count() > 0;
+                    }
+                }
+                yes
+            },
+        )),
     ))
 }
 

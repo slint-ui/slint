@@ -8,6 +8,7 @@ use std::rc::{Rc, Weak};
 trait SearchModelInnerErased<Data> {
     fn set_search_text(&self, text: SharedString);
     fn model(&self) -> &dyn Model<Data = Data>;
+    fn source(&self) -> &dyn Model<Data = Data>;
     fn search_text(&self) -> SharedString;
 }
 
@@ -31,6 +32,9 @@ where
     }
     fn model(&self) -> &dyn Model<Data = M::Data> {
         &self.model
+    }
+    fn source(&self) -> &dyn Model<Data = M::Data> {
+        self.model.source_model()
     }
     fn search_text(&self) -> SharedString {
         self.filter_text.borrow().clone()
@@ -88,6 +92,10 @@ impl<Data: 'static> SearchModel<Data> {
 
     pub fn search_text(&self) -> SharedString {
         self.inner.search_text()
+    }
+
+    pub fn source_model(&self) -> &dyn Model<Data = Data> {
+        self.inner.source()
     }
 }
 
