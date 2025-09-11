@@ -146,7 +146,7 @@ pub async fn run_passes(
         z_order::reorder_by_z_order(component, diag);
         lower_property_to_element::lower_property_to_element(
             component,
-            "opacity",
+            core::iter::once("opacity"),
             core::iter::empty(),
             None,
             &SmolStr::new_static("Opacity"),
@@ -155,7 +155,7 @@ pub async fn run_passes(
         );
         lower_property_to_element::lower_property_to_element(
             component,
-            "cache-rendering-hint",
+            core::iter::once("cache-rendering-hint"),
             core::iter::empty(),
             None,
             &SmolStr::new_static("Layer"),
@@ -166,8 +166,10 @@ pub async fn run_passes(
         lower_shadows::lower_shadow_properties(component, &doc.local_registry, diag);
         lower_property_to_element::lower_property_to_element(
             component,
-            crate::typeregister::RESERVED_ROTATION_PROPERTIES[0].0,
-            crate::typeregister::RESERVED_ROTATION_PROPERTIES[1..]
+            crate::typeregister::RESERVED_TRANSFORM_PROPERTIES[..3]
+                .iter()
+                .map(|(prop_name, _)| *prop_name),
+            crate::typeregister::RESERVED_TRANSFORM_PROPERTIES[3..]
                 .iter()
                 .map(|(prop_name, _)| *prop_name),
             Some(&|e, prop| Expression::BinaryExpression {
