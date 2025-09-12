@@ -27,6 +27,7 @@ ttf-parser = { workspace = true, optional = true }
 derive_more = { workspace = true, optional = true }
 cfg-if = { version = "1", optional = true }
 fontique = { version = "0.5.0", optional = true }
+once_cell = "1.21.3"
 
 [target.'cfg(not(any(target_family = "windows", target_vendor = "apple", target_arch = "wasm32", target_os = "android")))'.dependencies]
 libloading = { version = "0.8.0", optional = true }
