@@ -1,8 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { HorizontalBox, Palette, ScrollView } from "std-widgets.slint";
-import { ComponentListItem, ComponentItem } from "../api.slint";
+import { HorizontalBox, Palette, ScrollView, LineEdit } from "std-widgets.slint";
+import { ComponentListItem, ComponentItem, Api } from "../api.slint";
 import { StateLayer } from "./state-layer.slint";
 import { EditorSizeSettings, EditorAnimationSettings, Icons } from "./styling.slint";
 import { BodyText } from "./body-text.slint";
@@ -67,12 +67,13 @@ component ItemTemplate {
     in property <ComponentItem> data;
     in property <bool> enabled: true;
     in property <string> text;
-    in property <bool> can-drop-here;
     in property <length> offset;
     out property <bool> pressed <=> touch-area.pressed;
-    in property <bool> is-user-defined;
-
+    in property <length> parent-visible-width;
     callback show-preview;
+    callback rename(to: string);
+
+    property <bool> rename-mode: false;
 
     min-width: content-layer.min-width;
     min-height: max(EditorSizeSettings.item-height, content-layer.min-height);
@@ -98,18 +99,7 @@ component ItemTemplate {
         pressed: touch-area.pressed;
     }
 
-    content-layer := HorizontalLayout {
-        padding-left: EditorSpaceSettings.default-padding / 2 + root.offset;
-        padding-top: EditorSpaceSettings.default-padding;
-        padding-bottom: EditorSpaceSettings.default-padding;
-        BodyText {
-            wrap: no-wrap;
-            overflow: elide;
-            text: root.text;
-        }
-    }
-
-    if is_user_defined: ContextMenuArea {
+    if data.is_user_defined: ContextMenuArea {
         Menu {
             MenuItem {
                 title: @tr("Show Preview");
@@ -117,8 +107,42 @@ component ItemTemplate {
                     root.show-preview();
                 }
             }
+            MenuItem {
+                title: @tr("Rename");
+                activated => {
+                    rename-mode = true;
+                }
+            }
         }
     }
+
+    content-layer := HorizontalLayout {
+        padding-left: EditorSpaceSettings.default-padding / 2 + root.offset;
+        padding-top: EditorSpaceSettings.default-padding;
+        padding-bottom: EditorSpaceSettings.default-padding;
+        alignment: start;
+        if !rename-mode: BodyText {
+            wrap: no-wrap;
+            overflow: elide;
+            text: root.text;
+        }
+        if rename-mode: LineEdit {
+            width: parent-visible-width - content-layer.padding-left - EditorSpaceSettings.default-padding;
+            text: root.text;
+            accepted(text) => {
+                if text != root.text {
+                    root.rename(text);
+                }
+                rename-mode = false;
+            }
+            changed has-focus => {
+                if !self.has-focus {
+                    self.accepted(self.text);
+                }
+            }
+        }
+    }
+
 
     states [
         disabled when !root.enabled: {
@@ -157,7 +181,7 @@ export component ExpandableListView inherits ScrollView {
                     text: ci.name;
                     offset: header-item.offset;
                     height: self.min-height;
-                    is-user-defined: ci.is_user_defined;
+                    parent-visible-width: root.visible-width;
 
                     init() => {
                         root.visible-component = ci;
@@ -166,6 +190,9 @@ export component ExpandableListView inherits ScrollView {
                         if ci.is_user_defined && !ci.is_currently_shown {
                             root.show-preview-for(self.data.name, self.data.defined_at)
                         }
+                    }
+                    rename(to) => {
+                        Api.rename-component(self.data.name, self.data.defined_at, to);
                     }
                 }
             }
