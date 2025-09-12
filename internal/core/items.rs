@@ -1100,7 +1100,7 @@ impl Item for Transform {
         let origin =
             LogicalVector::from_lengths(self.rotation_origin_x(), self.rotation_origin_y());
         (*backend).translate(origin);
-        (*backend).scale(self.scale_x() / 100.0, self.scale_y() / 100.0);
+        (*backend).scale(self.scale_x(), self.scale_y());
         (*backend).rotate(self.rotation_angle());
         (*backend).translate(-origin);
         RenderingResult::ContinueRenderingChildren

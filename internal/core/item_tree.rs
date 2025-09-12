@@ -825,8 +825,8 @@ impl ItemRc {
             ItemTransform::translation(-origin.x, -origin.y)
                 .cast()
                 .then_scale(
-                    transform_item.as_pin_ref().scale_x() / 100.0,
-                    transform_item.as_pin_ref().scale_y() / 100.0,
+                    transform_item.as_pin_ref().scale_x(),
+                    transform_item.as_pin_ref().scale_y(),
                 )
                 .then_rotate(euclid::Angle {
                     radians: transform_item.as_pin_ref().rotation_angle().to_radians(),

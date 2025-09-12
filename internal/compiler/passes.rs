@@ -172,19 +172,20 @@ pub async fn run_passes(
             crate::typeregister::RESERVED_TRANSFORM_PROPERTIES[3..]
                 .iter()
                 .map(|(prop_name, _)| *prop_name),
-            Some(&|e, prop| Expression::BinaryExpression {
-                lhs: Expression::PropertyReference(NamedReference::new(
-                    e,
-                    match prop {
-                        "rotation-origin-x" => SmolStr::new_static("width"),
-                        "rotation-origin-y" => SmolStr::new_static("height"),
-                        "rotation-angle" | "scale-x" | "scale-y" => return Expression::Invalid,
-                        _ => unreachable!(),
-                    },
-                ))
-                .into(),
-                op: '/',
-                rhs: Expression::NumberLiteral(2., Default::default()).into(),
+            Some(&|e, prop| {
+                let prop_div_2 = |prop: &str| Expression::BinaryExpression {
+                    lhs: Expression::PropertyReference(NamedReference::new(e, prop.into())).into(),
+                    op: '/',
+                    rhs: Expression::NumberLiteral(2., Default::default()).into(),
+                };
+
+                match prop {
+                    "rotation-origin-x" => prop_div_2("width"),
+                    "rotation-origin-y" => prop_div_2("height"),
+                    "scale-x" | "scale-y" => Expression::NumberLiteral(1., Default::default()),
+                    "rotation-angle" => Expression::NumberLiteral(0., Default::default()),
+                    _ => unreachable!(),
+                }
             }),
             &SmolStr::new_static("Transform"),
             &global_type_registry.borrow(),
