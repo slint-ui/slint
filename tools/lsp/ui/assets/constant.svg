@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0 -->
+<svg width="100%" height="100%" viewBox="0 0 23 22" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve" xmlns:serif="http://www.serif.com/" style="fill-rule:evenodd;clip-rule:evenodd;stroke-linejoin:round;stroke-miterlimit:2;">
+    <g transform="matrix(1,0,0,1,-1153,-1650)">
+        <g transform="matrix(1,0,0,1,1.13687e-13,-582.164)">
+            <g transform="matrix(1.80511,0,0,1.76153,-655.612,-1722.86)">
+                <g id="constant">
+                    <path d="M1005.26,2256.55L1006.36,2256.55L1006.36,2247.46L1010.29,2247.46L1010.29,2254.07C1010.29,2255.85 1010.95,2256.65 1012.48,2256.65C1012.82,2256.65 1013.23,2256.61 1013.44,2256.53L1012.95,2255.64C1012.74,2255.69 1012.57,2255.7 1012.41,2255.7C1011.63,2255.7 1011.38,2255.36 1011.38,2254.45L1011.38,2247.46L1013.91,2247.46L1013.91,2246.46L1002.63,2246.46L1002.63,2247.46L1005.26,2247.46L1005.26,2256.55Z" style="fill:rgb(134,134,135);fill-rule:nonzero;"/>
+                </g>
+            </g>
+        </g>
+    </g>
+</svg>

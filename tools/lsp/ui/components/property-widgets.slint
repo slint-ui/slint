@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { Palette } from "std-widgets.slint";
 import { Api, BrushKind, ElementInformation, GradientStop, PreviewData, PreviewDataKind, PropertyContainer, PropertyInformation, PropertyValue, PropertyValueKind } from "../api.slint";
 import { StatusLineApi } from "../components/status-line.slint";
 import { EditorSpaceSettings } from "../components/styling.slint";
@@ -16,6 +17,7 @@ import { MultiValueWidget } from "./widgets/multi-value-widget.slint";
 import { StringWidget } from "./widgets/string-widget.slint";
 import { BrushPropertyType, WindowGlobal, WindowManager } from "../windowglobal.slint";
 import { InlineBrushWidget } from "widgets/inline-brush-widget.slint";
+import { NameLabel, ResettingLineEdit } from "widgets/basics.slint";
 
 export component PropertyValueWidget inherits VerticalLayout {
     in-out property <PropertyValue> property-value;
@@ -204,99 +206,216 @@ export component PropertyValueWidget inherits VerticalLayout {
     }
 }
 
-export component PropertyInformationWidget inherits VerticalLayout {
+component IconButton inherits Rectangle {
+    in property <image> icon;
+    in property <bool> checked: false;
+    TouchArea {
+        clicked => root.clicked();
+    }
+
+    callback clicked();
+    Image {
+        height: 1rem;
+        colorize: checked ? Palette.accent-background : Palette.foreground.transparentize(0.5);
+        source: root.icon;
+    }
+}
+
+
+enum PropertyWidgetMode { value, expression, bind }
+
+
+export component PropertyInformationWidget inherits TouchArea {
     in property <PropertyInformation> property-information;
     in property <ElementInformation> element-information;
-    in property <bool> enabled;
 
-    padding-bottom: EditorSpaceSettings.default-padding;
-    padding-right: EditorSpaceSettings.default-padding * 2;
+    private property <PropertyValueKind> kind: property-information.value.kind;
+    changed kind => {
+        if kind == PropertyValueKind.code {
+            mode = PropertyWidgetMode.expression;
+        } else {
+            mode = PropertyWidgetMode.value;
+        }
+    }
+    private property <PropertyWidgetMode> mode: kind == PropertyValueKind.code ? PropertyWidgetMode.expression : PropertyWidgetMode.value;
 
-    PropertyValueWidget {
-        property-value: root.property-information.value;
-        property-name: root.property-information.name;
-        enabled: root.enabled;
+    VerticalLayout {
+        padding-bottom: EditorSpaceSettings.default-padding;
+        padding-right: EditorSpaceSettings.default-padding * 2;
 
-        set-current-item() => {
-            WindowManager.show-floating-widget(property-information, element-information);
-        }
+        HorizontalLayout {
+            alignment: LayoutAlignment.space-between;
+            NameLabel {
+                property-name: property-information.name;
+                property-value: property-information.value;
+            }
 
-        set-bool-binding(value) => {
-            self.set-code-binding(value ? "true" : "false");
-        }
-        set-brush-binding(kind, angle, color, stops) => {
-            self.set-code-binding(Api.as-slint-brush(kind, angle, color, stops));
-        }
-        test-brush-binding(kind, angle, color, stops) => {
-            return self.test-code-binding(Api.as-slint-brush(kind, angle, color, stops));
-        }
-        set-color-binding(text) => {
-            self.set-code-binding(text);
-        }
-        test-color-binding(text) => {
-            return (Api.string-is-color(text));
-        }
-        set-enum-binding(text) => {
-            self.set-code-binding(text);
-        }
-        test-float-binding(text, unit) => {
-            return (self.test-code-binding(text + unit));
-        }
-        set-float-binding(text, unit) => {
-            self.set-code-binding(text + unit);
-        }
+            HorizontalLayout {
+                opacity: root.has-hover ? 1 : 0;
+                animate opacity {
+                    duration: 200ms;
+                    easing: ease-in-out-quad;
+                }
+                alignment: end;
+                spacing: 4px;
+                IconButton {
+                    icon: @image-url("../assets/constant.svg");
+                    checked: mode == PropertyWidgetMode.value;
+                    clicked => {
+                        mode = PropertyWidgetMode.value;
+                    }
+                }
 
-        set-code-binding(text) => {
-            Api.set-code-binding(
-                element-information.source-uri,
-                element-information.source-version,
-                element-information.offset,
-                property-information.name,
-                text,
-            );
-        }
-        test-code-binding(text) => {
-            return (Api.test-code-binding(
-                root.element-information.source-uri,
-                root.element-information.source-version,
-                root.element-information.offset,
-                root.property-information.name,
-                text,
-            ));
-        }
-        set-string-binding(text, is-translated) => {
-            Api.set-code-binding(
-                element-information.source-uri,
-                element-information.source-version,
-                element-information.offset,
-                property-information.name,
-                text);
-        }
-        test-string-binding(text, is-translated) => {
-            return (Api.test-code-binding(
-                root.element-information.source-uri,
-                root.element-information.source-version,
-                root.element-information.offset,
-                root.property-information.name,
-                text));
+                IconButton {
+                    checked: mode == PropertyWidgetMode.expression;
+                    icon: @image-url("../assets/code.svg");
+                    clicked => {
+                        mode = PropertyWidgetMode.expression;
+                    }
+                }
+
+                IconButton {
+                    icon: @image-url("../assets/revert.svg");
+                    clicked => {
+                        Api.set-code-binding(
+                            element-information.source-uri,
+                            element-information.source-version,
+                            element-information.offset,
+                            property-information.name,
+                            "",
+                        );
+                    }
+                }
+            }
         }
 
-        reset-action() => {
-            Api.set-code-binding(
-                element-information.source-uri,
-                element-information.source-version,
-                element-information.offset,
-                property-information.name,
-                "",
-            );
+
+        if mode == PropertyWidgetMode.expression :  HorizontalLayout {
+            spacing: 5px;
+            IconButton {
+                icon: @image-url("../assets/code.svg");
+                clicked => {
+                    Api.show-document-offset-range(
+                        element-information.source-uri,
+                        Api.property-declaration-ranges(property-information.name).defined-at.expression-range.start,
+                        Api.property-declaration-ranges(property-information.name).defined-at.expression-range.start,
+                        true,
+                    );
+                }
+            }
+            ResettingLineEdit {
+                enabled: root.enabled;
+
+                default-text: property-information.value.code;
+
+                edited(text) => {
+                    self.can-compile = Api.test-code-binding(
+                        root.element-information.source-uri,
+                        root.element-information.source-version,
+                        root.element-information.offset,
+                        root.property-information.name,
+                        text,
+                    );
+                }
+                accepted(text) => {
+                    Api.set-code-binding(
+                        root.element-information.source-uri,
+                        root.element-information.source-version,
+                        root.element-information.offset,
+                        root.property-information.name,
+                        text,
+                    );
+                }
+            }
         }
-        code-action() => {
-            Api.show-document-offset-range(
-                element-information.source-uri,
-                Api.property-declaration-ranges(property-information.name).defined-at.expression-range.start,
-                Api.property-declaration-ranges(property-information.name).defined-at.expression-range.start,
-                true,
-            );
+
+        if mode == PropertyWidgetMode.value : PropertyValueWidget {
+            property-value: root.property-information.value;
+            // Because the name is given in the PropertyView already. FIXME: we should refactor this so that the PropertyValueWidget don't have the name
+            property-name: "";
+            enabled: root.enabled;
+
+            set-current-item() => {
+                WindowManager.show-floating-widget(property-information, element-information);
+            }
+
+            set-bool-binding(value) => {
+                self.set-code-binding(value ? "true" : "false");
+            }
+            set-brush-binding(kind, angle, color, stops) => {
+                self.set-code-binding(Api.as-slint-brush(kind, angle, color, stops));
+            }
+            test-brush-binding(kind, angle, color, stops) => {
+                return self.test-code-binding(Api.as-slint-brush(kind, angle, color, stops));
+            }
+            set-color-binding(text) => {
+                self.set-code-binding(text);
+            }
+            test-color-binding(text) => {
+                return (Api.string-is-color(text));
+            }
+            set-enum-binding(text) => {
+                self.set-code-binding(text);
+            }
+            test-float-binding(text, unit) => {
+                return (self.test-code-binding(text + unit));
+            }
+            set-float-binding(text, unit) => {
+                self.set-code-binding(text + unit);
+            }
+
+            set-code-binding(text) => {
+                Api.set-code-binding(
+                    element-information.source-uri,
+                    element-information.source-version,
+                    element-information.offset,
+                    property-information.name,
+                    text,
+                );
+            }
+            test-code-binding(text) => {
+                return (Api.test-code-binding(
+                    root.element-information.source-uri,
+                    root.element-information.source-version,
+                    root.element-information.offset,
+                    root.property-information.name,
+                    text,
+                ));
+            }
+            set-string-binding(text, is-translated) => {
+                Api.set-code-binding(
+                    element-information.source-uri,
+                    element-information.source-version,
+                    element-information.offset,
+                    property-information.name,
+                    text);
+            }
+            test-string-binding(text, is-translated) => {
+                return (Api.test-code-binding(
+                    root.element-information.source-uri,
+                    root.element-information.source-version,
+                    root.element-information.offset,
+                    root.property-information.name,
+                    text));
+            }
+
+            reset-action() => {
+                Api.set-code-binding(
+                    element-information.source-uri,
+                    element-information.source-version,
+                    element-information.offset,
+                    property-information.name,
+                    "",
+                );
+            }
+            code-action() => {
+                Api.show-document-offset-range(
+                    element-information.source-uri,
+                    Api.property-declaration-ranges(property-information.name).defined-at.expression-range.start,
+                    Api.property-declaration-ranges(property-information.name).defined-at.expression-range.start,
+                    true,
+                );
+            }
         }
     }
 }
