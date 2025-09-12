@@ -37,6 +37,8 @@
             libinput
             freetype
             fontconfig
+            nodejs
+            pnpm
           ];
           LD_LIBRARY_PATH = lib.makeLibraryPath [
             fontconfig
