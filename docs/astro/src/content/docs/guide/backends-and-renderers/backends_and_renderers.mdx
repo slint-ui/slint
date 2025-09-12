@@ -185,3 +185,10 @@ issues we're aware of and how to resolve them.
   ```
   cargo update -p cc --precise 1.1.31
   ```
+
+ * The application doesn't start on Windows but exist immediately
+
+ The build succeeds, but running the `.exe` on Windows terminates immediately without error messages.
+
+ This might be caused by missing MSVC runtime libraries. To solve this install, install the
+ [Microsoft Visual C++ Redistributable package](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist)
