@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0 -->
+<svg width="100%" height="100%" viewBox="0 0 29 22" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve" xmlns:serif="http://www.serif.com/" style="fill-rule:evenodd;clip-rule:evenodd;stroke-linejoin:round;stroke-miterlimit:2;">
+    <g transform="matrix(1,0,0,1,-1234,-1651)">
+        <g transform="matrix(1,0,0,1,1.13687e-13,-582.164)">
+            <g id="binding" transform="matrix(1.20483,0,0,1.78178,-79.9912,-1767.49)">
+                <g transform="matrix(0.757818,0,0,0.835365,373.052,375.684)">
+                    <path d="M947.387,2245.94L947.387,2245.25L957.568,2239.05L958.478,2240.53L950.068,2245.49L958.502,2250.34L957.592,2251.78L947.387,2245.94Z" style="fill:rgb(134,134,135);fill-rule:nonzero;"/>
+                </g>
+                <g transform="matrix(1.45321,0,0,0.835365,-303.989,375.924)">
+                    <path d="M962.302,2242.23L973.411,2242.23L973.399,2243.55L962.29,2243.55L962.302,2242.23ZM962.302,2246.77L973.411,2246.77L973.411,2248.18L962.302,2248.18L962.302,2246.77Z" style="fill:rgb(134,134,135);fill-rule:nonzero;"/>
+                </g>
+                <g transform="matrix(0.757818,0,0,0.835365,365.052,375.684)">
+                    <path d="M978.122,2251.78L977.212,2250.34L985.645,2245.49L977.236,2240.53L978.146,2239.05L988.327,2245.25L988.327,2245.94L978.122,2251.78Z" style="fill:rgb(134,134,135);fill-rule:nonzero;"/>
+                </g>
+            </g>
+        </g>
+    </g>
+</svg>

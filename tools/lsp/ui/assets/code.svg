@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0 -->
+<svg width="100%" height="100%" viewBox="0 0 35 22" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve" xmlns:serif="http://www.serif.com/" style="fill-rule:evenodd;clip-rule:evenodd;stroke-linejoin:round;stroke-miterlimit:1.5;">
+    <g transform="matrix(1,0,0,1,-1186,-1650)">
+        <g transform="matrix(1,0,0,1,1.13687e-13,-582.164)">
+            <g id="code" transform="matrix(0.985582,0,0,1.03459,248.824,-79.523)">
+                <g transform="matrix(1,0,0,1.36419,3.83826,-817.936)">
+                    <path d="M947.387,2245.94L947.387,2245.25L958.663,2238.38L959.573,2239.86L950.068,2245.49L959.597,2251.02L958.888,2252.45L947.387,2245.94Z" style="fill:rgb(134,134,135);fill-rule:nonzero;"/>
+                </g>
+                <g transform="matrix(1.01463,0,0,0.942649,-244.329,671.543)">
+                    <path d="M1198.01,1659.15L1192.57,1679.62" style="fill:none;stroke:rgb(134,134,135);stroke-width:1.75px;"/>
+                </g>
+                <g transform="matrix(1,0,0,1.37002,-2.30945,-831.072)">
+                    <path d="M977.026,2252.45L976.117,2251.02L985.645,2245.49L976.141,2239.86L976.863,2238.38L988.327,2245.25L988.327,2245.94L977.026,2252.45Z" style="fill:rgb(134,134,135);fill-rule:nonzero;"/>
+                </g>
+            </g>
+        </g>
+    </g>
+</svg>
