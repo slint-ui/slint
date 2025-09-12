@@ -18,7 +18,7 @@ export component PropertyView inherits VerticalLayout {
     in-out property <bool> properties-visible: false;
 
     property <length> key-width: self.width / 2.5;
-    property <bool> element-loaded: root.properties.length > 0;
+    property <bool> element-loaded: element-information.source-uri != "";
     in-out property <bool> enabled <=> sv.enabled;
     visible: root.properties-visible;
     ViewHeader {
