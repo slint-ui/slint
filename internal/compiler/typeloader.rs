@@ -1688,7 +1688,8 @@ fn maybe_base_directory(referencing_file: &Path) -> Option<PathBuf> {
             if candidate.join("Cargo.toml").exists() {
                 break Some(candidate);
             }
-        }.map(|x| x.to_path_buf())
+        }
+        .map(|x| x.to_path_buf())
     } else {
         None
     }
