@@ -233,35 +233,6 @@ Text {
 </CodeSnippetMD>
 </SlintProperty>
 
-## Rotation
-
-Rotates the text by the given angle around the specified origin point. The default origin point is the center of the element.
-:::caution[Caution]
-When these properties are set, the `Text` can't have children.
-:::
-
-<CodeSnippetMD imagePath="/src/assets/generated/text-rotation.png" imageWidth="200" needsBackground="true" imageHeight="200" imageAlt='rotation properties'>
-
-```slint {3-5}
-Text {
-    text: "I'm dizzy";
-    rotation-angle: 45deg;
-    rotation-origin-x: self.width / 2;
-    rotation-origin-y: self.height / 2;
-    font-size: 30pt;
-}
-```
-</CodeSnippetMD>
-
-### rotation-angle
-<SlintProperty propName="rotation-angle" typeName="angle"/>
-
-### rotation-origin-x
-<SlintProperty propName="rotation-origin-x" typeName="length" defaultValue='self.width / 2'/>
-
-### rotation-origin-y
-<SlintProperty propName="rotation-origin-y" typeName="length" defaultValue='self.height / 2'/>
-
 ## Accessibility
 
 By default, `Text` elements have the following accessibility properties set:
