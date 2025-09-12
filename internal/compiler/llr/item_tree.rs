@@ -83,7 +83,8 @@ pub struct GlobalComponent {
     pub aliases: Vec<SmolStr>,
     /// True when this is a built-in global that does not need to be generated
     pub is_builtin: bool,
-
+    /// True if this component is imported from an external library
+    pub from_library: bool,
     /// Analysis for each properties
     pub prop_analysis: TiVec<PropertyIdx, crate::object_tree::PropertyAnalysis>,
 }
@@ -91,6 +92,7 @@ pub struct GlobalComponent {
 impl GlobalComponent {
     pub fn must_generate(&self) -> bool {
         !self.is_builtin
+            && !self.from_library
             && (self.exported
                 || !self.functions.is_empty()
                 || self.properties.iter().any(|p| p.use_count.get() > 0))
