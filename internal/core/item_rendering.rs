@@ -1087,6 +1087,7 @@ impl<T: ItemRenderer + ItemRendererFeatures> ItemRenderer for PartialRenderer<'_
     fn rotate(&mut self, angle_in_degrees: f32) {
         self.actual_renderer.rotate(angle_in_degrees)
     }
+
     fn scale(&mut self, x_factor: f32, y_factor: f32) {
         self.actual_renderer.scale(x_factor, y_factor)
     }
