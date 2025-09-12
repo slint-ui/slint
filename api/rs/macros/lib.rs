@@ -375,9 +375,9 @@ fn extract_compiler_config(
 /// For the documentation about the syntax of the language, see
 #[doc = concat!("[The Slint Language Documentation](https://slint.dev/releases/", env!("CARGO_PKG_VERSION"), "/docs/slint)")]
 ///
-/// When rust 1.88 or later is used, the paths for loading images with `@image-url` and importing `.slint` files
+/// When Rust 1.88 or later is used, the paths for loading images with `@image-url` and importing `.slint` files
 /// are relative to the `.rs` file that contains the macro.
-/// For compatibility with older rust version, the files are also searched in the manifest directory (that contains Cargo.toml).
+/// For compatibility with older rust version, the files are also searched in the manifest directory that contains `Cargo.toml`.
 ///
 /// ### Limitations
 ///
