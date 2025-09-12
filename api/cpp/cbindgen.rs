@@ -308,7 +308,7 @@ fn gen_corelib(
         "TextInput",
         "Clip",
         "BoxShadow",
-        "Rotate",
+        "Transform",
         "Opacity",
         "Layer",
         "ContextMenu",

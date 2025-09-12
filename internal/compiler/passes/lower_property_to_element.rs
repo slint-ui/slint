@@ -12,26 +12,28 @@ use crate::typeregister::TypeRegister;
 use smol_str::{format_smolstr, SmolStr, ToSmolStr};
 use std::rc::Rc;
 
-/// If any element in `component` declares a binding to `property_name`, then a new
+/// If any element in `component` declares a binding to any of `property_names`, then a new
 /// element of type `element_name` is created, injected as a parent to the element and bindings
-/// to property_name and all properties in  extra_properties are mapped.
+/// to all properties in property_names and extra_properties are mapped.
 /// Default value for the property extra_properties is queried with the `default_value_for_extra_properties`
 pub(crate) fn lower_property_to_element(
     component: &Rc<Component>,
-    property_name: &'static str,
+    property_names: impl Iterator<Item = &'static str> + Clone,
     extra_properties: impl Iterator<Item = &'static str> + Clone,
     default_value_for_extra_properties: Option<&dyn Fn(&ElementRc, &str) -> Expression>,
     element_name: &SmolStr,
     type_register: &TypeRegister,
     diag: &mut BuildDiagnostics,
 ) {
-    if let Some(b) = component.root_element.borrow().bindings.get(property_name) {
-        diag.push_warning(
-            format!(
-                "The {property_name} property cannot be used on the root element, it will not be applied"
-            ),
-            &*b.borrow(),
-        );
+    for property_name in property_names.clone() {
+        if let Some(b) = component.root_element.borrow().bindings.get(property_name) {
+            diag.push_warning(
+                format!(
+                    "The {property_name} property cannot be used on the root element, it will not be applied"
+                ),
+                &*b.borrow(),
+            );
+        }
     }
 
     object_tree::recurse_elem_including_sub_components_no_borrow(component, &(), &mut |elem, _| {
@@ -46,13 +48,15 @@ pub(crate) fn lower_property_to_element(
         };
 
         let has_property_binding = |e: &ElementRc| {
-            e.borrow().base_type.lookup_property(property_name).property_type != Type::Invalid
-                && (e.borrow().bindings.contains_key(property_name)
-                    || e.borrow()
-                        .property_analysis
-                        .borrow()
-                        .get(property_name)
-                        .is_some_and(|a| a.is_set || a.is_linked))
+            property_names.clone().any(|property_name| {
+                e.borrow().base_type.lookup_property(property_name).property_type != Type::Invalid
+                    && (e.borrow().bindings.contains_key(property_name)
+                        || e.borrow()
+                            .property_analysis
+                            .borrow()
+                            .get(property_name)
+                            .is_some_and(|a| a.is_set || a.is_linked))
+            })
         };
 
         for mut child in old_children {
@@ -63,8 +67,7 @@ pub(crate) fn lower_property_to_element(
                         &child,
                         create_property_element(
                             &root_elem,
-                            property_name,
-                            extra_properties.clone(),
+                            property_names.clone().chain(extra_properties.clone()),
                             default_value_for_extra_properties,
                             element_name,
                             type_register,
@@ -74,8 +77,7 @@ pub(crate) fn lower_property_to_element(
             } else if has_property_binding(&child) {
                 let new_child = create_property_element(
                     &child,
-                    property_name,
-                    extra_properties.clone(),
+                    property_names.clone().chain(extra_properties.clone()),
                     default_value_for_extra_properties,
                     element_name,
                     type_register,
@@ -92,14 +94,12 @@ pub(crate) fn lower_property_to_element(
 
 fn create_property_element(
     child: &ElementRc,
-    property_name: &'static str,
-    extra_properties: impl Iterator<Item = &'static str>,
+    properties: impl Iterator<Item = &'static str>,
     default_value_for_extra_properties: Option<&dyn Fn(&ElementRc, &str) -> Expression>,
     element_name: &SmolStr,
     type_register: &TypeRegister,
 ) -> ElementRc {
-    let bindings = core::iter::once(property_name)
-        .chain(extra_properties)
+    let bindings = properties
         .map(|property_name| {
             let mut bind =
                 BindingExpression::new_two_way(NamedReference::new(child, property_name.into()));
@@ -113,7 +113,7 @@ fn create_property_element(
         .collect();
 
     let element = Element {
-        id: format_smolstr!("{}-{}", child.borrow().id, property_name),
+        id: format_smolstr!("{}-{}", child.borrow().id, element_name),
         base_type: type_register.lookup_element(element_name).unwrap(),
         enclosing_component: child.borrow().enclosing_component.clone(),
         bindings,

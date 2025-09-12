@@ -2498,6 +2498,10 @@ impl<T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'_, T
         // TODO (#6068)
     }
 
+    fn scale(&mut self, _x_factor: f32, _y_factor: f32) {
+        // TODO
+    }
+
     fn apply_opacity(&mut self, opacity: f32) {
         self.current_state.alpha *= opacity;
     }
