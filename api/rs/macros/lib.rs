@@ -400,7 +400,7 @@ pub fn slint(stream: TokenStream) -> TokenStream {
         tokens.first()?.span?.local_file()
     }
     #[rustversion::before(1.88)]
-    fn local_file(tokens: &[parser::Token]) -> Option<PathBuf> {
+    fn local_file(_: &[parser::Token]) -> Option<PathBuf> {
         None
     }
 
