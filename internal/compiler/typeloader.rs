@@ -1520,8 +1520,9 @@ impl TypeLoader {
     ) -> Option<(PathBuf, Option<&'static [u8]>)> {
         // The directory of the current file is the first in the list of include directories.
         referencing_file
-            .map(base_directory)
+            .and_then(|x| x.parent().map(|x| x.to_path_buf()))
             .into_iter()
+            .chain(referencing_file.and_then(maybe_base_directory))
             .chain(self.compiler_config.include_paths.iter().map(PathBuf::as_path).map(
                 |include_path| {
                     let base = referencing_file.map(Path::to_path_buf).unwrap_or_default();
@@ -1671,15 +1672,12 @@ fn get_native_style(all_loaded_files: &mut std::collections::BTreeSet<PathBuf>) 
     i_slint_common::get_native_style(false, &std::env::var("TARGET").unwrap_or_default()).into()
 }
 
-/// return the base directory from which imports are loaded
+/// For a .rs file, return the manifest directory
 ///
-/// For a .slint file, this is the parent directory.
-/// For a .rs file, this is relative to the CARGO_MANIFEST_DIR
-///
-/// Note: this function is only called for .rs path as part of the LSP or viewer.
-/// Because from a proc_macro, we don't actually know the path of the current file, and this
-/// is why we must be relative to CARGO_MANIFEST_DIR.
-pub fn base_directory(referencing_file: &Path) -> PathBuf {
+/// This is for compatibility with `slint!` macro as before rust 1.88,
+/// it was not possible for the macro to know the current path and
+/// the Cargo.toml file was used instead
+fn maybe_base_directory(referencing_file: &Path) -> Option<PathBuf> {
     if referencing_file.extension().is_some_and(|e| e == "rs") {
         // For .rs file, this is a rust macro, and rust macro locates the file relative to the CARGO_MANIFEST_DIR which is the directory that has a Cargo.toml file.
         let mut candidate = referencing_file;
@@ -1690,11 +1688,10 @@ pub fn base_directory(referencing_file: &Path) -> PathBuf {
             if candidate.join("Cargo.toml").exists() {
                 break Some(candidate);
             }
-        }
+        }.map(|x| x.to_path_buf())
     } else {
-        referencing_file.parent()
+        None
     }
-    .map_or_else(Default::default, |p| p.to_path_buf())
 }
 
 #[test]

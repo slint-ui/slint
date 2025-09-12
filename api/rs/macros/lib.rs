@@ -13,6 +13,7 @@ use i_slint_compiler::parser::SyntaxKind;
 use i_slint_compiler::*;
 use proc_macro::{Spacing, TokenStream, TokenTree};
 use quote::quote;
+use std::path::PathBuf;
 
 /// Returns true if the two token are touching. For example the two token `foo`and `-` are touching if
 /// it was written like so in the source code: `foo-` but not when written like so `foo -`
@@ -374,8 +375,9 @@ fn extract_compiler_config(
 /// For the documentation about the syntax of the language, see
 #[doc = concat!("[The Slint Language Documentation](https://slint.dev/releases/", env!("CARGO_PKG_VERSION"), "/docs/slint)")]
 ///
-/// When `import`ing `.slint` files or loading images with `@image-url`, the specified paths are relative to the
-/// the directory that contains Cargo.toml.
+/// When rust 1.88 or later is used, the paths for loading images with `@image-url` and importing `.slint` files
+/// are relative to the `.rs` file that contains the macro.
+/// For compatibility with older rust version, the files are also searched in the manifest directory (that contains Cargo.toml).
 ///
 /// ### Limitations
 ///
@@ -393,7 +395,18 @@ pub fn slint(stream: TokenStream) -> TokenStream {
     let mut tokens = vec![];
     fill_token_vec(token_iter, &mut tokens);
 
-    let source_file = if let Some(cargo_manifest) = std::env::var_os("CARGO_MANIFEST_DIR") {
+    #[rustversion::since(1.88)]
+    fn local_file(tokens: &[parser::Token]) -> Option<PathBuf> {
+        tokens.first()?.span?.local_file()
+    }
+    #[rustversion::before(1.88)]
+    fn local_file(tokens: &[parser::Token]) -> Option<PathBuf> {
+        None
+    }
+
+    let source_file = if let Some(path) = local_file(&tokens) {
+        diagnostics::SourceFileInner::from_path_only(path)
+    } else if let Some(cargo_manifest) = std::env::var_os("CARGO_MANIFEST_DIR") {
         let mut path: std::path::PathBuf = cargo_manifest.into();
         path.push("Cargo.toml");
         diagnostics::SourceFileInner::from_path_only(path)
