@@ -15,6 +15,12 @@ pub trait TokenWriter {
 
     /// Write contents and then the token to the writer.
     fn insert_before(&mut self, token: SyntaxToken, contents: &str) -> std::io::Result<()>;
+
+    /// Just write the given string to the writer.
+    ///
+    /// Useful for inserting tokens which are not required,
+    /// but do a pretty formatting.
+    fn insert_content(&mut self, contents: &str) -> std::io::Result<()>;
 }
 
 /// Just write the token stream to a file
@@ -34,5 +40,9 @@ impl<W: Write> TokenWriter for FileWriter<'_, W> {
     fn insert_before(&mut self, token: SyntaxToken, contents: &str) -> std::io::Result<()> {
         self.file.write_all(contents.as_bytes())?;
         self.file.write_all(token.text().as_bytes())
+    }
+
+    fn insert_content(&mut self, contents: &str) -> std::io::Result<()> {
+        self.file.write_all(contents.as_bytes())
     }
 }
