@@ -49,7 +49,7 @@ pin-weak = "1"
 scoped-tls-hkt = "0.1"
 raw-window-handle = { version = "0.6", features = ["std"] }
 
-skia-safe = { version = "0.87", features = ["textlayout", "gl"] }
+skia-safe = { version = "0.88", features = ["textlayout", "gl"] }
 glow = { workspace = true }
 unicode-segmentation = { workspace = true }
 
@@ -72,7 +72,7 @@ windows = { version = "0.61.1", features = ["Win32", "Win32_System_Com", "Win32_
 windows_58 = { package = "windows", version = "0.58.0", features = ["Win32", "Win32_System_Com", "Win32_Graphics", "Win32_Graphics_Dxgi", "Win32_Graphics_Direct3D12", "Win32_Graphics_Direct3D", "Win32_Foundation", "Win32_Graphics_Dxgi_Common", "Win32_System_Threading", "Win32_Security"] }
 windows-core = { package = "windows-core", version = "0.61.0" }
 windows-core_58 = { package = "windows-core", version = "0.58.0" }
-skia-safe = { version = "0.87", features = ["d3d"] }
+skia-safe = { version = "0.88", features = ["d3d"] }
 wgpu-26 = { workspace = true, optional = true, features = ["dx12"] }
 
 [target.'cfg(target_vendor = "apple")'.dependencies]
@@ -82,7 +82,7 @@ objc2-foundation = { version = "0.3.0", default-features = false, features = ["s
 objc2-quartz-core = { version = "0.3.0", default-features = false, features = ["std", "objc2-metal", "CALayer", "CAMetalLayer", "objc2-core-foundation"] }
 objc2-app-kit = { version = "0.3.0", default-features = false, features = ["std", "NSResponder", "NSView"] }
 objc2-core-foundation = { version = "0.3.0", default-features = false, features = ["CFCGTypes"] }
-skia-safe = { version = "0.87", features = ["metal"] }
+skia-safe = { version = "0.88", features = ["metal"] }
 raw-window-metal = "1.0"
 
 metal = { version = "0.31", optional = true }
@@ -90,7 +90,7 @@ foreign-types = { version = "0.5.0", optional = true }
 wgpu-26 = { workspace = true, optional = true, features = ["metal"] }
 
 [target.'cfg(not(any(target_vendor = "apple", target_family = "windows")))'.dependencies]
-skia-safe = { version = "0.87", features = ["gl", "vulkan"] }
+skia-safe = { version = "0.88", features = ["gl", "vulkan"] }
 wgpu-26 = { workspace = true, optional = true, features = ["vulkan"] }
 
 [build-dependencies]
