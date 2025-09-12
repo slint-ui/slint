@@ -679,7 +679,14 @@ impl Window {
     }
 
     /// Returns a struct that implements the raw window handle traits to access the windowing system specific window
-    /// and display handles. This function is only accessible if you enable the `raw-window-handle-06` crate feature.
+    /// and display handles.
+    ///
+    /// Note that the window handle may only become available after the window has been created by the window manager,
+    /// which typically occurs after at least one iteration of the event loop following a call to `show()`.
+    ///
+    /// Support for this function depends on the platform backend.
+    ///
+    /// This function is only accessible if you enable the `raw-window-handle-06` crate feature.
     #[cfg(feature = "raw-window-handle-06")]
     pub fn window_handle(&self) -> WindowHandle {
         let adapter = self.0.window_adapter();
