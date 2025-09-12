@@ -467,13 +467,11 @@ pub(super) fn get_properties(
                     group_priority: depth,
                 });
 
-                    result.extend(get_reserved_properties(
-                        &b.name,
-                        depth,
-                        i_slint_compiler::typeregister::RESERVED_TRANSFORM_PROPERTIES
-                            .iter()
-                            .cloned(),
-                    ));
+                result.extend(get_reserved_properties(
+                    &b.name,
+                    depth,
+                    i_slint_compiler::typeregister::RESERVED_TRANSFORM_PROPERTIES.iter().cloned(),
+                ));
 
                 if matches!(b.name.as_str(), "GridLayout" | "HorizontalLayout" | "VerticalLayout") {
                     // Add the padding that is otherwise filtered out
