@@ -9,6 +9,7 @@ use interpreter::{
     CompilationResult, Compiler, ComponentDefinition, ComponentInstance, PyDiagnostic,
     PyDiagnosticLevel, PyValueType,
 };
+mod async_adapter;
 mod brush;
 mod errors;
 mod models;
@@ -17,8 +18,9 @@ mod value;
 
 #[gen_stub_pyfunction]
 #[pyfunction]
-fn run_event_loop() -> Result<(), errors::PyPlatformError> {
-    slint_interpreter::run_event_loop().map_err(|e| e.into())
+fn run_event_loop(py: Python<'_>) -> Result<(), errors::PyPlatformError> {
+    // Release the GIL while running the event loop, so that other Python threads can run.
+    py.allow_threads(|| slint_interpreter::run_event_loop()).map_err(|e| e.into())
 }
 
 #[gen_stub_pyfunction]
@@ -31,6 +33,19 @@ fn quit_event_loop() -> Result<(), errors::PyEventLoopError> {
 #[pyfunction]
 fn set_xdg_app_id(app_id: String) -> Result<(), errors::PyPlatformError> {
     slint_interpreter::set_xdg_app_id(app_id).map_err(|e| e.into())
+}
+
+#[gen_stub_pyfunction]
+#[pyfunction]
+fn invoke_from_event_loop(callable: PyObject) -> Result<(), errors::PyEventLoopError> {
+    slint_interpreter::invoke_from_event_loop(move || {
+        Python::with_gil(|py| {
+            if let Err(err) = callable.call0(py) {
+                eprintln!("Error invoking python callable from closure invoked via slint::invoke_from_event_loop: {}", err)
+            }
+        })
+    })
+    .map_err(|e| e.into())
 }
 
 use pyo3::prelude::*;
@@ -57,9 +72,11 @@ fn slint(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<brush::PyBrush>()?;
     m.add_class::<models::PyModelBase>()?;
     m.add_class::<value::PyStruct>()?;
+    m.add_class::<async_adapter::AsyncAdapter>()?;
     m.add_function(wrap_pyfunction!(run_event_loop, m)?)?;
     m.add_function(wrap_pyfunction!(quit_event_loop, m)?)?;
     m.add_function(wrap_pyfunction!(set_xdg_app_id, m)?)?;
+    m.add_function(wrap_pyfunction!(invoke_from_event_loop, m)?)?;
 
     Ok(())
 }
