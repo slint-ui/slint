@@ -11,7 +11,7 @@ import { Icon } from "./icon.slint";
 
 export component TextField {
     in property <string> label;
-    in property <string> placeholder;
+    in property <string> placeholder_text;
     in property <string> supporting_text;
     in property <bool> has_error;
     in property <image> leading_icon;
@@ -37,7 +37,7 @@ export component TextField {
     accessible-role: text-input;
     accessible-enabled: root.enabled;
     accessible-value <=> text;
-    accessible-placeholder-text: root.text == "" ? placeholder : "";
+    accessible-placeholder-text: root.text == "" ? placeholder_text : "";
     accessible-action-set-value(v) => { text = v; edited(v); }
 
     layout := VerticalLayout {

@@ -47,7 +47,7 @@ component SearchIcon {
 
 component SearchTextInput  {
     in_out property <string> text <=> text_input.text;
-    in property <string> placeholder;
+    in property <string> placeholder_text;
     property <length> computed_x;
 
     callback accepted(text: string);
@@ -105,10 +105,10 @@ component SearchTextInput  {
                 }
             }
         }
-        if root.text == "" && root.placeholder != "" : MaterialText {
+        if root.text == "" && root.placeholder_text != "" : MaterialText {
             width: 100%;
             height: 100%;
-            text: root.placeholder;
+            text: root.placeholder_text;
             color: MaterialPalette.on_surface_variant;
             vertical_alignment: center;
             style: Typography.body_large;
@@ -121,7 +121,7 @@ export component SearchBar {
     in property <image> trailing_icon;
     in property <image> avatar_icon;
     in property <color> avatar_background: #00000000;
-    in property <string> placeholder;
+    in property <string> placeholder_text;
     in property <string> empty_text;
     in_out property <string> text;
     in_out property <int> current_index;
@@ -165,7 +165,7 @@ export component SearchBar {
 
                     states [
                         placeholder when root.text == "" : {
-                            text: root.placeholder;
+                            text: root.placeholder_text;
                             color: MaterialPalette.on_surface;
                         }
                     ]
@@ -229,7 +229,7 @@ export component SearchBar {
                     }
 
                     popup_input := SearchTextInput {
-                        placeholder: root.placeholder;
+                        placeholder_text: root.placeholder_text;
                         text: root.text;
 
                         accepted => {

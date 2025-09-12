@@ -477,7 +477,7 @@ export component DatePickerPopup inherits PopupWindow {
 
             if !root.selection_mode : TextField {
                 text <=> root.current_input;
-                placeholder: root.input_placeholder_text;
+                placeholder_text: root.input_placeholder_text;
                 trailing_icon: Icons.calendar_today;
 
                 trailing_icon_clicked => {

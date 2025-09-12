@@ -70,7 +70,7 @@ export component NavigationView {
 
                     SearchBar {
                         leading_icon: OutlinedIcons.search;
-                        placeholder: "Search color";
+                        placeholder_text: "Search color";
                         empty_text: "No search history.";
                         items: NavigationViewAdapter.search_items;
 
@@ -567,7 +567,7 @@ export component NavigationView {
                             leading_icon: FilledIcons.search;
                             trailing_icon: FilledIcons.close;
                             label: "Filled";
-                            placeholder: "hint text";
+                            placeholder_text: "hint text";
                             supporting_text: "supporting text";
 
                             leading_icon_clicked => {
@@ -586,7 +586,7 @@ export component NavigationView {
                             leading_icon: FilledIcons.search;
                             trailing_icon: FilledIcons.close;
                             label: "Filled";
-                            placeholder: "hint text";
+                            placeholder_text: "hint text";
                             supporting_text: "error text";
                             has_error: true;
 
@@ -604,7 +604,7 @@ export component NavigationView {
                             leading_icon: FilledIcons.search;
                             trailing_icon: FilledIcons.close;
                             label: "Filled";
-                            placeholder: "hint text";
+                            placeholder_text: "hint text";
                             supporting_text: "supporting text";
                             enabled: false;
                         }
