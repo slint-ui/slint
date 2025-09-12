@@ -3,28 +3,22 @@
 
 pub use fontique;
 
-pub static COLLECTION: once_cell::sync::OnceCell<Collection> = once_cell::sync::OnceCell::new();
+static COLLECTION: std::sync::LazyLock<Collection> = std::sync::LazyLock::new(|| Collection {
+    inner: fontique::Collection::new(fontique::CollectionOptions {
+        shared: true,
+        ..Default::default()
+    }),
+    source_cache: fontique::SourceCache::new_shared(),
+});
 
 pub fn get_collection() -> Collection {
-    COLLECTION.get_or_init(Default::default).clone()
+    COLLECTION.clone()
 }
 
 #[derive(Clone)]
 pub struct Collection {
     inner: fontique::Collection,
     source_cache: fontique::SourceCache,
-}
-
-impl Default for Collection {
-    fn default() -> Self {
-        Self {
-            inner: fontique::Collection::new(fontique::CollectionOptions {
-                shared: true,
-                ..Default::default()
-            }),
-            source_cache: fontique::SourceCache::new_shared(),
-        }
-    }
 }
 
 impl Collection {
