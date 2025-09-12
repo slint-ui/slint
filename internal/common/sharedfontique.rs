@@ -3,6 +3,30 @@
 
 pub use fontique;
 
-thread_local! {
-    pub static COLLECTION: std::cell::RefCell<fontique::Collection> = Default::default()
+static COLLECTION: std::sync::LazyLock<Collection> = std::sync::LazyLock::new(|| Collection {
+    inner: fontique::Collection::new(fontique::CollectionOptions {
+        shared: true,
+        ..Default::default()
+    }),
+    source_cache: fontique::SourceCache::new_shared(),
+});
+
+pub fn get_collection() -> Collection {
+    COLLECTION.clone()
+}
+
+#[derive(Clone)]
+pub struct Collection {
+    inner: fontique::Collection,
+    source_cache: fontique::SourceCache,
+}
+
+impl Collection {
+    pub fn query<'a>(&'a mut self) -> fontique::Query<'a> {
+        self.inner.query(&mut self.source_cache)
+    }
+
+    pub fn register_fonts(&mut self, data: impl Into<fontique::Blob<u8>>) -> usize {
+        self.inner.register_fonts(data.into(), None).len()
+    }
 }

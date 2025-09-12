@@ -48,7 +48,7 @@ unsafe-single-threaded = []
 
 unicode = ["unicode-script", "unicode-linebreak"]
 
-software-renderer-systemfonts = ["shared-fontdb", "shared-fontique", "rustybuzz", "fontdue", "software-renderer"]
+software-renderer-systemfonts = ["shared-fontique", "rustybuzz", "fontdue", "software-renderer"]
 software-renderer = ["bytemuck"]
 
 image-decoders = ["dep:image", "dep:clru"]

@@ -8,35 +8,31 @@ use alloc::rc::Rc;
 use std::collections::HashMap;
 
 use crate::lengths::ScaleFactor;
-use i_slint_common::sharedfontdb::{self, fontdb};
+use i_slint_common::sharedfontique::{self, fontique};
 
 use super::super::PhysicalLength;
 use super::vectorfont::VectorFont;
 
 crate::thread_local! {
-    static FONTDUE_FONTS: RefCell<HashMap<fontdb::ID, Rc<fontdue::Font>>> = Default::default();
+    static FONTDUE_FONTS: RefCell<HashMap<fontique::FamilyId, Rc<fontdue::Font>>> = Default::default();
 }
 
-fn get_or_create_fontdue_font(fontdb: &fontdb::Database, id: fontdb::ID) -> Rc<fontdue::Font> {
+fn get_or_create_fontdue_font(font: &fontique::QueryFont) -> Rc<fontdue::Font> {
     FONTDUE_FONTS.with(|font_cache| {
         font_cache
             .borrow_mut()
-            .entry(id)
-            .or_insert_with(|| {
-                fontdb
-                    .with_face_data(id, |face_data, font_index| {
-                        fontdue::Font::from_bytes(
-                            face_data,
-                            fontdue::FontSettings {
-                                collection_index: font_index,
-                                scale: 40.,
-                                ..Default::default()
-                            },
-                        )
-                        .expect("fatal: fontdue is unable to parse truetype font")
-                        .into()
-                    })
-                    .unwrap()
+            .entry(font.family.0)
+            .or_insert_with(move || {
+                fontdue::Font::from_bytes(
+                    font.blob.data(),
+                    fontdue::FontSettings {
+                        collection_index: font.index,
+                        scale: 40.,
+                        ..Default::default()
+                    },
+                )
+                .expect("fatal: fontdue is unable to parse truetype font")
+                .into()
             })
             .clone()
     })
@@ -46,60 +42,39 @@ pub fn match_font(
     request: &super::FontRequest,
     scale_factor: super::ScaleFactor,
 ) -> Option<VectorFont> {
-    request.family.as_ref().and_then(|family_str| {
-        let query = request.to_fontdb_query();
-
+    if request.family.is_some() {
         let requested_pixel_size: PhysicalLength =
             (request.pixel_size.unwrap_or(super::DEFAULT_FONT_SIZE).cast() * scale_factor).cast();
 
-        sharedfontdb::FONT_DB.with(|fonts| {
-            let borrowed_fontdb = fonts.borrow();
-            borrowed_fontdb.query_with_family(query, Some(family_str)).map(|font_id| {
-                let fontdue_font = get_or_create_fontdue_font(&borrowed_fontdb, font_id);
-                VectorFont::new(font_id, fontdue_font.clone(), requested_pixel_size)
-            })
-        })
-    })
+        if let Some(font) = request.query_fontique() {
+            let fontdue_font = get_or_create_fontdue_font(&font);
+            Some(VectorFont::new(font, fontdue_font, requested_pixel_size))
+        } else {
+            None
+        }
+    } else {
+        None
+    }
 }
 
 pub fn fallbackfont(font_request: &super::FontRequest, scale_factor: ScaleFactor) -> VectorFont {
     let requested_pixel_size: PhysicalLength =
         (font_request.pixel_size.unwrap_or(super::DEFAULT_FONT_SIZE).cast() * scale_factor).cast();
 
-    sharedfontdb::FONT_DB.with_borrow(|fonts| {
-        let query = font_request.to_fontdb_query();
-
-        let fallback_font_id = fonts
-            .query_with_family(query, None)
-            .expect("fatal: query for fallback font returned empty font list");
-
-        let fontdue_font = get_or_create_fontdue_font(fonts, fallback_font_id);
-        VectorFont::new(fallback_font_id, fontdue_font, requested_pixel_size)
-    })
+    let font = font_request.query_fontique().unwrap();
+    let fontdue_font = get_or_create_fontdue_font(&font);
+    VectorFont::new(font, fontdue_font, requested_pixel_size)
 }
 
 pub fn register_font_from_memory(data: &'static [u8]) -> Result<(), Box<dyn std::error::Error>> {
-    sharedfontdb::FONT_DB.with_borrow_mut(|fonts| {
-        fonts.make_mut().load_font_source(fontdb::Source::Binary(std::sync::Arc::new(data)))
-    });
+    sharedfontique::get_collection().register_fonts(data.to_vec());
     Ok(())
 }
 
 #[cfg(not(target_family = "wasm"))]
 pub fn register_font_from_path(path: &std::path::Path) -> Result<(), Box<dyn std::error::Error>> {
     let requested_path = path.canonicalize().unwrap_or_else(|_| path.into());
-    sharedfontdb::FONT_DB.with_borrow_mut(|fonts| {
-        for face_info in fonts.faces() {
-            match &face_info.source {
-                fontdb::Source::Binary(_) => {}
-                fontdb::Source::File(loaded_path) | fontdb::Source::SharedFile(loaded_path, ..) => {
-                    if *loaded_path == requested_path {
-                        return Ok(());
-                    }
-                }
-            }
-        }
-
-        fonts.make_mut().load_font_file(requested_path).map_err(|e| e.into())
-    })
+    let contents = std::fs::read(requested_path)?;
+    sharedfontique::get_collection().register_fonts(contents);
+    Ok(())
 }
