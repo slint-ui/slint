@@ -194,15 +194,22 @@ impl JavaHelper {
             };
             env.delete_local_ref(class_it)?;
 
-            let cur_origin = data.cursor_rect_origin.to_physical(scale_factor);
+            let cur_origin = data.cursor_rect_origin.to_physical(scale_factor); // i32
             let anchor_origin = data.anchor_point.to_physical(scale_factor);
             let cur_size = data.cursor_rect_size.to_physical(scale_factor);
 
+            let cur_visible = data.clip_rect.map_or(true, |r| {
+                r.contains(i_slint_core::lengths::logical_point_from_api(data.cursor_rect_origin))
+            });
+            let anchor_visible = data.clip_rect.map_or(true, |r| {
+                r.contains(i_slint_core::lengths::logical_point_from_api(data.anchor_point))
+            });
+
             // Add 2*cur_size.width to the y position to be a bit under the cursor
             let cursor_height = cur_size.height as i32 + 2 * cur_size.width as i32;
-            let cur_x = cur_origin.x + cur_size.width as i32 / 2;
+            let cur_x = if cur_visible { cur_origin.x + cur_size.width as i32 / 2 } else { -1 };
             let cur_y = cur_origin.y + cursor_height;
-            let anchor_x = anchor_origin.x;
+            let anchor_x = if anchor_visible { anchor_origin.x } else { -1 };
             let anchor_y = anchor_origin.y + 2 * cur_size.width as i32;
 
             env.call_method(
