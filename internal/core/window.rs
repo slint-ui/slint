@@ -293,6 +293,8 @@ pub struct InputMethodProperties {
     pub anchor_point: LogicalPosition,
     /// The type of input for the text edit.
     pub input_type: InputType,
+    /// The clip rect in window coordinates
+    pub clip_rect: Option<LogicalRect>,
 }
 
 /// This struct describes layout constraints of a resizable element, such as a window.

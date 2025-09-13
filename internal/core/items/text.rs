@@ -1505,15 +1505,22 @@ impl TextInput {
         let cursor_relative =
             self.cursor_rect_for_byte_offset(cursor_position, window_adapter, self_rc);
         let geometry = self_rc.geometry();
-        let origin = self_rc.map_to_window(geometry.origin).to_vector();
+        let origin = self_rc.map_to_window(geometry.origin);
+        let origin_vector = origin.to_vector();
         let cursor_rect_origin =
-            crate::api::LogicalPosition::from_euclid(cursor_relative.origin + origin);
+            crate::api::LogicalPosition::from_euclid(cursor_relative.origin + origin_vector);
         let cursor_rect_size = crate::api::LogicalSize::from_euclid(cursor_relative.size);
         let anchor_point = crate::api::LogicalPosition::from_euclid(
             self.cursor_rect_for_byte_offset(anchor_position, window_adapter, self_rc).origin
-                + origin
+                + origin_vector
                 + cursor_relative.size,
         );
+        let maybe_parent =
+            self_rc.parent_item(crate::item_tree::ParentItemTraversalMode::StopAtPopups);
+        let clip_rect = maybe_parent.map(|parent| {
+            let geom = parent.geometry();
+            LogicalRect::new(parent.map_to_window(geom.origin), geom.size)
+        });
 
         InputMethodProperties {
             text,
@@ -1525,6 +1532,7 @@ impl TextInput {
             cursor_rect_size,
             anchor_point,
             input_type: self.input_type(),
+            clip_rect,
         }
     }
 
