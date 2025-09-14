@@ -514,10 +514,7 @@ impl Expression {
             match base64::engine::general_purpose::STANDARD.decode(data) {
                 Ok(decoded) => decoded,
                 Err(err) => {
-                    ctx.diag.push_error(
-                        format!("Cannot decode base64 data: {}", err).into(),
-                        node,
-                    );
+                    ctx.diag.push_error(format!("Cannot decode base64 data: {}", err).into(), node);
                     return "".into();
                 }
             }
@@ -525,10 +522,7 @@ impl Expression {
             match urlencoding::decode(data) {
                 Ok(decoded) => decoded.into_owned().into_bytes(),
                 Err(err) => {
-                    ctx.diag.push_error(
-                        format!("Cannot decode URL data: {}", err).into(),
-                        node,
-                    );
+                    ctx.diag.push_error(format!("Cannot decode URL data: {}", err).into(), node);
                     return "".into();
                 }
             }
@@ -537,10 +531,7 @@ impl Expression {
         Self::store_data_to_temp_file(decoded_data, extension)
     }
 
-    fn parse_nine_slice(
-        node: &syntax_nodes::AtImageUrl,
-        ctx: &mut LookupCtx,
-    ) -> Option<[u16; 4]> {
+    fn parse_nine_slice(node: &syntax_nodes::AtImageUrl, ctx: &mut LookupCtx) -> Option<[u16; 4]> {
         let nine_slice = node
             .children_with_tokens()
             .filter_map(|n| n.into_token())
