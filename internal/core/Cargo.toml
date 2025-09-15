@@ -76,6 +76,8 @@ shared-swash = ["dep:swash"]
 
 path = ["dep:auto_enums", "dep:lyon_path", "dep:lyon_geom", "dep:lyon_algorithms"]
 
+experimental-library-module = []
+
 [dependencies]
 i-slint-common = { workspace = true, features = ["default"] }
 i-slint-core-macros = { workspace = true, features = ["default"] }

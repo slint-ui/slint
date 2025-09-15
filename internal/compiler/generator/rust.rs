@@ -247,6 +247,15 @@ pub fn generate(
     #[cfg(feature = "bundle-translations")]
     let translations = llr.translations.as_ref().map(|t| generate_translations(t, &llr));
 
+    let use_global_component_handle = if cfg!(feature = "experimental-library-module") {
+        quote!(
+            #[allow(unused_imports)]
+            pub use slint::GlobalComponentHandle as _;
+        )
+    } else {
+        quote!()
+    };
+
     Ok(quote! {
         mod #generated_mod {
             #module_header
@@ -265,6 +274,7 @@ pub fn generate(
         pub use #generated_mod::{#(#compo_ids,)* #(#structs_and_enums_ids,)* #(#globals_ids,)* #(#named_exports,)* #(#global_exports,)*};
         #[allow(unused_imports)]
         pub use slint::{ComponentHandle as _, Global as _, ModelExt as _};
+        #use_global_component_handle
     })
 }
 
@@ -1580,17 +1590,57 @@ fn generate_global(
         let aliases = global.aliases.iter().map(|name| ident(name));
         let getters = generate_global_getters(global, root);
 
+        let (as_weak_fn, global_component_handle) = if cfg!(feature = "experimental-library-module") && !global.is_builtin {
+            (
+                quote!(
+                    #[allow(unused)]
+                    pub fn as_weak(&self) -> slint::GlobalWeak<#inner_component_id> {
+                        let inner = ::core::pin::Pin::into_inner(self.0.clone());
+                        slint::GlobalWeak::new(sp::Rc::downgrade(&inner))
+                    }
+                ),
+                quote!(
+                    impl slint::GlobalComponentHandle for #inner_component_id {
+                        type Global<'a> = #public_component_id<'a>;
+                        type WeakInner = sp::Weak<#inner_component_id>;
+                        type PinnedInner = ::core::pin::Pin<sp::Rc<#inner_component_id>>;
+
+                        fn upgrade_from_weak_inner(inner: &Self::WeakInner) -> sp::Option<Self::PinnedInner> {
+                            let inner = ::core::pin::Pin::new(inner.upgrade()?);
+                            Some(inner)
+                        }
+
+                        fn to_self(inner: Self::PinnedInner) -> Self::Global<'static> {
+                            #public_component_id(inner.clone(), ::core::marker::PhantomData::default())
+                        }
+                    }
+                )
+            )
+        } else {
+            (quote!(), quote!())
+        };
+
         quote!(
             #[allow(unused)]
-            pub struct #public_component_id<'a>(#pub_token &'a ::core::pin::Pin<sp::Rc<#inner_component_id>>);
+            pub struct #public_component_id<'a>(#pub_token ::core::pin::Pin<sp::Rc<#inner_component_id>>, #pub_token ::core::marker::PhantomData<&'a #inner_component_id>);
 
             impl<'a> #public_component_id<'a> {
                 #property_and_callback_accessors
+
+                #as_weak_fn
             }
             #(pub type #aliases<'a> = #public_component_id<'a>;)*
             #getters
+
+            #global_component_handle
         )
     });
+
+    let inner_pub_token = if cfg!(feature = "experimental-library-module") {
+        quote!(pub)
+    } else {
+        quote!(#pub_token)
+    };
 
     let private_interface = (!global.is_builtin).then(|| {
         quote!(
@@ -1598,7 +1648,7 @@ fn generate_global(
             #[const_field_offset(sp::const_field_offset)]
             #[repr(C)]
             #[pin]
-            #pub_token struct #inner_component_id {
+            #inner_pub_token struct #inner_component_id {
                 #(#pub_token  #declared_property_vars: sp::Property<#declared_property_types>,)*
                 #(#pub_token  #declared_callbacks: sp::Callback<(#(#declared_callbacks_types,)*), #declared_callbacks_ret>,)*
                 #(#pub_token  #change_tracker_names : sp::ChangeTracker,)*
@@ -1637,7 +1687,7 @@ fn generate_global_getters(
         quote! {
             impl<'a> slint::Global<'a, #root_component_id> for #public_component_id<'a> {
                 fn get(component: &'a #root_component_id) -> Self {
-                    Self(&component.0.globals.get().unwrap().#global_id)
+                    Self(component.0.globals.get().unwrap().#global_id.clone(), ::core::marker::PhantomData::default())
                 }
             }
         }

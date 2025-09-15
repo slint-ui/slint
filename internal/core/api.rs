@@ -1005,6 +1005,166 @@ mod weak_handle {
 
 pub use weak_handle::*;
 
+/// This trait provides the necessary functionality for allowing creating strongly-referenced
+/// clones and conversion into a weak pointer for a Global slint component.
+///
+/// This trait is implemented by the [generated component](index.html#generated-components)
+#[cfg(feature = "experimental-library-module")]
+pub trait GlobalComponentHandle {
+    /// The type for the public global component interface.
+    #[doc(hidden)]
+    type Global<'a>;
+    /// The internal Inner type for `Weak<Self>::inner`.
+    #[doc(hidden)]
+    type WeakInner: Clone + Default;
+    /// The internal Inner type for the 'Pin<sp::Rc<InnerSelf>'.
+    #[doc(hidden)]
+    type PinnedInner: Clone;
+
+    /// Internal function used when upgrading a weak reference to a strong one.
+    #[doc(hidden)]
+    fn upgrade_from_weak_inner(inner: &Self::WeakInner) -> Option<Self::PinnedInner>
+    where
+        Self: Sized;
+
+    /// Internal function used when upgrading a weak reference to a strong one.
+    fn to_self(inner: Self::PinnedInner) -> Self::Global<'static>
+    where
+        Self: Sized;
+}
+
+#[cfg(feature = "experimental-library-module")]
+pub use global_weak_handle::*;
+
+#[cfg(feature = "experimental-library-module")]
+mod global_weak_handle {
+    use super::*;
+
+    /// Struct that's used to hold weak references of a [Slint global component](index.html#generated-components)
+    ///
+    /// In order to create a GlobalWeak, you should call .as_weak() on the global component instance.
+    pub struct GlobalWeak<T: GlobalComponentHandle> {
+        inner: T::WeakInner,
+        #[cfg(feature = "std")]
+        thread: std::thread::ThreadId,
+    }
+
+    impl<T: GlobalComponentHandle> Default for GlobalWeak<T> {
+        fn default() -> Self {
+            Self {
+                inner: T::WeakInner::default(),
+                #[cfg(feature = "std")]
+                thread: std::thread::current().id(),
+            }
+        }
+    }
+
+    impl<T: GlobalComponentHandle> Clone for GlobalWeak<T> {
+        fn clone(&self) -> Self {
+            Self {
+                inner: self.inner.clone(),
+                #[cfg(feature = "std")]
+                thread: self.thread,
+            }
+        }
+    }
+
+    impl<T: GlobalComponentHandle> GlobalWeak<T> {
+        #[doc(hidden)]
+        pub fn new(inner: T::WeakInner) -> Self {
+            Self {
+                inner,
+                #[cfg(feature = "std")]
+                thread: std::thread::current().id(),
+            }
+        }
+
+        /// Returns a new GlobalStrong struct, where it's possible to get the global component
+        /// struct interface. If some other instance still holds a strong reference.
+        /// Otherwise, returns None.
+        ///
+        /// This also returns None if the current thread is not the thread that created
+        /// the component
+        pub fn upgrade(&self) -> Option<T::Global<'static>> {
+            #[cfg(feature = "std")]
+            if std::thread::current().id() != self.thread {
+                return None;
+            }
+            let inner = T::upgrade_from_weak_inner(&self.inner)?;
+            Some(T::to_self(inner))
+        }
+
+        /// Convenience function where a given functor is called with the global component
+        ///
+        /// If the current thread is not the thread that created the component the functor
+        /// will not be called and this function will do nothing.
+        pub fn upgrade_in(&self, func: impl FnOnce(T::Global<'_>)) {
+            #[cfg(feature = "std")]
+            if std::thread::current().id() != self.thread {
+                return;
+            }
+
+            if let Some(inner) = T::upgrade_from_weak_inner(&self.inner) {
+                func(T::to_self(inner));
+            }
+        }
+
+        /// Convenience function that combines [`invoke_from_event_loop()`] with [`Self::upgrade()`]
+        ///
+        /// The given functor will be added to an internal queue and will wake the event loop.
+        /// On the next iteration of the event loop, the functor will be executed with a `T` as an argument.
+        ///
+        /// If the component was dropped because there are no more strong reference to the component,
+        /// the functor will not be called.
+        /// # Example
+        /// ```rust
+        /// # i_slint_backend_testing::init_no_event_loop();
+        /// slint::slint! {
+        ///     export global MyAppData { in property<int> foo; }
+        ///     export component MyApp inherits Window { /* ... */ }
+        /// }
+        /// let ui = MyApp::new().unwrap();
+        /// let my_app_data = ui.global::<MyAppData>();
+        /// let my_app_data_weak = my_app_data.as_weak();
+        ///
+        /// let thread = std::thread::spawn(move || {
+        ///     // ... Do some computation in the thread
+        ///     let foo = 42;
+        ///     # assert!(my_app_data_weak.upgrade().is_none()); // note that upgrade fails in a thread
+        ///     # return; // don't upgrade_in_event_loop in our examples
+        ///     // now forward the data to the main thread using upgrade_in_event_loop
+        ///     my_app_data_weak.upgrade_in_event_loop(move |my_app_data| my_app_data.set_foo(foo));
+        /// });
+        /// # thread.join().unwrap(); return; // don't run the event loop in examples
+        /// ui.run().unwrap();
+        /// ```
+        #[cfg(any(feature = "std", feature = "unsafe-single-threaded"))]
+        pub fn upgrade_in_event_loop(
+            &self,
+            func: impl FnOnce(T::Global<'_>) + Send + 'static,
+        ) -> Result<(), EventLoopError>
+        where
+            T: 'static,
+        {
+            let weak_handle = self.clone();
+            super::invoke_from_event_loop(move || {
+                if let Some(h) = weak_handle.upgrade() {
+                    func(h);
+                }
+            })
+        }
+    }
+
+    // Safety: we make sure in upgrade that the thread is the proper one,
+    // and the Weak only use atomic pointer so it is safe to clone and drop in another thread
+    #[allow(unsafe_code)]
+    #[cfg(any(feature = "std", feature = "unsafe-single-threaded"))]
+    unsafe impl<T: GlobalComponentHandle> Send for GlobalWeak<T> {}
+    #[allow(unsafe_code)]
+    #[cfg(any(feature = "std", feature = "unsafe-single-threaded"))]
+    unsafe impl<T: GlobalComponentHandle> Sync for GlobalWeak<T> {}
+}
+
 /// Adds the specified function to an internal queue, notifies the event loop to wake up.
 /// Once woken up, any queued up functors will be invoked.
 ///

@@ -11,7 +11,7 @@ license = "MIT"
 version.workspace = true
 
 [dependencies]
-slint = { path = "../../../../api/rs/slint" }
+slint = { path = "../../../../api/rs/slint", features = ["experimental-module-builds"] }
 
 [build-dependencies]
 slint-build = { path = "../../../../api/rs/build", features = ["experimental-module-builds"] }
