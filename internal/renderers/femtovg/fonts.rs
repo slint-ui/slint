@@ -155,15 +155,24 @@ pub struct FontCache {
     // coverage of the font.
     loaded_font_coverage: HashMap<fontique::FamilyId, GlyphCoverage>,
     pub(crate) text_context: TextContext,
+    available_families: HashSet<SharedString>,
 }
 
 impl Default for FontCache {
     fn default() -> Self {
+        let available_families =
+            sharedfontique::get_collection().family_names().map(|str| str.into()).collect();
+
         let text_context = TextContext::default();
         text_context.resize_shaped_words_cache(NonZeroUsize::new(10_000_000).unwrap());
         text_context.resize_shaping_run_cache(NonZeroUsize::new(1_000_000).unwrap());
 
-        Self { loaded_fonts: HashMap::new(), loaded_font_coverage: HashMap::new(), text_context }
+        Self {
+            loaded_fonts: HashMap::new(),
+            loaded_font_coverage: HashMap::new(),
+            text_context,
+            available_families,
+        }
     }
 }
 
@@ -243,7 +252,12 @@ impl FontCache {
         //);
 
         let fallbacks = if !matches!(coverage_result, GlyphCoverageCheckResult::Complete) {
-            todo!()
+            self.font_fallbacks_for_request(
+                font_request.family.as_ref(),
+                pixel_size,
+                &primary_font,
+                reference_text,
+            )
         } else {
             Vec::new()
         };
@@ -275,6 +289,159 @@ impl FontCache {
             .collect::<SharedVector<_>>();
 
         Font { fonts, text_context: self.text_context.clone(), pixel_size }
+    }
+
+    #[cfg(target_vendor = "apple")]
+    fn font_fallbacks_for_request(
+        &self,
+        _family: Option<&SharedString>,
+        _pixel_size: PhysicalLength,
+        _primary_font: &LoadedFont,
+        _reference_text: &str,
+    ) -> Vec<SharedString> {
+        let requested_font = match core_text::font::new_from_name(
+            &_family.as_ref().map_or_else(|| "", |s| s.as_str()),
+            _pixel_size.get() as f64,
+        ) {
+            Ok(f) => f,
+            Err(_) => return vec![],
+        };
+
+        core_text::font::cascade_list_for_languages(
+            &requested_font,
+            &core_foundation::array::CFArray::from_CFTypes(&[]),
+        )
+        .iter()
+        .map(|fallback_descriptor| SharedString::from(fallback_descriptor.family_name()))
+        .filter(|family| self.is_known_family(&family))
+        .collect::<Vec<_>>()
+    }
+
+    #[cfg(target_os = "windows")]
+    fn font_fallbacks_for_request(
+        &self,
+        _family: Option<&SharedString>,
+        _pixel_size: PhysicalLength,
+        _primary_font: &LoadedFont,
+        reference_text: &str,
+    ) -> Vec<SharedString> {
+        let system_font_fallback = match dwrote::FontFallback::get_system_fallback() {
+            Some(fallback) => fallback,
+            None => return Vec::new(),
+        };
+        let font_collection = dwrote::FontCollection::get_system(false);
+        let base_family = Some(_family.as_ref().map_or_else(|| "", |s| s.as_str()));
+
+        let reference_text_utf16: Vec<u16> = reference_text.encode_utf16().collect();
+
+        // Hack to implement the minimum interface for direct write. We have yet to provide the correct
+        // locale (but return an empty string for now). This struct stores the number of utf-16 characters
+        // so that in get_locale_name it can return that the (empty) locale applies all the characters after
+        // `text_position`, by returning the count.
+        struct TextAnalysisHack(u32);
+        impl dwrote::TextAnalysisSourceMethods for TextAnalysisHack {
+            fn get_locale_name(&self, text_position: u32) -> (std::borrow::Cow<'_, str>, u32) {
+                ("".into(), self.0 - text_position)
+            }
+
+            // We should do better on this one, too...
+            fn get_paragraph_reading_direction(
+                &self,
+            ) -> winapi::um::dwrite::DWRITE_READING_DIRECTION {
+                winapi::um::dwrite::DWRITE_READING_DIRECTION_LEFT_TO_RIGHT
+            }
+        }
+
+        let text_analysis_source = dwrote::TextAnalysisSource::from_text_and_number_subst(
+            Box::new(TextAnalysisHack(reference_text_utf16.len() as u32)),
+            std::borrow::Cow::Borrowed(&reference_text_utf16),
+            dwrote::NumberSubstitution::new(
+                winapi::um::dwrite::DWRITE_NUMBER_SUBSTITUTION_METHOD_NONE,
+                "",
+                true,
+            ),
+        );
+
+        let mut fallback_fonts = Vec::new();
+
+        let mut utf16_pos = 0;
+
+        while utf16_pos < reference_text_utf16.len() {
+            let fallback_result = system_font_fallback.map_characters(
+                &text_analysis_source,
+                utf16_pos as u32,
+                (reference_text_utf16.len() - utf16_pos) as u32,
+                &font_collection,
+                base_family,
+                dwrote::FontWeight::Regular,
+                dwrote::FontStyle::Normal,
+                dwrote::FontStretch::Normal,
+            );
+
+            if let Some(fallback_font) = fallback_result.mapped_font {
+                let family: SharedString = fallback_font.family_name().into();
+                if self.is_known_family(&family) {
+                    fallback_fonts.push(family)
+                }
+            } else {
+                break;
+            }
+
+            utf16_pos += fallback_result.mapped_length;
+        }
+
+        fallback_fonts
+    }
+
+    #[cfg(not(any(
+        target_family = "windows",
+        target_vendor = "apple",
+        target_arch = "wasm32",
+        target_os = "android",
+        target_os = "nto",
+    )))]
+    fn font_fallbacks_for_request(
+        &self,
+        _family: Option<&SharedString>,
+        _pixel_size: PhysicalLength,
+        _primary_font: &LoadedFont,
+        _reference_text: &str,
+    ) -> Vec<SharedString> {
+        Vec::new()
+    }
+
+    #[cfg(any(target_arch = "wasm32", target_os = "android"))]
+    fn font_fallbacks_for_request(
+        &self,
+        _family: Option<&SharedString>,
+        _pixel_size: PhysicalLength,
+        _primary_font: &LoadedFont,
+        _reference_text: &str,
+    ) -> Vec<SharedString> {
+        [SharedString::from("DejaVu Sans")]
+            .iter()
+            .filter(|family_name| self.is_known_family(&family_name))
+            .cloned()
+            .collect()
+    }
+
+    #[cfg(target_os = "nto")]
+    fn font_fallbacks_for_request(
+        &self,
+        _family: Option<&SharedString>,
+        _pixel_size: PhysicalLength,
+        _primary_font: &LoadedFont,
+        _reference_text: &str,
+    ) -> Vec<SharedString> {
+        [SharedString::from("Noto Sans")]
+            .iter()
+            .filter(|family_name| self.is_known_family(&family_name))
+            .cloned()
+            .collect()
+    }
+
+    fn is_known_family(&self, family: &str) -> bool {
+        self.available_families.contains(family)
     }
 
     // From the set of script without coverage, remove all entries that are known to be covered by

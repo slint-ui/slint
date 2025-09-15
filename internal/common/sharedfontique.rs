@@ -32,6 +32,20 @@ impl Collection {
     }
 }
 
+impl std::ops::Deref for Collection {
+    type Target = fontique::Collection;
+    
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
+
+impl std::ops::DerefMut for Collection {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.inner
+    }
+}
+
 /// Font metrics in design space. Scale with desired pixel size and divided by units_per_em
 /// to obtain pixel metrics.
 #[derive(Clone)]
