@@ -280,6 +280,11 @@ export component ViewHeader inherits Rectangle {
     callback hide-parent();
     callback search-edited(text: string);
 
+    init => {
+        // Reset the search when created
+        search-edited("");
+    }
+
     Rectangle {
         y: 0;
         width: 100%;

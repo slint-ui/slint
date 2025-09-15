@@ -786,11 +786,11 @@ fn complete_path_in_string(
     }
     let mut text = text.strip_prefix('\"')?;
     text = &text[..(offset - 1)];
-    let base = i_slint_compiler::typeloader::base_directory(base);
+    let base = base.parent().unwrap_or(Path::new(""));
     let path = if let Some(last_slash) = text.rfind('/') {
         base.join(Path::new(&text[..last_slash]))
     } else {
-        base
+        base.to_owned()
     };
     let dir = std::fs::read_dir(path).ok()?;
     Some(

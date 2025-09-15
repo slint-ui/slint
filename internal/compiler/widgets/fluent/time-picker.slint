@@ -18,6 +18,9 @@ export component TimePickerPopup inherits PopupWindow {
     callback canceled();
     callback accepted(/* current-time */ Time);
 
+    width: dialog.width;
+    height: dialog.height;
+
     close-policy: PopupClosePolicy.no-auto-close;
 
     background-layer := MenuBorder {

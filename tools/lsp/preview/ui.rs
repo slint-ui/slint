@@ -1332,8 +1332,19 @@ fn update_properties(
     for (c, n) in std::iter::zip(current_model.iter(), next_model.iter()) {
         debug_assert_eq!(c.group_name, n.group_name);
 
-        let cvg = c.properties.as_any().downcast_ref::<VecModel<PropertyInformation>>().unwrap();
-        let nvg = n.properties.as_any().downcast_ref::<VecModel<PropertyInformation>>().unwrap();
+        fn extract_inner_model<'a>(m: &'a PropertyGroup) -> &'a VecModel<PropertyInformation> {
+            m.properties
+                .as_any()
+                .downcast_ref::<search_model::SearchModel<PropertyInformation>>()
+                .unwrap()
+                .source_model()
+                .as_any()
+                .downcast_ref::<VecModel<PropertyInformation>>()
+                .unwrap()
+        }
+
+        let cvg = extract_inner_model(&c);
+        let nvg = extract_inner_model(&n);
 
         update_grouped_properties(cvg, nvg);
     }
@@ -1347,32 +1358,36 @@ pub fn ui_set_properties(
     properties: Option<properties::QueryPropertyResponse>,
 ) -> PropertyDeclarations {
     let win = i_slint_core::window::WindowInner::from_pub(ui.window()).window_adapter();
-    let (next_element, declarations, next_model) =
-        property_view::map_properties_to_ui(document_cache, properties, &win).unwrap_or((
-            ElementInformation {
-                id: "".into(),
-                component_name: "".into(),
-                type_name: "".into(),
-                source_uri: "".into(),
-                source_version: 0,
-                offset: 0,
-            },
-            HashMap::new(),
-            Rc::new(VecModel::from(Vec::<PropertyGroup>::new())).into(),
-        ));
+    let Some((next_element, declarations, next_model)) =
+        property_view::map_properties_to_ui(document_cache, properties, &win)
+    else {
+        let api = ui.global::<Api>();
+        api.set_properties(ModelRc::default());
+        api.set_current_element(ElementInformation::default());
+        return Default::default();
+    };
 
     let api = ui.global::<Api>();
     let current_model = api.get_properties();
 
     let element = api.get_current_element();
     if !is_equal_element(&element, &next_element) {
-        api.set_properties(next_model);
-    } else if current_model.row_count() > 0 {
-        update_properties(current_model, next_model);
-    } else {
-        api.set_properties(next_model);
-    }
+        let old_search_text = current_model
+            .as_any()
+            .downcast_ref::<search_model::SearchModel<PropertyGroup>>()
+            .map(|x| x.search_text())
+            .filter(|x| !x.is_empty());
+        if let Some(search_text) = old_search_text {
+            next_model.set_search_text(search_text.clone());
+        }
 
+        api.set_properties(next_model.clone().into());
+        api.on_properties_search(move |search_text| {
+            next_model.set_search_text(search_text);
+        });
+    } else {
+        update_properties(current_model, next_model.into());
+    }
     api.set_current_element(next_element);
 
     declarations
