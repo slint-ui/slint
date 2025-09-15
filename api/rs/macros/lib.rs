@@ -19,12 +19,26 @@ use std::path::PathBuf;
 /// it was written like so in the source code: `foo-` but not when written like so `foo -`
 ///
 /// Returns None if we couldn't detect whether they are touching  (eg, our heuristics don't work with rust-analyzer)
+#[rustversion::since(1.88)]
+fn are_token_touching(token1: proc_macro::Span, token2: proc_macro::Span) -> Option<bool> {
+    let t1 = token1.end();
+    let t2 = token2.start();
+    let t1_column = t1.column();
+    if t1_column == 1 && t1.line() == 1 && t2.end().line() == 1 && t2.end().column() == 1 {
+        // If everything is 1, this means that Span::line and Span::column are not working properly
+        // (eg, rust-analyzer)
+        return None;
+    }
+    Some(t1.line() == t2.line() && t1_column == t2.column())
+}
+#[rustversion::before(1.88)]
 fn are_token_touching(token1: proc_macro::Span, token2: proc_macro::Span) -> Option<bool> {
     // There is no way with stable API to find out if the token are touching, so do it by
     // extracting the range from the debug representation of the span
     are_token_touching_impl(&format!("{token1:?}"), &format!("{token2:?}"))
 }
 
+#[rustversion::before(1.88)]
 fn are_token_touching_impl(token1_debug: &str, token2_debug: &str) -> Option<bool> {
     // The debug representation of a span look like this: "#0 bytes(6662789..6662794)"
     // we just have to find out if the first number of the range of second span
@@ -47,6 +61,7 @@ fn are_token_touching_impl(token1_debug: &str, token2_debug: &str) -> Option<boo
     (!begin_of_token2.is_empty()).then_some(end_of_token1 == begin_of_token2)
 }
 
+#[rustversion::before(1.88)]
 #[test]
 fn are_token_touching_impl_test() {
     assert!(are_token_touching_impl("#0 bytes(6662788..6662789)", "#0 bytes(6662789..6662794)")
