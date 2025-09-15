@@ -25,7 +25,7 @@ fn are_token_touching(token1: proc_macro::Span, token2: proc_macro::Span) -> Opt
     let t2 = token2.start();
     let t1_column = t1.column();
     if t1_column == 1 && t1.line() == 1 && t2.end().line() == 1 && t2.end().column() == 1 {
-        // If everything is 1, this means that Span::line and Span::column are not not working properly
+        // If everything is 1, this means that Span::line and Span::column are not working properly
         // (eg, rust-analyzer)
         return None;
     }
