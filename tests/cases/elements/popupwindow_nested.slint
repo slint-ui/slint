@@ -374,7 +374,7 @@ instance.set_result("");
 slint_testing::send_mouse_click(&instance, 10., 10.);
 
 // close popup1 by esc
-slint_testing::send_keyboard_string_sequence(&instance, "\u{001b}");
+slint_testing::send_keyboard_string_sequence(&instance, slint::platform::key_codes::Escape);
 
 // check P1 is closed
 slint_testing::send_mouse_click(&instance, 210., 90.);
