@@ -5,7 +5,7 @@
 
 use core::num::NonZeroUsize;
 use femtovg::TextContext;
-use i_slint_common::sharedfontique::fontique;
+use i_slint_common::sharedfontique::{self, fontique};
 use i_slint_core::graphics::euclid;
 use i_slint_core::graphics::FontRequest;
 use i_slint_core::items::{TextHorizontalAlignment, TextOverflow, TextVerticalAlignment, TextWrap};
@@ -129,7 +129,7 @@ pub(crate) fn font_metrics(
 struct LoadedFont {
     femtovg_font_id: femtovg::FontId,
     font: fontique::QueryFont,
-    design_font_metrics: i_slint_common::sharedfontdb::DesignFontMetrics,
+    design_font_metrics: sharedfontique::DesignFontMetrics,
 }
 
 #[derive(Default)]
@@ -192,10 +192,7 @@ impl FontCache {
 
         let font = font_request.query_fontique().unwrap();
 
-        let design_font_metrics = {
-            let face = ttf_parser::Face::parse(font.blob.data(), font.index).unwrap();
-            i_slint_common::sharedfontdb::DesignFontMetrics::new(face)
-        };
+        let design_font_metrics = sharedfontique::DesignFontMetrics::new(&font);
 
         let femtovg_font_id =
             text_context.add_shared_font_with_index(font.blob.clone(), font.index).unwrap();
