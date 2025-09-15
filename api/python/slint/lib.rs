@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+use std::cell::{Cell, RefCell};
+
 use pyo3_stub_gen::{define_stub_info_gatherer, derive::gen_stub_pyfunction};
 
 mod image;
@@ -15,10 +17,38 @@ mod models;
 mod timer;
 mod value;
 
+fn handle_unraisable(py: Python<'_>, context: String, err: PyErr) {
+    let exception = err.value(py);
+    let __notes__ = exception
+        .getattr(pyo3::intern!(py, "__notes__"))
+        .unwrap_or_else(|_| pyo3::types::PyList::empty(py).into_any());
+    if let Ok(notes_list) = __notes__.downcast::<pyo3::types::PyList>() {
+        let _ = notes_list.append(context);
+        let _ = exception.setattr(pyo3::intern!(py, "__notes__"), __notes__);
+    }
+
+    if EVENT_LOOP_RUNNING.get() && err.is_instance_of::<pyo3::exceptions::PySystemExit>(py) {
+        EVENT_LOOP_EXCEPTION.replace(Some(err));
+        let _ = slint_interpreter::quit_event_loop();
+    } else {
+        err.write_unraisable(py, None);
+    }
+}
+
+thread_local! {
+    static EVENT_LOOP_RUNNING: Cell<bool> = Cell::new(false);
+    static EVENT_LOOP_EXCEPTION: RefCell<Option<PyErr>> = RefCell::new(None)
+}
+
 #[gen_stub_pyfunction]
 #[pyfunction]
-fn run_event_loop() -> Result<(), errors::PyPlatformError> {
-    slint_interpreter::run_event_loop().map_err(|e| e.into())
+fn run_event_loop() -> Result<(), PyErr> {
+    EVENT_LOOP_EXCEPTION.replace(None);
+    EVENT_LOOP_RUNNING.set(true);
+    let result = slint_interpreter::run_event_loop();
+    EVENT_LOOP_RUNNING.set(false);
+    result.map_err(|e| errors::PyPlatformError::from(e))?;
+    EVENT_LOOP_EXCEPTION.take().map_or(Ok(()), |err| Err(err))
 }
 
 #[gen_stub_pyfunction]

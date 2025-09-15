@@ -72,7 +72,13 @@ impl PyTimer {
             .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
         self.timer.start(mode.into(), interval, move || {
             Python::attach(|py| {
-                callback.call0(py).expect("unexpected failure running python timer callback");
+                if let Err(err) = callback.call0(py) {
+                    crate::handle_unraisable(
+                        py,
+                        "unexpected failure running python timer callback".into(),
+                        err,
+                    );
+                }
             });
         });
         Ok(())
@@ -91,7 +97,13 @@ impl PyTimer {
             .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
         i_slint_core::timers::Timer::single_shot(duration, move || {
             Python::attach(|py| {
-                callback.call0(py).expect("unexpected failure running python timer callback");
+                if let Err(err) = callback.call0(py) {
+                    crate::handle_unraisable(
+                        py,
+                        "unexpected failure running python singleshot timer callback".into(),
+                        err,
+                    );
+                }
             });
         });
         Ok(())
