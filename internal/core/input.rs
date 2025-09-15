@@ -415,6 +415,9 @@ impl KeyEvent {
                 key_codes::DownArrow => {
                     return Some(TextShortcut::Move(TextCursorDirection::EndOfText))
                 }
+                key_codes::Backspace => {
+                    return Some(TextShortcut::DeleteToStartOfLine);
+                }
                 _ => (),
             };
         }
@@ -467,6 +470,8 @@ pub enum TextShortcut {
     DeleteWordForward,
     /// Delete the word to the left of the cursor (aka Ctrl + Backspace).
     DeleteWordBackward,
+    /// Delete to the left of the cursor until the start of the line
+    DeleteToStartOfLine,
 }
 
 /// Represents how an item's key_event handler dealt with a key event.
