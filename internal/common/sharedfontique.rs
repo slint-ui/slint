@@ -34,7 +34,7 @@ impl Collection {
 
 impl std::ops::Deref for Collection {
     type Target = fontique::Collection;
-    
+
     fn deref(&self) -> &Self::Target {
         &self.inner
     }
