@@ -66,10 +66,7 @@ impl WasmInputHelper {
         let mut h = Self { input, canvas: canvas.clone() };
 
         // macos, or ipad with an attached keyboard, etc.
-        let is_apple = window.navigator().platform().ok().map_or(false, |platform| {
-            let platform = platform.to_ascii_lowercase();
-            platform.contains("mac") || platform.contains("iphone") || platform.contains("ipad")
-        });
+        let is_apple = i_slint_core::is_apple_platform();
 
         let shared_state = Rc::new(RefCell::new(WasmInputState::default()));
         #[cfg(web_sys_unstable_apis)]
