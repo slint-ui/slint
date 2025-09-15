@@ -81,15 +81,13 @@ pub fn load_from_path(
 ) -> Result<ParsedSVG, std::io::Error> {
     let svg_data = std::fs::read(std::path::Path::new(&path.as_str()))?;
 
-        let option = usvg::Options::default();
-        usvg::Tree::from_data(&svg_data, &option)
-            .map(|svg| ParsedSVG { svg_tree: svg, cache_key })
-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))
-
+    let option = usvg::Options::default();
+    usvg::Tree::from_data(&svg_data, &option)
+        .map(|svg| ParsedSVG { svg_tree: svg, cache_key })
+        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))
 }
 
 pub fn load_from_data(slice: &[u8], cache_key: ImageCacheKey) -> Result<ParsedSVG, usvg::Error> {
-        let option = usvg::Options::default();
-        usvg::Tree::from_data(slice, &option).map(|svg| ParsedSVG { svg_tree: svg, cache_key })
-
+    let option = usvg::Options::default();
+    usvg::Tree::from_data(slice, &option).map(|svg| ParsedSVG { svg_tree: svg, cache_key })
 }
