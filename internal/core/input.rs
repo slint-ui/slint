@@ -354,22 +354,7 @@ impl KeyEvent {
     pub fn text_shortcut(&self) -> Option<TextShortcut> {
         let keycode = self.text.chars().next()?;
 
-        cfg_if::cfg_if!(
-            if #[cfg(target_vendor = "apple")] {
-                let is_apple = true;
-            } else if #[cfg(target_family = "wasm")] {
-                let is_apple = web_sys::window()
-                    .and_then(|window| window.navigator().platform().ok())
-                    .is_some_and(|platform| {
-                        let platform = platform.to_ascii_lowercase();
-                        platform.contains("mac")
-                            || platform.contains("iphone")
-                            || platform.contains("ipad")
-                    });
-            } else {
-                let is_apple = false;
-            }
-        );
+        let is_apple = crate::is_apple_platform();
 
         let move_mod = if is_apple {
             self.modifiers.alt && !self.modifiers.control && !self.modifiers.meta
@@ -416,24 +401,22 @@ impl KeyEvent {
             }
         }
 
-        if is_apple {
-            if self.modifiers.control {
-                match keycode {
-                    key_codes::LeftArrow => {
-                        return Some(TextShortcut::Move(TextCursorDirection::StartOfLine))
-                    }
-                    key_codes::RightArrow => {
-                        return Some(TextShortcut::Move(TextCursorDirection::EndOfLine))
-                    }
-                    key_codes::UpArrow => {
-                        return Some(TextShortcut::Move(TextCursorDirection::StartOfText))
-                    }
-                    key_codes::DownArrow => {
-                        return Some(TextShortcut::Move(TextCursorDirection::EndOfText))
-                    }
-                    _ => (),
-                };
-            }
+        if is_apple && self.modifiers.control {
+            match keycode {
+                key_codes::LeftArrow => {
+                    return Some(TextShortcut::Move(TextCursorDirection::StartOfLine))
+                }
+                key_codes::RightArrow => {
+                    return Some(TextShortcut::Move(TextCursorDirection::EndOfLine))
+                }
+                key_codes::UpArrow => {
+                    return Some(TextShortcut::Move(TextCursorDirection::StartOfText))
+                }
+                key_codes::DownArrow => {
+                    return Some(TextShortcut::Move(TextCursorDirection::EndOfText))
+                }
+                _ => (),
+            };
         }
 
         if let Ok(direction) = TextCursorDirection::try_from(keycode) {

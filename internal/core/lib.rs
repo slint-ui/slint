@@ -140,3 +140,8 @@ pub fn detect_operating_system() -> OperatingSystemType {
         OperatingSystemType::Other
     }
 }
+
+/// Returns true if the current platform is an Apple platform (macOS, iOS, iPadOS)
+pub fn is_apple_platform() -> bool {
+    matches!(detect_operating_system(), OperatingSystemType::Macos | OperatingSystemType::Ios)
+}
