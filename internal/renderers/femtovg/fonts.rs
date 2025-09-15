@@ -297,7 +297,7 @@ impl FontCache {
     ) -> Font {
         let pixel_size = font_request.pixel_size.unwrap_or(DEFAULT_FONT_SIZE) * scale_factor;
 
-        let query = font_request.to_fontdb_query();
+        let query = font_request.query_fontique();
 
         let primary_font = self.load_single_font(font_request.family.as_ref(), query);
 
