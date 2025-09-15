@@ -400,7 +400,7 @@ impl<B: GraphicsBackend> RendererSealed for FemtoVGRenderer<B> {
         &self,
         data: &'static [u8],
     ) -> Result<(), Box<dyn std::error::Error>> {
-        sharedfontique::get_collection().register_fonts(data.to_vec());
+        sharedfontique::get_collection().register_fonts(data.to_vec().into(), None);
         Ok(())
     }
 
@@ -410,7 +410,7 @@ impl<B: GraphicsBackend> RendererSealed for FemtoVGRenderer<B> {
     ) -> Result<(), Box<dyn std::error::Error>> {
         let requested_path = path.canonicalize().unwrap_or_else(|_| path.into());
         let contents = std::fs::read(requested_path)?;
-        sharedfontique::get_collection().register_fonts(contents);
+        sharedfontique::get_collection().register_fonts(contents.into(), None);
         Ok(())
     }
 
