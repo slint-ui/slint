@@ -27,8 +27,8 @@ importers:
         specifier: 0.41.3
         version: 0.41.3
       '@fontsource-variable/inter':
-        specifier: 5.2.6
-        version: 5.2.6
+        specifier: 5.2.7
+        version: 5.2.7
       '@types/node':
         specifier: 24.3.1
         version: 24.3.1
@@ -762,8 +762,8 @@ packages:
   '@expressive-code/plugin-text-markers@0.41.3':
     resolution: {integrity: sha512-SN8tkIzDpA0HLAscEYD2IVrfLiid6qEdE9QLlGVSxO1KEw7qYvjpbNBQjUjMr5/jvTJ7ys6zysU2vLPHE0sb2g==}
 
-  '@fontsource-variable/inter@5.2.6':
-    resolution: {integrity: sha512-jks/bficUPQ9nn7GvXvHtlQIPudW7Wx8CrlZoY8bhxgeobNxlQan8DclUJuYF2loYRrGpfrhCIZZspXYysiVGg==}
+  '@fontsource-variable/inter@5.2.7':
+    resolution: {integrity: sha512-1Ej2Y2l+l1VHAu0cNBmOqPdnO7MKhMvaZ4ilL/qcF5lOQw8ieLhp1APcksXIsqO3eAB0+7/nIc/3cSxfEIdj4Q==}
 
   '@iconify-json/flat-color-icons@1.2.3':
     resolution: {integrity: sha512-KcmJ7CY0TKFv5GuBjiS4/v++jEcNXna1jfY+yq014tnw/MN/jMI2oYpoMHGuIpYtUqDu7eove+WySnOYO8nS3w==}
@@ -4408,7 +4408,7 @@ snapshots:
     dependencies:
       '@expressive-code/core': 0.41.3
 
-  '@fontsource-variable/inter@5.2.6': {}
+  '@fontsource-variable/inter@5.2.7': {}
 
   '@iconify-json/flat-color-icons@1.2.3':
     dependencies:
