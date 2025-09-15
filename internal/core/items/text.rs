@@ -776,6 +776,15 @@ impl Item for TextInput {
                             );
                             return KeyEventResult::EventAccepted;
                         }
+                        TextShortcut::DeleteToStartOfLine => {
+                            TextInput::select_and_delete(
+                                self,
+                                TextCursorDirection::StartOfLine,
+                                window_adapter,
+                                self_rc,
+                            );
+                            return KeyEventResult::EventAccepted;
+                        }
                     },
                     Some(_) => {
                         return KeyEventResult::EventIgnored;
