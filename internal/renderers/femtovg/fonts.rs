@@ -440,13 +440,16 @@ impl FontCache {
             .collect()
     }
 
-    #[cfg_attr(not(any(
-        target_family = "windows",
-        target_vendor = "apple",
-        target_arch = "wasm32",
-        target_os = "android",
-        target_os = "nto",
-    )), allow(dead_code))]
+    #[cfg_attr(
+        not(any(
+            target_family = "windows",
+            target_vendor = "apple",
+            target_arch = "wasm32",
+            target_os = "android",
+            target_os = "nto",
+        )),
+        allow(dead_code)
+    )]
     fn is_known_family(&self, family: &str) -> bool {
         self.available_families.contains(family)
     }
