@@ -151,7 +151,7 @@ enum GlyphCoverageCheckResult {
 
 pub struct FontCache {
     loaded_fonts: HashMap<FontCacheKey, LoadedFont>,
-    // for a given fontdb face id, this tells us what we've learned about the script
+    // for a given font family id, this tells us what we've learned about the script
     // coverage of the font.
     loaded_font_coverage: HashMap<fontique::FamilyId, GlyphCoverage>,
     pub(crate) text_context: TextContext,
