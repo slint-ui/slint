@@ -6,6 +6,24 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
     esp_println::println!("Panic: {:?}", info);
     loop {}
 }
+esp_bootloader_esp_idf::esp_app_desc!(
+    // Version
+    "1.0.0",
+    // Project name
+    "slint-m5stack_cores3",
+    // Build time
+    "12:00:00",
+    // Build date
+    "2025-01-01",
+    // ESP-IDF version
+    "4.4",
+    // MMU page size
+    8 * 1024,
+    // Minimal eFuse block revision supported by image. Format: major * 100 + minor
+    0,
+    // Maximum eFuse block revision supported by image. Format: major * 100 + minor
+    u16::MAX
+);
 
 use alloc::boxed::Box;
 use alloc::rc::Rc;
