@@ -409,7 +409,7 @@ impl ComponentInstance {
         ))
     }
 
-    fn set_callback(&self, name: &str, callable: PyObject) -> Result<(), PySetCallbackError> {
+    fn set_callback(&self, name: &str, callable: Py<PyAny>) -> Result<(), PySetCallbackError> {
         let rust_cb = self.callbacks.register(name.to_string(), callable);
         Ok(self.instance.set_callback(name, rust_cb)?.into())
     }
@@ -418,7 +418,7 @@ impl ComponentInstance {
         &mut self,
         global_name: &str,
         callback_name: &str,
-        callable: PyObject,
+        callable: Py<PyAny>,
     ) -> Result<(), PySetCallbackError> {
         let rust_cb = self
             .global_callbacks
@@ -458,12 +458,12 @@ impl ComponentInstance {
 }
 
 struct GcVisibleCallbacks {
-    callables: Rc<RefCell<HashMap<String, PyObject>>>,
+    callables: Rc<RefCell<HashMap<String, Py<PyAny>>>>,
     type_collection: TypeCollection,
 }
 
 impl GcVisibleCallbacks {
-    fn register(&self, name: String, callable: PyObject) -> impl Fn(&[Value]) -> Value + 'static {
+    fn register(&self, name: String, callable: Py<PyAny>) -> impl Fn(&[Value]) -> Value + 'static {
         self.callables.borrow_mut().insert(name.clone(), callable);
 
         let callables = self.callables.clone();
@@ -472,7 +472,7 @@ impl GcVisibleCallbacks {
         move |args| {
             let callables = callables.borrow();
             let callable = callables.get(&name).unwrap();
-            Python::with_gil(|py| {
+            Python::attach(|py| {
                 let py_args =
                     PyTuple::new(py, args.iter().map(|v| type_collection.to_py_value(v.clone())))
                         .unwrap();

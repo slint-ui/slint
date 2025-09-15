@@ -79,7 +79,7 @@ impl PyStruct {
             |value| Ok(self.type_collection.to_py_value(value.clone())),
         )
     }
-    fn __setattr__(&mut self, py: Python<'_>, key: String, value: PyObject) -> PyResult<()> {
+    fn __setattr__(&mut self, py: Python<'_>, key: String, value: Py<PyAny>) -> PyResult<()> {
         let pv =
             TypeCollection::slint_value_from_py_value(py, &value, Some(&self.type_collection))?;
         self.data.set_field(key, pv);
@@ -123,12 +123,12 @@ impl PyStructFieldIterator {
 }
 
 thread_local! {
-    static ENUM_CLASS: OnceCell<PyObject> = OnceCell::new();
+    static ENUM_CLASS: OnceCell<Py<PyAny>> = OnceCell::new();
 }
 
-pub fn enum_class(py: Python) -> PyObject {
+pub fn enum_class(py: Python) -> Py<PyAny> {
     ENUM_CLASS.with(|cls| {
-        cls.get_or_init(|| -> PyObject {
+        cls.get_or_init(|| -> Py<PyAny> {
             let enum_module = py.import("enum").unwrap();
             enum_module.getattr("Enum").unwrap().into()
         })
@@ -141,7 +141,7 @@ pub fn enum_class(py: Python) -> PyObject {
 /// a `.slint` file loaded with load_file. This is used to map enums
 /// provided by Slint to the correct python enum classes.
 pub struct TypeCollection {
-    enum_classes: Rc<HashMap<String, PyObject>>,
+    enum_classes: Rc<HashMap<String, Py<PyAny>>>,
 }
 
 impl TypeCollection {
@@ -193,7 +193,7 @@ impl TypeCollection {
         enum_name: &str,
         enum_value: &str,
         py: Python<'_>,
-    ) -> Result<PyObject, PyErr> {
+    ) -> Result<Py<PyAny>, PyErr> {
         let enum_cls = self.enum_classes.get(enum_name).ok_or_else(|| {
             PyErr::new::<pyo3::exceptions::PyTypeError, _>(format!(
                 "Slint provided enum {enum_name} is unknown"
@@ -209,13 +209,13 @@ impl TypeCollection {
         crate::models::ReadOnlyRustModel { model: model.clone(), type_collection: self.clone() }
     }
 
-    pub fn enums(&self) -> impl Iterator<Item = (&String, &PyObject)> {
+    pub fn enums(&self) -> impl Iterator<Item = (&String, &Py<PyAny>)> {
         self.enum_classes.iter()
     }
 
     pub fn slint_value_from_py_value(
         py: Python<'_>,
-        ob: &PyObject,
+        ob: &Py<PyAny>,
         type_collection: Option<&Self>,
     ) -> PyResult<slint_interpreter::Value> {
         Self::slint_value_from_py_value_bound(&ob.bind(py), type_collection)
