@@ -354,7 +354,24 @@ impl KeyEvent {
     pub fn text_shortcut(&self) -> Option<TextShortcut> {
         let keycode = self.text.chars().next()?;
 
-        let move_mod = if cfg!(target_os = "macos") {
+        cfg_if::cfg_if!(
+            if #[cfg(target_vendor = "apple")] {
+                let is_apple = true;
+            } else if #[cfg(target_family = "wasm")] {
+                let is_apple = web_sys::window()
+                    .and_then(|window| window.navigator().platform().ok())
+                    .is_some_and(|platform| {
+                        let platform = platform.to_ascii_lowercase();
+                        platform.contains("mac")
+                            || platform.contains("iphone")
+                            || platform.contains("ipad")
+                    });
+            } else {
+                let is_apple = false;
+            }
+        );
+
+        let move_mod = if is_apple {
             self.modifiers.alt && !self.modifiers.control && !self.modifiers.meta
         } else {
             self.modifiers.control && !self.modifiers.alt && !self.modifiers.meta
@@ -399,8 +416,7 @@ impl KeyEvent {
             }
         }
 
-        #[cfg(target_os = "macos")]
-        {
+        if is_apple {
             if self.modifiers.control {
                 match keycode {
                     key_codes::LeftArrow => {
