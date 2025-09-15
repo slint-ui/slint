@@ -18,7 +18,7 @@ use crate::item_tree::{
     ItemRc, ItemTreeRc, ItemTreeRef, ItemTreeVTable, ItemTreeWeak, ItemWeak,
     ParentItemTraversalMode,
 };
-use crate::items::{ColorScheme, InputType, ItemRef, MouseCursor, PopupClosePolicy};
+use crate::items::{CapsMode, ColorScheme, InputType, ItemRef, MouseCursor, PopupClosePolicy};
 use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, SizeLengths};
 use crate::menus::MenuVTable;
 use crate::properties::{Property, PropertyTracker};
@@ -293,6 +293,8 @@ pub struct InputMethodProperties {
     pub anchor_point: LogicalPosition,
     /// The type of input for the text edit.
     pub input_type: InputType,
+    /// The caps mode for the text edit
+    pub caps_mode: CapsMode,
 }
 
 /// This struct describes layout constraints of a resizable element, such as a window.
@@ -943,6 +945,11 @@ impl WindowInner {
         } else {
             None
         }
+    }
+
+    /// Unfocus the currently focused item, if any.
+    pub fn unfocus_current(&self) {
+        self.take_focus_item(&FocusEvent::FocusOut(FocusReason::Programmatic));
     }
 
     /// Publish the new focus_item to this Window and return the FocusEventResult
