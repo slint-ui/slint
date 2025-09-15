@@ -146,7 +146,7 @@ pub async fn run_passes(
         z_order::reorder_by_z_order(component, diag);
         lower_property_to_element::lower_property_to_element(
             component,
-            "opacity",
+            core::iter::once("opacity"),
             core::iter::empty(),
             None,
             &SmolStr::new_static("Opacity"),
@@ -155,7 +155,7 @@ pub async fn run_passes(
         );
         lower_property_to_element::lower_property_to_element(
             component,
-            "cache-rendering-hint",
+            core::iter::once("cache-rendering-hint"),
             core::iter::empty(),
             None,
             &SmolStr::new_static("Layer"),
@@ -166,25 +166,28 @@ pub async fn run_passes(
         lower_shadows::lower_shadow_properties(component, &doc.local_registry, diag);
         lower_property_to_element::lower_property_to_element(
             component,
-            crate::typeregister::RESERVED_ROTATION_PROPERTIES[0].0,
-            crate::typeregister::RESERVED_ROTATION_PROPERTIES[1..]
+            crate::typeregister::RESERVED_TRANSFORM_PROPERTIES[..3]
                 .iter()
                 .map(|(prop_name, _)| *prop_name),
-            Some(&|e, prop| Expression::BinaryExpression {
-                lhs: Expression::PropertyReference(NamedReference::new(
-                    e,
-                    match prop {
-                        "rotation-origin-x" => SmolStr::new_static("width"),
-                        "rotation-origin-y" => SmolStr::new_static("height"),
-                        "rotation-angle" => return Expression::Invalid,
-                        _ => unreachable!(),
-                    },
-                ))
-                .into(),
-                op: '/',
-                rhs: Expression::NumberLiteral(2., Default::default()).into(),
+            crate::typeregister::RESERVED_TRANSFORM_PROPERTIES[3..]
+                .iter()
+                .map(|(prop_name, _)| *prop_name),
+            Some(&|e, prop| {
+                let prop_div_2 = |prop: &str| Expression::BinaryExpression {
+                    lhs: Expression::PropertyReference(NamedReference::new(e, prop.into())).into(),
+                    op: '/',
+                    rhs: Expression::NumberLiteral(2., Default::default()).into(),
+                };
+
+                match prop {
+                    "rotation-origin-x" => prop_div_2("width"),
+                    "rotation-origin-y" => prop_div_2("height"),
+                    "scale-x" | "scale-y" => Expression::NumberLiteral(1., Default::default()),
+                    "rotation-angle" => Expression::NumberLiteral(0., Default::default()),
+                    _ => unreachable!(),
+                }
             }),
-            &SmolStr::new_static("Rotate"),
+            &SmolStr::new_static("Transform"),
             &global_type_registry.borrow(),
             diag,
         );

@@ -470,7 +470,7 @@ pub(super) fn get_properties(
                 result.extend(get_reserved_properties(
                     &b.name,
                     depth,
-                    i_slint_compiler::typeregister::RESERVED_ROTATION_PROPERTIES.iter().cloned(),
+                    i_slint_compiler::typeregister::RESERVED_TRANSFORM_PROPERTIES.iter().cloned(),
                 ));
 
                 if matches!(b.name.as_str(), "GridLayout" | "HorizontalLayout" | "VerticalLayout") {

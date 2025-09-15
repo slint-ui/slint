@@ -1,0 +1,106 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase  {
+    in-out property <int> touch1;
+    in-out property <int> touch_double1;
+
+    in-out property <string> pointer-event-test;
+
+    in property <bool> enabled1 <=> area1.enabled;
+    out property <bool> pressed1 <=> area1.pressed;
+    out property <bool> has-hover1 <=> area1.has-hover;
+
+
+    width: 800px;
+    height: 600px;
+
+    Rectangle {
+        x: 0px;
+        y: 0px;
+        width: 50px;
+        height: 50px;
+        scale-x: 200%;
+        scale-y: 400%;
+        rotation-origin-x: 0px;
+        rotation-origin-y: 0px;
+        area1 := TouchArea {
+            clicked => {
+                pointer-event-test += "click:";
+                touch1+=1;
+            }
+            double-clicked => {
+                pointer-event-test += "double_click:";
+                touch_double1+=1;
+            }
+            pointer-event(e) => {
+                if (e.kind == PointerEventKind.cancel) {
+                        pointer-event-test += "cancel,";
+                    } else if (e.kind == PointerEventKind.up) {
+                        pointer-event-test += "up.";
+                    } else if (e.kind == PointerEventKind.down) {
+                        pointer-event-test += "down.";
+                    } else if (e.kind == PointerEventKind.move) {
+                        pointer-event-test += "move.";
+                    } else {
+                        pointer-event-test += "err.";
+                    }
+                    if (e.button == PointerEventButton.right) {
+                        pointer-event-test += "right";
+                    } else if (e.button == PointerEventButton.left) {
+                        pointer-event-test += "left";
+                    } else if (e.button == PointerEventButton.middle) {
+                        pointer-event-test += "middle";
+                    } else if (e.button == PointerEventButton.back) {
+                        pointer-event-test += "back";
+                    } else if (e.button == PointerEventButton.forward) {
+                        pointer-event-test += "forward";
+                    } else if (e.button == PointerEventButton.other) {
+                        pointer-event-test += "other";
+                    } else {
+                        pointer-event-test += "???";
+                    }
+                    if (e.modifiers.control) {
+                        pointer-event-test += "(ctrl)";
+                    }
+                    if (e.modifiers.shift) {
+                        pointer-event-test += "(shift)";
+                    }
+                    if (e.modifiers.meta) {
+                        pointer-event-test += "(meta)";
+                    }
+                    if (e.modifiers.alt) {
+                        pointer-event-test += "(alt)";
+                    }
+                    pointer-event-test += ":";
+            }
+        }
+    }
+}
+
+/*
+```rust
+use slint::private_unstable_api::re_exports::MouseCursor;
+
+let instance = TestCase::new().unwrap();
+
+/*let double_click = |x, y| {
+    slint_testing::send_mouse_click(&instance, x, y);
+    slint_testing::mock_elapsed_time(50);
+    slint_testing::send_mouse_click(&instance, x, y);
+};*/
+
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.get()), MouseCursor::Default);
+assert_eq!(instance.get_touch1(), 0);
+slint_testing::send_mouse_click(&instance, 1.0,1.0);
+assert_eq!(instance.get_touch1(), 1);
+slint_testing::send_mouse_click(&instance, 49.9,49.9);
+assert_eq!(instance.get_touch1(), 2);
+slint_testing::send_mouse_click(&instance, 99.9,199.9);
+assert_eq!(instance.get_touch1(), 3);
+slint_testing::send_mouse_click(&instance, 99.9,200.1);
+slint_testing::send_mouse_click(&instance, 100.1,200.1);
+slint_testing::send_mouse_click(&instance, 100.1,199.9);
+assert_eq!(instance.get_touch1(), 3);
+```
+*/

@@ -175,8 +175,10 @@ pub const RESERVED_DROP_SHADOW_PROPERTIES: &[(&str, Type)] = &[
     ("drop-shadow-color", Type::Color),
 ];
 
-pub const RESERVED_ROTATION_PROPERTIES: &[(&str, Type)] = &[
+pub const RESERVED_TRANSFORM_PROPERTIES: &[(&str, Type)] = &[
     ("rotation-angle", Type::Angle),
+    ("scale-x", Type::Float32),
+    ("scale-y", Type::Float32),
     ("rotation-origin-x", Type::LogicalLength),
     ("rotation-origin-y", Type::LogicalLength),
 ];
@@ -226,7 +228,7 @@ pub fn reserved_properties() -> impl Iterator<Item = (&'static str, Type, Proper
         .chain(RESERVED_LAYOUT_PROPERTIES.iter())
         .chain(RESERVED_OTHER_PROPERTIES.iter())
         .chain(RESERVED_DROP_SHADOW_PROPERTIES.iter())
-        .chain(RESERVED_ROTATION_PROPERTIES.iter())
+        .chain(RESERVED_TRANSFORM_PROPERTIES.iter())
         .map(|(k, v)| (*k, v.clone(), PropertyVisibility::Input))
         .chain(reserved_accessibility_properties().map(|(k, v)| (k, v, PropertyVisibility::Input)))
         .chain(
