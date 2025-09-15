@@ -97,8 +97,10 @@ impl i_slint_core::model::Model for PyModelShared {
             let result = match obj.call_method0(py, "row_count") {
                 Ok(result) => result,
                 Err(err) => {
-                    eprintln!(
-                        "Python: Model implementation of row_count() threw an exception: {err}"
+                    crate::handle_unraisable(
+                        py,
+                        "Python: Model implementation of row_count() threw an exception".into(),
+                        err,
                     );
                     return 0;
                 }
@@ -107,7 +109,11 @@ impl i_slint_core::model::Model for PyModelShared {
             match result.extract::<usize>(py) {
                 Ok(count) => count,
                 Err(err) => {
-                    eprintln!("Python: Model implementation of row_count() returned value that cannot be cast to usize: {err}");
+                    crate::handle_unraisable(
+                        py,
+                        "Python: Model implementation of row_count() returned value that cannot be cast to usize".into(),
+                        err,
+                    );
                     0
                 }
             }
@@ -126,8 +132,10 @@ impl i_slint_core::model::Model for PyModelShared {
                 Ok(result) => result,
                 Err(err) if err.is_instance_of::<PyIndexError>(py) => return None,
                 Err(err) => {
-                    eprintln!(
-                        "Python: Model implementation of row_data() threw an exception: {err}"
+                    crate::handle_unraisable(
+                        py,
+                        "Python: Model implementation of row_data() threw an exception".into(),
+                        err,
                     );
                     return None;
                 }
@@ -140,7 +148,11 @@ impl i_slint_core::model::Model for PyModelShared {
             ) {
                 Ok(pv) => Some(pv),
                 Err(err) => {
-                    eprintln!("Python: Model implementation of row_data() returned value that cannot be converted to Rust: {err}");
+                    crate::handle_unraisable(
+                        py,
+                        "Python: Model implementation of row_data() returned value that cannot be cast to usize".into(),
+                        err,
+                    );
                     None
                 }
             }
@@ -165,8 +177,10 @@ impl i_slint_core::model::Model for PyModelShared {
             if let Err(err) =
                 obj.call_method1(py, "set_row_data", (row, type_collection.to_py_value(data)))
             {
-                eprintln!(
-                    "Python: Model implementation of set_row_data() threw an exception: {err}"
+                crate::handle_unraisable(
+                    py,
+                    "Python: Model implementation of set_row_data() threw an exception".into(),
+                    err,
                 );
             };
         });
