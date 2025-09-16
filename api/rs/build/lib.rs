@@ -209,6 +209,8 @@ impl CompilerConfiguration {
     ///
     /// Use this when the components and types of the Slint code need
     /// to be accessible from other modules.
+    ///
+    /// **Note**: This feature is experimental and may change or be removed in the future.
     #[cfg(feature = "experimental-module-builds")]
     #[must_use]
     pub fn as_library(self, library_name: &str) -> Self {
@@ -218,6 +220,8 @@ impl CompilerConfiguration {
     }
 
     /// Specify the Rust module to place the generated code in.
+    ///
+    /// **Note**: This feature is experimental and may change or be removed in the future.
     #[cfg(feature = "experimental-module-builds")]
     #[must_use]
     pub fn rust_module(self, rust_module: &str) -> Self {

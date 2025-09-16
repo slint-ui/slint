@@ -19,8 +19,13 @@ path = "lib.rs"
 
 [features]
 default = []
-experimental-module-builds = ["i-slint-compiler/experimental-library-module"]
+## Enable the [`CompilerConfiguration::with_sdf_fonts`] function that encodes the font's glyphs as scalable signed distance fields, to reduce the size.
 sdf-fonts = ["i-slint-compiler/sdf-fonts"]
+## Enable this feature when building `.slint` libraries.
+## This feature is experimental and may change or be removed in the future,
+## enabling it implies opting out of [semver](https://semver.org).
+## For details of this experiment, see: <https://github.com/slint-ui/slint/issues/7060>
+experimental-module-builds = ["i-slint-compiler/experimental-library-module"]
 
 [dependencies]
 i-slint-compiler = { workspace = true, features = ["default", "rust", "display-diagnostics", "software-renderer", "bundle-translations"] }
@@ -30,5 +35,5 @@ toml_edit = { workspace = true }
 derive_more = { workspace = true, features = ["std", "error"] }
 
 [package.metadata.docs.rs]
-all-features = true
+features = ["sdf-fonts"]
 rustdoc-args = ["--generate-link-to-definition"]
