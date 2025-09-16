@@ -396,13 +396,12 @@ fn text_layout_info(
     width: Pin<&Property<LogicalLength>>,
 ) -> LayoutInfo {
     let window_inner = WindowInner::from_pub(window_adapter.window());
-    let text_string = text.text();
     let font_request = text.font_request(self_rc);
     let scale_factor = ScaleFactor::new(window_inner.scale_factor());
     let implicit_size = |max_width, text_wrap| {
         window_adapter.renderer().text_size(
             font_request.clone(),
-            text_string.as_str(),
+            text.text().as_str(),
             max_width,
             scale_factor,
             text_wrap,
@@ -435,7 +434,13 @@ fn text_layout_info(
         }
         Orientation::Vertical => {
             let h = match text.wrap() {
-                TextWrap::NoWrap => implicit_size(None, TextWrap::NoWrap).height,
+                TextWrap::NoWrap => {
+                    // For unwrapped text, the height depends only on the font, not on the text - avoid a dependency
+                    // on the text property, so that text changes result in less repaints when placed in layouts.
+                    let metrics =
+                        window_adapter.renderer().font_metrics(font_request.clone(), scale_factor);
+                    metrics.ascent - metrics.descent
+                }
                 TextWrap::WordWrap => implicit_size(Some(width.get()), TextWrap::WordWrap).height,
                 TextWrap::CharWrap => implicit_size(Some(width.get()), TextWrap::CharWrap).height,
             }
