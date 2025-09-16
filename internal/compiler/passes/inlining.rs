@@ -447,6 +447,7 @@ fn duplicate_sub_component(
         used: component_to_duplicate.used.clone(),
         private_properties: Default::default(),
         inherits_popup_window: core::cell::Cell::new(false),
+        from_library: core::cell::Cell::new(false),
     };
 
     let new_component = Rc::new(new_component);

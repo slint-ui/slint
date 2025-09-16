@@ -1,0 +1,32 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { Button, VerticalBox } from "std-widgets.slint";
+import { BLogicA, BLogicAAPI } from "@BLogicA";
+import { BLogicB, BLogicBAPI } from "@BLogicB";
+
+export component AppWindow inherits Window {
+    callback update-blogic-data();
+
+    VerticalBox {
+        BLogicA {}
+        BLogicB {}
+        Button {
+            text: "Crank me up!";
+            clicked => {
+                BLogicBAPI.crank-it({ magic-number: 42, cranks: [ "delta", "alfta", "sorta", "coso", "tokyo", "denia" ]});
+            }
+        }
+        Text {
+            text:BLogicBAPI.status;
+        }
+    }
+
+    Timer {
+        interval: 1s;
+        running: true;
+        triggered => {
+            root.update-blogic-data();
+        }
+    }
+}

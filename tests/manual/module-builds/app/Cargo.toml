@@ -1,0 +1,20 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: MIT
+
+[package]
+name = "bapp"
+version = "0.1.0"
+edition = "2021"
+authors = ["Slint Developers <info@slint.dev>"]
+publish = false
+license = "GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0"
+
+[dependencies]
+slint = { path = "../../../../api/rs/slint" }
+blogica = { path = "../blogica" }
+blogicb = { path = "../blogicb" }
+rand = "0.8.5"
+random_word = { version = "0.5.2", features = ["en"] }
+
+[build-dependencies]
+slint-build = { path = "../../../../api/rs/build", features = ["experimental-module-builds"] }

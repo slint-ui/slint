@@ -35,6 +35,9 @@ sdf-fonts = ["dep:fdsm", "dep:fdsm-ttf-parser", "dep:nalgebra", "dep:rayon"]
 # Translation bundler
 bundle-translations = ["dep:polib"]
 
+# Enable expermental library module support
+experimental-library-module = []
+
 default = []
 
 [dependencies]

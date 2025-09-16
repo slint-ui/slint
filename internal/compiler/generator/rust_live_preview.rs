@@ -14,6 +14,8 @@ pub fn generate(
     doc: &Document,
     compiler_config: &CompilerConfiguration,
 ) -> std::io::Result<TokenStream> {
+    let module_header = super::rust::generate_module_header();
+
     let (structs_and_enums_ids, inner_module) =
         super::rust::generate_types(&doc.used_types.borrow().structs_and_enums);
 
@@ -60,6 +62,7 @@ pub fn generate(
 
     Ok(quote! {
         mod #generated_mod {
+            #module_header
             #inner_module
             #(#globals)*
             #(#public_components)*

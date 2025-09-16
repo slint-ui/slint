@@ -205,6 +205,26 @@ impl CompilerConfiguration {
         Self { config }
     }
 
+    /// Configures the compiler to treat the Slint as part of a library.
+    ///
+    /// Use this when the components and types of the Slint code need
+    /// to be accessible from other modules.
+    #[cfg(feature = "experimental-module-builds")]
+    #[must_use]
+    pub fn as_library(self, library_name: &str) -> Self {
+        let mut config = self.config;
+        config.library_name = Some(library_name.to_string());
+        Self { config }
+    }
+
+    /// Specify the Rust module to place the generated code in.
+    #[cfg(feature = "experimental-module-builds")]
+    #[must_use]
+    pub fn rust_module(self, rust_module: &str) -> Self {
+        let mut config = self.config;
+        config.rust_module = Some(rust_module.to_string());
+        Self { config }
+    }
     /// Configures the compiler to use Signed Distance Field (SDF) encoding for fonts.
     ///
     /// This flag only takes effect when `embed_resources` is set to [`EmbedResourcesKind::EmbedForSoftwareRenderer`],
@@ -429,6 +449,18 @@ pub fn compile_with_config(
                 .with_extension("rs"),
         );
 
+    #[cfg(feature = "experimental-module-builds")]
+    if let Some(library_name) = config.config.library_name.clone() {
+        println!("cargo::metadata=SLINT_LIBRARY_NAME={}", library_name);
+        println!(
+            "cargo::metadata=SLINT_LIBRARY_PACKAGE={}",
+            std::env::var("CARGO_PKG_NAME").ok().unwrap_or_default()
+        );
+        println!("cargo::metadata=SLINT_LIBRARY_SOURCE={}", path.display());
+        if let Some(rust_module) = &config.config.rust_module {
+            println!("cargo::metadata=SLINT_LIBRARY_MODULE={}", rust_module);
+        }
+    }
     let paths_dependencies =
         compile_with_output_path(path, absolute_rust_output_file_path.clone(), config)?;
 
