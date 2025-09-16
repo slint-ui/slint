@@ -19,7 +19,7 @@ path = "lib.rs"
 [features]
 default = []
 shared-fontdb = ["dep:fontdb", "dep:libloading", "derive_more", "cfg-if", "dep:ttf-parser"]
-shared-fontique = ["dep:fontique"]
+shared-fontique = ["dep:fontique", "dep:ttf-parser"]
 
 [dependencies]
 fontdb = { workspace = true, optional = true }
