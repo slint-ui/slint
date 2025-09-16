@@ -7,7 +7,7 @@ description: FilterChip API.
 import CodeSnippetMD from '/src/components/CodeSnippetMD.astro';
 import SlintProperty from '/src/components/SlintProperty.astro';
 
-<CodeSnippetMD imagePath="" noScreenShot scale="3" imageWidth="300" imageHeight="200" imageAlt="">
+<CodeSnippetMD imagePath="/src/assets/generated/filterchip.png" scale="3" imageWidth="300" imageHeight="200" imageAlt="">
 ```slint
 import { FilterChip } from "./material.slint";
 export component Example inherits Window {
@@ -39,6 +39,11 @@ Whether the filter chip is in the checked (active) state.
 Whether the chip is enabled and can be interacted with.
 </SlintProperty>
 
+### has-focus
+<SlintProperty propName="has-focus" typeName="bool">
+Whether the component has focus.
+</SlintProperty>
+
 ### icon
 <SlintProperty propName="icon" typeName="image">
 An optional icon displayed on the chip.
@@ -54,7 +59,18 @@ The text label displayed on the chip.
 A tooltip text that appears when hovering over the chip.
 </SlintProperty>
 
+## Callbacks
+
+### clicked()
+Invoked when the chip is clicked.
+
 ## Functions
+
+### clear-focus()
+Clears the focus from the component.
+
+### focus()
+Focuses the component.
 
 ### toggle()
 Toggles the filter chip state between checked and unchecked.

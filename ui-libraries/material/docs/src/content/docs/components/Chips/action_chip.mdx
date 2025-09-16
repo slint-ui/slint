@@ -7,7 +7,7 @@ description: ActionChip API.
 import CodeSnippetMD from '/src/components/CodeSnippetMD.astro';
 import SlintProperty from '/src/components/SlintProperty.astro';
 
-<CodeSnippetMD imagePath="" noScreenShot scale="3" imageWidth="300" imageHeight="200" imageAlt="">
+<CodeSnippetMD imagePath="/src/assets/generated/actionchip.png"  scale="3" imageWidth="300" imageHeight="200" imageAlt="">
 ```slint
 import { ActionChip } from "./material.slint";
 export component Example inherits Window {
@@ -43,6 +43,11 @@ The background color for the avatar.
 Whether the chip is enabled and can be interacted with.
 </SlintProperty>
 
+### has-focus
+<SlintProperty propName="has-focus" typeName="bool">
+Whether the component has focus.
+</SlintProperty>
+
 ### icon
 <SlintProperty propName="icon" typeName="image">
 An optional icon displayed on the chip.
@@ -62,3 +67,13 @@ A tooltip text that appears when hovering over the chip.
 
 ### clicked()
 Invoked when the chip is clicked.
+
+## functions
+
+### clear-focus()
+Clears the focus from the component.
+
+### focus()
+Focuses the component.
+
+

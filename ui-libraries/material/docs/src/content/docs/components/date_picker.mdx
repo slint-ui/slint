@@ -85,10 +85,24 @@ date_picker := DatePickerPopup {
 }
 ```
 
+## Properties
+
+### has-focus
+<SlintProperty propName="has-focus" typeName="bool">
+Whether the component has focus.
+</SlintProperty>
+
 ## Functions
+
+### clear-focus()
+Clears the focus from the component.
+
+### close()
+Closes the popup. Use this if you set the `close_policy` property to `no_auto_close`.
+
+### focus()
+Focuses the component.
 
 ### show()
 Show the popup on the screen.
 
-### close()
-Closes the popup. Use this if you set the `close_policy` property to `no_auto_close`.

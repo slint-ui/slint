@@ -28,6 +28,11 @@ Use a `Slider` to allow the user to select a value from a range by moving a thum
 
 ## Properties
 
+### has-focus
+<SlintProperty propName="has-focus" typeName="bool">
+Whether the component has focus.
+</SlintProperty>
+
 ### stop-count
 <SlintProperty propName="stop-count" typeName="float" defaultValue="0">
 The number of discrete divisions in the slider range. If greater than 0, the slider will snap to these divisions.
@@ -60,3 +65,11 @@ Invoked when the slider is released.
 
 ### value_changed(value: float)
 Invoked when the slider value changes.
+
+## Functions
+
+### clear-focus()
+Clears the focus from the component.
+
+### focus()
+Focuses the component.
