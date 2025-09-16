@@ -372,8 +372,8 @@ fn load_image(
     if file.canon_path.extension() == Some(OsStr::new("svg"))
         || file.canon_path.extension() == Some(OsStr::new("svgz"))
     {
-        let tree = i_slint_common::sharedfontdb::FONT_DB.with_borrow(|db| {
-            let option = usvg::Options { fontdb: (*db).clone(), ..Default::default() };
+        let tree = {
+            let option = usvg::Options::default();
             match file.builtin_contents {
                 Some(data) => usvg::Tree::from_data(data, &option),
                 None => usvg::Tree::from_data(
@@ -387,7 +387,7 @@ fn load_image(
                     e,
                 ))
             })
-        })?;
+        }?;
         let scale_factor = scale_factor as f32;
         // TODO: ideally we should find the size used for that `Image`
         let original_size = tree.size();

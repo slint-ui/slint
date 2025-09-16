@@ -9,7 +9,7 @@ use std::num::NonZeroU32;
 use std::pin::Pin;
 use std::rc::{Rc, Weak};
 
-use i_slint_common::sharedfontdb;
+use i_slint_common::sharedfontique;
 use i_slint_core::api::{RenderingNotifier, RenderingState, SetRenderingNotifierError};
 use i_slint_core::graphics::{euclid, rendering_metrics_collector::RenderingMetricsCollector};
 use i_slint_core::graphics::{BorderRadius, Rgba8Pixel};
@@ -400,14 +400,18 @@ impl<B: GraphicsBackend> RendererSealed for FemtoVGRenderer<B> {
         &self,
         data: &'static [u8],
     ) -> Result<(), Box<dyn std::error::Error>> {
-        sharedfontdb::register_font_from_memory(data)
+        sharedfontique::get_collection().register_fonts(data.to_vec());
+        Ok(())
     }
 
     fn register_font_from_path(
         &self,
         path: &std::path::Path,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        sharedfontdb::register_font_from_path(path)
+        let requested_path = path.canonicalize().unwrap_or_else(|_| path.into());
+        let contents = std::fs::read(requested_path)?;
+        sharedfontique::get_collection().register_fonts(contents);
+        Ok(())
     }
 
     fn default_font_size(&self) -> LogicalLength {

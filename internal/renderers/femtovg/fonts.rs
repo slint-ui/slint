@@ -5,7 +5,7 @@
 
 use core::num::NonZeroUsize;
 use femtovg::TextContext;
-use i_slint_common::sharedfontdb::{self, fontdb};
+use i_slint_common::sharedfontique::{self, fontique};
 use i_slint_core::graphics::euclid;
 use i_slint_core::graphics::FontRequest;
 use i_slint_core::items::{TextHorizontalAlignment, TextOverflow, TextVerticalAlignment, TextWrap};
@@ -22,9 +22,8 @@ pub const DEFAULT_FONT_SIZE: LogicalLength = LogicalLength::new(12.);
 #[derive(Clone, PartialEq, Eq, Hash)]
 struct FontCacheKey {
     family: SharedString,
-    weight: fontdb::Weight,
-    style: fontdb::Style,
-    stretch: fontdb::Stretch,
+    weight: Option<i32>,
+    italic: bool,
 }
 
 #[derive(Clone)]
@@ -111,9 +110,7 @@ pub(crate) fn font_metrics(
     font_request: i_slint_core::graphics::FontRequest,
 ) -> i_slint_core::items::FontMetrics {
     let primary_font = FONT_CACHE.with(|cache| {
-        let query = font_request.to_fontdb_query();
-
-        cache.borrow_mut().load_single_font(font_request.family.as_ref(), query)
+        cache.borrow_mut().load_single_font(font_request.family.as_ref(), font_request.clone())
     });
 
     let logical_pixel_size = (font_request.pixel_size.unwrap_or(DEFAULT_FONT_SIZE)).get();
@@ -131,15 +128,8 @@ pub(crate) fn font_metrics(
 #[derive(Clone)]
 struct LoadedFont {
     femtovg_font_id: femtovg::FontId,
-    fontdb_face_id: fontdb::ID,
-    design_font_metrics: i_slint_common::sharedfontdb::DesignFontMetrics,
-}
-
-struct SharedFontData(std::sync::Arc<dyn AsRef<[u8]>>);
-impl AsRef<[u8]> for SharedFontData {
-    fn as_ref(&self) -> &[u8] {
-        self.0.as_ref().as_ref()
-    }
+    font: fontique::QueryFont,
+    design_font_metrics: sharedfontique::DesignFontMetrics,
 }
 
 #[derive(Default)]
@@ -161,23 +151,17 @@ enum GlyphCoverageCheckResult {
 
 pub struct FontCache {
     loaded_fonts: HashMap<FontCacheKey, LoadedFont>,
-    // for a given fontdb face id, this tells us what we've learned about the script
+    // for a given font family id, this tells us what we've learned about the script
     // coverage of the font.
-    loaded_font_coverage: HashMap<fontdb::ID, GlyphCoverage>,
+    loaded_font_coverage: HashMap<fontique::FamilyId, GlyphCoverage>,
     pub(crate) text_context: TextContext,
     available_families: HashSet<SharedString>,
 }
 
 impl Default for FontCache {
     fn default() -> Self {
-        let available_families = sharedfontdb::FONT_DB.with(|db| {
-            db.borrow()
-                .faces()
-                .filter_map(|face_info| {
-                    face_info.families.first().map(|(family_name, _)| family_name.as_str().into())
-                })
-                .collect()
-        });
+        let available_families =
+            sharedfontique::get_collection().family_names().map(|str| str.into()).collect();
 
         let text_context = TextContext::default();
         text_context.resize_shaped_words_cache(NonZeroUsize::new(10_000_000).unwrap());
@@ -200,14 +184,13 @@ impl FontCache {
     fn load_single_font(
         &mut self,
         family: Option<&SharedString>,
-        query: fontdb::Query<'_>,
+        font_request: FontRequest,
     ) -> LoadedFont {
         let text_context = self.text_context.clone();
         let cache_key = FontCacheKey {
             family: family.cloned().unwrap_or_default(),
-            weight: query.weight,
-            style: query.style,
-            stretch: query.stretch,
+            weight: font_request.weight,
+            italic: font_request.italic,
         };
 
         if let Some(loaded_font) = self.loaded_fonts.get(&cache_key) {
@@ -216,75 +199,15 @@ impl FontCache {
 
         //let now = std::time::Instant::now();
 
-        let fontdb_face_id = sharedfontdb::FONT_DB.with_borrow(|db| {
-            db.query_with_family(query, family.map(|s| s.as_str()))
-                .or_else(|| {
-                    // If the requested family could not be found, fall back to *some* family that must exist
-                    db.query_with_family(query, None)
-                })
-                .expect("there must be a sans-serif font face registered")
-        });
+        let font = font_request.query_fontique().unwrap();
 
-        // Safety: We map font files into memory that - while we never unmap them - may
-        // theoretically get corrupted/truncated by another process and then we'll crash
-        // and burn. In practice that should not happen though, font files are - at worst -
-        // removed by a package manager and they unlink instead of truncate, even when
-        // replacing files. Unlinking OTOH is safe and doesn't destroy the file mapping,
-        // the backing file becomes an orphan in a special area of the file system. That works
-        // on Unixy platforms and on Windows the default file flags prevent the deletion.
-        #[cfg(all(not(target_arch = "wasm32"), not(target_os = "nto")))]
-        let (shared_data, face_index) = unsafe {
-            sharedfontdb::FONT_DB.with_borrow_mut(|db| {
-                db.make_mut().make_shared_face_data(fontdb_face_id).expect("unable to mmap font")
-            })
-        };
-        #[cfg(target_arch = "wasm32")]
-        let (shared_data, face_index) = crate::sharedfontdb::FONT_DB.with_borrow(|db| {
-            db.face_source(fontdb_face_id)
-                .map(|(source, face_index)| {
-                    (
-                        match source {
-                            fontdb::Source::Binary(data) => data.clone(),
-                            // We feed only Source::Binary into fontdb on wasm
-                            #[allow(unreachable_patterns)]
-                            _ => unreachable!(),
-                        },
-                        face_index,
-                    )
-                })
-                .expect("invalid fontdb face id")
-        });
-        #[cfg(target_os = "nto")]
-        let (shared_data, face_index) = crate::sharedfontdb::FONT_DB.with_borrow(|db| {
-            db.face_source(fontdb_face_id)
-                .map(|(source, face_index)| {
-                    (
-                        match source {
-                            fontdb::Source::Binary(data) => data.clone(),
-                            fontdb::Source::File(ref path) => std::sync::Arc::new(
-                                std::fs::read(path).ok().expect("unable to read font file"),
-                            )
-                                as std::sync::Arc<dyn AsRef<[u8]> + Send + Sync>,
-                            #[allow(unreachable_patterns)]
-                            _ => unreachable!(),
-                        },
-                        face_index,
-                    )
-                })
-                .expect("invalid fontdb face id")
-        });
+        let design_font_metrics = sharedfontique::DesignFontMetrics::new(&font);
 
-        let design_font_metrics = {
-            let face = ttf_parser::Face::parse(shared_data.as_ref().as_ref(), face_index).unwrap();
-            i_slint_common::sharedfontdb::DesignFontMetrics::new(face)
-        };
-
-        let femtovg_font_id = text_context
-            .add_shared_font_with_index(SharedFontData(shared_data), face_index)
-            .unwrap();
+        let femtovg_font_id =
+            text_context.add_shared_font_with_index(font.blob.clone(), font.index).unwrap();
 
         //println!("Loaded {:#?} in {}ms.", request, now.elapsed().as_millis());
-        let new_font = LoadedFont { femtovg_font_id, fontdb_face_id, design_font_metrics };
+        let new_font = LoadedFont { femtovg_font_id, font, design_font_metrics };
         self.loaded_fonts.insert(cache_key, new_font.clone());
         new_font
     }
@@ -297,9 +220,8 @@ impl FontCache {
     ) -> Font {
         let pixel_size = font_request.pixel_size.unwrap_or(DEFAULT_FONT_SIZE) * scale_factor;
 
-        let query = font_request.to_fontdb_query();
-
-        let primary_font = self.load_single_font(font_request.family.as_ref(), query);
+        let primary_font =
+            self.load_single_font(font_request.family.as_ref(), font_request.clone());
 
         use unicode_script::{Script, UnicodeScript};
         // map from required script to sample character
@@ -321,7 +243,7 @@ impl FontCache {
         let mut coverage_result = self.check_and_update_script_coverage(
             &mut scripts_required,
             &mut chars_required,
-            primary_font.fontdb_face_id,
+            primary_font.font.clone(),
         );
 
         //eprintln!(
@@ -346,12 +268,13 @@ impl FontCache {
                     return None;
                 }
 
-                let fallback_font = self.load_single_font(Some(fallback_family), query);
+                let fallback_font =
+                    self.load_single_font(Some(fallback_family), font_request.clone());
 
                 coverage_result = self.check_and_update_script_coverage(
                     &mut scripts_required,
                     &mut chars_required,
-                    fallback_font.fontdb_face_id,
+                    fallback_font.font,
                 );
 
                 if matches!(
@@ -484,14 +407,7 @@ impl FontCache {
         _primary_font: &LoadedFont,
         _reference_text: &str,
     ) -> Vec<SharedString> {
-        sharedfontdb::FONT_DB.with(|db| {
-            db.borrow()
-                .fontconfig_fallback_families
-                .iter()
-                .filter(|&family_name| self.is_known_family(family_name))
-                .map(|family_name| family_name.into())
-                .collect()
-        })
+        Vec::new()
     }
 
     #[cfg(any(target_arch = "wasm32", target_os = "android"))]
@@ -524,6 +440,16 @@ impl FontCache {
             .collect()
     }
 
+    #[cfg_attr(
+        not(any(
+            target_family = "windows",
+            target_vendor = "apple",
+            target_arch = "wasm32",
+            target_os = "android",
+            target_os = "nto",
+        )),
+        allow(dead_code)
+    )]
     fn is_known_family(&self, family: &str) -> bool {
         self.available_families.contains(family)
     }
@@ -535,10 +461,10 @@ impl FontCache {
         &mut self,
         scripts_without_coverage: &mut HashMap<unicode_script::Script, char>,
         chars_without_coverage: &mut HashSet<char>,
-        face_id: fontdb::ID,
+        font: fontique::QueryFont,
     ) -> GlyphCoverageCheckResult {
         //eprintln!("required scripts {:#?}", required_scripts);
-        let coverage = self.loaded_font_coverage.entry(face_id).or_default();
+        let coverage = self.loaded_font_coverage.entry(font.family.0).or_default();
 
         let mut scripts_that_need_checking = Vec::new();
         let mut chars_that_need_checking = Vec::new();
@@ -567,29 +493,25 @@ impl FontCache {
         });
 
         if !scripts_that_need_checking.is_empty() || !chars_that_need_checking.is_empty() {
-            sharedfontdb::FONT_DB.with(|db| {
-                db.borrow().with_face_data(face_id, |face_data, face_index| {
-                    let face = ttf_parser::Face::parse(face_data, face_index).unwrap();
+            let face = ttf_parser::Face::parse(font.blob.data(), font.index).unwrap();
 
-                    for (unchecked_script, sample_char) in scripts_that_need_checking {
-                        let glyph_coverage = face.glyph_index(sample_char).is_some();
-                        coverage.supported_scripts.insert(unchecked_script, glyph_coverage);
+            for (unchecked_script, sample_char) in scripts_that_need_checking {
+                let glyph_coverage = face.glyph_index(sample_char).is_some();
+                coverage.supported_scripts.insert(unchecked_script, glyph_coverage);
 
-                        if glyph_coverage {
-                            scripts_without_coverage.remove(&unchecked_script);
-                        }
-                    }
+                if glyph_coverage {
+                    scripts_without_coverage.remove(&unchecked_script);
+                }
+            }
 
-                    for unchecked_char in chars_that_need_checking {
-                        let glyph_coverage = face.glyph_index(unchecked_char).is_some();
-                        coverage.exact_glyph_coverage.insert(unchecked_char, glyph_coverage);
+            for unchecked_char in chars_that_need_checking {
+                let glyph_coverage = face.glyph_index(unchecked_char).is_some();
+                coverage.exact_glyph_coverage.insert(unchecked_char, glyph_coverage);
 
-                        if glyph_coverage {
-                            chars_without_coverage.remove(&unchecked_char);
-                        }
-                    }
-                });
-            })
+                if glyph_coverage {
+                    chars_without_coverage.remove(&unchecked_char);
+                }
+            }
         }
 
         let remaining_required_script_coverage = scripts_without_coverage.len();
