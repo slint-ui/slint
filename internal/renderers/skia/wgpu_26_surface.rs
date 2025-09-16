@@ -100,6 +100,8 @@ impl super::Surface for WGPUSurface {
 
         let mut surface_config = self.surface_config.borrow_mut();
 
+        // Prefer FIFO modes over possible Mailbox setting for frame pacing and better energy efficiency.
+        surface_config.present_mode = wgpu::PresentMode::AutoVsync;
         surface_config.width = size.width;
         surface_config.height = size.height;
 
