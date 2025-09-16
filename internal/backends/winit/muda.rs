@@ -299,16 +299,20 @@ fn win32_set_window_redraw(winit_window: &Window, redraw: bool) {
         use std::os::raw::c_void;
         use windows::Win32::Foundation::HWND;
         use windows::Win32::Foundation::WPARAM;
+        use windows::Win32::UI::WindowsAndMessaging::DrawMenuBar;
         use windows::Win32::UI::WindowsAndMessaging::SendMessageW;
         use windows::Win32::UI::WindowsAndMessaging::WM_SETREDRAW;
 
+        let hwnd = HWND(handle.hwnd.get() as *mut c_void);
+
         unsafe {
-            SendMessageW(
-                HWND(handle.hwnd.get() as *mut c_void),
-                WM_SETREDRAW,
-                Some(WPARAM(redraw as usize)),
-                None,
-            );
+            SendMessageW(hwnd, WM_SETREDRAW, Some(WPARAM(redraw as usize)), None);
+        }
+
+        if redraw {
+            unsafe {
+                let _ = DrawMenuBar(hwnd);
+            }
         }
     }
 }
