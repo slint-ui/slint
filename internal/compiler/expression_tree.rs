@@ -42,6 +42,7 @@ pub enum BuiltinFunction {
     Ln,
     Pow,
     Exp,
+    Sign,
     ToFixed,
     ToPrecision,
     SetFocusItem,
@@ -187,6 +188,7 @@ declare_builtin_function_types!(
     Ln: (Type::Float32) -> Type::Float32,
     Pow: (Type::Float32, Type::Float32) -> Type::Float32,
     Exp: (Type::Float32) -> Type::Float32,
+    Sign: (Type::Float32) -> Type::Float32,
     ToFixed: (Type::Float32, Type::Int32) -> Type::String,
     ToPrecision: (Type::Float32, Type::Int32) -> Type::String,
     SetFocusItem: (Type::ElementReference) -> Type::Void,
@@ -318,6 +320,7 @@ impl BuiltinFunction {
             | BuiltinFunction::Exp
             | BuiltinFunction::ATan
             | BuiltinFunction::ATan2
+            | BuiltinFunction::Sign
             | BuiltinFunction::ToFixed
             | BuiltinFunction::ToPrecision => true,
             BuiltinFunction::SetFocusItem | BuiltinFunction::ClearFocusItem => false,
@@ -403,6 +406,7 @@ impl BuiltinFunction {
             | BuiltinFunction::ATan
             | BuiltinFunction::ATan2
             | BuiltinFunction::ToFixed
+            | BuiltinFunction::Sign
             | BuiltinFunction::ToPrecision => true,
             BuiltinFunction::SetFocusItem | BuiltinFunction::ClearFocusItem => false,
             BuiltinFunction::ShowPopupWindow

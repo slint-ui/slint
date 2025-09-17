@@ -524,6 +524,10 @@ fn call_builtin_function(
             let digits: usize = digits.max(0) as usize;
             Value::String(i_slint_core::string::shared_string_from_number_fixed(n, digits))
         }
+        BuiltinFunction::Sign => {
+            let x: f64 = eval_expression(&arguments[0], local_context).try_into().unwrap();
+            Value::Number(if x == 0.0 { 0.0 } else { x.signum() })
+        }
         BuiltinFunction::ToPrecision => {
             let n: f64 = eval_expression(&arguments[0], local_context).try_into().unwrap();
             let precision: i32 = eval_expression(&arguments[1], local_context).try_into().unwrap();
