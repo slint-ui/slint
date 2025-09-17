@@ -58,10 +58,13 @@ export component Slider {
 
     track := Rectangle {
         background: MaterialPalette.accent-background;
-        x: base.vertical ? (parent.width - self.width) / 2 : background.x;
-        y: base.vertical ? background.y : (parent.height - self.height) / 2;
-        width: base.vertical? background.width : handle.x + (handle.width / 2);
-        height: base.vertical? handle.y + (handle.height / 2) : background.height;
+
+        x: base.vertical ? (parent.width - self.width) / 2 :
+            root.maximum>root.minimum ? background.x : handle.x + (handle.width / 2);
+        y: base.vertical ? root.maximum>root.minimum ? background.y : handle.y + (handle.height / 2) : (parent.height - self.height) / 2;
+        width: base.vertical ? background.width :
+            root.maximum>root.minimum ? handle.x + (handle.width / 2) : parent.width - handle.x - (handle.width / 2);
+        height: base.vertical ? root.maximum>root.minimum ? handle.y + (handle.height / 2) : parent.height - handle.y - (handle.height / 2) : background.height;
         border-radius: background.border-radius;
     }
 

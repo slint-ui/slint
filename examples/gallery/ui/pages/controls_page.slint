@@ -139,15 +139,54 @@ export component ControlsPage inherits Page {
     }
 
     GroupBox {
-        title: @tr("Slider");
+        title: @tr("Sliders");
         vertical-stretch: 0;
+        HorizontalLayout{
+            VerticalLayout {
+                Text { text: "Slider"; }
+                slider := Slider {
+                    min-width: 160px;
+                    minimum: -100;
+                    maximum: 100;
+                    value: 42;
+                    enabled: GallerySettings.widgets-enabled;
+                }
+                Text { text: "Value: \{slider.value}"; }
 
-        slider := Slider {
-            min-width: 160px;
-            minimum: -100;
-            maximum: 100;
-            value: 42;
-            enabled: GallerySettings.widgets-enabled;
+                Text { text: "Inverted Slider"; }
+                slider-inv := Slider {
+                    min-width: 160px;
+                    minimum: 100;
+                    maximum: -100;
+                    value: 42;
+                    enabled: GallerySettings.widgets-enabled;
+                }
+                Text { text: "Value: \{slider-inv.value}"; }
+            }
+            VerticalLayout {
+                Text { text: "Vertical slider"; }
+                v-slider := Slider {
+                    min-height: 160px;
+                    minimum: -100;
+                    maximum: 100;
+                    value: 42;
+                    orientation: Orientation.vertical;
+                    enabled: GallerySettings.widgets-enabled;
+                }
+                Text { text: "Value: \{v-slider.value}"; }
+            }
+            VerticalLayout {
+                Text { text: "Inverted vertical slider"; }
+                v-slider-inv := Slider {
+                    min-height: 160px;
+                    minimum: 100;
+                    maximum: -100;
+                    value: 42;
+                    orientation: Orientation.vertical;
+                    enabled: GallerySettings.widgets-enabled;
+                }
+                Text { text: "Value: \{v-slider-inv.value}"; }
+            }
         }
     }
 

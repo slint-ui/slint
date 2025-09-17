@@ -48,8 +48,9 @@ export component SliderBase {
 
 
             if (!root.handle-has-hover) {
-                root.set-value((!root.vertical ? root.size-to-value(touch-area.mouse-x, root.width) :
-                    root.size-to-value(touch-area.mouse-y, root.height)) + root.minimum);
+                root.set-value( (!vertical ? root.size-to-value(touch-area.mouse-x + ((touch-area.mouse-x/root.width - 0.5)*root.ref-size ), root.width) :
+                    root.size-to-value(touch-area.mouse-y + ((touch-area.mouse-y/root.height - 0.5)*root.ref-size ), root.height))
+                );
             }
 
             self.pressed-value = value;
@@ -61,9 +62,8 @@ export component SliderBase {
             if (!self.enabled) {
                 return;
             }
-
-            root.set-value(self.pressed-value + (!vertical ? root.size-to-value(touch-area.mouse-x - touch-area.pressed-x, root.width - root.ref-size) :
-                root.size-to-value(touch-area.mouse-y - touch-area.pressed-y, root.height - root.ref-size))
+            root.set-value( (!vertical ? root.size-to-value(touch-area.mouse-x + ((touch-area.mouse-x/root.width - 0.5)*root.ref-size ), root.width) :
+                root.size-to-value(touch-area.mouse-y + ((touch-area.mouse-y/root.height - 0.5)*root.ref-size ), root.height))
             );
         }
     }
@@ -111,7 +111,7 @@ export component SliderBase {
     }
 
     pure function size-to-value(size: length, range: length) -> float {
-        size * (root.maximum - root.minimum) / range;
+        size / range * (root.maximum - root.minimum) + root.minimum
     }
 
     function set-value(value: float) {
@@ -119,7 +119,7 @@ export component SliderBase {
             return;
         }
 
-        root.value = max(root.minimum, min(root.maximum, value));
+        root.value = root.maximum>root.minimum ? max(root.minimum, min(root.maximum, value)) : max(root.maximum, min(root.minimum, value));
         root.changed(root.value);
     }
 }
