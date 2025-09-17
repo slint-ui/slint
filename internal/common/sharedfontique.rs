@@ -26,10 +26,6 @@ impl Collection {
     pub fn query<'a>(&'a mut self) -> fontique::Query<'a> {
         self.inner.query(&mut self.source_cache)
     }
-
-    pub fn register_fonts(&mut self, data: impl Into<fontique::Blob<u8>>) -> usize {
-        self.inner.register_fonts(data.into(), None).len()
-    }
 }
 
 impl std::ops::Deref for Collection {
