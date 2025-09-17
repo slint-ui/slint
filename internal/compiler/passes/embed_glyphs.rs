@@ -303,23 +303,21 @@ fn get_fallback_fonts(
         .filter_map(|fallback_family| {
             let mut collection = sharedfontique::get_collection();
             let mut query = collection.query();
-            query.set_families(std::iter::once(fontique::QueryFamily::from(fallback_family.as_str())));
+            query.set_families(std::iter::once(fontique::QueryFamily::from(
+                fallback_family.as_str(),
+            )));
             let mut font = None;
             query.matches_with(|query_font| {
                 font = Some(query_font.clone());
                 fontique::QueryStatus::Stop
             });
 
-            font
-                .and_then(|font| {
-                    compiler_config.load_font_by_id(&font).ok().map(
-                        |fontdue_font| Font {
-                            font,
-                            fontdue_font,
-                            
-                        },
-                    )
-                })
+            font.and_then(|font| {
+                compiler_config
+                    .load_font_by_id(&font)
+                    .ok()
+                    .map(|fontdue_font| Font { font, fontdue_font })
+            })
         })
         .collect::<Vec<_>>();
     fallback_fonts
