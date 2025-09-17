@@ -1,0 +1,60 @@
+---
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+title: RadioButtonTile
+description: RadioButtonTile API.
+---
+
+import CodeSnippetMD from '/src/components/CodeSnippetMD.astro';
+import SlintProperty from '/src/components/SlintProperty.astro';
+
+<CodeSnippetMD imagePath="/src/assets/generated/radiobuttontile.png" scale="3" imageWidth="140" imageHeight="100" imageAlt="">
+```slint
+import { RadioButtonTile, Vertical } from "./material.slint";
+export component Example inherits Window {
+    width: 140px;
+    height: 300px;
+    background: transparent;
+
+    property <int> selected-index: 0;
+
+    Vertical {
+        RadioButtonTile {
+            text: "Option 1";
+            checked: selected-index == 0;
+
+            radio_button_clicked => {
+                selected-index = 0;
+            }
+        }
+
+        RadioButtonTile {
+            text: "Option 2";
+            checked: selected-index == 1;
+
+            radio-button-clicked => {
+                selected-index = 1;
+            }
+        }
+    }
+}
+```
+</CodeSnippetMD>
+
+`RadioButtonTile`s let people select one option from a set of options.
+
+## Properties
+
+### checked
+<SlintProperty propName="checked" typeName="bool" propertyVisibility="in">
+Whether the radiobutton is checked.
+</SlintProperty>
+
+### enabled
+<SlintProperty propName="enabled" typeName="bool" defaultValue="true">
+Whether the radiobutton is enabled and can be interacted with.
+</SlintProperty>
+
+## Callbacks
+
+### radio-button-clicked()
+Invoked when the radiobutton is clicked.
