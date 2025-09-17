@@ -1,0 +1,16 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { LibraryType } from "@test-lib/lib.slint";
+
+import { NotFound } from "@not-found/foo.slint";
+//                       ^error{Cannot find requested import "@not-found/foo.slint" in the library search path}
+
+import { NotFound2 } from "@test-lib/lib.slint";
+//                        ^error{No exported type called 'NotFound2' found in "@test-lib/lib.slint"}
+import { NotFound3 } from "@test-lib/not-existing.slint";
+//                        ^error{Cannot find requested import "@test-lib/not-existing.slint" in the library search path}
+
+import { NotFound4 } from "@notexist";
+//                        ^error{Cannot find requested import "@notexist" in the library search path}
+

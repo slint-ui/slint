@@ -287,6 +287,12 @@ fn process_file_source(
     let mut compiler_config = i_slint_compiler::CompilerConfiguration::new(
         i_slint_compiler::generator::OutputFormat::Interpreter,
     );
+    compiler_config.library_paths = [(
+        "test-lib".into(),
+        concat!(env!("CARGO_MANIFEST_DIR"), "/tests/typeloader/library").into(),
+    )]
+    .into_iter()
+    .collect();
     compiler_config.embed_resources = i_slint_compiler::EmbedResourcesKind::OnlyBuiltinResources;
     compiler_config.enable_experimental = true;
     compiler_config.style = Some("fluent".into());
