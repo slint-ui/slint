@@ -56,3 +56,9 @@ The `preview.html` page contains only the preview and the code must be given via
     -   https://slint.dev/editor/preview.html?snippet=_+%3A%3D+Text+%7B+text%3A+%22Hello+Slint%22%3B+%7D?style=material
 
 -   `?gz=` Like `?snippet=` but compressed with gzip and base64 encoded.
+
+-   `?lib=lib_name=<url>` query argument, followed by the name of the library and the URL to load it from.
+
+    Example: The to use the `@material` library:
+
+     -   https://slint.dev/editor/?lib=material=https://raw.githubusercontent.com/slint-ui/material-components/refs/heads/master/material.slint

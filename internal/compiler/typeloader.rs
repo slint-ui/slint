@@ -1582,6 +1582,7 @@ impl TypeLoader {
             };
             crate::fileaccess::load_file(path.as_path())
                 .map(|virtual_file| (virtual_file.canon_path, virtual_file.builtin_contents))
+                .or_else(|| Some((path, None)))
         })
     }
 
@@ -2118,12 +2119,21 @@ import { E } from "@unknown/lib.slint";
     assert!(build_diagnostics.has_errors());
     let diags = build_diagnostics.to_string_vec();
     assert_eq!(diags.len(), 5);
-    assert!(diags[0].starts_with(&format!(
-        "HELLO:3: Error reading requested import \"{}\": ",
-        test_source_path.to_string_lossy()
-    )));
+    assert_starts_with(
+        &diags[0],
+        &format!(
+            "HELLO:3: Error reading requested import \"{}\": ",
+            test_source_path.to_string_lossy()
+        ),
+    );
     assert_eq!(&diags[1], "HELLO:4: Cannot find requested import \"@libdir/unknown.slint\" in the library search path");
-    assert_eq!(&diags[2], "HELLO:5: Cannot find requested import \"@libfile.slint/unknown.slint\" in the library search path");
+    assert_starts_with(
+        &diags[2],
+        &format!(
+            "HELLO:5: Error reading requested import \"{}\": ",
+            test_source_path.join("lib.slint/unknown.slint").to_string_lossy()
+        ),
+    );
     assert_eq!(
         &diags[3],
         "HELLO:6: Cannot find requested import \"@unknown\" in the library search path"
@@ -2132,6 +2142,11 @@ import { E } from "@unknown/lib.slint";
         &diags[4],
         "HELLO:7: Cannot find requested import \"@unknown/lib.slint\" in the library search path"
     );
+
+    #[track_caller]
+    fn assert_starts_with(actual: &str, start: &str) {
+        assert!(actual.starts_with(start), "{actual:?} does not start with {start:?}");
+    }
 }
 
 #[test]
