@@ -16,6 +16,7 @@ TestCase := Window {
 
         inner := Flickable {
             viewport_width: 1500px;
+
             Rectangle {
                 background: @radial-gradient(circle, yellow, blue, red, green);
             }
@@ -126,14 +127,17 @@ assert_eq!(instance.get_outer_y(), old_outer_y);
 use slint::{LogicalPosition, platform::WindowEvent };
 let instance = TestCase::new().unwrap();
 instance.window().dispatch_event(WindowEvent::PointerScrolled { position: LogicalPosition::new(175.0, 175.0), delta_x: 0.0, delta_y: -50.0 });
+slint_testing::mock_elapsed_time(250);
 assert_eq!(instance.get_inner_x(), 0.);
 assert_eq!(instance.get_outer_y(), 50.);
 
 instance.window().dispatch_event(WindowEvent::PointerScrolled { position: LogicalPosition::new(175.0, 175.0), delta_x: -30.0, delta_y: 0.0 });
+slint_testing::mock_elapsed_time(250);
 assert_eq!(instance.get_inner_x(), 30.);
 assert_eq!(instance.get_outer_y(), 50.);
 
 instance.window().dispatch_event(WindowEvent::PointerScrolled { position: LogicalPosition::new(175.0, 175.0), delta_x: 0.0, delta_y: 10.0 });
+slint_testing::mock_elapsed_time(250);
 assert_eq!(instance.get_inner_x(), 30.);
 assert_eq!(instance.get_outer_y(), 40.);
 ```

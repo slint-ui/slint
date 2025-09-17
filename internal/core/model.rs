@@ -1281,7 +1281,9 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
             viewport_height.set(inner.cached_item_height * row_count as Coord);
             viewport_width.set(vp_width);
             let new_viewport_y = -inner.anchor_y + new_offset_y;
-            viewport_y.set(new_viewport_y);
+            if viewport_y.get() != new_viewport_y {
+                viewport_y.set(new_viewport_y);
+            }
             inner.previous_viewport_y = new_viewport_y;
             break;
         }
