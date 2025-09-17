@@ -16,7 +16,7 @@ keywords = ["lsp", "ui", "toolkit"]
 
 [package.metadata.bundle]
 name = "Slint Live Preview"
-icon = ["../../logo/slint-logo-small-light.png"]
+icon = ["../../logo/slint-logo.icns"]
 
 [[bin]]
 name = "slint-lsp"
