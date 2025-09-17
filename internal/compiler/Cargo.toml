@@ -28,7 +28,7 @@ proc_macro_span = ["quote", "proc-macro2"]
 display-diagnostics = ["codemap", "codemap-diagnostic"]
 
 # Enable the support to render images and font in the binary
-software-renderer = ["image", "dep:resvg", "fontdue", "i-slint-common/shared-fontdb", "dep:rayon"]
+software-renderer = ["image", "dep:resvg", "fontdue", "i-slint-common/shared-fontdb", "i-slint-common/shared-fontique", "dep:rayon"]
 # Enable support to embed the fonts as signed distance fields
 sdf-fonts = ["dep:fdsm", "dep:fdsm-ttf-parser", "dep:nalgebra", "dep:rayon"]
 

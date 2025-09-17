@@ -15,6 +15,7 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 use i_slint_common::sharedfontdb::{self, fontdb};
+use i_slint_common::sharedfontique::{self, fontique};
 
 #[derive(Clone, derive_more::Deref)]
 struct Font {
@@ -23,6 +24,14 @@ struct Font {
     fontdue_font: Arc<fontdue::Font>,
     face_data: Arc<dyn AsRef<[u8]> + Send + Sync>,
     face_index: u32,
+}
+
+
+#[derive(Clone, derive_more::Deref)]
+struct Font2 {
+    font: fontique::QueryFont,
+    #[deref]
+    fontdue_font: Arc<fontdue::Font>,
 }
 
 impl Font {
@@ -241,6 +250,25 @@ fn embed_glyphs_with_fontdb<'a>(
             );
             return;
         };
+        
+        let f = Font2 {
+            fontdue_font: fontdue_font.clone(),
+            font: {
+               let mut collection = sharedfontique::get_collection();
+               let result = collection.register_fonts(std::fs::read(&path).unwrap().into(), None);
+               let id = result[0].0;
+               let mut query = collection.query();
+               query.set_families(std::iter::once(fontique::QueryFamily::from(id)));
+               let mut font = None;
+       
+               query.matches_with(|queried_font| {
+                   font = Some(queried_font.clone());
+                   fontique::QueryStatus::Stop
+               });
+       
+               font.unwrap()
+            
+            }};
 
         let embedded_bitmap_font = embed_font(
             &fontdb,
@@ -354,7 +382,7 @@ fn embed_font(
     let mut character_map: Vec<CharacterMapEntry> = character_coverage
         .filter(|code_point| {
             core::iter::once(&font)
-                .chain(fallback_fonts.iter())
+                //.chain(fallback_fonts.iter())
                 .any(|font| font.fontdue_font.lookup_glyph_index(*code_point) != 0)
         })
         .enumerate()
