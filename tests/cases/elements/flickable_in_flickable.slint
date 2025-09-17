@@ -13,9 +13,12 @@ TestCase := Window {
         height: parent.height - 20px;
         viewport_width: width;
         viewport_height: 980px;
+        smooth-scroll: false;
 
         inner := Flickable {
             viewport_width: 1500px;
+            smooth-scroll: false;
+
             Rectangle {
                 background: @radial-gradient(circle, yellow, blue, red, green);
             }

@@ -14,6 +14,8 @@ export component TestCase inherits Window {
     in-out property <length> viewport-y <=> lv.viewport-y;
 
     lv := ListView {
+        smooth-scroll: false;
+
         for _[num] in 2130000000: Rectangle {
             height: 20px;
             border-width: 1px;

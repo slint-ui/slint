@@ -98,6 +98,7 @@ export component ScrollView {
     in-out property <length> viewport-height <=> flickable.viewport-height;
     in-out property <length> viewport-x <=> flickable.viewport-x;
     in-out property <length> viewport-y <=> flickable.viewport-y;
+    in property <bool> smooth-scroll: true;
     in property <ScrollBarPolicy> vertical-scrollbar-policy <=> vertical-bar.policy;
     in property <ScrollBarPolicy> horizontal-scrollbar-policy <=> horizontal-bar.policy;
     in property <bool> mouse-drag-pan-enabled <=> flickable.interactive;
@@ -118,6 +119,7 @@ export component ScrollView {
         x: 2px;
         y: 2px;
         interactive: false;
+        smooth-scroll: root.smooth-scroll;
         viewport-y <=> vertical-bar.value;
         viewport-x <=> horizontal-bar.value;
         width: parent.width - 4px;

@@ -14,7 +14,7 @@ use crate::input::{
     FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, KeyEvent, MouseEvent,
 };
 use crate::item_rendering::CachedRenderingData;
-use crate::items::PropertyAnimation;
+use crate::items::{AnimationDirection, PropertyAnimation};
 use crate::layout::{LayoutInfo, Orientation};
 use crate::lengths::{
     LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector,
@@ -48,6 +48,7 @@ pub struct Flickable {
     pub viewport_height: Property<LogicalLength>,
 
     pub interactive: Property<bool>,
+    pub smooth_scroll: Property<bool>,
 
     pub flicked: Callback<VoidArg>,
 
@@ -242,6 +243,15 @@ pub(super) const DURATION_THRESHOLD: Duration = Duration::from_millis(500);
 /// The delay to which press are forwarded to the inner item
 pub(super) const FORWARD_DELAY: Duration = Duration::from_millis(100);
 
+const SMOOTH_SCROLL_DURATION: i32 = 250;
+const SMOOTH_SCROLL_ANIM: PropertyAnimation = PropertyAnimation {
+    duration: SMOOTH_SCROLL_DURATION,
+    easing: EasingCurve::CubicBezier([0.0, 0.0, 0.58, 1.0]),
+    delay: 0,
+    iteration_count: 1.,
+    direction: AnimationDirection::Normal,
+};
+
 #[derive(Default, Debug)]
 struct FlickableDataInner {
     /// The position in which the press was made
@@ -250,6 +260,8 @@ struct FlickableDataInner {
     pressed_viewport_pos: LogicalPoint,
     /// Set to true if the flickable is flicking and capturing all mouse event, not forwarding back to the children
     capture_events: bool,
+    smooth_scroll_time: Option<Instant>,
+    smooth_scroll_target: LogicalPoint,
 }
 
 #[derive(Default, Debug)]
@@ -395,7 +407,7 @@ impl FlickableData {
                 }
             }
             MouseEvent::Wheel { delta_x, delta_y, .. } => {
-                let delta = if window_adapter.window().0.modifiers.get().shift()
+                let mut delta = if window_adapter.window().0.modifiers.get().shift()
                     && !cfg!(target_os = "macos")
                 {
                     // Shift invert coordinate for the purpose of scrolling. But not on macOs because there the OS already take care of the change
@@ -413,18 +425,50 @@ impl FlickableData {
                     return InputEventResult::EventIgnored;
                 }
 
-                let old_pos = LogicalPoint::from_lengths(
-                    (Flickable::FIELD_OFFSETS.viewport_x).apply_pin(flick).get(),
-                    (Flickable::FIELD_OFFSETS.viewport_y).apply_pin(flick).get(),
-                );
-                let new_pos = ensure_in_bound(flick, old_pos + delta, flick_rc);
-
                 let viewport_x = (Flickable::FIELD_OFFSETS.viewport_x).apply_pin(flick);
                 let viewport_y = (Flickable::FIELD_OFFSETS.viewport_y).apply_pin(flick);
-                let old_pos = (viewport_x.get(), viewport_y.get());
-                viewport_x.set(new_pos.x_length());
-                viewport_y.set(new_pos.y_length());
-                if old_pos.0 != new_pos.x_length() || old_pos.1 != new_pos.y_length() {
+
+                let old_pos = LogicalPoint::from_lengths(viewport_x.get(), viewport_y.get());
+
+                let smooth_scroll = (Flickable::FIELD_OFFSETS.smooth_scroll).apply_pin(flick).get();
+
+                if smooth_scroll {
+                    // Accumulate scroll delta
+                    if let Some(smooth_scroll_time) = inner.smooth_scroll_time.take() {
+                        let millis = (crate::animations::current_tick() - smooth_scroll_time)
+                            .as_millis() as i32;
+
+                        if millis < SMOOTH_SCROLL_DURATION {
+                            let remaining_delta = inner.smooth_scroll_target - old_pos;
+
+                            // Only if is in the same direction.
+                            // `Default` is because in embedded `dot` returns `i32`
+                            // but in any other platform it returns `f32`
+                            if delta.dot(remaining_delta) > Default::default() {
+                                delta += remaining_delta;
+                            }
+                        }
+                    }
+                }
+
+                let new_pos = ensure_in_bound(flick, old_pos + delta, flick_rc);
+
+                if smooth_scroll {
+                    inner.smooth_scroll_target = new_pos;
+                    inner.smooth_scroll_time = Some(Instant::now());
+
+                    // Discard previous animation
+                    viewport_x.set_binding(|| euclid::Length::default());
+                    viewport_y.set_binding(|| euclid::Length::default());
+
+                    viewport_x.set_animated_value(new_pos.x_length(), SMOOTH_SCROLL_ANIM);
+                    viewport_y.set_animated_value(new_pos.y_length(), SMOOTH_SCROLL_ANIM);
+                } else {
+                    viewport_x.set(new_pos.x_length());
+                    viewport_y.set(new_pos.y_length());
+                }
+
+                if old_pos != new_pos {
                     (Flickable::FIELD_OFFSETS.flicked).apply_pin(flick).call(&());
                 }
                 InputEventResult::EventAccepted
@@ -449,24 +493,21 @@ impl FlickableData {
             {
                 let speed = dist / (millis as f32);
 
-                let duration = 250;
                 let final_pos = ensure_in_bound(
                     flick,
-                    (inner.pressed_viewport_pos.cast() + dist + speed * (duration as f32)).cast(),
+                    (inner.pressed_viewport_pos.cast()
+                        + dist
+                        + speed * (SMOOTH_SCROLL_DURATION as f32))
+                        .cast(),
                     flick_rc,
                 );
-                let anim = PropertyAnimation {
-                    duration,
-                    easing: EasingCurve::CubicBezier([0.0, 0.0, 0.58, 1.0]),
-                    ..PropertyAnimation::default()
-                };
 
                 let viewport_x = (Flickable::FIELD_OFFSETS.viewport_x).apply_pin(flick);
                 let viewport_y = (Flickable::FIELD_OFFSETS.viewport_y).apply_pin(flick);
-                let old_pos = (viewport_x.get(), viewport_y.get());
-                viewport_x.set_animated_value(final_pos.x_length(), anim.clone());
-                viewport_y.set_animated_value(final_pos.y_length(), anim);
-                if old_pos.0 != final_pos.x_length() || old_pos.1 != final_pos.y_length() {
+                let old_pos = LogicalPoint::from_lengths(viewport_x.get(), viewport_y.get());
+                viewport_x.set_animated_value(final_pos.x_length(), SMOOTH_SCROLL_ANIM);
+                viewport_y.set_animated_value(final_pos.y_length(), SMOOTH_SCROLL_ANIM);
+                if old_pos != final_pos {
                     (Flickable::FIELD_OFFSETS.flicked).apply_pin(flick).call(&());
                 }
             }

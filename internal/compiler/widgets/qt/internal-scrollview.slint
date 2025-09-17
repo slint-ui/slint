@@ -15,6 +15,7 @@ export component InternalScrollView {
     out property <length> visible-height <=> fli.height;
     in-out property <bool> has-focus <=> native.has-focus;
     in property <bool> enabled <=> native.enabled;
+    in property <bool> smooth-scroll: true;
     in property <ScrollBarPolicy> vertical-scrollbar-policy <=> native.vertical-scrollbar-policy;
     in property <ScrollBarPolicy> horizontal-scrollbar-policy <=> native.horizontal-scrollbar-policy;
     in property <bool> mouse-drag-pan-enabled <=> fli.interactive;
@@ -49,6 +50,7 @@ export component InternalScrollView {
 
         @children
         interactive: false;
+        smooth-scroll: root.smooth-scroll;
         viewport-y <=> native.vertical-value;
         viewport-x <=> native.horizontal-value;
     }
