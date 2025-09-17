@@ -1,20 +1,20 @@
 ---
 <!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
-title: CheckBoxListTile
-description: CheckBoxListTile API.
+title: CheckBoxTile
+description: CheckBoxTile API.
 ---
 
 import CodeSnippetMD from '/src/components/CodeSnippetMD.astro';
 import SlintProperty from '/src/components/SlintProperty.astro';
 
-<CodeSnippetMD imagePath="/src/assets/generated/checkboxlisttile.png" scale="3" imageWidth="140" imageHeight="100" imageAlt="">
+<CodeSnippetMD imagePath="/src/assets/generated/checkboxtile.png" scale="3" imageWidth="140" imageHeight="100" imageAlt="">
 ```slint
-import { CheckBoxListTile, CheckState } from "./material.slint";
+import { CheckBoxTile, CheckState } from "./material.slint";
 export component Example inherits Window {
     width: 140px;
     height: 100px;
     background: transparent;
-    CheckBoxListTile {
+    CheckBoxTile {
         text: "Option 1";
         check-state: CheckState.checked;
     }
@@ -22,7 +22,7 @@ export component Example inherits Window {
 ```
 </CodeSnippetMD>
 
-A `CheckBoxListTile` is a control that combines a text label with a `CheckBox`. See [CheckBox](/components/checkboxes/check_box/) and [ListTile](/components/list_tile/) for more information.
+A `CheckBoxTile` is a control that combines a text label with a `CheckBox`. See [CheckBox](/components/checkboxes/check_box/) and [ListTile](/components/list_tile/) for more information.
 
 ## Properties
 

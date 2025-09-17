@@ -21,7 +21,7 @@ import {
     SmallAppBar,
     MediumAppBar,
     LargeAppBar,
-    CheckBoxListTile,
+    CheckBoxTile,
     CheckState,
     ActionChip,
     FilterChip,
@@ -312,22 +312,22 @@ export component NavigationView {
                 title: "Checkboxes";
 
                 Vertical {
-                    CheckBoxListTile {
+                    CheckBoxTile {
                         text: "Option 1";
                         tristate: true;
                     }
 
-                    CheckBoxListTile {
+                    CheckBoxTile {
                         text: "Option 2";
                     }
 
-                    CheckBoxListTile {
+                    CheckBoxTile {
                         text: "Option 3";
                         tristate: true;
                         has-error: true;
                     }
 
-                    CheckBoxListTile {
+                    CheckBoxTile {
                         text: "Option 4";
                         enabled: false;
                         check_state: CheckState.checked;

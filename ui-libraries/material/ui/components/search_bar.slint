@@ -15,7 +15,7 @@ import { HorizontalDivider } from "./divider.slint";
 import { ListView } from "./list_view.slint";
 import { Animations } from "../styling/animations.slint";
 
-component SearchListTile inherits ListTile {
+component SearchTile inherits ListTile {
     in property <image> action_button_icon;
 
     callback action_button_clicked();
@@ -278,7 +278,7 @@ export component SearchBar {
                 if root.items.length > 0 : ListView {
                     horizontal_stretch: 1;
 
-                    for item[index] in root.items : SearchListTile {
+                    for item[index] in root.items : SearchTile {
                         text: item.text;
                         supporting_text: item.supporting_text;
                         avatar_icon: item.avatar_icon;
