@@ -86,10 +86,9 @@ export component MainView {
             background: MaterialPalette.background;
 
             if !MainWindowAdapter.break_layout : HorizontalLayout {
-                // TODO: Add back when missing items for 1.0 are resolved
-                //  NavigationRail {
-                //      items: root.navigation_items;
-                //  }
+                 NavigationRail {
+                     items: root.navigation_items;
+                 }
 
 
                 if root.current_view == Views.components : ComponentsView {
@@ -102,10 +101,9 @@ export component MainView {
                     horizontal_stretch: 1;
                 }
 
-                // TODO: Add back when missing items for 1.0 are resolved
-                // NavigationBar {
-                //     items: root.navigation_items;
-                // }
+                NavigationBar {
+                    items: root.navigation_items;
+                }
             }
         }
     }
