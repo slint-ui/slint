@@ -363,7 +363,7 @@ export struct Time {
     second: int
 }
 
-export component TimePicker inherits PopupWindow {
+export component TimePickerPopup inherits PopupWindow {
     in property <bool> use_24_hour_format: true;
     in property <string> title: @tr("Select time");
     in property <string> cancel_text: @tr("Cancel");

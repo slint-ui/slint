@@ -26,7 +26,7 @@ import {
     ActionChip,
     FilterChip,
     InputChip,
-    TimePicker,
+    TimePickerPopup,
     Switch,
     Slider,
     TextField,
@@ -669,7 +669,7 @@ export component NavigationView {
         ];
     }
 
-    time_picker := TimePicker {
+    time_picker := TimePickerPopup {
         // this is used to place the popup on 0,0 of the window and also to fill the window
         x: -root.absolute_position.x;
         y: -root.absolute_position.y;

@@ -10,7 +10,7 @@ fn do_test(snippet: &str, path: &str) -> Result<(), Box<dyn std::error::Error>> 
     let code = if must_wrap {
         format!(
             "import {{
-                CheckBox, CheckState, Switch, TimePicker, NavigationBar}} from\"material.slint\";
+                CheckBox, CheckState, Switch, TimePickerPopup, NavigationBar}} from\"material.slint\";
             component Example {{\n{snippet}\n}}"
         )
     } else {

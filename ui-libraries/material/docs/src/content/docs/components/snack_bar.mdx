@@ -9,12 +9,20 @@ import SlintProperty from '/src/components/SlintProperty.astro';
 
 <CodeSnippetMD imagePath="" noScreenShot scale="3" imageWidth="300" imageHeight="200" imageAlt="">
 ```slint
-import { SnackBar } from "./material.slint";
+import { FilledButton, SnackBar } from "./material.slint";
 export component Example inherits Window {
     width: 400px;
     height: 200px;
     background: transparent;
-    SnackBar {
+
+    show-snack-bar := FilledButton {
+        text: @tr("Show Snack Bar");
+        clicked => {
+            sb.show();
+        }
+    }
+
+    sb := SnackBar {
         text: "Message sent";
         action-text: "Undo";
         has-close-button: true;
