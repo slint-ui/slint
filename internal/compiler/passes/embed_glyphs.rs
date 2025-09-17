@@ -10,6 +10,7 @@ use crate::expression_tree::{Expression, Unit};
 use crate::object_tree::*;
 use crate::CompilerConfiguration;
 use std::cell::RefCell;
+use std::collections::BTreeMap;
 use std::collections::HashSet;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -109,18 +110,29 @@ fn embed_glyphs_with_fontdb<'a>(
 ) {
     let fallback_fonts = get_fallback_fonts(compiler_config, &fontdb.borrow());
 
-    let mut custom_fonts = Vec::new();
+    let mut custom_fonts: BTreeMap<std::path::PathBuf, Vec<fontique::QueryFont>> =
+        Default::default();
 
+    let mut collection = sharedfontique::get_collection();    
+    
     // add custom fonts
-    {
-        let mut fontdb_mut = fontdb.borrow_mut();
-        for doc in all_docs {
-            for (font_path, import_token) in doc.custom_fonts.iter() {
-                let face_count = fontdb_mut.faces().count();
-                if let Err(e) = fontdb_mut.make_mut().load_font_file(font_path) {
+    for doc in all_docs {
+        for (font_path, import_token) in doc.custom_fonts.iter() {
+            dbg!(font_path);
+            match std::fs::read(&font_path) {
+                Err(e) => {
                     diag.push_error(format!("Error loading font: {e}"), import_token);
-                } else {
-                    custom_fonts.extend(fontdb_mut.faces().skip(face_count).map(|info| info.id))
+                    return;
+                }
+                Ok(bytes) => {
+                    custom_fonts.insert(font_path.into(), collection
+                        .register_fonts(bytes.into(), None)
+                        .into_iter()
+                        .flat_map(|(id, infos)| infos.into_iter().map(move |info| (id, info)))
+                        .filter_map(|(id, info)| {
+                            collection.get_font_for_info(id, info)
+                        })
+                        .collect());
                 }
             }
         }
