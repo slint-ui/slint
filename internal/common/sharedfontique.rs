@@ -56,6 +56,10 @@ pub struct DesignFontMetrics {
 impl DesignFontMetrics {
     pub fn new(font: &fontique::QueryFont) -> Self {
         let face = ttf_parser::Face::parse(font.blob.data(), font.index).unwrap();
+        Self::new_from_face(&face)
+    }
+    
+    pub fn new_from_face(face: &ttf_parser::Face) -> Self {
         Self {
             ascent: face.ascender() as f32,
             descent: face.descender() as f32,
