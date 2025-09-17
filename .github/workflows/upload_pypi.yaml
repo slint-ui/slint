@@ -22,10 +22,9 @@ jobs:
                     - runner: windows-latest
                       target: x64
                       container: auto
-# Pending https://github.com/actions/partner-runner-images/issues/85
-#                    - runner: windows-11-arm
-#                      target: aarch64
-#                      container: auto
+                    - runner: windows-11-arm
+                      target: aarch64
+                      container: auto
                     - runner: macos-13
                       target: x86_64
                       container: auto
