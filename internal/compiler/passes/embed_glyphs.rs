@@ -15,7 +15,7 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 use i_slint_common::sharedfontdb::{self, fontdb};
-use i_slint_common::sharedfontique::{self, fontique};
+use i_slint_common::sharedfontique::{self, fontique, ttf_parser};
 
 #[derive(Clone, derive_more::Deref)]
 struct Font {
@@ -190,17 +190,17 @@ fn embed_glyphs_with_fontdb<'a>(
                 fontdb::Source::SharedFile(path_buf, _) => path_buf,
             }
         })
-        .collect::<Vec<std::path::PathBuf>>();
+        .collect::<std::collections::BTreeSet<std::path::PathBuf>>();
 
     // Map from path to family name
-    let mut fonts = std::collections::BTreeMap::<std::path::PathBuf, fontdb::ID>::new();
-    fonts.extend(default_font_paths.iter().cloned().zip(default_font_ids.iter().cloned()));
+    let mut fonts = Vec::<std::path::PathBuf>::new();
+    //fonts.extend(default_font_paths.iter().cloned());
 
     // add custom fonts
     let mut custom_face_error = false;
     fonts.extend(custom_fonts.iter().filter_map(|face_id| {
         fontdb.face(*face_id).and_then(|face_info| {
-            Some((
+            Some(
                 match &face_info.source {
                     fontdb::Source::File(path) => path.clone(),
                     _ => {
@@ -213,8 +213,7 @@ fn embed_glyphs_with_fontdb<'a>(
                         return None;
                     }
                 },
-                *face_id,
-            ))
+            )
         })
     }));
 
@@ -222,58 +221,36 @@ fn embed_glyphs_with_fontdb<'a>(
         return;
     }
 
-    let mut embed_font_by_path_and_face_id = |path: &std::path::Path, face_id| {
-        let (fontdue_font, face_data, face_index) = match compiler_config.load_font_by_id(face_id) {
-            Ok(font) => font,
-            Err(msg) => {
-                diag.push_error(
-                    format!("error loading font for embedding {}: {msg}", path.display()),
-                    &generic_diag_location,
-                );
-                return;
-            }
-        };
+    let mut embed_font_by_path_and_face_id = |path: &std::path::Path| {
+        let mut collection = sharedfontique::get_collection();
+        let result = collection.register_fonts(std::fs::read(&path).unwrap().into(), None);
+        let (id, info) = &result[0];
+        dbg!(info.len());
+        let info = &info[0];
+        let mut query = collection.query();
+        query.set_families(std::iter::once(fontique::QueryFamily::from(*id)));
+        query.set_attributes(fontique::Attributes {
+            weight: info.weight(),
+            style: info.style(),
+            width: info.width()
+        });
+        let mut font = None;
 
-        let Some(family_name) = fontdb
-            .face(face_id)
-            .expect("must succeed as we are within face_data with same face_id")
-            .families
-            .first()
-            .map(|(name, _)| name.clone())
-        else {
-            diag.push_error(
-                format!(
-                    "internal error: TrueType font without english family name encountered: {}",
-                    path.display()
-                ),
-                &generic_diag_location,
-            );
-            return;
-        };
-        
+        query.matches_with(|queried_font| {
+            font = Some(queried_font.clone());
+            fontique::QueryStatus::Stop
+        });
+
+        let font = font.unwrap();
         let f = Font2 {
-            fontdue_font: fontdue_font.clone(),
-            font: {
-               let mut collection = sharedfontique::get_collection();
-               let result = collection.register_fonts(std::fs::read(&path).unwrap().into(), None);
-               let id = result[0].0;
-               let mut query = collection.query();
-               query.set_families(std::iter::once(fontique::QueryFamily::from(id)));
-               let mut font = None;
-       
-               query.matches_with(|queried_font| {
-                   font = Some(queried_font.clone());
-                   fontique::QueryStatus::Stop
-               });
-       
-               font.unwrap()
-            
-            }};
+            fontdue_font: compiler_config.load_font_by_id(&font).unwrap(),
+            font
+        };
 
         let embedded_bitmap_font = embed_font(
             &fontdb,
-            family_name,
-            Font { id: face_id, fontdue_font, face_data, face_index },
+            sharedfontique::get_collection().family_name(*id).unwrap().to_owned(),
+            f,//Font { id: face_id, fontdue_font, face_data, face_index },
             &pixel_sizes,
             characters_seen.iter().cloned(),
             &fallback_fonts,
@@ -302,14 +279,18 @@ fn embed_glyphs_with_fontdb<'a>(
 
     // Make sure to embed the default font first, because that becomes the default at run-time.
     for path in default_font_paths {
-        if let Some(font_id) = fonts.remove(&path) {
-            embed_font_by_path_and_face_id(&path, font_id);
-        }
+        dbg!(&path);
+        //if let Some(font_id) = fonts.remove(&path) {
+            embed_font_by_path_and_face_id(&path);
+            //}
     }
 
-    for (path, face_id) in &fonts {
-        embed_font_by_path_and_face_id(path, *face_id);
+    for path in &fonts {
+        dbg!(&path);
+        embed_font_by_path_and_face_id(path);
     }
+
+    //panic!();
 }
 
 #[inline(never)] // workaround https://github.com/rust-lang/rust/issues/104099
@@ -346,7 +327,7 @@ fn get_fallback_fonts(
         fallback_families.clone_from(&fontdb.fontconfig_fallback_families);
     }
 
-    let fallback_fonts = fallback_families
+    /*let fallback_fonts = fallback_families
         .iter()
         .filter_map(|fallback_family| {
             fontdb
@@ -366,14 +347,15 @@ fn get_fallback_fonts(
                 })
         })
         .collect::<Vec<_>>();
-    fallback_fonts
+    fallback_fonts*/
+    Vec::new()
 }
 
 #[cfg(not(target_arch = "wasm32"))]
 fn embed_font(
     fontdb: &fontdb::Database,
     family_name: String,
-    font: Font,
+    font: Font2,
     pixel_sizes: &[i16],
     character_coverage: impl Iterator<Item = char>,
     fallback_fonts: &[Font],
@@ -404,9 +386,12 @@ fn embed_font(
 
     character_map.sort_by_key(|entry| entry.code_point);
 
-    let face_info = fontdb.face(font.id).unwrap();
+    //let face_info = fontdb.face(font.id).unwrap();
 
-    let metrics = font.metrics();
+    let face_info = ttf_parser::Face::parse(font.font.blob.data(), font.font.index).unwrap();
+    let metrics = sharedfontique::DesignFontMetrics::new(&font.font);//font.metrics();
+
+    dbg!(&face_info.weight(), face_info.style());
 
     BitmapFont {
         family_name,
@@ -417,8 +402,8 @@ fn embed_font(
         x_height: metrics.x_height,
         cap_height: metrics.cap_height,
         glyphs,
-        weight: face_info.weight.0,
-        italic: face_info.style != fontdb::Style::Normal,
+        weight: face_info.weight().to_number(),
+        italic: face_info.style() != ttf_parser::Style::Normal,
         #[cfg(feature = "sdf-fonts")]
         sdf: _compiler_config.use_sdf_fonts,
         #[cfg(not(feature = "sdf-fonts"))]
@@ -430,8 +415,9 @@ fn embed_font(
 fn embed_alpha_map_glyphs(
     pixel_sizes: &[i16],
     character_map: &Vec<CharacterMapEntry>,
-    font: &Font,
     fallback_fonts: &[Font],
+    font: &Font,
+    font: &Font2,
 ) -> Vec<BitmapGlyphs> {
     use rayon::prelude::*;
 
@@ -472,8 +458,9 @@ fn embed_alpha_map_glyphs(
 fn embed_sdf_glyphs(
     pixel_sizes: &[i16],
     character_map: &Vec<CharacterMapEntry>,
-    font: &Font,
     fallback_fonts: &[Font],
+    font: &Font,
+    font: &Font2,
 ) -> Vec<BitmapGlyphs> {
     use rayon::prelude::*;
 
