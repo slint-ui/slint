@@ -9,9 +9,8 @@ use crate::expression_tree::BuiltinFunction;
 use crate::expression_tree::{Expression, Unit};
 use crate::object_tree::*;
 use crate::CompilerConfiguration;
-use std::cell::RefCell;
-use std::collections::BTreeMap;
 use std::collections::HashSet;
+use std::collections::{BTreeMap, HashMap};
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -105,9 +104,8 @@ fn embed_glyphs_with_fontdb<'a>(
 ) {
     let fallback_fonts = get_fallback_fonts(compiler_config);
 
-    // Store all custom fonts for a given path (files can have multiple families and families can have multiple fonts).
-    let mut custom_fonts: BTreeMap<std::path::PathBuf, Vec<fontique::QueryFont>> =
-        Default::default();
+    let mut custom_fonts: BTreeMap<std::path::PathBuf, fontique::QueryFont> = Default::default();
+    let mut font_paths: HashMap<fontique::FamilyId, std::path::PathBuf> = Default::default();
 
     let mut collection = sharedfontique::get_collection();
 
@@ -117,21 +115,114 @@ fn embed_glyphs_with_fontdb<'a>(
             match std::fs::read(&font_path) {
                 Err(e) => {
                     diag.push_error(format!("Error loading font: {e}"), import_token);
-                    return;
                 }
                 Ok(bytes) => {
-                    custom_fonts.insert(
-                        font_path.into(),
-                        collection
-                            .register_fonts(bytes.into(), None)
-                            .into_iter()
-                            .flat_map(|(id, infos)| infos.into_iter().map(move |info| (id, info)))
-                            .filter_map(|(id, info)| collection.get_font_for_info(id, info))
-                            .collect(),
-                    );
+                    if let Some(font) = collection
+                        .register_fonts(bytes.into(), None)
+                        .first()
+                        .and_then(|(id, infos)| {
+                            let info = infos.first()?;
+                            collection.get_font_for_info(*id, info)
+                        })
+                    {
+                        font_paths.insert(font.family.0, font_path.into());
+                        custom_fonts.insert(font_path.into(), font);
+                    }
                 }
             }
         }
+    }
+
+    let mut custom_face_error = false;
+
+    let default_fonts: BTreeMap<std::path::PathBuf, fontique::QueryFont> = if !collection
+        .default_fonts
+        .is_empty()
+    {
+        collection.default_fonts.as_ref().clone()
+    } else {
+        let mut default_fonts: BTreeMap<std::path::PathBuf, fontique::QueryFont> =
+            Default::default();
+
+        for c in doc.exported_roots() {
+            let (family, source_location) = c
+                .root_element
+                .borrow()
+                .bindings
+                .get("default-font-family")
+                .and_then(|binding| match &binding.borrow().expression {
+                    Expression::StringLiteral(family) => {
+                        Some((Some(family.clone()), binding.borrow().span.clone()))
+                    }
+                    _ => None,
+                })
+                .unwrap_or_default();
+
+            let font = {
+                let mut query = collection.query();
+
+                if let Some(ref family) = family {
+                    query.set_families(std::iter::once(fontique::QueryFamily::from(
+                        family.as_str(),
+                    )));
+                } else {
+                    query.set_families(std::iter::once(fontique::QueryFamily::Generic(
+                        fontique::GenericFamily::SansSerif,
+                    )));
+                }
+
+                let mut font = None;
+
+                query.matches_with(|queried_font| {
+                    font = Some(queried_font.clone());
+                    fontique::QueryStatus::Stop
+                });
+                font
+            };
+
+            match font {
+                None => {
+                    if let Some(source_location) = source_location {
+                        diag.push_error_with_span("could not find font that provides specified family, falling back to Sans-Serif".to_string(), source_location);
+                    } else {
+                        diag.push_error(
+                            "internal error: fontdb could not determine a default font for sans-serif"
+                                .to_string(),
+                            &generic_diag_location,
+                        );
+                    };
+                }
+                Some(query_font) => {
+                    let family_info = collection.family(query_font.family.0).unwrap();
+                    if let Some(font_info) = family_info.fonts().first() {
+                        let path = if let Some(path) = font_paths.get(&query_font.family.0) {
+                            path.clone()
+                        } else {
+                            match &font_info.source().kind {
+                                fontique::SourceKind::Path(path) => path.to_path_buf(),
+                                fontique::SourceKind::Memory(_) => {
+                                    diag.push_error(
+                                    "internal error: memory fonts are not supported in the compiler"
+                                        .to_string(),
+                                    &generic_diag_location,
+                                );
+                                    custom_face_error = true;
+                                    continue;
+                                }
+                            }
+                        };
+                        font_paths.insert(query_font.family.0, path.clone());
+                        default_fonts.insert(path.clone(), query_font);
+                    }
+                }
+            }
+        }
+
+        default_fonts
+    };
+
+    if custom_face_error {
+        return;
     }
 
     let embed_font_by_path = |path: &std::path::Path, font: &fontique::QueryFont| {
@@ -165,17 +256,13 @@ fn embed_glyphs_with_fontdb<'a>(
         }
     };
 
-    for (path, fonts) in collection.default_fonts.iter() {
+    for (path, font) in default_fonts.iter() {
         custom_fonts.remove(&path.to_owned());
-        for font in fonts {
-            embed_font_by_path(&path, &font);
-        }
+        embed_font_by_path(&path, &font);
     }
 
-    for (path, fonts) in custom_fonts {
-        for font in fonts {
-            embed_font_by_path(&path, &font);
-        }
+    for (path, font) in custom_fonts {
+        embed_font_by_path(&path, &font);
     }
 }
 
@@ -371,12 +458,11 @@ fn generate_sdf_for_glyph(
     use nalgebra::{Affine2, Similarity2, Vector2};
 
     let face =
-        fdsm_ttf_parser::ttf_parser::Face::parse(font.face_data.as_ref().as_ref(), font.face_index)
-            .unwrap();
+        fdsm_ttf_parser::ttf_parser::Face::parse(font.font.blob.data(), font.font.index).unwrap();
     let glyph_id = face.glyph_index(code_point).unwrap_or_default();
     let mut shape = fdsm_ttf_parser::load_shape_from_face(&face, glyph_id);
 
-    let metrics = font.metrics();
+    let metrics = sharedfontique::DesignFontMetrics::new(&font.font);
     let target_pixel_size = target_pixel_size as f64;
     let scale = target_pixel_size / metrics.units_per_em as f64;
 

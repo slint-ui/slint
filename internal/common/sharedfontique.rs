@@ -15,22 +15,19 @@ static COLLECTION: std::sync::LazyLock<Collection> = std::sync::LazyLock::new(||
 
     let mut source_cache = fontique::SourceCache::new_shared();
 
-    let mut default_fonts: BTreeMap<std::path::PathBuf, Vec<fontique::QueryFont>> =
-        Default::default();
+    let mut default_fonts: BTreeMap<std::path::PathBuf, fontique::QueryFont> = Default::default();
 
     let mut add_font_from_path = |path: std::path::PathBuf| {
         if let Ok(bytes) = std::fs::read(&path) {
-            default_fonts.insert(
-                path,
-                collection
-                    .register_fonts(bytes.into(), None)
-                    .into_iter()
-                    .flat_map(|(id, infos)| infos.into_iter().map(move |info| (id, info)))
-                    .filter_map(|(id, info)| {
-                        get_font_for_info(&mut collection, &mut source_cache, id, info)
-                    })
-                    .collect(),
-            );
+            // just use the first font of the first family in the file.
+            if let Some(font) =
+                collection.register_fonts(bytes.into(), None).first().and_then(|(id, infos)| {
+                    let info = infos.first()?;
+                    get_font_for_info(&mut collection, &mut source_cache, *id, &info)
+                })
+            {
+                default_fonts.insert(path, font);
+            }
         }
     };
 
@@ -60,7 +57,7 @@ pub fn get_collection() -> Collection {
 pub struct Collection {
     inner: fontique::Collection,
     source_cache: fontique::SourceCache,
-    pub default_fonts: Arc<BTreeMap<std::path::PathBuf, Vec<fontique::QueryFont>>>,
+    pub default_fonts: Arc<BTreeMap<std::path::PathBuf, fontique::QueryFont>>,
 }
 
 impl Collection {
@@ -71,7 +68,7 @@ impl Collection {
     pub fn get_font_for_info(
         &mut self,
         family_id: fontique::FamilyId,
-        info: fontique::FontInfo,
+        info: &fontique::FontInfo,
     ) -> Option<fontique::QueryFont> {
         get_font_for_info(&mut self.inner, &mut self.source_cache, family_id, info)
     }
@@ -81,7 +78,7 @@ fn get_font_for_info(
     collection: &mut fontique::Collection,
     source_cache: &mut fontique::SourceCache,
     family_id: fontique::FamilyId,
-    info: fontique::FontInfo,
+    info: &fontique::FontInfo,
 ) -> Option<fontique::QueryFont> {
     let mut query = collection.query(source_cache);
     query.set_families(std::iter::once(fontique::QueryFamily::from(family_id)));
