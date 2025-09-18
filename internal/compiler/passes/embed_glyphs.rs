@@ -9,8 +9,8 @@ use crate::expression_tree::BuiltinFunction;
 use crate::expression_tree::{Expression, Unit};
 use crate::object_tree::*;
 use crate::CompilerConfiguration;
+use std::collections::HashMap;
 use std::collections::HashSet;
-use std::collections::{BTreeMap, HashMap};
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -82,36 +82,15 @@ pub fn embed_glyphs<'a>(
         }
     }
 
-    embed_glyphs_with_fontdb(
-        compiler_config,
-        doc,
-        pixel_sizes,
-        characters_seen,
-        all_docs,
-        diag,
-        generic_diag_location,
-    );
-}
-
-fn embed_glyphs_with_fontdb<'a>(
-    compiler_config: &CompilerConfiguration,
-    doc: &Document,
-    pixel_sizes: Vec<i16>,
-    characters_seen: HashSet<char>,
-    all_docs: impl Iterator<Item = &'a crate::object_tree::Document> + 'a,
-    diag: &mut BuildDiagnostics,
-    generic_diag_location: Option<crate::diagnostics::SourceLocation>,
-) {
     let fallback_fonts = get_fallback_fonts(compiler_config);
 
-    let mut custom_fonts: BTreeMap<std::path::PathBuf, fontique::QueryFont> = Default::default();
+    let mut custom_fonts: HashMap<std::path::PathBuf, fontique::QueryFont> = Default::default();
     let mut font_paths: HashMap<fontique::FamilyId, std::path::PathBuf> = Default::default();
 
     let mut collection = sharedfontique::get_collection();
 
     for doc in all_docs {
         for (font_path, import_token) in doc.custom_fonts.iter() {
-            dbg!(font_path);
             match std::fs::read(&font_path) {
                 Err(e) => {
                     diag.push_error(format!("Error loading font: {e}"), import_token);
@@ -135,13 +114,10 @@ fn embed_glyphs_with_fontdb<'a>(
 
     let mut custom_face_error = false;
 
-    let default_fonts: BTreeMap<std::path::PathBuf, fontique::QueryFont> = if !collection
-        .default_fonts
-        .is_empty()
-    {
+    let default_fonts = if !collection.default_fonts.is_empty() {
         collection.default_fonts.as_ref().clone()
     } else {
-        let mut default_fonts: BTreeMap<std::path::PathBuf, fontique::QueryFont> =
+        let mut default_fonts: HashMap<std::path::PathBuf, fontique::QueryFont> =
             Default::default();
 
         for c in doc.exported_roots() {
@@ -193,8 +169,10 @@ fn embed_glyphs_with_fontdb<'a>(
                     };
                 }
                 Some(query_font) => {
-                    let family_info = collection.family(query_font.family.0).unwrap();
-                    if let Some(font_info) = family_info.fonts().first() {
+                    if let Some(font_info) = collection
+                        .family(query_font.family.0)
+                        .and_then(|family_info| family_info.fonts().first().cloned())
+                    {
                         let path = if let Some(path) = font_paths.get(&query_font.family.0) {
                             path.clone()
                         } else {

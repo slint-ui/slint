@@ -4,7 +4,7 @@
 pub use fontique;
 pub use ttf_parser;
 
-use std::collections::BTreeMap;
+use std::collections::HashMap;
 use std::sync::Arc;
 
 static COLLECTION: std::sync::LazyLock<Collection> = std::sync::LazyLock::new(|| {
@@ -15,7 +15,7 @@ static COLLECTION: std::sync::LazyLock<Collection> = std::sync::LazyLock::new(||
 
     let mut source_cache = fontique::SourceCache::new_shared();
 
-    let mut default_fonts: BTreeMap<std::path::PathBuf, fontique::QueryFont> = Default::default();
+    let mut default_fonts: HashMap<std::path::PathBuf, fontique::QueryFont> = Default::default();
 
     let mut add_font_from_path = |path: std::path::PathBuf| {
         if let Ok(bytes) = std::fs::read(&path) {
@@ -57,7 +57,7 @@ pub fn get_collection() -> Collection {
 pub struct Collection {
     inner: fontique::Collection,
     source_cache: fontique::SourceCache,
-    pub default_fonts: Arc<BTreeMap<std::path::PathBuf, fontique::QueryFont>>,
+    pub default_fonts: Arc<HashMap<std::path::PathBuf, fontique::QueryFont>>,
 }
 
 impl Collection {
