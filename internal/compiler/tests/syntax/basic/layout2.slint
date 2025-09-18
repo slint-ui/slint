@@ -50,4 +50,8 @@ export X := Rectangle {
     col: 3;
 //       ^error{col used outside of a GridLayout}
 
+    HorizontalLayout {
+        col: 3;
+//           ^error{col used outside of a GridLayout}
+    }
 }

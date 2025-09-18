@@ -44,17 +44,22 @@ pub fn lower_layouts(
     *component.root_constraints.borrow_mut() =
         LayoutConstraints::new(&component.root_element, diag, DiagnosticLevel::Error);
 
-    recurse_elem_including_sub_components(component, &(), &mut |elem, _| {
-        let component = elem.borrow().enclosing_component.upgrade().unwrap();
-        let is_layout = lower_element_layout(
-            &component,
-            elem,
-            &type_loader.global_type_registry.borrow(),
-            style_metrics,
-            diag,
-        );
-        check_no_layout_properties(elem, is_layout, diag);
-    });
+    recurse_elem_including_sub_components(
+        component,
+        &Option::default(),
+        &mut |elem, parent_layout_type| {
+            let component = elem.borrow().enclosing_component.upgrade().unwrap();
+            let layout_type = lower_element_layout(
+                &component,
+                elem,
+                &type_loader.global_type_registry.borrow(),
+                style_metrics,
+                diag,
+            );
+            check_no_layout_properties(elem, &layout_type, &parent_layout_type, diag);
+            layout_type
+        },
+    );
 }
 
 fn check_preferred_size_100(elem: &ElementRc, prop: &str, diag: &mut BuildDiagnostics) -> bool {
@@ -89,11 +94,11 @@ fn lower_element_layout(
     type_register: &TypeRegister,
     style_metrics: &Rc<Component>,
     diag: &mut BuildDiagnostics,
-) -> bool {
+) -> Option<SmolStr> {
     let base_type = if let ElementType::Builtin(base_type) = &elem.borrow().base_type {
         base_type.clone()
     } else {
-        return false;
+        return None;
     };
     match base_type.name.as_str() {
         "Row" => {
@@ -108,16 +113,17 @@ fn lower_element_layout(
                         .is_some_and(|e| e.borrow().repeated.is_some()),
                 "Error should have been caught at element lookup time"
             );
-            return false;
+            return None;
         }
         "GridLayout" => lower_grid_layout(component, elem, diag, type_register),
         "HorizontalLayout" => lower_box_layout(elem, diag, Orientation::Horizontal),
         "VerticalLayout" => lower_box_layout(elem, diag, Orientation::Vertical),
         "Dialog" => {
             lower_dialog_layout(elem, style_metrics, diag);
-            return true; // the Dialog stays in the tree as a Dialog
+            // return now, the Dialog stays in the tree as a Dialog
+            return Some(base_type.name.clone());
         }
-        _ => return false,
+        _ => return None,
     };
 
     let mut elem = elem.borrow_mut();
@@ -133,7 +139,7 @@ fn lower_element_layout(
         }
     }
 
-    true
+    Some(base_type.name.clone())
 }
 
 fn lower_grid_layout(
@@ -277,7 +283,7 @@ impl GridLayout {
             item_element
                 .borrow_mut()
                 .bindings
-                .remove(name)
+                .get(name)
                 .and_then(|e| eval_const_expr(&e.borrow().expression, name, &*e.borrow(), diag))
         };
         let colspan = get_const_value("colspan").unwrap_or(1);
@@ -823,15 +829,25 @@ fn eval_const_expr(
 }
 
 /// Checks that there is grid-layout specific properties left
-fn check_no_layout_properties(item: &ElementRc, is_layout: bool, diag: &mut BuildDiagnostics) {
-    for (prop, expr) in item.borrow().bindings.iter() {
-        if matches!(prop.as_ref(), "col" | "row" | "colspan" | "rowspan") {
+fn check_no_layout_properties(
+    item: &ElementRc,
+    layout_type: &Option<SmolStr>,
+    parent_layout_type: &Option<SmolStr>,
+    diag: &mut BuildDiagnostics,
+) {
+    let elem = item.borrow();
+    for (prop, expr) in elem.bindings.iter() {
+        if parent_layout_type.as_deref() != Some("GridLayout")
+            && matches!(prop.as_ref(), "col" | "row" | "colspan" | "rowspan")
+        {
             diag.push_error(format!("{prop} used outside of a GridLayout"), &*expr.borrow());
         }
-        if matches!(prop.as_ref(), "dialog-button-role") {
+        if parent_layout_type.as_deref() != Some("Dialog")
+            && matches!(prop.as_ref(), "dialog-button-role")
+        {
             diag.push_error(format!("{prop} used outside of a Dialog"), &*expr.borrow());
         }
-        if !is_layout
+        if layout_type.is_none()
             && matches!(
                 prop.as_ref(),
                 "padding" | "padding-left" | "padding-right" | "padding-top" | "padding-bottom"
