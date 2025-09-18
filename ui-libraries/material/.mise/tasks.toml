@@ -54,12 +54,11 @@ depends = ["prepare:pnpm-install"]
 ["ci:autofix:all"]
 description = "CI autofix job -- fix steps"
 depends = [
-    "fix:rust:format",
-    "fix:text:trailing_spaces",
-    "fix:pnpm:lock",
-    "fix:pnpm:dedupe",
-    "fix:ts:biome",
-    "fix:ts:format",
-    "lint:legal:reuse"
-    ]
-
+  "fix:rust:format",
+  "fix:text:trailing_spaces",
+  "fix:pnpm:lock",
+  "fix:pnpm:dedupe",
+  "fix:ts:biome",
+  "fix:ts:format",
+  "lint:legal:reuse",
+]
