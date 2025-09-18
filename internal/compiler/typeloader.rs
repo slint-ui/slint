@@ -2140,7 +2140,7 @@ import { E } from "@unknown/lib.slint";
         &diags[2],
         &format!(
             "HELLO:5: Error reading requested import \"{}\": ",
-            test_source_path.join("lib.slint/unknown.slint").to_string_lossy()
+            test_source_path.join("lib.slint").join("unknown.slint").to_string_lossy()
         ),
     );
     assert_eq!(
