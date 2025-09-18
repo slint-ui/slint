@@ -613,24 +613,28 @@ export class EditorWidget extends Widget {
     }
 
     protected async handle_lsp_url_request(url: string): Promise<string> {
-        if (this.#url_mapper === null) {
-            return Promise.resolve("Error: Can not resolve URL.");
+        if (url.startsWith("slintpad:/")) {
+            if (this.#url_mapper === null) {
+                return Promise.resolve("Error: Can not resolve URL.");
+            }
+
+            const internal_uri = monaco.Uri.parse(url);
+            const uri = this.#url_mapper.from_internal(internal_uri);
+
+            if (uri === null) {
+                return Promise.resolve("Error: Can not map URL.");
+            }
+
+            return (
+                await this.safely_open_editor_with_url_content(
+                    uri,
+                    internal_uri,
+                    false,
+                )
+            )[1];
         }
-
-        const internal_uri = monaco.Uri.parse(url);
-        const uri = this.#url_mapper.from_internal(internal_uri);
-
-        if (uri === null) {
-            return Promise.resolve("Error: Can not map URL.");
-        }
-
-        return (
-            await this.safely_open_editor_with_url_content(
-                uri,
-                internal_uri,
-                false,
-            )
-        )[1];
+        const r = await fetch(url);
+        return await r.text();
     }
 
     private async safely_open_editor_with_url_content(

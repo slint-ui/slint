@@ -4,6 +4,7 @@
 use smol_str::{SmolStr, ToSmolStr};
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
+use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 use std::rc::{Rc, Weak};
 
@@ -931,10 +932,7 @@ impl TypeLoader {
         }
         self.all_documents.dependencies.remove(path);
         if self.all_documents.currently_loading.contains_key(path) {
-            Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidInput,
-                format!("{path:?} is still loading"),
-            ))
+            Err(std::io::Error::new(ErrorKind::InvalidInput, format!("{path:?} is still loading")))
         } else {
             Ok(())
         }
@@ -1205,11 +1203,13 @@ impl TypeLoader {
     ) -> Option<PathBuf> {
         let mut borrowed_state = state.borrow_mut();
 
+        let mut resolved = false;
         let (path_canon, builtin) = match borrowed_state
             .tl
             .resolve_import_path(import_token.as_ref(), file_to_import)
         {
             Some(x) => {
+                resolved = true;
                 if let Some(file_name) = x.0.file_name().and_then(|f| f.to_str()) {
                     let len = file_to_import.len();
                     if !file_to_import.ends_with(file_name)
@@ -1325,7 +1325,10 @@ impl TypeLoader {
                     Some(&path_canon),
                     state.borrow_mut().diag,
                 )),
-                Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
+                Err(err)
+                    if !resolved
+                        && matches!(err.kind(), ErrorKind::NotFound | ErrorKind::NotADirectory) =>
+                {
                     state.borrow_mut().diag.push_error(
                             if file_to_import.starts_with('@') {
                                 format!(
@@ -1582,6 +1585,7 @@ impl TypeLoader {
             };
             crate::fileaccess::load_file(path.as_path())
                 .map(|virtual_file| (virtual_file.canon_path, virtual_file.builtin_contents))
+                .or_else(|| Some((path, None)))
         })
     }
 
@@ -2118,12 +2122,27 @@ import { E } from "@unknown/lib.slint";
     assert!(build_diagnostics.has_errors());
     let diags = build_diagnostics.to_string_vec();
     assert_eq!(diags.len(), 5);
-    assert!(diags[0].starts_with(&format!(
-        "HELLO:3: Error reading requested import \"{}\": ",
-        test_source_path.to_string_lossy()
-    )));
-    assert_eq!(&diags[1], "HELLO:4: Cannot find requested import \"@libdir/unknown.slint\" in the library search path");
-    assert_eq!(&diags[2], "HELLO:5: Cannot find requested import \"@libfile.slint/unknown.slint\" in the library search path");
+    assert_starts_with(
+        &diags[0],
+        &format!(
+            "HELLO:3: Error reading requested import \"{}\": ",
+            test_source_path.to_string_lossy()
+        ),
+    );
+    assert_starts_with(
+        &diags[1],
+        &format!(
+            "HELLO:4: Error reading requested import \"{}\": ",
+            test_source_path.join("unknown.slint").to_string_lossy(),
+        ),
+    );
+    assert_starts_with(
+        &diags[2],
+        &format!(
+            "HELLO:5: Error reading requested import \"{}\": ",
+            test_source_path.join("lib.slint").join("unknown.slint").to_string_lossy()
+        ),
+    );
     assert_eq!(
         &diags[3],
         "HELLO:6: Cannot find requested import \"@unknown\" in the library search path"
@@ -2132,6 +2151,11 @@ import { E } from "@unknown/lib.slint";
         &diags[4],
         "HELLO:7: Cannot find requested import \"@unknown/lib.slint\" in the library search path"
     );
+
+    #[track_caller]
+    fn assert_starts_with(actual: &str, start: &str) {
+        assert!(actual.starts_with(start), "{actual:?} does not start with {start:?}");
+    }
 }
 
 #[test]

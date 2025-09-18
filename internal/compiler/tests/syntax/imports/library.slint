@@ -8,8 +8,6 @@ import { NotFound } from "@not-found/foo.slint";
 
 import { NotFound2 } from "@test-lib/lib.slint";
 //                        ^error{No exported type called 'NotFound2' found in "@test-lib/lib.slint"}
-import { NotFound3 } from "@test-lib/not-existing.slint";
-//                        ^error{Cannot find requested import "@test-lib/not-existing.slint" in the library search path}
 
 import { NotFound4 } from "@notexist";
 //                        ^error{Cannot find requested import "@notexist" in the library search path}

@@ -40,6 +40,25 @@ export type ShowDocumentCallback = (
     _position: LspPosition,
 ) => boolean;
 
+function configuration_from_url(): Map<string, any>[] {
+    var obj = new Map<string, any>();
+    const params = new URLSearchParams(window.location.search);
+    const include_paths = params.getAll("include");
+    if (include_paths.length > 0) {
+        obj.set("includePaths", include_paths);
+    }
+    const library_paths = params.getAll("lib");
+    if (library_paths.length > 0) {
+        const lib_map = new Map<string, string>();
+        for (const lib of library_paths) {
+            const [name, url] = lib.split("=");
+            lib_map.set(name, url);
+        }
+        obj.set("libraryPaths", lib_map);
+    }
+    return [obj];
+}
+
 function createLanguageClient(
     transports: MessageTransports,
 ): MonacoLanguageClient {
@@ -52,6 +71,16 @@ function createLanguageClient(
             errorHandler: {
                 error: () => ({ action: ErrorAction.Continue }),
                 closed: () => ({ action: CloseAction.DoNotRestart }),
+            },
+            middleware: {
+                workspace: {
+                    configuration: (params, token, next) => {
+                        if (params.items[0].section === "slint") {
+                            return configuration_from_url();
+                        }
+                        return next(params, token);
+                    },
+                },
             },
         },
         // create a language client connection to the server running in the web worker
