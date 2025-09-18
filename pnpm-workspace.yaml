@@ -13,9 +13,21 @@ packages:
   - "examples/memory"
   - "docs/astro"
   - "docs/common"
+  - "ui-libraries/material/docs"
 
 catalog:
   "@biomejs/biome": 2.2.4
+  "cspell": 9.2.1
   "typescript": 5.9.2
   "vite": 7.1.5
   "@types/node": 20.16.10
+  "@astrojs/check": 0.9.4
+  "@astrojs/starlight": 0.35.3
+  "starlight-links-validator": 0.17.2
+  "astro": 5.13.7
+  "astro-embed": 0.9.0
+  "sharp": 0.34.3
+  "@expressive-code/plugin-line-numbers": 0.41.3
+  "rehype-external-links": 3.0.0
+  "playwright-ctrf-json-reporter": 0.0.23
+  "@playwright/test": 1.55.0

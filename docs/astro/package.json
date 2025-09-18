@@ -18,22 +18,22 @@
     "test:ui": "playwright test --ui"
   },
   "dependencies": {
-    "@astrojs/check": "0.9.4",
-    "@astrojs/starlight": "0.35.3",
-    "@expressive-code/plugin-line-numbers": "0.41.3",
+    "@astrojs/check": "catalog:",
+    "@astrojs/starlight": "catalog:",
+    "@expressive-code/plugin-line-numbers": "catalog:",
     "@types/node": "catalog:",
-    "astro": "5.13.7",
-    "astro-embed": "0.9.0",
-    "playwright-ctrf-json-reporter": "0.0.23",
-    "rehype-external-links": "3.0.0",
-    "sharp": "0.34.3",
-    "starlight-links-validator": "0.17.2",
+    "astro": "catalog:",
+    "astro-embed": "catalog:",
+    "playwright-ctrf-json-reporter": "catalog:",
+    "rehype-external-links": "catalog:",
+    "sharp": "catalog:",
+    "starlight-links-validator": "catalog:",
     "starlight-sidebar-topics": "0.6.0",
     "typescript": "catalog:",
     "@slint/common-files": "workspace:*"
   },
   "devDependencies": {
-    "@playwright/test": "1.55.0",
-    "cspell": "9.2.1"
+    "@playwright/test": "catalog:",
+    "cspell": "catalog:"
   }
 }
