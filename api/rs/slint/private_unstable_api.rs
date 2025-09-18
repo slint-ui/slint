@@ -193,7 +193,7 @@ pub mod re_exports {
     pub use i_slint_core::detect_operating_system;
     pub use i_slint_core::graphics::*;
     pub use i_slint_core::input::{
-        key_codes::Key, FocusEvent, FocusEventReason, InputEventResult, KeyEvent, KeyEventResult,
+        key_codes::Key, FocusEvent, FocusReason, InputEventResult, KeyEvent, KeyEventResult,
         KeyboardModifiers, MouseEvent,
     };
     pub use i_slint_core::item_tree::{
@@ -204,7 +204,7 @@ pub mod re_exports {
         visit_item_tree, ItemTreeNode, ItemVisitorRefMut, ItemVisitorVTable, ItemWeak,
         TraversalOrder, VisitChildrenResult,
     };
-    pub use i_slint_core::items::*;
+    pub use i_slint_core::items::{Transform, *};
     pub use i_slint_core::layout::*;
     pub use i_slint_core::lengths::{
         logical_position_to_api, LogicalLength, LogicalPoint, LogicalRect,
@@ -234,4 +234,7 @@ pub mod re_exports {
     pub use pin_weak::rc::PinWeak;
     pub use unicode_segmentation::UnicodeSegmentation;
     pub use vtable::{self, *};
+
+    #[cfg(feature = "live-preview")]
+    pub use slint_interpreter::live_preview;
 }

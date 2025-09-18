@@ -4,7 +4,8 @@ title: Colors & Brushes
 description: Colors Namespaces
 ---
 
-import Link from '/src/components/Link.astro';
+import Link from '@slint/common-files/src/components/Link.astro';
+import CodeSnippetMD from "@slint/common-files/src/components/CodeSnippetMD.astro";
 
 Color literals follow the syntax of CSS:
 
@@ -105,7 +106,7 @@ Returns a new color with the alpha value set to `alpha` (between 0 and 1)
 Converts this color to the HSV color space and returns a struct with the `hue`, `saturation`, `value`,
 and `alpha` fields. `hue` is between 0 and 360 while `saturation`, `value`, and `alpha` are between 0 and 1.
 
-### Linear Gradients
+## Linear Gradients
 
 Linear gradients describe smooth, colorful surfaces. They're specified using an angle and a series of
 color stops. The colors will be linearly interpolated between the stops, aligned to an imaginary line
@@ -124,6 +125,7 @@ reach at the specified percentage along the axis of the gradient.
 The following example shows a rectangle that's filled with a linear gradient that starts with a light blue
 color, interpolates to a very light shade in the center and finishes with an orange tone:
 
+<CodeSnippetMD imagePath="/src/assets/generated/gradients-linear.png" scale="3" imageWidth="200" imageHeight="200" imageAlt='Conic Gradient Example'>
 ```slint
 export component Example inherits Window {
     preferred-width: 100px;
@@ -134,6 +136,7 @@ export component Example inherits Window {
     }
 }
 ```
+</CodeSnippetMD>
 
 ## Radial Gradients
 
@@ -147,6 +150,7 @@ The syntax is otherwise based on the CSS `radial-gradient` function.
 
 Example:
 
+<CodeSnippetMD imagePath="/src/assets/generated/gradients-radial.png" scale="3" imageWidth="200" imageHeight="200" imageAlt='Conic Gradient Example'>
 ```slint
 export component Example inherits Window {
     preferred-width: 100px;
@@ -156,3 +160,39 @@ export component Example inherits Window {
     }
 }
 ```
+</CodeSnippetMD>
+
+## Conic Gradients
+
+Conic gradients are gradients where the color transitions rotate around a center point (like the angle on a color wheel).
+To describe a conic gradient, use the `@conic-gradient` macro with the following signature:
+
+### @conic-gradient(color angle, color angle, ...)
+
+The conic gradient is described by a series of color stops, each consisting of a color and an angle.
+The angle specifies where the color is placed along the circular sweep (0deg to 360deg).
+Colors are interpolated between the stops along the circular path.
+
+Example:
+
+<CodeSnippetMD imagePath="/src/assets/generated/gradients-conic.png" scale="3" imageWidth="200" imageHeight="200" imageAlt='Conic Gradient Example'>
+```slint
+export component Example inherits Window {
+    preferred-width: 100px;
+    preferred-height: 100px;
+    Rectangle {
+        background: @conic-gradient(#f00 0deg, #0f0 120deg, #00f 240deg, #f00 360deg);
+    }
+}
+```
+</CodeSnippetMD>
+
+This creates a color wheel effect with red at the top (0deg/360deg), green at 120 degrees, and blue at 240 degrees.
+
+:::note[Known Limitation]
+Negative angles cannot be used directly in conic gradients (e.g., `#ff0000 -90deg`).
+Instead, use one of these workarounds:
+- Convert to positive angles: `-90deg` → `270deg`
+- Use variables: `property <angle> start: -90deg;` then use `start` in the gradient
+- Use explicit subtraction: `#ff0000 0deg - 90deg`
+:::

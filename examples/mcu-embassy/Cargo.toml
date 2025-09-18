@@ -3,12 +3,11 @@
 
 [package]
 name = "mcu-embassy"
-version = "1.12.0"
+version = "1.14.0"
 edition = "2021"
 authors = ["David Haig <david@ninjametal.com>"]
 readme = "README.md"
 license = "MIT"
-resolver = "2"
 publish = false
 repository = "https://github.com/slint-ui/slint"
 homepage = "https://slint.dev"

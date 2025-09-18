@@ -3,10 +3,9 @@
 
 import { Button, LineEdit, Palette } from "std-widgets.slint";
 
-import { PropertyValue } from "../../api.slint";
+import { Api, PropertyValue } from "../../api.slint";
 import { BodyText } from "../../components/body-text.slint";
-import { EditorAnimationSettings, EditorFontSettings, EditorSizeSettings, EditorSpaceSettings, Icons } from "../../components/styling.slint";
-
+import { EditorAnimationSettings, EditorFontSettings, EditorSizeSettings, EditorSpaceSettings, EditorPalette, ConsoleStyles, Icons } from "../styling.slint";
 export component CodeButton inherits Button {
     text: @tr("Code");
 }
@@ -25,17 +24,17 @@ export component NameLabel inherits HorizontalLayout {
         min-width: EditorSizeSettings.min-prefix-text-width;
         height: root.property-name != "" ? self.preferred-height : 0;
         text: root.property-name;
-
         font-size: 1rem;
-        font-weight: root.property-value.code != "" ? EditorFontSettings.bold-font-weight : EditorFontSettings.light-font-weight;
+        font-weight: root.property-value.code != "" ? EditorFontSettings.regular-font-weight : EditorFontSettings.light-font-weight;
         font-italic: root.property-value.code == "";
+        opacity: root.property-value.code != "" ? 1.0 : 0.5;
 
         overflow: elide;
     }
 }
 
 export component ResettingLineEdit {
-    in property <string> default-text;
+    in property <string> default-text: "";
     in-out property <bool> can-compile: true;
 
     in property <bool> enabled;
@@ -89,6 +88,164 @@ export component ResettingLineEdit {
     }
 }
 
+component SearchBar {
+    height: 20px;
+    out property text <=> ti.text;
+    callback edited(text: string);
+
+    Rectangle {
+        height: 24px;
+        width: 100%;
+        border-width: 1px;
+        border-color: EditorPalette.text-color.with-alpha(0.1);
+        border-radius: self.height / 2;
+        HorizontalLayout {
+            padding-right: 3px;
+            padding-left: 5px;
+            alignment: stretch;
+            spacing: 5px;
+            si := Rectangle {
+                horizontal-stretch: 0;
+                width: 14px;
+                opacity: 0.4;
+                Image {
+                    width: 14px;
+                    source: Icons.search;
+                    colorize: EditorPalette.text-color;
+                }
+            }
+
+            Rectangle {
+                ti := TextInput {
+                    horizontal-stretch: 1;
+                    vertical-alignment: center;
+                    horizontal-alignment: left;
+                    font-family: "Inter";
+                    font-size: 12px;
+                    color: EditorPalette.text-color;
+                    text-cursor-width: 2px;
+                    selection-background-color: #3984ec;
+                    single-line: true;
+                    wrap: no-wrap;
+                    changed text => {
+                        root.edited(text);
+                    }
+                }
+
+                Text {
+                    x: ti.x;
+                    text: "Search";
+                    horizontal-alignment: left;
+                    font-family: "Inter";
+                    font-size: 12px;
+                    color: EditorPalette.text-color;
+                    opacity: 0.4;
+                    visible: ti.text == "";
+                }
+            }
+
+            Rectangle {
+                width: 18px;
+                opacity: ti.text != "" ? 1 : 0;
+                animate opacity { duration: 70ms; }
+
+                Image {
+                    width: 15px;
+                    source: Icons.close;
+                    colorize: EditorPalette.text-color;
+                }
+
+                Rectangle {
+                    width: 18px;
+                    height: self.width;
+                    background: EditorPalette.text-color.with-alpha(0.1);
+                    border-radius: self.height / 2;
+                    TouchArea {
+                        clicked => {
+                            ti.text = "";
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+export component SearchLineEdit inherits Rectangle {
+
+    in property <string> default-text: "";
+    in property <bool> enabled: true;
+    in property <InputType> input-type <=> ti.input-type;
+    in property <TextHorizontalAlignment> horizontal-alignment <=> ti.horizontal-alignment;
+    out property <bool> has-focus <=> ti.has-focus;
+    in-out property <string> text <=> ti.text;
+
+    property <length> border: 3px;
+
+    callback accepted <=> ti.accepted;
+    callback edited(text: string);
+
+    changed default-text => {
+        if !ti.has-focus {
+            ti.text = root.default-text;
+        }
+    }
+    HorizontalLayout {
+        alignment: space-between;
+
+        sb := Rectangle {
+            min-width: 150px;
+            preferred-width: 400px;
+            border-radius: self.preferred-height / 2;
+            background: Colors.white;
+            clip: true;
+            HorizontalLayout {
+                padding-left: EditorSpaceSettings.default-padding / 2;
+                spacing: EditorSpaceSettings.default-spacing;
+                alignment: start;
+                VerticalLayout {
+                    alignment: center;
+                    Image {
+                        colorize: Palette.alternate-background;
+                        source: Icons.search;
+                        width: 20px;
+                        height: 20px;
+                    }
+                }
+
+                Rectangle {
+                    if !ti.has-focus && ti.text == "":
+            VerticalLayout {
+                        alignment: center;
+                        Text {
+                            text: "Search Term";
+                            font-italic: true;
+                            font-size: 1rem;
+                            width: 100%;
+                            color: Palette.alternate-foreground.transparentize(0.5);
+                        }
+                    }
+                    VerticalLayout {
+                        width: 100%;
+                        alignment: center;
+                        padding: EditorSpaceSettings.default-padding / 2;
+                        ti := TextInput {
+                            changed text => {
+                                root.edited(text);
+                            }
+                            width: 100%;
+                            selection-background-color: #00000000;
+                            enabled: root.enabled;
+                            text: root.default-text;
+                            font-size: 1rem;
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 export component ChildIndicator inherits Rectangle {
     out property <bool> open: false;
     in property <bool> control-hover: false;
@@ -110,6 +267,82 @@ export component ChildIndicator inherits Rectangle {
 
         clicked => {
             root.open = !root.open;
+        }
+    }
+}
+
+export component ViewHeader inherits Rectangle {
+    in property <string> header-text: "Header Text";
+    in-out property <bool> parent-visible: true;
+    in property <bool> has-search: true;
+    height: ConsoleStyles.header-height;
+    background: ConsoleStyles.header-background;
+    callback hide-parent();
+    callback search-edited(text: string);
+
+    init => {
+        // Reset the search when created
+        search-edited("");
+    }
+
+    Rectangle {
+        y: 0;
+        width: 100%;
+        height: 1px;
+        background: ConsoleStyles.divider-line;
+        opacity: 50%;
+    }
+
+    Rectangle {
+        y: parent.height - self.height;
+        width: 100%;
+        height: 1px;
+        background: ConsoleStyles.divider-line;
+    }
+
+    HorizontalLayout {
+        spacing: EditorSpaceSettings.default-spacing;
+        height: 80%;
+        width: 100%;
+        alignment: stretch;
+        padding-left: EditorSpaceSettings.default-padding;
+        label := Text {
+            horizontal-stretch: 0;
+            width: self.preferred-width;
+            horizontal-alignment: left;
+            vertical-alignment: center;
+            color: ConsoleStyles.text-color;
+            font-family: "Inter";
+            font-size: 12px;
+            text: header-text;
+        }
+
+        if has-search :Rectangle {
+            horizontal-stretch: 1;
+            min-width: 80px;
+            SearchBar {
+                width: 100%;
+                edited(text) => {
+                    root.search-edited(text)
+                }
+            }
+        }
+
+        Rectangle {
+            horizontal-stretch: 0.1;
+            HorizontalLayout {
+                alignment: end;
+                Image {
+                    horizontal-alignment: right;
+                    source: Icons.close;
+                    colorize: ita.has-hover ? Palette.foreground : Palette.foreground.transparentize(0.5);
+                    ita := TouchArea {
+                        clicked => {
+                            hide-parent();
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -167,4 +400,3 @@ export component SecondaryContent inherits Rectangle {
         }
     }
 }
-

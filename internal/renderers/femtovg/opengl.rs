@@ -89,6 +89,8 @@ unsafe impl OpenGLInterface for SuspendedRenderer {
 
 pub struct OpenGLBackend {
     opengl_context: RefCell<Box<dyn OpenGLInterface>>,
+    #[cfg(target_family = "wasm")]
+    html_canvas: RefCell<Option<web_sys::HtmlCanvasElement>>,
 }
 
 impl OpenGLBackend {
@@ -140,6 +142,10 @@ impl OpenGLBackend {
         .unwrap();
 
         *self.opengl_context.borrow_mut() = opengl_context;
+        #[cfg(target_family = "wasm")]
+        {
+            *self.html_canvas.borrow_mut() = Some(html_canvas);
+        }
 
         let canvas = Rc::new(RefCell::new(femtovg_canvas));
         renderer.reset_canvas(canvas);
@@ -161,7 +167,11 @@ impl GraphicsBackend for OpenGLBackend {
     const NAME: &'static str = "OpenGL";
 
     fn new_suspended() -> Self {
-        Self { opengl_context: RefCell::new(Box::new(SuspendedRenderer {})) }
+        Self {
+            opengl_context: RefCell::new(Box::new(SuspendedRenderer {})),
+            #[cfg(target_family = "wasm")]
+            html_canvas: RefCell::new(None),
+        }
     }
 
     fn clear_graphics_context(&self) {
@@ -188,6 +198,7 @@ impl GraphicsBackend for OpenGLBackend {
         self.opengl_context.borrow().swap_buffers()
     }
 
+    #[cfg(not(target_family = "wasm"))]
     fn with_graphics_api<R>(
         &self,
         callback: impl FnOnce(Option<i_slint_core::api::GraphicsAPI<'_>>) -> R,
@@ -198,6 +209,20 @@ impl GraphicsBackend for OpenGLBackend {
         let api = GraphicsAPI::NativeOpenGL {
             get_proc_address: &|name| self.opengl_context.borrow().get_proc_address(name),
         };
+        Ok(callback(Some(api)))
+    }
+
+    #[cfg(target_family = "wasm")]
+    fn with_graphics_api<R>(
+        &self,
+        callback: impl FnOnce(Option<i_slint_core::api::GraphicsAPI<'_>>) -> R,
+    ) -> Result<R, i_slint_core::platform::PlatformError> {
+        use i_slint_core::api::GraphicsAPI;
+
+        let id =
+            self.html_canvas.borrow().as_ref().map_or_else(|| String::new(), |canvas| canvas.id());
+
+        let api = GraphicsAPI::WebGL { canvas_element_id: &id, context_type: "webgl2" };
         Ok(callback(Some(api)))
     }
 

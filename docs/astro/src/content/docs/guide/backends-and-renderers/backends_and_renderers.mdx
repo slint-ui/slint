@@ -5,8 +5,9 @@ title: Backends & Renderers
 description: Backends & Renderers
 ---
 
-import Link from '/src/components/Link.astro';
-import LangRefLink from '/src/components/LangRefLink.astro';
+import Link from '@slint/common-files/src/components/Link.astro';
+import LangRefLink from '@slint/common-files/src/components/LangRefLink.astro';
+import { Tabs, TabItem } from '@astrojs/starlight/components';
 
 
 In Slint, a backend is the module that encapsulates the interaction with the operating system,
@@ -43,8 +44,24 @@ Similarly, `SLINT_BACKEND=linuxkms-skia` chooses the `linuxkms` backend and then
 ## Renderers
 
 Slint comes with different renderers that use different techniques and libraries to turn
-your scene of elements into pixels. Slint picks a renderer backend on your choice of Backend
+your scene of elements into pixels. Slint picks a renderer based on your choice of backend
 as well as the features you've selected at Slint compilation time.
+
+<Tabs syncKey="dev-language">
+<TabItem label="C++">
+When building Slint from source, check the <LangRefLink lang="cpp" relpath="cmake.html#features">`SLINT_FEATURE_RENDERER_*`</LangRefLink> cmake options
+to enable one of the available renderers.
+</TabItem>
+<TabItem label="Rust">
+With Rust, enable one of the  <LangRefLink lang="rust-slint" relpath="docs/cargo_features/">`renderer-*`</LangRefLink> features.
+</TabItem>
+<TabItem label="NodeJS">
+With Node.js, all renderers are built into the packages.
+</TabItem>
+<TabItem label="Python">
+With Python, all renderers are built into the packages.
+</TabItem>
+</Tabs>
 
 
 ### Qt Renderer
@@ -63,10 +80,9 @@ The Qt renderer comes with the <Link type="QtBackend" label="Qt backend" /> and 
 - Suitable for Microcontrollers.
 - Some features haven't been implemented yet:
   * No support for `Path`.
-  * No image rotation or smooth scaling.
+  * No support for rotations or scaling.
   * No support for `drop-shadow-*` properties.
   * No support for `border-radius` in combination with `clip: true`.
-  * No circular gradients.
   * No text stroking/outlining.
 - Text rendering currently limited to western scripts.
 - Available in the <Link type="WinitBackend" label="Winit backend" />.
@@ -169,3 +185,10 @@ issues we're aware of and how to resolve them.
   ```
   cargo update -p cc --precise 1.1.31
   ```
+
+ * The application doesn't start on Windows but exist immediately
+
+ The build succeeds, but running the `.exe` on Windows terminates immediately without error messages.
+
+ This might be caused by missing MSVC runtime libraries. To solve this install, install the
+ [Microsoft Visual C++ Redistributable package](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist)

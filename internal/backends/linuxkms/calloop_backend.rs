@@ -17,6 +17,7 @@ use calloop::EventLoop;
 use i_slint_core::platform::PlatformError;
 
 use crate::fullscreenwindowadapter::FullscreenWindowAdapter;
+use crate::BackendBuilder;
 
 #[cfg(not(any(target_family = "windows", target_vendor = "apple", target_arch = "wasm32")))]
 mod input;
@@ -76,16 +77,14 @@ pub struct Backend {
     >,
     sel_clipboard: RefCell<Option<String>>,
     clipboard: RefCell<Option<String>>,
+    libinput_event_hook: Option<Box<dyn Fn(&::input::Event) -> bool>>,
 }
 
 impl Backend {
-    pub fn new() -> Result<Self, PlatformError> {
-        Self::new_with_renderer_by_name(None)
-    }
-    pub fn new_with_renderer_by_name(renderer_name: Option<&str>) -> Result<Self, PlatformError> {
+    pub fn build(builder: BackendBuilder) -> Result<Self, PlatformError> {
         let (user_event_sender, user_event_receiver) = calloop::channel::channel();
 
-        let renderer_factory = match renderer_name {
+        let renderer_factory = match builder.renderer_name.as_deref() {
             #[cfg(feature = "renderer-skia-vulkan")]
             Some("skia-vulkan") => crate::renderer::skia::SkiaRendererAdapter::new_vulkan,
             #[cfg(feature = "renderer-skia-opengl")]
@@ -143,6 +142,7 @@ impl Backend {
             renderer_factory,
             sel_clipboard: Default::default(),
             clipboard: Default::default(),
+            libinput_event_hook: builder.libinput_event_hook,
         })
     }
 }
@@ -160,7 +160,7 @@ impl i_slint_core::platform::Platform for Backend {
                 .map_err(|e| format!("Error opening device {}: {e}", device.display()))?;
 
             // For polling for drm::control::Event::PageFlip we need a blocking FD. Would be better to do this non-blocking
-            let fd = device.as_fd().as_raw_fd();
+            let fd = device.as_fd();
             let flags = nix::fcntl::fcntl(fd, nix::fcntl::FcntlArg::F_GETFL)
                 .map_err(|e| format!("Error getting file descriptor flags: {e}"))?;
             let mut flags = nix::fcntl::OFlag::from_bits_retain(flags);
@@ -169,7 +169,7 @@ impl i_slint_core::platform::Platform for Backend {
                 .map_err(|e| format!("Error making device fd non-blocking: {e}"))?;
 
             // Safety: We take ownership of the now shared FD, ... although we should be using libseat's close_device....
-            Ok(Rc::new(unsafe { std::os::fd::OwnedFd::from_raw_fd(fd) }))
+            Ok(Rc::new(unsafe { std::os::fd::OwnedFd::from_raw_fd(fd.as_raw_fd()) }))
         };
 
         #[cfg(not(feature = "libseat"))]
@@ -216,6 +216,7 @@ impl i_slint_core::platform::Platform for Backend {
             &event_loop.handle(),
             #[cfg(feature = "libseat")]
             &self.seat,
+            &self.libinput_event_hook,
         )?;
 
         let Some(user_event_receiver) = self.user_event_receiver.borrow_mut().take() else {
@@ -296,5 +297,3 @@ impl i_slint_core::platform::Platform for Backend {
 
 #[derive(Default)]
 pub struct LoopData {}
-
-pub type EventLoopHandle<'a> = calloop::LoopHandle<'a, LoopData>;

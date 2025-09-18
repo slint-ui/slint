@@ -91,6 +91,24 @@ pub unsafe extern "C" fn slint_interpreter_value_new_model(
     )))))
 }
 
+/// If the value contains a model set from [`slint_interpreter_value_new_model]` with the same vtable pointer,
+/// return the model that was set.
+/// Returns a null ptr otherwise
+#[unsafe(no_mangle)]
+pub extern "C" fn slint_interpreter_value_to_model(
+    val: &Value,
+    vtable: &ModelAdaptorVTable,
+) -> *const u8 {
+    if let Value::Model(m) = val {
+        if let Some(m) = m.as_any().downcast_ref::<ModelAdaptorWrapper>() {
+            if core::ptr::eq(m.0.get_vtable() as *const _, vtable as *const _) {
+                return m.0.as_ptr();
+            }
+        }
+    }
+    core::ptr::null()
+}
+
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_interpreter_value_type(val: &Value) -> ValueType {
     val.value_type()
@@ -163,6 +181,31 @@ pub extern "C" fn slint_interpreter_value_to_image(val: &Value) -> Option<&Image
         Value::Image(img) => Some(img),
         _ => None,
     }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn slint_interpreter_value_enum_to_string(
+    val: &Value,
+    result: &mut SharedString,
+) -> bool {
+    match val {
+        Value::EnumerationValue(_, value) => {
+            *result = SharedString::from(value);
+            true
+        }
+        _ => false,
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn slint_interpreter_value_new_enum(
+    name: Slice<u8>,
+    value: Slice<u8>,
+) -> Box<Value> {
+    Box::new(Value::EnumerationValue(
+        std::str::from_utf8(&name).unwrap().to_string(),
+        std::str::from_utf8(&value).unwrap().to_string(),
+    ))
 }
 
 #[repr(C)]
@@ -258,7 +301,9 @@ pub unsafe extern "C" fn slint_interpreter_struct_iterator_next<'a>(
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn slint_interpreter_struct_make_iter(stru: &StructOpaque) -> StructIteratorOpaque {
+pub extern "C" fn slint_interpreter_struct_make_iter(
+    stru: &StructOpaque,
+) -> StructIteratorOpaque<'_> {
     let ret_it: StructIterator = stru.as_struct().0.iter();
     unsafe {
         let mut r = std::mem::MaybeUninit::<StructIteratorOpaque>::uninit();
@@ -325,7 +370,7 @@ pub unsafe extern "C" fn slint_interpreter_component_instance_invoke(
 ///
 /// Safety: user_data must be a pointer that can be destroyed by the drop_user_data function.
 /// callback must be a valid callback that initialize the `ret`
-struct CallbackUserData {
+pub struct CallbackUserData {
     user_data: *mut c_void,
     drop_user_data: Option<extern "C" fn(*mut c_void)>,
     callback: extern "C" fn(user_data: *mut c_void, arg: Slice<Box<Value>>) -> Box<Value>,
@@ -340,7 +385,15 @@ impl Drop for CallbackUserData {
 }
 
 impl CallbackUserData {
-    fn call(&self, args: &[Value]) -> Value {
+    pub unsafe fn new(
+        user_data: *mut c_void,
+        drop_user_data: Option<extern "C" fn(*mut c_void)>,
+        callback: extern "C" fn(user_data: *mut c_void, arg: Slice<Box<Value>>) -> Box<Value>,
+    ) -> Self {
+        Self { user_data, drop_user_data, callback }
+    }
+
+    pub fn call(&self, args: &[Value]) -> Value {
         let args = args.iter().map(|v| v.clone().into()).collect::<Vec<_>>();
         (self.callback)(self.user_data, Slice::from_slice(args.as_ref())).as_ref().clone()
     }
@@ -356,7 +409,7 @@ pub unsafe extern "C" fn slint_interpreter_component_instance_set_callback(
     user_data: *mut c_void,
     drop_user_data: Option<extern "C" fn(*mut c_void)>,
 ) -> bool {
-    let ud = CallbackUserData { user_data, drop_user_data, callback };
+    let ud = CallbackUserData::new(user_data, drop_user_data, callback);
 
     generativity::make_guard!(guard);
     let comp = inst.unerase(guard);
@@ -422,7 +475,7 @@ pub unsafe extern "C" fn slint_interpreter_component_instance_set_global_callbac
     user_data: *mut c_void,
     drop_user_data: Option<extern "C" fn(*mut c_void)>,
 ) -> bool {
-    let ud = CallbackUserData { user_data, drop_user_data, callback };
+    let ud = CallbackUserData::new(user_data, drop_user_data, callback);
 
     generativity::make_guard!(guard);
     let comp = inst.unerase(guard);
@@ -536,7 +589,7 @@ pub struct ModelAdaptorVTable {
     pub row_count: extern "C" fn(VRef<ModelAdaptorVTable>) -> usize,
     pub row_data: unsafe extern "C" fn(VRef<ModelAdaptorVTable>, row: usize) -> *mut Value,
     pub set_row_data: extern "C" fn(VRef<ModelAdaptorVTable>, row: usize, value: Box<Value>),
-    pub get_notify: extern "C" fn(VRef<ModelAdaptorVTable>) -> &ModelNotifyOpaque,
+    pub get_notify: extern "C" fn(VRef<'_, ModelAdaptorVTable>) -> &ModelNotifyOpaque,
     pub drop: extern "C" fn(VRefMut<ModelAdaptorVTable>),
 }
 
@@ -564,6 +617,10 @@ impl Model for ModelAdaptorWrapper {
     fn set_row_data(&self, row: usize, data: Value) {
         let val = Box::new(data);
         self.0.set_row_data(row, val);
+    }
+
+    fn as_any(&self) -> &dyn core::any::Any {
+        self
     }
 }
 

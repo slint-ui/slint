@@ -188,7 +188,7 @@ mod plural_rule_parser {
             write!(f, "ParseError({}, rest={:?})", self.0, std::str::from_utf8(self.1).unwrap())
         }
     }
-    pub fn parse_rule_expression(string: &str) -> Result<Expression, ParseError> {
+    pub fn parse_rule_expression(string: &str) -> Result<Expression, ParseError<'_>> {
         let ascii = string.as_bytes();
         let s = parse_expression(ascii)?;
         if !s.rest.is_empty() {
@@ -224,7 +224,7 @@ mod plural_rule_parser {
     }
 
     /// `<condition> ('?' <expr> : <expr> )?`
-    fn parse_expression(string: &[u8]) -> Result<ParsingState, ParseError> {
+    fn parse_expression(string: &[u8]) -> Result<ParsingState<'_>, ParseError<'_>> {
         let string = skip_whitespace(string);
         let state = parse_condition(string)?.skip_whitespace();
         if state.ty != Ty::Boolean {
@@ -252,7 +252,7 @@ mod plural_rule_parser {
     }
 
     /// `<and_expr> ("||" <condition>)?`
-    fn parse_condition(string: &[u8]) -> Result<ParsingState, ParseError> {
+    fn parse_condition(string: &[u8]) -> Result<ParsingState<'_>, ParseError<'_>> {
         let string = skip_whitespace(string);
         let state = parse_and_expr(string)?.skip_whitespace();
         if state.rest.is_empty() {
@@ -278,7 +278,7 @@ mod plural_rule_parser {
     }
 
     /// `<cmp_expr> ("&&" <and_expr>)?`
-    fn parse_and_expr(string: &[u8]) -> Result<ParsingState, ParseError> {
+    fn parse_and_expr(string: &[u8]) -> Result<ParsingState<'_>, ParseError<'_>> {
         let string = skip_whitespace(string);
         let state = parse_cmp_expr(string)?.skip_whitespace();
         if state.rest.is_empty() {
@@ -304,7 +304,7 @@ mod plural_rule_parser {
     }
 
     /// `<value> ('=='|'!='|'<'|'>'|'<='|'>=' <cmp_expr>)?`
-    fn parse_cmp_expr(string: &[u8]) -> Result<ParsingState, ParseError> {
+    fn parse_cmp_expr(string: &[u8]) -> Result<ParsingState<'_>, ParseError<'_>> {
         let string = skip_whitespace(string);
         let mut state = parse_value(string)?;
         state.rest = skip_whitespace(state.rest);
@@ -339,7 +339,7 @@ mod plural_rule_parser {
     }
 
     /// `<term> ('%' <term>)?`
-    fn parse_value(string: &[u8]) -> Result<ParsingState, ParseError> {
+    fn parse_value(string: &[u8]) -> Result<ParsingState<'_>, ParseError<'_>> {
         let string = skip_whitespace(string);
         let mut state = parse_term(string)?;
         state.rest = skip_whitespace(state.rest);
@@ -364,7 +364,7 @@ mod plural_rule_parser {
         }
     }
 
-    fn parse_term(string: &[u8]) -> Result<ParsingState, ParseError> {
+    fn parse_term(string: &[u8]) -> Result<ParsingState<'_>, ParseError<'_>> {
         let string = skip_whitespace(string);
         let state = match string.first().ok_or(ParseError("unexpected end of string", string))? {
             b'n' => ParsingState {
@@ -385,7 +385,7 @@ mod plural_rule_parser {
         };
         Ok(state)
     }
-    fn parse_number(string: &[u8]) -> Result<(i32, &[u8]), ParseError> {
+    fn parse_number(string: &[u8]) -> Result<(i32, &[u8]), ParseError<'_>> {
         let end = string.iter().position(|&c| !c.is_ascii_digit()).unwrap_or(string.len());
         let n = std::str::from_utf8(&string[..end])
             .expect("string is valid utf-8")

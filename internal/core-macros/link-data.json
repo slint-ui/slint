@@ -1,4 +1,7 @@
 {
+    "AccessibleProperties": {
+        "href": "reference/common/#accessibility-properties"
+    },
     "AnimationRef": {
         "href": "reference/primitive-types/#animation"
     },
@@ -44,11 +47,17 @@
     "EnumType": {
         "href": "reference/global-structs-enums/"
     },
+    "EventResult": {
+        "href": "reference/global-structs-enums/#eventresult"
+    },
     "Expressions": {
         "href": "guide/language/coding/expressions-and-statements/"
     },
     "float": {
         "href": "reference/primitive-types/#float"
+    },
+    "FocusReason": {
+        "href": "reference/global-structs-enums/#focusreason"
     },
     "FocusHandling": {
         "href": "guide/development/focus/"

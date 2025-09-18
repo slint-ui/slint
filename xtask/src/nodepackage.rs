@@ -166,11 +166,11 @@ pub fn generate(sha1: Option<String>) -> Result<(), Box<dyn std::error::Error>> 
 
     sh.remove_path(file_name.clone()).context("Error deleting old archive")?;
 
-    println!("Running npm package to create the tarball");
+    println!("Running pnpm package to create the tarball");
 
     {
         let _p = sh.push_dir(node_dir.clone());
-        cmd!(sh, "npm pack").run()?;
+        cmd!(sh, "pnpm pack").run()?;
     }
 
     println!("Reverting Cargo.toml");

@@ -15,8 +15,8 @@ use super::{
 };
 use crate::graphics::{Brush, Color, FontRequest};
 use crate::input::{
-    key_codes, FocusEvent, FocusEventReason, FocusEventResult, InputEventFilterResult,
-    InputEventResult, KeyEvent, KeyboardModifiers, MouseEvent, StandardShortcut, TextShortcut,
+    key_codes, FocusEvent, FocusEventResult, FocusReason, InputEventFilterResult, InputEventResult,
+    KeyEvent, KeyboardModifiers, MouseEvent, StandardShortcut, TextShortcut,
 };
 use crate::item_rendering::{CachedRenderingData, ItemRenderer, RenderText};
 use crate::layout::{LayoutInfo, Orientation};
@@ -83,7 +83,7 @@ impl Item for ComplexText {
 
     fn input_event_filter_before_children(
         self: Pin<&Self>,
-        _: MouseEvent,
+        _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
@@ -92,11 +92,20 @@ impl Item for ComplexText {
 
     fn input_event(
         self: Pin<&Self>,
-        _: MouseEvent,
+        _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> InputEventResult {
         InputEventResult::EventIgnored
+    }
+
+    fn capture_key_event(
+        self: Pin<&Self>,
+        _: &KeyEvent,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+    ) -> KeyEventResult {
+        KeyEventResult::EventIgnored
     }
 
     fn key_event(
@@ -236,7 +245,7 @@ impl Item for SimpleText {
     ) -> LayoutInfo {
         text_layout_info(
             self,
-            &self_rc,
+            self_rc,
             window_adapter,
             orientation,
             Self::FIELD_OFFSETS.width.apply_pin(self),
@@ -245,7 +254,7 @@ impl Item for SimpleText {
 
     fn input_event_filter_before_children(
         self: Pin<&Self>,
-        _: MouseEvent,
+        _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
@@ -254,11 +263,20 @@ impl Item for SimpleText {
 
     fn input_event(
         self: Pin<&Self>,
-        _: MouseEvent,
+        _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> InputEventResult {
         InputEventResult::EventIgnored
+    }
+
+    fn capture_key_event(
+        self: Pin<&Self>,
+        _: &KeyEvent,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+    ) -> KeyEventResult {
+        KeyEventResult::EventIgnored
     }
 
     fn key_event(
@@ -574,7 +592,7 @@ impl Item for TextInput {
 
     fn input_event_filter_before_children(
         self: Pin<&Self>,
-        _: MouseEvent,
+        _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
@@ -583,7 +601,7 @@ impl Item for TextInput {
 
     fn input_event(
         self: Pin<&Self>,
-        event: MouseEvent,
+        event: &MouseEvent,
         window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &ItemRc,
     ) -> InputEventResult {
@@ -593,7 +611,7 @@ impl Item for TextInput {
         match event {
             MouseEvent::Pressed { position, button: PointerEventButton::Left, click_count } => {
                 let clicked_offset =
-                    self.byte_offset_for_position(position, window_adapter, self_rc) as i32;
+                    self.byte_offset_for_position(*position, window_adapter, self_rc) as i32;
                 self.as_ref().pressed.set((click_count % 3) + 1);
 
                 if !window_adapter.window().0.modifiers.get().shift() {
@@ -630,7 +648,7 @@ impl Item for TextInput {
             }
             MouseEvent::Released { position, button: PointerEventButton::Middle, .. } => {
                 let clicked_offset =
-                    self.byte_offset_for_position(position, window_adapter, self_rc) as i32;
+                    self.byte_offset_for_position(*position, window_adapter, self_rc) as i32;
                 self.as_ref().anchor_position_byte_offset.set(clicked_offset);
                 self.set_cursor_position(
                     clicked_offset,
@@ -655,7 +673,7 @@ impl Item for TextInput {
                 let pressed = self.as_ref().pressed.get();
                 if pressed > 0 {
                     let clicked_offset =
-                        self.byte_offset_for_position(position, window_adapter, self_rc) as i32;
+                        self.byte_offset_for_position(*position, window_adapter, self_rc) as i32;
                     self.set_cursor_position(
                         clicked_offset,
                         true,
@@ -679,6 +697,15 @@ impl Item for TextInput {
             _ => return InputEventResult::EventIgnored,
         }
         InputEventResult::EventAccepted
+    }
+
+    fn capture_key_event(
+        self: Pin<&Self>,
+        _: &KeyEvent,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+    ) -> KeyEventResult {
+        KeyEventResult::EventIgnored
     }
 
     fn key_event(
@@ -744,6 +771,15 @@ impl Item for TextInput {
                             TextInput::select_and_delete(
                                 self,
                                 TextCursorDirection::BackwardByWord,
+                                window_adapter,
+                                self_rc,
+                            );
+                            return KeyEventResult::EventAccepted;
+                        }
+                        TextShortcut::DeleteToStartOfLine => {
+                            TextInput::select_and_delete(
+                                self,
+                                TextCursorDirection::StartOfLine,
                                 window_adapter,
                                 self_rc,
                             );
@@ -911,6 +947,9 @@ impl Item for TextInput {
     ) -> FocusEventResult {
         match event {
             FocusEvent::FocusIn(_reason) => {
+                if !self.enabled() {
+                    return FocusEventResult::FocusIgnored;
+                }
                 self.has_focus.set(true);
                 self.show_cursor(window_adapter);
                 WindowInner::from_pub(window_adapter.window()).set_text_input_focused(true);
@@ -923,18 +962,15 @@ impl Item for TextInput {
                     }
 
                     #[cfg(not(target_vendor = "apple"))]
-                    {
-                        // check self.enabled() to make sure it doesn't select disabled (greyed-out) inputs
-                        if *_reason == FocusEventReason::Keyboard && self.enabled() {
-                            self.select_all(window_adapter, self_rc);
-                        }
+                    if *_reason == FocusReason::TabNavigation {
+                        self.select_all(window_adapter, self_rc);
                     }
                 }
             }
             FocusEvent::FocusOut(reason) => {
                 self.has_focus.set(false);
                 self.hide_cursor();
-                if !matches!(reason, FocusEventReason::ActiveWindow | FocusEventReason::Popup) {
+                if !matches!(reason, FocusReason::WindowActivation | FocusReason::PopupActivation) {
                     self.as_ref()
                         .anchor_position_byte_offset
                         .set(self.as_ref().cursor_position_byte_offset());
@@ -943,8 +979,29 @@ impl Item for TextInput {
                 if !self.read_only() {
                     if let Some(window_adapter) = window_adapter.internal(crate::InternalToken) {
                         window_adapter.input_method_request(InputMethodRequest::Disable);
-                        self.preedit_text.set(Default::default());
                     }
+                    // commit the preedit text on android
+                    #[cfg(target_os = "android")]
+                    {
+                        let preedit_text = self.preedit_text();
+                        if !preedit_text.is_empty() {
+                            let mut text = String::from(self.text());
+                            let cursor_position = self.cursor_position(&text);
+                            text.insert_str(cursor_position, &preedit_text);
+                            self.text.set(text.into());
+                            let new_pos = (cursor_position + preedit_text.len()) as i32;
+                            self.anchor_position_byte_offset.set(new_pos);
+                            self.set_cursor_position(
+                                new_pos,
+                                false,
+                                TextChangeNotify::TriggerCallbacks,
+                                window_adapter,
+                                self_rc,
+                            );
+                            Self::FIELD_OFFSETS.edited.apply_pin(self).call(&());
+                        }
+                    }
+                    self.preedit_text.set(Default::default());
                 }
             }
         }
@@ -1457,15 +1514,22 @@ impl TextInput {
         let cursor_relative =
             self.cursor_rect_for_byte_offset(cursor_position, window_adapter, self_rc);
         let geometry = self_rc.geometry();
-        let origin = self_rc.map_to_window(geometry.origin).to_vector();
+        let origin = self_rc.map_to_window(geometry.origin);
+        let origin_vector = origin.to_vector();
         let cursor_rect_origin =
-            crate::api::LogicalPosition::from_euclid(cursor_relative.origin + origin);
+            crate::api::LogicalPosition::from_euclid(cursor_relative.origin + origin_vector);
         let cursor_rect_size = crate::api::LogicalSize::from_euclid(cursor_relative.size);
         let anchor_point = crate::api::LogicalPosition::from_euclid(
             self.cursor_rect_for_byte_offset(anchor_position, window_adapter, self_rc).origin
-                + origin
+                + origin_vector
                 + cursor_relative.size,
         );
+        let maybe_parent =
+            self_rc.parent_item(crate::item_tree::ParentItemTraversalMode::StopAtPopups);
+        let clip_rect = maybe_parent.map(|parent| {
+            let geom = parent.geometry();
+            LogicalRect::new(parent.map_to_window(geom.origin), geom.size)
+        });
 
         InputMethodProperties {
             text,
@@ -1477,6 +1541,7 @@ impl TextInput {
             cursor_rect_size,
             anchor_point,
             input_type: self.input_type(),
+            clip_rect,
         }
     }
 
@@ -1788,7 +1853,7 @@ impl TextInput {
             WindowInner::from_pub(window_adapter.window()).set_focus_item(
                 self_rc,
                 true,
-                FocusEventReason::Mouse,
+                FocusReason::PointerClick,
             );
         } else if !self.read_only() {
             if let Some(w) = window_adapter.internal(crate::InternalToken) {
@@ -1879,6 +1944,7 @@ impl TextInput {
         let mut redo = self.redo_items.take();
         redo.push(last);
         self.redo_items.set(redo);
+        Self::FIELD_OFFSETS.edited.apply_pin(self).call(&());
     }
 
     fn redo(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>, self_rc: &ItemRc) {
@@ -1924,6 +1990,7 @@ impl TextInput {
         let mut undo_items = self.undo_items.take();
         undo_items.push(last);
         self.undo_items.set(undo_items);
+        Self::FIELD_OFFSETS.edited.apply_pin(self).call(&());
     }
 
     pub fn font_metrics(

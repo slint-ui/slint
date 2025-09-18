@@ -63,6 +63,7 @@ fn expression_cost(exp: &Expression, ctx: &EvaluationContext) -> isize {
         Expression::EasingCurve(_) => 1,
         Expression::LinearGradient { .. } => ALLOC_COST,
         Expression::RadialGradient { .. } => ALLOC_COST,
+        Expression::ConicGradient { .. } => ALLOC_COST,
         Expression::EnumerationValue(_) => 0,
         Expression::LayoutCacheAccess { .. } => PROPERTY_ACCESS_COST,
         Expression::BoxLayoutFunction { .. } => return isize::MAX,
@@ -110,7 +111,8 @@ fn builtin_function_cost(function: &BuiltinFunction) -> isize {
         BuiltinFunction::SetFocusItem | BuiltinFunction::ClearFocusItem => isize::MAX,
         BuiltinFunction::ShowPopupWindow
         | BuiltinFunction::ClosePopupWindow
-        | BuiltinFunction::ShowPopupMenu => isize::MAX,
+        | BuiltinFunction::ShowPopupMenu
+        | BuiltinFunction::ShowPopupMenuInternal => isize::MAX,
         BuiltinFunction::SetSelectionOffsets => isize::MAX,
         BuiltinFunction::ItemFontMetrics => PROPERTY_ACCESS_COST,
         BuiltinFunction::StringToFloat => 50,
@@ -137,7 +139,7 @@ fn builtin_function_cost(function: &BuiltinFunction) -> isize {
         BuiltinFunction::RegisterBitmapFont => isize::MAX,
         BuiltinFunction::ColorScheme => PROPERTY_ACCESS_COST,
         BuiltinFunction::SupportsNativeMenuBar => 10,
-        BuiltinFunction::SetupNativeMenuBar => isize::MAX,
+        BuiltinFunction::SetupMenuBar => isize::MAX,
         BuiltinFunction::MonthDayCount => isize::MAX,
         BuiltinFunction::MonthOffset => isize::MAX,
         BuiltinFunction::FormatDate => isize::MAX,
@@ -150,6 +152,9 @@ fn builtin_function_cost(function: &BuiltinFunction) -> isize {
         BuiltinFunction::Use24HourFormat => 2 * ALLOC_COST + PROPERTY_ACCESS_COST,
         BuiltinFunction::UpdateTimers => 10,
         BuiltinFunction::DetectOperatingSystem => 10,
+        BuiltinFunction::StartTimer => 10,
+        BuiltinFunction::StopTimer => 10,
+        BuiltinFunction::RestartTimer => 10,
     }
 }
 

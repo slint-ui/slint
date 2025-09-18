@@ -11,7 +11,6 @@
 
 use crate::diagnostics::BuildDiagnostics;
 use crate::expression_tree::*;
-use crate::langtype::ElementType;
 use crate::langtype::{Struct, Type};
 use crate::object_tree::*;
 use crate::EmbedResourcesKind;
@@ -28,15 +27,10 @@ pub fn compile_paths(
     let path_type = tr.lookup_element("Path").unwrap();
     let path_type = path_type.as_builtin();
 
-    recurse_elem(&component.root_element, &(), &mut |elem_, _| {
-        let accepted_type = match &elem_.borrow().base_type {
-            ElementType::Builtin(be)
-                if be.native_class.class_name == path_type.native_class.class_name =>
-            {
-                path_type
-            }
-            _ => return,
-        };
+    recurse_elem_including_sub_components_no_borrow(component, &(), &mut |elem_, _| {
+        if !elem_.borrow().builtin_type().is_some_and(|bt| bt.name == "Path") {
+            return;
+        }
 
         #[cfg(feature = "software-renderer")]
         if _embed_resources == EmbedResourcesKind::EmbedTextures {
@@ -46,7 +40,7 @@ pub fn compile_paths(
             )
         }
 
-        let element_types = &accepted_type.additional_accepted_child_types;
+        let element_types = &path_type.additional_accepted_child_types;
 
         let commands_binding =
             elem_.borrow_mut().bindings.remove("commands").map(RefCell::into_inner);
@@ -124,10 +118,29 @@ pub fn compile_paths(
                     elem.children.push(child);
                 }
             }
+
+            if elem.is_binding_set("elements", false) {
+                if path_data.is_empty() {
+                    // Just Path subclass that had elements declared earlier, since path_data is empty we should retain the
+                    // existing elements
+                    return;
+                } else {
+                    diag.push_error(
+                        "The Path was already populated in the base type and it can't be re-populated again"
+                            .into(),
+                        &*elem,
+                    );
+                    return;
+                }
+            }
+
             Expression::PathData(crate::expression_tree::Path::Elements(path_data)).into()
         };
 
-        elem_.borrow_mut().bindings.insert("elements".into(), RefCell::new(path_data_binding));
+        elem_
+            .borrow_mut()
+            .bindings
+            .insert(SmolStr::new_static("elements"), RefCell::new(path_data_binding));
     });
 }
 

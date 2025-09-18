@@ -8,6 +8,7 @@ use std::rc::Rc;
 use crate::DeviceOpener;
 use drm::buffer::Buffer;
 use drm::control::Device;
+use drm::Device as DrmDevice;
 use i_slint_core::platform::PlatformError;
 
 // Wrapped needed because gbm::Device<T> wants T to be sized.
@@ -19,7 +20,7 @@ impl AsFd for SharedFd {
     }
 }
 
-impl drm::Device for SharedFd {}
+impl DrmDevice for SharedFd {}
 
 impl drm::control::Device for SharedFd {}
 
@@ -249,6 +250,37 @@ impl DrmOutput {
                     return;
                 }
             }
+        }
+    }
+
+    pub fn get_supported_formats(&self) -> Result<Vec<drm::buffer::DrmFourcc>, PlatformError> {
+        // Try to set universal planes client capability if possible
+        let _ = self.drm_device.set_client_capability(drm::ClientCapability::UniversalPlanes, true);
+
+        let mut all_formats = std::collections::HashSet::new();
+
+        // Iterate through all planes and collect formats from compatible ones
+        if let Ok(plane_handles) = self.drm_device.plane_handles() {
+            for &plane_handle in &plane_handles {
+                if let Ok(plane) = self.drm_device.get_plane(plane_handle) {
+                    if plane.crtc() == Some(self.crtc) {
+                        // Collect formats from this compatible plane
+                        for &format_u32 in plane.formats() {
+                            if let Ok(format) = drm::buffer::DrmFourcc::try_from(format_u32) {
+                                all_formats.insert(format);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if all_formats.is_empty() {
+            eprintln!("No available formats found for any plane with CRTC {:?}. Falling back to XRGB8888 format", self.crtc);
+
+            Ok(vec![drm::buffer::DrmFourcc::Xrgb8888])
+        } else {
+            Ok(all_formats.into_iter().collect())
         }
     }
 

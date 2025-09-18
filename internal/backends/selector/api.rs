@@ -44,6 +44,11 @@ pub struct BackendSelector {
     >,
     #[cfg(feature = "unstable-winit-030")]
     winit_event_loop_builder: Option<i_slint_backend_winit::EventLoopBuilder>,
+    #[cfg(feature = "unstable-winit-030")]
+    winit_custom_application_handler:
+        Option<Box<dyn i_slint_backend_winit::CustomApplicationHandler>>,
+    #[cfg(all(target_os = "linux", feature = "unstable-libinput-09"))]
+    libinput_event_hook: Option<Box<dyn Fn(&input::Event) -> bool>>,
 }
 
 impl BackendSelector {
@@ -106,21 +111,25 @@ impl BackendSelector {
         self
     }
 
+    #[i_slint_core_macros::slint_doc]
     /// Adds the requirement to the selector that the backend must render using [WGPU](http://wgpu.rs).
     /// Use this when you integrate other WGPU-based renderers with a Slint UI.
     ///
-    /// *Note*: This function is behind a feature flag and may be removed or changed in future minor releases,
-    ///         as new major WGPU releases become available.
-    #[cfg(feature = "unstable-wgpu-24")]
+    /// *Note*: This function is behind the [`unstable-wgpu-26` feature flag](slint:rust:slint/docs/cargo_features/#backends)
+    ///         and may be removed or changed in future minor releases, as new major WGPU releases become available.
+    ///
+    /// See also the [`slint::wgpu_26`](slint:rust:slint/wgpu_26) module.
+    #[cfg(feature = "unstable-wgpu-26")]
     #[must_use]
-    pub fn require_wgpu_24(
+    pub fn require_wgpu_26(
         mut self,
-        configuration: i_slint_core::graphics::wgpu_24::WGPUConfiguration,
+        configuration: i_slint_core::graphics::wgpu_26::api::WGPUConfiguration,
     ) -> Self {
-        self.requested_graphics_api = Some(RequestedGraphicsAPI::WGPU24(configuration));
+        self.requested_graphics_api = Some(RequestedGraphicsAPI::WGPU26(configuration));
         self
     }
 
+    #[i_slint_core_macros::slint_doc]
     /// Configures this builder to use the specified winit hook that will be called before a Window is created.
     ///
     /// It can be used to adjust settings of window that will be created.
@@ -129,16 +138,18 @@ impl BackendSelector {
     ///
     /// ```rust,no_run
     /// let mut backend = slint::BackendSelector::new()
-    ///     .with_winit_030_window_attributes_hook(|attributes| attributes.with_content_protected(true))
+    ///     .with_winit_window_attributes_hook(|attributes| attributes.with_content_protected(true))
     ///     .select()
     ///     .unwrap();
     /// ```
     ///
-    /// *Note*: This function is behind a feature flag and may be removed or changed in future minor releases,
-    ///         as new major Winit releases become available.
+    /// *Note*: This function is behind the [`unstable-winit-030` feature flag](slint:rust:slint/docs/cargo_features/#backends)
+    ///         and may be removed or changed in future minor releases, as new major Winit releases become available.
+    ///
+    /// See also the [`slint::winit_030`](slint:rust:slint/winit_030) module
     #[must_use]
     #[cfg(feature = "unstable-winit-030")]
-    pub fn with_winit_030_window_attributes_hook(
+    pub fn with_winit_window_attributes_hook(
         mut self,
         hook: impl Fn(
                 i_slint_backend_winit::winit::window::WindowAttributes,
@@ -149,18 +160,58 @@ impl BackendSelector {
         self
     }
 
+    #[i_slint_core_macros::slint_doc]
     /// Configures this builder to use the specified winit event loop builder when creating the event
     /// loop.
     ///
-    /// *Note*: This function is behind a feature flag and may be removed or changed in future minor releases,
-    ///         as new major Winit releases become available.
+    /// *Note*: This function is behind the [`unstable-winit-030` feature flag](slint:rust:slint/docs/cargo_features/#backends)
+    ///         and may be removed or changed in future minor releases, as new major Winit releases become available.
+    ///
+    /// See also the [`slint::winit_030`](slint:rust:slint/winit_030) module
     #[must_use]
     #[cfg(feature = "unstable-winit-030")]
-    pub fn with_winit_030_event_loop_builder(
+    pub fn with_winit_event_loop_builder(
         mut self,
         event_loop_builder: i_slint_backend_winit::EventLoopBuilder,
     ) -> Self {
         self.winit_event_loop_builder = Some(event_loop_builder);
+        self
+    }
+
+    #[i_slint_core_macros::slint_doc]
+    /// Configures this builder to invoke the functions on the supplied application handler whenever winit wakes up the
+    /// event loop.
+    ///
+    /// *Note*: This function is behind the [`unstable-winit-030` feature flag](slint:rust:slint/docs/cargo_features/#backends)
+    ///         and may be removed or changed in future minor releases, as new major Winit releases become available.
+    ///
+    /// See also the [`slint::winit_030`](slint:rust:slint/winit_030) module
+    #[must_use]
+    #[cfg(feature = "unstable-winit-030")]
+    pub fn with_winit_custom_application_handler(
+        mut self,
+        custom_application_handler: impl i_slint_backend_winit::CustomApplicationHandler + 'static,
+    ) -> Self {
+        self.winit_custom_application_handler = Some(Box::new(custom_application_handler));
+        self
+    }
+
+    #[i_slint_core_macros::slint_doc]
+    /// Configures this builder to use the specified libinput event filter hook when the LinuxKMS backend
+    /// is selected.
+    ///
+    /// The provided hook is invoked for every event received. If the function returns true, the event is
+    /// not dispatched further.
+    ///
+    /// *Note*: This function is behind the [`unstable-libinput-09` feature flag](slint:rust:slint/docs/cargo_features/#backends)
+    ///         and may be removed or changed in future minor releases, as new major Winit releases become available.
+    #[must_use]
+    #[cfg(all(target_os = "linux", feature = "unstable-libinput-09"))]
+    pub fn with_libinput_event_hook(
+        mut self,
+        event_hook: impl Fn(&input::Event) -> bool + 'static,
+    ) -> Self {
+        self.libinput_event_hook = Some(Box::new(event_hook));
         self
     }
 
@@ -228,9 +279,18 @@ impl BackendSelector {
                     return Err("The linuxkms backend does not implement renderer selection by graphics API".into());
                 }
 
-                Box::new(i_slint_backend_linuxkms::Backend::new_with_renderer_by_name(
-                    self.renderer.as_deref(),
-                )?)
+                let mut builder = i_slint_backend_linuxkms::BackendBuilder::default();
+
+                if let Some(renderer_name) = self.renderer.as_ref() {
+                    builder = builder.with_renderer_name(renderer_name.into());
+                }
+
+                #[cfg(all(target_os = "linux", feature = "unstable-libinput-09"))]
+                if let Some(event_hook) = self.libinput_event_hook.take() {
+                    builder = builder.with_libinput_event_hook(event_hook);
+                }
+
+                Box::new(builder.build()?)
             }
             #[cfg(feature = "i-slint-backend-winit")]
             "winit" => {
@@ -255,6 +315,14 @@ impl BackendSelector {
                 #[cfg(feature = "unstable-winit-030")]
                 let builder = match self.winit_event_loop_builder.take() {
                     Some(event_loop_builder) => builder.with_event_loop_builder(event_loop_builder),
+                    None => builder,
+                };
+
+                #[cfg(feature = "unstable-winit-030")]
+                let builder = match self.winit_custom_application_handler.take() {
+                    Some(custom_application_handler) => {
+                        builder.with_custom_application_handler(custom_application_handler)
+                    }
                     None => builder,
                 };
 

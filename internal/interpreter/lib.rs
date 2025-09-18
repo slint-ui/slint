@@ -88,6 +88,8 @@ mod global_component;
 pub mod highlight;
 #[cfg(feature = "internal-json")]
 pub mod json;
+#[cfg(feature = "internal-live-preview")]
+pub mod live_preview;
 mod value_model;
 
 #[doc(inline)]

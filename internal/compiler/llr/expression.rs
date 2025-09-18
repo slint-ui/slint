@@ -158,6 +158,11 @@ pub enum Expression {
         stops: Vec<(Expression, Expression)>,
     },
 
+    ConicGradient {
+        /// First expression in the tuple is a color, second expression is the stop position (normalized angle 0-1)
+        stops: Vec<(Expression, Expression)>,
+    },
+
     EnumerationValue(crate::langtype::EnumerationValue),
 
     LayoutCacheAccess {
@@ -311,6 +316,7 @@ impl Expression {
             Self::EasingCurve(_) => Type::Easing,
             Self::LinearGradient { .. } => Type::Brush,
             Self::RadialGradient { .. } => Type::Brush,
+            Self::ConicGradient { .. } => Type::Brush,
             Self::EnumerationValue(e) => Type::Enumeration(e.enumeration.clone()),
             Self::LayoutCacheAccess { .. } => Type::LogicalLength,
             Self::BoxLayoutFunction { sub_expression, .. } => sub_expression.ty(ctx),
@@ -379,6 +385,12 @@ macro_rules! visit_impl {
                 }
             }
             Expression::RadialGradient { stops } => {
+                for (a, b) in stops {
+                    $visitor(a);
+                    $visitor(b);
+                }
+            }
+            Expression::ConicGradient { stops } => {
                 for (a, b) in stops {
                     $visitor(a);
                     $visitor(b);
@@ -655,17 +667,23 @@ impl<'a, T> EvaluationContext<'a, T> {
                     ctx = ctx.parent.as_ref().unwrap().ctx;
                 }
                 let mut ret = ctx.property_info(parent_reference);
-                match &mut ret.binding {
-                    Some((_, m @ ContextMap::Identity)) => {
+                let map_mapping = |m: &mut ContextMap| match m {
+                    ContextMap::Identity => {
                         *m = ContextMap::InSubElement {
                             path: Default::default(),
                             parent: level.get(),
-                        };
+                        }
                     }
-                    Some((_, ContextMap::InSubElement { parent, .. })) => {
+                    ContextMap::InSubElement { parent, .. } => {
                         *parent += level.get();
                     }
-                    _ => {}
+                    _ => (),
+                };
+                if let Some(b) = &mut ret.binding {
+                    map_mapping(&mut b.1);
+                }
+                if let Some(a) = &mut ret.animation {
+                    map_mapping(&mut a.1);
                 }
                 ret
             }

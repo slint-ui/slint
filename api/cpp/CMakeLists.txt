@@ -4,7 +4,7 @@
 cmake_minimum_required(VERSION 3.21)
 # Select C++ and C as languages, as Corrosion needs ${CMAKE_C_COMPILER}
 # for linking
-project(Slint HOMEPAGE_URL "https://slint.dev/" LANGUAGES C CXX VERSION 1.12.0)
+project(Slint HOMEPAGE_URL "https://slint.dev/" LANGUAGES C CXX VERSION 1.14.0)
 
 include(FeatureSummary)
 include(CMakeDependentOption)
@@ -22,7 +22,7 @@ if (NOT Corrosion_FOUND)
 endif (NOT Corrosion_FOUND)
 
 list(PREPEND CMAKE_MODULE_PATH ${Corrosion_SOURCE_DIR}/cmake)
-find_package(Rust 1.82 REQUIRED MODULE)
+find_package(Rust 1.85 REQUIRED MODULE)
 
 option(BUILD_SHARED_LIBS "Build Slint as shared library" ON)
 option(SLINT_FEATURE_COMPILER "Enable support for compiling .slint files to C++ ahead of time" ON)
@@ -92,13 +92,14 @@ define_renderer_winit_compat_option(skia-vulkan)
 define_renderer_winit_compat_option(software)
 
 define_cargo_dependent_feature(interpreter "Enable support for the Slint interpreter to load .slint files at run-time" ON "NOT SLINT_FEATURE_FREESTANDING")
+define_cargo_dependent_feature(live-preview "Enable support for the Slint live-preview to re-load changed .slint files at run-time" OFF "SLINT_FEATURE_INTERPRETER")
 
 define_cargo_dependent_feature(backend-winit "Enable support for the winit crate to interaction with all windowing systems." ON "NOT SLINT_FEATURE_FREESTANDING")
 define_cargo_dependent_feature(backend-winit-x11 "Enable support for the winit create to interact only with the X11 windowing system on Unix. Enable this option and turn off SLINT_FEATURE_BACKEND_WINIT for a smaller build with just X11 support on Unix." OFF "NOT SLINT_FEATURE_FREESTANDING")
 define_cargo_dependent_feature(backend-winit-wayland "Enable support for the winit create to interact only with the wayland windowing system on Unix. Enable this option and turn off SLINT_FEATURE_BACKEND_WINIT for a smaller build with just wayland support." OFF "NOT SLINT_FEATURE_FREESTANDING")
 
 define_cargo_dependent_feature(renderer-femtovg "Enable support for the OpenGL ES 2.0 based FemtoVG rendering engine." ON "NOT SLINT_FEATURE_FREESTANDING")
-define_cargo_dependent_feature(renderer-femtovg-wgpu "Enable support for the WGPU based FemtoVG rendering engine." ON "NOT SLINT_FEATURE_FREESTANDING")
+define_cargo_dependent_feature(renderer-femtovg-wgpu "Enable support for the WGPU based FemtoVG rendering engine." OFF "NOT SLINT_FEATURE_FREESTANDING")
 define_cargo_dependent_feature(renderer-skia "Enable support for the Skia based rendering engine." OFF "NOT SLINT_FEATURE_FREESTANDING")
 define_cargo_dependent_feature(renderer-skia-opengl "Enable support for the Skia based rendering engine with its OpenGL backend." OFF "NOT SLINT_FEATURE_FREESTANDING")
 define_cargo_dependent_feature(renderer-skia-vulkan "Enable support for the Skia based rendering engine with its Vulkan backend." OFF "NOT SLINT_FEATURE_FREESTANDING")
@@ -183,8 +184,12 @@ if (SLINT_BUILD_RUNTIME)
     add_library(Slint::Slint ALIAS Slint)
     target_link_libraries(Slint INTERFACE slint_cpp)
     target_compile_features(Slint INTERFACE cxx_std_20)
-    if (MSVC)
-        target_compile_options(Slint INTERFACE /bigobj)
+    if (WIN32)
+        target_compile_options(Slint INTERFACE
+            $<$<CXX_COMPILER_ID:MSVC>:/bigobj>
+            $<$<CXX_COMPILER_ID:Clang>:-Wa,-mbig-obj>
+            $<$<CXX_COMPILER_ID:GNU>:-Wa,-mbig-obj>
+        )
     endif()
 
     foreach(feature ${public_cmake_features})
@@ -201,7 +206,7 @@ if (SLINT_BUILD_RUNTIME)
     set_property(TARGET Slint APPEND PROPERTY EXPORT_PROPERTIES "SLINT_DISABLED_FEATURES")
 
     if (SLINT_FEATURE_FREESTANDING)
-        if (ESP_PLATFORM)
+        if (ESP_PLATFORM AND NOT IDF_TARGET STREQUAL "esp32p4")
             list(APPEND features "esp-backtrace/${IDF_TARGET}")
             list(APPEND features "esp-println/${IDF_TARGET}")
         endif()
@@ -373,6 +378,7 @@ if (SLINT_BUILD_RUNTIME)
         ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_sharedvector_internal.h
         ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_string_internal.h
         ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_timer_internal.h
+        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_events_internal.h
     )
 
     if(SLINT_FEATURE_INTERPRETER)
@@ -505,7 +511,7 @@ if(WIN32)
     else()
         set(CPACK_SYSTEM_NAME win32)
     endif()
-    set(CPACK_SYSTEM_NAME "${CPACK_SYSTEM_NAME}${compiler_suffix}")
+    set(CPACK_SYSTEM_NAME "${CPACK_SYSTEM_NAME}${compiler_suffix}-${CMAKE_SYSTEM_PROCESSOR}")
 else()
     set(CPACK_GENERATOR "TGZ")
     set(CPACK_SYSTEM_NAME "${CMAKE_SYSTEM_NAME}-${CMAKE_SYSTEM_PROCESSOR}")

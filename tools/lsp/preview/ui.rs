@@ -20,15 +20,24 @@ use crate::preview::{self, preview_data, properties, SelectionNotification};
 use crate::wasm_prelude::*;
 
 mod brushes;
+pub mod log_messages;
 pub mod palette;
 mod property_view;
 mod recent_colors;
+pub mod search_model;
 
 slint::include_modules!();
 
 pub type PropertyDeclarations = HashMap<SmolStr, PropertyDeclaration>;
 
-pub fn create_ui(style: String, experimental: bool) -> Result<PreviewUi, PlatformError> {
+pub fn create_ui(
+    to_lsp: &Rc<dyn common::PreviewToLsp>,
+    style: &str,
+    experimental: bool,
+) -> Result<PreviewUi, PlatformError> {
+    #[cfg(all(target_vendor = "apple", not(target_arch = "wasm32")))]
+    crate::preview::connector::native::init_apple_platform()?;
+
     let ui = PreviewUi::new()?;
 
     // styles:
@@ -38,8 +47,8 @@ pub fn create_ui(style: String, experimental: bool) -> Result<PreviewUi, Platfor
         .cloned()
         .sorted()
         .collect::<Vec<_>>();
-    let style = if known_styles.contains(&style.as_str()) {
-        style
+    let style = if known_styles.contains(&style) {
+        style.to_string()
     } else {
         known_styles
             .iter()
@@ -66,10 +75,12 @@ pub fn create_ui(style: String, experimental: bool) -> Result<PreviewUi, Platfor
     api.on_rename_component(super::rename_component);
     api.on_style_changed(super::change_style);
     api.on_show_component(super::show_component);
-    api.on_show_document(|file, line, column| {
+
+    let lsp = to_lsp.clone();
+    api.on_show_document(move |file, line, column| {
         use lsp_types::{Position, Range};
         let pos = Position::new((line as u32).saturating_sub(1), (column as u32).saturating_sub(1));
-        super::ask_editor_to_show_document(&file, Range::new(pos, pos), false)
+        lsp.ask_editor_to_show_document(&file, Range::new(pos, pos), false).unwrap();
     });
     api.on_show_document_offset_range(super::show_document_offset_range);
     api.on_show_preview_for(super::show_preview_for);
@@ -91,8 +102,17 @@ pub fn create_ui(style: String, experimental: bool) -> Result<PreviewUi, Platfor
         );
     });
     api.on_select_behind(super::element_selection::select_element_behind);
+    api.on_highlight_positions(super::element_selection::highlight_positions);
+    let lsp = to_lsp.clone();
     api.on_can_drop(super::can_drop_component);
-    api.on_drop(super::drop_component);
+    api.on_drop(move |component_index: i32, x: f32, y: f32| {
+        lsp.send_telemetry(&mut [(
+            "type".to_string(),
+            serde_json::to_value("component_dropped").unwrap(),
+        )])
+        .unwrap();
+        super::drop_component(component_index, x, y)
+    });
     api.on_selected_element_resize(super::resize_selected_element);
     api.on_selected_element_can_move_to(super::can_move_selected_element);
     api.on_selected_element_move(super::move_selected_element);
@@ -101,6 +121,7 @@ pub fn create_ui(style: String, experimental: bool) -> Result<PreviewUi, Platfor
     api.on_test_code_binding(super::test_code_binding);
     api.on_set_code_binding(super::set_code_binding);
     api.on_set_color_binding(super::set_color_binding);
+    api.on_set_element_id(super::set_element_id);
     api.on_property_declaration_ranges(super::property_declaration_ranges);
 
     api.on_get_property_value(get_property_value);
@@ -109,13 +130,26 @@ pub fn create_ui(style: String, experimental: bool) -> Result<PreviewUi, Platfor
     api.on_insert_row_into_value_table(insert_row_into_value_table);
     api.on_remove_row_from_value_table(remove_row_from_value_table);
 
-    api.on_set_json_preview_data(set_json_preview_data);
+    let lsp = to_lsp.clone();
+    api.on_set_json_preview_data(move |container, property_name, json_string, send_telemetry| {
+        if send_telemetry {
+            lsp.send_telemetry(&mut [(
+                "type".to_string(),
+                serde_json::to_value("data_json_changed").unwrap(),
+            )])
+            .unwrap();
+        }
+        set_json_preview_data(container, property_name, json_string)
+    });
 
     api.on_string_to_code(string_to_code);
 
     brushes::setup(&ui);
+    log_messages::setup(&ui);
     palette::setup(&ui);
     recent_colors::setup(&ui);
+    super::outline::setup(&ui);
+    super::undo_redo::setup(&ui);
 
     #[cfg(target_vendor = "apple")]
     api.set_control_key_name("command".into());
@@ -148,15 +182,31 @@ pub fn ui_set_uses_widgets(ui: &PreviewUi, uses_widgets: bool) {
 }
 
 pub fn set_diagnostics(ui: &PreviewUi, diagnostics: &[slint_interpreter::Diagnostic]) {
-    let summary = diagnostics.iter().fold(DiagnosticSummary::NothingDetected, |acc, d| {
-        match (acc, d.level()) {
-            (_, DiagnosticLevel::Error) => DiagnosticSummary::Errors,
-            (DiagnosticSummary::Errors, DiagnosticLevel::Warning) => DiagnosticSummary::Errors,
-            (_, DiagnosticLevel::Warning) => DiagnosticSummary::Warnings,
-            // DiagnosticLevel is non-exhaustive:
-            (acc, _) => acc,
-        }
-    });
+    let summary = diagnostics
+        .iter()
+        .inspect(|d| {
+            let location = d.source_file().map(|p| {
+                let (line, column) = d.line_column();
+                (p.to_string_lossy().to_string().into(), line, column)
+            });
+
+            let level = match d.level() {
+                DiagnosticLevel::Error => LogMessageLevel::Error,
+                DiagnosticLevel::Warning => LogMessageLevel::Warning,
+                _ => LogMessageLevel::Debug,
+            };
+
+            log_messages::append_log_message(ui, level, location, d.message());
+        })
+        .fold(DiagnosticSummary::NothingDetected, |acc, d| {
+            match (acc, d.level()) {
+                (_, DiagnosticLevel::Error) => DiagnosticSummary::Errors,
+                (DiagnosticSummary::Errors, DiagnosticLevel::Warning) => DiagnosticSummary::Errors,
+                (_, DiagnosticLevel::Warning) => DiagnosticSummary::Warnings,
+                // DiagnosticLevel is non-exhaustive:
+                (acc, _) => acc,
+            }
+        });
 
     let api = ui.global::<Api>();
     api.set_diagnostic_summary(summary);
@@ -215,12 +265,19 @@ pub fn ui_set_known_components(
         }
     }
 
+    type ComponentModel = search_model::SearchModel<ComponentItem>;
+    fn make_component_model(vec: Vec<ComponentItem>) -> ComponentModel {
+        ComponentModel::new(VecModel::from(vec), |i, search_str| {
+            search_model::contains(i.name.as_str(), search_str)
+        })
+    }
+
     fn sort_subset(mut input: HashMap<String, Vec<ComponentItem>>) -> Vec<ComponentListItem> {
         let mut output = input
             .drain()
             .map(|(k, mut v)| {
                 v.sort_by_key(|i| i.name.clone());
-                let model = Rc::new(VecModel::from(v));
+                let model = Rc::new(make_component_model(v));
                 ComponentListItem {
                     category: k.into(),
                     file_url: SharedString::new(),
@@ -235,11 +292,12 @@ pub fn ui_set_known_components(
     let builtin_components = sort_subset(builtins_map);
     let std_widgets_components = sort_subset(std_widgets_map);
     let library_components = sort_subset(library_map);
+
     let mut file_components = path_map
         .drain()
         .map(|(p, (file_url, mut v))| {
             v.sort_by_key(|i| i.name.clone());
-            let model = Rc::new(VecModel::from(v));
+            let model = Rc::new(make_component_model(v));
             let name = if p == longest_path_prefix {
                 p.file_name().unwrap_or_default().to_string_lossy().to_string()
             } else {
@@ -258,9 +316,34 @@ pub fn ui_set_known_components(
     all_components.extend_from_slice(&library_components[..]);
     all_components.extend_from_slice(&file_components[..]);
 
-    let result = Rc::new(VecModel::from(all_components));
+    let result = Rc::new(search_model::SearchModel::new(
+        VecModel::from(all_components),
+        |category, search_str| {
+            let mut yes = search_str.is_empty();
+            if let Some(sub_filter) = category.components.as_any().downcast_ref::<ComponentModel>()
+            {
+                sub_filter.set_search_text(search_str.clone());
+                yes = yes || sub_filter.row_count() > 0;
+            }
+            yes
+        },
+    ));
     let api = ui.global::<Api>();
-    api.set_known_components(result.into());
+
+    let old_search_text = api
+        .get_known_components()
+        .as_any()
+        .downcast_ref::<search_model::SearchModel<ComponentListItem>>()
+        .map(|x| x.search_text())
+        .filter(|x| !x.is_empty());
+    if let Some(search_text) = old_search_text {
+        result.set_search_text(search_text.clone());
+    }
+
+    api.set_known_components(result.clone().into());
+    api.on_library_search(move |term| {
+        result.set_search_text(term.into());
+    });
 }
 
 fn to_ui_range(r: TextRange) -> Option<Range> {
@@ -318,7 +401,7 @@ fn is_equal_element(c: &ElementInformation, n: &ElementInformation) -> bool {
     c.id == n.id
         && c.type_name == n.type_name
         && c.source_uri == n.source_uri
-        && c.range.start == n.range.start
+        && c.offset == n.offset
 }
 
 pub type PropertyGroupModel = ModelRc<PropertyGroup>;
@@ -1097,7 +1180,7 @@ fn set_property_value_table(
         return "Could not process input values".into();
     };
 
-    set_json_preview_data(container, property_name, json_string.into(), false)
+    set_json_preview_data(container, property_name, json_string.into())
 }
 
 fn default_property_value(source: &PropertyValue) -> PropertyValue {
@@ -1209,15 +1292,7 @@ fn set_json_preview_data(
     container: SharedString,
     property_name: SharedString,
     json_string: SharedString,
-    send_telemetry: bool,
 ) -> SharedString {
-    if send_telemetry {
-        crate::preview::send_telemetry(&mut [(
-            "type".to_string(),
-            serde_json::to_value("data_json_changed").unwrap(),
-        )]);
-    }
-
     let property_name = (!property_name.is_empty()).then_some(property_name.to_string());
 
     let json = match serde_json::from_str::<serde_json::Value>(json_string.as_ref()) {
@@ -1257,8 +1332,19 @@ fn update_properties(
     for (c, n) in std::iter::zip(current_model.iter(), next_model.iter()) {
         debug_assert_eq!(c.group_name, n.group_name);
 
-        let cvg = c.properties.as_any().downcast_ref::<VecModel<PropertyInformation>>().unwrap();
-        let nvg = n.properties.as_any().downcast_ref::<VecModel<PropertyInformation>>().unwrap();
+        fn extract_inner_model<'a>(m: &'a PropertyGroup) -> &'a VecModel<PropertyInformation> {
+            m.properties
+                .as_any()
+                .downcast_ref::<search_model::SearchModel<PropertyInformation>>()
+                .unwrap()
+                .source_model()
+                .as_any()
+                .downcast_ref::<VecModel<PropertyInformation>>()
+                .unwrap()
+        }
+
+        let cvg = extract_inner_model(&c);
+        let nvg = extract_inner_model(&n);
 
         update_grouped_properties(cvg, nvg);
     }
@@ -1271,31 +1357,37 @@ pub fn ui_set_properties(
     document_cache: &common::DocumentCache,
     properties: Option<properties::QueryPropertyResponse>,
 ) -> PropertyDeclarations {
-    let (next_element, declarations, next_model) =
-        property_view::map_properties_to_ui(document_cache, properties).unwrap_or((
-            ElementInformation {
-                id: "".into(),
-                type_name: "".into(),
-                source_uri: "".into(),
-                source_version: 0,
-                range: Range { start: 0, end: 0 },
-            },
-            HashMap::new(),
-            Rc::new(VecModel::from(Vec::<PropertyGroup>::new())).into(),
-        ));
+    let win = i_slint_core::window::WindowInner::from_pub(ui.window()).window_adapter();
+    let Some((next_element, declarations, next_model)) =
+        property_view::map_properties_to_ui(document_cache, properties, &win)
+    else {
+        let api = ui.global::<Api>();
+        api.set_properties(ModelRc::default());
+        api.set_current_element(ElementInformation::default());
+        return Default::default();
+    };
 
     let api = ui.global::<Api>();
     let current_model = api.get_properties();
 
     let element = api.get_current_element();
     if !is_equal_element(&element, &next_element) {
-        api.set_properties(next_model);
-    } else if current_model.row_count() > 0 {
-        update_properties(current_model, next_model);
-    } else {
-        api.set_properties(next_model);
-    }
+        let old_search_text = current_model
+            .as_any()
+            .downcast_ref::<search_model::SearchModel<PropertyGroup>>()
+            .map(|x| x.search_text())
+            .filter(|x| !x.is_empty());
+        if let Some(search_text) = old_search_text {
+            next_model.set_search_text(search_text.clone());
+        }
 
+        api.set_properties(next_model.clone().into());
+        api.on_properties_search(move |search_text| {
+            next_model.set_search_text(search_text);
+        });
+    } else {
+        update_properties(current_model, next_model.into());
+    }
     api.set_current_element(next_element);
 
     declarations

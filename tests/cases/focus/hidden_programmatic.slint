@@ -1,0 +1,75 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase inherits Window {
+    in-out property <bool> is_search_on: false;
+    width: 495px;
+    height: 40px;
+    Rectangle {
+        width: 20px;
+        height: 20px;
+        x: 2px;
+        background: red;
+        button := TouchArea {
+            clicked => {
+                if is_search_on {
+                    is_search_on = false;
+                    entryarea.clear-focus();
+                } else {
+                    is_search_on = true;
+                    entryarea.focus();
+                }
+            }
+            accessible-role: AccessibleRole.button;
+            accessible-action-default => {
+                self.clicked();
+            }
+        }
+    }
+
+    Rectangle {
+        x: 30px;
+        y: is_search_on ? 0px : -42px;
+        entryarea := TextInput {
+            y: 5px;
+            width: parent.width;
+            height: 25px;
+        }
+
+        animate y { duration: 500ms; }
+    }
+
+    out property <bool> textinput-has-focus <=> entryarea.has-focus;
+}
+
+/*
+
+
+```rust
+let instance = TestCase::new().unwrap();
+
+let mut result = slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::button").collect::<Vec<_>>();
+assert_eq!(result.len(), 1);
+let button = result.pop().unwrap();
+
+// Not visible yet
+result = slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::entryarea").collect::<Vec<_>>();
+assert_eq!(result.len(), 0);
+
+assert!(!instance.get_textinput_has_focus());
+button.invoke_accessible_default_action();
+assert!(instance.get_textinput_has_focus());
+
+// Not visible yet either
+result = slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::entryarea").collect::<Vec<_>>();
+assert_eq!(result.len(), 0);
+
+slint_testing::mock_elapsed_time(600);
+
+// Now it's visible and still has focus
+result = slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::entryarea").collect::<Vec<_>>();
+assert_eq!(result.len(), 1);
+assert!(instance.get_textinput_has_focus());
+```
+
+*/

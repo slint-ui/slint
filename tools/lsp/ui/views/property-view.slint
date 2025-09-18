@@ -1,55 +1,116 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Palette, ScrollView }  from "std-widgets.slint";
+import { Palette, ScrollView, LineEdit }  from "std-widgets.slint";
 
 import { ExpandableGroup } from "../components/expandable-group.slint";
-
+import { ViewHeader } from "../components/widgets/basics.slint";
 import { Api, ElementInformation, PropertyGroup, PropertyInformation } from "../api.slint";
-import { EditorSpaceSettings, EditorSizeSettings } from "../components/styling.slint";
-
+import { EditorSpaceSettings, EditorFontSettings, EditorSizeSettings, ConsoleStyles, Icons } from "../components/styling.slint";
+import { StringWidget } from "../components/widgets/string-widget.slint";
 import { PropertyInformationWidget } from "../components/property-widgets.slint";
+import { NameLabel } from "../components/widgets/basics.slint";
 
-export component PropertyView inherits ScrollView {
+export component PropertyView inherits VerticalLayout {
 
     property <ElementInformation> element-information <=> Api.current-element;
     property <[PropertyGroup]> properties <=> Api.properties;
+    in-out property <bool> properties-visible: false;
 
     property <length> key-width: self.width / 2.5;
-    property <bool> element-loaded: root.properties.length > 0;
-
-    vertical-scrollbar-policy: ScrollBarPolicy.always-on;
-
-    content-layer := VerticalLayout {
-        if !root.element-loaded: Text {
-            text: @tr("Select an Element");
-            horizontal-alignment: center;
-            vertical-alignment: center;
-            vertical-stretch: 1;
+    property <bool> element-loaded: element-information.source-uri != "";
+    in-out property <bool> enabled <=> sv.enabled;
+    visible: root.properties-visible;
+    ViewHeader {
+        header-text: @tr("Properties");
+        hide-parent() => {
+            root.properties-visible = false;
         }
-        if root.element-loaded: groups := VerticalLayout {
-            alignment: start;
+        search-edited(text) => {
+            Api.properties-search(text);
+        }
+    }
+    sv := ScrollView {
+        vertical-scrollbar-policy: ScrollBarPolicy.always-on;
+        horizontal-scrollbar-policy: ScrollBarPolicy.always-off;
 
-            for group in root.properties: eg := ExpandableGroup {
-                property <[PropertyInformation]> properties: group.properties;
+        content-layer := VerticalLayout {
 
-                enabled: root.enabled;
-
-                text: group.group-name;
-                panel-width: root.width;
-
-                VerticalLayout {
-                    spacing: EditorSpaceSettings.property-spacing;
+            if !root.element-loaded: Text {
+                text: @tr("Select an Element");
+                horizontal-alignment: center;
+                vertical-alignment: center;
+                vertical-stretch: 1;
+            }
+            if root.element-loaded: groups := VerticalLayout {
+                alignment: start;
+                spacing: EditorSpaceSettings.default-spacing;
+                padding-top: EditorSpaceSettings.default-padding;
+                if element-information.id != "root": VerticalLayout {
                     padding: EditorSpaceSettings.default-padding;
+                    spacing: EditorSpaceSettings.default-spacing / 4;
+                    Text {
+                        text: "id";
+                        font-weight: element-information.id != "" ? EditorFontSettings.regular-font-weight : EditorFontSettings.light-font-weight;
+                        font-italic: element-information.id != "" ? false : true;
+                        opacity: element-information.id != "" ? 1.0 : 0.5;
+                    }
 
-                    for property in eg.properties: PropertyInformationWidget {
-                        enabled: root.enabled;
-                        element-information <=> root.element-information;
-                        property-information: property;
+                    LineEdit {
+                        enabled: sv.enabled;
+                        property <string> id: element-information.id;
+                        changed id => {
+                            self.text = id;
+                        }
+                        text: id;
+                        accepted(text) => {
+                            Api.set-element-id(
+                                element-information.source-uri,
+                                element-information.source-version,
+                                element-information.offset,
+                                text,
+                            );
+                            // Resets to the original, and the updated name will be updated after we recompiled
+                            self.text = id;
+                        }
+                    }
+                }
+                for group in root.properties: VerticalLayout {
+
+                    eg := ExpandableGroup {
+                        property <[PropertyInformation]> properties: group.properties;
+
+                        enabled: sv.enabled;
+
+                        text: group.group-name != "" ? group.group-name : root.element-information.component-name;
+                        panel-width: root.width;
+
+                        VerticalLayout {
+                            spacing: EditorSpaceSettings.property-spacing;
+                            padding: EditorSpaceSettings.default-padding;
+
+                            for property in eg.properties: PropertyInformationWidget {
+                                enabled: sv.enabled;
+                                element-information <=> root.element-information;
+                                property-information: property;
+                            }
+                        }
+                    }
+
+                    VerticalLayout {
+
+                        Rectangle {
+                            height: EditorSpaceSettings.default-padding;
+                        }
+
+                        Rectangle {
+                            height: 1px;
+                            background: Palette.border;
+                            width: 100%;
+                        }
                     }
                 }
             }
         }
     }
 }
-

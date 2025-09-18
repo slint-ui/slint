@@ -281,6 +281,26 @@ impl core::borrow::Borrow<str> for SharedString {
     }
 }
 
+impl Extend<char> for SharedString {
+    fn extend<X: IntoIterator<Item = char>>(&mut self, iter: X) {
+        let iter = iter.into_iter();
+        self.inner.reserve(iter.size_hint().0);
+        let mut buf = [0; 4];
+        for ch in iter {
+            let utf8 = ch.encode_utf8(&mut buf);
+            self.push_str(utf8);
+        }
+    }
+}
+
+impl FromIterator<char> for SharedString {
+    fn from_iter<T: IntoIterator<Item = char>>(iter: T) -> Self {
+        let mut str = Self::new();
+        str.extend(iter);
+        str
+    }
+}
+
 /// Same as [`std::fmt::format()`], but return a [`SharedString`] instead
 pub fn format(args: core::fmt::Arguments<'_>) -> SharedString {
     // unfortunately, the estimated_capacity is unstable
@@ -676,4 +696,17 @@ fn test_serialize_deserialize_sharedstring() {
     let serialized = serde_json::to_string(&v).unwrap();
     let deserialized: SharedString = serde_json::from_str(&serialized).unwrap();
     assert_eq!(v, deserialized);
+}
+
+#[test]
+fn test_extend_from_chars() {
+    let mut s = SharedString::from("x");
+    s.extend(core::iter::repeat('a').take(4).chain(core::iter::once('🍌')));
+    assert_eq!(s.as_str(), "xaaaa🍌");
+}
+
+#[test]
+fn test_collect_from_chars() {
+    let s: SharedString = core::iter::repeat('a').take(4).chain(core::iter::once('🍌')).collect();
+    assert_eq!(s.as_str(), "aaaa🍌");
 }

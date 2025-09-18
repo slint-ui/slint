@@ -1,0 +1,36 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+TestCase := Rectangle {
+    callback test_func(int) -> int;
+    test_func(val) => val ;
+
+    callback test_func2(int, string) -> string ;
+    test_func2(val, str) => {str + "=" + val} ;
+
+    property <int> test_prop: 4 + test_func(2);
+    property <string> test_prop2 : test_func2(54, "hello");
+    property <bool> test: test_prop == 6 && test_prop2 == "hello=54";
+
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_test_prop(), 6);
+assert_eq!(instance.get_test_prop2(), slint::SharedString::from("hello=54"));
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_test_prop(), 6);
+assert_eq(instance.get_test_prop2(), slint::SharedString("hello=54"));
+```
+
+```js
+var instance = new slint.TestCase();
+assert.equal(instance.test_prop, 6);
+assert.equal(instance.test_prop2, "hello=54");
+```
+*/

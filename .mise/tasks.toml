@@ -61,7 +61,7 @@ dir = "editors/vscode"
 sources = ["tools/lsp/Cargo.toml", "tools/lsp/**/*.rs", "tools/lsp/ui/**/*.slint"]
 outputs = ["tools/lsp/pkg/*"]
 run = "pnpm run build:wasm_lsp"
-tools = { "npm:wasm-pack" = "0.13.1" }
+tools = { "ubi:drager/wasm-pack" = "0.13.1" }
 depends = ["prepare:pnpm-install"]
 
 ["build:interpreter:wasm"]
@@ -70,7 +70,7 @@ dir = "tools/slintpad"
 sources = ["api/wasm-interpreter/Cargo.toml", "api/wasm-interpreter/src/**/*.rs"]
 outputs = ["api/wasm-interpreter/pkg/*"]
 run = "pnpm run build:wasm_interpreter"
-tools = { "npm:wasm-pack" = "0.13.1" }
+tools = { "ubi:drager/wasm-pack" = "0.13.1" }
 depends = ["prepare:pnpm-install"]
 
 ["prepare:pnpm-install"]

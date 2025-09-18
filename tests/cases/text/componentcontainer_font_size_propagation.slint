@@ -1,0 +1,84 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+//ignore: cpp,js
+
+export component TestCase inherits Window {
+    default-font-size: 24px;
+    HorizontalLayout {
+        cont := ComponentContainer { }
+    }
+
+    in property <component-factory> component-factory <=> cont.component-factory;
+    out property <length> pref-height: root.preferred-height;
+}
+
+/*
+
+
+
+```rust
+
+use slint::ComponentHandle;
+let inner_instance = std::rc::Rc::<core::cell::RefCell<Option<slint_interpreter::ComponentInstance>>>::default();
+let inner_instance_clone = inner_instance.clone();
+let factory = slint::ComponentFactory::new(move |ctx| {
+    let compiler = slint_interpreter::Compiler::new();
+    let e = spin_on::spin_on(compiler.build_from_source(
+        // This is the same test as font_size_propagation.slint
+        r#"export component Inner inherits Window {
+                default-font-size: 34px;
+                preferred-height: t.font-metrics.ascent - t.font-metrics.descent;
+                t := Text {
+                    text: "Hello 🌍";
+                }
+
+                out property <length> popup-text-size: 0px;
+                out property <length> rem-popup-text-size: 0px;
+
+                popup := PopupWindow {
+                    VerticalLayout {
+                        popup-text := Text {
+                            text: "Ok 🌍";
+                        }
+                        rem-popup-text := Text {
+                            text: "Ok REM";
+                            font-size: 2rem;
+                        }
+                    }
+                    init => {
+                        popup-text-size = popup-text.font-metrics.ascent - popup-text.font-metrics.descent;
+                        rem-popup-text-size = rem-popup-text.font-metrics.ascent - rem-popup-text.font-metrics.descent;
+                    }
+                }
+
+                TouchArea {
+                    clicked => {
+                        popup.show();
+                    }
+                }
+            }"#.into(),
+        std::path::PathBuf::from("embedded.slint"),
+     )).component("Inner").unwrap();
+
+    let inner = e.create_embedded(ctx).unwrap();
+    inner_instance_clone.replace(Some(inner.clone_strong()));
+    Some(inner)
+});
+
+let instance = TestCase::new().unwrap();
+instance.set_component_factory(factory.clone());
+assert_eq!(instance.get_pref_height(), 34.);
+let popup_text_size = inner_instance.borrow().as_ref().expect("should have been created").get_property("popup-text-size").unwrap();
+assert_eq!(popup_text_size, slint_interpreter::Value::from(0.));
+let rem_popup_text_size = inner_instance.borrow().as_ref().expect("should have been created").get_property("rem-popup-text-size").unwrap();
+assert_eq!(rem_popup_text_size, slint_interpreter::Value::from(0.));
+slint_testing::send_mouse_click(&instance, 5., 5.);
+let popup_text_size = inner_instance.borrow().as_ref().expect("should have been created").get_property("popup-text-size").unwrap();
+assert_eq!(popup_text_size, slint_interpreter::Value::from(34.));
+let rem_popup_text_size = inner_instance.borrow().as_ref().expect("should have been created").get_property("rem-popup-text-size").unwrap();
+assert_eq!(rem_popup_text_size, slint_interpreter::Value::from(2. * 34.));
+```
+
+
+*/

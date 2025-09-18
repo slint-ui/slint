@@ -91,6 +91,24 @@ fn create_repeater_components(component: &Rc<Component>) {
         recurse_elem(&comp.root_element, &(), &mut |e, _| {
             e.borrow_mut().enclosing_component = weak.clone()
         });
+
+        // Move all the menus that belong to the new crated component
+        // Could use Vec::extract_if if MSRV >= 1.87
+        component.menu_item_tree.borrow_mut().retain(|x| {
+            if x.parent_element
+                .upgrade()
+                .unwrap()
+                .try_borrow() // borrow fails if `x.parent_element` == `elem`
+                .ok()
+                .is_none_or(|parent| std::rc::Weak::ptr_eq(&parent.enclosing_component, &weak))
+            {
+                comp.menu_item_tree.borrow_mut().push(x.clone());
+                false
+            } else {
+                true
+            }
+        });
+
         create_repeater_components(&comp);
         elem.base_type = ElementType::Component(comp);
     });

@@ -18,8 +18,6 @@ export component JsonWidget inherits GridLayout {
 
     callback set-code-binding(text: string) -> bool;
 
-    spacing-vertical: EditorSpaceSettings.default-spacing;
-
     function apply-value() {
         edit.text = root.property-value.code;
     }
@@ -27,7 +25,6 @@ export component JsonWidget inherits GridLayout {
     init => {
         apply-value();
     }
-
     private property <bool> has-focus: edit.has-focus;
 
     changed has-focus => {
@@ -67,7 +64,6 @@ export component JsonWidget inherits GridLayout {
                     edited(text) => {
                         root.can-compile = root.set-code-binding(text);
                     }
-
                     changed has-focus => {
                         self.text = root.property-value.code;
                         root.can-compile = true;
@@ -89,4 +85,3 @@ export component JsonWidget inherits GridLayout {
         }
     }
 }
-

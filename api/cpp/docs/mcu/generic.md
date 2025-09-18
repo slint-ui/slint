@@ -9,7 +9,7 @@ following generic instructions on what's needed to compile and use Slint.
 ## Prerequisites
 
 * Install Rust by following the [Rust Getting Started Guide](https://www.rust-lang.org/learn/get-started). If you already
-  have Rust installed, make sure that it's at least version 1.82 or newer. You can check which version you have installed
+  have Rust installed, make sure that it's at least version 1.85 or newer. You can check which version you have installed
   by running `rustc --version`. Once this is done, you should have the `rustc` compiler and the `cargo` build system installed in your path.
 
 * A C++ cross-compiler compiler that supports C++20.

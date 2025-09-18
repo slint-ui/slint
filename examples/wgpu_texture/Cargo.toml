@@ -3,7 +3,7 @@
 
 [package]
 name = "wgpu_texture"
-version = "1.12.0"
+version = "1.14.0"
 authors = ["Slint Developers <info@slint.dev>"]
 edition = "2021"
 build = "build.rs"
@@ -15,7 +15,7 @@ path = "main.rs"
 name = "wgpu_texture"
 
 [dependencies]
-slint = { path = "../../api/rs/slint", features = ["unstable-wgpu-24"] }
+slint = { path = "../../api/rs/slint", features = ["unstable-wgpu-26"] }
 bytemuck = { workspace = true }
 
 [build-dependencies]

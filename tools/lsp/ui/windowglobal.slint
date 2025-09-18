@@ -305,6 +305,8 @@ export global WindowManager {
     out property <PropertyInformation> current-property-information;
     in-out property <string> current-property-container-id;
     in-out property <PreviewData> current-preview-data;
+    property component-factory <=> Api.preview-data;
+
     property <string> possible_error;
     property <string> brush-string;
 
@@ -365,7 +367,7 @@ export global WindowManager {
         Api.set-code-binding(
                 current-element-information.source-uri,
                 current-element-information.source-version,
-                current-element-information.range.start,
+                current-element-information.offset,
                 current-property-information.name,
                 text);
     }

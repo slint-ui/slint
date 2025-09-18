@@ -56,43 +56,6 @@ public:
         return slint_windowrc_supports_native_menu_bar(&inner);
     }
 
-    template<typename Component, typename SubMenu, typename Activated>
-    void setup_native_menu_bar(Component component, SubMenu submenu, Activated activated) const
-    {
-        if (!supports_native_menu_bar()) {
-            return;
-        }
-        struct MenuWrapper
-        {
-            Component component;
-            SubMenu submenu;
-            Activated activated;
-        };
-        static cbindgen_private::MenuVTable menu_vtable = {
-            .drop = [](auto data) { delete reinterpret_cast<MenuWrapper *>(data.instance); },
-            .sub_menu =
-                    [](auto data, const cbindgen_private::MenuEntry *entry,
-                       slint::SharedVector<cbindgen_private::MenuEntry> *result) {
-                        auto wrapper = reinterpret_cast<MenuWrapper *>(data.instance);
-                        auto model = wrapper->submenu(wrapper->component, entry);
-                        result->clear();
-                        if (model) {
-                            auto count = model->row_count();
-                            for (size_t i = 0; i < count; ++i) {
-                                result->push_back(*model->row_data(i));
-                            }
-                        }
-                    },
-            .activate =
-                    [](auto data, const cbindgen_private::MenuEntry *entry) {
-                        auto wrapper = reinterpret_cast<MenuWrapper *>(data.instance);
-                        wrapper->activated(wrapper->component, *entry);
-                    },
-        };
-        auto instance = new MenuWrapper { component, std::move(submenu), std::move(activated) };
-        cbindgen_private::slint_windowrc_setup_native_menu_bar(&inner, &menu_vtable, instance);
-    }
-
     bool text_input_focused() const { return slint_windowrc_get_text_input_focused(&inner); }
     void set_text_input_focused(bool value) const
     {
@@ -108,7 +71,7 @@ public:
     }
 
     void set_focus_item(const ItemTreeRc &component_rc, uint32_t item_index, bool set_focus,
-                        cbindgen_private::FocusEventReason reason)
+                        cbindgen_private::FocusReason reason)
     {
         cbindgen_private::ItemRc item_rc { component_rc, item_index };
         cbindgen_private::slint_windowrc_set_focus_item(&inner, &item_rc, set_focus, reason);
@@ -142,10 +105,17 @@ public:
     }
 
     template<typename Component, typename SharedGlobals, typename InitFn>
-    uint32_t show_popup_menu(SharedGlobals *globals, LogicalPosition pos,
-                             cbindgen_private::ItemRc context_menu_rc, InitFn init) const
+    uint32_t show_popup_menu(
+            SharedGlobals *globals, LogicalPosition pos, cbindgen_private::ItemRc context_menu_rc,
+            InitFn init,
+            std::optional<vtable::VRc<cbindgen_private::MenuVTable>> menu = std::nullopt) const
     {
-        // if (cbindgen_private::slint_windowrc_show_native_context_menu(....)) { return }
+        if (menu) {
+            if (cbindgen_private::slint_windowrc_show_native_popup_menu(&inner, &menu.value(), pos,
+                                                                        &context_menu_rc)) {
+                return 0;
+            }
+        }
 
         auto popup = Component::create(globals);
         init(&*popup);
@@ -224,7 +194,7 @@ public:
     void dispatch_pointer_event(const cbindgen_private::MouseEvent &event)
     {
         private_api::assert_main_thread();
-        cbindgen_private::slint_windowrc_dispatch_pointer_event(&inner, event);
+        cbindgen_private::slint_windowrc_dispatch_pointer_event(&inner, &event);
     }
 
     /// Registers a font by the specified path. The path must refer to an existing
@@ -246,8 +216,7 @@ public:
     inline std::optional<SharedString> register_font_from_data(const uint8_t *data, std::size_t len)
     {
         SharedString maybe_err;
-        cbindgen_private::slint_register_font_from_data(
-                &inner, { const_cast<uint8_t *>(data), len }, &maybe_err);
+        cbindgen_private::slint_register_font_from_data(&inner, make_slice(data, len), &maybe_err);
         if (!maybe_err.empty()) {
             return maybe_err;
         } else {
@@ -259,11 +228,6 @@ public:
     inline void register_bitmap_font(const cbindgen_private::BitmapFont &font)
     {
         cbindgen_private::slint_register_bitmap_font(&inner, &font);
-    }
-
-    inline float default_font_size() const
-    {
-        return cbindgen_private::slint_windowrc_default_font_size(&inner);
     }
 
     /// \private
@@ -499,12 +463,8 @@ public:
     void dispatch_pointer_press_event(LogicalPosition pos, PointerEventButton button)
     {
         private_api::assert_main_thread();
-        using slint::cbindgen_private::MouseEvent;
-        MouseEvent event { .tag = MouseEvent::Tag::Pressed,
-                           .pressed = MouseEvent::Pressed_Body { .position = { pos.x, pos.y },
-                                                                 .button = button,
-                                                                 .click_count = 0 } };
-        inner.dispatch_pointer_event(event);
+        inner.dispatch_pointer_event(
+                slint::cbindgen_private::MouseEvent::Pressed({ pos.x, pos.y }, button, 0));
     }
     /// Dispatches a pointer or mouse release event to the scene.
     ///
@@ -516,12 +476,8 @@ public:
     void dispatch_pointer_release_event(LogicalPosition pos, PointerEventButton button)
     {
         private_api::assert_main_thread();
-        using slint::cbindgen_private::MouseEvent;
-        MouseEvent event { .tag = MouseEvent::Tag::Released,
-                           .released = MouseEvent::Released_Body { .position = { pos.x, pos.y },
-                                                                   .button = button,
-                                                                   .click_count = 0 } };
-        inner.dispatch_pointer_event(event);
+        inner.dispatch_pointer_event(
+                slint::cbindgen_private::MouseEvent::Released({ pos.x, pos.y }, button, 0));
     }
     /// Dispatches a pointer exit event to the scene.
     ///
@@ -532,9 +488,7 @@ public:
     void dispatch_pointer_exit_event()
     {
         private_api::assert_main_thread();
-        using slint::cbindgen_private::MouseEvent;
-        MouseEvent event { .tag = MouseEvent::Tag::Exit, .moved = {} };
-        inner.dispatch_pointer_event(event);
+        inner.dispatch_pointer_event(slint::cbindgen_private::MouseEvent::Exit());
     }
 
     /// Dispatches a pointer move event to the scene.
@@ -546,10 +500,7 @@ public:
     void dispatch_pointer_move_event(LogicalPosition pos)
     {
         private_api::assert_main_thread();
-        using slint::cbindgen_private::MouseEvent;
-        MouseEvent event { .tag = MouseEvent::Tag::Moved,
-                           .moved = MouseEvent::Moved_Body { .position = { pos.x, pos.y } } };
-        inner.dispatch_pointer_event(event);
+        inner.dispatch_pointer_event(slint::cbindgen_private::MouseEvent::Moved({ pos.x, pos.y }));
     }
 
     /// Dispatches a scroll (or wheel) event to the scene.
@@ -563,12 +514,8 @@ public:
     void dispatch_pointer_scroll_event(LogicalPosition pos, float delta_x, float delta_y)
     {
         private_api::assert_main_thread();
-        using slint::cbindgen_private::MouseEvent;
-        MouseEvent event { .tag = MouseEvent::Tag::Wheel,
-                           .wheel = MouseEvent::Wheel_Body { .position = { pos.x, pos.y },
-                                                             .delta_x = delta_x,
-                                                             .delta_y = delta_y } };
-        inner.dispatch_pointer_event(event);
+        inner.dispatch_pointer_event(
+                slint::cbindgen_private::MouseEvent::Wheel({ pos.x, pos.y }, delta_x, delta_y));
     }
 
     /// Set the logical size of this window after a resize event

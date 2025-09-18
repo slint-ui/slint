@@ -40,7 +40,7 @@ async fn parse_source(
         }));
         #[cfg(target_arch = "wasm32")]
         {
-            tmp.resource_url_mapper = resource_url_mapper();
+            tmp.resource_url_mapper = crate::preview::connector::resource_url_mapper();
         }
         tmp
     };
@@ -77,7 +77,6 @@ pub fn compile_test_with_sources(
     recompile_test_with_sources(style, code, allow_warnings)
 }
 
-#[track_caller]
 pub fn recompile_test_with_sources(
     style: &str,
     code: HashMap<lsp_types::Url, String>,

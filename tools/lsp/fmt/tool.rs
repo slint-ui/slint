@@ -22,13 +22,13 @@ use std::path::Path;
 
 use super::{fmt, writer};
 
-pub fn run(files: Vec<std::path::PathBuf>, inplace: bool) -> std::io::Result<()> {
+pub fn run(files: &[std::path::PathBuf], inplace: bool) -> std::io::Result<()> {
     for path in files {
         let source = std::fs::read_to_string(&path)?;
 
         if inplace {
             let file = BufWriter::new(std::fs::File::create(&path)?);
-            process_file(source, path, file)?
+            process_file(source, path, file)?;
         } else {
             process_file(source, path, std::io::stdout())?
         }
@@ -53,7 +53,8 @@ fn process_rust_file(source: String, mut file: impl Write) -> std::io::Result<()
             diag.print();
         }
     }
-    file.write_all(&source.as_bytes()[last..])
+    file.write_all(&source.as_bytes()[last..])?;
+    file.flush()
 }
 
 /// FIXME! this is duplicated with the updater
@@ -88,7 +89,7 @@ fn process_markdown_file(source: String, mut file: impl Write) -> std::io::Resul
 
 fn process_slint_file(
     source: String,
-    path: std::path::PathBuf,
+    path: &std::path::Path,
     mut file: impl Write,
 ) -> std::io::Result<()> {
     let mut diag = BuildDiagnostics::default();
@@ -104,7 +105,7 @@ fn process_slint_file(
 
 fn process_file(
     source: String,
-    path: std::path::PathBuf,
+    path: &std::path::Path,
     mut file: impl Write,
 ) -> std::io::Result<()> {
     match path.extension() {
@@ -114,7 +115,7 @@ fn process_file(
         Some(ext) if ext == "slint" || ext == ".60" => process_slint_file(source, path, file),
         _ => {
             // This allows usage like `cat x.slint | slint-lsp format /dev/stdin`
-            if path.as_path() == Path::new("/dev/stdin") {
+            if path == Path::new("/dev/stdin") {
                 return process_slint_file(source, path, file);
             }
             // With other file types, we just output them in their original form.
@@ -128,6 +129,6 @@ fn visit_node(node: SyntaxNode, file: &mut impl Write) -> std::io::Result<()> {
         let mut writer = writer::FileWriter { file };
         fmt::format_document(doc, &mut writer)
     } else {
-        Err(std::io::Error::new(std::io::ErrorKind::Other, "Not a Document"))
+        Err(std::io::Error::other("Not a Document"))
     }
 }

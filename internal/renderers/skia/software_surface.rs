@@ -32,11 +32,11 @@ pub trait RenderBuffer {
 }
 
 struct SoftbufferRenderBuffer {
-    _context: softbuffer::Context<Arc<dyn raw_window_handle::HasDisplayHandle>>,
+    _context: softbuffer::Context<Arc<dyn raw_window_handle::HasDisplayHandle + Send + Sync>>,
     surface: RefCell<
         softbuffer::Surface<
-            Arc<dyn raw_window_handle::HasDisplayHandle>,
-            Arc<dyn raw_window_handle::HasWindowHandle>,
+            Arc<dyn raw_window_handle::HasDisplayHandle + Send + Sync>,
+            Arc<dyn raw_window_handle::HasWindowHandle + Send + Sync>,
         >,
     >,
 }
@@ -115,8 +115,8 @@ pub struct SoftwareSurface {
 impl super::Surface for SoftwareSurface {
     fn new(
         _shared_context: &SkiaSharedContext,
-        window_handle: Arc<dyn raw_window_handle::HasWindowHandle>,
-        display_handle: Arc<dyn raw_window_handle::HasDisplayHandle>,
+        window_handle: Arc<dyn raw_window_handle::HasWindowHandle + Send + Sync>,
+        display_handle: Arc<dyn raw_window_handle::HasDisplayHandle + Send + Sync>,
         _size: PhysicalWindowSize,
         _requested_graphics_api: Option<RequestedGraphicsAPI>,
     ) -> Result<Self, i_slint_core::platform::PlatformError> {

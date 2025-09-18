@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 #define CATCH_CONFIG_MAIN
-#include "catch2/catch.hpp"
+#include "catch2/catch_all.hpp"
 
 #include <slint.h>
 #include <thread>

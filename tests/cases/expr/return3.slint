@@ -59,6 +59,38 @@ export global Issue8485  {
     }
 }
 
+export global Issue8723 {
+    pure callback key-pressed(KeyEvent) -> EventResult;
+    key-pressed(event) => {
+        if (true) {
+            if (false) {
+                return accept;
+            }
+            return accept;
+        }
+        if (event.text == Key.LeftArrow) {
+            return accept;
+        }
+        return reject;
+    }
+
+    public pure function xxx(cond1: bool, cond2: bool, cond3: bool) -> string {
+        if (cond1) {
+            if (cond2) {
+                return "A";
+            }
+            return "B";
+        }
+        if (cond3) {
+            return "C";
+        }
+        return "D";
+    }
+
+    out property <bool> test: xxx(true, true, true) == "A" && xxx(true, false, true) == "B" && xxx(false, true, true) == "C" && xxx(false, false, false) == "D";
+
+}
+
 
 export component TestCase {
 
@@ -73,7 +105,8 @@ export component TestCase {
     {
         return bkg1.background == Colors.blue && bkg2.background == Colors.red
             && bkg3.background == Colors.orange && bkg4.background == Colors.pink && bkg5.background == Colors.blue
-            && Issue8485.format_nullable_duration(false, 2) == "bbb";
+            && Issue8485.format_nullable_duration(false, 2) == "bbb"
+            && Issue8723.key-pressed({text: Key.LeftArrow}) == EventResult.accept && Issue8723.test;
     }
 
 

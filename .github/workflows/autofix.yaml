@@ -26,22 +26,24 @@ jobs:
         runs-on: ubuntu-24.04
         timeout-minutes: 15
         steps:
-            - uses: actions/checkout@v4
-            - uses: jdx/mise-action@v2
+            - uses: actions/checkout@v5
+            - uses: jdx/mise-action@v3
               with:
+                version: 2025.7.12
                 log_level: debug
             - name: Run fixes
               run: mise run --force --jobs=1 'ci:autofix:fix'
             - name: Suggest format changes
-              uses: autofix-ci/action@551dded8c6cc8a1054039c8bc0b8b48c51dfc6ef
+              uses: autofix-ci/action@635ffb0c9798bd160680f18fd73371e355b85f27
 
     lint_typecheck:
         runs-on: ubuntu-24.04
         timeout-minutes: 15
         steps:
-            - uses: actions/checkout@v4
-            - uses: jdx/mise-action@v2
+            - uses: actions/checkout@v5
+            - uses: jdx/mise-action@v3
               with:
+                version: 2025.7.12
                 log_level: debug
             - name: Run lints
               run: mise run --force --jobs=1 'ci:autofix:lint'

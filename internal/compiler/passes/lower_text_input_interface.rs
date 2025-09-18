@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-//! Passe lower the access to the global TextInputInterface.text-input-focused to getter or setter.
+//! This pass lowers the access to the global TextInputInterface.text-input-focused to getter or setter.
 
 use crate::expression_tree::{BuiltinFunction, Expression};
 use crate::namedreference::NamedReference;

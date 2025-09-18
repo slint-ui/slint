@@ -69,25 +69,38 @@ export component Example inherits Window {
 
 ## Statements
 
-Assignment:
+### Let statements (local variables)
+The `let` keyword can be used to create local variables. Local variables are immutable and cannot be redeclared
+(even in other scopes). They optionally have a type annotation.
+```slint no-test
+clicked => {
+    let foo = "hello world"; // no type annotation, inferred type
+    debug(foo); // prints "hello world"
+
+    let bar: int = 2; // explicit type annotation
+    debug(bar); // prints "2"
+}
+```
+
+### Assignment
 
 ```slint no-test
 clicked => { some-property = 42; }
 ```
 
-Self-assignment with `+=` `-=` `*=` `/=`
+### Self-assignment with `+=` `-=` `*=` `/=`
 
 ```slint no-test
 clicked => { some-property += 42; }
 ```
 
-Calling a callback
+### Calling a callback
 
 ```slint no-test
 clicked => { root.some-callback(); }
 ```
 
-Conditional statements
+### Conditional statements
 
 ```slint no-test
 clicked => {
@@ -101,7 +114,7 @@ clicked => {
 }
 ```
 
-Empty expression
+### Empty expression
 
 ```slint no-test
 clicked => { }

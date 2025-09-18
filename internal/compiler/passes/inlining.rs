@@ -201,7 +201,19 @@ fn inline_element(
             .map(|p| duplicate_popup(p, &mut mapping, priority_delta)),
     );
 
-    root_component.timers.borrow_mut().extend(inlined_component.timers.borrow().iter().cloned());
+    root_component.menu_item_tree.borrow_mut().extend(
+        inlined_component
+            .menu_item_tree
+            .borrow()
+            .iter()
+            .map(|it| duplicate_sub_component(it, elem, &mut mapping, priority_delta)),
+    );
+
+    root_component.timers.borrow_mut().extend(inlined_component.timers.borrow().iter().map(|t| {
+        let inlined_element = mapping.get(&element_key(t.element.upgrade().unwrap())).unwrap();
+
+        Timer { element: Rc::downgrade(inlined_element), ..t.clone() }
+    }));
 
     let mut moved_into_popup = HashSet::new();
     if let Some(children) = move_children_into_popup {
@@ -435,6 +447,7 @@ fn duplicate_sub_component(
         used: component_to_duplicate.used.clone(),
         private_properties: Default::default(),
         inherits_popup_window: core::cell::Cell::new(false),
+        from_library: core::cell::Cell::new(false),
     };
 
     let new_component = Rc::new(new_component);

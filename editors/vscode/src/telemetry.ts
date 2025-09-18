@@ -23,13 +23,16 @@ export class SlintTelemetrySender implements vscode.TelemetrySender {
             data: data,
         };
 
-        fetch(`https://${this.#telemetry_host}/telemetry/v1/vscode-usage`, {
-            headers: {
-                "Content-Type": "application/json",
+        void fetch(
+            `https://${this.#telemetry_host}/telemetry/v1/vscode-usage`,
+            {
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                method: "POST",
+                body: JSON.stringify(dataToSend),
             },
-            method: "POST",
-            body: JSON.stringify(dataToSend),
-        });
+        );
     }
 
     sendErrorData(error: Error, data?: Record<string, any>): void {

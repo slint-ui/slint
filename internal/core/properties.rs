@@ -147,17 +147,6 @@ pub(crate) mod dependency_tracker {
             self.0.get().is_null()
         }
 
-        /// Remove all the nodes from the list;
-        pub fn clear(self: Pin<&Self>) {
-            unsafe {
-                if let Some(n) = self.0.get().as_ref() {
-                    n.debug_assert_valid();
-                    n.prev.set(core::ptr::null());
-                }
-            }
-            self.0.set(core::ptr::null());
-        }
-
         pub unsafe fn drop(_self: *mut Self) {
             if let Some(next) = (*_self).0.get().as_ref() {
                 debug_assert_eq!(_self as *const _, next.prev.get() as *const _);
@@ -192,6 +181,22 @@ pub(crate) mod dependency_tracker {
                     node.debug_assert_valid();
                     next = node.next.get();
                     f(&node.binding);
+                }
+            }
+        }
+
+        /// Returns the first node of the list, if any
+        pub fn take_head(&self) -> Option<T>
+        where
+            T: Copy,
+        {
+            unsafe {
+                if let Some(node) = self.0.get().as_ref() {
+                    node.debug_assert_valid();
+                    node.remove();
+                    Some(node.binding)
+                } else {
+                    None
                 }
             }
         }
@@ -396,7 +401,7 @@ struct BindingHolder<B = ()> {
     is_two_way_binding: bool,
     pinned: PhantomPinned,
     #[cfg(slint_debug_property)]
-    pub debug_name: String,
+    pub debug_name: alloc::string::String,
 
     binding: B,
 }
@@ -405,7 +410,7 @@ impl BindingHolder {
     fn register_self_as_dependency(
         self: Pin<&Self>,
         property_that_will_notify: *mut DependencyListHead,
-        #[cfg(slint_debug_property)] other_debug_name: &str,
+        #[cfg(slint_debug_property)] _other_debug_name: &str,
     ) {
         let node = DependencyNode::new(self.get_ref() as *const _);
         let mut dep_nodes = self.dep_nodes.take();
@@ -764,7 +769,7 @@ pub struct Property<T> {
     /// Note that adding this flag will also tell the rust compiler to set this
     /// and that this will not work with C++ because of binary incompatibility
     #[cfg(slint_debug_property)]
-    pub debug_name: RefCell<String>,
+    pub debug_name: RefCell<alloc::string::String>,
 }
 
 impl<T: core::fmt::Debug + Clone> core::fmt::Debug for Property<T> {
@@ -811,7 +816,7 @@ impl<T: Clone> Property<T> {
             value: UnsafeCell::new(value),
             pinned: PhantomPinned,
             #[cfg(slint_debug_property)]
-            debug_name: _name.to_owned().into(),
+            debug_name: RefCell::new(_name.into()),
         }
     }
 
@@ -1036,7 +1041,8 @@ impl<T: PartialEq + Clone + 'static> Property<T> {
         }
 
         #[cfg(slint_debug_property)]
-        let debug_name = format!("<{}<=>{}>", prop1.debug_name.borrow(), prop2.debug_name.borrow());
+        let debug_name =
+            alloc::format!("<{}<=>{}>", prop1.debug_name.borrow(), prop2.debug_name.borrow());
 
         let value = prop2.get_internal();
 
@@ -1178,8 +1184,8 @@ fn property_two_ways_recurse_from_binding() {
             if !done.get() {
                 done.set(true);
                 Property::link_two_way(p1.as_ref(), p2.as_ref());
-                let xx = xx_weak.upgrade().unwrap();
-                p1.as_ref().set_binding(move || xx.as_ref().get() + 9);
+                let xx_weak = xx_weak.clone();
+                p1.as_ref().set_binding(move || xx_weak.upgrade().unwrap().as_ref().get() + 9);
             }
             global.as_ref().get() + 2
         }
@@ -1413,7 +1419,7 @@ impl<DirtyHandler> Drop for PropertyTracker<DirtyHandler> {
 impl<DirtyHandler: PropertyDirtyHandler> PropertyTracker<DirtyHandler> {
     #[cfg(slint_debug_property)]
     /// set the debug name when `cfg(slint_debug_property`
-    pub fn set_debug_name(&mut self, debug_name: String) {
+    pub fn set_debug_name(&mut self, debug_name: alloc::string::String) {
         self.holder.debug_name = debug_name;
     }
 

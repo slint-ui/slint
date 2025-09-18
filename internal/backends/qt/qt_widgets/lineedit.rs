@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+use i_slint_core::graphics::{Image, Rgba8Pixel, SharedPixelBuffer};
 use i_slint_core::input::FocusEventResult;
 use i_slint_core::items::InputType;
 
@@ -18,8 +19,44 @@ pub struct NativeLineEdit {
     pub has_focus: Property<bool>,
     pub enabled: Property<bool>,
     pub input_type: Property<InputType>,
+    pub clear_icon: Property<Image>,
     widget_ptr: std::cell::Cell<SlintTypeErasedWidgetPtr>,
     animation_tracker: Property<i32>,
+}
+
+fn get_clear_icon() -> Image {
+    let dpr = cpp!(unsafe [] -> f32 as "float" {
+        return qApp->devicePixelRatio();
+    });
+
+    let size = cpp!(unsafe [] -> u32 as "uint" {
+        #if QT_VERSION < QT_VERSION_CHECK(6, 2, 0)
+        return qApp->style()->pixelMetric(QStyle::PM_SmallIconSize, nullptr, nullptr);
+        #else
+        return qApp->style()->pixelMetric(QStyle::PM_LineEditIconSize, nullptr, nullptr);
+        #endif
+    });
+
+    let width = (size as f32 * dpr).ceil() as u32;
+    let height = width;
+
+    let mut pixel_buffer = SharedPixelBuffer::<Rgba8Pixel>::new(width, height);
+    let ptr = pixel_buffer.make_mut_bytes().as_mut_ptr();
+
+    cpp!(unsafe [
+        width as "uint32_t",
+        height as "uint32_t",
+        ptr as "uint8_t*"
+    ] {
+        QStyleOptionFrame option;
+        const QIcon icon = qApp->style()->standardIcon(QStyle::SP_LineEditClearButton, &option);
+        QImage image(ptr, width, height, QImage::Format_RGBA8888);
+        image.setDevicePixelRatio(1.0);
+        QPainter painter(&image);
+        icon.paint(&painter, 0, 0, width, height, Qt::AlignCenter);
+    });
+
+    Image::from_rgba8(pixel_buffer)
 }
 
 impl Item for NativeLineEdit {
@@ -70,6 +107,8 @@ impl Item for NativeLineEdit {
             let paddings = paddings;
             move || LogicalLength::new(paddings.as_ref().get().bottom as _)
         });
+
+        self.clear_icon.set(get_clear_icon());
     }
 
     fn layout_info(
@@ -93,7 +132,7 @@ impl Item for NativeLineEdit {
 
     fn input_event_filter_before_children(
         self: Pin<&Self>,
-        _: MouseEvent,
+        _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
@@ -102,11 +141,20 @@ impl Item for NativeLineEdit {
 
     fn input_event(
         self: Pin<&Self>,
-        _: MouseEvent,
+        _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &i_slint_core::items::ItemRc,
     ) -> InputEventResult {
         InputEventResult::EventIgnored
+    }
+
+    fn capture_key_event(
+        self: Pin<&Self>,
+        _event: &KeyEvent,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+    ) -> KeyEventResult {
+        KeyEventResult::EventIgnored
     }
 
     fn key_event(

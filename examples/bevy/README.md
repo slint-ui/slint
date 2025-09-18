@@ -6,9 +6,10 @@ This example shows how to integrate [Bevy](https://bevyengine.org) 3D rendering 
 
 The example can be run on desktop platforms.
 
-![Screenshot of the Bevy Demo](https://github.com/user-attachments/assets/cc4ed152-fc42-40a8-aba8-944add286dea)
+![Screenshot of the Bevy Demo](https://github.com/user-attachments/assets/01b824cd-c2b2-4366-a1f4-5c4895a35976)
 
 On a desktop system, run the demo with the following command:
 ```sh
-cargo run -p bevy-example
+cd examples/bevy
+cargo run
 ```

@@ -103,7 +103,7 @@ Refer to the README of each language directory in the `api` folder:
 - [C++](api/cpp) ([Documentation][#15] | [Getting Started Template][#17])
 - [Rust](api/rs/slint) [![Crates.io][#18]][#19] ([Documentation][#20] | [Tutorial Video][#22] | [Getting Started Template][#23])
 - [JavaScript/NodeJS (Beta)](api/node) [![npm][#24]][#25] ([Documentation][#26] | [Getting Started Template][#28])
-- [Python (Beta)](api/python) [![pypi][#31]][#32] ([Documentation][#33] | [Getting Started Template][#34])
+- [Python (Beta)](api/python/slint) [![pypi][#31]][#32] ([Documentation][#33] | [Getting Started Template][#34])
 
 ## Architecture
 

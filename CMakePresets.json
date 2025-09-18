@@ -1,0 +1,68 @@
+{
+    "version": 8,
+    "$schema": "https://cmake.org/cmake/help/latest/_downloads/3e2d73bff478d88a7de0de736ba5e361/schema.json",
+    "configurePresets": [
+        {
+            "name": "base",
+            "displayName": "base preset",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build-${presetName}",
+            "hidden": true
+        },
+        {
+            "name": "base-debug",
+            "displayName": "base debug preset",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build-${presetName}",
+            "hidden": true,
+            "cacheVariables": {
+                "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+                "CMAKE_BUILD_TYPE": "Debug",
+                "SLINT_BUILD_EXAMPLES": "ON",
+                "SLINT_BUILD_TESTING": "ON"
+            }
+        },
+        {
+            "name": "debug-mold",
+            "displayName": "Build as debug + using mold linker",
+            "cacheVariables": {
+                "CMAKE_SHARED_LINKER_FLAGS": "-fuse-ld=mold"
+            },
+            "inherits": [
+                "base-debug"
+            ]
+        },
+        {
+            "name": "debug",
+            "displayName": "Build against",
+            "binaryDir": "${sourceDir}/build",
+            "inherits": [
+                "base-debug"
+            ]
+        },
+        {
+            "name": "release",
+            "displayName": "Build as release mode.",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "RelWithDebInfo"
+            },
+            "inherits": [
+                "base"
+            ]
+        }
+    ],
+    "buildPresets": [
+        {
+            "name": "debug-mold",
+            "configurePreset": "debug-mold"
+        },
+        {
+            "name": "debug",
+            "configurePreset": "debug"
+        },
+        {
+            "name": "release",
+            "configurePreset": "release"
+        }
+    ]
+}

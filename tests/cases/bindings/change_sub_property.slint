@@ -12,7 +12,7 @@ SubElem := Rectangle {
 
 TestCase := Rectangle {
     callback change();
-    change => { sub.change() }
+    change => sub.change();
     property <int> toplevel: sub.value + 1;
     sub := SubElem { }
 }

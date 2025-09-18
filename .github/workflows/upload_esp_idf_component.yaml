@@ -22,7 +22,7 @@ jobs:
         runs-on: ubuntu-22.04
         container: espressif/idf:latest
         steps:
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@v5
             - run: apt-get update && apt-get install -y yq
             - name: Make subsequent git calls work
               run: git config --global --add safe.directory '*'

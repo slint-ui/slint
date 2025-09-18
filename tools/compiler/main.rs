@@ -44,8 +44,8 @@ enum Embedding {
 struct Cli {
     /// Set the output format for generated code.
     /// Possible values: 'cpp' for C++ code or 'rust' for Rust code.
-    #[arg(short = 'f', long = "format", default_value = "cpp")]
-    format: generator::OutputFormat,
+    #[arg(short = 'f', long = "format")]
+    format: Option<generator::OutputFormat>,
 
     /// Specify include paths for imported .slint files or image resources.
     /// This is used for including external .slint files or image resources referenced by '@image-url'.
@@ -121,7 +121,12 @@ fn main() -> std::io::Result<()> {
         std::process::exit(-1);
     }
 
-    let mut format = args.format.clone();
+    let mut format = args.format.clone().unwrap_or_else(|| {
+        match std::path::Path::new(&args.output).extension().and_then(|ext| ext.to_str()) {
+            Some("rs") => generator::OutputFormat::Rust,
+            _ => generator::OutputFormat::Cpp(Default::default()),
+        }
+    });
 
     if args.cpp_namespace.is_some() {
         if !matches!(format, generator::OutputFormat::Cpp(..)) {
@@ -193,12 +198,9 @@ fn main() -> std::io::Result<()> {
     if args.output == std::path::Path::new("-") {
         generator::generate(format, &mut std::io::stdout(), &doc, &loader.compiler_config)?;
     } else {
-        generator::generate(
-            format,
-            &mut BufWriter::new(std::fs::File::create(&args.output)?),
-            &doc,
-            &loader.compiler_config,
-        )?;
+        let mut file_writer = BufWriter::new(std::fs::File::create(&args.output)?);
+        generator::generate(format, &mut file_writer, &doc, &loader.compiler_config)?;
+        file_writer.flush()?;
     }
 
     if let Some(depfile) = args.depfile {
@@ -218,6 +220,7 @@ fn main() -> std::io::Result<()> {
         }
 
         writeln!(f)?;
+        f.flush()?;
     }
     diag.print_warnings_and_exit_on_error();
     Ok(())

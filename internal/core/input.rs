@@ -8,9 +8,9 @@
 use crate::item_tree::ItemTreeRc;
 use crate::item_tree::{ItemRc, ItemWeak, VisitChildrenResult};
 pub use crate::items::PointerEventButton;
-use crate::items::{ItemRef, TextCursorDirection};
-pub use crate::items::{KeyEvent, KeyboardModifiers};
-use crate::lengths::{LogicalPoint, LogicalVector};
+use crate::items::{DropEvent, ItemRef, TextCursorDirection};
+pub use crate::items::{FocusReason, KeyEvent, KeyboardModifiers};
+use crate::lengths::{ItemTransform, LogicalPoint, LogicalVector};
 use crate::timers::Timer;
 use crate::window::{WindowAdapter, WindowInner};
 use crate::{Coord, Property, SharedString};
@@ -23,10 +23,10 @@ use core::time::Duration;
 
 /// A mouse or touch event
 ///
-/// The only difference with [`crate::platform::WindowEvent`] us that it uses untyped `Point`
+/// The only difference with [`crate::platform::WindowEvent`] is that it uses untyped `Point`
 /// TODO: merge with platform::WindowEvent
 #[repr(C)]
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 #[allow(missing_docs)]
 pub enum MouseEvent {
     /// The mouse or finger was pressed
@@ -46,6 +46,12 @@ pub enum MouseEvent {
     /// `delta_x` is the amount of pixels to scroll in horizontal direction,
     /// `delta_y` is the amount of pixels to scroll in vertical direction.
     Wheel { position: LogicalPoint, delta_x: Coord, delta_y: Coord },
+    /// The mouse is being dragged over this item.
+    /// [`InputEventResult::EventIgnored`] means that the item does not handle the drag operation
+    /// and [`InputEventResult::EventAccepted`] means that the item can accept it.
+    DragMove(DropEvent),
+    /// The mouse is released while dragging over this item.
+    Drop(DropEvent),
     /// The mouse exited the item or component
     Exit,
 }
@@ -58,6 +64,9 @@ impl MouseEvent {
             MouseEvent::Released { position, .. } => Some(*position),
             MouseEvent::Moved { position } => Some(*position),
             MouseEvent::Wheel { position, .. } => Some(*position),
+            MouseEvent::DragMove(e) | MouseEvent::Drop(e) => {
+                Some(crate::lengths::logical_point_from_api(e.position))
+            }
             MouseEvent::Exit => None,
         }
     }
@@ -69,10 +78,38 @@ impl MouseEvent {
             MouseEvent::Released { position, .. } => Some(position),
             MouseEvent::Moved { position } => Some(position),
             MouseEvent::Wheel { position, .. } => Some(position),
+            MouseEvent::DragMove(e) | MouseEvent::Drop(e) => {
+                e.position = crate::api::LogicalPosition::from_euclid(
+                    crate::lengths::logical_point_from_api(e.position) + vec,
+                );
+                None
+            }
             MouseEvent::Exit => None,
         };
         if let Some(pos) = pos {
             *pos += vec;
+        }
+    }
+
+    /// Transform the position by the given item transform.
+    pub fn transform(&mut self, transform: ItemTransform) {
+        let pos = match self {
+            MouseEvent::Pressed { position, .. } => Some(position),
+            MouseEvent::Released { position, .. } => Some(position),
+            MouseEvent::Moved { position } => Some(position),
+            MouseEvent::Wheel { position, .. } => Some(position),
+            MouseEvent::DragMove(e) | MouseEvent::Drop(e) => {
+                e.position = crate::api::LogicalPosition::from_euclid(
+                    transform
+                        .transform_point(crate::lengths::logical_point_from_api(e.position).cast())
+                        .cast(),
+                );
+                None
+            }
+            MouseEvent::Exit => None,
+        };
+        if let Some(pos) = pos {
+            *pos = transform.transform_point(pos.cast()).cast();
         }
     }
 
@@ -100,8 +137,10 @@ pub enum InputEventResult {
     /// The event was ignored.
     #[default]
     EventIgnored,
-    /// All further mouse event need to be sent to this item or component
+    /// All further mouse events need to be sent to this item or component
     GrabMouse,
+    /// Will start a drag operation. Can only be returned from a [`crate::items::DragArea`] item.
+    StartDrag,
 }
 
 /// This value is returned by the `input_event_filter_before_children` function, which
@@ -117,13 +156,13 @@ pub enum InputEventFilterResult {
     /// The event will be forwarded to the children, but the [`crate::items::ItemVTable::input_event`] is not
     /// going to be called for this item
     ForwardAndIgnore,
-    /// Just like `ForwardEvent`, but even in the case the children grabs the mouse, this function
-    /// will still be called for further event
+    /// Just like `ForwardEvent`, but even in the case that children grabs the mouse, this function
+    /// will still be called for further events
     ForwardAndInterceptGrab,
-    /// The event will not be forwarded to children, if a children already had the grab, the
+    /// The event will not be forwarded to children, if a child already had the grab, the
     /// grab will be cancelled with a [`MouseEvent::Exit`] event
     Intercept,
-    /// The event will be forwarding to the children with a delay (in milliseconds), unless it is
+    /// The event will be forwarded to the children with a delay (in milliseconds), unless it is
     /// being intercepted.
     /// This is what happens when the flickable wants to delay the event.
     /// This should only be used for Press event, and the event will be sent after the delay, or
@@ -315,7 +354,9 @@ impl KeyEvent {
     pub fn text_shortcut(&self) -> Option<TextShortcut> {
         let keycode = self.text.chars().next()?;
 
-        let move_mod = if cfg!(target_os = "macos") {
+        let is_apple = crate::is_apple_platform();
+
+        let move_mod = if is_apple {
             self.modifiers.alt && !self.modifiers.control && !self.modifiers.meta
         } else {
             self.modifiers.control && !self.modifiers.alt && !self.modifiers.meta
@@ -360,25 +401,25 @@ impl KeyEvent {
             }
         }
 
-        #[cfg(target_os = "macos")]
-        {
-            if self.modifiers.control {
-                match keycode {
-                    key_codes::LeftArrow => {
-                        return Some(TextShortcut::Move(TextCursorDirection::StartOfLine))
-                    }
-                    key_codes::RightArrow => {
-                        return Some(TextShortcut::Move(TextCursorDirection::EndOfLine))
-                    }
-                    key_codes::UpArrow => {
-                        return Some(TextShortcut::Move(TextCursorDirection::StartOfText))
-                    }
-                    key_codes::DownArrow => {
-                        return Some(TextShortcut::Move(TextCursorDirection::EndOfText))
-                    }
-                    _ => (),
-                };
-            }
+        if is_apple && self.modifiers.control {
+            match keycode {
+                key_codes::LeftArrow => {
+                    return Some(TextShortcut::Move(TextCursorDirection::StartOfLine))
+                }
+                key_codes::RightArrow => {
+                    return Some(TextShortcut::Move(TextCursorDirection::EndOfLine))
+                }
+                key_codes::UpArrow => {
+                    return Some(TextShortcut::Move(TextCursorDirection::StartOfText))
+                }
+                key_codes::DownArrow => {
+                    return Some(TextShortcut::Move(TextCursorDirection::EndOfText))
+                }
+                key_codes::Backspace => {
+                    return Some(TextShortcut::DeleteToStartOfLine);
+                }
+                _ => (),
+            };
         }
 
         if let Ok(direction) = TextCursorDirection::try_from(keycode) {
@@ -429,6 +470,8 @@ pub enum TextShortcut {
     DeleteWordForward,
     /// Delete the word to the left of the cursor (aka Ctrl + Backspace).
     DeleteWordBackward,
+    /// Delete to the left of the cursor until the start of the line
+    DeleteToStartOfLine,
 }
 
 /// Represents how an item's key_event handler dealt with a key event.
@@ -455,33 +498,15 @@ pub enum FocusEventResult {
     FocusIgnored,
 }
 
-/// This enum describes the different reasons for a FocusEvent
-#[derive(Debug, Clone, Copy, PartialEq)]
-#[repr(u8)]
-pub enum FocusEventReason {
-    /// The keyboard caused the event (tabbing)
-    Keyboard,
-    /// The mouse caused the event
-    Mouse,
-    /// A popup caused the event
-    Popup,
-    /// A built-in function caused the event (set-focus-item, clear-focus-item)
-    BuiltinFunction,
-    /// AccessKit caused the event
-    AccessKit,
-    /// The window manager changed the active window and caused the event
-    ActiveWindow,
-}
-
-/// This event is sent to a component and items when they receive or loose
+/// This event is sent to a component and items when they receive or lose
 /// the keyboard focus.
 #[derive(Debug, Clone, Copy, PartialEq)]
 #[repr(u8)]
 pub enum FocusEvent {
     /// This event is sent when an item receives the focus.
-    FocusIn(FocusEventReason),
-    /// This event is sent when an item looses the focus.
-    FocusOut(FocusEventReason),
+    FocusIn(FocusReason),
+    /// This event is sent when an item loses the focus.
+    FocusOut(FocusReason),
 }
 
 /// This state is used to count the clicks separated by [`crate::platform::Platform::click_interval`]
@@ -558,6 +583,9 @@ pub struct MouseInputState {
     pub(crate) offset: LogicalPoint,
     /// true if the top item of the stack has the mouse grab
     grabbed: bool,
+    /// When this is Some, it means we are in the middle of a drag-drop operation and it contains the dragged data.
+    /// The `position` field has no signification
+    pub(crate) drag_data: Option<DropEvent>,
     delayed: Option<(crate::timers::Timer, MouseEvent)>,
     delayed_exit_items: Vec<ItemWeak>,
 }
@@ -577,15 +605,15 @@ impl MouseInputState {
 /// Try to handle the mouse grabber. Return None if the event has been handled, otherwise
 /// return the event that must be handled
 pub(crate) fn handle_mouse_grab(
-    mouse_event: MouseEvent,
+    mouse_event: &MouseEvent,
     window_adapter: &Rc<dyn WindowAdapter>,
     mouse_input_state: &mut MouseInputState,
 ) -> Option<MouseEvent> {
     if !mouse_input_state.grabbed || mouse_input_state.item_stack.is_empty() {
-        return Some(mouse_event);
+        return Some(mouse_event.clone());
     };
 
-    let mut event = mouse_event;
+    let mut event = mouse_event.clone();
     let mut intercept = false;
     let mut invalid = false;
 
@@ -602,11 +630,16 @@ pub(crate) fn handle_mouse_grab(
             return false;
         };
         if intercept {
-            item.borrow().as_ref().input_event(MouseEvent::Exit, window_adapter, &item);
+            item.borrow().as_ref().input_event(&MouseEvent::Exit, window_adapter, &item);
             return false;
         }
         let g = item.geometry();
         event.translate(-g.origin.to_vector());
+        if window_adapter.renderer().supports_transformations() {
+            if let Some(inverse_transform) = item.inverse_children_transform() {
+                event.transform(inverse_transform);
+            }
+        }
 
         let interested = matches!(
             it.1,
@@ -616,7 +649,7 @@ pub(crate) fn handle_mouse_grab(
 
         if interested
             && item.borrow().as_ref().input_event_filter_before_children(
-                event,
+                &event,
                 window_adapter,
                 &item,
             ) == InputEventFilterResult::Intercept
@@ -626,21 +659,32 @@ pub(crate) fn handle_mouse_grab(
         true
     });
     if invalid {
-        return Some(mouse_event);
+        return Some(mouse_event.clone());
     }
 
     let grabber = mouse_input_state.top_item().unwrap();
-    let input_result = grabber.borrow().as_ref().input_event(event, window_adapter, &grabber);
-    if input_result != InputEventResult::GrabMouse {
-        mouse_input_state.grabbed = false;
-        // Return a move event so that the new position can be registered properly
-        Some(
-            mouse_event
-                .position()
-                .map_or(MouseEvent::Exit, |position| MouseEvent::Moved { position }),
-        )
-    } else {
-        None
+    let input_result = grabber.borrow().as_ref().input_event(&event, window_adapter, &grabber);
+    match input_result {
+        InputEventResult::GrabMouse => None,
+        InputEventResult::StartDrag => {
+            mouse_input_state.grabbed = false;
+            let drag_area_item = grabber.downcast::<crate::items::DragArea>().unwrap();
+            mouse_input_state.drag_data = Some(DropEvent {
+                mime_type: drag_area_item.as_pin_ref().mime_type(),
+                data: drag_area_item.as_pin_ref().data(),
+                position: Default::default(),
+            });
+            None
+        }
+        _ => {
+            mouse_input_state.grabbed = false;
+            // Return a move event so that the new position can be registered properly
+            Some(
+                mouse_event
+                    .position()
+                    .map_or(MouseEvent::Exit, |position| MouseEvent::Moved { position }),
+            )
+        }
     }
 }
 
@@ -652,7 +696,7 @@ pub(crate) fn send_exit_events(
 ) {
     for it in core::mem::take(&mut new_input_state.delayed_exit_items) {
         let Some(item) = it.upgrade() else { continue };
-        item.borrow().as_ref().input_event(MouseEvent::Exit, window_adapter, &item);
+        item.borrow().as_ref().input_event(&MouseEvent::Exit, window_adapter, &item);
     }
 
     let mut clipped = false;
@@ -662,18 +706,23 @@ pub(crate) fn send_exit_events(
         let contains = pos.is_some_and(|p| g.contains(p));
         if let Some(p) = pos.as_mut() {
             *p -= g.origin.to_vector();
+            if window_adapter.renderer().supports_transformations() {
+                if let Some(inverse_transform) = item.inverse_children_transform() {
+                    *p = inverse_transform.transform_point(p.cast()).cast();
+                }
+            }
         }
         if !contains || clipped {
             if item.borrow().as_ref().clips_children() {
                 clipped = true;
             }
-            item.borrow().as_ref().input_event(MouseEvent::Exit, window_adapter, &item);
+            item.borrow().as_ref().input_event(&MouseEvent::Exit, window_adapter, &item);
         } else if new_input_state.item_stack.get(idx).map_or(true, |(x, _)| *x != it.0) {
             // The item is still under the mouse, but no longer in the item stack. We should also sent the exit event, unless we delay it
             if new_input_state.delayed.is_some() {
                 new_input_state.delayed_exit_items.push(it.0.clone());
             } else {
-                item.borrow().as_ref().input_event(MouseEvent::Exit, window_adapter, &item);
+                item.borrow().as_ref().input_event(&MouseEvent::Exit, window_adapter, &item);
             }
         }
     }
@@ -684,11 +733,12 @@ pub(crate) fn send_exit_events(
 /// Returns a new mouse grabber stack.
 pub fn process_mouse_input(
     root: ItemRc,
-    mouse_event: MouseEvent,
+    mouse_event: &MouseEvent,
     window_adapter: &Rc<dyn WindowAdapter>,
     mouse_input_state: MouseInputState,
 ) -> MouseInputState {
     let mut result = MouseInputState::default();
+    result.drag_data = mouse_input_state.drag_data.clone();
     let r = send_mouse_event_to_item(
         mouse_event,
         root.clone(),
@@ -712,7 +762,7 @@ pub fn process_mouse_input(
             // An accepted wheel event might have moved things. Send a move event at the position to reset the has-hover
             return process_mouse_input(
                 root,
-                MouseEvent::Moved { position },
+                &MouseEvent::Moved { position: *position },
                 window_adapter,
                 result,
             );
@@ -740,7 +790,7 @@ pub(crate) fn process_delayed_event(
     let mut actual_visitor =
         |component: &ItemTreeRc, index: u32, _: Pin<ItemRef>| -> VisitChildrenResult {
             send_mouse_event_to_item(
-                event,
+                &event,
                 ItemRc::new(component.clone(), index),
                 window_adapter,
                 &mut mouse_input_state,
@@ -758,7 +808,7 @@ pub(crate) fn process_delayed_event(
 }
 
 fn send_mouse_event_to_item(
-    mouse_event: MouseEvent,
+    mouse_event: &MouseEvent,
     item_rc: ItemRc,
     window_adapter: &Rc<dyn WindowAdapter>,
     result: &mut MouseInputState,
@@ -768,14 +818,21 @@ fn send_mouse_event_to_item(
     let item = item_rc.borrow();
     let geom = item_rc.geometry();
     // translated in our coordinate
-    let mut event_for_children = mouse_event;
+    let mut event_for_children = mouse_event.clone();
+    // Unapply the translation to go from 'world' space to local space
     event_for_children.translate(-geom.origin.to_vector());
+    if window_adapter.renderer().supports_transformations() {
+        // Unapply other transforms.
+        if let Some(inverse_transform) = item_rc.inverse_children_transform() {
+            event_for_children.transform(inverse_transform);
+        }
+    }
 
     let filter_result = if mouse_event.position().is_some_and(|p| geom.contains(p))
         || item.as_ref().clips_children()
     {
         item.as_ref().input_event_filter_before_children(
-            event_for_children,
+            &event_for_children,
             window_adapter,
             &item_rc,
         )
@@ -814,7 +871,7 @@ fn send_mouse_event_to_item(
         let mut actual_visitor =
             |component: &ItemTreeRc, index: u32, _: Pin<ItemRef>| -> VisitChildrenResult {
                 send_mouse_event_to_item(
-                    event_for_children,
+                    &event_for_children,
                     ItemRc::new(component.clone(), index),
                     window_adapter,
                     result,
@@ -836,12 +893,12 @@ fn send_mouse_event_to_item(
     let r = if ignore {
         InputEventResult::EventIgnored
     } else {
-        let mut event = mouse_event;
+        let mut event = mouse_event.clone();
         event.translate(-geom.origin.to_vector());
         if last_top_item.map_or(true, |x| *x != item_rc) {
             event.set_click_count(0);
         }
-        item.as_ref().input_event(event, window_adapter, &item_rc)
+        item.as_ref().input_event(&event, window_adapter, &item_rc)
     };
     match r {
         InputEventResult::EventAccepted => VisitChildrenResult::abort(item_rc.index(), 0),
@@ -857,6 +914,18 @@ fn send_mouse_event_to_item(
             result.item_stack.last_mut().unwrap().1 =
                 InputEventFilterResult::ForwardAndInterceptGrab;
             result.grabbed = true;
+            VisitChildrenResult::abort(item_rc.index(), 0)
+        }
+        InputEventResult::StartDrag => {
+            result.item_stack.last_mut().unwrap().1 =
+                InputEventFilterResult::ForwardAndInterceptGrab;
+            result.grabbed = false;
+            let drag_area_item = item_rc.downcast::<crate::items::DragArea>().unwrap();
+            result.drag_data = Some(DropEvent {
+                mime_type: drag_area_item.as_pin_ref().mime_type(),
+                data: drag_area_item.as_pin_ref().data(),
+                position: Default::default(),
+            });
             VisitChildrenResult::abort(item_rc.index(), 0)
         }
     }
@@ -888,10 +957,14 @@ impl TextCursorBlinker {
 
     /// Sets a binding on the provided property that will ensure that the property value
     /// is true when the cursor should be shown and false if not.
-    pub fn set_binding(instance: Pin<Rc<TextCursorBlinker>>, prop: &Property<bool>) {
+    pub fn set_binding(
+        instance: Pin<Rc<TextCursorBlinker>>,
+        prop: &Property<bool>,
+        cycle_duration: Duration,
+    ) {
         instance.as_ref().cursor_visible.set(true);
         // Re-start timer, in case.
-        Self::start(&instance);
+        Self::start(&instance, cycle_duration);
         prop.set_binding(move || {
             TextCursorBlinker::FIELD_OFFSETS.cursor_visible.apply_pin(instance.as_ref()).get()
         });
@@ -899,7 +972,7 @@ impl TextCursorBlinker {
 
     /// Starts the blinking cursor timer that will toggle the cursor and update all bindings that
     /// were installed on properties with set_binding call.
-    pub fn start(self: &Pin<Rc<Self>>) {
+    pub fn start(self: &Pin<Rc<Self>>, cycle_duration: Duration) {
         if self.cursor_blink_timer.running() {
             self.cursor_blink_timer.restart();
         } else {
@@ -915,11 +988,13 @@ impl TextCursorBlinker {
                     }
                 }
             };
-            self.cursor_blink_timer.start(
-                crate::timers::TimerMode::Repeated,
-                Duration::from_millis(500),
-                toggle_cursor,
-            );
+            if !cycle_duration.is_zero() {
+                self.cursor_blink_timer.start(
+                    crate::timers::TimerMode::Repeated,
+                    cycle_duration / 2,
+                    toggle_cursor,
+                );
+            }
         }
     }
 

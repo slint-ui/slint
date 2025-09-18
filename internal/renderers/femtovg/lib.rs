@@ -36,8 +36,9 @@ use self::itemrenderer::CanvasRc;
 mod fonts;
 mod images;
 mod itemrenderer;
+#[cfg(feature = "opengl")]
 pub mod opengl;
-#[cfg(feature = "wgpu-24")]
+#[cfg(feature = "wgpu-26")]
 pub mod wgpu;
 
 pub trait WindowSurface<R: femtovg::Renderer> {
@@ -85,8 +86,6 @@ pub struct FemtoVGRenderer<B: GraphicsBackend> {
     rendering_first_time: Cell<bool>,
     // Last field, so that it's dropped last and for example the OpenGL context exists and is current when destroying the FemtoVG canvas
     graphics_backend: B,
-    #[cfg(target_arch = "wasm32")]
-    canvas_id: RefCell<String>,
 }
 
 impl<B: GraphicsBackend> FemtoVGRenderer<B> {
@@ -259,27 +258,11 @@ impl<B: GraphicsBackend> FemtoVGRenderer<B> {
         Ok(())
     }
 
-    #[cfg(not(target_arch = "wasm32"))]
     fn with_graphics_api(
         &self,
         callback: impl FnOnce(i_slint_core::api::GraphicsAPI<'_>),
     ) -> Result<(), PlatformError> {
         self.graphics_backend.with_graphics_api(|api| callback(api.unwrap()))
-    }
-
-    #[cfg(target_arch = "wasm32")]
-    fn with_graphics_api(
-        &self,
-        callback: impl FnOnce(i_slint_core::api::GraphicsAPI<'_>),
-    ) -> Result<(), PlatformError> {
-        use i_slint_core::api::GraphicsAPI;
-
-        let canvas_id = self.canvas_id.borrow();
-
-        let api =
-            GraphicsAPI::WebGL { canvas_element_id: canvas_id.as_str(), context_type: "webgl2" };
-        callback(api);
-        Ok(())
     }
 
     fn window_adapter(&self) -> Result<Rc<dyn WindowAdapter>, PlatformError> {
@@ -492,6 +475,10 @@ impl<B: GraphicsBackend> RendererSealed for FemtoVGRenderer<B> {
             ))
         })?
     }
+
+    fn supports_transformations(&self) -> bool {
+        true
+    }
 }
 
 impl<B: GraphicsBackend> Drop for FemtoVGRenderer<B> {
@@ -518,6 +505,7 @@ pub trait FemtoVGRendererExt {
 /// The purpose of this trait is to add internal API specific to the OpenGL renderer that's accessed from the winit
 /// backend. In this case, the ability to resume a suspended OpenGL renderer by providing a new context.
 #[doc(hidden)]
+#[cfg(feature = "opengl")]
 pub trait FemtoVGOpenGLRendererExt {
     fn set_opengl_context(
         &self,
@@ -540,8 +528,6 @@ impl<B: GraphicsBackend> FemtoVGRendererExt for FemtoVGRenderer<B> {
             rendering_metrics_collector: Default::default(),
             rendering_first_time: Cell::new(true),
             graphics_backend: B::new_suspended(),
-            #[cfg(target_arch = "wasm32")]
-            canvas_id: Default::default(),
         }
     }
 
@@ -589,6 +575,7 @@ impl<B: GraphicsBackend> FemtoVGRendererExt for FemtoVGRenderer<B> {
     }
 }
 
+#[cfg(feature = "opengl")]
 impl FemtoVGOpenGLRendererExt for FemtoVGRenderer<opengl::OpenGLBackend> {
     fn set_opengl_context(
         &self,
@@ -605,4 +592,5 @@ impl FemtoVGOpenGLRendererExt for FemtoVGRenderer<opengl::OpenGLBackend> {
     }
 }
 
+#[cfg(feature = "opengl")]
 pub type FemtoVGOpenGLRenderer = FemtoVGRenderer<opengl::OpenGLBackend>;

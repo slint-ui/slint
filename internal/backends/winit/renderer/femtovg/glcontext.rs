@@ -92,7 +92,7 @@ impl OpenGLContext {
             .build(active_event_loop, config_template_builder, config_picker)
             .map_err(|glutin_err| {
                 format!(
-                    "Error creating OpenGL display ({:#?}) with glutin: {}",
+                    "Error creating OpenGL display ({:?}) with glutin: {}",
                     active_event_loop.display_handle(),
                     glutin_err
                 )

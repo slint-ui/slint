@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use std::rc::Rc;
+use std::rc::{Rc, Weak};
 
 use crate::{
     common,
@@ -11,7 +11,7 @@ use crate::{
 use lsp_types::Url;
 
 use i_slint_compiler::{expression_tree, langtype, object_tree};
-use slint::{ComponentHandle, Model, SharedString};
+use slint::{ComponentHandle, Model, ModelRc, SharedString};
 
 pub fn setup(ui: &ui::PreviewUi) {
     let api = ui.global::<ui::Api>();
@@ -20,18 +20,63 @@ pub fn setup(ui: &ui::PreviewUi) {
     api.on_is_css_color(is_css_color);
 }
 
-pub fn collect_palette(
-    document_cache: &common::DocumentCache,
-    document_uri: &Url,
-) -> Vec<ui::PaletteEntry> {
-    collect_palette_from_globals(document_cache, document_uri, collect_colors_palette())
+/// Model for the palette.
+///
+/// Computing the palette can be quite expensive so the palette will be lazily computed on demand
+/// and the result will be cached
+struct PaletteModel {
+    palette: std::cell::OnceCell<Vec<ui::PaletteEntry>>,
+    document_cache: Rc<common::DocumentCache>,
+    document_uri: Url,
+    window_adapter: Weak<dyn slint::platform::WindowAdapter>,
 }
 
-pub fn set_palette(ui: &ui::PreviewUi, values: Vec<ui::PaletteEntry>) {
-    let palettes = Rc::new(slint::VecModel::from(values)).into();
+impl PaletteModel {
+    fn palette(&self) -> &[ui::PaletteEntry] {
+        self.palette.get_or_init(|| {
+            collect_palette_from_globals(
+                &self.document_cache,
+                &self.document_uri,
+                collect_colors_palette(),
+                self.window_adapter.upgrade().as_ref(),
+            )
+        })
+    }
+}
 
+impl Model for PaletteModel {
+    type Data = ui::PaletteEntry;
+    fn row_count(&self) -> usize {
+        self.palette().len()
+    }
+
+    fn row_data(&self, index: usize) -> Option<ui::PaletteEntry> {
+        self.palette().get(index).cloned()
+    }
+
+    fn model_tracker(&self) -> &dyn slint::ModelTracker {
+        // The content of the model won't change. A new model is set when the palette is changed.
+        &()
+    }
+}
+
+pub fn collect_palette(
+    document_cache: &Rc<common::DocumentCache>,
+    document_uri: &Url,
+    window_adapter: &Rc<dyn slint::platform::WindowAdapter>,
+) -> ModelRc<ui::PaletteEntry> {
+    let model = PaletteModel {
+        palette: Default::default(),
+        document_cache: document_cache.clone(),
+        document_uri: document_uri.clone(),
+        window_adapter: Rc::downgrade(window_adapter),
+    };
+    ModelRc::new(model)
+}
+
+pub fn set_palette(ui: &ui::PreviewUi, values: ModelRc<ui::PaletteEntry>) {
     let api = ui.global::<ui::Api>();
-    api.set_palettes(palettes);
+    api.set_palettes(values);
 }
 
 fn collect_colors_palette() -> Vec<ui::PaletteEntry> {
@@ -125,12 +170,15 @@ pub fn evaluate_property(
     property_name: &str,
     default_value: &Option<expression_tree::Expression>,
     ty: &langtype::Type,
+    window_adapter: Option<&Rc<dyn slint::platform::WindowAdapter>>,
 ) -> ui::PropertyValue {
     let value = find_binding_expression(element, property_name)
         .map(|be| be.expression)
         .or(default_value.clone())
         .as_ref()
-        .and_then(crate::preview::eval::fully_eval_expression_tree_expression);
+        .and_then(|element| {
+            crate::preview::eval::fully_eval_expression_tree_expression(element, window_adapter)
+        });
 
     ui::map_value_and_type_to_property_value(ty, &value, "")
 }
@@ -141,13 +189,16 @@ fn handle_type(
     property_name: &str,
     ty: &langtype::Type,
     values: &mut Vec<ui::PaletteEntry>,
+    window_adapter: Option<&Rc<dyn slint::platform::WindowAdapter>>,
 ) {
     let full_accessor = format!("{global_name}.{property_name}");
 
     let value = find_binding_expression(element, property_name)
         .map(|be| be.expression)
         .as_ref()
-        .and_then(crate::preview::eval::fully_eval_expression_tree_expression);
+        .and_then(|element| {
+            crate::preview::eval::fully_eval_expression_tree_expression(element, window_adapter)
+        });
 
     handle_type_impl(&full_accessor, value, ty, values);
 }
@@ -156,6 +207,7 @@ fn collect_palette_from_globals(
     document_cache: &common::DocumentCache,
     document_uri: &Url,
     mut values: Vec<ui::PaletteEntry>,
+    window_adapter: Option<&Rc<dyn slint::platform::WindowAdapter>>,
 ) -> Vec<ui::PaletteEntry> {
     let tr = document_cache.global_type_registry();
     let tr = document_cache.get_document(document_uri).map(|d| &d.local_registry).unwrap_or(&tr);
@@ -181,7 +233,7 @@ fn collect_palette_from_globals(
                     | object_tree::PropertyVisibility::Public
             )
         }) {
-            handle_type(name, &global, &property.name, &property.ty, &mut values);
+            handle_type(name, &global, &property.name, &property.ty, &mut values, window_adapter);
         }
     }
 
@@ -201,26 +253,10 @@ fn filter_palettes(
     pattern: slint::SharedString,
 ) -> slint::ModelRc<ui::PaletteEntry> {
     let pattern = pattern.to_string();
-    std::rc::Rc::new(slint::VecModel::from(filter_palettes_iter(&mut input.iter(), &pattern)))
-        .into()
-}
-
-fn filter_palettes_iter(
-    input: &mut impl Iterator<Item = ui::PaletteEntry>,
-    needle: &str,
-) -> Vec<ui::PaletteEntry> {
-    use nucleo_matcher::{pattern, Config, Matcher};
-
-    let mut matcher = Matcher::new(Config::DEFAULT.match_paths());
-    let pattern = pattern::Pattern::parse(
-        needle,
-        pattern::CaseMatching::Ignore,
-        pattern::Normalization::Smart,
-    );
-
-    let mut all_matches = input
-        .filter_map(|p| {
-            let terms = [format!(
+    std::rc::Rc::new(slint::VecModel::from(common::fuzzy_filter_iter(
+        &mut input.iter(),
+        |p| {
+            format!(
                 "{} %kind:{:?} %is_brush:{}",
                 p.name,
                 p.value.kind,
@@ -231,30 +267,11 @@ fn filter_palettes_iter(
                 } else {
                     "no"
                 }
-            )];
-            pattern.match_list(terms.iter(), &mut matcher).pop().map(|(_, v)| (v, p))
-        })
-        .collect::<Vec<_>>();
-
-    // sort by value, highest first. Sort names with the same value alphabetically
-    all_matches.sort_by(|r, l| match l.0.cmp(&r.0) {
-        std::cmp::Ordering::Less => std::cmp::Ordering::Less,
-        std::cmp::Ordering::Equal => r.1.name.cmp(&l.1.name),
-        std::cmp::Ordering::Greater => std::cmp::Ordering::Greater,
-    });
-
-    let cut_off = {
-        let lowest_value = all_matches.last().map(|(v, _)| *v).unwrap_or_default();
-        let highest_value = all_matches.first().map(|(v, _)| *v).unwrap_or_default();
-
-        if all_matches.len() < 10 {
-            lowest_value
-        } else {
-            highest_value - (highest_value - lowest_value) / 2
-        }
-    };
-
-    all_matches.drain(..).take_while(|(v, _)| *v >= cut_off).map(|(_, p)| p).collect::<Vec<_>>()
+            )
+        },
+        &pattern,
+    )))
+    .into()
 }
 
 #[cfg(test)]
@@ -354,7 +371,7 @@ global Test {
 export component Main { }
             "#,
         );
-        let result = collect_palette_from_globals(&dc, &url, Vec::new());
+        let result = collect_palette_from_globals(&dc, &url, Vec::new(), None);
         assert_eq!(result.len(), 7);
 
         compare(&result[0], "Other.color1", 0x11, 0xff, 0xff);
@@ -390,7 +407,7 @@ global Test {
 export component Main { }
             "#,
         );
-        let result = collect_palette_from_globals(&dc, &url, Vec::new());
+        let result = collect_palette_from_globals(&dc, &url, Vec::new(), None);
         assert_eq!(result.len(), 8);
 
         let solid_color = slint::Brush::SolidColor(slint::Color::from_rgb_u8(0x11, 0xff, 0xff));
@@ -470,7 +487,7 @@ global Test {
 export component Main { }
             "#,
         );
-        let result = collect_palette_from_globals(&dc, &url, Vec::new());
+        let result = collect_palette_from_globals(&dc, &url, Vec::new(), None);
         assert_eq!(result.len(), 3);
 
         compare(&result[0], "Test.palette.color1", 0x11, 0xff, 0xff);
@@ -509,7 +526,7 @@ global Test {
 export component Main { }
             "#,
         );
-        let result = collect_palette_from_globals(&dc, &url, Vec::new());
+        let result = collect_palette_from_globals(&dc, &url, Vec::new(), None);
         assert_eq!(result.len(), 9);
 
         compare(&result[0], "Test._0.color1", 0x11, 0xff, 0xff);
@@ -550,7 +567,7 @@ global Test {
 export component Main { }
             "#,
         );
-        let result = collect_palette_from_globals(&dc, &url, Vec::new());
+        let result = collect_palette_from_globals(&dc, &url, Vec::new(), None);
         assert_eq!(result.len(), 6);
 
         compare(&result[0], "Test.palette.dark.color1", 0xee, 0x00, 0x00);
@@ -563,6 +580,46 @@ export component Main { }
     }
 
     #[test]
+    fn test_std_widgets_palette() {
+        let cases = [
+            ("cosmic-dark", 0xC4C4C433u32),
+            ("cosmic-light", 0x29292933u32),
+            ("fluent-dark", 0xFFFFFF14u32),
+            ("fluent-light", 0x00000073u32),
+        ];
+
+        for (style, border) in cases {
+            let mut config = crate::common::document_cache::CompilerConfiguration::default();
+            config.style = Some(style.to_string());
+            let mut dc = common::DocumentCache::new(config);
+            let (url, _) = crate::language::test::load(
+                None,
+                &mut dc,
+                &std::env::temp_dir().join("xxx/test.slint"),
+                r#"
+                    import { Palette } from "std-widgets.slint";
+                    export component Main { }
+                "#,
+            );
+
+            let result = collect_palette_from_globals(&dc, &url, Vec::new(), None);
+            let r =
+                result.iter().find(|entry| entry.name == "Palette.border").expect("Palette.border");
+            let color = i_slint_core::Color::from_argb_u8(
+                (border & 0xff) as u8,
+                ((border >> 24) & 0xff) as u8,
+                ((border >> 16) & 0xff) as u8,
+                ((border >> 8) & 0xff) as u8,
+            );
+            assert_eq!(
+                r.value.value_brush,
+                slint::Brush::SolidColor(color),
+                "border color for {style}"
+            );
+        }
+    }
+
+    #[test]
     fn test_filter_palette() {
         let palette = {
             let mut v = super::collect_colors_palette();
@@ -570,51 +627,41 @@ export component Main { }
             v
         };
 
-        assert_eq!(filter_palettes_iter(&mut palette.iter().cloned(), "'FOO").len(), 0);
+        let model: slint::ModelRc<ui::PaletteEntry> =
+            Rc::new(slint::VecModel::from(palette.clone())).into();
+
+        assert_eq!(filter_palettes(model.clone(), "'FOO".into()).row_count(), 0);
         assert_eq!(
-            filter_palettes_iter(&mut palette.iter().cloned(), "'%kind:Color").len(),
+            filter_palettes(model.clone(), "'%kind:Color".into()).row_count(),
             palette.len()
         );
         assert_eq!(
-            filter_palettes_iter(&mut palette.iter().cloned(), "'%is_brush:yes").len(),
+            filter_palettes(model.clone(), "'%is_brush:yes".into()).row_count(),
             palette.len()
         );
-        assert_eq!(filter_palettes_iter(&mut palette.iter().cloned(), "'%kind:UNKNOWN").len(), 0);
+        assert_eq!(filter_palettes(model.clone(), "'%kind:UNKNOWN".into()).row_count(), 0);
+        assert_eq!(filter_palettes(model.clone(), "'Colors.aquamarine".into()).row_count(), 1);
+        assert_eq!(filter_palettes(model.clone(), "Colors.aquamarine".into()).row_count(), 2);
         assert_eq!(
-            filter_palettes_iter(&mut palette.iter().cloned(), "'Colors.aquamarine").len(),
-            1
-        );
-        assert_eq!(
-            filter_palettes_iter(&mut palette.iter().cloned(), "Colors.aquamarine").len(),
+            filter_palettes(model.clone(), "Colors.aquamarine '%kind:Color".into()).row_count(),
             2
         );
-        assert_eq!(
-            filter_palettes_iter(&mut palette.iter().cloned(), "Colors.aquamarine '%kind:Color")
-                .len(),
-            2
-        );
-        assert_eq!(filter_palettes_iter(&mut palette.iter().cloned(), "aquamarine").len(), 2);
-        assert_eq!(
-            filter_palettes_iter(&mut palette.iter().cloned(), "^Colors.").len(),
-            palette.len()
-        );
-        assert_eq!(filter_palettes_iter(&mut palette.iter().cloned(), "!^Colors.").len(), 0);
-        assert_eq!(
-            filter_palettes_iter(&mut palette.iter().cloned(), "^Colors.").len(),
-            palette.len()
-        );
+        assert_eq!(filter_palettes(model.clone(), "aquamarine".into()).row_count(), 2);
+        assert_eq!(filter_palettes(model.clone(), "^Colors.".into()).row_count(), palette.len());
+        assert_eq!(filter_palettes(model.clone(), "!^Colors.".into()).row_count(), 0);
+        assert_eq!(filter_palettes(model.clone(), "^Colors.".into()).row_count(), palette.len());
 
-        let reds = filter_palettes_iter(&mut palette.iter().cloned(), "^Colors. red");
+        let reds = filter_palettes(model, "^Colors. red".into());
 
-        assert!(reds.len() >= 6);
-        assert!(reds.len() <= 12);
+        assert!(reds.row_count() >= 6);
+        assert!(reds.row_count() <= 12);
 
-        assert_eq!(reds.first().unwrap().name, "Colors.red");
-        assert_eq!(reds.get(1).unwrap().name, "Colors.darkred");
-        assert_eq!(reds.get(2).unwrap().name, "Colors.indianred");
-        assert_eq!(reds.get(3).unwrap().name, "Colors.mediumvioletred");
-        assert_eq!(reds.get(4).unwrap().name, "Colors.orangered");
-        assert_eq!(reds.get(5).unwrap().name, "Colors.palevioletred");
+        assert_eq!(reds.row_data(0).unwrap().name, "Colors.red");
+        assert_eq!(reds.row_data(1).unwrap().name, "Colors.darkred");
+        assert_eq!(reds.row_data(2).unwrap().name, "Colors.indianred");
+        assert_eq!(reds.row_data(3).unwrap().name, "Colors.mediumvioletred");
+        assert_eq!(reds.row_data(4).unwrap().name, "Colors.orangered");
+        assert_eq!(reds.row_data(5).unwrap().name, "Colors.palevioletred");
     }
 
     #[test]

@@ -4,9 +4,9 @@ title: Image
 description: Image element api.
 ---
 
-import SlintProperty  from '/src/components/SlintProperty.astro';
-import CodeSnippetMD from '/src/components/CodeSnippetMD.astro';
-import Link from '/src/components/Link.astro';
+import SlintProperty from '@slint/common-files/src/components/SlintProperty.astro';
+import CodeSnippetMD from '@slint/common-files/src/components/CodeSnippetMD.astro';
+import Link from '@slint/common-files/src/components/Link.astro';
 
 <CodeSnippetMD imagePath="/src/assets/generated/image-example.png"  imageWidth="300" imageHeight="200"  imageAlt='image example'>
 ```slint
@@ -171,29 +171,6 @@ Image {
 </CodeSnippetMD>
 
 </SlintProperty>
-
-## Rotation
-
-Rotates the text by the given angle around the specified origin point. The default origin point is the center of the element.
-When these properties are set, the `Image` can't have children.
-
-```slint {5-7}
-Image {
-    x: 0;
-    y: 0;
-    source: @image-url("images/slint-logo.svg");
-    rotation-angle: 45deg;
-    rotation-origin-x: 0;
-    rotation-origin-y: 0;
-}
-```
-
-### rotation-angle
-<SlintProperty propName="rotation-angle" typeName="angle" defaultValue='0deg'/>
-### rotation-origin-x
-<SlintProperty propName="rotation-origin-x" typeName="length"/>
-### rotation-origin-y
-<SlintProperty propName="rotation-origin-y" typeName="length"/>
 
 ## Source Properties
 

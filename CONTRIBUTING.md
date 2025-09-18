@@ -17,15 +17,15 @@ https://github.com/slint-ui/slint/labels/good%20first%20issue.
  - [Testing](docs/testing.md)
  - [GitHub issues triage and labels](docs/triage.md)
 
-## Contributor License Agreement
+## License
 
-All contributions are accepted under the terms of the MIT No Attribution License.
-Please note that you must have written the contribution 100% yourself and that
-no rights have been transferred to third parties (e.g. your employer).
-In any other case, please let us know.
+By contributing to this project, you agree to license your contributions under
+the [MIT No Attribution License (MIT-0)](https://opensource.org/license/mit-0).
 
-When opening a pull request, you will be asked to sign a
-[Contributor License Agreement (CLA)](https://cla-assistant.io/slint-ui/slint).
+To confirm this, you'll be asked to sign a simple [Contributor License Agreement (CLA)](https://cla-assistant.io/slint-ui/slint)
+when you open a pull request.
+The CLA does not assign copyright or transfer ownership, it simply confirms that
+you wrote the code yourself and are licensing it under MIT-0.
 
 ## Coding Style
 

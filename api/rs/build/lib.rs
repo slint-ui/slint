@@ -17,11 +17,11 @@ In your Cargo.toml:
 build = "build.rs"
 
 [dependencies]
-slint = "1.10.0"
+slint = "1.13"
 ...
 
 [build-dependencies]
-slint-build = "1.10.0"
+slint-build = "1.13"
 ```
 
 In the `build.rs` file:
@@ -179,6 +179,8 @@ impl CompilerConfiguration {
     ///
     /// It expects the path to be the root directory of the translation files.
     ///
+    /// If given a relative path, it will be resolved relative to `$CARGO_MANIFEST_DIR`.
+    ///
     /// The translation files should be in the gettext `.po` format and follow this pattern:
     /// `<path>/<lang>/LC_MESSAGES/<crate>.po`
     #[must_use]
@@ -203,6 +205,30 @@ impl CompilerConfiguration {
         Self { config }
     }
 
+    /// Configures the compiler to treat the Slint as part of a library.
+    ///
+    /// Use this when the components and types of the Slint code need
+    /// to be accessible from other modules.
+    ///
+    /// **Note**: This feature is experimental and may change or be removed in the future.
+    #[cfg(feature = "experimental-module-builds")]
+    #[must_use]
+    pub fn as_library(self, library_name: &str) -> Self {
+        let mut config = self.config;
+        config.library_name = Some(library_name.to_string());
+        Self { config }
+    }
+
+    /// Specify the Rust module to place the generated code in.
+    ///
+    /// **Note**: This feature is experimental and may change or be removed in the future.
+    #[cfg(feature = "experimental-module-builds")]
+    #[must_use]
+    pub fn rust_module(self, rust_module: &str) -> Self {
+        let mut config = self.config;
+        config.rust_module = Some(rust_module.to_string());
+        Self { config }
+    }
     /// Configures the compiler to use Signed Distance Field (SDF) encoding for fonts.
     ///
     /// This flag only takes effect when `embed_resources` is set to [`EmbedResourcesKind::EmbedForSoftwareRenderer`],
@@ -427,6 +453,18 @@ pub fn compile_with_config(
                 .with_extension("rs"),
         );
 
+    #[cfg(feature = "experimental-module-builds")]
+    if let Some(library_name) = config.config.library_name.clone() {
+        println!("cargo::metadata=SLINT_LIBRARY_NAME={}", library_name);
+        println!(
+            "cargo::metadata=SLINT_LIBRARY_PACKAGE={}",
+            std::env::var("CARGO_PKG_NAME").ok().unwrap_or_default()
+        );
+        println!("cargo::metadata=SLINT_LIBRARY_SOURCE={}", path.display());
+        if let Some(rust_module) = &config.config.rust_module {
+            println!("cargo::metadata=SLINT_LIBRARY_MODULE={}", rust_module);
+        }
+    }
     let paths_dependencies =
         compile_with_output_path(path, absolute_rust_output_file_path.clone(), config)?;
 
@@ -440,6 +478,7 @@ pub fn compile_with_config(
     println!("cargo:rerun-if-env-changed=SLINT_ASSET_SECTION");
     println!("cargo:rerun-if-env-changed=SLINT_EMBED_RESOURCES");
     println!("cargo:rerun-if-env-changed=SLINT_EMIT_DEBUG_INFO");
+    println!("cargo:rerun-if-env-changed=SLINT_LIVE_PREVIEW");
 
     println!(
         "cargo:rustc-env=SLINT_INCLUDE_GENERATED={}",
@@ -481,7 +520,9 @@ pub fn compile_with_output_path(
     let (doc, diag, loader) =
         spin_on::spin_on(i_slint_compiler::compile_syntax_node(syntax_node, diag, compiler_config));
 
-    if diag.has_errors() {
+    if diag.has_errors()
+        || (!diag.is_empty() && std::env::var("SLINT_COMPILER_DENY_WARNINGS").is_ok())
+    {
         let vec = diag.to_string_vec();
         diag.print();
         return Err(CompileError::CompileError(vec));
@@ -516,6 +557,8 @@ pub fn compile_with_output_path(
             dependencies.push(Path::new(resource).to_path_buf());
         }
     }
+
+    code_formatter.sink.flush().map_err(CompileError::SaveError)?;
 
     Ok(dependencies)
 }

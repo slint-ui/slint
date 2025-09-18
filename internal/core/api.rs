@@ -11,7 +11,6 @@ This module contains types that are public and re-exported in the slint-rs as we
 pub use crate::future::*;
 use crate::graphics::{Rgba8Pixel, SharedPixelBuffer};
 use crate::input::{KeyEventType, MouseEvent};
-use crate::item_tree::ItemTreeVTable;
 use crate::window::{WindowAdapter, WindowInner};
 use alloc::boxed::Box;
 use alloc::string::String;
@@ -250,6 +249,7 @@ fn logical_physical_size() {
     assert_eq!(logical.to_physical(2.), phys);
 }
 
+#[i_slint_core_macros::slint_doc]
 /// This enum describes a low-level access to specific graphics APIs used
 /// by the renderer.
 #[derive(Clone)]
@@ -268,19 +268,22 @@ pub enum GraphicsAPI<'a> {
         /// `getContext` function on the HTML Canvas element.
         context_type: &'a str,
     },
-    /// The rendering is based on WGPU 24.x. Use the provided fields to submit commits to the provided
+    /// The rendering is based on WGPU 26.x. Use the provided fields to submit commits to the provided
     /// WGPU command queue.
     ///
-    /// *Note*: This enum variant is behind a feature flag and may be removed or changed in future minor releases,
-    ///         as new major WGPU releases become available.
-    #[cfg(feature = "unstable-wgpu-24")]
-    WGPU24 {
+    /// *Note*: This function is behind the [`unstable-wgpu-26` feature flag](slint:rust:slint/docs/cargo_features/#backends)
+    ///         and may be removed or changed in future minor releases, as new major WGPU releases become available.
+    ///
+    /// See also the [`slint::wgpu_26`](slint:rust:slint/wgpu_26) module.
+    #[cfg(feature = "unstable-wgpu-26")]
+    #[non_exhaustive]
+    WGPU26 {
         /// The WGPU instance used for rendering.
-        instance: wgpu_24::Instance,
+        instance: wgpu_26::Instance,
         /// The WGPU device used for rendering.
-        device: wgpu_24::Device,
+        device: wgpu_26::Device,
         /// The WGPU queue for used for command submission.
-        queue: wgpu_24::Queue,
+        queue: wgpu_26::Queue,
     },
 }
 
@@ -291,8 +294,8 @@ impl core::fmt::Debug for GraphicsAPI<'_> {
             GraphicsAPI::WebGL { context_type, .. } => {
                 write!(f, "GraphicsAPI::WebGL(context_type = {context_type})")
             }
-            #[cfg(feature = "unstable-wgpu-24")]
-            GraphicsAPI::WGPU24 { .. } => write!(f, "GraphicsAPI::WGPU24"),
+            #[cfg(feature = "unstable-wgpu-26")]
+            GraphicsAPI::WGPU26 { .. } => write!(f, "GraphicsAPI::WGPU26"),
         }
     }
 }
@@ -629,7 +632,7 @@ impl Window {
                     repeat: false,
                     event_type: KeyEventType::KeyPressed,
                     ..Default::default()
-                })
+                });
             }
             crate::platform::WindowEvent::KeyPressRepeated { text } => {
                 self.0.process_key_input(crate::input::KeyEvent {
@@ -637,14 +640,14 @@ impl Window {
                     repeat: true,
                     event_type: KeyEventType::KeyPressed,
                     ..Default::default()
-                })
+                });
             }
             crate::platform::WindowEvent::KeyReleased { text } => {
                 self.0.process_key_input(crate::input::KeyEvent {
                     text,
                     event_type: KeyEventType::KeyReleased,
                     ..Default::default()
-                })
+                });
             }
             crate::platform::WindowEvent::ScaleFactorChanged { scale_factor } => {
                 self.0.set_scale_factor(scale_factor);
@@ -676,7 +679,14 @@ impl Window {
     }
 
     /// Returns a struct that implements the raw window handle traits to access the windowing system specific window
-    /// and display handles. This function is only accessible if you enable the `raw-window-handle-06` crate feature.
+    /// and display handles.
+    ///
+    /// Note that the window handle may only become available after the window has been created by the window manager,
+    /// which typically occurs after at least one iteration of the event loop following a call to `show()`.
+    ///
+    /// Support for this function depends on the platform backend.
+    ///
+    /// This function is only accessible if you enable the `raw-window-handle-06` crate feature.
     #[cfg(feature = "raw-window-handle-06")]
     pub fn window_handle(&self) -> WindowHandle {
         let adapter = self.0.window_adapter();
@@ -755,9 +765,9 @@ pub trait Global<'a, Component> {
 ///
 /// This trait is implemented by the [generated component](index.html#generated-components)
 pub trait ComponentHandle {
-    /// The type of the generated component.
+    /// The internal Inner type for `Weak<Self>::inner`.
     #[doc(hidden)]
-    type Inner;
+    type WeakInner: Clone + Default;
     /// Returns a new weak pointer.
     fn as_weak(&self) -> Weak<Self>
     where
@@ -769,7 +779,9 @@ pub trait ComponentHandle {
 
     /// Internal function used when upgrading a weak reference to a strong one.
     #[doc(hidden)]
-    fn from_inner(_: vtable::VRc<ItemTreeVTable, Self::Inner>) -> Self;
+    fn upgrade_from_weak_inner(_: &Self::WeakInner) -> Option<Self>
+    where
+        Self: Sized;
 
     /// Convenience function for [`crate::Window::show()`](struct.Window.html#method.show).
     /// This shows the window on the screen and maintains an extra strong reference while
@@ -816,7 +828,7 @@ mod weak_handle {
     /// as the one it has been created from.
     /// This is useful to use with [`invoke_from_event_loop()`] or [`Self::upgrade_in_event_loop()`].
     pub struct Weak<T: ComponentHandle> {
-        inner: vtable::VWeak<ItemTreeVTable, T::Inner>,
+        inner: T::WeakInner,
         #[cfg(feature = "std")]
         thread: std::thread::ThreadId,
     }
@@ -824,7 +836,7 @@ mod weak_handle {
     impl<T: ComponentHandle> Default for Weak<T> {
         fn default() -> Self {
             Self {
-                inner: vtable::VWeak::default(),
+                inner: T::WeakInner::default(),
                 #[cfg(feature = "std")]
                 thread: std::thread::current().id(),
             }
@@ -843,9 +855,9 @@ mod weak_handle {
 
     impl<T: ComponentHandle> Weak<T> {
         #[doc(hidden)]
-        pub fn new(rc: &vtable::VRc<ItemTreeVTable, T::Inner>) -> Self {
+        pub fn new(inner: T::WeakInner) -> Self {
             Self {
-                inner: vtable::VRc::downgrade(rc),
+                inner,
                 #[cfg(feature = "std")]
                 thread: std::thread::current().id(),
             }
@@ -864,7 +876,7 @@ mod weak_handle {
             if std::thread::current().id() != self.thread {
                 return None;
             }
-            self.inner.upgrade().map(T::from_inner)
+            T::upgrade_from_weak_inner(&self.inner)
         }
 
         /// Convenience function that returns a new strongly referenced component if
@@ -879,12 +891,13 @@ mod weak_handle {
                     "Trying to upgrade a Weak from a different thread than the one it belongs to"
                 );
             }
-            T::from_inner(self.inner.upgrade().expect("The Weak doesn't hold a valid component"))
+            T::upgrade_from_weak_inner(&self.inner)
+                .expect("The Weak doesn't hold a valid component")
         }
 
         /// A helper function to allow creation on `component_factory::Component` from
         /// a `ComponentHandle`
-        pub(crate) fn inner(&self) -> vtable::VWeak<ItemTreeVTable, T::Inner> {
+        pub(crate) fn inner(&self) -> T::WeakInner {
             self.inner.clone()
         }
 

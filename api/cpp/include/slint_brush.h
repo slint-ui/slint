@@ -98,6 +98,44 @@ private:
     }
 };
 
+/// \private
+/// ConicGradientBrush represents a conic gradient that rotates around a center point
+class ConicGradientBrush
+{
+public:
+    /// Constructs an empty conic gradient with no color stops.
+    ConicGradientBrush() = default;
+    /// Constructs a new conic gradient. The color stops will be
+    /// constructed from the stops array pointed to be \a firstStop, with the length \a stopCount.
+    ConicGradientBrush(const GradientStop *firstStop, int stopCount)
+        : inner(make_conic_gradient(firstStop, stopCount))
+    {
+    }
+
+    /// Returns the number of gradient stops.
+    int stopCount() const { return int(inner.size()); }
+
+    /// Returns a pointer to the first gradient stop; undefined if the gradient has not stops.
+    const GradientStop *stopsBegin() const { return inner.begin(); }
+    /// Returns a pointer past the last gradient stop. The returned pointer cannot be dereferenced,
+    /// it can only be used for comparison.
+    const GradientStop *stopsEnd() const { return inner.end(); }
+
+private:
+    cbindgen_private::types::ConicGradientBrush inner;
+
+    friend class slint::Brush;
+
+    static SharedVector<private_api::GradientStop>
+    make_conic_gradient(const GradientStop *firstStop, int stopCount)
+    {
+        SharedVector<private_api::GradientStop> gradient;
+        for (int i = 0; i < stopCount; ++i, ++firstStop)
+            gradient.push_back(*firstStop);
+        return gradient;
+    }
+};
+
 }
 
 /// Brush is used to declare how to fill or outline shapes, such as rectangles, paths or text. A
@@ -120,6 +158,13 @@ public:
     /// Constructs a new brush that is the gradient \a gradient.
     Brush(const private_api::RadialGradientBrush &gradient)
         : data(Inner::RadialGradient(gradient.inner))
+    {
+    }
+
+    /// \private
+    /// Constructs a new brush that is the gradient \a gradient.
+    Brush(const private_api::ConicGradientBrush &gradient)
+        : data(Inner::ConicGradient(gradient.inner))
     {
     }
 
@@ -177,6 +222,11 @@ Color Brush::color() const
             result.inner = data.radial_gradient._0[0].color;
         }
         break;
+    case Tag::ConicGradient:
+        if (data.conic_gradient._0.size() > 0) {
+            result.inner = data.conic_gradient._0[0].color;
+        }
+        break;
     }
     return result;
 }
@@ -196,9 +246,15 @@ inline Brush Brush::brighter(float factor) const
         }
         break;
     case Tag::RadialGradient:
-        for (std::size_t i = 0; i < data.linear_gradient._0.size(); ++i) {
+        for (std::size_t i = 0; i < data.radial_gradient._0.size(); ++i) {
             cbindgen_private::types::slint_color_brighter(&data.radial_gradient._0[i].color, factor,
                                                           &result.data.radial_gradient._0[i].color);
+        }
+        break;
+    case Tag::ConicGradient:
+        for (std::size_t i = 0; i < data.conic_gradient._0.size(); ++i) {
+            cbindgen_private::types::slint_color_brighter(&data.conic_gradient._0[i].color, factor,
+                                                          &result.data.conic_gradient._0[i].color);
         }
         break;
     }
@@ -220,9 +276,15 @@ inline Brush Brush::darker(float factor) const
         }
         break;
     case Tag::RadialGradient:
-        for (std::size_t i = 0; i < data.linear_gradient._0.size(); ++i) {
+        for (std::size_t i = 0; i < data.radial_gradient._0.size(); ++i) {
             cbindgen_private::types::slint_color_darker(&data.radial_gradient._0[i].color, factor,
                                                         &result.data.radial_gradient._0[i].color);
+        }
+        break;
+    case Tag::ConicGradient:
+        for (std::size_t i = 0; i < data.conic_gradient._0.size(); ++i) {
+            cbindgen_private::types::slint_color_darker(&data.conic_gradient._0[i].color, factor,
+                                                        &result.data.conic_gradient._0[i].color);
         }
         break;
     }
@@ -245,10 +307,17 @@ inline Brush Brush::transparentize(float factor) const
         }
         break;
     case Tag::RadialGradient:
-        for (std::size_t i = 0; i < data.linear_gradient._0.size(); ++i) {
+        for (std::size_t i = 0; i < data.radial_gradient._0.size(); ++i) {
             cbindgen_private::types::slint_color_transparentize(
                     &data.radial_gradient._0[i].color, factor,
                     &result.data.radial_gradient._0[i].color);
+        }
+        break;
+    case Tag::ConicGradient:
+        for (std::size_t i = 0; i < data.conic_gradient._0.size(); ++i) {
+            cbindgen_private::types::slint_color_transparentize(
+                    &data.conic_gradient._0[i].color, factor,
+                    &result.data.conic_gradient._0[i].color);
         }
         break;
     }
@@ -271,10 +340,17 @@ inline Brush Brush::with_alpha(float alpha) const
         }
         break;
     case Tag::RadialGradient:
-        for (std::size_t i = 0; i < data.linear_gradient._0.size(); ++i) {
+        for (std::size_t i = 0; i < data.radial_gradient._0.size(); ++i) {
             cbindgen_private::types::slint_color_with_alpha(
                     &data.radial_gradient._0[i].color, alpha,
                     &result.data.radial_gradient._0[i].color);
+        }
+        break;
+    case Tag::ConicGradient:
+        for (std::size_t i = 0; i < data.conic_gradient._0.size(); ++i) {
+            cbindgen_private::types::slint_color_with_alpha(
+                    &data.conic_gradient._0[i].color, alpha,
+                    &result.data.conic_gradient._0[i].color);
         }
         break;
     }

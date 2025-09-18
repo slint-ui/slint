@@ -69,7 +69,7 @@ fn signature_info(
         return signature_info(document_cache, sub_expr, active_parameter);
     }
     let qn = func_expr.child_node(SyntaxKind::QualifiedName)?;
-    let lr = crate::util::with_lookup_ctx(document_cache, func_expr, |ctx| {
+    let lr = crate::util::with_lookup_ctx(document_cache, func_expr, None, |ctx| {
         let mut it = qn
             .children_with_tokens()
             .filter_map(|t| t.into_token())

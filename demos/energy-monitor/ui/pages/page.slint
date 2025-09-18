@@ -6,10 +6,9 @@ import { Theme } from "../theme.slint";
 export component Page inherits Rectangle {
     in property <int> index;
     in property <int> current-index;
+    in property <length> horizontal-padding: 14px;
     out property <bool> active: index == current-index;
 
-    padding-left: 14px;
-    padding-right: 14px;
     x: (index - current-index) * self.width;
     width: 100%;
     height: 100%;
@@ -17,8 +16,8 @@ export component Page inherits Rectangle {
     animate x { duration: Theme.durations.fast; }
 
     GridLayout {
-        padding-left: root.padding-left;
-        padding-right: root.padding-right;
+        padding-left: root.horizontal-padding;
+        padding-right: root.horizontal-padding;
 
         @children
     }

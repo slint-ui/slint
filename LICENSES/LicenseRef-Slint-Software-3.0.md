@@ -1,6 +1,6 @@
 # Slint Software License
 
-Version 3.0.3
+Version 3.0.5
 
 ## Preamble
 
@@ -26,7 +26,7 @@ The grant of rights in section 1 are conditional, provided that You do all of th
 
 (a) You have purchased an appropriate **Paid License Plan** ([see Annex 1](#annex-1-paid-license-plans)) and the required amount of seats to cover all individual users of the Software associated with the designing, developing, or testing your Application or Embedded System. For clarity, each individual user is counted as one seat.
 
-(b) In the case that You are distributing the Software as as part of an Embedded System, You have purchased an appropriate quantity of **Royalties**, one Royalty for each Embedded System. Royalties are not necessary for non-commercial projects, personal projects, and open source projects.
+(b) In the case that You are distributing the Software as part of an Embedded System, You have purchased an appropriate quantity of **Royalties**, one Royalty for each Embedded System. Royalties become due and payable upon manufacture of the Embedded System, regardless of whether such is subsequently sold, shipped, returned, replaced under warranty, or recalled. Payment of royalties is non-refundable under any circumstances. Royalties are not necessary for non-commercial projects, personal projects, and open source projects.
 
 ## 3. Limitations
 
@@ -82,7 +82,7 @@ The following is included as part of the plan
 
 ### Small Enterprise Plan
 
-This plan is limited to individual companies with a staff headcount between 10 and 50 and either a turnover or balance sheet total of 10 million EUR or less.
+This plan is limited to individual companies with a staff headcount between 10 and 50 and either a turnover or balance sheet total of 10 million EUR or less. If You are a Small Enterprise, You are required to submit the self-assessment report generated from the EU SME Self-Assessment Tool (https://ec.europa.eu/info/funding-tenders/opportunities/portal/sme/public/organisation-name).
 
 The following is included as part of the plan
 
@@ -92,12 +92,26 @@ The following is included as part of the plan
 
 (c) Standard Support that includes addressing technical queries, troubleshooting, and rectifying bugs or errors (faults) present in the latest official stable release.
 
+The following can be purchased as an Add-On
+
+(a) Perpetual Fallback License that allows continued use of a specific Slint version, including all bugfix updates (i.e., all Z releases within the X.Y.Z version), without an active subscription. This license applies only to those versions of Slint for which at least 12 consecutive months of subscription have been paid.
+
+(b) GUI Test Framework.
+
 ### Startup & Individual Plan
 
-This plan is limited to individuals and individual companies with a staff headcount of less than 10 and either a turnover or balance sheet total of 2 million EUR or less.
+This plan is limited to individuals and individual companies with a staff headcount of less than 10 and either a turnover or balance sheet total of 2 million EUR or less. If You are a Startup, you are required to submit the self-assessment report generated from the EU SME Self-Assessment Tool (https://ec.europa.eu/info/funding-tenders/opportunities/portal/sme/public/organisation-name).
 
 The following is included as part of the plan
 
 (a) No restriction on the number of applications that are developed with Slint.
 
 (b) Live Preview.
+
+The following can be purchased as an Add-On
+
+(a) Standard Support that includes addressing technical queries, troubleshooting, and rectifying bugs or errors (faults) present in the latest official stable release.
+
+(b) Perpetual Fallback License that allows continued use of a specific Slint version, including all bugfix updates (i.e., all Z releases within the X.Y.Z version), without an active subscription. This license applies only to those versions of Slint for which at least 12 consecutive months of subscription have been paid.
+
+(c) GUI Test Framework.

@@ -19,7 +19,7 @@ path = "lib.rs"
 renderer-skia = ["renderer-skia-opengl"]
 renderer-skia-vulkan = ["i-slint-renderer-skia/vulkan", "vulkano", "drm", "dep:memmap2"]
 renderer-skia-opengl = ["i-slint-renderer-skia/opengl", "drm", "gbm", "glutin", "raw-window-handle", "dep:memmap2"]
-renderer-femtovg = ["i-slint-renderer-femtovg", "drm", "gbm", "glutin", "raw-window-handle"]
+renderer-femtovg = ["i-slint-renderer-femtovg/opengl", "drm", "gbm", "glutin", "raw-window-handle"]
 renderer-software = ["i-slint-core/software-renderer-systemfonts", "drm", "dep:bytemuck", "dep:memmap2"]
 libseat = ["dep:libseat"]
 
@@ -33,15 +33,18 @@ i-slint-renderer-skia = { workspace = true, features = ["default", "kms"], optio
 i-slint-renderer-femtovg = { workspace = true, features = ["default"], optional = true }
 
 [target.'cfg(target_os = "linux")'.dependencies]
-input = { version = "0.9.0" }
+input = { workspace = true, default-features = true }
 xkbcommon = { version = "0.8.0" }
 calloop = { version = "0.14.1" }
 libseat = { version = "0.2.1", optional = true, default-features = false }
-nix = { version = "0.29.0", features = ["fs", "ioctl"] }
-vulkano = { version = "0.34.0", optional = true, default-features = false }
+nix = { version = "0.30.1", features = ["fs", "ioctl"] }
+vulkano = { version = "0.35.0", optional = true, default-features = false }
 drm = { version = "0.14.0", optional = true }
 gbm = { version = "0.18.0", optional = true, default-features = false, features = ["drm-support"] }
 glutin = { workspace = true, optional = true, default-features = false, features = ["libloading", "egl"] }
 raw-window-handle = { version = "0.6.2", optional = true }
 bytemuck = { workspace = true, optional = true, features = ["derive"] }
 memmap2 = { version = "0.9.4", optional = true }
+
+[package.metadata.docs.rs]
+rustdoc-args = ["--generate-link-to-definition"]

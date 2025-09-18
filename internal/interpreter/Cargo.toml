@@ -130,11 +130,15 @@ internal-highlight = []
 # NOTE: this is not a semver compatible feature
 internal-json = ["dep:serde_json"]
 
+# (internal)
+internal-live-preview = ["dep:notify", "display-diagnostics"]
+
 
 [dependencies]
 i-slint-compiler = { workspace = true }
 i-slint-common = { workspace = true }
 i-slint-core = { workspace = true, features = ["default", "rtti"] }
+i-slint-core-macros = { workspace = true }
 i-slint-backend-selector = { workspace = true, features = ["rtti"] }
 
 vtable = { workspace = true }
@@ -151,6 +155,8 @@ itertools = { workspace = true }
 smol_str = { workspace = true }
 unicode-segmentation = { workspace = true }
 
+notify = { version = "8.0.0", default-features = false, features = ["macos_kqueue"], optional = true }
+
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 i-slint-backend-winit = { workspace = true }
 web-sys = { workspace = true, features = ["Navigator"] }
@@ -165,3 +171,4 @@ spin_on = { workspace = true }
 
 [package.metadata.docs.rs]
 features = ["display-diagnostics", "document-features", "raw-window-handle-06"]
+rustdoc-args = ["--generate-link-to-definition"]

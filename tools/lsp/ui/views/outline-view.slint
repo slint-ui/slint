@@ -1,0 +1,241 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Palette, VerticalBox, ListView }  from "std-widgets.slint";
+import { ConsoleStyles, EditorSizeSettings, Icons, EditorFontSettings, EditorSpaceSettings,  } from "../components/styling.slint";
+import { Api, OutlineTreeNode, DropLocation } from "../api.slint";
+
+export component OutlineView inherits VerticalLayout {
+    property <[OutlineTreeNode]> outline-data <=> Api.outline;
+    in property <bool> enabled <=> lv.enabled;
+    in-out property <bool> outline: false;
+    Rectangle {
+        height: ConsoleStyles.header-height;
+        background: ConsoleStyles.header-background;
+        Rectangle {
+            y: 0;
+            width: 100%;
+            height: 1px;
+            background: ConsoleStyles.divider-line;
+            opacity: 50%;
+        }
+
+        Rectangle {
+            y: parent.height - self.height;
+            width: 100%;
+            height: 1px;
+            background: ConsoleStyles.divider-line;
+        }
+
+        HorizontalLayout {
+            alignment: space-between;
+            padding-left: EditorSpaceSettings.default-padding;
+            padding-right: EditorSpaceSettings.default-padding;
+            label := Text {
+                horizontal-alignment: left;
+                vertical-alignment: center;
+                color: ConsoleStyles.text-color;
+                font-family: "Inter";
+                font-size: 12px;
+                text: @tr("Outline");
+            }
+
+            Image {
+                source: Icons.close;
+                colorize: ita.has-hover ? Palette.foreground : Palette.foreground.transparentize(0.5);
+                ita := TouchArea {
+                    clicked => {
+                        root.outline = false;
+                    }
+                }
+            }
+        }
+    }
+
+    lv := ListView {
+        for item[idx] in outline-data: DragArea {
+            height: 38px;
+            mime-type: "application/x-slint-component-move";
+            data: item.uri + ":" + item.offset;
+
+            property <bool> selected: item.uri == Api.current-element.source-uri && item.offset == Api.current-element.offset;
+
+            drop-as-child := DropArea {
+                can-drop(event) => {
+                    if event.mime-type != "application/x-slint-component" && event.mime-type != "application/x-slint-component-move" {
+                        return false;
+                    }
+                    if !item.is-expanded && item.has-children {
+                        if !open-timer.running {
+                            open-timer.running = true;
+                        }
+                        return false;
+                    }
+                    return Api.outline-can-drop(event.data, item.uri, item.offset, DropLocation.onto);
+                }
+                dropped(event) => {
+                    Api.outline-drop(event.data, item.uri, item.offset, DropLocation.onto);
+                }
+            }
+
+            drop-before := DropArea {
+                enabled: item.indent-level > 0;
+                height: parent.height / 3;
+
+                y: -self.height / 2;
+                x: indentation.width;
+                width: parent.width - self.x;
+
+                can-drop(event) => {
+                    if event.mime-type != "application/x-slint-component" && event.mime-type != "application/x-slint-component-move" {
+                        return false;
+                    }
+                    //return Api.outline-can-drop(event.data, item.uri, item.offset, -1);
+                    true;
+                }
+                dropped(event) => {
+                    Api.outline-drop(event.data, item.uri, item.offset, DropLocation.before);
+                }
+                Rectangle {
+                    height: 1px;
+                    background: Palette.foreground;
+                    visible: parent.contains-drag;
+                }
+            }
+
+            drop-after := DropArea {
+                y: parent.height - self.height / 2;
+                x: indentation.width;
+                height: parent.height / 3;
+                width: parent.width - self.x;
+
+                enabled: item.indent-level > 0;
+
+                can-drop(event) => {
+                    if event.mime-type != "application/x-slint-component" && event.mime-type != "application/x-slint-component-move" {
+                        return false;
+                    }
+                    //return Api.outline-can-drop(event.data, item.uri, item.offset, 1);
+                    true;
+                }
+                dropped(event) => {
+                    Api.outline-drop(event.data, item.uri, item.offset, DropLocation.after);
+                }
+                Rectangle {
+                    height: 1px;
+                    background: Palette.foreground;
+                    visible: parent.contains-drag;
+                }
+            }
+
+            open-timer := Timer {
+                running: false;
+                interval: 0.5s;
+                triggered => {
+                    item.is-expanded = true;
+                    open-timer.running = false;
+                }
+            }
+
+            bg := VerticalLayout {
+                Rectangle {
+                    x: indentation.width + 8px;
+                    height: 1px;
+                    background: Palette.border.transparentize(0.5);
+                }
+
+                Rectangle {
+                    background: {
+                        let bg-color = selected ? Palette.selection-background : Palette.background;
+                        return ta-open.has-hover || ta.has-hover || drop-as-child.contains-drag ? bg-color.mix(Palette.selection-background, 50%) : bg-color;
+                    }
+                    animate background {
+                        duration: 200ms;
+                        easing: ease-out-quad;
+                    }
+                    ta := TouchArea {
+                        clicked => {
+                            Api.outline-select-element(item.uri, item.offset);
+                        }
+                        double-clicked => {
+                            item.is-expanded = !item.is-expanded;
+                        }
+                        pointer-event(event) => {
+                            if event.kind == PointerEventKind.cancel {
+                                open-timer.running = false;
+                            }
+                        }
+                    }
+                }
+            }
+
+            hier-bg := Rectangle {
+                background: Palette.border.transparentize(0.7);
+                x: indentation.width + 8px;
+                height: 100%;
+            }
+
+            hier-markers := Rectangle {
+                for i in item.indent-level: Rectangle {
+                    x: i > 0 ? i * 10px + 8px : 0px;
+                    width: 1px;
+                    height: 100%;
+                    background: Palette.border.transparentize(0.4);
+                }
+            }
+
+            oi := VerticalLayout {
+                HorizontalLayout {
+                    alignment: start;
+                    spacing: 3px;
+                    ta-open := TouchArea {
+                        Image {
+                            visible: item.has-children;
+                            height: 10px;
+                            source: @image-url("../assets/chevron-down.svg");
+                            rotation-angle: item.is-expanded ? 0.0deg : -90.0deg;
+                            colorize: selected ? Palette.selection-foreground : Palette.foreground;
+                            vertical-alignment: center;
+                            opacity: ta-open.has-hover || ta.has-hover ? 1 : 0;
+
+                            animate rotation-angle, opacity {
+                                duration: 300ms;
+                                easing: ease-out-quad;
+                            }
+                        }
+
+                        clicked => {
+                            item.is-expanded = !item.is-expanded;
+                        }
+                    }
+
+                    indentation := Rectangle {
+                        width: item.indent-level * 10px;
+                    }
+
+                    t := Rectangle {
+                        VerticalLayout {
+                            alignment: center;
+                            if item.element-id != "": el-id := Text {
+                                font-family: "Inter";
+                                text: item.element-id;
+                                font-weight: EditorFontSettings.label.font-weight;
+                                font-size: EditorFontSettings.label.font-size;
+                                color: selected ? Palette.selection-foreground : Palette.foreground;
+                                vertical-alignment: center;
+                            }
+
+                            el-type := Text {
+                                font-family: "Inter";
+                                font-size: EditorFontSettings.label-sub.font-size;
+                                text: item.element-type;
+                                color: selected ? Palette.selection-foreground : Palette.foreground;
+                                vertical-alignment: center;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

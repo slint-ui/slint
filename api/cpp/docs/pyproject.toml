@@ -1,0 +1,17 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: MIT
+
+[project]
+name = "slint-cppdocs"
+version = "0.1"
+description = "Python env for running sphinx, breathe, etc."
+requires-python = ">=3.10"
+dependencies = [
+  "breathe>=4.33.1",
+  "exhale>=0.2.4",
+  "furo>=2022.12.7",
+  "myst-parser>=0.17.2",
+  "sphinx==7.1.2",
+  "sphinx-markdown-tables>=0.0.15",
+  "sphinxcontrib-jquery>=4.1",
+]

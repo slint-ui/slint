@@ -4,26 +4,17 @@ title: Platform
 description: Platform Namespace
 ---
 
-import SlintProperty  from '/src/components/SlintProperty.astro';
-import Link from '/src/components/Link.astro';
+import SlintProperty from '@slint/common-files/src/components/SlintProperty.astro';
+import Link from '@slint/common-files/src/components/Link.astro';
 
 The **Platform** namespace contains properties that help deal with platform specific differences.
 
 ## Properties
 
 ### os
-<SlintProperty propName="os" typeName="string">
-The name of the operating system. Possible values are:
+<SlintProperty propName="os" typeName="enum" enumName="OperatingSystemType">
 
-| Operating System | Value     |
-|------------------|-----------|
-| Windows          | `windows` |
-| macOS            | `macos`   |
-| Linux            | `linux`   |
-| Android          | `android` |
-| iOS              | `ios`     |
-
-If the operating system is none of the above, the value of this property is the empty string.
+This property holds the type of the operating system detected at run-time.
 
 :::note{Note}
 When running in a web browser, the value of this property is computed at run-time by querying the web browser's navigator properties.

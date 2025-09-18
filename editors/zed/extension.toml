@@ -1,0 +1,18 @@
+# Copyright © Luke. D Jones <luke@ljones.dev>
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+id = "slint"
+name = "Slint"
+description = "Slint support for Zed"
+version = "1.14.0"
+schema_version = 1
+authors = ["Slint Developers <info@slint.dev>", "Luke. D Jones <luke@ljones.dev>"]
+repository = "https://github.com/slint-ui/slint"
+
+[language_servers.slint]
+name = "Slint LSP"
+language = "Slint"
+
+[grammars.slint]
+repository = "https://github.com/slint-ui/tree-sitter-slint.git"
+commit = "96bc969d20ff347030519184ea2467f4046a524d"

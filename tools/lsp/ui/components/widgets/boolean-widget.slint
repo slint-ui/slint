@@ -16,7 +16,7 @@ export component BooleanWidget inherits GridLayout {
     callback set-bool-binding(value: bool);
     callback update-display-string(value: string);
 
-    spacing-vertical: EditorSpaceSettings.default-spacing;
+    spacing-vertical: EditorSpaceSettings.default-spacing / 2;
 
     Row {
         NameLabel {
@@ -52,4 +52,3 @@ export component BooleanWidget inherits GridLayout {
         }
     }
 }
-

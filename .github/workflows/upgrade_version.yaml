@@ -14,7 +14,7 @@ jobs:
     upgrade_version_number:
         runs-on: ubuntu-latest
         steps:
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@v5
             - name: Do replacements
               run: |
                   # Each Cargo.toml need to have the version updated
@@ -26,7 +26,7 @@ jobs:
                   sed -i 's/ VERSION [0-9]*\.[0-9]*\.[0-9]*)$/ VERSION ${{ github.event.inputs.new_version }})/' api/cpp/CMakeLists.txt
 
                   # The version is also in these files
-                  sed -i "s/^version = \"[0-9]*\.[0-9]*\.[0-9]*\(.*\)\"/version = \"${{ github.event.inputs.new_version }}\1\"/" api/cpp/docs/conf.py api/python/pyproject.toml
+                  sed -i "s/^version = \"[0-9]*\.[0-9]*\.[0-9]*\(.*\)\"/version = \"${{ github.event.inputs.new_version }}\1\"/" api/cpp/docs/conf.py api/python/slint/pyproject.toml api/python/briefcase/pyproject.toml api/python/compiler/pyproject.toml editors/zed/extension.toml
 
                   # Version in package.json files
                   git ls-files | grep package.json | xargs sed -i 's/"version": ".*"/"version": "${{ github.event.inputs.new_version }}"/'
@@ -72,7 +72,7 @@ jobs:
                 private-key: ${{ secrets.READ_WRITE_PRIVATE_KEY }}
                 repositories: www-releases
             - name: Clone www-releases directory
-              uses: actions/checkout@v4
+              uses: actions/checkout@v5
               with:
                 repository: slint-ui/www-releases
                 sparse-checkout: |

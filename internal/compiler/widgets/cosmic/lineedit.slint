@@ -2,11 +2,11 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { CosmicFontSettings, CosmicPalette } from "styling.slint";
-import { LineEditBase } from "../common/lineedit-base.slint";
+import { LineEditBase, LineEditClearIcon, LineEditPasswordIcon } from "../common/lineedit-base.slint";
 
 export component LineEdit {
     in property <bool> enabled <=> base.enabled;
-    in property <InputType> input-type <=> base.input-type;
+    in property <InputType> input-type;
     in property <TextHorizontalAlignment> horizontal-alignment <=> base.horizontal-alignment;
     in property <bool> read-only <=> base.read-only;
     in property <length> font-size <=> base.font-size;
@@ -72,6 +72,7 @@ export component LineEdit {
             padding-right: 16px;
 
             base := LineEditBase {
+                input-type: root.input-type;
                 font-size: CosmicFontSettings.body.font-size;
                 font-weight: CosmicFontSettings.body.font-weight;
                 selection-background-color: CosmicPalette.selection-background;
@@ -79,6 +80,30 @@ export component LineEdit {
                 text-color: CosmicPalette.foreground;
                 placeholder-color: CosmicPalette.placeholder-foreground;
                 margin: layout.padding-left + layout.padding-right;
+                horizontal-stretch: 1;
+            }
+
+            if !root.text.is-empty && root.input-type != InputType.password && root.enabled && !root.read-only: LineEditClearIcon {
+                width: self.source.width * 1px;
+                text: base.text;
+                source: @image-url("_edit_clear_symbolic.svg");
+                colorize: base.text-color;
+                clear => {
+                    base.text = "";
+                    base.focus();
+                }
+            }
+
+            if root.input-type == InputType.password: LineEditPasswordIcon {
+                width: self.source.width * 1px;
+                show-password-image: @image-url("_view_reveal.svg");
+                hide-password-image: @image-url("_view_conceal.svg");
+                colorize: base.text-color;
+                show-password: base.input-type != InputType.password;
+                show-password-changed(show) => {
+                    base.input-type = show ? InputType.text : root.input-type;
+                    base.focus();
+                }
             }
         }
 

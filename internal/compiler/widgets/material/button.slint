@@ -7,6 +7,7 @@ import { MaterialFontSettings, MaterialPalette, Elevation } from "styling.slint"
 component MaterialButtonBase {
     in property <string> text;
     in property <image> icon;
+    in property <length> icon-size: 24px;
     in property <length> border-radius <=> state-layer.border-radius;
     in property <bool> checkable;
     in property <brush> text-color;
@@ -39,10 +40,13 @@ component MaterialButtonBase {
         spacing: 8px;
         padding-left: root.layout-padding-left;
         padding-right: root.layout-padding-right;
+        padding-top: 5px;
+        padding-bottom: 5px;
 
         if root.icon.width > 0 && root.icon.height > 0: Image {
             source <=> root.icon;
-            width: 24px;
+            width: root.icon-size;
+            min-height: root.icon-size;
             opacity: root.text-opacity;
             colorize: root.colorize-icon ? root.text-color : transparent;
         }
@@ -70,6 +74,7 @@ export component Button {
     in property <bool> enabled <=> base.enabled;
     in property <bool> checkable;
     in property <image> icon <=> base.icon;
+    in property <length> icon-size <=> base.icon-size;
     in property <bool> primary;
     in property <bool> colorize-icon <=> base.colorize-icon;
     out property <bool> has-focus: base.has-focus;

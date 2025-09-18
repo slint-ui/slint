@@ -46,7 +46,6 @@ impl MinimalSoftwareWindow {
     }
 
     #[cfg(feature = "experimental")]
-    #[rustversion::since(1.85)]
     /// If the window needs to be redrawn, the callback will be called with the
     /// [renderer](SoftwareRenderer) that should be used to do the drawing.
     ///

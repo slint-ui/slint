@@ -3,11 +3,6 @@
 
 #pragma once
 
-#if defined(__GNUC__) || defined(__clang__)
-// In C++17, it is conditionally supported, but still valid for all compiler we care
-#    pragma GCC diagnostic ignored "-Winvalid-offsetof"
-#endif
-
 #include "slint_internal.h"
 #include "slint_platform_internal.h"
 #include "slint_qt_internal.h"
@@ -44,23 +39,16 @@ inline cbindgen_private::Rect convert_anonymous_rect(std::tuple<float, float, fl
     return cbindgen_private::Rect { .x = x, .y = y, .width = w, .height = h };
 }
 
-inline void dealloc(const ItemTreeVTable *, uint8_t *ptr, [[maybe_unused]] vtable::Layout layout)
+inline void dealloc(const ItemTreeVTable *vtable, uint8_t *ptr,
+                    [[maybe_unused]] vtable::Layout layout)
 {
-#ifdef __cpp_sized_deallocation
-    ::operator delete(reinterpret_cast<void *>(ptr), layout.size,
-                      static_cast<std::align_val_t>(layout.align));
-#elif !defined(__APPLE__) || MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_14
-    ::operator delete(reinterpret_cast<void *>(ptr), static_cast<std::align_val_t>(layout.align));
-#else
-    ::operator delete(reinterpret_cast<void *>(ptr));
-#endif
+    vtable::dealloc(vtable, ptr, layout);
 }
 
 template<typename T>
 inline vtable::Layout drop_in_place(ItemTreeRef item_tree)
 {
-    reinterpret_cast<T *>(item_tree.instance)->~T();
-    return vtable::Layout { sizeof(T), alignof(T) };
+    return vtable::drop_in_place<ItemTreeVTable, T>(item_tree);
 }
 
 #if !defined(DOXYGEN)
@@ -89,13 +77,6 @@ upgrade_item_weak(const cbindgen_private::ItemWeak &item_weak)
 inline void debug(const SharedString &str)
 {
     cbindgen_private::slint_debug(&str);
-}
-
-inline SharedString detect_operating_system()
-{
-    SharedString result;
-    cbindgen_private::slint_detect_operating_system(&result);
-    return result;
 }
 
 } // namespace private_api
@@ -136,8 +117,8 @@ inline SharedVector<float> solve_box_layout(const cbindgen_private::BoxLayoutDat
                                             cbindgen_private::Slice<int> repeater_indexes)
 {
     SharedVector<float> result;
-    cbindgen_private::Slice<uint32_t> ri { reinterpret_cast<uint32_t *>(repeater_indexes.ptr),
-                                           repeater_indexes.len };
+    cbindgen_private::Slice<uint32_t> ri =
+            make_slice(reinterpret_cast<uint32_t *>(repeater_indexes.ptr), repeater_indexes.len);
     cbindgen_private::slint_solve_box_layout(&data, ri, &result);
     return result;
 }
@@ -191,35 +172,50 @@ item_layout_info(VT *itemvtable, ItemType *item_ptr, cbindgen_private::Orientati
 
 namespace private_api {
 
+template<typename T>
+union MaybeUninitialized {
+    T value;
+    ~MaybeUninitialized() { }
+    MaybeUninitialized() { }
+    T take()
+    {
+        T result = std::move(value);
+        value.~T();
+        return result;
+    }
+};
+
+inline vtable::VRc<cbindgen_private::MenuVTable>
+create_menu_wrapper(const ItemTreeRc &menu_item_tree,
+                    bool (*condition)(const ItemTreeRc *menu_tree) = nullptr)
+{
+    MaybeUninitialized<vtable::VRc<cbindgen_private::MenuVTable>> maybe;
+    cbindgen_private::slint_menus_create_wrapper(&menu_item_tree, &maybe.value, condition);
+    return maybe.take();
+}
+
 inline void setup_popup_menu_from_menu_item_tree(
-        const ItemTreeRc &menu_item_tree,
+        const vtable::VRc<cbindgen_private::MenuVTable> &shared,
         Property<std::shared_ptr<Model<cbindgen_private::MenuEntry>>> &entries,
         Callback<std::shared_ptr<Model<cbindgen_private::MenuEntry>>(cbindgen_private::MenuEntry)>
                 &sub_menu,
         Callback<void(cbindgen_private::MenuEntry)> &activated)
 {
     using cbindgen_private::MenuEntry;
-    using cbindgen_private::MenuVTable;
-    auto shared = std::make_shared<vtable::VBox<MenuVTable>>(nullptr, nullptr);
-    cbindgen_private::slint_menus_create_wrapper(&menu_item_tree, &*shared);
     entries.set_binding([shared] {
-        vtable::VRefMut<MenuVTable> ref { shared->vtable, shared->instance };
         SharedVector<MenuEntry> entries_sv;
-        shared->vtable->sub_menu(ref, nullptr, &entries_sv);
+        shared.vtable()->sub_menu(shared.borrow(), nullptr, &entries_sv);
         std::vector<MenuEntry> entries_vec(entries_sv.begin(), entries_sv.end());
         return std::make_shared<VectorModel<MenuEntry>>(std::move(entries_vec));
     });
     sub_menu.set_handler([shared](const auto &entry) {
-        vtable::VRefMut<MenuVTable> ref { shared->vtable, shared->instance };
         SharedVector<MenuEntry> entries_sv;
-        shared->vtable->sub_menu(ref, &entry, &entries_sv);
+        shared.vtable()->sub_menu(shared.borrow(), &entry, &entries_sv);
         std::vector<MenuEntry> entries_vec(entries_sv.begin(), entries_sv.end());
         return std::make_shared<VectorModel<MenuEntry>>(std::move(entries_vec));
     });
-    activated.set_handler([shared](const auto &entry) {
-        vtable::VRefMut<MenuVTable> ref { shared->vtable, shared->instance };
-        shared->vtable->activate(ref, &entry);
-    });
+    activated.set_handler(
+            [shared](const auto &entry) { shared.vtable()->activate(shared.borrow(), &entry); });
 }
 
 inline SharedString translate(const SharedString &original, const SharedString &context,
@@ -237,9 +233,7 @@ inline SharedString translate_from_bundle(std::span<const char8_t *const> strs,
 {
     SharedString result;
     cbindgen_private::slint_translate_from_bundle(
-            cbindgen_private::Slice<const char *>(
-                    const_cast<char const **>(reinterpret_cast<char const *const *>(strs.data())),
-                    strs.size()),
+            make_slice((reinterpret_cast<char const *const *>(strs.data())), strs.size()),
             arguments, &result);
     return result;
 }
@@ -250,19 +244,23 @@ translate_from_bundle_with_plural(std::span<const char8_t *const> strs,
                                   cbindgen_private::Slice<SharedString> arguments, int n)
 {
     SharedString result;
-    cbindgen_private::Slice<const char *> strs_slice(
-            const_cast<char const **>(reinterpret_cast<char const *const *>(strs.data())),
-            strs.size());
-    cbindgen_private::Slice<uint32_t> indices_slice(
-            const_cast<uint32_t *>(reinterpret_cast<const uint32_t *>(indices.data())),
-            indices.size());
-    cbindgen_private::Slice<uintptr_t (*)(int32_t)> plural_rules_slice(
-            const_cast<uintptr_t (**)(int32_t)>(
-                    reinterpret_cast<uintptr_t (*const *)(int32_t)>(plural_rules.data())),
-            plural_rules.size());
+    cbindgen_private::Slice<const char *> strs_slice =
+            make_slice(reinterpret_cast<char const *const *>(strs.data()), strs.size());
+    cbindgen_private::Slice<uint32_t> indices_slice =
+            make_slice(reinterpret_cast<const uint32_t *>(indices.data()), indices.size());
+    cbindgen_private::Slice<uintptr_t (*)(int32_t)> plural_rules_slice =
+            make_slice(reinterpret_cast<uintptr_t (*const *)(int32_t)>(plural_rules.data()),
+                       plural_rules.size());
     cbindgen_private::slint_translate_from_bundle_with_plural(
             strs_slice, indices_slice, plural_rules_slice, arguments, n, &result);
     return result;
+}
+
+template<typename Component>
+inline float get_resolved_default_font_size(const Component &component)
+{
+    ItemTreeRc item_tree_rc = (*component.self_weak.lock()).into_dyn();
+    return slint::cbindgen_private::slint_windowrc_resolved_default_font_size(&item_tree_rc);
 }
 
 } // namespace private_api

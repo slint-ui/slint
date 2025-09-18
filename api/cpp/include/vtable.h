@@ -13,6 +13,11 @@
 #    include <AvailabilityMacros.h>
 #endif
 
+#if defined(__GNUC__) || defined(__clang__)
+// In C++17, it is conditionally supported, but still valid for all compiler we care
+#    pragma GCC diagnostic ignored "-Winvalid-offsetof"
+#endif
+
 namespace vtable {
 
 template<typename T>
@@ -101,6 +106,7 @@ public:
     {
         if (!--inner->strong_ref) {
             Layout layout = inner->vtable->drop_in_place({ inner->vtable, &inner->data });
+            layout.size = std::max<size_t>(layout.size, sizeof(Layout)); // because of the union
             layout.size += inner->data_offset;
             layout.align = std::max<size_t>(layout.align, alignof(VRcInner<VTable, Dyn>));
             inner->layout = layout;
@@ -240,5 +246,25 @@ public:
         }
     }
 };
+
+template<typename VTable>
+inline void dealloc(const VTable *, uint8_t *ptr, [[maybe_unused]] Layout layout)
+{
+#ifdef __cpp_sized_deallocation
+    ::operator delete(reinterpret_cast<void *>(ptr), layout.size,
+                      static_cast<std::align_val_t>(layout.align));
+#elif !defined(__APPLE__) || MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_14
+    ::operator delete(reinterpret_cast<void *>(ptr), static_cast<std::align_val_t>(layout.align));
+#else
+    ::operator delete(reinterpret_cast<void *>(ptr));
+#endif
+}
+
+template<typename VTable, typename T>
+inline Layout drop_in_place(VRefMut<VTable> item_tree)
+{
+    reinterpret_cast<T *>(item_tree.instance)->~T();
+    return vtable::Layout { sizeof(T), alignof(T) };
+}
 
 } // namespace vtable

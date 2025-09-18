@@ -141,3 +141,28 @@ export component LineEditBase inherits Rectangle {
         }
     }
 }
+
+export component LineEditClearIcon inherits Image {
+    in-out property <string> text;
+    callback clear();
+
+    vertical-alignment: center;
+    TouchArea {
+        clicked => { root.clear(); }
+    }
+}
+
+export component LineEditPasswordIcon inherits Image {
+    callback show-password-changed(bool);
+    in property <bool> show-password;
+    in property <image> show-password-image;
+    in property <image> hide-password-image;
+
+    source: show-password ? hide-password-image : show-password-image;
+    vertical-alignment: center;
+    TouchArea {
+        clicked => {
+            root.show-password-changed(!show-password);
+        }
+    }
+}

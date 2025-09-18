@@ -14,8 +14,13 @@ path = [
   "**/slint-logo-**.pdf",
   "**/slint-logo-**.png",
   "**/slint-logo-**.svg",
+  "docs/astro/public/apple-touch-icon.png",
   "docs/astro/public/favicon.svg",
+  "docs/astro/public/favicon-16x16.png",
+  "docs/astro/public/favicon-32x32.png",
+  "docs/astro/public/favicon.ico",
   "docs/astro/src/content/docs/reference/elements/slint-logo.png",
+  "logo/slint-logo.icns",
 ]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"
@@ -120,6 +125,7 @@ SPDX-License-Identifier = "MIT"
 path = [
   "api/**/**.json",
   "api/node/__test__/resources/**.png",
+  "CMakePresets.json",
 
   "editors/sublime/LSP.sublime-settings",
   "editors/tree-sitter-slint/corpus/**.txt",
@@ -169,6 +175,12 @@ path = [
   "tools/lsp/ui/assets/black-square.png",
   "tools/lsp/ui/assets/close.svg",
   "tools/lsp/ui/assets/plus.svg",
+  "tools/lsp/ui/assets/info.svg",
+  "tools/lsp/ui/assets/clear.svg",
+  "tools/lsp/ui/assets/beaker.svg",
+  "tools/lsp/ui/assets/library.svg",
+  "tools/lsp/ui/assets/list-tree.svg",
+  "tools/lsp/ui/assets/settings.svg",
 ]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Codicon Icons <https://github.com/microsoft/vscode-codicons/>"

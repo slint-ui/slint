@@ -595,6 +595,30 @@ fn into_qbrush(
                 return QBrush(qrg);
             }}
         }
+        i_slint_core::Brush::ConicGradient(g) => {
+            cpp_class!(unsafe struct QConicalGradient as "QConicalGradient");
+            // QConicalGradient uses angles where 0 degrees is at 3 o'clock (east)
+            // We want gradient position 0 at 12 o'clock (north), so start at -90°
+            let mut qcg = cpp! {
+                unsafe [width as "qreal", height as "qreal"] -> QConicalGradient as "QConicalGradient" {
+                    QConicalGradient qcg(width / 2, height / 2, 90);
+                    return qcg;
+                }
+            };
+            let count = g.stops().count();
+            for (idx, s) in g.stops().enumerate() {
+                // Qt's conical gradient goes counter-clockwise, but Slint expects clockwise
+                // So we need to invert the positions: Qt position = 1.0 - Slint position
+                let pos: f32 = 1.0 - mangle_position(s.position, idx, count);
+                let color: u32 = s.color.as_argb_encoded();
+                cpp! {unsafe [mut qcg as "QConicalGradient", pos as "float", color as "QRgb"] {
+                    qcg.setColorAt(pos, QColor::fromRgba(color));
+                }};
+            }
+            cpp! {unsafe [qcg as "QConicalGradient"] -> qttypes::QBrush as "QBrush" {
+                return QBrush(qcg);
+            }}
+        }
         _ => qttypes::QBrush::default(),
     }
 }
@@ -1106,18 +1130,10 @@ impl ItemRenderer for QtItemRenderer<'_> {
                 if blur_radius > 0. {
                     cpp! {
                     unsafe[img as "QImage*", blur_radius as "float"] -> qttypes::QPixmap as "QPixmap" {
-                        class PublicGraphicsBlurEffect : public QGraphicsBlurEffect {
-                        public:
-                            // Make public what's protected
-                            using QGraphicsBlurEffect::draw;
-                        };
-
-                        // Need a scene for the effect source private to draw()
                         QGraphicsScene scene;
-
                         auto pixmap_item = scene.addPixmap(QPixmap::fromImage(*img));
 
-                        auto blur_effect = new PublicGraphicsBlurEffect;
+                        auto blur_effect = new QGraphicsBlurEffect;
                         blur_effect->setBlurRadius(blur_radius);
                         blur_effect->setBlurHints(QGraphicsBlurEffect::QualityHint);
 
@@ -1129,8 +1145,9 @@ impl ItemRenderer for QtItemRenderer<'_> {
                         blurred_scene.fill(Qt::transparent);
 
                         QPainter p(&blurred_scene);
-                        p.translate(blur_radius, blur_radius);
-                        blur_effect->draw(&p);
+                        scene.render(&p,
+                            QRectF(0, 0, blurred_scene.width(), blurred_scene.height()),
+                            QRectF(-blur_radius, -blur_radius, blurred_scene.width(), blurred_scene.height()));
                         p.end();
 
                         return QPixmap::fromImage(blurred_scene);
@@ -1306,6 +1323,13 @@ impl ItemRenderer for QtItemRenderer<'_> {
         }}
     }
 
+    fn scale(&mut self, x_factor: f32, y_factor: f32) {
+        let painter: &mut QPainterPtr = &mut self.painter;
+        cpp! { unsafe [painter as "QPainterPtr*", x_factor as "float", y_factor as "float"] {
+            (*painter)->scale(x_factor, y_factor);
+        }}
+    }
+
     fn apply_opacity(&mut self, opacity: f32) {
         let painter: &mut QPainterPtr = &mut self.painter;
         cpp! { unsafe [painter as "QPainterPtr*", opacity as "float"] {
@@ -1353,8 +1377,6 @@ impl QtItemRenderer<'_> {
         size: LogicalSize,
         image: Pin<&dyn i_slint_core::item_rendering::RenderImage>,
     ) {
-        let dest_rect: qttypes::QRectF = check_geometry!(size);
-
         let source_rect = image.source_clip();
 
         let pixmap: qttypes::QPixmap = self.cache.get_or_update_cache_entry(item_rc, || {
@@ -1399,8 +1421,12 @@ impl QtItemRenderer<'_> {
                 |mut pixmap: qttypes::QPixmap| {
                     let colorize = image.colorize();
                     if !colorize.is_transparent() {
-                        let brush: qttypes::QBrush =
-                            into_qbrush(colorize, dest_rect.width, dest_rect.height);
+                        let pixmap_size = pixmap.size();
+                        let brush: qttypes::QBrush = into_qbrush(
+                            colorize,
+                            pixmap_size.width.into(),
+                            pixmap_size.height.into(),
+                        );
                         cpp!(unsafe [mut pixmap as "QPixmap", brush as "QBrush"] {
                             QPainter p(&pixmap);
                             p.setCompositionMode(QPainter::CompositionMode_SourceIn);
@@ -1517,6 +1543,8 @@ impl QtItemRenderer<'_> {
                 bottom_left_radius as "float",
                 bottom_right_radius as "float",
                 mut rect as "QRectF"] {
+            (*painter)->save();
+            auto cleanup = qScopeGuard([&] { (*painter)->restore(); });
             (*painter)->setBrush(brush);
             QPen pen = border_width > 0 ? QPen(border_color, border_width, Qt::SolidLine, Qt::FlatCap, Qt::MiterJoin) : Qt::NoPen;
             if (top_left_radius <= 0 && top_right_radius <= 0 && bottom_left_radius <= 0 && bottom_right_radius <= 0) {
@@ -2423,6 +2451,10 @@ impl i_slint_core::renderer::RendererSealed for QtWindow {
             size.height,
         );
         Ok(buffer)
+    }
+
+    fn supports_transformations(&self) -> bool {
+        true
     }
 }
 

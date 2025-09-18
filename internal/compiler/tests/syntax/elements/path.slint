@@ -1,0 +1,20 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+component Arc inherits Path {
+    MoveTo {
+        x: 0;
+        y: 0;
+    }
+}
+
+export component Foo inherits Rectangle {
+    Arc { } // OK!
+    Arc {
+//  ^error{The Path was already populated in the base type and it can't be re-populated again}
+        LineTo {
+            x: 1;
+            y: 1;
+        }
+    }
+}

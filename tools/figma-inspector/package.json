@@ -1,7 +1,7 @@
 {
   "name": "slint.figma.plugin",
   "private": true,
-  "version": "1.12.0",
+  "version": "1.14.0",
   "type": "module",
   "scripts": {
     "dev": "vite build --watch --mode dev",
@@ -21,27 +21,27 @@
     "type-check": "tsc --noEmit"
   },
   "devDependencies": {
-    "@figma/plugin-typings": "1.113.0",
-    "@types/jszip": "3.4.0",
-    "@types/node": "20.16.10",
-    "@types/react": "19.1.6",
-    "@types/react-dom": "19.1.5",
-    "@vitejs/plugin-react": "4.5.0",
-    "cross-env": "7.0.3",
+    "@figma/plugin-typings": "1.117.0",
+    "@types/jszip": "3.4.1",
+    "@types/node": "catalog:",
+    "@types/react": "19.1.13",
+    "@types/react-dom": "19.1.9",
+    "@vitejs/plugin-react": "5.0.2",
+    "cross-env": "10.0.0",
     "jszip": "3.10.1",
-    "shiki": "3.4.2",
-    "typescript": "5.8.3",
-    "vite": "6.3.5",
+    "shiki": "3.12.2",
+    "typescript": "catalog:",
+    "vite": "catalog:",
     "vite-figma-plugin": "0.0.24",
-    "vite-plugin-singlefile": "2.2.0",
-    "vitest": "3.1.4"
+    "vite-plugin-singlefile": "2.3.0",
+    "vitest": "3.2.4"
   },
   "dependencies": {
     "figma-kit": "1.0.0-beta.19",
-    "html-react-parser": "5.2.5",
-    "react": "19.1.0",
-    "react-dom": "19.1.0",
+    "html-react-parser": "5.2.6",
+    "react": "19.1.1",
+    "react-dom": "19.1.1",
     "react-rnd": "10.5.2",
-    "zustand": "5.0.5"
+    "zustand": "5.0.8"
   }
 }

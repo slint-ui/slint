@@ -154,7 +154,7 @@ pub trait Model {
     fn model_tracker(&self) -> &dyn ModelTracker;
 
     /// Returns an iterator visiting all elements of the model.
-    fn iter(&self) -> ModelIterator<Self::Data>
+    fn iter(&self) -> ModelIterator<'_, Self::Data>
     where
         Self: Sized,
     {

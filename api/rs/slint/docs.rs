@@ -93,7 +93,7 @@ pub mod generated_code {
 
     impl ComponentHandle for SampleComponent {
         #[doc(hidden)]
-        type Inner = SampleComponent;
+        type WeakInner = ();
 
         /// Returns a new weak pointer.
         fn as_weak(&self) -> Weak<Self> {
@@ -106,9 +106,7 @@ pub mod generated_code {
         }
 
         #[doc(hidden)]
-        fn from_inner(
-            _: vtable::VRc<crate::private_unstable_api::re_exports::ItemTreeVTable, Self::Inner>,
-        ) -> Self {
+        fn upgrade_from_weak_inner(_: &Self::WeakInner) -> Option<Self> {
             unimplemented!();
         }
 

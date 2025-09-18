@@ -1,9 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-//! Passes that fills the Property::use_count
+//! This pass fills the Property::use_count
 //!
-//! This pass assume that use_count of all properties is zero
+//! It assumes that use_count of all properties is zero initially
 
 use crate::llr::{
     Animation, BindingExpression, CompilationUnit, EvaluationContext, Expression, ParentCtx,

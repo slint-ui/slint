@@ -1,0 +1,17 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: MIT
+
+[project]
+name = "briefcasex-slint"
+version = "1.14.0b1"
+description = "Plugin for Briefcase to offer Slint application templates"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = ["briefcase>=0.3.23"]
+
+[project.entry-points."briefcase.bootstraps"]
+Slint = "briefcasex_slint:SlintGuiBootstrap"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

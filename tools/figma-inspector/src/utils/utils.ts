@@ -23,9 +23,8 @@ export function writeTextToClipboard(str: string): boolean {
         const successful = document.execCommand("copy");
         if (!successful) {
             throw new Error("Copy command failed");
-        } else {
-            copySuccessful = true;
         }
+        copySuccessful = true;
     } catch (e: unknown) {
         const errorMessage = e instanceof Error ? e.message : String(e);
         console.error("Failed to copy text: " + errorMessage);

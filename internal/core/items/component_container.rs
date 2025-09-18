@@ -151,13 +151,16 @@ impl Item for ComponentContainer {
         // Find my embedding item_tree_index:
         let pin_rc = vtable::VRc::borrow_pin(rc);
         let item_tree = pin_rc.as_ref().get_item_tree();
-        let ItemTreeNode::Item { children_index: child_item_tree_index, .. } =
+        let ItemTreeNode::Item { children_index, children_count, .. } =
             item_tree[self_rc.index() as usize]
         else {
-            panic!("Internal compiler error: ComponentContainer had no child.");
+            panic!("ComponentContainer not found in item tree");
         };
 
-        self.embedding_item_tree_index.set(child_item_tree_index).ok().unwrap();
+        assert_eq!(children_count, 1);
+        assert!(matches!(item_tree[children_index as usize], ItemTreeNode::DynamicTree { .. }));
+
+        self.embedding_item_tree_index.set(children_index).ok().unwrap();
 
         self.component_tracker.set(Box::pin(PropertyTracker::default())).ok().unwrap();
         self.self_weak.set(self_rc.downgrade()).ok().unwrap();
@@ -179,7 +182,7 @@ impl Item for ComponentContainer {
 
     fn input_event_filter_before_children(
         self: Pin<&Self>,
-        _: MouseEvent,
+        _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
@@ -188,7 +191,7 @@ impl Item for ComponentContainer {
 
     fn input_event(
         self: Pin<&Self>,
-        _: MouseEvent,
+        _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> InputEventResult {
@@ -202,6 +205,15 @@ impl Item for ComponentContainer {
         _self_rc: &ItemRc,
     ) -> FocusEventResult {
         FocusEventResult::FocusIgnored
+    }
+
+    fn capture_key_event(
+        self: Pin<&Self>,
+        _: &KeyEvent,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+    ) -> KeyEventResult {
+        KeyEventResult::EventIgnored
     }
 
     fn key_event(

@@ -131,6 +131,21 @@ macro_rules! for_each_enums {
                 Action,
             }
 
+            /// This enum describes the different reasons for a FocusEvent
+            #[non_exhaustive]
+            enum FocusReason {
+                /// A built-in function invocation caused the event (`.focus()`, `.clear-focus()`)
+                Programmatic,
+                /// Keyboard navigation caused the event (tabbing)
+                TabNavigation,
+                /// A mouse click caused the event
+                PointerClick,
+                /// A popup caused the event
+                PopupActivation,
+                /// The window manager changed the active window and caused the event
+                WindowActivation,
+            }
+
             /// The enum reports what happened to the `PointerEventButton` in the event
             enum PointerEventKind {
                 /// The action was cancelled.
@@ -458,6 +473,23 @@ macro_rules! for_each_enums {
                 Round,
                 /// The stroke ends with a square projection beyond the path.
                 Square,
+            }
+
+            /// This enum describes the detected operating system types.
+            #[non_exhaustive]
+            enum OperatingSystemType {
+                /// This variant includes any version of Android running mobile phones, tablets, as well as embedded Android devices.
+                Android,
+                /// This variant covers iOS running on iPhones and iPads.
+                Ios,
+                /// This variant covers macOS running on Apple's Mac computers.
+                Macos,
+                /// This variant covers any version of Linux, except Android.
+                Linux,
+                /// This variant covers Microsoft Windows.
+                Windows,
+                /// This variant is reported when the operating system is none of the above.
+                Other,
             }
         ];
     };

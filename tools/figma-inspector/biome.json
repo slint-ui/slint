@@ -1,9 +1,23 @@
 {
-    "extends": ["../../biome.json"],
-    "formatter": {
-        "ignore": ["figma_output.json", ".tmp"]
+    "root": false,
+    "extends": "//",
+    "files": {
+        "includes": ["**", "!**/tests/figma_output.json", "!**/.tmp"]
     },
     "linter": {
-        "ignore": ["figma_output.json", ".tmp"]
+        "rules": {
+            "style": {
+                "noParameterAssign": "error",
+                "useAsConstAssertion": "error",
+                "useDefaultParameterLast": "error",
+                "useEnumInitializers": "error",
+                "useSelfClosingElements": "error",
+                "useSingleVarDeclarator": "error",
+                "noUnusedTemplateLiteral": "error",
+                "useNumberNamespace": "error",
+                "noInferrableTypes": "error",
+                "noUselessElse": "error"
+            }
+        }
     }
 }

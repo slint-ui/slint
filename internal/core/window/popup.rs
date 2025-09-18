@@ -5,7 +5,7 @@
 
 use crate::lengths::{LogicalPoint, LogicalRect, LogicalSize};
 
-/// A collection of data that might influence the palcement of a `Popup`.
+/// A collection of data that might influence the placement of a `Popup`.
 pub enum Placement {
     /// Request a fixed position
     Fixed(LogicalRect),

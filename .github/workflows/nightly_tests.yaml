@@ -13,14 +13,13 @@ jobs:
         strategy:
           matrix:
             esp-idf-target:
-              - release-v5.2
-              - latest
+              - release-v5.5
         runs-on: ubuntu-22.04
         container: espressif/idf:${{ matrix.esp-idf-target }}
         steps:
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@v5
             - uses: dtolnay/rust-toolchain@stable
-            - uses: esp-rs/xtensa-toolchain@v1.5
+            - uses: esp-rs/xtensa-toolchain@v1.6
               with:
                   default: true
                   buildtargets: esp32
@@ -35,12 +34,6 @@ jobs:
             - name: Build and Test Carousel example s3 box
               shell: bash
               working-directory: examples/carousel/esp-idf/s3-box
-              run: |
-                  . ${IDF_PATH}/export.sh
-                  idf.py -D SLINT_ESP_LOCAL_EXAMPLE=OFF build
-            - name: Build and Test Carousel example s3 usb otg
-              shell: bash
-              working-directory: examples/carousel/esp-idf/s3-usb-otg
               run: |
                   . ${IDF_PATH}/export.sh
                   idf.py -D SLINT_ESP_LOCAL_EXAMPLE=OFF build
@@ -62,7 +55,7 @@ jobs:
                       target: armv7-unknown-linux-gnueabihf
         runs-on: ubuntu-22.04
         steps:
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@v5
             - name: Downgrade cc and ring crate to work around https://github.com/slint-ui/slint/issues/6875
               run: |
                   cargo update -p ring --precise 0.17.9
@@ -103,7 +96,7 @@ jobs:
             fail-fast: false
         runs-on: ubuntu-22.04
         steps:
-          - uses: actions/checkout@v4
+          - uses: actions/checkout@v5
             with:
                 path: slint
           - name: Install linux dependencies, including Zephyr dependencies
@@ -117,7 +110,7 @@ jobs:
                 components: rust-src
                 target: ${{matrix.target}}
           - name: Setup Zephyr project
-            uses: zephyrproject-rtos/action-zephyr-setup@v1.0.7
+            uses: zephyrproject-rtos/action-zephyr-setup@v1.0.8
             with:
                 app-path: slint
                 manifest-file-name: demos/printerdemo/zephyr/west.yaml
@@ -133,7 +126,7 @@ jobs:
             CARGO_PROFILE_DEV_DEBUG: 0
         runs-on: ubuntu-22.04
         steps:
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@v5
             - uses: ./.github/actions/setup-rust
               with:
                   toolchain: stable
@@ -156,21 +149,22 @@ jobs:
                   scheme: "Energy Monitor"
                   bundle_id: dev.slint.demos.EnergyMonitor
                   device: iPhone 16
-        runs-on: macos-14
+        runs-on: macos-15
         steps:
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@v5
             - uses: ./.github/actions/setup-rust
               with:
                   target: aarch64-apple-ios-sim
             - run: brew install xcodegen
             - run: xcodegen -s ios-project.yml
               working-directory: ${{ matrix.demo }}
-            - run: xcodebuild -scheme "${{ matrix.scheme }}" -destination 'platform=iOS Simulator,name=${{ matrix.device }}' build
-              working-directory: ${{ matrix.demo }}
-            - name: "Boot Simulator"
+            - run: sudo xcode-select --switch /Applications/Xcode_16.4.app/Contents/Developer
+            - name: "Boot Simulator (to ensure also that xcodebuild -destination works)"
               run: |
                 xcrun simctl boot "${{ matrix.device }}"
                 sleep 10
+            - run: xcodebuild -scheme "${{ matrix.scheme }}" -destination 'platform=iOS Simulator,name=${{ matrix.device }}' build
+              working-directory: ${{ matrix.demo }}
             - name: "Install"
               run: |
                 APP_PATH=$(find ~/Library/Developer/Xcode/DerivedData -name "${{ matrix.scheme }}.app" | head -n 1)
@@ -189,3 +183,33 @@ jobs:
                 path: ${{ matrix.scheme }}.png
 
 
+    bevy_example:
+        strategy:
+            matrix:
+                os: [ubuntu-22.04, macos-14, windows-2022]
+        runs-on: ${{ matrix.os }}
+        steps:
+            - uses: actions/checkout@v5
+            - uses: ./.github/actions/setup-rust
+            - uses: ./.github/actions/install-linux-dependencies
+            - uses: ./.github/actions/install-skia-dependencies
+            - uses: ilammy/msvc-dev-cmd@v1
+            - name: Build Bevy Example
+              run: cargo build
+              working-directory: examples/bevy
+
+    uvx_slint_compiler:
+        strategy:
+            matrix:
+                os: [ubuntu-22.04, ubuntu-22.04-arm, macos-13, macos-14, windows-2022, windows-11-arm]
+        runs-on: ${{ matrix.os }}
+        steps:
+            - uses: actions/checkout@v5
+            - name: Install uv
+              uses: astral-sh/setup-uv@v6
+            - name: Run slint compiler via uxv
+              working-directory: api/python/compiler
+              env:
+                SLINT_COMPILER_VERSION: nightly
+              # TODO: generate python code when the python generator lands
+              run: uvx --with-editable=. slint-compiler ../../../demos/printerdemo/ui/printerdemo.slint

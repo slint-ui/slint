@@ -211,8 +211,76 @@ When flashing, with `esplash`, you will be prompted to select a USB port. If thi
 
 #### ESP32-S3-Box
 
+The ESP32-S3-Box development board features:
+- 2.4" LCD display with 320x240 resolution
+- ILI9486 display controller
+- GT911 capacitive touch controller
+- ESP32-S3 with built-in WiFi and Bluetooth
+
 To compile and run the demo:
 
 ```sh
 CARGO_PROFILE_RELEASE_OPT_LEVEL=s cargo +esp run -p printerdemo_mcu --target xtensa-esp32s3-none-elf --no-default-features --features=mcu-board-support/esp32-s3-box-3 --release --config examples/mcu-board-support/esp32_s3_box_3/cargo-config.toml
 ```
+
+#### ESP32-S3-LCD-EV-Board
+
+The ESP32-S3-LCD-EV-Board development board features:
+- 4.3" LCD display with 480x480 resolution
+- RGB interface display
+- FT5x06 capacitive touch controller
+- ESP32-S3 with built-in WiFi and Bluetooth
+
+To compile and run the demo:
+
+```sh
+CARGO_PROFILE_RELEASE_OPT_LEVEL=s cargo +esp run -p printerdemo_mcu --target xtensa-esp32s3-none-elf --no-default-features --features=mcu-board-support/esp32-s3-lcd-ev-board --release --config examples/mcu-board-support/esp32_s3_lcd_ev_board/cargo-config.toml
+```
+
+#### Waveshare ESP32-S3 Touch AMOLED 1.8"
+
+The Waveshare ESP32-S3 Touch AMOLED 1.8" board features:
+- 1.8" AMOLED display with 368x448 resolution
+- SH8601 display controller
+- FT3168 capacitive touch controller (touch support TODO)
+- ESP32-S3 with 16MB flash and 8MB PSRAM
+
+To compile and run the demo:
+
+```sh
+CARGO_PROFILE_RELEASE_OPT_LEVEL=s cargo +esp run -p printerdemo_mcu --target xtensa-esp32s3-none-elf --no-default-features --features=mcu-board-support/waveshare-esp32-s3-touch-amoled-1-8 --release --config examples/mcu-board-support/waveshare_esp32_s3_touch_amoled_1_8/cargo-config.toml
+```
+
+#### M5Stack CoreS3
+
+The M5Stack CoreS3 development board features:
+- 2.0" capacitive-touch IPS panel with 320x240 resolution
+- ILI9342C display controller
+- FT6336 capacitive touch controller (currently disabled - display-only mode)
+- ESP32-S3 with 16MB flash and 8MB PSRAM
+- AXP2101 power management unit (critical for proper operation)
+- Built-in camera, IMU, magnetometer, and RTC
+
+The M5Stack CoreS3 requires proper power management initialization via the AXP2101 PMU.
+This is handled automatically by the board support.
+
+Note: Touch support is temporarily disabled until a proper FT6336U driver is available.
+The board currently operates in display-only mode.
+
+To compile and run the demo:
+
+```sh
+CARGO_PROFILE_RELEASE_OPT_LEVEL=s cargo +esp run -p printerdemo_mcu --target xtensa-esp32s3-none-elf --no-default-features --features=mcu-board-support/m5stack-cores3 --release --config examples/mcu-board-support/m5stack_cores3/cargo-config.toml
+```
+
+#### ESoPe SLD_C_W_S3
+
+The [ESoPE SLD_C_W_S3](https://esope.de/de/produkte/esope-plattform?view=article&id=95:pr-sld-c-w-s3-de&catid=11) PCB features an ESP32 S3,
+for use in combination with [Smartwin displays](https://shop.schukat.com/de/de/EUR/c/ESOP) from Schukat.
+
+To compile and run the demo:
+
+```sh
+CARGO_PROFILE_RELEASE_OPT_LEVEL=s cargo +esp run -p printerdemo_mcu --target xtensa-esp32s3-none-elf --no-default-features --features=mcu-board-support/esope-sld-c-w-s3 --release --config examples/mcu-board-support/esope_sld_c_w_s3/cargo-config.toml
+```
+

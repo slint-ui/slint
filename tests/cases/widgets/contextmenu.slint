@@ -39,6 +39,11 @@ export component TestCase inherits Window {
                     MenuSeparator {}
                 }
             }
+            MenuItem {
+                title: "Entry3";
+                checkable: true;
+                checked <=> checkable-menu-item-checked;
+            }
         }
 
         // When this focus scope has the focus, the ContextMenu can handle the Menu key
@@ -47,6 +52,8 @@ export component TestCase inherits Window {
 
 
     out property <bool> test: true;
+
+    out property <bool> checkable-menu-item-checked;
 }
 
 /*
@@ -76,6 +83,17 @@ slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key:
 slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::UpArrow));
 slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::Return));
 assert_eq!(instance.get_result(), "Open2");
+
+// verify that the checked menu item is not checked
+assert!(!instance.get_checkable_menu_item_checked());
+// navigate using the keys to the "Checked" menu item and toggle it
+slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::Menu));
+slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::DownArrow));
+slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::DownArrow));
+slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::DownArrow));
+slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from("\n"));
+// verify that the checked menu item is not checked
+assert!(!instance.get_checkable_menu_item_checked());
 ```
 
 ```cpp

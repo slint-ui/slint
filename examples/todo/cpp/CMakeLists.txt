@@ -17,6 +17,6 @@ target_link_libraries(todo PRIVATE todo_lib)
 
 if(SLINT_BUILD_TESTING AND SLINT_FEATURE_TESTING AND SLINT_FEATURE_EXPERIMENTAL)
     add_executable(test_todo_basic tests/test_todo_basic.cpp)
-    target_link_libraries(test_todo_basic PRIVATE Catch2::Catch2 todo_lib)
+    target_link_libraries(test_todo_basic PRIVATE Catch2::Catch2WithMain todo_lib)
     add_test(NAME test_todo_basic COMMAND test_todo_basic)
 endif()

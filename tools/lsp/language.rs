@@ -12,8 +12,7 @@ mod signature_help;
 #[cfg(test)]
 pub mod test;
 
-use crate::common;
-use crate::util;
+use crate::{common, util};
 
 #[cfg(target_arch = "wasm32")]
 use crate::wasm_prelude::*;
@@ -35,6 +34,7 @@ use lsp_types::{
     SemanticTokensOptions, ServerCapabilities, ServerInfo, TextDocumentSyncCapability, TextEdit,
     Url, WorkDoneProgressOptions,
 };
+
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::collections::HashSet;
@@ -91,18 +91,18 @@ pub fn request_state(ctx: &std::rc::Rc<Context>) {
         }
         let version = document_cache.document_version(&url);
 
-        ctx.server_notifier.send_message_to_preview(common::LspToPreviewMessage::SetContents {
+        ctx.to_preview.send(&common::LspToPreviewMessage::SetContents {
             url: common::VersionedUrl::new(url, version),
             contents: node.text().to_string(),
-        })
+        });
     }
 
-    ctx.server_notifier.send_message_to_preview(common::LspToPreviewMessage::SetConfiguration {
+    ctx.to_preview.send(&common::LspToPreviewMessage::SetConfiguration {
         config: ctx.preview_config.borrow().clone(),
     });
 
     if let Some(c) = ctx.to_show.borrow().clone() {
-        ctx.server_notifier.send_message_to_preview(common::LspToPreviewMessage::ShowPreview(c))
+        ctx.to_preview.send(&common::LspToPreviewMessage::ShowPreview(c));
     }
 }
 
@@ -150,6 +150,7 @@ pub struct Context {
     pub to_show: RefCell<Option<common::PreviewComponent>>,
     /// File currently open in the editor
     pub open_urls: RefCell<HashSet<lsp_types::Url>>,
+    pub to_preview: Rc<dyn common::LspToPreview>,
 }
 
 /// An error from a LSP request
@@ -427,12 +428,10 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
             {
                 let element = gp.as_ref().unwrap().child_node(SyntaxKind::Element).unwrap();
 
-                ctx.server_notifier.send_message_to_preview(
-                    common::LspToPreviewMessage::HighlightFromEditor {
-                        url: Some(uri),
-                        offset: element.text_range().start().into(),
-                    },
-                );
+                ctx.to_preview.send(&common::LspToPreviewMessage::HighlightFromEditor {
+                    url: Some(uri),
+                    offset: element.text_range().start().into(),
+                });
 
                 let range = util::node_to_lsp_range(&p);
                 return Ok(Some(vec![lsp_types::DocumentHighlight { range, kind: None }]));
@@ -450,20 +449,19 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
                     .as_ref()
                     .is_some_and(|n| n.kind() != SyntaxKind::Component)
                 {
-                    ctx.server_notifier.send_message_to_preview(
-                        common::LspToPreviewMessage::HighlightFromEditor {
-                            url: Some(uri),
-                            offset: gp.unwrap().text_range().start().into(),
-                        },
-                    );
+                    ctx.to_preview.send(&common::LspToPreviewMessage::HighlightFromEditor {
+                        url: Some(uri),
+                        offset: gp.unwrap().text_range().start().into(),
+                    });
                 }
                 return Ok(Some(vec![lsp_types::DocumentHighlight { range, kind: None }]));
             }
 
-            if let Some(value) = find_element_id_for_highlight(&tk, &p) {
-                ctx.server_notifier.send_message_to_preview(
-                    common::LspToPreviewMessage::HighlightFromEditor { url: None, offset: 0 },
-                );
+            if let Some(value) = common::rename_element_id::find_element_ids(&tk, &p) {
+                ctx.to_preview.send(&common::LspToPreviewMessage::HighlightFromEditor {
+                    url: None,
+                    offset: 0,
+                });
                 return Ok(Some(
                     value
                         .into_iter()
@@ -475,9 +473,8 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
                 ));
             }
         }
-        ctx.server_notifier.send_message_to_preview(
-            common::LspToPreviewMessage::HighlightFromEditor { url: None, offset: 0 },
-        );
+        ctx.to_preview
+            .send(&common::LspToPreviewMessage::HighlightFromEditor { url: None, offset: 0 });
         Ok(None)
     });
     rh.register::<Rename, _>(|params, ctx| async move {
@@ -488,7 +485,7 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
         {
             let p = tk.parent();
             let version = document_cache.document_version(&uri);
-            if let Some(value) = find_element_id_for_highlight(&tk, &p) {
+            if let Some(value) = common::rename_element_id::find_element_ids(&tk, &p) {
                 let edits: Vec<_> = value
                     .into_iter()
                     .map(|r| TextEdit {
@@ -520,7 +517,7 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
         let mut document_cache = ctx.document_cache.borrow_mut();
         let uri = params.text_document.uri;
         if let Some((tk, _)) = token_descr(&mut document_cache, &uri, &params.position) {
-            if find_element_id_for_highlight(&tk, &tk.parent()).is_some() {
+            if common::rename_element_id::find_element_ids(&tk, &tk.parent()).is_some() {
                 return Ok(Some(PrepareRenameResponse::Range(util::token_to_lsp_range(&tk))));
             }
             if common::rename_component::find_declaration_node(&document_cache, &tk).is_some() {
@@ -557,9 +554,6 @@ pub fn show_preview_command(
     params: &[serde_json::Value],
     ctx: &Rc<Context>,
 ) -> Result<(), LspError> {
-    let document_cache = &mut ctx.document_cache.borrow_mut();
-    let config = document_cache.compiler_configuration();
-
     let url: Url = extract_param(params, 0, "url")?;
 
     // Normalize the URL to make sure it is encoded the same way as what the preview expect from other URLs
@@ -574,13 +568,9 @@ pub fn show_preview_command(
     let component =
         params.get(1).and_then(|v| v.as_str()).filter(|v| !v.is_empty()).map(|v| v.to_string());
 
-    let c = common::PreviewComponent {
-        url,
-        component,
-        style: config.style.clone().unwrap_or_default(),
-    };
+    let c = common::PreviewComponent { url, component };
     ctx.to_show.replace(Some(c.clone()));
-    ctx.server_notifier.send_message_to_preview(common::LspToPreviewMessage::ShowPreview(c));
+    ctx.to_preview.send(&common::LspToPreviewMessage::ShowPreview(c));
 
     Ok(())
 }
@@ -742,12 +732,10 @@ pub(crate) async fn reload_document_impl(
     let dependencies = match action {
         FileAction::ProcessContent(content) => {
             if let Some(ctx) = ctx {
-                ctx.server_notifier.send_message_to_preview(
-                    common::LspToPreviewMessage::SetContents {
-                        url: common::VersionedUrl::new(url.clone(), version),
-                        contents: content.clone(),
-                    },
-                );
+                ctx.to_preview.send(&common::LspToPreviewMessage::SetContents {
+                    url: common::VersionedUrl::new(url.clone(), version),
+                    contents: content.clone(),
+                });
             }
             let dependencies = document_cache.invalidate_url(&url);
             let _ = document_cache.load_url(&url, version, content, &mut diag).await;
@@ -756,9 +744,7 @@ pub(crate) async fn reload_document_impl(
         FileAction::IgnoreFile => return Default::default(),
         FileAction::InvalidateFile => {
             if let Some(ctx) = ctx {
-                ctx.server_notifier.send_message_to_preview(
-                    common::LspToPreviewMessage::ForgetFile { url: url.clone() },
-                );
+                ctx.to_preview.send(&common::LspToPreviewMessage::ForgetFile { url: url.clone() });
             }
             document_cache.invalidate_url(&url)
         }
@@ -854,17 +840,14 @@ fn send_diagnostics(
 
 pub async fn invalidate_document(ctx: &Rc<Context>, url: lsp_types::Url) -> common::Result<()> {
     // The preview cares about resources and slint files, so forward everything
-    ctx.server_notifier.send_message_to_preview(common::LspToPreviewMessage::InvalidateContents {
-        url: url.clone(),
-    });
+    ctx.to_preview.send(&common::LspToPreviewMessage::InvalidateContents { url: url.clone() });
 
     ctx.document_cache.borrow_mut().drop_document(&url)
 }
 
 pub async fn delete_document(ctx: &Rc<Context>, url: lsp_types::Url) -> common::Result<()> {
     // The preview cares about resources and slint files, so forward everything
-    ctx.server_notifier
-        .send_message_to_preview(common::LspToPreviewMessage::ForgetFile { url: url.clone() });
+    ctx.to_preview.send(&common::LspToPreviewMessage::ForgetFile { url: url.clone() });
 
     ctx.document_cache.borrow_mut().drop_document(&url)
 }
@@ -950,7 +933,9 @@ fn get_code_actions(
                 .and_then(syntax_nodes::Element::new)
                 .and_then(|n| n.parent())
                 .and_then(syntax_nodes::Component::new)
-        });
+        })
+        .or_else(|| syntax_nodes::ExportsList::new(node.clone()).and_then(|n| n.Component()))
+        .filter(|c| c.child_text(SyntaxKind::Identifier).is_none_or(|t| t != "global"));
 
     #[cfg(any(feature = "preview-builtin", feature = "preview-external"))]
     {
@@ -1323,11 +1308,16 @@ fn get_code_lenses(
 
         // Handle preview lens
         result.extend(inner_components.iter().filter(|c| !c.is_global()).filter_map(|c| {
-            Some(CodeLens {
-                range: util::node_to_lsp_range(&c.root_element.borrow().debug.first()?.node),
-                command: Some(create_show_preview_command(true, &text_document.uri, c.id.as_str())),
-                data: None,
-            })
+            let component_node = c.root_element.borrow().debug.first()?.node.parent()?;
+            let range = match component_node.parent() {
+                Some(parent) if parent.kind() == SyntaxKind::ExportsList => {
+                    util::node_to_lsp_range(&parent)
+                }
+                _ => util::node_to_lsp_range(&component_node),
+            };
+            let command =
+                Some(create_show_preview_command(true, &text_document.uri, c.id.as_str()));
+            Some(CodeLens { range, command, data: None })
         }));
     }
 
@@ -1365,72 +1355,6 @@ export component MainWindow inherits Window {
     }
 
     (!result.is_empty()).then_some(result)
-}
-
-/// If the token is matching a Element ID, return the list of all element id in the same component
-fn find_element_id_for_highlight(
-    token: &SyntaxToken,
-    parent: &SyntaxNode,
-) -> Option<Vec<TextRange>> {
-    fn is_element_id(tk: &SyntaxToken, parent: &SyntaxNode) -> bool {
-        if tk.kind() != SyntaxKind::Identifier {
-            return false;
-        }
-        if parent.kind() == SyntaxKind::SubElement {
-            return true;
-        };
-        if parent.kind() == SyntaxKind::QualifiedName
-            && matches!(
-                parent.parent().map(|n| n.kind()),
-                Some(SyntaxKind::Expression | SyntaxKind::StatePropertyChange)
-            )
-        {
-            let mut c = parent.children_with_tokens();
-            if let Some(NodeOrToken::Token(first)) = c.next() {
-                return first.text_range() == tk.text_range()
-                    && matches!(c.next(), Some(NodeOrToken::Token(second)) if second.kind() == SyntaxKind::Dot);
-            }
-        }
-
-        false
-    }
-    if is_element_id(token, parent) {
-        // An id: search all use of the id in this Component
-        let mut candidate = parent.parent();
-        while let Some(c) = candidate {
-            if c.kind() == SyntaxKind::Component {
-                let mut ranges = Vec::new();
-                let mut found_definition = false;
-                recurse(&mut ranges, &mut found_definition, c, token.text());
-                fn recurse(
-                    ranges: &mut Vec<TextRange>,
-                    found_definition: &mut bool,
-                    c: SyntaxNode,
-                    text: &str,
-                ) {
-                    for x in c.children_with_tokens() {
-                        match x {
-                            NodeOrToken::Node(n) => recurse(ranges, found_definition, n, text),
-                            NodeOrToken::Token(tk) => {
-                                if is_element_id(&tk, &c) && tk.text() == text {
-                                    ranges.push(tk.text_range());
-                                    if c.kind() == SyntaxKind::SubElement {
-                                        *found_definition = true;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                if !found_definition {
-                    return None;
-                }
-                return Some(ranges);
-            }
-            candidate = c.parent()
-        }
-    }
-    None
 }
 
 pub async fn startup_lsp(ctx: &Context) -> common::Result<()> {
@@ -1516,8 +1440,7 @@ pub async fn load_configuration(ctx: &Context) -> common::Result<()> {
         document_cache.reload_cached_file(url, &mut diag).await;
     }
 
-    ctx.server_notifier
-        .send_message_to_preview(common::LspToPreviewMessage::SetConfiguration { config });
+    ctx.to_preview.send(&common::LspToPreviewMessage::SetConfiguration { config });
 
     send_diagnostics(
         &ctx.server_notifier,
@@ -1832,7 +1755,10 @@ export component TestWindow inherits Window {
             }
         }
     }
-}"#
+}
+export struct NoPreviewForStruct { x: int }
+export global NoPreviewForGlobal {}
+"#
             .into(),
         );
         let mut capabilities = ClientCapabilities::default();
@@ -2074,6 +2000,37 @@ export component TestWindow inherits Window {
                 ..Default::default()
             }),])
         );
+
+        #[cfg(any(feature = "preview-builtin", feature = "preview-external"))]
+        for col in [
+            0,  // "export"
+            8,  // "component"
+            22, // "TestWindow"
+            42, // "Window"
+        ] {
+            let pos = Position::new(2, col);
+            assert_eq!(
+                token_descr(&mut dc, &url, &pos).and_then(|(token, _)| get_code_actions(
+                    &mut dc,
+                    token,
+                    &capabilities
+                )),
+                Some(vec![CodeActionOrCommand::Command(Command::new(
+                    "Show Preview".into(),
+                    SHOW_PREVIEW_COMMAND.into(),
+                    Some(vec![url.as_str().into(), "TestWindow".into()]),
+                ))]),
+                "show preview missing {pos:?}"
+            );
+        }
+
+        // Test that we don't get a show preview action for struct and globals
+        for line in [27, 28] {
+            let pos = Position::new(line, 15);
+            let token = token_descr(&mut dc, &url, &pos).unwrap().0;
+            assert!(token.text().starts_with("NoPreviewFor"));
+            assert_eq!(get_code_actions(&mut dc, token, &capabilities), None);
+        }
     }
 
     #[test]
@@ -2192,8 +2149,11 @@ export component MainWindow inherits Window {
 component Internal { }
 
 export component Test {
-
+   FooBar := Rectangle {}
 }
+
+global Xyz {}
+export { Global }
 "#
             .into(),
         );
@@ -2203,7 +2163,7 @@ export component Test {
             Some(vec![
                 lsp_types::CodeLens {
                     range: lsp_types::Range::new(
-                        lsp_types::Position::new(1, 19),
+                        lsp_types::Position::new(1, 0),
                         lsp_types::Position::new(1, 22)
                     ),
                     command: Some(lsp_types::Command {
@@ -2218,7 +2178,7 @@ export component Test {
                 },
                 lsp_types::CodeLens {
                     range: lsp_types::Range::new(
-                        lsp_types::Position::new(3, 22),
+                        lsp_types::Position::new(3, 0),
                         lsp_types::Position::new(5, 1)
                     ),
                     command: Some(lsp_types::Command {

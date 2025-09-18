@@ -1,11 +1,11 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-//! Passes that resolve the type of two way bindings.
+//! This pass resolves the type of two way bindings.
 //!
-//! Before this pass, two way binding that did not specified the type have Type::Void
-//! type and their bindings are still a Expression::Uncompiled,
-//! this pass will attempt to assign a type to these based on the type of property they alias.
+//! Before this pass, two way bindings that did not specify the type have Type::Void
+//! type and their bindings are still a Expression::Uncompiled.
+//! This pass will attempt to assign a type to these based on the type of property they alias.
 
 use crate::diagnostics::BuildDiagnostics;
 use crate::expression_tree::Expression;

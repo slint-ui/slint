@@ -175,8 +175,10 @@ pub const RESERVED_DROP_SHADOW_PROPERTIES: &[(&str, Type)] = &[
     ("drop-shadow-color", Type::Color),
 ];
 
-pub const RESERVED_ROTATION_PROPERTIES: &[(&str, Type)] = &[
+pub const RESERVED_TRANSFORM_PROPERTIES: &[(&str, Type)] = &[
     ("rotation-angle", Type::Angle),
+    ("scale-x", Type::Float32),
+    ("scale-y", Type::Float32),
     ("rotation-origin-x", Type::LogicalLength),
     ("rotation-origin-y", Type::LogicalLength),
 ];
@@ -226,7 +228,7 @@ pub fn reserved_properties() -> impl Iterator<Item = (&'static str, Type, Proper
         .chain(RESERVED_LAYOUT_PROPERTIES.iter())
         .chain(RESERVED_OTHER_PROPERTIES.iter())
         .chain(RESERVED_DROP_SHADOW_PROPERTIES.iter())
-        .chain(RESERVED_ROTATION_PROPERTIES.iter())
+        .chain(RESERVED_TRANSFORM_PROPERTIES.iter())
         .map(|(k, v)| (*k, v.clone(), PropertyVisibility::Input))
         .chain(reserved_accessibility_properties().map(|(k, v)| (k, v, PropertyVisibility::Input)))
         .chain(
@@ -262,7 +264,7 @@ pub fn reserved_properties() -> impl Iterator<Item = (&'static str, Type, Proper
 }
 
 /// lookup reserved property injected in every item
-pub fn reserved_property(name: &str) -> PropertyLookupResult {
+pub fn reserved_property(name: &str) -> PropertyLookupResult<'_> {
     thread_local! {
         static RESERVED_PROPERTIES: HashMap<&'static str, (Type, PropertyVisibility, Option<BuiltinFunction>)>
             = reserved_properties().map(|(name, ty, visibility)| (name, (ty, visibility, reserved_member_function(name)))).collect();
@@ -408,6 +410,7 @@ impl TypeRegister {
             ($pub_type:ident, SharedString) => { Type::String };
             ($pub_type:ident, Image) => { Type::Image };
             ($pub_type:ident, Coord) => { Type::LogicalLength };
+            ($pub_type:ident, LogicalPosition) => { logical_point_type() };
             ($pub_type:ident, KeyboardModifiers) => { $pub_type.clone() };
             ($pub_type:ident, $_:ident) => {
                 BUILTIN.with(|e| Type::Enumeration(e.enums.$pub_type.clone()))
@@ -488,6 +491,23 @@ impl TypeRegister {
             _ => unreachable!(),
         };
 
+        match &mut register.elements.get_mut("Timer").unwrap() {
+            ElementType::Builtin(ref mut b) => {
+                let timer = Rc::get_mut(b).unwrap();
+                timer
+                    .properties
+                    .insert("start".into(), BuiltinPropertyInfo::from(BuiltinFunction::StartTimer));
+                timer
+                    .properties
+                    .insert("stop".into(), BuiltinPropertyInfo::from(BuiltinFunction::StopTimer));
+                timer.properties.insert(
+                    "restart".into(),
+                    BuiltinPropertyInfo::from(BuiltinFunction::RestartTimer),
+                );
+            }
+            _ => unreachable!(),
+        }
+
         let font_metrics_prop = crate::langtype::BuiltinPropertyInfo {
             ty: font_metrics_type(),
             property_visibility: PropertyVisibility::Output,
@@ -547,8 +567,12 @@ impl TypeRegister {
     pub fn builtin() -> Rc<RefCell<Self>> {
         let mut register = Self::builtin_internal();
 
-        register.elements.remove("ComponentContainer");
-        register.types.remove("component-factory");
+        register.elements.remove("ComponentContainer").unwrap();
+        register.types.remove("component-factory").unwrap();
+
+        register.elements.remove("DragArea").unwrap();
+        register.elements.remove("DropArea").unwrap();
+        register.types.remove("DropEvent").unwrap(); // Also removed in xtask/src/slintdocs.rs
 
         Rc::new(RefCell::new(register))
     }

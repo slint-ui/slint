@@ -18,7 +18,7 @@ use crate::layout::{LayoutConstraints, Orientation};
 use crate::namedreference::NamedReference;
 use crate::parser;
 use crate::parser::{syntax_nodes, SyntaxKind, SyntaxNode};
-use crate::typeloader::{ImportKind, ImportedTypes};
+use crate::typeloader::{ImportKind, ImportedTypes, LibraryInfo};
 use crate::typeregister::TypeRegister;
 use itertools::Either;
 use smol_str::{format_smolstr, SmolStr, ToSmolStr};
@@ -53,6 +53,7 @@ pub struct Document {
     pub custom_fonts: Vec<(SmolStr, crate::parser::SyntaxToken)>,
     pub exports: Exports,
     pub imports: Vec<ImportedTypes>,
+    pub library_exports: HashMap<String, LibraryInfo>,
 
     /// Map of resources that should be embedded in the generated code, indexed by their absolute path on
     /// disk on the build system
@@ -145,6 +146,10 @@ impl Document {
                 .collect();
             let en =
                 Enumeration { name: name.clone(), values, default_value: 0, node: Some(n.clone()) };
+            if en.values.is_empty() {
+                diag.push_error("Enums must have at least one value".into(), &n);
+            }
+
             let ty = Type::Enumeration(Rc::new(en));
             if !local_registry.insert_type_with_name(ty.clone(), name.clone()) {
                 diag.push_warning(
@@ -248,7 +253,7 @@ impl Document {
             if !local_compo.used.get() {
                 diag.push_warning(
                     "Component is neither used nor exported".into(),
-                    &local_compo.node,
+                    &local_compo.node.as_ref().map(|n| n.to_source_location()),
                 )
             }
         }
@@ -261,6 +266,7 @@ impl Document {
             custom_fonts,
             imports,
             exports,
+            library_exports: Default::default(),
             embedded_file_resources: Default::default(),
             #[cfg(feature = "bundle-translations")]
             translation_builder: None,
@@ -315,6 +321,7 @@ pub struct Timer {
     pub interval: NamedReference,
     pub triggered: NamedReference,
     pub running: NamedReference,
+    pub element: ElementWeak,
 }
 
 #[derive(Clone, Debug)]
@@ -334,6 +341,12 @@ pub struct UsedSubTypes {
     /// All the sub components use by this components and its children,
     /// and the amount of time it is used
     pub sub_components: Vec<Rc<Component>>,
+    /// All types, structs, enums, that orignates from an
+    /// external library
+    pub library_types_imports: Vec<(SmolStr, LibraryInfo)>,
+    /// All global components that originates from an
+    /// external library
+    pub library_global_imports: Vec<(SmolStr, LibraryInfo)>,
 }
 
 #[derive(Debug, Default, Clone)]
@@ -371,7 +384,7 @@ impl InitCode {
 /// Or is materialized for repeated expression.
 #[derive(Default, Debug)]
 pub struct Component {
-    pub node: Option<SyntaxNode>,
+    pub node: Option<syntax_nodes::Component>,
     pub id: SmolStr,
     pub root_element: ElementRc,
 
@@ -408,6 +421,9 @@ pub struct Component {
     /// The list of properties (name and type) declared as private in the component.
     /// This is used to issue better error in the generated code if the property is used.
     pub private_properties: RefCell<Vec<(SmolStr, Type)>>,
+
+    /// True if this component is imported from an external library.
+    pub from_library: Cell<bool>,
 }
 
 impl Component {
@@ -419,7 +435,7 @@ impl Component {
         let mut child_insertion_point = None;
         let is_legacy_syntax = node.child_token(SyntaxKind::ColonEqual).is_some();
         let c = Component {
-            node: Some(node.clone().into()),
+            node: Some(node.clone()),
             id: parser::identifier_text(&node.DeclaredIdentifier()).unwrap_or_default(),
             root_element: Element::from_node(
                 node.Element(),
@@ -1915,7 +1931,7 @@ impl Element {
     }
 
     pub fn sub_component(&self) -> Option<&Rc<Component>> {
-        if self.repeated.is_some() || self.is_component_placeholder {
+        if self.repeated.is_some() {
             None
         } else if let ElementType::Component(sub_component) = &self.base_type {
             Some(sub_component)
@@ -2240,7 +2256,12 @@ pub fn recurse_elem_including_sub_components_no_borrow<State>(
     recurse_elem_no_borrow(&component.root_element, state, &mut |elem, state| {
         let base = if elem.borrow().repeated.is_some() {
             if let ElementType::Component(base) = &elem.borrow().base_type {
-                Some(base.clone())
+                if base.parent_element.upgrade().is_some() {
+                    Some(base.clone())
+                } else {
+                    // The process_repeater_components pass was not run yet
+                    None
+                }
             } else {
                 None
             }
@@ -2719,7 +2740,7 @@ impl Exports {
             let name = last_compo.id.clone();
             if last_compo.is_global() {
                 if sorted_deduped_exports.is_empty() {
-                    diag.push_warning("Global singleton is implicitly marked for export. This is deprecated and it should be explicitly exported".into(), &last_compo.node);
+                    diag.push_warning("Global singleton is implicitly marked for export. This is deprecated and it should be explicitly exported".into(), &last_compo.node.as_ref().map(|n| n.to_source_location()));
                     sorted_deduped_exports.push((
                         ExportedName { name, name_ident: doc.clone().into() },
                         Either::Left(last_compo.clone()),
@@ -2729,7 +2750,7 @@ impl Exports {
                 .iter()
                 .any(|e| e.1.as_ref().left().is_some_and(|c| !c.is_global()))
             {
-                diag.push_warning("Component is implicitly marked for export. This is deprecated and it should be explicitly exported".into(), &last_compo.node);
+                diag.push_warning("Component is implicitly marked for export. This is deprecated and it should be explicitly exported".into(), &last_compo.node.as_ref().map(|n| n.to_source_location()));
                 let insert_pos = sorted_deduped_exports
                     .partition_point(|(existing_export, _)| existing_export.name <= name);
                 sorted_deduped_exports.insert(

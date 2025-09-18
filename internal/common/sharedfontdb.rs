@@ -17,6 +17,7 @@ pub struct FontDatabase {
         target_vendor = "apple",
         target_arch = "wasm32",
         target_os = "android",
+        target_os = "nto",
     )))]
     pub fontconfig_fallback_families: Vec<String>,
     // Default font families to use instead of SansSerif when SLINT_DEFAULT_FONT env var is set.
@@ -64,6 +65,7 @@ thread_local! {
     target_vendor = "apple",
     target_arch = "wasm32",
     target_os = "android",
+    target_os = "nto",
 )))]
 mod fontconfig;
 
@@ -117,14 +119,19 @@ fn init_fontdb() -> FontDatabase {
         target_vendor = "apple",
         target_arch = "wasm32",
         target_os = "android",
+        target_os = "nto",
     )))]
     let mut fontconfig_fallback_families = Vec::new();
 
-    #[cfg(target_arch = "wasm32")]
+    #[cfg(any(target_arch = "wasm32", target_os = "nto"))]
     {
         let data = include_bytes!("sharedfontdb/DejaVuSans.ttf");
         font_db.load_font_data(data.to_vec());
         font_db.set_sans_serif_family("DejaVu Sans");
+    }
+    #[cfg(target_os = "nto")]
+    {
+        font_db.set_sans_serif_family("Noto Sans");
     }
     #[cfg(target_os = "android")]
     {
@@ -146,6 +153,7 @@ fn init_fontdb() -> FontDatabase {
                 target_vendor = "apple",
                 target_arch = "wasm32",
                 target_os = "android",
+                target_os = "nto",
             )))] {
                 match fontconfig::find_families("sans-serif") {
                     Ok(mut fallback_families) => {
@@ -179,6 +187,7 @@ fn init_fontdb() -> FontDatabase {
             target_vendor = "apple",
             target_arch = "wasm32",
             target_os = "android",
+            target_os = "nto",
         )))]
         fontconfig_fallback_families,
         default_font_family_ids,
@@ -203,7 +212,13 @@ pub fn register_font_from_path(path: &std::path::Path) -> Result<(), Box<dyn std
         for face_info in db.faces() {
             match &face_info.source {
                 fontdb::Source::Binary(_) => {}
-                fontdb::Source::File(loaded_path) | fontdb::Source::SharedFile(loaded_path, ..) => {
+                fontdb::Source::File(loaded_path) => {
+                    if *loaded_path == requested_path {
+                        return Ok(());
+                    }
+                }
+                #[cfg(not(target_os = "nto"))]
+                fontdb::Source::SharedFile(loaded_path, ..) => {
                     if *loaded_path == requested_path {
                         return Ok(());
                     }

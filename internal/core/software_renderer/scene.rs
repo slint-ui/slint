@@ -19,7 +19,9 @@ pub struct SceneVectors {
     pub textures: Vec<SceneTexture<'static>>,
     pub rounded_rectangles: Vec<RoundedRectangle>,
     pub shared_buffers: Vec<SharedBufferCommand>,
-    pub gradients: Vec<GradientCommand>,
+    pub linear_gradients: Vec<LinearGradientCommand>,
+    pub radial_gradients: Vec<RadialGradientCommand>,
+    pub conic_gradients: Vec<ConicGradientCommand>,
 }
 
 pub struct Scene {
@@ -275,9 +277,17 @@ pub enum SceneCommand {
     RoundedRectangle {
         rectangle_index: u16,
     },
-    /// rectangle_index is an index in the [`SceneVectors::rounded_gradients`] array
-    Gradient {
-        gradient_index: u16,
+    /// linear_gradient_index is an index in the [`SceneVectors::linear_gradients`] array
+    LinearGradient {
+        linear_gradient_index: u16,
+    },
+    /// radial_gradient_index is an index in the [`SceneVectors::radial_gradients`] array
+    RadialGradient {
+        radial_gradient_index: u16,
+    },
+    /// conic_gradient_index is an index in the [`SceneVectors::conic_gradients`] array
+    ConicGradient {
+        conic_gradient_index: u16,
     },
 }
 
@@ -501,7 +511,7 @@ pub struct RoundedRectangle {
 ///  - if false: on the left side, goes from `start` to 1, on the right side, goes from 0 to `1-start`
 ///  - if true: on the left side, goes from 0 to `1-start`, on the right side, goes from `start` to `1`
 #[derive(Debug)]
-pub struct GradientCommand {
+pub struct LinearGradientCommand {
     pub color1: PremultipliedRgbaColor,
     pub color2: PremultipliedRgbaColor,
     pub start: u8,
@@ -515,4 +525,31 @@ pub struct GradientCommand {
     pub right_clip: PhysicalLength,
     pub top_clip: PhysicalLength,
     pub bottom_clip: PhysicalLength,
+}
+
+/// Radial gradient that interpolates colors from the center outward
+///
+/// Unlike LinearGradientCommand, radial gradients don't have clipping fields
+/// because they radiate uniformly in all directions from the center point.
+/// The gradient is naturally clipped by the rectangle bounds during rendering.
+#[derive(Debug)]
+pub struct RadialGradientCommand {
+    /// The gradient stops (colors and positions)
+    pub stops: crate::SharedVector<crate::graphics::GradientStop>,
+    /// Center of the gradient relative to the item position
+    pub center_x: PhysicalLength,
+    pub center_y: PhysicalLength,
+}
+
+/// Conic gradient that interpolates colors around a center point
+///
+/// The gradient creates a color transition that rotates around the center of the
+/// rectangle being drawn. The angle positions are specified in the gradient stops,
+/// where 0 = 0 degrees (north) and 1 = 360 degrees. Colors are interpolated based
+/// on the angle from north, going clockwise.
+#[derive(Debug)]
+pub struct ConicGradientCommand {
+    /// The gradient stops (colors and normalized angle positions)
+    /// Position 0 = 0 degrees (north), 1 = 360 degrees
+    pub stops: crate::SharedVector<crate::graphics::GradientStop>,
 }

@@ -3,61 +3,204 @@
 # Changelog
 All notable changes to this project are documented in this file.
 
-## [1.12.0] - TBD
+## [1.13.1] - 2025-09-11
+
+ - Windows: Fixed flickering when updating the menu bar.
+ - LinuxKMS: Fixed build with just renderer-femtovg
+ - LinuxKMS: Fixed GPU based rendering on systems where the driver reported no DRM planes.
+ - Qt: use the cursor flash time from the config
+ - Fixed spurious Slint compiler error when using `ContextMenuArea` in component within a `if` or `for`
+ - C++: fixed the live preview feature missing the `slint_live_preview.h` header (#9335)
+ - FemtoVG: added support for conical gradients (#9334)
+ - FemtoVG: Fixed panic when using rendering notifiers in Wasm with WebGL.
+ - `SwipeGestureHandler`: improved thresholds and destection of move when embedded in another `SwipeGestureHandler`
+ - MCU: fix timer not starting if started before first call to `update_timers_and_animations`
+ - wasm: Fix sizing of the window based on the canvas size or the preferred size
+ - LSP: fix renaming elements id that have a `-` or `_` mismatch.
+ - live-preivew: allow to edit element id
+ - live-preview: search line edit for the library
+ - Slintpad: compress the snippet in the URL
+
+## [1.13.0] - 2025-09-03
+
+### General
+
+ - winit: Fixed the maximize window not being disabled for fixed-size windows.
+ - winit: Added support for timer based frame throttling (#8826).
+ - winit: Added support for custom event hooks (`with_winit_custom_application_handler`).
+ - winit: Fall back to software rendering if there are no GPU-backed WGPU adapters (#9164).
+ - LinuxKMS: Added support for overriding the default framebuffer interface selection/
+ - LinuxKMS: Added support for a padded legacy linux framebuffers.
+ - LinuxKMS: Added support for libinput event hooks (behind `unstable-libinput-09` feature flag)
+ - Skia: Fixed `no-wrap` still wrapping text (#7080)
+ - Skia: Added support for importing WGPU textures, via `unstable-wgpu-26` when Skia is enabled.
+ - Software renderer: Add radial gradient support (#8980)
+ - Software renderer: Fix rendering of the Qt style (#9006)
+ - Windows: Fixed menu bar in fullscreen mode
+ - Windows: Context menus are now using native look and feel.
+ - Fixed gradient rendering bugs in Qt and FemtoVG renderers (#9030, #7909)
+
+### Slint Language
+
+ - Callback handlers no longer need curly-braces. Extra semi-colon is no longer an error. (#8401)
+ - Added support for local variable with `let` (#2752)
+ - `MenuItem`: Added `icon`, `checkable`, and `checked` properties.
+ - `MenuBar` can now be hidden by placing it in a `if`.
+ - Fixed `MenuSeparator` not always being visible.
+ - `Flickable`: Forward wheel events in a orthogonal direction to their parent.
+ - Added a compiler warning when using `padding` outside of layouts (#6288).
+ - `Timer`: Added `stop()`, `start()`, and `restart()` functions (#8821).
+ - `FocusScope`: Added `focus-on-click` and `focus-on-tab-navigation` properties.
+ - `FocusScope`: Added `capture_key_pressed` and `capture_key_released` callbacks
+ - `Dialog` and `Window` that aren't top-level now draw their background.
+ - Added support for `@conic-gradient` (#9021)
+ - `Path`: Fixed changing `commands` or path sub-elements in a component that inherit from `Path`.
+ - `Path`: Fix settings `commands` from states (#4080)
+ - Added `Key.Back` for the back key on android.
+ - Added an `Easing` namespace to reference easing curve outside of `easing` properties.
+ - `focus()` can now be called on invisible items.
+ - `Window`: Fixed `default-font-size` not propagating into `PopupWindow`.
+
+### Widgets
+
+ - `LineEdit`: Show a clear icon when not empty.
+ - `LineEdit`: Users can toggle password visibility via an icon when `input-type` is set to `password`.
+
+### Rust
+
+ - Minimum Supported Rust Version (MSRV) is 1.85
+ - Upgraded WGPU dependency to version 26: The `unstable-wgpu-26` Cargo feature replaces the old `unstable-wgpu-24` feature,
+   and the `slint::wgpu_26` module replaces the `slint::wgpu_24` module. There were no further changes to the API.
+ - Fixed compilation of generated code if the slint code declares a type named `core`.
+ - Support for live-preview with the `slint/live-preview` feature and `SLINT_LIVE_PREVIEW` env variable
+ - winit: Added API to await for the existence of the winit window
+ - Added `FromIterator<char>` and `Extend<char>` for `SharedString`
+ - Added `SharedVector::reserve()`
+
+### C++
+
+ - Added `SharedString::clear()`.
+ - Support for live-preview with the `SLINT_FEATURE_LIVE_PREVIEW` feature and `SLINT_LIVE_PREVIEW` env variable
+ - `SLINT_FEATURE_RENDERER_FEMTOVG_WGPU` is no longer enabled by default
+ - esp-idf: `slint::invoke_from_event_loop` can now be invoked before starting the event loop.
+ - Fixed Windows AArch64 support
+
+### Node.js API
+
+ - Fixed panic when attempting to convert brushes to colors.
+
+### Python
+
+ - Added support for automatically mapping exported Slint enums to property Python `enum.Enum` subclasses.
+ - Add support for creating slint.Image objects from arrays (#9014)
+
+### Tooling
+
+ - lsp: allow to rename functions and callbacks
+ - lsp: show documentation comments in the hoover/tooltip (#9057)
+ - live-preview: Move the preview in a separate process
+ - live-preview: allow dropping in a `ListView` by adding a `for` loop
+ - live-preview: Added an "Outline" panel
+ - live-preview: Fixed highlighted elements not following items
+ - live-preview: Added undo/redo support
+ - slint-compiler: Guess default output format from file extension
+ - SlintPad: replace the web menu bar with the preview menu bar. Move the preview on the left.
+
+## [1.12.1] - 2025-06-25
+
+### General
+
+ - Fixed invalid code gen with return statements. (#8723)
+ - Updated `muda` dependency to avoid outdated and insecure `gtk` dependency to appear in the `Cargo.lock` file even if it was not used. (#7800)
+ - Fixed memory leaks and crash in change callbacks (#8768, #8741)
+ - winit: Fixed window constraints (min, max, pref) not being applied sometimes (#8765)
+ - No longer generate unused structs in the generated code to avoid warnings with Rust 1.89
+
+### Slint Language
+
+ - Enums without value cause compilation errors (instead of panics)
+ - Fixed runtime and compile errors when accessing the `Platform` global from within other globals. (#8777)
+
+### Node.js API
+
+ - Added packages for Windows on ARM.
+
+### C++
+
+ - Fixed compilation of `PopupWindow::show()` in changed callbacks. (#8710)
+
+### LSP and Tooling
+
+ - Added binaries for Windows on ARM (VS Code extension, slint-lsp binaries).
+ - Fixed potential crashes due to stack overflows on Windows.
+ - live-preview: Lazily compute palette to speedup the UI.
+
+## [1.12.0] - 2025-06-16
 
 ### General
 
  - Added `renderer-femtovg-wgpu` (Rust) / `SLINT_FEATURE_RENDERER_FEMTOVG_WGPU` (CMake) as new rendering option,
    based on [WGPU](https://wgpu.rs/).
- - Fix the way Window::default-font is applied, making it work in the live preview.
- - Updated AccessKit
- - Initial iOS support
- - Fixed blinking window icon on Windows (#7994)
- - FemtoVG: Fixed extra space of the `\n` char in text rendering (#7970)
- - Winit: Added support for SVG icons in the window title
- - `TextInput` selects its content when focused with the keyboard on Windows and Linux
-
+ - Fixed `Window::default-font` not working in the live preview.
+ - Initial iOS support.
+ - FemtoVG: Fixed extra space of the `\n` char in text rendering (#7970).
+ - Android: Commit the preedit text when focus change (#8668).
+ - Winit: Added support for SVG icons in the window title.
+ - Winit: Fixed blinking window icon on Windows (#7994).
+ - Updated AccessKit.
 
 ### Slint Language
 
- - Detect binding loops that applies to the Window itself
- - Added `Math.exp` and `Math.ln`
+ - Fixed detection of binding loops that apply to the `Window` itself.
+ - Added `Math.exp` and `Math.ln`.
  - Added `Platform.style-name` and `Platform.os` properties to permit style and OS dependent code.
- - Fixed changed callback on private global properties (#8269)
- - Added `ContextMenuArea::enabled`
- - Slint compilation error for comparison of types that can't be compared with less or greater operator.
- - `Flickable` now has a change event to keep in bounds when geometry changes (#2227, #7487)
+ - Fixed changed callback on private global properties (#8269).
+ - Added `ContextMenuArea::enabled`.
+ - Fixed Slint compilation error for comparison of types that can't be compared with less or greater operator.
+ - `Flickable` now keeps in bounds when geometry changes (#2227, #7487).
  - Added `in-out` transition in states.
+ - Added `focus-gained` and `focus-lost` callback to `FocusScope`.
+ - Added a `FocusReason` argument to the `FocusScope` callbacks.
+ - Fixed `TextInput` to selects its content when focused with the keyboard on Windows and Linux.
+ - Fixed `TextInput` to no longer be focusable if disabled.
 
 ### Widgets
 
- - Fixed `ScrollView` scrollbar actions not triggering `scrolled` callback (#8170)
- - Added content-padding to GroupBox (#8314)
- - TextEdit/LineEdit: disable context menu action when the widget is disabled or read-only
- - Added `mouse-drag` property to `ScrollView` (#8512)
+ - Fixed `ScrollView` scrollbar actions not triggering `scrolled` callback (#8170).
+ - `GroupBox`: Added `content-padding` property (#8314).
+ - `TextEdit`/`LineEdit`: Disable context menu action when the widget is disabled or read-only.
+ - `ScrollView`: Added `mouse-drag-pan-enabled` property (#8512).
 
 ### Rust
 
  - Added `unstable-winit-030` feature along with `slint::winit_030` module in the API to provide access
    to winit APIs.
- - Added `unstable-wgpu-24` feature along with `slint::wgpu_24` module to enable Slint <> WPU interoperatiblity.
- - Make `Debug` impl of `PlatformError` show the display string
- - slint-build: Implement `Clone` for `CompilerConfiguration`
+ - Added `unstable-wgpu-24` feature along with `slint::wgpu_24` module to enable Slint <> WGPU interoperatiblity.
+ - Made `Debug` impl of `PlatformError` show the display string.
+ - slint-build: Implement `Clone` for `CompilerConfiguration`.
+ - slint-interpreter: Fixed `From<ModelRc> for slint_interpreter::Value` to return a model that supports `set_row_data`.
 
 ### C++
 
- - Made generated code more robust when in namespaces regarding forward declaration
- - Added a few asserts to ensure the code is run in the right thread
- - Don't crash when `Model::row_data` returns `nullopt`
+ - Made generated code more robust when in namespaces regarding forward declaration.
+ - Added a few asserts to ensure the code is run in the right thread.
+ - Don't crash when `Model::row_data` returns `nullopt`.
+ - Rust 1.85 is now required to compile from source.
 
 ### Python
 
+ - Upgraded to Pyo3 0.25.
+ - Added iOS Simulator and Device wheels.
+
 ### LSP and Tooling
 
- - live preview: Do not apply live data changes after "Reload"
- - live preview: Added telemetry events
- - live preview: support Palette names in color picker
- - figma-inspector: ... TODO ...
+ - live preview: Do not apply live data changes after "Reload".
+ - live preview: Added telemetry events.
+ - live preview: support Palette names in color picker.
+ - live-preview: Added a console panel with complation error and `debug(...)` messages.
+ - figma-inspector: Enables the export of design tokens (variables for colors, numbers, strings, and booleans).
+   direct from your Figma files.
+ - figma-inspector: Inspected components now can include design token variable reference for convenient pasting into slint files..
 
 ## [1.11.0] - 2025-04-23
 
@@ -1903,3 +2046,7 @@ as well as the [Rust migration guide for the `sixtyfps` crate](api/rs/slint/migr
 [1.9.2]: https://github.com/slint-ui/slint/releases/tag/v1.9.2
 [1.10.0]: https://github.com/slint-ui/slint/releases/tag/v1.10.0
 [1.11.0]: https://github.com/slint-ui/slint/releases/tag/v1.11.0
+[1.12.0]: https://github.com/slint-ui/slint/releases/tag/v1.12.0
+[1.12.1]: https://github.com/slint-ui/slint/releases/tag/v1.12.1
+[1.13.0]: https://github.com/slint-ui/slint/releases/tag/v1.13.0
+[1.13.1]: https://github.com/slint-ui/slint/releases/tag/v1.13.1

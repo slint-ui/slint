@@ -349,13 +349,13 @@ declare_syntax! {
         ArgumentDeclaration -> [DeclaredIdentifier, Type],
         /// `-> type`  (but without the ->)
         ReturnType -> [Type],
-        CallbackConnection -> [ *DeclaredIdentifier,  CodeBlock ],
+        CallbackConnection -> [ *DeclaredIdentifier, ?CodeBlock, ?Expression ],
         /// Declaration of a property.
         PropertyDeclaration-> [ ?Type , DeclaredIdentifier, ?BindingExpression, ?TwoWayBinding ],
         /// QualifiedName are the properties name
         PropertyAnimation-> [ *QualifiedName, *Binding ],
         /// `changed xxx => {...}`  where `xxx` is the DeclaredIdentifier
-        PropertyChangedCallback-> [ DeclaredIdentifier, CodeBlock ],
+        PropertyChangedCallback-> [ DeclaredIdentifier, ?CodeBlock, ?Expression ],
         /// wraps Identifiers, like `Rectangle` or `SomeModule.SomeType`
         QualifiedName-> [],
         /// Wraps single identifier (to disambiguate when there are other identifier in the production)
@@ -367,14 +367,15 @@ declare_syntax! {
         /// the right-hand-side of a binding
         // Fixme: the test should be a or
         BindingExpression-> [ ?CodeBlock, ?Expression ],
-        CodeBlock-> [ *Expression, *ReturnStatement ],
+        CodeBlock-> [ *Expression, *LetStatement, *ReturnStatement ],
+        LetStatement -> [ DeclaredIdentifier, ?Type, Expression ],
         ReturnStatement -> [ ?Expression ],
         // FIXME: the test should test that as alternative rather than several of them (but it can also be a literal)
         Expression-> [ ?Expression, ?FunctionCallExpression, ?IndexExpression, ?SelfAssignment,
                        ?ConditionalExpression, ?QualifiedName, ?BinaryExpression, ?Array, ?ObjectLiteral,
                        ?UnaryOpExpression, ?CodeBlock, ?StringTemplate, ?AtImageUrl, ?AtGradient, ?AtTr,
                        ?MemberAccess ],
-        /// Concatenate the Expressions to make a string (usually expended from a template string)
+        /// Concatenate the Expressions to make a string (usually expanded from a template string)
         StringTemplate -> [*Expression],
         /// `@image-url("foo.png")`
         AtImageUrl -> [],
@@ -501,7 +502,7 @@ mod parser_trait {
         /// (do not re-implement this function, re-implement
         /// start_node_impl and finish_node_impl)
         #[must_use = "The node will be finished when it is dropped"]
-        fn start_node(&mut self, kind: SyntaxKind) -> Node<Self> {
+        fn start_node(&mut self, kind: SyntaxKind) -> Node<'_, Self> {
             self.start_node_impl(kind, None, NodeToken(()));
             Node(self)
         }
@@ -512,7 +513,7 @@ mod parser_trait {
             &mut self,
             checkpoint: impl Into<Option<Self::Checkpoint>>,
             kind: SyntaxKind,
-        ) -> Node<Self> {
+        ) -> Node<'_, Self> {
             self.start_node_impl(kind, checkpoint.into(), NodeToken(()));
             Node(self)
         }
@@ -826,7 +827,7 @@ impl SyntaxNode {
             .find(|n| n.kind() == kind)
             .and_then(|x| x.as_token().map(|x| x.text().into()))
     }
-    pub fn descendants(&self) -> impl Iterator<Item = SyntaxNode> {
+    pub fn descendants(&self) -> impl Iterator<Item = SyntaxNode> + use<'_> {
         let source_file = self.source_file.clone();
         self.node
             .descendants()

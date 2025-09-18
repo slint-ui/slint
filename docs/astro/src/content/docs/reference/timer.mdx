@@ -3,7 +3,7 @@
 title: Timer
 description: Timer element api.
 ---
-import SlintProperty  from '/src/components/SlintProperty.astro';
+import SlintProperty from '@slint/common-files/src/components/SlintProperty.astro';
 
 :::note[Note]
 Timer is not an actual element visible in the tree, therefore it doesn't have the common properties such as `x`, `y`, `width`, `height`, etc. It also doesn't take room in a layout and cannot have any children or be inherited from.
@@ -105,3 +105,14 @@ Timer {
     }
 }
 ```
+
+## Functions
+
+### start()
+Start the timer (equivalent to setting `running` to true).
+
+### stop()
+Stop the timer (equivalent to setting `running` to false).
+
+### restart()
+Restarts the timer if it was previously started.

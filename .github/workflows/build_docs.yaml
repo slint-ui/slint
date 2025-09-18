@@ -23,22 +23,23 @@ jobs:
             # Allow deprecated warning because we are using nightly and some things might be deprecated in nightly
             # for which the stable alternative is not yet available.
             RUSTFLAGS: -D warnings -W deprecated
-            RUSTDOCFLAGS: --html-in-header=/home/runner/work/slint/slint/docs/astro/src/utils/slint-docs-highlight.html -D warnings -W deprecated --cfg docsrs
+            RUSTDOCFLAGS: --html-in-header=/home/runner/work/slint/slint/docs/astro/src/utils/slint-docs-highlight.html -D warnings -W deprecated --cfg docsrs -Zunstable-options --generate-link-to-definition
             SLINT_NO_QT: 1
             CARGO_INCREMENTAL: false
             RELEASE_INPUT: ${{ inputs.release }}
         steps:
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@v5
             - uses: pnpm/action-setup@v4.1.0
               with:
-                version: 10.11.0
-            - name: Set up rgb crate rustdoc link
+                version: 10.14.0
+            - name: Set up crate rustdoc link
               run: |
                   rgb_version=`grep 'rgb = '  internal/core/Cargo.toml | sed 's/^.*"\(.*\)"/\1/'`
-                  echo "RUSTDOCFLAGS=$RUSTDOCFLAGS --extern-html-root-url rgb=https://docs.rs/rgb/$rgb_version/ --extern-html-root-url android_activity=https://docs.rs/android-activity/0.5/ --extern-html-root-url raw_window_handle=https://docs.rs/raw_window_handle/0.6 -Z unstable-options" >> $GITHUB_ENV
-            - uses: actions/setup-node@v4
+                  echo "RUSTDOCFLAGS=$RUSTDOCFLAGS --extern-html-root-url rgb=https://docs.rs/rgb/$rgb_version/ --extern-html-root-url android_activity=https://docs.rs/android-activity/0.5/ --extern-html-root-url raw_window_handle=https://docs.rs/raw_window_handle/0.6 --extern-html-root-url winit=https://docs.rs/winit/0.30 --extern-html-root-url wgpu=https://docs.rs/wgpu/26 --extern-html-root-url input=https://docs.rs/input/0.9" >> $GITHUB_ENV
+            - uses: actions/setup-node@v5
               with:
                 node-version: 20
+                package-manager-cache: false
             - uses: ./.github/actions/install-linux-dependencies
             - name: Install MS fonts for comic sans needed by one of the screenshots in the docs
               run: |
@@ -46,7 +47,7 @@ jobs:
                   sudo apt-get install ttf-mscorefonts-installer -y
             - uses: ./.github/actions/setup-rust
               with:
-                  toolchain: nightly
+                  toolchain: nightly-2025-09-01 # Pinnded because faillure to build cargo-about
                   components: rustfmt
                   target: aarch64-linux-android
             - name: Install apt dependencies
@@ -55,9 +56,8 @@ jobs:
               with:
                   crate: cargo-about
                   version: "=0.6.6"
-            - name: Upgrade pip and install pipenv
-              run: |
-                  sudo apt-get install python3-pip pipenv
+            - name: Install uv
+              uses: astral-sh/setup-uv@v6
             - name: Remove docs from cache # Avoid stale docs
               run: |
                   rm -rf target/doc target/cppdocs api/node/docs
@@ -111,9 +111,9 @@ jobs:
                     base_path="/${{ steps.version.outputs.VERSION }}/docs/slint/"
                     slint_download_version=v${{ steps.version.outputs.VERSION }}
                 fi
-                sed -i "s|BASE_URL = \".*\"|BASE_URL = \"$base_url\"|" docs/astro/src/utils/site-config.ts
-                sed -i "s|BASE_PATH = \".*\"|BASE_PATH = \"$base_path\"|" docs/astro/src/utils/site-config.ts
-                sed -i "s|SLINT_DOWNLOAD_VERSION = \".*\"| SLINT_DOWNLOAD_VERSION = \"$slint_download_version\"|" docs/astro/src/utils/site-config.ts
+                sed -i "s|BASE_URL = \".*\"|BASE_URL = \"$base_url\"|" docs/common/src/utils/site-config.ts
+                sed -i "s|BASE_PATH = \".*\"|BASE_PATH = \"$base_path\"|" docs/common/src/utils/site-config.ts
+                sed -i "s|SLINT_DOWNLOAD_VERSION = \".*\"| SLINT_DOWNLOAD_VERSION = \"$slint_download_version\"|" docs/common/src/utils/site-config.ts
             - name: "Slint Language Documentation"
               run: cargo xtask slintdocs
             - name: Spellcheck
@@ -141,15 +141,12 @@ jobs:
               run: pnpm run docs
               working-directory: api/node
 
-            - name: Install uv
-              uses: astral-sh/setup-uv@v6
-
             - name: Setup headless display
               uses: pyvista/setup-headless-display-action@v4
 
             - name: "Python docs"
               run: uv run build_docs.py
-              working-directory: api/python
+              working-directory: api/python/slint
 
             - name: Generate a token
               if: ${{ github.ref == 'refs/heads/master' }}
@@ -162,7 +159,7 @@ jobs:
 
             - name: Clone website directory
               if: ${{ github.ref == 'refs/heads/master' }}
-              uses: actions/checkout@v4
+              uses: actions/checkout@v5
               with:
                 repository: slint-ui/website
                 ref: prod
@@ -192,11 +189,11 @@ jobs:
                       target/cppdocs/html
                       docs/astro/dist
                       api/node/docs
-                      api/python/docs
+                      api/python/slint/docs
                       docs/site
             - name: "Check for docs warnings in internal crates"
               run: cargo doc --workspace --no-deps --all-features --exclude slint-node --exclude pyslint --exclude mcu-board-support --exclude mcu-embassy --exclude printerdemo_mcu --exclude carousel --exclude test-* --exclude plotter --exclude uefi-demo --exclude ffmpeg --exclude gstreamer-player --exclude slint-cpp --exclude slint-python
             - name: Clean cache # Don't cache docs to avoid them including removed classes being published
               run: |
-                  rm -rf target/doc target/cppdocs api/node/docs api/python/docs
+                  rm -rf target/doc target/cppdocs api/node/docs api/python/slint/docs
 

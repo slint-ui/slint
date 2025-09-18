@@ -49,7 +49,7 @@ unsafe-single-threaded = []
 unicode = ["unicode-script", "unicode-linebreak"]
 
 software-renderer-systemfonts = ["shared-fontdb", "rustybuzz", "fontdue", "software-renderer"]
-software-renderer = ["bytemuck", "rustversion"]
+software-renderer = ["bytemuck"]
 
 image-decoders = ["dep:image", "dep:clru"]
 image-default-formats = ["image?/default-formats"]
@@ -63,7 +63,7 @@ raw-window-handle-06 = ["dep:raw-window-handle-06"]
 
 experimental = []
 
-unstable-wgpu-24 = ["dep:wgpu-24"]
+unstable-wgpu-26 = ["dep:wgpu-26"]
 
 default = ["std", "unicode"]
 
@@ -77,7 +77,7 @@ vtable = { workspace = true }
 portable-atomic = { version = "1", features = ["critical-section"] }
 auto_enums = "0.8.0"
 cfg-if = "1"
-derive_more = { workspace = true }
+derive_more = { workspace = true, features = ["error"] }
 euclid = { workspace = true }
 lyon_algorithms = { version = "1.0", optional = true }
 lyon_geom = { version = "1.0", optional = true }
@@ -116,9 +116,7 @@ chrono = { version = "0.4", default-features = false, features = ["alloc"] }
 rustybuzz = { workspace = true, optional = true }
 fontdue = { workspace = true, optional = true }
 
-wgpu-24 = { workspace = true, optional = true }
-
-rustversion = { version = "1.0", optional = true }
+wgpu-26 = { workspace = true, optional = true }
 
 [target.'cfg(target_family = "unix")'.dependencies]
 gettext-rs = { version = "0.7.1", optional = true, features = ["gettext-system"] }
@@ -150,3 +148,6 @@ unexpected_cfgs = { level = "warn", check-cfg = ["cfg(slint_debug_property)", "c
 # Coord is an alias for f32 in most architectures, but not always, so the cast
 # to f32 *is* necessary.
 unnecessary_cast = { level = "allow" }
+
+[package.metadata.docs.rs]
+rustdoc-args = ["--generate-link-to-definition"]

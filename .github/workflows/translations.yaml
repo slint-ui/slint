@@ -7,8 +7,8 @@ name: Update Translations
 on:
     workflow_dispatch:
 
-    schedule:
-        - cron: "0 3 * * *"
+#    schedule:
+#        - cron: "0 3 * * *"
 
 jobs:
     update-translations:
@@ -20,7 +20,7 @@ jobs:
         steps:
             - name: "install gettext tools"
               run: sudo apt install gettext
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@v5
             - uses: ./.github/actions/setup-rust
 
             - name: "gallery: Run slint-tr-extractor"

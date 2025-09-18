@@ -139,7 +139,7 @@ assert_eq!(instance.get_left_swiping(), false);
 assert_eq!(instance.get_right_swiping(), false);
 instance.set_r("".into());
 
-// FIXME: this shouldn'g be necessary, but otherwise we don't send exit event to the toucharea
+// FIXME: this shouldn't be necessary, but otherwise we don't send exit event to the toucharea
 instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(316.0, 463.0) });
 
 // Left
@@ -150,20 +150,23 @@ assert_eq!(instance.get_left_swiping(), false);
 assert_eq!(instance.get_right_swiping(), false);
 slint_testing::mock_elapsed_time(20);
 instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(100.0, 100.0), button: PointerEventButton::Left });
-slint_testing::mock_elapsed_time(120); // FIXME: it should also work with smaller delay, but now the top swipe catches it
+slint_testing::mock_elapsed_time(20);
 assert_eq!(instance.get_ta_hover(), false);
 assert_eq!(instance.get_down_swiping(), false);
 assert_eq!(instance.get_left_swiping(), false);
 assert_eq!(instance.get_right_swiping(), false);
 assert_eq!(instance.get_r(), "");
+slint_testing::mock_elapsed_time(20);
 instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(80.0, 100.0) });
+slint_testing::mock_elapsed_time(80);
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(65.0, 112.0) });
 assert_eq!(instance.get_ta_hover(), false);
 assert_eq!(instance.get_down_swiping(), false);
 assert_eq!(instance.get_right_swiping(), false);
 assert_eq!(instance.get_left_swiping(), true);
-assert_eq!(instance.get_r(), "M2(20)");
+assert_eq!(instance.get_r(), "M2(37)");
 instance.window().dispatch_event(WindowEvent::PointerExited);
-assert_eq!(instance.get_r(), "M2(20)C2(20)");
+assert_eq!(instance.get_r(), "M2(37)C2(37)");
 assert_eq!(instance.get_down_swiping(), false);
 assert_eq!(instance.get_left_swiping(), false);
 assert_eq!(instance.get_right_swiping(), false);

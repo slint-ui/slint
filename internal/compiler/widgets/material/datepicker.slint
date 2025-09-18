@@ -15,8 +15,9 @@ export component DatePickerPopup inherits PopupWindow {
     callback canceled();
     callback accepted(date: Date);
 
-    width: 360px;
-    height: 524px;
+    width: dialog.width;
+    height: dialog.height;
+
     close-policy: PopupClosePolicy.no-auto-close;
 
     background-layer := Rectangle {

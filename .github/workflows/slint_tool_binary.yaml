@@ -15,7 +15,7 @@ on:
             features:
                 type: string
                 description: features to enable for build
-                # Keep in sync with features in nightly_snapshot.yaml, cpp_package.yaml,api/node/Cargo.toml, and api/python/Cargo.toml
+                # Keep in sync with features in nightly_snapshot.yaml, cpp_package.yaml,api/node/Cargo.toml, and api/python/slint/Cargo.toml
                 default: "backend-linuxkms-noseat,backend-winit,renderer-femtovg,renderer-skia,renderer-software"
             codesign:
                 type: boolean
@@ -30,7 +30,7 @@ on:
             features:
                 type: string
                 description: features to enable for build
-                # Keep in sync with features in nightly_snapshot.yaml, cpp_package.yaml,api/node/Cargo.toml, and api/python/Cargo.toml
+                # Keep in sync with features in nightly_snapshot.yaml, cpp_package.yaml,api/node/Cargo.toml, and api/python/slint/Cargo.toml
                 default: "backend-linuxkms-noseat,backend-winit,renderer-femtovg,renderer-skia,renderer-software"
             codesign:
                 type: boolean
@@ -55,12 +55,23 @@ env:
 
 jobs:
     build_windows:
-        runs-on: windows-2022
+        strategy:
+            matrix:
+                arch: [x86_64-pc-windows-msvc, aarch64-pc-windows-msvc]
+                include:
+                  - arch: x86_64-pc-windows-msvc
+                    runner: windows-2022
+                    package_suffix: x86_64
+                  - arch: aarch64-pc-windows-msvc
+                    runner: windows-11-arm
+                    package_suffix: arm64
+
+        runs-on: ${{ matrix.runner}}
         steps:
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@v5
             - uses: ./.github/actions/setup-rust
               with:
-                  target: x86_64-pc-windows-msvc
+                  target: ${{ matrix.arch }}
             - uses: baptiste0928/cargo-install@v3
               with:
                   crate: cargo-about
@@ -78,18 +89,22 @@ jobs:
                   cd ..
                   cd tools\${{ github.event.inputs.program || inputs.program }}
                   bash -x ../../scripts/prepare_binary_package.sh ..\..\pkg\slint-${{ github.event.inputs.program || inputs.program }}
-
+            - name: Create archive
+              shell: powershell
+              run: |
+                  cd pkg
+                  Compress-Archive -Path slint-${{ github.event.inputs.program || inputs.program }}\* -Destination ..\slint-${{ github.event.inputs.program || inputs.program }}-windows-${{ matrix.package_suffix }}.zip
             - name: Upload artifact
               uses: actions/upload-artifact@v4
               with:
-                  name: slint-${{ github.event.inputs.program || inputs.program }}-windows
+                  name: slint-${{ github.event.inputs.program || inputs.program }}-windows-${{ matrix.package_suffix }}
                   path: |
-                      pkg
+                      slint-${{ github.event.inputs.program || inputs.program }}-windows-${{ matrix.package_suffix }}.zip
 
     build_linux:
         runs-on: ubuntu-22.04
         steps:
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@v5
             - uses: ./.github/actions/install-linux-dependencies
               with:
                   old-ubuntu: true
@@ -124,7 +139,7 @@ jobs:
                 - armv7-unknown-linux-gnueabihf
                 - aarch64-unknown-linux-gnu
       steps:
-          - uses: actions/checkout@v4
+          - uses: actions/checkout@v5
           - uses: ./.github/actions/setup-rust
             with:
                 target: x86_64-unknown-linux-gnu
@@ -154,7 +169,7 @@ jobs:
     build_macos:
         runs-on: macos-13
         steps:
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@v5
             - uses: ./.github/actions/setup-rust
               with:
                   target: x86_64-apple-darwin

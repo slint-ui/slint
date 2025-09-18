@@ -14,10 +14,10 @@ are supported by their vendors at the time of a Slint version release.
 <Tabs syncKey="dev-platform">
 <TabItem label="Windows" icon="seti:windows">
 
-| Operating System | Architecture |
-| ---------------- | ------------ |
-| Windows 10       | x86-64       |
-| Windows 11       | x86-64       |
+| Operating System | Architecture    |
+| ---------------- | --------------- |
+| Windows 10       | x86-64          |
+| Windows 11       | x86-64, aarch64 |
 
 ### Handle the Console Window
 
@@ -63,6 +63,27 @@ your Python script.
 </TabItem>
 
 </Tabs>
+
+### Rust: Stack Overflows
+
+When developing Rust applications on Windows, you might sooner or later observe the program aborting with `STATUS_STACK_OVERFLOW`,
+especially in debug builds. This is a known issue that's a combination of a high demand for stack space and MSVC defaulting to
+a stack size for the main thread that's significantly smaller compared to other operating systems.
+
+This is fixed by configuring the linker. Create a [`.cargo\config.toml`](https://doc.rust-lang.org/cargo/reference/config.html#configuration)
+file in your project (note the `.cargo` sub-directory) with the following contents:
+
+```toml
+[target.x86_64-pc-windows-msvc]
+# Increase default stack size to avoid running out of stack
+# space in debug builds. The size matches Linux's default.
+rustflags = ["-C", "link-arg=/STACK:8000000"]
+[target.aarch64-pc-windows-msvc]
+# Increase default stack size to avoid running out of stack
+# space in debug builds. The size matches Linux's default.
+rustflags = ["-C", "link-arg=/STACK:8000000"]
+```
+
 </TabItem>
 <TabItem label="macOS" icon="apple">
 

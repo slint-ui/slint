@@ -105,13 +105,6 @@ export component TestCase inherits Window {
                     popup2.show();
                 }
             }
-            Button {
-                text: "Open two popups";
-                clicked => {
-                    popup1.show();
-                    popup2.show();
-                }
-            }
         }
     }
 
@@ -148,6 +141,7 @@ export component TestCase inherits Window {
             border-color: pink;
             background: orange;
         }
+
         VerticalLayout {
             padding: 3px;
             ComboBox {
@@ -156,6 +150,7 @@ export component TestCase inherits Window {
                     result += value;
                 }
             }
+
             HorizontalLayout {
                 Button {
                     text: "close this";
@@ -164,13 +159,7 @@ export component TestCase inherits Window {
                         popup2.close();
                     }
                 }
-                Button {
-                    text: "close popup1";
-                    clicked => {
-                        result += "C1";
-                        popup1.close();
-                    }
-                }
+
                 Button {
                     text: "open popup1";
                     clicked => {
@@ -180,6 +169,7 @@ export component TestCase inherits Window {
                 }
             }
         }
+
         close-policy: no-auto-close;
     }
 }
@@ -190,14 +180,24 @@ export component TestCase inherits Window {
 use slint::{platform::WindowEvent, platform::PointerEventButton, LogicalPosition};
 let instance = TestCase::new().unwrap();
 
-// open both popups
-slint_testing::send_mouse_click(&instance, 380., 10.);
+// open popup1
+slint_testing::send_mouse_click(&instance, 10., 10.);
 
-// clicking in P1 doesn nothing
+// check P1 is open
 slint_testing::send_mouse_click(&instance, 210., 90.);
-assert_eq!(instance.get_result(), "");
+assert_eq!(instance.get_result(), "P1");
+instance.set_result("".into());
 
-// go in the popup1 combobox
+// click outside
+slint_testing::send_mouse_click(&instance, 20., 310.);
+assert_eq!(instance.get_result(), "");
+slint_testing::send_mouse_click(&instance, 20., 310.);
+assert_eq!(instance.get_result(), "Root");
+instance.set_result("".into());
+
+// open popup2
+slint_testing::send_mouse_click(&instance, 210., 10.);
+// go in the popup2 combobox
 slint_testing::send_mouse_click(&instance, 40., 210.);
 slint_testing::send_mouse_click(&instance, 40., 210. + 40.);
 assert_eq!(instance.get_result(), "Aaaa");
@@ -207,39 +207,23 @@ instance.set_result("".into());
 slint_testing::send_mouse_click(&instance, 40., 210. + 40.);
 assert_eq!(instance.get_result(), "C2");
 instance.set_result("".into());
-// clicking in P1
-slint_testing::send_mouse_click(&instance, 210., 90.);
-assert_eq!(instance.get_result(), "P1");
-instance.set_result("".into());
-// open P1 combobox
+
+// open popup1
+slint_testing::send_mouse_click(&instance, 10., 10.);
+
+// open P1 combobox and select first
 slint_testing::send_mouse_click(&instance, 210., 60.);
 slint_testing::send_mouse_click(&instance, 210., 60. + 40.);
 assert_eq!(instance.get_result(), "First");
 instance.set_result("".into());
-slint_testing::send_mouse_click(&instance, 210., 90.);
-assert_eq!(instance.get_result(), "P1");
-instance.set_result("".into());
 
-// click outside
-slint_testing::send_mouse_click(&instance, 20., 310.);
-assert_eq!(instance.get_result(), "");
-slint_testing::send_mouse_click(&instance, 20., 310.);
-assert_eq!(instance.get_result(), "Root");
-instance.set_result("".into());
-
-// open popup2
-slint_testing::send_mouse_click(&instance, 200., 10.);
-assert_eq!(instance.get_result(), "");
-// open popup1 from popup2
-slint_testing::send_mouse_click(&instance, 300., 210. + 40.);
-assert_eq!(instance.get_result(), "O1");
-instance.set_result("".into());
-
-// open P1 combobox
+// open it again
 slint_testing::send_mouse_click(&instance, 210., 60.);
+
 // click outside closes the combobox
 slint_testing::send_mouse_click(&instance, 20., 310.);
 assert_eq!(instance.get_result(), "");
+
 // but P1 is still open
 slint_testing::send_mouse_click(&instance, 210., 90.);
 assert_eq!(instance.get_result(), "P1");
@@ -249,76 +233,74 @@ instance.set_result("".into());
 slint_testing::send_mouse_click(&instance, 20., 310.);
 assert_eq!(instance.get_result(), "");
 
-// but p2 is still open
-// Open its combobox
+// open popup2
+slint_testing::send_mouse_click(&instance, 210., 10.);
+assert_eq!(instance.get_result(), "");
+
+// open its combobox
 slint_testing::send_mouse_click(&instance, 40., 210.);
-// but click outside closes it
+
+// click outside closes it
 slint_testing::send_mouse_click(&instance, 210., 90.);
 assert_eq!(instance.get_result(), "");
 
-// "close this" closes p2
+// but P2 is still open, so open its combobox again
+slint_testing::send_mouse_click(&instance, 40., 210.);
 slint_testing::send_mouse_click(&instance, 40., 210. + 40.);
-assert_eq!(instance.get_result(), "C2");
+assert_eq!(instance.get_result(), "Aaaa");
 instance.set_result("".into());
 
-slint_testing::send_mouse_click(&instance, 20., 310.);
-assert_eq!(instance.get_result(), "Root");
+// open popup1 from popup2
+slint_testing::send_mouse_click(&instance, 300., 210. + 40.);
+assert_eq!(instance.get_result(), "O1");
 instance.set_result("".into());
 
-// open both popups
-slint_testing::send_mouse_click(&instance, 380., 10.);
-
-// close popup1
-slint_testing::send_mouse_click(&instance, 150., 210. + 40.);
-assert_eq!(instance.get_result(), "C1");
-instance.set_result("".into());
-
-// popup2 is still open and can be closed
-slint_testing::send_mouse_click(&instance, 40., 210. + 40.);
-assert_eq!(instance.get_result(), "C2");
-instance.set_result("".into());
-
-// open both popups
-slint_testing::send_mouse_click(&instance, 380., 10.);
-
-// close popup2
-slint_testing::send_mouse_click(&instance, 40., 210. + 40.);
-assert_eq!(instance.get_result(), "C2");
-instance.set_result("".into());
-
-// popup1 is still open
+// check P1 is open
 slint_testing::send_mouse_click(&instance, 210., 90.);
 assert_eq!(instance.get_result(), "P1");
 instance.set_result("".into());
 
-// close popup1
-slint_testing::send_mouse_click(&instance, 150., 210. + 40.);
+// by opening P1, P2 should be automatically closed
+slint_testing::send_mouse_click(&instance, 40., 210.);
+assert_eq!(instance.get_result(), "");
+slint_testing::send_mouse_click(&instance, 40., 210.);
+assert_eq!(instance.get_result(), "Root");
+instance.set_result("".into());
 
-// open both popups
-slint_testing::send_mouse_click(&instance, 380., 10.);
+// open popup1
+slint_testing::send_mouse_click(&instance, 10., 10.);
 
 // close popup1 by esc
 slint_testing::send_keyboard_string_sequence(&instance, "\u{001b}");
 
-// popup2 is still open
-slint_testing::send_mouse_click(&instance, 40., 210. + 40.);
-assert_eq!(instance.get_result(), "C2");
+// check P1 is closed
+slint_testing::send_mouse_click(&instance, 210., 90.);
+assert_eq!(instance.get_result(), "Root");
 instance.set_result("".into());
-
 ```
 
 ```cpp
 auto handle = TestCase::create();
 TestCase &instance = *handle;
 
-// open both popups
-slint_testing::send_mouse_click(&instance, 380., 10.);
+// open popup1
+slint_testing::send_mouse_click(&instance, 10., 10.);
 
-// clicking in P1 doesn nothing
+// check P1 is open
 slint_testing::send_mouse_click(&instance, 210., 90.);
-assert_eq(instance.get_result(), "");
+assert_eq(instance.get_result(), "P1");
+instance.set_result("");
 
-// go in the popup1 combobox
+// click outside
+slint_testing::send_mouse_click(&instance, 20., 310.);
+assert_eq(instance.get_result(), "");
+slint_testing::send_mouse_click(&instance, 20., 310.);
+assert_eq(instance.get_result(), "Root");
+instance.set_result("");
+
+// open popup2
+slint_testing::send_mouse_click(&instance, 210., 10.);
+// go in the popup2 combobox
 slint_testing::send_mouse_click(&instance, 40., 210.);
 slint_testing::send_mouse_click(&instance, 40., 210. + 40.);
 assert_eq(instance.get_result(), "Aaaa");
@@ -328,40 +310,23 @@ instance.set_result("");
 slint_testing::send_mouse_click(&instance, 40., 210. + 40.);
 assert_eq(instance.get_result(), "C2");
 instance.set_result("");
-// clicking in P1
-slint_testing::send_mouse_click(&instance, 210., 90.);
-assert_eq(instance.get_result(), "P1");
-instance.set_result("");
-// open P1 combobox
+
+// open popup1
+slint_testing::send_mouse_click(&instance, 10., 10.);
+
+// open P1 combobox and select first
 slint_testing::send_mouse_click(&instance, 210., 60.);
 slint_testing::send_mouse_click(&instance, 210., 60. + 40.);
 assert_eq(instance.get_result(), "First");
 instance.set_result("");
-slint_testing::send_mouse_click(&instance, 210., 90.);
-assert_eq(instance.get_result(), "P1");
-instance.set_result("");
 
-// click outside
-slint_testing::send_mouse_click(&instance, 20., 310.);
-assert_eq(instance.get_result(), "");
-slint_testing::send_mouse_click(&instance, 20., 310.);
-assert_eq(instance.get_result(), "Root");
-instance.set_result("");
-
-// open popup2
-slint_testing::send_mouse_click(&instance, 200., 10.);
-assert_eq(instance.get_result(), "");
-// open popup1 from popup2
-slint_testing::send_mouse_click(&instance, 20., 310.);
-slint_testing::send_mouse_click(&instance, 300., 210. + 35.);
-assert_eq(instance.get_result(), "O1");
-instance.set_result("");
-
-// open P1 combobox
+// open it again
 slint_testing::send_mouse_click(&instance, 210., 60.);
+
 // click outside closes the combobox
 slint_testing::send_mouse_click(&instance, 20., 310.);
 assert_eq(instance.get_result(), "");
+
 // but P1 is still open
 slint_testing::send_mouse_click(&instance, 210., 90.);
 assert_eq(instance.get_result(), "P1");
@@ -371,46 +336,49 @@ instance.set_result("");
 slint_testing::send_mouse_click(&instance, 20., 310.);
 assert_eq(instance.get_result(), "");
 
-// but p2 is still open
-// Open its combobox
+// open popup2
+slint_testing::send_mouse_click(&instance, 210., 10.);
+assert_eq(instance.get_result(), "");
+
+// open its combobox
 slint_testing::send_mouse_click(&instance, 40., 210.);
-// but click outside closes it
+
+// click outside closes it
 slint_testing::send_mouse_click(&instance, 210., 90.);
 assert_eq(instance.get_result(), "");
 
-// "close this" closes p2
+// but P2 is still open, so open its combobox again
+slint_testing::send_mouse_click(&instance, 40., 210.);
 slint_testing::send_mouse_click(&instance, 40., 210. + 40.);
-assert_eq(instance.get_result(), "C2");
+assert_eq(instance.get_result(), "Aaaa");
 instance.set_result("");
 
-slint_testing::send_mouse_click(&instance, 20., 310.);
+// open popup1 from popup2
+slint_testing::send_mouse_click(&instance, 300., 210. + 40.);
+assert_eq(instance.get_result(), "O1");
+instance.set_result("");
+
+// check P1 is open
+slint_testing::send_mouse_click(&instance, 210., 90.);
+assert_eq(instance.get_result(), "P1");
+instance.set_result("");
+
+// by opening P1, P2 should be automatically closed
+slint_testing::send_mouse_click(&instance, 40., 210.);
+assert_eq(instance.get_result(), "");
+slint_testing::send_mouse_click(&instance, 40., 210.);
 assert_eq(instance.get_result(), "Root");
 instance.set_result("");
 
-// open both popups
-slint_testing::send_mouse_click(&instance, 380., 10.);
+// open popup1
+slint_testing::send_mouse_click(&instance, 10., 10.);
 
-// close popup1
-slint_testing::send_mouse_click(&instance, 150., 210. + 40.);
-assert_eq(instance.get_result(), "C1");
-instance.set_result("");
+// close popup1 by esc
+slint_testing::send_keyboard_string_sequence(&instance, slint::platform::key_codes::Escape);
 
-// popup2 is still open and can be closed
-slint_testing::send_mouse_click(&instance, 40., 210. + 40.);
-assert_eq(instance.get_result(), "C2");
-instance.set_result("");
-
-// open both popups
-slint_testing::send_mouse_click(&instance, 380., 10.);
-
-// close popup2
-slint_testing::send_mouse_click(&instance, 40., 210. + 40.);
-assert_eq(instance.get_result(), "C2");
-instance.set_result("");
-
-// popup1 is still open
+// check P1 is closed
 slint_testing::send_mouse_click(&instance, 210., 90.);
-assert_eq(instance.get_result(), "P1");
+assert_eq(instance.get_result(), "Root");
 instance.set_result("");
 ```
 

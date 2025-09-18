@@ -1,0 +1,61 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+[build-system]
+requires = ["maturin>=1,<2"]
+build-backend = "maturin"
+
+[project]
+name = "slint"
+version = "1.14.0b1"
+requires-python = ">= 3.12"
+authors = [{ name = "Slint Team", email = "info@slint.dev" }]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: MacOS X",
+  "Environment :: X11 Applications",
+  "Environment :: Win32 (MS Windows)",
+  "Intended Audience :: Developers",
+  "Programming Language :: Python",
+  "Programming Language :: Rust",
+  "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+  "License :: Other/Proprietary License",
+  "Topic :: Software Development",
+  "Topic :: Software Development :: Libraries :: Application Frameworks",
+  "Topic :: Software Development :: User Interfaces",
+  "Topic :: Software Development :: Widget Sets",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+]
+
+[project.urls]
+Homepage = "https://slint.dev"
+Documentation = "https://slint.dev/docs"
+Repository = "https://github.com/slint-ui/slint"
+Changelog = "https://github.com/slint-ui/slint/blob/master/CHANGELOG.md"
+Tracker = "https://github.com/slint-ui/slint/issues"
+
+[project.optional-dependencies]
+dev = ["pytest", "numpy>=2.3.2", "pillow>=11.3.0"]
+
+[dependency-groups]
+dev = [
+  "mypy>=1.15.0",
+  "nox>=2024.10.9",
+  "pdoc>=15.0.1",
+  "pytest>=8.3.4",
+  "ruff>=0.9.6",
+  "pillow>=11.3.0",
+  "numpy>=2.3.2",
+]
+
+[tool.uv]
+# Rebuild package when any rust files change
+cache-keys = [{ file = "pyproject.toml" }, { file = "Cargo.toml" }, { file = "**/*.rs" }]
+# Uncomment to build rust code in development mode
+# config-settings = { build-args = '--profile=dev' }
+
+[tool.mypy]
+strict = true
+disallow_subclassing_any = false

@@ -23,8 +23,6 @@ export component EnumWidget inherits GridLayout {
 
     callback set-enum-binding(text: string);
 
-    spacing-vertical: EditorSpaceSettings.default-spacing;
-
     Row {
         NameLabel {
             col: 1;
@@ -39,6 +37,7 @@ export component EnumWidget inherits GridLayout {
             horizontal-stretch: 0;
             visible: false;
         }
+
         HorizontalLayout {
             cb := ComboBox {
                 enabled: root.enabled;

@@ -1,0 +1,38 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+
+struct AnimProp {
+    easing: easing
+}
+
+global G {
+    in-out property <easing> a: Easing.ease-out-quad;
+    in-out property <AnimProp> p: { easing: Easing.ease-out-quad };
+}
+
+
+export component TestCase inherits Window {
+    in-out property <easing> easing: ease-in-circ;
+    in-out property <int> unused: 0;
+    animate unused {
+        duration: 1200ms;
+        easing: G.p.easing;
+    }
+
+    out property <bool> test: easing == Easing.ease-in-circ && easing != Easing.ease-out-elastic && G.p.easing == Easing.ease-out-quad;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+*/
+

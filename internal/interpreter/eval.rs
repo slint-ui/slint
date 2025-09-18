@@ -4,9 +4,11 @@
 use crate::api::{SetPropertyError, Struct, Value};
 use crate::dynamic_item_tree::{CallbackHandler, InstanceRef};
 use core::pin::Pin;
-use corelib::graphics::{GradientStop, LinearGradientBrush, PathElement, RadialGradientBrush};
-use corelib::items::{ColorScheme, ItemRef, MenuEntry, PropertyAnimation};
-use corelib::menus::{Menu, MenuFromItemTree, MenuVTable};
+use corelib::graphics::{
+    ConicGradientBrush, GradientStop, LinearGradientBrush, PathElement, RadialGradientBrush,
+};
+use corelib::items::{ColorScheme, ItemRef, PropertyAnimation};
+use corelib::menus::{Menu, MenuFromItemTree};
 use corelib::model::{Model, ModelExt, ModelRc, VecModel};
 use corelib::rtti::AnimatedBindingKind;
 use corelib::window::WindowInner;
@@ -19,8 +21,8 @@ use i_slint_compiler::langtype::Type;
 use i_slint_compiler::namedreference::NamedReference;
 use i_slint_compiler::object_tree::ElementRc;
 use i_slint_core as corelib;
-use i_slint_core::input::FocusEventReason;
-use i_slint_core::items::ItemRc;
+use i_slint_core::input::FocusReason;
+use i_slint_core::items::{ItemRc, WindowItem};
 use smol_str::SmolStr;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -155,11 +157,20 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
             crate::dynamic_item_tree::SPECIAL_PROPERTY_INDEX,
         )
         .unwrap(),
-        Expression::RepeaterModelReference { element } => load_property_helper(&ComponentInstance::InstanceRef(local_context.component_instance),
-            &element.upgrade().unwrap().borrow().base_type.as_component().root_element,
-            crate::dynamic_item_tree::SPECIAL_PROPERTY_MODEL_DATA,
-        )
-        .unwrap(),
+        Expression::RepeaterModelReference { element } => {
+            let value = load_property_helper(&ComponentInstance::InstanceRef(local_context.component_instance),
+                    &element.upgrade().unwrap().borrow().base_type.as_component().root_element,
+                    crate::dynamic_item_tree::SPECIAL_PROPERTY_MODEL_DATA,
+                )
+                .unwrap();
+            if matches!(value, Value::Void) {
+                // Uninitialized model data (because the model returned None) should still be initialized to the default value of the type
+                default_value_for_type(&expression.ty())
+            } else {
+                value
+            }
+
+        },
         Expression::FunctionParameterReference { index, .. } => {
             local_context.function_arguments[*index].clone()
         }
@@ -204,7 +215,7 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
             }
             v
         }
-        Expression::FunctionCall { function, arguments, source_location: _ } => match &function {
+        Expression::FunctionCall { function, arguments, source_location } => match &function {
             Callable::Function(nr) => {
                 let is_item_member = nr.element().borrow().native_class().is_some_and(|n| n.properties.contains_key(nr.name()));
                 if is_item_member {
@@ -218,7 +229,7 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
                 let args = arguments.iter().map(|e| eval_expression(e, local_context)).collect::<Vec<_>>();
                 invoke_callback(&ComponentInstance::InstanceRef(local_context.component_instance), &nr.element(), nr.name(), &args).unwrap()
             }
-            Callable::Builtin(f) => call_builtin_function(f.clone(), arguments, local_context),
+            Callable::Builtin(f) => call_builtin_function(f.clone(), arguments, local_context, source_location),
         }
         Expression::SelfAssignment { lhs, rhs, op, .. } => {
             let rhs = eval_expression(rhs, local_context);
@@ -360,6 +371,13 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
                 GradientStop{ color, position }
             }))))
         }
+        Expression::ConicGradient{stops} => {
+            Value::Brush(Brush::ConicGradient(ConicGradientBrush::new(stops.iter().map(|(color, stop)| {
+                let color = eval_expression(color, local_context).try_into().unwrap();
+                let position = eval_expression(stop, local_context).try_into().unwrap();
+                GradientStop{ color, position }
+            }))))
+        }
         Expression::EnumerationValue(value) => {
             Value::EnumerationValue(value.enumeration.name.to_string(), value.to_string())
         }
@@ -406,23 +424,27 @@ fn call_builtin_function(
     f: BuiltinFunction,
     arguments: &[Expression],
     local_context: &mut EvalLocalContext,
+    source_location: &Option<i_slint_compiler::diagnostics::SourceLocation>,
 ) -> Value {
     match f {
         BuiltinFunction::GetWindowScaleFactor => Value::Number(
             local_context.component_instance.access_window(|window| window.scale_factor()) as _,
         ),
-        BuiltinFunction::GetWindowDefaultFontSize => {
-            Value::Number(local_context.component_instance.access_window(|window| {
-                window.window_item().unwrap().as_pin_ref().default_font_size().get()
-            }) as _)
-        }
+        BuiltinFunction::GetWindowDefaultFontSize => Value::Number({
+            let component = local_context.component_instance;
+            let item_comp = component.self_weak().get().unwrap().upgrade().unwrap();
+            WindowItem::resolved_default_font_size(vtable::VRc::into_dyn(item_comp)).get() as _
+        }),
         BuiltinFunction::AnimationTick => {
             Value::Number(i_slint_core::animations::animation_tick() as f64)
         }
         BuiltinFunction::Debug => {
             let to_print: SharedString =
                 eval_expression(&arguments[0], local_context).try_into().unwrap();
-            corelib::debug_log!("{}", to_print);
+            local_context.component_instance.description.debug_handler.borrow()(
+                source_location.as_ref(),
+                &to_print,
+            );
             Value::Void
         }
         BuiltinFunction::Mod => {
@@ -533,7 +555,7 @@ fn call_builtin_function(
                             item_info.item_index(),
                         ),
                         true,
-                        FocusEventReason::BuiltinFunction,
+                        FocusReason::Programmatic,
                     )
                 });
                 Value::Void
@@ -566,7 +588,7 @@ fn call_builtin_function(
                             item_info.item_index(),
                         ),
                         false,
-                        FocusEventReason::BuiltinFunction,
+                        FocusReason::Programmatic,
                     )
                 });
                 Value::Void
@@ -669,7 +691,7 @@ fn call_builtin_function(
                 panic!("internal error: argument to ClosePopupWindow must be an element")
             }
         }
-        BuiltinFunction::ShowPopupMenu => {
+        BuiltinFunction::ShowPopupMenu | BuiltinFunction::ShowPopupMenuInternal => {
             let [Expression::ElementReference(element), entries, position] = arguments else {
                 panic!("internal error: incorrect argument count to ShowPopupMenu")
             };
@@ -684,14 +706,8 @@ fn call_builtin_function(
             let description = enclosing_component.description;
             let item_info = &description.items[elem.borrow().id.as_str()];
             let item_comp = enclosing_component.self_weak().get().unwrap().upgrade().unwrap();
-            let item_rc = corelib::items::ItemRc::new(
-                vtable::VRc::into_dyn(item_comp),
-                item_info.item_index(),
-            );
-
-            if component.access_window(|window| window.show_native_popup_menu(&item_rc, position)) {
-                return Value::Void;
-            }
+            let item_tree = vtable::VRc::into_dyn(item_comp);
+            let item_rc = corelib::items::ItemRc::new(item_tree.clone(), item_info.item_index());
 
             generativity::make_guard!(guard);
             let compiled = enclosing_component.description.popup_menu_description.unerase(guard);
@@ -710,11 +726,24 @@ fn call_builtin_function(
             if let Expression::ElementReference(e) = entries {
                 let menu_item_tree =
                     e.upgrade().unwrap().borrow().enclosing_component.upgrade().unwrap();
-                let (entries, sub_menu, activated) =
-                    menu_item_tree_properties(crate::dynamic_item_tree::make_menu_item_tree(
-                        &menu_item_tree,
-                        &enclosing_component,
-                    ));
+                let menu_item_tree = crate::dynamic_item_tree::make_menu_item_tree(
+                    &menu_item_tree,
+                    &enclosing_component,
+                    None,
+                );
+
+                if component.access_window(|window| {
+                    window.show_native_popup_menu(
+                        vtable::VRc::into_dyn(menu_item_tree.clone()),
+                        position,
+                        &item_rc,
+                    )
+                }) {
+                    return Value::Void;
+                }
+
+                let (entries, sub_menu, activated) = menu_item_tree_properties(menu_item_tree);
+
                 compiled.set_binding(inst_ref.borrow(), "entries", entries).unwrap();
                 compiled.set_callback_handler(inst_ref.borrow(), "sub-menu", sub_menu).unwrap();
                 compiled.set_callback_handler(inst_ref.borrow(), "activated", activated).unwrap();
@@ -1119,64 +1148,48 @@ fn call_builtin_function(
             .internal(corelib::InternalToken)
             .is_some_and(|x| x.supports_native_menu_bar())
             .into(),
-        BuiltinFunction::SetupNativeMenuBar => {
+        BuiltinFunction::SetupMenuBar => {
             let component = local_context.component_instance;
-            if let [Expression::PropertyReference(entries_nr), Expression::PropertyReference(sub_menu_nr), Expression::PropertyReference(activated_nr), Expression::ElementReference(item_tree_root), Expression::BoolLiteral(no_native)] =
-                arguments
-            {
-                let menu_item_tree = item_tree_root
-                    .upgrade()
-                    .unwrap()
-                    .borrow()
-                    .enclosing_component
-                    .upgrade()
-                    .unwrap();
-                let menu_item_tree =
-                    crate::dynamic_item_tree::make_menu_item_tree(&menu_item_tree, &component);
-
-                if let Some(w) = component.window_adapter().internal(i_slint_core::InternalToken) {
-                    if !no_native && w.supports_native_menu_bar() {
-                        w.setup_menubar(vtable::VBox::new(menu_item_tree));
-                        return Value::Void;
-                    }
-                }
-
-                let (entries, sub_menu, activated) = menu_item_tree_properties(menu_item_tree);
-
-                assert_eq!(
-                    entries_nr.element().borrow().id,
-                    component.description.original.root_element.borrow().id,
-                    "entries need to be in the main element"
-                );
-                local_context
-                    .component_instance
-                    .description
-                    .set_binding(component.borrow(), entries_nr.name(), entries)
-                    .unwrap();
-                let i = &ComponentInstance::InstanceRef(local_context.component_instance);
-                set_callback_handler(i, &sub_menu_nr.element(), sub_menu_nr.name(), sub_menu)
-                    .unwrap();
-                set_callback_handler(i, &activated_nr.element(), activated_nr.name(), activated)
-                    .unwrap();
-
-                return Value::Void;
-            }
-            let [entries, Expression::PropertyReference(sub_menu), Expression::PropertyReference(activated)] =
+            let [Expression::PropertyReference(entries_nr), Expression::PropertyReference(sub_menu_nr), Expression::PropertyReference(activated_nr), Expression::ElementReference(item_tree_root), Expression::BoolLiteral(no_native), rest @ ..] =
                 arguments
             else {
-                panic!("internal error: incorrect arguments to SetupNativeMenuBar: {arguments:?}")
+                panic!("internal error: incorrect argument count to SetupMenuBar")
             };
+
+            let menu_item_tree =
+                item_tree_root.upgrade().unwrap().borrow().enclosing_component.upgrade().unwrap();
+            let menu_item_tree = crate::dynamic_item_tree::make_menu_item_tree(
+                &menu_item_tree,
+                &component,
+                rest.first(),
+            );
+
             if let Some(w) = component.window_adapter().internal(i_slint_core::InternalToken) {
-                if w.supports_native_menu_bar() {
-                    w.setup_menubar(vtable::VBox::new(MenuWrapper {
-                        entries: entries.clone(),
-                        sub_menu: sub_menu.clone(),
-                        activated: activated.clone(),
-                        item_tree: component.self_weak().get().unwrap().clone(),
-                    }));
+                if !no_native && w.supports_native_menu_bar() {
+                    let menubar = vtable::VRc::into_dyn(menu_item_tree);
+                    w.setup_menubar(menubar);
+                    return Value::Void;
                 }
             }
-            Value::Void
+
+            let (entries, sub_menu, activated) = menu_item_tree_properties(menu_item_tree);
+
+            assert_eq!(
+                entries_nr.element().borrow().id,
+                component.description.original.root_element.borrow().id,
+                "entries need to be in the main element"
+            );
+            local_context
+                .component_instance
+                .description
+                .set_binding(component.borrow(), entries_nr.name(), entries)
+                .unwrap();
+            let i = &ComponentInstance::InstanceRef(local_context.component_instance);
+            set_callback_handler(i, &sub_menu_nr.element(), sub_menu_nr.name(), sub_menu).unwrap();
+            set_callback_handler(i, &activated_nr.element(), activated_nr.name(), activated)
+                .unwrap();
+
+            return Value::Void;
         }
         BuiltinFunction::MonthDayCount => {
             let m: u32 = eval_expression(&arguments[0], local_context).try_into().unwrap();
@@ -1340,6 +1353,21 @@ fn call_builtin_function(
             Value::Void
         }
         BuiltinFunction::DetectOperatingSystem => i_slint_core::detect_operating_system().into(),
+        // start and stop are unreachable because they are lowered to simple assignment of running
+        BuiltinFunction::StartTimer => unreachable!(),
+        BuiltinFunction::StopTimer => unreachable!(),
+        BuiltinFunction::RestartTimer => {
+            if let [Expression::ElementReference(timer_element)] = arguments {
+                crate::dynamic_item_tree::restart_timer(
+                    timer_element.clone(),
+                    local_context.component_instance,
+                );
+
+                Value::Void
+            } else {
+                panic!("internal error: argument to RestartTimer must be an element")
+            }
+        }
     }
 }
 
@@ -1964,58 +1992,9 @@ pub fn default_value_for_type(ty: &Type) -> Value {
     }
 }
 
-pub struct MenuWrapper {
-    entries: Expression,
-    sub_menu: NamedReference,
-    activated: NamedReference,
-    item_tree: crate::dynamic_item_tree::ErasedItemTreeBoxWeak,
-}
-i_slint_core::MenuVTable_static!(static MENU_WRAPPER_VTABLE for MenuWrapper);
-impl Menu for MenuWrapper {
-    fn sub_menu(&self, parent: Option<&MenuEntry>, result: &mut SharedVector<MenuEntry>) {
-        let Some(s) = self.item_tree.upgrade() else { return };
-        generativity::make_guard!(guard);
-        let compo_box = s.unerase(guard);
-        let instance_ref = compo_box.borrow_instance();
-        let res = match parent {
-            None => eval_expression(
-                &self.entries,
-                &mut EvalLocalContext::from_component_instance(instance_ref),
-            ),
-            Some(parent) => {
-                let instance_ref = ComponentInstance::InstanceRef(instance_ref);
-                invoke_callback(
-                    &instance_ref,
-                    &self.sub_menu.element(),
-                    self.sub_menu.name(),
-                    &[parent.clone().into()],
-                )
-                .unwrap()
-            }
-        };
-        let Value::Model(model) = res else { panic!("Not a model of menu entries {res:?}") };
-        *result = model.iter().map(|v| v.try_into().unwrap()).collect();
-    }
-    fn activate(&self, entry: &MenuEntry) {
-        let Some(s) = self.item_tree.upgrade() else { return };
-        generativity::make_guard!(guard);
-        let compo_box = s.unerase(guard);
-        let instance_ref = compo_box.borrow_instance();
-        let instance_ref = ComponentInstance::InstanceRef(instance_ref);
-        invoke_callback(
-            &instance_ref,
-            &self.activated.element(),
-            self.activated.name(),
-            &[entry.clone().into()],
-        )
-        .unwrap();
-    }
-}
-
 fn menu_item_tree_properties(
-    menu: MenuFromItemTree,
+    context_menu_item_tree: vtable::VRc<i_slint_core::menus::MenuVTable, MenuFromItemTree>,
 ) -> (Box<dyn Fn() -> Value>, CallbackHandler, CallbackHandler) {
-    let context_menu_item_tree = Rc::new(menu);
     let context_menu_item_tree_ = context_menu_item_tree.clone();
     let entries = Box::new(move || {
         let mut entries = SharedVector::default();

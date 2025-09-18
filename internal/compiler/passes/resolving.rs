@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-//! Passes that resolve the property binding expression.
+//! This pass resolves the property binding expressions.
 //!
 //! Before this pass, all the expression are of type Expression::Uncompiled,
 //! and there should no longer be Uncompiled expression after this pass.
@@ -17,7 +17,7 @@ use crate::parser::{identifier_text, syntax_nodes, NodeOrToken, SyntaxKind, Synt
 use crate::typeregister::TypeRegister;
 use core::num::IntErrorKind;
 use smol_str::{SmolStr, ToSmolStr};
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::rc::Rc;
 
 /// This represents a scope for the Component, where Component is the repeated component, but
@@ -45,6 +45,7 @@ fn resolve_expression(
             type_register,
             type_loader: Some(type_loader),
             current_token: None,
+            local_variables: vec![],
         };
 
         let new_expr = match node.kind() {
@@ -64,10 +65,17 @@ fn resolve_expression(
             SyntaxKind::BindingExpression => {
                 Expression::from_binding_expression_node(node.clone(), &mut lookup_ctx)
             }
-            SyntaxKind::PropertyChangedCallback => Expression::from_codeblock_node(
-                syntax_nodes::PropertyChangedCallback::from(node.clone()).CodeBlock(),
-                &mut lookup_ctx,
-            ),
+            SyntaxKind::PropertyChangedCallback => {
+                let node = syntax_nodes::PropertyChangedCallback::from(node.clone());
+                if let Some(code_block_node) = node.CodeBlock() {
+                    Expression::from_codeblock_node(code_block_node, &mut lookup_ctx)
+                } else if let Some(expr_node) = node.Expression() {
+                    Expression::from_expression_node(expr_node, &mut lookup_ctx)
+                } else {
+                    assert!(diag.has_errors());
+                    Expression::Invalid
+                }
+            }
             SyntaxKind::TwoWayBinding => {
                 assert!(diag.has_errors(), "Two way binding should have been resolved already  (property: {property_name:?})");
                 Expression::Invalid
@@ -197,11 +205,15 @@ impl Expression {
     fn from_codeblock_node(node: syntax_nodes::CodeBlock, ctx: &mut LookupCtx) -> Expression {
         debug_assert_eq!(node.kind(), SyntaxKind::CodeBlock);
 
+        // new scope for locals
+        ctx.local_variables.push(Vec::new());
+
         let mut statements_or_exprs = node
             .children()
             .filter_map(|n| match n.kind() {
                 SyntaxKind::Expression => Some(Self::from_expression_node(n.into(), ctx)),
                 SyntaxKind::ReturnStatement => Some(Self::from_return_statement(n.into(), ctx)),
+                SyntaxKind::LetStatement => Some(Self::from_let_statement(n.into(), ctx)),
                 _ => None,
             })
             .collect::<Vec<_>>();
@@ -230,7 +242,42 @@ impl Expression {
             statements_or_exprs[index] = expr;
         });
 
+        // pop local scope
+        ctx.local_variables.pop();
+
         Expression::CodeBlock(statements_or_exprs)
+    }
+
+    fn from_let_statement(node: syntax_nodes::LetStatement, ctx: &mut LookupCtx) -> Expression {
+        let name = identifier_text(&node.DeclaredIdentifier()).unwrap_or_default();
+
+        let global_lookup = crate::lookup::global_lookup();
+        if let Some(LookupResult::Expression {
+            expression:
+                Expression::ReadLocalVariable { .. } | Expression::FunctionParameterReference { .. },
+            ..
+        }) = global_lookup.lookup(ctx, &name)
+        {
+            ctx.diag
+                .push_error("Redeclaration of local variables is not allowed".to_string(), &node);
+            return Expression::Invalid;
+        }
+
+        // prefix with "local_" to avoid conflicts
+        let name: SmolStr = format!("local_{name}",).into();
+
+        let value = Self::from_expression_node(node.Expression(), ctx);
+        let ty = match node.Type() {
+            Some(ty) => type_from_node(ty, ctx.diag, ctx.type_register),
+            None => value.ty(),
+        };
+
+        // we can get the last scope exists, because each codeblock creates a new scope and we are inside a codeblock here by necessity
+        ctx.local_variables.last_mut().unwrap().push((name.clone(), ty.clone()));
+
+        let value = Box::new(value.maybe_convert_to(ty.clone(), &node, ctx.diag));
+
+        Expression::StoreLocalVariable { name, value }
     }
 
     fn from_return_statement(
@@ -257,11 +304,21 @@ impl Expression {
     ) -> Expression {
         ctx.arguments =
             node.DeclaredIdentifier().map(|x| identifier_text(&x).unwrap_or_default()).collect();
-        Self::from_codeblock_node(node.CodeBlock(), ctx).maybe_convert_to(
-            ctx.return_type().clone(),
-            &node,
-            ctx.diag,
-        )
+        if let Some(code_block_node) = node.CodeBlock() {
+            Self::from_codeblock_node(code_block_node, ctx).maybe_convert_to(
+                ctx.return_type().clone(),
+                &node,
+                ctx.diag,
+            )
+        } else if let Some(expr_node) = node.Expression() {
+            Self::from_expression_node(expr_node, ctx).maybe_convert_to(
+                ctx.return_type().clone(),
+                &node,
+                ctx.diag,
+            )
+        } else {
+            return Expression::Invalid;
+        }
     }
 
     fn from_function(node: syntax_nodes::Function, ctx: &mut LookupCtx) -> Expression {
@@ -439,6 +496,7 @@ impl Expression {
         enum GradKind {
             Linear { angle: Box<Expression> },
             Radial,
+            Conic,
         }
 
         let mut subs = node
@@ -492,8 +550,10 @@ impl Expression {
                 return Expression::Invalid;
             }
             GradKind::Radial
+        } else if grad_text.starts_with("conic") {
+            GradKind::Conic
         } else {
-            // Parser should have ensured we have one of the linear or radial gradient
+            // Parser should have ensured we have one of the linear, radial or conic gradient
             panic!("Not a gradient {grad_text:?}");
         };
 
@@ -539,7 +599,11 @@ impl Expression {
                         break;
                     }
                     Stop::Color(col) => {
-                        stops.push((col, e.maybe_convert_to(Type::Float32, &n, ctx.diag)))
+                        let stop_type = match &grad_kind {
+                            GradKind::Conic => Type::Angle,
+                            _ => Type::Float32,
+                        };
+                        stops.push((col, e.maybe_convert_to(stop_type, &n, ctx.diag)))
                     }
                 }
             }
@@ -599,6 +663,29 @@ impl Expression {
         match grad_kind {
             GradKind::Linear { angle } => Expression::LinearGradient { angle, stops },
             GradKind::Radial => Expression::RadialGradient { stops },
+            GradKind::Conic => {
+                // For conic gradients, we need to:
+                // 1. Ensure angle expressions are converted to Type::Angle
+                // 2. Normalize to 0-1 range for internal representation
+                let normalized_stops = stops
+                    .into_iter()
+                    .map(|(color, angle_expr)| {
+                        // First ensure the angle expression is properly typed as Angle
+                        let angle_typed =
+                            angle_expr.maybe_convert_to(Type::Angle, &node, &mut ctx.diag);
+
+                        // Convert angle to 0-1 range by dividing by 360deg
+                        // This ensures all angle units (deg, rad, turn) are normalized
+                        let normalized_pos = Expression::BinaryExpression {
+                            lhs: Box::new(angle_typed),
+                            rhs: Box::new(Expression::NumberLiteral(360., Unit::Deg)),
+                            op: '/',
+                        };
+                        (color, normalized_pos)
+                    })
+                    .collect();
+                Expression::ConicGradient { stops: normalized_stops }
+            }
         }
     }
 
@@ -1129,9 +1216,7 @@ impl Expression {
         );
         let true_expr = Self::from_expression_node(true_expr_n.clone(), ctx);
         let false_expr = Self::from_expression_node(false_expr_n.clone(), ctx);
-        let result_ty = Self::common_target_type_for_type_list(
-            [true_expr.ty(), false_expr.ty()].iter().cloned(),
-        );
+        let result_ty = common_expression_type(&true_expr, &false_expr);
         let true_expr = true_expr.maybe_convert_to(result_ty.clone(), &true_expr_n, ctx.diag);
         let false_expr = false_expr.maybe_convert_to(result_ty, &false_expr_n, ctx.diag);
         Expression::Condition {
@@ -1276,6 +1361,7 @@ impl Expression {
                         .into()
                     }),
                     (Type::Color, Type::Brush) | (Type::Brush, Type::Color) => Type::Brush,
+                    (Type::Float32, Type::Int32) | (Type::Int32, Type::Float32) => Type::Float32,
                     (target_type, expr_ty) => {
                         if expr_ty.can_convert(&target_type) {
                             target_type
@@ -1294,6 +1380,66 @@ impl Expression {
             }
         })
     }
+}
+
+/// Return the type that merge two times when they are used in two branch of a condition
+///
+/// Ideally this could just be Expression::common_target_type_for_type_list, but that function
+/// has a bug actually that it tries to convert things that only works for array literal,
+/// but doesn't work if we have a type of an array.
+/// So try to recurse into struct literal and array literal in expression to only call
+/// common_target_type_for_type_list for them, but always keep the type of the array
+/// if it is NOT an literal
+fn common_expression_type(true_expr: &Expression, false_expr: &Expression) -> Type {
+    fn merge_struct(origin: &Struct, other: &Struct) -> Type {
+        let mut fields = other.fields.clone();
+        fields.extend(origin.fields.iter().map(|(k, v)| (k.clone(), v.clone())));
+        Rc::new(Struct { fields, name: None, node: None, rust_attributes: None }).into()
+    }
+
+    if let Expression::Struct { ty, values } = true_expr {
+        if let Expression::Struct { values: values2, .. } = false_expr {
+            let mut fields = BTreeMap::new();
+            for (k, v) in values.iter() {
+                if let Some(v2) = values2.get(k) {
+                    fields.insert(k.clone(), common_expression_type(v, v2));
+                } else {
+                    fields.insert(k.clone(), v.ty());
+                }
+            }
+            for (k, v) in values2.iter() {
+                if !values.contains_key(k) {
+                    fields.insert(k.clone(), v.ty());
+                }
+            }
+            return Type::Struct(Rc::new(Struct {
+                fields,
+                name: None,
+                node: None,
+                rust_attributes: None,
+            }));
+        } else if let Type::Struct(false_ty) = false_expr.ty() {
+            return merge_struct(&false_ty, &ty);
+        }
+    } else if let Expression::Struct { ty, .. } = false_expr {
+        if let Type::Struct(true_ty) = true_expr.ty() {
+            return merge_struct(&true_ty, &ty);
+        }
+    }
+
+    if let Expression::Array { .. } = true_expr {
+        if let Expression::Array { .. } = false_expr {
+            // fallback to common_target_type_for_type_list
+        } else if let Type::Array(ty) = false_expr.ty() {
+            return Type::Array(ty);
+        }
+    } else if let Expression::Array { .. } = false_expr {
+        if let Type::Array(ty) = true_expr.ty() {
+            return Type::Array(ty);
+        }
+    }
+
+    Expression::common_target_type_for_type_list([true_expr.ty(), false_expr.ty()].into_iter())
 }
 
 /// Perform the lookup
@@ -1639,6 +1785,7 @@ fn resolve_two_way_bindings(
                                 type_register,
                                 type_loader: None,
                                 current_token: Some(node.clone().into()),
+                                local_variables: vec![],
                             };
 
                             binding.expression = Expression::Invalid;

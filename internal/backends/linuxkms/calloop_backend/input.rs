@@ -56,14 +56,15 @@ impl<'a> LibinputInterface for SeatWrap {
             .open_device(&path)
             .map(|device| {
                 let flags = nix::fcntl::OFlag::from_bits_retain(flags);
-                let fd = device.as_fd().as_raw_fd();
+                let fd = device.as_fd();
                 nix::fcntl::fcntl(fd, nix::fcntl::FcntlArg::F_SETFL(flags))
                     .map_err(|e| format!("Error applying libinput provided open fd flags: {e}"))
                     .unwrap();
 
-                self.device_for_fd.insert(fd, device);
+                let raw_fd = fd.as_raw_fd();
+                self.device_for_fd.insert(raw_fd, device);
                 // Safety: API requires us to own it, but in close_restricted() we'll take it back.
-                unsafe { OwnedFd::from_raw_fd(fd) }
+                unsafe { OwnedFd::from_raw_fd(raw_fd) }
             })
             .map_err(|e| e.0.into())
     }
@@ -118,6 +119,7 @@ pub struct LibInputHandler<'a> {
     last_touch_pos: LogicalPosition,
     window: &'a RefCell<Option<Rc<FullscreenWindowAdapter>>>,
     keystate: Option<xkb::State>,
+    libinput_event_hook: &'a Option<Box<dyn Fn(&::input::Event) -> bool>>,
 }
 
 impl<'a> LibInputHandler<'a> {
@@ -125,6 +127,7 @@ impl<'a> LibInputHandler<'a> {
         window: &'a RefCell<Option<Rc<FullscreenWindowAdapter>>>,
         event_loop_handle: &calloop::LoopHandle<'a, T>,
         #[cfg(feature = "libseat")] seat: &'a Rc<RefCell<libseat::Seat>>,
+        libinput_event_hook: &'a Option<Box<dyn Fn(&::input::Event) -> bool>>,
     ) -> Result<Pin<Rc<Property<Option<LogicalPosition>>>>, PlatformError> {
         #[cfg(feature = "libseat")]
         let libinput = SeatWrap::new(seat);
@@ -140,6 +143,7 @@ impl<'a> LibInputHandler<'a> {
             last_touch_pos: Default::default(),
             window,
             keystate: Default::default(),
+            libinput_event_hook,
         };
 
         event_loop_handle
@@ -178,6 +182,9 @@ impl<'a> calloop::EventSource for LibInputHandler<'a> {
         let screen_size = window.size().to_logical(window.scale_factor());
 
         for event in &mut self.libinput {
+            if self.libinput_event_hook.as_ref().map_or(false, |hook| hook(&event)) {
+                continue;
+            };
             match event {
                 input::Event::Pointer(pointer_event) => {
                     match pointer_event {

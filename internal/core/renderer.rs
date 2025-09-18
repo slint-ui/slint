@@ -116,9 +116,9 @@ pub trait RendererSealed {
         Err(crate::api::SetRenderingNotifierError::Unsupported)
     }
 
-    fn default_font_size(&self) -> LogicalLength;
-
     fn set_window_adapter(&self, _window_adapter: &Rc<dyn WindowAdapter>);
+
+    fn default_font_size(&self) -> LogicalLength;
 
     fn resize(&self, _size: crate::api::PhysicalSize) -> Result<(), PlatformError> {
         Ok(())
@@ -129,4 +129,7 @@ pub trait RendererSealed {
     fn take_snapshot(&self) -> Result<SharedPixelBuffer<Rgba8Pixel>, PlatformError> {
         Err("WindowAdapter::take_snapshot is not implemented by the platform".into())
     }
+
+    /// Whether the renderer supports transformations such as rotations and scaling or not.
+    fn supports_transformations(&self) -> bool;
 }

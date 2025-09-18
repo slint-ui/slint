@@ -9,31 +9,25 @@ export component App inherits Window {
 
     pure callback toggle-pause-play();
 
-    preferred-width: 500px;
-    preferred-height: 300px;
-    min-width: 500px;
-    min-height: 300px;
-    title: "Slint FFmpeg Example";
+    preferred-width: 1280px;
+    preferred-height: 534px;
+    min-width: 1280px;
+    min-height: 534px;
+    title: "Slint FFmpeg Video Playback Example";
     background: #000000;
     icon: @image-url("../../logo/slint-logo-small-light.png");
 
     states [
-        shown when area.has-hover || animation-tick() < 5s : {
+        shown when !playing || controls-area.has-hover: {
             controls.opacity: 1;
             in {
                 animate controls.opacity {
-                    duration: 50ms;
-                }
-            }
-        }
-        hidden when !area.has-hover: {
-            controls.opacity: 0;
-            in {
-                animate controls.opacity {
-                    delay: 3s;
                     duration: 500ms;
                 }
             }
+        }
+        hidden when playing: {
+            controls.opacity: 0;
         }
     ]
 
@@ -42,20 +36,25 @@ export component App inherits Window {
     }
 
     area := TouchArea {
-        width: 50%;
-        height: self.preferred-height;
-        y: root.height - self.height - 40px;
+        width: 100%;
+        height: 100%;
+        clicked => {
+            root.toggle-pause-play();
+        }
         controls := Rectangle {
+            width: 50%;
+            height: self.preferred-height;
+            y: root.height - self.height - 40px;
             border-radius: 4px;
             background: Palette.color-scheme == ColorScheme.dark ? #3737378c : #ffffff82;
 
-            Image {
+            play-pause := Image {
                 width: 64px;
                 height: 64px;
                 source: root.playing ? @image-url("pause.svg") : @image-url("play.svg");
             }
 
-            TouchArea {
+            controls-area := TouchArea {
                 clicked => {
                     root.toggle-pause-play();
                 }

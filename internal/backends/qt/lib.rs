@@ -310,6 +310,18 @@ impl i_slint_core::platform::Platform for Backend {
         };
         core::time::Duration::from_millis(duration_ms as u64)
     }
+
+    #[cfg(not(no_qt))]
+    fn cursor_flash_cycle(&self) -> core::time::Duration {
+        let duration_ms = unsafe {
+            cpp::cpp! {[] -> i32 as "int" { return qApp->cursorFlashTime(); }}
+        };
+        if duration_ms > 0 {
+            core::time::Duration::from_millis(duration_ms as u64)
+        } else {
+            core::time::Duration::ZERO
+        }
+    }
 }
 
 /// This helper trait can be used to obtain access to a pointer to a QtWidget for a given

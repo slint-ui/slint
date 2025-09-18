@@ -18,3 +18,13 @@ enum Xyz {
 //  ^error{Duplicated enum value 'c-dE'}
 }
 
+
+   enum Empty {}
+// ^error{Enums must have at least one value}
+
+export component Test {
+    property<Empty> empty;
+    property<Xyz> xyz;
+    property<{ a: Empty, b: Xyz }> xxx: { b: Xyz.c-dE};
+//                                               ^error{'c-dE' is not a member of the enum Xyz}
+}

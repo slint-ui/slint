@@ -1,0 +1,44 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// BASE_THRESHOLD=3  - allow small differences in base case due to platform-specific atan2
+// ROTATION_THRESHOLD=450  - because conic gradients can be very imprecise in rotation
+
+export component TestCase inherits Window {
+    width:  64px;
+    height: 64px;
+
+    background: black;
+
+    GridLayout {
+        Row {
+            Rectangle {
+                background: @conic-gradient(red 0deg, blue 180deg, red 360deg);
+                with_opacity := Rectangle {
+                    background: @conic-gradient(limegreen 36deg, transparent 180deg);
+                }
+            }
+            Rectangle { background: @conic-gradient(white 36deg, #239 126deg, red 306deg); }
+            // Stops beyond 360deg
+            Rectangle { background: @conic-gradient(red 0deg, white 180deg, blue 360deg, green 540deg); }
+        }
+        Row {
+            Rectangle {
+                // Overlapping transparent gradients
+                background: @conic-gradient(lightblue 0deg, red 180deg, lightblue 360deg);
+                Rectangle { background: @conic-gradient(green 0deg, transparent 120deg, rgba(255, 0, 128, 0.5) 240deg, green 360deg); }
+            }
+            // Multiple stops at same position
+            Rectangle { background: @conic-gradient(blue 0deg, blue 108deg, yellow 108deg, yellow 216deg, red 216deg, red 360deg); }
+            // Edge case: invisible stop at start
+            Rectangle { background: @conic-gradient(transparent 0deg, red 3.6deg, white 180deg, transparent 360deg); }
+        }
+    }
+
+    init => {
+        // This is a test for the binding part
+        if (with_opacity.opacity == 1) {
+            with_opacity.opacity = 0.5;
+        }
+    }
+}

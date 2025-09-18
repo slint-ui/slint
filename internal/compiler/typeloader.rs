@@ -50,10 +50,22 @@ pub enum ImportKind {
 }
 
 #[derive(Debug, Clone)]
+pub struct LibraryInfo {
+    pub name: String,
+    pub package: String,
+    pub module: Option<String>,
+    pub exports: Vec<ExportedName>,
+}
+
+#[derive(Debug, Clone)]
 pub struct ImportedTypes {
     pub import_uri_token: SyntaxToken,
     pub import_kind: ImportKind,
     pub file: String,
+
+    /// `import {Foo, Bar} from "@Foo"` where Foo is an external
+    /// library located in another crate
+    pub library_info: Option<LibraryInfo>,
 }
 
 #[derive(Debug)]
@@ -290,6 +302,7 @@ impl Snapshotter {
             custom_fonts: document.custom_fonts.clone(),
             imports: document.imports.clone(),
             exports,
+            library_exports: document.library_exports.clone(),
             embedded_file_resources: document.embedded_file_resources.clone(),
             #[cfg(feature = "bundle-translations")]
             translation_builder: document.translation_builder.clone(),
@@ -369,6 +382,7 @@ impl Snapshotter {
                 private_properties: RefCell::new(component.private_properties.borrow().clone()),
                 root_constraints,
                 root_element,
+                from_library: core::cell::Cell::new(false),
             }
         });
         self.keep_alive.push((component.clone(), result.clone()));
@@ -623,7 +637,15 @@ impl Snapshotter {
                 Weak::upgrade(&self.use_component(component)).expect("Looking at a known component")
             })
             .collect();
-        object_tree::UsedSubTypes { globals, structs_and_enums, sub_components }
+        let library_types_imports = used_types.library_types_imports.clone();
+        let library_global_imports = used_types.library_global_imports.clone();
+        object_tree::UsedSubTypes {
+            globals,
+            structs_and_enums,
+            sub_components,
+            library_types_imports,
+            library_global_imports,
+        }
     }
 
     fn snapshot_popup_window(
@@ -640,11 +662,12 @@ impl Snapshotter {
         }
     }
 
-    fn snapshot_timer(&mut self, popup_window: &object_tree::Timer) -> object_tree::Timer {
+    fn snapshot_timer(&mut self, timer: &object_tree::Timer) -> object_tree::Timer {
         object_tree::Timer {
-            interval: popup_window.interval.snapshot(self),
-            running: popup_window.running.snapshot(self),
-            triggered: popup_window.triggered.snapshot(self),
+            interval: timer.interval.snapshot(self),
+            running: timer.running.snapshot(self),
+            triggered: timer.triggered.snapshot(self),
+            element: timer.element.clone(),
         }
     }
 
@@ -804,6 +827,12 @@ impl Snapshotter {
                     .collect(),
             },
             Expression::RadialGradient { stops } => Expression::RadialGradient {
+                stops: stops
+                    .iter()
+                    .map(|(e1, e2)| (self.snapshot_expression(e1), self.snapshot_expression(e2)))
+                    .collect(),
+            },
+            Expression::ConicGradient { stops } => Expression::ConicGradient {
                 stops: stops
                     .iter()
                     .map(|(e1, e2)| (self.snapshot_expression(e1), self.snapshot_expression(e2)))
@@ -981,11 +1010,56 @@ impl TypeLoader {
                 imports.push(import);
                 continue;
             }
+
             dependencies_futures.push(Box::pin(async move {
-                let file = import.file.as_str();
+                #[cfg(feature = "experimental-library-module")]
+                let import_file = import.file.clone();
+                #[cfg(feature = "experimental-library-module")]
+                if let Some(maybe_library_import) = import_file.strip_prefix('@') {
+                    if let Some(library_name) = std::env::var(format!(
+                        "DEP_{}_SLINT_LIBRARY_NAME",
+                        maybe_library_import.to_uppercase()
+                    ))
+                    .ok()
+                    {
+                        if library_name == maybe_library_import {
+
+                            let library_slint_source = std::env::var(format!(
+                                "DEP_{}_SLINT_LIBRARY_SOURCE",
+                                maybe_library_import.to_uppercase()
+                            ))
+                            .ok()
+                            .unwrap_or_default();
+
+                            import.file = library_slint_source;
+
+                            if let Some(library_package) = std::env::var(format!(
+                                "DEP_{}_SLINT_LIBRARY_PACKAGE",
+                                maybe_library_import.to_uppercase()
+                            ))
+                            .ok()
+                            {
+                                import.library_info = Some(LibraryInfo {
+                                    name: library_name,
+                                    package: library_package,
+                                    module:  std::env::var(format!("DEP_{}_SLINT_LIBRARY_MODULE",
+                                        maybe_library_import.to_uppercase()
+                                    )).ok(),
+                                    exports: Vec::new(),
+                                });
+                            } else {
+                                // This should never happen
+                                let mut state = state.borrow_mut();
+                                let state: &mut BorrowedTypeLoader<'a> = &mut *state;
+                                state.diag.push_error(format!("DEP_{}_SLINT_LIBRARY_PACKAGE is missing for external library import", maybe_library_import.to_uppercase()).into(), &import.import_uri_token.parent());
+                            }
+                        }
+                    }
+                }
+
                 let doc_path = Self::ensure_document_loaded(
                     state,
-                    file,
+                    import.file.as_str(),
                     Some(import.import_uri_token.clone().into()),
                     import_stack.clone(),
                 )
@@ -1001,7 +1075,7 @@ impl TypeLoader {
                 let core::task::Poll::Ready((mut import, doc_path)) = fut.as_mut().poll(cx) else { return true; };
                 let Some(doc_path) = doc_path else { return false };
                 let mut state = state.borrow_mut();
-                let state = &mut *state;
+                let state: &mut BorrowedTypeLoader<'a> = &mut *state;
                 let Some(doc) = state.tl.get_document(&doc_path) else {
                     panic!("Just loaded document not available")
                 };
@@ -1010,6 +1084,13 @@ impl TypeLoader {
                         let mut imported_types = ImportedName::extract_imported_names(imported_types).peekable();
                         if imported_types.peek().is_some() {
                             Self::register_imported_types(doc, &import, imported_types, registry_to_populate, state.diag);
+
+                            #[cfg(feature = "experimental-library-module")]
+                            if import.library_info.is_some() {
+                                import.library_info.as_mut().unwrap().exports = doc.exports.iter().map(|(exported_name, _compo_or_type)| {
+                                    exported_name.clone()
+                                }).collect();
+                            }
                         } else {
                             state.diag.push_error("Import names are missing. Please specify which types you would like to import".into(), &import.import_uri_token.parent());
                         }
@@ -1513,8 +1594,9 @@ impl TypeLoader {
     ) -> Option<(PathBuf, Option<&'static [u8]>)> {
         // The directory of the current file is the first in the list of include directories.
         referencing_file
-            .map(base_directory)
+            .and_then(|x| x.parent().map(|x| x.to_path_buf()))
             .into_iter()
+            .chain(referencing_file.and_then(maybe_base_directory))
             .chain(self.compiler_config.include_paths.iter().map(PathBuf::as_path).map(
                 |include_path| {
                     let base = referencing_file.map(Path::to_path_buf).unwrap_or_default();
@@ -1541,6 +1623,7 @@ impl TypeLoader {
         doc.ImportSpecifier()
             .map(|import| {
                 let maybe_import_uri = import.child_token(SyntaxKind::StringLiteral);
+
                 let kind = import
                     .ImportIdentifierList()
                     .map(ImportKind::ImportList)
@@ -1579,6 +1662,7 @@ impl TypeLoader {
                     import_uri_token: import_uri,
                     import_kind: type_specifier,
                     file: path_to_import,
+                    library_info: None,
                 })
             })
     }
@@ -1664,15 +1748,12 @@ fn get_native_style(all_loaded_files: &mut std::collections::BTreeSet<PathBuf>) 
     i_slint_common::get_native_style(false, &std::env::var("TARGET").unwrap_or_default()).into()
 }
 
-/// return the base directory from which imports are loaded
+/// For a .rs file, return the manifest directory
 ///
-/// For a .slint file, this is the parent directory.
-/// For a .rs file, this is relative to the CARGO_MANIFEST_DIR
-///
-/// Note: this function is only called for .rs path as part of the LSP or viewer.
-/// Because from a proc_macro, we don't actually know the path of the current file, and this
-/// is why we must be relative to CARGO_MANIFEST_DIR.
-pub fn base_directory(referencing_file: &Path) -> PathBuf {
+/// This is for compatibility with `slint!` macro as before rust 1.88,
+/// it was not possible for the macro to know the current path and
+/// the Cargo.toml file was used instead
+fn maybe_base_directory(referencing_file: &Path) -> Option<PathBuf> {
     if referencing_file.extension().is_some_and(|e| e == "rs") {
         // For .rs file, this is a rust macro, and rust macro locates the file relative to the CARGO_MANIFEST_DIR which is the directory that has a Cargo.toml file.
         let mut candidate = referencing_file;
@@ -1684,10 +1765,10 @@ pub fn base_directory(referencing_file: &Path) -> PathBuf {
                 break Some(candidate);
             }
         }
+        .map(|x| x.to_path_buf())
     } else {
-        referencing_file.parent()
+        None
     }
-    .map_or_else(Default::default, |p| p.to_path_buf())
 }
 
 #[test]

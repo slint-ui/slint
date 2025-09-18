@@ -1,13 +1,14 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { HorizontalBox, Palette, ScrollView } from "std-widgets.slint";
-import { ComponentListItem, ComponentItem } from "../api.slint";
+import { HorizontalBox, Palette, ScrollView, LineEdit } from "std-widgets.slint";
+import { ComponentListItem, ComponentItem, Api } from "../api.slint";
 import { StateLayer } from "./state-layer.slint";
 import { EditorSizeSettings, EditorAnimationSettings, Icons } from "./styling.slint";
 import { BodyText } from "./body-text.slint";
 import { BodyStrongText } from "./body-strong-text.slint";
 import { StatusLineApi } from "status-line.slint";
+import { EditorSpaceSettings } from "styling.slint";
 
 component HeaderItemTemplate {
     in property <bool> enabled: true;
@@ -31,9 +32,11 @@ component HeaderItemTemplate {
         pressed: touch-area.pressed;
     }
 
-    content-layer := HorizontalBox {
+    content-layer := HorizontalLayout {
+        spacing: EditorSpaceSettings.default-spacing / 2;
+        padding-left: EditorSpaceSettings.default-padding / 2;
         icon-image := Image {
-            width: EditorSizeSettings.default-icon-width;
+            width: 10px;
             colorize: Palette.foreground;
             source: Icons.chevron-down;
             rotation-origin-x: self.width / 2;
@@ -49,7 +52,7 @@ component HeaderItemTemplate {
 
         BodyText {
             text: root.text;
-            opacity: 0.7;
+            opacity: 0.5;
         }
     }
 
@@ -61,36 +64,30 @@ component HeaderItemTemplate {
 }
 
 component ItemTemplate {
+    in property <ComponentItem> data;
     in property <bool> enabled: true;
     in property <string> text;
-    in property <bool> can-drop-here;
     in property <length> offset;
-    out property <length> absolute-mouse-x: touch-area.mouse-x - touch-area.x + touch-area.absolute-position.x;
-    out property <length> absolute-mouse-y: touch-area.mouse-y - touch-area.y + touch-area.absolute-position.y;
     out property <bool> pressed <=> touch-area.pressed;
+    in property <length> parent-visible-width;
+    callback show-preview;
+    callback rename(to: string);
 
-    callback clicked <=> touch-area.clicked;
-    callback pointer-event <=> touch-area.pointer-event;
+    property <bool> rename-mode: false;
 
     min-width: content-layer.min-width;
     min-height: max(EditorSizeSettings.item-height, content-layer.min-height);
 
-    touch-area := TouchArea {
-        states [
-            dragging-no-drop when self.pressed && !root.can-drop-here: {
-                mouse-cursor: MouseCursor.no-drop;
-            }
-            dragging-can-drop when self.pressed && root.can-drop-here: {
-                mouse-cursor: MouseCursor.copy;
-            }
-            normal when !self.pressed: {
-                mouse-cursor: MouseCursor.default;
-            }
-        ]
 
-        changed has-hover => {
-            if self.has-hover {
-                StatusLineApi.help-text = @tr("Drag onto canvas to add {}", text);
+    DragArea {
+        mime-type: "application/x-slint-component";
+        data: data.index;
+
+        touch-area := TouchArea {
+            changed has-hover => {
+                if self.has-hover {
+                    StatusLineApi.help-text = @tr("Drag onto canvas to add {}", text);
+                }
             }
         }
     }
@@ -102,12 +99,50 @@ component ItemTemplate {
         pressed: touch-area.pressed;
     }
 
-    content-layer := HorizontalBox {
-        padding-left: self.padding + root.offset;
-        BodyText {
-            text: root.text;
+    if data.is_user_defined: ContextMenuArea {
+        Menu {
+            MenuItem {
+                title: @tr("Show Preview");
+                activated => {
+                    root.show-preview();
+                }
+            }
+            MenuItem {
+                title: @tr("Rename");
+                activated => {
+                    rename-mode = true;
+                }
+            }
         }
     }
+
+    content-layer := HorizontalLayout {
+        padding-left: EditorSpaceSettings.default-padding / 2 + root.offset;
+        padding-top: EditorSpaceSettings.default-padding;
+        padding-bottom: EditorSpaceSettings.default-padding;
+        alignment: start;
+        if !rename-mode: BodyText {
+            wrap: no-wrap;
+            overflow: elide;
+            text: root.text;
+        }
+        if rename-mode: LineEdit {
+            width: parent-visible-width - content-layer.padding-left - EditorSpaceSettings.default-padding;
+            text: root.text;
+            accepted(text) => {
+                if text != root.text {
+                    root.rename(text);
+                }
+                rename-mode = false;
+            }
+            changed has-focus => {
+                if !self.has-focus {
+                    self.accepted(self.text);
+                }
+            }
+        }
+    }
+
 
     states [
         disabled when !root.enabled: {
@@ -120,10 +155,6 @@ export component ExpandableListView inherits ScrollView {
     in property <[ComponentListItem]> known-components;
 
     in property <bool> preview-is-current;
-    in property <length> preview-area-position-x;
-    in property <length> preview-area-position-y;
-    in property <length> preview-area-width;
-    in property <length> preview-area-height;
     in-out property <ComponentItem> visible-component: {
         name: "",
         defined-at: "",
@@ -132,13 +163,10 @@ export component ExpandableListView inherits ScrollView {
         is-currently-shown: false,
     };
 
-    pure callback can-drop(index: int, x: length, y: length, on-drop-area: bool) -> bool;
-    callback drop(index: int, x: length, y: length);
     callback show-preview-for(name: string, defined-at: string);
 
-    property <bool> preview-visible: preview-area-width > 0px && preview-area-height > 0px;
     property <length> list-spacing: 10px;
-
+    horizontal-scrollbar-policy: ScrollBarPolicy.always-off;
     VerticalLayout {
         alignment: start;
         for cli[index] in root.known-components: VerticalLayout {
@@ -149,26 +177,22 @@ export component ExpandableListView inherits ScrollView {
 
             if header-item.open: VerticalLayout {
                 for ci[index] in cli.components: ItemTemplate {
-                    property <length> drop-x: self.absolute-mouse-x - root.preview-area-position-x;
-                    property <length> drop-y: self.absolute-mouse-y - root.preview-area-position-y;
-                    property <bool> on-drop-area:
-                            drop-x >= 0 && drop-x <= root.preview-area-width && drop-y >= 0 && drop-y <= root.preview-area-height;
-                    property <ComponentItem> data: ci;
-
-                    can-drop-here: root.preview-is-current && !self.data.is-currently-shown && root.can-drop(self.data.index, drop-x, drop-y, on-drop-area);
-                    enabled: root.preview-visible;
+                    data: ci;
                     text: ci.name;
                     offset: header-item.offset;
                     height: self.min-height;
-
-                    pointer-event(event) => {
-                        if self.can-drop-here && event.kind == PointerEventKind.up && event.button == PointerEventButton.left {
-                            root.drop(self.data.index, drop-x, drop-y);
-                        }
-                    }
+                    parent-visible-width: root.visible-width;
 
                     init() => {
                         root.visible-component = ci;
+                    }
+                    show-preview => {
+                        if ci.is_user_defined && !ci.is_currently_shown {
+                            root.show-preview-for(self.data.name, self.data.defined_at)
+                        }
+                    }
+                    rename(to) => {
+                        Api.rename-component(self.data.name, self.data.defined_at, to);
                     }
                 }
             }

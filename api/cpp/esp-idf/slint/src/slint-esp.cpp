@@ -49,6 +49,7 @@ struct EspPlatform : public slint::platform::Platform
           byte_swap(config.byte_swap),
           rotation(config.rotation)
     {
+        task = xTaskGetCurrentTaskHandle();
     }
 
     std::unique_ptr<slint::platform::WindowAdapter> create_window_adapter() override;
@@ -129,8 +130,6 @@ void byte_swap_color(slint::Rgb8Pixel *pixel)
 template<typename PixelType>
 void EspPlatform<PixelType>::run_event_loop()
 {
-    task = xTaskGetCurrentTaskHandle();
-
     esp_lcd_panel_disp_on_off(panel_handle, true);
 
     TickType_t max_ticks_to_wait = portMAX_DELAY;

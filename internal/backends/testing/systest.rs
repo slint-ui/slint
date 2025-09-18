@@ -148,13 +148,17 @@ impl TestingClient {
                 )
             }
             proto::mod_RequestToAUT::OneOfmsg::request_take_snapshot(
-                proto::RequestTakeSnapshot { window_handle },
-            ) => proto::mod_AUTResponse::OneOfmsg::take_snapshot_response(
-                self.take_snapshot(handle_to_index(
-                    window_handle
-                        .ok_or_else(|| "grab window request missing window handle".to_string())?,
-                ))?,
-            ),
+                proto::RequestTakeSnapshot { window_handle, image_mime_type },
+            ) => {
+                proto::mod_AUTResponse::OneOfmsg::take_snapshot_response(self.take_snapshot(
+                    handle_to_index(
+                        window_handle.ok_or_else(|| {
+                            "grab window request missing window handle".to_string()
+                        })?,
+                    ),
+                    image_mime_type,
+                )?)
+            }
             proto::mod_RequestToAUT::OneOfmsg::request_element_click(
                 proto::RequestElementClick { element_handle, action, button },
             ) => {
@@ -220,27 +224,36 @@ impl TestingClient {
     fn take_snapshot(
         &self,
         window_index: generational_arena::Index,
+        image_mime_type: String,
     ) -> Result<proto::TakeSnapshotResponse, String> {
-        use image::ImageEncoder;
-
         let adapter = self.window_adapter(window_index)?;
         let window = adapter.window();
         let buffer =
             window.take_snapshot().map_err(|e| format!("Error grabbing window screenshot: {e}"))?;
-        let mut window_contents_as_png: Vec<u8> = Vec::new();
-        let cursor = std::io::Cursor::new(&mut window_contents_as_png);
-        let encoder = image::codecs::png::PngEncoder::new(cursor);
-        encoder
-            .write_image(
-                buffer.as_bytes(),
-                buffer.width(),
-                buffer.height(),
-                image::ColorType::Rgba8.into(),
-            )
-            .map_err(|encode_err| {
-                format!("error encoding png image after screenshot: {encode_err}")
-            })?;
-        Ok(proto::TakeSnapshotResponse { window_contents_as_png })
+        let mut window_contents_as_encoded_image: Vec<u8> = Vec::new();
+        let mut cursor = std::io::Cursor::new(&mut window_contents_as_encoded_image);
+        let format = if image_mime_type.is_empty() {
+            image::ImageFormat::Png
+        } else {
+            image::ImageFormat::from_mime_type(&image_mime_type).ok_or_else(|| {
+                format!(
+                    "Unsupported image format {image_mime_type} requested for window snapshotting"
+                )
+            })?
+        };
+
+        image::write_buffer_with_format(
+            &mut cursor,
+            buffer.as_bytes(),
+            buffer.width(),
+            buffer.height(),
+            image::ExtendedColorType::Rgba8,
+            format,
+        )
+        .map_err(|encode_err| {
+            format!("error encoding {image_mime_type} image after screenshot: {encode_err}")
+        })?;
+        Ok(proto::TakeSnapshotResponse { window_contents_as_encoded_image })
     }
 
     fn dispatch_window_event(
@@ -360,6 +373,12 @@ impl TestingClient {
             accessible_role: convert_to_proto_accessible_role(element.accessible_role().unwrap())
                 .unwrap_or_default(),
             computed_opacity: element.computed_opacity(),
+            accessible_placeholder_text: element
+                .accessible_placeholder_text()
+                .unwrap_or_default()
+                .to_string(),
+            accessible_enabled: element.accessible_enabled().unwrap_or_default(),
+            accessible_read_only: element.accessible_read_only().unwrap_or_default(),
         })
     }
 
@@ -442,6 +461,9 @@ async fn message_loop(
             return;
         }
     };
+    // Attempt to disable the Nagle algorithm to favor faster packet exchange (latency)
+    // over throughput.
+    stream.set_nodelay(true).ok();
     debug_log!("Connected to test server");
 
     loop {
@@ -469,12 +491,10 @@ async fn message_loop(
             proto::mod_AUTResponse::OneOfmsg::error(proto::ErrorResponse { message })
         });
         let response = proto::AUTResponse { msg: response };
-        let mut size_header = Vec::new();
-        size_header.write_u32::<BigEndian>(response.get_size() as u32).unwrap();
-        stream.write_all(&size_header).await.expect("Unable to write AUT response header");
-        let mut message_body = Vec::new();
-        response.write_message(&mut quick_protobuf::Writer::new(&mut message_body)).unwrap();
-        stream.write_all(&message_body).await.expect("Unable to write AUT response body");
+        let mut binary_message = Vec::new();
+        binary_message.write_u32::<BigEndian>(response.get_size() as u32).unwrap();
+        response.write_message(&mut quick_protobuf::Writer::new(&mut binary_message)).unwrap();
+        stream.write_all(&binary_message).await.expect("Unable to write AUT response body");
     }
 }
 

@@ -4,7 +4,7 @@
 FetchContent_Declare(
     Catch2
     GIT_REPOSITORY https://github.com/catchorg/Catch2.git
-    GIT_TAG v2.13.8
+    GIT_TAG v3.8.0
 )
 
 FetchContent_MakeAvailable(Catch2)
@@ -13,7 +13,7 @@ find_package(Threads REQUIRED)
 
 macro(slint_test NAME)
     add_executable(test_${NAME} ${NAME}.cpp)
-    target_link_libraries(test_${NAME} PRIVATE Slint Catch2::Catch2)
+    target_link_libraries(test_${NAME} PRIVATE Slint Catch2::Catch2WithMain)
     target_compile_definitions(test_${NAME} PRIVATE
         SOURCE_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/\"
     )

@@ -11,8 +11,7 @@ use i_slint_core::lengths::{LogicalPoint, LogicalRect};
 use slint_interpreter::{ComponentHandle, ComponentInstance};
 
 use crate::common;
-
-use crate::preview::{ext::ElementRcNodeExt, ui, SelectionNotification};
+use crate::preview::{self, ext::ElementRcNodeExt, ui, SelectionNotification};
 
 #[derive(Clone, Debug)]
 pub struct ElementSelection {
@@ -92,14 +91,14 @@ fn element_covers_point(
 }
 
 pub fn unselect_element() {
-    super::set_selected_element(None, &[], SelectionNotification::Never);
+    super::set_selected_element(None, SelectionNotification::Never);
 }
 
 pub fn select_element_at_source_code_position(
     path: PathBuf,
     offset: TextSize,
     position: Option<LogicalPoint>,
-    editor_notification: crate::preview::SelectionNotification,
+    editor_notification: preview::SelectionNotification,
 ) {
     let Some(component_instance) = super::component_instance() else {
         return;
@@ -128,9 +127,32 @@ fn select_element_at_source_code_position_impl(
 
     super::set_selected_element(
         Some(ElementSelection { path, offset, instance_index }),
-        &positions,
         editor_notification,
     );
+}
+
+pub fn highlight_positions(
+    source_uri: slint::SharedString,
+    offset: i32,
+) -> slint::ModelRc<ui::SelectionRectangle> {
+    let Some(component_instance) = super::component_instance() else {
+        return Default::default();
+    };
+
+    let Some(path) =
+        crate::Url::parse(source_uri.as_str()).ok().and_then(|u| crate::common::uri_to_file(&u))
+    else {
+        return Default::default();
+    };
+    let offset = TextSize::new(offset as u32);
+    let positions = component_instance.component_positions(&path, offset.into());
+    let model = slint::VecModel::from_iter(positions.iter().map(|g| ui::SelectionRectangle {
+        width: g.size.width,
+        height: g.size.height,
+        x: g.origin.x,
+        y: g.origin.y,
+    }));
+    slint::ModelRc::new(model)
 }
 
 fn select_element_node(
@@ -149,7 +171,10 @@ fn select_element_node(
     );
 
     if let Some(document_position) = lsp_element_node_position(selected_element) {
-        super::ask_editor_to_show_document(&document_position.0, document_position.1, false);
+        let to_lsp = preview::PREVIEW_STATE.with_borrow(|ps| ps.to_lsp.borrow().clone().unwrap());
+        to_lsp
+            .ask_editor_to_show_document(&document_position.0, document_position.1, false)
+            .unwrap();
     }
 }
 
@@ -285,10 +310,7 @@ pub fn select_element_at(x: f32, y: f32, enter_component: bool) {
     select_element_node(&component_instance, &en, Some(position));
 }
 
-pub fn selection_stack_at(
-    x: f32,
-    y: f32,
-) -> slint::ModelRc<crate::preview::ui::SelectionStackFrame> {
+pub fn selection_stack_at(x: f32, y: f32) -> slint::ModelRc<ui::SelectionStackFrame> {
     let Some(component_instance) = &super::component_instance() else {
         return Default::default();
     };
@@ -300,7 +322,7 @@ pub fn selection_stack_at(
 
     let position = LogicalPoint::new(x, y);
 
-    let (known_components, mut selected) = crate::preview::PREVIEW_STATE.with(|preview_state| {
+    let (known_components, mut selected) = preview::PREVIEW_STATE.with(|preview_state| {
         let preview_state = preview_state.borrow();
 
         let known_components = preview_state.known_components.clone();
@@ -399,7 +421,7 @@ pub fn selection_stack_at(
                 .map(|index| known_components.get(index).unwrap().is_interactive)
                 .unwrap_or_default();
 
-            crate::preview::ui::SelectionStackFrame {
+            ui::SelectionStackFrame {
                 width,
                 height,
                 x,
@@ -439,12 +461,12 @@ pub fn selection_stack_at(
 }
 
 pub fn filter_sort_selection_stack(
-    model: slint::ModelRc<crate::preview::ui::SelectionStackFrame>,
+    model: slint::ModelRc<ui::SelectionStackFrame>,
     filter_text: slint::SharedString,
-    filter: crate::preview::ui::SelectionStackFilter,
-) -> slint::ModelRc<crate::preview::ui::SelectionStackFrame> {
-    use crate::preview::ui::{SelectionStackFilter, SelectionStackFrame};
+    filter: ui::SelectionStackFilter,
+) -> slint::ModelRc<ui::SelectionStackFrame> {
     use slint::ModelExt;
+    use ui::{SelectionStackFilter, SelectionStackFrame};
 
     fn filter_fn(frame: &SelectionStackFrame, filter: SelectionStackFilter) -> bool {
         match filter {
@@ -453,12 +475,8 @@ pub fn filter_sort_selection_stack(
             SelectionStackFilter::Interactive => frame.is_interactive,
             SelectionStackFilter::Others => !frame.is_interactive && !frame.is_layout,
             SelectionStackFilter::LayoutsAndInteractive => frame.is_layout || frame.is_interactive,
-            SelectionStackFilter::LayoutsAndOthers => {
-                frame.is_layout || (!frame.is_layout && !frame.is_interactive)
-            }
-            SelectionStackFilter::InteractiveAndOthers => {
-                frame.is_interactive || (!frame.is_layout && !frame.is_interactive)
-            }
+            SelectionStackFilter::LayoutsAndOthers => frame.is_layout || !frame.is_interactive,
+            SelectionStackFilter::InteractiveAndOthers => frame.is_interactive || !frame.is_layout,
             SelectionStackFilter::Everything => true,
         }
     }
@@ -564,18 +582,8 @@ pub fn select_element_behind(x: f32, y: f32, enter_component: bool, reverse: boo
     select_element_node(&component_instance, &en, Some(position));
 }
 
-// Called from UI thread!
 pub fn reselect_element() {
-    let Some(selected) = super::selected_element() else {
-        super::set_selected_element(None, &[], SelectionNotification::Never);
-        return;
-    };
-    let Some(component_instance) = super::component_instance() else {
-        return;
-    };
-    let positions = component_instance.component_positions(&selected.path, selected.offset.into());
-
-    super::set_selected_element(Some(selected), &positions, SelectionNotification::Never);
+    super::set_selected_element(super::selected_element(), SelectionNotification::Never);
 }
 
 #[cfg(test)]

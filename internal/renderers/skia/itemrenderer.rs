@@ -141,6 +141,25 @@ impl<'a> SkiaItemRenderer<'a> {
                         as &skia_safe::Matrix,
                 )
             }
+            Brush::ConicGradient(g) => {
+                let (colors, pos): (Vec<_>, Vec<_>) =
+                    g.stops().map(|s| (to_skia_color(&s.color), s.position)).unzip();
+
+                paint.set_dither(true);
+
+                // Skia's sweep gradient uses 0 degrees at 3 o'clock (east)
+                // We want 0 degrees at 12 o'clock (north), so we need to rotate by -90 degrees
+                let center = skia_safe::Point::new(width.get() / 2., height.get() / 2.);
+                skia_safe::gradient_shader::sweep(
+                    center,
+                    skia_safe::gradient_shader::GradientShaderColors::Colors(&colors),
+                    Some(&*pos),
+                    TileMode::Clamp,
+                    None, // Use None for full 360° sweep
+                    None,
+                    Some(&skia_safe::Matrix::rotate_deg_pivot(-90.0, center)),
+                )
+            }
             _ => None,
         }
         .map(|shader| (paint, shader))
@@ -267,10 +286,11 @@ impl<'a> SkiaItemRenderer<'a> {
                             / skia_image.height() as f32,
                     ))
                     * Matrix::translate((-(tiled_offset.x as i32), -(tiled_offset.y as i32)));
-                if let Some(shader) =
-                    skia_image.make_subset(self.canvas.direct_context().as_mut(), &src).and_then(
-                        |i| i.to_shader((TileMode::Repeat, TileMode::Repeat), filter_mode, &matrix),
-                    )
+                if let Some(shader) = skia_image
+                    .make_subset(None, &src, skia_safe::image::RequiredProperties::default())
+                    .and_then(|i| {
+                        i.to_shader((TileMode::Repeat, TileMode::Repeat), filter_mode, &matrix)
+                    })
                 {
                     let mut paint = self.default_paint().unwrap_or_default();
                     paint.set_shader(shader);
@@ -744,9 +764,35 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
 
         let anti_alias = path.anti_alias();
 
-        if let Some(mut fill_paint) =
+        // For Path elements with conic gradients, we need to handle the viewbox transformation
+        let viewbox_width = path.viewbox_width();
+        let viewbox_height = path.viewbox_height();
+
+        let paint = if viewbox_width > 0.0 && viewbox_height > 0.0 {
+            // If there's a viewbox, we need to create the gradient in viewbox space
+            // and then transform it to the actual size
+            let scale_x = geometry.width() / viewbox_width;
+            let scale_y = geometry.height() / viewbox_height;
+
+            let paint = self.default_paint().unwrap_or_default();
+            if let Some((mut paint, shader)) = Self::brush_to_shader(
+                paint,
+                path.fill(),
+                PhysicalLength::new(viewbox_width),
+                PhysicalLength::new(viewbox_height),
+            ) {
+                // Apply the viewbox transformation to the shader
+                let transform = skia_safe::Matrix::scale((scale_x, scale_y));
+                paint.set_shader(shader.with_local_matrix(&transform));
+                Some(paint)
+            } else {
+                None
+            }
+        } else {
             self.brush_to_paint(path.fill(), geometry.width_length(), geometry.height_length())
-        {
+        };
+
+        if let Some(mut fill_paint) = paint {
             fill_paint.set_anti_alias(anti_alias);
             self.canvas.draw_path(&skpath, &fill_paint);
         }
@@ -874,6 +920,10 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
 
     fn rotate(&mut self, angle_in_degrees: f32) {
         self.canvas.rotate(angle_in_degrees, None);
+    }
+
+    fn scale(&mut self, x_factor: f32, y_factor: f32) {
+        self.canvas.scale((x_factor, y_factor));
     }
 
     fn apply_opacity(&mut self, opacity: f32) {

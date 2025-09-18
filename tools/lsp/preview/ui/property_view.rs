@@ -12,7 +12,7 @@ use i_slint_compiler::{
     parser::{syntax_nodes, SyntaxKind, TextRange},
 };
 
-use slint::{SharedString, VecModel};
+use slint::{Model as _, SharedString, VecModel};
 
 use crate::{
     common,
@@ -51,12 +51,14 @@ fn map_property_to_ui(
     document_cache: &common::DocumentCache,
     element: &object_tree::ElementRc,
     property_info: &properties::PropertyInformation,
+    window_adapter: Option<&Rc<dyn slint::platform::WindowAdapter>>,
 ) -> (ui::PropertyValue, ui::PropertyDeclaration) {
     let mut value = ui::palette::evaluate_property(
         element,
         property_info.name.as_str(),
         &property_info.default_value,
         &property_info.ty,
+        window_adapter,
     );
 
     let code_block_or_expression =
@@ -201,10 +203,11 @@ fn map_property_to_ui(
 pub fn map_properties_to_ui(
     document_cache: &common::DocumentCache,
     properties: Option<properties::QueryPropertyResponse>,
+    window_adapter: &Rc<dyn slint::platform::WindowAdapter>,
 ) -> Option<(
     ui::ElementInformation,
     HashMap<SmolStr, ui::PropertyDeclaration>,
-    ui::PropertyGroupModel,
+    Rc<ui::search_model::SearchModel<ui::PropertyGroup>>,
 )> {
     use std::cmp::Ordering;
 
@@ -230,8 +233,12 @@ pub fn map_properties_to_ui(
     }
 
     for pi in &properties.properties {
-        let (value, declared_at) =
-            map_property_to_ui(document_cache, &properties.element_rc_node.element, pi);
+        let (value, declared_at) = map_property_to_ui(
+            document_cache,
+            &properties.element_rc_node.element,
+            pi,
+            Some(window_adapter),
+        );
 
         declarations.insert(pi.name.clone(), declared_at);
 
@@ -258,33 +265,57 @@ pub fn map_properties_to_ui(
         .cloned()
         .collect::<Vec<_>>();
 
+    type InnerGroupModel = ui::search_model::SearchModel<ui::PropertyInformation>;
+
     Some((
         ui::ElementInformation {
             id: element.id.as_str().into(),
+            component_name: element.component_name.as_str().into(),
             type_name: element.type_name.as_str().into(),
             source_uri,
             source_version,
-            range: ui::to_ui_range(element.range)?,
+            offset: u32::from(element.offset) as i32,
         },
         declarations,
-        Rc::new(VecModel::from(
-            keys.iter()
-                .map(|k| ui::PropertyGroup {
-                    group_name: k.0.as_str().into(),
-                    properties: Rc::new(VecModel::from({
-                        let mut v = property_groups.remove(k).unwrap();
-                        v.sort_by(|a, b| match a.display_priority.cmp(&b.display_priority) {
-                            Ordering::Less => Ordering::Less,
-                            Ordering::Equal => a.name.cmp(&b.name),
-                            Ordering::Greater => Ordering::Greater,
-                        });
-                        v
-                    }))
-                    .into(),
-                })
-                .collect::<Vec<_>>(),
-        ))
-        .into(),
+        Rc::new(ui::search_model::SearchModel::new(
+            VecModel::from(
+                keys.iter()
+                    .map(|k| ui::PropertyGroup {
+                        group_name: k.0.as_str().into(),
+                        properties: Rc::new(InnerGroupModel::new(
+                            VecModel::from({
+                                let mut v = property_groups.remove(k).unwrap();
+                                v.sort_by(|a, b| {
+                                    match a.display_priority.cmp(&b.display_priority) {
+                                        Ordering::Less => Ordering::Less,
+                                        Ordering::Equal => a.name.cmp(&b.name),
+                                        Ordering::Greater => Ordering::Greater,
+                                    }
+                                });
+                                v
+                            }),
+                            |i, search_str| ui::search_model::contains(&i.name, search_str),
+                        ))
+                        .into(),
+                    })
+                    .collect::<Vec<_>>(),
+            ),
+            |group, search_str| {
+                let yes = search_str.is_empty()
+                    || ui::search_model::contains(&group.group_name, search_str);
+                if let Some(sub_filter) =
+                    group.properties.as_any().downcast_ref::<InnerGroupModel>()
+                {
+                    if yes {
+                        sub_filter.set_search_text(Default::default());
+                    } else {
+                        sub_filter.set_search_text(search_str.clone());
+                        return sub_filter.row_count() > 0;
+                    }
+                }
+                yes
+            },
+        )),
     ))
 }
 
@@ -384,7 +415,7 @@ mod tests {
         eprintln!("\n\n\n{contents}:");
         let (e, pi, dc, _) = properties_at_position(contents, property_line, 30).unwrap();
         let test1 = pi.iter().find(|pi| pi.name == "test1").unwrap();
-        super::map_property_to_ui(&dc, &e.element, test1).0
+        super::map_property_to_ui(&dc, &e.element, test1, None).0
     }
 
     #[test]
@@ -1123,28 +1154,28 @@ export component X {
         let pi = super::properties::get_properties(&element, super::properties::LayoutKind::None);
 
         let prop = pi.iter().find(|pi| pi.name == "visible").unwrap();
-        let result = super::map_property_to_ui(&dc, &element.element, prop).0;
+        let result = super::map_property_to_ui(&dc, &element.element, prop, None).0;
         assert_eq!(result.kind, ui::PropertyValueKind::Boolean);
         assert!(result.value_bool);
 
         let prop = pi.iter().find(|pi| pi.name == "enabled").unwrap();
-        let result = super::map_property_to_ui(&dc, &element.element, prop).0;
+        let result = super::map_property_to_ui(&dc, &element.element, prop, None).0;
         assert_eq!(result.kind, ui::PropertyValueKind::Boolean);
         assert!(result.value_bool);
 
         let prop = pi.iter().find(|pi| pi.name == "text").unwrap();
-        let result = super::map_property_to_ui(&dc, &element.element, prop).0;
+        let result = super::map_property_to_ui(&dc, &element.element, prop, None).0;
         assert_eq!(result.kind, ui::PropertyValueKind::String);
         assert_eq!(result.value_string, "Ok");
 
         let prop = pi.iter().find(|pi| pi.name == "alias").unwrap();
-        let result = super::map_property_to_ui(&dc, &element.element, prop).0;
+        let result = super::map_property_to_ui(&dc, &element.element, prop, None).0;
         assert_eq!(result.kind, ui::PropertyValueKind::Float);
         assert!(result.value_float >= 45.);
         assert_eq!(result.visual_items.row_data(result.value_int as usize).unwrap(), "px");
 
         let prop = pi.iter().find(|pi| pi.name == "color").unwrap();
-        let result = super::map_property_to_ui(&dc, &element.element, prop).0;
+        let result = super::map_property_to_ui(&dc, &element.element, prop, None).0;
         assert_eq!(result.kind, ui::PropertyValueKind::Color);
         assert_eq!(
             result.value_brush,
@@ -1178,7 +1209,7 @@ export component X {
         let pi = super::properties::get_properties(&element, super::properties::LayoutKind::None);
 
         let prop = pi.iter().find(|pi| pi.name == "visible").unwrap();
-        let result = super::map_property_to_ui(&dc, &element.element, prop).0;
+        let result = super::map_property_to_ui(&dc, &element.element, prop, None).0;
 
         assert_eq!(result.kind, ui::PropertyValueKind::Boolean);
         assert!(result.value_bool);
@@ -1207,27 +1238,53 @@ component Abc {
         let pi = super::properties::get_properties(&element, super::properties::LayoutKind::None);
 
         let prop = pi.iter().find(|pi| pi.name == "local-test-brush").unwrap();
-        let result = super::map_property_to_ui(&dc, &element.element, prop).0;
+        let result = super::map_property_to_ui(&dc, &element.element, prop, None).0;
         assert_eq!(result.kind, ui::PropertyValueKind::Brush);
         assert_eq!(result.value_kind, ui::PropertyValueKind::Brush);
         assert_eq!(result.brush_kind, ui::BrushKind::Linear);
 
         let prop = pi.iter().find(|pi| pi.name == "test-brush1").unwrap();
-        let result = super::map_property_to_ui(&dc, &element.element, prop).0;
+        let result = super::map_property_to_ui(&dc, &element.element, prop, None).0;
         assert_eq!(result.kind, ui::PropertyValueKind::Brush);
         assert_eq!(result.value_kind, ui::PropertyValueKind::Brush);
         assert_eq!(result.brush_kind, ui::BrushKind::Linear);
 
         let prop = pi.iter().find(|pi| pi.name == "test-brush2").unwrap();
-        let result = super::map_property_to_ui(&dc, &element.element, prop).0;
+        let result = super::map_property_to_ui(&dc, &element.element, prop, None).0;
         assert_eq!(result.kind, ui::PropertyValueKind::Brush);
         assert_eq!(result.value_kind, ui::PropertyValueKind::Brush);
         assert_eq!(result.brush_kind, ui::BrushKind::Linear);
 
         let prop = pi.iter().find(|pi| pi.name == "test-brush3").unwrap();
-        let result = super::map_property_to_ui(&dc, &element.element, prop).0;
+        let result = super::map_property_to_ui(&dc, &element.element, prop, None).0;
         assert_eq!(result.kind, ui::PropertyValueKind::Code);
         assert_eq!(result.value_kind, ui::PropertyValueKind::Brush);
         assert_eq!(result.brush_kind, ui::BrushKind::Linear);
+    }
+
+    #[test]
+    fn test_property_recursion() {
+        let result = property_conversion_test(
+            r#"export component Test { in property <int> test1 : test1 + 1; }"#,
+            0,
+        );
+
+        assert_eq!(result.value_kind, ui::PropertyValueKind::Integer);
+        assert_eq!(result.kind, ui::PropertyValueKind::Code);
+        assert_eq!(result.value_int, 0);
+        assert_eq!(result.code, "test1 + 1");
+
+        let result = property_conversion_test(
+            r#"export component Test {
+                in property <int> test1: test2;
+                in property <float> test2: test1;
+            }"#,
+            1,
+        );
+
+        assert_eq!(result.value_kind, ui::PropertyValueKind::Integer);
+        assert_eq!(result.kind, ui::PropertyValueKind::Integer);
+        assert_eq!(result.value_int, 0);
+        assert_eq!(result.code, "test2");
     }
 }

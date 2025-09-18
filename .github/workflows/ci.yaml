@@ -16,6 +16,7 @@ concurrency:
 
 env:
     MACOSX_DEPLOYMENT_TARGET: "11.0"
+    SLINT_COMPILER_DENY_WARNINGS: 1
 
 jobs:
     files-changed:
@@ -27,7 +28,7 @@ jobs:
         figma_inspector : ${{ steps.filter.outputs.figma_inspector }}
         material_components : ${{ steps.filter.outputs.material_components }}
       steps:
-        - uses: actions/checkout@v4
+        - uses: actions/checkout@v5
         - uses: dorny/paths-filter@v3
           id: filter
           with:
@@ -48,7 +49,7 @@ jobs:
         strategy:
             matrix:
                 os: [ubuntu-22.04, macos-14, windows-2022]
-                rust_version: [stable, "1.82"]
+                rust_version: [stable, "1.85"]
                 include:
                     - os: windows-2022
                       extra_args: "--exclude ffmpeg --exclude gstreamer-player"
@@ -59,24 +60,24 @@ jobs:
                       extra_args: "--exclude ffmpeg --exclude gstreamer-player"
                     - os: ubuntu-22.04
                       rust_version: "nightly"
-                    # Bevy doesn't compile with 1.82 but requires a newer version
-                    - rust_version: "1.82"
+                    # Bevy requires 1.86, won't compile with 1.85
+                    - rust_version: "1.85"
                       maybe_exclude_bevy: "--exclude bevy-example"
                 exclude:
                     - os: macos-14
-                      rust_version: "1.82"
-                    # We already test 1.82 and nightly. Stable is in the middle and already covered by other jobs
+                      rust_version: "1.85"
+                    # We already test 1.85 and nightly. Stable is in the middle and already covered by other jobs
                     - os: ubuntu-22.04
                       rust_version: "stable"
 
         runs-on: ${{ matrix.os }}
 
         steps:
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@v5
             - uses: ./.github/actions/install-linux-dependencies
             - uses: ./.github/actions/install-skia-dependencies
             - uses: ilammy/msvc-dev-cmd@v1
-            - uses: actions/setup-python@v5
+            - uses: actions/setup-python@v6
               with:
                 python-version: '3.10'
             - name: Install Qt
@@ -98,22 +99,18 @@ jobs:
               with:
                   toolchain: ${{ matrix.rust_version }}
                   key: x-v3
-            - name: Pin dependencies to make it build with our MSRV
-              if: matrix.rust_version == '1.82'
-              shell: bash
-              run: |
-                 if [ ! -f ./Cargo.lock ]; then
-                   cargo update -p bytemuck_derive --precise 1.8.1
-                   cargo update -p typed-index-collections  --precise 3.2.3
-                   cargo update -p cfg-expr@0.20 --precise 0.17.0
-                 fi
-            - name: Run tests (not qt)
+            - name: Run tests
               run:  cargo test --verbose --all-features --workspace ${{ matrix.extra_args }} ${{ matrix.maybe_exclude_bevy }} --exclude slint-node --exclude pyslint --exclude test-driver-node --exclude slint-node --exclude test-driver-nodejs --exclude test-driver-cpp --exclude mcu-board-support --exclude mcu-embassy --exclude printerdemo_mcu --exclude uefi-demo --exclude slint-cpp --exclude slint-python -- --skip=_qt::t
               env:
                   SLINT_CREATE_SCREENSHOTS: 1
               shell: bash
             - name: Run tests (qt)
               run: cargo test --verbose --all-features --workspace ${{ matrix.extra_args }} ${{ matrix.maybe_exclude_bevy }} --exclude slint-node --exclude pyslint --exclude test-driver-node --exclude slint-node --exclude test-driver-nodejs --exclude test-driver-cpp --exclude mcu-board-support --exclude mcu-embassy --exclude printerdemo_mcu --exclude uefi-demo --exclude slint-cpp --exclude slint-python --bin test-driver-rust -- _qt --test-threads=1
+              shell: bash
+            - name: live-preview for rust test
+              env:
+                SLINT_LIVE_PREVIEW: 1
+              run: cargo test --verbose --features=build-time,slint/live-preview -p test-driver-rust -- --skip=_qt::t
               shell: bash
             - name: Archive screenshots after failed tests
               if: ${{ failure() }}
@@ -138,18 +135,19 @@ jobs:
         runs-on: ${{ matrix.os }}
 
         steps:
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@v5
             - uses: ./.github/actions/install-linux-dependencies
             - uses: ./.github/actions/install-skia-dependencies
             - name: Setup headless display
               uses: pyvista/setup-headless-display-action@v4
-            - uses: actions/setup-node@v4
+            - uses: actions/setup-node@v5
               with:
                 node-version: 20
+                package-manager-cache: false
               id: node-install
             - uses: pnpm/action-setup@v4.1.0
               with:
-                version: 10.11.0
+                version: 10.14.0
             - uses: ./.github/actions/setup-rust
               with:
                   key: x-napi-v2-${{ steps.node-install.outputs.node-version }} # the cache key consists of a manually bumpable version and the node version, as the cached rustc artifacts contain linking information where to find node.lib, which is in a versioned directory.
@@ -187,7 +185,7 @@ jobs:
         runs-on: ${{ matrix.os }}
 
         steps:
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@v5
             - uses: ./.github/actions/install-linux-dependencies
             - name: Install Qt
               if: runner.os == 'Linux'
@@ -201,20 +199,26 @@ jobs:
             - uses: ./.github/actions/setup-rust
               with:
                   key: x-napi-v2-${{ steps.node-install.outputs.node-version }} # the cache key consists of a manually bumpable version and the node version, as the cached rustc artifacts contain linking information where to find node.lib, which is in a versioned directory.
-            - uses: actions/setup-python@v5
+            - uses: actions/setup-python@v6
               with:
                   python-version: "3.12"
             - name: Install uv
               uses: astral-sh/setup-uv@v6
             - uses: fjwillemsen/setup-nox2@v3.0.0
             - name: Run python tests
-              working-directory: api/python
+              working-directory: api/python/slint
               run: nox --default-venv-backend uv
             - name: Run mypy
-              working-directory: api/python
+              working-directory: api/python/slint
               run: uv run mypy -p tests -p slint
+            - name: Run mypy on slint-compiler
+              working-directory: api/python/compiler
+              run: uv run mypy slint_compiler
             - name: Run ruff linter
-              working-directory: api/python
+              working-directory: api/python/slint
+              run: uv tool run ruff check
+            - name: Run ruff linter
+              working-directory: api/python/briefcase
               run: uv tool run ruff check
 
     cpp_test_driver:
@@ -233,7 +237,7 @@ jobs:
         runs-on: ${{ matrix.os }}
 
         steps:
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@v5
             - uses: ./.github/actions/install-linux-dependencies
               with:
                   force-gcc-10: true
@@ -269,14 +273,14 @@ jobs:
             matrix:
                 include:
                     - os: macos-14
-                      rust_version: "1.82"
+                      rust_version: "1.85"
                     - os: windows-2022
                       rust_version: "nightly"
                     - os: ubuntu-22.04
                       rust_version: "stable"
         runs-on: ${{ matrix.os }}
         steps:
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@v5
             - uses: ./.github/actions/install-linux-dependencies
               with:
                   force-gcc-10: true
@@ -324,7 +328,7 @@ jobs:
             CARGO_INCREMENTAL: false
             CARGO_PROFILE_DEV_DEBUG: 0
         steps:
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@v5
             - uses: ./.github/actions/install-linux-dependencies
               with:
                   force-gcc-10: true
@@ -333,7 +337,7 @@ jobs:
               with:
                   version: 6.5.1
                   cache: true
-            - uses: actions/download-artifact@v4
+            - uses: actions/download-artifact@v5
               with:
                   name: cpp_bin-ubuntu-22.04
                   path: cpp-package
@@ -357,17 +361,18 @@ jobs:
         if: needs.files-changed.outputs.slint == 'true'
         runs-on: ubuntu-22.04
         steps:
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@v5
             - uses: pnpm/action-setup@v4.1.0
               with:
-                version: 10.11.0
+                version: 10.14.0
             - uses: Swatinem/rust-cache@v2
               with:
                 key: "vsce_1" # increment this to bust the cache if needed
             - uses: ./.github/actions/install-linux-dependencies
-            - uses: actions/setup-node@v4
+            - uses: actions/setup-node@v5
               with:
                   node-version: 20
+                  package-manager-cache: false
             - name: Install wasm-pack
               run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
             - name: Fake slint-lsp build
@@ -410,7 +415,7 @@ jobs:
                     - feature: stm32h735g
                       target: thumbv7em-none-eabihf
         steps:
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@v5
             - uses: ./.github/actions/setup-rust
               with:
                   target: ${{matrix.target}}
@@ -428,7 +433,7 @@ jobs:
             CARGO_PROFILE_RELEASE_OPT_LEVEL: s
         runs-on: ubuntu-22.04
         steps:
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@v5
             - uses: ./.github/actions/setup-rust
               with:
                   target: thumbv8m.main-none-eabihf
@@ -441,9 +446,9 @@ jobs:
 #            RUSTFLAGS: -D warnings
 #        runs-on: ubuntu-22.04
 #        steps:
-#            - uses: actions/checkout@v4
+#            - uses: actions/checkout@v5
 #            - uses: dtolnay/rust-toolchain@stable
-#            - uses: esp-rs/xtensa-toolchain@v1.5
+#            - uses: esp-rs/xtensa-toolchain@v1.6
 #              with:
 #                  default: true
 #                  buildtargets: esp32
@@ -459,7 +464,7 @@ jobs:
         if: needs.files-changed.outputs.slint == 'true'
         runs-on: ubuntu-22.04
         steps:
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@v5
             - uses: ./.github/actions/setup-rust
               with:
                   target: armv7-unknown-linux-gnueabihf
@@ -513,7 +518,7 @@ jobs:
                 from_version: ["0.3.0"]
         runs-on: ubuntu-22.04
         steps:
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@v5
               with:
                   fetch-depth: 0
             - uses: ./.github/actions/install-linux-dependencies
@@ -582,7 +587,7 @@ jobs:
             RUSTFLAGS: -D warnings
         runs-on: ubuntu-latest
         steps:
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@v5
             - uses: ./.github/actions/install-linux-dependencies
             - uses: ./.github/actions/setup-rust
             - name: run the formatter
@@ -610,9 +615,9 @@ jobs:
         runs-on: ubuntu-22.04
         container: espressif/idf:release-v5.2
         steps:
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@v5
             - uses: dtolnay/rust-toolchain@stable
-            - uses: esp-rs/xtensa-toolchain@v1.5
+            - uses: esp-rs/xtensa-toolchain@v1.6
               with:
                   default: true
                   buildtargets: esp32
@@ -630,7 +635,7 @@ jobs:
         if: needs.files-changed.outputs.slint == 'true'
         runs-on: ubuntu-latest
         steps:
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@v5
             - name: Install Android API level 30
               run: ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-30"
             - name: Cache cargo-apk
@@ -667,7 +672,7 @@ jobs:
         if: needs.files-changed.outputs.slint == 'true'
         runs-on: ubuntu-latest
         steps:
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@v5
             - uses: ./.github/actions/setup-rust
               with:
                   toolchain: nightly
@@ -681,14 +686,15 @@ jobs:
         if: needs.files-changed.outputs.figma_inspector == 'true'
         runs-on: ubuntu-latest
         steps:
-            - uses: actions/checkout@v4
-            - uses: actions/setup-node@v4
+            - uses: actions/checkout@v5
+            - uses: actions/setup-node@v5
               with:
                 node-version: 20
+                package-manager-cache: false
               id: node-install
             - uses: pnpm/action-setup@v4.1.0
               with:
-                version: 10.11.0
+                version: 10.14.0
             - name: Run pnpm install
               working-directory: tools/figma-inspector
               run: pnpm install --frozen-lockfile

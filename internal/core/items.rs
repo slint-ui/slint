@@ -20,18 +20,21 @@ When adding an item or a property, it needs to be kept in sync with different pl
 #![allow(non_upper_case_globals)]
 #![allow(missing_docs)] // because documenting each property of items is redundant
 
-use crate::graphics::{Brush, Color, FontRequest};
+use crate::api::LogicalPosition;
+use crate::graphics::{Brush, Color, FontRequest, Image};
 use crate::input::{
     FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, KeyEventResult,
     KeyEventType, MouseEvent,
 };
 use crate::item_rendering::{CachedRenderingData, RenderBorderRectangle, RenderRectangle};
+use crate::item_tree::ItemTreeRc;
 pub use crate::item_tree::{ItemRc, ItemTreeVTable};
 use crate::layout::LayoutInfo;
 use crate::lengths::{
     LogicalBorderRadius, LogicalLength, LogicalRect, LogicalSize, LogicalVector, PointLengths,
     RectLengths,
 };
+pub use crate::menus::MenuItem;
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
 use crate::window::{WindowAdapter, WindowAdapterRc, WindowInner};
@@ -54,9 +57,10 @@ mod input_items;
 pub use input_items::*;
 mod image;
 pub use self::image::*;
+mod drag_n_drop;
+pub use drag_n_drop::*;
 #[cfg(feature = "std")]
 mod path;
-pub use crate::menus::MenuItem;
 #[cfg(feature = "std")]
 pub use path::*;
 
@@ -67,9 +71,10 @@ type ItemRendererRef<'a> = &'a mut dyn crate::item_rendering::ItemRenderer;
 /// Workarounds for cbindgen
 pub type VoidArg = ();
 pub type KeyEventArg = (KeyEvent,);
+type FocusReasonArg = (FocusReason,);
 type PointerEventArg = (PointerEvent,);
 type PointerScrollEventArg = (PointerScrollEvent,);
-type PointArg = (crate::api::LogicalPosition,);
+type PointArg = (LogicalPosition,);
 type MenuEntryArg = (MenuEntry,);
 type MenuEntryModel = crate::model::ModelRc<MenuEntry>;
 
@@ -111,6 +116,7 @@ pub enum RenderingResult {
 }
 
 /// Items are the nodes in the render tree.
+#[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
 #[vtable]
 #[repr(C)]
 pub struct ItemVTable {
@@ -139,7 +145,7 @@ pub struct ItemVTable {
     /// on this item again.
     pub input_event_filter_before_children: extern "C" fn(
         core::pin::Pin<VRef<ItemVTable>>,
-        MouseEvent,
+        &MouseEvent,
         window_adapter: &WindowAdapterRc,
         self_rc: &ItemRc,
     ) -> InputEventFilterResult,
@@ -147,7 +153,7 @@ pub struct ItemVTable {
     /// Handle input event for mouse and touch event
     pub input_event: extern "C" fn(
         core::pin::Pin<VRef<ItemVTable>>,
-        MouseEvent,
+        &MouseEvent,
         window_adapter: &WindowAdapterRc,
         self_rc: &ItemRc,
     ) -> InputEventResult,
@@ -158,6 +164,15 @@ pub struct ItemVTable {
         window_adapter: &WindowAdapterRc,
         self_rc: &ItemRc,
     ) -> FocusEventResult,
+
+    /// Called on the parents of the focused item, allowing for global shortcuts and similar
+    /// overrides of the default actions.
+    pub capture_key_event: extern "C" fn(
+        core::pin::Pin<VRef<ItemVTable>>,
+        &KeyEvent,
+        window_adapter: &WindowAdapterRc,
+        self_rc: &ItemRc,
+    ) -> KeyEventResult,
 
     pub key_event: extern "C" fn(
         core::pin::Pin<VRef<ItemVTable>>,
@@ -209,7 +224,7 @@ impl Item for Empty {
 
     fn input_event_filter_before_children(
         self: Pin<&Self>,
-        _: MouseEvent,
+        _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
@@ -218,11 +233,20 @@ impl Item for Empty {
 
     fn input_event(
         self: Pin<&Self>,
-        _: MouseEvent,
+        _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> InputEventResult {
         InputEventResult::EventIgnored
+    }
+
+    fn capture_key_event(
+        self: Pin<&Self>,
+        _: &KeyEvent,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+    ) -> KeyEventResult {
+        KeyEventResult::EventIgnored
     }
 
     fn key_event(
@@ -301,7 +325,7 @@ impl Item for Rectangle {
 
     fn input_event_filter_before_children(
         self: Pin<&Self>,
-        _: MouseEvent,
+        _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
@@ -310,11 +334,20 @@ impl Item for Rectangle {
 
     fn input_event(
         self: Pin<&Self>,
-        _: MouseEvent,
+        _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> InputEventResult {
         InputEventResult::EventIgnored
+    }
+
+    fn capture_key_event(
+        self: Pin<&Self>,
+        _: &KeyEvent,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+    ) -> KeyEventResult {
+        KeyEventResult::EventIgnored
     }
 
     fn key_event(
@@ -402,7 +435,7 @@ impl Item for BasicBorderRectangle {
 
     fn input_event_filter_before_children(
         self: Pin<&Self>,
-        _: MouseEvent,
+        _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
@@ -411,11 +444,20 @@ impl Item for BasicBorderRectangle {
 
     fn input_event(
         self: Pin<&Self>,
-        _: MouseEvent,
+        _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> InputEventResult {
         InputEventResult::EventIgnored
+    }
+
+    fn capture_key_event(
+        self: Pin<&Self>,
+        _: &KeyEvent,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+    ) -> KeyEventResult {
+        KeyEventResult::EventIgnored
     }
 
     fn key_event(
@@ -516,7 +558,7 @@ impl Item for BorderRectangle {
 
     fn input_event_filter_before_children(
         self: Pin<&Self>,
-        _: MouseEvent,
+        _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
@@ -525,11 +567,20 @@ impl Item for BorderRectangle {
 
     fn input_event(
         self: Pin<&Self>,
-        _: MouseEvent,
+        _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> InputEventResult {
         InputEventResult::EventIgnored
+    }
+
+    fn capture_key_event(
+        self: Pin<&Self>,
+        _: &KeyEvent,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+    ) -> KeyEventResult {
+        KeyEventResult::EventIgnored
     }
 
     fn key_event(
@@ -645,7 +696,7 @@ impl Item for Clip {
 
     fn input_event_filter_before_children(
         self: Pin<&Self>,
-        event: MouseEvent,
+        event: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &ItemRc,
     ) -> InputEventFilterResult {
@@ -665,11 +716,20 @@ impl Item for Clip {
 
     fn input_event(
         self: Pin<&Self>,
-        _: MouseEvent,
+        _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> InputEventResult {
         InputEventResult::EventIgnored
+    }
+
+    fn capture_key_event(
+        self: Pin<&Self>,
+        _: &KeyEvent,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+    ) -> KeyEventResult {
+        KeyEventResult::EventIgnored
     }
 
     fn key_event(
@@ -757,7 +817,7 @@ impl Item for Opacity {
 
     fn input_event_filter_before_children(
         self: Pin<&Self>,
-        _: MouseEvent,
+        _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
@@ -766,11 +826,20 @@ impl Item for Opacity {
 
     fn input_event(
         self: Pin<&Self>,
-        _: MouseEvent,
+        _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> InputEventResult {
         InputEventResult::EventIgnored
+    }
+
+    fn capture_key_event(
+        self: Pin<&Self>,
+        _: &KeyEvent,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+    ) -> KeyEventResult {
+        KeyEventResult::EventIgnored
     }
 
     fn key_event(
@@ -875,7 +944,7 @@ impl Item for Layer {
 
     fn input_event_filter_before_children(
         self: Pin<&Self>,
-        _: MouseEvent,
+        _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
@@ -884,11 +953,20 @@ impl Item for Layer {
 
     fn input_event(
         self: Pin<&Self>,
-        _: MouseEvent,
+        _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> InputEventResult {
         InputEventResult::EventIgnored
+    }
+
+    fn capture_key_event(
+        self: Pin<&Self>,
+        _: &KeyEvent,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+    ) -> KeyEventResult {
+        KeyEventResult::EventIgnored
     }
 
     fn key_event(
@@ -947,14 +1025,16 @@ declare_item_vtable! {
 #[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
 /// The implementation of the `Rotate` element
-pub struct Rotate {
+pub struct Transform {
     pub rotation_angle: Property<f32>,
+    pub scale_x: Property<f32>,
+    pub scale_y: Property<f32>,
     pub rotation_origin_x: Property<LogicalLength>,
     pub rotation_origin_y: Property<LogicalLength>,
     pub cached_rendering_data: CachedRenderingData,
 }
 
-impl Item for Rotate {
+impl Item for Transform {
     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
 
     fn layout_info(
@@ -968,7 +1048,7 @@ impl Item for Rotate {
 
     fn input_event_filter_before_children(
         self: Pin<&Self>,
-        _: MouseEvent,
+        _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
@@ -977,11 +1057,20 @@ impl Item for Rotate {
 
     fn input_event(
         self: Pin<&Self>,
-        _: MouseEvent,
+        _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> InputEventResult {
         InputEventResult::EventIgnored
+    }
+
+    fn capture_key_event(
+        self: Pin<&Self>,
+        _: &KeyEvent,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+    ) -> KeyEventResult {
+        KeyEventResult::EventIgnored
     }
 
     fn key_event(
@@ -1011,6 +1100,7 @@ impl Item for Rotate {
         let origin =
             LogicalVector::from_lengths(self.rotation_origin_x(), self.rotation_origin_y());
         (*backend).translate(origin);
+        (*backend).scale(self.scale_x(), self.scale_y());
         (*backend).rotate(self.rotation_angle());
         (*backend).translate(-origin);
         RenderingResult::ContinueRenderingChildren
@@ -1030,19 +1120,27 @@ impl Item for Rotate {
     }
 }
 
-impl ItemConsts for Rotate {
+impl ItemConsts for Transform {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<
-        Rotate,
+        Transform,
         CachedRenderingData,
-    > = Rotate::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+    > = Transform::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
 }
 
 declare_item_vtable! {
-    fn slint_get_RotateVTable() -> RotateVTable for Rotate
+    fn slint_get_TransformVTable() -> TransformVTable for Transform
 }
 
 declare_item_vtable! {
     fn slint_get_FlickableVTable() -> FlickableVTable for Flickable
+}
+
+declare_item_vtable! {
+    fn slint_get_DragAreaVTable() -> DragAreaVTable for DragArea
+}
+
+declare_item_vtable! {
+    fn slint_get_DropAreaVTable() -> DropAreaVTable for DropArea
 }
 
 /// The implementation of the `PropertyAnimation` element
@@ -1113,7 +1211,7 @@ impl Item for WindowItem {
 
     fn input_event_filter_before_children(
         self: Pin<&Self>,
-        _: MouseEvent,
+        _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
@@ -1122,11 +1220,20 @@ impl Item for WindowItem {
 
     fn input_event(
         self: Pin<&Self>,
-        _event: MouseEvent,
+        _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> InputEventResult {
         InputEventResult::EventIgnored
+    }
+
+    fn capture_key_event(
+        self: Pin<&Self>,
+        _: &KeyEvent,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+    ) -> KeyEventResult {
+        KeyEventResult::EventIgnored
     }
 
     fn key_event(
@@ -1153,7 +1260,12 @@ impl Item for WindowItem {
         self_rc: &ItemRc,
         size: LogicalSize,
     ) -> RenderingResult {
-        backend.draw_window_background(self, self_rc, size, &self.cached_rendering_data);
+        if self_rc.parent_item(crate::item_tree::ParentItemTraversalMode::StopAtPopups).is_none() {
+            backend.draw_window_background(self, self_rc, size, &self.cached_rendering_data);
+        } else {
+            // Dialogs and other nested Window items
+            backend.draw_rectangle(self, self_rc, size, &self.cached_rendering_data);
+        }
         RenderingResult::ContinueRenderingChildren
     }
 
@@ -1217,7 +1329,14 @@ impl WindowItem {
         }
     }
 
-    pub fn resolve_font_property<T>(
+    pub fn resolved_default_font_size(item_tree: ItemTreeRc) -> LogicalLength {
+        let first_item = ItemRc::new(item_tree, 0);
+        let window_item = next_window_item(&first_item).unwrap();
+        Self::resolve_font_property(&window_item, Self::font_size)
+            .unwrap_or_else(|| first_item.window_adapter().unwrap().renderer().default_font_size())
+    }
+
+    fn resolve_font_property<T>(
         self_rc: &ItemRc,
         property_fn: impl Fn(Pin<&Self>) -> Option<T>,
     ) -> Option<T> {
@@ -1258,7 +1377,7 @@ impl WindowItem {
                 if !local_font_family.is_empty() {
                     Some(local_font_family)
                 } else {
-                    crate::items::WindowItem::resolve_font_property(
+                    Self::resolve_font_property(
                         &window_item_rc,
                         crate::items::WindowItem::font_family,
                     )
@@ -1266,7 +1385,7 @@ impl WindowItem {
             },
             weight: {
                 if local_font_weight == 0 {
-                    crate::items::WindowItem::resolve_font_property(
+                    Self::resolve_font_property(
                         &window_item_rc,
                         crate::items::WindowItem::font_weight,
                     )
@@ -1276,7 +1395,7 @@ impl WindowItem {
             },
             pixel_size: {
                 if local_font_size.get() == 0 as Coord {
-                    crate::items::WindowItem::resolve_font_property(
+                    Self::resolve_font_property(
                         &window_item_rc,
                         crate::items::WindowItem::font_size,
                     )
@@ -1329,7 +1448,7 @@ impl Item for ContextMenu {
 
     fn input_event_filter_before_children(
         self: Pin<&Self>,
-        _: MouseEvent,
+        _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
@@ -1338,7 +1457,7 @@ impl Item for ContextMenu {
 
     fn input_event(
         self: Pin<&Self>,
-        event: MouseEvent,
+        event: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> InputEventResult {
@@ -1347,13 +1466,14 @@ impl Item for ContextMenu {
         }
         match event {
             MouseEvent::Pressed { position, button: PointerEventButton::Right, .. } => {
-                self.show.call(&(crate::api::LogicalPosition::from_euclid(position),));
+                self.show.call(&(LogicalPosition::from_euclid(*position),));
                 InputEventResult::EventAccepted
             }
             #[cfg(target_os = "android")]
             MouseEvent::Pressed { position, button: PointerEventButton::Left, .. } => {
                 let timer = crate::timers::Timer::default();
                 let self_weak = _self_rc.downgrade();
+                let position = *position;
                 timer.start(
                     crate::timers::TimerMode::SingleShot,
                     WindowInner::from_pub(_window_adapter.window())
@@ -1363,7 +1483,7 @@ impl Item for ContextMenu {
                     move || {
                         let Some(self_rc) = self_weak.upgrade() else { return };
                         let Some(self_) = self_rc.downcast::<ContextMenu>() else { return };
-                        self_.show.call(&(crate::api::LogicalPosition::from_euclid(position),));
+                        self_.show.call(&(LogicalPosition::from_euclid(position),));
                     },
                 );
                 self.long_press_timer.set(Some(timer));
@@ -1380,6 +1500,15 @@ impl Item for ContextMenu {
             MouseEvent::Moved { .. } => InputEventResult::EventAccepted,
             _ => InputEventResult::EventIgnored,
         }
+    }
+
+    fn capture_key_event(
+        self: Pin<&Self>,
+        _: &KeyEvent,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+    ) -> KeyEventResult {
+        KeyEventResult::EventIgnored
     }
 
     fn key_event(
@@ -1513,7 +1642,7 @@ impl Item for BoxShadow {
 
     fn input_event_filter_before_children(
         self: Pin<&Self>,
-        _: MouseEvent,
+        _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
@@ -1522,11 +1651,20 @@ impl Item for BoxShadow {
 
     fn input_event(
         self: Pin<&Self>,
-        _event: MouseEvent,
+        _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> InputEventResult {
         InputEventResult::EventIgnored
+    }
+
+    fn capture_key_event(
+        self: Pin<&Self>,
+        _: &KeyEvent,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+    ) -> KeyEventResult {
+        KeyEventResult::EventIgnored
     }
 
     fn key_event(

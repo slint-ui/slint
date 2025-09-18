@@ -22,23 +22,24 @@ on:
 
 jobs:
     determine_version:
-        runs-on: ubuntu-22.04
+        runs-on: ubuntu-latest
         outputs:
             PKG_VERSION: ${{ steps.mkversion.outputs.PKG_VERSION }}
         steps:
-            - uses: actions/checkout@v4
-            # Setup .npmrc file to publish to npm
-            - uses: actions/setup-node@v4
+            - uses: actions/checkout@v5
+            - uses: pnpm/action-setup@v4.1.0
               with:
-                  node-version: "20.x"
-                  registry-url: "https://registry.npmjs.org"
+                version: 10.14.0
+            - uses: actions/setup-node@v5
+              with:
+                package-manager-cache: false
             - name: Determine version
               id: mkversion
               env:
                   RELEASE_INPUT: ${{ github.event.inputs.release }}
               working-directory: api/node
               run: |
-                  version=`npm pkg get version | jq -r`
+                  version=`pnpm pkg get version | jq -r`
                   if [ "$RELEASE_INPUT" != "true" ]; then
                       nightly_version_suffix=`git log -1 --format=%cd --date="format:%Y%m%d%H"`
                       version="$version-nightly.$nightly_version_suffix"
@@ -70,10 +71,14 @@ jobs:
                       rust-target: x86_64-pc-windows-msvc
                       napi-rs-target: win32-x64-msvc
                       msvc-arch: x64
+                    - os: windows-11-arm
+                      rust-target: aarch64-pc-windows-msvc
+                      napi-rs-target: win32-arm64-msvc
+                      msvc-arch: arm64
         needs: determine_version
         runs-on: ${{ matrix.os }}
         steps:
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@v5
             - uses: ./.github/actions/install-linux-dependencies
               with:
                   old-ubuntu: true
@@ -85,17 +90,24 @@ jobs:
             - uses: ./.github/actions/setup-rust
               with:
                   target: ${{ matrix.rust-target }}
+            - uses: pnpm/action-setup@v4.1.0
+              with:
+                version: 10.14.0
             # Setup .npmrc file to publish to npm
-            - uses: actions/setup-node@v4
+            - uses: actions/setup-node@v5
               with:
                   node-version: "20.x"
                   registry-url: "https://registry.npmjs.org"
+                  package-manager-cache: false
+            - uses: pnpm/action-setup@v4.1.0
+              with:
+                version: 10.14.0
             - name: Set version
               working-directory: api/node
               shell: bash
               run: |
                   if [ "$RELEASE_INPUT" != "true" ]; then
-                      npm version $PKG_VERSION
+                      pnpm version $PKG_VERSION
                   fi
             - uses: baptiste0928/cargo-install@v3
               with:
@@ -114,8 +126,8 @@ jobs:
               shell: bash
               working-directory: api/node
               run: |
-                  npm install --ignore-scripts
-                  npm run build -- --target ${{ matrix.rust-target }}
+                  pnpm install --ignore-scripts
+                  pnpm run build --target ${{ matrix.rust-target }}
             - name: Create package
               shell: bash
               working-directory: api/node
@@ -124,9 +136,9 @@ jobs:
                   mv index.${{ matrix.napi-rs-target }}.node npm/${{ matrix.napi-rs-target }}/
                   cd npm/${{ matrix.napi-rs-target }}/
                   if [ "$RELEASE_INPUT" != "true" ]; then
-                    npm version $PKG_VERSION
+                    pnpm version $PKG_VERSION
                   fi
-                  npm pack
+                  pnpm pack
             - name: Upload artifact
               uses: actions/upload-artifact@v4
               with:
@@ -140,19 +152,23 @@ jobs:
             PKG_VERSION: ${{ needs.determine_version.outputs.PKG_VERSION }}
             RELEASE_INPUT: ${{ github.event.inputs.release }}
         steps:
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@v5
             - uses: ./.github/actions/install-linux-dependencies
             - uses: ./.github/actions/setup-rust
+            - uses: pnpm/action-setup@v4.1.0
+              with:
+                version: 10.14.0
             # Setup .npmrc file to publish to npm
-            - uses: actions/setup-node@v4
+            - uses: actions/setup-node@v5
               with:
                   node-version: "20.x"
                   registry-url: "https://registry.npmjs.org"
+                  package-manager-cache: false
             - name: Set version
               working-directory: api/node
               run: |
                   if [ "$RELEASE_INPUT" != "true" ]; then
-                      npm version $PKG_VERSION
+                      pnpm version $PKG_VERSION
                   fi
             - name: Select git revision
               if: github.event.inputs.release != 'true'
@@ -162,42 +178,47 @@ jobs:
             - name: Compile index.js and index.d.ts
               working-directory: api/node
               run: |
-                  npm install
-                  npm run build
-                  npm run compile
+                  pnpm install
+                  pnpm run build
+                  pnpm run compile
             - name: Prepare binary packages
               working-directory: api/node
               run: |
                   npx napi create-npm-dir -t . -c ./binaries.json
             - name: Download artifacts
-              uses: actions/download-artifact@v4
+              uses: actions/download-artifact@v5
               with:
                   name: binaries-x86_64-unknown-linux-gnu
                   path: api/node/
             - name: Download artifacts
-              uses: actions/download-artifact@v4
+              uses: actions/download-artifact@v5
               with:
                   name: binaries-aarch64-unknown-linux-gnu
                   path: api/node/
             - name: Download artifacts
-              uses: actions/download-artifact@v4
+              uses: actions/download-artifact@v5
               with:
                   name: binaries-x86_64-apple-darwin
                   path: api/node/
             - name: Download artifacts
-              uses: actions/download-artifact@v4
+              uses: actions/download-artifact@v5
               with:
                   name: binaries-aarch64-apple-darwin
                   path: api/node/
             - name: Download artifacts
-              uses: actions/download-artifact@v4
+              uses: actions/download-artifact@v5
               with:
                   name: binaries-x86_64-pc-windows-msvc
+                  path: api/node/
+            - name: Download artifacts
+              uses: actions/download-artifact@v5
+              with:
+                  name: binaries-aarch64-pc-windows-msvc
                   path: api/node/
             - name: Add binary dependencies
               working-directory: api/node
               run: |
-                  for package in @slint-ui/slint-ui-binary-linux-x64-gnu @slint-ui/slint-ui-binary-linux-arm64-gnu @slint-ui/slint-ui-binary-darwin-x64 @slint-ui/slint-ui-binary-darwin-arm64 @slint-ui/slint-ui-binary-win32-x64-msvc; do
+                  for package in @slint-ui/slint-ui-binary-linux-x64-gnu @slint-ui/slint-ui-binary-linux-arm64-gnu @slint-ui/slint-ui-binary-darwin-x64 @slint-ui/slint-ui-binary-darwin-arm64 @slint-ui/slint-ui-binary-win32-x64-msvc @slint-ui/slint-ui-binary-win32-arm64-msvc; do
                       jq --arg pkg "$package" --arg version "$PKG_VERSION" '.optionalDependencies[$pkg]=$version' package.json > new.json
                       mv new.json package.json
                   done
@@ -214,16 +235,18 @@ jobs:
               run: |
                   mkdir /tmp/nodetest
                   cd /tmp/nodetest
-                  npm init -y
-                  npm install --verbose $GITHUB_WORKSPACE/api/node/slint-ui-$PKG_VERSION.tgz
+                  echo "neverBuiltDependencies: []" > pnpm-workspace.yaml
+                  pnpm init
+                  pnpm install --dangerously-allow-all-builds --verbose $GITHUB_WORKSPACE/api/node/slint-ui-$PKG_VERSION.tgz
             - name: Build and publish packages
               if: ${{ github.event.inputs.private != 'true' && (github.ref == 'refs/heads/master' || github.event.inputs.release == 'true') }}
               run: |
-                  npm publish --access public $PUBLISH_TAG api/node/slint-ui-slint-ui-binary-linux-x64-gnu-$PKG_VERSION.tgz
-                  npm publish --access public $PUBLISH_TAG api/node/slint-ui-slint-ui-binary-linux-arm64-gnu-$PKG_VERSION.tgz
-                  npm publish --access public $PUBLISH_TAG api/node/slint-ui-slint-ui-binary-darwin-x64-$PKG_VERSION.tgz
-                  npm publish --access public $PUBLISH_TAG api/node/slint-ui-slint-ui-binary-darwin-arm64-$PKG_VERSION.tgz
-                  npm publish --access public $PUBLISH_TAG api/node/slint-ui-slint-ui-binary-win32-x64-msvc-$PKG_VERSION.tgz
-                  npm publish $PUBLISH_TAG api/node/slint-ui-$PKG_VERSION.tgz
+                  pnpm publish --no-git-checks --access public $PUBLISH_TAG api/node/slint-ui-slint-ui-binary-linux-x64-gnu-$PKG_VERSION.tgz
+                  pnpm publish --no-git-checks --access public $PUBLISH_TAG api/node/slint-ui-slint-ui-binary-linux-arm64-gnu-$PKG_VERSION.tgz
+                  pnpm publish --no-git-checks --access public $PUBLISH_TAG api/node/slint-ui-slint-ui-binary-darwin-x64-$PKG_VERSION.tgz
+                  pnpm publish --no-git-checks --access public $PUBLISH_TAG api/node/slint-ui-slint-ui-binary-darwin-arm64-$PKG_VERSION.tgz
+                  pnpm publish --no-git-checks --access public $PUBLISH_TAG api/node/slint-ui-slint-ui-binary-win32-x64-msvc-$PKG_VERSION.tgz
+                  pnpm publish --no-git-checks --access public $PUBLISH_TAG api/node/slint-ui-slint-ui-binary-win32-arm64-msvc-$PKG_VERSION.tgz
+                  pnpm publish --no-git-checks $PUBLISH_TAG api/node/slint-ui-$PKG_VERSION.tgz
               env:
                   NODE_AUTH_TOKEN: ${{ secrets.NPM_PUBLISH_TOKEN }}

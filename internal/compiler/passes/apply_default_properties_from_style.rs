@@ -1,9 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-//! Passe that apply the default property from the style.
+//! This pass applies the default properties from the style.
 //!
-//! Note that the layout default property are handled in the lower_layout pass
+//! Note that the layout default properties are handled in the lower_layout pass
 
 use crate::diagnostics::BuildDiagnostics;
 use crate::expression_tree::{Expression, NamedReference};
@@ -102,7 +102,6 @@ pub fn apply_default_properties_from_style(
                         }
                     };
 
-                    bind_style_property_if_exists("default-font-size", Type::LogicalLength);
                     bind_style_property_if_exists("default-font-family", Type::String);
                 }
 

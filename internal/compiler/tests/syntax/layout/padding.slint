@@ -1,0 +1,57 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+component MyLayout inherits VerticalLayout {
+    padding: 5px;
+    Rectangle { padding: 5px; }
+//                       ^warning{padding only has effect on layout elements}
+}
+
+export component MyDialog inherits Dialog {
+    padding: 5px;
+    Rectangle { padding: 5px; }
+//                       ^warning{padding only has effect on layout elements}
+}
+
+export component Test {
+
+    padding: 8px;
+//           ^warning{padding only has effect on layout elements}
+
+    padding-bottom: 2px;
+//                  ^warning{padding-bottom only has effect on layout elements}
+
+    Rectangle {
+        padding-top: 2px;
+//                   ^warning{padding-top only has effect on layout elements}
+        GridLayout {
+            padding: 5px;
+        }
+    }
+
+    HorizontalLayout {
+        padding-left: 5px;
+        Rectangle {
+            padding: 5px;
+//                   ^warning{padding only has effect on layout elements}
+            Rectangle {
+                padding: 5px;
+//                       ^warning{padding only has effect on layout elements}
+            }
+        }
+    }
+
+    MyLayout {
+        padding-left: 10px;
+        Rectangle {
+            padding: -5px;
+//                   ^warning{padding only has effect on layout elements}
+        }
+    }
+
+    if false: MyDialog{ padding-left: 10px; }
+//                                    ^warning{padding-left only has effect on layout elements}
+
+
+}
+

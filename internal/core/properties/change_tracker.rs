@@ -19,6 +19,8 @@ struct ChangeTrackerInner<T, EvalFn, NotifyFn, Data> {
     notify_fn: NotifyFn,
     value: T,
     data: Data,
+    /// When true, we are currently running eval_fn or notify_fn and we shouldn't be dropped
+    evaluating: bool,
 }
 
 /// A change tracker is used to run a callback when a property value changes.
@@ -82,7 +84,8 @@ impl ChangeTracker {
         delayed: bool,
     ) {
         self.clear();
-        let inner = ChangeTrackerInner { eval_fn, notify_fn, value: T::default(), data };
+        let inner =
+            ChangeTrackerInner { eval_fn, notify_fn, value: T::default(), data, evaluating: false };
 
         unsafe fn evaluate<T: PartialEq, EF: Fn(&Data) -> T, NF: Fn(&Data, &T), Data>(
             _self: *mut BindingHolder,
@@ -91,19 +94,31 @@ impl ChangeTracker {
             let pinned_holder = Pin::new_unchecked(&*_self);
             let _self = _self as *mut BindingHolder<ChangeTrackerInner<T, EF, NF, Data>>;
             let inner = core::ptr::addr_of_mut!((*_self).binding).as_mut().unwrap();
+            (*core::ptr::addr_of_mut!((*_self).dep_nodes)).take();
+            assert!(!inner.evaluating);
+            inner.evaluating = true;
             let new_value =
                 super::CURRENT_BINDING.set(Some(pinned_holder), || (inner.eval_fn)(&inner.data));
             if new_value != inner.value {
                 inner.value = new_value;
                 (inner.notify_fn)(&inner.data, &inner.value);
             }
+            if !core::mem::replace(&mut inner.evaluating, false) {
+                // `drop` from the vtable was called while evaluating. Do it now.
+                core::mem::drop(Box::from_raw(_self));
+            }
             BindingResult::KeepBinding
         }
 
         unsafe fn drop<T, EF, NF, Data>(_self: *mut BindingHolder) {
-            core::mem::drop(Box::from_raw(
-                _self as *mut BindingHolder<ChangeTrackerInner<T, EF, NF, Data>>,
-            ));
+            let _self = _self as *mut BindingHolder<ChangeTrackerInner<T, EF, NF, Data>>;
+            let evaluating = core::mem::replace(
+                &mut core::ptr::addr_of_mut!((*_self).binding).as_mut().unwrap().evaluating,
+                false,
+            );
+            if !evaluating {
+                core::mem::drop(Box::from_raw(_self));
+            }
         }
 
         trait HasBindingVTable {
@@ -177,22 +192,19 @@ impl ChangeTracker {
                     return;
                 }
                 DependencyListHead::swap(list.as_ref(), old_list.as_ref());
-                old_list.for_each(|node| {
-                    let node = *node;
+                while let Some(node) = old_list.take_head() {
                     unsafe {
                         ((*addr_of!((*node).vtable)).evaluate)(
                             node as *mut BindingHolder,
                             core::ptr::null_mut(),
                         );
                     }
-                });
-                old_list.as_ref().clear();
+                }
             }
         });
     }
 
     pub(super) unsafe fn mark_dirty(_self: *const BindingHolder, _was_dirty: bool) {
-        // Move the dependency list node from the dependency list to the CHANGED_NODE
         let _self = _self.as_ref().unwrap();
         let node_head = _self.dep_nodes.take();
         if let Some(node) = node_head.iter().next() {
@@ -201,7 +213,8 @@ impl ChangeTracker {
                 changed_nodes.append(node);
             });
         }
-        _self.dep_nodes.set(node_head);
+        let other = _self.dep_nodes.replace(node_head);
+        debug_assert!(other.iter().next().is_none());
     }
 
     pub(super) unsafe fn set_internal(&self, raw: *mut BindingHolder) {
@@ -254,4 +267,119 @@ fn change_tracker() {
     assert_eq!(state.borrow().as_str(), ":1(30):2(60)");
     ChangeTracker::run_change_handlers();
     assert_eq!(state.borrow().as_str(), ":1(30):2(60):1(1):2(2)");
+}
+
+/// test for issue #8741
+#[test]
+fn delete_from_eval_fn() {
+    use std::cell::RefCell;
+    use std::rc::Rc;
+    use std::string::String;
+
+    let change = Rc::<RefCell<Option<ChangeTracker>>>::new(Some(ChangeTracker::default()).into());
+    let xyz = RefCell::new(String::from("*"));
+    let result = Rc::new(RefCell::new(String::new()));
+    let result2 = result.clone();
+    // The change event are run in reverse order as they are created, so this one shouldn't be ever called as it is being detroyed from `change`
+    let another = Rc::<RefCell<Option<ChangeTracker>>>::new(Some(ChangeTracker::default()).into());
+    another.borrow().as_ref().unwrap().init_delayed(
+        (),
+        |()| unreachable!(),
+        move |(), &()| unreachable!(),
+    );
+    change.borrow().as_ref().unwrap().init_delayed(
+        change.clone(),
+        |x| {
+            x.borrow_mut().take().unwrap();
+            String::from("hi")
+        },
+        move |x, val| {
+            assert!(x.borrow().is_none());
+            assert_eq!(val, "hi");
+            xyz.borrow_mut().push_str("+");
+            assert!(xyz.borrow().as_str().starts_with("*+"));
+            result2.replace(xyz.borrow().clone());
+            another.borrow_mut().take().unwrap();
+        },
+    );
+
+    assert_eq!(result.borrow().as_str(), "");
+    ChangeTracker::run_change_handlers();
+    assert_eq!(result.borrow().as_str(), "*+");
+    ChangeTracker::run_change_handlers();
+    assert_eq!(result.borrow().as_str(), "*+");
+}
+
+#[test]
+fn change_mutliple_dependencies() {
+    use super::Property;
+    use std::cell::RefCell;
+    use std::rc::Rc;
+    use std::string::String;
+    let prop1 = Rc::pin(Property::new(1));
+    let prop2 = Rc::pin(Property::new(2));
+    let prop3 = Rc::pin(Property::new(3));
+    let prop4 = Rc::pin(Property::new(4));
+    let prop_with_deps = Rc::pin(Property::new(5));
+    let result = Rc::new(RefCell::new(String::new()));
+
+    let change_tracker = ChangeTracker::default();
+    change_tracker.init(
+        result.clone(),
+        {
+            let prop1 = prop1.clone();
+            let prop2 = prop2.clone();
+            let prop3 = prop3.clone();
+            let prop4 = prop4.clone();
+            let prop_with_deps = prop_with_deps.clone();
+            move |_| {
+                prop1.as_ref().get()
+                    + prop2.as_ref().get()
+                    + prop3.as_ref().get()
+                    + prop4.as_ref().get()
+                    + prop_with_deps.as_ref().get()
+            }
+        },
+        move |result, val| {
+            *result.borrow_mut() += &std::format!("[{val}]");
+        },
+    );
+
+    assert_eq!(result.borrow().as_str(), "");
+    ChangeTracker::run_change_handlers();
+    assert_eq!(result.borrow().as_str(), "");
+
+    prop_with_deps.as_ref().set_binding({
+        let prop1 = prop1.clone();
+        let prop2 = prop2.clone();
+        move || prop1.as_ref().get() + prop2.as_ref().get()
+    });
+
+    assert_eq!(result.borrow().as_str(), "");
+    ChangeTracker::run_change_handlers();
+    assert_eq!(prop_with_deps.as_ref().get(), 3);
+    assert_eq!(result.borrow().as_str(), "[13]"); // 1 + 2 + 3 + 4 + 3
+
+    ChangeTracker::run_change_handlers();
+    assert_eq!(result.borrow().as_str(), "[13]");
+
+    prop1.as_ref().set(10);
+    assert_eq!(result.borrow().as_str(), "[13]");
+    ChangeTracker::run_change_handlers();
+    assert_eq!(result.borrow().as_str(), "[13][31]"); // 10 + 2 + 3 + 4 + 12
+
+    prop2.as_ref().set(20);
+    prop3.as_ref().set(30);
+    assert_eq!(result.borrow().as_str(), "[13][31]");
+    ChangeTracker::run_change_handlers();
+    assert_eq!(result.borrow().as_str(), "[13][31][94]"); // 10 + 20 + 30 + 4 + 30
+
+    ChangeTracker::run_change_handlers();
+    assert_eq!(result.borrow().as_str(), "[13][31][94]");
+
+    // just swap prop1 and prop2, doesn't change the outcome
+    prop1.as_ref().set(20);
+    prop2.as_ref().set(10);
+    ChangeTracker::run_change_handlers();
+    assert_eq!(result.borrow().as_str(), "[13][31][94]");
 }
