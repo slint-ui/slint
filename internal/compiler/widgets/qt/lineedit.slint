@@ -91,19 +91,16 @@ export component LineEdit {
             }
         }
 
-        if root.input-type == InputType.password: LineEditPasswordIcon {
+        if root.input-type == InputType.password && !root.text.is-empty && root.has-focus: LineEditPasswordIcon {
             width: self.source.width * 1px;
             show-password-image: @image-url("_visibility.svg");
             hide-password-image: @image-url("_visibility_off.svg");
             colorize: inner.text-color;
-            height: inner.min-height;
-            image-fit: preserve;
+            show-password: inner.input-type != InputType.password;
             show-password-changed(show) => {
                 inner.input-type = show ? InputType.text : root.input-type;
                 inner.focus();
             }
         }
-
-
     }
 }
