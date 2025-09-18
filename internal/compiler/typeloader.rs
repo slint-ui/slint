@@ -4,6 +4,7 @@
 use smol_str::{SmolStr, ToSmolStr};
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
+use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 use std::rc::{Rc, Weak};
 
@@ -931,10 +932,7 @@ impl TypeLoader {
         }
         self.all_documents.dependencies.remove(path);
         if self.all_documents.currently_loading.contains_key(path) {
-            Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidInput,
-                format!("{path:?} is still loading"),
-            ))
+            Err(std::io::Error::new(ErrorKind::InvalidInput, format!("{path:?} is still loading")))
         } else {
             Ok(())
         }
@@ -1205,11 +1203,13 @@ impl TypeLoader {
     ) -> Option<PathBuf> {
         let mut borrowed_state = state.borrow_mut();
 
+        let mut resolved = false;
         let (path_canon, builtin) = match borrowed_state
             .tl
             .resolve_import_path(import_token.as_ref(), file_to_import)
         {
             Some(x) => {
+                resolved = true;
                 if let Some(file_name) = x.0.file_name().and_then(|f| f.to_str()) {
                     let len = file_to_import.len();
                     if !file_to_import.ends_with(file_name)
@@ -1325,7 +1325,10 @@ impl TypeLoader {
                     Some(&path_canon),
                     state.borrow_mut().diag,
                 )),
-                Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
+                Err(err)
+                    if !resolved
+                        && matches!(err.kind(), ErrorKind::NotFound | ErrorKind::NotADirectory) =>
+                {
                     state.borrow_mut().diag.push_error(
                             if file_to_import.starts_with('@') {
                                 format!(
@@ -2126,7 +2129,13 @@ import { E } from "@unknown/lib.slint";
             test_source_path.to_string_lossy()
         ),
     );
-    assert_eq!(&diags[1], "HELLO:4: Cannot find requested import \"@libdir/unknown.slint\" in the library search path");
+    assert_starts_with(
+        &diags[1],
+        &format!(
+            "HELLO:4: Error reading requested import \"{}\": No such file or directory",
+            test_source_path.join("unknown.slint").to_string_lossy(),
+        ),
+    );
     assert_starts_with(
         &diags[2],
         &format!(
