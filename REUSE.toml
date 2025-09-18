@@ -272,3 +272,9 @@ path = ["ui-libraries/material/docs/src/assets/images/icons/**.svg"]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Copyright (c) 2020-2024 Paweł Kuna <https://github.com/tabler/tabler-icons>"
 SPDX-License-Identifier = "MIT"
+
+[[annotations]]
+path = ["ui-libraries/material/ui/icons/**.svg", "ui-libraries/material/examples/gallery/ui/icons/**.svg"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Material Icons <https://github.com/material-icons/material-icons/blob/master/LICENSE>"
+SPDX-License-Identifier = "Apache-2.0"
