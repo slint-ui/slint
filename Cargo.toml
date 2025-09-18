@@ -34,6 +34,7 @@ members = [
   'examples/mcu-board-support',
   'examples/mcu-embassy',
   'examples/uefi-demo',
+  'examples/async-io',
   'demos/weather-demo',
   'demos/usecases/rust',
   'helper_crates/const-field-offset',
