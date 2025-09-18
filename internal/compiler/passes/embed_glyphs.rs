@@ -203,10 +203,31 @@ pub fn embed_glyphs<'a>(
         return;
     }
 
-    let embed_font_by_path = |path: &std::path::Path, font: &fontique::QueryFont| {
-        let fontdue_font = compiler_config.load_font_by_id(font).unwrap();
+    let mut embed_font_by_path = |path: &std::path::Path, font: &fontique::QueryFont| {
+        let fontdue_font = match compiler_config.load_font_by_id(font) {
+            Ok(font) => font,
+            Err(msg) => {
+                diag.push_error(
+                    format!("error loading font for embedding {}: {msg}", path.display()),
+                    &generic_diag_location,
+                );
+                return;
+            }
+        };
+
+        let Some(family_name) = collection.family_name(font.family.0).to_owned() else {
+            diag.push_error(
+                format!(
+                    "internal error: TrueType font without family name encountered: {}",
+                    path.display()
+                ),
+                &generic_diag_location,
+            );
+            return;
+        };
+
         let embedded_bitmap_font = embed_font(
-            sharedfontique::get_collection().family_name(font.family.0).unwrap().to_owned(),
+            family_name.to_owned(),
             Font { font: font.clone(), fontdue_font },
             &pixel_sizes,
             characters_seen.iter().cloned(),
