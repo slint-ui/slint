@@ -51,10 +51,10 @@ export component TestCase inherits Window {
     }
 
     out property <bool> test: {
-        rr.x == 50phx && rr.y == 50phx && rr.width == 30phx && rr.height == (200phx - 10phx) / 2 &&
-        rb.width == 40phx && rg.width == 20phx && rg.height == (400phx - 200phx - 100phx - 20phx) / 2 &&
+        rr.x == 50phx && rr.y == 50phx && rr.width == 30phx && rr.height == (200phx - 10phx) / 2 && rr.colspan == 2 &&
+        rb.width == 40phx && rg.width == 20phx && rg.height == (400phx - 200phx - 100phx - 20phx) / 2 && rg.colspan == 1 &&
         zero.height == 0 && zero.width == rb.width && zero.x == rb.x && zero.y == rg.y &&
-        zero2.height == rg.height && zero2.width == 0 && zero2.x > rb.x && zero2.y == rg.y
+        zero2.height == rg.height && zero2.width == 0 && zero2.x > rb.x && zero2.y == rg.y && zero2.rowspan == 1 && zero2.colspan == 0
 
     }
 
