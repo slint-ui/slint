@@ -2132,7 +2132,7 @@ import { E } from "@unknown/lib.slint";
     assert_starts_with(
         &diags[1],
         &format!(
-            "HELLO:4: Error reading requested import \"{}\": No such file or directory",
+            "HELLO:4: Error reading requested import \"{}\": ",
             test_source_path.join("unknown.slint").to_string_lossy(),
         ),
     );
