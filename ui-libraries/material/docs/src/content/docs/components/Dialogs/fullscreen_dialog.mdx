@@ -1,0 +1,47 @@
+---
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+title: FullscreenDialog
+description: FullscreenDialog API.
+---
+
+import CodeSnippetMD from '/src/components/CodeSnippetMD.astro';
+import SlintProperty from '/src/components/SlintProperty.astro';
+
+
+A `FullscreenDialog` is a modal dialog that occupies the entire screen, typically used for complex forms or detailed content that requires more space than a standard dialog. It includes a header with a close button, title, and action buttons.
+
+## Properties
+
+### actions
+<SlintProperty propName="actions" typeName="[string]">
+An array of text labels for action buttons displayed in the header. These buttons appear on the right side of the header.
+</SlintProperty>
+
+### has-focus
+<SlintProperty propName="has-focus" typeName="bool">
+Whether the dialog has focus.
+</SlintProperty>
+
+### title
+<SlintProperty propName="title" typeName="string">
+The title text displayed in the header of the fullscreen dialog.
+</SlintProperty>
+
+## Callbacks
+
+### action-clicked(index: int)
+Invoked when an action button is clicked. The `index` parameter indicates which action button was clicked (0-based).
+
+## Behavior
+
+- The dialog can be closed by clicking the close button (×) in the top-left corner
+- Pressing the Escape key will also close the dialog
+- The dialog has a fade-in animation when opened
+- The dialog prevents interaction with content behind it (modal behavior)
+- Content can be added as children and will appear in the main content area below the header
+
+### focus()
+Focuses the dialog.
+
+### clear-focus()
+Clears the focus from the dialog.
