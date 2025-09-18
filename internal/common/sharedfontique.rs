@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 pub use fontique;
+pub use parley;
 pub use ttf_parser;
 
 use std::collections::HashMap;
@@ -51,6 +52,19 @@ static COLLECTION: std::sync::LazyLock<Collection> = std::sync::LazyLock::new(||
 
 pub fn get_collection() -> Collection {
     COLLECTION.clone()
+}
+
+pub fn font_context() -> parley::FontContext {
+    parley::FontContext {
+        collection: COLLECTION.inner.clone(),
+        source_cache: COLLECTION.source_cache.clone()
+    }
+}
+
+static LAYOUT_CONTEXT: std::sync::LazyLock<parley::LayoutContext> = std::sync::LazyLock::new(|| Default::default());
+
+pub fn layout_context() -> parley::LayoutContext {
+    LAYOUT_CONTEXT.clone()
 }
 
 #[derive(Clone)]
