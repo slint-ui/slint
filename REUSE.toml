@@ -120,19 +120,19 @@ path = [
   "component-sets/material/docs/**.svg",
   "component-sets/material/docs/**.css",
   "component-sets/material/docs/**.webp",
-  "ui-library/material/docs/**.json",
-  "ui-library/material/docs/src/assets/styles/**.css",
-  "ui-library/material/docs/src/assets/**.svg",
-  "ui-library/material/docs/src/content/docs/components/icons/**.svg",
-  "ui-library/material/docs/src/assets/**.webp",
-  "ui-library/material/.gitignore",
-  "ui-library/material/docs/src/assets/images/Components.png",
-  "ui-library/material/docs/src/assets/images/phone-dark.webp",
-  "ui-library/material/docs/src/assets/images/material-tablet.webp",
-  "ui-library/material/docs/src/assets/images/material-award.jpg",
-  "ui-library/material/docs/src/assets/images/material-design.jpg",
-  "ui-library/material/docs/src/config.yaml",
-  "ui-library/material/examples/gallery/ui/themes/**.json",
+  "ui-libraries/material/docs/**.json",
+  "ui-libraries/material/docs/src/assets/styles/**.css",
+  "ui-libraries/material/docs/src/assets/**.svg",
+  "ui-libraries/material/docs/src/content/docs/components/icons/**.svg",
+  "ui-libraries/material/docs/src/assets/**.webp",
+  "ui-libraries/material/.gitignore",
+  "ui-libraries/material/docs/src/assets/images/Components.png",
+  "ui-libraries/material/docs/src/assets/images/phone-dark.webp",
+  "ui-libraries/material/docs/src/assets/images/material-tablet.webp",
+  "ui-libraries/material/docs/src/assets/images/material-award.jpg",
+  "ui-libraries/material/docs/src/assets/images/material-design.jpg",
+  "ui-libraries/material/docs/src/config.yaml",
+  "ui-libraries/material/examples/gallery/ui/themes/**.json",
 ]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"
@@ -272,3 +272,9 @@ path = ["ui-libraries/material/docs/src/assets/images/icons/**.svg"]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Copyright (c) 2020-2024 Paweł Kuna <https://github.com/tabler/tabler-icons>"
 SPDX-License-Identifier = "MIT"
+
+[[annotations]]
+path = ["ui-libraries/material/ui/icons/**.svg", "ui-libraries/material/examples/gallery/ui/icons/**.svg"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Material Icons <https://github.com/material-icons/material-icons/blob/master/LICENSE>"
+SPDX-License-Identifier = "Apache-2.0"
