@@ -4,12 +4,49 @@
 pub use fontique;
 pub use ttf_parser;
 
-static COLLECTION: std::sync::LazyLock<Collection> = std::sync::LazyLock::new(|| Collection {
-    inner: fontique::Collection::new(fontique::CollectionOptions {
+use std::collections::HashMap;
+use std::sync::Arc;
+
+static COLLECTION: std::sync::LazyLock<Collection> = std::sync::LazyLock::new(|| {
+    let mut collection = fontique::Collection::new(fontique::CollectionOptions {
         shared: true,
         ..Default::default()
-    }),
-    source_cache: fontique::SourceCache::new_shared(),
+    });
+
+    let mut source_cache = fontique::SourceCache::new_shared();
+
+    let mut default_fonts: HashMap<std::path::PathBuf, fontique::QueryFont> = Default::default();
+
+    let mut add_font_from_path = |path: std::path::PathBuf| {
+        if let Ok(bytes) = std::fs::read(&path) {
+            // just use the first font of the first family in the file.
+            if let Some(font) =
+                collection.register_fonts(bytes.into(), None).first().and_then(|(id, infos)| {
+                    let info = infos.first()?;
+                    get_font_for_info(&mut collection, &mut source_cache, *id, &info)
+                })
+            {
+                default_fonts.insert(path, font);
+            }
+        }
+    };
+
+    if let Some(path) = std::env::var_os("SLINT_DEFAULT_FONT") {
+        let path = std::path::Path::new(&path);
+        if path.extension().is_some() {
+            add_font_from_path(path.to_owned());
+        } else {
+            if let Ok(dir) = std::fs::read_dir(path) {
+                for file in dir {
+                    if let Ok(file) = file {
+                        add_font_from_path(file.path());
+                    }
+                }
+            }
+        }
+    }
+
+    Collection { inner: collection, source_cache, default_fonts: Arc::new(default_fonts) }
 });
 
 pub fn get_collection() -> Collection {
@@ -20,6 +57,7 @@ pub fn get_collection() -> Collection {
 pub struct Collection {
     inner: fontique::Collection,
     source_cache: fontique::SourceCache,
+    pub default_fonts: Arc<HashMap<std::path::PathBuf, fontique::QueryFont>>,
 }
 
 impl Collection {
@@ -27,9 +65,34 @@ impl Collection {
         self.inner.query(&mut self.source_cache)
     }
 
-    pub fn register_fonts(&mut self, data: impl Into<fontique::Blob<u8>>) -> usize {
-        self.inner.register_fonts(data.into(), None).len()
+    pub fn get_font_for_info(
+        &mut self,
+        family_id: fontique::FamilyId,
+        info: &fontique::FontInfo,
+    ) -> Option<fontique::QueryFont> {
+        get_font_for_info(&mut self.inner, &mut self.source_cache, family_id, info)
     }
+}
+
+fn get_font_for_info(
+    collection: &mut fontique::Collection,
+    source_cache: &mut fontique::SourceCache,
+    family_id: fontique::FamilyId,
+    info: &fontique::FontInfo,
+) -> Option<fontique::QueryFont> {
+    let mut query = collection.query(source_cache);
+    query.set_families(std::iter::once(fontique::QueryFamily::from(family_id)));
+    query.set_attributes(fontique::Attributes {
+        weight: info.weight(),
+        style: info.style(),
+        width: info.width(),
+    });
+    let mut font = None;
+    query.matches_with(|queried_font| {
+        font = Some(queried_font.clone());
+        fontique::QueryStatus::Stop
+    });
+    font
 }
 
 impl std::ops::Deref for Collection {
@@ -60,6 +123,10 @@ pub struct DesignFontMetrics {
 impl DesignFontMetrics {
     pub fn new(font: &fontique::QueryFont) -> Self {
         let face = ttf_parser::Face::parse(font.blob.data(), font.index).unwrap();
+        Self::new_from_face(&face)
+    }
+
+    pub fn new_from_face(face: &ttf_parser::Face) -> Self {
         Self {
             ascent: face.ascender() as f32,
             descent: face.descender() as f32,

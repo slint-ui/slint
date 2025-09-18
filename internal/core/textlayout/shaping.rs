@@ -310,19 +310,26 @@ impl FontMetrics<f32> for &rustybuzz::Face<'_> {
 }
 
 #[cfg(test)]
-fn with_dejavu_font<R>(mut callback: impl FnMut(&rustybuzz::Face<'_>) -> R) -> Option<R> {
-    let mut fontdb = fontdb::Database::new();
+fn with_dejavu_font<R>(mut callback: impl FnMut(&rustybuzz::Face<'_>) -> R) -> R {
+    let mut collection = fontique::Collection::default();
     let dejavu_path: std::path::PathBuf =
-        [env!("CARGO_MANIFEST_DIR"), "..", "common", "sharedfontdb", "DejaVuSans.ttf"]
+        [env!("CARGO_MANIFEST_DIR"), "..", "common", "sharedfontique", "DejaVuSans.ttf"]
             .iter()
             .collect();
-    fontdb.load_font_file(dejavu_path).expect("unable to load test dejavu font");
-    let font_id = fontdb.faces().next().unwrap().id;
-    fontdb.with_face_data(font_id, |data, font_index| {
-        let face =
-            rustybuzz::Face::from_slice(data, font_index).expect("unable to parse dejavu font");
-        callback(&face)
-    })
+    let registered_fonts =
+        collection.register_fonts(std::fs::read(&dejavu_path).unwrap().into(), None);
+    let mut cache = fontique::SourceCache::default();
+    let mut query = collection.query(&mut cache);
+    query.set_families(std::iter::once(fontique::QueryFamily::from(registered_fonts[0].0)));
+    let mut font = None;
+    query.matches_with(|query_font| {
+        font = Some(query_font.clone());
+        fontique::QueryStatus::Stop
+    });
+    let font = font.unwrap();
+    let face = rustybuzz::Face::from_slice(font.blob.data(), font.index)
+        .expect("unable to parse dejavu font");
+    callback(&face)
 }
 
 #[test]
