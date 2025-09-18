@@ -162,7 +162,7 @@ pub fn embed_glyphs<'a>(
                         diag.push_error_with_span("could not find font that provides specified family, falling back to Sans-Serif".to_string(), source_location);
                     } else {
                         diag.push_error(
-                            "internal error: fontdb could not determine a default font for sans-serif"
+                            "internal error: could not determine a default font for sans-serif"
                                 .to_string(),
                             &generic_diag_location,
                         );

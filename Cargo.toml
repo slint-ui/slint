@@ -142,7 +142,6 @@ clru = { version = "0.6.0" }
 css-color-parser2 = { version = "1.0.1" }
 derive_more = { version = "2.0.0", default-features = false, features = ["deref", "deref_mut", "into", "from", "add", "add_assign", "mul", "not", "display"] }
 euclid = { version = "0.22.1", default-features = false }
-fontdb = { version = "0.23.0", default-features = false }
 fontdue = { version = "0.9.0" }
 glutin = { version = "0.32.0", default-features = false }
 image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
