@@ -4,33 +4,36 @@
 pub use fontique;
 pub use ttf_parser;
 
-use std::sync::Arc;
 use std::collections::BTreeMap;
+use std::sync::Arc;
 
 static COLLECTION: std::sync::LazyLock<Collection> = std::sync::LazyLock::new(|| {
     let mut collection = fontique::Collection::new(fontique::CollectionOptions {
         shared: true,
         ..Default::default()
     });
-    
+
     let mut source_cache = fontique::SourceCache::new_shared();
 
-    let mut default_fonts: BTreeMap<std::path::PathBuf, Vec<fontique::QueryFont>> = Default::default();
-    
+    let mut default_fonts: BTreeMap<std::path::PathBuf, Vec<fontique::QueryFont>> =
+        Default::default();
+
     let mut add_font_from_path = |path: std::path::PathBuf| {
         if let Ok(bytes) = std::fs::read(&path) {
-            default_fonts.insert(path, collection
-                .register_fonts(bytes.into(), None)
-                .into_iter()
-                .flat_map(|(id, infos)| infos.into_iter().map(move |info| (id, info)))
-                .filter_map(|(id, info)| {
-                    get_font_for_info(&mut collection, &mut source_cache, id, info)
-                })
-                .collect());
+            default_fonts.insert(
+                path,
+                collection
+                    .register_fonts(bytes.into(), None)
+                    .into_iter()
+                    .flat_map(|(id, infos)| infos.into_iter().map(move |info| (id, info)))
+                    .filter_map(|(id, info)| {
+                        get_font_for_info(&mut collection, &mut source_cache, id, info)
+                    })
+                    .collect(),
+            );
         }
     };
-    
-    
+
     if let Some(path) = std::env::var_os("SLINT_DEFAULT_FONT") {
         let path = std::path::Path::new(&path);
         if path.extension().is_some() {
@@ -45,16 +48,8 @@ static COLLECTION: std::sync::LazyLock<Collection> = std::sync::LazyLock::new(||
             }
         }
     }
-    
-    let mut collection = Collection {
-        inner:collection,
-        source_cache,
-        default_fonts: Arc::new(default_fonts)
-    };
-    
-    
-    
-    collection
+
+    Collection { inner: collection, source_cache, default_fonts: Arc::new(default_fonts) }
 });
 
 pub fn get_collection() -> Collection {
@@ -65,20 +60,29 @@ pub fn get_collection() -> Collection {
 pub struct Collection {
     inner: fontique::Collection,
     source_cache: fontique::SourceCache,
-    default_fonts: Arc<BTreeMap<std::path::PathBuf, Vec<fontique::QueryFont>>>
+    pub default_fonts: Arc<BTreeMap<std::path::PathBuf, Vec<fontique::QueryFont>>>,
 }
 
 impl Collection {
     pub fn query<'a>(&'a mut self) -> fontique::Query<'a> {
         self.inner.query(&mut self.source_cache)
     }
-    
-    pub fn get_font_for_info(&mut self, family_id: fontique::FamilyId, info: fontique::FontInfo) -> Option<fontique::QueryFont> {
+
+    pub fn get_font_for_info(
+        &mut self,
+        family_id: fontique::FamilyId,
+        info: fontique::FontInfo,
+    ) -> Option<fontique::QueryFont> {
         get_font_for_info(&mut self.inner, &mut self.source_cache, family_id, info)
     }
 }
 
-fn get_font_for_info(collection: &mut fontique::Collection, source_cache: &mut fontique::SourceCache, family_id: fontique::FamilyId, info: fontique::FontInfo) -> Option<fontique::QueryFont> {
+fn get_font_for_info(
+    collection: &mut fontique::Collection,
+    source_cache: &mut fontique::SourceCache,
+    family_id: fontique::FamilyId,
+    info: fontique::FontInfo,
+) -> Option<fontique::QueryFont> {
     let mut query = collection.query(source_cache);
     query.set_families(std::iter::once(fontique::QueryFamily::from(family_id)));
     query.set_attributes(fontique::Attributes {
