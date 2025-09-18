@@ -187,29 +187,6 @@ fn embed_glyphs_with_fontdb<'a>(
     let mut fonts = Vec::<std::path::PathBuf>::new();
     //fonts.extend(default_font_paths.iter().cloned());
 
-    // add custom fonts
-    let mut custom_face_error = false;
-    fonts.extend(custom_fonts.iter().filter_map(|face_id| {
-        fontdb.face(*face_id).and_then(|face_info| {
-            Some(match &face_info.source {
-                fontdb::Source::File(path) => path.clone(),
-                _ => {
-                    diag.push_error(
-                        "internal error: memory fonts are not supported in the compiler"
-                            .to_string(),
-                        &generic_diag_location,
-                    );
-                    custom_face_error = true;
-                    return None;
-                }
-            })
-        })
-    }));
-
-    if custom_face_error {
-        return;
-    }
-
     let mut embed_font_by_path_and_face_id = |path: &std::path::Path| {
         let mut collection = sharedfontique::get_collection();
         let result = collection.register_fonts(std::fs::read(&path).unwrap().into(), None);
