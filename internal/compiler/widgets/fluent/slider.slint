@@ -46,24 +46,26 @@ export component Slider {
     ]
 
     rail := Rectangle {
-        width: base.vertical ? 4px : parent.width;
-        height: base.vertical ? parent.height : 4px;
+        x: base.vertical ? (parent.width - self.width) / 2 : thumb.width / 2;
+        y: base.vertical ? thumb.height / 2 : (parent.height - self.height) / 2;
+        width: base.vertical ? 4px : parent.width - thumb.width;
+        height: base.vertical ? parent.height - thumb.height : 4px;
         background: FluentPalette.border;
         border-radius: 2px;
     }
 
     track := Rectangle {
-        x: base.vertical ? (parent.width - self.width) / 2 : 0;
-        y: base.vertical ? 0 : (parent.height - self.height) / 2;
-        width: base.vertical ? rail.width : thumb.x + (thumb.width / 2);
-        height: base.vertical ? thumb.y + (thumb.height / 2) : rail.height;
+        x: base.vertical ? (parent.width - self.width) / 2 : thumb.width / 2;
+        y: base.vertical ? thumb.height / 2 : (parent.height - self.height) / 2;
+        width: base.vertical ? rail.width : thumb.x;
+        height: base.vertical ? thumb.y : rail.height;
         background: FluentPalette.accent-background;
         border-radius: rail.border-radius;
     }
 
     thumb := Rectangle {
-        x: base.vertical ? (parent.width - self.width) / 2 : clamp((parent.width - self.width) * (root.value - root.minimum) / (root.maximum - root.minimum), 0, root.width - self.width);
-        y: base.vertical ? clamp((parent.height - self.height) * (root.value - root.minimum) / (root.maximum - root.minimum), 0, root.height - self.height) : (parent.height - self.height) / 2;
+        x: base.vertical ? (parent.width - self.width) / 2 : clamp((parent.width - self.width) * (root.value - root.minimum) / (root.maximum - root.minimum), 0, parent.width - self.width);
+        y: base.vertical ? clamp((parent.height - self.height) * (root.value - root.minimum) / (root.maximum - root.minimum), 0, parent.height - self.height) : (parent.height - self.height) / 2;
         width: 20px;
         height: self.width;
         border-radius: 10px;

@@ -49,10 +49,10 @@ export component Slider {
     background := Rectangle {
         background: MaterialPalette.control-background-variant;
         opacity: 0.38;
-        x: (parent.width - self.width) / 2;
-        y: (parent.height - self.height) / 2;
-        width: base.vertical ? 4px : parent.width;
-        height: base.vertical ? parent.height : 4px;
+        x: base.vertical ? (parent.width - self.width) / 2 : handle.width / 2;
+        y: base.vertical ? handle.height / 2 : (parent.height - self.height) / 2;
+        width: base.vertical ? 4px : parent.width - handle.width;
+        height: base.vertical ? parent.height - handle.height : 4px;
         border-radius: 2px;
     }
 
@@ -60,8 +60,8 @@ export component Slider {
         background: MaterialPalette.accent-background;
         x: base.vertical ? (parent.width - self.width) / 2 : background.x;
         y: base.vertical ? background.y : (parent.height - self.height) / 2;
-        width: base.vertical? background.width : handle.x + (handle.width / 2);
-        height: base.vertical? handle.y + (handle.height / 2) : background.height;
+        width: base.vertical? background.width : handle.x;
+        height: base.vertical? handle.y : background.height;
         border-radius: background.border-radius;
     }
 
@@ -78,8 +78,8 @@ export component Slider {
     }
 
     handle := Rectangle {
-        x: base.vertical ? (parent.width - self.width) / 2 : clamp((parent.width - self.width) * (root.value - root.minimum) / (root.maximum - root.minimum), 0, root.width - self.width);
-        y: base.vertical ? clamp((parent.height - self.height) * (root.value - root.minimum) / (root.maximum - root.minimum), 0, root.height - self.height) : (parent.height - self.height) / 2;
+        x: base.vertical ? (parent.width - self.width) / 2 : clamp((parent.width - self.width) * (root.value - root.minimum) / (root.maximum - root.minimum), 0, parent.width - self.width);
+        y: base.vertical ? clamp((parent.height - self.height) * (root.value - root.minimum) / (root.maximum - root.minimum), 0, parent.height - self.height) : (parent.height - self.height) / 2;
         background: MaterialPalette.accent-background;
         width: base.vertical ? root.width : root.height;
         height: base.vertical ? root.width : root.height;
