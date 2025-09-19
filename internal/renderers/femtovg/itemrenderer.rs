@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use std::cell::RefCell;
-use std::ops::Range;
 use std::pin::Pin;
 use std::rc::Rc;
 
@@ -425,9 +424,12 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
 
         let (horizontal_align, vertical_align) = text.alignment();
         let color = text.color();
-        let wrap = text.wrap();
-        let overflow = text.overflow();
-        let letter_spacing = text.letter_spacing();
+        // TODO
+        let _wrap = text.wrap();
+        // TODO
+        let _overflow = text.overflow();
+        // TODO
+        let _letter_spacing = text.letter_spacing();
 
         let text_path = rect_to_path((size * self.scale_factor).into());
         let paint = match self.brush_to_paint(color, &text_path) {

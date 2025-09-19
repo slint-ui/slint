@@ -137,7 +137,8 @@ impl<B: GraphicsBackend> FemtoVGRenderer<B> {
         }
 
         let window_inner = WindowInner::from_pub(window);
-        let scale = window_inner.scale_factor().ceil();
+        // TODO
+        let _scale = window_inner.scale_factor().ceil();
 
         window_inner
             .draw_contents(|components| -> Result<(), PlatformError> {
@@ -281,7 +282,8 @@ impl<B: GraphicsBackend> FemtoVGRenderer<B> {
 impl<B: GraphicsBackend> RendererSealed for FemtoVGRenderer<B> {
     fn text_size(
         &self,
-        font_request: i_slint_core::graphics::FontRequest,
+        // TODO
+        _font_request: i_slint_core::graphics::FontRequest,
         text: &str,
         max_width: Option<LogicalLength>,
         scale_factor: ScaleFactor,
@@ -299,7 +301,7 @@ impl<B: GraphicsBackend> RendererSealed for FemtoVGRenderer<B> {
 
     fn font_metrics(
         &self,
-        font_request: i_slint_core::graphics::FontRequest,
+        _font_request: i_slint_core::graphics::FontRequest,
         _scale_factor: ScaleFactor,
     ) -> i_slint_core::items::FontMetrics {
         todo!() //crate::fonts::font_metrics(font_request)
@@ -309,13 +311,15 @@ impl<B: GraphicsBackend> RendererSealed for FemtoVGRenderer<B> {
         &self,
         text_input: Pin<&i_slint_core::items::TextInput>,
         pos: LogicalPoint,
-        font_request: FontRequest,
+        // TODO
+        _font_request: FontRequest,
         scale_factor: ScaleFactor,
     ) -> usize {
         let pos = pos * scale_factor;
         let text = text_input.text();
 
-        let mut result = text.len();
+        // TODO
+        let result = text.len();
 
         let width = text_input.width() * scale_factor;
         let height = text_input.height() * scale_factor;
