@@ -26,9 +26,6 @@ jobs:
 #                    - runner: windows-11-arm
 #                      target: aarch64
 #                      container: auto
-                    - runner: macos-13
-                      target: x86_64
-                      container: auto
                     - runner: macos-14
                       target: aarch64
                       container: auto

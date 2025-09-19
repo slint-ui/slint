@@ -232,7 +232,7 @@ jobs:
             CARGO_PROFILE_DEV_DEBUG: 0
         strategy:
             matrix:
-                os: [ubuntu-22.04, macos-13, windows-2022]
+                os: [ubuntu-22.04, macos-14, windows-2022]
         runs-on: ${{ matrix.os }}
 
         steps:
@@ -241,7 +241,7 @@ jobs:
               with:
                   force-gcc-10: true
             - name: Install Qt
-              if: runner.os != 'Windows'
+              if: runner.os == 'Linux'
               uses: jurplel/install-qt-action@v4
               with:
                   version: "5.15.2"

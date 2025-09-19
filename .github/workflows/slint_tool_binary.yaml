@@ -167,12 +167,9 @@ jobs:
                 path: slint-${{ github.event.inputs.program || inputs.program }}-${{ matrix.target }}.tar.gz
 
     build_macos:
-        runs-on: macos-13
+        runs-on: macos-14
         steps:
             - uses: actions/checkout@v5
-            - uses: ./.github/actions/setup-rust
-              with:
-                  target: x86_64-apple-darwin
             - uses: ./.github/actions/setup-rust
               with:
                   target: aarch64-apple-darwin
@@ -180,15 +177,13 @@ jobs:
               with:
                   crate: cargo-about
                   version: "=0.6.6"
-            - name: Build x86_64
-              run: cargo build --verbose --target x86_64-apple-darwin --no-default-features --features ${{ github.event.inputs.features || inputs.features }} --release -p slint-${{ github.event.inputs.program || inputs.program }}
             - name: Build aarch64
               run: cargo build --verbose --target aarch64-apple-darwin --no-default-features --features ${{ github.event.inputs.features || inputs.features }} --release -p slint-${{ github.event.inputs.program || inputs.program }}
             - name: Create artifact directory
               run: |
                   mkdir -p slint-${{ github.event.inputs.program || inputs.program }}
                   cd slint-${{ github.event.inputs.program || inputs.program }}
-                  lipo -create -output ./slint-${{ github.event.inputs.program || inputs.program }} ../target/x86_64-apple-darwin/release/slint-${{ github.event.inputs.program || inputs.program }} ../target/aarch64-apple-darwin/release/slint-${{ github.event.inputs.program || inputs.program }}
+                  lipo -create -output ./slint-${{ github.event.inputs.program || inputs.program }} ../target/aarch64-apple-darwin/release/slint-${{ github.event.inputs.program || inputs.program }}
                   install_name_tool -add_rpath @executable_path/. ./slint-${{ github.event.inputs.program || inputs.program }}
                   cd ..
                   cd tools/${{ github.event.inputs.program || inputs.program }}

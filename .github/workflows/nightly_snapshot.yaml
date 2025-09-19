@@ -117,15 +117,15 @@ jobs:
                   path: |
                       bin
 
-    build_vscode_lsp_macos_x86_64:
+    build_vscode_lsp_macos_aarch64_bundle:
         env:
             SLINT_NO_QT: 1
-        runs-on: macos-13
+        runs-on: macos-14
         steps:
             - uses: actions/checkout@v5
             - uses: ./.github/actions/setup-rust
               with:
-                  target: x86_64-apple-darwin
+                  target: aarch64-apple-darwin
             - name: Install cargo-bundle
               run: cargo install --version=0.6.0 cargo-bundle
             - name: Build Main LSP Bundle
@@ -135,68 +135,18 @@ jobs:
               run: |
                   mkdir bin
                   cp -a target/release/bundle/osx/Slint\ Live\ Preview.app bin
-            - name: "Upload LSP Artifact"
-              uses: actions/upload-artifact@v4
+            - uses: ./.github/actions/codesign
               with:
-                  name: vscode-lsp-binary-x86_64-apple-darwin
-                  path: |
-                      bin
-
-    build_vscode_lsp_macos_aarch64:
-        env:
-            SLINT_NO_QT: 1
-        runs-on: macos-14
-        steps:
-            - uses: actions/checkout@v5
-            - uses: ./.github/actions/setup-rust
-              with:
-                  target: aarch64-apple-darwin
-            - name: Build AArch64 LSP
-              run: cargo build --target aarch64-apple-darwin --features ${{ env.SLINT_BINARY_FEATURES }} --release -p slint-lsp
-            - name: Create artifact directory
-              run: |
-                  mkdir bin
-                  cp -a target/aarch64-apple-darwin/release/slint-lsp bin/slint-lsp-aarch64-apple-darwin
-            - name: "Upload LSP Artifact"
-              uses: actions/upload-artifact@v4
-              with:
-                  name: vscode-lsp-binary-aarch64-apple-darwin
-                  path: |
-                      bin
-
-    build_vscode_lsp_macos_bundle:
-        needs: [build_vscode_lsp_macos_x86_64, build_vscode_lsp_macos_aarch64]
-        runs-on: macos-13
-        steps:
-            - uses: actions/checkout@v5
-              with:
-                  path: "src"
-            - uses: actions/download-artifact@v5
-              with:
-                  name: vscode-lsp-binary-x86_64-apple-darwin
-            - uses: actions/download-artifact@v5
-              with:
-                  name: vscode-lsp-binary-aarch64-apple-darwin
-                  path: bin
-            - name: Add macOS AArch64 binary to bundle
-              run: |
-                  lipo -create -output tmp Slint\ Live\ Preview.app/Contents/MacOS/slint-lsp bin/slint-lsp-aarch64-apple-darwin
-                  mv tmp Slint\ Live\ Preview.app/Contents/MacOS/slint-lsp
-                  rm -rf bin
-            - uses: ./src/.github/actions/codesign
-              with:
-                  binary: "Slint Live Preview.app"
+                  binary: "bin/Slint Live Preview.app"
                   certificate: ${{ secrets.APPLE_CERTIFICATE_P12 }}
                   certificate_password: ${{ secrets.APPLE_CERTIFICATE_P12_PASSWORD }}
                   keychain_password: ${{ secrets.APPLE_KEYCHAIN_PASSWORD }}
                   developer_id: ${{ secrets.APPLE_DEV_ID }}
-            - name: "Remove temporary source checkout"
-              run: rm -rf src
             - name: "Upload LSP macOS bundle Artifact"
               uses: actions/upload-artifact@v4
               with:
                   name: vscode-lsp-binary-darwin
-                  path: .
+                  path: bin
 
     build_vscode_cross_linux_lsp:
         env:
@@ -232,11 +182,11 @@ jobs:
         needs:
             [
                 build_vscode_lsp_linux_windows,
-                build_vscode_lsp_macos_bundle,
+                build_vscode_lsp_macos_aarch64_bundle,
                 build_vscode_cross_linux_lsp,
                 check-for-secrets,
             ]
-        runs-on: macos-13
+        runs-on: macos-14
         if: ${{ needs.check-for-secrets.outputs.has-openvsx-pat == 'yes' && needs.check-for-secrets.outputs.has-vscode-marketplace-pat == 'yes' }}
         steps:
             - uses: actions/checkout@v5
