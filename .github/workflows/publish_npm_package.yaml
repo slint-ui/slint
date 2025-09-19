@@ -61,9 +61,6 @@ jobs:
                     - os: ubuntu-22.04-arm
                       rust-target: aarch64-unknown-linux-gnu
                       napi-rs-target: linux-arm64-gnu
-                    - os: macos-13
-                      rust-target: x86_64-apple-darwin
-                      napi-rs-target: darwin-x64
                     - os: macos-14
                       rust-target: aarch64-apple-darwin
                       napi-rs-target: darwin-arm64
@@ -198,11 +195,6 @@ jobs:
             - name: Download artifacts
               uses: actions/download-artifact@v5
               with:
-                  name: binaries-x86_64-apple-darwin
-                  path: api/node/
-            - name: Download artifacts
-              uses: actions/download-artifact@v5
-              with:
                   name: binaries-aarch64-apple-darwin
                   path: api/node/
             - name: Download artifacts
@@ -218,7 +210,7 @@ jobs:
             - name: Add binary dependencies
               working-directory: api/node
               run: |
-                  for package in @slint-ui/slint-ui-binary-linux-x64-gnu @slint-ui/slint-ui-binary-linux-arm64-gnu @slint-ui/slint-ui-binary-darwin-x64 @slint-ui/slint-ui-binary-darwin-arm64 @slint-ui/slint-ui-binary-win32-x64-msvc @slint-ui/slint-ui-binary-win32-arm64-msvc; do
+                  for package in @slint-ui/slint-ui-binary-linux-x64-gnu @slint-ui/slint-ui-binary-linux-arm64-gnu @slint-ui/slint-ui-binary-darwin-arm64 @slint-ui/slint-ui-binary-win32-x64-msvc @slint-ui/slint-ui-binary-win32-arm64-msvc; do
                       jq --arg pkg "$package" --arg version "$PKG_VERSION" '.optionalDependencies[$pkg]=$version' package.json > new.json
                       mv new.json package.json
                   done
@@ -243,7 +235,6 @@ jobs:
               run: |
                   pnpm publish --no-git-checks --access public $PUBLISH_TAG api/node/slint-ui-slint-ui-binary-linux-x64-gnu-$PKG_VERSION.tgz
                   pnpm publish --no-git-checks --access public $PUBLISH_TAG api/node/slint-ui-slint-ui-binary-linux-arm64-gnu-$PKG_VERSION.tgz
-                  pnpm publish --no-git-checks --access public $PUBLISH_TAG api/node/slint-ui-slint-ui-binary-darwin-x64-$PKG_VERSION.tgz
                   pnpm publish --no-git-checks --access public $PUBLISH_TAG api/node/slint-ui-slint-ui-binary-darwin-arm64-$PKG_VERSION.tgz
                   pnpm publish --no-git-checks --access public $PUBLISH_TAG api/node/slint-ui-slint-ui-binary-win32-x64-msvc-$PKG_VERSION.tgz
                   pnpm publish --no-git-checks --access public $PUBLISH_TAG api/node/slint-ui-slint-ui-binary-win32-arm64-msvc-$PKG_VERSION.tgz
