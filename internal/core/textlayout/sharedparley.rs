@@ -127,7 +127,7 @@ pub fn layout(text: &str, scale_factor: ScaleFactor, options: LayoutOptions) -> 
             }
             .unwrap();
             let glyph = run.positioned_glyphs().next().unwrap();
-            Some(ElisionInfo { laid_out_elipsis: glyph, max_physical_width })
+            Some(ElisionInfo { elipsis_glyph: glyph, max_physical_width })
         } else {
             None
         };
@@ -161,14 +161,39 @@ pub fn layout(text: &str, scale_factor: ScaleFactor, options: LayoutOptions) -> 
 }
 
 pub struct ElisionInfo {
-    pub laid_out_elipsis: parley::layout::Glyph,
+    pub elipsis_glyph: parley::layout::Glyph,
     pub max_physical_width: f32,
+}
+
+impl ElisionInfo {
+    /// Check if a run of glyphs needs elision due to going over the max width.
+    pub fn run_needs_elision(&self, glyph_run: &parley::layout::GlyphRun<Brush>) -> bool {
+        let run_end = glyph_run.offset() + glyph_run.advance();
+        run_end > self.max_physical_width
+    }
+
+    /// Returns true adding the elipsis glyph a glyph would go over the max size.
+    ///
+    /// Glyphs should only be removed if the run actually needs elision.
+    pub fn positioned_glyph_needs_removal(&self, glyph: parley::layout::Glyph) -> bool {
+        glyph.x + glyph.advance + self.elipsis_glyph.advance > self.max_physical_width
+    }
 }
 
 pub struct Layout {
     inner: parley::Layout<Brush>,
     pub y_offset: f32,
     pub elision_info: Option<ElisionInfo>,
+}
+
+impl Layout {
+    /// Get the elision info, if a run actually needs eliding.
+    pub fn elision_info_for_run(
+        &self,
+        glyph_run: &parley::layout::GlyphRun<Brush>,
+    ) -> Option<&ElisionInfo> {
+        self.elision_info.as_ref().filter(|info| info.run_needs_elision(glyph_run))
+    }
 }
 
 impl std::ops::Deref for Layout {
