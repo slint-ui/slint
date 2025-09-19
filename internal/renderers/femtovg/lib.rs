@@ -325,30 +325,7 @@ impl<B: GraphicsBackend> RendererSealed for FemtoVGRenderer<B> {
         let text_context =
             crate::fonts::FONT_CACHE.with(|cache| cache.borrow().text_context.clone());
         let font_height = text_context.measure_font(&paint).unwrap().height();
-        crate::fonts::layout_text_lines(
-            &visual_representation.text,
-            &font,
-            PhysicalSize::from_lengths(width, height),
-            (text_input.horizontal_alignment(), text_input.vertical_alignment()),
-            text_input.wrap(),
-            i_slint_core::items::TextOverflow::Clip,
-            text_input.single_line(),
-            None,
-            &paint,
-            |line_text, line_pos, start, metrics| {
-                if (line_pos.y..(line_pos.y + font_height)).contains(&pos.y) {
-                    let mut current_x = 0.;
-                    for glyph in &metrics.glyphs {
-                        if line_pos.x + current_x + glyph.advance_x / 2. >= pos.x {
-                            result = start + glyph.byte_index;
-                            return;
-                        }
-                        current_x += glyph.advance_x;
-                    }
-                    result = start + line_text.trim_end().len();
-                }
-            },
-        );
+        
 
         visual_representation.map_byte_offset_from_byte_offset_in_visual_text(result)
     }
@@ -377,21 +354,10 @@ impl<B: GraphicsBackend> RendererSealed for FemtoVGRenderer<B> {
             .with(|cache| cache.borrow_mut().font(font_request, scale_factor, &text_input.text()));
 
         let paint = font.init_paint(text_input.letter_spacing() * scale_factor, Default::default());
-        let cursor_point = fonts::layout_text_lines(
-            text.as_str(),
-            &font,
-            PhysicalSize::from_lengths(width, height),
-            (text_input.horizontal_alignment(), text_input.vertical_alignment()),
-            text_input.wrap(),
-            i_slint_core::items::TextOverflow::Clip,
-            text_input.single_line(),
-            Some(byte_offset),
-            &paint,
-            |_, _, _, _| {},
-        );
+        
 
         LogicalRect::new(
-            cursor_point.unwrap_or_default() / scale_factor,
+            PhysicalPoint::default() / scale_factor,
             LogicalSize::from_lengths(LogicalLength::new(1.0), font_size),
         )
     }

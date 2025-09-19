@@ -6,6 +6,7 @@ use std::pin::Pin;
 use std::rc::Rc;
 
 use euclid::approxeq::ApproxEq;
+use i_slint_common::sharedfontique::{self, parley};
 use i_slint_core::graphics::boxshadowcache::BoxShadowCache;
 use i_slint_core::graphics::euclid::num::Zero;
 use i_slint_core::graphics::euclid::{self};
@@ -346,6 +347,39 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
             cache.borrow_mut().font(text.font_request(self_rc), self.scale_factor, &text.text())
         });
 
+        let mut font_context = sharedfontique::font_context();
+        let mut layout_context = sharedfontique::layout_context();
+
+        let mut builder = layout_context.ranged_builder(&mut font_context, &string, 1.0, true);
+        builder.push_default(parley::StyleProperty::FontSize(16.0));
+        let mut layout: parley::Layout<()> = builder.build(&string);
+        layout.break_all_lines(Some(max_width.get()));
+            layout.align(Some(max_width.get()), parley::Alignment::Start, parley::AlignmentOptions::default());
+        
+        let text_path = rect_to_path((size * self.scale_factor).into());
+        let paint = match self.brush_to_paint(text.color(), &text_path) {
+            Some(paint) => font.init_paint(text.letter_spacing() * self.scale_factor, paint),
+            None => return,
+        };
+        
+        let mut canvas = self.canvas.borrow_mut();
+
+        for line in layout.lines() {
+            for item in line.items() {
+                match item {
+                    parley::PositionedLayoutItem::GlyphRun(glyph_run) => {
+                        let x = &string[glyph_run.run().text_range()];
+                        let pos = glyph_run.glyphs().next().unwrap();
+                        canvas.fill_text(pos.x, pos.y, x, &paint).unwrap();
+
+                    }
+                    parley::PositionedLayoutItem::InlineBox(inline_box) => {
+                    }
+                };
+            }
+        }
+        
+        /*
         let text_path = rect_to_path((size * self.scale_factor).into());
         let paint = match self.brush_to_paint(text.color(), &text_path) {
             Some(paint) => font.init_paint(text.letter_spacing() * self.scale_factor, paint),
@@ -401,7 +435,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
                     }
                 };
             },
-        );
+        );*/
     }
 
     fn draw_text_input(
@@ -410,7 +444,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
         self_rc: &ItemRc,
         size: LogicalSize,
     ) {
-        let width = size.width_length() * self.scale_factor;
+        /*let width = size.width_length() * self.scale_factor;
         let height = size.height_length() * self.scale_factor;
         if width.get() <= 0. || height.get() <= 0. {
             return;
@@ -561,7 +595,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
                 &cursor_rect,
                 &femtovg::Paint::color(to_femtovg_color(&visual_representation.cursor_color)),
             );
-        }
+        }*/
     }
 
     fn draw_path(&mut self, path: Pin<&items::Path>, item_rc: &ItemRc, _size: LogicalSize) {
