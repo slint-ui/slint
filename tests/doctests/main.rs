@@ -19,7 +19,10 @@ fn do_test(snippet: &str, path: &str) -> Result<(), Box<dyn std::error::Error>> 
         snippet.into()
     };
 
-    let compiler = slint_interpreter::Compiler::default();
+    let mut compiler = slint_interpreter::Compiler::default();
+    compiler.set_include_paths(vec![
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../ui-libraries/material/")
+    ]);
     let result = spin_on::spin_on(compiler.build_from_source(code, path.into()));
 
     let diagnostics = result
