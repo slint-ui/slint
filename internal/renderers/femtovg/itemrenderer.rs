@@ -330,8 +330,8 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
         size: LogicalSize,
         _cache: &CachedRenderingData,
     ) {
-        let max_width = size.width_length();// * self.scale_factor;
-        let max_height = size.height_length();// * self.scale_factor;
+        let max_width = size.width_length(); // * self.scale_factor;
+        let max_height = size.height_length(); // * self.scale_factor;
 
         if max_width.get() <= 0. || max_height.get() <= 0. {
             return;
