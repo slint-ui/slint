@@ -61,10 +61,24 @@ pub fn font_context() -> parley::FontContext {
     }
 }
 
-static LAYOUT_CONTEXT: std::sync::LazyLock<parley::LayoutContext<()>> =
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub enum BrushTextStrokeStyle {
+    /// The inside edge of the stroke is at the outer edge of the text.
+    Outside,
+    /// The center line of the stroke is at the outer edge of the text, like in Adobe Illustrator.
+    Center,
+}
+
+#[derive(Debug, Default, PartialEq, Clone, Copy)]
+pub struct Brush {
+    pub is_selected: bool,
+    pub stroke: Option<BrushTextStrokeStyle>,
+}
+
+static LAYOUT_CONTEXT: std::sync::LazyLock<parley::LayoutContext<Brush>> =
     std::sync::LazyLock::new(|| Default::default());
 
-pub fn layout_context() -> parley::LayoutContext<()> {
+pub fn layout_context() -> parley::LayoutContext<Brush> {
     LAYOUT_CONTEXT.clone()
 }
 

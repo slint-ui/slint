@@ -291,6 +291,8 @@ impl<B: GraphicsBackend> RendererSealed for FemtoVGRenderer<B> {
             text,
             max_width.map(|max_width| max_width * scale_factor),
             TextHorizontalAlignment::Left,
+            None,
+            None,
         );
         LogicalSize::new(layout.width(), layout.height())
     }
@@ -346,7 +348,7 @@ impl<B: GraphicsBackend> RendererSealed for FemtoVGRenderer<B> {
             );
         }
 
-        let layout = fonts::layout(&text, Some(width), TextHorizontalAlignment::Left);
+        let layout = fonts::layout(&text, Some(width), TextHorizontalAlignment::Left, None, None);
         let cursor_position = fonts::get_cursor_location(&layout, byte_offset, 0.0);
 
         LogicalRect::new(

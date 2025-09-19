@@ -46,13 +46,26 @@ pub fn layout(
     text: &str,
     max_width: Option<PhysicalLength>,
     horizontal_align: TextHorizontalAlignment,
-) -> parley::Layout<()> {
+    stroke: Option<sharedfontique::BrushTextStrokeStyle>,
+    selection: Option<std::ops::Range<usize>>,
+) -> parley::Layout<sharedfontique::Brush> {
     let mut font_context = sharedfontique::font_context();
     let mut layout_context = sharedfontique::layout_context();
 
     let mut builder = layout_context.ranged_builder(&mut font_context, text, 1.0, true);
     builder.push_default(parley::StyleProperty::FontSize(16.0));
-    let mut layout: parley::Layout<()> = builder.build(text);
+    builder.push_default(parley::StyleProperty::Brush(sharedfontique::Brush {
+        stroke,
+        ..Default::default()
+    }));
+    if let Some(selection) = selection {
+        builder.push(
+            parley::StyleProperty::Brush(sharedfontique::Brush { stroke, is_selected: true }),
+            selection,
+        );
+    }
+
+    let mut layout: parley::Layout<sharedfontique::Brush> = builder.build(text);
     layout.break_all_lines(max_width.map(|max_width| max_width.get()));
     layout.align(
         max_width.map(|max_width| max_width.get()),
@@ -67,7 +80,7 @@ pub fn layout(
 }
 
 pub fn get_cursor_location(
-    layout: &parley::Layout<()>,
+    layout: &parley::Layout<sharedfontique::Brush>,
     cursor_byte_offset: usize,
     offset: f32,
 ) -> Option<PhysicalPoint> {
