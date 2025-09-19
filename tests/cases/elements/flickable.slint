@@ -15,6 +15,7 @@ TestCase := Window {
         height: parent.height - 20phx;
         viewport_width: 2100phx;
         viewport_height: 2100phx;
+        smooth-scroll: false;
 
         flicked => {
             root.flicked += viewport_x/1phx * 100000 + viewport_y/1phx;
