@@ -19,10 +19,11 @@ use i_slint_core::graphics::euclid::{self, Vector2D};
 use i_slint_core::graphics::rendering_metrics_collector::RenderingMetricsCollector;
 use i_slint_core::graphics::RequestedGraphicsAPI;
 use i_slint_core::graphics::{BorderRadius, FontRequest, SharedPixelBuffer};
-use i_slint_core::item_rendering::{DirtyRegion, ItemCache, ItemRenderer, PartialRenderingState};
+use i_slint_core::item_rendering::{ItemCache, ItemRenderer};
 use i_slint_core::lengths::{
     LogicalLength, LogicalPoint, LogicalRect, LogicalSize, PhysicalPx, ScaleFactor,
 };
+use i_slint_core::partial_renderer::{DirtyRegion, PartialRenderingState};
 use i_slint_core::platform::PlatformError;
 use i_slint_core::textlayout::sharedparley;
 use i_slint_core::window::{WindowAdapter, WindowInner};
@@ -962,7 +963,7 @@ impl i_slint_core::renderer::RendererSealed for SkiaRenderer {
         Ok(target_buffer)
     }
 
-    fn mark_dirty_region(&self, region: i_slint_core::item_rendering::DirtyRegion) {
+    fn mark_dirty_region(&self, region: DirtyRegion) {
         if let Some(partial_rendering_state) = self.partial_rendering_state() {
             partial_rendering_state.mark_dirty_region(region);
         }

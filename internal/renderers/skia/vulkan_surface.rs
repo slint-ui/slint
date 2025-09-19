@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 use i_slint_core::api::{PhysicalSize as PhysicalWindowSize, Window};
 use i_slint_core::graphics::RequestedGraphicsAPI;
-use i_slint_core::item_rendering::DirtyRegion;
+use i_slint_core::partial_renderer::DirtyRegion;
 
 use vulkano::device::physical::{PhysicalDevice, PhysicalDeviceType};
 use vulkano::device::{
