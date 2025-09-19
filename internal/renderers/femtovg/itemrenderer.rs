@@ -211,13 +211,42 @@ fn draw_glyphs<R: femtovg::Renderer + TextureImporter>(
 
                     let brush = glyph_run.style().brush;
 
-                    let glyphs = glyph_run.positioned_glyphs().map(|glyph: parley::Glyph| {
-                        femtovg::PositionedGlyph {
+                    let run_end = glyph_run.offset() + glyph_run.advance();
+
+                    let needs_elide = layout
+                        .elision_info
+                        .as_ref()
+                        .filter(|info| run_end > info.max_physical_width);
+
+                    let filtered_glyphs: Vec<_> = glyph_run
+                        .positioned_glyphs()
+                        .filter(|glyph| {
+                            if let Some(info) = needs_elide {
+                                if glyph.x + glyph.advance + info.laid_out_elipsis.advance
+                                    > info.max_physical_width
+                                {
+                                    return false;
+                                }
+                            }
+
+                            true
+                        })
+                        .collect();
+
+                    let glyphs = filtered_glyphs
+                        .iter()
+                        .map(|glyph| femtovg::PositionedGlyph {
                             x: glyph.x,
                             y: glyph.y + layout.y_offset,
                             glyph_id: glyph.id,
-                        }
-                    });
+                        })
+                        .chain(needs_elide.and_then(|info| {
+                            filtered_glyphs.last().map(|last| femtovg::PositionedGlyph {
+                                x: last.x + last.advance + info.laid_out_elipsis.x,
+                                y: info.laid_out_elipsis.y + layout.y_offset,
+                                glyph_id: info.laid_out_elipsis.id,
+                            })
+                        }));
 
                     paint.set_font_size(run.font_size());
 
