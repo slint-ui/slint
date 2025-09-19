@@ -465,9 +465,9 @@ def run_event_loop(
         global quit_event
         loop = typing.cast(SlintEventLoop, asyncio.get_event_loop())
 
-        tasks: typing.List[asyncio.Task[typing.Any]] = [
-            asyncio.ensure_future(quit_event.wait(), loop=loop)
-        ]
+        quit_task = asyncio.ensure_future(quit_event.wait(), loop=loop)
+
+        tasks: typing.List[asyncio.Task[typing.Any]] = [quit_task]
 
         main_task = None
         if main_coro:
@@ -478,6 +478,8 @@ def run_event_loop(
 
         if main_task is not None and main_task in done:
             main_task.result()  # propagate exception if thrown
+            if quit_task in pending:
+                await quit_event.wait()
 
     global quit_event
     quit_event = asyncio.Event()

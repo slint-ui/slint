@@ -12,6 +12,7 @@ import threading
 import pytest
 import sys
 import platform
+from datetime import timedelta
 
 
 def test_async_basic() -> None:
@@ -179,6 +180,23 @@ def test_loop_close_while_main_future_runs() -> None:
         slint.run_event_loop(never_quit())
     except Exception:
         pytest.fail("Should not throw a run-time error")
+
+
+def test_loop_continues_when_main_coro_finished() -> None:
+    async def quit_later(quit_event: asyncio.Event) -> None:
+        await quit_event.wait()
+        slint.quit_event_loop()
+
+    async def simple(quit_event: asyncio.Event) -> None:
+        loop = asyncio.get_event_loop()
+        loop.create_task(quit_later(quit_event))
+
+    quit_event = asyncio.Event()
+    slint.Timer.single_shot(
+        duration=timedelta(milliseconds=100), callback=lambda: quit_event.set()
+    )
+    slint.run_event_loop(simple(quit_event))
+    assert quit_event.is_set()
 
 
 @pytest.mark.skipif(platform.system() == "Windows", reason="pipes aren't supported yet")
