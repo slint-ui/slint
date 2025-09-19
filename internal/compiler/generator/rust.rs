@@ -180,7 +180,10 @@ pub fn generate(
             .iter()
             .map(|(symbol, library_info)| {
                 let ident = qualified_name_ident(symbol, library_info);
-                quote!(pub use #ident;)
+                quote!(
+                    #[allow(unused_imports)]
+                    pub use #ident;
+                )
             })
             .chain(doc_used_types.library_global_imports.iter().map(|(symbol, library_info)| {
                 let ident = qualified_name_ident(symbol, library_info);
