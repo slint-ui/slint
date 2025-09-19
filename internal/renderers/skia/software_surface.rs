@@ -3,8 +3,8 @@
 
 use i_slint_core::api::{PhysicalSize as PhysicalWindowSize, Window};
 use i_slint_core::graphics::RequestedGraphicsAPI;
-use i_slint_core::item_rendering::DirtyRegion;
 use i_slint_core::lengths::ScaleFactor;
+use i_slint_core::partial_renderer::DirtyRegion;
 
 use std::cell::RefCell;
 use std::num::NonZeroU32;

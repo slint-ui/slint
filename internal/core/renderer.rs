@@ -79,7 +79,7 @@ pub trait RendererSealed {
     /// Mark a given region as dirty regardless whether the items actually are dirty.
     ///
     /// Example: when a PopupWindow disappears, the region under the popup needs to be redrawn
-    fn mark_dirty_region(&self, _region: crate::item_rendering::DirtyRegion) {}
+    fn mark_dirty_region(&self, _region: crate::partial_renderer::DirtyRegion) {}
 
     #[cfg(feature = "std")] // FIXME: just because of the Error
     /// This function can be used to register a custom TrueType font with Slint,

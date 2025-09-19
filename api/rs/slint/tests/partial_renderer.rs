@@ -138,7 +138,7 @@ impl WindowAdapter for SkiaTestWindow {
 #[derive(Default)]
 struct SkiaTestSoftwareBuffer {
     pixels: RefCell<Option<SharedPixelBuffer<slint::Rgba8Pixel>>>,
-    last_dirty_region: RefCell<Option<i_slint_core::item_rendering::DirtyRegion>>,
+    last_dirty_region: RefCell<Option<i_slint_core::partial_renderer::DirtyRegion>>,
 }
 
 impl i_slint_renderer_skia::software_surface::RenderBuffer for SkiaTestSoftwareBuffer {
@@ -153,7 +153,7 @@ impl i_slint_renderer_skia::software_surface::RenderBuffer for SkiaTestSoftwareB
             u8,
             &mut [u8],
         ) -> Result<
-            Option<i_slint_core::item_rendering::DirtyRegion>,
+            Option<i_slint_core::partial_renderer::DirtyRegion>,
             i_slint_core::platform::PlatformError,
         >,
     ) -> Result<(), i_slint_core::platform::PlatformError> {
