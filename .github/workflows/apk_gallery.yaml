@@ -20,6 +20,9 @@ jobs:
             CARGO_APK_RELEASE_KEYSTORE: /home/runner/.android/release.keystore
             CARGO_APK_RELEASE_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
         runs-on: ubuntu-latest
+        defaults:
+          run:
+            working-directory: ui-libraries/material
         steps:
             - uses: actions/checkout@v5
             - name: Cache APK build
