@@ -27,8 +27,8 @@ jobs:
               uses: actions/cache@v4
               with:
                   path: |
-                      target/release/apk/slint_material.apk
-                  key: apk-build-${{ hashFiles('examples/gallery/**', 'ui/**', 'Cargo.toml', 'material.slint', 'crate/**') }}
+                      ui-libraries/material/target/release/apk/slint_material.apk
+                  key: apk-build-${{ hashFiles('ui-libraries/material/examples/gallery/**', 'ui-libraries/material/ui/**', 'ui-libraries/material/Cargo.toml', 'ui-libraries/material/material.slint', 'ui-libraries/material/crate/**') }}
             - name: Install Android API level 30
               if: steps.cache-apk.outputs.cache-hit != 'true'
               run: ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-30"
@@ -59,11 +59,11 @@ jobs:
                   echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > $CARGO_APK_RELEASE_KEYSTORE
             - name: Build
               if: steps.cache-apk.outputs.cache-hit != 'true'
-              working-directory: examples/gallery
+              working-directory: ui-libraries/material/examples/gallery
               run: cargo apk build --target aarch64-linux-android --lib --release
             - name: "Upload Artifacts"
               uses: actions/upload-artifact@v4
               with:
                   name: apk_gallery
                   path: |
-                      target/release/apk/slint_material.apk
+                      ui-libraries/material/target/release/apk/slint_material.apk

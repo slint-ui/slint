@@ -39,6 +39,6 @@ figma_inspector:
  - *ci_config
 
 material_components:
- - 'component-sets/material/**'
+ - 'ui-libraries/material/**'
  - *files_in_root
  - *ci_config
