@@ -207,3 +207,11 @@ def test_subprocess() -> None:
     slint.run_event_loop(launch_process(exception_check))
     if len(exception_check) > 0:
         raise exception_check[0]
+
+
+def test_exception_thrown() -> None:
+    async def throws() -> None:
+        raise RuntimeError("Boo")
+
+    with pytest.raises(RuntimeError, match="Boo"):
+        slint.run_event_loop(throws())

@@ -339,8 +339,6 @@ For the common use case of interacting with REST APIs, we recommend the [`aiohtt
 ### Known Limitations
 
 - Pipes and sub-processes are only supported on Unix-like platforms.
-- Exceptions thrown in the coroutine passed to `slint.run_event_loop()` don't cause the loop to terminate. This behaviour may
-  change in a future release.
 
 ## Third-Party Licenses
 
