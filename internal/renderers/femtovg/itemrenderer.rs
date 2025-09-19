@@ -18,7 +18,7 @@ use i_slint_core::item_rendering::{
 };
 use i_slint_core::items::{
     self, Clip, FillRule, ImageRendering, ImageTiling, ItemRc, Layer, Opacity, RenderingResult,
-    TextHorizontalAlignment, TextVerticalAlignment,
+    TextHorizontalAlignment, TextStrokeStyle, TextVerticalAlignment,
 };
 use i_slint_core::lengths::{
     LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector,
@@ -198,8 +198,9 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
 fn draw_glyphs<R: femtovg::Renderer + TextureImporter>(
     layout: &parley::Layout<()>,
     canvas: &mut Canvas<R>,
-    paint: femtovg::Paint,
+    paint: &femtovg::Paint,
     offset: f32,
+    fill: bool,
 ) {
     for line in layout.lines() {
         for item in line.items() {
@@ -208,22 +209,42 @@ fn draw_glyphs<R: femtovg::Renderer + TextureImporter>(
                     let font_id = fonts::FONT_CACHE
                         .with(|cache| cache.borrow_mut().font(glyph_run.run().font()));
 
-                    canvas
-                        .fill_glyphs(
-                            glyph_run.positioned_glyphs().map(|glyph| femtovg::PositionedGlyph {
-                                x: glyph.x,
-                                y: glyph.y + offset,
-                                font_id,
-                                glyph_id: glyph.id,
-                            }),
-                            &paint,
-                        )
-                        .unwrap();
+                    let iterator =
+                        glyph_run.positioned_glyphs().map(|glyph| femtovg::PositionedGlyph {
+                            x: glyph.x,
+                            y: glyph.y + offset,
+                            font_id,
+                            glyph_id: glyph.id,
+                        });
+
+                    if fill {
+                        canvas.fill_glyphs(iterator, &paint).unwrap()
+                    } else {
+                        canvas.stroke_glyphs(iterator, &paint).unwrap()
+                    };
                 }
                 parley::PositionedLayoutItem::InlineBox(_inline_box) => {}
             };
         }
     }
+}
+
+fn fill_glyphs<R: femtovg::Renderer + TextureImporter>(
+    layout: &parley::Layout<()>,
+    canvas: &mut Canvas<R>,
+    paint: &femtovg::Paint,
+    offset: f32,
+) {
+    draw_glyphs(layout, canvas, paint, offset, true)
+}
+
+fn stroke_glyphs<R: femtovg::Renderer + TextureImporter>(
+    layout: &parley::Layout<()>,
+    canvas: &mut Canvas<R>,
+    paint: &femtovg::Paint,
+    offset: f32,
+) {
+    draw_glyphs(layout, canvas, paint, offset, false)
 }
 
 fn get_offset(
@@ -389,7 +410,6 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
         let wrap = text.wrap();
         let overflow = text.overflow();
         let letter_spacing = text.letter_spacing();
-        let (stroke_brush, stroke_length, stroke_style) = text.stroke();
         let layout = fonts::layout(text.text().as_str(), Some(max_width), horizontal_align);
 
         let text_path = rect_to_path((size * self.scale_factor).into());
@@ -398,9 +418,45 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
             None => return,
         };
 
+        let (stroke_brush, stroke_width, stroke_style) = text.stroke();
+        let stroke_width = if stroke_width.get() != 0.0 {
+            (stroke_width * self.scale_factor).get()
+        } else {
+            // Hairline stroke
+            1.0
+        };
+        let stroke_width = match stroke_style {
+            TextStrokeStyle::Outside => stroke_width * 2.0,
+            TextStrokeStyle::Center => stroke_width,
+        };
+        let stroke_paint = match self.brush_to_paint(stroke_brush.clone(), &text_path) {
+            Some(mut paint) => {
+                if stroke_brush.is_transparent() {
+                    None
+                } else {
+                    paint.set_line_width(stroke_width);
+                    Some(paint)
+                }
+            }
+            None => None,
+        };
+
         let mut canvas = self.canvas.borrow_mut();
         let offset = get_offset(vertical_align, max_height, &layout);
-        draw_glyphs(&layout, &mut canvas, paint, offset);
+
+        match (stroke_style, &stroke_paint) {
+            (TextStrokeStyle::Outside, Some(stroke_paint)) => {
+                stroke_glyphs(&layout, &mut canvas, stroke_paint, offset);
+                fill_glyphs(&layout, &mut canvas, &paint, offset);
+            }
+            (TextStrokeStyle::Center, Some(stroke_paint)) => {
+                fill_glyphs(&layout, &mut canvas, &paint, offset);
+                stroke_glyphs(&layout, &mut canvas, stroke_paint, offset);
+            }
+            _ => {
+                fill_glyphs(&layout, &mut canvas, &paint, offset);
+            }
+        }
     }
 
     fn draw_text_input(
@@ -411,7 +467,6 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
     ) {
         let width = size.width_length() * self.scale_factor;
         let height = size.height_length() * self.scale_factor;
-
         if width.get() <= 0. || height.get() <= 0. {
             return;
         }
@@ -448,7 +503,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
 
         let layout = fonts::layout(&text, Some(width), TextHorizontalAlignment::Left);
         let offset = get_offset(text_input.vertical_alignment(), height, &layout);
-        let cursor_point = draw_glyphs(&layout, &mut canvas, paint, offset);
+        let cursor_point = fill_glyphs(&layout, &mut canvas, &paint, offset);
 
         if let Some(cursor_point) = cursor_visible
             .then_some(cursor_pos)
@@ -898,7 +953,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
         let layout = fonts::layout(string, None, TextHorizontalAlignment::Left);
         let paint = femtovg::Paint::color(to_femtovg_color(&color));
         let mut canvas = self.canvas.borrow_mut();
-        draw_glyphs(&layout, &mut canvas, paint, 0.0);
+        fill_glyphs(&layout, &mut canvas, &paint, 0.0);
     }
 
     fn draw_image_direct(&mut self, image: i_slint_core::graphics::Image) {
