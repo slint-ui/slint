@@ -61,9 +61,9 @@ pub fn font_context() -> parley::FontContext {
     }
 }
 
-static LAYOUT_CONTEXT: std::sync::LazyLock<parley::LayoutContext> = std::sync::LazyLock::new(|| Default::default());
+static LAYOUT_CONTEXT: std::sync::LazyLock<parley::LayoutContext<()>> = std::sync::LazyLock::new(|| Default::default());
 
-pub fn layout_context() -> parley::LayoutContext {
+pub fn layout_context() -> parley::LayoutContext<()> {
     LAYOUT_CONTEXT.clone()
 }
 
