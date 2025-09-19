@@ -266,7 +266,7 @@ pub fn generate(
         #[allow(unused_imports)]
         pub use #generated_mod::{#(#compo_ids,)* #(#structs_and_enums_ids,)* #(#globals_ids,)* #(#named_exports,)* #(#global_exports,)*};
         #[allow(unused_imports)]
-        pub use slint::{ComponentHandle as _, Global as _, ModelExt as _};
+        pub use slint::{ComponentHandle as _, GlobalComponentHandle as _, Global as _, ModelExt as _};
     })
 }
 
@@ -1570,9 +1570,30 @@ fn generate_global(
 
             impl<'a> #public_component_id<'a> {
                 #property_and_callback_accessors
+
+                #[allow(unused)]
+                pub fn as_weak(&self) -> slint::GlobalWeak<#inner_component_id> {
+                    let inner = ::core::pin::Pin::into_inner(self.0.clone());
+                    slint::GlobalWeak::new(sp::Rc::downgrade(&inner))
+                }
             }
             #(pub type #aliases<'a> = #public_component_id<'a>;)*
             #getters
+
+            impl slint::GlobalComponentHandle for #inner_component_id {
+                type Global<'a> = #public_component_id<'a>;
+                type WeakInner = sp::Weak<#inner_component_id>;
+                type PinnedInner = ::core::pin::Pin<sp::Rc<#inner_component_id>>;
+
+                fn upgrade_from_weak_inner(inner: &Self::WeakInner) -> sp::Option<Self::PinnedInner> {
+                    let inner = ::core::pin::Pin::new(inner.upgrade()?);
+                    Some(inner)
+                }
+
+                fn to_self<'a>(inner: &'a Self::PinnedInner) -> Self::Global<'a> {
+                    #public_component_id(inner)
+                }
+            }
         )
     });
 
@@ -1581,7 +1602,7 @@ fn generate_global(
         #[const_field_offset(sp::const_field_offset)]
         #[repr(C)]
         #[pin]
-        #pub_token struct #inner_component_id {
+        pub struct #inner_component_id {
             #(#pub_token  #declared_property_vars: sp::Property<#declared_property_types>,)*
             #(#pub_token  #declared_callbacks: sp::Callback<(#(#declared_callbacks_types,)*), #declared_callbacks_ret>,)*
             #(#pub_token  #change_tracker_names : sp::ChangeTracker,)*
