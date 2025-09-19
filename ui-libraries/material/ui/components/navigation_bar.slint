@@ -17,8 +17,8 @@ export component NavigationItemTemplate inherits BaseNavigationItemTemplate {
     property <bool> has_selected_icon: root.selected_icon.width > 0 || root.selected_icon.height > 0;
     property <color> color: MaterialPalette.on_surface;
 
-    padding_top: MaterialStyleMetrics.padding_12;
-    padding_bottom: MaterialStyleMetrics.padding_16;
+    in property <length> navitem_padding_top: MaterialStyleMetrics.padding_12;
+    in property <length> navitem_padding_bottom: MaterialStyleMetrics.padding_16;
 
     Rectangle {
         width: 100%;
@@ -32,8 +32,8 @@ export component NavigationItemTemplate inherits BaseNavigationItemTemplate {
             VerticalLayout {
                 alignment: start;
                 spacing: MaterialStyleMetrics.spacing_4;
-                padding_top: root.padding_top;
-                padding_bottom: root.padding_bottom;
+                padding_top: root.navitem_padding_top;
+                padding_bottom: root.navitem_padding_bottom;
 
                 HorizontalLayout {
                     alignment: center;

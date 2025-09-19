@@ -59,11 +59,11 @@ export component Switch {
             }
 
             indicator := Rectangle {
-                padding: root.checked || root.has_icon ? MaterialStyleMetrics.padding_4 : MaterialStyleMetrics.padding_8;
+                property <length> indicator-padding: root.checked || root.has_icon ? MaterialStyleMetrics.padding_4 : MaterialStyleMetrics.padding_8;
 
-                property <length> default_height: background_layer.height - 2 * self.padding;
+                property <length> default_height: background_layer.height - 2 * self.indicator-padding;
 
-                x: self.padding - (self.height - self.default_height) / 2;
+                x: self.indicator-padding - (self.height - self.default_height) / 2;
                 width: self.height;
                 height: self.default_height;
                 border_radius: self.height / 2;
@@ -91,7 +91,7 @@ export component Switch {
 
                 states [
                     checked when root.checked : {
-                        x: background_layer.width - self.padding - self.width;
+                        x: background_layer.width - self.indicator-padding - self.width;
 
                         in {
                             animate x {

@@ -31,8 +31,8 @@ export component IconButton {
         icon: root.checked ? root.checked_icon : root.icon;
         border_radius: self.height / 2;
         color: root.has_error ? MaterialPalette.error : root.inverse ? MaterialPalette.inverse_on_surface : MaterialPalette.on_surface_variant;
-        horizontal_padding: 0;
-        vertical_padding: 0;
+        button_horizontal_padding: 0;
+        button_vertical_padding: 0;
         width: self.height;
         display_background: false;
         icon_size: root.inline ? MaterialStyleMetrics.icon_size_18 : MaterialStyleMetrics.icon_size_24;
