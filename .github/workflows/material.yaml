@@ -73,7 +73,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
       - uses: pnpm/action-setup@v4.1.0
         with:
-          version: 10.12.1
+          version: 10.14.0
       - name: Take screenshots
         run: cargo run -p slint-docsnapper -- docs
         working-directory: ${{ github.workspace }}
