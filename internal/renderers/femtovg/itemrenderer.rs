@@ -18,7 +18,7 @@ use i_slint_core::item_rendering::{
 };
 use i_slint_core::items::{
     self, Clip, FillRule, ImageRendering, ImageTiling, ItemRc, Layer, Opacity, RenderingResult,
-    TextStrokeStyle,
+    TextHorizontalAlignment, TextStrokeStyle,
 };
 use i_slint_core::lengths::{
     LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector,
@@ -351,9 +351,14 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
         builder.push_default(parley::StyleProperty::FontSize(16.0));
         let mut layout: parley::Layout<()> = builder.build(&string);
         layout.break_all_lines(Some(max_width.get()));
+        let (horizontal_align, _vertical_align) = text.alignment();
         layout.align(
             Some(max_width.get()),
-            parley::Alignment::Start,
+            match horizontal_align {
+                TextHorizontalAlignment::Left => parley::Alignment::Left,
+                TextHorizontalAlignment::Center => parley::Alignment::Middle,
+                TextHorizontalAlignment::Right => parley::Alignment::Right,
+            },
             parley::AlignmentOptions::default(),
         );
 
@@ -369,20 +374,16 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
             for item in line.items() {
                 match item {
                     parley::PositionedLayoutItem::GlyphRun(glyph_run) => {
-                        let font = fonts::FONT_CACHE
+                        let font_id = fonts::FONT_CACHE
                             .with(|cache| cache.borrow_mut().font(glyph_run.run().font()));
-
-                        let mut advance = 0.0;
 
                         canvas
                             .fill_glyphs(
-                                glyph_run.glyphs().map(|glyph| {
-                                    let x = glyph.x + advance;
-                                    advance += glyph.advance;
+                                glyph_run.positioned_glyphs().map(|glyph| {
                                     femtovg::PositionedGlyph {
-                                        x,
+                                        x: glyph.x,
                                         y: glyph.y,
-                                        font_id: font,
+                                        font_id,
                                         glyph_id: glyph.id,
                                     }
                                 }),
