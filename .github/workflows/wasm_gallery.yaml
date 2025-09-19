@@ -13,6 +13,9 @@ jobs:
             CARGO_PROFILE_RELEASE_OPT_LEVEL: s
             CARGO_INCREMENTAL: false
         runs-on: ubuntu-latest
+        defaults:
+          run:
+            working-directory: ui-libraries/material
         steps:
             - uses: actions/checkout@v5
             - name: Cache WASM build

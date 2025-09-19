@@ -38,9 +38,9 @@ export component FloatingActionButton {
     base := BaseButton {
         border_radius: elevation.border_radius;
         color:  MaterialPalette.on_primary;
-        vertical_padding: root.style == FABStyle.small ? MaterialStyleMetrics.padding_10 :
+        button_vertical_padding: root.style == FABStyle.small ? MaterialStyleMetrics.padding_10 :
             root.style == FABStyle.standard ? MaterialStyleMetrics.padding_14 : MaterialStyleMetrics.padding_30;
-        horizontal_padding: self.vertical_padding;
+        button_horizontal_padding: self.button_vertical_padding;
         min_layout_width: self.min_layout_height;
         min_layout_height: root.style == FABStyle.small ? MaterialStyleMetrics.size_40 :
             root.style == FABStyle.standard ? MaterialStyleMetrics.size_56 : MaterialStyleMetrics.size_90;

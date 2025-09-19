@@ -12,8 +12,12 @@ export component BaseButton inherits StateLayerArea {
     in property <image> icon;
     in property <color> icon_color: self.color;
     in property <string> text;
-    in property <length> horizontal_padding: MaterialStyleMetrics.padding_24;
-    in property <length> vertical_padding: MaterialStyleMetrics.padding_10;
+    in property <length> button_horizontal_padding: MaterialStyleMetrics.padding_24;
+    in property <length> button_vertical_padding: MaterialStyleMetrics.padding_10;
+    in property <length> button_padding_left: self.button_horizontal_padding;
+    in property <length> button_padding_right: self.button_horizontal_padding;
+    in property <length> button_padding_top: self.button_vertical_padding;
+    in property <length> button_padding_bottom: self.button_vertical_padding;
     in property <length> spacing: MaterialStyleMetrics.spacing_8;
     in property <length> min_layout_width: MaterialStyleMetrics.size_40;
     in property <length> min_layout_height: MaterialStyleMetrics.size_40;
@@ -27,16 +31,12 @@ export component BaseButton inherits StateLayerArea {
     min_width: max(root.min_layout_width, layout.min_width);
     min_height: max(root.min_layout_height, layout.min_height);
     tooltip_offset: root.height / 2 + root.icon_size / 2 + MaterialStyleMetrics.padding_14;
-    padding_left: root.horizontal_padding;
-    padding_right: root.horizontal_padding;
-    padding_top: root.vertical_padding;
-    padding_bottom: root.vertical_padding;
 
     layout := HorizontalLayout {
-        padding_left: root.padding_left;
-        padding_right: root.padding_right;
-        padding_top: root.padding_top;
-        padding_bottom: root.padding_bottom;
+        padding_left: root.button_padding_left;
+        padding_right: root.button_padding_right;
+        padding_top: root.button_padding_top;
+        padding_bottom: root.button_padding_bottom;
         spacing: root.spacing;
         alignment: center;
 

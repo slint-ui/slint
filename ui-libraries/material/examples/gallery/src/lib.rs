@@ -322,10 +322,7 @@ mod theme {
 
     impl Into<crate::MaterialSchemes> for MaterialSchemes {
         fn into(self) -> crate::MaterialSchemes {
-            crate::MaterialSchemes {
-                dark: self.dark.into(),
-                light: self.light.into(),
-            }
+            crate::MaterialSchemes { dark: self.dark.into(), light: self.light.into() }
         }
     }
 
@@ -337,26 +334,10 @@ mod theme {
     pub fn init(ui: &MainWindow) {
         let adapter = MainViewAdapter::get(ui);
         adapter.set_palettes(VecModel::from_slice(&[
-            MenuItem {
-                text: "Slint".into(),
-                enabled: true,
-                ..Default::default()
-            },
-            MenuItem {
-                text: "Purple".into(),
-                enabled: true,
-                ..Default::default()
-            },
-            MenuItem {
-                text: "Red".into(),
-                enabled: true,
-                ..Default::default()
-            },
-            MenuItem {
-                text: "Green".into(),
-                enabled: true,
-                ..Default::default()
-            },
+            MenuItem { text: "Slint".into(), enabled: true, ..Default::default() },
+            MenuItem { text: "Purple".into(), enabled: true, ..Default::default() },
+            MenuItem { text: "Red".into(), enabled: true, ..Default::default() },
+            MenuItem { text: "Green".into(), enabled: true, ..Default::default() },
         ]));
 
         adapter.on_load_palette({

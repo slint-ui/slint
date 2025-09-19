@@ -19,6 +19,9 @@ component BaseAppBar {
     in property <bool> two_rows;
     in property <TextStyle> text_style;
     in property <length> text_padding;
+    in property <length> appbar_padding_right: 0;
+    in property <length> appbar_padding_top: 0;
+    in property <length> appbar_padding_bottom: 0;
 
     callback leading_button_clicked();
     callback trailing_button_clicked(index: int);
@@ -30,14 +33,14 @@ component BaseAppBar {
         background: root.show_background ? MaterialPalette.surface_container :  MaterialPalette.surface;
 
         layout := VerticalLayout {
-            padding_top: root.padding_top;
-            padding_bottom: root.padding_bottom;
+            padding_top: root.appbar_padding_top;
+            padding_bottom: root.appbar_padding_bottom;
             min_width: top_layout.min_width;
             spacing: root.vertical_spacing;
 
             top_layout := HorizontalLayout {
                 padding_left: root.spacing;
-                padding_right: root.padding_right;
+                padding_right: root.appbar_padding_right;
                 spacing: MaterialStyleMetrics.spacing_6;
 
                 if root.leading_button.icon.width > 0 && root.leading_button.icon.height > 0 : VerticalLayout {
@@ -124,10 +127,9 @@ export component AppBar {
             trailing_buttons: [root.trailing_button];
             show_background: root.show_background;
 
-            padding_left: MaterialStyleMetrics.padding_4;
-            padding_right: self.padding_left;
-            padding_top: MaterialStyleMetrics.padding_8;
-            padding_bottom: self.padding_top;
+            appbar_padding_right: self.padding_left;
+            appbar_padding_top: MaterialStyleMetrics.padding_8;
+            appbar_padding_bottom: self.padding_top;
             spacing: MaterialStyleMetrics.spacing_6;
             text_style: Typography.title_large;
 
@@ -160,10 +162,9 @@ export component SmallAppBar {
             leading_button: root.leading_button;
             trailing_buttons: root.trailing_buttons;
             show_background: root.show_background;
-            padding_left: MaterialStyleMetrics.padding_4;
-            padding_right: self.padding_left;
-            padding_top: MaterialStyleMetrics.padding_8;
-            padding_bottom: self.padding_top;
+            appbar_padding_right: self.padding_left;
+            appbar_padding_top: MaterialStyleMetrics.padding_8;
+            appbar_padding_bottom: self.padding_top;
             spacing: MaterialStyleMetrics.spacing_4;
             text_style: Typography.title_large;
 
@@ -196,10 +197,9 @@ export component MediumAppBar {
             leading_button: root.leading_button;
             trailing_buttons: root.trailing_buttons;
             show_background: root.show_background;
-            padding_left: MaterialStyleMetrics.padding_4;
-            padding_right: self.padding_left;
-            padding_top: MaterialStyleMetrics.padding_8;
-            padding_bottom: MaterialStyleMetrics.padding_24;
+            appbar_padding_right: self.padding_left;
+            appbar_padding_top: MaterialStyleMetrics.padding_8;
+            appbar_padding_bottom: MaterialStyleMetrics.padding_24;
             vertical_spacing: MaterialStyleMetrics.spacing_4;
             spacing: MaterialStyleMetrics.spacing_4;
             two_rows: true;
@@ -235,10 +235,9 @@ export component LargeAppBar {
             leading_button: root.leading_button;
             trailing_buttons: root.trailing_buttons;
             show_background: root.show_background;
-            padding_left: MaterialStyleMetrics.padding_4;
-            padding_right: self.padding_left;
-            padding_top: MaterialStyleMetrics.padding_8;
-            padding_bottom: MaterialStyleMetrics.padding_28;
+            appbar_padding_right: self.padding_left;
+            appbar_padding_top: MaterialStyleMetrics.padding_8;
+            appbar_padding_bottom: MaterialStyleMetrics.padding_28;
             vertical_spacing: MaterialStyleMetrics.spacing_40;
             spacing: MaterialStyleMetrics.spacing_4;
             two_rows: true;

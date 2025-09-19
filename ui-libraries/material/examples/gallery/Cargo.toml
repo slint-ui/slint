@@ -19,7 +19,7 @@ path = "src/main.rs"
 name = "material_gallery"
 
 [dependencies]
-slint = { version = "1.12", features = ["backend-android-activity-06"] }
+slint = { path = "../../../../api/rs/slint", features = ["backend-android-activity-06"] }
 # chrono is used to display data on the DatePicker
 chrono = { version = "0.4", default-features = false, features = ["std", "alloc"] }
 serde = { version = "1.0.163", default-features = false, features = ["derive"] }
@@ -31,10 +31,10 @@ wasm-bindgen = { version = "0.2" }
 console_error_panic_hook = "0.1.5"
 
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
-slint = { version = "1.12", features = ["renderer-skia"] }
+slint = { path = "../../../../api/rs/slint", features = ["renderer-skia"] }
 
 [build-dependencies]
-slint-build = { version = "1.12" }
+slint-build = { path = "../../../../api/rs/build" }
 
 [package.metadata.android]
 package = "com.slint.material"

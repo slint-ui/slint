@@ -37,9 +37,9 @@ export component ActionChip {
             color: MaterialPalette.on_surface;
             icon_color: MaterialPalette.primary;
             spacing: MaterialStyleMetrics.spacing_8;
-            padding_left: self.has_icon ? MaterialStyleMetrics.padding_8 : MaterialStyleMetrics.padding_16;
-            padding_right:MaterialStyleMetrics.padding_16;
-            vertical_padding: MaterialStyleMetrics.padding_6;
+            button_padding_left: self.has_icon ? MaterialStyleMetrics.padding_8 : MaterialStyleMetrics.padding_16;
+            button_padding_right:MaterialStyleMetrics.padding_16;
+            button_vertical_padding: MaterialStyleMetrics.padding_6;
             avatar_size: MaterialStyleMetrics.size_18;
         }
     }
@@ -79,9 +79,9 @@ export component FilterChip {
             color: MaterialPalette.on_surface;
             icon_color: MaterialPalette.primary;
             spacing: MaterialStyleMetrics.spacing_8;
-            padding_left: self.has_icon ? MaterialStyleMetrics.padding_8 : MaterialStyleMetrics.padding_16;
-            padding_right:MaterialStyleMetrics.padding_16;
-            vertical_padding: MaterialStyleMetrics.padding_6;
+            button_padding_left: self.has_icon ? MaterialStyleMetrics.padding_8 : MaterialStyleMetrics.padding_16;
+            button_padding_right:MaterialStyleMetrics.padding_16;
+            button_vertical_padding: MaterialStyleMetrics.padding_6;
             avatar_size: MaterialStyleMetrics.size_18;
 
             clicked => {
@@ -150,9 +150,9 @@ export component InputChip {
             color: MaterialPalette.on_surface;
             icon_color: MaterialPalette.primary;
             spacing: MaterialStyleMetrics.spacing_8;
-            padding_left: root.has_avatar ? MaterialStyleMetrics.padding_4 : self.has_icon ? MaterialStyleMetrics.padding_8 : MaterialStyleMetrics.padding_12;
-            padding_right: root.trailing_icon.width > 0 && root.trailing_icon.height > 0 ? MaterialStyleMetrics.padding_8 : MaterialStyleMetrics.padding_12;
-            vertical_padding: MaterialStyleMetrics.padding_6;
+            button_padding_left: root.has_avatar ? MaterialStyleMetrics.padding_4 : self.has_icon ? MaterialStyleMetrics.padding_8 : MaterialStyleMetrics.padding_12;
+            button_padding_right: root.trailing_icon.width > 0 && root.trailing_icon.height > 0 ? MaterialStyleMetrics.padding_8 : MaterialStyleMetrics.padding_12;
+            button_vertical_padding: MaterialStyleMetrics.padding_6;
             avatar_size: MaterialStyleMetrics.size_18;
 
             if root.trailing_icon.width > 0 && root.trailing_icon.height > 0 : VerticalLayout {

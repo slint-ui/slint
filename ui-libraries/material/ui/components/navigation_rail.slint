@@ -70,8 +70,8 @@ export component NavigationRail inherits BaseNavigation {
                         selected: index == root.current_index;
                         show_badge: item.show_badge;
                         badge: item.badge;
-                        padding_top: 0;
-                        padding_bottom: MaterialStyleMetrics.padding_4;
+                        navitem_padding_top: 0;
+                        navitem_padding_bottom: MaterialStyleMetrics.padding_4;
 
                         clicked => {
                             root.select(index);
