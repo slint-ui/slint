@@ -15,7 +15,7 @@ use i_slint_core::graphics::{euclid, rendering_metrics_collector::RenderingMetri
 use i_slint_core::graphics::{BorderRadius, Rgba8Pixel};
 use i_slint_core::graphics::{FontRequest, SharedPixelBuffer};
 use i_slint_core::item_rendering::ItemRenderer;
-use i_slint_core::items::TextWrap;
+use i_slint_core::items::{TextWrap, TextHorizontalAlignment};
 use i_slint_core::lengths::{
     LogicalLength, LogicalPoint, LogicalRect, LogicalSize, PhysicalPx, ScaleFactor,
 };
@@ -287,18 +287,7 @@ impl<B: GraphicsBackend> RendererSealed for FemtoVGRenderer<B> {
         scale_factor: ScaleFactor,
         _text_wrap: TextWrap, //TODO: Add support for char-wrap
     ) -> LogicalSize {
-        let mut font_context = sharedfontique::font_context();
-        let mut layout_context = sharedfontique::layout_context();
-
-        let mut builder = layout_context.ranged_builder(&mut font_context, text, 1.0, true);
-        builder.push_default(parley::StyleProperty::FontSize(16.0));
-        let mut layout: parley::Layout<()> = builder.build(text);
-        layout.break_all_lines(max_width.map(|max_width| max_width.get()));
-        layout.align(
-            max_width.map(|max_width| max_width.get()),
-            parley::Alignment::Start,
-            parley::AlignmentOptions::default(),
-        );
+        let layout = fonts::layout(text, max_width, TextHorizontalAlignment::Left);
         LogicalSize::new(layout.width(), layout.height())
     }
 

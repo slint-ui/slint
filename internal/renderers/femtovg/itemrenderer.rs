@@ -330,8 +330,8 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
         size: LogicalSize,
         _cache: &CachedRenderingData,
     ) {
-        let max_width = size.width_length() * self.scale_factor;
-        let max_height = size.height_length() * self.scale_factor;
+        let max_width = size.width_length();// * self.scale_factor;
+        let max_height = size.height_length();// * self.scale_factor;
 
         if max_width.get() <= 0. || max_height.get() <= 0. {
             return;
@@ -341,26 +341,8 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
             return;
         }
 
-        let string = text.text();
-        let string = string.as_str();
-
-        let mut font_context = sharedfontique::font_context();
-        let mut layout_context = sharedfontique::layout_context();
-
-        let mut builder = layout_context.ranged_builder(&mut font_context, &string, 1.0, true);
-        builder.push_default(parley::StyleProperty::FontSize(16.0));
-        let mut layout: parley::Layout<()> = builder.build(&string);
-        layout.break_all_lines(Some(max_width.get()));
         let (horizontal_align, _vertical_align) = text.alignment();
-        layout.align(
-            Some(max_width.get()),
-            match horizontal_align {
-                TextHorizontalAlignment::Left => parley::Alignment::Left,
-                TextHorizontalAlignment::Center => parley::Alignment::Middle,
-                TextHorizontalAlignment::Right => parley::Alignment::Right,
-            },
-            parley::AlignmentOptions::default(),
-        );
+        let layout = fonts::layout(text.text().as_str(), Some(max_width), horizontal_align);
 
         let text_path = rect_to_path((size * self.scale_factor).into());
         let mut paint = match self.brush_to_paint(text.color(), &text_path) {

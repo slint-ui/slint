@@ -5,8 +5,8 @@
 
 use core::num::NonZeroUsize;
 use femtovg::TextContext;
-use i_slint_common::sharedfontique::parley;
-use i_slint_core::lengths::LogicalLength;
+use i_slint_common::sharedfontique::{self, parley};
+use i_slint_core::{lengths::LogicalLength, items::TextHorizontalAlignment};
 use std::cell::RefCell;
 use std::collections::HashMap;
 
@@ -39,4 +39,24 @@ impl FontCache {
 
 thread_local! {
     pub static FONT_CACHE: RefCell<FontCache> = RefCell::new(Default::default())
+}
+
+pub fn layout(text: &str, max_width: Option<LogicalLength>, horizontal_align: TextHorizontalAlignment) -> parley::Layout<()> {
+    let mut font_context = sharedfontique::font_context();
+    let mut layout_context = sharedfontique::layout_context();
+
+    let mut builder = layout_context.ranged_builder(&mut font_context, text, 1.0, true);
+    builder.push_default(parley::StyleProperty::FontSize(16.0));
+    let mut layout: parley::Layout<()> = builder.build(text);
+    layout.break_all_lines(max_width.map(|max_width| max_width.get()));
+    layout.align(
+        max_width.map(|max_width| max_width.get()),
+        match horizontal_align {
+            TextHorizontalAlignment::Left => parley::Alignment::Left,
+            TextHorizontalAlignment::Center => parley::Alignment::Middle,
+            TextHorizontalAlignment::Right => parley::Alignment::Right,
+        },
+        parley::AlignmentOptions::default(),
+    );
+    layout
 }
