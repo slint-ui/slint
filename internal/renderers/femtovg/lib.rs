@@ -9,7 +9,7 @@ use std::num::NonZeroU32;
 use std::pin::Pin;
 use std::rc::{Rc, Weak};
 
-use i_slint_common::sharedfontique;
+use i_slint_common::sharedfontique::{self, parley};
 use i_slint_core::api::{RenderingNotifier, RenderingState, SetRenderingNotifierError};
 use i_slint_core::graphics::{euclid, rendering_metrics_collector::RenderingMetricsCollector};
 use i_slint_core::graphics::{BorderRadius, Rgba8Pixel};
@@ -287,7 +287,19 @@ impl<B: GraphicsBackend> RendererSealed for FemtoVGRenderer<B> {
         scale_factor: ScaleFactor,
         _text_wrap: TextWrap, //TODO: Add support for char-wrap
     ) -> LogicalSize {
-        crate::fonts::text_size(&font_request, scale_factor, text, max_width)
+        let mut font_context = sharedfontique::font_context();
+        let mut layout_context = sharedfontique::layout_context();
+
+        let mut builder = layout_context.ranged_builder(&mut font_context, text, 1.0, true);
+        builder.push_default(parley::StyleProperty::FontSize(16.0));
+        let mut layout: parley::Layout<()> = builder.build(text);
+        layout.break_all_lines(max_width.map(|max_width| max_width.get()));
+        layout.align(
+            max_width.map(|max_width| max_width.get()),
+            parley::Alignment::Start,
+            parley::AlignmentOptions::default(),
+        );
+        LogicalSize::new(layout.width(), layout.height())
     }
 
     fn font_metrics(
@@ -295,7 +307,7 @@ impl<B: GraphicsBackend> RendererSealed for FemtoVGRenderer<B> {
         font_request: i_slint_core::graphics::FontRequest,
         _scale_factor: ScaleFactor,
     ) -> i_slint_core::items::FontMetrics {
-        crate::fonts::font_metrics(font_request)
+        todo!() //crate::fonts::font_metrics(font_request)
     }
 
     fn text_input_byte_offset_for_position(
@@ -316,15 +328,7 @@ impl<B: GraphicsBackend> RendererSealed for FemtoVGRenderer<B> {
             return 0;
         }
 
-        let font = crate::fonts::FONT_CACHE
-            .with(|cache| cache.borrow_mut().font(font_request, scale_factor, &text_input.text()));
-
         let visual_representation = text_input.visual_representation(None);
-
-        let paint = font.init_paint(text_input.letter_spacing() * scale_factor, Default::default());
-        let text_context =
-            crate::fonts::FONT_CACHE.with(|cache| cache.borrow().text_context.clone());
-        let font_height = text_context.measure_font(&paint).unwrap().height();
 
         visual_representation.map_byte_offset_from_byte_offset_in_visual_text(result)
     }
@@ -348,11 +352,6 @@ impl<B: GraphicsBackend> RendererSealed for FemtoVGRenderer<B> {
                 LogicalSize::from_lengths(LogicalLength::new(1.0), font_size),
             );
         }
-
-        let font = crate::fonts::FONT_CACHE
-            .with(|cache| cache.borrow_mut().font(font_request, scale_factor, &text_input.text()));
-
-        let paint = font.init_paint(text_input.letter_spacing() * scale_factor, Default::default());
 
         LogicalRect::new(
             PhysicalPoint::default() / scale_factor,
