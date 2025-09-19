@@ -167,7 +167,7 @@ jobs:
                 path: slint-${{ github.event.inputs.program || inputs.program }}-${{ matrix.target }}.tar.gz
 
     build_macos:
-        runs-on: macos-14
+        runs-on: macos-26
         steps:
             - uses: actions/checkout@v5
             - uses: ./.github/actions/setup-rust
