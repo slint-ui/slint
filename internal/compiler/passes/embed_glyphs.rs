@@ -137,15 +137,11 @@ pub fn embed_glyphs<'a>(
             let font = {
                 let mut query = collection.query();
 
-                if let Some(ref family) = family {
-                    query.set_families(std::iter::once(fontique::QueryFamily::from(
-                        family.as_str(),
-                    )));
+                query.set_families(std::iter::once(if let Some(ref family) = family {
+                    fontique::QueryFamily::from(family.as_str())
                 } else {
-                    query.set_families(std::iter::once(fontique::QueryFamily::Generic(
-                        fontique::GenericFamily::SansSerif,
-                    )));
-                }
+                    fontique::QueryFamily::Generic(fontique::GenericFamily::SansSerif)
+                }));
 
                 let mut font = None;
 
