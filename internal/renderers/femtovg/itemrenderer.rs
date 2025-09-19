@@ -18,7 +18,7 @@ use i_slint_core::item_rendering::{
 };
 use i_slint_core::items::{
     self, Clip, FillRule, ImageRendering, ImageTiling, ItemRc, Layer, Opacity, RenderingResult,
-    TextVerticalAlignment,
+    TextVerticalAlignment, TextHorizontalAlignment,
 };
 use i_slint_core::lengths::{
     LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector,
@@ -192,6 +192,34 @@ fn clip_path_for_rect_alike_item(
 impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
     pub fn global_alpha_transparent(&self) -> bool {
         self.state.last().unwrap().global_alpha == 0.0
+    }
+}
+
+fn draw_glyphs<R: femtovg::Renderer + TextureImporter>(layout: parley::Layout<()>, canvas: &mut Canvas<R>, paint: femtovg::Paint, offset: f32) {
+    for line in layout.lines() {
+        for item in line.items() {
+            match item {
+                parley::PositionedLayoutItem::GlyphRun(glyph_run) => {
+                    let font_id = fonts::FONT_CACHE
+                        .with(|cache| cache.borrow_mut().font(glyph_run.run().font()));
+
+                    canvas
+                        .fill_glyphs(
+                            glyph_run.positioned_glyphs().map(|glyph| {
+                                femtovg::PositionedGlyph {
+                                    x: glyph.x,
+                                    y: glyph.y + offset,
+                                    font_id,
+                                    glyph_id: glyph.id,
+                                }
+                            }),
+                            &paint,
+                        )
+                        .unwrap();
+                }
+                parley::PositionedLayoutItem::InlineBox(_inline_box) => {}
+            };
+        }
     }
 }
 
@@ -969,13 +997,10 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
     }
 
     fn draw_string(&mut self, string: &str, color: Color) {
-        todo!()
-        //let font = fonts::FONT_CACHE
-        //    .with(|cache| cache.borrow_mut().font(Default::default(), self.scale_factor, string));
-        //let paint = font
-        //    .init_paint(PhysicalLength::default(), femtovg::Paint::color(to_femtovg_color(&color)));
-        //let mut canvas = self.canvas.borrow_mut();
-        //canvas.fill_text(0., 0., string, &paint).unwrap();
+        let layout = fonts::layout(string, None, TextHorizontalAlignment::Left);
+        let paint = femtovg::Paint::color(to_femtovg_color(&color));
+        let mut canvas = self.canvas.borrow_mut();
+        draw_glyphs(layout, &mut canvas, paint, 0.0);
     }
 
     fn draw_image_direct(&mut self, image: i_slint_core::graphics::Image) {
