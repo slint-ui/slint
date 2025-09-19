@@ -7,6 +7,8 @@ use crate::Coord;
 /// between physical and logical pixels.
 pub struct PhysicalPx;
 
+pub type PhysicalLength = euclid::Length<Coord, PhysicalPx>;
+
 /// This type is used as a tagging type for use with [`euclid::Scale`] to convert
 /// between physical and logical pixels.
 pub struct LogicalPx;

@@ -6,7 +6,10 @@
 use core::num::NonZeroUsize;
 use femtovg::TextContext;
 use i_slint_common::sharedfontique::{self, parley};
-use i_slint_core::{items::TextHorizontalAlignment, lengths::LogicalLength};
+use i_slint_core::{
+    items::TextHorizontalAlignment,
+    lengths::{LogicalLength, PhysicalLength},
+};
 use std::cell::RefCell;
 use std::collections::HashMap;
 
@@ -43,7 +46,7 @@ thread_local! {
 
 pub fn layout(
     text: &str,
-    max_width: Option<LogicalLength>,
+    max_width: Option<PhysicalLength>,
     horizontal_align: TextHorizontalAlignment,
 ) -> parley::Layout<()> {
     let mut font_context = sharedfontique::font_context();

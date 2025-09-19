@@ -9,7 +9,7 @@ use std::num::NonZeroU32;
 use std::pin::Pin;
 use std::rc::{Rc, Weak};
 
-use i_slint_common::sharedfontique::{self, parley};
+use i_slint_common::sharedfontique;
 use i_slint_core::api::{RenderingNotifier, RenderingState, SetRenderingNotifierError};
 use i_slint_core::graphics::{euclid, rendering_metrics_collector::RenderingMetricsCollector};
 use i_slint_core::graphics::{BorderRadius, Rgba8Pixel};
@@ -287,7 +287,11 @@ impl<B: GraphicsBackend> RendererSealed for FemtoVGRenderer<B> {
         scale_factor: ScaleFactor,
         _text_wrap: TextWrap, //TODO: Add support for char-wrap
     ) -> LogicalSize {
-        let layout = fonts::layout(text, max_width, TextHorizontalAlignment::Left);
+        let layout = fonts::layout(
+            text,
+            max_width.map(|max_width| max_width * scale_factor),
+            TextHorizontalAlignment::Left,
+        );
         LogicalSize::new(layout.width(), layout.height())
     }
 

@@ -18,13 +18,13 @@ use i_slint_core::item_rendering::{
 };
 use i_slint_core::items::{
     self, Clip, FillRule, ImageRendering, ImageTiling, ItemRc, Layer, Opacity, RenderingResult,
-    TextHorizontalAlignment, TextStrokeStyle,
+    TextVerticalAlignment,
 };
 use i_slint_core::lengths::{
     LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector,
     RectLengths, ScaleFactor, SizeLengths,
 };
-use i_slint_core::{Brush, Color, ImageInner, SharedString};
+use i_slint_core::{Brush, Color, ImageInner};
 
 use crate::images::TextureImporter;
 
@@ -326,12 +326,12 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
     fn draw_text(
         &mut self,
         text: Pin<&dyn RenderText>,
-        self_rc: &ItemRc,
+        _self_rc: &ItemRc,
         size: LogicalSize,
         _cache: &CachedRenderingData,
     ) {
-        let max_width = size.width_length(); // * self.scale_factor;
-        let max_height = size.height_length(); // * self.scale_factor;
+        let max_width = size.width_length() * self.scale_factor;
+        let max_height = size.height_length() * self.scale_factor;
 
         if max_width.get() <= 0. || max_height.get() <= 0. {
             return;
@@ -341,16 +341,28 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
             return;
         }
 
-        let (horizontal_align, _vertical_align) = text.alignment();
+        let (horizontal_align, vertical_align) = text.alignment();
+        let color = text.color();
+        let wrap = text.wrap();
+        let overflow = text.overflow();
+        let letter_spacing = text.letter_spacing();
+        let (stroke_brush, stroke_length, stroke_style) = text.stroke();
         let layout = fonts::layout(text.text().as_str(), Some(max_width), horizontal_align);
 
         let text_path = rect_to_path((size * self.scale_factor).into());
-        let mut paint = match self.brush_to_paint(text.color(), &text_path) {
+        let paint = match self.brush_to_paint(color, &text_path) {
             Some(paint) => paint,
             None => return,
         };
 
         let mut canvas = self.canvas.borrow_mut();
+
+        let height = layout.height();
+        let offset = match vertical_align {
+            TextVerticalAlignment::Top => 0.0,
+            TextVerticalAlignment::Center => (max_height.get() - height) / 2.0,
+            TextVerticalAlignment::Bottom => max_height.get() - height,
+        };
 
         for line in layout.lines() {
             for item in line.items() {
@@ -364,7 +376,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
                                 glyph_run.positioned_glyphs().map(|glyph| {
                                     femtovg::PositionedGlyph {
                                         x: glyph.x,
-                                        y: glyph.y,
+                                        y: glyph.y + offset,
                                         font_id,
                                         glyph_id: glyph.id,
                                     }
@@ -373,68 +385,10 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
                             )
                             .unwrap();
                     }
-                    parley::PositionedLayoutItem::InlineBox(inline_box) => {}
+                    parley::PositionedLayoutItem::InlineBox(_inline_box) => {}
                 };
             }
         }
-
-        /*
-        let text_path = rect_to_path((size * self.scale_factor).into());
-        let paint = match self.brush_to_paint(text.color(), &text_path) {
-            Some(paint) => font.init_paint(text.letter_spacing() * self.scale_factor, paint),
-            None => return,
-        };
-
-        let (stroke_brush, stroke_width, stroke_style) = text.stroke();
-        let stroke_width = if stroke_width.get() != 0.0 {
-            (stroke_width * self.scale_factor).get()
-        } else {
-            // Hairline stroke
-            1.0
-        };
-        let stroke_width = match stroke_style {
-            TextStrokeStyle::Outside => stroke_width * 2.0,
-            TextStrokeStyle::Center => stroke_width,
-        };
-        let stroke_paint = match self.brush_to_paint(stroke_brush.clone(), &text_path) {
-            Some(mut paint) => {
-                if stroke_brush.is_transparent() {
-                    None
-                } else {
-                    paint.set_line_width(stroke_width);
-                    Some(font.init_paint(text.letter_spacing() * self.scale_factor, paint))
-                }
-            }
-            None => None,
-        };
-
-        let mut canvas = self.canvas.borrow_mut();
-        fonts::layout_text_lines(
-            string,
-            &font,
-            PhysicalSize::from_lengths(max_width, max_height),
-            text.alignment(),
-            text.wrap(),
-            text.overflow(),
-            false,
-            None,
-            &paint,
-            |to_draw, pos, _, _| {
-                match (stroke_style, &stroke_paint) {
-                    (TextStrokeStyle::Outside, Some(stroke_paint)) => {
-                        canvas.stroke_text(pos.x, pos.y, to_draw.trim_end(), stroke_paint).unwrap();
-                        canvas.fill_text(pos.x, pos.y, to_draw.trim_end(), &paint).unwrap();
-                    }
-                    (TextStrokeStyle::Center, Some(stroke_paint)) => {
-                        canvas.fill_text(pos.x, pos.y, to_draw.trim_end(), &paint).unwrap();
-                        canvas.stroke_text(pos.x, pos.y, to_draw.trim_end(), stroke_paint).unwrap();
-                    }
-                    _ => {
-                        canvas.fill_text(pos.x, pos.y, to_draw.trim_end(), &paint).unwrap();
-                    }
-                };
-            },
-        );*/
     }
 
     fn draw_text_input(
@@ -453,21 +407,15 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
             return;
         }
 
-        let font = fonts::FONT_CACHE.with(|cache| {
-            cache.borrow_mut().font(
-                text_input.font_request(self_rc),
-                self.scale_factor,
-                &text_input.text(),
-            )
-        });
-
         let visual_representation = text_input.visual_representation(None);
 
-        let paint = match self.brush_to_paint(
+        let vertical_align = text_input.vertical_alignment();
+
+        let mut paint = match self.brush_to_paint(
             visual_representation.text_color,
             &rect_to_path((size * self.scale_factor).into()),
         ) {
-            Some(paint) => font.init_paint(text_input.letter_spacing() * self.scale_factor, paint),
+            Some(paint) => paint,
             None => return,
         };
 
@@ -485,7 +433,6 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
             };
 
         let mut canvas = self.canvas.borrow_mut();
-        let font_height = font.height();
         let text: SharedString = visual_representation.text.into();
 
         let cursor_point = fonts::layout_text_lines(
