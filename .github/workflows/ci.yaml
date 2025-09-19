@@ -715,3 +715,16 @@ jobs:
               with:
                   name: figma-plugin
                   path: tools/figma-inspector/zip
+
+    material-components:
+        needs: files-changed
+        if: needs.files-changed.outputs.material_components == 'true'
+        permissions:
+            contents: read
+            deployments: write
+        uses: ./.github/workflows/material.yaml
+        secrets:
+            CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+            CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+            ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+            ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
