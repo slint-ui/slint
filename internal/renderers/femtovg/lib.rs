@@ -15,7 +15,7 @@ use i_slint_core::graphics::{euclid, rendering_metrics_collector::RenderingMetri
 use i_slint_core::graphics::{BorderRadius, Rgba8Pixel};
 use i_slint_core::graphics::{FontRequest, SharedPixelBuffer};
 use i_slint_core::item_rendering::ItemRenderer;
-use i_slint_core::items::{TextWrap, TextHorizontalAlignment};
+use i_slint_core::items::{TextHorizontalAlignment, TextWrap};
 use i_slint_core::lengths::{
     LogicalLength, LogicalPoint, LogicalRect, LogicalSize, PhysicalPx, ScaleFactor,
 };
