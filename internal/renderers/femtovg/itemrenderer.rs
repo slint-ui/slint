@@ -354,14 +354,18 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
         builder.push_default(parley::StyleProperty::FontSize(16.0));
         let mut layout: parley::Layout<()> = builder.build(&string);
         layout.break_all_lines(Some(max_width.get()));
-            layout.align(Some(max_width.get()), parley::Alignment::Start, parley::AlignmentOptions::default());
-        
+        layout.align(
+            Some(max_width.get()),
+            parley::Alignment::Start,
+            parley::AlignmentOptions::default(),
+        );
+
         let text_path = rect_to_path((size * self.scale_factor).into());
         let paint = match self.brush_to_paint(text.color(), &text_path) {
             Some(paint) => font.init_paint(text.letter_spacing() * self.scale_factor, paint),
             None => return,
         };
-        
+
         let mut canvas = self.canvas.borrow_mut();
 
         for line in layout.lines() {
@@ -371,14 +375,12 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
                         let x = &string[glyph_run.run().text_range()];
                         let pos = glyph_run.glyphs().next().unwrap();
                         canvas.fill_text(pos.x, pos.y, x, &paint).unwrap();
-
                     }
-                    parley::PositionedLayoutItem::InlineBox(inline_box) => {
-                    }
+                    parley::PositionedLayoutItem::InlineBox(inline_box) => {}
                 };
             }
         }
-        
+
         /*
         let text_path = rect_to_path((size * self.scale_factor).into());
         let paint = match self.brush_to_paint(text.color(), &text_path) {

@@ -57,11 +57,12 @@ pub fn get_collection() -> Collection {
 pub fn font_context() -> parley::FontContext {
     parley::FontContext {
         collection: COLLECTION.inner.clone(),
-        source_cache: COLLECTION.source_cache.clone()
+        source_cache: COLLECTION.source_cache.clone(),
     }
 }
 
-static LAYOUT_CONTEXT: std::sync::LazyLock<parley::LayoutContext<()>> = std::sync::LazyLock::new(|| Default::default());
+static LAYOUT_CONTEXT: std::sync::LazyLock<parley::LayoutContext<()>> =
+    std::sync::LazyLock::new(|| Default::default());
 
 pub fn layout_context() -> parley::LayoutContext<()> {
     LAYOUT_CONTEXT.clone()
