@@ -3,7 +3,6 @@
 
 //! Module for a renderer proxy that tries to render only the parts of the tree that have changed.
 
-use super::graphics::RenderingCache;
 use crate::graphics::CachedGraphicsData;
 use crate::item_rendering::{
     ItemRenderer, ItemRendererFeatures, RenderBorderRectangle, RenderImage, RenderRectangle,
@@ -42,7 +41,10 @@ impl CachedRenderingData {
     /// This function can be used to remove an entry from the rendering cache for a given item, if it
     /// exists, i.e. if any data was ever cached. This is typically called by the graphics backend's
     /// implementation of the release_item_graphics_cache function.
-    pub fn release<T>(&self, cache: &mut RenderingCache<T>) -> Option<T> {
+    fn release(
+        &self,
+        cache: &mut PartialRendererCache,
+    ) -> Option<CachedItemBoundingBoxAndTransform> {
         if self.cache_generation.get() == cache.generation() {
             let index = self.cache_index.get();
             self.cache_generation.set(0);
@@ -53,10 +55,10 @@ impl CachedRenderingData {
     }
 
     /// Return the value if it is in the cache
-    pub fn get_entry<'a, T>(
+    fn get_entry<'a>(
         &self,
-        cache: &'a mut RenderingCache<T>,
-    ) -> Option<&'a mut crate::graphics::CachedGraphicsData<T>> {
+        cache: &'a mut PartialRendererCache,
+    ) -> Option<&'a mut CachedGraphicsData<CachedItemBoundingBoxAndTransform>> {
         let index = self.cache_index.get();
         if self.cache_generation.get() == cache.generation() {
             cache.get_mut(index)
@@ -148,7 +150,52 @@ impl CachedItemBoundingBoxAndTransform {
 }
 
 /// The cache that needs to be held by the Window for the partial rendering
-pub type PartialRenderingCache = RenderingCache<CachedItemBoundingBoxAndTransform>;
+struct PartialRendererCache {
+    slab: slab::Slab<CachedGraphicsData<CachedItemBoundingBoxAndTransform>>,
+    generation: usize,
+}
+
+impl Default for PartialRendererCache {
+    fn default() -> Self {
+        Self { slab: Default::default(), generation: 1 }
+    }
+}
+
+impl PartialRendererCache {
+    /// Returns the generation of the cache. The generation starts at 1 and is increased
+    /// whenever the cache is cleared, for example when the GL context is lost.
+    pub fn generation(&self) -> usize {
+        self.generation
+    }
+
+    /// Retrieves a mutable reference to the cached graphics data at index.
+    pub fn get_mut(
+        &mut self,
+        index: usize,
+    ) -> Option<&mut CachedGraphicsData<CachedItemBoundingBoxAndTransform>> {
+        self.slab.get_mut(index)
+    }
+
+    /// Inserts data into the cache and returns the index for retrieval later.
+    pub fn insert(&mut self, data: CachedGraphicsData<CachedItemBoundingBoxAndTransform>) -> usize {
+        self.slab.insert(data)
+    }
+
+    /// Removes the cached graphics data at the given index.
+    pub fn remove(
+        &mut self,
+        index: usize,
+    ) -> CachedGraphicsData<CachedItemBoundingBoxAndTransform> {
+        self.slab.remove(index)
+    }
+
+    /// Removes all entries from the cache and increases the cache's generation count, so
+    /// that stale index access can be avoided.
+    pub fn clear(&mut self) {
+        self.slab.clear();
+        self.generation += 1;
+    }
+}
 
 /// A region composed of a few rectangles that need to be redrawn.
 #[derive(Default, Clone, Debug)]
@@ -285,8 +332,10 @@ pub enum RepaintBufferType {
 }
 
 /// Put this structure in the renderer to help with partial rendering
+///
+/// This is constructed from a [`PartialRenderingState`]
 pub struct PartialRenderer<'a, T> {
-    cache: &'a RefCell<PartialRenderingCache>,
+    cache: &'a RefCell<PartialRendererCache>,
     /// The region of the screen which is considered dirty and that should be repainted
     pub dirty_region: DirtyRegion,
     /// The actual renderer which the drawing call will be forwarded to
@@ -297,8 +346,8 @@ pub struct PartialRenderer<'a, T> {
 
 impl<'a, T: ItemRenderer + ItemRendererFeatures> PartialRenderer<'a, T> {
     /// Create a new PartialRenderer
-    pub fn new(
-        cache: &'a RefCell<PartialRenderingCache>,
+    fn new(
+        cache: &'a RefCell<PartialRendererCache>,
         initial_dirty_region: DirtyRegion,
         actual_renderer: T,
     ) -> Self {
@@ -491,7 +540,7 @@ impl<'a, T: ItemRenderer + ItemRendererFeatures> PartialRenderer<'a, T> {
     }
 
     fn do_rendering(
-        cache: &RefCell<PartialRenderingCache>,
+        cache: &RefCell<PartialRendererCache>,
         rendering_data: &CachedRenderingData,
         render_fn: impl FnOnce() -> CachedItemBoundingBoxAndTransform,
     ) {
@@ -670,7 +719,7 @@ impl<T: ItemRenderer + ItemRendererFeatures> ItemRenderer for PartialRenderer<'_
 /// of each item. This permits a more fine-grained computation of the region that needs to be repainted.
 #[derive(Default)]
 pub struct PartialRenderingState {
-    partial_cache: RefCell<PartialRenderingCache>,
+    partial_cache: RefCell<PartialRendererCache>,
     /// This is the area which we are going to redraw in the next frame, no matter if the items are dirty or not
     force_dirty: RefCell<DirtyRegion>,
     /// Force a redraw in the next frame, no matter what's dirty. Use only as a last resort.
