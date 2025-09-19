@@ -343,9 +343,6 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
 
         let string = text.text();
         let string = string.as_str();
-        let font = fonts::FONT_CACHE.with(|cache| {
-            cache.borrow_mut().font(text.font_request(self_rc), self.scale_factor, &text.text())
-        });
 
         let mut font_context = sharedfontique::font_context();
         let mut layout_context = sharedfontique::layout_context();
@@ -361,10 +358,6 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
         );
 
         let text_path = rect_to_path((size * self.scale_factor).into());
-        let paint = match self.brush_to_paint(text.color(), &text_path) {
-            Some(paint) => font.init_paint(text.letter_spacing() * self.scale_factor, paint),
-            None => return,
-        };
 
         let mut canvas = self.canvas.borrow_mut();
 
@@ -372,6 +365,16 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
             for item in line.items() {
                 match item {
                     parley::PositionedLayoutItem::GlyphRun(glyph_run) => {
+                        let run = glyph_run.run();
+                        let font = run.font();
+
+                        let font = fonts::FONT_CACHE.with(|cache| cache.borrow_mut().font(font));
+                        let mut paint = match self.brush_to_paint(text.color(), &text_path) {
+                            Some(paint) => paint,
+                            None => return,
+                        };
+                        paint.set_font(&[font]);
+
                         let x = &string[glyph_run.run().text_range()];
                         let pos = glyph_run.glyphs().next().unwrap();
                         canvas.fill_text(pos.x, pos.y, x, &paint).unwrap();
@@ -1025,12 +1028,13 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
     }
 
     fn draw_string(&mut self, string: &str, color: Color) {
-        let font = fonts::FONT_CACHE
-            .with(|cache| cache.borrow_mut().font(Default::default(), self.scale_factor, string));
-        let paint = font
-            .init_paint(PhysicalLength::default(), femtovg::Paint::color(to_femtovg_color(&color)));
-        let mut canvas = self.canvas.borrow_mut();
-        canvas.fill_text(0., 0., string, &paint).unwrap();
+        todo!()
+        //let font = fonts::FONT_CACHE
+        //    .with(|cache| cache.borrow_mut().font(Default::default(), self.scale_factor, string));
+        //let paint = font
+        //    .init_paint(PhysicalLength::default(), femtovg::Paint::color(to_femtovg_color(&color)));
+        //let mut canvas = self.canvas.borrow_mut();
+        //canvas.fill_text(0., 0., string, &paint).unwrap();
     }
 
     fn draw_image_direct(&mut self, image: i_slint_core::graphics::Image) {
