@@ -325,7 +325,6 @@ impl<B: GraphicsBackend> RendererSealed for FemtoVGRenderer<B> {
         let text_context =
             crate::fonts::FONT_CACHE.with(|cache| cache.borrow().text_context.clone());
         let font_height = text_context.measure_font(&paint).unwrap().height();
-        
 
         visual_representation.map_byte_offset_from_byte_offset_in_visual_text(result)
     }
@@ -354,7 +353,6 @@ impl<B: GraphicsBackend> RendererSealed for FemtoVGRenderer<B> {
             .with(|cache| cache.borrow_mut().font(font_request, scale_factor, &text_input.text()));
 
         let paint = font.init_paint(text_input.letter_spacing() * scale_factor, Default::default());
-        
 
         LogicalRect::new(
             PhysicalPoint::default() / scale_factor,
