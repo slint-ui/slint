@@ -36,3 +36,4 @@ uv.lock
 MODULE.bazel.lock
 
 perf.data
+perf.data.old
