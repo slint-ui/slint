@@ -196,32 +196,15 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
 }
 
 fn draw_glyphs<R: femtovg::Renderer + TextureImporter>(
-    layout: parley::Layout<()>,
+    layout: &parley::Layout<()>,
     canvas: &mut Canvas<R>,
     paint: femtovg::Paint,
     offset: f32,
-    cursor_byte_offset: Option<usize>,
-) -> Option<PhysicalPoint> {
-    let mut cursor_point = None;
-
+) {
     for line in layout.lines() {
         for item in line.items() {
             match item {
                 parley::PositionedLayoutItem::GlyphRun(glyph_run) => {
-                    if let Some(cursor_byte_offset) = cursor_byte_offset {
-                        let range = glyph_run.run().text_range();
-                        if range.contains(&cursor_byte_offset) {
-                            cursor_point = glyph_run
-                                .positioned_glyphs()
-                                .nth(cursor_byte_offset - range.start)
-                                .map(|glyph| PhysicalPoint::new(glyph.x, glyph.y + offset));
-                        } else if cursor_byte_offset == range.end {
-                            cursor_point = glyph_run.positioned_glyphs().last().map(|glyph| {
-                                PhysicalPoint::new(glyph.x + glyph.advance, glyph.y + offset)
-                            });
-                        }
-                    }
-
                     let font_id = fonts::FONT_CACHE
                         .with(|cache| cache.borrow_mut().font(glyph_run.run().font()));
 
@@ -241,8 +224,6 @@ fn draw_glyphs<R: femtovg::Renderer + TextureImporter>(
             };
         }
     }
-
-    cursor_point
 }
 
 fn get_offset(
@@ -419,7 +400,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
 
         let mut canvas = self.canvas.borrow_mut();
         let offset = get_offset(vertical_align, max_height, &layout);
-        draw_glyphs(layout, &mut canvas, paint, offset, None);
+        draw_glyphs(&layout, &mut canvas, paint, offset);
     }
 
     fn draw_text_input(
@@ -467,10 +448,12 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
 
         let layout = fonts::layout(&text, Some(width), TextHorizontalAlignment::Left);
         let offset = get_offset(text_input.vertical_alignment(), height, &layout);
-        let cursor_point =
-            draw_glyphs(layout, &mut canvas, paint, offset, cursor_visible.then_some(cursor_pos));
+        let cursor_point = draw_glyphs(&layout, &mut canvas, paint, offset);
 
-        if let Some(cursor_point) = cursor_point {
+        if let Some(cursor_point) = cursor_visible
+            .then_some(cursor_pos)
+            .and_then(|cursor_pos| fonts::get_cursor_location(&layout, cursor_pos, offset))
+        {
             let font_height = 16.0;
 
             let mut cursor_rect = femtovg::Path::new();
@@ -915,7 +898,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
         let layout = fonts::layout(string, None, TextHorizontalAlignment::Left);
         let paint = femtovg::Paint::color(to_femtovg_color(&color));
         let mut canvas = self.canvas.borrow_mut();
-        draw_glyphs(layout, &mut canvas, paint, 0.0, None);
+        draw_glyphs(&layout, &mut canvas, paint, 0.0);
     }
 
     fn draw_image_direct(&mut self, image: i_slint_core::graphics::Image) {
