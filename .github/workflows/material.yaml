@@ -76,7 +76,7 @@ jobs:
           version: 10.14.0
       - name: Take screenshots
         run: cargo run -p slint-docsnapper -- docs
-        working-directory: ${{ github.workspace }}
+        working-directory: ui-libraries/material
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: Build
