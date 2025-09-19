@@ -170,7 +170,7 @@ pub trait WindowAdapterInternal {
     fn register_item_tree(&self) {}
 
     /// This function is called by the generated code when a component and therefore its tree of items are destroyed. The
-    /// implementation typically uses this to free the underlying graphics resources cached via [`crate::graphics::RenderingCache`].
+    /// implementation typically uses this to free the underlying graphics resources.
     fn unregister_item_tree(
         &self,
         _component: ItemTreeRef,
