@@ -34,3 +34,5 @@ uv.lock
 .python-version
 
 MODULE.bazel.lock
+
+perf.data
