@@ -3,13 +3,11 @@
 
 // cspell:ignore Noto fontconfig
 
+use crate::PhysicalLength;
 use core::num::NonZeroUsize;
 use femtovg::TextContext;
 use i_slint_common::sharedfontique::{self, parley};
-use i_slint_core::{
-    items::TextHorizontalAlignment,
-    lengths::{LogicalLength, PhysicalLength},
-};
+use i_slint_core::{items::TextHorizontalAlignment, lengths::LogicalLength};
 use std::cell::RefCell;
 use std::collections::HashMap;
 
