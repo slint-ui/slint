@@ -358,6 +358,10 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
         );
 
         let text_path = rect_to_path((size * self.scale_factor).into());
+        let mut paint = match self.brush_to_paint(text.color(), &text_path) {
+            Some(paint) => paint,
+            None => return,
+        };
 
         let mut canvas = self.canvas.borrow_mut();
 
@@ -365,19 +369,26 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
             for item in line.items() {
                 match item {
                     parley::PositionedLayoutItem::GlyphRun(glyph_run) => {
-                        let run = glyph_run.run();
-                        let font = run.font();
+                        let font = fonts::FONT_CACHE
+                            .with(|cache| cache.borrow_mut().font(glyph_run.run().font()));
 
-                        let font = fonts::FONT_CACHE.with(|cache| cache.borrow_mut().font(font));
-                        let mut paint = match self.brush_to_paint(text.color(), &text_path) {
-                            Some(paint) => paint,
-                            None => return,
-                        };
-                        paint.set_font(&[font]);
+                        let mut advance = 0.0;
 
-                        let x = &string[glyph_run.run().text_range()];
-                        let pos = glyph_run.glyphs().next().unwrap();
-                        canvas.fill_text(pos.x, pos.y, x, &paint).unwrap();
+                        canvas
+                            .fill_glyphs(
+                                glyph_run.glyphs().map(|glyph| {
+                                    let x = glyph.x + advance;
+                                    advance += glyph.advance;
+                                    femtovg::PositionedGlyph {
+                                        x,
+                                        y: glyph.y,
+                                        font_id: font,
+                                        glyph_id: glyph.id,
+                                    }
+                                }),
+                                &paint,
+                            )
+                            .unwrap();
                     }
                     parley::PositionedLayoutItem::InlineBox(inline_box) => {}
                 };
