@@ -69,4 +69,4 @@ jobs:
               with:
                   name: apk_gallery
                   path: |
-                      ui-libraries/material/target/release/apk/slint_material.apk
+                      target/release/apk/slint_material.apk
