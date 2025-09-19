@@ -20,6 +20,7 @@ game-activity = ["android-activity-06?/game-activity", "android-activity-05?/gam
 native-activity = ["android-activity-06?/native-activity", "android-activity-05?/native-activity"]
 aa-06 = ["android-activity-06", "ndk-09"]
 aa-05 = ["android-activity-05", "ndk-08"]
+unstable-wgpu-26 = ["i-slint-renderer-skia/unstable-wgpu-26"]
 
 [target.'cfg(target_os = "android")'.dependencies]
 i-slint-renderer-skia = { workspace = true }
