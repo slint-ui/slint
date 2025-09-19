@@ -213,16 +213,7 @@ fn draw_glyphs<R: femtovg::Renderer + TextureImporter>(
                     let font_id =
                         fonts::FONT_CACHE.with(|cache| cache.borrow_mut().font(run.font()));
 
-                    let map_glyph = |glyph: parley::Glyph| femtovg::PositionedGlyph {
-                        x: glyph.x,
-                        y: glyph.y + offset,
-                        font_id,
-                        glyph_id: glyph.id,
-                    };
-
                     let brush = glyph_run.style().brush;
-
-                    let glyphs = glyph_run.positioned_glyphs().map(map_glyph);
 
                     let mut paint = paint.clone();
                     if brush.is_selected {
@@ -245,6 +236,15 @@ fn draw_glyphs<R: femtovg::Renderer + TextureImporter>(
                         paint.set_color(to_femtovg_color(&selection_foreground_color));
                     }
 
+                    let glyphs = glyph_run.positioned_glyphs().map(|glyph: parley::Glyph| {
+                        femtovg::PositionedGlyph {
+                            x: glyph.x,
+                            y: glyph.y + offset,
+                            font_id,
+                            glyph_id: glyph.id,
+                        }
+                    });
+
                     match brush.stroke {
                         Some(sharedfontique::BrushTextStrokeStyle::Outside) => {
                             canvas.stroke_glyphs(glyphs.clone(), &paint).unwrap();
@@ -257,109 +257,7 @@ fn draw_glyphs<R: femtovg::Renderer + TextureImporter>(
                         None => {
                             canvas.fill_glyphs(glyphs, &paint).unwrap();
                         }
-                    } /*
-
-                      let fill = glyph_run.style().brush.stroke.is_none();
-
-                      if let Some((ref selection_range, color, background_color)) =
-                          selection_range_and_colors.as_ref()
-                      {
-                          let range = run.text_range();
-                          let start = selection_range.start.saturating_sub(range.start);
-                          let end = selection_range.end.saturating_sub(range.start);
-                          match (
-                              glyph_run.positioned_glyphs().nth(start),
-                              glyph_run.positioned_glyphs().nth(end.min(range.end.saturating_sub(1))),
-                          ) {
-                              (Some(start_glyph), Some(end_glyph)) => {
-                                  let size = 16.0;
-
-                                  let selection_rect = PhysicalRect::new(
-                                      PhysicalPoint::new(
-                                          start_glyph.x,
-                                          start_glyph.y + offset - size,
-                                      ),
-                                      PhysicalSize::new(
-                                          (end_glyph.x - start_glyph.x)
-                                              + if end >= range.end {
-                                                  end_glyph.advance
-                                              } else {
-                                                  0.0
-                                              },
-                                          size,
-                                      ),
-                                  );
-                                  canvas.fill_path(
-                                      &rect_to_path(selection_rect),
-                                      &femtovg::Paint::color(to_femtovg_color(&background_color)),
-                                  );
-                              }
-                              _ => {}
-                          }
-
-                          let mut selected_paint = paint.clone();
-                          selected_paint.set_color(to_femtovg_color(&color));
-
-                          if fill {
-                              canvas
-                                  .fill_glyphs(
-                                      glyph_run.positioned_glyphs().map(map_glyph).take(start),
-                                      &paint,
-                                  )
-                                  .unwrap();
-
-                              canvas
-                                  .fill_glyphs(
-                                      glyph_run
-                                          .positioned_glyphs()
-                                          .map(map_glyph)
-                                          .take(end)
-                                          .skip(start),
-                                      &selected_paint,
-                                  )
-                                  .unwrap();
-
-                              canvas
-                                  .fill_glyphs(
-                                      glyph_run.positioned_glyphs().map(map_glyph).skip(end),
-                                      &paint,
-                                  )
-                                  .unwrap();
-                          } else {
-                              canvas
-                                  .stroke_glyphs(
-                                      glyph_run.positioned_glyphs().map(map_glyph).take(start),
-                                      &paint,
-                                  )
-                                  .unwrap();
-
-                              canvas
-                                  .stroke_glyphs(
-                                      glyph_run
-                                          .positioned_glyphs()
-                                          .map(map_glyph)
-                                          .take(end)
-                                          .skip(start),
-                                      &selected_paint,
-                                  )
-                                  .unwrap();
-
-                              canvas
-                                  .stroke_glyphs(
-                                      glyph_run.positioned_glyphs().map(map_glyph).skip(end),
-                                      &paint,
-                                  )
-                                  .unwrap();
-                          }
-                      } else {
-                          let iterator = glyph_run.positioned_glyphs().map(map_glyph);
-
-                          if fill {
-                              canvas.fill_glyphs(iterator, &paint).unwrap()
-                          } else {
-                              canvas.stroke_glyphs(iterator, &paint).unwrap()
-                          };
-                      } */
+                    }
                 }
                 parley::PositionedLayoutItem::InlineBox(_inline_box) => {}
             };
