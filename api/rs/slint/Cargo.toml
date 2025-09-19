@@ -201,7 +201,12 @@ backend-android-activity-05 = [
 ## ```toml
 ## slint = { version = "~1.13", features = ["unstable-wgpu-26"] }
 ## ```
-unstable-wgpu-26 = ["i-slint-core/unstable-wgpu-26", "i-slint-backend-selector/unstable-wgpu-26", "dep:wgpu-26"]
+unstable-wgpu-26 = [
+  "i-slint-core/unstable-wgpu-26",
+  "i-slint-backend-selector/unstable-wgpu-26",
+  "i-slint-backend-android-activity?/unstable-wgpu-26",
+  "dep:wgpu-26",
+]
 
 ## APIs guarded with this feature are *NOT* subject to the usual Slint API stability guarantees, because winit releases new major
 ## versions more frequently than Slint. This feature as well as the APIs changed or removed in future minor releases of Slint, likely to be replaced
