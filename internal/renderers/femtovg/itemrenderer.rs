@@ -256,6 +256,9 @@ fn draw_glyphs<R: femtovg::Renderer + TextureImporter>(
                             _ => {}
                         }
 
+                        let mut selected_paint = paint.clone();
+                        selected_paint.set_color(to_femtovg_color(&color));
+
                         if fill {
                             canvas
                                 .fill_glyphs(
@@ -263,9 +266,6 @@ fn draw_glyphs<R: femtovg::Renderer + TextureImporter>(
                                     &paint,
                                 )
                                 .unwrap();
-
-                            let mut selected_paint = paint.clone();
-                            selected_paint.set_color(to_femtovg_color(&color));
 
                             canvas
                                 .fill_glyphs(
@@ -289,6 +289,17 @@ fn draw_glyphs<R: femtovg::Renderer + TextureImporter>(
                                 .stroke_glyphs(
                                     glyph_run.positioned_glyphs().map(map_glyph).take(start),
                                     &paint,
+                                )
+                                .unwrap();
+
+                            canvas
+                                .stroke_glyphs(
+                                    glyph_run
+                                        .positioned_glyphs()
+                                        .map(map_glyph)
+                                        .take(end)
+                                        .skip(start),
+                                    &selected_paint,
                                 )
                                 .unwrap();
 
