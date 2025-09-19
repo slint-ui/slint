@@ -117,7 +117,7 @@ pub fn layout(text: &str, scale_factor: ScaleFactor, options: LayoutOptions) -> 
         builder.build(text)
     });
 
-    layout.break_all_lines(max_physical_width);
+    layout.break_all_lines(max_physical_width.filter(|_| options.text_wrap != TextWrap::NoWrap));
     layout.align(
         max_physical_width,
         match options.horizontal_align {
