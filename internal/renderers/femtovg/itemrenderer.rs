@@ -534,18 +534,16 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
             text_input.selection_background_color(),
         );
 
-        if let Some(cursor_point) = cursor_visible
+        if let Some((cursor_point, cursor_size)) = cursor_visible
             .then_some(cursor_pos)
-            .and_then(|cursor_pos| fonts::get_cursor_location(&layout, cursor_pos, offset))
+            .and_then(|cursor_pos| fonts::get_cursor_location_and_size(&layout, cursor_pos, offset))
         {
-            let font_height = 16.0;
-
             let mut cursor_rect = femtovg::Path::new();
             cursor_rect.rect(
                 cursor_point.x,
-                cursor_point.y - font_height,
+                cursor_point.y - cursor_size,
                 (text_input.text_cursor_width() * self.scale_factor).get(),
-                font_height,
+                cursor_size,
             );
             canvas.fill_path(
                 &cursor_rect,

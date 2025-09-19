@@ -79,11 +79,11 @@ pub fn layout(
     layout
 }
 
-pub fn get_cursor_location(
+pub fn get_cursor_location_and_size(
     layout: &parley::Layout<sharedfontique::Brush>,
     cursor_byte_offset: usize,
     offset: f32,
-) -> Option<PhysicalPoint> {
+) -> Option<(PhysicalPoint, f32)> {
     let mut cursor_point = None;
 
     for line in layout.lines() {
@@ -91,14 +91,15 @@ pub fn get_cursor_location(
             match item {
                 parley::PositionedLayoutItem::GlyphRun(glyph_run) => {
                     let range = glyph_run.run().text_range();
+                    let size = glyph_run.run().font_size();
                     if range.contains(&cursor_byte_offset) {
                         cursor_point = glyph_run
                             .positioned_glyphs()
                             .nth(cursor_byte_offset - range.start)
-                            .map(|glyph| PhysicalPoint::new(glyph.x, glyph.y + offset));
+                            .map(|glyph| (PhysicalPoint::new(glyph.x, glyph.y + offset), size));
                     } else if cursor_byte_offset == range.end {
                         cursor_point = glyph_run.positioned_glyphs().last().map(|glyph| {
-                            PhysicalPoint::new(glyph.x + glyph.advance, glyph.y + offset)
+                            (PhysicalPoint::new(glyph.x + glyph.advance, glyph.y + offset), size)
                         });
                     }
                 }

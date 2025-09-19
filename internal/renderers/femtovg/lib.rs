@@ -349,7 +349,7 @@ impl<B: GraphicsBackend> RendererSealed for FemtoVGRenderer<B> {
         }
 
         let layout = fonts::layout(&text, Some(width), TextHorizontalAlignment::Left, None, None);
-        let cursor_position = fonts::get_cursor_location(&layout, byte_offset, 0.0);
+        let cursor_position = fonts::get_cursor_location_and_size(&layout, byte_offset, 0.0).map(|location| location.0);
 
         LogicalRect::new(
             cursor_position.unwrap_or_default() / scale_factor,
