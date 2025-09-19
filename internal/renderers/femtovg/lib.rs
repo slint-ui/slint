@@ -9,13 +9,13 @@ use std::num::NonZeroU32;
 use std::pin::Pin;
 use std::rc::{Rc, Weak};
 
-use i_slint_common::sharedfontique;
+use i_slint_common::sharedfontique::{self, parley};
 use i_slint_core::api::{RenderingNotifier, RenderingState, SetRenderingNotifierError};
 use i_slint_core::graphics::{euclid, rendering_metrics_collector::RenderingMetricsCollector};
 use i_slint_core::graphics::{BorderRadius, Rgba8Pixel};
 use i_slint_core::graphics::{FontRequest, SharedPixelBuffer};
 use i_slint_core::item_rendering::ItemRenderer;
-use i_slint_core::items::TextWrap;
+use i_slint_core::items::{TextHorizontalAlignment, TextWrap};
 use i_slint_core::lengths::{
     LogicalLength, LogicalPoint, LogicalRect, LogicalSize, PhysicalPx, ScaleFactor,
 };
@@ -287,7 +287,8 @@ impl<B: GraphicsBackend> RendererSealed for FemtoVGRenderer<B> {
         scale_factor: ScaleFactor,
         _text_wrap: TextWrap, //TODO: Add support for char-wrap
     ) -> LogicalSize {
-        crate::fonts::text_size(&font_request, scale_factor, text, max_width)
+        let layout = fonts::layout(text, max_width, TextHorizontalAlignment::Left);
+        LogicalSize::new(layout.width(), layout.height())
     }
 
     fn font_metrics(
@@ -295,7 +296,7 @@ impl<B: GraphicsBackend> RendererSealed for FemtoVGRenderer<B> {
         font_request: i_slint_core::graphics::FontRequest,
         _scale_factor: ScaleFactor,
     ) -> i_slint_core::items::FontMetrics {
-        crate::fonts::font_metrics(font_request)
+        todo!() //crate::fonts::font_metrics(font_request)
     }
 
     fn text_input_byte_offset_for_position(
@@ -316,39 +317,7 @@ impl<B: GraphicsBackend> RendererSealed for FemtoVGRenderer<B> {
             return 0;
         }
 
-        let font = crate::fonts::FONT_CACHE
-            .with(|cache| cache.borrow_mut().font(font_request, scale_factor, &text_input.text()));
-
         let visual_representation = text_input.visual_representation(None);
-
-        let paint = font.init_paint(text_input.letter_spacing() * scale_factor, Default::default());
-        let text_context =
-            crate::fonts::FONT_CACHE.with(|cache| cache.borrow().text_context.clone());
-        let font_height = text_context.measure_font(&paint).unwrap().height();
-        crate::fonts::layout_text_lines(
-            &visual_representation.text,
-            &font,
-            PhysicalSize::from_lengths(width, height),
-            (text_input.horizontal_alignment(), text_input.vertical_alignment()),
-            text_input.wrap(),
-            i_slint_core::items::TextOverflow::Clip,
-            text_input.single_line(),
-            None,
-            &paint,
-            |line_text, line_pos, start, metrics| {
-                if (line_pos.y..(line_pos.y + font_height)).contains(&pos.y) {
-                    let mut current_x = 0.;
-                    for glyph in &metrics.glyphs {
-                        if line_pos.x + current_x + glyph.advance_x / 2. >= pos.x {
-                            result = start + glyph.byte_index;
-                            return;
-                        }
-                        current_x += glyph.advance_x;
-                    }
-                    result = start + line_text.trim_end().len();
-                }
-            },
-        );
 
         visual_representation.map_byte_offset_from_byte_offset_in_visual_text(result)
     }
@@ -373,25 +342,8 @@ impl<B: GraphicsBackend> RendererSealed for FemtoVGRenderer<B> {
             );
         }
 
-        let font = crate::fonts::FONT_CACHE
-            .with(|cache| cache.borrow_mut().font(font_request, scale_factor, &text_input.text()));
-
-        let paint = font.init_paint(text_input.letter_spacing() * scale_factor, Default::default());
-        let cursor_point = fonts::layout_text_lines(
-            text.as_str(),
-            &font,
-            PhysicalSize::from_lengths(width, height),
-            (text_input.horizontal_alignment(), text_input.vertical_alignment()),
-            text_input.wrap(),
-            i_slint_core::items::TextOverflow::Clip,
-            text_input.single_line(),
-            Some(byte_offset),
-            &paint,
-            |_, _, _, _| {},
-        );
-
         LogicalRect::new(
-            cursor_point.unwrap_or_default() / scale_factor,
+            PhysicalPoint::default() / scale_factor,
             LogicalSize::from_lengths(LogicalLength::new(1.0), font_size),
         )
     }
