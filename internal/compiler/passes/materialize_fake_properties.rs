@@ -184,6 +184,8 @@ pub fn initialize(elem: &ElementRc, name: &str) -> Option<Expression> {
         "preferred-width" => layout_constraint_prop(elem, "preferred", Orientation::Horizontal),
         "opacity" => Expression::NumberLiteral(1., Unit::None),
         "visible" => Expression::BoolLiteral(true),
+        "rowspan" => Expression::NumberLiteral(1., Unit::None),
+        "colspan" => Expression::NumberLiteral(1., Unit::None),
         _ => return None,
     };
     Some(expr)

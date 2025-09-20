@@ -44,17 +44,22 @@ pub fn lower_layouts(
     *component.root_constraints.borrow_mut() =
         LayoutConstraints::new(&component.root_element, diag, DiagnosticLevel::Error);
 
-    recurse_elem_including_sub_components(component, &(), &mut |elem, _| {
-        let component = elem.borrow().enclosing_component.upgrade().unwrap();
-        let is_layout = lower_element_layout(
-            &component,
-            elem,
-            &type_loader.global_type_registry.borrow(),
-            style_metrics,
-            diag,
-        );
-        check_no_layout_properties(elem, is_layout, diag);
-    });
+    recurse_elem_including_sub_components(
+        component,
+        &Option::default(),
+        &mut |elem, parent_layout_type| {
+            let component = elem.borrow().enclosing_component.upgrade().unwrap();
+            let layout_type = lower_element_layout(
+                &component,
+                elem,
+                &type_loader.global_type_registry.borrow(),
+                style_metrics,
+                diag,
+            );
+            check_no_layout_properties(elem, &layout_type, &parent_layout_type, diag);
+            layout_type
+        },
+    );
 }
 
 fn check_preferred_size_100(elem: &ElementRc, prop: &str, diag: &mut BuildDiagnostics) -> bool {
@@ -82,18 +87,18 @@ fn check_preferred_size_100(elem: &ElementRc, prop: &str, diag: &mut BuildDiagno
 }
 
 /// If the element is a layout, lower it to a Rectangle, and set the geometry property of the element inside it.
-/// Returns true if the element was a layout and has been lowered
+/// Returns the name of the layout type if the element was a layout and has been lowered
 fn lower_element_layout(
     component: &Rc<Component>,
     elem: &ElementRc,
     type_register: &TypeRegister,
     style_metrics: &Rc<Component>,
     diag: &mut BuildDiagnostics,
-) -> bool {
+) -> Option<SmolStr> {
     let base_type = if let ElementType::Builtin(base_type) = &elem.borrow().base_type {
         base_type.clone()
     } else {
-        return false;
+        return None;
     };
     match base_type.name.as_str() {
         "Row" => {
@@ -108,16 +113,17 @@ fn lower_element_layout(
                         .is_some_and(|e| e.borrow().repeated.is_some()),
                 "Error should have been caught at element lookup time"
             );
-            return false;
+            return None;
         }
         "GridLayout" => lower_grid_layout(component, elem, diag, type_register),
         "HorizontalLayout" => lower_box_layout(elem, diag, Orientation::Horizontal),
         "VerticalLayout" => lower_box_layout(elem, diag, Orientation::Vertical),
         "Dialog" => {
             lower_dialog_layout(elem, style_metrics, diag);
-            return true; // the Dialog stays in the tree as a Dialog
+            // return now, the Dialog stays in the tree as a Dialog
+            return Some(base_type.name.clone());
         }
-        _ => return false,
+        _ => return None,
     };
 
     let mut elem = elem.borrow_mut();
@@ -133,7 +139,7 @@ fn lower_element_layout(
         }
     }
 
-    true
+    Some(base_type.name.clone())
 }
 
 fn lower_grid_layout(
@@ -277,7 +283,7 @@ impl GridLayout {
             item_element
                 .borrow_mut()
                 .bindings
-                .remove(name)
+                .get(name)
                 .and_then(|e| eval_const_expr(&e.borrow().expression, name, &*e.borrow(), diag))
         };
         let colspan = get_const_value("colspan").unwrap_or(1);
@@ -290,14 +296,19 @@ impl GridLayout {
             *col = c;
         }
 
-        self.add_element_with_coord(
+        let result = self.add_element_with_coord(
             item_element,
             (*row, *col),
             (rowspan, colspan),
             layout_cache_prop_h,
             layout_cache_prop_v,
             diag,
-        )
+        );
+        if let Some(layout_item) = result {
+            let e = &layout_item.elem;
+            insert_fake_property(e, "row", Expression::NumberLiteral(*row as f64, Unit::None));
+            insert_fake_property(e, "col", Expression::NumberLiteral(*col as f64, Unit::None));
+        }
     }
 
     fn add_element_with_coord(
@@ -308,16 +319,17 @@ impl GridLayout {
         layout_cache_prop_h: &NamedReference,
         layout_cache_prop_v: &NamedReference,
         diag: &mut BuildDiagnostics,
-    ) {
+    ) -> Option<CreateLayoutItemResult> {
         let index = self.elems.len();
-        if let Some(layout_item) = create_layout_item(item_element, diag) {
+        let result = create_layout_item(item_element, diag);
+        if let Some(ref layout_item) = result {
             if layout_item.repeater_index.is_some() {
                 diag.push_error(
                     "'if' or 'for' expressions are not currently supported in grid layouts"
                         .to_string(),
                     &*item_element.borrow(),
                 );
-                return;
+                return None;
             }
 
             let e = &layout_item.elem;
@@ -335,9 +347,10 @@ impl GridLayout {
                 row,
                 colspan,
                 rowspan,
-                item: layout_item.item,
+                item: layout_item.item.clone(),
             });
         }
+        result
     }
 }
 
@@ -771,6 +784,15 @@ fn create_layout_item(
     })
 }
 
+fn insert_fake_property(elem: &ElementRc, prop: &str, expr: Expression) {
+    let mut elem_mut = elem.borrow_mut();
+    let span = elem_mut.to_source_location();
+    if let std::collections::btree_map::Entry::Vacant(e) = elem_mut.bindings.entry(prop.into()) {
+        let binding = BindingExpression::new_with_span(expr, span);
+        e.insert(binding.into());
+    }
+}
+
 fn set_prop_from_cache(
     elem: &ElementRc,
     prop: &str,
@@ -823,15 +845,25 @@ fn eval_const_expr(
 }
 
 /// Checks that there is grid-layout specific properties left
-fn check_no_layout_properties(item: &ElementRc, is_layout: bool, diag: &mut BuildDiagnostics) {
-    for (prop, expr) in item.borrow().bindings.iter() {
-        if matches!(prop.as_ref(), "col" | "row" | "colspan" | "rowspan") {
+fn check_no_layout_properties(
+    item: &ElementRc,
+    layout_type: &Option<SmolStr>,
+    parent_layout_type: &Option<SmolStr>,
+    diag: &mut BuildDiagnostics,
+) {
+    let elem = item.borrow();
+    for (prop, expr) in elem.bindings.iter() {
+        if parent_layout_type.as_deref() != Some("GridLayout")
+            && matches!(prop.as_ref(), "col" | "row" | "colspan" | "rowspan")
+        {
             diag.push_error(format!("{prop} used outside of a GridLayout"), &*expr.borrow());
         }
-        if matches!(prop.as_ref(), "dialog-button-role") {
+        if parent_layout_type.as_deref() != Some("Dialog")
+            && matches!(prop.as_ref(), "dialog-button-role")
+        {
             diag.push_error(format!("{prop} used outside of a Dialog"), &*expr.borrow());
         }
-        if !is_layout
+        if layout_type.is_none()
             && matches!(
                 prop.as_ref(),
                 "padding" | "padding-left" | "padding-right" | "padding-top" | "padding-bottom"
