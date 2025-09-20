@@ -138,7 +138,7 @@ impl WindowAdapter for SkiaTestWindow {
 #[derive(Default)]
 struct SkiaTestSoftwareBuffer {
     pixels: RefCell<Option<SharedPixelBuffer<slint::Rgba8Pixel>>>,
-    last_dirty_region: RefCell<Option<i_slint_core::item_rendering::DirtyRegion>>,
+    last_dirty_region: RefCell<Option<i_slint_core::partial_renderer::DirtyRegion>>,
 }
 
 impl i_slint_renderer_skia::software_surface::RenderBuffer for SkiaTestSoftwareBuffer {
@@ -153,7 +153,7 @@ impl i_slint_renderer_skia::software_surface::RenderBuffer for SkiaTestSoftwareB
             u8,
             &mut [u8],
         ) -> Result<
-            Option<i_slint_core::item_rendering::DirtyRegion>,
+            Option<i_slint_core::partial_renderer::DirtyRegion>,
             i_slint_core::platform::PlatformError,
         >,
     ) -> Result<(), i_slint_core::platform::PlatformError> {
@@ -680,4 +680,43 @@ fn text_alignment() {
         window.last_dirty_region_bounding_box_origin(),
         Some(slint::LogicalPosition { x: 10., y: 10. })
     );
+}
+
+#[test]
+fn nowrap_text_change_doesnt_change_height() {
+    slint::slint! {
+        export component Ui inherits Window {
+            in property <string> first-text: "First text";
+            out property <length> first-label-width: first-label.width;
+            out property <length> first-label-height: first-label.height;
+            background: black;
+            VerticalLayout {
+                first-label := Text {
+                    text: root.first-text;
+                }
+                Text {
+                    text: "Second text";
+                }
+            }
+        }
+    }
+
+    slint::platform::set_platform(Box::new(TestPlatform)).ok();
+    let ui = Ui::new().unwrap();
+    let window = WINDOW.with(|x| x.clone());
+    window.set_size(slint::PhysicalSize::new(180, 260));
+    ui.show().unwrap();
+    assert!(window.draw_if_needed(|renderer| {
+        do_test_render_region(renderer, 0, 0, 180, 260);
+    }));
+    assert!(!window.draw_if_needed(|_| { unreachable!() }));
+    ui.set_first_text("Hello World longer".into());
+
+    let expected_width = ui.get_first_label_width().ceil() as _;
+    let expected_height = ui.get_first_label_height().ceil() as _;
+
+    assert!(window.draw_if_needed(|renderer| {
+        do_test_render_region(renderer, 0, 0, expected_width, expected_height);
+    }));
+    assert!(!window.draw_if_needed(|_| { unreachable!() }));
 }
