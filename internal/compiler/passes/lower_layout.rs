@@ -87,7 +87,7 @@ fn check_preferred_size_100(elem: &ElementRc, prop: &str, diag: &mut BuildDiagno
 }
 
 /// If the element is a layout, lower it to a Rectangle, and set the geometry property of the element inside it.
-/// Returns true if the element was a layout and has been lowered
+/// Returns the name of the layout type if the element was a layout and has been lowered
 fn lower_element_layout(
     component: &Rc<Component>,
     elem: &ElementRc,
@@ -296,14 +296,19 @@ impl GridLayout {
             *col = c;
         }
 
-        self.add_element_with_coord(
+        let result = self.add_element_with_coord(
             item_element,
             (*row, *col),
             (rowspan, colspan),
             layout_cache_prop_h,
             layout_cache_prop_v,
             diag,
-        )
+        );
+        if let Some(layout_item) = result {
+            let e = &layout_item.elem;
+            insert_fake_property(e, "row", Expression::NumberLiteral(*row as f64, Unit::None));
+            insert_fake_property(e, "col", Expression::NumberLiteral(*col as f64, Unit::None));
+        }
     }
 
     fn add_element_with_coord(
@@ -314,16 +319,17 @@ impl GridLayout {
         layout_cache_prop_h: &NamedReference,
         layout_cache_prop_v: &NamedReference,
         diag: &mut BuildDiagnostics,
-    ) {
+    ) -> Option<CreateLayoutItemResult> {
         let index = self.elems.len();
-        if let Some(layout_item) = create_layout_item(item_element, diag) {
+        let result = create_layout_item(item_element, diag);
+        if let Some(ref layout_item) = result {
             if layout_item.repeater_index.is_some() {
                 diag.push_error(
                     "'if' or 'for' expressions are not currently supported in grid layouts"
                         .to_string(),
                     &*item_element.borrow(),
                 );
-                return;
+                return None;
             }
 
             let e = &layout_item.elem;
@@ -341,9 +347,10 @@ impl GridLayout {
                 row,
                 colspan,
                 rowspan,
-                item: layout_item.item,
+                item: layout_item.item.clone(),
             });
         }
+        result
     }
 }
 
@@ -775,6 +782,15 @@ fn create_layout_item(
         elem: actual_elem,
         repeater_index,
     })
+}
+
+fn insert_fake_property(elem: &ElementRc, prop: &str, expr: Expression) {
+    let mut elem_mut = elem.borrow_mut();
+    let span = elem_mut.to_source_location();
+    if let std::collections::btree_map::Entry::Vacant(e) = elem_mut.bindings.entry(prop.into()) {
+        let binding = BindingExpression::new_with_span(expr, span);
+        e.insert(binding.into());
+    }
 }
 
 fn set_prop_from_cache(
