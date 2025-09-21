@@ -20,6 +20,8 @@ use smol_str::{SmolStr, ToSmolStr};
 use std::collections::{BTreeMap, HashMap};
 use std::rc::Rc;
 
+mod remove_noop;
+
 /// This represents a scope for the Component, where Component is the repeated component, but
 /// does not represent a component in the .slint file
 #[derive(Clone)]
@@ -211,11 +213,24 @@ impl Expression {
         let mut statements_or_exprs = node
             .children()
             .filter_map(|n| match n.kind() {
-                SyntaxKind::Expression => Some(Self::from_expression_node(n.into(), ctx)),
-                SyntaxKind::ReturnStatement => Some(Self::from_return_statement(n.into(), ctx)),
-                SyntaxKind::LetStatement => Some(Self::from_let_statement(n.into(), ctx)),
+                SyntaxKind::Expression => {
+                    Some((n.clone(), Self::from_expression_node(n.into(), ctx)))
+                }
+                SyntaxKind::ReturnStatement => {
+                    Some((n.clone(), Self::from_return_statement(n.into(), ctx)))
+                }
+                SyntaxKind::LetStatement => {
+                    Some((n.clone(), Self::from_let_statement(n.into(), ctx)))
+                }
                 _ => None,
             })
+            .collect::<Vec<_>>();
+
+        remove_noop::remove_from_codeblock(&mut statements_or_exprs, ctx.diag);
+
+        let mut statements_or_exprs = statements_or_exprs
+            .into_iter()
+            .map(|(_node, statement_or_expr)| statement_or_expr)
             .collect::<Vec<_>>();
 
         let exit_points_and_return_types = statements_or_exprs
