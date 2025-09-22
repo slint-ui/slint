@@ -18,9 +18,9 @@ MyDiag2 := Dialog {
     StandardButton {
         kind: cancel;
         col: 42;
-//           ^error{col used outside of a GridLayout}
+//           ^error{col used outside of a GridLayout's cell}
         rowspan: 2;
-//               ^error{rowspan used outside of a GridLayout}
+//               ^error{rowspan used outside of a GridLayout's cell}
     }
 }
 
@@ -47,7 +47,7 @@ MyDialog4 := Dialog {
 //                                  ^error{The `dialog-button-role` property must be known at compile-time}
     Rectangle {
         Rectangle { dialog-button-role: accept; }
-//                                      ^error{dialog-button-role used outside of a Dialog}
+//                                      ^error{dialog-button-role used outside of a Dialog's direct child}
     }
 
     init => {

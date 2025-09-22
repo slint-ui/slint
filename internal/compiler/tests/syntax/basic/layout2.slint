@@ -41,17 +41,17 @@ export X := Rectangle {
             row: 200000; // that's actually bigger than 65535
 //               ^error{'row' must be a positive integer}
             Rectangle { row: 3; }
-//                           ^error{row used outside of a GridLayout}
+//                           ^error{row used outside of a GridLayout's cell}
         }
     }
 
     Text { colspan: 3; }
-//                  ^error{colspan used outside of a GridLayout}
+//                  ^error{colspan used outside of a GridLayout's cell}
     col: 3;
-//       ^error{col used outside of a GridLayout}
+//       ^error{col used outside of a GridLayout's cell}
 
     HorizontalLayout {
         col: 3;
-//           ^error{col used outside of a GridLayout}
+//           ^error{col used outside of a GridLayout's cell}
     }
 }
