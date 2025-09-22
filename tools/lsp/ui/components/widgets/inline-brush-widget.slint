@@ -3,7 +3,6 @@
 
 import { Palette } from "std-widgets.slint";
 import { Api, BrushKind, ColorData, GradientStop, PropertyValue, PropertyValueKind, PreviewData } from "../../api.slint";
-import { NameLabel } from "./basics.slint";
 import { EditorSpaceSettings, EditorSizeSettings, EditorPalette } from "../../components/styling.slint";
 import { WindowManager, ColorCodeType, BrushPropertyType, PickerData } from "../../windowglobal.slint";
 import { ColorIndicator, GradientIndicator, FakeShadowText, PickerTextInput } from "brush-helpers.slint";
@@ -283,9 +282,6 @@ export component InlineBrushWidget inherits VerticalLayout {
 
     private property <color> current-color: Colors.transparent;
 
-    callback code-action();
-    callback reset-action();
-
     callback test-color-binding(text: string) -> bool;
     callback set-color-binding(text: string);
     callback update-floating-editor();
@@ -350,11 +346,6 @@ export component InlineBrushWidget inherits VerticalLayout {
         if WindowManager.showing-color-picker && WindowManager.current-property-information.name == root.property-name {
             self.update-floating-editor();
         }
-    }
-
-    NameLabel {
-        property-name: root.property-name;
-        property-value: root.property-value;
     }
 
     if property-value.code == "": UnsetColor {

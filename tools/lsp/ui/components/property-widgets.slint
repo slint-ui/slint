@@ -55,7 +55,6 @@ export component PropertyValueWidget inherits VerticalLayout {
 
     if root.property-value.kind == PropertyValueKind.boolean: BooleanWidget {
         enabled <=> root.enabled;
-        property-name <=> root.property-name;
         property-value <=> root.property-value;
 
         set-bool-binding(value) => {
@@ -96,13 +95,6 @@ export component PropertyValueWidget inherits VerticalLayout {
             root.update-display-string-impl(value);
         }
 
-        reset-action() => {
-            root.reset-action();
-        }
-        code-action() => {
-            root.code-action();
-        }
-
         init => {
             // Floating editors need to know the current property details. Call the update if something changes.
             if WindowManager.showing-color-picker && WindowManager.current-property-information.name == root.property-name {
@@ -114,7 +106,6 @@ export component PropertyValueWidget inherits VerticalLayout {
 
     if root.property-value.kind == PropertyValueKind.code: CodeWidget {
         enabled <=> root.enabled;
-        property-name <=> root.property-name;
         property-value <=> root.property-value;
 
         update-display-string(value) => {
@@ -131,7 +122,6 @@ export component PropertyValueWidget inherits VerticalLayout {
 
     if root.property-value.kind == PropertyValueKind.enum: EnumWidget {
         enabled <=> root.enabled;
-        property-name <=> root.property-name;
         property-value <=> root.property-value;
 
         set-enum-binding(text) => {
@@ -145,7 +135,6 @@ export component PropertyValueWidget inherits VerticalLayout {
 
     if root.property-value.kind == PropertyValueKind.float: FloatWidget {
         enabled <=> root.enabled;
-        property-name <=> root.property-name;
         property-value <=> root.property-value;
 
         test-float-binding(text, unit) => {
@@ -162,7 +151,6 @@ export component PropertyValueWidget inherits VerticalLayout {
 
     if root.property-value.kind == PropertyValueKind.integer: IntegerWidget {
         enabled <=> root.enabled;
-        property-name <=> root.property-name;
         property-value <=> root.property-value;
 
         test-integer-binding(text) => {
@@ -179,7 +167,6 @@ export component PropertyValueWidget inherits VerticalLayout {
 
     if root.property-value.kind == PropertyValueKind.string: StringWidget {
         enabled <=> root.enabled;
-        property-name <=> root.property-name;
         property-value: root.property-value;
 
         has-code-action: root.has-code-action;
@@ -196,27 +183,26 @@ export component PropertyValueWidget inherits VerticalLayout {
         update-display-string(value) => {
             root.update-display-string-impl(value);
         }
-
-        reset-action() => {
-            root.reset-action();
-        }
-        code-action() => {
-            root.code-action();
-        }
     }
 }
 
 component IconButton inherits Rectangle {
     in property <image> icon;
     in property <bool> checked: false;
-    TouchArea {
+    in property <bool> enabled: true;
+    ta := TouchArea {
         clicked => root.clicked();
+        mouse-cursor: pointer;
+        enabled: root.enabled;
     }
 
     callback clicked();
     Image {
         height: 1rem;
-        colorize: checked ? Palette.accent-background : Palette.foreground.transparentize(0.5);
+        colorize: !enabled ? Palette.foreground.transparentize(0.8) :
+                  checked ? Palette.accent-background :
+                  ta.has-hover ? Palette.accent-background.transparentize(0.2) :
+                                 Palette.foreground.transparentize(0.5);
         source: root.icon;
     }
 }
@@ -239,15 +225,37 @@ export component PropertyInformationWidget inherits TouchArea {
     }
     private property <PropertyWidgetMode> mode: kind == PropertyValueKind.code ? PropertyWidgetMode.expression : PropertyWidgetMode.value;
 
+    function code-action() {
+        Api.show-document-offset-range(
+            element-information.source-uri,
+            Api.property-declaration-ranges(property-information.name).defined-at.expression-range.start,
+            Api.property-declaration-ranges(property-information.name).defined-at.expression-range.start,
+            true,
+        );
+    }
+    function reset-action() {
+        Api.set-code-binding(
+            element-information.source-uri,
+            element-information.source-version,
+            element-information.offset,
+            property-information.name,
+            "",
+        );
+    }
+
     VerticalLayout {
         padding-bottom: EditorSpaceSettings.default-padding;
         padding-right: EditorSpaceSettings.default-padding * 2;
+        spacing: EditorSpaceSettings.default-spacing / 2;
 
         HorizontalLayout {
             alignment: LayoutAlignment.space-between;
             NameLabel {
                 property-name: property-information.name;
                 property-value: property-information.value;
+                TouchArea {
+                    double-clicked => { root.code-action(); }
+                }
             }
 
             HorizontalLayout {
@@ -261,6 +269,7 @@ export component PropertyInformationWidget inherits TouchArea {
                 IconButton {
                     icon: @image-url("../assets/constant.svg");
                     checked: mode == PropertyWidgetMode.value;
+                    enabled: kind != PropertyValueKind.code;
                     clicked => {
                         mode = PropertyWidgetMode.value;
                     }
@@ -276,32 +285,20 @@ export component PropertyInformationWidget inherits TouchArea {
 
                 IconButton {
                     icon: @image-url("../assets/revert.svg");
+                    enabled: property-information.value.code != "";
                     clicked => {
-                        Api.set-code-binding(
-                            element-information.source-uri,
-                            element-information.source-version,
-                            element-information.offset,
-                            property-information.name,
-                            "",
-                        );
+                        root.reset-action();
                     }
                 }
             }
         }
 
-
         if mode == PropertyWidgetMode.expression :  HorizontalLayout {
+            alignment: LayoutAlignment.stretch;
             spacing: 5px;
             IconButton {
                 icon: @image-url("../assets/code.svg");
-                clicked => {
-                    Api.show-document-offset-range(
-                        element-information.source-uri,
-                        Api.property-declaration-ranges(property-information.name).defined-at.expression-range.start,
-                        Api.property-declaration-ranges(property-information.name).defined-at.expression-range.start,
-                        true,
-                    );
-                }
+                clicked => { root.code-action(); }
             }
             ResettingLineEdit {
                 enabled: root.enabled;
@@ -331,8 +328,7 @@ export component PropertyInformationWidget inherits TouchArea {
 
         if mode == PropertyWidgetMode.value : PropertyValueWidget {
             property-value: root.property-information.value;
-            // Because the name is given in the PropertyView already. FIXME: we should refactor this so that the PropertyValueWidget don't have the name
-            property-name: "";
+            property-name: root.property-information.name;
             enabled: root.enabled;
 
             set-current-item() => {
@@ -400,21 +396,11 @@ export component PropertyInformationWidget inherits TouchArea {
             }
 
             reset-action() => {
-                Api.set-code-binding(
-                    element-information.source-uri,
-                    element-information.source-version,
-                    element-information.offset,
-                    property-information.name,
-                    "",
-                );
+                root.reset-action();
             }
+
             code-action() => {
-                Api.show-document-offset-range(
-                    element-information.source-uri,
-                    Api.property-declaration-ranges(property-information.name).defined-at.expression-range.start,
-                    Api.property-declaration-ranges(property-information.name).defined-at.expression-range.start,
-                    true,
-                );
+                root.code-action();
             }
         }
     }
@@ -453,6 +439,12 @@ export component PreviewDataPropertyValueWidget inherits VerticalLayout {
 
     padding-bottom: EditorSpaceSettings.default-padding;
     padding-right: EditorSpaceSettings.default-padding * 2;
+    spacing: EditorSpaceSettings.default-spacing / 2;
+
+    NameLabel {
+        property-name: root.preview-data.name;
+        property-value: root.value;
+    }
 
     if root.preview-data.kind == PreviewDataKind.Value: PropertyValueWidget {
         property-value <=> root.value;
@@ -516,7 +508,6 @@ export component PreviewDataPropertyValueWidget inherits VerticalLayout {
     }
     if root.preview-data.kind == PreviewDataKind.Json: JsonWidget {
         enabled: root.preview-data.has-setter;
-        property-name: root.preview-data.name;
         property-value <=> root.value;
 
         set-code-binding(text) => {
