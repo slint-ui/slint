@@ -18,7 +18,7 @@ use i_slint_core::item_rendering::{
 };
 use i_slint_core::items::{
     self, Clip, FillRule, ImageRendering, ImageTiling, ItemRc, Layer, Opacity, RenderingResult,
-    TextVerticalAlignment, TextHorizontalAlignment,
+    TextHorizontalAlignment, TextVerticalAlignment,
 };
 use i_slint_core::lengths::{
     LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector,
@@ -195,7 +195,12 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
     }
 }
 
-fn draw_glyphs<R: femtovg::Renderer + TextureImporter>(layout: parley::Layout<()>, canvas: &mut Canvas<R>, paint: femtovg::Paint, offset: f32) {
+fn draw_glyphs<R: femtovg::Renderer + TextureImporter>(
+    layout: parley::Layout<()>,
+    canvas: &mut Canvas<R>,
+    paint: femtovg::Paint,
+    offset: f32,
+) {
     for line in layout.lines() {
         for item in line.items() {
             match item {
@@ -205,13 +210,11 @@ fn draw_glyphs<R: femtovg::Renderer + TextureImporter>(layout: parley::Layout<()
 
                     canvas
                         .fill_glyphs(
-                            glyph_run.positioned_glyphs().map(|glyph| {
-                                femtovg::PositionedGlyph {
-                                    x: glyph.x,
-                                    y: glyph.y + offset,
-                                    font_id,
-                                    glyph_id: glyph.id,
-                                }
+                            glyph_run.positioned_glyphs().map(|glyph| femtovg::PositionedGlyph {
+                                x: glyph.x,
+                                y: glyph.y + offset,
+                                font_id,
+                                glyph_id: glyph.id,
                             }),
                             &paint,
                         )
@@ -223,7 +226,11 @@ fn draw_glyphs<R: femtovg::Renderer + TextureImporter>(layout: parley::Layout<()
     }
 }
 
-fn get_offset(vertical_align: TextVerticalAlignment, max_height: PhysicalLength, layout: &parley::Layout<()>) -> f32 {
+fn get_offset(
+    vertical_align: TextVerticalAlignment,
+    max_height: PhysicalLength,
+    layout: &parley::Layout<()>,
+) -> f32 {
     match vertical_align {
         TextVerticalAlignment::Top => 0.0,
         TextVerticalAlignment::Center => (max_height.get() - layout.height()) / 2.0,
@@ -439,11 +446,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
         let mut canvas = self.canvas.borrow_mut();
         let text: SharedString = visual_representation.text.into();
 
-        let layout = fonts::layout(
-            &text,
-            Some(width),
-            TextHorizontalAlignment::Left,
-        );
+        let layout = fonts::layout(&text, Some(width), TextHorizontalAlignment::Left);
         let offset = get_offset(text_input.vertical_alignment(), height, &layout);
         draw_glyphs(layout, &mut canvas, paint, offset);
     }
