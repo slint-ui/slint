@@ -30,7 +30,7 @@
         "@astrojs/sitemap": "3.5.1",
         "@astrolib/analytics": "0.6.1",
         "@astrolib/seo": "1.0.0-beta.8",
-        "@fontsource-variable/inter": "5.2.7",
+        "@fontsource-variable/inter": "5.2.8",
         "astro-icon": "1.1.5",
         "limax": "4.1.0",
         "lodash.merge": "4.6.2",
