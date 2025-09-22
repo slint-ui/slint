@@ -10,21 +10,11 @@ import { Button } from "std-widgets.slint";
 
 export component MultiValueWidget inherits GridLayout {
     in property <bool> enabled;
-    in property <string> property-name: preview-data.name;
     in property <PropertyValue> property-value;
     in property <PreviewData> preview-data;
     in property <string> property-group-id;
 
     callback edit-in-table-editor(property-group-id: string, data: PreviewData);
-
-    Row {
-        NameLabel {
-            col: 1;
-
-            property-name: root.property-name;
-            property-value: root.property-value;
-        }
-    }
 
     Row {
         ChildIndicator {
