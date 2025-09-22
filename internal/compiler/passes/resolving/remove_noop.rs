@@ -25,7 +25,7 @@ pub fn remove_from_codeblock(
         for index in (0..(code_block.len() - 1)).rev() {
             let (node, expression) = &code_block[index];
             if without_side_effects(expression) {
-                diagnostics.push_warning("Expresssion has no effect!".to_owned(), node);
+                diagnostics.push_warning("Expression has no effect!".to_owned(), node);
                 code_block.remove(index);
             }
         }
