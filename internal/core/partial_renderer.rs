@@ -2,6 +2,18 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 //! Module for a renderer proxy that tries to render only the parts of the tree that have changed.
+//!
+//! This is the way the partial renderer work:
+//!
+//! 1. [`PartialRenderer::compute_dirty_regions`] will go over the items and try to compute the region that needs to be repainted.
+//!    If either the bounding box has changed, or the PropertyTracker that tracks the rendering properties is dierty, then the
+//!    region is marked dirty.
+//!    That pass also register dependencies on every geometry, and on the non-dirty property trackers.
+//! 2. The Renderer calls [`PartialRenderer::filter_item`] For most items.
+//!    This assume that the cached geometry was requested in the previous step. So it will not register new dependencies.
+//! 3. Then the renderer calls the rendering function for each item that needs to be rendered.
+//!    This register dependencies only on the rendering tracker.
+//!
 
 use crate::item_rendering::{
     ItemRenderer, ItemRendererFeatures, RenderBorderRectangle, RenderImage, RenderRectangle,
@@ -148,39 +160,15 @@ impl CachedItemBoundingBoxAndTransform {
     }
 }
 
-/// A pair of property trackers that are used to track changes in the geometry and rendering of an item.
-#[pin_project::pin_project]
-#[derive(Default)]
-pub struct PropertyTrackerPair {
-    /// track only the change in the geometry
-    #[pin]
-    pub geometry: PropertyTracker,
-    /// track only the change in the rendering
-    #[pin]
-    pub rendering: PropertyTracker,
-}
-
 struct PartialRenderingCachedData {
-    /// The backend specific data.
+    /// The geometry of the item as it was previously rendered.
     pub data: CachedItemBoundingBoxAndTransform,
-    /// The property tracker that should be used to evaluate whether the primitive needs to be re-created
-    /// or not.
-    pub dependency_tracker: core::pin::Pin<Box<PropertyTrackerPair>>,
+    /// The property tracker that should be used to evaluate whether the item needs to be re-rendered
+    pub tracker: Option<core::pin::Pin<Box<PropertyTracker>>>,
 }
 impl PartialRenderingCachedData {
-    fn new<T: ItemRendererFeatures>(
-        item_rc: &ItemRc,
-        window_adapter: &Rc<dyn WindowAdapter>,
-        render_fn: impl FnOnce(),
-    ) -> Self {
-        let dependency_tracker = Box::pin(PropertyTrackerPair::default());
-        dependency_tracker.as_ref().project_ref().rendering.evaluate(render_fn);
-        let data = dependency_tracker
-            .as_ref()
-            .project_ref()
-            .geometry
-            .evaluate(|| CachedItemBoundingBoxAndTransform::new::<T>(item_rc, window_adapter));
-        Self { data, dependency_tracker }
+    fn new(data: CachedItemBoundingBoxAndTransform) -> Self {
+        Self { data, tracker: None }
     }
 }
 
@@ -418,52 +406,48 @@ impl<'a, T: ItemRenderer + ItemRendererFeatures> PartialRenderer<'a, T> {
             crate::item_tree::TraversalOrder::BackToFront,
             |component, item, index, state| {
                 let mut new_state = *state;
-                let mut borrowed = self.cache.borrow_mut();
                 let item_rc = ItemRc::new(component.clone(), index);
+                let rendering_data = item.cached_rendering_data_offset();
+                let mut cache = self.cache.borrow_mut();
 
-                match item.cached_rendering_data_offset().get_entry(&mut borrowed) {
-                    Some(PartialRenderingCachedData {
-                        data: cached_geom,
-                        dependency_tracker: tr,
-                    }) => {
-                        let rendering_dirty = tr.rendering.is_dirty();
-                        let geometry_dirty = tr.geometry.is_dirty();
+                match rendering_data.get_entry(&mut cache) {
+                    Some(PartialRenderingCachedData { data: cached_geom, tracker }) => {
+                        let rendering_dirty = tracker.as_ref().is_some_and(|tr| tr.is_dirty());
+                        let old_geom = cached_geom.clone();
+                        let new_geom = CachedItemBoundingBoxAndTransform::new::<T>(
+                            &item_rc,
+                            &self.window_adapter,
+                        );
+
+                        let geometry_changed = old_geom != new_geom;
                         if ItemRef::downcast_pin::<Clip>(item).is_some()
                             || ItemRef::downcast_pin::<Opacity>(item).is_some()
                         {
                             // When the opacity or the clip change, this will impact all the children, including
                             // the ones outside the element, regardless if they are themselves dirty or not.
-                            new_state.must_refresh_children |= rendering_dirty | geometry_dirty;
+                            new_state.must_refresh_children |= rendering_dirty || geometry_changed;
                         }
 
-                        if geometry_dirty {
-                            let old_geom = cached_geom.clone();
-                            let new_geom = crate::properties::evaluate_no_tracking(|| {
-                                CachedItemBoundingBoxAndTransform::new::<T>(
-                                    &item_rc,
-                                    &self.window_adapter,
-                                )
-                            });
+                        if geometry_changed {
+                            self.mark_dirty_rect(
+                                old_geom.bounding_rect(),
+                                state.old_transform_to_screen,
+                                &state.clipped,
+                            );
+                            self.mark_dirty_rect(
+                                new_geom.bounding_rect(),
+                                state.transform_to_screen,
+                                &state.clipped,
+                            );
 
-                            if old_geom != new_geom {
-                                self.mark_dirty_rect(
-                                    old_geom.bounding_rect(),
-                                    state.old_transform_to_screen,
-                                    &state.clipped,
-                                );
-                                self.mark_dirty_rect(
-                                    new_geom.bounding_rect(),
-                                    state.transform_to_screen,
-                                    &state.clipped,
-                                );
+                            new_state.adjust_transforms_for_child(
+                                &new_geom.transform(),
+                                &old_geom.transform(),
+                            );
 
-                                new_state.adjust_transforms_for_child(
-                                    &new_geom.transform(),
-                                    &old_geom.transform(),
-                                );
+                            *cached_geom = new_geom;
 
-                                return ItemVisitorResult::Continue(new_state);
-                            }
+                            return ItemVisitorResult::Continue(new_state);
                         }
 
                         new_state.adjust_transforms_for_child(
@@ -480,15 +464,6 @@ impl<'a, T: ItemRenderer + ItemRendererFeatures> PartialRenderer<'a, T> {
 
                             ItemVisitorResult::Continue(new_state)
                         } else {
-                            tr.as_ref()
-                                .project_ref()
-                                .geometry
-                                .register_as_dependency_to_current_binding();
-                            tr.as_ref()
-                                .project_ref()
-                                .rendering
-                                .register_as_dependency_to_current_binding();
-
                             if state.must_refresh_children
                                 || new_state.transform_to_screen
                                     != new_state.old_transform_to_screen
@@ -503,6 +478,10 @@ impl<'a, T: ItemRenderer + ItemRendererFeatures> PartialRenderer<'a, T> {
                                     state.transform_to_screen,
                                     &state.clipped,
                                 );
+                            } else {
+                                if let Some(tr) = &tracker {
+                                    tr.as_ref().register_as_dependency_to_current_binding();
+                                }
                             }
 
                             if let CachedItemBoundingBoxAndTransform::ClipItem { geometry } =
@@ -527,32 +506,31 @@ impl<'a, T: ItemRenderer + ItemRendererFeatures> PartialRenderer<'a, T> {
                             ItemVisitorResult::Continue(new_state)
                         }
                     }
-                    _ => {
-                        drop(borrowed);
-                        let bounding_rect = crate::properties::evaluate_no_tracking(|| {
-                            let geom = CachedItemBoundingBoxAndTransform::new::<T>(
-                                &item_rc,
-                                &self.window_adapter,
-                            );
+                    None => {
+                        let geom = CachedItemBoundingBoxAndTransform::new::<T>(
+                            &item_rc,
+                            &self.window_adapter,
+                        );
+                        let cache_entry = PartialRenderingCachedData::new(geom.clone());
+                        rendering_data.cache_index.set(cache.insert(cache_entry));
+                        rendering_data.cache_generation.set(cache.generation());
 
-                            new_state
-                                .adjust_transforms_for_child(&geom.transform(), &geom.transform());
+                        new_state.adjust_transforms_for_child(&geom.transform(), &geom.transform());
 
-                            if let CachedItemBoundingBoxAndTransform::ClipItem { geometry } = geom {
-                                new_state.clipped = new_state
-                                    .clipped
-                                    .intersection(
-                                        &state
-                                            .transform_to_screen
-                                            .outer_transformed_rect(&geometry.cast())
-                                            .cast(),
-                                    )
-                                    .unwrap_or_default();
-                            }
-                            *geom.bounding_rect()
-                        });
+                        if let CachedItemBoundingBoxAndTransform::ClipItem { geometry } = geom {
+                            new_state.clipped = new_state
+                                .clipped
+                                .intersection(
+                                    &state
+                                        .transform_to_screen
+                                        .outer_transformed_rect(&geometry.cast())
+                                        .cast(),
+                                )
+                                .unwrap_or_default();
+                        }
+
                         self.mark_dirty_rect(
-                            &bounding_rect,
+                            &geom.bounding_rect(),
                             state.transform_to_screen,
                             &state.clipped,
                         );
@@ -597,16 +575,24 @@ impl<'a, T: ItemRenderer + ItemRendererFeatures> PartialRenderer<'a, T> {
     ) {
         let mut cache = cache.borrow_mut();
         if let Some(entry) = rendering_data.get_entry(&mut cache) {
-            let trackers = &entry.dependency_tracker;
-            trackers.as_ref().project_ref().geometry.evaluate_if_dirty(|| {
-                CachedItemBoundingBoxAndTransform::new::<T>(&item_rc, window_adapter)
-            });
-            trackers.as_ref().project_ref().rendering.evaluate(render_fn);
+            entry
+                .tracker
+                .get_or_insert_with(|| Box::pin(PropertyTracker::default()))
+                .as_ref()
+                .evaluate(render_fn);
         } else {
-            let cache_entry =
-                PartialRenderingCachedData::new::<T>(item_rc, window_adapter, render_fn);
+            let mut cache_entry = PartialRenderingCachedData::new(
+                CachedItemBoundingBoxAndTransform::new::<T>(item_rc, window_adapter),
+            );
+            cache_entry
+                .tracker
+                .get_or_insert_with(|| Box::pin(PropertyTracker::default()))
+                .as_ref()
+                .evaluate(render_fn);
             rendering_data.cache_index.set(cache.insert(cache_entry));
             rendering_data.cache_generation.set(cache.generation());
+
+            unreachable!("compute_dirty_regions should have already computed the geometry")
         }
     }
 
@@ -644,33 +630,18 @@ impl<T: ItemRenderer + ItemRendererFeatures> ItemRenderer for PartialRenderer<'_
     fn filter_item(
         &mut self,
         item_rc: &ItemRc,
-        window_adapter: &Rc<dyn WindowAdapter>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
     ) -> (bool, LogicalRect) {
         let item = item_rc.borrow();
-        let eval = || {
-            // registers dependencies on the geometry and clip properties.
-            CachedItemBoundingBoxAndTransform::new::<T>(item_rc, window_adapter)
-        };
+
+        // Query untracked, as the bounding rect calculation already registers a dependency on the geometry.
+        let item_geometry = crate::properties::evaluate_no_tracking(|| item_rc.geometry());
 
         let rendering_data = item.cached_rendering_data_offset();
         let mut cache = self.cache.borrow_mut();
         let item_bounding_rect = match rendering_data.get_entry(&mut cache) {
-            Some(PartialRenderingCachedData { data, dependency_tracker }) => {
-                dependency_tracker
-                    .as_ref()
-                    .project_ref()
-                    .geometry
-                    .evaluate_if_dirty(|| *data = eval());
-                *data.bounding_rect()
-            }
-            None => {
-                let cache_entry =
-                    PartialRenderingCachedData::new::<T>(item_rc, window_adapter, || ());
-                let geom = cache_entry.data.clone();
-                rendering_data.cache_index.set(cache.insert(cache_entry));
-                rendering_data.cache_generation.set(cache.generation());
-                *geom.bounding_rect()
-            }
+            Some(PartialRenderingCachedData { data, tracker: _ }) => *data.bounding_rect(),
+            None => unreachable!("compute_dirty_regions should have already computed the geometry"),
         };
 
         let clipped_geom = self.get_current_clip().intersection(&item_bounding_rect);
@@ -678,9 +649,6 @@ impl<T: ItemRenderer + ItemRendererFeatures> ItemRenderer for PartialRenderer<'_
             let clipped_geom = clipped_geom.translate(self.translation());
             self.dirty_region.draw_intersects(clipped_geom)
         });
-
-        // Query untracked, as the bounding rect calculation already registers a dependency on the geometry.
-        let item_geometry = crate::properties::evaluate_no_tracking(|| item_rc.geometry());
 
         (draw, item_geometry)
     }
