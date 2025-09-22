@@ -1,0 +1,104 @@
+---
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+title: SearchBar
+description: SearchBar API.
+---
+
+import CodeSnippetMD from '/src/components/CodeSnippetMD.astro';
+import SlintProperty from '/src/components/SlintProperty.astro';
+
+<CodeSnippetMD imagePath="/src/assets/generated/searchbar.png" scale="3" imageWidth="300" imageHeight="200" imageAlt="">
+```slint
+import { SearchBar } from "./material.slint";
+export component Example inherits Window {
+    width: 300px;
+    height: 100px;
+    background: transparent;
+    SearchBar {
+        placeholder-text: "Search...";
+        width: 280px;
+        height: 56px;
+    }
+}
+```
+</CodeSnippetMD>
+
+A `SearchBar` is a text input field designed for search functionality, with optional leading/trailing icons and avatar.
+
+## Properties
+
+### avatar
+<SlintProperty propName="avatar-icon" typeName="image">
+An optional avatar image displayed in the search bar.
+</SlintProperty>
+
+### avatar-background
+<SlintProperty propName="avatar-background" typeName="color" defaultValue="#00000000">
+The background color for the avatar.
+</SlintProperty>
+
+### current-index
+<SlintProperty propName="current-index" typeName="int" propertyVisibility="in-out">
+The index of the currently selected search result item.
+</SlintProperty>
+
+### empty-text
+<SlintProperty propName="empty-text" typeName="string">
+Text displayed when there are no search results.
+</SlintProperty>
+
+### has-focus
+<SlintProperty propName="has-focus" typeName="bool">
+Whether the component has focus.
+</SlintProperty>
+
+### items
+<SlintProperty propName="items" typeName="[struct]" structName="ListItem">
+An array of search result items to display.
+</SlintProperty>
+
+### leading-icon
+<SlintProperty propName="leading-icon" typeName="image">
+The icon displayed at the start of the search bar.
+</SlintProperty>
+
+### placeholder-text
+<SlintProperty propName="placeholder-text" typeName="string">
+The placeholder text displayed when the search bar is empty.
+</SlintProperty>
+
+### text
+<SlintProperty propName="text" typeName="string" propertyVisibility="in-out">
+The current text in the search bar.
+</SlintProperty>
+
+### trailing-icon
+<SlintProperty propName="trailing-icon" typeName="image">
+The icon displayed at the end of the search bar.
+</SlintProperty>
+
+## Callbacks
+
+
+### action-button-clicked(index: int)
+Invoked when a search result item action is triggered.
+
+### accepted(text: string)
+Invoked when the user presses Enter in the search bar.
+
+### edited(text: string)
+Invoked when the text in the search bar changes.
+
+### key-pressed(event: KeyEvent) -> EventResult
+Invoked when a key is pressed in the search bar.
+
+### key-released(event: KeyEvent) -> EventResult
+Invoked when a key is released in the search bar.
+
+## Functions
+
+### clear-focus()
+Clears the focus from the component.
+
+### focus()
+Focuses the component.

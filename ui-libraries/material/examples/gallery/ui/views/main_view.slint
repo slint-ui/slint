@@ -1,0 +1,110 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { ComponentsView } from "components_view.slint";
+import { Palette } from "std-widgets.slint";
+import { MainWindowAdapter } from "../main_window_adapter.slint";
+import { FilledIcons, OutlinedIcons } from "../icons.slint";
+import {
+    MaterialText,
+    Typography,
+    IconButton,
+    MaterialPalette,
+    Animations,
+    NavigationRail,
+    NavigationItem,
+    NavigationBar,
+    SmallAppBar,
+    PopupMenu,
+    MenuItem,
+    MaterialStyleMetrics
+} from "../../../../material.slint";
+
+export enum Views {
+    components
+}
+
+export global MainViewAdapter {
+    in_out property <[MenuItem]> palettes: [
+        { text: "Slint", enabled: true },
+        { text: "Purple", enabled: true },
+        { text: "Green", enabled: true },
+        { text: "Red", enabled: true },
+    ];
+
+    callback load_palette(index: int);
+}
+
+export component MainView {
+    property <Views> current_view: Views.components;
+    property <[NavigationItem]> navigation_items: [
+        {
+            text: "Components",
+            icon: OutlinedIcons.dashboard,
+            selected_icon: FilledIcons.dashboard
+        }
+    ];
+
+    VerticalLayout {
+        app_bar := SmallAppBar {
+            title: "Material 3";
+            trailing_buttons: [
+                { icon: OutlinedIcons.palette, enabled: true },
+                { icon: Palette.color_scheme == ColorScheme.light ? OutlinedIcons.dark_mode : OutlinedIcons.light_mode, enabled: true }
+            ];
+            show_background: MainWindowAdapter.show_background;
+
+            trailing_button_clicked(index) => {
+                if index == 0 {
+                    color_menu.show();
+                }
+
+                if index == 1 {
+
+                    if Palette.color_scheme == ColorScheme.light {
+                        Palette.color_scheme = ColorScheme.dark;
+                        return;
+                    }
+
+                    Palette.color_scheme = ColorScheme.light;
+                }
+            }
+        }
+
+        color_menu := PopupMenu {
+            x: root.width - MaterialStyleMetrics.size_200 - MaterialStyleMetrics.padding_16;
+            y: app_bar.height / 2;
+            items: MainViewAdapter.palettes;
+
+            activated(index) => {
+                MainViewAdapter.load_palette(index);
+                color_menu.close();
+            }
+        }
+
+        Rectangle {
+            background: MaterialPalette.background;
+
+            if !MainWindowAdapter.break_layout : HorizontalLayout {
+                 NavigationRail {
+                     items: root.navigation_items;
+                 }
+
+
+                if root.current_view == Views.components : ComponentsView {
+                    horizontal_stretch: 1;
+                }
+            }
+
+            if MainWindowAdapter.break_layout : VerticalLayout {
+                if root.current_view == Views.components : ComponentsView {
+                    horizontal_stretch: 1;
+                }
+
+                NavigationBar {
+                    items: root.navigation_items;
+                }
+            }
+        }
+    }
+}

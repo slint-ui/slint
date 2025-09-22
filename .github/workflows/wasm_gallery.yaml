@@ -1,0 +1,53 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: MIT
+
+name: Build a WASM version of the gallery example
+
+on:
+    workflow_dispatch:
+    workflow_call:
+
+jobs:
+    wasm_build:
+        env:
+            CARGO_PROFILE_RELEASE_OPT_LEVEL: s
+            CARGO_INCREMENTAL: false
+        runs-on: ubuntu-latest
+        defaults:
+          run:
+            working-directory: ui-libraries/material
+        steps:
+            - uses: actions/checkout@v5
+            - name: Cache WASM build
+              id: cache-wasm
+              uses: actions/cache@v4
+              with:
+                  path: |
+                      ui-libraries/material/examples/gallery/pkg
+                      ui-libraries/material/examples/gallery/index.html
+                      ui-libraries/material/examples/gallery/frame-tablet.webp
+                  key: wasm-build-${{ hashFiles('ui-libraries/material/examples/gallery/**', 'ui-libraries/material/ui/**', 'ui-libraries/material/Cargo.toml', 'ui-libraries/material/material.slint', 'ui-libraries/material/crate/**') }}
+            - name: Install Rust
+              if: steps.cache-wasm.outputs.cache-hit != 'true'
+              uses: dtolnay/rust-toolchain@stable
+              with:
+                  target: wasm32-unknown-unknown
+            - name: Install wasm-pack
+              if: steps.cache-wasm.outputs.cache-hit != 'true'
+              run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+            - uses: Swatinem/rust-cache@v2
+              if: steps.cache-wasm.outputs.cache-hit != 'true'
+              with:
+                  key: wasm-build
+            - name: Build
+              if: steps.cache-wasm.outputs.cache-hit != 'true'
+              working-directory: ui-libraries/material/examples/gallery
+              run: wasm-pack build --target web
+            - name: "Upload Artifacts"
+              uses: actions/upload-artifact@v4
+              with:
+                  name: wasm_gallery
+                  path: |
+                      ui-libraries/material/examples/gallery/index.html
+                      ui-libraries/material/examples/gallery/frame-tablet.webp
+                      ui-libraries/material/examples/gallery/pkg

@@ -1,0 +1,38 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import {
+    MaterialWindow,
+    MaterialWindowAdapter,
+    ListItem,
+    MaterialSchemes,
+    MaterialScheme,
+    MaterialPalette,
+    DatePickerAdapter,
+} from "../../../material.slint";
+import { MainView, MainViewAdapter } from "./views/main_view.slint";
+import { MainWindowAdapter } from "./main_window_adapter.slint";
+export { NavigationViewAdapter } from "./views/navigation_view.slint";
+export { MaterialWindowAdapter, ListItem, MaterialSchemes, MaterialScheme, MaterialPalette, MainViewAdapter, DatePickerAdapter }
+export { OutlinedIcons } from "./icons.slint";
+import "./fonts/Roboto-VariableFont.ttf";
+
+export component MainWindow inherits MaterialWindow {
+    preferred-width: 600px;
+    preferred-height: 400px;
+    background: MainWindowAdapter.background;
+    default-font-family: "Roboto";
+
+    MainView {
+        width: 100%;
+        height: 100%;
+    }
+
+    changed width => {
+        MainWindowAdapter.width = root.width;
+    }
+
+    changed height => {
+        MainWindowAdapter.height = root.height;
+    }
+}

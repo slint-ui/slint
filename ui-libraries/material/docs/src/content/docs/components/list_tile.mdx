@@ -1,0 +1,69 @@
+---
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+title: ListTile
+description: ListTile API.
+---
+
+import CodeSnippetMD from '/src/components/CodeSnippetMD.astro';
+import SlintProperty from '/src/components/SlintProperty.astro';
+
+<CodeSnippetMD imagePath="" noScreenShot scale="3" imageWidth="300" imageHeight="200" imageAlt="">
+```slint
+import { ListTile } from "./material.slint";
+export component Example inherits Window {
+    width: 300px;
+    height: 100px;
+    background: transparent;
+    ListTile {
+        text: "List Item";
+        supporting-text: "Supporting text";
+        width: 280px;
+        height: 72px;
+    }
+}
+```
+</CodeSnippetMD>
+
+A `ListTile` is a single row in a list that can contain text, supporting text, and an optional avatar.
+
+## Properties
+
+### avatar-background
+<SlintProperty propName="avatar-background" typeName="color">
+The background color for the avatar.
+</SlintProperty>
+
+### avatar-foreground
+<SlintProperty propName="avatar-foreground" typeName="color">
+The foreground color for the avatar text or icon.
+</SlintProperty>
+
+### avatar-icon
+<SlintProperty propName="avatar-icon" typeName="image">
+An optional icon displayed as an avatar.
+</SlintProperty>
+
+### avatar-text
+<SlintProperty propName="avatar-text" typeName="string">
+Optional text displayed as an avatar.
+</SlintProperty>
+
+### enabled
+<SlintProperty propName="enabled" typeName="bool" defaultValue="true">
+Whether the list tile is enabled and can be interacted with.
+</SlintProperty>
+
+### supporting-text
+<SlintProperty propName="supporting-text" typeName="string">
+Secondary text displayed below the primary text.
+</SlintProperty>
+
+### text
+<SlintProperty propName="text" typeName="string">
+The primary text displayed in the list tile.
+</SlintProperty>
+
+## Callbacks
+
+### clicked()
+Invoked when the list tile is clicked.

@@ -1,0 +1,12 @@
+output
+.DS_Store
+node_modules
+dist
+.astro
+package-lock.json
+.vscode/settings.json
+licenses/output
+*.bak
+target/
+Cargo.lock
+docs/src/assets/generated

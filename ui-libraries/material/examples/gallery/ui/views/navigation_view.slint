@@ -1,0 +1,693 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import {
+    MaterialStyleMetrics,
+    NavigationBar,
+    BottomAppBar,
+    NavigationDrawer,
+    TextButton,
+    ModalNavigationDrawer,
+    NavigationRail,
+    Horizontal,
+    NavigationItem,
+    TabBar,
+    SecondaryTabBar,
+    SearchBar,
+    MaterialText,
+    Vertical,
+    ListItem,
+    AppBar,
+    SmallAppBar,
+    MediumAppBar,
+    LargeAppBar,
+    CheckBoxTile,
+    CheckState,
+    ActionChip,
+    FilterChip,
+    InputChip,
+    TimePickerPopup,
+    Switch,
+    Slider,
+    TextField,
+    RadioButtonTile,
+    PopupMenu,
+    DropDownMenu,
+    MenuItem,
+    DatePickerPopup
+} from "../../../../material.slint";
+
+import { Group } from "../components/group.slint";
+import { ComponentCard } from "../components/component_card.slint";
+import { MainWindowAdapter } from "../main_window_adapter.slint";
+import { MainWindowAdapter } from "../main_window_adapter.slint";
+import { FilledIcons, OutlinedIcons } from "../icons.slint";
+
+export global NavigationViewAdapter {
+    in_out property <[ListItem]> search_items;
+    in property <[bool]> radio_buttons: [ true, false, false ];
+
+    callback search(text: string);
+    callback filter_icons(text: string);
+    callback radio_button_clicked(index: int);
+}
+
+export component NavigationView {
+    layout := VerticalLayout {
+        alignment: start;
+        spacing: MaterialStyleMetrics.spacing_8;
+        horizontal-stretch: 1;
+
+        Group {
+            title: "Navigation";
+
+            ComponentCard {
+                title: "Search";
+
+                Vertical {
+                    spacing: MaterialStyleMetrics.spacing_16;
+                    alignment: start;
+
+                    SearchBar {
+                        leading_icon: OutlinedIcons.search;
+                        placeholder_text: "Search color";
+                        empty_text: "No search history.";
+                        items: NavigationViewAdapter.search_items;
+
+                        edited(text) => {
+                            NavigationViewAdapter.search(text);
+                        }
+                    }
+
+                    MaterialText {
+                        text: "Select a color";
+                        horizontal_alignment: center;
+                    }
+                }
+            }
+
+            ComponentCard {
+                title: "Bottom app bar";
+
+                BottomAppBar {
+                    icon_buttons: [
+                        {
+                            icon: OutlinedIcons.more_vert,
+                            enabled: true,
+
+                        },
+                        {
+                            icon: OutlinedIcons.search,
+                            enabled: true,
+                            tooltip: "Search"
+                        },
+                        {
+                            icon: OutlinedIcons.favorite,
+                            enabled: true,
+                            tooltip: "Favorite"
+                        },
+                    ];
+                    fab_icon:  OutlinedIcons.add;
+                }
+            }
+
+            ComponentCard {
+                title: "Navigation bar";
+
+                NavigationBar {
+                    items: [
+                          {
+                             icon: OutlinedIcons.explore,
+                             selected_icon: FilledIcons.explore,
+                             text: "Explore",
+                          },
+                          {
+                             icon: OutlinedIcons.pets,
+                             selected_icon: FilledIcons.pets,
+                             text: "Pets",
+                          },
+                          {
+                             icon: OutlinedIcons.account_box,
+                             selected_icon: FilledIcons.account_box,
+                             text: "Account",
+                          },
+                    ];
+                }
+            }
+
+            ComponentCard {
+                title: "Navigation drawer";
+
+                VerticalLayout {
+                    NavigationDrawer {
+                        groups: [
+                            {
+                                title: "Mail",
+                                items: [
+                                    {
+                                        icon: OutlinedIcons.inbox,
+                                        selected_icon: FilledIcons.inbox,
+                                        text: "Inbox",
+                                    },
+                                    {
+                                        icon: OutlinedIcons.outbox,
+                                        selected_icon: FilledIcons.outbox,
+                                        text: "Outbox",
+                                    },
+                                    {
+                                        icon: OutlinedIcons.favorite,
+                                        selected_icon: FilledIcons.favorite,
+                                        text: "Favorites",
+                                    },
+                                    {
+                                        icon: OutlinedIcons.delete,
+                                        selected_icon: FilledIcons.delete,
+                                        text: "Trash",
+                                    }
+                                ]
+                            },
+                            {
+                                title: "Labels",
+                                items: [
+                                    {
+                                        icon: OutlinedIcons.bookmark,
+                                        selected_icon: FilledIcons.bookmark,
+                                        text: "Family",
+                                    },
+                                    {
+                                        icon: OutlinedIcons.bookmark,
+                                        selected_icon: FilledIcons.bookmark,
+                                        text: "School",
+                                    },
+                                    {
+                                        icon: OutlinedIcons.bookmark,
+                                        selected_icon: FilledIcons.bookmark,
+                                        text: "Work",
+                                    },
+                                ]
+                            }
+                        ];
+                    }
+
+                    HorizontalLayout {
+                        alignment: center;
+
+                        TextButton {
+                            text: "Show modal navigation drawer";
+
+                            clicked => {
+                                modal_navigation_drawer.show();
+                            }
+                        }
+                    }
+                }
+            }
+
+            ComponentCard {
+                title: "Navigation rail";
+
+                Horizontal {
+                    alignment: center;
+
+                    NavigationRail {
+                        height: 500px;
+                        fab_icon: FilledIcons.edit;
+                        alignment: center;
+
+                        items: [
+                            {
+                                icon: OutlinedIcons.inbox,
+                                selected_icon: FilledIcons.inbox,
+                                text: "Inbox",
+                            },
+                            {
+                                icon: OutlinedIcons.outbox,
+                                selected_icon: FilledIcons.outbox,
+                                text: "Outbox",
+                            },
+                            {
+                                icon: OutlinedIcons.favorite,
+                                selected_icon: FilledIcons.favorite,
+                                text: "Favorites",
+                            },
+                            {
+                                icon: OutlinedIcons.delete,
+                                selected_icon: FilledIcons.delete,
+                                text: "Trash",
+                            }
+                        ];
+                    }
+                }
+            }
+
+            ComponentCard {
+                title: "Tabs";
+
+                Horizontal {
+                    TabBar {
+                        items: [
+                         {
+                             text: "Video",
+                             icon: OutlinedIcons.video_chat,
+                         },
+                         {
+                             text: "Photos",
+                             icon: OutlinedIcons.image,
+                         },
+                            {
+                                text: "Audio",
+                                icon: OutlinedIcons.music_note,
+                            },
+                        ];
+                    }
+                }
+            }
+
+            ComponentCard {
+                title: "Top app bars";
+
+                Vertical {
+                    AppBar {
+                        leading_button: { icon: FilledIcons.menu, enabled: true };
+                        trailing_button: { icon: FilledIcons.account_circle, enabled: true };
+                        title: "Product";
+                        show_background: true;
+                    }
+
+                    SmallAppBar {
+                        leading_button: { icon: FilledIcons.menu, enabled: true };
+                        show_background: true;
+                        title: "Small";
+                        trailing_buttons: [
+                            { icon: FilledIcons.calendar_month, enabled: true },
+                            { icon: FilledIcons.more_vert, enabled: true },
+                        ];
+                    }
+
+                    MediumAppBar {
+                        leading_button: { icon: FilledIcons.menu, enabled: true };
+                        title: "Medium";
+                        trailing_buttons: [
+                            { icon: FilledIcons.calendar_month, enabled: true },
+                            { icon: FilledIcons.more_vert, enabled: true },
+                        ];
+                    }
+
+                    LargeAppBar {
+                        leading_button: { icon: FilledIcons.menu, enabled: true };
+                        title: "Large";
+                        trailing_buttons: [
+                            { icon: FilledIcons.calendar_month, enabled: true },
+                            { icon: FilledIcons.more_vert, enabled: true },
+                        ];
+                    }
+                }
+            }
+        }
+
+        Group {
+            title: "Selection";
+
+            ComponentCard {
+                title: "Checkboxes";
+
+                Vertical {
+                    CheckBoxTile {
+                        text: "Option 1";
+                        tristate: true;
+                    }
+
+                    CheckBoxTile {
+                        text: "Option 2";
+                    }
+
+                    CheckBoxTile {
+                        text: "Option 3";
+                        tristate: true;
+                        has-error: true;
+                    }
+
+                    CheckBoxTile {
+                        text: "Option 4";
+                        enabled: false;
+                        check_state: CheckState.checked;
+                    }
+                }
+            }
+
+            ComponentCard {
+                title: "RadioButtons";
+
+                Vertical {
+                    RadioButtonTile {
+                        text: "Option 1";
+                        checked: NavigationViewAdapter.radio_buttons[0];
+
+                        radio_button_clicked => {
+                            NavigationViewAdapter.radio_button_clicked(0);
+                        }
+                    }
+
+                    RadioButtonTile {
+                        text: "Option 2";
+                        checked: NavigationViewAdapter.radio_buttons[1];
+
+                        radio_button_clicked => {
+                            NavigationViewAdapter.radio_button_clicked(1);
+                        }
+                    }
+
+                    RadioButtonTile {
+                        text: "Option 3";
+                        checked: NavigationViewAdapter.radio_buttons[2];
+
+                        radio_button_clicked => {
+                            NavigationViewAdapter.radio_button_clicked(2);
+                        }
+                    }
+
+                    RadioButtonTile {
+                        text: "Option 4";
+                        enabled: false;
+                    }
+                }
+            }
+
+            ComponentCard {
+                title: "Chips";
+
+                Vertical {
+                    Horizontal {
+                        ActionChip {
+                            text: "Assist";
+                            icon: OutlinedIcons.calendar_month;
+                        }
+
+                        fc := FilterChip {
+                            checked: true;
+                            text: "Filter";
+                        }
+
+                        InputChip {
+                            text: "Input";
+                            trailing_icon: OutlinedIcons.delete;
+                        }
+
+                        ActionChip {
+                            text: "Suggestion";
+                        }
+                    }
+
+                    Horizontal {
+                        ActionChip {
+                            text: "Assist";
+                            icon: OutlinedIcons.calendar_month;
+                            enabled: false;
+                        }
+
+                        FilterChip {
+                            checked: fc.checked;
+                            text: "Filter";
+                            enabled: false;
+                        }
+
+                        InputChip {
+                            text: "Input";
+                            enabled: false;
+                        }
+
+                        ActionChip {
+                            text: "Suggestion";
+                            enabled: false;
+                        }
+                    }
+                }
+            }
+
+            ComponentCard {
+                title: "Menus";
+
+                Horizontal {
+                    alignment: center;
+
+                    menu_button := TextButton {
+                        text: "Show menu";
+
+                        clicked => {
+                            menu.show();
+                        }
+                    }
+
+
+                    menu := PopupMenu {
+                        x: menu_button.x + menu_button.width / 2;
+                        y: menu_button.y + menu_button.height / 2;
+                        items: [
+                            { icon: OutlinedIcons.account_box, text: "Inbox", enabled: true },
+                            { icon: OutlinedIcons.outbox, text: "Outbox", enabled: true, trailing_text: "Ctrl C" },
+                            { icon: OutlinedIcons.favorite, text: "Fravorites", enabled: true },
+                            { icon: OutlinedIcons.delete, text: "Trash", enabled: false },
+                        ];
+                    }
+                }
+            }
+
+            ComponentCard {
+                title: "Time picker";
+
+                Horizontal {
+                    alignment: center;
+
+                    TextButton {
+                        icon: OutlinedIcons.schedule;
+                        text: "Show time picker";
+
+                        clicked => {
+                            time_picker.show();
+                        }
+                    }
+                }
+            }
+
+            ComponentCard {
+                title: "Date picker";
+
+                Horizontal {
+                    alignment: center;
+
+                    TextButton {
+                        icon: OutlinedIcons.calendar_month;
+                        text: "Show date picker";
+
+                        clicked => {
+                            date_picker.show();
+                        }
+                    }
+                }
+            }
+
+            ComponentCard {
+                title: "DropDown menu";
+
+                Horizontal {
+                    DropDownMenu {
+                        label: "Icon";
+                        leading_icon: OutlinedIcons.search;
+                        items:
+                        [
+                            { icon: OutlinedIcons.bookmark, text: "Bookmark", enabled: true },
+                            { icon: OutlinedIcons.explore, text: "Explore", enabled: true },
+                            { icon: OutlinedIcons.chat_bubble, text: "Chat", enabled: true },
+                            { icon: OutlinedIcons.favorite, text: "Favorite", enabled: true },
+                        ];
+                    }
+                }
+            }
+
+            ComponentCard {
+                title: "Switches";
+
+                Vertical {
+                    Horizontal {
+                        alignment: space_around;
+
+                        Switch {}
+
+                        Switch {
+                            off_icon: FilledIcons.close;
+                            on_icon: FilledIcons.check;
+                        }
+                    }
+
+                    Horizontal {
+                        alignment: space_around;
+
+                        Switch {
+                            enabled: false;
+                        }
+
+                        Switch {
+                            enabled: false;
+                            on_icon: FilledIcons.check;
+                            off_icon: FilledIcons.close;
+                        }
+                    }
+                }
+            }
+
+            ComponentCard {
+                title: "Sliders";
+
+                Vertical {
+                    spacing: MaterialStyleMetrics.size_24;
+                    Horizontal {
+                        Slider {
+                            value: 50;
+                        }
+                    }
+
+                    Horizontal {
+                        Slider {
+                            stop_count: 5;
+                        }
+                    }
+                }
+            }
+        }
+
+        Group {
+            title: "Text inputs";
+
+            ComponentCard {
+                title: "Text fields";
+
+                Vertical {
+                    Horizontal {
+                        top_tf := TextField {
+                            leading_icon: FilledIcons.search;
+                            trailing_icon: FilledIcons.close;
+                            label: "Filled";
+                            placeholder_text: "hint text";
+                            supporting_text: "supporting text";
+
+                            leading_icon_clicked => {
+                                self.focus();
+                            }
+
+                            trailing_icon_clicked => {
+                                self.text = "";
+                            }
+                        }
+                    }
+
+                    Horizontal {
+                        TextField {
+                            text <=> top_tf.text;
+                            leading_icon: FilledIcons.search;
+                            trailing_icon: FilledIcons.close;
+                            label: "Filled";
+                            placeholder_text: "hint text";
+                            supporting_text: "error text";
+                            has_error: true;
+
+                            leading_icon_clicked => {
+                                self.focus();
+                            }
+
+                            trailing_icon_clicked => {
+                                self.text = "";
+                            }
+                        }
+
+                        TextField {
+                            text <=> top_tf.text;
+                            leading_icon: FilledIcons.search;
+                            trailing_icon: FilledIcons.close;
+                            label: "Filled";
+                            placeholder_text: "hint text";
+                            supporting_text: "supporting text";
+                            enabled: false;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    modal_navigation_drawer := ModalNavigationDrawer {
+        x: -root.absolute_position.x;
+        y: -root.absolute_position.y;
+        width: MainWindowAdapter.width;
+        height: MainWindowAdapter.height;
+        position_right: true;
+        groups: [
+            {
+                title: "Mail",
+                items: [
+                    {
+                        icon: OutlinedIcons.inbox,
+                        selected_icon: FilledIcons.inbox,
+                        text: "Inbox",
+                    },
+                    {
+                        icon: OutlinedIcons.outbox,
+                        selected_icon: FilledIcons.outbox,
+                        text: "Outbox",
+                    },
+                    {
+                        icon: OutlinedIcons.favorite,
+                        selected_icon: FilledIcons.favorite,
+                        text: "Favorites",
+                    },
+                    {
+                        icon: OutlinedIcons.delete,
+                        selected_icon: FilledIcons.delete,
+                        text: "Trash",
+                    }
+                ]
+            },
+            {
+                title: "Labels",
+                items: [
+                    {
+                        icon: OutlinedIcons.bookmark,
+                        selected_icon: FilledIcons.bookmark,
+                        text: "Family",
+                    },
+                    {
+                        icon: OutlinedIcons.bookmark,
+                        selected_icon: FilledIcons.bookmark,
+                        text: "School",
+                    },
+                    {
+                        icon: OutlinedIcons.bookmark,
+                        selected_icon: FilledIcons.bookmark,
+                        text: "Work",
+                    },
+                ]
+            }
+        ];
+    }
+
+    time_picker := TimePickerPopup {
+        // this is used to place the popup on 0,0 of the window and also to fill the window
+        x: -root.absolute_position.x;
+        y: -root.absolute_position.y;
+        width: MainWindowAdapter.width;
+        height: MainWindowAdapter.height;
+        title: @tr("Select time");
+
+        ok => {
+            time_picker.close();
+        }
+    }
+
+    date_picker := DatePickerPopup {
+        // this is used to place the popup on 0,0 of the window and also to fill the window
+        x: -root.absolute_position.x;
+        y: -root.absolute_position.y;
+        width: MainWindowAdapter.width;
+        height: MainWindowAdapter.height;
+        title: @tr("Select date");
+    }
+}

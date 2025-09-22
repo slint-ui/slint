@@ -1,0 +1,317 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { ListItem } from "../items/list_item.slint";
+import { Avatar, ListTile } from "./list.slint";
+import { MaterialPalette } from "../styling/material_palette.slint";
+import { MaterialStyleMetrics } from "../styling/material_style_metrics.slint";
+import { Typography } from "../styling/typography.slint";
+import { StateLayerArea } from "./state_layer.slint";
+import { MaterialText } from "./material_text.slint";
+import { Icon } from "./icon.slint";
+import { IconButton } from "./icon_button.slint";
+import { Icons } from "../icons/icons.slint";
+import { HorizontalDivider } from "./divider.slint";
+import { ListView } from "./list_view.slint";
+import { Animations } from "../styling/animations.slint";
+
+component SearchTile inherits ListTile {
+    in property <image> action_button_icon;
+
+    callback action_button_clicked();
+
+    if root.action_button_icon.width > 0 && root.action_button_icon.height > 0 : IconButton {
+        icon: root.action_button_icon;
+
+        clicked => {
+            root.action_button_clicked();
+        }
+    }
+}
+
+component SearchIcon {
+    in property <image> icon;
+    in property <color> color;
+
+    VerticalLayout {
+        alignment: center;
+        padding_left: MaterialStyleMetrics.padding_8;
+        padding_right: self.padding_left;
+
+        Icon {
+            source: root.icon;
+            colorize: root.color;
+        }
+    }
+}
+
+component SearchTextInput  {
+    in_out property <string> text <=> text_input.text;
+    in property <string> placeholder_text;
+    property <length> computed_x;
+
+    callback accepted(text: string);
+    callback edited(text: string);
+    callback key_pressed(event: KeyEvent) -> EventResult;
+    callback key_released(event: KeyEvent) -> EventResult;
+
+    forward_focus: text_input;
+    horizontal_stretch: 1;
+
+    Rectangle {
+        clip: true;
+
+        text_input := TextInput {
+            x: min(0px, max(parent.width - self.width - self.text_cursor_width, root.computed_x));
+            width: max(parent.width - self.text-cursor-width, self.preferred-width);
+            height: 100%;
+            font_size: Typography.body_large.font_size;
+            font_weight: Typography.body_large.font_weight;
+            vertical_alignment: center;
+            single_line: true;
+            color: MaterialPalette.on_surface;
+            selection_background_color: MaterialPalette.secondary_container;
+            selection_foreground_color: self.color;
+             // Disable TextInput's built-in accessibility support as the component takes care of that.
+            accessible-role: none;
+
+            cursor_position_changed(cursor_position) => {
+                if cursor_position.x + root.computed_x < 0 {
+                    root.computed_x = - cursor_position.x;
+                } else if cursor-position.x + root.computed_x > parent.width - self.text-cursor-width {
+                    root.computed_x = parent.width - cursor_position.x - self.text-cursor-width;
+                }
+            }
+
+            accepted => {
+                root.accepted(self.text);
+            }
+
+            edited => {
+                root.edited(self.text);
+            }
+
+            key_pressed(event) => {
+                root.key_pressed(event)
+            }
+
+            key_released(event) => {
+                root.key_released(event)
+            }
+
+            init => {
+                if root.text.character_count > 0 {
+                    self.set_selection_offsets(root.text.character_count, root.text.character_count);
+                }
+            }
+        }
+        if root.text == "" && root.placeholder_text != "" : MaterialText {
+            width: 100%;
+            height: 100%;
+            text: root.placeholder_text;
+            color: MaterialPalette.on_surface_variant;
+            vertical_alignment: center;
+            style: Typography.body_large;
+        }
+    }
+}
+
+export component SearchBar {
+    in property <image> leading_icon: Icons.menu;
+    in property <image> trailing_icon;
+    in property <image> avatar_icon;
+    in property <color> avatar_background: #00000000;
+    in property <string> placeholder_text;
+    in property <string> empty_text;
+    in_out property <string> text;
+    in_out property <int> current_index;
+    in property <[ListItem]> items;
+
+    callback accepted(text: string);
+    callback edited(text: string);
+    callback action_button_clicked(index: int);
+    callback key_pressed(event: KeyEvent) -> EventResult;
+    callback key_released(event: KeyEvent) -> EventResult;
+
+    property <color> color: MaterialPalette.on_surface_variant;
+    property <length> item_height: MaterialStyleMetrics.size_72;
+
+    min_height: max(MaterialStyleMetrics.size_56, layout.min_height);
+    forward_focus: state_layer;
+
+    Rectangle {
+        background: MaterialPalette.surface_container_high;
+        border_radius: MaterialStyleMetrics.border_radius_28;
+
+        state_layer := StateLayerArea {
+            border_radius: parent.border_radius;
+            color: root.color;
+
+            layout := HorizontalLayout {
+                padding: MaterialStyleMetrics.padding_4;
+                spacing: MaterialStyleMetrics.spacing_4;
+
+                SearchIcon {
+                    icon: root.leading_icon;
+                    color: root.color;
+                }
+
+                MaterialText {
+                    text: root.text;
+                    font_size: Typography.body_large.font_size;
+                    font_weight: Typography.body_large.font_weight;
+                    vertical_alignment: center;
+                    color: MaterialPalette.on_surface;
+
+                    states [
+                        placeholder when root.text == "" : {
+                            text: root.placeholder_text;
+                            color: MaterialPalette.on_surface;
+                        }
+                    ]
+                }
+
+                SearchIcon {
+                    icon: root.trailing_icon;
+                    color: root.color;
+                }
+
+                if (root.avatar_icon.width > 0 && root.avatar_icon.height > 0) || root.avatar_background != #00000000 : VerticalLayout {
+                    alignment: center;
+
+                    Avatar  {
+                        image: root.avatar_icon;
+                        background: root.avatar_background;
+                    }
+                }
+            }
+
+            changed has_focus => {
+                if self.has_focus {
+                    popup.show();
+                }
+            }
+
+            clicked => {
+                popup.show();
+            }
+        }
+    }
+
+    popup := PopupWindow {
+        x: 0;
+        y: 0;
+        width: root.width;
+        height: root.height + clamp(root.item_height * root.items.length, 3 * root.item_height, 6 * root.item_height);
+        close_policy: close_on_click_outside;
+        forward-focus: popup_input;
+
+        background_layer := Rectangle {
+            x: 0;
+            y: 0;
+            width: 100%;
+            height: root.height;
+            background: MaterialPalette.surface_container_high;
+            border_radius: MaterialStyleMetrics.border_radius_28;
+            clip: true;
+
+            VerticalLayout {
+                HorizontalLayout {
+                    padding: MaterialStyleMetrics.padding_4;
+                    spacing: MaterialStyleMetrics.spacing_4;
+
+                    IconButton {
+                        icon: Icons.arrow_back;
+
+                        clicked => {
+                            popup.close();
+                        }
+                    }
+
+                    popup_input := SearchTextInput {
+                        placeholder_text: root.placeholder_text;
+                        text: root.text;
+
+                        accepted => {
+                             root.accepted(self.text);
+                        }
+
+                        edited => {
+                            root.text = self.text;
+                            root.edited(self.text);
+                        }
+
+                        key_pressed(event) => {
+                             root.key_pressed(event)
+                        }
+
+                        key_released(event) => {
+                             root.key_released(event)
+                        }
+
+                        changed text => {
+                            root.text = text;
+                        }
+                    }
+
+                    IconButton {
+                        icon: Icons.close;
+
+                        clicked => {
+                            root.text = "";
+                            popup.close();
+                        }
+                    }
+                }
+
+                HorizontalDivider {}
+
+                if root.items.length == 0 : MaterialText {
+                    text: root.empty_text;
+                    color: root.color;
+                    horizontal_alignment: center;
+                    style: Typography.label_small;
+                }
+
+                if root.items.length == 0 : Rectangle {}
+
+                if root.items.length > 0 : ListView {
+                    horizontal_stretch: 1;
+
+                    for item[index] in root.items : SearchTile {
+                        text: item.text;
+                        supporting_text: item.supporting_text;
+                        avatar_icon: item.avatar_icon;
+                        avatar_text: item.avatar_text;
+                        avatar_background: item.avatar_background;
+                        avatar_foreground: item.avatar_foreground;
+                        action_button_icon: item.action_button_icon;
+
+                        clicked => {
+                            root.text = self.text;
+                            popup.close();
+                        }
+
+                        action_button_clicked => {
+                            root.action_button_clicked(index);
+                        }
+                    }
+                }
+            }
+
+            animate height {
+                duration: Animations.standard_accelerate_duration;
+                easing: Animations.standard_easing;
+            }
+        }
+
+        Timer {
+            interval: 50ms;
+
+            triggered => {
+                background_layer.height = popup.height;
+                self.running = false;
+            }
+        }
+    }
+}

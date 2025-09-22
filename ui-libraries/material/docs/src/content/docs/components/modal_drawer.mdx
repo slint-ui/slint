@@ -1,0 +1,45 @@
+---
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+title: ModalDrawer
+description: ModalDrawer API.
+---
+
+import CodeSnippetMD from '/src/components/CodeSnippetMD.astro';
+import SlintProperty from '/src/components/SlintProperty.astro';
+
+<CodeSnippetMD imagePath="" noScreenShot scale="3" imageWidth="300" imageHeight="200" imageAlt="">
+```slint
+import { ModalDrawer } from "./material.slint";
+export component Example inherits Window {
+    width: 400px;
+    height: 300px;
+    background: transparent;
+    ModalDrawer {
+        title: "Settings";
+        position-right: false;
+
+        // Drawer content goes here
+        Rectangle {
+            background: #f0f0f0;
+            Text {
+                text: "Modal drawer content";
+            }
+        }
+    }
+}
+```
+</CodeSnippetMD>
+
+A `ModalDrawer` is a modal overlay that slides in from either the left or right side of the screen. It blocks interaction with the content behind it and includes smooth slide animations.
+
+## Properties
+
+### position-right
+<SlintProperty propName="position-right" typeName="bool">
+Determines which side the drawer slides in from. When `true`, the drawer slides in from the right side. When `false`, it slides in from the left side.
+</SlintProperty>
+
+### title
+<SlintProperty propName="title" typeName="string">
+The title text displayed in the drawer header. If empty, no header is shown.
+</SlintProperty>

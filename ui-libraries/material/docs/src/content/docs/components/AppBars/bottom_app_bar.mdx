@@ -1,0 +1,51 @@
+---
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+title: BottomAppBar
+description: BottomAppBar API.
+---
+
+import CodeSnippetMD from '/src/components/CodeSnippetMD.astro';
+import SlintProperty from '/src/components/SlintProperty.astro';
+
+<CodeSnippetMD imagePath="" noScreenShot scale="3" imageWidth="300" imageHeight="200" imageAlt="">
+```slint
+import { BottomAppBar } from "./material.slint";
+export component Example inherits Window {
+    width: 400px;
+    height: 200px;
+    background: transparent;
+    BottomAppBar {
+        width: parent.width;
+        height: 80px;
+        icon-buttons: [
+            { icon: @image-url("../icons/share.svg"), tooltip: "Home", enabled: true },
+            { icon: @image-url("../icons/search.svg"), tooltip: "Search", enabled: true }
+        ];
+        fab-icon: @image-url("../icons/add.svg");
+    }
+}
+```
+</CodeSnippetMD>
+
+A `BottomAppBar` is a bottom navigation bar that displays icon buttons and an optional floating action button.
+
+## Properties
+
+### fab-icon
+<SlintProperty propName="fab-icon" typeName="image">
+The icon for the floating action button.
+</SlintProperty>
+
+### icon-buttons
+<SlintProperty propName="icon-buttons" typeName="[struct]" structName="IconButtonItem">
+An array of icon button items to display in the bar.
+</SlintProperty>
+
+## Callbacks
+
+### fab-clicked()
+Invoked when the floating action button is clicked.
+
+
+### icon-button-clicked(index: int)
+Invoked when an icon button is clicked.

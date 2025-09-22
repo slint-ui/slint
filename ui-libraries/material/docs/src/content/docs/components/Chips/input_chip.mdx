@@ -1,0 +1,99 @@
+---
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+title: InputChip
+description: InputChip API.
+---
+
+import CodeSnippetMD from '/src/components/CodeSnippetMD.astro';
+import SlintProperty from '/src/components/SlintProperty.astro';
+
+<CodeSnippetMD imagePath="/src/assets/generated/inputchip.png" scale="3" imageWidth="300" imageHeight="200" imageAlt="">
+```slint
+import { InputChip } from "./material.slint";
+export component Example inherits Window {
+    width: 200px;
+    height: 100px;
+    background: transparent;
+    InputChip {
+        text: "Input";
+        leading-icon: @image-url("../icons/edit.svg");
+        trailing-icon: @image-url("../icons/close.svg");
+        width: 120px;
+        height: 32px;
+    }
+}
+```
+</CodeSnippetMD>
+
+An `InputChip` is a compact element that represents user input or selections. It can contain text, leading icons, trailing icons, and avatars. Input chips are commonly used to display user-entered information like tags, contacts, or filter selections, and often include a trailing action like a close button.
+
+## Properties
+
+### avatar
+<SlintProperty propName="avatar" typeName="image">
+An optional avatar image displayed on the chip.
+</SlintProperty>
+
+### avatar-background
+<SlintProperty propName="avatar-background" typeName="color" defaultValue="#00000000">
+The background color for the avatar.
+</SlintProperty>
+
+### checkable
+<SlintProperty propName="checkable" typeName="bool" defaultValue="false">
+Whether the chip can be toggled between checked and unchecked states.
+</SlintProperty>
+
+### checked
+<SlintProperty propName="checked" typeName="bool" propertyVisibility="in-out">
+Whether the chip is in the checked (selected) state. Only relevant when checkable is true.
+</SlintProperty>
+
+### enabled
+<SlintProperty propName="enabled" typeName="bool" defaultValue="true">
+Whether the chip is enabled and can be interacted with.
+</SlintProperty>
+
+### has-focus
+<SlintProperty propName="has-focus" typeName="bool">
+Whether the component has focus.
+</SlintProperty>
+
+### leading-icon
+<SlintProperty propName="leading-icon" typeName="image">
+An optional icon displayed at the beginning of the chip.
+</SlintProperty>
+
+### text
+<SlintProperty propName="text" typeName="string">
+The text label displayed on the chip.
+</SlintProperty>
+
+### tooltip
+<SlintProperty propName="tooltip" typeName="string">
+A tooltip text that appears when hovering over the chip.
+</SlintProperty>
+
+### trailing-icon
+<SlintProperty propName="trailing-icon" typeName="image">
+An optional icon displayed at the end of the chip, commonly used for actions like closing or removing the chip.
+</SlintProperty>
+
+## Callbacks
+
+### clicked()
+Invoked when the main area of the chip is clicked.
+
+### trailing-icon-clicked()
+Invoked when the trailing icon is clicked. This is typically used for actions like removing the chip.
+
+## Functions
+
+### clear-focus()
+Clears the focus from the component.
+
+### focus()
+Focuses the component.
+
+### toggle()
+Toggles the chip state between checked and unchecked. Only has an effect when checkable is true.

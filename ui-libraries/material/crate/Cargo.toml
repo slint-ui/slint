@@ -1,0 +1,13 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: MIT
+
+[package]
+name = "slint-material-components"
+authors.workspace = true
+edition.workspace = true
+repository.workspace = true
+license.workspace = true
+description = "Material Design 3 component set for Slint"
+version.workspace = true
+homepage.workspace = true
+rust-version.workspace = true

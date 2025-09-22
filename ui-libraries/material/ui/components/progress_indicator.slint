@@ -1,0 +1,107 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { MaterialStyleMetrics } from "../styling/material_style_metrics.slint";
+import { MaterialPalette } from "../styling/material_palette.slint";
+
+export component LinearProgressIndicator {
+    in property <float> progress;
+    in property <bool> indeterminate;
+
+    height: MaterialStyleMetrics.size_4;
+
+    Rectangle {
+        width: 100%;
+        height: 100%;
+        clip: true;
+        background: MaterialPalette.primary_container;
+        border_radius: MaterialStyleMetrics.border_radius_2;
+
+        track := Rectangle {
+            x: 0;
+            y: 0;
+            width: parent.width * root.progress;
+            height: 100%;
+            border_radius: parent.border_radius;
+            background: MaterialPalette.primary;
+        }
+    }
+}
+
+export component CircularProgressIndicator {
+    in property <float> progress;
+    in property <bool> indeterminate;
+
+    property <length> bar_height: MaterialStyleMetrics.size_4;
+
+    width: self.height;
+    min_height: MaterialStyleMetrics.size_40;
+
+    background_layer := Rectangle {
+        width: root.width;
+        height: root.height;
+        border_width: root.bar_height;
+        border_color: root.progress == 1 ? MaterialPalette.primary : MaterialPalette.primary_container;
+        border_radius: max(self.width, self.height) / 2;
+    }
+
+    track := Path {
+        property <float> radius: min(self.viewbox_width, self.viewbox_height) / 2;
+        property <float> start_x: self.viewbox_width / 2;
+        property <float> start_y: self.viewbox_height / 2;
+        property <float> inner_radius: self.radius - (root.bar_height * (self.viewbox_height / self.height));
+        property <float> start: !root.indeterminate ? 0 : 1 * mod(animation-tick(), 1.5s) / 1.5s;
+        property <float> progress: !root.indeterminate ? root.progress : 0.5;
+
+        x: background_layer.x;
+        y: background_layer.y;
+        viewbox_width: 100;
+        viewbox_height: 100;
+        width: background_layer.width;
+        height: background_layer.height;
+        fill: MaterialPalette.primary;
+        visible: self.progress > 0 && self.progress < 1;
+
+        MoveTo {
+            x: !root.indeterminate ? track.start_x : track.start_x - track.radius * sin(-track.start * 360deg);
+            y: !root.indeterminate ? 0 : track.start_y - track.radius * cos(-track.start * 360deg);
+        }
+
+        ArcTo {
+            radius_x: 1;
+            radius_y: 1;
+            x: !root.indeterminate ? track.start_x : track.start_x - track.inner-radius * sin(-track.start * 360deg);
+            y: !root.indeterminate ? root.bar_height * (track.viewbox_height / track.height) : track.start_y - track.inner_radius * cos(-track.start * 360deg);
+        }
+
+        ArcTo {
+            radius_x: track.inner_radius;
+            radius_y: track.inner_radius;
+            x: start_x - track.inner_radius * sin(-(track.start + track.progress) * 360deg);
+            y: start_y - track.inner_radius * cos(-(track.start + track.progress) * 360deg);
+            sweep: track.progress > 0;
+            large-arc: track.progress > 0.5;
+        }
+
+        ArcTo {
+            radius_x: 1;
+            radius_y: 1;
+            x: start_x - radius * sin(-(track.start + track.progress) * 360deg);
+            y: start_y - radius * cos(-(track.start + track.progress) * 360deg);
+        }
+
+        ArcTo {
+            radius_x: radius;
+            radius_y: radius;
+            x: start_x - radius * sin(-track.start * 360deg);
+            y: start_y - radius * cos(-track.start * 360deg);
+            sweep: track.progress < 0;
+            large-arc: track.progress > 0.5;
+        }
+
+        LineTo {
+            x: start_x - radius * sin(-track.start * 360deg);
+            y: start_y - radius * cos(-track.start * 360deg);
+        }
+    }
+}

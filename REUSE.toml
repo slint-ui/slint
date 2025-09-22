@@ -14,13 +14,17 @@ path = [
   "**/slint-logo-**.pdf",
   "**/slint-logo-**.png",
   "**/slint-logo-**.svg",
-  "docs/astro/public/apple-touch-icon.png",
-  "docs/astro/public/favicon.svg",
-  "docs/astro/public/favicon-16x16.png",
-  "docs/astro/public/favicon-32x32.png",
-  "docs/astro/public/favicon.ico",
   "docs/astro/src/content/docs/reference/elements/slint-logo.png",
   "logo/slint-logo.icns",
+  "**/public/favicon.svg",
+  "**/public/slint-logo-small-light.svg",
+  "**/public/slint-logo.woff",
+  "**/public/apple-touch-icon.png",
+  "**/public/favicon.ico",
+  "**/public/favicon-32x32.png",
+  "**/public/favicon-16x16.png",
+  "**/public/tablet-material.webp",
+  "ui-libraries/material/examples/gallery/frame-tablet.webp",
 ]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"
@@ -112,6 +116,23 @@ path = [
   "examples/orbit-animation/images/**.png",
   "examples/orbit-animation/images/**.svg",
   "examples/sprite-sheet/images/**.png",
+  "component-sets/material/docs/**.json",
+  "component-sets/material/docs/**.svg",
+  "component-sets/material/docs/**.css",
+  "component-sets/material/docs/**.webp",
+  "ui-libraries/material/docs/**.json",
+  "ui-libraries/material/docs/src/assets/styles/**.css",
+  "ui-libraries/material/docs/src/assets/**.svg",
+  "ui-libraries/material/docs/src/content/docs/components/icons/**.svg",
+  "ui-libraries/material/docs/src/assets/**.webp",
+  "ui-libraries/material/.gitignore",
+  "ui-libraries/material/docs/src/assets/images/Components.png",
+  "ui-libraries/material/docs/src/assets/images/phone-dark.webp",
+  "ui-libraries/material/docs/src/assets/images/material-tablet.webp",
+  "ui-libraries/material/docs/src/assets/images/material-award.jpg",
+  "ui-libraries/material/docs/src/assets/images/material-design.jpg",
+  "ui-libraries/material/docs/src/config.yaml",
+  "ui-libraries/material/examples/gallery/ui/themes/**.json",
 ]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"
@@ -197,6 +218,8 @@ SPDX-License-Identifier = "MIT"
 [[annotations]]
 path = [
   "internal/compiler/widgets/material/_**.svg",
+  "component-sets/material/ui/icons/**.svg",
+  "component-sets/material/examples/gallery/ui/icons/**.svg",
   "examples/carousel/icons/**.svg",
   "internal/compiler/widgets/cupertino/_**.svg",
   "internal/compiler/widgets/qt/_**.svg",
@@ -243,3 +266,15 @@ path = ["demos/weather-demo/android-res/**/ic_launcher.png", "demos/weather-demo
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Copyright © Felgo GmbH <contact@felgo.com>"
 SPDX-License-Identifier = "CC-BY-ND-4.0"
+
+[[annotations]]
+path = ["ui-libraries/material/docs/src/assets/images/icons/**.svg"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Copyright (c) 2020-2024 Paweł Kuna <https://github.com/tabler/tabler-icons>"
+SPDX-License-Identifier = "MIT"
+
+[[annotations]]
+path = ["ui-libraries/material/ui/icons/**.svg", "ui-libraries/material/examples/gallery/ui/icons/**.svg"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Material Icons <https://github.com/material-icons/material-icons/blob/master/LICENSE>"
+SPDX-License-Identifier = "Apache-2.0"

@@ -1,0 +1,35 @@
+---
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+title: MaterialWindow
+description: MaterialWindow API.
+---
+
+import CodeSnippetMD from '/src/components/CodeSnippetMD.astro';
+import SlintProperty from '/src/components/SlintProperty.astro';
+
+<CodeSnippetMD imagePath="" noScreenShot scale="3" imageWidth="300" imageHeight="200" imageAlt="">
+```slint
+import { MaterialWindow } from "./material.slint";
+export component Example inherits MaterialWindow {
+    width: 400px;
+    height: 300px;
+    title: "Material Design App";
+
+    Text {
+        text: "Hello, Material Design!";
+        color: white;
+    }
+}
+```
+</CodeSnippetMD>
+
+A `MaterialWindow` is the root window component that provides Material Design theming and background styling. It extends the standard Window component with automatic Material Design color palette integration.
+
+## Properties
+
+### disable-hover
+<SlintProperty propName="disable-hover" typeName="bool" defaultValue="false">
+When set to `true`, disables hover effects throughout the application. This is useful for touch-only interfaces or accessibility purposes.
+</SlintProperty>
+
+

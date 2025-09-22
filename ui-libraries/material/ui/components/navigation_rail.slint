@@ -1,0 +1,84 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { NavigationItem } from "../items/navigation_item.slint";
+import { FloatingActionButton, FABStyle } from "./floating_action_button.slint";
+import { MaterialStyleMetrics } from "../styling/material_style_metrics.slint";
+import { MaterialPalette } from "../styling/material_palette.slint";
+import { IconButton } from "icon_button.slint";
+import { Icons } from "../icons/icons.slint";
+import { NavigationItemTemplate } from "navigation_bar.slint";
+import { BaseNavigation } from "./base_navigation.slint";
+
+export component NavigationRail inherits BaseNavigation {
+    in property <bool> has_menu;
+    in property <image> fab_icon;
+    in property <LayoutAlignment> alignment;
+
+    callback menu_clicked();
+    callback fab_clicked();
+
+    min_width: max(MaterialStyleMetrics.size_80, layout.min_width);
+
+    Rectangle {
+        background: MaterialPalette.surface;
+
+        layout := VerticalLayout {
+            padding_top: MaterialStyleMetrics.padding_44;
+            padding_bottom: MaterialStyleMetrics.padding_56;
+            spacing: MaterialStyleMetrics.spacing_4;
+
+            if root.has_menu : IconButton {
+                icon: Icons.menu;
+
+                clicked => {
+                    root.menu_clicked();
+                }
+            }
+
+
+            if root.fab_icon.width > 0 && root.fab_icon.height > 0 : HorizontalLayout {
+                alignment: center;
+
+                FloatingActionButton {
+                    icon: root.fab_icon;
+                    style: FABStyle.standard;
+
+                    clicked => {
+                        root.fab_clicked();
+                    }
+                }
+            }
+
+            // helper to place fab at the top if no items are present
+            if root.items.length == 0 : Rectangle {
+                horizontal_stretch: 1;
+            }
+
+            HorizontalLayout {
+                vertical_stretch: 1;
+                alignment: center;
+
+                VerticalLayout {
+                    alignment: root.alignment;
+
+                    for item[index] in root.items : NavigationItemTemplate {
+                        icon: item.icon;
+                        selected_icon: item.selected_icon;
+                        text: item.text;
+                        index: index;
+                        selected: index == root.current_index;
+                        show_badge: item.show_badge;
+                        badge: item.badge;
+                        navitem_padding_top: 0;
+                        navitem_padding_bottom: MaterialStyleMetrics.padding_4;
+
+                        clicked => {
+                            root.select(index);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

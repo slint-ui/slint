@@ -1,0 +1,47 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: MIT
+
+[package]
+name = "material-gallery"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+publish = false
+license.workspace = true
+
+[lib]
+crate-type = ["lib", "cdylib"]
+path = "src/lib.rs"
+name = "gallery_lib"
+
+[[bin]]
+path = "src/main.rs"
+name = "material_gallery"
+
+[dependencies]
+slint = { path = "../../../../api/rs/slint", features = ["backend-android-activity-06"] }
+# chrono is used to display data on the DatePicker
+chrono = { version = "0.4", default-features = false, features = ["std", "alloc"] }
+serde = { version = "1.0.163", default-features = false, features = ["derive"] }
+serde_json = { version = "1.0" }
+css-color-parser2 = "1.0.1"
+
+[target.'cfg(target_family = "wasm")'.dependencies]
+wasm-bindgen = { version = "0.2" }
+console_error_panic_hook = "0.1.5"
+
+[target.'cfg(not(target_family = "wasm"))'.dependencies]
+slint = { path = "../../../../api/rs/slint", features = ["renderer-skia"] }
+
+[build-dependencies]
+slint-build = { path = "../../../../api/rs/build" }
+
+[package.metadata.android]
+package = "com.slint.material"
+apk_name = "slint_material"
+
+[package.metadata.android.application]
+label = "Slint Material"
+
+[package.metadata.packager]
+before-packaging-command = "cargo build --release"

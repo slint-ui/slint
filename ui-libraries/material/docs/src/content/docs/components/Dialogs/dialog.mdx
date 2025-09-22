@@ -1,0 +1,57 @@
+---
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+title: Dialog
+description: Dialog API.
+---
+
+import CodeSnippetMD from '/src/components/CodeSnippetMD.astro';
+import SlintProperty from '/src/components/SlintProperty.astro';
+
+<CodeSnippetMD imagePath="" noScreenShot scale="3" imageWidth="300" imageHeight="200" imageAlt="">
+```slint
+import { Dialog } from "./material.slint";
+export component Example inherits Window {
+    width: 400px;
+    height: 300px;
+    background: transparent;
+    Dialog {
+        title: "Confirm Action";
+        default-action-text: "OK";
+        actions: ["Cancel"];
+    }
+}
+```
+</CodeSnippetMD>
+
+A `Dialog` is a modal overlay that appears on top of the main content to present important information or request user input. It can contain various content and action buttons.
+
+## Properties
+
+### actions
+<SlintProperty propName="actions" typeName="[string]">
+An array of text labels for secondary action buttons.
+</SlintProperty>
+
+### default-action-text
+<SlintProperty propName="default-action-text" typeName="string">
+The text for the primary action button (typically "OK" or "Confirm").
+</SlintProperty>
+
+### icon
+<SlintProperty propName="icon" typeName="image">
+An optional icon displayed at the top of the dialog.
+</SlintProperty>
+
+### title
+<SlintProperty propName="title" typeName="string">
+The title text displayed at the top of the dialog.
+</SlintProperty>
+
+## Callbacks
+
+### action-clicked(index: int)
+Invoked when a secondary action button is clicked.
+
+### default-action-clicked()
+Invoked when the default action button is clicked or when Enter is pressed.
+

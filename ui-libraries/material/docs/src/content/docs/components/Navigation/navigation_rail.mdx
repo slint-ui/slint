@@ -1,0 +1,67 @@
+---
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+title: NavigationRail
+description: NavigationRail API.
+---
+
+import CodeSnippetMD from '/src/components/CodeSnippetMD.astro';
+import SlintProperty from '/src/components/SlintProperty.astro';
+
+<CodeSnippetMD imagePath="/src/assets/generated/navigationrail.png" scale="3" imageWidth="300" imageHeight="200" imageAlt="">
+```slint
+import { NavigationRail } from "./material.slint";
+export component Example inherits Window {
+    width: 400px;
+    height: 300px;
+    background: transparent;
+    NavigationRail {
+        width: 80px;
+        height: parent.height;
+        items: [
+            { icon: @image-url("../icons/share.svg"), text: "Home" },
+            { icon: @image-url("../icons/search.svg"), text: "Search" }
+        ];
+    }
+}
+```
+</CodeSnippetMD>
+
+A `NavigationRail` is a vertical navigation component that displays navigation items with optional menu button and floating action button.
+
+## Properties
+
+### alignment
+<SlintProperty propName="alignment" typeName="enum" enumName="LayoutAlignment">
+The alignment of the navigation items within the rail.
+</SlintProperty>
+
+### current-index
+<SlintProperty propName="current-index" typeName="int" propertyVisibility="in-out">
+The index of the currently selected navigation item.
+</SlintProperty>
+
+### fab-icon
+<SlintProperty propName="fab-icon" typeName="image">
+The icon for the floating action button.
+</SlintProperty>
+
+### has-menu
+<SlintProperty propName="has-menu" typeName="bool">
+Whether to show a menu button at the top of the rail.
+</SlintProperty>
+
+### items
+<SlintProperty propName="items" typeName="[struct]" structName="NavigationItem">
+An array of navigation items to display in the rail.
+</SlintProperty>
+
+## Callbacks
+
+### index-changed(index: int)
+Invoked when the `current-index` changes.
+
+### menu-clicked()
+Invoked when the menu button is clicked.
+
+### fab-clicked()
+Invoked when the floating action button is clicked.

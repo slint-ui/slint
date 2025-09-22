@@ -1,0 +1,108 @@
+---
+// Copyright © onWidget <https://github.com/onwidget>
+// SPDX-License-Identifier: MIT
+import type { ItemGrid as Props } from "~/types";
+import { twMerge } from "tailwind-merge";
+import Button from "./Button.astro";
+
+const { items = [], columns, defaultIcon = "", classes = {} } = Astro.props;
+
+const {
+    container: containerClass = "",
+    // container: containerClass = "sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3",
+    panel: panelClass = "",
+    title: titleClass = "",
+    description: descriptionClass = "",
+    icon: defaultIconClass = "text-primary",
+} = classes;
+
+import handClickIcon from "~/assets/images/icons/hand-click.svg?url";
+import filesIcon from "~/assets/images/icons/files.svg?url";
+import bellRingingIcon from "~/assets/images/icons/bell-ringing.svg?url";
+import playCardIcon from "~/assets/images/icons/play-card.svg?url";
+import navigationIcon from "~/assets/images/icons/navigation.svg?url";
+import messageCircleIcon from "~/assets/images/icons/message-circle.svg?url";
+import loaderIcon from "~/assets/images/icons/loader.svg?url";
+import infoOctagonIcon from "~/assets/images/icons/info-octagon.svg?url";
+import layoutNavbarIcon from "~/assets/images/icons/layout-navbar.svg?url";
+---
+
+{
+  items && items.length > 0 && (
+    <div
+      class={twMerge(
+        `grid gap-8 gap-x-12 sm:gap-y-8 ${
+          columns === 4
+            ? 'lg:grid-cols-4 md:grid-cols-3 sm:grid-cols-2'
+            : columns === 3
+              ? 'lg:grid-cols-3 sm:grid-cols-2'
+            : columns === 2
+              ? 'sm:grid-cols-2 '
+              : ''
+        }`,
+        containerClass
+      )}
+    >
+      {items.map(({ title, description, icon, callToAction, classes: itemClasses = {} }) => (
+        <div
+          class={twMerge(
+            'relative flex flex-col intersect-once intersect-quarter intercept-no-queue motion-safe:md:opacity-0 motion-safe:md:intersect:animate-fade',
+            panelClass,
+            itemClasses?.panel
+          )}
+        >
+          {icon && [
+            'buttons',
+            'forms',
+            'snackbars',
+            'cards',
+            'navigation',
+            'appbar',
+            'tooltips',
+            'progress-indicators',
+            'dialogs',
+          ].includes(icon) && (
+            <>
+            {icon === 'buttons' && (
+                <img src={handClickIcon} alt="Buttons Icon" class="mb-2 w-10 h-10" />
+              )}
+              {icon === 'forms' && (
+                <img src={filesIcon} alt="Forms Icon" class="mb-2 w-10 h-10" />
+              )}
+              {icon === 'snackbars' && (
+                <img src={bellRingingIcon} alt="Snackbars Icon" class="mb-2 w-10 h-10" />
+              )}
+              {icon === 'cards' && (
+                <img src={playCardIcon} alt="Cards Icon" class="mb-2 w-10 h-10" />
+              )}
+              {icon === 'navigation' && (
+                <img src={navigationIcon} alt="Navigation Icon" class="mb-2 w-10 h-10" />
+              )}
+              {icon === 'dialogs' && (
+                <img src={messageCircleIcon} alt="Dialogs Icon" class="mb-2 w-10 h-10" />
+              )}
+              {icon === 'progress-indicators' && (
+                <img src={loaderIcon} alt="Progress Indicators Icon" class="mb-2 w-10 h-10" />
+              )}
+              {icon === 'tooltips' && (
+                <img src={infoOctagonIcon} alt="Tooltips Icon" class="mb-2 w-10 h-10" />
+              )}
+              {icon === 'appbar' && (
+                <img src={layoutNavbarIcon} alt="Appbar Icon" class="mb-2 w-10 h-10" />
+              )}
+            </>
+          )}
+          <div class={twMerge('text-xl font-bold', titleClass, itemClasses?.title)}>{title}</div>
+          {description && (
+            <p class={twMerge('text-muted mt-2', descriptionClass, itemClasses?.description)} set:html={description} />
+          )}
+          {callToAction && (
+            <div class="mt-2">
+              <Button {...callToAction} />
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  )
+}
