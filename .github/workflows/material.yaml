@@ -49,7 +49,7 @@ jobs:
             with:
                 key: tests
           - name: Build & run tests
-            run: cargo test -p slint-material-components -p material-gallery
+            run: cargo test -p material-gallery
 
   deploy:
     runs-on: ubuntu-latest

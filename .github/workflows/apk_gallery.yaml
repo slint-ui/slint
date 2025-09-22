@@ -31,7 +31,7 @@ jobs:
               with:
                   path: |
                       ui-libraries/material/target/release/apk/slint_material.apk
-                  key: apk-build-${{ hashFiles('ui-libraries/material/examples/gallery/**', 'ui-libraries/material/ui/**', 'ui-libraries/material/Cargo.toml', 'ui-libraries/material/material.slint', 'ui-libraries/material/crate/**') }}
+                  key: apk-build-${{ hashFiles('ui-libraries/material/examples/gallery/**', 'ui-libraries/material/ui/**', 'ui-libraries/material/Cargo.toml', 'ui-libraries/material/material.slint') }}
             - name: Install Android API level 30
               if: steps.cache-apk.outputs.cache-hit != 'true'
               run: ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-30"
