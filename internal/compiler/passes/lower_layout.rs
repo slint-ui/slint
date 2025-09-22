@@ -856,12 +856,15 @@ fn check_no_layout_properties(
         if parent_layout_type.as_deref() != Some("GridLayout")
             && matches!(prop.as_ref(), "col" | "row" | "colspan" | "rowspan")
         {
-            diag.push_error(format!("{prop} used outside of a GridLayout"), &*expr.borrow());
+            diag.push_error(format!("{prop} used outside of a GridLayout's cell"), &*expr.borrow());
         }
         if parent_layout_type.as_deref() != Some("Dialog")
             && matches!(prop.as_ref(), "dialog-button-role")
         {
-            diag.push_error(format!("{prop} used outside of a Dialog"), &*expr.borrow());
+            diag.push_error(
+                format!("{prop} used outside of a Dialog's direct child"),
+                &*expr.borrow(),
+            );
         }
         if layout_type.is_none()
             && matches!(
