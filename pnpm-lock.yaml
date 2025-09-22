@@ -9021,7 +9021,7 @@ snapshots:
 
   '@types/tar@6.1.13':
     dependencies:
-      '@types/node': 20.16.10
+      '@types/node': 22.13.14
       minipass: 4.2.8
 
   '@types/unist@2.0.11': {}
