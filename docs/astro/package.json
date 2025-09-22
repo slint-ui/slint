@@ -28,7 +28,7 @@
     "rehype-external-links": "catalog:",
     "sharp": "catalog:",
     "starlight-links-validator": "catalog:",
-    "starlight-sidebar-topics": "0.6.0",
+    "starlight-sidebar-topics": "0.6.1",
     "typescript": "catalog:",
     "@slint/common-files": "workspace:*"
   },
