@@ -4827,6 +4827,7 @@ packages:
 
   monaco-editor-wrapper@5.5.3:
     resolution: {integrity: sha512-ceC+HnpUw/WehfH9uL7Y5j1m/46hQFcS/Z1VYpiFl+pieNf4/JfOWrzLEDqnxOK/qrPJ2fR6JB78mfZNLtPeQQ==}
+    deprecated: The development of monaco-wrapper-editor will not be continued. Please use https://www.npmjs.com/package/monaco-languageclient v10+ from now on.
     peerDependencies:
       monaco-editor: npm:@codingame/monaco-vscode-editor-api@~8.0.4
       monaco-languageclient: ~8.8.3

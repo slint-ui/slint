@@ -32,6 +32,9 @@ jobs:
           CARGO_PROFILE_RELEASE_OPT_LEVEL: s
           CARGO_INCREMENTAL: false
       runs-on: ubuntu-latest
+      defaults:
+        run:
+          working-directory: ui-libraries/material
       steps:
           - uses: actions/checkout@v5
           - name: Install Linux dependencies
@@ -46,7 +49,7 @@ jobs:
             with:
                 key: tests
           - name: Build & run tests
-            run: cargo test
+            run: cargo test -p slint-material-components -p material-gallery
 
   deploy:
     runs-on: ubuntu-latest
@@ -57,7 +60,7 @@ jobs:
     name: Deploy to Cloudflare Pages
     defaults:
       run:
-        working-directory: docs
+        working-directory: ui-libraries/material/docs
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -68,18 +71,12 @@ jobs:
         shell: bash
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
-      - name: Install docsnapper
-        uses: baptiste0928/cargo-install@v3
-        with:
-          crate: slint-docsnapper
-          git: https://github.com/slint-ui/slint
-          branch: master
       - uses: pnpm/action-setup@v4.1.0
         with:
-          version: 10.12.1
+          version: 10.14.0
       - name: Take screenshots
-        run: slint-docsnapper docs
-        working-directory: ${{ github.workspace }}
+        run: cargo run -p slint-docsnapper -- docs
+        working-directory: ui-libraries/material
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: Build
@@ -99,3 +96,4 @@ jobs:
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: pages deploy docs/dist --project-name=materialui
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}
+          workingDirectory: ui-libraries/material
