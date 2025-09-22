@@ -9,11 +9,7 @@ import { EditorSpaceSettings } from "../../components/styling.slint";
 import { CheckBox } from "std-widgets.slint";
 
 export component StringWidget inherits GridLayout {
-    // FIXME: @ogoffart says the plural support is not working at this time, so
-    //        we do not offer it in the UI for the time being...
-
     in property <bool> enabled;
-    in property <string> property-name;
     in property <PropertyValue> property-value;
     in property <bool> has-code-action;
     in property <bool> has-reset-action;
@@ -27,9 +23,6 @@ export component StringWidget inherits GridLayout {
     private property <string> tr-context-value;
 
     callback update-display-string(value: string);
-
-    callback code-action();
-    callback reset-action();
 
     callback test-string-binding(text: string, is-translated: bool) -> bool;
     callback set-string-binding(text: string, is-translated: bool);
@@ -69,14 +62,6 @@ export component StringWidget inherits GridLayout {
     }
 
     Row {
-        NameLabel {
-            col: 1;
-            property-name: root.property-name;
-            property-value: root.property-value;
-        }
-    }
-
-    Row {
         childIndicator := ChildIndicator {
             visible: root.is-translatable;
             horizontal-stretch: 0;
@@ -105,15 +90,6 @@ export component StringWidget inherits GridLayout {
             enabled: root.enabled;
             open: childIndicator.open && root.is-translatable;
 
-            has-code-action <=> root.has-code-action;
-            has-reset-action <=> root.has-reset-action;
-
-            code-action() => {
-                root.code-action();
-            }
-            reset-action => {
-                root.reset-action();
-            }
             VerticalLayout {
                 spacing: EditorSpaceSettings.default-spacing;
                 tr-cb := CheckBox {
