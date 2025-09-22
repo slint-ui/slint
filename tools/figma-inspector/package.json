@@ -29,7 +29,7 @@
     "@vitejs/plugin-react": "5.0.2",
     "cross-env": "10.0.0",
     "jszip": "3.10.1",
-    "shiki": "3.12.2",
+    "shiki": "3.13.0",
     "typescript": "catalog:",
     "vite": "catalog:",
     "vite-figma-plugin": "0.0.24",
