@@ -414,11 +414,6 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
 
         let (horizontal_align, vertical_align) = text.alignment();
         let color = text.color();
-        // TODO
-        let _overflow = text.overflow();
-        // TODO
-        let _letter_spacing = text.letter_spacing();
-
         let font_request = text.font_request(self_rc);
 
         let text_path = rect_to_path((size * self.scale_factor).into());
@@ -461,6 +456,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
                 stroke: stroke_paint.is_some().then_some(stroke_style),
                 font_request: Some(font_request),
                 text_wrap: text.wrap(),
+                text_overflow: text.overflow(),
                 ..Default::default()
             },
         );
