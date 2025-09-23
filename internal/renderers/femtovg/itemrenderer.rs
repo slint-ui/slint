@@ -18,7 +18,7 @@ use i_slint_core::item_rendering::{
 };
 use i_slint_core::items::{
     self, Clip, FillRule, ImageRendering, ImageTiling, ItemRc, Layer, Opacity, RenderingResult,
-    TextHorizontalAlignment, TextStrokeStyle, TextVerticalAlignment,
+    TextStrokeStyle,
 };
 use i_slint_core::lengths::{
     LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector,
@@ -264,18 +264,6 @@ fn draw_glyphs<R: femtovg::Renderer + TextureImporter>(
     }
 }
 
-fn get_offset(
-    vertical_align: TextVerticalAlignment,
-    max_height: PhysicalLength,
-    layout: &parley::Layout<sharedfontique::Brush>,
-) -> f32 {
-    match vertical_align {
-        TextVerticalAlignment::Top => 0.0,
-        TextVerticalAlignment::Center => (max_height.get() - layout.height()) / 2.0,
-        TextVerticalAlignment::Bottom => max_height.get() - layout.height(),
-    }
-}
-
 impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer<'a, R> {
     fn draw_rectangle(
         &mut self,
@@ -407,7 +395,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
     fn draw_text(
         &mut self,
         text: Pin<&dyn RenderText>,
-        _self_rc: &ItemRc,
+        self_rc: &ItemRc,
         size: LogicalSize,
         _cache: &CachedRenderingData,
     ) {
@@ -425,11 +413,11 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
         let (horizontal_align, vertical_align) = text.alignment();
         let color = text.color();
         // TODO
-        let _wrap = text.wrap();
-        // TODO
         let _overflow = text.overflow();
         // TODO
         let _letter_spacing = text.letter_spacing();
+
+        let font_request = text.font_request(self_rc);
 
         let text_path = rect_to_path((size * self.scale_factor).into());
         let paint = match self.brush_to_paint(color, &text_path) {
@@ -462,17 +450,21 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
 
         let layout = fonts::layout(
             text.text().as_str(),
-            Some(max_width),
-            horizontal_align,
-            stroke_paint.is_some().then_some(stroke_style).map(|style| match style {
-                TextStrokeStyle::Outside => sharedfontique::BrushTextStrokeStyle::Outside,
-                TextStrokeStyle::Center => sharedfontique::BrushTextStrokeStyle::Center,
-            }),
-            None,
+            fonts::LayoutOptions {
+                horizontal_align,
+                max_width: Some(max_width),
+                stroke: stroke_paint.is_some().then_some(stroke_style).map(|style| match style {
+                    TextStrokeStyle::Outside => sharedfontique::BrushTextStrokeStyle::Outside,
+                    TextStrokeStyle::Center => sharedfontique::BrushTextStrokeStyle::Center,
+                }),
+                font_request: Some(font_request),
+                text_wrap: text.wrap(),
+                ..Default::default()
+            },
         );
 
         let mut canvas = self.canvas.borrow_mut();
-        let offset = get_offset(vertical_align, max_height, &layout);
+        let offset = fonts::get_offset(vertical_align, max_height, &layout);
 
         draw_glyphs(&layout, &mut canvas, &paint, offset, Color::default(), Color::default());
     }
@@ -480,7 +472,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
     fn draw_text_input(
         &mut self,
         text_input: Pin<&items::TextInput>,
-        _self_rc: &ItemRc,
+        self_rc: &ItemRc,
         size: LogicalSize,
     ) {
         let width = size.width_length() * self.scale_factor;
@@ -492,6 +484,8 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
         if self.global_alpha_transparent() {
             return;
         }
+
+        let font_request = text_input.font_request(self_rc);
 
         let visual_representation = text_input.visual_representation(None);
 
@@ -521,12 +515,14 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
 
         let layout = fonts::layout(
             &text,
-            Some(width),
-            TextHorizontalAlignment::Left,
-            None,
-            Some(min_select..max_select),
+            fonts::LayoutOptions {
+                max_width: Some(width),
+                selection: Some(min_select..max_select),
+                font_request: Some(font_request),
+                ..Default::default()
+            },
         );
-        let offset = get_offset(text_input.vertical_alignment(), height, &layout);
+        let offset = fonts::get_offset(text_input.vertical_alignment(), height, &layout);
         draw_glyphs(
             &layout,
             &mut canvas,
@@ -979,7 +975,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
     }
 
     fn draw_string(&mut self, string: &str, color: Color) {
-        let layout = fonts::layout(string, None, TextHorizontalAlignment::Left, None, None);
+        let layout = fonts::layout(string, Default::default());
         let paint = femtovg::Paint::color(to_femtovg_color(&color));
         let mut canvas = self.canvas.borrow_mut();
         draw_glyphs(&layout, &mut canvas, &paint, 0.0, color, color);

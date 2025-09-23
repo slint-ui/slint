@@ -15,7 +15,7 @@ use i_slint_core::graphics::{euclid, rendering_metrics_collector::RenderingMetri
 use i_slint_core::graphics::{BorderRadius, Rgba8Pixel};
 use i_slint_core::graphics::{FontRequest, SharedPixelBuffer};
 use i_slint_core::item_rendering::ItemRenderer;
-use i_slint_core::items::{TextHorizontalAlignment, TextWrap};
+use i_slint_core::items::TextWrap;
 use i_slint_core::lengths::{
     LogicalLength, LogicalPoint, LogicalRect, LogicalSize, PhysicalPx, ScaleFactor,
 };
@@ -281,19 +281,20 @@ impl<B: GraphicsBackend> FemtoVGRenderer<B> {
 impl<B: GraphicsBackend> RendererSealed for FemtoVGRenderer<B> {
     fn text_size(
         &self,
-        // TODO
-        _font_request: i_slint_core::graphics::FontRequest,
+        font_request: i_slint_core::graphics::FontRequest,
         text: &str,
         max_width: Option<LogicalLength>,
         scale_factor: ScaleFactor,
-        _text_wrap: TextWrap, //TODO: Add support for char-wrap
+        text_wrap: TextWrap,
     ) -> LogicalSize {
         let layout = fonts::layout(
             text,
-            max_width.map(|max_width| max_width * scale_factor),
-            TextHorizontalAlignment::Left,
-            None,
-            None,
+            fonts::LayoutOptions {
+                max_width: max_width.map(|max_width| max_width * scale_factor),
+                text_wrap,
+                font_request: Some(font_request),
+                ..Default::default()
+            },
         );
         LogicalSize::new(layout.width(), layout.height())
     }
@@ -310,21 +311,31 @@ impl<B: GraphicsBackend> RendererSealed for FemtoVGRenderer<B> {
         &self,
         text_input: Pin<&i_slint_core::items::TextInput>,
         pos: LogicalPoint,
-        // TODO
-        _font_request: FontRequest,
+        font_request: FontRequest,
         scale_factor: ScaleFactor,
     ) -> usize {
         let pos = pos * scale_factor;
         let text = text_input.text();
-
-        // TODO
-        let result = text.len();
 
         let width = text_input.width() * scale_factor;
         let height = text_input.height() * scale_factor;
         if width.get() <= 0. || height.get() <= 0. || pos.y < 0. {
             return 0;
         }
+
+        let layout = fonts::layout(
+            &text,
+            fonts::LayoutOptions {
+                font_request: Some(font_request),
+                max_width: Some(width),
+
+                ..Default::default()
+            },
+        );
+        let _offset = fonts::get_offset(text_input.vertical_alignment(), height, &layout);
+
+        // TODO
+        let result = text.len();
 
         let visual_representation = text_input.visual_representation(None);
 
@@ -351,7 +362,10 @@ impl<B: GraphicsBackend> RendererSealed for FemtoVGRenderer<B> {
             );
         }
 
-        let layout = fonts::layout(&text, Some(width), TextHorizontalAlignment::Left, None, None);
+        let layout = fonts::layout(
+            &text,
+            fonts::LayoutOptions { max_width: Some(width), ..Default::default() },
+        );
         let cursor_position = fonts::get_cursor_location_and_size(&layout, byte_offset, 0.0)
             .map(|location| location.0);
 
