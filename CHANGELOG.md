@@ -5,7 +5,45 @@ All notable changes to this project are documented in this file.
 
 ## [1.14.0] - TBD
 
+### General
+
+ - Fixed panic when clicking outside of a menu for a ContextMenuArea that is in a condition
+ - Close active sibling popups before creating a new one (#9178)
+ - Skia/WGPU/DX12: Fixed crash when resizing window (#9320)
+ - Skia: Upgrade to skia-safe 0.88
+ - Android: Hide Android selection handles when scrolled out of view
+ - Wasm: fix mac-specific shortcut when detecting macOs via browser User-Agent
+ - macOs: Implement Cmd+Backspace to delete to the start of a line in a TextInput
+ - muda: On Windows, force the menu bar to be redrawn after menus are rebuilt (#9435)
+
+### Slint Language
+
+ - Added support for rotation and scaling of all elements and their children
+ - GridLayout: allow access to row/col/rowspan/colspan properties from other bindings
+ - Added `Math.sign()` (#9444)
+
+### Widgets
+
+ - Added Button::icon-size (#9279)
+ - Fixed TimePickerPopup placement logic (#9262)
+ - LineEdit: implemented show-password icon for the Qt style
+ - Slider: Fixed track geometry to account for handle size (#9449)
+
+### Rust
+
+ - Slint macro: Use new Rust 1.88 API proc_macro API to be able to access file relative to the .rs file
+
+### Python
+
  - Python: Added support for asyncio by making the Slint event loop act as asyncio event loop.
+
+### Tools:
+
+ - SlintPad: add a way to load libraries with `?lib=...`
+ - live-preview: Added a context menu to the library panel to rename or preview components
+ - live-preview: Added search in the properties list
+ - live-preview: Fixed resizing elements not in layout
+ - live-preview: Fixed resetting binding of declared properties
 
 ## [1.13.1] - 2025-09-11
 
