@@ -4,7 +4,7 @@
 import { MaterialTypography } from "../styling/material_typography.slint";
 import { MaterialPalette } from "../styling/material_palette.slint";
 import { MaterialStyleMetrics } from "../styling/material_style_metrics.slint";
-import { Animations } from "../styling/animations.slint";
+import { MaterialAnimations } from "../styling/material_animations.slint";
 import { MaterialText } from "./material_text.slint";
 import { IconButton } from "./icon_button.slint";
 import { Icon } from "./icon.slint";
@@ -129,8 +129,8 @@ export component TextField {
                             ]
 
                             animate font_size, y {
-                                 duration: Animations.standard_fast_duration;
-                                 easing: Animations.standard_easing;
+                                 duration: MaterialAnimations.standard_fast_duration;
+                                 easing: MaterialAnimations.standard_easing;
                             }
                         }
                     }
@@ -153,8 +153,8 @@ export component TextField {
                 background: root.highlight;
 
                 animate height {
-                     duration: Animations.standard_fast_duration;
-                     easing: Animations.standard_easing;
+                     duration: MaterialAnimations.standard_fast_duration;
+                     easing: MaterialAnimations.standard_easing;
                 }
             }
         }

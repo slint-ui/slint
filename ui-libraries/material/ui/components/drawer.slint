@@ -5,7 +5,7 @@ import { MaterialPalette } from "../styling/material_palette.slint";
 import { MaterialStyleMetrics } from "../styling/material_style_metrics.slint";
 import { MaterialTypography } from "../styling/material_typography.slint";
 import { MaterialText } from "./material_text.slint";
-import { Animations } from "../styling/animations.slint";
+import { MaterialAnimations } from "../styling/material_animations.slint";
 import { Modal } from "./modal.slint";
 
 export component DrawerHeader {
@@ -68,8 +68,8 @@ export component ModalDrawer inherits PopupWindow {
             @children
 
             animate x {
-                duration: Animations.standard_accelerate_duration;
-                easing: Animations.standard_easing;
+                duration: MaterialAnimations.standard_accelerate_duration;
+                easing: MaterialAnimations.standard_easing;
             }
         }
 

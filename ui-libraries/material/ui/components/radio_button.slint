@@ -3,7 +3,7 @@
 
 import { MaterialStyleMetrics } from "../styling/material_style_metrics.slint";
 import { MaterialPalette } from "../styling/material_palette.slint";
-import { Animations } from "../styling/animations.slint";
+import { MaterialAnimations } from "../styling/material_animations.slint";
 import { StateLayerArea } from "./state_layer.slint";
 import { ListTile } from "./list.slint";
 import { ListView } from "./list_view.slint";
@@ -44,14 +44,14 @@ export component RadioButton {
                 opacity: !root.checked ? 0 : 1;
 
                 animate opacity {
-                    duration: Animations.opacity_duration;
-                    easing: Animations.opacity_easing;
+                    duration: MaterialAnimations.opacity_duration;
+                    easing: MaterialAnimations.opacity_easing;
                 }
             }
 
             animate border_color {
-                duration: Animations.opacity_duration;
-                easing: Animations.opacity_easing;
+                duration: MaterialAnimations.opacity_duration;
+                easing: MaterialAnimations.opacity_easing;
             }
         }
 

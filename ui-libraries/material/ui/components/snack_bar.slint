@@ -9,7 +9,7 @@ import { TextButton } from "./text_button.slint";
 import { IconButton } from "./icon_button.slint";
 import { MaterialPalette } from "../styling/material_palette.slint";
 import { Icons } from "../icons/icons.slint";
-import { Animations } from "../styling/animations.slint";
+import { MaterialAnimations } from "../styling/material_animations.slint";
 
 export component SnackBar inherits PopupWindow {
     in property <string> text;
@@ -67,8 +67,8 @@ export component SnackBar inherits PopupWindow {
         }
 
         animate y, height {
-            duration: Animations.standard_accelerate_duration;
-            easing: Animations.standard_easing;
+            duration: MaterialAnimations.standard_accelerate_duration;
+            easing: MaterialAnimations.standard_easing;
         }
     }
 

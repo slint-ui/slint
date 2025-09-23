@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 import { MaterialStyleMetrics } from "../styling/material_style_metrics.slint";
-import { Animations } from "../styling/animations.slint";
+import { MaterialAnimations } from "../styling/material_animations.slint";
 import { MaterialPalette } from "../styling/material_palette.slint";
 import { FocusTouchArea, StateLayer, Ripple } from "./state_layer.slint";
 import { Icon } from "./icon.slint";
@@ -74,19 +74,19 @@ export component Switch {
                     colorize: root.foreground;
 
                     animate colorize {
-                        duration: Animations.opacity_duration;
-                        easing: Animations.opacity_easing;
+                        duration: MaterialAnimations.opacity_duration;
+                        easing: MaterialAnimations.opacity_easing;
                     }
                 }
 
                 animate height {
-                    duration: Animations.emphasized_accelerate_duration;
-                    easing: Animations.emphasized_easing;
+                    duration: MaterialAnimations.emphasized_accelerate_duration;
+                    easing: MaterialAnimations.emphasized_easing;
                 }
 
                 animate background {
-                    duration: Animations.opacity_duration;
-                    easing: Animations.opacity_easing;
+                    duration: MaterialAnimations.opacity_duration;
+                    easing: MaterialAnimations.opacity_easing;
                 }
 
                 states [
@@ -95,15 +95,15 @@ export component Switch {
 
                         in {
                             animate x {
-                                duration: Animations.emphasized_accelerate_duration;
-                                easing: Animations.emphasized_easing;
+                                duration: MaterialAnimations.emphasized_accelerate_duration;
+                                easing: MaterialAnimations.emphasized_easing;
                             }
                         }
 
                         out {
                             animate x {
-                                duration: Animations.emphasized_accelerate_duration;
-                                easing: Animations.emphasized_easing;
+                                duration: MaterialAnimations.emphasized_accelerate_duration;
+                                easing: MaterialAnimations.emphasized_easing;
                             }
                         }
                     }
@@ -111,8 +111,8 @@ export component Switch {
             }
 
             animate background, border_color {
-                duration: Animations.opacity_duration;
-                easing: Animations.opacity_easing;
+                duration: MaterialAnimations.opacity_duration;
+                easing: MaterialAnimations.opacity_easing;
             }
         }
 

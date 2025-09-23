@@ -8,7 +8,7 @@ import { BaseNavigationItemTemplate, BaseNavigation } from "./base_navigation.sl
 import { StateLayerArea } from "./state_layer.slint";
 import { MaterialText } from "./material_text.slint";
 import { MaterialTypography } from "../styling/material_typography.slint";
-import { Animations } from "../styling/animations.slint";
+import { MaterialAnimations } from "../styling/material_animations.slint";
 import { Icon } from "./icon.slint";
 
 component TabItemTemplate inherits BaseNavigationItemTemplate {
@@ -154,8 +154,8 @@ export component TabBar inherits BaseNavigation {
             background: MaterialPalette.primary;
 
             animate x, width {
-                duration: Animations.standard_accelerate_duration;
-                easing: Animations.standard_easing;
+                duration: MaterialAnimations.standard_accelerate_duration;
+                easing: MaterialAnimations.standard_easing;
             }
         }
     }
@@ -202,8 +202,8 @@ export component SecondaryTabBar inherits BaseNavigation {
             background: MaterialPalette.primary;
 
             animate x {
-                duration: Animations.standard_accelerate_duration;
-                easing: Animations.standard_easing;
+                duration: MaterialAnimations.standard_accelerate_duration;
+                easing: MaterialAnimations.standard_easing;
             }
         }
     }

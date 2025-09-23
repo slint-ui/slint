@@ -7,7 +7,7 @@ import { MaterialTypography } from "../styling/material_typography.slint";
 import { TextButton } from "./text_button.slint";
 import { FilledButton } from "./filled_button.slint";
 import { MaterialText } from "./material_text.slint";
-import { Animations } from "../styling/animations.slint";
+import { MaterialAnimations } from "../styling/material_animations.slint";
 import { Modal } from "./modal.slint";
 import { Icon } from "./icon.slint";
 import { IconButton } from "./icon_button.slint";
@@ -190,7 +190,7 @@ export component BaseDialog {
                 }
             }
 
-            animate opacity { duration: Animations.opacity_duration; easing: Animations.opacity_easing; }
+            animate opacity { duration: MaterialAnimations.opacity_duration; easing: MaterialAnimations.opacity_easing; }
         }
 
         clicked => {

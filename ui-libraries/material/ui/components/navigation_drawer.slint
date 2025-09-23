@@ -10,7 +10,7 @@ import { Icon } from "./icon.slint";
 import { MaterialText } from "./material_text.slint";
 import { MaterialTypography } from "../styling/material_typography.slint";
 import { MaterialStyleMetrics } from "../styling/material_style_metrics.slint";
-import { Animations } from "../styling/animations.slint";
+import { MaterialAnimations } from "../styling/material_animations.slint";
 import { BaseNavigationItemTemplate } from "./base_navigation.slint";
 
 component NavigationItemTemplate inherits BaseNavigationItemTemplate {
@@ -89,7 +89,7 @@ component NavigationItemTemplate inherits BaseNavigationItemTemplate {
             }
         }
 
-        animate background { duration: Animations.opacity_duration; easing: Animations.opacity_easing; }
+        animate background { duration: MaterialAnimations.opacity_duration; easing: MaterialAnimations.opacity_easing; }
     }
 
     states [
@@ -99,7 +99,7 @@ component NavigationItemTemplate inherits BaseNavigationItemTemplate {
         }
     ]
 
-    animate color { duration: Animations.opacity_duration; easing: Animations.opacity_easing; }
+    animate color { duration: MaterialAnimations.opacity_duration; easing: MaterialAnimations.opacity_easing; }
 }
 
 component NavigationGroupTemplate {

@@ -13,7 +13,7 @@ import { IconButton } from "./icon_button.slint";
 import { Icons } from "../icons/icons.slint";
 import { HorizontalDivider } from "./divider.slint";
 import { ListView } from "./list_view.slint";
-import { Animations } from "../styling/animations.slint";
+import { MaterialAnimations } from "../styling/material_animations.slint";
 
 component SearchTile inherits ListTile {
     in property <image> action_button_icon;
@@ -300,8 +300,8 @@ export component SearchBar {
             }
 
             animate height {
-                duration: Animations.standard_accelerate_duration;
-                easing: Animations.standard_easing;
+                duration: MaterialAnimations.standard_accelerate_duration;
+                easing: MaterialAnimations.standard_easing;
             }
         }
 
