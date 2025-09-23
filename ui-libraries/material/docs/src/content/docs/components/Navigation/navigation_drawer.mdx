@@ -9,18 +9,11 @@ import SlintProperty from '/src/components/SlintProperty.astro';
 
 <CodeSnippetMD imagePath="/src/assets/generated/navigationdrawer.png" scale="3" imageWidth="300" imageHeight="200" imageAlt="">
 ```slint
-import { NavigationDrawer, FilledButton } from "./material.slint";
+import { NavigationDrawer } from "./material.slint";
 export component Example inherits Window {
     width: 400px;
     height: 300px;
     background: transparent;
-    show_navigation_drawer := FilledButton {
-        text: @tr("Open Navigation Drawer");
-
-        clicked => {
-            navigation_drawer.show();
-        }
-    }
     navigation_drawer := NavigationDrawer {
         width: 280px;
         height: parent.height;
