@@ -6,7 +6,6 @@ use std::pin::Pin;
 use std::rc::Rc;
 
 use euclid::approxeq::ApproxEq;
-use i_slint_common::sharedfontique::{self, parley};
 use i_slint_core::graphics::boxshadowcache::BoxShadowCache;
 use i_slint_core::graphics::euclid::num::Zero;
 use i_slint_core::graphics::euclid::{self};
@@ -24,6 +23,7 @@ use i_slint_core::lengths::{
     LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector,
     RectLengths, ScaleFactor, SizeLengths,
 };
+use i_slint_core::textlayout::sharedparley::{self, parley};
 use i_slint_core::{Brush, Color, ImageInner, SharedString};
 
 use crate::images::TextureImporter;
@@ -196,7 +196,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
 }
 
 fn draw_glyphs<R: femtovg::Renderer + TextureImporter>(
-    layout: &fonts::Layout,
+    layout: &sharedparley::Layout,
     canvas: &mut Canvas<R>,
     paint: &femtovg::Paint,
     selection_foreground_color: Color,
@@ -247,11 +247,11 @@ fn draw_glyphs<R: femtovg::Renderer + TextureImporter>(
                     });
 
                     match brush.stroke {
-                        Some(sharedfontique::BrushTextStrokeStyle::Outside) => {
+                        Some(i_slint_core::items::TextStrokeStyle::Outside) => {
                             canvas.stroke_glyphs(glyphs.clone(), &paint).unwrap();
                             canvas.fill_glyphs(glyphs, &paint).unwrap();
                         }
-                        Some(sharedfontique::BrushTextStrokeStyle::Center) => {
+                        Some(i_slint_core::items::TextStrokeStyle::Center) => {
                             canvas.fill_glyphs(glyphs.clone(), &paint).unwrap();
                             canvas.stroke_glyphs(glyphs, &paint).unwrap();
                         }
@@ -450,18 +450,15 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
             None => None,
         };
 
-        let layout = fonts::layout(
+        let layout = sharedparley::layout(
             text.text().as_str(),
             self.scale_factor.get(),
-            fonts::LayoutOptions {
+            sharedparley::LayoutOptions {
                 horizontal_align,
                 vertical_align,
                 max_height: Some(max_height),
                 max_width: Some(max_width),
-                stroke: stroke_paint.is_some().then_some(stroke_style).map(|style| match style {
-                    TextStrokeStyle::Outside => sharedfontique::BrushTextStrokeStyle::Outside,
-                    TextStrokeStyle::Center => sharedfontique::BrushTextStrokeStyle::Center,
-                }),
+                stroke: stroke_paint.is_some().then_some(stroke_style),
                 font_request: Some(font_request),
                 text_wrap: text.wrap(),
                 ..Default::default()
@@ -517,10 +514,10 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
         let mut canvas = self.canvas.borrow_mut();
         let text: SharedString = visual_representation.text.into();
 
-        let layout = fonts::layout(
+        let layout = sharedparley::layout(
             &text,
             self.scale_factor.get(),
-            fonts::LayoutOptions {
+            sharedparley::LayoutOptions {
                 max_width: Some(width),
                 max_height: Some(height),
                 vertical_align: text_input.vertical_alignment(),
@@ -984,7 +981,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
     }
 
     fn draw_string(&mut self, string: &str, color: Color) {
-        let layout = fonts::layout(string, self.scale_factor.get(), Default::default());
+        let layout = sharedparley::layout(string, self.scale_factor.get(), Default::default());
         let paint = femtovg::Paint::color(to_femtovg_color(&color));
         let mut canvas = self.canvas.borrow_mut();
         draw_glyphs(&layout, &mut canvas, &paint, color, color);

@@ -18,12 +18,11 @@ path = "lib.rs"
 
 [features]
 default = []
-shared-fontique = ["dep:fontique", "dep:ttf-parser", "dep:parley"]
+shared-fontique = ["dep:fontique", "dep:ttf-parser"]
 
 [dependencies]
 ttf-parser = { workspace = true, optional = true }
 fontique = { workspace = true, optional = true }
-parley = { version = "0.5.0", optional = true }
 
 [package.metadata.docs.rs]
 rustdoc-args = ["--generate-link-to-definition"]

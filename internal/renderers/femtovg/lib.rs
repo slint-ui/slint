@@ -9,7 +9,7 @@ use std::num::NonZeroU32;
 use std::pin::Pin;
 use std::rc::{Rc, Weak};
 
-use i_slint_common::sharedfontique::{self, parley};
+use i_slint_common::sharedfontique;
 use i_slint_core::api::{RenderingNotifier, RenderingState, SetRenderingNotifierError};
 use i_slint_core::graphics::{euclid, rendering_metrics_collector::RenderingMetricsCollector};
 use i_slint_core::graphics::{BorderRadius, Rgba8Pixel};
@@ -21,6 +21,7 @@ use i_slint_core::lengths::{
 };
 use i_slint_core::platform::PlatformError;
 use i_slint_core::renderer::RendererSealed;
+use i_slint_core::textlayout::sharedparley::{self, parley};
 use i_slint_core::window::{WindowAdapter, WindowInner};
 use i_slint_core::Brush;
 use images::TextureImporter;
@@ -287,10 +288,10 @@ impl<B: GraphicsBackend> RendererSealed for FemtoVGRenderer<B> {
         scale_factor: ScaleFactor,
         text_wrap: TextWrap,
     ) -> LogicalSize {
-        let layout = fonts::layout(
+        let layout = sharedparley::layout(
             text,
             scale_factor.get(),
-            fonts::LayoutOptions {
+            sharedparley::LayoutOptions {
                 max_width,
                 text_wrap,
                 font_request: Some(font_request),
@@ -324,10 +325,10 @@ impl<B: GraphicsBackend> RendererSealed for FemtoVGRenderer<B> {
             return 0;
         }
 
-        let layout = fonts::layout(
+        let layout = sharedparley::layout(
             &text,
             scale_factor.get(),
-            fonts::LayoutOptions {
+            sharedparley::LayoutOptions {
                 font_request: Some(font_request),
                 max_width: Some(width),
                 max_height: Some(height),
@@ -355,7 +356,7 @@ impl<B: GraphicsBackend> RendererSealed for FemtoVGRenderer<B> {
     ) -> LogicalRect {
         let text = text_input.text();
 
-        let font_size = font_request.pixel_size.unwrap_or(fonts::DEFAULT_FONT_SIZE);
+        let font_size = font_request.pixel_size.unwrap_or(sharedparley::DEFAULT_FONT_SIZE);
 
         let width = text_input.width();
         let height = text_input.height();
@@ -366,10 +367,10 @@ impl<B: GraphicsBackend> RendererSealed for FemtoVGRenderer<B> {
             );
         }
 
-        let layout = fonts::layout(
+        let layout = sharedparley::layout(
             &text,
             scale_factor.get(),
-            fonts::LayoutOptions {
+            sharedparley::LayoutOptions {
                 max_width: Some(width),
                 max_height: Some(height),
                 ..Default::default()
@@ -406,7 +407,7 @@ impl<B: GraphicsBackend> RendererSealed for FemtoVGRenderer<B> {
     }
 
     fn default_font_size(&self) -> LogicalLength {
-        self::fonts::DEFAULT_FONT_SIZE
+        sharedparley::DEFAULT_FONT_SIZE
     }
 
     fn set_rendering_notifier(

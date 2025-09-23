@@ -2,13 +2,12 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 pub use fontique;
-pub use parley;
 pub use ttf_parser;
 
 use std::collections::HashMap;
 use std::sync::Arc;
 
-static COLLECTION: std::sync::LazyLock<Collection> = std::sync::LazyLock::new(|| {
+pub static COLLECTION: std::sync::LazyLock<Collection> = std::sync::LazyLock::new(|| {
     let mut collection = fontique::Collection::new(fontique::CollectionOptions {
         shared: true,
         ..Default::default()
@@ -54,38 +53,10 @@ pub fn get_collection() -> Collection {
     COLLECTION.clone()
 }
 
-pub fn font_context() -> parley::FontContext {
-    parley::FontContext {
-        collection: COLLECTION.inner.clone(),
-        source_cache: COLLECTION.source_cache.clone(),
-    }
-}
-
-#[derive(Debug, PartialEq, Clone, Copy)]
-pub enum BrushTextStrokeStyle {
-    /// The inside edge of the stroke is at the outer edge of the text.
-    Outside,
-    /// The center line of the stroke is at the outer edge of the text, like in Adobe Illustrator.
-    Center,
-}
-
-#[derive(Debug, Default, PartialEq, Clone, Copy)]
-pub struct Brush {
-    pub is_selected: bool,
-    pub stroke: Option<BrushTextStrokeStyle>,
-}
-
-static LAYOUT_CONTEXT: std::sync::LazyLock<parley::LayoutContext<Brush>> =
-    std::sync::LazyLock::new(|| Default::default());
-
-pub fn layout_context() -> parley::LayoutContext<Brush> {
-    LAYOUT_CONTEXT.clone()
-}
-
 #[derive(Clone)]
 pub struct Collection {
-    inner: fontique::Collection,
-    source_cache: fontique::SourceCache,
+    pub inner: fontique::Collection,
+    pub source_cache: fontique::SourceCache,
     pub default_fonts: Arc<HashMap<std::path::PathBuf, fontique::QueryFont>>,
 }
 

@@ -40,6 +40,8 @@ use linebreak_simple::{BreakOpportunity, LineBreakIterator};
 mod fragments;
 mod glyphclusters;
 mod shaping;
+#[cfg(feature = "shared-parley")]
+pub mod sharedparley;
 use shaping::ShapeBuffer;
 pub use shaping::{AbstractFont, FontMetrics, Glyph, TextShaper};
 

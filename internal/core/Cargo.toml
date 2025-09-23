@@ -67,6 +67,8 @@ unstable-wgpu-26 = ["dep:wgpu-26"]
 
 default = ["std", "unicode"]
 
+shared-parley = ["shared-fontique", "dep:parley"]
+
 [dependencies]
 i-slint-common = { workspace = true, features = ["default"] }
 i-slint-core-macros = { workspace = true, features = ["default"] }
@@ -100,6 +102,7 @@ unicode-script = { version = "0.5.7", optional = true }
 integer-sqrt = { version = "0.1.5" }
 bytemuck = { workspace = true, optional = true, features = ["derive"] }
 sys-locale = { version = "0.3.2", optional = true }
+parley = { version = "0.5.0", optional = true }
 
 image = { workspace = true, optional = true, default-features = false }
 clru = { workspace = true, optional = true }

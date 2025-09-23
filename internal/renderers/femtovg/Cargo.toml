@@ -23,7 +23,7 @@ wgpu-26 = ["dep:wgpu-26", "femtovg/wgpu", "i-slint-core/unstable-wgpu-26"]
 unstable-wgpu-26 = ["wgpu-26"]
 
 [dependencies]
-i-slint-core = { workspace = true, features = ["default", "box-shadow-cache", "shared-fontique"] }
+i-slint-core = { workspace = true, features = ["default", "box-shadow-cache", "shared-fontique", "shared-parley"] }
 i-slint-core-macros = { workspace = true, features = ["default"] }
 i-slint-common = { workspace = true, features = ["default", "shared-fontique"] }
 
