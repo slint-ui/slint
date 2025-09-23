@@ -1,15 +1,15 @@
 ---
 <!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
-title: NavigationDrawer
-description: NavigationDrawer API.
+title: ModalNavigationDrawer
+description: ModalNavigationDrawer API.
 ---
 
 import CodeSnippetMD from '/src/components/CodeSnippetMD.astro';
 import SlintProperty from '/src/components/SlintProperty.astro';
 
-<CodeSnippetMD imagePath="/src/assets/generated/navigationdrawer.png" scale="3" imageWidth="300" imageHeight="200" imageAlt="">
+<CodeSnippetMD imagePath="/src/assets/generated/modalnavigationdrawer.png" scale="3" imageWidth="300" imageHeight="200" imageAlt="">
 ```slint
-import { NavigationDrawer, FilledButton } from "./material.slint";
+import { ModalNavigationDrawer, FilledButton } from "./material.slint";
 export component Example inherits Window {
     width: 400px;
     height: 300px;
@@ -21,7 +21,7 @@ export component Example inherits Window {
             navigation_drawer.show();
         }
     }
-    navigation_drawer := NavigationDrawer {
+    navigation_drawer := ModalNavigationDrawer {
         width: 280px;
         height: parent.height;
         groups: [
