@@ -7,7 +7,7 @@ use crate::{
     graphics::FontRequest,
     items::TextStrokeStyle,
     lengths::LogicalLength,
-    textlayout::{TextHorizontalAlignment, TextVerticalAlignment, TextWrap, TextOverflow},
+    textlayout::{TextHorizontalAlignment, TextOverflow, TextVerticalAlignment, TextWrap},
 };
 use i_slint_common::sharedfontique;
 
@@ -38,7 +38,7 @@ pub struct LayoutOptions {
     pub selection: Option<std::ops::Range<usize>>,
     pub font_request: Option<FontRequest>,
     pub text_wrap: TextWrap,
-    pub text_overflow: TextOverflow
+    pub text_overflow: TextOverflow,
 }
 
 impl Default for LayoutOptions {
@@ -52,7 +52,7 @@ impl Default for LayoutOptions {
             selection: None,
             font_request: None,
             text_wrap: TextWrap::WordWrap,
-            text_overflow: TextOverflow::Clip
+            text_overflow: TextOverflow::Clip,
         }
     }
 }
@@ -97,7 +97,7 @@ pub fn layout(text: &str, scale_factor: f32, options: LayoutOptions) -> Layout {
     if options.text_overflow == TextOverflow::Elide {
         todo!();
     }
-    
+
     builder.push_default(parley::StyleProperty::Brush(Brush {
         stroke: options.stroke,
         ..Default::default()
