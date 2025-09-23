@@ -47,8 +47,10 @@ thread_local! {
 }
 
 pub struct LayoutOptions {
-    pub max_width: Option<PhysicalLength>,
+    pub max_width: Option<LogicalLength>,
+    pub max_height: Option<LogicalLength>,
     pub horizontal_align: TextHorizontalAlignment,
+    pub vertical_align: TextVerticalAlignment,
     pub stroke: Option<sharedfontique::BrushTextStrokeStyle>,
     pub selection: Option<std::ops::Range<usize>>,
     pub font_request: Option<FontRequest>,
@@ -59,7 +61,9 @@ impl Default for LayoutOptions {
     fn default() -> Self {
         Self {
             max_width: None,
+            max_height: None,
             horizontal_align: TextHorizontalAlignment::Left,
+            vertical_align: TextVerticalAlignment::Top,
             stroke: None,
             selection: None,
             font_request: None,
@@ -68,11 +72,11 @@ impl Default for LayoutOptions {
     }
 }
 
-pub fn layout(text: &str, options: LayoutOptions) -> parley::Layout<sharedfontique::Brush> {
+pub fn layout(text: &str, scale_factor: f32, options: LayoutOptions) -> Layout {
     let mut font_context = sharedfontique::font_context();
     let mut layout_context = sharedfontique::layout_context();
 
-    let mut builder = layout_context.ranged_builder(&mut font_context, text, 1.0, true);
+    let mut builder = layout_context.ranged_builder(&mut font_context, text, scale_factor, true);
     if let Some(ref font_request) = options.font_request {
         if let Some(family) = &font_request.family {
             builder.push_default(parley::StyleProperty::FontStack(
@@ -131,17 +135,19 @@ pub fn layout(text: &str, options: LayoutOptions) -> parley::Layout<sharedfontiq
         },
         parley::AlignmentOptions::default(),
     );
-    layout
+
+    let y_offset = match (options.max_height, options.vertical_align) {
+        (Some(max_height), TextVerticalAlignment::Center) => {
+            (max_height.get() - layout.height()) / 2.0
+        }
+        (Some(max_height), TextVerticalAlignment::Bottom) => max_height.get() - layout.height(),
+        (None, _) | (Some(_), TextVerticalAlignment::Top) => 0.0,
+    };
+
+    Layout { inner: layout, y_offset }
 }
 
-pub fn get_offset(
-    vertical_align: TextVerticalAlignment,
-    max_height: PhysicalLength,
-    layout: &parley::Layout<sharedfontique::Brush>,
-) -> f32 {
-    match vertical_align {
-        TextVerticalAlignment::Top => 0.0,
-        TextVerticalAlignment::Center => (max_height.get() - layout.height()) / 2.0,
-        TextVerticalAlignment::Bottom => max_height.get() - layout.height(),
-    }
+pub struct Layout {
+    pub inner: parley::Layout<sharedfontique::Brush>,
+    pub y_offset: f32,
 }

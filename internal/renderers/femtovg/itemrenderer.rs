@@ -196,14 +196,13 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
 }
 
 fn draw_glyphs<R: femtovg::Renderer + TextureImporter>(
-    layout: &parley::Layout<sharedfontique::Brush>,
+    layout: &fonts::Layout,
     canvas: &mut Canvas<R>,
     paint: &femtovg::Paint,
-    offset: f32,
     selection_foreground_color: Color,
     selection_background_color: Color,
 ) {
-    for line in layout.lines() {
+    for line in layout.inner.lines() {
         for item in line.items() {
             match item {
                 parley::PositionedLayoutItem::GlyphRun(glyph_run) => {
@@ -220,9 +219,12 @@ fn draw_glyphs<R: femtovg::Renderer + TextureImporter>(
                             let selection_rect = PhysicalRect::new(
                                 PhysicalPoint::new(
                                     start.x,
-                                    start.y + offset - glyph_run.run().font_size(),
+                                    start.y + layout.y_offset - run.font_size(),
                                 ),
-                                PhysicalSize::new(glyph_run.advance(), glyph_run.run().font_size()),
+                                PhysicalSize::new(
+                                    glyph_run.advance(),
+                                    run.font_size() + run.metrics().descent,
+                                ),
                             );
                             canvas.fill_path(
                                 &rect_to_path(selection_rect),
@@ -238,7 +240,7 @@ fn draw_glyphs<R: femtovg::Renderer + TextureImporter>(
                     let glyphs = glyph_run.positioned_glyphs().map(|glyph: parley::Glyph| {
                         femtovg::PositionedGlyph {
                             x: glyph.x,
-                            y: glyph.y + offset,
+                            y: glyph.y + layout.y_offset,
                             font_id,
                             glyph_id: glyph.id,
                         }
@@ -399,8 +401,8 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
         size: LogicalSize,
         _cache: &CachedRenderingData,
     ) {
-        let max_width = size.width_length() * self.scale_factor;
-        let max_height = size.height_length() * self.scale_factor;
+        let max_width = size.width_length();
+        let max_height = size.height_length();
 
         if max_width.get() <= 0. || max_height.get() <= 0. {
             return;
@@ -450,8 +452,11 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
 
         let layout = fonts::layout(
             text.text().as_str(),
+            self.scale_factor.get(),
             fonts::LayoutOptions {
                 horizontal_align,
+                vertical_align,
+                max_height: Some(max_height),
                 max_width: Some(max_width),
                 stroke: stroke_paint.is_some().then_some(stroke_style).map(|style| match style {
                     TextStrokeStyle::Outside => sharedfontique::BrushTextStrokeStyle::Outside,
@@ -464,9 +469,8 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
         );
 
         let mut canvas = self.canvas.borrow_mut();
-        let offset = fonts::get_offset(vertical_align, max_height, &layout);
 
-        draw_glyphs(&layout, &mut canvas, &paint, offset, Color::default(), Color::default());
+        draw_glyphs(&layout, &mut canvas, &paint, Color::default(), Color::default());
     }
 
     fn draw_text_input(
@@ -475,8 +479,8 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
         self_rc: &ItemRc,
         size: LogicalSize,
     ) {
-        let width = size.width_length() * self.scale_factor;
-        let height = size.height_length() * self.scale_factor;
+        let width = size.width_length();
+        let height = size.height_length();
         if width.get() <= 0. || height.get() <= 0. {
             return;
         }
@@ -515,36 +519,36 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
 
         let layout = fonts::layout(
             &text,
+            self.scale_factor.get(),
             fonts::LayoutOptions {
                 max_width: Some(width),
+                max_height: Some(height),
+                vertical_align: text_input.vertical_alignment(),
                 selection: Some(min_select..max_select),
                 font_request: Some(font_request),
                 ..Default::default()
             },
         );
-        let offset = fonts::get_offset(text_input.vertical_alignment(), height, &layout);
         draw_glyphs(
             &layout,
             &mut canvas,
             &paint,
-            offset,
             text_input.selection_foreground_color(),
             text_input.selection_background_color(),
         );
 
         if cursor_visible {
             let cursor = parley::layout::cursor::Cursor::from_byte_index(
-                &layout,
+                &layout.inner,
                 cursor_pos,
                 Default::default(),
             );
-            let rect = cursor
-                .geometry(&layout, (text_input.text_cursor_width() * self.scale_factor).get());
+            let rect = cursor.geometry(&layout.inner, (text_input.text_cursor_width()).get());
 
             let mut cursor_rect = femtovg::Path::new();
             cursor_rect.rect(
-                rect.center().x as _,
-                rect.center().y as _,
+                rect.min_x() as _,
+                rect.min_y() as f32 + layout.y_offset,
                 rect.width() as _,
                 rect.height() as _,
             );
@@ -980,10 +984,10 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
     }
 
     fn draw_string(&mut self, string: &str, color: Color) {
-        let layout = fonts::layout(string, Default::default());
+        let layout = fonts::layout(string, self.scale_factor.get(), Default::default());
         let paint = femtovg::Paint::color(to_femtovg_color(&color));
         let mut canvas = self.canvas.borrow_mut();
-        draw_glyphs(&layout, &mut canvas, &paint, 0.0, color, color);
+        draw_glyphs(&layout, &mut canvas, &paint, color, color);
     }
 
     fn draw_image_direct(&mut self, image: i_slint_core::graphics::Image) {
