@@ -21,6 +21,7 @@ on:
         type: boolean
         required: false
         default: false
+        description: "Tick the box to publish master to material.slint.dev"
     secrets:
       CLOUDFLARE_API_TOKEN:
         required: true
