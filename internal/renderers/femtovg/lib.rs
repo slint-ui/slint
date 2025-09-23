@@ -9,7 +9,7 @@ use std::num::NonZeroU32;
 use std::pin::Pin;
 use std::rc::{Rc, Weak};
 
-use i_slint_common::sharedfontique;
+use i_slint_common::sharedfontique::{self, parley};
 use i_slint_core::api::{RenderingNotifier, RenderingState, SetRenderingNotifierError};
 use i_slint_core::graphics::{euclid, rendering_metrics_collector::RenderingMetricsCollector};
 use i_slint_core::graphics::{BorderRadius, Rgba8Pixel};
@@ -332,14 +332,11 @@ impl<B: GraphicsBackend> RendererSealed for FemtoVGRenderer<B> {
                 ..Default::default()
             },
         );
-        let _offset = fonts::get_offset(text_input.vertical_alignment(), height, &layout);
-
-        // TODO
-        let result = text.len();
+        let offset = fonts::get_offset(text_input.vertical_alignment(), height, &layout);
+        let cursor = parley::layout::cursor::Cursor::from_point(&layout, pos.x, pos.y - offset);
 
         let visual_representation = text_input.visual_representation(None);
-
-        visual_representation.map_byte_offset_from_byte_offset_in_visual_text(result)
+        visual_representation.map_byte_offset_from_byte_offset_in_visual_text(cursor.index())
     }
 
     fn text_input_cursor_rect_for_byte_offset(
@@ -366,12 +363,15 @@ impl<B: GraphicsBackend> RendererSealed for FemtoVGRenderer<B> {
             &text,
             fonts::LayoutOptions { max_width: Some(width), ..Default::default() },
         );
-        let cursor_position = fonts::get_cursor_location_and_size(&layout, byte_offset, 0.0)
-            .map(|location| location.0);
-
+        let cursor = parley::layout::cursor::Cursor::from_byte_index(
+            &layout,
+            byte_offset,
+            Default::default(),
+        );
+        let rect = cursor.geometry(&layout, (text_input.text_cursor_width() * scale_factor).get());
         LogicalRect::new(
-            cursor_position.unwrap_or_default() / scale_factor,
-            LogicalSize::from_lengths(LogicalLength::new(1.0), font_size),
+            LogicalPoint::new(rect.min_x() as _, rect.min_y() as _),
+            LogicalSize::new(rect.width() as _, rect.height() as _),
         )
     }
 

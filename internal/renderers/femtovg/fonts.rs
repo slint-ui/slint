@@ -134,38 +134,6 @@ pub fn layout(text: &str, options: LayoutOptions) -> parley::Layout<sharedfontiq
     layout
 }
 
-pub fn get_cursor_location_and_size(
-    layout: &parley::Layout<sharedfontique::Brush>,
-    cursor_byte_offset: usize,
-    offset: f32,
-) -> Option<(PhysicalPoint, f32)> {
-    let mut cursor_point = None;
-
-    for line in layout.lines() {
-        for item in line.items() {
-            match item {
-                parley::PositionedLayoutItem::GlyphRun(glyph_run) => {
-                    let range = glyph_run.run().text_range();
-                    let size = glyph_run.run().font_size();
-                    if range.contains(&cursor_byte_offset) {
-                        cursor_point = glyph_run
-                            .positioned_glyphs()
-                            .nth(cursor_byte_offset - range.start)
-                            .map(|glyph| (PhysicalPoint::new(glyph.x, glyph.y + offset), size));
-                    } else if cursor_byte_offset == range.end {
-                        cursor_point = glyph_run.positioned_glyphs().last().map(|glyph| {
-                            (PhysicalPoint::new(glyph.x + glyph.advance, glyph.y + offset), size)
-                        });
-                    }
-                }
-                parley::PositionedLayoutItem::InlineBox(_inline_box) => {}
-            };
-        }
-    }
-
-    cursor_point
-}
-
 pub fn get_offset(
     vertical_align: TextVerticalAlignment,
     max_height: PhysicalLength,
