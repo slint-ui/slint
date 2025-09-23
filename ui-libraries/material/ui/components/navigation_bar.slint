@@ -5,7 +5,7 @@ import { Badge } from "./badge.slint";
 import { MaterialPalette } from "../styling/material_palette.slint";
 import { MaterialStyleMetrics } from "../styling/material_style_metrics.slint";
 import { MaterialText } from "./material_text.slint";
-import { Typography } from "../styling/typography.slint";
+import { MaterialTypography } from "../styling/material_typography.slint";
 import { ExtendedTouchArea } from "./extended_touch_area.slint";
 import { StateLayer, Ripple } from "./state_layer.slint";
 import { Icon } from "./icon.slint";
@@ -100,7 +100,7 @@ export component NavigationItemTemplate inherits BaseNavigationItemTemplate {
 
                 label := MaterialText {
                     text: root.text;
-                    style: Typography.label_medium;
+                    style: MaterialTypography.label_medium;
                     color: root.color;
                     horizontal_alignment: center;
                 }
@@ -116,7 +116,7 @@ export component NavigationItemTemplate inherits BaseNavigationItemTemplate {
         selected when root.selected : {
             background_layer.background: MaterialPalette.secondary_container;
             state_layer.background: transparent;
-            label.style: Typography.label_medium_prominent;
+            label.style: MaterialTypography.label_medium_prominent;
         }
     ]
 }

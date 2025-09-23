@@ -7,7 +7,7 @@ import { NavigationItem } from "../items/navigation_item.slint";
 import { BaseNavigationItemTemplate, BaseNavigation } from "./base_navigation.slint";
 import { StateLayerArea } from "./state_layer.slint";
 import { MaterialText } from "./material_text.slint";
-import { Typography } from "../styling/typography.slint";
+import { MaterialTypography } from "../styling/material_typography.slint";
 import { Animations } from "../styling/animations.slint";
 import { Icon } from "./icon.slint";
 
@@ -44,7 +44,7 @@ component TabItemTemplate inherits BaseNavigationItemTemplate {
 
                 label := MaterialText {
                     text: root.text;
-                    style: Typography.title_small;
+                    style: MaterialTypography.title_small;
                     color: MaterialPalette.on_surface_variant;
                 }
             }
@@ -90,7 +90,7 @@ component SecondaryTabItemTemplate inherits BaseNavigationItemTemplate {
 
             label := MaterialText {
                 text: root.text;
-                style: Typography.title_small;
+                style: MaterialTypography.title_small;
                 color: MaterialPalette.on_surface_variant;
                 vertical_alignment: center;
             }

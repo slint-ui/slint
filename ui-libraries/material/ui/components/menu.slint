@@ -5,7 +5,7 @@ import { MaterialStyleMetrics } from "../styling/material_style_metrics.slint";
 import { MaterialPalette } from "../styling/material_palette.slint";
 import { Elevation } from "elevation.slint";
 import { StateLayerArea } from "./state_layer.slint";
-import { Typography } from "../styling/typography.slint";
+import { MaterialTypography } from "../styling/material_typography.slint";
 import { Icon } from "./icon.slint";
 import { MenuItem } from "../items/menu_item.slint";
 import { MaterialText } from "./material_text.slint";
@@ -49,14 +49,14 @@ component MenuItemTemplate {
                 MaterialText {
                     horizontal_stretch: 1;
                     text: root.text;
-                    style: Typography.body_large;
+                    style: MaterialTypography.body_large;
                     color: root.color;
                     vertical_alignment: center;
                 }
 
                 if root.trailing_text != "" : MaterialText {
                     text: root.trailing_text;
-                    style: Typography.body_large;
+                    style: MaterialTypography.body_large;
                     color: root.color_variant;
                     vertical_alignment: center;
                 }

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 import { MaterialStyleMetrics } from "../styling/material_style_metrics.slint";
-import { Typography } from "../styling/typography.slint";
+import { MaterialTypography } from "../styling/material_typography.slint";
 import { Elevation } from "elevation.slint";
 import { MaterialText } from "./material_text.slint";
 import { TextButton } from "./text_button.slint";
@@ -42,7 +42,7 @@ export component SnackBar inherits PopupWindow {
                     vertical_alignment: center;
                     horizontal_alignment: left;
                     wrap: word_wrap;
-                    style: Typography.body_medium;
+                    style: MaterialTypography.body_medium;
                     color: MaterialPalette.inverse_on_surface;
                 }
 

@@ -9,7 +9,7 @@ import { StateLayer } from "./state_layer.slint";
 import { ScrollView } from "./scroll_view.slint";
 import { IconButton } from "./icon_button.slint";
 import { TextField } from "./text_field.slint";
-import { Typography } from "../styling/typography.slint";
+import { MaterialTypography } from "../styling/material_typography.slint";
 import { MaterialPalette } from "../styling/material_palette.slint";
 import { ExtendedTouchArea } from "./extended_touch_area.slint";
 
@@ -50,7 +50,7 @@ component CalendarHeaderDelegate {
         text_label := MaterialText {
             vertical_alignment: center;
             horizontal_alignment: center;
-            style: Typography.body_large;
+            style: MaterialTypography.body_large;
             color: MaterialPalette.on_surface;
         }
     }
@@ -100,7 +100,7 @@ component CalendarDelegate {
         text_label := MaterialText {
             vertical_alignment: center;
             horizontal_alignment: center;
-            style: Typography.body_large;
+            style: MaterialTypography.body_large;
             color: MaterialPalette.on_surface;
         }
     }
@@ -290,7 +290,7 @@ export component SelectionButton {
         text-label := MaterialText {
             vertical-alignment: center;
             color: MaterialPalette.on_surface_variant;
-            style: Typography.label_large;
+            style: MaterialTypography.label_large;
         }
 
         icon-image := Image {
@@ -379,7 +379,7 @@ export component DatePickerPopup inherits PopupWindow {
                     text: root.selection_mode ? root.current_day : root.input_title;
                     horizontal_alignment: left;
                     vertical_alignment: center;
-                    style: Typography.headline_large;
+                    style: MaterialTypography.headline_large;
                 }
 
                 if root.selection_mode : IconButton {

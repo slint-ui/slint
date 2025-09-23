@@ -3,7 +3,7 @@
 
 import { MaterialText } from "./material_text.slint";
 import { MaterialPalette } from "../styling/material_palette.slint";
-import { Typography } from "../styling/typography.slint";
+import { MaterialTypography } from "../styling/material_typography.slint";
 
 export component ToolTip {
     in property <string> text;
@@ -25,7 +25,7 @@ export component ToolTip {
                 text: root.text;
                 vertical_alignment: center;
                 color: MaterialPalette.inverse_on_surface;
-                style: Typography.body_small;
+                style: MaterialTypography.body_small;
                 wrap: word-wrap;
             }
         }

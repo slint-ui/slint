@@ -8,7 +8,7 @@ import { StateLayerArea } from "./state_layer.slint";
 import { MaterialPalette } from "../styling/material_palette.slint";
 import { Icon } from "./icon.slint";
 import { MaterialText } from "./material_text.slint";
-import { Typography } from "../styling/typography.slint";
+import { MaterialTypography } from "../styling/material_typography.slint";
 import { MaterialStyleMetrics } from "../styling/material_style_metrics.slint";
 import { Animations } from "../styling/animations.slint";
 import { BaseNavigationItemTemplate } from "./base_navigation.slint";
@@ -64,14 +64,14 @@ component NavigationItemTemplate inherits BaseNavigationItemTemplate {
                 MaterialText {
                     horizontal_stretch: 1;
                     text: root.text;
-                    style: Typography.label_large;
+                    style: MaterialTypography.label_large;
                     color: root.color;
                     vertical_alignment: center;
                 }
 
                 if root.badge != "" : MaterialText {
                     text: root.badge;
-                    style: Typography.label_large;
+                    style: MaterialTypography.label_large;
                     color: root.color;
                     vertical_alignment: center;
                 }
