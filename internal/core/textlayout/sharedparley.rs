@@ -105,9 +105,9 @@ pub fn layout(text: &str, scale_factor: f32, options: LayoutOptions) -> Layout {
     }
 
     let mut layout: parley::Layout<Brush> = builder.build(text);
-    layout.break_all_lines(options.max_width.map(|max_width| max_width.get()));
+    layout.break_all_lines(options.max_width.map(|max_width| max_width.get() * scale_factor));
     layout.align(
-        options.max_width.map(|max_width| max_width.get()),
+        options.max_width.map(|max_width| max_width.get() * scale_factor),
         match options.horizontal_align {
             TextHorizontalAlignment::Left => parley::Alignment::Left,
             TextHorizontalAlignment::Center => parley::Alignment::Middle,
