@@ -47,9 +47,10 @@ updates:
           - "vscode*"
       starlight_astro:
         patterns:
-          - "astro"
-          - "@astro*"
+          - "*astro*"
+          - "@*astro*"
           - "starlight*"
+          - "sharp"
           - "@expressive-code/plugin-line-numbers"
       playwright:
         patterns:
