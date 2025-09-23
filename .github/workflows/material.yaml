@@ -5,7 +5,22 @@ name: Build, test and deploy docs
 
 on:
   workflow_dispatch:
+    inputs:
+      publish:
+        type: boolean
+        description: "Publish master to Cloudflare Pages"
+        default: false
+        required: false
+  pull_request:
+  push:
+    branches-ignore:
+      - master
   workflow_call:
+    inputs:
+      publish:
+        type: boolean
+        required: false
+        default: false
     secrets:
       CLOUDFLARE_API_TOKEN:
         required: true
@@ -52,6 +67,7 @@ jobs:
             run: cargo test -p material-gallery
 
   deploy:
+    if: ${{ (github.event_name == 'workflow_dispatch' && github.event.inputs.publish == 'true') || (github.event_name == 'workflow_call' && inputs.publish == true) || github.ref != 'refs/heads/master' }}
     runs-on: ubuntu-latest
     needs: [wasm_demo, apk_demo]
     permissions:
