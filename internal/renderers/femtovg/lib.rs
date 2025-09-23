@@ -303,10 +303,18 @@ impl<B: GraphicsBackend> RendererSealed for FemtoVGRenderer<B> {
 
     fn font_metrics(
         &self,
-        _font_request: i_slint_core::graphics::FontRequest,
+        font_request: i_slint_core::graphics::FontRequest,
         _scale_factor: ScaleFactor,
     ) -> i_slint_core::items::FontMetrics {
-        todo!() //crate::fonts::font_metrics(font_request)
+        let font = font_request.query_fontique().unwrap();
+        let face = sharedfontique::ttf_parser::Face::parse(font.blob.data(), font.index).unwrap();
+
+        i_slint_core::items::FontMetrics {
+            ascent: face.ascender() as _,
+            descent: face.descender() as _,
+            x_height: face.x_height().unwrap_or_default() as _,
+            cap_height: face.capital_height().unwrap_or_default() as _,
+        }
     }
 
     fn text_input_byte_offset_for_position(
