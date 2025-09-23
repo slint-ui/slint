@@ -137,8 +137,7 @@ impl<B: GraphicsBackend> FemtoVGRenderer<B> {
         }
 
         let window_inner = WindowInner::from_pub(window);
-        // TODO
-        let _scale = window_inner.scale_factor().ceil();
+        let scale = window_inner.scale_factor().ceil();
 
         window_inner
             .draw_contents(|components| -> Result<(), PlatformError> {
