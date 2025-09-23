@@ -39,7 +39,7 @@
             fontconfig
             nodejs
             pnpm
-            linuxPackages_latest.perf
+            perf
             hotspot
           ];
           LD_LIBRARY_PATH = lib.makeLibraryPath [
